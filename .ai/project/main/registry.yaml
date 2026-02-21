@@ -30,3 +30,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/archive/unify-ci-verify-entrypoint
     updated: 2026-02-08
+  - id: T-002
+    slug: paper-assistant-core-modules
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/paper-assistant-core-modules
+    updated: 2026-02-21

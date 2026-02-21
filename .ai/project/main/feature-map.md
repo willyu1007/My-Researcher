@@ -13,4 +13,5 @@ Project: `main`
 | Task | Status | Dev Docs |
 | --- | --- | --- |
 | T-001 unify-ci-verify-entrypoint | archived | dev-docs/archive/unify-ci-verify-entrypoint |
+| T-002 paper-assistant-core-modules | planned | dev-docs/active/paper-assistant-core-modules |
 <!-- AUTO-GENERATED:END feature-map -->

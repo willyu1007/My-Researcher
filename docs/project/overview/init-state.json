@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "language": "zh",
+  "stage": "complete",
+  "createdAt": "2026-02-20T23:10:20.009Z",
+  "stage-a": {
+    "mustAsk": {
+      "terminologyAlignment": {
+        "asked": true,
+        "answered": true,
+        "writtenTo": "init/_work/stage-a-docs/domain-glossary.md"
+      },
+      "onePurpose": {
+        "asked": true,
+        "answered": true,
+        "writtenTo": "init/_work/stage-a-docs/requirements.md"
+      },
+      "userRoles": {
+        "asked": true,
+        "answered": true,
+        "writtenTo": "init/_work/stage-a-docs/requirements.md"
+      },
+      "mustRequirements": {
+        "asked": true,
+        "answered": true,
+        "writtenTo": "init/_work/stage-a-docs/requirements.md"
+      },
+      "outOfScope": {
+        "asked": true,
+        "answered": true,
+        "writtenTo": "init/_work/stage-a-docs/requirements.md"
+      },
+      "userJourneys": {
+        "asked": true,
+        "answered": true,
+        "writtenTo": "init/_work/stage-a-docs/requirements.md"
+      },
+      "constraints": {
+        "asked": true,
+        "answered": true,
+        "writtenTo": "init/_work/stage-a-docs/non-functional-requirements.md"
+      },
+      "successMetrics": {
+        "asked": true,
+        "answered": true,
+        "writtenTo": "init/_work/stage-a-docs/requirements.md"
+      }
+    },
+    "docsWritten": {
+      "requirements": true,
+      "nfr": true,
+      "glossary": true,
+      "riskQuestions": true
+    },
+    "validated": true,
+    "userApproved": true,
+    "docsFingerprint": "de19b85bf2e45fe78ee78f527398664052e7353beb819636bd6d8005c1aaa4b4"
+  },
+  "stage-b": {
+    "drafted": true,
+    "validated": true,
+    "packsReviewed": true,
+    "userApproved": true,
+    "blueprintFingerprint": "a4dd01da2590f7eb650a81dc1bf887cc71cdbbce635869db700797b11cda6adf",
+    "packsReviewedFingerprint": "a4dd01da2590f7eb650a81dc1bf887cc71cdbbce635869db700797b11cda6adf",
+    "approvedBlueprintFingerprint": "a4dd01da2590f7eb650a81dc1bf887cc71cdbbce635869db700797b11cda6adf"
+  },
+  "stage-c": {
+    "scaffoldApplied": true,
+    "configsGenerated": true,
+    "manifestUpdated": true,
+    "wrappersSynced": true,
+    "skillRetentionReviewed": true,
+    "userApproved": true,
+    "appliedBlueprintFingerprint": "a4dd01da2590f7eb650a81dc1bf887cc71cdbbce635869db700797b11cda6adf",
+    "appliedProviders": "both",
+    "skillRetentionTablePath": "init/_work/skill-retention-table.template.md",
+    "skillRetentionTableFingerprint": "b83f4e6faf75fdf0373b56bed90bba0fbd7b3910f1f2d536affe49e2ff5be935"
+  },
+  "history": [
+    {
+      "timestamp": "2026-02-20T23:10:20.010Z",
+      "event": "init_started",
+      "details": "Initialization started"
+    },
+    {
+      "timestamp": "2026-02-20T23:10:25.054Z",
+      "event": "llm_language_set",
+      "details": "llm.language set to \"中文\""
+    },
+    {
+      "timestamp": "2026-02-20T23:12:35.995Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-20T23:13:00.447Z",
+      "event": "must_ask_updated",
+      "details": "mustAsk.terminologyAlignment updated"
+    },
+    {
+      "timestamp": "2026-02-20T23:13:00.479Z",
+      "event": "must_ask_updated",
+      "details": "mustAsk.onePurpose updated"
+    },
+    {
+      "timestamp": "2026-02-20T23:13:00.508Z",
+      "event": "must_ask_updated",
+      "details": "mustAsk.userRoles updated"
+    },
+    {
+      "timestamp": "2026-02-20T23:13:00.537Z",
+      "event": "must_ask_updated",
+      "details": "mustAsk.mustRequirements updated"
+    },
+    {
+      "timestamp": "2026-02-20T23:13:00.564Z",
+      "event": "must_ask_updated",
+      "details": "mustAsk.outOfScope updated"
+    },
+    {
+      "timestamp": "2026-02-20T23:13:00.593Z",
+      "event": "must_ask_updated",
+      "details": "mustAsk.userJourneys updated"
+    },
+    {
+      "timestamp": "2026-02-20T23:13:00.621Z",
+      "event": "must_ask_updated",
+      "details": "mustAsk.constraints updated"
+    },
+    {
+      "timestamp": "2026-02-20T23:13:00.650Z",
+      "event": "must_ask_updated",
+      "details": "mustAsk.successMetrics updated"
+    },
+    {
+      "timestamp": "2026-02-20T23:21:47.701Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-20T23:30:02.089Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-20T23:33:32.591Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-21T00:01:47.501Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-21T00:07:18.137Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-21T00:15:02.972Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-21T00:25:06.882Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-21T00:51:09.568Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-21T04:50:07.281Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-21T04:55:02.788Z",
+      "event": "stage_a_validated",
+      "details": "Stage A docs validated"
+    },
+    {
+      "timestamp": "2026-02-21T04:59:41.055Z",
+      "event": "stage_a_approved",
+      "details": "Stage A approved by user"
+    },
+    {
+      "timestamp": "2026-02-21T04:59:51.220Z",
+      "event": "stage_b_validated",
+      "details": "Stage B blueprint validated"
+    },
+    {
+      "timestamp": "2026-02-21T05:01:05.157Z",
+      "event": "stage_b_validated",
+      "details": "Stage B blueprint validated"
+    },
+    {
+      "timestamp": "2026-02-21T05:37:57.003Z",
+      "event": "stage_b_validated",
+      "details": "Stage B blueprint validated"
+    },
+    {
+      "timestamp": "2026-02-21T05:40:52.811Z",
+      "event": "packs_reviewed",
+      "details": "Packs reviewed"
+    },
+    {
+      "timestamp": "2026-02-21T05:41:36.051Z",
+      "event": "stage_b_approved",
+      "details": "Stage B approved by user"
+    },
+    {
+      "timestamp": "2026-02-21T05:41:42.120Z",
+      "event": "stage_c_applied",
+      "details": "Stage C apply completed"
+    },
+    {
+      "timestamp": "2026-02-21T05:41:50.542Z",
+      "event": "skill_retention_reviewed",
+      "details": "Skill retention confirmed (no deletions)"
+    },
+    {
+      "timestamp": "2026-02-21T05:43:57.702Z",
+      "event": "init_completed",
+      "details": "Initialization completed"
+    }
+  ],
+  "llm": {
+    "language": "中文"
+  }
+}

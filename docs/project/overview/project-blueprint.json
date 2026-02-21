@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "project": {
+    "name": "paper-engineering-assistant",
+    "description": "Local-first desktop assistant for CS paper engineering with reviewer-aligned evidence workflows.",
+    "domain": "Computer Science Research",
+    "primaryUsers": [
+      "individual researchers",
+      "graduate students",
+      "postdocs"
+    ]
+  },
+  "repo": {
+    "layout": "monorepo",
+    "language": "typescript",
+    "packageManager": "pnpm"
+  },
+  "capabilities": {
+    "frontend": {
+      "enabled": true,
+      "framework": "react"
+    },
+    "backend": {
+      "enabled": true,
+      "framework": "fastify"
+    },
+    "api": {
+      "style": "rest",
+      "auth": "api-key"
+    },
+    "database": {
+      "enabled": true,
+      "kind": "postgres",
+      "orm": "prisma",
+      "migrationStrategy": "prisma-migrate"
+    },
+    "bpmn": {
+      "enabled": false,
+      "storage": "none"
+    }
+  },
+  "quality": {
+    "testing": {
+      "unit": true,
+      "integration": true,
+      "e2e": true
+    },
+    "ci": {
+      "enabled": false
+    },
+    "devops": {
+      "enabled": false,
+      "containerize": false,
+      "packaging": false,
+      "deployment": false
+    }
+  },
+  "skills": {
+    "packs": [
+      "workflows",
+      "backend",
+      "frontend",
+      "standards",
+      "testing",
+      "context-core"
+    ]
+  },
+  "features": {
+    "contextAwareness": true,
+    "database": true,
+    "ui": true,
+    "environment": true,
+    "packaging": false,
+    "deployment": false,
+    "release": false,
+    "ci": true,
+    "observability": false
+  },
+  "context": {
+    "enabled": true,
+    "mode": "contract",
+    "environments": [
+      "local",
+      "sync-cloud"
+    ]
+  },
+  "db": {
+    "enabled": true,
+    "kind": "postgres",
+    "environments": [
+      "local",
+      "sync-cloud"
+    ],
+    "migrationTool": "prisma",
+    "ssot": "repo-prisma"
+  },
+  "ci": {
+    "enabled": true,
+    "provider": "github",
+    "platform": "github-actions",
+    "features": [
+      "lint",
+      "test",
+      "build"
+    ]
+  },
+  "packaging": {
+    "enabled": false,
+    "containerize": false,
+    "targets": [
+      "apps"
+    ]
+  },
+  "deploy": {
+    "enabled": false,
+    "model": "other",
+    "environments": [
+      "local",
+      "sync-cloud"
+    ]
+  },
+  "release": {
+    "enabled": false,
+    "strategy": "manual",
+    "changelog": false,
+    "branches": {
+      "main": "main"
+    }
+  },
+  "observability": {
+    "enabled": false,
+    "metrics": false,
+    "logs": true,
+    "traces": false,
+    "platform": "other"
+  }
+}
