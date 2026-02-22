@@ -4,6 +4,11 @@
 - 仓库已完成 init，具备 monorepo、TypeScript、CI、local-first、环境与上下文基础设施。
 - 当前重点是“规划可执行任务包”，不是直接实现模块代码。
 
+## Task ownership boundary (with T-003)
+- 本任务是“模块定义与任务包优先级”的 SSOT。
+- `T-003` 是“4 阶段门禁 + LLM 自动化策略 + 模块 4~7 版本治理”的 SSOT。
+- 共享边界契约: `dev-docs/active/llm-research-lifecycle-governance-v1/06-task-boundary-and-anti-drift.md`。
+
 ## Proposed design
 
 ### Components / modules
@@ -21,11 +26,11 @@
 
 ### Interfaces & contracts
 - API endpoints:
-  - TBD（按任务包逐个定义）
+  - 仅维护任务包级接口占位，不维护阶段门禁或版本对象字段细节
 - Data models / schemas:
-  - 以 claims/evidence/repro/issue 为核心对象，细节 TBD
+  - 以模块包范围对象为核心，阶段门禁和版本主线字段由 `T-003` 定义
 - Events / jobs (if any):
-  - 自动化任务编排、外部 API 调用、同步任务（细节 TBD）
+  - 仅记录需要的事件类型，不定义 LLM 编排策略细则
 
 ### Boundaries & dependency rules
 - Allowed dependencies:
@@ -34,6 +39,7 @@
 - Forbidden dependencies:
   - 写作模块反向依赖训练执行内部细节
   - 外部 API 层绕过权限与审计边界
+  - 在本任务中定义 4 阶段门禁和 4~7 版本冻结规则
 
 ## Data migration (if applicable)
 - Migration steps:

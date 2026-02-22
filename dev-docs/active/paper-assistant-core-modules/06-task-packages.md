@@ -1,6 +1,8 @@
 # 06 Task Packages
 
 > 本文件定义 8 个子功能的任务包（讨论版）。目标是形成可执行排期，不提前锁定实现细节。
+> SSOT 边界：本文件只维护模块任务包定义与优先级，不维护阶段门禁、LLM 编排策略、模块 4~7 版本字段。
+> 跨任务契约：`dev-docs/active/llm-research-lifecycle-governance-v1/06-task-boundary-and-anti-drift.md`。
 
 ## Package template
 - Goal
@@ -11,6 +13,16 @@
 - Acceptance criteria (DoD)
 - Dependencies
 - Priority batch
+
+## Stable module mapping (must keep aligned)
+- M1 -> TP-01 文献管理
+- M2 -> TP-02 研究方向（备选池）
+- M3 -> TP-08 论文管理
+- M4 -> TP-03 理论框架与研究设计
+- M5 -> TP-04 实验设计
+- M6 -> TP-05 模型与训练
+- M7 -> TP-06 数据分析与讨论
+- M8 -> TP-07 写作、投稿、修稿
 
 ## TP-01 文献管理
 - Goal: 建立可追溯文献台账与去重机制，支撑检索与引用。

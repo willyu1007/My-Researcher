@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "theme": "morethan.light",
+    "extends": "base",
+    "description": "Morethan brand light theme based on official logo/token kit."
+  },
+  "color": {
+    "bg": "#F3F5F8",
+    "surface": "#FFFFFF",
+    "surface_elevated": "#F7F9FC",
+    "text_primary": "#111827",
+    "text_secondary": "#283E68",
+    "text_muted": "#4B5563",
+    "border": "#E5E7EB",
+    "border_subtle": "#EEF1F5",
+    "primary": "#283E68",
+    "primary_hover": "#22365A",
+    "primary_active": "#1C2E4D",
+    "on_primary": "#FFFFFF",
+    "warning": "#E1703C",
+    "on_warning": "#FFFFFF",
+    "focus_ring": "#283E6880"
+  },
+  "typography": {
+    "font_family": {
+      "sans": "Inter, Manrope, SF Pro Display, system-ui, sans-serif"
+    }
+  },
+  "radius": {
+    "md": "8px",
+    "lg": "16px"
+  }
+}

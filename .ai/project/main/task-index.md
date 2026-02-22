@@ -12,4 +12,6 @@ Project: `main`
 | --- | --- | --- | --- |
 | T-001 unify-ci-verify-entrypoint | archived | F-000 | dev-docs/archive/unify-ci-verify-entrypoint |
 | T-002 paper-assistant-core-modules | planned | F-000 | dev-docs/active/paper-assistant-core-modules |
+| T-003 llm-research-lifecycle-governance-v1 | in-progress | F-001 | dev-docs/active/llm-research-lifecycle-governance-v1 |
+| T-004 desktop-app-electron-ui-v1 | in-progress | F-002 | dev-docs/active/desktop-app-electron-ui-v1 |
 <!-- AUTO-GENERATED:END task-index -->

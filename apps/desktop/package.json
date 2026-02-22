@@ -1,0 +1,35 @@
+{
+  "name": "@paper-engineering-assistant/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"pnpm dev:renderer\" \"pnpm dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 NODE_OPTIONS=--import=tsx electron src/main/main.ts",
+    "typecheck": "tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.main.json --noEmit",
+    "build": "pnpm build:renderer && pnpm build:main",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "preview": "vite preview",
+    "start": "electron dist/main/main.js"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.0.1",
+    "cross-env": "^7.0.3",
+    "electron": "^30.5.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.4.0",
+    "vite": "^5.4.8",
+    "wait-on": "^8.0.1"
+  }
+}

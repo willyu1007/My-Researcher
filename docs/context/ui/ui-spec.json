@@ -1,6 +1,6 @@
 {
   "ui_spec_version": "1.0.0",
-  "generated_at_utc": "2026-02-21T05:41:41Z",
+  "generated_at_utc": "2026-02-22T14:59:03Z",
   "tailwind_policy": "B1-layout-only",
   "theme_policy": "token-only",
   "paths": {
@@ -31,7 +31,9 @@
   },
   "themes": [
     "default.dark",
-    "default.light"
+    "default.light",
+    "morethan.dark",
+    "morethan.light"
   ],
   "roles": [
     "alert",

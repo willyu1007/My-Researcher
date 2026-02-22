@@ -81,4 +81,45 @@
     --ui-color-text_primary: #e5e7eb;
     --ui-color-text_secondary: #cbd5e1;
   }
+
+  :root[data-theme="morethan.dark"] {
+    --ui-color-bg: #0F2544;
+    --ui-color-border: #2A4D79;
+    --ui-color-border_subtle: #355B8A;
+    --ui-color-focus_ring: #E1703C80;
+    --ui-color-on_primary: #FFFFFF;
+    --ui-color-on_warning: #0F2544;
+    --ui-color-primary: #E1703C;
+    --ui-color-primary_active: #CC5F2F;
+    --ui-color-primary_hover: #F08A5A;
+    --ui-color-surface: #143259;
+    --ui-color-surface_elevated: #1A3E69;
+    --ui-color-text_muted: #B9C7DB;
+    --ui-color-text_primary: #F5F7FB;
+    --ui-color-text_secondary: #DCE6F4;
+    --ui-color-warning: #F3A978;
+    --ui-radius-lg: 16px;
+    --ui-radius-md: 8px;
+    --ui-typography-font_family-sans: Inter, Manrope, SF Pro Display, system-ui, sans-serif;
+  }
+
+  :root[data-theme="morethan.light"] {
+    --ui-color-bg: #F3F5F8;
+    --ui-color-border: #E5E7EB;
+    --ui-color-border_subtle: #EEF1F5;
+    --ui-color-focus_ring: #283E6880;
+    --ui-color-on_primary: #FFFFFF;
+    --ui-color-on_warning: #FFFFFF;
+    --ui-color-primary: #283E68;
+    --ui-color-primary_active: #1C2E4D;
+    --ui-color-primary_hover: #22365A;
+    --ui-color-surface: #FFFFFF;
+    --ui-color-surface_elevated: #F7F9FC;
+    --ui-color-text_muted: #4B5563;
+    --ui-color-text_secondary: #283E68;
+    --ui-color-warning: #E1703C;
+    --ui-radius-lg: 16px;
+    --ui-radius-md: 8px;
+    --ui-typography-font_family-sans: Inter, Manrope, SF Pro Display, system-ui, sans-serif;
+  }
 }

@@ -12,6 +12,10 @@ milestones:
     title: "Inbox / Triage"
     status: in-progress
     description: "Triage queue for new or unplanned work."
+  - id: M-001
+    title: "LLM Research Lifecycle v1"
+    status: in-progress
+    description: "Establish governance contracts and an executable baseline for LLM-driven research lifecycle workflows."
 
 features:
   - id: F-000
@@ -19,8 +23,28 @@ features:
     status: in-progress
     description: "Untriaged tasks live here until mapped to a real feature."
     milestone_id: M-000
+  - id: F-001
+    title: "Research Lifecycle Governance Core"
+    status: in-progress
+    description: "Deliver Stage DAG + Value Gate governance with versioned lifecycle execution for M1-M8 modules."
+    milestone_id: M-001
+  - id: F-002
+    title: "Desktop Frontend Foundation"
+    status: in-progress
+    description: "Build Electron desktop shell with React/Vite renderer and brand-aligned UI theme system."
+    milestone_id: M-001
 
-requirements: []
+requirements:
+  - id: R-001
+    title: "M4-M8 version spine and gate execution baseline"
+    status: in-progress
+    description: "Implement minimal backend/API/persistence baseline aligned with governance contracts for versioned research lifecycle progression."
+    feature_id: F-001
+  - id: R-002
+    title: "Electron desktop scaffold and brand UI landing"
+    status: in-progress
+    description: "Deliver desktop app baseline, style theme integration, and task packaging for frontend development."
+    feature_id: F-002
 
 tasks:
   - id: T-001
@@ -37,3 +61,21 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/paper-assistant-core-modules
     updated: 2026-02-21
+  - id: T-003
+    slug: llm-research-lifecycle-governance-v1
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-001
+    dev_docs_path: dev-docs/active/llm-research-lifecycle-governance-v1
+    updated: 2026-02-22
+  - id: T-004
+    slug: desktop-app-electron-ui-v1
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-002
+    requirement_ids:
+      - R-002
+    dev_docs_path: dev-docs/active/desktop-app-electron-ui-v1
+    updated: 2026-02-22

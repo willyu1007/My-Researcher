@@ -10,6 +10,7 @@ node .ai/skills/features/ci/scripts/ctl-ci.mjs add-delivery --provider github
 node .ai/skills/features/ci/scripts/ctl-ci.mjs add-delivery --provider gitlab
 node .ai/skills/features/ci/scripts/ctl-ci.mjs verify
 node .ai/skills/features/ci/scripts/ctl-ci.mjs status
+pnpm ci:prisma-smoke -- --base-url postgresql://postgres:postgres@127.0.0.1:5432/postgres
 ```
 
 ## Guidelines

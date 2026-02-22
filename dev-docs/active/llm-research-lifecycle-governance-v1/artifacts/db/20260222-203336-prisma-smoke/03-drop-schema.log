@@ -1,0 +1,7 @@
+== drop smoke schema ==
+NOTICE:  drop cascades to 4 other objects
+DETAIL:  drop cascades to table smoke_20260222_203336_prisma_smoke._prisma_migrations
+drop cascades to table smoke_20260222_203336_prisma_smoke."PaperProject"
+drop cascades to table smoke_20260222_203336_prisma_smoke."StageNode"
+drop cascades to table smoke_20260222_203336_prisma_smoke."Snapshot"
+DROP SCHEMA

@@ -1,0 +1,26 @@
+{
+  "name": "@paper-engineering-assistant/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/app.ts",
+  "types": "src/app.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --loader ts-node/esm src/**/*.test.ts",
+    "prisma:format": "prisma format --schema ../../prisma/schema.prisma",
+    "prisma:validate": "prisma validate --schema ../../prisma/schema.prisma",
+    "prisma:generate": "prisma generate --schema ../../prisma/schema.prisma",
+    "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@paper-engineering-assistant/shared": "workspace:*",
+    "fastify": "^4.29.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "prisma": "^5.22.0",
+    "ts-node": "^10.9.2"
+  }
+}

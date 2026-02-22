@@ -1,0 +1,149 @@
+# 04 Verification
+
+## Automated checks
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result: 更新 registry 与派生视图（dashboard/feature-map/task-index）。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Warning: `T-001` 的 `dev_docs_path` 指向 `dev-docs/archive/unify-ci-verify-entrypoint`，该路径当前不存在。
+  - Scope: 历史遗留，不影响 `T-003` 创建与注册。
+- [pass] `rg -n "TP-0[1-8]|M[1-8]" dev-docs/active/paper-assistant-core-modules dev-docs/active/llm-research-lifecycle-governance-v1`
+  - Result: 两任务间可检索到统一模块编号与 TP 映射，且边界契约已生效。
+- [pass] `rg -n "07-value-gate-dictionary.md|Stage DAG|Value Gate|value_judgement|loopback" dev-docs/active/llm-research-lifecycle-governance-v1`
+  - Result: 词典文件与 roadmap/plan/architecture/overview 引用链完整。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` (rerun after dictionary update)
+  - Result: project hub 与最新任务文档保持同步。
+- [pass] `rg -n "core_score_vector|extension_score_vector|Evidence packet requirements|Source note|自动科研助手.md" dev-docs/active/llm-research-lifecycle-governance-v1`
+  - Result: 固定维度/扩展维度结构、审稿对齐证据包、外部参考来源已完整落盘。
+- [pass] `rg -n "llm-global-default-v1|Manual adjustment policy|Override scope and precedence|weighted_core_score|手动调整" dev-docs/active/llm-research-lifecycle-governance-v1`
+  - Result: LLM 全局默认值与手动调整审计规则已落盘并被 roadmap/architecture/notes 引用。
+- [pass] `rg -n "next_gate_window|Rollback execution policy|LLM MUST NOT 直接执行回滚|stage|paper|global" dev-docs/active/llm-research-lifecycle-governance-v1/07-value-gate-dictionary.md`
+  - Result: 默认生效时机与分级回滚执行边界已落盘（stage 自动守护；paper/global 人工审批）。
+- [pass] `rg -n "Version naming strategy|P\\{paper\\}-M\\{module\\}-B\\{branch\\}-N\\{seq\\}|SP-\\{nnnn\\}|R\\{major\\}\\.\\{minor\\}\\.\\{patch\\}" dev-docs/active/llm-research-lifecycle-governance-v1/07-value-gate-dictionary.md`
+  - Result: 三层版本命名策略已落盘，覆盖工作节点、冻结快照与发布标签。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` (rerun after version naming update)
+  - Result: project hub 与最新命名策略文档保持同步。
+- [pass] `rg -n "Freeze granularity in parallel mode|SP-partial|SP-full|Compatibility constraints|snapshot manifest" dev-docs/active/llm-research-lifecycle-governance-v1`
+  - Result: 并行场景下的快照冻结语义与兼容性约束已落盘，并与架构/roadmap联动。
+- [pass] `rg -n "M7 contract when M6 is optional|analysis_contract = with_m6 \\| no_m6|training_claim_allowed|spine_type = with_m6 \\| no_m6|no additional training" dev-docs/active/llm-research-lifecycle-governance-v1`
+  - Result: M7 双分支契约、`no_m6` 阈值与 M8 写作约束已落盘并被架构/roadmap引用。
+- [pass] `rg -n "lane_id|attempt_id|paper_active_sp_full|Parallel lane governance recommendations|active snapshot pointer" dev-docs/active/llm-research-lifecycle-governance-v1/07-value-gate-dictionary.md dev-docs/active/llm-research-lifecycle-governance-v1/02-architecture.md`
+  - Result: 并行线程治理字段（`lane_id/attempt_id`）与快照指针回滚语义已落盘并完成跨文档引用。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` (rerun after parallel-lane update)
+  - Result: project hub 与并行线程治理文档更新保持同步。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (rerun after parallel-lane update)
+  - Warning: `T-001` 的 `dev_docs_path` 缺失（历史遗留）。
+  - Result: lint 通过，不影响 `T-003` 当前治理文档有效性。
+- [pass] `rg -n "Step 4.4|lane_id \\+ attempt_id|paper_active_sp_full" dev-docs/active/llm-research-lifecycle-governance-v1/01-plan.md dev-docs/active/llm-research-lifecycle-governance-v1/roadmap.md`
+  - Result: 计划与路线图已同步并行线程字段和快照指针执行面。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` (final rerun)
+  - Result: project hub 与最新治理文档保持一致。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (final rerun)
+  - Warning: `T-001` 的 `dev_docs_path` 缺失（历史遗留）。
+  - Result: lint 通过，不影响当前任务。
+- [pass] `rg -n "08-interface-field-contracts.md|snapshot.pointer.switched|Step 4.5|字段级接口契约" dev-docs/active/llm-research-lifecycle-governance-v1`
+  - Result: 字段级契约文档已创建并完成 overview/plan/architecture/roadmap/notes 联动。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` (rerun after interface-contract update)
+  - Result: project hub 与新增契约文档保持同步。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (rerun after interface-contract update)
+  - Warning: `T-001` 的 `dev_docs_path` 缺失（历史遗留）。
+  - Result: lint 通过，不影响当前任务。
+- [pass] `rg -n "LineageMeta|StageGateVerifyRequest|validateNoM6OverrideContext|versionSpineCommitRequestSchema|snapshot.pointer.switched" packages/shared/src/research-lifecycle/interface-field-contracts.ts dev-docs/active/llm-research-lifecycle-governance-v1/08-interface-field-contracts.md`
+  - Result: 文档契约已映射到 shared 代码契约，关键字段和 `no_m6` 校验入口可检索。
+- [pass] `rg -n "@paper-engineering-assistant/shared|research-lifecycle" packages/shared/package.json packages/shared/src/index.ts packages/shared/src/research-lifecycle/index.ts`
+  - Result: shared 包导出入口与模块索引已建立。
+- [fail] `pnpm --filter @paper-engineering-assistant/shared typecheck`
+  - Result: `tsc: command not found`（当前环境缺少依赖安装，`node_modules` 未就绪）。
+- [pass] `pnpm install`
+  - Result: workspace 依赖安装完成，`typescript@5.9.3` 已安装。
+- [pass] `pnpm --filter @paper-engineering-assistant/shared typecheck` (rerun after install)
+  - Result: `@paper-engineering-assistant/shared` 类型检查通过。
+- [pass] `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - Result: backend TypeScript 编译通过（Fastify routes/controllers/services）。
+- [pass] `node --loader ts-node/esm <<'EOF' ... EOF` (apps/backend, fastify.inject happy + no_m6 failure)
+  - Result: `POST /paper-projects`(201) -> `version-spine/commit`(200) -> `stage-gates/:gate/verify`(200)；`no_m6` 缺失 override 时返回 422 `NO_M6_POLICY_VIOLATION`。
+- [pass] `node --loader ts-node/esm <<'EOF' ... EOF` (apps/backend, validation failure)
+  - Result: `POST /paper-projects` 在空 `literature_evidence_ids` 下返回 400，错误码统一为 `INVALID_PAYLOAD`。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` (after backend implementation)
+  - Result: task `T-003` 状态与派生视图完成刷新。
+- [fail] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (transient)
+  - Result: 一度出现 registry 状态不一致（`planned` vs `in-progress`），随后通过 sync 对齐修复。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (final)
+  - Warning: `T-001` 的 `dev_docs_path` 缺失（历史遗留）。
+  - Result: lint 通过。
+- [pass] `pnpm --filter @paper-engineering-assistant/backend typecheck` (final rerun)
+  - Result: backend 最终代码调整后仍保持类型通过。
+- [pass] `pnpm --filter @paper-engineering-assistant/backend test`
+  - Result: 8/8 通过（4 个路由集成测试 + 4 个 service 单测），覆盖 happy path、`INVALID_PAYLOAD`、`NO_M6_POLICY_VIOLATION`。
+- [pass] `DATABASE_URL='postgresql://postgres:postgres@localhost:5432/paper_assistant?schema=public' pnpm exec prisma format --schema prisma/schema.prisma`
+  - Result: Prisma SSOT schema 格式化通过。
+- [pass] `DATABASE_URL='postgresql://postgres:postgres@localhost:5432/paper_assistant?schema=public' pnpm exec prisma validate --schema prisma/schema.prisma`
+  - Result: Prisma schema 校验通过。
+- [pass] `DATABASE_URL='postgresql://postgres:postgres@localhost:5432/paper_assistant?schema=public' pnpm exec prisma generate --schema prisma/schema.prisma`
+  - Result: Prisma Client 生成通过。
+- [pass] `DATABASE_URL='postgresql://postgres:postgres@localhost:5432/paper_assistant?schema=public' pnpm exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script`
+  - Result: 生成初始化 SQL 预览并落盘到 `prisma/migrations/20260222120000_init_research_lifecycle/migration.sql`（未执行 DB 写入）。
+- [pass] `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - Result: `docs/context/db/schema.json` 已刷新，模式为 `repo-prisma`。
+- [pass] `node .ai/tests/run.mjs --suite database`
+  - Result: database suite 通过（`database-sqlite-smoke` PASS）。
+- [pass] `pnpm --filter @paper-engineering-assistant/shared typecheck && pnpm --filter @paper-engineering-assistant/backend typecheck && pnpm --filter @paper-engineering-assistant/backend test` (after repository/prisma refactor)
+  - Result: shared/backend 类型检查通过，backend 测试 8/8 通过。
+- [pass] `node .ai/scripts/ctl-db-ssot.mjs sync-to-context` (final)
+  - Result: DB context contract 与 checksum 同步完成。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (final)
+  - Result: governance 通过（仅历史 `T-001` warning）。
+- [pass] `DATABASE_URL='postgresql://yurui@localhost:5432/postgres?schema=public' pnpm exec prisma migrate deploy --schema prisma/schema.prisma`
+  - Result: migration `20260222120000_init_research_lifecycle` 已在目标开发库应用完成（证据目录：`dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/db/20260222-203141-db-apply/`）。
+- [pass] `DATABASE_URL='postgresql://yurui@localhost:5432/postgres?schema=smoke_20260222_203336_prisma_smoke' RESEARCH_LIFECYCLE_REPOSITORY=prisma pnpm --filter @paper-engineering-assistant/backend test`
+  - Result: Prisma 仓储模式下 backend 测试 8/8 通过（证据目录：`dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/db/20260222-203336-prisma-smoke/`）。
+- [pass] `psql 'postgresql://yurui@localhost:5432/postgres' -c 'DROP SCHEMA IF EXISTS \"smoke_20260222_203336_prisma_smoke\" CASCADE;'`
+  - Result: 临时 smoke schema 已清理，避免污染长期开发数据。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (after prisma smoke evidence sync)
+  - Warning: `T-001` 的 `dev_docs_path` 缺失（历史遗留）。
+  - Result: 本任务文档回写后 governance 仍通过。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs map --project main --task T-003 --feature F-001 --milestone M-001 --requirement R-001 --apply`
+  - Result: `T-003` 已从 `M-000/F-000` 映射到 `M-001/F-001`，并新增 `requirement_ids: [R-001]`。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Warning: `T-001` 的 `dev_docs_path` 缺失（历史遗留）。
+  - Result: feature-map/task-index/dashboard 已重建，治理校验通过。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs query --project main --id T-003 --json`
+  - Result: 查询结果确认 `T-003` 当前绑定 `milestone_id=M-001`、`feature_id=F-001`。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (after docs update for mapping)
+  - Warning: `T-001` 的 `dev_docs_path` 缺失（历史遗留）。
+  - Result: 文档回写后治理校验仍通过。
+- [fail] `pnpm ci:prisma-smoke -- --base-url postgresql://yurui@localhost:5432/postgres` (initial)
+  - Result: 参数解析未处理 `--`，脚本报错 `Unknown option: --`。
+- [fail] `pnpm ci:prisma-smoke -- --base-url postgresql://yurui@localhost:5432/postgres` (second run before cleanup fix)
+  - Result: 主流程通过，但 cleanup 步骤报错 `--url and --schema cannot be used at the same time`，已修复脚本参数。
+- [pass] `printf 'DROP SCHEMA IF EXISTS \"smoke_20260222_131721_19b8\" CASCADE;' | pnpm exec prisma db execute --stdin --url postgresql://yurui@localhost:5432/postgres`
+  - Result: 清理第二次失败残留的临时 schema。
+- [pass] `pnpm ci:prisma-smoke -- --base-url postgresql://yurui@localhost:5432/postgres` (final)
+  - Result: Prisma smoke 脚本全流程通过（generate/migrate/backend test/drop schema）。
+- [pass] `pnpm ci:prisma-smoke -- --base-url postgresql://yurui@localhost:5432/postgres --artifacts-dir dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/ci` (evidence run)
+  - Result: 生成可归档证据目录：`dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/ci/20260222-131946/`。
+- [pass] `pnpm --filter @paper-engineering-assistant/shared typecheck && pnpm --filter @paper-engineering-assistant/backend typecheck && pnpm --filter @paper-engineering-assistant/backend test` (after CI workflow update)
+  - Result: 与 CI `backend-checks` 对齐的三项命令全部通过。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (after CI+docs update)
+  - Warning: `T-001` 的 `dev_docs_path` 缺失（历史遗留）。
+  - Result: CI 改造和任务文档回写后治理校验通过。
+- [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (final after artifact relocation)
+  - Warning: `T-001` 的 `dev_docs_path` 缺失（历史遗留）。
+  - Result: 证据目录调整后治理校验仍通过。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (after restoring T-001 archive bundle)
+  - Result: `T-001` 历史 warning 已清除，governance 校验全绿通过。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (final after docs update)
+  - Result: 文档回写后仍保持无 warning 通过。
+- [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (final spot check)
+  - Result: lint 单独执行通过，无 warning。
+
+## Manual smoke checks
+- [pass] 任务目录包含 `roadmap.md` 与 `00~05` 标准文档，以及 `.ai-task.yaml`。
+- [pass] `registry.yaml` 已注册 `T-003`，路径为 `dev-docs/active/llm-research-lifecycle-governance-v1`。
+- [pass] 已创建 `06-task-boundary-and-anti-drift.md` 并在两任务文档中完成引用与禁止项收敛。
+- [pass] 已创建 `07-value-gate-dictionary.md` 并在 `00-overview.md`、`01-plan.md`、`02-architecture.md`、`roadmap.md` 建立引用。
+
+## Rollout / Backout (if applicable)
+- Rollout:
+  - 同步 registry 后进入阶段化细化讨论。
+- Backout:
+  - 若治理校验失败，撤回 registry 自动更新并保留任务文档待修复。

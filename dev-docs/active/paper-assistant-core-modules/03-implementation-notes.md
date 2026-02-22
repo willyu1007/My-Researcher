@@ -7,6 +7,9 @@
 ## What changed
 - 创建任务包文档骨架并生成 roadmap。
 - 将 8 个子功能从“抽象设想”转为“可执行任务包列表（待确认边界）”。
+- 明确本任务为“模块任务包 SSOT”，并将阶段门禁/版本治理职责移交给 `T-003`。
+- 增加稳定模块映射（M1..M8 与 TP-01..TP-08）。
+- 将本任务术语从 `Phase` 收敛为 `Batch`，避免与 `T-003` 的 4 阶段门禁概念冲突。
 
 ## Files/modules touched (high level)
 - `dev-docs/active/paper-assistant-core-modules/roadmap.md`
@@ -25,6 +28,12 @@
     - 符合用户“先讨论后定稿”的要求。
   - Alternatives considered:
     - 直接拆实现任务并绑定接口；被拒绝（过早定稿）。
+- Decision:
+  - 采用双任务单写者模型防止漂移。
+  - Rationale:
+    - 同主题双任务并行维护时，若无 owner 会快速漂移。
+  - Alternatives considered:
+    - 保留两边自由编辑；被拒绝（风险过高）。
 
 ## Deviations from plan
 - Change:
@@ -37,6 +46,7 @@
 ## Known issues / follow-ups
 - 需逐个确认 8 个任务包的 DoD 与优先级批次。
 - 需决定是否先做最小桌面壳再做模块功能。
+- 每次涉及跨任务更新时，需同步执行 `06-task-boundary-and-anti-drift.md` 的检查清单。
 
 ## Pitfalls / dead ends (do not repeat)
 - Keep the detailed log in `05-pitfalls.md` (append-only).

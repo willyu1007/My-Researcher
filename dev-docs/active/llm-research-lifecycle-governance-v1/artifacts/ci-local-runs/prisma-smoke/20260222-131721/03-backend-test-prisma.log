@@ -1,0 +1,67 @@
+# Backend tests in prisma mode
+$ pnpm --filter @paper-engineering-assistant/backend test
+[start] 2026-02-22T13:17:23.149Z
+
+
+> @paper-engineering-assistant/backend@0.1.0 test /Volumes/DataDisk/Project/My-Researcher/apps/backend
+> node --test --loader ts-node/esm src/**/*.test.ts
+
+TAP version 13
+# (node:40898) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+# --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: GET /health returns ok
+ok 1 - GET /health returns ok
+  ---
+  duration_ms: 584.705
+  ...
+# Subtest: POST /paper-projects succeeds with valid payload
+ok 2 - POST /paper-projects succeeds with valid payload
+  ---
+  duration_ms: 29.016416
+  ...
+# Subtest: POST /paper-projects returns INVALID_PAYLOAD when literature list is empty
+ok 3 - POST /paper-projects returns INVALID_PAYLOAD when literature list is empty
+  ---
+  duration_ms: 14.279708
+  ...
+# Subtest: gate verify happy path and no_m6 policy failure path
+ok 4 - gate verify happy path and no_m6 policy failure path
+  ---
+  duration_ms: 25.139125
+  ...
+# (node:40899) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+# --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: createPaperProject uses default LLM direction when omitted
+ok 5 - createPaperProject uses default LLM direction when omitted
+  ---
+  duration_ms: 2.02675
+  ...
+# Subtest: commitVersionSpine rejects candidate node without value judgement
+ok 6 - commitVersionSpine rejects candidate node without value judgement
+  ---
+  duration_ms: 0.391542
+  ...
+# Subtest: verifyStageGate enforces no_m6 override policy
+ok 7 - verifyStageGate enforces no_m6 override policy
+  ---
+  duration_ms: 0.2785
+  ...
+# Subtest: verifyStageGate creates partial snapshot and updates partial pointer
+ok 8 - verifyStageGate creates partial snapshot and updates partial pointer
+  ---
+  duration_ms: 0.401125
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1596.72925
+
+[end] 2026-02-22T13:17:24.969Z
+[exit] 0

@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "theme": "morethan.dark",
+    "extends": "base",
+    "description": "Morethan brand dark theme with navy base and orange action accents."
+  },
+  "color": {
+    "bg": "#0F2544",
+    "surface": "#143259",
+    "surface_elevated": "#1A3E69",
+    "text_primary": "#F5F7FB",
+    "text_secondary": "#DCE6F4",
+    "text_muted": "#B9C7DB",
+    "border": "#2A4D79",
+    "border_subtle": "#355B8A",
+    "primary": "#E1703C",
+    "primary_hover": "#F08A5A",
+    "primary_active": "#CC5F2F",
+    "on_primary": "#FFFFFF",
+    "warning": "#F3A978",
+    "on_warning": "#0F2544",
+    "focus_ring": "#E1703C80"
+  },
+  "typography": {
+    "font_family": {
+      "sans": "Inter, Manrope, SF Pro Display, system-ui, sans-serif"
+    }
+  },
+  "radius": {
+    "md": "8px",
+    "lg": "16px"
+  }
+}

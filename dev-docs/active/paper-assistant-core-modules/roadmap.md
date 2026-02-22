@@ -26,6 +26,7 @@
 - 不在本阶段实现业务代码。
 - 不在本阶段锁定所有模块内部接口细节。
 - 不在本阶段启动跨用户协作能力。
+- 不在本任务维护 4 阶段门禁与模块 4~7 版本治理细则（由 `T-003` 维护）。
 
 ## Open questions and assumptions
 ### Open questions (answer before execution)
@@ -46,6 +47,11 @@
 - External interfaces/APIs: 文献检索源、LLM API、Prism/Overleaf、本地 Git、可选 Qdrant
 - Data/storage impact: local-first 主存储 + 云控制面同步
 - Backward compatibility: 以新增模块和兼容扩展为主，不破坏现有初始化产物
+
+## Task boundary and anti-drift
+- 本任务是模块清单 SSOT：维护 TP-01..TP-08 定义、依赖、优先级。
+- `T-003` 是治理 SSOT：维护 4 阶段门禁、LLM 编排策略、模块 4~7 版本主线。
+- 跨任务统一契约：`dev-docs/active/llm-research-lifecycle-governance-v1/06-task-boundary-and-anti-drift.md`。
 
 ## Project structure change preview (may be empty)
 ### Existing areas likely to change (may be empty)
@@ -69,19 +75,19 @@
 - New file(s) (optional):
   - `<TBD>`
 
-## Phases
-1. **Phase 1**: 底座能力与研究入口
+## Batches (package planning)
+1. **Batch A**: 底座能力与研究入口
    - Deliverable: 文献管理、研究方向池、论文管理的任务包与验收口径
    - Acceptance criteria: 三个模块的输入/输出/边界明确，可独立排期
-2. **Phase 2**: 研究执行闭环
+2. **Batch B**: 研究执行闭环
    - Deliverable: 理论框架、实验设计、模型训练、数据分析任务包
    - Acceptance criteria: 四个模块形成 claims-evidence 可追溯链路
-3. **Phase 3**: 写作与投稿闭环
+3. **Batch C**: 写作与投稿闭环
    - Deliverable: 写作/投稿/修稿任务包及与外部工具集成边界
    - Acceptance criteria: 与上游研究模块可串联成端到端流程
 
-## Step-by-step plan (phased)
-### Phase 0 — Discovery (if needed)
+## Step-by-step plan (batch-oriented)
+### Batch 0 — Discovery (if needed)
 - Objective: 锁定任务包模板与优先级标准
 - Deliverables:
   - 任务包清单（8 项）
@@ -91,7 +97,7 @@
 - Rollback:
   - N/A
 
-### Phase 1 — Foundation Packages
+### Batch A — Foundation Packages
 - Objective: 明确底座型模块任务包
 - Deliverables:
   - 文献管理任务包
@@ -102,7 +108,7 @@
 - Rollback:
   - 回退到仅保留 roadmap + open questions
 
-### Phase 2 — Research Execution Packages
+### Batch B — Research Execution Packages
 - Objective: 建立研究执行链路任务包
 - Deliverables:
   - 理论框架与研究设计
@@ -114,7 +120,7 @@
 - Rollback:
   - 将复杂模块降级为探索任务
 
-### Phase 3 — Writing Lifecycle Package
+### Batch C — Writing Lifecycle Package
 - Objective: 收口写作投稿链路
 - Deliverables:
   - 写作、投稿、修稿任务包

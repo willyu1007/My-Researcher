@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-02-21T05:41:41.841Z",
+  "updatedAt": "2026-02-22T07:28:52.155Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -10,11 +10,496 @@
   },
   "database": {
     "kind": "relational",
-    "dialect": "generic",
+    "dialect": "postgresql",
     "name": "",
     "schemas": []
   },
   "enums": [],
-  "tables": [],
-  "notes": "Missing prisma schema at prisma/schema.prisma. Create it, then re-run ctl-db-ssot."
+  "tables": [
+    {
+      "name": "PaperProject",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "paperActiveSpFull",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "paperActiveSpPartial",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "researchDirection",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "title",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "topicId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "nodes",
+          "to": "StageNode",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "snapshots",
+          "to": "Snapshot",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "Snapshot",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "claimSetHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdBy",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "datasetProtocolHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "evaluationProtocolHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "nodeRefs",
+          "type": "String",
+          "nullable": false,
+          "list": true,
+          "dbName": null,
+          "dbType": null,
+          "default": "[]",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "paperId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "problemScopeHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "snapshotType",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "spineType",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "paper",
+          "to": "PaperProject",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "paperId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "paperId",
+            "snapshotType"
+          ],
+          "name": null,
+          "map": null
+        },
+        {
+          "type": "index",
+          "fields": [
+            "paperId"
+          ],
+          "name": null,
+          "map": null
+        }
+      ]
+    },
+    {
+      "name": "StageNode",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "attemptId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdBy",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "laneId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "moduleId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "nodeStatus",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "paperId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "parentNodeIds",
+          "type": "String",
+          "nullable": false,
+          "list": true,
+          "dbName": null,
+          "dbType": null,
+          "default": "[]",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "parentVersionId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "payloadRef",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "stageId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "valueJudgement",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "versionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "paper",
+          "to": "PaperProject",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "paperId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "paperId",
+            "nodeStatus"
+          ],
+          "name": null,
+          "map": null
+        },
+        {
+          "type": "index",
+          "fields": [
+            "paperId"
+          ],
+          "name": null,
+          "map": null
+        }
+      ]
+    }
+  ],
+  "notes": "Generated from Prisma schema.prisma (SSOT: repo-prisma)."
 }

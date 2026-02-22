@@ -1,0 +1,9 @@
+{
+  "run_id": "20260222-131721",
+  "schema": "smoke_20260222_131721_19b8",
+  "success": false,
+  "failed": false,
+  "cleanup_failed": true,
+  "keep_schema": false,
+  "finished_at": "2026-02-22T13:17:25.358Z"
+}

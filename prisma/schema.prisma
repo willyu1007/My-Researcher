@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model PaperProject {
+  id                   String      @id
+  topicId              String
+  title                String
+  researchDirection    String
+  status               String
+  paperActiveSpFull    String?
+  paperActiveSpPartial String?
+  createdAt            DateTime    @db.Timestamptz(6)
+  nodes                StageNode[]
+  snapshots            Snapshot[]
+}
+
+model StageNode {
+  id              String       @id
+  paperId         String
+  stageId         String
+  moduleId        String
+  versionId       String
+  parentVersionId String?
+  parentNodeIds   String[]     @default([])
+  runId           String
+  laneId          String
+  attemptId       String
+  createdBy       String
+  createdAt       DateTime     @db.Timestamptz(6)
+  payloadRef      String
+  nodeStatus      String
+  valueJudgement  Json?
+  paper           PaperProject @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([paperId])
+  @@index([paperId, nodeStatus])
+}
+
+model Snapshot {
+  id                     String       @id
+  paperId                String
+  snapshotType           String
+  spineType              String?
+  nodeRefs               String[]     @default([])
+  claimSetHash           String
+  problemScopeHash       String
+  datasetProtocolHash    String
+  evaluationProtocolHash String
+  createdAt              DateTime     @db.Timestamptz(6)
+  createdBy              String
+  paper                  PaperProject @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([paperId])
+  @@index([paperId, snapshotType])
+}

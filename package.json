@@ -10,13 +10,20 @@
   "packageManager": "pnpm@9.0.0",
   "scripts": {
     "build": "echo \"Add build script\"",
+    "ci:prisma-smoke": "node ci/scripts/prisma-smoke.mjs",
+    "desktop:build": "pnpm --filter @paper-engineering-assistant/desktop build",
+    "desktop:dev": "pnpm --filter @paper-engineering-assistant/desktop dev",
+    "desktop:typecheck": "pnpm --filter @paper-engineering-assistant/desktop typecheck",
     "dev": "echo \"Add dev script\"",
     "lint": "echo \"Add lint script\"",
     "test": "echo \"Add test script\"",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "prisma": "5.22.0",
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0"
   }
 }
-

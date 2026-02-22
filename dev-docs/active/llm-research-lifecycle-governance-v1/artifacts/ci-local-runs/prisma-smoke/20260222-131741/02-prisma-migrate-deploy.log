@@ -1,0 +1,21 @@
+# Prisma migrate deploy
+$ pnpm exec prisma migrate deploy --schema prisma/schema.prisma
+[start] 2026-02-22T13:17:42.273Z
+
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "postgres", schema "smoke_20260222_131741_95c6" at "localhost:5432"
+
+1 migration found in prisma/migrations
+
+Applying migration `20260222120000_init_research_lifecycle`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20260222120000_init_research_lifecycle/
+    └─ migration.sql
+      
+All migrations have been successfully applied.
+
+[end] 2026-02-22T13:17:42.725Z
+[exit] 0

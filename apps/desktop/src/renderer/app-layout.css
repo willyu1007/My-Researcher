@@ -1,0 +1,57 @@
+@layer feature {
+  .desktop-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .shell-main {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+
+  .sidebar-pane,
+  .workspace-pane {
+    min-height: 0;
+  }
+
+  .workspace-pane {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .metrics-grid {
+    align-items: stretch;
+  }
+
+  .brand-block {
+    min-width: 0;
+  }
+
+  .brand-icon {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    flex: 0 0 auto;
+  }
+
+  .brand-wordmark {
+    width: 180px;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .status-bar {
+    min-height: 42px;
+    align-items: center;
+  }
+
+  @media (max-width: 1100px) {
+    .shell-main {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+  }
+}

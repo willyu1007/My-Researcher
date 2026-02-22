@@ -8,12 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 2 (planned: 1, in-progress: 0, blocked: 0, done: 0, archived: 1)
+- Tasks: 4 (planned: 1, in-progress: 2, blocked: 0, done: 0, archived: 1)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-003 llm-research-lifecycle-governance-v1 | in-progress | F-001 | dev-docs/active/llm-research-lifecycle-governance-v1 |
+| T-004 desktop-app-electron-ui-v1 | in-progress | F-002 | dev-docs/active/desktop-app-electron-ui-v1 |
 | T-002 paper-assistant-core-modules | planned | F-000 | dev-docs/active/paper-assistant-core-modules |
 | T-001 unify-ci-verify-entrypoint | archived | F-000 | dev-docs/archive/unify-ci-verify-entrypoint |
 <!-- AUTO-GENERATED:END dashboard -->
