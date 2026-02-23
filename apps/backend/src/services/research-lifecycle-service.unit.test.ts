@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { InMemoryResearchLifecycleRepository } from '../repositories/in-memory-research-lifecycle-repository.js';
 import { ResearchLifecycleService } from './research-lifecycle-service.js';
+import type { GovernanceEventDeliveryAdapter } from './event-delivery/governance-event-delivery-adapter.js';
+import { InMemoryGovernanceDeliveryAuditStore } from './event-delivery/governance-delivery-audit-store.js';
 
 test('createPaperProject uses default LLM direction when omitted', async () => {
   const service = new ResearchLifecycleService(new InMemoryResearchLifecycleRepository());
@@ -151,4 +153,112 @@ test('verifyStageGate creates partial snapshot and updates partial pointer', asy
   assert.equal(result.snapshot?.snapshot_type, 'SP-partial');
   assert.equal(result.pointer_update?.paper_active_sp_partial, 'SP-0001');
   assert.equal(result.pointer_update?.paper_active_sp_full, undefined);
+});
+
+test('getResourceMetrics returns derived runtime metrics', async () => {
+  const service = new ResearchLifecycleService(new InMemoryResearchLifecycleRepository());
+  const paper = await service.createPaperProject({
+    topic_id: 'TOPIC-UNIT-5',
+    title: 'Metrics Paper',
+    created_by: 'human',
+    initial_context: {
+      literature_evidence_ids: ['LIT-5'],
+    },
+  });
+
+  await service.commitVersionSpine({
+    lineage_meta: {
+      paper_id: paper.paper_id,
+      stage_id: 'S3',
+      module_id: 'M6',
+      version_id: 'P001-M6-B01-N0001',
+      run_id: 'RUN-U-4',
+      lane_id: 'LANE-U-4',
+      attempt_id: 'ATT-U-4',
+      created_by: 'llm',
+      created_at: new Date().toISOString(),
+    },
+    payload_ref: 'train_run_v:TR-U-1',
+    node_status: 'draft',
+  });
+
+  const metrics = await service.getResourceMetrics(paper.paper_id);
+  assert.equal(metrics.paper_id, paper.paper_id);
+  assert.equal((metrics.paper_runtime_metric.tokens ?? 0) > 0, true);
+  assert.equal(metrics.paper_runtime_metric.gpu_requested, 1);
+});
+
+test('reviewReleaseGate writes audit result and updates artifact bundle', async () => {
+  const service = new ResearchLifecycleService(new InMemoryResearchLifecycleRepository());
+  const paper = await service.createPaperProject({
+    topic_id: 'TOPIC-UNIT-6',
+    title: 'Release Review Paper',
+    created_by: 'human',
+    initial_context: {
+      literature_evidence_ids: ['LIT-6'],
+    },
+  });
+
+  const review = await service.reviewReleaseGate(paper.paper_id, {
+    reviewers: ['r1', 'r2'],
+    decision: 'approve',
+    risk_flags: ['policy-check'],
+    label_policy: 'ai-generated-required',
+    comment: 'ok',
+  });
+
+  assert.equal(review.gate_result.accepted, true);
+  assert.equal(review.gate_result.review_id, 'RV-0001');
+  assert.equal(review.gate_result.audit_ref, 'AUD-RV-0001');
+
+  const bundle = await service.getArtifactBundle(paper.paper_id);
+  assert.equal(typeof bundle.artifact_bundle.review_url, 'string');
+});
+
+test('delivery failure is persisted into audit store', async () => {
+  const failingAdapter: GovernanceEventDeliveryAdapter = {
+    mode: 'in-process',
+    async deliver(envelope) {
+      return {
+        status: 'failed',
+        mode: 'in-process',
+        envelope,
+        attempts: [
+          {
+            attempt: 1,
+            started_at: new Date().toISOString(),
+            finished_at: new Date().toISOString(),
+            ok: false,
+            error_message: 'forced failure',
+          },
+        ],
+        final_error: 'forced failure',
+      };
+    },
+  };
+
+  const auditStore = new InMemoryGovernanceDeliveryAuditStore();
+  const service = new ResearchLifecycleService(
+    new InMemoryResearchLifecycleRepository(),
+    {
+      deliveryAdapter: failingAdapter,
+      deliveryAuditStore: auditStore,
+    },
+  );
+
+  await assert.rejects(
+    service.createPaperProject({
+      topic_id: 'TOPIC-UNIT-7',
+      title: 'Delivery Failure Audit',
+      created_by: 'human',
+      initial_context: {
+        literature_evidence_ids: ['LIT-7'],
+      },
+    }),
+    /Timeline event delivery failed/,
+  );
+
+  const records = auditStore.getRecords();
+  assert.equal(records.length > 0, true);
+  assert.equal(records.some((record) => record.status === 'failed'), true);
 });

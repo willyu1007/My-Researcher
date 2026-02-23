@@ -6,6 +6,10 @@ import { PrismaResearchLifecycleRepository } from './repositories/prisma/prisma-
 import { registerResearchLifecycleRoutes } from './routes/research-lifecycle-routes.js';
 import type { ResearchLifecycleRepository } from './repositories/research-lifecycle-repository.js';
 import { ResearchLifecycleService } from './services/research-lifecycle-service.js';
+import { FileGovernanceDeliveryAuditStore } from './services/event-delivery/governance-delivery-audit-store.js';
+import { FileGovernanceDeliveryOutboxStore } from './services/event-delivery/governance-delivery-outbox-store.js';
+import { InProcessGovernanceEventDeliveryAdapter } from './services/event-delivery/governance-event-delivery-adapter.js';
+import { DurableOutboxGovernanceEventDeliveryAdapter } from './services/event-delivery/governance-event-delivery-outbox-adapter.js';
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -13,7 +17,14 @@ export function buildApp(): FastifyInstance {
   });
 
   const repository = createRepository();
-  const service = new ResearchLifecycleService(repository);
+  const auditStore = new FileGovernanceDeliveryAuditStore({
+    filePath: process.env.GOVERNANCE_DELIVERY_AUDIT_LOG_PATH,
+  });
+  const deliveryAdapter = createDeliveryAdapter();
+  const service = new ResearchLifecycleService(repository, {
+    deliveryAdapter,
+    deliveryAuditStore: auditStore,
+  });
   const controller = new ResearchLifecycleController(service);
 
   app.setErrorHandler((error, _request, reply) => {
@@ -53,4 +64,17 @@ function createRepository(): ResearchLifecycleRepository {
   }
 
   return new InMemoryResearchLifecycleRepository();
+}
+
+function createDeliveryAdapter():
+  | InProcessGovernanceEventDeliveryAdapter
+  | DurableOutboxGovernanceEventDeliveryAdapter {
+  const mode = process.env.GOVERNANCE_DELIVERY_MODE ?? 'in-process';
+  if (mode === 'durable-outbox') {
+    const outboxStore = new FileGovernanceDeliveryOutboxStore({
+      filePath: process.env.GOVERNANCE_OUTBOX_LOG_PATH,
+    });
+    return new DurableOutboxGovernanceEventDeliveryAdapter(outboxStore);
+  }
+  return new InProcessGovernanceEventDeliveryAdapter();
 }

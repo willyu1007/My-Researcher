@@ -6,6 +6,12 @@ import {
   type CreatePaperProjectRequest,
   type CreatePaperProjectResponse,
   type CreatedByMode,
+  type GetPaperArtifactBundleResponse,
+  type GetPaperResourceMetricsResponse,
+  type GetPaperTimelineResponse,
+  type PaperRuntimeMetric,
+  type ReleaseGateReviewResponse,
+  type ReleaseReviewPayload,
   type StageGateVerifyRequest,
   type StageGateVerifyResponse,
   type ValueJudgementPayload,
@@ -18,18 +24,57 @@ import {
 import { AppError } from '../errors/app-error.js';
 import type {
   PaperProjectRecord,
+  ReleaseReviewRecord,
   ResearchLifecycleRepository,
   SnapshotRecord,
   StageNodeRecord,
+  TimelineEventRecord,
 } from '../repositories/research-lifecycle-repository.js';
+import {
+  InProcessGovernanceEventDeliveryAdapter,
+  type GovernanceEventDeliveryAdapter,
+  type GovernanceEventEnvelope,
+} from './event-delivery/governance-event-delivery-adapter.js';
+import {
+  InMemoryGovernanceDeliveryAuditStore,
+  buildGovernanceDeliveryAuditRecord,
+  type GovernanceDeliveryAuditStore,
+} from './event-delivery/governance-delivery-audit-store.js';
 
 type PointerType = 'full' | 'partial';
+
+type TimelineEventInput = {
+  eventType: string;
+  moduleId?: StageNodeRecord['moduleId'];
+  timestamp?: string;
+  nodeId?: string;
+  summary: string;
+  severity?: TimelineEventRecord['severity'];
+  payload?: Record<string, unknown>;
+};
+
+type ResearchLifecycleServiceOptions = {
+  deliveryAdapter?: GovernanceEventDeliveryAdapter;
+  deliveryAuditStore?: GovernanceDeliveryAuditStore;
+};
 
 export class ResearchLifecycleService {
   private writingPackageSequence = 0;
   private gateSequence = 0;
+  private releaseReviewSequence = 0;
+  private eventSequence = 0;
+  private readonly deliveryAdapter: GovernanceEventDeliveryAdapter;
+  private readonly deliveryAuditStore: GovernanceDeliveryAuditStore;
 
-  constructor(private readonly repository: ResearchLifecycleRepository) {}
+  constructor(
+    private readonly repository: ResearchLifecycleRepository,
+    options: ResearchLifecycleServiceOptions = {},
+  ) {
+    this.deliveryAdapter =
+      options.deliveryAdapter ?? new InProcessGovernanceEventDeliveryAdapter();
+    this.deliveryAuditStore =
+      options.deliveryAuditStore ?? new InMemoryGovernanceDeliveryAuditStore();
+  }
 
   async createPaperProject(input: CreatePaperProjectRequest): Promise<CreatePaperProjectResponse> {
     if (input.initial_context.literature_evidence_ids.length === 0) {
@@ -52,6 +97,22 @@ export class ResearchLifecycleService {
       paperActiveSpFull: null,
       paperActiveSpPartial: null,
       createdAt,
+    });
+
+    await this.repository.upsertArtifactBundle(paper.id, {
+      proposal_url: `paper-project://${paper.id}/proposal`,
+    });
+
+    await this.emitMetricsUpdated(paper.id, paper.createdAt);
+
+    await this.appendTimelineEvent(paper.id, {
+      eventType: 'research.timeline.event.appended',
+      timestamp: paper.createdAt,
+      summary: 'Paper project created.',
+      severity: 'info',
+      payload: {
+        topic_id: paper.topicId,
+      },
     });
 
     return {
@@ -98,6 +159,18 @@ export class ResearchLifecycleService {
       valueJudgementPayload: input.value_judgement_payload,
     });
 
+    await this.appendNodeStatusChangedEvent(
+      node.paperId,
+      node.id,
+      node.nodeStatus,
+      node.createdBy,
+      node.moduleId,
+      undefined,
+      node.createdAt,
+    );
+
+    await this.emitMetricsUpdated(node.paperId);
+
     return {
       node_id: node.id,
       accepted: true,
@@ -136,6 +209,15 @@ export class ResearchLifecycleService {
       const nextStatus = this.mapDecisionToStatus(decision);
       const updated = await this.repository.updateNodeStatus(node.id, nextStatus);
 
+      await this.appendNodeStatusChangedEvent(
+        updated.paperId,
+        updated.id,
+        updated.nodeStatus,
+        request.reviewer_mode,
+        updated.moduleId,
+        node.nodeStatus,
+      );
+
       if (updated.nodeStatus === 'promoted') {
         promotedNodes.push(updated);
       }
@@ -150,6 +232,13 @@ export class ResearchLifecycleService {
     const gateRunId = this.nextGateRunId();
 
     if (promotedNodes.length === 0) {
+      await this.appendTimelineEvent(paper.id, {
+        eventType: 'research.timeline.event.appended',
+        moduleId: 'M3',
+        summary: `Stage gate ${gateRunId} completed without promoted nodes.`,
+        severity: 'warning',
+      });
+      await this.emitMetricsUpdated(paper.id);
       return {
         gate_run_id: gateRunId,
         results,
@@ -188,6 +277,19 @@ export class ResearchLifecycleService {
       request.reviewer_mode,
       'stage gate promote',
     );
+
+    await this.appendTimelineEvent(paper.id, {
+      eventType: 'research.timeline.event.appended',
+      moduleId: 'M3',
+      summary: `Stage gate ${gateRunId} produced snapshot ${snapshot.id}.`,
+      severity: 'info',
+      payload: {
+        gate_run_id: gateRunId,
+        snapshot_id: snapshot.id,
+      },
+    });
+
+    await this.emitMetricsUpdated(paper.id);
 
     return {
       gate_run_id: gateRunId,
@@ -238,6 +340,21 @@ export class ResearchLifecycleService {
     const writingPackageId = this.nextWritingPackageId();
     const noM6WordingOk = this.evaluateNoM6WordingCompliance(snapshot.spineType, request.sections);
 
+    await this.repository.upsertArtifactBundle(paperId, {
+      paper_url: `paper-project://${paperId}/paper/${request.target_release_tag}`,
+    });
+
+    await this.appendTimelineEvent(paperId, {
+      eventType: 'research.timeline.event.appended',
+      moduleId: 'M8',
+      summary: `Writing package ${writingPackageId} built for ${request.target_release_tag}.`,
+      severity: 'info',
+      payload: {
+        writing_package_id: writingPackageId,
+        release_tag: request.target_release_tag,
+      },
+    });
+
     return {
       writing_package_id: writingPackageId,
       source_snapshot_id: request.source_snapshot_id,
@@ -246,6 +363,128 @@ export class ResearchLifecycleService {
       compliance_flags: {
         claim_evidence_coverage_ok: true,
         no_m6_wording_ok: noM6WordingOk,
+      },
+    };
+  }
+
+  async getTimeline(paperId: string): Promise<GetPaperTimelineResponse> {
+    await this.assertPaperExists(paperId);
+
+    const events = await this.repository.listTimelineEventsByPaperId(paperId);
+    const sorted = [...events].sort((a, b) => {
+      const tsCmp = a.timestamp.localeCompare(b.timestamp);
+      if (tsCmp !== 0) {
+        return tsCmp;
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    return {
+      paper_id: paperId,
+      events: sorted.map((event) => ({
+        event_id: event.id,
+        event_type: event.eventType,
+        module_id: event.moduleId,
+        timestamp: event.timestamp,
+        node_id: event.nodeId,
+        summary: event.summary,
+        severity: event.severity,
+      })),
+    };
+  }
+
+  async getResourceMetrics(paperId: string): Promise<GetPaperResourceMetricsResponse> {
+    const paper = await this.assertPaperExists(paperId);
+    const existing = await this.repository.findPaperRuntimeMetricByPaperId(paperId);
+    const metric = existing ?? (await this.buildRuntimeMetric(paper.id, paper.createdAt));
+
+    if (!existing) {
+      await this.repository.upsertPaperRuntimeMetric(paperId, metric);
+    }
+
+    return {
+      paper_id: paperId,
+      paper_runtime_metric: metric,
+    };
+  }
+
+  async getArtifactBundle(paperId: string): Promise<GetPaperArtifactBundleResponse> {
+    await this.assertPaperExists(paperId);
+
+    const current = await this.repository.findArtifactBundleByPaperId(paperId);
+    const reviews = await this.repository.listReleaseReviewsByPaperId(paperId);
+    const latestReview = reviews.length > 0 ? reviews[reviews.length - 1] : undefined;
+
+    const bundle = {
+      proposal_url: current?.proposal_url ?? `paper-project://${paperId}/proposal`,
+      paper_url: current?.paper_url ?? null,
+      repo_url: current?.repo_url ?? null,
+      review_url:
+        current?.review_url ??
+        (latestReview ? `paper-project://${paperId}/review/${latestReview.id}` : null),
+    };
+
+    return {
+      paper_id: paperId,
+      artifact_bundle: bundle,
+    };
+  }
+
+  async reviewReleaseGate(
+    paperId: string,
+    payload: ReleaseReviewPayload,
+  ): Promise<ReleaseGateReviewResponse> {
+    await this.assertPaperExists(paperId);
+
+    if (payload.reviewers.length === 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'At least one reviewer is required.');
+    }
+
+    const reviewedAt = this.now();
+    const reviewId = this.nextReleaseReviewId();
+    const auditRef = `AUD-${reviewId}`;
+    const accepted = payload.decision === 'approve';
+
+    const reviewRecord: ReleaseReviewRecord = {
+      id: reviewId,
+      paperId,
+      reviewers: payload.reviewers,
+      decision: payload.decision,
+      riskFlags: payload.risk_flags,
+      labelPolicy: payload.label_policy,
+      comment: payload.comment,
+      reviewedAt,
+      auditRef,
+    };
+
+    await this.repository.createReleaseReview(reviewRecord);
+
+    await this.repository.upsertArtifactBundle(paperId, {
+      review_url: `paper-project://${paperId}/review/${reviewId}`,
+    });
+
+    await this.appendTimelineEvent(paperId, {
+      eventType: 'research.release.reviewed',
+      moduleId: 'M8',
+      timestamp: reviewedAt,
+      summary: `Release review ${payload.decision} (${reviewId}).`,
+      severity: payload.decision === 'reject' ? 'warning' : 'info',
+      payload: {
+        review_id: reviewId,
+        decision: payload.decision,
+        reviewers: payload.reviewers,
+        label_policy: payload.label_policy,
+        risk_flags: payload.risk_flags,
+      },
+    });
+
+    return {
+      gate_result: {
+        accepted,
+        review_id: reviewId,
+        approved_by: accepted ? payload.reviewers[0] : undefined,
+        approved_at: accepted ? reviewedAt : undefined,
+        audit_ref: auditRef,
       },
     };
   }
@@ -388,6 +627,138 @@ export class ResearchLifecycleService {
     return paper;
   }
 
+  private async emitMetricsUpdated(
+    paperId: string,
+    fallbackTimestamp?: string,
+  ): Promise<PaperRuntimeMetric> {
+    const metric = await this.buildRuntimeMetric(paperId, fallbackTimestamp);
+    const saved = await this.repository.upsertPaperRuntimeMetric(paperId, metric);
+
+    await this.appendTimelineEvent(paperId, {
+      eventType: 'research.metrics.updated',
+      moduleId: 'M6',
+      timestamp: saved.updated_at,
+      summary: 'Runtime metrics updated.',
+      severity: 'info',
+      payload: {
+        tokens: saved.tokens,
+        cost_usd: saved.cost_usd,
+        gpu_requested: saved.gpu_requested,
+        gpu_total: saved.gpu_total,
+      },
+    });
+
+    return saved;
+  }
+
+  private async buildRuntimeMetric(
+    paperId: string,
+    fallbackTimestamp?: string,
+  ): Promise<PaperRuntimeMetric> {
+    const nodes = await this.repository.listNodesByPaperId(paperId);
+    const latestNodeAt =
+      nodes.length > 0
+        ? nodes.reduce(
+            (latest, node) => (node.createdAt > latest ? node.createdAt : latest),
+            nodes[0].createdAt,
+          )
+        : fallbackTimestamp ?? this.now();
+
+    const tokens = nodes.length * 1200;
+    const gpuRequested = nodes.filter((node) => node.moduleId === 'M6').length;
+    const gpuTotal = nodes.filter((node) => node.moduleId === 'M6' || node.moduleId === 'M7').length;
+    const costUsd = Number((tokens * 0.0000025).toFixed(6));
+
+    return {
+      tokens,
+      cost_usd: costUsd,
+      gpu_requested: gpuRequested,
+      gpu_total: gpuTotal,
+      updated_at: latestNodeAt,
+    };
+  }
+
+  private async appendNodeStatusChangedEvent(
+    paperId: string,
+    nodeId: string,
+    toStatus: StageNodeRecord['nodeStatus'],
+    changedBy: CreatedByMode,
+    moduleId: StageNodeRecord['moduleId'],
+    fromStatus?: StageNodeRecord['nodeStatus'],
+    changedAt?: string,
+  ): Promise<void> {
+    await this.appendTimelineEvent(paperId, {
+      eventType: 'research.node.status.changed',
+      moduleId,
+      timestamp: changedAt ?? this.now(),
+      nodeId,
+      summary: `Node ${nodeId} status changed to ${toStatus}.`,
+      severity: toStatus === 'rejected' ? 'warning' : 'info',
+      payload: {
+        from_status: fromStatus,
+        to_status: toStatus,
+        changed_by: changedBy,
+      },
+    });
+  }
+
+  private async appendTimelineEvent(
+    paperId: string,
+    input: TimelineEventInput,
+  ): Promise<TimelineEventRecord> {
+    const eventRecord: TimelineEventRecord = {
+      id: this.nextEventId(),
+      paperId,
+      eventType: input.eventType,
+      moduleId: input.moduleId,
+      timestamp: input.timestamp ?? this.now(),
+      nodeId: input.nodeId,
+      summary: input.summary,
+      severity: input.severity,
+      payload: input.payload,
+    };
+    const envelope: GovernanceEventEnvelope = {
+      event_id: eventRecord.id,
+      event_type: eventRecord.eventType,
+      aggregate_id: eventRecord.paperId,
+      occurred_at: eventRecord.timestamp,
+      payload_version: 'v1',
+      trace_id: `trace-${eventRecord.id}`,
+      dedupe_key: eventRecord.id,
+    };
+
+    const deliveryResult = await this.deliveryAdapter.deliver(
+      envelope,
+      async () => this.repository.appendTimelineEvent(eventRecord),
+    );
+
+    let auditPersistError: string | undefined;
+    try {
+      await this.deliveryAuditStore.append(
+        buildGovernanceDeliveryAuditRecord({
+          paperId,
+          envelope,
+          result: deliveryResult,
+          now: () => this.now(),
+        }),
+      );
+    } catch (error) {
+      auditPersistError =
+        error instanceof Error ? error.message : 'Unknown audit persistence error.';
+    }
+
+    if (deliveryResult.status === 'failed' || !deliveryResult.value) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'Timeline event delivery failed.', {
+        delivery_mode: deliveryResult.mode,
+        event_id: eventRecord.id,
+        attempts: deliveryResult.attempts,
+        audit_persist_error: auditPersistError,
+      });
+    }
+
+    return deliveryResult.value;
+  }
+
   private async nextPaperId(): Promise<string> {
     const count = await this.repository.countPapers();
     return `P${String(count + 1).padStart(3, '0')}`;
@@ -411,6 +782,16 @@ export class ResearchLifecycleService {
   private nextGateRunId(): string {
     this.gateSequence += 1;
     return `GR-${String(this.gateSequence).padStart(4, '0')}`;
+  }
+
+  private nextReleaseReviewId(): string {
+    this.releaseReviewSequence += 1;
+    return `RV-${String(this.releaseReviewSequence).padStart(4, '0')}`;
+  }
+
+  private nextEventId(): string {
+    this.eventSequence += 1;
+    return `EV-${String(this.eventSequence).padStart(4, '0')}`;
   }
 
   private now(): string {

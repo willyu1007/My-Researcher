@@ -1,6 +1,8 @@
 import {
   createPaperProjectRequestSchema,
   type CreatePaperProjectRequest,
+  type ReleaseReviewPayload,
+  releaseReviewRequestSchema,
   type StageGateVerifyRequest,
   type VersionSpineCommitRequest,
   type WritingPackageBuildRequest,
@@ -75,5 +77,46 @@ export async function registerResearchLifecycleRoutes(
       },
     },
     async (request, reply) => controller.buildWritingPackage(request, reply),
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/paper-projects/:id/timeline',
+    {
+      schema: {
+        params: paperIdParamsSchema,
+      },
+    },
+    async (request, reply) => controller.getTimeline(request, reply),
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/paper-projects/:id/resource-metrics',
+    {
+      schema: {
+        params: paperIdParamsSchema,
+      },
+    },
+    async (request, reply) => controller.getResourceMetrics(request, reply),
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/paper-projects/:id/artifact-bundle',
+    {
+      schema: {
+        params: paperIdParamsSchema,
+      },
+    },
+    async (request, reply) => controller.getArtifactBundle(request, reply),
+  );
+
+  app.post<{ Params: { id: string }; Body: ReleaseReviewPayload }>(
+    '/paper-projects/:id/release-gate/review',
+    {
+      schema: {
+        params: paperIdParamsSchema,
+        body: releaseReviewRequestSchema,
+      },
+    },
+    async (request, reply) => controller.reviewReleaseGate(request, reply),
   );
 }

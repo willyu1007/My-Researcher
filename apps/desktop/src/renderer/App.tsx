@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import logoHorizontal from './assets/morethan-logo-horizontal.png';
 import logoIcon from './assets/morethan-icon.png';
 
@@ -8,20 +8,559 @@ type DesktopMeta = {
   platform: string;
 };
 
-const moduleItems = ['文献管理', '选题管理', '论文管理', '理论框架与研究设计', '实验设计', '模型与训练', '数据分析与讨论', '写作与投稿'];
+type PanelStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
+
+type PanelState<T> = {
+  status: PanelStatus;
+  data: T;
+  error: string | null;
+};
+
+type TimelineEvent = {
+  event_id: string;
+  event_type: string;
+  module_id?: string;
+  timestamp: string;
+  node_id?: string;
+  summary: string;
+  severity?: 'info' | 'warning' | 'error';
+};
+
+type RuntimeMetric = {
+  tokens: number | null;
+  cost_usd: number | null;
+  gpu_requested: number | null;
+  gpu_total: number | null;
+  updated_at: string;
+};
+
+type ArtifactBundle = {
+  proposal_url: string | null;
+  paper_url: string | null;
+  repo_url: string | null;
+  review_url: string | null;
+};
+
+type ReviewDecision = 'approve' | 'reject' | 'hold';
+
+type ReleaseGateResponse = {
+  gate_result: {
+    accepted: boolean;
+    review_id: string;
+    approved_by?: string;
+    approved_at?: string;
+    audit_ref: string;
+  };
+};
+
+type GovernanceRequest = {
+  method: 'GET' | 'POST';
+  path: string;
+  body?: unknown;
+};
+
+const moduleItems = [
+  '文献管理',
+  '选题管理',
+  '论文管理',
+  '理论框架与研究设计',
+  '实验设计',
+  '模型与训练',
+  '数据分析与讨论',
+  '写作与投稿',
+];
+
+const emptyMetric: RuntimeMetric = {
+  tokens: null,
+  cost_usd: null,
+  gpu_requested: null,
+  gpu_total: null,
+  updated_at: '',
+};
+
+const emptyArtifactBundle: ArtifactBundle = {
+  proposal_url: null,
+  paper_url: null,
+  repo_url: null,
+  review_url: null,
+};
+
+const defaultApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:3000').trim();
+
+function isFlagEnabled(value?: string): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return value === '1' || value.toLowerCase() === 'true';
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function toText(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function toOptionalNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function normalizeTimelinePayload(payload: unknown): TimelineEvent[] {
+  const root = asRecord(payload);
+  if (!root) {
+    return [];
+  }
+
+  const eventsRaw = root.events;
+  if (!Array.isArray(eventsRaw)) {
+    return [];
+  }
+
+  const events = eventsRaw
+    .map((item): TimelineEvent | null => {
+      const row = asRecord(item);
+      if (!row) {
+        return null;
+      }
+
+      const eventId = toText(row.event_id);
+      const eventType = toText(row.event_type);
+      const timestamp = toText(row.timestamp);
+      const summary = toText(row.summary);
+      if (!eventId || !eventType || !timestamp || !summary) {
+        return null;
+      }
+
+      const severity = toText(row.severity);
+      const normalizedSeverity: TimelineEvent['severity'] =
+        severity === 'warning' || severity === 'error' || severity === 'info' ? severity : undefined;
+
+      return {
+        event_id: eventId,
+        event_type: eventType,
+        module_id: toText(row.module_id),
+        timestamp,
+        node_id: toText(row.node_id),
+        summary,
+        severity: normalizedSeverity,
+      };
+    })
+    .filter((item): item is TimelineEvent => item !== null);
+
+  return events;
+}
+
+function normalizeMetricPayload(payload: unknown): RuntimeMetric | null {
+  const root = asRecord(payload);
+  const metric = root ? asRecord(root.paper_runtime_metric) : null;
+  if (!metric) {
+    return null;
+  }
+
+  const updatedAt = toText(metric.updated_at);
+  if (!updatedAt) {
+    return null;
+  }
+
+  return {
+    tokens: toOptionalNumber(metric.tokens),
+    cost_usd: toOptionalNumber(metric.cost_usd),
+    gpu_requested: toOptionalNumber(metric.gpu_requested),
+    gpu_total: toOptionalNumber(metric.gpu_total),
+    updated_at: updatedAt,
+  };
+}
+
+function normalizeArtifactPayload(payload: unknown): ArtifactBundle | null {
+  const root = asRecord(payload);
+  const bundle = root ? asRecord(root.artifact_bundle) : null;
+  if (!bundle) {
+    return null;
+  }
+
+  return {
+    proposal_url: toText(bundle.proposal_url) ?? null,
+    paper_url: toText(bundle.paper_url) ?? null,
+    repo_url: toText(bundle.repo_url) ?? null,
+    review_url: toText(bundle.review_url) ?? null,
+  };
+}
+
+function normalizeReleasePayload(payload: unknown): ReleaseGateResponse | null {
+  const root = asRecord(payload);
+  const gateResult = root ? asRecord(root.gate_result) : null;
+  if (!gateResult) {
+    return null;
+  }
+
+  const reviewId = toText(gateResult.review_id);
+  const auditRef = toText(gateResult.audit_ref);
+  const accepted = gateResult.accepted;
+  if (!reviewId || !auditRef || typeof accepted !== 'boolean') {
+    return null;
+  }
+
+  return {
+    gate_result: {
+      accepted,
+      review_id: reviewId,
+      approved_by: toText(gateResult.approved_by),
+      approved_at: toText(gateResult.approved_at),
+      audit_ref: auditRef,
+    },
+  };
+}
+
+function readErrorMessage(payload: unknown, status: number): string {
+  const root = asRecord(payload);
+  const error = root ? asRecord(root.error) : null;
+  if (error) {
+    const code = toText(error.code);
+    const message = toText(error.message);
+    if (code && message) {
+      return `${code}: ${message}`;
+    }
+    if (message) {
+      return message;
+    }
+  }
+
+  const message = root ? toText(root.message) : undefined;
+  if (message) {
+    return message;
+  }
+
+  return `Request failed with status ${status}.`;
+}
+
+function formatNumber(value: number | null): string {
+  if (value === null) {
+    return '--';
+  }
+
+  return value.toLocaleString('en-US');
+}
+
+function formatCurrency(value: number | null): string {
+  if (value === null) {
+    return '--';
+  }
+
+  return `$${value.toFixed(4)}`;
+}
+
+function formatTimestamp(value: string): string {
+  if (!value) {
+    return '--';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString();
+}
+
+function tryGetSnapshotId(summary: string): string | null {
+  const matched = summary.match(/SP-\d{4}/);
+  return matched ? matched[0] : null;
+}
+
+async function requestGovernance<T>(request: GovernanceRequest): Promise<T> {
+  const desktopBridge = window.desktopApi?.requestGovernance;
+
+  if (desktopBridge) {
+    const bridgeResponse = await desktopBridge(request);
+    if (!bridgeResponse.ok) {
+      throw new Error(readErrorMessage(bridgeResponse.payload, bridgeResponse.status));
+    }
+    return bridgeResponse.payload as T;
+  }
+
+  const init: RequestInit = {
+    method: request.method,
+    headers: {
+      Accept: 'application/json',
+    },
+  };
+
+  if (request.body !== undefined) {
+    init.headers = {
+      ...init.headers,
+      'Content-Type': 'application/json',
+    };
+    init.body = JSON.stringify(request.body);
+  }
+
+  const response = await fetch(new URL(request.path, defaultApiBaseUrl), init);
+  const contentType = response.headers.get('content-type') ?? '';
+  const payload = contentType.includes('application/json')
+    ? await response.json()
+    : { message: await response.text() };
+
+  if (!response.ok) {
+    throw new Error(readErrorMessage(payload, response.status));
+  }
+
+  return payload as T;
+}
 
 export function App() {
   const [meta, setMeta] = useState<DesktopMeta | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const [activeModule, setActiveModule] = useState<string>(moduleItems[0]);
+  const [actionHint, setActionHint] = useState<string>('请选择一个模块开始浏览。');
+  const [governanceEnabled, setGovernanceEnabled] = useState<boolean>(
+    isFlagEnabled(import.meta.env.VITE_ENABLE_GOVERNANCE_PANELS),
+  );
+  const [paperIdInput, setPaperIdInput] = useState<string>('P001');
+  const [paperId, setPaperId] = useState<string>('P001');
+  const [refreshTick, setRefreshTick] = useState<number>(0);
+
+  const [timelinePanel, setTimelinePanel] = useState<PanelState<TimelineEvent[]>>({
+    status: 'idle',
+    data: [],
+    error: null,
+  });
+  const [metricsPanel, setMetricsPanel] = useState<PanelState<RuntimeMetric>>({
+    status: 'idle',
+    data: emptyMetric,
+    error: null,
+  });
+  const [artifactPanel, setArtifactPanel] = useState<PanelState<ArtifactBundle>>({
+    status: 'idle',
+    data: emptyArtifactBundle,
+    error: null,
+  });
+
+  const [reviewersInput, setReviewersInput] = useState<string>('reviewer-1');
+  const [decision, setDecision] = useState<ReviewDecision>('hold');
+  const [riskFlagsInput, setRiskFlagsInput] = useState<string>('policy-check');
+  const [labelPolicy, setLabelPolicy] = useState<string>('ai-generated-required');
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [reviewSubmitState, setReviewSubmitState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [reviewSubmitMessage, setReviewSubmitMessage] = useState<string>('');
 
   useEffect(() => {
+    const desktopApi = window.desktopApi;
+
+    if (!desktopApi?.getAppMeta) {
+      setMetaError('desktop bridge unavailable');
+      return;
+    }
+
     let mounted = true;
-    void window.desktopApi.getAppMeta().then((next) => {
-      if (mounted) setMeta(next);
-    });
+    void desktopApi
+      .getAppMeta()
+      .then((next) => {
+        if (mounted) {
+          setMeta(next);
+          setMetaError(null);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setMetaError('desktop metadata unavailable');
+        }
+      });
+
     return () => {
       mounted = false;
     };
   }, []);
+
+  const loadGovernancePanels = useCallback(async (targetPaperId: string) => {
+    const normalizedPaperId = targetPaperId.trim();
+
+    if (!normalizedPaperId) {
+      setTimelinePanel({ status: 'error', data: [], error: 'Paper ID 不能为空。' });
+      setMetricsPanel({ status: 'error', data: emptyMetric, error: 'Paper ID 不能为空。' });
+      setArtifactPanel({ status: 'error', data: emptyArtifactBundle, error: 'Paper ID 不能为空。' });
+      return;
+    }
+
+    const encodedId = encodeURIComponent(normalizedPaperId);
+
+    setTimelinePanel({ status: 'loading', data: [], error: null });
+    setMetricsPanel({ status: 'loading', data: emptyMetric, error: null });
+    setArtifactPanel({ status: 'loading', data: emptyArtifactBundle, error: null });
+
+    const [timelineResult, metricsResult, artifactResult] = await Promise.allSettled([
+      requestGovernance({ method: 'GET', path: `/paper-projects/${encodedId}/timeline` }),
+      requestGovernance({ method: 'GET', path: `/paper-projects/${encodedId}/resource-metrics` }),
+      requestGovernance({ method: 'GET', path: `/paper-projects/${encodedId}/artifact-bundle` }),
+    ]);
+
+    if (timelineResult.status === 'fulfilled') {
+      const normalized = normalizeTimelinePayload(timelineResult.value);
+      setTimelinePanel({
+        status: normalized.length > 0 ? 'ready' : 'empty',
+        data: normalized,
+        error: null,
+      });
+    } else {
+      setTimelinePanel({ status: 'error', data: [], error: timelineResult.reason instanceof Error ? timelineResult.reason.message : String(timelineResult.reason) });
+    }
+
+    if (metricsResult.status === 'fulfilled') {
+      const normalized = normalizeMetricPayload(metricsResult.value);
+      if (normalized) {
+        setMetricsPanel({ status: 'ready', data: normalized, error: null });
+      } else {
+        setMetricsPanel({ status: 'empty', data: emptyMetric, error: null });
+      }
+    } else {
+      setMetricsPanel({ status: 'error', data: emptyMetric, error: metricsResult.reason instanceof Error ? metricsResult.reason.message : String(metricsResult.reason) });
+    }
+
+    if (artifactResult.status === 'fulfilled') {
+      const normalized = normalizeArtifactPayload(artifactResult.value);
+      if (normalized) {
+        setArtifactPanel({ status: 'ready', data: normalized, error: null });
+      } else {
+        setArtifactPanel({ status: 'empty', data: emptyArtifactBundle, error: null });
+      }
+    } else {
+      setArtifactPanel({ status: 'error', data: emptyArtifactBundle, error: artifactResult.reason instanceof Error ? artifactResult.reason.message : String(artifactResult.reason) });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!governanceEnabled) {
+      setTimelinePanel({ status: 'idle', data: [], error: null });
+      setMetricsPanel({ status: 'idle', data: emptyMetric, error: null });
+      setArtifactPanel({ status: 'idle', data: emptyArtifactBundle, error: null });
+      return;
+    }
+
+    void loadGovernancePanels(paperId);
+  }, [governanceEnabled, loadGovernancePanels, paperId, refreshTick]);
+
+  const releaseQueue = useMemo(() => {
+    return timelinePanel.data
+      .filter(
+        (event) =>
+          event.event_type === 'research.node.status.changed' ||
+          event.event_type === 'research.release.reviewed',
+      )
+      .slice(-6)
+      .reverse();
+  }, [timelinePanel.data]);
+
+  const handleModuleSelect = (moduleName: string) => {
+    setActiveModule(moduleName);
+    setActionHint(`已切换到「${moduleName}」模块。`);
+  };
+
+  const handleCreateBatch = () => {
+    setActionHint('已创建新的研究批次草稿（演示状态）。');
+  };
+
+  const handleToggleGovernance = () => {
+    setGovernanceEnabled((current) => {
+      const next = !current;
+      setActionHint(next ? '治理面板已启用（当前会话）。' : '治理面板已关闭，主流程不受影响。');
+      return next;
+    });
+  };
+
+  const handleApplyPaperId = () => {
+    const normalized = paperIdInput.trim();
+    if (!normalized) {
+      setActionHint('Paper ID 不能为空。');
+      return;
+    }
+
+    setPaperId(normalized);
+    setReviewSubmitState('idle');
+    setReviewSubmitMessage('');
+    setActionHint(`已加载治理项目 ${normalized}。`);
+  };
+
+  const handleRefreshPanels = () => {
+    setRefreshTick((value) => value + 1);
+    setActionHint('治理面板已刷新。');
+  };
+
+  const handleEvidenceTrace = (event: TimelineEvent) => {
+    const snapshotId = tryGetSnapshotId(event.summary);
+    const evidence = [
+      event.node_id ? `node:${event.node_id}` : 'node:none',
+      snapshotId ? `snapshot:${snapshotId}` : 'snapshot:none',
+      event.module_id ? `module:${event.module_id}` : 'module:none',
+    ].join(' · ');
+    setActionHint(`证据链定位：${evidence}`);
+  };
+
+  const handleSubmitReleaseReview = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const normalizedPaperId = paperId.trim();
+    if (!normalizedPaperId) {
+      setReviewSubmitState('error');
+      setReviewSubmitMessage('Paper ID 不能为空。');
+      return;
+    }
+
+    const reviewers = reviewersInput
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+    if (reviewers.length === 0) {
+      setReviewSubmitState('error');
+      setReviewSubmitMessage('至少提供一个 reviewer。');
+      return;
+    }
+
+    const riskFlags = riskFlagsInput
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+    setReviewSubmitState('submitting');
+    setReviewSubmitMessage('正在提交 release review...');
+
+    try {
+      const response = await requestGovernance({
+        method: 'POST',
+        path: `/paper-projects/${encodeURIComponent(normalizedPaperId)}/release-gate/review`,
+        body: {
+          reviewers,
+          decision,
+          risk_flags: riskFlags,
+          label_policy: labelPolicy,
+          comment: reviewComment.trim() || undefined,
+        },
+      });
+
+      const normalized = normalizeReleasePayload(response);
+      if (!normalized) {
+        throw new Error('release-review response invalid.');
+      }
+
+      setReviewSubmitState('success');
+      setReviewSubmitMessage(
+        `已提交 ${normalized.gate_result.review_id}（audit: ${normalized.gate_result.audit_ref}）。`,
+      );
+      setActionHint(
+        `release-review ${normalized.gate_result.review_id} 提交完成，decision=${decision}。`,
+      );
+      setRefreshTick((value) => value + 1);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'release-review 提交失败。';
+      setReviewSubmitState('error');
+      setReviewSubmitMessage(message);
+      setActionHint(`release-review 提交失败：${message}`);
+    }
+  };
 
   return (
     <div data-ui="page" data-density="comfortable" className="desktop-shell">
@@ -33,7 +572,18 @@ export function App() {
           </div>
           <div data-ui="stack" data-direction="row" data-gap="2" data-align="center">
             <span data-ui="badge" data-variant="subtle" data-tone="neutral">LLM Workflow</span>
-            <button data-ui="button" data-variant="primary" data-size="sm" type="button">新建研究批次</button>
+            <span data-ui="badge" data-variant="subtle" data-tone="neutral">
+              Governance {governanceEnabled ? 'ON' : 'OFF'}
+            </span>
+            <button
+              data-ui="button"
+              data-variant="primary"
+              data-size="sm"
+              type="button"
+              onClick={handleCreateBatch}
+            >
+              新建研究批次
+            </button>
           </div>
         </div>
       </header>
@@ -43,8 +593,15 @@ export function App() {
           <div data-ui="stack" data-direction="col" data-gap="3">
             <p data-ui="text" data-variant="label" data-tone="secondary">模块导航</p>
             <div data-ui="list" data-variant="rows" data-density="comfortable">
-              {moduleItems.map((item, idx) => (
-                <button key={item} data-ui="button" data-variant={idx === 0 ? 'primary' : 'secondary'} data-size="sm" type="button">
+              {moduleItems.map((item) => (
+                <button
+                  key={item}
+                  data-ui="button"
+                  data-variant={activeModule === item ? 'primary' : 'secondary'}
+                  data-size="sm"
+                  type="button"
+                  onClick={() => handleModuleSelect(item)}
+                >
                   {item}
                 </button>
               ))}
@@ -58,6 +615,7 @@ export function App() {
             <p data-ui="text" data-variant="body" data-tone="secondary">
               该桌面壳层用于串联文献、选题、版本治理与写作交付的全链路操作。
             </p>
+            <p data-ui="text" data-variant="caption" data-tone="muted">当前模块：{activeModule}</p>
           </section>
 
           <section data-ui="grid" data-cols="2" data-gap="4" className="metrics-grid">
@@ -71,21 +629,280 @@ export function App() {
             </article>
           </section>
 
-          <section data-ui="empty-state">
-            <p data-slot="title" data-ui="text" data-variant="h3" data-tone="primary">工作区内容将按模块动态加载</p>
-            <p data-slot="body" data-ui="text" data-variant="body" data-tone="muted">
-              当前阶段先完成桌面框架与品牌主题接入，后续按任务包逐步填充具体模块页面。
-            </p>
-            <button data-ui="button" data-variant="secondary" data-size="md" type="button">查看任务包</button>
-          </section>
+          {!governanceEnabled ? (
+            <section data-ui="empty-state">
+              <p data-slot="title" data-ui="text" data-variant="h3" data-tone="primary">
+                治理面板默认关闭
+              </p>
+              <p data-slot="body" data-ui="text" data-variant="body" data-tone="muted">
+                当前工作区保持 T-004 壳层行为不变。你可以在当前会话启用 T-006 面板进行联调。
+              </p>
+              <button
+                data-ui="button"
+                data-variant="secondary"
+                data-size="md"
+                type="button"
+                onClick={handleToggleGovernance}
+              >
+                启用治理面板
+              </button>
+            </section>
+          ) : (
+            <section data-ui="stack" data-direction="col" data-gap="4" className="governance-zone">
+              <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-controls">
+                <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+                  <div data-ui="stack" data-direction="row" data-gap="3" data-align="end" data-wrap="wrap" className="governance-controls-left">
+                    <label data-ui="field" className="paper-id-field">
+                      <span data-slot="label">Paper ID</span>
+                      <input
+                        data-ui="input"
+                        data-size="sm"
+                        value={paperIdInput}
+                        onChange={(event) => setPaperIdInput(event.target.value)}
+                        placeholder="例如 P001"
+                      />
+                    </label>
+                    <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleApplyPaperId}>
+                      加载项目
+                    </button>
+                    <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleRefreshPanels}>
+                      刷新
+                    </button>
+                  </div>
+                  <div data-ui="stack" data-direction="row" data-gap="2" data-align="center" data-wrap="wrap">
+                    <span data-ui="badge" data-variant="subtle" data-tone="neutral">project: {paperId}</span>
+                    <span data-ui="badge" data-variant="subtle" data-tone="neutral">api: {defaultApiBaseUrl}</span>
+                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleToggleGovernance}>
+                      关闭面板
+                    </button>
+                  </div>
+                </div>
+              </article>
+
+              <section data-ui="grid" data-cols="2" data-gap="4" className="governance-panels">
+                <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-panel">
+                  <div data-ui="stack" data-direction="col" data-gap="3">
+                    <p data-ui="text" data-variant="h3" data-tone="primary">Timeline</p>
+                    {timelinePanel.status === 'loading' && (
+                      <p data-ui="text" data-variant="body" data-tone="muted">正在加载 timeline...</p>
+                    )}
+                    {timelinePanel.status === 'error' && (
+                      <p data-ui="text" data-variant="body" data-tone="danger">{timelinePanel.error ?? 'timeline 加载失败。'}</p>
+                    )}
+                    {timelinePanel.status === 'empty' && (
+                      <p data-ui="text" data-variant="body" data-tone="muted">暂无 timeline 事件。</p>
+                    )}
+                    {(timelinePanel.status === 'ready' || timelinePanel.status === 'idle') && timelinePanel.data.length > 0 && (
+                      <div data-ui="list" data-variant="rows" data-density="comfortable" className="timeline-list">
+                        {timelinePanel.data.map((event) => {
+                          const snapshotId = tryGetSnapshotId(event.summary);
+                          return (
+                            <div key={event.event_id} className="timeline-item">
+                              <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+                                <p data-ui="text" data-variant="label" data-tone="secondary">{event.event_type}</p>
+                                <p data-ui="text" data-variant="caption" data-tone="muted">{formatTimestamp(event.timestamp)}</p>
+                              </div>
+                              <p data-ui="text" data-variant="body" data-tone="primary">{event.summary}</p>
+                              <div data-ui="stack" data-direction="row" data-gap="2" data-wrap="wrap" data-align="center">
+                                {event.node_id ? (
+                                  <span data-ui="badge" data-variant="subtle" data-tone="neutral">node:{event.node_id}</span>
+                                ) : null}
+                                {snapshotId ? (
+                                  <span data-ui="badge" data-variant="subtle" data-tone="neutral">snapshot:{snapshotId}</span>
+                                ) : null}
+                                {event.module_id ? (
+                                  <span data-ui="badge" data-variant="subtle" data-tone="neutral">module:{event.module_id}</span>
+                                ) : null}
+                                <button
+                                  data-ui="button"
+                                  data-variant="ghost"
+                                  data-size="sm"
+                                  type="button"
+                                  onClick={() => handleEvidenceTrace(event)}
+                                >
+                                  证据链
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </article>
+
+                <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-panel">
+                  <div data-ui="stack" data-direction="col" data-gap="3">
+                    <p data-ui="text" data-variant="h3" data-tone="primary">Runtime Metrics</p>
+                    {metricsPanel.status === 'loading' && (
+                      <p data-ui="text" data-variant="body" data-tone="muted">正在计算运行指标...</p>
+                    )}
+                    {metricsPanel.status === 'error' && (
+                      <p data-ui="text" data-variant="body" data-tone="danger">{metricsPanel.error ?? '指标加载失败。'}</p>
+                    )}
+                    {(metricsPanel.status === 'ready' || metricsPanel.status === 'empty' || metricsPanel.status === 'idle') && (
+                      <div data-ui="grid" data-cols="2" data-gap="3" className="runtime-metrics-grid">
+                        <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="sm">
+                          <p data-ui="text" data-variant="label" data-tone="muted">Tokens</p>
+                          <p data-ui="text" data-variant="h3" data-tone="primary">{formatNumber(metricsPanel.data.tokens)}</p>
+                        </article>
+                        <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="sm">
+                          <p data-ui="text" data-variant="label" data-tone="muted">Cost (USD)</p>
+                          <p data-ui="text" data-variant="h3" data-tone="primary">{formatCurrency(metricsPanel.data.cost_usd)}</p>
+                        </article>
+                        <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="sm">
+                          <p data-ui="text" data-variant="label" data-tone="muted">GPU Requested</p>
+                          <p data-ui="text" data-variant="h3" data-tone="primary">{formatNumber(metricsPanel.data.gpu_requested)}</p>
+                        </article>
+                        <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="sm">
+                          <p data-ui="text" data-variant="label" data-tone="muted">GPU Total</p>
+                          <p data-ui="text" data-variant="h3" data-tone="primary">{formatNumber(metricsPanel.data.gpu_total)}</p>
+                        </article>
+                      </div>
+                    )}
+                    <p data-ui="text" data-variant="caption" data-tone="muted">
+                      updated at: {formatTimestamp(metricsPanel.data.updated_at)}
+                    </p>
+                  </div>
+                </article>
+
+                <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-panel">
+                  <div data-ui="stack" data-direction="col" data-gap="3">
+                    <p data-ui="text" data-variant="h3" data-tone="primary">Artifact Bundle</p>
+                    {artifactPanel.status === 'loading' && (
+                      <p data-ui="text" data-variant="body" data-tone="muted">正在加载 artifact bundle...</p>
+                    )}
+                    {artifactPanel.status === 'error' && (
+                      <p data-ui="text" data-variant="body" data-tone="danger">{artifactPanel.error ?? 'artifact 加载失败。'}</p>
+                    )}
+                    {(artifactPanel.status === 'ready' || artifactPanel.status === 'empty' || artifactPanel.status === 'idle') && (
+                      <div data-ui="list" data-variant="rows" data-density="comfortable">
+                        {[
+                          ['proposal', artifactPanel.data.proposal_url],
+                          ['paper', artifactPanel.data.paper_url],
+                          ['repo', artifactPanel.data.repo_url],
+                          ['review', artifactPanel.data.review_url],
+                        ].map(([key, url]) => (
+                          <div key={key} className="artifact-row">
+                            <p data-ui="text" data-variant="label" data-tone="secondary">{key}</p>
+                            {url ? (
+                              <a data-ui="link" href={url} target="_blank" rel="noreferrer">{url}</a>
+                            ) : (
+                              <span data-ui="badge" data-variant="subtle" data-tone="neutral">pending</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </article>
+
+                <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-panel">
+                  <div data-ui="stack" data-direction="col" data-gap="3">
+                    <p data-ui="text" data-variant="h3" data-tone="primary">Release Review Queue</p>
+                    {releaseQueue.length === 0 ? (
+                      <p data-ui="text" data-variant="body" data-tone="muted">暂无待展示的审查事件。</p>
+                    ) : (
+                      <div data-ui="list" data-variant="rows" data-density="comfortable" className="review-queue-list">
+                        {releaseQueue.map((event) => (
+                          <div key={event.event_id}>
+                            <p data-ui="text" data-variant="label" data-tone="secondary">{event.event_type}</p>
+                            <p data-ui="text" data-variant="body" data-tone="primary">{event.summary}</p>
+                            <p data-ui="text" data-variant="caption" data-tone="muted">{formatTimestamp(event.timestamp)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <form data-ui="form" data-layout="vertical" onSubmit={handleSubmitReleaseReview} className="release-review-form">
+                      <label data-ui="field">
+                        <span data-slot="label">Reviewers (comma-separated)</span>
+                        <input
+                          data-ui="input"
+                          data-size="sm"
+                          value={reviewersInput}
+                          onChange={(event) => setReviewersInput(event.target.value)}
+                          placeholder="reviewer-1, reviewer-2"
+                        />
+                      </label>
+
+                      <div data-ui="grid" data-cols="2" data-gap="3">
+                        <label data-ui="field">
+                          <span data-slot="label">Decision</span>
+                          <select
+                            data-ui="select"
+                            data-size="sm"
+                            value={decision}
+                            onChange={(event) => setDecision(event.target.value as ReviewDecision)}
+                          >
+                            <option value="approve">approve</option>
+                            <option value="hold">hold</option>
+                            <option value="reject">reject</option>
+                          </select>
+                        </label>
+
+                        <label data-ui="field">
+                          <span data-slot="label">Label policy</span>
+                          <input
+                            data-ui="input"
+                            data-size="sm"
+                            value={labelPolicy}
+                            onChange={(event) => setLabelPolicy(event.target.value)}
+                          />
+                        </label>
+                      </div>
+
+                      <label data-ui="field">
+                        <span data-slot="label">Risk flags (comma-separated)</span>
+                        <input
+                          data-ui="input"
+                          data-size="sm"
+                          value={riskFlagsInput}
+                          onChange={(event) => setRiskFlagsInput(event.target.value)}
+                          placeholder="policy-check, low-evidence"
+                        />
+                      </label>
+
+                      <label data-ui="field">
+                        <span data-slot="label">Comment</span>
+                        <textarea
+                          data-ui="textarea"
+                          value={reviewComment}
+                          onChange={(event) => setReviewComment(event.target.value)}
+                          placeholder="审查备注"
+                        />
+                      </label>
+
+                      <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+                        <p data-ui="text" data-variant="caption" data-tone={reviewSubmitState === 'error' ? 'danger' : 'muted'}>
+                          {reviewSubmitMessage || '提交后会返回 review_id 与 audit_ref。'}
+                        </p>
+                        <button
+                          data-ui="button"
+                          data-variant="primary"
+                          data-size="sm"
+                          type="submit"
+                          disabled={reviewSubmitState === 'submitting'}
+                        >
+                          {reviewSubmitState === 'submitting' ? '提交中...' : '提交审查'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </article>
+              </section>
+            </section>
+          )}
         </main>
       </div>
 
       <footer data-ui="toolbar" data-align="between" data-wrap="nowrap" className="status-bar">
         <p data-ui="text" data-variant="caption" data-tone="muted">
-          {meta ? `${meta.appName} v${meta.appVersion} · ${meta.platform}` : 'loading desktop metadata...'}
+          {meta
+            ? `${meta.appName} v${meta.appVersion} · ${meta.platform}`
+            : metaError ?? 'loading desktop metadata...'}
         </p>
-        <p data-ui="text" data-variant="caption" data-tone="muted">theme: morethan.light</p>
+        <p data-ui="text" data-variant="caption" data-tone="muted">{actionHint}</p>
       </footer>
     </div>
   );

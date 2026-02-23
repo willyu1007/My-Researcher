@@ -19,10 +19,71 @@
   .workspace-pane {
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: auto;
+    gap: var(--ui-space-4);
   }
 
   .metrics-grid {
     align-items: stretch;
+  }
+
+  .governance-zone {
+    min-height: 0;
+  }
+
+  .governance-controls {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .governance-controls-left {
+    min-width: 0;
+  }
+
+  .paper-id-field {
+    min-width: 220px;
+  }
+
+  .governance-panels {
+    min-height: 0;
+    align-items: start;
+  }
+
+  .governance-panel {
+    min-height: 340px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .timeline-list {
+    max-height: 320px;
+    overflow: auto;
+  }
+
+  .timeline-item {
+    display: grid;
+    gap: var(--ui-space-2);
+  }
+
+  .runtime-metrics-grid {
+    align-items: stretch;
+  }
+
+  .artifact-row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--ui-space-2);
+  }
+
+  .review-queue-list {
+    max-height: 200px;
+    overflow: auto;
+  }
+
+  .release-review-form {
+    margin-top: auto;
   }
 
   .brand-block {
@@ -52,6 +113,10 @@
     .shell-main {
       grid-template-columns: 1fr;
       grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .governance-panels {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
     }
   }
 }

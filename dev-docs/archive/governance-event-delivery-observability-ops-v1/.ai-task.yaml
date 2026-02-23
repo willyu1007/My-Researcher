@@ -1,0 +1,6 @@
+version: 1
+task_id: T-010
+project: main
+slug: governance-event-delivery-observability-ops-v1
+status: archived
+updated: "2026-02-23"

@@ -11,7 +11,13 @@ Project: `main`
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-001 unify-ci-verify-entrypoint | archived | F-000 | dev-docs/archive/unify-ci-verify-entrypoint |
-| T-002 paper-assistant-core-modules | planned | F-000 | dev-docs/active/paper-assistant-core-modules |
-| T-003 llm-research-lifecycle-governance-v1 | in-progress | F-001 | dev-docs/active/llm-research-lifecycle-governance-v1 |
-| T-004 desktop-app-electron-ui-v1 | in-progress | F-002 | dev-docs/active/desktop-app-electron-ui-v1 |
+| T-002 paper-assistant-core-modules | archived | F-000 | dev-docs/archive/paper-assistant-core-modules |
+| T-003 llm-research-lifecycle-governance-v1 | archived | F-001 | dev-docs/archive/llm-research-lifecycle-governance-v1 |
+| T-004 desktop-app-electron-ui-v1 | archived | F-002 | dev-docs/archive/desktop-app-electron-ui-v1 |
+| T-005 analemma-borrowing-governance-v1 | archived | F-001 | dev-docs/archive/analemma-borrowing-governance-v1 |
+| T-006 desktop-governance-observability-panels | archived | F-002 | dev-docs/archive/desktop-governance-observability-panels |
+| T-007 governance-read-api-and-release-review-gate | archived | F-001 | dev-docs/archive/governance-read-api-and-release-review-gate |
+| T-008 governance-event-delivery-mechanism-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-mechanism-v1 |
+| T-009 governance-event-delivery-backend-implementation-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-backend-implementation-v1 |
+| T-010 governance-event-delivery-observability-ops-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-observability-ops-v1 |
 <!-- AUTO-GENERATED:END task-index -->

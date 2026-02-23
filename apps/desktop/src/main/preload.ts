@@ -6,8 +6,24 @@ type DesktopMeta = {
   platform: NodeJS.Platform;
 };
 
+type GovernanceBridgeRequest = {
+  method: 'GET' | 'POST';
+  path: string;
+  body?: unknown;
+};
+
+type GovernanceBridgeResponse = {
+  ok: boolean;
+  status: number;
+  payload: unknown;
+};
+
 const desktopApi = {
   getAppMeta: (): Promise<DesktopMeta> => ipcRenderer.invoke('desktop:get-app-meta') as Promise<DesktopMeta>,
+  requestGovernance: (
+    request: GovernanceBridgeRequest,
+  ): Promise<GovernanceBridgeResponse> =>
+    ipcRenderer.invoke('desktop:governance-request', request) as Promise<GovernanceBridgeResponse>,
 };
 
 contextBridge.exposeInMainWorld('desktopApi', desktopApi);

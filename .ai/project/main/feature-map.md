@@ -13,17 +13,23 @@ Project: `main`
 | Task | Status | Dev Docs |
 | --- | --- | --- |
 | T-001 unify-ci-verify-entrypoint | archived | dev-docs/archive/unify-ci-verify-entrypoint |
-| T-002 paper-assistant-core-modules | planned | dev-docs/active/paper-assistant-core-modules |
+| T-002 paper-assistant-core-modules | archived | dev-docs/archive/paper-assistant-core-modules |
 
 ### F-001 Research Lifecycle Governance Core
 
 | Task | Status | Dev Docs |
 | --- | --- | --- |
-| T-003 llm-research-lifecycle-governance-v1 | in-progress | dev-docs/active/llm-research-lifecycle-governance-v1 |
+| T-003 llm-research-lifecycle-governance-v1 | archived | dev-docs/archive/llm-research-lifecycle-governance-v1 |
+| T-005 analemma-borrowing-governance-v1 | archived | dev-docs/archive/analemma-borrowing-governance-v1 |
+| T-007 governance-read-api-and-release-review-gate | archived | dev-docs/archive/governance-read-api-and-release-review-gate |
+| T-008 governance-event-delivery-mechanism-v1 | archived | dev-docs/archive/governance-event-delivery-mechanism-v1 |
+| T-009 governance-event-delivery-backend-implementation-v1 | archived | dev-docs/archive/governance-event-delivery-backend-implementation-v1 |
+| T-010 governance-event-delivery-observability-ops-v1 | archived | dev-docs/archive/governance-event-delivery-observability-ops-v1 |
 
 ### F-002 Desktop Frontend Foundation
 
 | Task | Status | Dev Docs |
 | --- | --- | --- |
-| T-004 desktop-app-electron-ui-v1 | in-progress | dev-docs/active/desktop-app-electron-ui-v1 |
+| T-004 desktop-app-electron-ui-v1 | archived | dev-docs/archive/desktop-app-electron-ui-v1 |
+| T-006 desktop-governance-observability-panels | archived | dev-docs/archive/desktop-governance-observability-panels |
 <!-- AUTO-GENERATED:END feature-map -->

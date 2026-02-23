@@ -1,5 +1,6 @@
 import type {
   CreatePaperProjectRequest,
+  ReleaseReviewPayload,
   StageGateVerifyRequest,
   VersionSpineCommitRequest,
   WritingPackageBuildRequest,
@@ -70,6 +71,54 @@ export class ResearchLifecycleController {
   ): Promise<void> {
     try {
       const result = await this.service.buildWritingPackage(request.params.id, request.body);
+      reply.status(200).send(result);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async getTimeline(
+    request: FastifyRequest<{ Params: IdParams }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.getTimeline(request.params.id);
+      reply.status(200).send(result);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async getResourceMetrics(
+    request: FastifyRequest<{ Params: IdParams }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.getResourceMetrics(request.params.id);
+      reply.status(200).send(result);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async getArtifactBundle(
+    request: FastifyRequest<{ Params: IdParams }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.getArtifactBundle(request.params.id);
+      reply.status(200).send(result);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async reviewReleaseGate(
+    request: FastifyRequest<{ Params: IdParams; Body: ReleaseReviewPayload }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.reviewReleaseGate(request.params.id, request.body);
       reply.status(200).send(result);
     } catch (error) {
       this.handleError(reply, error);

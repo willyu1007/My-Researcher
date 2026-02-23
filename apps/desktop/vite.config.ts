@@ -16,6 +16,16 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      '/paper-projects': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
     fs: {
       allow: [repoRoot],
     },

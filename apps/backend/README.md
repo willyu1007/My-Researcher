@@ -8,6 +8,10 @@ Fastify backend for research lifecycle governance.
 - `POST /paper-projects/:id/version-spine/commit`
 - `POST /paper-projects/:id/stage-gates/:gate/verify`
 - `POST /paper-projects/:id/writing-packages/build`
+- `GET /paper-projects/:id/timeline`
+- `GET /paper-projects/:id/resource-metrics`
+- `GET /paper-projects/:id/artifact-bundle`
+- `POST /paper-projects/:id/release-gate/review`
 - `GET /health`
 
 ## Notes

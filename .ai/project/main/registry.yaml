@@ -45,6 +45,36 @@ requirements:
     status: in-progress
     description: "Deliver desktop app baseline, style theme integration, and task packaging for frontend development."
     feature_id: F-002
+  - id: R-003
+    title: "External automated-research borrowing adaptation baseline"
+    status: in-progress
+    description: "Translate external automated research system mechanisms into governance-ready adaptation docs and incremental interface deltas."
+    feature_id: F-001
+  - id: R-004
+    title: "Desktop governance observability panels baseline"
+    status: planned
+    description: "Deliver desktop timeline/metrics/artifact/release-review panels that consume governance delta contracts with feature-flagged rollout."
+    feature_id: F-002
+  - id: R-005
+    title: "Governance read API and release review gate baseline"
+    status: planned
+    description: "Implement governance read APIs, release review endpoint, and incremental events with compatibility constraints."
+    feature_id: F-001
+  - id: R-006
+    title: "Governance event delivery mechanism baseline"
+    status: planned
+    description: "Define and stage event delivery policy (in-process/durable-outbox), idempotency, retry/dlq, and observability contracts without changing existing governance semantics."
+    feature_id: F-001
+  - id: R-007
+    title: "Governance event delivery backend implementation baseline"
+    status: planned
+    description: "Implement backend event delivery adapter, in-process retry path, and durable-outbox compatible execution boundaries."
+    feature_id: F-001
+  - id: R-008
+    title: "Governance event delivery observability and ops baseline"
+    status: planned
+    description: "Define delivery telemetry, alerting policy, replay approval flow, and incident runbook for governance event delivery."
+    feature_id: F-001
 
 tasks:
   - id: T-001
@@ -56,26 +86,80 @@ tasks:
     updated: 2026-02-08
   - id: T-002
     slug: paper-assistant-core-modules
-    status: planned
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/paper-assistant-core-modules
-    updated: 2026-02-21
+    dev_docs_path: dev-docs/archive/paper-assistant-core-modules
+    updated: 2026-02-24
   - id: T-003
     slug: llm-research-lifecycle-governance-v1
-    status: in-progress
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-001
-    dev_docs_path: dev-docs/active/llm-research-lifecycle-governance-v1
-    updated: 2026-02-22
+    dev_docs_path: dev-docs/archive/llm-research-lifecycle-governance-v1
+    updated: 2026-02-24
   - id: T-004
     slug: desktop-app-electron-ui-v1
-    status: in-progress
+    status: archived
     milestone_id: M-001
     feature_id: F-002
     requirement_ids:
       - R-002
-    dev_docs_path: dev-docs/active/desktop-app-electron-ui-v1
-    updated: 2026-02-22
+    dev_docs_path: dev-docs/archive/desktop-app-electron-ui-v1
+    updated: 2026-02-24
+  - id: T-005
+    slug: analemma-borrowing-governance-v1
+    status: archived
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-003
+    dev_docs_path: dev-docs/archive/analemma-borrowing-governance-v1
+    updated: 2026-02-23
+  - id: T-006
+    slug: desktop-governance-observability-panels
+    status: archived
+    milestone_id: M-001
+    feature_id: F-002
+    requirement_ids:
+      - R-004
+    dev_docs_path: dev-docs/archive/desktop-governance-observability-panels
+    updated: 2026-02-23
+  - id: T-007
+    slug: governance-read-api-and-release-review-gate
+    status: archived
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-005
+    dev_docs_path: dev-docs/archive/governance-read-api-and-release-review-gate
+    updated: 2026-02-23
+  - id: T-008
+    slug: governance-event-delivery-mechanism-v1
+    status: archived
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-006
+    dev_docs_path: dev-docs/archive/governance-event-delivery-mechanism-v1
+    updated: 2026-02-23
+  - id: T-009
+    slug: governance-event-delivery-backend-implementation-v1
+    status: archived
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-007
+    dev_docs_path: dev-docs/archive/governance-event-delivery-backend-implementation-v1
+    updated: 2026-02-23
+  - id: T-010
+    slug: governance-event-delivery-observability-ops-v1
+    status: archived
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-008
+    dev_docs_path: dev-docs/archive/governance-event-delivery-observability-ops-v1
+    updated: 2026-02-23

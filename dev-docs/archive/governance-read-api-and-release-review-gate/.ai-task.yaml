@@ -1,0 +1,6 @@
+version: 1
+task_id: T-007
+project: main
+slug: governance-read-api-and-release-review-gate
+status: archived
+updated: "2026-02-23"

@@ -3,14 +3,14 @@
  */
 @layer reset, tokens, contract, utilities, feature;
 
+@import "./tokens.css";
+@import "./contract.css";
+
 @layer reset {
   *, *::before, *::after { box-sizing: border-box; }
   html, body { height: 100%; }
   body { margin: 0; }
 }
-
-@import "./tokens.css";
-@import "./contract.css";
 
 @layer utilities {
   /* Optional minimal utilities. Prefer `data-ui` roles for spacing/typography. */

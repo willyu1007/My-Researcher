@@ -170,6 +170,69 @@ export interface WritingPackageBuildResponse {
   };
 }
 
+export type TimelineSeverity = 'info' | 'warning' | 'error';
+
+export interface PaperTimelineEvent {
+  event_id: string;
+  event_type: string;
+  module_id?: ModuleId;
+  timestamp: string;
+  node_id?: string;
+  summary: string;
+  severity?: TimelineSeverity;
+}
+
+export interface GetPaperTimelineResponse {
+  paper_id: string;
+  events: PaperTimelineEvent[];
+}
+
+export interface ArtifactBundle {
+  proposal_url: string | null;
+  paper_url: string | null;
+  repo_url: string | null;
+  review_url: string | null;
+}
+
+export interface GetPaperArtifactBundleResponse {
+  paper_id: string;
+  artifact_bundle: ArtifactBundle;
+}
+
+export interface PaperRuntimeMetric {
+  tokens: number | null;
+  cost_usd: number | null;
+  gpu_requested: number | null;
+  gpu_total: number | null;
+  updated_at: string;
+}
+
+export interface GetPaperResourceMetricsResponse {
+  paper_id: string;
+  paper_runtime_metric: PaperRuntimeMetric;
+}
+
+export const RELEASE_REVIEW_DECISIONS = ['approve', 'reject', 'hold'] as const;
+export type ReleaseReviewDecision = (typeof RELEASE_REVIEW_DECISIONS)[number];
+
+export interface ReleaseReviewPayload {
+  reviewers: string[];
+  decision: ReleaseReviewDecision;
+  risk_flags: string[];
+  label_policy: string;
+  comment?: string;
+}
+
+export interface ReleaseGateReviewResponse {
+  gate_result: {
+    accepted: boolean;
+    review_id: string;
+    approved_by?: string;
+    approved_at?: string;
+    audit_ref: string;
+  };
+}
+
 export interface LlmWorkflowPlanGeneratedEvent {
   event_id: string;
   paper_id: string;
@@ -221,12 +284,50 @@ export interface SnapshotPointerSwitchedEvent {
   changed_at: string;
 }
 
+export interface ResearchNodeStatusChangedEvent {
+  event_id: string;
+  paper_id: string;
+  node_id: string;
+  from_status?: NodeStatus;
+  to_status: NodeStatus;
+  changed_at: string;
+  changed_by: CreatedByMode;
+}
+
+export interface ResearchTimelineEventAppendedEvent {
+  event_id: string;
+  paper_id: string;
+  timeline_event: PaperTimelineEvent;
+  appended_at: string;
+}
+
+export interface ResearchMetricsUpdatedEvent {
+  event_id: string;
+  paper_id: string;
+  paper_runtime_metric: PaperRuntimeMetric;
+  updated_at: string;
+}
+
+export interface ResearchReleaseReviewedEvent {
+  event_id: string;
+  paper_id: string;
+  review_id: string;
+  decision: ReleaseReviewDecision;
+  reviewers: string[];
+  label_policy: string;
+  reviewed_at: string;
+}
+
 export type ResearchLifecycleEvent =
   | LlmWorkflowPlanGeneratedEvent
   | StageGateCheckRequestedEvent
   | StageGateCheckResultEvent
   | VersionSpineCommittedEvent
-  | SnapshotPointerSwitchedEvent;
+  | SnapshotPointerSwitchedEvent
+  | ResearchNodeStatusChangedEvent
+  | ResearchTimelineEventAppendedEvent
+  | ResearchMetricsUpdatedEvent
+  | ResearchReleaseReviewedEvent;
 
 export const ERROR_CODES = [
   'INVALID_PAYLOAD',
@@ -412,6 +513,27 @@ export const writingPackageBuildRequestSchema = {
       minItems: 1,
       items: { type: 'string', minLength: 1 },
     },
+  },
+  additionalProperties: false,
+} as const;
+
+export const releaseReviewRequestSchema = {
+  type: 'object',
+  required: ['reviewers', 'decision', 'risk_flags', 'label_policy'],
+  properties: {
+    reviewers: {
+      type: 'array',
+      minItems: 1,
+      items: { type: 'string', minLength: 1 },
+    },
+    decision: { type: 'string', enum: RELEASE_REVIEW_DECISIONS },
+    risk_flags: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      default: [],
+    },
+    label_policy: { type: 'string', minLength: 1 },
+    comment: { type: 'string' },
   },
   additionalProperties: false,
 } as const;

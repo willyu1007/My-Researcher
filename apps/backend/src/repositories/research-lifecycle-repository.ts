@@ -1,7 +1,11 @@
 import type {
+  ArtifactBundle,
   AnalysisContract,
   CreatedByMode,
   ModuleId,
+  PaperRuntimeMetric,
+  ReleaseReviewDecision,
+  TimelineSeverity,
   ValueJudgementPayload,
 } from '@paper-engineering-assistant/shared';
 
@@ -48,6 +52,30 @@ export type SnapshotRecord = {
   createdBy: CreatedByMode;
 };
 
+export type TimelineEventRecord = {
+  id: string;
+  paperId: string;
+  eventType: string;
+  moduleId?: ModuleId;
+  timestamp: string;
+  nodeId?: string;
+  summary: string;
+  severity?: TimelineSeverity;
+  payload?: Record<string, unknown>;
+};
+
+export type ReleaseReviewRecord = {
+  id: string;
+  paperId: string;
+  reviewers: string[];
+  decision: ReleaseReviewDecision;
+  riskFlags: string[];
+  labelPolicy: string;
+  comment?: string;
+  reviewedAt: string;
+  auditRef: string;
+};
+
 export interface ResearchLifecycleRepository {
   countPapers(): Promise<number>;
   countNodes(): Promise<number>;
@@ -62,8 +90,21 @@ export interface ResearchLifecycleRepository {
 
   createNode(record: StageNodeRecord): Promise<StageNodeRecord>;
   findNodeById(nodeId: string): Promise<StageNodeRecord | null>;
+  listNodesByPaperId(paperId: string): Promise<StageNodeRecord[]>;
   updateNodeStatus(nodeId: string, status: StageNodeRecord['nodeStatus']): Promise<StageNodeRecord>;
 
   createSnapshot(record: SnapshotRecord): Promise<SnapshotRecord>;
   findSnapshotById(snapshotId: string): Promise<SnapshotRecord | null>;
+
+  appendTimelineEvent(record: TimelineEventRecord): Promise<TimelineEventRecord>;
+  listTimelineEventsByPaperId(paperId: string): Promise<TimelineEventRecord[]>;
+
+  upsertArtifactBundle(paperId: string, patch: Partial<ArtifactBundle>): Promise<ArtifactBundle>;
+  findArtifactBundleByPaperId(paperId: string): Promise<ArtifactBundle | null>;
+
+  createReleaseReview(record: ReleaseReviewRecord): Promise<ReleaseReviewRecord>;
+  listReleaseReviewsByPaperId(paperId: string): Promise<ReleaseReviewRecord[]>;
+
+  upsertPaperRuntimeMetric(paperId: string, metric: PaperRuntimeMetric): Promise<PaperRuntimeMetric>;
+  findPaperRuntimeMetricByPaperId(paperId: string): Promise<PaperRuntimeMetric | null>;
 }
