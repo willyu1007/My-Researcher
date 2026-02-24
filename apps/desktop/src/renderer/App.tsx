@@ -1,12 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import logoHorizontal from './assets/morethan-logo-horizontal.png';
 import logoIcon from './assets/morethan-icon.png';
-
-type DesktopMeta = {
-  appName: string;
-  appVersion: string;
-  platform: string;
-};
 
 type PanelStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 
@@ -59,16 +52,10 @@ type GovernanceRequest = {
   body?: unknown;
 };
 
-const moduleItems = [
-  '文献管理',
-  '选题管理',
-  '论文管理',
-  '理论框架与研究设计',
-  '实验设计',
-  '模型与训练',
-  '数据分析与讨论',
-  '写作与投稿',
-];
+const coreNavItems = ['文献管理', '选题管理', '论文管理'];
+const writingNavItems = ['写作中心', '投稿检查'];
+
+const initialModule = coreNavItems[0] ?? '';
 
 const emptyMetric: RuntimeMetric = {
   tokens: null,
@@ -313,10 +300,10 @@ async function requestGovernance<T>(request: GovernanceRequest): Promise<T> {
 }
 
 export function App() {
-  const [meta, setMeta] = useState<DesktopMeta | null>(null);
-  const [metaError, setMetaError] = useState<string | null>(null);
-  const [activeModule, setActiveModule] = useState<string>(moduleItems[0]);
-  const [actionHint, setActionHint] = useState<string>('请选择一个模块开始浏览。');
+  const [activeModule, setActiveModule] = useState<string>(initialModule);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [toolbarSearchInput, setToolbarSearchInput] = useState<string>('');
+  const [, setActionHint] = useState<string>('请选择一个模块开始浏览。');
   const [governanceEnabled, setGovernanceEnabled] = useState<boolean>(
     isFlagEnabled(import.meta.env.VITE_ENABLE_GOVERNANCE_PANELS),
   );
@@ -347,34 +334,6 @@ export function App() {
   const [reviewComment, setReviewComment] = useState<string>('');
   const [reviewSubmitState, setReviewSubmitState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [reviewSubmitMessage, setReviewSubmitMessage] = useState<string>('');
-
-  useEffect(() => {
-    const desktopApi = window.desktopApi;
-
-    if (!desktopApi?.getAppMeta) {
-      setMetaError('desktop bridge unavailable');
-      return;
-    }
-
-    let mounted = true;
-    void desktopApi
-      .getAppMeta()
-      .then((next) => {
-        if (mounted) {
-          setMeta(next);
-          setMetaError(null);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setMetaError('desktop metadata unavailable');
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const loadGovernancePanels = useCallback(async (targetPaperId: string) => {
     const normalizedPaperId = targetPaperId.trim();
@@ -459,8 +418,8 @@ export function App() {
     setActionHint(`已切换到「${moduleName}」模块。`);
   };
 
-  const handleCreateBatch = () => {
-    setActionHint('已创建新的研究批次草稿（演示状态）。');
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((current) => !current);
   };
 
   const handleToggleGovernance = () => {
@@ -563,53 +522,83 @@ export function App() {
   };
 
   return (
-    <div data-ui="page" data-density="comfortable" className="desktop-shell">
-      <header data-ui="card" data-variant="default" data-elevation="sm" data-padding="md">
-        <div data-ui="toolbar" data-align="between" data-wrap="nowrap">
-          <div data-ui="stack" data-direction="row" data-align="center" data-gap="3" className="brand-block">
-            <img src={logoIcon} alt="morethan icon" className="brand-icon" />
-            <img src={logoHorizontal} alt="morethan" className="brand-wordmark" />
+    <div data-ui="page" className="desktop-shell">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <div className="topbar-left">
+            <div className="brand-block">
+              <img src={logoIcon} alt="morethan icon" className="brand-icon" />
+              <span className="brand-title">MyResearcher</span>
+            </div>
           </div>
-          <div data-ui="stack" data-direction="row" data-gap="2" data-align="center">
-            <span data-ui="badge" data-variant="subtle" data-tone="neutral">LLM Workflow</span>
-            <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-              Governance {governanceEnabled ? 'ON' : 'OFF'}
-            </span>
-            <button
-              data-ui="button"
-              data-variant="primary"
-              data-size="sm"
-              type="button"
-              onClick={handleCreateBatch}
-            >
-              新建研究批次
-            </button>
+          <div className="topbar-center">
+            <label className="topbar-search" aria-label="搜索（占位）">
+              <span className="topbar-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 20 20" focusable="false">
+                  <circle cx="8.25" cy="8.25" r="5.25" />
+                  <line x1="12.3" y1="12.3" x2="17" y2="17" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={toolbarSearchInput}
+                onChange={(event) => setToolbarSearchInput(event.target.value)}
+                placeholder="搜索（占位）"
+              />
+            </label>
           </div>
+          <div className="topbar-spacer" aria-hidden="true" />
         </div>
       </header>
 
-      <div className="shell-main">
-        <aside data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="sidebar-pane">
-          <div data-ui="stack" data-direction="col" data-gap="3">
-            <p data-ui="text" data-variant="label" data-tone="secondary">模块导航</p>
-            <div data-ui="list" data-variant="rows" data-density="comfortable">
-              {moduleItems.map((item) => (
-                <button
-                  key={item}
-                  data-ui="button"
-                  data-variant={activeModule === item ? 'primary' : 'secondary'}
-                  data-size="sm"
-                  type="button"
-                  onClick={() => handleModuleSelect(item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
+      <div className={`shell-main${isSidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
+        <aside className="sidebar-pane">
+          <div className="sidebar-header">
+            <button
+              type="button"
+              className="sidebar-toggle"
+              onClick={handleToggleSidebar}
+              aria-label={isSidebarCollapsed ? '展开导航栏' : '折叠导航栏'}
+              title={isSidebarCollapsed ? '展开导航栏' : '折叠导航栏'}
+            >
+              {isSidebarCollapsed ? '›' : '‹'}
+            </button>
           </div>
+          {!isSidebarCollapsed ? (
+            <nav className="sidebar-nav-zones" aria-label="模块导航">
+              <section className="sidebar-nav-zone sidebar-nav-zone-core">
+                <div className="module-nav-list">
+                  {coreNavItems.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`module-nav-item${activeModule === item ? ' is-active' : ''}`}
+                      onClick={() => handleModuleSelect(item)}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section className="sidebar-nav-zone sidebar-nav-zone-writing">
+                <div className="module-nav-list">
+                  {writingNavItems.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`module-nav-item${activeModule === item ? ' is-active' : ''}`}
+                      onClick={() => handleModuleSelect(item)}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </nav>
+          ) : null}
         </aside>
 
-        <main data-ui="card" data-variant="default" data-elevation="sm" data-padding="lg" className="workspace-pane">
+        <main className="workspace-pane">
           <section data-ui="section" data-padding="none">
             <p data-ui="text" data-variant="h2" data-tone="primary">Research Control Center</p>
             <p data-ui="text" data-variant="body" data-tone="secondary">
@@ -895,15 +884,6 @@ export function App() {
           )}
         </main>
       </div>
-
-      <footer data-ui="toolbar" data-align="between" data-wrap="nowrap" className="status-bar">
-        <p data-ui="text" data-variant="caption" data-tone="muted">
-          {meta
-            ? `${meta.appName} v${meta.appVersion} · ${meta.platform}`
-            : metaError ?? 'loading desktop metadata...'}
-        </p>
-        <p data-ui="text" data-variant="caption" data-tone="muted">{actionHint}</p>
-      </footer>
     </div>
   );
 }
