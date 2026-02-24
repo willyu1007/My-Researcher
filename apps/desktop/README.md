@@ -12,7 +12,8 @@ Electron + React + Vite + TypeScript desktop shell for the research workflow UI.
 ## Notes
 
 - Renderer imports shared UI styles from `ui/styles/ui.css`.
-- Default theme is `morethan.light`.
+- Default theme mode is `system` (follows OS light/dark preference on first launch).
+- Theme mode switch is available in the top-right header: `跟随系统 / 浅色 / 深色`, with local persistence.
 - Main/preload follow secure defaults (`contextIsolation` + sandbox + preload bridge).
 - Dev server binds to `127.0.0.1` and auto-selects an available port starting from `5173` (override base with `DESKTOP_DEV_PORT`).
 - Dev bootstrap compiles `tsconfig.main.json` before launching Electron to keep main/preload runtime artifacts in sync.

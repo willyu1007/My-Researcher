@@ -2,24 +2,24 @@
   "meta": {
     "theme": "morethan.dark",
     "extends": "base",
-    "description": "Morethan brand dark theme with navy base and orange action accents."
+    "description": "Morethan brand dark theme with cool neutral slate surfaces and softened orange accents."
   },
   "color": {
-    "bg": "#0F2544",
-    "surface": "#143259",
-    "surface_elevated": "#1A3E69",
-    "text_primary": "#F5F7FB",
-    "text_secondary": "#DCE6F4",
-    "text_muted": "#B9C7DB",
-    "border": "#2A4D79",
-    "border_subtle": "#355B8A",
-    "primary": "#E1703C",
-    "primary_hover": "#F08A5A",
-    "primary_active": "#CC5F2F",
-    "on_primary": "#FFFFFF",
-    "warning": "#F3A978",
-    "on_warning": "#0F2544",
-    "focus_ring": "#E1703C80"
+    "bg": "#1E2329",
+    "surface": "#242D38",
+    "surface_elevated": "#29333E",
+    "text_primary": "#EAF0F6",
+    "text_secondary": "#C5D0DB",
+    "text_muted": "#95A3B3",
+    "border": "#323E4D",
+    "border_subtle": "#2A3440",
+    "primary": "#D08A5F",
+    "primary_hover": "#DB976C",
+    "primary_active": "#BD7850",
+    "on_primary": "#FFF8F2",
+    "warning": "#D8A57E",
+    "on_warning": "#1E2329",
+    "focus_ring": "#D08A5F80"
   },
   "typography": {
     "font_family": {

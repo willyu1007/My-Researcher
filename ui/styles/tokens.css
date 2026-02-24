@@ -83,21 +83,21 @@
   }
 
   :root[data-theme="morethan.dark"] {
-    --ui-color-bg: #0F2544;
-    --ui-color-border: #2A4D79;
-    --ui-color-border_subtle: #355B8A;
-    --ui-color-focus_ring: #E1703C80;
-    --ui-color-on_primary: #FFFFFF;
-    --ui-color-on_warning: #0F2544;
-    --ui-color-primary: #E1703C;
-    --ui-color-primary_active: #CC5F2F;
-    --ui-color-primary_hover: #F08A5A;
-    --ui-color-surface: #143259;
-    --ui-color-surface_elevated: #1A3E69;
-    --ui-color-text_muted: #B9C7DB;
-    --ui-color-text_primary: #F5F7FB;
-    --ui-color-text_secondary: #DCE6F4;
-    --ui-color-warning: #F3A978;
+    --ui-color-bg: #1E2329;
+    --ui-color-border: #323E4D;
+    --ui-color-border_subtle: #2A3440;
+    --ui-color-focus_ring: #D08A5F80;
+    --ui-color-on_primary: #FFF8F2;
+    --ui-color-on_warning: #1E2329;
+    --ui-color-primary: #D08A5F;
+    --ui-color-primary_active: #BD7850;
+    --ui-color-primary_hover: #DB976C;
+    --ui-color-surface: #242D38;
+    --ui-color-surface_elevated: #29333E;
+    --ui-color-text_muted: #95A3B3;
+    --ui-color-text_primary: #EAF0F6;
+    --ui-color-text_secondary: #C5D0DB;
+    --ui-color-warning: #D8A57E;
     --ui-radius-lg: 16px;
     --ui-radius-md: 8px;
     --ui-typography-font_family-sans: Inter, Manrope, SF Pro Display, system-ui, sans-serif;

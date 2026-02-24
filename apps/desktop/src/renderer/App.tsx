@@ -1,5 +1,13 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import logoIcon from './assets/morethan-icon.png';
+import {
+  applyTheme,
+  readSystemPrefersDark,
+  resolveTheme,
+  SYSTEM_DARK_MEDIA_QUERY,
+  THEME_MODE_STORAGE_KEY,
+  type ThemeMode,
+} from './theme';
 
 type PanelStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 
@@ -54,6 +62,11 @@ type GovernanceRequest = {
 
 const coreNavItems = ['文献管理', '选题管理', '论文管理'];
 const writingNavItems = ['写作中心', '投稿检查'];
+const themeModeOptions: Array<{ value: ThemeMode; label: string }> = [
+  { value: 'system', label: '跟随系统' },
+  { value: 'light', label: '浅色' },
+  { value: 'dark', label: '深色' },
+];
 
 const initialModule = coreNavItems[0] ?? '';
 
@@ -299,9 +312,15 @@ async function requestGovernance<T>(request: GovernanceRequest): Promise<T> {
   return payload as T;
 }
 
-export function App() {
+type AppProps = {
+  initialThemeMode: ThemeMode;
+};
+
+export function App({ initialThemeMode }: AppProps) {
   const [activeModule, setActiveModule] = useState<string>(initialModule);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(initialThemeMode);
+  const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => readSystemPrefersDark());
   const [toolbarSearchInput, setToolbarSearchInput] = useState<string>('');
   const [, setActionHint] = useState<string>('请选择一个模块开始浏览。');
   const [governanceEnabled, setGovernanceEnabled] = useState<boolean>(
@@ -334,6 +353,38 @@ export function App() {
   const [reviewComment, setReviewComment] = useState<string>('');
   const [reviewSubmitState, setReviewSubmitState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [reviewSubmitMessage, setReviewSubmitMessage] = useState<string>('');
+
+  useEffect(() => {
+    if (themeMode !== 'system' || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(SYSTEM_DARK_MEDIA_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setSystemPrefersDark(event.matches);
+    };
+
+    setSystemPrefersDark(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, [themeMode]);
+
+  useEffect(() => {
+    applyTheme(resolveTheme(themeMode, systemPrefersDark));
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode);
+    } catch {
+      // Ignore storage write failures and keep runtime state.
+    }
+  }, [themeMode, systemPrefersDark]);
 
   const loadGovernancePanels = useCallback(async (targetPaperId: string) => {
     const normalizedPaperId = targetPaperId.trim();
@@ -547,7 +598,21 @@ export function App() {
               />
             </label>
           </div>
-          <div className="topbar-spacer" aria-hidden="true" />
+          <div className="topbar-right">
+            <div className="topbar-theme-switch" role="group" aria-label="配色方案">
+              {themeModeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`topbar-theme-switch-item${themeMode === option.value ? ' is-active' : ''}`}
+                  onClick={() => setThemeMode(option.value)}
+                  aria-pressed={themeMode === option.value}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </header>
 
