@@ -1,0 +1,15 @@
+version = 1
+name = "My-Researcher"
+
+[setup]
+script = "pnpm install --frozen-lockfile"
+
+[[actions]]
+name = "Run All Dev"
+icon = "run"
+command = "pnpm install --frozen-lockfile && pnpm --filter @paper-engineering-assistant/backend typecheck && pnpm --filter @paper-engineering-assistant/desktop build:main && (pnpm --filter @paper-engineering-assistant/backend dev & pnpm --filter @paper-engineering-assistant/desktop dev & wait)"
+
+[[actions]]
+name = "Stop Frontend + Backend"
+icon = "debug"
+command = "pkill -f 'node scripts/dev.mjs' || true; pkill -f 'ts-node/esm src/server.ts' || true; pkill -f '@paper-engineering-assistant/desktop dev' || true; pkill -f '@paper-engineering-assistant/backend dev' || true; pkill -f 'vite/bin/vite.js --host 127.0.0.1' || true; pkill -f 'electron dist/main/main.js' || true; (lsof -ti tcp:5173 | xargs kill -TERM) 2>/dev/null || true; (lsof -ti tcp:3000 | xargs kill -TERM) 2>/dev/null || true; echo 'Stopped frontend/backend dev processes (if running).'"
