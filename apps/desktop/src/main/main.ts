@@ -49,12 +49,15 @@ function createWindow(): BrowserWindow {
     minHeight: 720,
     center: true,
     show: false,
-    backgroundColor: '#f3f5f8',
+    backgroundColor: isMacOS ? '#00000000' : '#f3f5f8',
+    transparent: isMacOS,
     autoHideMenuBar: true,
     ...(isMacOS
       ? {
           titleBarStyle: 'hidden' as const,
           trafficLightPosition: { x: 16, y: 15 },
+          vibrancy: 'under-window' as const,
+          visualEffectState: 'active' as const,
           title: '',
         }
       : {}),

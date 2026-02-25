@@ -34,12 +34,15 @@ function createWindow() {
         minHeight: 720,
         center: true,
         show: false,
-        backgroundColor: '#f3f5f8',
+        backgroundColor: isMacOS ? '#00000000' : '#f3f5f8',
+        transparent: isMacOS,
         autoHideMenuBar: true,
         ...(isMacOS
             ? {
                 titleBarStyle: 'hidden',
                 trafficLightPosition: { x: 16, y: 15 },
+                vibrancy: 'under-window',
+                visualEffectState: 'active',
                 title: '',
             }
             : {}),
