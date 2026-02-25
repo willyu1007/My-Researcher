@@ -39,9 +39,7 @@ function createWindow() {
         ...(isMacOS
             ? {
                 titleBarStyle: 'hidden',
-                trafficLightPosition: { x: 16, y: 13 },
-                vibrancy: 'under-window',
-                visualEffectState: 'active',
+                trafficLightPosition: { x: 16, y: 15 },
                 title: '',
             }
             : {}),

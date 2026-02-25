@@ -3,11 +3,11 @@
     --sidebar-width-expanded: 228px;
     --sidebar-width-collapsed: 0px;
     --left-region-width: var(--sidebar-width-expanded);
-    --left-region-bg: #bec9d9;
-    --left-region-bg-elevated: #bec9d9;
-    --right-region-bg: #f3f5f8;
-    --right-region-bg-elevated: #f3f5f8;
-    --region-divider-color: #c4cedc;
+    --left-region-bg: color-mix(in srgb, var(--ui-color-surface_elevated) 84%, transparent 16%);
+    --left-region-bg-elevated: color-mix(in srgb, var(--ui-color-surface) 90%, transparent 10%);
+    --right-region-bg: var(--ui-color-bg);
+    --right-region-bg-elevated: var(--ui-color-surface_elevated);
+    --region-divider-color: var(--ui-color-border);
 
     position: relative;
     isolation: isolate;
@@ -73,7 +73,7 @@
   .topbar-inner {
     width: 100%;
     display: grid;
-    grid-template-columns: minmax(112px, 1fr) minmax(240px, 460px) minmax(180px, 1fr);
+    grid-template-columns: minmax(112px, 1fr) minmax(80px, 1fr) auto;
     align-items: center;
     gap: 12px;
     position: relative;
@@ -99,14 +99,14 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 10px;
+    gap: 0;
   }
 
   .topbar-sidebar-toggle {
-    width: 24px;
-    height: 24px;
-    border: 1px solid var(--ui-color-border);
-    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 0;
     background: transparent;
     color: var(--ui-color-text_secondary);
     display: inline-flex;
@@ -117,8 +117,8 @@
   }
 
   .topbar-sidebar-toggle svg {
-    width: 15px;
-    height: 15px;
+    width: 19px;
+    height: 19px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.65;
@@ -127,41 +127,51 @@
   }
 
   .topbar-sidebar-toggle:hover {
-    border-color: var(--ui-color-primary);
     color: var(--ui-color-primary);
-    background: color-mix(in srgb, var(--ui-color-surface) 85%, transparent 15%);
+    background: transparent;
   }
 
   .topbar-sidebar-toggle:focus-visible {
     outline: 2px solid var(--ui-color-focus_ring);
-    outline-offset: 1px;
+    outline-offset: 2px;
   }
 
   .topbar-search {
-    width: 210px;
-    max-width: 100%;
-    height: 28px;
-    border: 1px solid var(--ui-color-border);
-    border-radius: 12px;
-    background: var(--ui-color-surface);
+    width: 34px;
+    max-width: min(360px, 44vw);
+    height: 30px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 0 12px;
+    justify-content: center;
+    padding: 0;
     min-width: 0;
-    transition: width 180ms ease, border-color 120ms ease, background-color 120ms ease;
+    overflow: hidden;
+    transform-origin: right center;
+    transition:
+      width 200ms ease,
+      padding 160ms ease,
+      border-color 120ms ease,
+      background-color 120ms ease;
+    margin-right: 4px;
   }
 
-  .topbar-search:focus-within {
-    width: 440px;
+  .topbar-search:focus-within,
+  .topbar-search.has-value {
+    width: min(320px, 38vw);
+    justify-content: flex-start;
+    padding: 0 10px;
     border-color: var(--ui-color-primary);
     background: var(--ui-color-surface);
   }
 
   .topbar-search-icon {
     color: var(--ui-color-text_secondary);
-    width: 18px;
-    height: 18px;
+    width: 19px;
+    height: 19px;
     line-height: 1;
     flex: 0 0 auto;
     display: inline-flex;
@@ -180,18 +190,28 @@
   }
 
   .topbar-search input {
-    width: 100%;
+    width: 0;
     border: 0;
     background: transparent;
     color: var(--ui-color-text_primary);
     font: inherit;
     font-size: 14px;
     line-height: 1.2;
+    opacity: 0;
+    pointer-events: none;
     outline: none;
+    transition: opacity 120ms ease;
+  }
+
+  .topbar-search:focus-within input,
+  .topbar-search.has-value input {
+    width: 100%;
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .topbar-search input::placeholder {
-    color: color-mix(in srgb, var(--ui-color-text_muted) 58%, white 42%);
+    color: color-mix(in srgb, var(--ui-color-text_muted) 74%, transparent 26%);
   }
 
   .topbar-theme-switch {
@@ -202,6 +222,14 @@
     border-radius: 11px;
     background: var(--ui-color-surface);
     padding: 2px;
+  }
+
+  .topbar-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--ui-color-border);
+    flex: 0 0 auto;
+    margin-right: 12px;
   }
 
   .topbar-theme-switch-item {
@@ -235,14 +263,14 @@
 
   .desktop-shell.is-macos-chrome .topbar {
     -webkit-app-region: drag;
-    height: 38px;
+    height: 42px;
     border-bottom: 0;
     background: transparent;
     backdrop-filter: none;
   }
 
   .desktop-shell.is-macos-chrome .topbar-left {
-    padding-left: 78px;
+    padding-left: 88px;
   }
 
   .desktop-shell.is-macos-chrome .topbar-region {
@@ -278,16 +306,23 @@
   .desktop-shell.is-macos-chrome .topbar-search *,
   .desktop-shell.is-macos-chrome .topbar-theme-switch,
   .desktop-shell.is-macos-chrome .topbar-theme-switch *,
-  .desktop-shell.is-macos-chrome .topbar-logo {
+  .desktop-shell.is-macos-chrome .topbar-divider {
     -webkit-app-region: no-drag;
   }
 
   .desktop-shell.is-macos-chrome .topbar-search {
-    background: color-mix(in srgb, var(--ui-color-surface) 84%, white 16%);
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-search:focus-within,
+  .desktop-shell.is-macos-chrome .topbar-search.has-value {
+    background: var(--ui-color-surface);
+    border-color: var(--ui-color-primary);
   }
 
   .desktop-shell.is-macos-chrome .topbar-theme-switch {
-    background: color-mix(in srgb, var(--ui-color-surface) 86%, white 14%);
+    background: var(--ui-color-surface);
   }
 
   .shell-main {
@@ -338,7 +373,7 @@
   }
 
   .sidebar-nav-zone-writing {
-    border-top: 1px solid color-mix(in srgb, var(--region-divider-color) 60%, white 40%);
+    border-top: 1px solid color-mix(in srgb, var(--region-divider-color) 76%, transparent 24%);
     margin-top: 8px;
     padding-top: 8px;
   }
@@ -468,20 +503,13 @@
     }
 
     .topbar-inner {
-      grid-template-columns: auto minmax(150px, 1fr) auto;
+      grid-template-columns: auto minmax(80px, 1fr) auto;
       gap: 8px;
     }
 
-    .topbar-search {
-      width: 170px;
-    }
-
-    .topbar-search:focus-within {
-      width: 260px;
-    }
-
-    .topbar-logo {
-      display: none;
+    .topbar-search:focus-within,
+    .topbar-search.has-value {
+      width: min(220px, 52vw);
     }
 
     .topbar-theme-switch-item {
@@ -489,7 +517,7 @@
     }
 
     .desktop-shell.is-macos-chrome .topbar-left {
-      padding-left: 68px;
+      padding-left: 76px;
     }
 
     .workspace-pane {

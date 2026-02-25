@@ -54,9 +54,7 @@ function createWindow(): BrowserWindow {
     ...(isMacOS
       ? {
           titleBarStyle: 'hidden' as const,
-          trafficLightPosition: { x: 16, y: 13 },
-          vibrancy: 'under-window' as const,
-          visualEffectState: 'active' as const,
+          trafficLightPosition: { x: 16, y: 15 },
           title: '',
         }
       : {}),

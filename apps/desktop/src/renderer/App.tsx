@@ -1,5 +1,4 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import logoIcon from './assets/morethan-icon.png';
 import {
   applyTheme,
   readSystemPrefersDark,
@@ -642,8 +641,12 @@ export function App({ initialThemeMode }: AppProps) {
               </svg>
             </button>
           </div>
-          <div className="topbar-center">
-            <label className="topbar-search" aria-label="搜索（占位）">
+          <div className="topbar-center" aria-hidden="true" />
+          <div className="topbar-right">
+            <label
+              className={`topbar-search${toolbarSearchInput.trim().length > 0 ? ' has-value' : ''}`}
+              aria-label="搜索（占位）"
+            >
               <span className="topbar-search-icon" aria-hidden="true">
                 <svg viewBox="0 0 20 20" focusable="false">
                   <circle cx="8.25" cy="8.25" r="5.25" />
@@ -657,9 +660,7 @@ export function App({ initialThemeMode }: AppProps) {
                 placeholder="搜索（占位）"
               />
             </label>
-          </div>
-          <div className="topbar-right">
-            <img src={logoIcon} alt="MyResearcher logo" className="brand-icon topbar-logo" />
+            <span className="topbar-divider" aria-hidden="true" />
             <div className="topbar-theme-switch" role="group" aria-label="配色方案">
               {themeModeOptions.map((option) => (
                 <button
