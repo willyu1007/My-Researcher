@@ -14,6 +14,7 @@ Project: `main`
 | --- | --- | --- |
 | T-001 unify-ci-verify-entrypoint | archived | dev-docs/archive/unify-ci-verify-entrypoint |
 | T-002 paper-assistant-core-modules | archived | dev-docs/archive/paper-assistant-core-modules |
+| T-011 literature-management-flow | in-progress | dev-docs/active/literature-management-flow |
 
 ### F-001 Research Lifecycle Governance Core
 

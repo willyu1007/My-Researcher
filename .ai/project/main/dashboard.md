@@ -8,12 +8,13 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 10 (planned: 0, in-progress: 0, blocked: 0, done: 0, archived: 10)
+- Tasks: 11 (planned: 0, in-progress: 1, blocked: 0, done: 0, archived: 10)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-011 literature-management-flow | in-progress | F-000 | dev-docs/active/literature-management-flow |
 | T-002 paper-assistant-core-modules | archived | F-000 | dev-docs/archive/paper-assistant-core-modules |
 | T-003 llm-research-lifecycle-governance-v1 | archived | F-001 | dev-docs/archive/llm-research-lifecycle-governance-v1 |
 | T-004 desktop-app-electron-ui-v1 | archived | F-002 | dev-docs/archive/desktop-app-electron-ui-v1 |

@@ -288,3 +288,106 @@ test('release review endpoint rejects invalid payload', async () => {
 
   await app.close();
 });
+
+test('literature workflow routes support import, topic scope, paper link sync and citation update', async () => {
+  const app = buildApp();
+
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/paper-projects',
+    payload: {
+      topic_id: 'TOPIC-INT-LIT-1',
+      title: 'Literature Workflow Paper',
+      created_by: 'human',
+      initial_context: {
+        literature_evidence_ids: ['LIT-INT-WF-1'],
+      },
+    },
+  });
+
+  assert.equal(createRes.statusCode, 201);
+  const { paper_id: paperId } = createRes.json();
+
+  const importRes = await app.inject({
+    method: 'POST',
+    url: '/literature/import',
+    payload: {
+      items: [
+        {
+          provider: 'crossref',
+          external_id: '10.2000/workflow-a',
+          title: 'Workflow Paper A',
+          authors: ['Alice', 'Bob'],
+          year: 2024,
+          doi: '10.2000/workflow-a',
+          source_url: 'https://doi.org/10.2000/workflow-a',
+        },
+      ],
+    },
+  });
+
+  assert.equal(importRes.statusCode, 200);
+  const importBody = importRes.json();
+  const literatureId = importBody.results[0]?.literature_id;
+  assert.equal(typeof literatureId, 'string');
+
+  const scopeRes = await app.inject({
+    method: 'POST',
+    url: '/topics/TOPIC-INT-LIT-1/literature-scope',
+    payload: {
+      actions: [
+        {
+          literature_id: literatureId,
+          scope_status: 'in_scope',
+        },
+      ],
+    },
+  });
+  assert.equal(scopeRes.statusCode, 200);
+  const scopeBody = scopeRes.json();
+  assert.equal(scopeBody.items.length, 1);
+  assert.equal(scopeBody.items[0]?.scope_status, 'in_scope');
+
+  const syncRes = await app.inject({
+    method: 'POST',
+    url: '/paper-projects/' + paperId + '/literature-links/from-topic',
+    payload: {
+      topic_id: 'TOPIC-INT-LIT-1',
+    },
+  });
+  assert.equal(syncRes.statusCode, 200);
+  const syncBody = syncRes.json();
+  assert.equal(syncBody.linked_count, 1);
+
+  const paperLiteratureRes = await app.inject({
+    method: 'GET',
+    url: '/paper-projects/' + paperId + '/literature',
+  });
+  assert.equal(paperLiteratureRes.statusCode, 200);
+  const paperLiteratureBody = paperLiteratureRes.json();
+  assert.equal(paperLiteratureBody.items.length, 1);
+  const linkId = paperLiteratureBody.items[0]?.link_id;
+
+  const patchRes = await app.inject({
+    method: 'PATCH',
+    url: '/paper-projects/' + paperId + '/literature-links/' + linkId,
+    payload: {
+      citation_status: 'cited',
+      note: 'used in final draft',
+    },
+  });
+  assert.equal(patchRes.statusCode, 200);
+  const patchBody = patchRes.json();
+  assert.equal(patchBody.item.citation_status, 'cited');
+  assert.equal(patchBody.item.note, 'used in final draft');
+
+  const scopeQueryRes = await app.inject({
+    method: 'GET',
+    url: '/topics/TOPIC-INT-LIT-1/literature-scope',
+  });
+  assert.equal(scopeQueryRes.statusCode, 200);
+  const scopeQueryBody = scopeQueryRes.json();
+  assert.equal(scopeQueryBody.items.length, 1);
+
+  await app.close();
+});

@@ -108,6 +108,146 @@ export interface CreatePaperProjectResponse {
   created_at: string;
 }
 
+export const LITERATURE_PROVIDERS = ['crossref', 'arxiv'] as const;
+export type LiteratureProvider = (typeof LITERATURE_PROVIDERS)[number];
+
+export const RIGHTS_CLASSES = ['OA', 'USER_AUTH', 'RESTRICTED', 'UNKNOWN'] as const;
+export type RightsClass = (typeof RIGHTS_CLASSES)[number];
+
+export const DEDUP_MATCH_TYPES = ['none', 'doi', 'arxiv_id', 'title_authors_year'] as const;
+export type DedupMatchType = (typeof DEDUP_MATCH_TYPES)[number];
+
+export const TOPIC_SCOPE_STATUSES = ['in_scope', 'excluded'] as const;
+export type TopicScopeStatus = (typeof TOPIC_SCOPE_STATUSES)[number];
+
+export const PAPER_CITATION_STATUSES = ['seeded', 'selected', 'used', 'cited', 'dropped'] as const;
+export type PaperCitationStatus = (typeof PAPER_CITATION_STATUSES)[number];
+
+export interface LiteratureSearchRequest {
+  query: string;
+  providers?: LiteratureProvider[];
+  limit?: number;
+}
+
+export interface LiteratureSearchCandidate {
+  import_payload: LiteratureImportItem;
+  dedup: {
+    is_existing: boolean;
+    literature_id?: string;
+    matched_by: DedupMatchType;
+  };
+}
+
+export interface LiteratureSearchResponse {
+  query: string;
+  items: LiteratureSearchCandidate[];
+}
+
+export interface LiteratureImportItem {
+  provider: LiteratureProvider;
+  external_id: string;
+  title: string;
+  abstract?: string;
+  authors?: string[];
+  year?: number;
+  doi?: string;
+  arxiv_id?: string;
+  source_url: string;
+  rights_class?: RightsClass;
+  tags?: string[];
+}
+
+export interface LiteratureImportRequest {
+  items: LiteratureImportItem[];
+}
+
+export interface LiteratureImportResult {
+  literature_id: string;
+  is_new: boolean;
+  matched_by: DedupMatchType;
+  title: string;
+  source_provider: LiteratureProvider;
+  source_url: string;
+}
+
+export interface LiteratureImportResponse {
+  results: LiteratureImportResult[];
+}
+
+export interface TopicLiteratureScopeAction {
+  literature_id: string;
+  scope_status: TopicScopeStatus;
+  reason?: string;
+}
+
+export interface UpsertTopicLiteratureScopeRequest {
+  actions: TopicLiteratureScopeAction[];
+}
+
+export interface TopicLiteratureScopeItem {
+  scope_id: string;
+  topic_id: string;
+  literature_id: string;
+  scope_status: TopicScopeStatus;
+  reason?: string;
+  updated_at: string;
+  title: string;
+  authors: string[];
+  year: number | null;
+  doi: string | null;
+  arxiv_id: string | null;
+}
+
+export interface TopicLiteratureScopeResponse {
+  topic_id: string;
+  items: TopicLiteratureScopeItem[];
+}
+
+export interface SyncPaperLiteratureFromTopicRequest {
+  topic_id: string;
+}
+
+export interface SyncPaperLiteratureFromTopicResponse {
+  paper_id: string;
+  topic_id: string;
+  linked_count: number;
+  skipped_count: number;
+}
+
+export interface PaperLiteratureLinkView {
+  link_id: string;
+  paper_id: string;
+  topic_id: string | null;
+  literature_id: string;
+  citation_status: PaperCitationStatus;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  authors: string[];
+  year: number | null;
+  doi: string | null;
+  arxiv_id: string | null;
+  source_provider: LiteratureProvider | null;
+  source_url: string | null;
+  tags: string[];
+}
+
+export interface GetPaperLiteratureResponse {
+  paper_id: string;
+  items: PaperLiteratureLinkView[];
+}
+
+export interface UpdatePaperLiteratureLinkRequest {
+  citation_status?: PaperCitationStatus;
+  note?: string;
+}
+
+export interface UpdatePaperLiteratureLinkResponse {
+  paper_id: string;
+  item: PaperLiteratureLinkView;
+}
+
 export interface VersionSpineCommitRequest {
   lineage_meta: LineageMeta;
   payload_ref: string;
@@ -331,6 +471,7 @@ export type ResearchLifecycleEvent =
 
 export const ERROR_CODES = [
   'INVALID_PAYLOAD',
+  'NOT_FOUND',
   'VERSION_CONFLICT',
   'SNAPSHOT_COMPATIBILITY_FAILED',
   'GATE_CONSTRAINT_FAILED',
@@ -341,7 +482,7 @@ export const ERROR_CODES = [
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
 export interface ErrorResponse {
-  status_code: 400 | 409 | 422 | 423;
+  status_code: 400 | 404 | 409 | 422 | 423;
   error_code: ErrorCode;
   message: string;
   details?: Record<string, unknown>;
@@ -534,6 +675,99 @@ export const releaseReviewRequestSchema = {
     },
     label_policy: { type: 'string', minLength: 1 },
     comment: { type: 'string' },
+  },
+  additionalProperties: false,
+} as const;
+
+export const literatureSearchRequestSchema = {
+  type: 'object',
+  required: ['query'],
+  properties: {
+    query: { type: 'string', minLength: 1 },
+    providers: {
+      type: 'array',
+      items: { type: 'string', enum: LITERATURE_PROVIDERS },
+      uniqueItems: true,
+    },
+    limit: { type: 'integer', minimum: 1, maximum: 20, default: 10 },
+  },
+  additionalProperties: false,
+} as const;
+
+export const literatureImportRequestSchema = {
+  type: 'object',
+  required: ['items'],
+  properties: {
+    items: {
+      type: 'array',
+      minItems: 1,
+      items: {
+        type: 'object',
+        required: ['provider', 'external_id', 'title', 'source_url'],
+        properties: {
+          provider: { type: 'string', enum: LITERATURE_PROVIDERS },
+          external_id: { type: 'string', minLength: 1 },
+          title: { type: 'string', minLength: 1 },
+          abstract: { type: 'string' },
+          authors: {
+            type: 'array',
+            items: { type: 'string', minLength: 1 },
+            default: [],
+          },
+          year: { type: 'integer', minimum: 1900, maximum: 2100 },
+          doi: { type: 'string' },
+          arxiv_id: { type: 'string' },
+          source_url: { type: 'string', minLength: 1 },
+          rights_class: { type: 'string', enum: RIGHTS_CLASSES, default: 'UNKNOWN' },
+          tags: {
+            type: 'array',
+            items: { type: 'string', minLength: 1 },
+            default: [],
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  additionalProperties: false,
+} as const;
+
+export const upsertTopicLiteratureScopeRequestSchema = {
+  type: 'object',
+  required: ['actions'],
+  properties: {
+    actions: {
+      type: 'array',
+      minItems: 1,
+      items: {
+        type: 'object',
+        required: ['literature_id', 'scope_status'],
+        properties: {
+          literature_id: { type: 'string', minLength: 1 },
+          scope_status: { type: 'string', enum: TOPIC_SCOPE_STATUSES },
+          reason: { type: 'string' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  additionalProperties: false,
+} as const;
+
+export const syncPaperLiteratureFromTopicRequestSchema = {
+  type: 'object',
+  required: ['topic_id'],
+  properties: {
+    topic_id: { type: 'string', minLength: 1 },
+  },
+  additionalProperties: false,
+} as const;
+
+export const updatePaperLiteratureLinkRequestSchema = {
+  type: 'object',
+  properties: {
+    citation_status: { type: 'string', enum: PAPER_CITATION_STATUSES },
+    note: { type: 'string' },
   },
   additionalProperties: false,
 } as const;

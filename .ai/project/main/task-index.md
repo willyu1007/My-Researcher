@@ -20,4 +20,5 @@ Project: `main`
 | T-008 governance-event-delivery-mechanism-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-mechanism-v1 |
 | T-009 governance-event-delivery-backend-implementation-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-backend-implementation-v1 |
 | T-010 governance-event-delivery-observability-ops-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-observability-ops-v1 |
+| T-011 literature-management-flow | in-progress | F-000 | dev-docs/active/literature-management-flow |
 <!-- AUTO-GENERATED:END task-index -->

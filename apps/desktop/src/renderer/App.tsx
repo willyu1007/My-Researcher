@@ -53,8 +53,68 @@ type ReleaseGateResponse = {
   };
 };
 
+type DedupMatchType = 'none' | 'doi' | 'arxiv_id' | 'title_authors_year';
+type CitationStatus = 'seeded' | 'selected' | 'used' | 'cited' | 'dropped';
+type ScopeStatus = 'in_scope' | 'excluded';
+
+type LiteratureImportPayload = {
+  provider: 'crossref' | 'arxiv';
+  external_id: string;
+  title: string;
+  abstract?: string;
+  authors?: string[];
+  year?: number;
+  doi?: string;
+  arxiv_id?: string;
+  source_url: string;
+  rights_class?: 'OA' | 'USER_AUTH' | 'RESTRICTED' | 'UNKNOWN';
+  tags?: string[];
+};
+
+type LiteratureSearchItem = {
+  import_payload: LiteratureImportPayload;
+  dedup: {
+    is_existing: boolean;
+    literature_id?: string;
+    matched_by: DedupMatchType;
+  };
+};
+
+type TopicScopeItem = {
+  scope_id: string;
+  topic_id: string;
+  literature_id: string;
+  scope_status: ScopeStatus;
+  reason?: string;
+  updated_at: string;
+  title: string;
+  authors: string[];
+  year: number | null;
+  doi: string | null;
+  arxiv_id: string | null;
+};
+
+type PaperLiteratureItem = {
+  link_id: string;
+  paper_id: string;
+  topic_id: string | null;
+  literature_id: string;
+  citation_status: CitationStatus;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  authors: string[];
+  year: number | null;
+  doi: string | null;
+  arxiv_id: string | null;
+  source_provider: string | null;
+  source_url: string | null;
+  tags: string[];
+};
+
 type GovernanceRequest = {
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'PATCH';
   path: string;
   body?: unknown;
 };
@@ -68,6 +128,7 @@ const themeModeOptions: Array<{ value: ThemeMode; label: string }> = [
 ];
 
 const initialModule = coreNavItems[0] ?? '';
+const citationStatusOptions: CitationStatus[] = ['seeded', 'selected', 'used', 'cited', 'dropped'];
 
 const emptyMetric: RuntimeMetric = {
   tokens: null,
@@ -230,6 +291,180 @@ function normalizeReleasePayload(payload: unknown): ReleaseGateResponse | null {
   };
 }
 
+function normalizeLiteratureSearchPayload(payload: unknown): LiteratureSearchItem[] {
+  const root = asRecord(payload);
+  const itemsRaw = root?.items;
+  if (!Array.isArray(itemsRaw)) {
+    return [];
+  }
+
+  return itemsRaw
+    .map((item): LiteratureSearchItem | null => {
+      const row = asRecord(item);
+      const importPayload = row ? asRecord(row.import_payload) : null;
+      const dedup = row ? asRecord(row.dedup) : null;
+      if (!importPayload || !dedup) {
+        return null;
+      }
+
+      const provider = toText(importPayload.provider);
+      const externalId = toText(importPayload.external_id);
+      const title = toText(importPayload.title);
+      const sourceUrl = toText(importPayload.source_url);
+      if (!provider || !externalId || !title || !sourceUrl) {
+        return null;
+      }
+
+      const dedupMatchedBy = toText(dedup.matched_by);
+      const isExisting = dedup.is_existing;
+      if (typeof isExisting !== 'boolean' || !dedupMatchedBy) {
+        return null;
+      }
+
+      return {
+        import_payload: {
+          provider: provider === 'arxiv' ? 'arxiv' : 'crossref',
+          external_id: externalId,
+          title,
+          abstract: toText(importPayload.abstract),
+          authors: Array.isArray(importPayload.authors)
+            ? importPayload.authors.filter((author): author is string => typeof author === 'string')
+            : [],
+          year: typeof importPayload.year === 'number' ? importPayload.year : undefined,
+          doi: toText(importPayload.doi),
+          arxiv_id: toText(importPayload.arxiv_id),
+          source_url: sourceUrl,
+          rights_class:
+            toText(importPayload.rights_class) === 'OA' ||
+            toText(importPayload.rights_class) === 'USER_AUTH' ||
+            toText(importPayload.rights_class) === 'RESTRICTED'
+              ? (toText(importPayload.rights_class) as LiteratureImportPayload['rights_class'])
+              : 'UNKNOWN',
+          tags: Array.isArray(importPayload.tags)
+            ? importPayload.tags.filter((tag): tag is string => typeof tag === 'string')
+            : [],
+        },
+        dedup: {
+          is_existing: isExisting,
+          literature_id: toText(dedup.literature_id),
+          matched_by:
+            dedupMatchedBy === 'doi' ||
+            dedupMatchedBy === 'arxiv_id' ||
+            dedupMatchedBy === 'title_authors_year'
+              ? dedupMatchedBy
+              : 'none',
+        },
+      };
+    })
+    .filter((row): row is LiteratureSearchItem => row !== null);
+}
+
+function normalizeTopicScopePayload(payload: unknown): TopicScopeItem[] {
+  const root = asRecord(payload);
+  const itemsRaw = root?.items;
+  if (!Array.isArray(itemsRaw)) {
+    return [];
+  }
+
+  return itemsRaw
+    .map((item): TopicScopeItem | null => {
+      const row = asRecord(item);
+      if (!row) {
+        return null;
+      }
+
+      const scopeId = toText(row.scope_id);
+      const topicId = toText(row.topic_id);
+      const literatureId = toText(row.literature_id);
+      const scopeStatus = toText(row.scope_status);
+      const updatedAt = toText(row.updated_at);
+      const title = toText(row.title);
+      if (!scopeId || !topicId || !literatureId || !scopeStatus || !updatedAt || !title) {
+        return null;
+      }
+
+      return {
+        scope_id: scopeId,
+        topic_id: topicId,
+        literature_id: literatureId,
+        scope_status: scopeStatus === 'excluded' ? 'excluded' : 'in_scope',
+        reason: toText(row.reason),
+        updated_at: updatedAt,
+        title,
+        authors: Array.isArray(row.authors)
+          ? row.authors.filter((author): author is string => typeof author === 'string')
+          : [],
+        year: typeof row.year === 'number' ? row.year : null,
+        doi: toText(row.doi) ?? null,
+        arxiv_id: toText(row.arxiv_id) ?? null,
+      };
+    })
+    .filter((row): row is TopicScopeItem => row !== null);
+}
+
+function normalizePaperLiteraturePayload(payload: unknown): PaperLiteratureItem[] {
+  const root = asRecord(payload);
+  const itemsRaw = root?.items;
+  if (!Array.isArray(itemsRaw)) {
+    return [];
+  }
+
+  return itemsRaw
+    .map((item): PaperLiteratureItem | null => {
+      const row = asRecord(item);
+      if (!row) {
+        return null;
+      }
+
+      const linkId = toText(row.link_id);
+      const paperId = toText(row.paper_id);
+      const literatureId = toText(row.literature_id);
+      const citationStatus = toText(row.citation_status);
+      const createdAt = toText(row.created_at);
+      const updatedAt = toText(row.updated_at);
+      const title = toText(row.title);
+      if (
+        !linkId ||
+        !paperId ||
+        !literatureId ||
+        !citationStatus ||
+        !createdAt ||
+        !updatedAt ||
+        !title
+      ) {
+        return null;
+      }
+
+      const normalizedCitationStatus = citationStatusOptions.includes(citationStatus as CitationStatus)
+        ? (citationStatus as CitationStatus)
+        : 'seeded';
+
+      return {
+        link_id: linkId,
+        paper_id: paperId,
+        topic_id: toText(row.topic_id) ?? null,
+        literature_id: literatureId,
+        citation_status: normalizedCitationStatus,
+        note: toText(row.note) ?? null,
+        created_at: createdAt,
+        updated_at: updatedAt,
+        title,
+        authors: Array.isArray(row.authors)
+          ? row.authors.filter((author): author is string => typeof author === 'string')
+          : [],
+        year: typeof row.year === 'number' ? row.year : null,
+        doi: toText(row.doi) ?? null,
+        arxiv_id: toText(row.arxiv_id) ?? null,
+        source_provider: toText(row.source_provider) ?? null,
+        source_url: toText(row.source_url) ?? null,
+        tags: Array.isArray(row.tags)
+          ? row.tags.filter((tag): tag is string => typeof tag === 'string')
+          : [],
+      };
+    })
+    .filter((row): row is PaperLiteratureItem => row !== null);
+}
+
 function readErrorMessage(payload: unknown, status: number): string {
   const root = asRecord(payload);
   const error = root ? asRecord(root.error) : null;
@@ -359,6 +594,21 @@ export function App({ initialThemeMode }: AppProps) {
     data: emptyArtifactBundle,
     error: null,
   });
+  const [topicIdInput, setTopicIdInput] = useState<string>('TOPIC-001');
+  const [topicId, setTopicId] = useState<string>('TOPIC-001');
+  const [literatureQuery, setLiteratureQuery] = useState<string>('large language model evaluation');
+  const [searchItems, setSearchItems] = useState<LiteratureSearchItem[]>([]);
+  const [searchLoading, setSearchLoading] = useState<boolean>(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [selectedCandidates, setSelectedCandidates] = useState<Record<string, boolean>>({});
+  const [topicScopeItems, setTopicScopeItems] = useState<TopicScopeItem[]>([]);
+  const [topicScopeLoading, setTopicScopeLoading] = useState<boolean>(false);
+  const [topicScopeError, setTopicScopeError] = useState<string | null>(null);
+  const [paperLiteratureItems, setPaperLiteratureItems] = useState<PaperLiteratureItem[]>([]);
+  const [paperLiteratureLoading, setPaperLiteratureLoading] = useState<boolean>(false);
+  const [paperLiteratureError, setPaperLiteratureError] = useState<string | null>(null);
+  const [literatureActionMessage, setLiteratureActionMessage] = useState<string>('');
+  const [scopeReasonInput, setScopeReasonInput] = useState<string>('初筛保留');
 
   const [reviewersInput, setReviewersInput] = useState<string>('reviewer-1');
   const [decision, setDecision] = useState<ReviewDecision>('hold');
@@ -492,6 +742,231 @@ export function App({ initialThemeMode }: AppProps) {
     void loadGovernancePanels(paperId);
   }, [governanceEnabled, loadGovernancePanels, paperId, refreshTick]);
 
+  const loadTopicScope = useCallback(async (targetTopicId: string) => {
+    const normalizedTopicId = targetTopicId.trim();
+    if (!normalizedTopicId) {
+      setTopicScopeItems([]);
+      setTopicScopeError('Topic ID 不能为空。');
+      return;
+    }
+
+    setTopicScopeLoading(true);
+    setTopicScopeError(null);
+    try {
+      const payload = await requestGovernance({
+        method: 'GET',
+        path: `/topics/${encodeURIComponent(normalizedTopicId)}/literature-scope`,
+      });
+      setTopicScopeItems(normalizeTopicScopePayload(payload));
+    } catch (error) {
+      setTopicScopeItems([]);
+      setTopicScopeError(error instanceof Error ? error.message : '加载选题文献范围失败。');
+    } finally {
+      setTopicScopeLoading(false);
+    }
+  }, []);
+
+  const loadPaperLiterature = useCallback(async (targetPaperId: string) => {
+    const normalizedPaperId = targetPaperId.trim();
+    if (!normalizedPaperId) {
+      setPaperLiteratureItems([]);
+      setPaperLiteratureError('Paper ID 不能为空。');
+      return;
+    }
+
+    setPaperLiteratureLoading(true);
+    setPaperLiteratureError(null);
+    try {
+      const payload = await requestGovernance({
+        method: 'GET',
+        path: `/paper-projects/${encodeURIComponent(normalizedPaperId)}/literature`,
+      });
+      setPaperLiteratureItems(normalizePaperLiteraturePayload(payload));
+    } catch (error) {
+      setPaperLiteratureItems([]);
+      setPaperLiteratureError(error instanceof Error ? error.message : '加载论文文献列表失败。');
+    } finally {
+      setPaperLiteratureLoading(false);
+    }
+  }, []);
+
+  const handleSearchLiterature = async () => {
+    const query = literatureQuery.trim();
+    if (!query) {
+      setSearchError('请输入检索关键词。');
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError(null);
+    setLiteratureActionMessage('');
+    try {
+      const payload = await requestGovernance({
+        method: 'POST',
+        path: '/literature/search',
+        body: {
+          query,
+          providers: ['crossref', 'arxiv'],
+          limit: 8,
+        },
+      });
+      const items = normalizeLiteratureSearchPayload(payload);
+      setSearchItems(items);
+      setSelectedCandidates({});
+      setActionHint(`文献检索完成，共 ${items.length} 条候选。`);
+      if (items.length === 0) {
+        setLiteratureActionMessage('未检索到候选文献，可尝试更换关键词。');
+      }
+    } catch (error) {
+      setSearchItems([]);
+      setSearchError(error instanceof Error ? error.message : '检索失败。');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleToggleCandidate = (key: string) => {
+    setSelectedCandidates((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  };
+
+  const handleImportSelectedCandidates = async () => {
+    const selectedItems = searchItems.filter((item) =>
+      selectedCandidates[item.import_payload.external_id],
+    );
+    if (selectedItems.length === 0) {
+      setLiteratureActionMessage('请至少选择一条候选文献。');
+      return;
+    }
+
+    try {
+      const payload = await requestGovernance({
+        method: 'POST',
+        path: '/literature/import',
+        body: {
+          items: selectedItems.map((item) => item.import_payload),
+        },
+      });
+      const root = asRecord(payload);
+      const results = root?.results;
+      const importedIds = Array.isArray(results)
+        ? results
+            .map((row) => asRecord(row))
+            .map((row) => (row ? toText(row.literature_id) : undefined))
+            .filter((id): id is string => Boolean(id))
+        : [];
+
+      if (importedIds.length > 0) {
+        await requestGovernance({
+          method: 'POST',
+          path: `/topics/${encodeURIComponent(topicId.trim())}/literature-scope`,
+          body: {
+            actions: importedIds.map((literatureId) => ({
+              literature_id: literatureId,
+              scope_status: 'in_scope',
+              reason: scopeReasonInput.trim() || undefined,
+            })),
+          },
+        });
+      }
+
+      setLiteratureActionMessage(`已导入 ${selectedItems.length} 条文献，并加入当前选题范围。`);
+      setActionHint(`文献导入完成：${selectedItems.length} 条。`);
+      await loadTopicScope(topicId);
+    } catch (error) {
+      setLiteratureActionMessage(error instanceof Error ? error.message : '导入失败。');
+    }
+  };
+
+  const handleScopeStatusChange = async (literatureId: string, scopeStatus: ScopeStatus) => {
+    try {
+      await requestGovernance({
+        method: 'POST',
+        path: `/topics/${encodeURIComponent(topicId.trim())}/literature-scope`,
+        body: {
+          actions: [
+            {
+              literature_id: literatureId,
+              scope_status: scopeStatus,
+              reason: scopeReasonInput.trim() || undefined,
+            },
+          ],
+        },
+      });
+      await loadTopicScope(topicId);
+      setLiteratureActionMessage(
+        scopeStatus === 'in_scope' ? '文献已加入选题范围。' : '文献已从选题范围排除。',
+      );
+    } catch (error) {
+      setLiteratureActionMessage(error instanceof Error ? error.message : '更新选题范围失败。');
+    }
+  };
+
+  const handleSyncPaperFromTopic = async () => {
+    const normalizedPaperId = paperId.trim();
+    const normalizedTopicId = topicId.trim();
+    if (!normalizedPaperId || !normalizedTopicId) {
+      setLiteratureActionMessage('请先填写 Paper ID 与 Topic ID。');
+      return;
+    }
+
+    try {
+      const payload = await requestGovernance({
+        method: 'POST',
+        path: `/paper-projects/${encodeURIComponent(normalizedPaperId)}/literature-links/from-topic`,
+        body: {
+          topic_id: normalizedTopicId,
+        },
+      });
+      const root = asRecord(payload);
+      const linkedCount = typeof root?.linked_count === 'number' ? root.linked_count : 0;
+      const skippedCount = typeof root?.skipped_count === 'number' ? root.skipped_count : 0;
+      setLiteratureActionMessage(
+        `已同步到论文管理：新增 ${linkedCount} 条，跳过 ${skippedCount} 条。`,
+      );
+      await loadPaperLiterature(normalizedPaperId);
+    } catch (error) {
+      setLiteratureActionMessage(error instanceof Error ? error.message : '同步论文文献失败。');
+    }
+  };
+
+  const handleUpdateCitationStatus = async (linkId: string, status: CitationStatus) => {
+    try {
+      await requestGovernance({
+        method: 'PATCH',
+        path: `/paper-projects/${encodeURIComponent(paperId.trim())}/literature-links/${encodeURIComponent(linkId)}`,
+        body: {
+          citation_status: status,
+        },
+      });
+      await loadPaperLiterature(paperId);
+      setLiteratureActionMessage(`引用状态已更新为 ${status}。`);
+    } catch (error) {
+      setLiteratureActionMessage(error instanceof Error ? error.message : '更新引用状态失败。');
+    }
+  };
+
+  const handleApplyTopicId = () => {
+    const normalized = topicIdInput.trim();
+    if (!normalized) {
+      setLiteratureActionMessage('Topic ID 不能为空。');
+      return;
+    }
+    setTopicId(normalized);
+    void loadTopicScope(normalized);
+  };
+
+  useEffect(() => {
+    if (activeModule === '文献管理') {
+      void loadTopicScope(topicId);
+    }
+    if (activeModule === '论文管理' || activeModule === '写作中心') {
+      void loadPaperLiterature(paperId);
+    }
+  }, [activeModule, loadPaperLiterature, loadTopicScope, paperId, topicId]);
+
   const releaseQueue = useMemo(() => {
     return timelinePanel.data
       .filter(
@@ -502,6 +977,58 @@ export function App({ initialThemeMode }: AppProps) {
       .slice(-6)
       .reverse();
   }, [timelinePanel.data]);
+
+  const inScopeCount = topicScopeItems.filter((item) => item.scope_status === 'in_scope').length;
+  const excludedScopeCount = topicScopeItems.filter((item) => item.scope_status === 'excluded').length;
+  const citedCount = paperLiteratureItems.filter((item) => item.citation_status === 'cited').length;
+  const usedCount = paperLiteratureItems.filter((item) => item.citation_status === 'used').length;
+
+  const metricCards = useMemo(() => {
+    if (activeModule === '文献管理' || activeModule === '选题管理') {
+      return [
+        { label: '检索候选', value: String(searchItems.length) },
+        { label: '选题范围（保留）', value: String(inScopeCount) },
+        { label: '选题范围（排除）', value: String(excludedScopeCount) },
+        { label: '已勾选待导入', value: String(Object.values(selectedCandidates).filter(Boolean).length) },
+      ];
+    }
+
+    if (activeModule === '论文管理') {
+      return [
+        { label: '论文文献总数', value: String(paperLiteratureItems.length) },
+        { label: '状态：cited', value: String(citedCount) },
+        { label: '状态：used', value: String(usedCount) },
+        { label: '当前 Paper', value: paperId },
+      ];
+    }
+
+    if (activeModule === '写作中心') {
+      return [
+        { label: '可用引用条目', value: String(paperLiteratureItems.length) },
+        { label: '高置信引用（cited）', value: String(citedCount) },
+        { label: '进行中引用（used）', value: String(usedCount) },
+        { label: '引用来源', value: '论文管理（只读）' },
+      ];
+    }
+
+    return [
+      { label: '当前 Topic', value: topicId },
+      { label: '当前 Paper', value: paperId },
+      { label: '选题范围（保留）', value: String(inScopeCount) },
+      { label: '论文文献总数', value: String(paperLiteratureItems.length) },
+    ];
+  }, [
+    activeModule,
+    citedCount,
+    excludedScopeCount,
+    inScopeCount,
+    paperId,
+    paperLiteratureItems.length,
+    searchItems.length,
+    selectedCandidates,
+    topicId,
+    usedCount,
+  ]);
 
   const handleModuleSelect = (moduleName: string) => {
     setActiveModule(moduleName);
@@ -531,6 +1058,7 @@ export function App({ initialThemeMode }: AppProps) {
     setReviewSubmitState('idle');
     setReviewSubmitMessage('');
     setActionHint(`已加载治理项目 ${normalized}。`);
+    void loadPaperLiterature(normalized);
   };
 
   const handleRefreshPanels = () => {
@@ -715,46 +1243,251 @@ export function App({ initialThemeMode }: AppProps) {
         </aside>
 
         <main className="workspace-pane">
-          <section data-ui="section" data-padding="none">
-            <p data-ui="text" data-variant="h2" data-tone="primary">Research Control Center</p>
-            <p data-ui="text" data-variant="body" data-tone="secondary">
-              该桌面壳层用于串联文献、选题、版本治理与写作交付的全链路操作。
-            </p>
-            <p data-ui="text" data-variant="caption" data-tone="muted">当前模块：{activeModule}</p>
+          <section data-ui="grid" data-cols="4" data-gap="3" className="metrics-grid">
+            {metricCards.map((card) => (
+              <article key={`${activeModule}-${card.label}`} className="dashboard-metric">
+                <p data-ui="text" data-variant="label" data-tone="muted">{card.label}</p>
+                <p data-ui="text" data-variant="h3" data-tone="primary">{card.value}</p>
+              </article>
+            ))}
           </section>
 
-          <section data-ui="grid" data-cols="2" data-gap="4" className="metrics-grid">
-            <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md">
-              <p data-ui="text" data-variant="label" data-tone="muted">活跃论文主线</p>
-              <p data-ui="text" data-variant="h2" data-tone="primary">12</p>
-            </article>
-            <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md">
-              <p data-ui="text" data-variant="label" data-tone="muted">待评估候选节点</p>
-              <p data-ui="text" data-variant="h2" data-tone="primary">37</p>
-            </article>
-          </section>
+          {activeModule === '文献管理' ? (
+            <section className="module-dashboard literature-workspace">
+              <div data-ui="stack" data-direction="col" data-gap="3">
+                <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+                  <p data-ui="text" data-variant="h3" data-tone="primary">文献管理流程（M0）</p>
+                  <span data-ui="badge" data-variant="subtle" data-tone="neutral">
+                    Topic: {topicId}
+                  </span>
+                </div>
+                <div data-ui="grid" data-cols="2" data-gap="3" className="literature-controls-grid">
+                  <label data-ui="field">
+                    <span data-slot="label">Topic ID</span>
+                    <div data-ui="toolbar" data-wrap="nowrap" className="literature-input-group">
+                      <input
+                        data-ui="input"
+                        data-size="sm"
+                        value={topicIdInput}
+                        onChange={(event) => setTopicIdInput(event.target.value)}
+                        placeholder="例如 TOPIC-001"
+                      />
+                      <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleApplyTopicId}>
+                        应用
+                      </button>
+                    </div>
+                  </label>
+                  <label data-ui="field">
+                    <span data-slot="label">检索关键词（Crossref + arXiv）</span>
+                    <div data-ui="toolbar" data-wrap="nowrap" className="literature-input-group">
+                      <input
+                        data-ui="input"
+                        data-size="sm"
+                        value={literatureQuery}
+                        onChange={(event) => setLiteratureQuery(event.target.value)}
+                        placeholder="输入关键词"
+                      />
+                      <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleSearchLiterature}>
+                        {searchLoading ? '检索中...' : '检索'}
+                      </button>
+                    </div>
+                  </label>
+                </div>
 
-          {!governanceEnabled ? (
-            <section data-ui="empty-state">
-              <p data-slot="title" data-ui="text" data-variant="h3" data-tone="primary">
-                治理面板默认关闭
-              </p>
-              <p data-slot="body" data-ui="text" data-variant="body" data-tone="muted">
-                当前工作区保持 T-004 壳层行为不变。你可以在当前会话启用 T-006 面板进行联调。
-              </p>
-              <button
-                data-ui="button"
-                data-variant="secondary"
-                data-size="md"
-                type="button"
-                onClick={handleToggleGovernance}
-              >
-                启用治理面板
-              </button>
+                <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+                  <label data-ui="field" className="scope-reason-field">
+                    <span data-slot="label">范围变更原因（可选）</span>
+                    <input
+                      data-ui="input"
+                      data-size="sm"
+                      value={scopeReasonInput}
+                      onChange={(event) => setScopeReasonInput(event.target.value)}
+                      placeholder="例如：选题核心相关"
+                    />
+                  </label>
+                  <button
+                    data-ui="button"
+                    data-variant="primary"
+                    data-size="sm"
+                    type="button"
+                    onClick={handleImportSelectedCandidates}
+                  >
+                    导入并加入选题范围
+                  </button>
+                </div>
+
+                {searchError ? <p data-ui="text" data-variant="caption" data-tone="danger">{searchError}</p> : null}
+                {topicScopeError ? <p data-ui="text" data-variant="caption" data-tone="danger">{topicScopeError}</p> : null}
+                {literatureActionMessage ? (
+                  <p data-ui="text" data-variant="caption" data-tone="muted">{literatureActionMessage}</p>
+                ) : null}
+
+                <section data-ui="grid" data-cols="2" data-gap="3" className="literature-panels">
+                  <article className="dashboard-subpanel literature-panel">
+                    <p data-ui="text" data-variant="label" data-tone="secondary">检索候选</p>
+                    <div className="literature-list">
+                      {searchItems.length === 0 ? (
+                        <p data-ui="text" data-variant="caption" data-tone="muted">暂无候选，先执行检索。</p>
+                      ) : (
+                        searchItems.map((item) => {
+                          const key = item.import_payload.external_id;
+                          return (
+                            <label key={key} className="literature-list-item selectable">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(selectedCandidates[key])}
+                                onChange={() => handleToggleCandidate(key)}
+                              />
+                              <div>
+                                <p data-ui="text" data-variant="body" data-tone="primary">{item.import_payload.title}</p>
+                                <p data-ui="text" data-variant="caption" data-tone="muted">
+                                  {item.import_payload.provider} · {item.import_payload.year ?? '--'} · dedup:{' '}
+                                  {item.dedup.matched_by}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </article>
+
+                  <article className="dashboard-subpanel literature-panel">
+                    <p data-ui="text" data-variant="label" data-tone="secondary">选题文献范围</p>
+                    {topicScopeLoading ? (
+                      <p data-ui="text" data-variant="caption" data-tone="muted">正在加载选题范围...</p>
+                    ) : (
+                      <div className="literature-list">
+                        {topicScopeItems.length === 0 ? (
+                          <p data-ui="text" data-variant="caption" data-tone="muted">当前选题暂无文献范围。</p>
+                        ) : (
+                          topicScopeItems.map((item) => (
+                            <div key={item.scope_id} className="literature-list-item">
+                              <div>
+                                <p data-ui="text" data-variant="body" data-tone="primary">{item.title}</p>
+                                <p data-ui="text" data-variant="caption" data-tone="muted">
+                                  {item.scope_status} · {formatTimestamp(item.updated_at)}
+                                </p>
+                              </div>
+                              <div data-ui="toolbar" data-wrap="nowrap" className="scope-actions">
+                                <button
+                                  data-ui="button"
+                                  data-variant="ghost"
+                                  data-size="sm"
+                                  type="button"
+                                  onClick={() => handleScopeStatusChange(item.literature_id, 'in_scope')}
+                                >
+                                  保留
+                                </button>
+                                <button
+                                  data-ui="button"
+                                  data-variant="ghost"
+                                  data-size="sm"
+                                  type="button"
+                                  onClick={() => handleScopeStatusChange(item.literature_id, 'excluded')}
+                                >
+                                  排除
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </article>
+                </section>
+              </div>
             </section>
-          ) : (
+          ) : null}
+
+          {activeModule === '论文管理' ? (
+            <section className="module-dashboard paper-literature-workspace">
+              <div data-ui="stack" data-direction="col" data-gap="3">
+                <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+                  <p data-ui="text" data-variant="h3" data-tone="primary">论文管理文献集合</p>
+                  <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                    <span data-ui="badge" data-variant="subtle" data-tone="neutral">Paper: {paperId}</span>
+                    <span data-ui="badge" data-variant="subtle" data-tone="neutral">Topic: {topicId}</span>
+                  </div>
+                </div>
+                <div data-ui="toolbar" data-wrap="wrap">
+                  <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleSyncPaperFromTopic}>
+                    从选题范围带入论文
+                  </button>
+                  <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => loadPaperLiterature(paperId)}>
+                    刷新论文文献
+                  </button>
+                </div>
+                {paperLiteratureError ? (
+                  <p data-ui="text" data-variant="caption" data-tone="danger">{paperLiteratureError}</p>
+                ) : null}
+                {literatureActionMessage ? (
+                  <p data-ui="text" data-variant="caption" data-tone="muted">{literatureActionMessage}</p>
+                ) : null}
+                {paperLiteratureLoading ? (
+                  <p data-ui="text" data-variant="caption" data-tone="muted">正在加载论文文献...</p>
+                ) : (
+                  <div className="paper-literature-table">
+                    {paperLiteratureItems.length === 0 ? (
+                      <p data-ui="text" data-variant="caption" data-tone="muted">当前论文暂无文献。</p>
+                    ) : (
+                      paperLiteratureItems.map((item) => (
+                        <div key={item.link_id} className="paper-literature-row">
+                          <div>
+                            <p data-ui="text" data-variant="body" data-tone="primary">{item.title}</p>
+                            <p data-ui="text" data-variant="caption" data-tone="muted">
+                              {item.source_provider ?? '--'} · {item.source_url ?? '--'}
+                            </p>
+                          </div>
+                          <select
+                            data-ui="select"
+                            data-size="sm"
+                            value={item.citation_status}
+                            onChange={(event) =>
+                              handleUpdateCitationStatus(item.link_id, event.target.value as CitationStatus)
+                            }
+                          >
+                            {citationStatusOptions.map((status) => (
+                              <option key={status} value={status}>
+                                {status}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {activeModule === '写作中心' ? (
+            <section className="module-dashboard writing-literature-workspace">
+              <p data-ui="text" data-variant="h3" data-tone="primary">写作中心引用视图（只读）</p>
+              <p data-ui="text" data-variant="caption" data-tone="muted">
+                当前为 M0 单向联动：引用状态由论文管理维护，写作中心仅消费展示。
+              </p>
+              <div className="writing-citation-list">
+                {paperLiteratureItems.length === 0 ? (
+                  <p data-ui="text" data-variant="caption" data-tone="muted">暂无可用引用。</p>
+                ) : (
+                  paperLiteratureItems.map((item) => (
+                    <div key={item.link_id} className="writing-citation-item">
+                      <p data-ui="text" data-variant="body" data-tone="primary">{item.title}</p>
+                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                        status: {item.citation_status} · doi: {item.doi ?? '--'} · arxiv: {item.arxiv_id ?? '--'}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {governanceEnabled ? (
             <section data-ui="stack" data-direction="col" data-gap="4" className="governance-zone">
-              <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-controls">
+              <article className="dashboard-toolbar governance-controls">
                 <div data-ui="toolbar" data-align="between" data-wrap="wrap">
                   <div data-ui="stack" data-direction="row" data-gap="3" data-align="end" data-wrap="wrap" className="governance-controls-left">
                     <label data-ui="field" className="paper-id-field">
@@ -785,7 +1518,7 @@ export function App({ initialThemeMode }: AppProps) {
               </article>
 
               <section data-ui="grid" data-cols="2" data-gap="4" className="governance-panels">
-                <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-panel">
+                <article className="dashboard-subpanel governance-panel">
                   <div data-ui="stack" data-direction="col" data-gap="3">
                     <p data-ui="text" data-variant="h3" data-tone="primary">Timeline</p>
                     {timelinePanel.status === 'loading' && (
@@ -836,7 +1569,7 @@ export function App({ initialThemeMode }: AppProps) {
                   </div>
                 </article>
 
-                <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-panel">
+                <article className="dashboard-subpanel governance-panel">
                   <div data-ui="stack" data-direction="col" data-gap="3">
                     <p data-ui="text" data-variant="h3" data-tone="primary">Runtime Metrics</p>
                     {metricsPanel.status === 'loading' && (
@@ -847,19 +1580,19 @@ export function App({ initialThemeMode }: AppProps) {
                     )}
                     {(metricsPanel.status === 'ready' || metricsPanel.status === 'empty' || metricsPanel.status === 'idle') && (
                       <div data-ui="grid" data-cols="2" data-gap="3" className="runtime-metrics-grid">
-                        <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="sm">
+                        <article className="runtime-metric-item">
                           <p data-ui="text" data-variant="label" data-tone="muted">Tokens</p>
                           <p data-ui="text" data-variant="h3" data-tone="primary">{formatNumber(metricsPanel.data.tokens)}</p>
                         </article>
-                        <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="sm">
+                        <article className="runtime-metric-item">
                           <p data-ui="text" data-variant="label" data-tone="muted">Cost (USD)</p>
                           <p data-ui="text" data-variant="h3" data-tone="primary">{formatCurrency(metricsPanel.data.cost_usd)}</p>
                         </article>
-                        <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="sm">
+                        <article className="runtime-metric-item">
                           <p data-ui="text" data-variant="label" data-tone="muted">GPU Requested</p>
                           <p data-ui="text" data-variant="h3" data-tone="primary">{formatNumber(metricsPanel.data.gpu_requested)}</p>
                         </article>
-                        <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="sm">
+                        <article className="runtime-metric-item">
                           <p data-ui="text" data-variant="label" data-tone="muted">GPU Total</p>
                           <p data-ui="text" data-variant="h3" data-tone="primary">{formatNumber(metricsPanel.data.gpu_total)}</p>
                         </article>
@@ -871,7 +1604,7 @@ export function App({ initialThemeMode }: AppProps) {
                   </div>
                 </article>
 
-                <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-panel">
+                <article className="dashboard-subpanel governance-panel">
                   <div data-ui="stack" data-direction="col" data-gap="3">
                     <p data-ui="text" data-variant="h3" data-tone="primary">Artifact Bundle</p>
                     {artifactPanel.status === 'loading' && (
@@ -902,7 +1635,7 @@ export function App({ initialThemeMode }: AppProps) {
                   </div>
                 </article>
 
-                <article data-ui="card" data-variant="outlined" data-elevation="none" data-padding="md" className="governance-panel">
+                <article className="dashboard-subpanel governance-panel">
                   <div data-ui="stack" data-direction="col" data-gap="3">
                     <p data-ui="text" data-variant="h3" data-tone="primary">Release Review Queue</p>
                     {releaseQueue.length === 0 ? (
@@ -997,7 +1730,7 @@ export function App({ initialThemeMode }: AppProps) {
                 </article>
               </section>
             </section>
-          )}
+          ) : null}
         </main>
       </div>
     </div>

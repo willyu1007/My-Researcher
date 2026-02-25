@@ -18,6 +18,7 @@ model PaperProject {
   createdAt            DateTime    @db.Timestamptz(6)
   nodes                StageNode[]
   snapshots            Snapshot[]
+  literatureLinks      PaperLiteratureLink[]
 }
 
 model StageNode {
@@ -58,4 +59,70 @@ model Snapshot {
 
   @@index([paperId])
   @@index([paperId, snapshotType])
+}
+
+model LiteratureRecord {
+  id                   String                @id
+  title                String
+  abstractText         String?
+  authors              String[]              @default([])
+  year                 Int?
+  doiNormalized        String?               @unique
+  arxivId              String?               @unique
+  normalizedTitle      String
+  titleAuthorsYearHash String?               @unique
+  rightsClass          String
+  tags                 String[]              @default([])
+  createdAt            DateTime              @db.Timestamptz(6)
+  updatedAt            DateTime              @db.Timestamptz(6)
+  sources              LiteratureSource[]
+  topicScopes          TopicLiteratureScope[]
+  paperLinks           PaperLiteratureLink[]
+
+  @@index([normalizedTitle])
+}
+
+model LiteratureSource {
+  id           String           @id
+  literatureId String
+  provider     String
+  sourceItemId String
+  sourceUrl    String
+  rawPayload   Json
+  fetchedAt    DateTime         @db.Timestamptz(6)
+  literature   LiteratureRecord @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, sourceItemId])
+  @@index([literatureId])
+}
+
+model TopicLiteratureScope {
+  id           String           @id
+  topicId      String
+  literatureId String
+  scopeStatus  String
+  reason       String?
+  createdAt    DateTime         @db.Timestamptz(6)
+  updatedAt    DateTime         @db.Timestamptz(6)
+  literature   LiteratureRecord @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, literatureId])
+  @@index([topicId])
+}
+
+model PaperLiteratureLink {
+  id             String           @id
+  paperId        String
+  topicId        String?
+  literatureId   String
+  citationStatus String
+  note           String?
+  createdAt      DateTime         @db.Timestamptz(6)
+  updatedAt      DateTime         @db.Timestamptz(6)
+  paper          PaperProject     @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  literature     LiteratureRecord @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@unique([paperId, literatureId])
+  @@index([paperId])
+  @@index([literatureId])
 }
