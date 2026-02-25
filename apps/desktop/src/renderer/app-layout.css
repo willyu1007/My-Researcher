@@ -1,32 +1,90 @@
 @layer feature {
   .desktop-shell {
+    --sidebar-width-expanded: 228px;
+    --sidebar-width-collapsed: 0px;
+    --left-region-width: var(--sidebar-width-expanded);
+    --left-region-bg: #bec9d9;
+    --left-region-bg-elevated: #bec9d9;
+    --right-region-bg: #f3f5f8;
+    --right-region-bg-elevated: #f3f5f8;
+    --region-divider-color: #c4cedc;
+
+    position: relative;
+    isolation: isolate;
     min-height: 100vh;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
+    background: var(--right-region-bg);
+  }
+
+  .desktop-shell.is-sidebar-expanded {
+    --left-region-width: var(--sidebar-width-expanded);
+  }
+
+  .desktop-shell.is-sidebar-collapsed {
+    --left-region-width: var(--sidebar-width-collapsed);
+  }
+
+  .desktop-shell::before {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition:
+      width 180ms ease,
+      opacity 140ms ease;
+  }
+
+  .desktop-shell::before {
+    inset: 0 auto 0 0;
+    width: var(--left-region-width);
+    background: var(--left-region-bg);
+  }
+
+  .desktop-shell.is-macos-chrome::before {
+    opacity: 1;
+  }
+
+  .topbar,
+  .shell-main {
+    position: relative;
+    z-index: 1;
   }
 
   .topbar {
-    height: 52px;
-    padding: 0 16px;
+    position: relative;
+    height: 46px;
+    padding: 0 14px;
     background: var(--ui-color-surface_elevated);
     border-bottom: 1px solid var(--ui-color-border);
     display: flex;
     align-items: center;
+    overflow: hidden;
+  }
+
+  .topbar-region {
+    position: absolute;
+    pointer-events: none;
+    display: none;
+    z-index: 0;
   }
 
   .topbar-inner {
     width: 100%;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 460px) minmax(0, 1fr);
+    grid-template-columns: minmax(112px, 1fr) minmax(240px, 460px) minmax(180px, 1fr);
     align-items: center;
     gap: 12px;
+    position: relative;
+    z-index: 1;
   }
 
   .topbar-left {
     min-width: 0;
     display: flex;
     align-items: center;
-    overflow: hidden;
+    justify-content: flex-start;
   }
 
   .topbar-center {
@@ -41,25 +99,61 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .topbar-sidebar-toggle {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--ui-color-border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ui-color-text_secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+  }
+
+  .topbar-sidebar-toggle svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.65;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .topbar-sidebar-toggle:hover {
+    border-color: var(--ui-color-primary);
+    color: var(--ui-color-primary);
+    background: color-mix(in srgb, var(--ui-color-surface) 85%, transparent 15%);
+  }
+
+  .topbar-sidebar-toggle:focus-visible {
+    outline: 2px solid var(--ui-color-focus_ring);
+    outline-offset: 1px;
   }
 
   .topbar-search {
-    width: 180px;
+    width: 210px;
     max-width: 100%;
-    height: 32px;
+    height: 28px;
     border: 1px solid var(--ui-color-border);
-    border-radius: 10px;
+    border-radius: 12px;
     background: var(--ui-color-surface);
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 0 10px;
+    padding: 0 12px;
     min-width: 0;
     transition: width 180ms ease, border-color 120ms ease, background-color 120ms ease;
   }
 
   .topbar-search:focus-within {
-    width: 420px;
+    width: 440px;
     border-color: var(--ui-color-primary);
     background: var(--ui-color-surface);
   }
@@ -97,7 +191,7 @@
   }
 
   .topbar-search input::placeholder {
-    color: var(--ui-color-text_muted);
+    color: color-mix(in srgb, var(--ui-color-text_muted) 58%, white 42%);
   }
 
   .topbar-theme-switch {
@@ -105,20 +199,20 @@
     align-items: center;
     gap: 2px;
     border: 1px solid var(--ui-color-border);
-    border-radius: 10px;
+    border-radius: 11px;
     background: var(--ui-color-surface);
     padding: 2px;
   }
 
   .topbar-theme-switch-item {
     border: 0;
-    border-radius: 8px;
+    border-radius: 9px;
     background: transparent;
     color: var(--ui-color-text_secondary);
     font: inherit;
     font-size: 12px;
     line-height: 1.2;
-    padding: 6px 10px;
+    padding: 4px 10px;
     cursor: pointer;
     transition: background-color 120ms ease, color 120ms ease;
   }
@@ -139,22 +233,72 @@
     outline-offset: 1px;
   }
 
-  .brand-block {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
+  .desktop-shell.is-macos-chrome .topbar {
+    -webkit-app-region: drag;
+    height: 38px;
+    border-bottom: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-left {
+    padding-left: 78px;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-region {
+    top: 0;
+    bottom: 0;
+    display: block;
+    transition: width 180ms ease;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-region-left {
+    left: 0;
+    width: var(--left-region-width);
+    background: var(--left-region-bg);
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-region-right {
+    left: var(--left-region-width);
+    right: 0;
+    background: var(--right-region-bg);
+    transition: left 180ms ease;
+  }
+
+  .desktop-shell.is-macos-chrome.is-sidebar-collapsed .topbar-region-left {
+    width: 0;
+  }
+
+  .desktop-shell.is-macos-chrome.is-sidebar-collapsed .topbar-region-right {
+    left: 0;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-sidebar-toggle,
+  .desktop-shell.is-macos-chrome .topbar-search,
+  .desktop-shell.is-macos-chrome .topbar-search *,
+  .desktop-shell.is-macos-chrome .topbar-theme-switch,
+  .desktop-shell.is-macos-chrome .topbar-theme-switch *,
+  .desktop-shell.is-macos-chrome .topbar-logo {
+    -webkit-app-region: no-drag;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-search {
+    background: color-mix(in srgb, var(--ui-color-surface) 84%, white 16%);
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-theme-switch {
+    background: color-mix(in srgb, var(--ui-color-surface) 86%, white 14%);
   }
 
   .shell-main {
     min-height: 0;
     display: grid;
-    grid-template-columns: 228px minmax(0, 1fr);
-    transition: grid-template-columns 160ms ease;
+    grid-template-columns: var(--left-region-width) minmax(0, 1fr);
+    transition: grid-template-columns 180ms ease;
   }
 
   .shell-main.is-sidebar-collapsed {
-    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-columns: 0 minmax(0, 1fr);
   }
 
   .sidebar-pane,
@@ -164,40 +308,23 @@
 
   .sidebar-pane {
     padding: 10px;
-    border-right: 1px solid var(--ui-color-border);
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    background: var(--left-region-bg);
+    border-right: 0;
   }
 
-  .sidebar-header {
-    min-height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-  }
-
-  .sidebar-toggle {
-    width: 32px;
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    background: transparent;
-    color: var(--ui-color-text_secondary);
-    cursor: pointer;
-    font-size: 18px;
-    line-height: 1;
+  .shell-main.is-sidebar-collapsed .sidebar-pane {
+    width: 0;
+    min-width: 0;
     padding: 0;
-  }
-
-  .sidebar-toggle:hover {
-    color: var(--ui-color-primary);
+    border-right: 0;
+    pointer-events: none;
   }
 
   .sidebar-nav-zones {
-    margin-top: 8px;
+    margin-top: 0;
     min-height: 0;
     flex: 1 1 auto;
     display: grid;
@@ -211,7 +338,7 @@
   }
 
   .sidebar-nav-zone-writing {
-    border-top: 1px solid var(--ui-color-border);
+    border-top: 1px solid color-mix(in srgb, var(--region-divider-color) 60%, white 40%);
     margin-top: 8px;
     padding-top: 8px;
   }
@@ -239,23 +366,14 @@
   }
 
   .module-nav-item:hover {
-    background: var(--ui-color-border_subtle);
+    background: color-mix(in srgb, var(--ui-color-surface) 64%, transparent 36%);
     color: var(--ui-color-primary);
   }
 
   .module-nav-item.is-active {
-    background: var(--ui-color-surface_elevated);
+    background: color-mix(in srgb, var(--ui-color-surface) 82%, transparent 18%);
     color: var(--ui-color-primary);
     font-weight: 600;
-  }
-
-  .shell-main.is-sidebar-collapsed .sidebar-pane {
-    padding-left: 4px;
-    padding-right: 4px;
-  }
-
-  .shell-main.is-sidebar-collapsed .sidebar-header {
-    justify-content: flex-start;
   }
 
   .workspace-pane {
@@ -264,6 +382,7 @@
     overflow: auto;
     gap: var(--ui-space-4);
     padding: var(--ui-space-5);
+    background: var(--right-region-bg);
   }
 
   .metrics-grid {
@@ -337,36 +456,44 @@
     flex: 0 0 auto;
   }
 
-  .brand-title {
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    line-height: 1.1;
-    color: var(--ui-color-primary);
+  .topbar-logo {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
   }
 
   @media (max-width: 1100px) {
+    .desktop-shell {
+      --sidebar-width-expanded: 188px;
+    }
+
     .topbar-inner {
-      grid-template-columns: minmax(0, 1fr) minmax(160px, 280px) auto;
+      grid-template-columns: auto minmax(150px, 1fr) auto;
       gap: 8px;
     }
 
+    .topbar-search {
+      width: 170px;
+    }
+
+    .topbar-search:focus-within {
+      width: 260px;
+    }
+
+    .topbar-logo {
+      display: none;
+    }
+
     .topbar-theme-switch-item {
-      padding: 6px 8px;
+      padding: 4px 8px;
     }
 
-    .shell-main {
-      grid-template-columns: 1fr;
-      grid-template-rows: auto minmax(0, 1fr);
+    .desktop-shell.is-macos-chrome .topbar-left {
+      padding-left: 68px;
     }
 
-    .shell-main.is-sidebar-collapsed {
-      grid-template-columns: 1fr;
-    }
-
-    .sidebar-pane {
-      border-right: 0;
-      border-bottom: 1px solid var(--ui-color-border);
+    .workspace-pane {
+      padding: var(--ui-space-4);
     }
 
     .governance-panels {

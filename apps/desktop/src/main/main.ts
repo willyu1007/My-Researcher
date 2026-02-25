@@ -14,6 +14,7 @@ const preloadCandidates = [
 const preloadPath = preloadCandidates.find((candidate) => fs.existsSync(candidate)) ?? preloadCandidates[0];
 const backendBaseUrl = process.env.DESKTOP_BACKEND_BASE_URL ?? 'http://127.0.0.1:3000';
 const allowedGovernanceMethods = new Set(['GET', 'POST']);
+const isMacOS = process.platform === 'darwin';
 let mainWindow: BrowserWindow | null = null;
 
 type GovernanceBridgeRequest = {
@@ -50,6 +51,15 @@ function createWindow(): BrowserWindow {
     show: false,
     backgroundColor: '#f3f5f8',
     autoHideMenuBar: true,
+    ...(isMacOS
+      ? {
+          titleBarStyle: 'hidden' as const,
+          trafficLightPosition: { x: 16, y: 13 },
+          vibrancy: 'under-window' as const,
+          visualEffectState: 'active' as const,
+          title: '',
+        }
+      : {}),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -72,6 +82,12 @@ function createWindow(): BrowserWindow {
     if (mainWindow === window) {
       mainWindow = null;
     }
+  });
+
+  // Keep native title text hidden so the chrome is toolbar-only.
+  window.on('page-title-updated', (event) => {
+    event.preventDefault();
+    window.setTitle('');
   });
 
   return window;

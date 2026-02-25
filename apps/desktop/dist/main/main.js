@@ -13,6 +13,7 @@ const preloadCandidates = [
 const preloadPath = preloadCandidates.find((candidate) => fs.existsSync(candidate)) ?? preloadCandidates[0];
 const backendBaseUrl = process.env.DESKTOP_BACKEND_BASE_URL ?? 'http://127.0.0.1:3000';
 const allowedGovernanceMethods = new Set(['GET', 'POST']);
+const isMacOS = process.platform === 'darwin';
 let mainWindow = null;
 function focusAndCenterWindow(window) {
     if (window.isMinimized()) {
@@ -35,6 +36,15 @@ function createWindow() {
         show: false,
         backgroundColor: '#f3f5f8',
         autoHideMenuBar: true,
+        ...(isMacOS
+            ? {
+                titleBarStyle: 'hidden',
+                trafficLightPosition: { x: 16, y: 13 },
+                vibrancy: 'under-window',
+                visualEffectState: 'active',
+                title: '',
+            }
+            : {}),
         webPreferences: {
             preload: preloadPath,
             contextIsolation: true,
@@ -56,6 +66,11 @@ function createWindow() {
         if (mainWindow === window) {
             mainWindow = null;
         }
+    });
+    // Keep native title text hidden so the chrome is toolbar-only.
+    window.on('page-title-updated', (event) => {
+        event.preventDefault();
+        window.setTitle('');
     });
     return window;
 }

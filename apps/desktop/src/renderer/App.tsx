@@ -87,6 +87,20 @@ const emptyArtifactBundle: ArtifactBundle = {
 
 const defaultApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:3000').trim();
 
+function detectMacDesktopFromNavigator(): boolean {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+
+  const navWithUaData = navigator as Navigator & {
+    userAgentData?: {
+      platform?: string;
+    };
+  };
+  const platform = navWithUaData.userAgentData?.platform ?? navigator.platform ?? navigator.userAgent ?? '';
+  return platform.toLowerCase().includes('mac');
+}
+
 function isFlagEnabled(value?: string): boolean {
   if (!value) {
     return false;
@@ -319,6 +333,7 @@ type AppProps = {
 export function App({ initialThemeMode }: AppProps) {
   const [activeModule, setActiveModule] = useState<string>(initialModule);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isMacDesktop, setIsMacDesktop] = useState<boolean>(() => detectMacDesktopFromNavigator());
   const [themeMode, setThemeMode] = useState<ThemeMode>(initialThemeMode);
   const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => readSystemPrefersDark());
   const [toolbarSearchInput, setToolbarSearchInput] = useState<string>('');
@@ -353,6 +368,31 @@ export function App({ initialThemeMode }: AppProps) {
   const [reviewComment, setReviewComment] = useState<string>('');
   const [reviewSubmitState, setReviewSubmitState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [reviewSubmitMessage, setReviewSubmitMessage] = useState<string>('');
+
+  useEffect(() => {
+    let unmounted = false;
+    const getAppMeta = window.desktopApi?.getAppMeta;
+
+    if (!getAppMeta) {
+      return () => {
+        unmounted = true;
+      };
+    }
+
+    void getAppMeta()
+      .then((meta) => {
+        if (!unmounted) {
+          setIsMacDesktop(meta.platform === 'darwin');
+        }
+      })
+      .catch(() => {
+        // Keep navigator-based fallback if desktop bridge meta is unavailable.
+      });
+
+    return () => {
+      unmounted = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (themeMode !== 'system' || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -572,15 +612,35 @@ export function App({ initialThemeMode }: AppProps) {
     }
   };
 
+  const shellClassName = [
+    'desktop-shell',
+    isMacDesktop ? ' is-macos-chrome' : '',
+    isSidebarCollapsed ? ' is-sidebar-collapsed' : ' is-sidebar-expanded',
+  ].join('');
+
   return (
-    <div data-ui="page" className="desktop-shell">
+    <div data-ui="page" className={shellClassName}>
       <header className="topbar">
+        <span className="topbar-region topbar-region-left" aria-hidden="true" />
+        <span className="topbar-region topbar-region-right" aria-hidden="true" />
         <div className="topbar-inner">
           <div className="topbar-left">
-            <div className="brand-block">
-              <img src={logoIcon} alt="morethan icon" className="brand-icon" />
-              <span className="brand-title">MyResearcher</span>
-            </div>
+            <button
+              type="button"
+              className="topbar-sidebar-toggle"
+              onClick={handleToggleSidebar}
+              aria-label={isSidebarCollapsed ? '展开导航栏' : '折叠导航栏'}
+              title={isSidebarCollapsed ? '展开导航栏' : '折叠导航栏'}
+            >
+              <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
+                <rect x="2.5" y="3.5" width="15" height="13" rx="3.4" />
+                {isSidebarCollapsed ? (
+                  <line x1="12.4" y1="7" x2="12.4" y2="13" />
+                ) : (
+                  <line x1="7.6" y1="7" x2="7.6" y2="13" />
+                )}
+              </svg>
+            </button>
           </div>
           <div className="topbar-center">
             <label className="topbar-search" aria-label="搜索（占位）">
@@ -599,6 +659,7 @@ export function App({ initialThemeMode }: AppProps) {
             </label>
           </div>
           <div className="topbar-right">
+            <img src={logoIcon} alt="MyResearcher logo" className="brand-icon topbar-logo" />
             <div className="topbar-theme-switch" role="group" aria-label="配色方案">
               {themeModeOptions.map((option) => (
                 <button
@@ -618,17 +679,6 @@ export function App({ initialThemeMode }: AppProps) {
 
       <div className={`shell-main${isSidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
         <aside className="sidebar-pane">
-          <div className="sidebar-header">
-            <button
-              type="button"
-              className="sidebar-toggle"
-              onClick={handleToggleSidebar}
-              aria-label={isSidebarCollapsed ? '展开导航栏' : '折叠导航栏'}
-              title={isSidebarCollapsed ? '展开导航栏' : '折叠导航栏'}
-            >
-              {isSidebarCollapsed ? '›' : '‹'}
-            </button>
-          </div>
           {!isSidebarCollapsed ? (
             <nav className="sidebar-nav-zones" aria-label="模块导航">
               <section className="sidebar-nav-zone sidebar-nav-zone-core">
