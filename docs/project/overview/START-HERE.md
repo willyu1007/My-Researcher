@@ -1,6 +1,6 @@
-# START-HERE（项目初始化）
+# START-HERE（项目状态入口）
 
-> 面向用户的初始化入口与记录。阶段命令与状态请看 `init/INIT-BOARD.md`。
+> 面向用户的项目状态入口与初始化归档记录。阶段状态请看 `docs/project/overview/INIT-BOARD.md`。
 
 ## Current focus
 - 初始化流程已完成（Stage A/B/C 均已审批通过）。
@@ -49,7 +49,6 @@
 - [ ] 术语对齐采用“当前词表为准并在开发中持续补充”是否确认。
 - [ ] 8 个子功能的实现边界（内部实现 vs 外部接口）是否先按优先级分两批讨论。
 - [ ] 是否需要立即更新根目录 `README.md` 与 `AGENTS.md` 为项目定制内容。
-- [ ] 是否清理并归档 `init/`（使用 `cleanup-init --archive`）。
 
 ## This round notes
 - 已使用现有 `需求文档_PRD_论文工程助手.md` 与 `开发文档_TDD_论文工程助手.md` 作为 Stage A 输入。

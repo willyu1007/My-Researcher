@@ -4,6 +4,12 @@ Local-first desktop assistant for CS paper engineering with reviewer-aligned evi
 
 **Domain:** Computer Science Research
 
+## Repository Status
+
+- Initialization completed on **2026-02-21** (Stage A/B/C approved).
+- The historical initialization outputs are archived under `docs/project/overview/`.
+- The `init/` workspace is no longer used as an active project entrypoint.
+
 ## Tech Stack
 
 | Category | Technology |

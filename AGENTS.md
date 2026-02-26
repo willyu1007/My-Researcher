@@ -24,8 +24,8 @@ paper-engineering-assistant - Local-first desktop assistant for CS paper enginee
 |-----------|---------|-------------|
 | `apps/` | Applications | - |
 | `packages/` | Shared packages | - |
-| `init/` | Project initialization | `init/AGENTS.md` |
-| `init/_tools/feature-docs/` | Optional feature documentation | `init/_tools/feature-docs/README.md` |
+| `docs/project/overview/` | Initialization archive and project baseline decisions | `docs/project/overview/START-HERE.md` |
+| `docs/context/` | LLM-readable contracts (API/DB/process/UI) | `docs/context/INDEX.md` |
 | `.ai/` | Skills, scripts, LLM governance | `.ai/AGENTS.md` |
 | `dev-docs/` | Complex task documentation | `dev-docs/AGENTS.md` |
 | `.codex/` | Codex skill stubs (generated) | - |
@@ -35,7 +35,8 @@ paper-engineering-assistant - Local-first desktop assistant for CS paper enginee
 
 | Task Type | Entry Point |
 |-----------|-------------|
-| **First time / Project setup** | `init/AGENTS.md` |
+| **First time / Project setup** | `README.md` |
+| **Initialization decisions / baseline** | `docs/project/overview/START-HERE.md` |
 | **Skill authoring / maintenance** | `.ai/AGENTS.md` |
 | **LLM engineering** | `.ai/llm-config/AGENTS.md` |
 | **Project progress governance** | `.ai/project/AGENTS.md` |
