@@ -60,6 +60,14 @@ type ScopeStatus = 'in_scope' | 'excluded';
 type RightsClass = 'OA' | 'USER_AUTH' | 'RESTRICTED' | 'UNKNOWN';
 type LiteratureProvider = 'crossref' | 'arxiv' | 'manual' | 'web' | 'zotero';
 type LiteratureTabKey = 'auto-import' | 'manual-import' | 'overview';
+type AutoImportSubTabKey = 'topic-settings' | 'rules-center' | 'runs-alerts';
+type AutoPullScope = 'GLOBAL' | 'TOPIC';
+type AutoPullRuleStatus = 'ACTIVE' | 'PAUSED';
+type AutoPullSource = 'CROSSREF' | 'ARXIV' | 'ZOTERO';
+type AutoPullFrequency = 'DAILY' | 'WEEKLY';
+type AutoPullTriggerType = 'MANUAL' | 'SCHEDULE';
+type AutoPullRunStatus = 'PENDING' | 'RUNNING' | 'PARTIAL' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
+type AutoPullAlertLevel = 'WARNING' | 'ERROR';
 type QueryField =
   | 'title'
   | 'authors'
@@ -102,7 +110,13 @@ type SavedQueryPreset = {
   defaultSort: QuerySort;
 };
 
-type FeedbackRecoveryAction = 'retry-web-import' | 'retry-zotero-import' | 'retry-query' | 'reload-overview';
+type FeedbackRecoveryAction =
+  | 'retry-web-import'
+  | 'retry-web-import-failed'
+  | 'retry-zotero-import'
+  | 'retry-query'
+  | 'retry-candidate-import'
+  | 'reload-overview';
 type InlineFeedbackModel = {
   slot: 'header' | 'auto-import' | 'manual-import' | 'overview';
   level: 'info' | 'success' | 'warning' | 'error';
@@ -131,6 +145,125 @@ type LiteratureSearchItem = {
     literature_id?: string;
     matched_by: DedupMatchType;
   };
+};
+
+type LiteratureWebImportResult = {
+  url: string;
+  imported: boolean;
+  literature_id?: string;
+  title?: string;
+  matched_by?: DedupMatchType;
+  source_provider?: LiteratureProvider;
+  message?: string;
+};
+
+type AutoPullTopicProfile = {
+  topic_id: string;
+  name: string;
+  include_keywords: string[];
+  exclude_keywords: string[];
+  venue_filters: string[];
+  default_lookback_days: number;
+  default_min_year: number | null;
+  default_max_year: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type AutoPullRuleSourceItem = {
+  source: AutoPullSource;
+  enabled: boolean;
+  priority: number;
+  config: Record<string, unknown>;
+};
+
+type AutoPullRuleScheduleItem = {
+  frequency: AutoPullFrequency;
+  days_of_week: string[];
+  hour: number;
+  minute: number;
+  timezone: string;
+  active: boolean;
+};
+
+type AutoPullRule = {
+  rule_id: string;
+  scope: AutoPullScope;
+  topic_id: string | null;
+  name: string;
+  status: AutoPullRuleStatus;
+  query_spec: {
+    include_keywords: string[];
+    exclude_keywords: string[];
+    authors: string[];
+    venues: string[];
+    max_results_per_source: number;
+  };
+  time_spec: {
+    lookback_days: number;
+    min_year: number | null;
+    max_year: number | null;
+  };
+  quality_spec: {
+    min_completeness_score: number;
+    require_include_match: boolean;
+  };
+  sources: AutoPullRuleSourceItem[];
+  schedules: AutoPullRuleScheduleItem[];
+  created_at: string;
+  updated_at: string;
+};
+
+type AutoPullSourceAttempt = {
+  source: AutoPullSource;
+  status: AutoPullRunStatus;
+  fetched_count: number;
+  imported_count: number;
+  failed_count: number;
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  meta: Record<string, unknown>;
+};
+
+type AutoPullSuggestion = {
+  suggestion_id: string;
+  literature_id: string;
+  topic_id: string | null;
+  suggested_scope: ScopeStatus;
+  reason: string;
+  score: number;
+  created_at: string;
+};
+
+type AutoPullRun = {
+  run_id: string;
+  rule_id: string;
+  trigger_type: AutoPullTriggerType;
+  status: AutoPullRunStatus;
+  started_at: string | null;
+  finished_at: string | null;
+  summary: Record<string, unknown>;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  source_attempts?: AutoPullSourceAttempt[];
+  suggestions?: AutoPullSuggestion[];
+};
+
+type AutoPullAlert = {
+  alert_id: string;
+  rule_id: string;
+  run_id: string | null;
+  source: AutoPullSource | null;
+  level: AutoPullAlertLevel;
+  code: string;
+  message: string;
+  detail: Record<string, unknown>;
+  ack_at: string | null;
+  created_at: string;
 };
 
 type TopicScopeItem = {
@@ -223,6 +356,11 @@ const literatureTabs: Array<{ key: LiteratureTabKey; label: string }> = [
   { key: 'auto-import', label: '自动导入' },
   { key: 'manual-import', label: '手动导入' },
   { key: 'overview', label: '文献综览' },
+];
+const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string }> = [
+  { key: 'topic-settings', label: 'Topic 设置' },
+  { key: 'rules-center', label: '规则中心' },
+  { key: 'runs-alerts', label: '运行与告警' },
 ];
 const queryFieldOptions: Array<{ value: QueryField; label: string }> = [
   { value: 'title', label: '标题' },
@@ -356,6 +494,15 @@ function parseTagsInput(value: string): string[] {
   )];
 }
 
+function parseTokenList(value: string): string[] {
+  return [...new Set(
+    value
+      .split(/\r?\n|,|;/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0),
+  )];
+}
+
 function normalizeTimelinePayload(payload: unknown): TimelineEvent[] {
   const root = asRecord(payload);
   if (!root) {
@@ -462,6 +609,290 @@ function normalizeReleasePayload(payload: unknown): ReleaseGateResponse | null {
   };
 }
 
+function normalizeTopicProfilePayload(payload: unknown): AutoPullTopicProfile[] {
+  const root = asRecord(payload);
+  const itemsRaw = root?.items;
+  if (!Array.isArray(itemsRaw)) {
+    return [];
+  }
+
+  return itemsRaw
+    .map((item): AutoPullTopicProfile | null => {
+      const row = asRecord(item);
+      if (!row) {
+        return null;
+      }
+
+      const topicId = toText(row.topic_id);
+      const name = toText(row.name);
+      const createdAt = toText(row.created_at);
+      const updatedAt = toText(row.updated_at);
+      if (!topicId || !name || !createdAt || !updatedAt) {
+        return null;
+      }
+
+      return {
+        topic_id: topicId,
+        name,
+        include_keywords: Array.isArray(row.include_keywords)
+          ? row.include_keywords.filter((value): value is string => typeof value === 'string')
+          : [],
+        exclude_keywords: Array.isArray(row.exclude_keywords)
+          ? row.exclude_keywords.filter((value): value is string => typeof value === 'string')
+          : [],
+        venue_filters: Array.isArray(row.venue_filters)
+          ? row.venue_filters.filter((value): value is string => typeof value === 'string')
+          : [],
+        default_lookback_days:
+          typeof row.default_lookback_days === 'number' ? row.default_lookback_days : 30,
+        default_min_year: typeof row.default_min_year === 'number' ? row.default_min_year : null,
+        default_max_year: typeof row.default_max_year === 'number' ? row.default_max_year : null,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      };
+    })
+    .filter((item): item is AutoPullTopicProfile => item !== null);
+}
+
+function normalizeAutoPullRulePayload(payload: unknown): AutoPullRule[] {
+  const root = asRecord(payload);
+  const itemsRaw = root?.items;
+  if (!Array.isArray(itemsRaw)) {
+    return [];
+  }
+
+  return itemsRaw
+    .map((item): AutoPullRule | null => {
+      const row = asRecord(item);
+      if (!row) {
+        return null;
+      }
+
+      const ruleId = toText(row.rule_id);
+      const scope = toText(row.scope);
+      const name = toText(row.name);
+      const status = toText(row.status);
+      const querySpec = asRecord(row.query_spec);
+      const timeSpec = asRecord(row.time_spec);
+      const qualitySpec = asRecord(row.quality_spec);
+      const createdAt = toText(row.created_at);
+      const updatedAt = toText(row.updated_at);
+      if (
+        !ruleId ||
+        !scope ||
+        !name ||
+        !status ||
+        !querySpec ||
+        !timeSpec ||
+        !qualitySpec ||
+        !createdAt ||
+        !updatedAt
+      ) {
+        return null;
+      }
+
+      return {
+        rule_id: ruleId,
+        scope: scope === 'TOPIC' ? 'TOPIC' : 'GLOBAL',
+        topic_id: toText(row.topic_id) ?? null,
+        name,
+        status: status === 'PAUSED' ? 'PAUSED' : 'ACTIVE',
+        query_spec: {
+          include_keywords: Array.isArray(querySpec.include_keywords)
+            ? querySpec.include_keywords.filter((value): value is string => typeof value === 'string')
+            : [],
+          exclude_keywords: Array.isArray(querySpec.exclude_keywords)
+            ? querySpec.exclude_keywords.filter((value): value is string => typeof value === 'string')
+            : [],
+          authors: Array.isArray(querySpec.authors)
+            ? querySpec.authors.filter((value): value is string => typeof value === 'string')
+            : [],
+          venues: Array.isArray(querySpec.venues)
+            ? querySpec.venues.filter((value): value is string => typeof value === 'string')
+            : [],
+          max_results_per_source:
+            typeof querySpec.max_results_per_source === 'number'
+              ? querySpec.max_results_per_source
+              : 20,
+        },
+        time_spec: {
+          lookback_days: typeof timeSpec.lookback_days === 'number' ? timeSpec.lookback_days : 30,
+          min_year: typeof timeSpec.min_year === 'number' ? timeSpec.min_year : null,
+          max_year: typeof timeSpec.max_year === 'number' ? timeSpec.max_year : null,
+        },
+        quality_spec: {
+          min_completeness_score:
+            typeof qualitySpec.min_completeness_score === 'number'
+              ? qualitySpec.min_completeness_score
+              : 0.6,
+          require_include_match:
+            typeof qualitySpec.require_include_match === 'boolean'
+              ? qualitySpec.require_include_match
+              : true,
+        },
+        sources: Array.isArray(row.sources)
+          ? row.sources
+              .map((entry) => asRecord(entry))
+              .filter((entry): entry is Record<string, unknown> => entry !== null)
+              .map((entry) => ({
+                source: toText(entry.source) as AutoPullSource,
+                enabled: entry.enabled !== false,
+                priority: typeof entry.priority === 'number' ? entry.priority : 100,
+                config: asRecord(entry.config) ?? {},
+              }))
+              .filter((entry) =>
+                entry.source === 'CROSSREF' || entry.source === 'ARXIV' || entry.source === 'ZOTERO',
+              )
+          : [],
+        schedules: Array.isArray(row.schedules)
+          ? row.schedules
+              .map((entry) => asRecord(entry))
+              .filter((entry): entry is Record<string, unknown> => entry !== null)
+              .map((entry) => ({
+                frequency: toText(entry.frequency) === 'WEEKLY' ? 'WEEKLY' : 'DAILY',
+                days_of_week: Array.isArray(entry.days_of_week)
+                  ? entry.days_of_week.filter((value): value is string => typeof value === 'string')
+                  : [],
+                hour: typeof entry.hour === 'number' ? entry.hour : 9,
+                minute: typeof entry.minute === 'number' ? entry.minute : 0,
+                timezone: toText(entry.timezone) ?? 'UTC',
+                active: entry.active !== false,
+              }))
+          : [],
+        created_at: createdAt,
+        updated_at: updatedAt,
+      };
+    })
+    .filter((item): item is AutoPullRule => item !== null);
+}
+
+function normalizeAutoPullRunsPayload(payload: unknown): AutoPullRun[] {
+  const root = asRecord(payload);
+  const itemsRaw = root?.items;
+  if (!Array.isArray(itemsRaw)) {
+    return [];
+  }
+
+  return itemsRaw
+    .map((item) => normalizeAutoPullRun(item))
+    .filter((item): item is AutoPullRun => item !== null);
+}
+
+function normalizeAutoPullRun(payload: unknown): AutoPullRun | null {
+  const row = asRecord(payload);
+  if (!row) {
+    return null;
+  }
+
+  const runId = toText(row.run_id);
+  const ruleId = toText(row.rule_id);
+  const triggerType = toText(row.trigger_type);
+  const status = toText(row.status);
+  const createdAt = toText(row.created_at);
+  const updatedAt = toText(row.updated_at);
+  if (!runId || !ruleId || !triggerType || !status || !createdAt || !updatedAt) {
+    return null;
+  }
+
+  const attempts = Array.isArray(row.source_attempts)
+    ? row.source_attempts
+        .map((entry) => asRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => entry !== null)
+        .map((entry) => ({
+          source: toText(entry.source) as AutoPullSource,
+          status: toText(entry.status) as AutoPullRunStatus,
+          fetched_count: typeof entry.fetched_count === 'number' ? entry.fetched_count : 0,
+          imported_count: typeof entry.imported_count === 'number' ? entry.imported_count : 0,
+          failed_count: typeof entry.failed_count === 'number' ? entry.failed_count : 0,
+          error_code: toText(entry.error_code) ?? null,
+          error_message: toText(entry.error_message) ?? null,
+          started_at: toText(entry.started_at) ?? null,
+          finished_at: toText(entry.finished_at) ?? null,
+          meta: asRecord(entry.meta) ?? {},
+        }))
+        .filter((entry) =>
+          entry.source === 'CROSSREF' || entry.source === 'ARXIV' || entry.source === 'ZOTERO',
+        )
+    : undefined;
+
+  const suggestions = Array.isArray(row.suggestions)
+    ? row.suggestions
+        .map((entry) => asRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => entry !== null)
+        .map((entry) => ({
+          suggestion_id: toText(entry.suggestion_id) ?? '',
+          literature_id: toText(entry.literature_id) ?? '',
+          topic_id: toText(entry.topic_id) ?? null,
+          suggested_scope: (toText(entry.suggested_scope) === 'excluded' ? 'excluded' : 'in_scope') as ScopeStatus,
+          reason: toText(entry.reason) ?? '',
+          score: typeof entry.score === 'number' ? entry.score : 0,
+          created_at: toText(entry.created_at) ?? '',
+        }))
+        .filter((entry) => entry.suggestion_id && entry.literature_id)
+    : undefined;
+
+  return {
+    run_id: runId,
+    rule_id: ruleId,
+    trigger_type: triggerType === 'SCHEDULE' ? 'SCHEDULE' : 'MANUAL',
+    status:
+      status === 'RUNNING' ||
+      status === 'PARTIAL' ||
+      status === 'SUCCESS' ||
+      status === 'FAILED' ||
+      status === 'SKIPPED'
+        ? status
+        : 'PENDING',
+    started_at: toText(row.started_at) ?? null,
+    finished_at: toText(row.finished_at) ?? null,
+    summary: asRecord(row.summary) ?? {},
+    error_code: toText(row.error_code) ?? null,
+    error_message: toText(row.error_message) ?? null,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    source_attempts: attempts,
+    suggestions,
+  };
+}
+
+function normalizeAutoPullAlertsPayload(payload: unknown): AutoPullAlert[] {
+  const root = asRecord(payload);
+  const itemsRaw = root?.items;
+  if (!Array.isArray(itemsRaw)) {
+    return [];
+  }
+
+  return itemsRaw
+    .map((item): AutoPullAlert | null => {
+      const row = asRecord(item);
+      if (!row) {
+        return null;
+      }
+      const alertId = toText(row.alert_id);
+      const ruleId = toText(row.rule_id);
+      const level = toText(row.level);
+      const code = toText(row.code);
+      const message = toText(row.message);
+      const createdAt = toText(row.created_at);
+      if (!alertId || !ruleId || !level || !code || !message || !createdAt) {
+        return null;
+      }
+      return {
+        alert_id: alertId,
+        rule_id: ruleId,
+        run_id: toText(row.run_id) ?? null,
+        source: (toText(row.source) as AutoPullSource | undefined) ?? null,
+        level: level === 'ERROR' ? 'ERROR' : 'WARNING',
+        code,
+        message,
+        detail: asRecord(row.detail) ?? {},
+        ack_at: toText(row.ack_at) ?? null,
+        created_at: createdAt,
+      };
+    })
+    .filter((item): item is AutoPullAlert => item !== null);
+}
+
 function normalizeLiteratureSearchPayload(payload: unknown): LiteratureSearchItem[] {
   const root = asRecord(payload);
   const itemsRaw = root?.items;
@@ -523,6 +954,44 @@ function normalizeLiteratureSearchPayload(payload: unknown): LiteratureSearchIte
       };
     })
     .filter((row): row is LiteratureSearchItem => row !== null);
+}
+
+function normalizeWebImportResultPayload(payload: unknown): LiteratureWebImportResult[] {
+  const root = asRecord(payload);
+  const resultsRaw = root?.results;
+  if (!Array.isArray(resultsRaw)) {
+    return [];
+  }
+
+  return resultsRaw
+    .map((entry): LiteratureWebImportResult | null => {
+      const row = asRecord(entry);
+      if (!row) {
+        return null;
+      }
+
+      const url = toText(row.url);
+      const imported = row.imported;
+      if (!url || typeof imported !== 'boolean') {
+        return null;
+      }
+
+      const matchedBy = toText(row.matched_by);
+      const sourceProvider = toText(row.source_provider);
+      return {
+        url,
+        imported,
+        literature_id: toText(row.literature_id),
+        title: toText(row.title),
+        matched_by:
+          matchedBy === 'doi' || matchedBy === 'arxiv_id' || matchedBy === 'title_authors_year'
+            ? matchedBy
+            : 'none',
+        source_provider: sourceProvider ? normalizeLiteratureProvider(sourceProvider) : undefined,
+        message: toText(row.message),
+      };
+    })
+    .filter((entry): entry is LiteratureWebImportResult => entry !== null);
 }
 
 function normalizeTopicScopePayload(payload: unknown): TopicScopeItem[] {
@@ -920,6 +1389,10 @@ function parseBatchUrls(value: string): string[] {
   )];
 }
 
+void normalizeLiteratureSearchPayload;
+void normalizeWebImportResultPayload;
+void parseBatchUrls;
+
 function createQueryCondition(
   field: QueryField = 'title',
   operator: QueryOperator = 'contains',
@@ -1191,6 +1664,30 @@ function formatTimestamp(value: string): string {
   return parsed.toLocaleString();
 }
 
+function formatRunDuration(startedAt: string | null, finishedAt: string | null): string {
+  if (!startedAt) {
+    return '--';
+  }
+  const startMs = new Date(startedAt).getTime();
+  if (Number.isNaN(startMs)) {
+    return '--';
+  }
+  const endMs = finishedAt ? new Date(finishedAt).getTime() : Date.now();
+  if (Number.isNaN(endMs)) {
+    return '--';
+  }
+  const durationMs = Math.max(0, endMs - startMs);
+  if (durationMs < 1_000) {
+    return `${durationMs}ms`;
+  }
+  if (durationMs < 60_000) {
+    return `${(durationMs / 1_000).toFixed(1)}s`;
+  }
+  const minutes = Math.floor(durationMs / 60_000);
+  const seconds = Math.floor((durationMs % 60_000) / 1_000);
+  return `${minutes}m ${seconds}s`;
+}
+
 function tryGetSnapshotId(summary: string): string | null {
   const matched = summary.match(/SP-\d{4}/);
   return matched ? matched[0] : null;
@@ -1274,8 +1771,12 @@ export function App({ initialThemeMode }: AppProps) {
   const [literatureQuery, setLiteratureQuery] = useState<string>('large language model evaluation');
   const [searchItems, setSearchItems] = useState<LiteratureSearchItem[]>([]);
   const [searchLoading, setSearchLoading] = useState<boolean>(false);
+  const [searchStatus, setSearchStatus] = useState<UiOperationStatus>('idle');
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedCandidates, setSelectedCandidates] = useState<Record<string, boolean>>({});
+  const [candidateImportLoading, setCandidateImportLoading] = useState<boolean>(false);
+  const [candidateImportStatus, setCandidateImportStatus] = useState<UiOperationStatus>('idle');
+  const [candidateImportError, setCandidateImportError] = useState<string | null>(null);
   const [topicScopeItems, setTopicScopeItems] = useState<TopicScopeItem[]>([]);
   const [topicScopeLoading, setTopicScopeLoading] = useState<boolean>(false);
   const [topicScopeError, setTopicScopeError] = useState<string | null>(null);
@@ -1283,6 +1784,68 @@ export function App({ initialThemeMode }: AppProps) {
   const [paperLiteratureLoading, setPaperLiteratureLoading] = useState<boolean>(false);
   const [paperLiteratureError, setPaperLiteratureError] = useState<string | null>(null);
   const [activeLiteratureTab, setActiveLiteratureTab] = useState<LiteratureTabKey>('auto-import');
+  const [autoImportSubTab, setAutoImportSubTab] = useState<AutoImportSubTabKey>('topic-settings');
+  const [topicProfiles, setTopicProfiles] = useState<AutoPullTopicProfile[]>([]);
+  const [topicProfilesStatus, setTopicProfilesStatus] = useState<UiOperationStatus>('idle');
+  const [topicProfilesError, setTopicProfilesError] = useState<string | null>(null);
+  const [topicFormTopicId, setTopicFormTopicId] = useState<string>('');
+  const [topicFormName, setTopicFormName] = useState<string>('');
+  const [topicFormIncludeInput, setTopicFormIncludeInput] = useState<string>('');
+  const [topicFormExcludeInput, setTopicFormExcludeInput] = useState<string>('');
+  const [topicFormVenueInput, setTopicFormVenueInput] = useState<string>('');
+  const [topicFormLookbackInput, setTopicFormLookbackInput] = useState<string>('30');
+  const [topicFormMinYearInput, setTopicFormMinYearInput] = useState<string>('');
+  const [topicFormMaxYearInput, setTopicFormMaxYearInput] = useState<string>('');
+  const [topicEditingId, setTopicEditingId] = useState<string | null>(null);
+
+  const [autoPullRules, setAutoPullRules] = useState<AutoPullRule[]>([]);
+  const [rulesStatus, setRulesStatus] = useState<UiOperationStatus>('idle');
+  const [rulesError, setRulesError] = useState<string | null>(null);
+  const [ruleEditingId, setRuleEditingId] = useState<string | null>(null);
+  const [ruleFormScope, setRuleFormScope] = useState<AutoPullScope>('GLOBAL');
+  const [ruleFormTopicId, setRuleFormTopicId] = useState<string>('');
+  const [ruleFormName, setRuleFormName] = useState<string>('');
+  const [ruleFormIncludeInput, setRuleFormIncludeInput] = useState<string>('');
+  const [ruleFormExcludeInput, setRuleFormExcludeInput] = useState<string>('');
+  const [ruleFormAuthorsInput, setRuleFormAuthorsInput] = useState<string>('');
+  const [ruleFormVenuesInput, setRuleFormVenuesInput] = useState<string>('');
+  const [ruleFormMaxResultsInput, setRuleFormMaxResultsInput] = useState<string>('20');
+  const [ruleFormLookbackInput, setRuleFormLookbackInput] = useState<string>('30');
+  const [ruleFormMinYearInput, setRuleFormMinYearInput] = useState<string>('');
+  const [ruleFormMaxYearInput, setRuleFormMaxYearInput] = useState<string>('');
+  const [ruleFormMinCompletenessInput, setRuleFormMinCompletenessInput] = useState<string>('0.6');
+  const [ruleFormRequireIncludeMatch, setRuleFormRequireIncludeMatch] = useState<boolean>(true);
+  const [ruleFormFrequency, setRuleFormFrequency] = useState<AutoPullFrequency>('DAILY');
+  const [ruleFormDaysInput, setRuleFormDaysInput] = useState<string>('MON');
+  const [ruleFormHourInput, setRuleFormHourInput] = useState<string>('9');
+  const [ruleFormMinuteInput, setRuleFormMinuteInput] = useState<string>('0');
+  const [ruleFormTimezone, setRuleFormTimezone] = useState<string>(
+    Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+  );
+  const [ruleSourceCrossref, setRuleSourceCrossref] = useState<boolean>(true);
+  const [ruleSourceArxiv, setRuleSourceArxiv] = useState<boolean>(true);
+  const [ruleSourceZotero, setRuleSourceZotero] = useState<boolean>(false);
+  const [ruleSourceZoteroLibraryType, setRuleSourceZoteroLibraryType] = useState<'users' | 'groups'>('users');
+  const [ruleSourceZoteroLibraryId, setRuleSourceZoteroLibraryId] = useState<string>('');
+  const [ruleSourceZoteroApiKey, setRuleSourceZoteroApiKey] = useState<string>('');
+  const [ruleFilterScope, setRuleFilterScope] = useState<'' | AutoPullScope>('');
+  const [ruleFilterStatus, setRuleFilterStatus] = useState<'' | AutoPullRuleStatus>('');
+
+  const [autoPullRuns, setAutoPullRuns] = useState<AutoPullRun[]>([]);
+  const [runsStatus, setRunsStatus] = useState<UiOperationStatus>('idle');
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [runsFilterRuleId, setRunsFilterRuleId] = useState<string>('');
+  const [runsFilterStatus, setRunsFilterStatus] = useState<'' | AutoPullRunStatus>('');
+  const [selectedRunDetail, setSelectedRunDetail] = useState<AutoPullRun | null>(null);
+  const [runDetailLoading, setRunDetailLoading] = useState<boolean>(false);
+  const [runDetailError, setRunDetailError] = useState<string | null>(null);
+
+  const [autoPullAlerts, setAutoPullAlerts] = useState<AutoPullAlert[]>([]);
+  const [alertsStatus, setAlertsStatus] = useState<UiOperationStatus>('idle');
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [alertsFilterRuleId, setAlertsFilterRuleId] = useState<string>('');
+  const [alertsFilterLevel, setAlertsFilterLevel] = useState<'' | AutoPullAlertLevel>('');
+  const [alertsFilterAcked, setAlertsFilterAcked] = useState<'all' | 'acked' | 'unacked'>('unacked');
   const [topFeedback, setTopFeedback] = useState<InlineFeedbackModel | null>(null);
   const [literatureActionMessage, setLiteratureActionMessage] = useState<string>('');
   const [scopeReasonInput, setScopeReasonInput] = useState<string>('初筛保留');
@@ -1291,6 +1854,21 @@ export function App({ initialThemeMode }: AppProps) {
   const [webImportLoading, setWebImportLoading] = useState<boolean>(false);
   const [webImportStatus, setWebImportStatus] = useState<UiOperationStatus>('idle');
   const [webImportError, setWebImportError] = useState<string | null>(null);
+  const [webImportResults, setWebImportResults] = useState<LiteratureWebImportResult[]>([]);
+  void [
+    literatureQuery,
+    setLiteratureQuery,
+    searchLoading,
+    searchStatus,
+    searchError,
+    candidateImportLoading,
+    candidateImportStatus,
+    candidateImportError,
+    webImportUrlsInput,
+    webImportLoading,
+    webImportStatus,
+    webImportError,
+  ];
   const [manualUploadLoading, setManualUploadLoading] = useState<boolean>(false);
   const [manualUploadStatus, setManualUploadStatus] = useState<UiOperationStatus>('idle');
   const [manualUploadError, setManualUploadError] = useState<string | null>(null);
@@ -1605,63 +2183,571 @@ export function App({ initialThemeMode }: AppProps) {
     setQueryStatus(sortedItems.length > 0 ? 'ready' : 'empty');
   }, [appliedQueryGroup, overviewPanel.data.items, overviewPanel.status, querySort]);
 
-  const handleSearchLiterature = async () => {
-    const query = literatureQuery.trim();
-    if (!query) {
-      const message = '请输入检索关键词。';
-      setSearchError(message);
+  const loadTopicProfiles = useCallback(async () => {
+    setTopicProfilesStatus('loading');
+    setTopicProfilesError(null);
+    try {
+      const payload = await requestGovernance({
+        method: 'GET',
+        path: '/topics/settings',
+      });
+      const items = normalizeTopicProfilePayload(payload);
+      setTopicProfiles(items);
+      setTopicProfilesStatus(items.length > 0 ? 'ready' : 'empty');
+    } catch (error) {
+      setTopicProfiles([]);
+      const message = error instanceof Error ? error.message : '加载 Topic 设置失败。';
+      setTopicProfilesStatus('error');
+      setTopicProfilesError(message);
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `加载 Topic 设置失败：${message}`,
+      });
+    }
+  }, [pushLiteratureFeedback]);
+
+  const loadAutoPullRules = useCallback(async () => {
+    setRulesStatus('loading');
+    setRulesError(null);
+    try {
+      const query = new URLSearchParams();
+      if (ruleFilterScope) {
+        query.set('scope', ruleFilterScope);
+      }
+      if (ruleFilterStatus) {
+        query.set('status', ruleFilterStatus);
+      }
+      const payload = await requestGovernance({
+        method: 'GET',
+        path: `/auto-pull/rules${query.size > 0 ? `?${query.toString()}` : ''}`,
+      });
+      const items = normalizeAutoPullRulePayload(payload);
+      setAutoPullRules(items);
+      setRulesStatus(items.length > 0 ? 'ready' : 'empty');
+    } catch (error) {
+      setAutoPullRules([]);
+      const message = error instanceof Error ? error.message : '加载规则失败。';
+      setRulesStatus('error');
+      setRulesError(message);
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `加载规则失败：${message}`,
+      });
+    }
+  }, [pushLiteratureFeedback, ruleFilterScope, ruleFilterStatus]);
+
+  const loadAutoPullRuns = useCallback(async () => {
+    setRunsStatus('loading');
+    setRunsError(null);
+    try {
+      const query = new URLSearchParams();
+      if (runsFilterRuleId.trim()) {
+        query.set('rule_id', runsFilterRuleId.trim());
+      }
+      if (runsFilterStatus) {
+        query.set('status', runsFilterStatus);
+      }
+      query.set('limit', '50');
+      const payload = await requestGovernance({
+        method: 'GET',
+        path: `/auto-pull/runs?${query.toString()}`,
+      });
+      const items = normalizeAutoPullRunsPayload(payload);
+      setAutoPullRuns(items);
+      setRunsStatus(items.length > 0 ? 'ready' : 'empty');
+    } catch (error) {
+      setAutoPullRuns([]);
+      const message = error instanceof Error ? error.message : '加载运行记录失败。';
+      setRunsStatus('error');
+      setRunsError(message);
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `加载运行记录失败：${message}`,
+      });
+    }
+  }, [pushLiteratureFeedback, runsFilterRuleId, runsFilterStatus]);
+
+  const loadAutoPullAlerts = useCallback(async () => {
+    setAlertsStatus('loading');
+    setAlertsError(null);
+    try {
+      const query = new URLSearchParams();
+      if (alertsFilterRuleId.trim()) {
+        query.set('rule_id', alertsFilterRuleId.trim());
+      }
+      if (alertsFilterLevel) {
+        query.set('level', alertsFilterLevel);
+      }
+      if (alertsFilterAcked === 'acked') {
+        query.set('acked', 'true');
+      } else if (alertsFilterAcked === 'unacked') {
+        query.set('acked', 'false');
+      }
+      query.set('limit', '100');
+      const payload = await requestGovernance({
+        method: 'GET',
+        path: `/auto-pull/alerts?${query.toString()}`,
+      });
+      const items = normalizeAutoPullAlertsPayload(payload);
+      setAutoPullAlerts(items);
+      setAlertsStatus(items.length > 0 ? 'ready' : 'empty');
+    } catch (error) {
+      setAutoPullAlerts([]);
+      const message = error instanceof Error ? error.message : '加载告警失败。';
+      setAlertsStatus('error');
+      setAlertsError(message);
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `加载告警失败：${message}`,
+      });
+    }
+  }, [alertsFilterAcked, alertsFilterLevel, alertsFilterRuleId, pushLiteratureFeedback]);
+
+  const loadAutoPullRunDetail = useCallback(async (runId: string) => {
+    const normalizedRunId = runId.trim();
+    if (!normalizedRunId) {
+      setSelectedRunDetail(null);
+      setRunDetailError('run_id 不能为空。');
+      return;
+    }
+
+    setRunDetailLoading(true);
+    setRunDetailError(null);
+    try {
+      const payload = await requestGovernance({
+        method: 'GET',
+        path: `/auto-pull/runs/${encodeURIComponent(normalizedRunId)}`,
+      });
+      const run = normalizeAutoPullRun(payload);
+      if (!run) {
+        setSelectedRunDetail(null);
+        setRunDetailError('运行详情格式无效。');
+        return;
+      }
+      setSelectedRunDetail(run);
+    } catch (error) {
+      setSelectedRunDetail(null);
+      setRunDetailError(error instanceof Error ? error.message : '加载运行详情失败。');
+    } finally {
+      setRunDetailLoading(false);
+    }
+  }, []);
+
+  const resetTopicForm = () => {
+    setTopicEditingId(null);
+    setTopicFormTopicId('');
+    setTopicFormName('');
+    setTopicFormIncludeInput('');
+    setTopicFormExcludeInput('');
+    setTopicFormVenueInput('');
+    setTopicFormLookbackInput('30');
+    setTopicFormMinYearInput('');
+    setTopicFormMaxYearInput('');
+  };
+
+  const handleEditTopicProfile = (profile: AutoPullTopicProfile) => {
+    setTopicEditingId(profile.topic_id);
+    setTopicFormTopicId(profile.topic_id);
+    setTopicFormName(profile.name);
+    setTopicFormIncludeInput(profile.include_keywords.join(', '));
+    setTopicFormExcludeInput(profile.exclude_keywords.join(', '));
+    setTopicFormVenueInput(profile.venue_filters.join(', '));
+    setTopicFormLookbackInput(String(profile.default_lookback_days));
+    setTopicFormMinYearInput(profile.default_min_year ? String(profile.default_min_year) : '');
+    setTopicFormMaxYearInput(profile.default_max_year ? String(profile.default_max_year) : '');
+    setAutoImportSubTab('topic-settings');
+  };
+
+  const handleSubmitTopicProfile = async () => {
+    const topicIdText = topicFormTopicId.trim();
+    const nameText = topicFormName.trim();
+    if (!topicIdText || !nameText) {
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'warning',
-        message,
+        message: 'Topic ID 与 Topic 名称不能为空。',
       });
       return;
     }
 
-    setSearchLoading(true);
-    setSearchError(null);
-    setLiteratureActionMessage('');
+    const lookbackValue = Number.parseInt(topicFormLookbackInput.trim(), 10);
+    const minYearValue = Number.parseInt(topicFormMinYearInput.trim(), 10);
+    const maxYearValue = Number.parseInt(topicFormMaxYearInput.trim(), 10);
+    const body = {
+      topic_id: topicIdText,
+      name: nameText,
+      include_keywords: parseTokenList(topicFormIncludeInput),
+      exclude_keywords: parseTokenList(topicFormExcludeInput),
+      venue_filters: parseTokenList(topicFormVenueInput),
+      default_lookback_days: Number.isFinite(lookbackValue) ? lookbackValue : 30,
+      default_min_year: topicFormMinYearInput.trim().length > 0 && Number.isFinite(minYearValue)
+        ? minYearValue
+        : null,
+      default_max_year: topicFormMaxYearInput.trim().length > 0 && Number.isFinite(maxYearValue)
+        ? maxYearValue
+        : null,
+    };
+
+    setTopicProfilesStatus('saving');
     try {
-      const payload = await requestGovernance({
-        method: 'POST',
-        path: '/literature/search',
-        body: {
-          query,
-          providers: ['crossref', 'arxiv'],
-          limit: 8,
-        },
-      });
-      const items = normalizeLiteratureSearchPayload(payload);
-      setSearchItems(items);
-      setSelectedCandidates({});
-      setActionHint(`文献检索完成，共 ${items.length} 条候选。`);
-      if (items.length === 0) {
-        pushLiteratureFeedback({
-          slot: 'auto-import',
-          level: 'warning',
-          message: '未检索到候选文献，可尝试更换关键词。',
-          recoveryAction: 'retry-query',
+      if (topicEditingId) {
+        await requestGovernance({
+          method: 'PATCH',
+          path: `/topics/settings/${encodeURIComponent(topicEditingId)}`,
+          body: {
+            name: body.name,
+            include_keywords: body.include_keywords,
+            exclude_keywords: body.exclude_keywords,
+            venue_filters: body.venue_filters,
+            default_lookback_days: body.default_lookback_days,
+            default_min_year: body.default_min_year,
+            default_max_year: body.default_max_year,
+          },
         });
       } else {
-        pushLiteratureFeedback({
-          slot: 'auto-import',
-          level: 'success',
-          message: `检索完成，共 ${items.length} 条候选文献。`,
+        await requestGovernance({
+          method: 'POST',
+          path: '/topics/settings',
+          body,
         });
       }
+      resetTopicForm();
+      await loadTopicProfiles();
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'success',
+        message: topicEditingId ? 'Topic 设置已更新。' : 'Topic 设置已创建。',
+      });
     } catch (error) {
-      setSearchItems([]);
-      const message = error instanceof Error ? error.message : '检索失败。';
-      setSearchError(message);
+      const message = error instanceof Error ? error.message : '保存 Topic 设置失败。';
+      setTopicProfilesStatus('error');
+      setTopicProfilesError(message);
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'error',
-        message: `检索失败：${message}`,
-        recoveryAction: 'retry-query',
+        message: `保存 Topic 设置失败：${message}`,
       });
-    } finally {
-      setSearchLoading(false);
     }
+  };
+
+  const handleEditRule = (rule: AutoPullRule) => {
+    const primarySchedule = rule.schedules[0] ?? null;
+    setRuleEditingId(rule.rule_id);
+    setRuleFormScope(rule.scope);
+    setRuleFormTopicId(rule.topic_id ?? '');
+    setRuleFormName(rule.name);
+    setRuleFormIncludeInput(rule.query_spec.include_keywords.join(', '));
+    setRuleFormExcludeInput(rule.query_spec.exclude_keywords.join(', '));
+    setRuleFormAuthorsInput(rule.query_spec.authors.join(', '));
+    setRuleFormVenuesInput(rule.query_spec.venues.join(', '));
+    setRuleFormMaxResultsInput(String(rule.query_spec.max_results_per_source));
+    setRuleFormLookbackInput(String(rule.time_spec.lookback_days));
+    setRuleFormMinYearInput(rule.time_spec.min_year ? String(rule.time_spec.min_year) : '');
+    setRuleFormMaxYearInput(rule.time_spec.max_year ? String(rule.time_spec.max_year) : '');
+    setRuleFormMinCompletenessInput(String(rule.quality_spec.min_completeness_score));
+    setRuleFormRequireIncludeMatch(rule.quality_spec.require_include_match);
+    setRuleFormFrequency(primarySchedule?.frequency ?? 'DAILY');
+    setRuleFormDaysInput(primarySchedule?.days_of_week.join(', ') ?? 'MON');
+    setRuleFormHourInput(String(primarySchedule?.hour ?? 9));
+    setRuleFormMinuteInput(String(primarySchedule?.minute ?? 0));
+    setRuleFormTimezone(primarySchedule?.timezone ?? 'UTC');
+    setRuleSourceCrossref(rule.sources.some((source) => source.source === 'CROSSREF' && source.enabled));
+    setRuleSourceArxiv(rule.sources.some((source) => source.source === 'ARXIV' && source.enabled));
+    const zoteroSource = rule.sources.find((source) => source.source === 'ZOTERO' && source.enabled);
+    setRuleSourceZotero(Boolean(zoteroSource));
+    setRuleSourceZoteroLibraryType(
+      (toText(zoteroSource?.config.library_type) as 'users' | 'groups') ?? 'users',
+    );
+    setRuleSourceZoteroLibraryId(toText(zoteroSource?.config.library_id) ?? '');
+    setRuleSourceZoteroApiKey(toText(zoteroSource?.config.api_key) ?? '');
+    setAutoImportSubTab('rules-center');
+  };
+
+  const resetRuleForm = () => {
+    setRuleEditingId(null);
+    setRuleFormScope('GLOBAL');
+    setRuleFormTopicId('');
+    setRuleFormName('');
+    setRuleFormIncludeInput('');
+    setRuleFormExcludeInput('');
+    setRuleFormAuthorsInput('');
+    setRuleFormVenuesInput('');
+    setRuleFormMaxResultsInput('20');
+    setRuleFormLookbackInput('30');
+    setRuleFormMinYearInput('');
+    setRuleFormMaxYearInput('');
+    setRuleFormMinCompletenessInput('0.6');
+    setRuleFormRequireIncludeMatch(true);
+    setRuleFormFrequency('DAILY');
+    setRuleFormDaysInput('MON');
+    setRuleFormHourInput('9');
+    setRuleFormMinuteInput('0');
+    setRuleSourceCrossref(true);
+    setRuleSourceArxiv(true);
+    setRuleSourceZotero(false);
+    setRuleSourceZoteroLibraryType('users');
+    setRuleSourceZoteroLibraryId('');
+    setRuleSourceZoteroApiKey('');
+  };
+
+  const handleSubmitRule = async () => {
+    const nameText = ruleFormName.trim();
+    if (!nameText) {
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'warning',
+        message: '规则名称不能为空。',
+      });
+      return;
+    }
+
+    if (ruleFormScope === 'TOPIC' && !ruleFormTopicId.trim()) {
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'warning',
+        message: 'Topic 规则必须选择 Topic ID。',
+      });
+      return;
+    }
+
+    const sources: Array<{
+      source: AutoPullSource;
+      enabled: boolean;
+      priority: number;
+      config?: Record<string, unknown>;
+    }> = [];
+    if (ruleSourceCrossref) {
+      sources.push({ source: 'CROSSREF', enabled: true, priority: 10 });
+    }
+    if (ruleSourceArxiv) {
+      sources.push({ source: 'ARXIV', enabled: true, priority: 20 });
+    }
+    if (ruleSourceZotero) {
+      const config: Record<string, unknown> = {
+        library_type: ruleSourceZoteroLibraryType,
+      };
+      if (ruleSourceZoteroLibraryId.trim()) {
+        config.library_id = ruleSourceZoteroLibraryId.trim();
+      }
+      if (ruleSourceZoteroApiKey.trim()) {
+        config.api_key = ruleSourceZoteroApiKey.trim();
+      }
+      sources.push({ source: 'ZOTERO', enabled: true, priority: 30, config });
+    }
+
+    if (sources.length === 0) {
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'warning',
+        message: '至少启用一个数据源。',
+      });
+      return;
+    }
+
+    const hour = Number.parseInt(ruleFormHourInput.trim(), 10);
+    const minute = Number.parseInt(ruleFormMinuteInput.trim(), 10);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'warning',
+        message: '调度时间无效。',
+      });
+      return;
+    }
+
+    const maxResults = Number.parseInt(ruleFormMaxResultsInput.trim(), 10);
+    const lookbackDays = Number.parseInt(ruleFormLookbackInput.trim(), 10);
+    const minYear = Number.parseInt(ruleFormMinYearInput.trim(), 10);
+    const maxYear = Number.parseInt(ruleFormMaxYearInput.trim(), 10);
+    const minCompleteness = Number.parseFloat(ruleFormMinCompletenessInput.trim());
+
+    const payload = {
+      scope: ruleFormScope,
+      topic_id: ruleFormScope === 'TOPIC' ? ruleFormTopicId.trim() : undefined,
+      name: nameText,
+      query_spec: {
+        include_keywords: parseTokenList(ruleFormIncludeInput),
+        exclude_keywords: parseTokenList(ruleFormExcludeInput),
+        authors: parseTokenList(ruleFormAuthorsInput),
+        venues: parseTokenList(ruleFormVenuesInput),
+        max_results_per_source: Number.isFinite(maxResults) ? maxResults : 20,
+      },
+      time_spec: {
+        lookback_days: Number.isFinite(lookbackDays) ? lookbackDays : 30,
+        min_year: ruleFormMinYearInput.trim().length > 0 && Number.isFinite(minYear) ? minYear : null,
+        max_year: ruleFormMaxYearInput.trim().length > 0 && Number.isFinite(maxYear) ? maxYear : null,
+      },
+      quality_spec: {
+        min_completeness_score: Number.isFinite(minCompleteness) ? minCompleteness : 0.6,
+        require_include_match: ruleFormRequireIncludeMatch,
+      },
+      sources,
+      schedules: [
+        {
+          frequency: ruleFormFrequency,
+          days_of_week: ruleFormFrequency === 'WEEKLY' ? parseTokenList(ruleFormDaysInput) : [],
+          hour,
+          minute,
+          timezone: ruleFormTimezone.trim() || 'UTC',
+          active: true,
+        },
+      ],
+    };
+
+    setRulesStatus('saving');
+    try {
+      if (ruleEditingId) {
+        await requestGovernance({
+          method: 'PATCH',
+          path: `/auto-pull/rules/${encodeURIComponent(ruleEditingId)}`,
+          body: payload,
+        });
+      } else {
+        await requestGovernance({
+          method: 'POST',
+          path: '/auto-pull/rules',
+          body: payload,
+        });
+      }
+      resetRuleForm();
+      await loadAutoPullRules();
+      await loadAutoPullRuns();
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'success',
+        message: ruleEditingId ? '规则已更新。' : '规则已创建。',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '保存规则失败。';
+      setRulesStatus('error');
+      setRulesError(message);
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `保存规则失败：${message}`,
+      });
+    }
+  };
+
+  const handleToggleRuleStatus = async (rule: AutoPullRule) => {
+    const nextStatus: AutoPullRuleStatus = rule.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    try {
+      await requestGovernance({
+        method: 'PATCH',
+        path: `/auto-pull/rules/${encodeURIComponent(rule.rule_id)}`,
+        body: {
+          status: nextStatus,
+        },
+      });
+      await loadAutoPullRules();
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'success',
+        message: `规则已${nextStatus === 'ACTIVE' ? '启用' : '暂停'}：${rule.name}`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '更新规则状态失败。';
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `更新规则状态失败：${message}`,
+      });
+    }
+  };
+
+  const handleRunRuleNow = async (ruleId: string) => {
+    try {
+      const payload = await requestGovernance({
+        method: 'POST',
+        path: `/auto-pull/rules/${encodeURIComponent(ruleId)}/runs`,
+        body: {
+          trigger_type: 'MANUAL',
+        },
+      });
+      const run = normalizeAutoPullRun(payload);
+      if (run) {
+        setSelectedRunDetail(run);
+      }
+      await loadAutoPullRuns();
+      await loadAutoPullAlerts();
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'success',
+        message: '规则已触发运行。',
+      });
+      setAutoImportSubTab('runs-alerts');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '触发运行失败。';
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `触发运行失败：${message}`,
+      });
+    }
+  };
+
+  const handleRetryRun = async (runId: string) => {
+    try {
+      await requestGovernance({
+        method: 'POST',
+        path: `/auto-pull/runs/${encodeURIComponent(runId)}/retry-failed-sources`,
+        body: {},
+      });
+      await loadAutoPullRuns();
+      await loadAutoPullAlerts();
+      await loadAutoPullRunDetail(runId);
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'success',
+        message: '已触发失败源重试。',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '重试失败源失败。';
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `重试失败源失败：${message}`,
+      });
+    }
+  };
+
+  const handleAckAlert = async (alertId: string) => {
+    try {
+      await requestGovernance({
+        method: 'POST',
+        path: `/auto-pull/alerts/${encodeURIComponent(alertId)}/ack`,
+        body: {},
+      });
+      await loadAutoPullAlerts();
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'success',
+        message: '告警已确认。',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '确认告警失败。';
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `确认告警失败：${message}`,
+      });
+    }
+  };
+
+  const handleSearchLiterature = async () => {
+    setSearchLoading(false);
+    setSearchStatus('error');
+    setSearchItems([]);
+    setSearchError('旧版即时检索已下线，请使用规则中心创建自动拉取规则。');
+    pushLiteratureFeedback({
+      slot: 'auto-import',
+      level: 'warning',
+      message: '旧版即时检索已下线，请改用规则中心。',
+    });
   };
 
   const handleToggleCandidate = (key: string) => {
@@ -1670,12 +2756,15 @@ export function App({ initialThemeMode }: AppProps) {
       [key]: !current[key],
     }));
   };
+  void handleToggleCandidate;
 
   const handleImportSelectedCandidates = async () => {
     const selectedItems = searchItems.filter((item) =>
       selectedCandidates[item.import_payload.external_id],
     );
     if (selectedItems.length === 0) {
+      setCandidateImportStatus('error');
+      setCandidateImportError('请至少选择一条候选文献。');
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'warning',
@@ -1684,6 +2773,22 @@ export function App({ initialThemeMode }: AppProps) {
       return;
     }
 
+    const normalizedTopicId = topicId.trim();
+    if (!normalizedTopicId) {
+      const message = '请先输入 Topic ID，再将候选文献加入选题范围。';
+      setCandidateImportStatus('error');
+      setCandidateImportError(message);
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'warning',
+        message,
+      });
+      return;
+    }
+
+    setCandidateImportLoading(true);
+    setCandidateImportStatus('loading');
+    setCandidateImportError(null);
     try {
       const payload = await requestGovernance({
         method: 'POST',
@@ -1704,7 +2809,7 @@ export function App({ initialThemeMode }: AppProps) {
       if (importedIds.length > 0) {
         await requestGovernance({
           method: 'POST',
-          path: `/topics/${encodeURIComponent(topicId.trim())}/literature-scope`,
+          path: `/topics/${encodeURIComponent(normalizedTopicId)}/literature-scope`,
           body: {
             actions: importedIds.map((literatureId) => ({
               literature_id: literatureId,
@@ -1715,80 +2820,47 @@ export function App({ initialThemeMode }: AppProps) {
         });
       }
 
+      setCandidateImportStatus(importedIds.length > 0 ? 'ready' : 'empty');
+      setCandidateImportError(null);
       pushLiteratureFeedback({
         slot: 'auto-import',
-        level: 'success',
-        message: `已导入 ${selectedItems.length} 条文献，并加入当前选题范围。`,
+        level: importedIds.length > 0 ? 'success' : 'warning',
+        message:
+          importedIds.length > 0
+            ? `已导入 ${importedIds.length} 条文献，并加入当前选题范围。`
+            : '未导入新文献，请调整候选后重试。',
       });
-      setActionHint(`文献导入完成：${selectedItems.length} 条。`);
-      await loadTopicScope(topicId);
-      await loadLiteratureOverview(topicId, paperId);
+      setActionHint(`候选导入完成：${importedIds.length} 条。`);
+      if (importedIds.length > 0) {
+        await loadTopicScope(normalizedTopicId);
+        await loadLiteratureOverview(normalizedTopicId, paperId);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : '导入失败。';
+      setCandidateImportStatus('error');
+      setCandidateImportError(message);
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'error',
         message: `检索结果导入失败：${message}`,
-        recoveryAction: 'retry-query',
+        recoveryAction: 'retry-candidate-import',
       });
+    } finally {
+      setCandidateImportLoading(false);
     }
   };
 
-  const handleAutoImportFromWeb = async () => {
-    const urls = parseBatchUrls(webImportUrlsInput);
-    if (urls.length === 0) {
-      const message = '请至少输入一个 URL。';
-      setWebImportStatus('error');
-      setWebImportError(message);
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'warning',
-        message,
-      });
-      return;
-    }
-
-    setWebImportLoading(true);
-    setWebImportStatus('loading');
-    setWebImportError(null);
-    try {
-      const payload = await requestGovernance({
-        method: 'POST',
-        path: '/literature/web-import',
-        body: {
-          urls,
-          topic_id: topicId.trim() || undefined,
-          scope_status: 'in_scope',
-          scope_reason: scopeReasonInput.trim() || undefined,
-          tags: parseTagsInput(batchTagsInput),
-          rights_class: 'UNKNOWN',
-        },
-      });
-      const root = asRecord(payload);
-      const importedCount = typeof root?.imported_count === 'number' ? root.imported_count : 0;
-      const scopedCount = typeof root?.scope_upserted_count === 'number' ? root.scope_upserted_count : 0;
-      setWebImportStatus(importedCount > 0 ? 'ready' : 'empty');
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: importedCount > 0 ? 'success' : 'warning',
-        message: `网页导入完成：成功 ${importedCount} 条，加入范围 ${scopedCount} 条。`,
-      });
-      setWebImportUrlsInput('');
-      await loadTopicScope(topicId);
-      await loadLiteratureOverview(topicId, paperId);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '网页导入失败。';
-      setWebImportStatus('error');
-      setWebImportError(message);
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'error',
-        message: `网页导入失败：${message}`,
-        recoveryAction: 'retry-web-import',
-      });
-    } finally {
-      setWebImportLoading(false);
-    }
+  const handleAutoImportFromWeb = async (overrideUrls?: string[]) => {
+    void overrideUrls;
+    setWebImportLoading(false);
+    setWebImportStatus('error');
+    setWebImportError('旧版 URL 批量抓取已下线，请在规则中心通过数据源规则自动拉取。');
+    setWebImportResults([]);
+    pushLiteratureFeedback({
+      slot: 'auto-import',
+      level: 'warning',
+      message: '旧版 URL 批量抓取已下线，请改用规则中心。',
+    });
   };
 
   const handleManualUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -2279,6 +3351,23 @@ export function App({ initialThemeMode }: AppProps) {
       }
       return;
     }
+    if (topFeedback.recoveryAction === 'retry-candidate-import') {
+      void handleImportSelectedCandidates();
+      return;
+    }
+    if (topFeedback.recoveryAction === 'retry-web-import-failed') {
+      const failedUrls = webImportResults
+        .filter((entry) => !entry.imported)
+        .map((entry) => entry.url.trim())
+        .filter((entry) => entry.length > 0);
+      if (failedUrls.length === 0) {
+        void handleAutoImportFromWeb();
+        return;
+      }
+      setWebImportUrlsInput(failedUrls.join('\n'));
+      void handleAutoImportFromWeb(failedUrls);
+      return;
+    }
     if (topFeedback.recoveryAction === 'reload-overview') {
       void loadLiteratureOverview(topicId, paperId);
     }
@@ -2316,6 +3405,23 @@ export function App({ initialThemeMode }: AppProps) {
     }
   }, [activeModule, loadLiteratureOverview, loadPaperLiterature, loadTopicScope, paperId, topicId]);
 
+  useEffect(() => {
+    if (activeModule !== '文献管理' || activeLiteratureTab !== 'auto-import') {
+      return;
+    }
+    void loadTopicProfiles();
+    void loadAutoPullRules();
+    void loadAutoPullRuns();
+    void loadAutoPullAlerts();
+  }, [
+    activeLiteratureTab,
+    activeModule,
+    loadAutoPullAlerts,
+    loadAutoPullRules,
+    loadAutoPullRuns,
+    loadTopicProfiles,
+  ]);
+
   const releaseQueue = useMemo(() => {
     return timelinePanel.data
       .filter(
@@ -2328,17 +3434,16 @@ export function App({ initialThemeMode }: AppProps) {
   }, [timelinePanel.data]);
 
   const inScopeCount = topicScopeItems.filter((item) => item.scope_status === 'in_scope').length;
-  const excludedScopeCount = topicScopeItems.filter((item) => item.scope_status === 'excluded').length;
   const citedCount = paperLiteratureItems.filter((item) => item.citation_status === 'cited').length;
   const usedCount = paperLiteratureItems.filter((item) => item.citation_status === 'used').length;
 
   const metricCards = useMemo(() => {
     if (activeModule === '文献管理' || activeModule === '选题管理') {
       return [
-        { label: '检索候选', value: String(searchItems.length) },
+        { label: '自动规则', value: String(autoPullRules.length) },
+        { label: '运行记录', value: String(autoPullRuns.length) },
+        { label: '未确认告警', value: String(autoPullAlerts.filter((alert) => !alert.ack_at).length) },
         { label: '综览总量', value: String(overviewPanel.data.summary.total_literatures) },
-        { label: '选题范围（保留）', value: String(overviewPanel.data.summary.in_scope_count) },
-        { label: '已引用（cited）', value: String(overviewPanel.data.summary.cited_count) },
       ];
     }
 
@@ -2368,16 +3473,14 @@ export function App({ initialThemeMode }: AppProps) {
     ];
   }, [
     activeModule,
+    autoPullAlerts,
+    autoPullRules.length,
+    autoPullRuns.length,
     citedCount,
-    excludedScopeCount,
     inScopeCount,
-    overviewPanel.data.summary.cited_count,
-    overviewPanel.data.summary.in_scope_count,
     overviewPanel.data.summary.total_literatures,
     paperId,
     paperLiteratureItems.length,
-    searchItems.length,
-    selectedCandidates,
     topicId,
     usedCount,
   ]);
@@ -2649,110 +3752,645 @@ export function App({ initialThemeMode }: AppProps) {
                 {activeLiteratureTab === 'auto-import' ? (
                   <section className="literature-tab-panel">
                     <div data-ui="toolbar" data-align="between" data-wrap="wrap">
-                      <p data-ui="text" data-variant="label" data-tone="secondary">自动联网导入（网页 + Crossref/arXiv）</p>
-                      <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                        状态：{formatUiOperationStatus(webImportStatus)}
-                      </span>
-                    </div>
-                    <section className="literature-section-block">
-                      <p data-ui="text" data-variant="caption" data-tone="muted">导入默认参数</p>
-                      <div data-ui="grid" data-cols="2" data-gap="2" className="literature-defaults-grid">
-                        <label data-ui="field">
-                          <span data-slot="label">默认分类标签（逗号分隔）</span>
-                          <input
-                            data-ui="input"
-                            data-size="sm"
-                            value={batchTagsInput}
-                            onChange={(event) => setBatchTagsInput(event.target.value)}
-                            placeholder="例如：survey, baseline, method:nlp"
-                          />
-                        </label>
-                        <label data-ui="field">
-                          <span data-slot="label">范围变更原因（可选）</span>
-                          <input
-                            data-ui="input"
-                            data-size="sm"
-                            value={scopeReasonInput}
-                            onChange={(event) => setScopeReasonInput(event.target.value)}
-                            placeholder="例如：选题核心相关"
-                          />
-                        </label>
+                      <p data-ui="text" data-variant="label" data-tone="secondary">自动拉取（规则驱动 + 异步运行）</p>
+                      <div data-ui="toolbar" data-gap="2" data-wrap="wrap" className="literature-status-group">
+                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
+                          Topic：{formatUiOperationStatus(topicProfilesStatus)}
+                        </span>
+                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
+                          规则：{formatUiOperationStatus(rulesStatus)}
+                        </span>
+                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
+                          运行：{formatUiOperationStatus(runsStatus)}
+                        </span>
+                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
+                          告警：{formatUiOperationStatus(alertsStatus)}
+                        </span>
                       </div>
-                    </section>
-                    <section className="literature-section-block">
-                        <label data-ui="field">
-                          <span data-slot="label">检索关键词（Crossref + arXiv）</span>
-                          <div data-ui="toolbar" data-wrap="nowrap" className="literature-input-group">
+                    </div>
+                    <div className="auto-pull-subtab-strip" role="tablist" aria-label="自动拉取子标签">
+                      {autoImportSubTabs.map((tab) => (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          role="tab"
+                          className={`auto-pull-subtab-button${autoImportSubTab === tab.key ? ' is-active' : ''}`}
+                          aria-selected={autoImportSubTab === tab.key}
+                          onClick={() => setAutoImportSubTab(tab.key)}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {autoImportSubTab === 'topic-settings' ? (
+                      <section className="literature-section-block">
+                        <p data-ui="text" data-variant="label" data-tone="secondary">Topic 设置</p>
+                        <div data-ui="grid" data-cols="2" data-gap="2">
+                          <label data-ui="field">
+                            <span data-slot="label">Topic ID</span>
                             <input
                               data-ui="input"
                               data-size="sm"
-                              value={literatureQuery}
-                              onChange={(event) => setLiteratureQuery(event.target.value)}
-                              placeholder="输入关键词"
+                              value={topicFormTopicId}
+                              onChange={(event) => setTopicFormTopicId(event.target.value)}
+                              placeholder="例如 TOPIC-001"
+                              disabled={topicEditingId !== null}
                             />
-                            <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleSearchLiterature}>
-                              {searchLoading ? '检索中...' : '检索'}
-                            </button>
-                          </div>
-                        </label>
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Topic 名称</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={topicFormName}
+                              onChange={(event) => setTopicFormName(event.target.value)}
+                              placeholder="例如 LLM Evaluation"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Include 关键词（逗号/换行）</span>
+                            <textarea
+                              data-ui="textarea"
+                              value={topicFormIncludeInput}
+                              onChange={(event) => setTopicFormIncludeInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Exclude 关键词（逗号/换行）</span>
+                            <textarea
+                              data-ui="textarea"
+                              value={topicFormExcludeInput}
+                              onChange={(event) => setTopicFormExcludeInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Venue 过滤（逗号/换行）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={topicFormVenueInput}
+                              onChange={(event) => setTopicFormVenueInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">默认窗口（天）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={topicFormLookbackInput}
+                              onChange={(event) => setTopicFormLookbackInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">最小年份（可选）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={topicFormMinYearInput}
+                              onChange={(event) => setTopicFormMinYearInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">最大年份（可选）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={topicFormMaxYearInput}
+                              onChange={(event) => setTopicFormMaxYearInput(event.target.value)}
+                            />
+                          </label>
+                        </div>
+                        <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                          <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleSubmitTopicProfile}>
+                            {topicEditingId ? '更新 Topic 设置' : '创建 Topic 设置'}
+                          </button>
+                          <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={resetTopicForm}>
+                            清空表单
+                          </button>
+                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadTopicProfiles()}>
+                            刷新 Topic 列表
+                          </button>
+                        </div>
+                        {topicProfilesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{topicProfilesError}</p> : null}
                         <div className="literature-list">
-                          {searchItems.length === 0 ? (
-                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无候选，先执行联网检索。</p>
+                          {topicProfiles.length === 0 ? (
+                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无 Topic 设置。</p>
                           ) : (
-                            searchItems.map((item) => {
-                              const key = item.import_payload.external_id;
-                              return (
-                                <label key={key} className="literature-list-item selectable">
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(selectedCandidates[key])}
-                                    onChange={() => handleToggleCandidate(key)}
-                                  />
-                                  <div>
-                                    <p data-ui="text" data-variant="body" data-tone="primary">{item.import_payload.title}</p>
-                                    <p data-ui="text" data-variant="caption" data-tone="muted">
-                                      {item.import_payload.provider} · {item.import_payload.year ?? '--'} · dedup:{' '}
-                                      {item.dedup.matched_by}
-                                    </p>
-                                  </div>
-                                </label>
-                              );
-                            })
+                            topicProfiles.map((profile) => (
+                              <div key={profile.topic_id} className="literature-list-item">
+                                <div>
+                                  <p data-ui="text" data-variant="body" data-tone="primary">
+                                    {profile.topic_id} · {profile.name}
+                                  </p>
+                                  <p data-ui="text" data-variant="caption" data-tone="muted">
+                                    include:{profile.include_keywords.length} / exclude:{profile.exclude_keywords.length} / venue:{profile.venue_filters.length}
+                                  </p>
+                                </div>
+                                <button
+                                  data-ui="button"
+                                  data-variant="ghost"
+                                  data-size="sm"
+                                  type="button"
+                                  onClick={() => handleEditTopicProfile(profile)}
+                                >
+                                  编辑
+                                </button>
+                              </div>
+                            ))
                           )}
                         </div>
-                        <button
-                          data-ui="button"
-                          data-variant="primary"
-                          data-size="sm"
-                          type="button"
-                          onClick={handleImportSelectedCandidates}
-                        >
-                          导入已选候选并加入选题范围
-                        </button>
-                        {searchError ? <p data-ui="text" data-variant="caption" data-tone="danger">{searchError}</p> : null}
-                    </section>
+                      </section>
+                    ) : null}
 
-                    <section className="literature-section-block">
-                        <label data-ui="field">
-                          <span data-slot="label">URL 列表（换行/逗号分隔）</span>
-                          <textarea
-                            data-ui="textarea"
-                            value={webImportUrlsInput}
-                            onChange={(event) => setWebImportUrlsInput(event.target.value)}
-                            placeholder={'https://arxiv.org/abs/2401.00001\nhttps://doi.org/10.xxxx/xxxx'}
-                          />
-                        </label>
-                        <button
-                          data-ui="button"
-                          data-variant="secondary"
-                          data-size="sm"
-                          type="button"
-                          onClick={handleAutoImportFromWeb}
-                        >
-                          {webImportLoading ? '导入中...' : '网页抓取并导入'}
-                        </button>
-                        {webImportError ? <p data-ui="text" data-variant="caption" data-tone="danger">{webImportError}</p> : null}
-                    </section>
+                    {autoImportSubTab === 'rules-center' ? (
+                      <section className="literature-section-block">
+                        <p data-ui="text" data-variant="label" data-tone="secondary">规则中心</p>
+                        <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
+                          <label data-ui="field">
+                            <span data-slot="label">Scope 过滤</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={ruleFilterScope}
+                              onChange={(event) => setRuleFilterScope(event.target.value as '' | AutoPullScope)}
+                            >
+                              <option value="">全部</option>
+                              <option value="GLOBAL">GLOBAL</option>
+                              <option value="TOPIC">TOPIC</option>
+                            </select>
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">状态过滤</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={ruleFilterStatus}
+                              onChange={(event) => setRuleFilterStatus(event.target.value as '' | AutoPullRuleStatus)}
+                            >
+                              <option value="">全部</option>
+                              <option value="ACTIVE">ACTIVE</option>
+                              <option value="PAUSED">PAUSED</option>
+                            </select>
+                          </label>
+                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadAutoPullRules()}>
+                            刷新规则
+                          </button>
+                        </div>
+
+                        <div data-ui="grid" data-cols="2" data-gap="2">
+                          <label data-ui="field">
+                            <span data-slot="label">Scope</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={ruleFormScope}
+                              onChange={(event) => setRuleFormScope(event.target.value as AutoPullScope)}
+                            >
+                              <option value="GLOBAL">GLOBAL</option>
+                              <option value="TOPIC">TOPIC</option>
+                            </select>
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Topic ID（TOPIC 规则必填）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormTopicId}
+                              onChange={(event) => setRuleFormTopicId(event.target.value)}
+                              placeholder="例如 TOPIC-001"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">规则名称</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormName}
+                              onChange={(event) => setRuleFormName(event.target.value)}
+                              placeholder="例如 每日增量拉取"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">每源最大结果数</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormMaxResultsInput}
+                              onChange={(event) => setRuleFormMaxResultsInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Include 关键词</span>
+                            <textarea
+                              data-ui="textarea"
+                              value={ruleFormIncludeInput}
+                              onChange={(event) => setRuleFormIncludeInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Exclude 关键词</span>
+                            <textarea
+                              data-ui="textarea"
+                              value={ruleFormExcludeInput}
+                              onChange={(event) => setRuleFormExcludeInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">作者关键词</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormAuthorsInput}
+                              onChange={(event) => setRuleFormAuthorsInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Venue 关键词</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormVenuesInput}
+                              onChange={(event) => setRuleFormVenuesInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">滚动窗口（天）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormLookbackInput}
+                              onChange={(event) => setRuleFormLookbackInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">质量门最小完整度（0-1）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormMinCompletenessInput}
+                              onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">最小年份</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormMinYearInput}
+                              onChange={(event) => setRuleFormMinYearInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">最大年份</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormMaxYearInput}
+                              onChange={(event) => setRuleFormMaxYearInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">频率</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={ruleFormFrequency}
+                              onChange={(event) => setRuleFormFrequency(event.target.value as AutoPullFrequency)}
+                            >
+                              <option value="DAILY">DAILY</option>
+                              <option value="WEEKLY">WEEKLY</option>
+                            </select>
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">星期（WEEKLY）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormDaysInput}
+                              onChange={(event) => setRuleFormDaysInput(event.target.value)}
+                              placeholder="MON,TUE"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">小时</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormHourInput}
+                              onChange={(event) => setRuleFormHourInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">分钟</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormMinuteInput}
+                              onChange={(event) => setRuleFormMinuteInput(event.target.value)}
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">时区</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={ruleFormTimezone}
+                              onChange={(event) => setRuleFormTimezone(event.target.value)}
+                            />
+                          </label>
+                        </div>
+                        <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                          <label className="auto-pull-source-toggle">
+                            <input type="checkbox" checked={ruleSourceCrossref} onChange={(event) => setRuleSourceCrossref(event.target.checked)} />
+                            CROSSREF
+                          </label>
+                          <label className="auto-pull-source-toggle">
+                            <input type="checkbox" checked={ruleSourceArxiv} onChange={(event) => setRuleSourceArxiv(event.target.checked)} />
+                            ARXIV
+                          </label>
+                          <label className="auto-pull-source-toggle">
+                            <input type="checkbox" checked={ruleSourceZotero} onChange={(event) => setRuleSourceZotero(event.target.checked)} />
+                            ZOTERO
+                          </label>
+                          <label className="auto-pull-source-toggle">
+                            <input
+                              type="checkbox"
+                              checked={ruleFormRequireIncludeMatch}
+                              onChange={(event) => setRuleFormRequireIncludeMatch(event.target.checked)}
+                            />
+                            命中 Include 才通过
+                          </label>
+                        </div>
+                        {ruleSourceZotero ? (
+                          <div data-ui="grid" data-cols="2" data-gap="2">
+                            <label data-ui="field">
+                              <span data-slot="label">Zotero Library Type</span>
+                              <select
+                                data-ui="select"
+                                data-size="sm"
+                                value={ruleSourceZoteroLibraryType}
+                                onChange={(event) => setRuleSourceZoteroLibraryType(event.target.value as 'users' | 'groups')}
+                              >
+                                <option value="users">users</option>
+                                <option value="groups">groups</option>
+                              </select>
+                            </label>
+                            <label data-ui="field">
+                              <span data-slot="label">Zotero Library ID</span>
+                              <input
+                                data-ui="input"
+                                data-size="sm"
+                                value={ruleSourceZoteroLibraryId}
+                                onChange={(event) => setRuleSourceZoteroLibraryId(event.target.value)}
+                              />
+                            </label>
+                            <label data-ui="field">
+                              <span data-slot="label">Zotero API Key（可选）</span>
+                              <input
+                                data-ui="input"
+                                data-size="sm"
+                                type="password"
+                                value={ruleSourceZoteroApiKey}
+                                onChange={(event) => setRuleSourceZoteroApiKey(event.target.value)}
+                              />
+                            </label>
+                          </div>
+                        ) : null}
+                        <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                          <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleSubmitRule}>
+                            {ruleEditingId ? '更新规则' : '创建规则'}
+                          </button>
+                          <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={resetRuleForm}>
+                            清空表单
+                          </button>
+                        </div>
+                        {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
+
+                        <p data-ui="text" data-variant="caption" data-tone="muted">全局规则</p>
+                        <div className="literature-list">
+                          {autoPullRules.filter((rule) => rule.scope === 'GLOBAL').length === 0 ? (
+                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无全局规则。</p>
+                          ) : (
+                            autoPullRules
+                              .filter((rule) => rule.scope === 'GLOBAL')
+                              .map((rule) => (
+                                <div key={rule.rule_id} className="literature-list-item">
+                                  <div>
+                                    <p data-ui="text" data-variant="body" data-tone="primary">{rule.name}</p>
+                                    <p data-ui="text" data-variant="caption" data-tone="muted">
+                                      {rule.status} · sources:{rule.sources.filter((source) => source.enabled).length}
+                                    </p>
+                                  </div>
+                                  <div data-ui="toolbar" data-gap="2">
+                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => handleEditRule(rule)}>编辑</button>
+                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void handleToggleRuleStatus(rule)}>
+                                      {rule.status === 'ACTIVE' ? '暂停' : '启用'}
+                                    </button>
+                                    <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void handleRunRuleNow(rule.rule_id)}>立即运行</button>
+                                  </div>
+                                </div>
+                              ))
+                          )}
+                        </div>
+
+                        <p data-ui="text" data-variant="caption" data-tone="muted">Topic 规则</p>
+                        <div className="literature-list">
+                          {autoPullRules.filter((rule) => rule.scope === 'TOPIC').length === 0 ? (
+                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无 Topic 规则。</p>
+                          ) : (
+                            autoPullRules
+                              .filter((rule) => rule.scope === 'TOPIC')
+                              .map((rule) => (
+                                <div key={rule.rule_id} className="literature-list-item">
+                                  <div>
+                                    <p data-ui="text" data-variant="body" data-tone="primary">
+                                      {rule.name} · {rule.topic_id ?? '--'}
+                                    </p>
+                                    <p data-ui="text" data-variant="caption" data-tone="muted">
+                                      {rule.status} · sources:{rule.sources.filter((source) => source.enabled).length}
+                                    </p>
+                                  </div>
+                                  <div data-ui="toolbar" data-gap="2">
+                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => handleEditRule(rule)}>编辑</button>
+                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void handleToggleRuleStatus(rule)}>
+                                      {rule.status === 'ACTIVE' ? '暂停' : '启用'}
+                                    </button>
+                                    <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void handleRunRuleNow(rule.rule_id)}>立即运行</button>
+                                  </div>
+                                </div>
+                              ))
+                          )}
+                        </div>
+                      </section>
+                    ) : null}
+
+                    {autoImportSubTab === 'runs-alerts' ? (
+                      <section className="literature-section-block">
+                        <p data-ui="text" data-variant="label" data-tone="secondary">运行与告警</p>
+                        <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
+                          <label data-ui="field">
+                            <span data-slot="label">Run Rule 过滤</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={runsFilterRuleId}
+                              onChange={(event) => setRunsFilterRuleId(event.target.value)}
+                              placeholder="rule_id"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Run 状态</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={runsFilterStatus}
+                              onChange={(event) => setRunsFilterStatus(event.target.value as '' | AutoPullRunStatus)}
+                            >
+                              <option value="">全部</option>
+                              <option value="PENDING">PENDING</option>
+                              <option value="RUNNING">RUNNING</option>
+                              <option value="PARTIAL">PARTIAL</option>
+                              <option value="SUCCESS">SUCCESS</option>
+                              <option value="FAILED">FAILED</option>
+                              <option value="SKIPPED">SKIPPED</option>
+                            </select>
+                          </label>
+                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadAutoPullRuns()}>
+                            刷新 Run
+                          </button>
+                        </div>
+                        {runsError ? <p data-ui="text" data-variant="caption" data-tone="danger">{runsError}</p> : null}
+                        <div className="literature-list">
+                          {autoPullRuns.length === 0 ? (
+                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无运行记录。</p>
+                          ) : (
+                            autoPullRuns.map((run) => (
+                              <div key={run.run_id} className="literature-list-item">
+                                <div>
+                                  <p data-ui="text" data-variant="body" data-tone="primary">
+                                    {run.run_id} · {run.status}
+                                  </p>
+                                  <p data-ui="text" data-variant="caption" data-tone="muted">
+                                    {run.trigger_type} · duration:{formatRunDuration(run.started_at, run.finished_at)} · imported:{String(run.summary.imported_count ?? 0)} · failed:{String(run.summary.failed_count ?? 0)}
+                                  </p>
+                                </div>
+                                <div data-ui="toolbar" data-gap="2">
+                                  <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void loadAutoPullRunDetail(run.run_id)}>
+                                    详情
+                                  </button>
+                                  <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void handleRetryRun(run.run_id)}>
+                                    重试失败源
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {runDetailLoading ? (
+                          <p data-ui="text" data-variant="caption" data-tone="muted">加载运行详情中...</p>
+                        ) : null}
+                        {runDetailError ? (
+                          <p data-ui="text" data-variant="caption" data-tone="danger">{runDetailError}</p>
+                        ) : null}
+                        {selectedRunDetail ? (
+                          <div className="auto-pull-run-detail">
+                            <p data-ui="text" data-variant="caption" data-tone="muted">
+                              运行详情：{selectedRunDetail.run_id} · {selectedRunDetail.status}
+                            </p>
+                            <div className="literature-list">
+                              {(selectedRunDetail.source_attempts ?? []).map((attempt) => (
+                                <div key={`${selectedRunDetail.run_id}-${attempt.source}`} className="literature-list-item">
+                                  <div>
+                                    <p data-ui="text" data-variant="body" data-tone="primary">
+                                      {attempt.source} · {attempt.status}
+                                    </p>
+                                    <p data-ui="text" data-variant="caption" data-tone="muted">
+                                      fetched:{attempt.fetched_count} / imported:{attempt.imported_count} / failed:{attempt.failed_count}
+                                    </p>
+                                  </div>
+                                  {attempt.error_message ? (
+                                    <p data-ui="text" data-variant="caption" data-tone="danger">{attempt.error_message}</p>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
+                          <label data-ui="field">
+                            <span data-slot="label">Alert Rule 过滤</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={alertsFilterRuleId}
+                              onChange={(event) => setAlertsFilterRuleId(event.target.value)}
+                              placeholder="rule_id"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Alert 级别</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={alertsFilterLevel}
+                              onChange={(event) => setAlertsFilterLevel(event.target.value as '' | AutoPullAlertLevel)}
+                            >
+                              <option value="">全部</option>
+                              <option value="WARNING">WARNING</option>
+                              <option value="ERROR">ERROR</option>
+                            </select>
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Ack 过滤</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={alertsFilterAcked}
+                              onChange={(event) => setAlertsFilterAcked(event.target.value as 'all' | 'acked' | 'unacked')}
+                            >
+                              <option value="all">全部</option>
+                              <option value="unacked">仅未确认</option>
+                              <option value="acked">仅已确认</option>
+                            </select>
+                          </label>
+                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadAutoPullAlerts()}>
+                            刷新 Alert
+                          </button>
+                        </div>
+                        {alertsError ? <p data-ui="text" data-variant="caption" data-tone="danger">{alertsError}</p> : null}
+                        <div className="literature-list">
+                          {autoPullAlerts.length === 0 ? (
+                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无告警。</p>
+                          ) : (
+                            autoPullAlerts.map((alert) => (
+                              <div key={alert.alert_id} className="literature-list-item">
+                                <div>
+                                  <p data-ui="text" data-variant="body" data-tone={alert.level === 'ERROR' ? 'danger' : 'primary'}>
+                                    {alert.level} · {alert.code}
+                                  </p>
+                                  <p data-ui="text" data-variant="caption" data-tone="muted">
+                                    {alert.message}
+                                  </p>
+                                </div>
+                                <div data-ui="toolbar" data-gap="2">
+                                  <span data-ui="badge" data-variant="subtle" data-tone={alert.ack_at ? 'neutral' : 'warning'}>
+                                    {alert.ack_at ? '已确认' : '未确认'}
+                                  </span>
+                                  {!alert.ack_at ? (
+                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void handleAckAlert(alert.alert_id)}>
+                                      Ack
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </section>
+                    ) : null}
                   </section>
                 ) : null}
 

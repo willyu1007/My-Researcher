@@ -78,6 +78,7 @@ model LiteratureRecord {
   sources              LiteratureSource[]
   topicScopes          TopicLiteratureScope[]
   paperLinks           PaperLiteratureLink[]
+  autoPullSuggestions  AutoPullSuggestion[]
 
   @@index([normalizedTitle])
 }
@@ -125,4 +126,153 @@ model PaperLiteratureLink {
   @@unique([paperId, literatureId])
   @@index([paperId])
   @@index([literatureId])
+}
+
+model TopicProfile {
+  id                 String               @id
+  name               String
+  includeKeywords    String[]             @default([])
+  excludeKeywords    String[]             @default([])
+  venueFilters       String[]             @default([])
+  defaultLookbackDays Int                 @default(30)
+  defaultMinYear     Int?
+  defaultMaxYear     Int?
+  createdAt          DateTime             @db.Timestamptz(6)
+  updatedAt          DateTime             @db.Timestamptz(6)
+  rules              AutoPullRule[]
+  suggestions        AutoPullSuggestion[]
+}
+
+model AutoPullRule {
+  id          String               @id
+  scope       String
+  topicId     String?
+  name        String
+  status      String
+  querySpec   Json
+  timeSpec    Json
+  qualitySpec Json
+  createdAt   DateTime             @db.Timestamptz(6)
+  updatedAt   DateTime             @db.Timestamptz(6)
+  topic       TopicProfile?        @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  sources     AutoPullRuleSource[]
+  schedules   AutoPullRuleSchedule[]
+  runs        AutoPullRun[]
+  cursors     AutoPullCursor[]
+  alerts      AutoPullAlert[]
+
+  @@index([scope, status])
+  @@index([topicId])
+}
+
+model AutoPullRuleSource {
+  id       String       @id
+  ruleId   String
+  source   String
+  enabled  Boolean      @default(true)
+  priority Int          @default(100)
+  config   Json
+  rule     AutoPullRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, source])
+  @@index([ruleId])
+}
+
+model AutoPullRuleSchedule {
+  id         String       @id
+  ruleId     String
+  frequency  String
+  daysOfWeek String[]     @default([])
+  hour       Int
+  minute     Int
+  timezone   String
+  active     Boolean      @default(true)
+  rule       AutoPullRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+}
+
+model AutoPullRun {
+  id            String                     @id
+  ruleId        String
+  triggerType   String
+  status        String
+  startedAt     DateTime?                 @db.Timestamptz(6)
+  finishedAt    DateTime?                 @db.Timestamptz(6)
+  summary       Json
+  errorCode     String?
+  errorMessage  String?
+  createdAt     DateTime                  @db.Timestamptz(6)
+  updatedAt     DateTime                  @db.Timestamptz(6)
+  rule          AutoPullRule              @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  sourceAttempts AutoPullRunSourceAttempt[]
+  alerts        AutoPullAlert[]
+  suggestions   AutoPullSuggestion[]
+
+  @@index([ruleId, status])
+  @@index([createdAt])
+}
+
+model AutoPullRunSourceAttempt {
+  id            String      @id
+  runId         String
+  source        String
+  status        String
+  fetchedCount  Int
+  importedCount Int
+  failedCount   Int
+  errorCode     String?
+  errorMessage  String?
+  startedAt     DateTime?   @db.Timestamptz(6)
+  finishedAt    DateTime?   @db.Timestamptz(6)
+  meta          Json
+  run           AutoPullRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, source])
+}
+
+model AutoPullCursor {
+  id          String       @id
+  ruleId      String
+  source      String
+  cursorValue String
+  cursorAt    DateTime     @db.Timestamptz(6)
+  rule        AutoPullRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, source])
+}
+
+model AutoPullAlert {
+  id         String       @id
+  ruleId     String
+  runId      String?
+  source     String?
+  level      String
+  code       String
+  message    String
+  detail     Json
+  ackAt      DateTime?    @db.Timestamptz(6)
+  createdAt  DateTime     @db.Timestamptz(6)
+  rule       AutoPullRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  run        AutoPullRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([ruleId, createdAt])
+  @@index([level, ackAt])
+}
+
+model AutoPullSuggestion {
+  id             String           @id
+  runId          String
+  literatureId   String
+  topicId        String?
+  suggestedScope String
+  reason         String
+  score          Float
+  createdAt      DateTime         @db.Timestamptz(6)
+  run            AutoPullRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  literature     LiteratureRecord @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  topic          TopicProfile?    @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  @@index([runId])
+  @@index([topicId, suggestedScope])
 }

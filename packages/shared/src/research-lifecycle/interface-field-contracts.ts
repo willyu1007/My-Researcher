@@ -114,9 +114,6 @@ export type LiteratureProvider = (typeof LITERATURE_PROVIDERS)[number];
 export const ZOTERO_LIBRARY_TYPES = ['users', 'groups'] as const;
 export type ZoteroLibraryType = (typeof ZOTERO_LIBRARY_TYPES)[number];
 
-export const LITERATURE_SEARCH_PROVIDERS = ['crossref', 'arxiv'] as const;
-export type LiteratureSearchProvider = (typeof LITERATURE_SEARCH_PROVIDERS)[number];
-
 export const RIGHTS_CLASSES = ['OA', 'USER_AUTH', 'RESTRICTED', 'UNKNOWN'] as const;
 export type RightsClass = (typeof RIGHTS_CLASSES)[number];
 
@@ -128,26 +125,6 @@ export type TopicScopeStatus = (typeof TOPIC_SCOPE_STATUSES)[number];
 
 export const PAPER_CITATION_STATUSES = ['seeded', 'selected', 'used', 'cited', 'dropped'] as const;
 export type PaperCitationStatus = (typeof PAPER_CITATION_STATUSES)[number];
-
-export interface LiteratureSearchRequest {
-  query: string;
-  providers?: LiteratureSearchProvider[];
-  limit?: number;
-}
-
-export interface LiteratureSearchCandidate {
-  import_payload: LiteratureImportItem;
-  dedup: {
-    is_existing: boolean;
-    literature_id?: string;
-    matched_by: DedupMatchType;
-  };
-}
-
-export interface LiteratureSearchResponse {
-  query: string;
-  items: LiteratureSearchCandidate[];
-}
 
 export interface LiteratureImportItem {
   provider: LiteratureProvider;
@@ -254,32 +231,6 @@ export interface UpdatePaperLiteratureLinkResponse {
   item: PaperLiteratureLinkView;
 }
 
-export interface LiteratureWebAutoImportRequest {
-  urls: string[];
-  topic_id?: string;
-  scope_status?: TopicScopeStatus;
-  scope_reason?: string;
-  tags?: string[];
-  rights_class?: RightsClass;
-}
-
-export interface LiteratureWebAutoImportResult {
-  url: string;
-  imported: boolean;
-  literature_id?: string;
-  title?: string;
-  matched_by?: DedupMatchType;
-  source_provider?: LiteratureProvider;
-  message?: string;
-}
-
-export interface LiteratureWebAutoImportResponse {
-  topic_id?: string;
-  imported_count: number;
-  scope_upserted_count: number;
-  results: LiteratureWebAutoImportResult[];
-}
-
 export interface ZoteroImportRequest {
   library_type: ZoteroLibraryType;
   library_id: string;
@@ -298,6 +249,241 @@ export interface ZoteroImportResponse {
   imported_count: number;
   scope_upserted_count: number;
   results: LiteratureImportResult[];
+}
+
+export const AUTO_PULL_SCOPES = ['GLOBAL', 'TOPIC'] as const;
+export type AutoPullScope = (typeof AUTO_PULL_SCOPES)[number];
+
+export const AUTO_PULL_RULE_STATUSES = ['ACTIVE', 'PAUSED'] as const;
+export type AutoPullRuleStatus = (typeof AUTO_PULL_RULE_STATUSES)[number];
+
+export const AUTO_PULL_SOURCES = ['CROSSREF', 'ARXIV', 'ZOTERO'] as const;
+export type AutoPullSource = (typeof AUTO_PULL_SOURCES)[number];
+
+export const AUTO_PULL_FREQUENCIES = ['DAILY', 'WEEKLY'] as const;
+export type AutoPullFrequency = (typeof AUTO_PULL_FREQUENCIES)[number];
+
+export const AUTO_PULL_TRIGGER_TYPES = ['MANUAL', 'SCHEDULE'] as const;
+export type AutoPullTriggerType = (typeof AUTO_PULL_TRIGGER_TYPES)[number];
+
+export const AUTO_PULL_RUN_STATUSES = ['PENDING', 'RUNNING', 'PARTIAL', 'SUCCESS', 'FAILED', 'SKIPPED'] as const;
+export type AutoPullRunStatus = (typeof AUTO_PULL_RUN_STATUSES)[number];
+
+export const AUTO_PULL_ALERT_LEVELS = ['WARNING', 'ERROR'] as const;
+export type AutoPullAlertLevel = (typeof AUTO_PULL_ALERT_LEVELS)[number];
+
+export interface TopicProfileDTO {
+  topic_id: string;
+  name: string;
+  include_keywords: string[];
+  exclude_keywords: string[];
+  venue_filters: string[];
+  default_lookback_days: number;
+  default_min_year: number | null;
+  default_max_year: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTopicProfileRequest {
+  topic_id: string;
+  name: string;
+  include_keywords?: string[];
+  exclude_keywords?: string[];
+  venue_filters?: string[];
+  default_lookback_days?: number;
+  default_min_year?: number | null;
+  default_max_year?: number | null;
+}
+
+export interface UpdateTopicProfileRequest {
+  name?: string;
+  include_keywords?: string[];
+  exclude_keywords?: string[];
+  venue_filters?: string[];
+  default_lookback_days?: number;
+  default_min_year?: number | null;
+  default_max_year?: number | null;
+}
+
+export interface AutoPullRuleSourceDTO {
+  source: AutoPullSource;
+  enabled: boolean;
+  priority: number;
+  config: Record<string, unknown>;
+}
+
+export interface AutoPullRuleScheduleDTO {
+  frequency: AutoPullFrequency;
+  days_of_week: string[];
+  hour: number;
+  minute: number;
+  timezone: string;
+  active: boolean;
+}
+
+export interface AutoPullRuleDTO {
+  rule_id: string;
+  scope: AutoPullScope;
+  topic_id: string | null;
+  name: string;
+  status: AutoPullRuleStatus;
+  query_spec: {
+    include_keywords: string[];
+    exclude_keywords: string[];
+    authors: string[];
+    venues: string[];
+    max_results_per_source: number;
+  };
+  time_spec: {
+    lookback_days: number;
+    min_year: number | null;
+    max_year: number | null;
+  };
+  quality_spec: {
+    min_completeness_score: number;
+    require_include_match: boolean;
+  };
+  sources: AutoPullRuleSourceDTO[];
+  schedules: AutoPullRuleScheduleDTO[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateAutoPullRuleRequest {
+  scope: AutoPullScope;
+  topic_id?: string;
+  name: string;
+  status?: AutoPullRuleStatus;
+  query_spec?: {
+    include_keywords?: string[];
+    exclude_keywords?: string[];
+    authors?: string[];
+    venues?: string[];
+    max_results_per_source?: number;
+  };
+  time_spec?: {
+    lookback_days?: number;
+    min_year?: number | null;
+    max_year?: number | null;
+  };
+  quality_spec?: {
+    min_completeness_score?: number;
+    require_include_match?: boolean;
+  };
+  sources: Array<{
+    source: AutoPullSource;
+    enabled?: boolean;
+    priority?: number;
+    config?: Record<string, unknown>;
+  }>;
+  schedules: Array<{
+    frequency: AutoPullFrequency;
+    days_of_week?: string[];
+    hour: number;
+    minute: number;
+    timezone: string;
+    active?: boolean;
+  }>;
+}
+
+export interface UpdateAutoPullRuleRequest {
+  name?: string;
+  status?: AutoPullRuleStatus;
+  query_spec?: {
+    include_keywords?: string[];
+    exclude_keywords?: string[];
+    authors?: string[];
+    venues?: string[];
+    max_results_per_source?: number;
+  };
+  time_spec?: {
+    lookback_days?: number;
+    min_year?: number | null;
+    max_year?: number | null;
+  };
+  quality_spec?: {
+    min_completeness_score?: number;
+    require_include_match?: boolean;
+  };
+  sources?: Array<{
+    source: AutoPullSource;
+    enabled?: boolean;
+    priority?: number;
+    config?: Record<string, unknown>;
+  }>;
+  schedules?: Array<{
+    frequency: AutoPullFrequency;
+    days_of_week?: string[];
+    hour: number;
+    minute: number;
+    timezone: string;
+    active?: boolean;
+  }>;
+}
+
+export interface CreateAutoPullRunRequest {
+  trigger_type?: AutoPullTriggerType;
+}
+
+export interface RetryFailedSourcesRequest {
+  sources?: AutoPullSource[];
+}
+
+export interface AutoPullRunSourceAttemptDTO {
+  source: AutoPullSource;
+  status: AutoPullRunStatus;
+  fetched_count: number;
+  imported_count: number;
+  failed_count: number;
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  meta: Record<string, unknown>;
+}
+
+export interface AutoPullSuggestionDTO {
+  suggestion_id: string;
+  literature_id: string;
+  topic_id: string | null;
+  suggested_scope: TopicScopeStatus;
+  reason: string;
+  score: number;
+  created_at: string;
+}
+
+export interface AutoPullRunDTO {
+  run_id: string;
+  rule_id: string;
+  trigger_type: AutoPullTriggerType;
+  status: AutoPullRunStatus;
+  started_at: string | null;
+  finished_at: string | null;
+  summary: Record<string, unknown>;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  source_attempts?: AutoPullRunSourceAttemptDTO[];
+  suggestions?: AutoPullSuggestionDTO[];
+}
+
+export interface AutoPullAlertDTO {
+  alert_id: string;
+  rule_id: string;
+  run_id: string | null;
+  source: AutoPullSource | null;
+  level: AutoPullAlertLevel;
+  code: string;
+  message: string;
+  detail: Record<string, unknown>;
+  ack_at: string | null;
+  created_at: string;
+}
+
+export interface AcknowledgeAlertRequest {
+  ack_at?: string;
 }
 
 export interface LiteratureOverviewItem {
@@ -794,21 +980,6 @@ export const releaseReviewRequestSchema = {
   additionalProperties: false,
 } as const;
 
-export const literatureSearchRequestSchema = {
-  type: 'object',
-  required: ['query'],
-  properties: {
-    query: { type: 'string', minLength: 1 },
-    providers: {
-      type: 'array',
-      items: { type: 'string', enum: LITERATURE_SEARCH_PROVIDERS },
-      uniqueItems: true,
-    },
-    limit: { type: 'integer', minimum: 1, maximum: 20, default: 10 },
-  },
-  additionalProperties: false,
-} as const;
-
 export const literatureImportRequestSchema = {
   type: 'object',
   required: ['items'],
@@ -847,30 +1018,6 @@ export const literatureImportRequestSchema = {
   additionalProperties: false,
 } as const;
 
-export const literatureWebAutoImportRequestSchema = {
-  type: 'object',
-  required: ['urls'],
-  properties: {
-    urls: {
-      type: 'array',
-      minItems: 1,
-      maxItems: 20,
-      items: { type: 'string', minLength: 1 },
-      uniqueItems: true,
-    },
-    topic_id: { type: 'string', minLength: 1 },
-    scope_status: { type: 'string', enum: TOPIC_SCOPE_STATUSES, default: 'in_scope' },
-    scope_reason: { type: 'string' },
-    tags: {
-      type: 'array',
-      items: { type: 'string', minLength: 1 },
-      default: [],
-    },
-    rights_class: { type: 'string', enum: RIGHTS_CLASSES, default: 'UNKNOWN' },
-  },
-  additionalProperties: false,
-} as const;
-
 export const zoteroImportRequestSchema = {
   type: 'object',
   required: ['library_type', 'library_id'],
@@ -889,6 +1036,249 @@ export const zoteroImportRequestSchema = {
       default: [],
     },
     rights_class: { type: 'string', enum: RIGHTS_CLASSES, default: 'UNKNOWN' },
+  },
+  additionalProperties: false,
+} as const;
+
+const autoPullRuleSourceSchema = {
+  type: 'object',
+  required: ['source'],
+  properties: {
+    source: { type: 'string', enum: AUTO_PULL_SOURCES },
+    enabled: { type: 'boolean', default: true },
+    priority: { type: 'integer', minimum: 1, maximum: 999, default: 100 },
+    config: { type: 'object', additionalProperties: true, default: {} },
+  },
+  additionalProperties: false,
+} as const;
+
+const autoPullRuleScheduleSchema = {
+  type: 'object',
+  required: ['frequency', 'hour', 'minute', 'timezone'],
+  properties: {
+    frequency: { type: 'string', enum: AUTO_PULL_FREQUENCIES },
+    days_of_week: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      default: [],
+    },
+    hour: { type: 'integer', minimum: 0, maximum: 23 },
+    minute: { type: 'integer', minimum: 0, maximum: 59 },
+    timezone: { type: 'string', minLength: 1 },
+    active: { type: 'boolean', default: true },
+  },
+  additionalProperties: false,
+} as const;
+
+export const createTopicProfileRequestSchema = {
+  type: 'object',
+  required: ['topic_id', 'name'],
+  properties: {
+    topic_id: { type: 'string', minLength: 1 },
+    name: { type: 'string', minLength: 1 },
+    include_keywords: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      default: [],
+    },
+    exclude_keywords: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      default: [],
+    },
+    venue_filters: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      default: [],
+    },
+    default_lookback_days: { type: 'integer', minimum: 1, maximum: 3650, default: 30 },
+    default_min_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+    default_max_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+  },
+  additionalProperties: false,
+} as const;
+
+export const updateTopicProfileRequestSchema = {
+  type: 'object',
+  properties: {
+    name: { type: 'string', minLength: 1 },
+    include_keywords: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+    exclude_keywords: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+    venue_filters: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+    default_lookback_days: { type: 'integer', minimum: 1, maximum: 3650 },
+    default_min_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+    default_max_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+  },
+  additionalProperties: false,
+  minProperties: 1,
+} as const;
+
+export const createAutoPullRuleRequestSchema = {
+  type: 'object',
+  required: ['scope', 'name', 'sources', 'schedules'],
+  properties: {
+    scope: { type: 'string', enum: AUTO_PULL_SCOPES },
+    topic_id: { type: 'string', minLength: 1 },
+    name: { type: 'string', minLength: 1 },
+    status: { type: 'string', enum: AUTO_PULL_RULE_STATUSES, default: 'ACTIVE' },
+    query_spec: {
+      type: 'object',
+      properties: {
+        include_keywords: { type: 'array', items: { type: 'string', minLength: 1 }, default: [] },
+        exclude_keywords: { type: 'array', items: { type: 'string', minLength: 1 }, default: [] },
+        authors: { type: 'array', items: { type: 'string', minLength: 1 }, default: [] },
+        venues: { type: 'array', items: { type: 'string', minLength: 1 }, default: [] },
+        max_results_per_source: { type: 'integer', minimum: 1, maximum: 200, default: 20 },
+      },
+      additionalProperties: false,
+      default: {},
+    },
+    time_spec: {
+      type: 'object',
+      properties: {
+        lookback_days: { type: 'integer', minimum: 1, maximum: 3650, default: 30 },
+        min_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+        max_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+      },
+      additionalProperties: false,
+      default: {},
+    },
+    quality_spec: {
+      type: 'object',
+      properties: {
+        min_completeness_score: { type: 'number', minimum: 0, maximum: 1, default: 0.6 },
+        require_include_match: { type: 'boolean', default: true },
+      },
+      additionalProperties: false,
+      default: {},
+    },
+    sources: {
+      type: 'array',
+      minItems: 1,
+      items: autoPullRuleSourceSchema,
+    },
+    schedules: {
+      type: 'array',
+      minItems: 1,
+      items: autoPullRuleScheduleSchema,
+    },
+  },
+  additionalProperties: false,
+} as const;
+
+export const updateAutoPullRuleRequestSchema = {
+  type: 'object',
+  properties: {
+    name: { type: 'string', minLength: 1 },
+    status: { type: 'string', enum: AUTO_PULL_RULE_STATUSES },
+    query_spec: {
+      type: 'object',
+      properties: {
+        include_keywords: { type: 'array', items: { type: 'string', minLength: 1 } },
+        exclude_keywords: { type: 'array', items: { type: 'string', minLength: 1 } },
+        authors: { type: 'array', items: { type: 'string', minLength: 1 } },
+        venues: { type: 'array', items: { type: 'string', minLength: 1 } },
+        max_results_per_source: { type: 'integer', minimum: 1, maximum: 200 },
+      },
+      additionalProperties: false,
+    },
+    time_spec: {
+      type: 'object',
+      properties: {
+        lookback_days: { type: 'integer', minimum: 1, maximum: 3650 },
+        min_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+        max_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+      },
+      additionalProperties: false,
+    },
+    quality_spec: {
+      type: 'object',
+      properties: {
+        min_completeness_score: { type: 'number', minimum: 0, maximum: 1 },
+        require_include_match: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    },
+    sources: {
+      type: 'array',
+      minItems: 1,
+      items: autoPullRuleSourceSchema,
+    },
+    schedules: {
+      type: 'array',
+      minItems: 1,
+      items: autoPullRuleScheduleSchema,
+    },
+  },
+  additionalProperties: false,
+  minProperties: 1,
+} as const;
+
+export const createAutoPullRunRequestSchema = {
+  type: 'object',
+  properties: {
+    trigger_type: { type: 'string', enum: AUTO_PULL_TRIGGER_TYPES, default: 'MANUAL' },
+  },
+  additionalProperties: false,
+} as const;
+
+export const retryFailedSourcesRequestSchema = {
+  type: 'object',
+  properties: {
+    sources: {
+      type: 'array',
+      items: { type: 'string', enum: AUTO_PULL_SOURCES },
+      minItems: 1,
+      uniqueItems: true,
+    },
+  },
+  additionalProperties: false,
+} as const;
+
+export const acknowledgeAlertRequestSchema = {
+  type: 'object',
+  properties: {
+    ack_at: { type: 'string', format: 'date-time' },
+  },
+  additionalProperties: false,
+} as const;
+
+export const autoPullRulesQuerySchema = {
+  type: 'object',
+  properties: {
+    scope: { type: 'string', enum: AUTO_PULL_SCOPES },
+    topic_id: { type: 'string', minLength: 1 },
+    status: { type: 'string', enum: AUTO_PULL_RULE_STATUSES },
+  },
+  additionalProperties: false,
+} as const;
+
+export const autoPullRunsQuerySchema = {
+  type: 'object',
+  properties: {
+    rule_id: { type: 'string', minLength: 1 },
+    status: { type: 'string', enum: AUTO_PULL_RUN_STATUSES },
+    limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+  },
+  additionalProperties: false,
+} as const;
+
+export const autoPullAlertsQuerySchema = {
+  type: 'object',
+  properties: {
+    rule_id: { type: 'string', minLength: 1 },
+    level: { type: 'string', enum: AUTO_PULL_ALERT_LEVELS },
+    acked: { type: 'boolean' },
+    limit: { type: 'integer', minimum: 1, maximum: 200, default: 100 },
   },
   additionalProperties: false,
 } as const;

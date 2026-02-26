@@ -67,4 +67,17 @@
   - `pnpm desktop:typecheck` ✅
   - `pnpm desktop:build` ✅
   - `pnpm --filter @paper-engineering-assistant/desktop smoke:e2e` ✅（`desktop-smoke PASS`）
+- 2026-02-26: 自动导入 Tab 需求对齐回归（状态拆分 + 失败重试 + URL 结果明细）✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-26: 自动拉取系统改造回归（规则驱动 + 异步 run + 旧接口移除）✅
+  - `pnpm --filter @paper-engineering-assistant/shared typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend test` ✅（34 passed）
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+  - 关键覆盖：
+    - Topic settings / auto-pull 规则 CRUD、run 触发、retry failed sources、alerts ack（集成测试通过）
+    - 单飞跳过告警、无数据源失败告警、scheduled due 判定、retry 路径（单测通过）
+    - `/literature/web-import`、`/literature/search` 删除后 404 回归（集成测试通过）
 - 2026-02-26: Manual functional checks / usability checks / gray rollout checks 尚未执行（需人工验收）。

@@ -791,6 +791,52 @@
     white-space: nowrap;
   }
 
+  .literature-status-group {
+    justify-content: flex-end;
+  }
+
+  .auto-pull-subtab-strip {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 62%, transparent 38%);
+    padding-bottom: var(--ui-space-2);
+  }
+
+  .auto-pull-subtab-button {
+    border: 1px solid color-mix(in srgb, var(--ui-color-border) 72%, transparent 28%);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-text_secondary);
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+
+  .auto-pull-subtab-button.is-active {
+    border-color: color-mix(in srgb, var(--ui-color-primary) 68%, var(--ui-color-border) 32%);
+    color: var(--ui-color-primary);
+    background: color-mix(in srgb, var(--ui-color-primary) 10%, var(--ui-color-surface) 90%);
+    font-weight: 600;
+  }
+
+  .auto-pull-source-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--ui-color-text_secondary);
+  }
+
+  .auto-pull-run-detail {
+    border-top: 1px solid color-mix(in srgb, var(--ui-color-border) 62%, transparent 38%);
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 62%, transparent 38%);
+    padding: var(--ui-space-2) 0;
+    display: grid;
+    gap: var(--ui-space-2);
+  }
+
   .module-dashboard [data-ui='input'][data-size='sm'],
   .module-dashboard [data-ui='select'][data-size='sm'] {
     min-height: 34px;
@@ -900,6 +946,29 @@
     grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
     cursor: pointer;
+  }
+
+  .literature-web-results {
+    max-height: 220px;
+    overflow: auto;
+    display: grid;
+    gap: var(--ui-space-2);
+  }
+
+  .literature-web-result-item {
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 62%, transparent 38%);
+    padding: var(--ui-space-2) 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .literature-web-result-item.is-success {
+    border-bottom-color: color-mix(in srgb, var(--ui-color-success, #22c55e) 28%, var(--ui-color-border) 72%);
+  }
+
+  .literature-web-result-item.is-error {
+    border-bottom-color: color-mix(in srgb, var(--ui-color-danger, #ef4444) 38%, var(--ui-color-border) 62%);
   }
 
   .scope-actions {

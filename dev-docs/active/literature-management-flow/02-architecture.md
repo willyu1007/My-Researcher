@@ -1,75 +1,83 @@
 # 02 Architecture
 
-## Frontend module boundaries
-- Workspace Shell (`LiteratureWorkspace`)
-  - 负责共享上下文、标签切换、全局反馈。
-- Tab A: `AutoImportTab`
-  - 负责联网检索候选 + URL 自动抓取导入。
-- Tab B: `ManualImportTab`
-  - 负责文件解析上传 + Zotero 参数输入与导入同步。
-- Tab C: `OverviewTab`
-  - 负责统计、列表、筛选、元数据维护。
-- Shared: `AdvancedQueryBuilder`
-  - 负责条件组编辑（AND/OR）、保存查询、应用查询。
-- Shared: `FeedbackCenter`
-  - 顶部提示 + 内联状态展示。
+## Scope baseline (2026-02-26)
+- 自动拉取系统以“规则”作为执行单元，不再提供即时检索与 URL 批量抓取入口。
+- 执行模型为纯异步 run：触发后先落库 `PENDING`，后台推进为 `RUNNING` 与终态。
+- 规则体系包含两级并行：
+  - 全局规则（`GLOBAL`）
+  - Topic 规则（`TOPIC`）
 
-## State model
-### Required UI types
-- `UiOperationStatus = idle | loading | ready | empty | error | saving`
-- `QueryCondition`:
-  - `field`（如 title/provider/tags/rights_class/year/topic_scope_status/citation_status）
-  - `operator`（contains/equals/not_equals/in/gt/lt/is_empty/is_not_empty）
-  - `value`
-- `QueryGroup`:
-  - `logic: AND | OR`
-  - `conditions: QueryCondition[]`
-- `SavedQueryPreset`:
-  - `id`
-  - `name`
-  - `group: QueryGroup`
-  - `defaultSort`
-- `InlineFeedbackModel`:
-  - `slot`（tab/header/row）
-  - `level`（info/success/warning/error）
-  - `message`
-  - `recoveryAction`（retry/reload/edit-fix）
+## Frontend boundaries
+- `文献管理 > 自动导入` 主 Tab 保留入口不变。
+- 自动导入内部拆分 3 个子 Tab：
+  - `Topic 设置`：Topic 配置 CRUD（关键词、venue、默认时间窗口）
+  - `规则中心`：规则 CRUD、启停、立即运行
+  - `运行与告警`：Run 列表/详情、失败源重试、告警筛选与 ack
+- `手动导入` 与 `文献综览` 保持独立流程，不依赖自动拉取链路。
 
-### UI state machine
-1. 导入操作：`idle -> loading -> ready|error`
-2. 查询操作：`idle -> loading -> ready|empty|error`
-3. 元数据保存：`ready -> saving -> ready|error`
-4. 首屏综览：`idle -> loading -> ready|empty|error`
+## Backend layered design
+- Route:
+  - `topic-settings-routes.ts`
+  - `auto-pull-routes.ts`
+- Controller:
+  - `TopicSettingsController`
+  - `AutoPullController`
+- Service:
+  - `AutoPullService`（规则解析、异步 run 编排、质量门、告警）
+  - `AutoPullScheduler`（进程内定时扫描 due 规则）
+- Repository:
+  - `AutoPullRepository`（业务接口）
+  - `PrismaAutoPullRepository` / `InMemoryAutoPullRepository`（双实现）
 
-## Interaction protocol
-- 顶部反馈（全局）:
-  - 显示当前模块最近一次关键操作结果（成功/失败/恢复建议）。
-- 内联反馈（局部）:
-  - 每个标签与关键表单元素显示状态与错误原因。
-- 恢复动作:
-  - 所有 `error` 状态必须带重试或修复动作入口。
+## Persistence model
+- 规则配置：
+  - `TopicProfile`
+  - `AutoPullRule`
+  - `AutoPullRuleSource`
+  - `AutoPullRuleSchedule`
+- 运行态：
+  - `AutoPullRun`
+  - `AutoPullRunSourceAttempt`
+  - `AutoPullCursor`
+- 可观测与建议：
+  - `AutoPullAlert`
+  - `AutoPullSuggestion`
 
-## Data flow
-1. 用户在标签页触发操作。
-2. 统一请求层调用现有 `/literature/*` API。
-3. 结果进入共享状态容器。
-4. 查询构建器对综览 items 执行前端条件求值。
-5. 列表与统计按过滤结果渲染。
+## Run state machine
+1. 触发（manual/schedule） -> 创建 `PENDING` run
+2. 后台执行 -> 更新 `RUNNING`
+3. 完成 -> `SUCCESS | PARTIAL | FAILED`
+4. 重叠触发（同 rule in-flight） -> 创建 `SKIPPED` + `RUN_SKIPPED_SINGLE_FLIGHT` 告警
 
-## Minimal backend dependency strategy
-- Default:
-  - 复用现有 endpoint：
-    - `POST /literature/web-import`
-    - `POST /literature/import`
-    - `POST /literature/zotero-import`
-    - `GET /literature/overview`
-    - `PATCH /literature/:literatureId/metadata`
-- Forbidden in this round:
-  - 静默新增/修改破坏性接口。
-- Escalation rule:
-  - 若高级查询在性能/准确性上被验证阻塞，创建“阻塞修复子任务”再扩展后端能力。
+## Quality gate and import policy
+- 默认质量门：
+  - `min_completeness_score >= 0.6`
+  - `require_include_match = true`
+  - 命中 exclude 关键词直接建议 `excluded`
+- 结果策略：
+  - 生成 `AutoPullSuggestion`
+  - 不直接写入 `TopicLiteratureScope`
 
-## Constraints
-- 中文优先文案；英文术语仅用于必要学术字段。
-- 统一状态机覆盖所有关键交互。
-- UI 结构必须同时适配桌面与小屏。
+## API contract
+- 新增：
+  - `POST /topics/settings`
+  - `GET /topics/settings`
+  - `PATCH /topics/settings/:topicId`
+  - `POST /auto-pull/rules`
+  - `GET /auto-pull/rules`
+  - `PATCH /auto-pull/rules/:ruleId`
+  - `DELETE /auto-pull/rules/:ruleId`
+  - `POST /auto-pull/rules/:ruleId/runs`
+  - `POST /auto-pull/runs/:runId/retry-failed-sources`
+  - `GET /auto-pull/runs`
+  - `GET /auto-pull/runs/:runId`
+  - `GET /auto-pull/alerts`
+  - `POST /auto-pull/alerts/:alertId/ack`
+- 删除：
+  - `POST /literature/search`
+  - `POST /literature/web-import`
+
+## Operational constraints
+- 单规则禁止并发 run（single-flight）。
+- 无可用 source 视为配置错误：run 失败并产生日志化告警。
+- 调度器默认启用，可通过 `AUTO_PULL_SCHEDULER_ENABLED=false` 关闭（测试/隔离环境）。

@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import {
-  LITERATURE_SEARCH_PROVIDERS,
   type DedupMatchType,
   type GetPaperLiteratureResponse,
   type LiteratureImportItem,
@@ -9,10 +8,6 @@ import {
   type LiteratureOverviewQuery,
   type LiteratureOverviewResponse,
   type LiteratureProvider,
-  type LiteratureSearchRequest,
-  type LiteratureSearchResponse,
-  type LiteratureWebAutoImportRequest,
-  type LiteratureWebAutoImportResponse,
   type PaperLiteratureLinkView,
   type PaperCitationStatus,
   type RightsClass,
@@ -43,43 +38,11 @@ type MatchedDedup = {
   literature: LiteratureRecord | null;
 };
 
-type SearchableProvider = (typeof LITERATURE_SEARCH_PROVIDERS)[number];
-
 export class LiteratureService {
   constructor(
     private readonly literatureRepository: LiteratureRepository,
     private readonly researchRepository: ResearchLifecycleRepository,
   ) {}
-
-  async search(request: LiteratureSearchRequest): Promise<LiteratureSearchResponse> {
-    const query = request.query.trim();
-    const limit = this.resolveLimit(request.limit);
-    const providers = this.resolveProviders(request.providers);
-
-    const providerResults = await Promise.all(
-      providers.map(async (provider) => this.searchWithProvider(provider, query, limit)),
-    );
-
-    const merged = providerResults.flat();
-    const items = await Promise.all(
-      merged.map(async (candidate) => {
-        const dedup = await this.findExisting(candidate);
-        return {
-          import_payload: candidate,
-          dedup: {
-            is_existing: dedup.literature !== null,
-            literature_id: dedup.literature?.id,
-            matched_by: dedup.matchedBy,
-          },
-        };
-      }),
-    );
-
-    return {
-      query,
-      items,
-    };
-  }
 
   async import(request: LiteratureImportRequest): Promise<LiteratureImportResponse> {
     if (request.items.length === 0) {
@@ -154,91 +117,6 @@ export class LiteratureService {
     return { results };
   }
 
-  async webAutoImport(
-    request: LiteratureWebAutoImportRequest,
-  ): Promise<LiteratureWebAutoImportResponse> {
-    const topicId = request.topic_id?.trim();
-    const scopeStatus = request.scope_status ?? 'in_scope';
-    const scopeReason = request.scope_reason?.trim() || undefined;
-    const tags = this.normalizeTags(request.tags ?? []);
-    const rightsClass = request.rights_class ?? 'UNKNOWN';
-
-    const prepared: Array<{ url: string; item: LiteratureImportItem }> = [];
-    const failed: LiteratureWebAutoImportResponse['results'] = [];
-
-    for (const rawUrl of request.urls) {
-      const url = rawUrl.trim();
-      if (!url) {
-        failed.push({
-          url: rawUrl,
-          imported: false,
-          message: 'URL is empty.',
-        });
-        continue;
-      }
-
-      try {
-        const item = await this.fetchImportItemFromWebUrl(url, tags, rightsClass);
-        if (!item) {
-          failed.push({
-            url,
-            imported: false,
-            message: 'Unable to extract literature metadata from the URL.',
-          });
-          continue;
-        }
-        prepared.push({ url, item });
-      } catch (error) {
-        failed.push({
-          url,
-          imported: false,
-          message: error instanceof Error ? error.message : 'Web import failed.',
-        });
-      }
-    }
-
-    const imported = prepared.length > 0 ? await this.import({ items: prepared.map((row) => row.item) }) : { results: [] };
-    const importedIds = imported.results.map((row) => row.literature_id);
-    let scopeUpsertedCount = 0;
-
-    if (topicId && importedIds.length > 0) {
-      await this.upsertTopicScope(topicId, {
-        actions: importedIds.map((literatureId) => ({
-          literature_id: literatureId,
-          scope_status: scopeStatus,
-          reason: scopeReason,
-        })),
-      });
-      scopeUpsertedCount = importedIds.length;
-    }
-
-    const succeeded: LiteratureWebAutoImportResponse['results'] = prepared.map((row, index) => {
-      const result = imported.results[index];
-      if (!result) {
-        return {
-          url: row.url,
-          imported: false,
-          message: 'Import result missing.',
-        };
-      }
-
-      return {
-        url: row.url,
-        imported: true,
-        literature_id: result.literature_id,
-        title: result.title,
-        matched_by: result.matched_by,
-        source_provider: result.source_provider,
-      };
-    });
-
-    return {
-      topic_id: topicId || undefined,
-      imported_count: imported.results.length,
-      scope_upserted_count: scopeUpsertedCount,
-      results: [...succeeded, ...failed],
-    };
-  }
 
   async zoteroImport(request: ZoteroImportRequest): Promise<ZoteroImportResponse> {
     const topicId = request.topic_id?.trim();
@@ -686,281 +564,6 @@ export class LiteratureService {
     };
   }
 
-  private async searchWithProvider(
-    provider: SearchableProvider,
-    query: string,
-    limit: number,
-  ): Promise<LiteratureImportItem[]> {
-    try {
-      switch (provider) {
-        case 'crossref':
-          return await this.searchCrossref(query, limit);
-        case 'arxiv':
-          return await this.searchArxiv(query, limit);
-        default:
-          return [];
-      }
-    } catch {
-      return [];
-    }
-  }
-
-  private async searchCrossref(query: string, limit: number): Promise<LiteratureImportItem[]> {
-    const response = await fetch(
-      `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${limit}`,
-    );
-    if (!response.ok) {
-      throw new Error(`Crossref request failed: ${response.status}`);
-    }
-
-    const payload = (await response.json()) as {
-      message?: {
-        items?: Array<Record<string, unknown>>;
-      };
-    };
-
-    const items = payload.message?.items ?? [];
-    return items
-      .map((item) => {
-        return this.mapCrossrefRecordToImportItem(item, {
-          provider: 'crossref',
-          fallbackExternalId: this.readString(item.DOI) ?? this.readString(item.URL) ?? crypto.randomUUID(),
-          fallbackSourceUrl: this.readString(item.URL) ?? '',
-          tags: [],
-          rightsClass: 'UNKNOWN',
-        });
-      })
-      .filter((item): item is LiteratureImportItem => item !== null);
-  }
-
-  private async searchArxiv(query: string, limit: number): Promise<LiteratureImportItem[]> {
-    const response = await fetch(
-      `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=${limit}`,
-    );
-    if (!response.ok) {
-      throw new Error(`arXiv request failed: ${response.status}`);
-    }
-
-    const xml = await response.text();
-    const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)];
-    return entries
-      .map((entryMatch) => {
-        const entry = entryMatch[1] ?? '';
-        return this.mapArxivEntryToImportItem(entry, {
-          provider: 'arxiv',
-          fallbackSourceUrl: 'https://arxiv.org',
-          tags: [],
-          rightsClass: 'UNKNOWN',
-        });
-      })
-      .filter((item): item is LiteratureImportItem => item !== null);
-  }
-
-  private async fetchImportItemFromWebUrl(
-    rawUrl: string,
-    tags: string[],
-    rightsClass: RightsClass,
-  ): Promise<LiteratureImportItem | null> {
-    const normalizedUrl = this.normalizeHttpUrl(rawUrl);
-    if (!normalizedUrl) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `Invalid URL: ${rawUrl}`);
-    }
-
-    const doi = this.extractDoiFromText(normalizedUrl);
-    if (doi) {
-      const crossrefItem = await this.fetchCrossrefByDoi(doi, normalizedUrl, tags, rightsClass);
-      if (crossrefItem) {
-        return crossrefItem;
-      }
-    }
-
-    const arxivId = this.extractArxivId(normalizedUrl);
-    if (arxivId) {
-      const arxivItem = await this.fetchArxivById(arxivId, normalizedUrl, tags, rightsClass);
-      if (arxivItem) {
-        return arxivItem;
-      }
-    }
-
-    return this.scrapeWebMetadataAsImportItem(normalizedUrl, tags, rightsClass);
-  }
-
-  private async fetchCrossrefByDoi(
-    doi: string,
-    fallbackSourceUrl: string,
-    tags: string[],
-    rightsClass: RightsClass,
-  ): Promise<LiteratureImportItem | null> {
-    const response = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`);
-    if (!response.ok) {
-      return null;
-    }
-
-    const payload = (await response.json()) as {
-      message?: Record<string, unknown>;
-    };
-    const message = payload.message ?? {};
-    return this.mapCrossrefRecordToImportItem(message, {
-      provider: 'web',
-      fallbackExternalId: doi,
-      fallbackSourceUrl,
-      tags,
-      rightsClass,
-    });
-  }
-
-  private async fetchArxivById(
-    arxivId: string,
-    fallbackSourceUrl: string,
-    tags: string[],
-    rightsClass: RightsClass,
-  ): Promise<LiteratureImportItem | null> {
-    const response = await fetch(
-      `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxivId)}&max_results=1`,
-    );
-    if (!response.ok) {
-      return null;
-    }
-
-    const xml = await response.text();
-    const entryMatch = xml.match(/<entry>([\s\S]*?)<\/entry>/);
-    if (!entryMatch || !entryMatch[1]) {
-      return null;
-    }
-
-    return this.mapArxivEntryToImportItem(entryMatch[1], {
-      provider: 'web',
-      fallbackSourceUrl,
-      tags,
-      rightsClass,
-    });
-  }
-
-  private async scrapeWebMetadataAsImportItem(
-    url: string,
-    tags: string[],
-    rightsClass: RightsClass,
-  ): Promise<LiteratureImportItem | null> {
-    const response = await fetch(url);
-    if (!response.ok) {
-      return null;
-    }
-
-    const html = await response.text();
-    const citationTitle = this.readFirstMetaValue(html, ['citation_title', 'dc.title', 'og:title']);
-    const title = citationTitle ?? this.readHtmlTitle(html);
-    if (!title) {
-      return null;
-    }
-
-    const authors = this.readAllMetaValues(html, ['citation_author', 'dc.creator'])
-      .map((author) => author.trim())
-      .filter((author) => author.length > 0);
-    const publicationDate = this.readFirstMetaValue(html, [
-      'citation_publication_date',
-      'dc.date',
-      'article:published_time',
-    ]);
-    const year = this.parseYearFromText(publicationDate);
-    const doiMeta = this.readFirstMetaValue(html, ['citation_doi', 'dc.identifier', 'doi']);
-    const doi = this.normalizeDoi(doiMeta ?? undefined);
-    const arxivMeta = this.readFirstMetaValue(html, ['citation_arxiv_id', 'arxiv_id']);
-    const arxivId = this.normalizeArxivId(arxivMeta ?? undefined) ?? this.extractArxivId(response.url || url);
-    const abstractText = this.readFirstMetaValue(html, ['citation_abstract', 'description', 'og:description']);
-    const sourceUrl = response.url || url;
-
-    return this.normalizeImportItem({
-      provider: 'web',
-      external_id: doi || arxivId || sourceUrl,
-      title: this.decodeXmlText(title),
-      abstract: abstractText ? this.decodeXmlText(abstractText) : undefined,
-      authors,
-      year: year ?? undefined,
-      doi: doi ?? undefined,
-      arxiv_id: arxivId ?? undefined,
-      source_url: sourceUrl,
-      rights_class: rightsClass,
-      tags,
-    });
-  }
-
-  private mapCrossrefRecordToImportItem(
-    item: Record<string, unknown>,
-    options: {
-      provider: LiteratureProvider;
-      fallbackExternalId: string;
-      fallbackSourceUrl: string;
-      tags: string[];
-      rightsClass: RightsClass;
-    },
-  ): LiteratureImportItem | null {
-    const title = this.readFirstString(item.title);
-    if (!title) {
-      return null;
-    }
-
-    const doi = this.readString(item.DOI);
-    const url = this.readString(item.URL);
-    const year = this.readCrossrefYear(item);
-    const authors = this.readCrossrefAuthors(item);
-    const abstractText = this.stripMarkup(this.readString(item.abstract));
-    const sourceUrl = url || (doi ? `https://doi.org/${doi}` : options.fallbackSourceUrl);
-    if (!sourceUrl) {
-      return null;
-    }
-
-    return this.normalizeImportItem({
-      provider: options.provider,
-      external_id: doi || options.fallbackExternalId,
-      title,
-      abstract: abstractText ?? undefined,
-      authors,
-      year: year ?? undefined,
-      doi: doi ?? undefined,
-      source_url: sourceUrl,
-      rights_class: options.rightsClass,
-      tags: options.tags,
-    });
-  }
-
-  private mapArxivEntryToImportItem(
-    entry: string,
-    options: {
-      provider: LiteratureProvider;
-      fallbackSourceUrl: string;
-      tags: string[];
-      rightsClass: RightsClass;
-    },
-  ): LiteratureImportItem | null {
-    const id = this.readXmlTag(entry, 'id');
-    const title = this.readXmlTag(entry, 'title');
-    if (!id || !title) {
-      return null;
-    }
-
-    const summary = this.readXmlTag(entry, 'summary');
-    const published = this.readXmlTag(entry, 'published');
-    const authors = [...entry.matchAll(/<author>\s*<name>([\s\S]*?)<\/name>\s*<\/author>/g)]
-      .map((match) => this.decodeXmlText(match[1] ?? '').trim())
-      .filter((name) => name.length > 0);
-
-    const normalizedArxivId = this.extractArxivId(id);
-    const year = published ? Number.parseInt(published.slice(0, 4), 10) : undefined;
-
-    return this.normalizeImportItem({
-      provider: options.provider,
-      external_id: normalizedArxivId || id,
-      title: this.decodeXmlText(title),
-      abstract: summary ? this.decodeXmlText(summary) : undefined,
-      authors,
-      year: Number.isFinite(year ?? Number.NaN) ? year : undefined,
-      arxiv_id: normalizedArxivId || undefined,
-      source_url: id || options.fallbackSourceUrl,
-      rights_class: options.rightsClass,
-      tags: options.tags,
-    });
-  }
-
   private mapZoteroEntryToImportItem(
     entry: Record<string, unknown>,
     options: {
@@ -1138,11 +741,6 @@ export class LiteratureService {
     return normalized.replace(/v\d+$/, '');
   }
 
-  private extractArxivId(urlOrId: string): string | null {
-    const normalized = this.normalizeArxivId(urlOrId);
-    return normalized || null;
-  }
-
   private normalizeTitle(value: string): string {
     return value
       .trim()
@@ -1168,30 +766,6 @@ export class LiteratureService {
 
   private normalizeTags(tags: string[]): string[] {
     return [...new Set(tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0))];
-  }
-
-  private resolveProviders(providers?: SearchableProvider[]): SearchableProvider[] {
-    if (!providers || providers.length === 0) {
-      return [...LITERATURE_SEARCH_PROVIDERS];
-    }
-
-    const allowed = new Set<string>(LITERATURE_SEARCH_PROVIDERS);
-    const filtered = providers.filter((provider) => allowed.has(provider));
-    return filtered.length > 0 ? filtered : [...LITERATURE_SEARCH_PROVIDERS];
-  }
-
-  private resolveLimit(limit?: number): number {
-    if (!limit || !Number.isFinite(limit)) {
-      return 10;
-    }
-
-    if (limit < 1) {
-      return 1;
-    }
-    if (limit > 20) {
-      return 20;
-    }
-    return Math.floor(limit);
   }
 
   private resolveZoteroLimit(limit?: number): number {
@@ -1265,93 +839,6 @@ export class LiteratureService {
     return value as Record<string, unknown>;
   }
 
-  private readFirstString(value: unknown): string | undefined {
-    if (Array.isArray(value)) {
-      const first = value.find((item) => typeof item === 'string');
-      return typeof first === 'string' && first.trim().length > 0 ? first.trim() : undefined;
-    }
-    return this.readString(value);
-  }
-
-  private readCrossrefAuthors(item: Record<string, unknown>): string[] {
-    const raw = item.author;
-    if (!Array.isArray(raw)) {
-      return [];
-    }
-
-    return raw
-      .map((entry) => {
-        if (!entry || typeof entry !== 'object') {
-          return null;
-        }
-        const record = entry as Record<string, unknown>;
-        const given = this.readString(record.given);
-        const family = this.readString(record.family);
-        const full = [given, family].filter((part): part is string => Boolean(part)).join(' ');
-        return full || null;
-      })
-      .filter((name): name is string => name !== null);
-  }
-
-  private readCrossrefYear(item: Record<string, unknown>): number | null {
-    const candidates = ['issued', 'published-print', 'published-online'];
-    for (const key of candidates) {
-      const raw = item[key];
-      if (!raw || typeof raw !== 'object') {
-        continue;
-      }
-
-      const parts = (raw as Record<string, unknown>)['date-parts'];
-      if (!Array.isArray(parts) || parts.length === 0 || !Array.isArray(parts[0])) {
-        continue;
-      }
-
-      const year = parts[0][0];
-      if (typeof year === 'number' && Number.isInteger(year)) {
-        return year;
-      }
-    }
-
-    return null;
-  }
-
-  private normalizeHttpUrl(value: string): string | null {
-    const attempt = (candidate: string): string | null => {
-      try {
-        const parsed = new URL(candidate);
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-          return null;
-        }
-        return parsed.toString();
-      } catch {
-        return null;
-      }
-    };
-
-    const direct = attempt(value.trim());
-    if (direct) {
-      return direct;
-    }
-
-    if (!value.includes('://')) {
-      return attempt(`https://${value.trim()}`);
-    }
-
-    return null;
-  }
-
-  private extractDoiFromText(value: string): string | null {
-    const decoded = (() => {
-      try {
-        return decodeURIComponent(value);
-      } catch {
-        return value;
-      }
-    })();
-    const matched = decoded.match(/10\.\d{4,9}\/[-._;()/:a-z0-9]+/i);
-    return this.normalizeDoi(matched?.[0]);
-  }
-
   private parseYearFromText(value?: string): number | null {
     if (!value) {
       return null;
@@ -1366,66 +853,6 @@ export class LiteratureService {
       return null;
     }
     return year;
-  }
-
-  private readAllMetaValues(html: string, names: string[]): string[] {
-    const values: string[] = [];
-    for (const name of names) {
-      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(
-        `<meta[^>]+(?:name|property)=["']${escaped}["'][^>]*content=["']([\\s\\S]*?)["'][^>]*>`,
-        'gi',
-      );
-      for (const match of html.matchAll(regex)) {
-        const content = this.decodeXmlText((match[1] ?? '').trim());
-        if (content) {
-          values.push(content);
-        }
-      }
-    }
-    return values;
-  }
-
-  private readFirstMetaValue(html: string, names: string[]): string | undefined {
-    const values = this.readAllMetaValues(html, names);
-    return values[0];
-  }
-
-  private readHtmlTitle(html: string): string | undefined {
-    const matched = html.match(/<title>([\s\S]*?)<\/title>/i);
-    const title = matched?.[1]?.trim();
-    if (!title) {
-      return undefined;
-    }
-    return this.decodeXmlText(title);
-  }
-
-  private stripMarkup(value?: string): string | undefined {
-    if (!value) {
-      return undefined;
-    }
-
-    const withoutTags = value.replace(/<[^>]+>/g, ' ');
-    const normalized = this.decodeXmlText(withoutTags).replace(/\s+/g, ' ').trim();
-    return normalized.length > 0 ? normalized : undefined;
-  }
-
-  private readXmlTag(xml: string, tagName: string): string | null {
-    const match = xml.match(new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 'i'));
-    if (!match) {
-      return null;
-    }
-
-    return match[1]?.trim() ?? null;
-  }
-
-  private decodeXmlText(value: string): string {
-    return value
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
   }
 
   private async nextLiteratureId(): Promise<string> {

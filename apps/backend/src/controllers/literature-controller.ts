@@ -4,10 +4,6 @@ import type {
   LiteratureImportResponse,
   LiteratureOverviewQuery,
   LiteratureOverviewResponse,
-  LiteratureSearchRequest,
-  LiteratureSearchResponse,
-  LiteratureWebAutoImportRequest,
-  LiteratureWebAutoImportResponse,
   SyncPaperLiteratureFromTopicRequest,
   SyncPaperLiteratureFromTopicResponse,
   TopicLiteratureScopeResponse,
@@ -43,18 +39,6 @@ type LiteratureParams = {
 export class LiteratureController {
   constructor(private readonly service: LiteratureService) {}
 
-  async search(
-    request: FastifyRequest<{ Body: LiteratureSearchRequest }>,
-    reply: FastifyReply,
-  ): Promise<void> {
-    try {
-      const result = await this.service.search(request.body);
-      reply.status(200).send(result satisfies LiteratureSearchResponse);
-    } catch (error) {
-      this.handleError(reply, error);
-    }
-  }
-
   async import(
     request: FastifyRequest<{ Body: LiteratureImportRequest }>,
     reply: FastifyReply,
@@ -62,18 +46,6 @@ export class LiteratureController {
     try {
       const result = await this.service.import(request.body);
       reply.status(200).send(result satisfies LiteratureImportResponse);
-    } catch (error) {
-      this.handleError(reply, error);
-    }
-  }
-
-  async webAutoImport(
-    request: FastifyRequest<{ Body: LiteratureWebAutoImportRequest }>,
-    reply: FastifyReply,
-  ): Promise<void> {
-    try {
-      const result = await this.service.webAutoImport(request.body);
-      reply.status(200).send(result satisfies LiteratureWebAutoImportResponse);
     } catch (error) {
       this.handleError(reply, error);
     }

@@ -131,3 +131,60 @@
   - `pnpm desktop:typecheck` ✅
   - `pnpm desktop:build` ✅
   - `pnpm --filter @paper-engineering-assistant/desktop smoke:e2e` ✅
+
+### 2026-02-26 - 自动导入 Tab 需求对齐（成功/失败/重试闭环）
+- Trigger:
+  - 按“逐 tab 对齐需求”从自动导入开始，补齐可恢复反馈与批量导入可解释性。
+- What changed:
+  - 修复恢复动作语义偏差：候选导入失败时由 `retry-query` 改为 `retry-candidate-import`，避免误触发“重新检索”。
+  - 自动导入页状态拆分为三段：检索状态 / 候选导入状态 / URL 导入状态（统一 `UiOperationStatus`）。
+  - URL 批量导入新增逐条结果回显（成功/失败、provider、dedup、错误信息）。
+  - URL 部分失败场景支持“仅重试失败 URL”，并在顶部反馈中提供 `retry-web-import-failed` 恢复动作。
+  - 候选导入流程新增显式 loading/error 状态与错误文案，减少无反馈等待。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+
+### 2026-02-26 - 自动拉取系统重构（规则驱动 + 异步 run）
+- Trigger:
+  - 用户确认“自动拉取必须是规则驱动、异步执行、可观测告警”，并要求立即替换旧自动拉取接口与 UI。
+- What changed:
+  - Prisma SSOT 新增自动拉取全链路模型：`TopicProfile`、`AutoPullRule`、`AutoPullRuleSource`、`AutoPullRuleSchedule`、`AutoPullRun`、`AutoPullRunSourceAttempt`、`AutoPullCursor`、`AutoPullAlert`、`AutoPullSuggestion`；并补全 `LiteratureRecord.autoPullSuggestions` 反向关系。
+  - Shared 契约删除旧 `LiteratureSearchRequest/Response`、`LiteratureWebAutoImportRequest/Response`，新增 Topic/Rule/Run/Alert 相关 DTO 与 schema。
+  - 后端新增 Topic/Auto Pull 路由、控制器、服务、仓储（Prisma + InMemory），并在 `app.ts` 接入。
+  - 调度器改为内置 `AutoPullScheduler`，默认启用，可通过 `AUTO_PULL_SCHEDULER_ENABLED=false` 关闭。
+  - Run 执行模型改为纯异步：`POST /auto-pull/rules/:ruleId/runs` 仅创建 `PENDING` run 并后台执行；执行期间状态流转为 `PENDING -> RUNNING -> SUCCESS|PARTIAL|FAILED|SKIPPED`。
+  - 单飞策略升级为 in-flight 保护：同规则存在 `PENDING/RUNNING` run 时，新触发写 `SKIPPED` run，并生成 `RUN_SKIPPED_SINGLE_FLIGHT` 告警。
+  - 质量门保持“抓取后判定 + suggestion 输出”策略：默认 `min_completeness_score=0.6`、`require_include_match=true`，scope 仅建议不直接写入 `TopicLiteratureScope`。
+  - 新告警编码链路落地：`NO_SOURCE_CONFIG`、`SOURCE_UNREACHABLE`、`SOURCE_AUTH_ERROR`、`SOURCE_RATE_LIMIT`、`PARSE_FAILED`、`IMPORT_FAILED`、`RUN_SKIPPED_SINGLE_FLIGHT`。
+  - 旧接口已移除：`POST /literature/search`、`POST /literature/web-import`；对应路由测试改为 404 回归验证。
+  - 前端“自动导入”页完全替换为三子 Tab（`Topic 设置` / `规则中心` / `运行与告警`），支持 Topic 设置 CRUD、规则创建编辑启停、手动触发、Run 详情、告警筛选/ack、失败源重试。
+  - 运行列表新增 `PENDING` 可视状态与耗时展示，满足“状态 + 触发类型 + 导入/失败 + 耗时”信息要求。
+- Impact scope:
+  - `prisma/schema.prisma`
+  - `prisma/migrations/20260226103000_add_auto_pull_system/migration.sql`
+  - `packages/shared/src/research-lifecycle/interface-field-contracts.ts`
+  - `apps/backend/src/app.ts`
+  - `apps/backend/src/routes/auto-pull-routes.ts`
+  - `apps/backend/src/routes/topic-settings-routes.ts`
+  - `apps/backend/src/routes/literature-routes.ts`
+  - `apps/backend/src/controllers/auto-pull-controller.ts`
+  - `apps/backend/src/controllers/topic-settings-controller.ts`
+  - `apps/backend/src/controllers/literature-controller.ts`
+  - `apps/backend/src/services/auto-pull-service.ts`
+  - `apps/backend/src/services/auto-pull-scheduler.ts`
+  - `apps/backend/src/services/literature-service.ts`
+  - `apps/backend/src/repositories/auto-pull-repository.ts`
+  - `apps/backend/src/repositories/in-memory-auto-pull-repository.ts`
+  - `apps/backend/src/repositories/prisma/prisma-auto-pull-repository.ts`
+  - `apps/backend/src/routes/auto-pull-routes.integration.test.ts`
+  - `apps/backend/src/routes/research-lifecycle-routes.integration.test.ts`
+  - `apps/backend/src/services/auto-pull-service.unit.test.ts`
+  - `apps/backend/src/services/auto-pull-scheduler.unit.test.ts`
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+- Notes:
+  - 现有 `manual import / zotero import / overview / metadata` 主流程未破坏。

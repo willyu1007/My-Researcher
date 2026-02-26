@@ -1,0 +1,234 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { buildApp } from '../app.js';
+
+const TERMINAL_RUN_STATUSES = new Set(['SUCCESS', 'PARTIAL', 'FAILED', 'SKIPPED']);
+
+async function waitForTerminalRun(
+  app: ReturnType<typeof buildApp>,
+  runId: string,
+): Promise<Record<string, unknown>> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/auto-pull/runs/${encodeURIComponent(runId)}`,
+    });
+    if (res.statusCode === 200) {
+      const run = res.json() as Record<string, unknown>;
+      const status = typeof run.status === 'string' ? run.status : '';
+      if (TERMINAL_RUN_STATUSES.has(status)) {
+        return run;
+      }
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20);
+    });
+  }
+  throw new Error(`Timed out waiting run ${runId} to complete.`);
+}
+
+test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack', async () => {
+  const app = buildApp();
+
+  const createTopicRes = await app.inject({
+    method: 'POST',
+    url: '/topics/settings',
+    payload: {
+      topic_id: 'TOPIC-AUTO-INT-1',
+      name: 'Auto Pull Topic',
+      include_keywords: ['llm', 'evaluation'],
+      exclude_keywords: ['biology'],
+      venue_filters: ['NeurIPS'],
+      default_lookback_days: 30,
+    },
+  });
+  assert.equal(createTopicRes.statusCode, 201);
+  const createdTopic = createTopicRes.json();
+  assert.equal(createdTopic.topic_id, 'TOPIC-AUTO-INT-1');
+
+  const listTopicRes = await app.inject({ method: 'GET', url: '/topics/settings' });
+  assert.equal(listTopicRes.statusCode, 200);
+  const topicItems = listTopicRes.json().items;
+  assert.equal(Array.isArray(topicItems), true);
+  assert.equal(topicItems.some((item: { topic_id: string }) => item.topic_id === 'TOPIC-AUTO-INT-1'), true);
+
+  const patchTopicRes = await app.inject({
+    method: 'PATCH',
+    url: '/topics/settings/TOPIC-AUTO-INT-1',
+    payload: {
+      default_lookback_days: 90,
+      venue_filters: ['NeurIPS', 'ICML'],
+    },
+  });
+  assert.equal(patchTopicRes.statusCode, 200);
+  assert.equal(patchTopicRes.json().default_lookback_days, 90);
+
+  const createRuleRes = await app.inject({
+    method: 'POST',
+    url: '/auto-pull/rules',
+    payload: {
+      scope: 'GLOBAL',
+      name: 'Global Rule Without Enabled Source',
+      sources: [
+        {
+          source: 'CROSSREF',
+          enabled: false,
+          priority: 1,
+        },
+      ],
+      schedules: [
+        {
+          frequency: 'DAILY',
+          hour: 9,
+          minute: 0,
+          timezone: 'UTC',
+          active: true,
+        },
+      ],
+    },
+  });
+  assert.equal(createRuleRes.statusCode, 201);
+  const ruleId = createRuleRes.json().rule_id as string;
+  assert.ok(ruleId);
+
+  const listRulesRes = await app.inject({
+    method: 'GET',
+    url: '/auto-pull/rules?scope=GLOBAL&status=ACTIVE',
+  });
+  assert.equal(listRulesRes.statusCode, 200);
+  const rules = listRulesRes.json().items;
+  assert.equal(Array.isArray(rules), true);
+  assert.equal(rules.some((item: { rule_id: string }) => item.rule_id === ruleId), true);
+
+  const triggerRunRes = await app.inject({
+    method: 'POST',
+    url: `/auto-pull/rules/${ruleId}/runs`,
+    payload: {
+      trigger_type: 'MANUAL',
+    },
+  });
+  assert.equal(triggerRunRes.statusCode, 201);
+  const queuedRun = triggerRunRes.json();
+  assert.equal(queuedRun.status, 'PENDING');
+  const failedRun = await waitForTerminalRun(app, queuedRun.run_id as string);
+  assert.equal(failedRun.status, 'FAILED');
+  assert.equal(failedRun.error_code, 'NO_SOURCE_CONFIG');
+
+  const listRunsRes = await app.inject({
+    method: 'GET',
+    url: `/auto-pull/runs?rule_id=${encodeURIComponent(ruleId)}&limit=10`,
+  });
+  assert.equal(listRunsRes.statusCode, 200);
+  assert.equal(listRunsRes.json().items.length > 0, true);
+
+  const runId = queuedRun.run_id as string;
+  const runDetailRes = await app.inject({
+    method: 'GET',
+    url: `/auto-pull/runs/${runId}`,
+  });
+  assert.equal(runDetailRes.statusCode, 200);
+  assert.equal(runDetailRes.json().run_id, runId);
+
+  const listAlertsRes = await app.inject({
+    method: 'GET',
+    url: `/auto-pull/alerts?rule_id=${encodeURIComponent(ruleId)}&acked=false`,
+  });
+  assert.equal(listAlertsRes.statusCode, 200);
+  const alerts = listAlertsRes.json().items;
+  assert.equal(Array.isArray(alerts), true);
+  assert.equal(alerts.length > 0, true);
+  const alertId = alerts[0]?.alert_id as string;
+  assert.ok(alertId);
+
+  const ackRes = await app.inject({
+    method: 'POST',
+    url: `/auto-pull/alerts/${alertId}/ack`,
+    payload: {},
+  });
+  assert.equal(ackRes.statusCode, 200);
+  assert.equal(typeof ackRes.json().ack_at, 'string');
+
+  const patchRuleRes = await app.inject({
+    method: 'PATCH',
+    url: `/auto-pull/rules/${ruleId}`,
+    payload: {
+      status: 'PAUSED',
+    },
+  });
+  assert.equal(patchRuleRes.statusCode, 200);
+  assert.equal(patchRuleRes.json().status, 'PAUSED');
+
+  const createTopicRuleRes = await app.inject({
+    method: 'POST',
+    url: '/auto-pull/rules',
+    payload: {
+      scope: 'TOPIC',
+      topic_id: 'TOPIC-AUTO-INT-1',
+      name: 'Topic Rule Invalid Zotero Config',
+      sources: [
+        {
+          source: 'ZOTERO',
+          enabled: true,
+          priority: 1,
+          config: {},
+        },
+      ],
+      schedules: [
+        {
+          frequency: 'WEEKLY',
+          days_of_week: ['MON'],
+          hour: 9,
+          minute: 0,
+          timezone: 'UTC',
+        },
+      ],
+    },
+  });
+  assert.equal(createTopicRuleRes.statusCode, 201);
+  const topicRuleId = createTopicRuleRes.json().rule_id as string;
+
+  const topicRunRes = await app.inject({
+    method: 'POST',
+    url: `/auto-pull/rules/${topicRuleId}/runs`,
+    payload: {},
+  });
+  assert.equal(topicRunRes.statusCode, 201);
+  const topicQueuedRun = topicRunRes.json();
+  assert.equal(topicQueuedRun.status, 'PENDING');
+  const topicRun = await waitForTerminalRun(app, topicQueuedRun.run_id as string);
+  assert.equal(topicRun.status, 'FAILED');
+  const topicAttempts = Array.isArray(topicRun.source_attempts)
+    ? (topicRun.source_attempts as Array<{ source?: string }>)
+    : [];
+  assert.equal(topicAttempts[0]?.source, 'ZOTERO');
+
+  const retryRes = await app.inject({
+    method: 'POST',
+    url: `/auto-pull/runs/${encodeURIComponent(topicRun.run_id as string)}/retry-failed-sources`,
+    payload: {},
+  });
+  assert.equal(retryRes.statusCode, 201);
+  const retryQueuedRun = retryRes.json();
+  assert.equal(retryQueuedRun.rule_id, topicRuleId);
+  assert.equal(retryQueuedRun.status, 'PENDING');
+  const retryRun = await waitForTerminalRun(app, retryQueuedRun.run_id as string);
+  assert.equal(retryRun.status, 'FAILED');
+
+  const deleteRuleRes = await app.inject({
+    method: 'DELETE',
+    url: `/auto-pull/rules/${ruleId}`,
+  });
+  assert.equal(deleteRuleRes.statusCode, 204);
+
+  const listAfterDeleteRes = await app.inject({
+    method: 'GET',
+    url: `/auto-pull/rules?scope=GLOBAL`,
+  });
+  assert.equal(listAfterDeleteRes.statusCode, 200);
+  assert.equal(
+    listAfterDeleteRes.json().items.some((item: { rule_id: string }) => item.rule_id === ruleId),
+    false,
+  );
+
+  await app.close();
+});

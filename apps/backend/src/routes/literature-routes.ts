@@ -1,8 +1,6 @@
 import {
   literatureOverviewQuerySchema,
   literatureImportRequestSchema,
-  literatureSearchRequestSchema,
-  literatureWebAutoImportRequestSchema,
   syncPaperLiteratureFromTopicRequestSchema,
   updateLiteratureMetadataRequestSchema,
   updatePaperLiteratureLinkRequestSchema,
@@ -10,8 +8,6 @@ import {
   zoteroImportRequestSchema,
   type LiteratureOverviewQuery,
   type LiteratureImportRequest,
-  type LiteratureSearchRequest,
-  type LiteratureWebAutoImportRequest,
   type SyncPaperLiteratureFromTopicRequest,
   type UpdateLiteratureMetadataRequest,
   type UpdatePaperLiteratureLinkRequest,
@@ -62,16 +58,6 @@ export async function registerLiteratureRoutes(
   app: FastifyInstance,
   controller: LiteratureController,
 ): Promise<void> {
-  app.post<{ Body: LiteratureSearchRequest }>(
-    '/literature/search',
-    {
-      schema: {
-        body: literatureSearchRequestSchema,
-      },
-    },
-    async (request, reply) => controller.search(request, reply),
-  );
-
   app.post<{ Body: LiteratureImportRequest }>(
     '/literature/import',
     {
@@ -80,16 +66,6 @@ export async function registerLiteratureRoutes(
       },
     },
     async (request, reply) => controller.import(request, reply),
-  );
-
-  app.post<{ Body: LiteratureWebAutoImportRequest }>(
-    '/literature/web-import',
-    {
-      schema: {
-        body: literatureWebAutoImportRequestSchema,
-      },
-    },
-    async (request, reply) => controller.webAutoImport(request, reply),
   );
 
   app.post<{ Body: ZoteroImportRequest }>(

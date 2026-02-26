@@ -412,14 +412,23 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.deepEqual(metadataPatchBody.tags, ['survey', 'baseline']);
   assert.equal(metadataPatchBody.rights_class, 'OA');
 
-  const invalidWebImportRes = await app.inject({
+  const removedWebImportRes = await app.inject({
     method: 'POST',
     url: '/literature/web-import',
     payload: {
       urls: [],
     },
   });
-  assert.equal(invalidWebImportRes.statusCode, 400);
+  assert.equal(removedWebImportRes.statusCode, 404);
+
+  const removedSearchRes = await app.inject({
+    method: 'POST',
+    url: '/literature/search',
+    payload: {
+      query: 'llm evaluation',
+    },
+  });
+  assert.equal(removedSearchRes.statusCode, 404);
 
   const invalidZoteroImportRes = await app.inject({
     method: 'POST',

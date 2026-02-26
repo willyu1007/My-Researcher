@@ -2,14 +2,14 @@
 
 ## Status
 - State: in-progress
-- Next step: 执行人工全量场景验收并确认 Go/No-Go gate
+- Next step: 执行自动拉取新链路的人工验收（Topic/Rule/Run/Alert）并确认 Go/No-Go gate
 
 ## Goal
-- 将文献管理前端 UIUX 提升到可用程度（接近发布级），满足三类导入入口、综览与分类、元数据管理与高级查询的完整闭环。
+- 将“自动拉取”升级为规则驱动 + 异步执行 + 可观测告警系统，并保持文献管理 UIUX 在导入/综览/元数据链路可用。
 
 ## Non-goals
 - 不做视觉品牌重设计。
-- 不新增必需后端 endpoint。
+- 不改变 `manual import / zotero import / overview / metadata` 既有业务语义。
 - 不引入 DSL 查询输入与复杂权限重构。
 
 ## Scope baseline
@@ -17,16 +17,23 @@
   - 自动导入
   - 手动导入（文件上传 + 文献库联动）
   - 文献综览
+- 自动导入内分为 3 子标签：
+  - Topic 设置
+  - 规则中心
+  - 运行与告警
 - 功能要求：
-  - 自动获取网页文献
+  - 自动拉取改为规则驱动（全局规则 + Topic 规则）
+  - 手动触发 + 定时触发（后端内置调度器）
+  - 纯异步 run（`PENDING -> RUNNING -> terminal`）与单飞跳过
+  - 告警面板可筛选/ack，并支持失败源重试
   - 手动上传文献
   - 联动 Zotero 等成熟文献源
   - 文献管理综览
   - 元数据管理与分类系统
 
 ## High-level acceptance criteria
-- [x] 三条导入入口同等级可用且无主次依赖。
-- [x] 高级查询条件构建器可执行多条件 AND/OR，并支持保存查询。
-- [x] 结果列表具备行内关键信息与快速操作。
-- [x] 反馈体系覆盖 `idle/loading/ready/empty/error/saving`。
-- [x] 中文优先术语一致。
+- [x] 自动导入页已替换为 Topic/规则/运行告警三子标签。
+- [x] 新增 Topic settings + auto-pull rules/runs/alerts API，且旧接口 `/literature/search`、`/literature/web-import` 已下线。
+- [x] 同规则并发触发采用单飞跳过并产生日志化告警。
+- [x] 运行明细可见 source attempt 结果与失败原因，告警可 ack，失败源可重试。
+- [x] 手动导入、文献综览、元数据编辑主流程仍可用。
