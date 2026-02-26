@@ -1,14 +1,22 @@
 import {
+  literatureOverviewQuerySchema,
   literatureImportRequestSchema,
   literatureSearchRequestSchema,
+  literatureWebAutoImportRequestSchema,
   syncPaperLiteratureFromTopicRequestSchema,
+  updateLiteratureMetadataRequestSchema,
   updatePaperLiteratureLinkRequestSchema,
   upsertTopicLiteratureScopeRequestSchema,
+  zoteroImportRequestSchema,
+  type LiteratureOverviewQuery,
   type LiteratureImportRequest,
   type LiteratureSearchRequest,
+  type LiteratureWebAutoImportRequest,
   type SyncPaperLiteratureFromTopicRequest,
+  type UpdateLiteratureMetadataRequest,
   type UpdatePaperLiteratureLinkRequest,
   type UpsertTopicLiteratureScopeRequest,
+  type ZoteroImportRequest,
 } from '@paper-engineering-assistant/shared';
 import type { FastifyInstance } from 'fastify';
 import { LiteratureController } from '../controllers/literature-controller.js';
@@ -41,6 +49,15 @@ const paperLinkParamsSchema = {
   additionalProperties: false,
 } as const;
 
+const literatureParamsSchema = {
+  type: 'object',
+  required: ['literatureId'],
+  properties: {
+    literatureId: { type: 'string', minLength: 1 },
+  },
+  additionalProperties: false,
+} as const;
+
 export async function registerLiteratureRoutes(
   app: FastifyInstance,
   controller: LiteratureController,
@@ -63,6 +80,36 @@ export async function registerLiteratureRoutes(
       },
     },
     async (request, reply) => controller.import(request, reply),
+  );
+
+  app.post<{ Body: LiteratureWebAutoImportRequest }>(
+    '/literature/web-import',
+    {
+      schema: {
+        body: literatureWebAutoImportRequestSchema,
+      },
+    },
+    async (request, reply) => controller.webAutoImport(request, reply),
+  );
+
+  app.post<{ Body: ZoteroImportRequest }>(
+    '/literature/zotero-import',
+    {
+      schema: {
+        body: zoteroImportRequestSchema,
+      },
+    },
+    async (request, reply) => controller.zoteroImport(request, reply),
+  );
+
+  app.get<{ Querystring: LiteratureOverviewQuery }>(
+    '/literature/overview',
+    {
+      schema: {
+        querystring: literatureOverviewQuerySchema,
+      },
+    },
+    async (request, reply) => controller.getOverview(request, reply),
   );
 
   app.get<{ Params: { topicId: string } }>(
@@ -116,5 +163,16 @@ export async function registerLiteratureRoutes(
       },
     },
     async (request, reply) => controller.updatePaperLiteratureLink(request, reply),
+  );
+
+  app.patch<{ Params: { literatureId: string }; Body: UpdateLiteratureMetadataRequest }>(
+    '/literature/:literatureId/metadata',
+    {
+      schema: {
+        params: literatureParamsSchema,
+        body: updateLiteratureMetadataRequestSchema,
+      },
+    },
+    async (request, reply) => controller.updateLiteratureMetadata(request, reply),
   );
 }

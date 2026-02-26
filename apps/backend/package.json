@@ -6,6 +6,7 @@
   "main": "src/app.ts",
   "types": "src/app.ts",
   "scripts": {
+    "pretypecheck": "pnpm run prisma:generate",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test --loader ts-node/esm src/**/*.test.ts",
     "prisma:format": "prisma format --schema ../../prisma/schema.prisma",

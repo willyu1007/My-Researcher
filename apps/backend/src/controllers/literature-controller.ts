@@ -2,14 +2,22 @@ import type {
   GetPaperLiteratureResponse,
   LiteratureImportRequest,
   LiteratureImportResponse,
+  LiteratureOverviewQuery,
+  LiteratureOverviewResponse,
   LiteratureSearchRequest,
   LiteratureSearchResponse,
+  LiteratureWebAutoImportRequest,
+  LiteratureWebAutoImportResponse,
   SyncPaperLiteratureFromTopicRequest,
   SyncPaperLiteratureFromTopicResponse,
   TopicLiteratureScopeResponse,
+  UpdateLiteratureMetadataRequest,
+  UpdateLiteratureMetadataResponse,
   UpdatePaperLiteratureLinkRequest,
   UpdatePaperLiteratureLinkResponse,
   UpsertTopicLiteratureScopeRequest,
+  ZoteroImportRequest,
+  ZoteroImportResponse,
 } from '@paper-engineering-assistant/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError } from '../errors/app-error.js';
@@ -26,6 +34,10 @@ type PaperParams = {
 type PaperLinkParams = {
   id: string;
   linkId: string;
+};
+
+type LiteratureParams = {
+  literatureId: string;
 };
 
 export class LiteratureController {
@@ -50,6 +62,42 @@ export class LiteratureController {
     try {
       const result = await this.service.import(request.body);
       reply.status(200).send(result satisfies LiteratureImportResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async webAutoImport(
+    request: FastifyRequest<{ Body: LiteratureWebAutoImportRequest }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.webAutoImport(request.body);
+      reply.status(200).send(result satisfies LiteratureWebAutoImportResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async zoteroImport(
+    request: FastifyRequest<{ Body: ZoteroImportRequest }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.zoteroImport(request.body);
+      reply.status(200).send(result satisfies ZoteroImportResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async getOverview(
+    request: FastifyRequest<{ Querystring: LiteratureOverviewQuery }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.getOverview(request.query);
+      reply.status(200).send(result satisfies LiteratureOverviewResponse);
     } catch (error) {
       this.handleError(reply, error);
     }
@@ -114,6 +162,21 @@ export class LiteratureController {
         request.body,
       );
       reply.status(200).send(result satisfies UpdatePaperLiteratureLinkResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async updateLiteratureMetadata(
+    request: FastifyRequest<{ Params: LiteratureParams; Body: UpdateLiteratureMetadataRequest }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.updateLiteratureMetadata(
+        request.params.literatureId,
+        request.body,
+      );
+      reply.status(200).send(result satisfies UpdateLiteratureMetadataResponse);
     } catch (error) {
       this.handleError(reply, error);
     }

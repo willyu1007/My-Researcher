@@ -1,22 +1,32 @@
 import crypto from 'node:crypto';
 import {
-  LITERATURE_PROVIDERS,
+  LITERATURE_SEARCH_PROVIDERS,
   type DedupMatchType,
   type GetPaperLiteratureResponse,
   type LiteratureImportItem,
   type LiteratureImportRequest,
   type LiteratureImportResponse,
+  type LiteratureOverviewQuery,
+  type LiteratureOverviewResponse,
   type LiteratureProvider,
   type LiteratureSearchRequest,
   type LiteratureSearchResponse,
+  type LiteratureWebAutoImportRequest,
+  type LiteratureWebAutoImportResponse,
   type PaperLiteratureLinkView,
+  type PaperCitationStatus,
   type RightsClass,
   type SyncPaperLiteratureFromTopicRequest,
   type SyncPaperLiteratureFromTopicResponse,
+  type TopicScopeStatus,
   type TopicLiteratureScopeResponse,
+  type UpdateLiteratureMetadataRequest,
+  type UpdateLiteratureMetadataResponse,
   type UpdatePaperLiteratureLinkRequest,
   type UpdatePaperLiteratureLinkResponse,
   type UpsertTopicLiteratureScopeRequest,
+  type ZoteroImportRequest,
+  type ZoteroImportResponse,
 } from '@paper-engineering-assistant/shared';
 import { AppError } from '../errors/app-error.js';
 import type { LiteratureRecord, LiteratureRepository } from '../repositories/literature-repository.js';
@@ -32,6 +42,8 @@ type MatchedDedup = {
   matchedBy: DedupMatchType;
   literature: LiteratureRecord | null;
 };
+
+type SearchableProvider = (typeof LITERATURE_SEARCH_PROVIDERS)[number];
 
 export class LiteratureService {
   constructor(
@@ -140,6 +152,278 @@ export class LiteratureService {
     }
 
     return { results };
+  }
+
+  async webAutoImport(
+    request: LiteratureWebAutoImportRequest,
+  ): Promise<LiteratureWebAutoImportResponse> {
+    const topicId = request.topic_id?.trim();
+    const scopeStatus = request.scope_status ?? 'in_scope';
+    const scopeReason = request.scope_reason?.trim() || undefined;
+    const tags = this.normalizeTags(request.tags ?? []);
+    const rightsClass = request.rights_class ?? 'UNKNOWN';
+
+    const prepared: Array<{ url: string; item: LiteratureImportItem }> = [];
+    const failed: LiteratureWebAutoImportResponse['results'] = [];
+
+    for (const rawUrl of request.urls) {
+      const url = rawUrl.trim();
+      if (!url) {
+        failed.push({
+          url: rawUrl,
+          imported: false,
+          message: 'URL is empty.',
+        });
+        continue;
+      }
+
+      try {
+        const item = await this.fetchImportItemFromWebUrl(url, tags, rightsClass);
+        if (!item) {
+          failed.push({
+            url,
+            imported: false,
+            message: 'Unable to extract literature metadata from the URL.',
+          });
+          continue;
+        }
+        prepared.push({ url, item });
+      } catch (error) {
+        failed.push({
+          url,
+          imported: false,
+          message: error instanceof Error ? error.message : 'Web import failed.',
+        });
+      }
+    }
+
+    const imported = prepared.length > 0 ? await this.import({ items: prepared.map((row) => row.item) }) : { results: [] };
+    const importedIds = imported.results.map((row) => row.literature_id);
+    let scopeUpsertedCount = 0;
+
+    if (topicId && importedIds.length > 0) {
+      await this.upsertTopicScope(topicId, {
+        actions: importedIds.map((literatureId) => ({
+          literature_id: literatureId,
+          scope_status: scopeStatus,
+          reason: scopeReason,
+        })),
+      });
+      scopeUpsertedCount = importedIds.length;
+    }
+
+    const succeeded: LiteratureWebAutoImportResponse['results'] = prepared.map((row, index) => {
+      const result = imported.results[index];
+      if (!result) {
+        return {
+          url: row.url,
+          imported: false,
+          message: 'Import result missing.',
+        };
+      }
+
+      return {
+        url: row.url,
+        imported: true,
+        literature_id: result.literature_id,
+        title: result.title,
+        matched_by: result.matched_by,
+        source_provider: result.source_provider,
+      };
+    });
+
+    return {
+      topic_id: topicId || undefined,
+      imported_count: imported.results.length,
+      scope_upserted_count: scopeUpsertedCount,
+      results: [...succeeded, ...failed],
+    };
+  }
+
+  async zoteroImport(request: ZoteroImportRequest): Promise<ZoteroImportResponse> {
+    const topicId = request.topic_id?.trim();
+    const scopeStatus = request.scope_status ?? 'in_scope';
+    const scopeReason = request.scope_reason?.trim() || undefined;
+    const limit = this.resolveZoteroLimit(request.limit);
+    const query = request.query?.trim();
+    const libraryId = request.library_id.trim();
+    const baseTags = this.normalizeTags(request.tags ?? []);
+    const rightsClass = request.rights_class ?? 'USER_AUTH';
+
+    const url = new URL(
+      `https://api.zotero.org/${request.library_type}/${encodeURIComponent(libraryId)}/items/top`,
+    );
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('limit', String(limit));
+    url.searchParams.set('sort', 'dateModified');
+    url.searchParams.set('direction', 'desc');
+    if (query) {
+      url.searchParams.set('q', query);
+    }
+
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+    const apiKey = request.api_key?.trim();
+    if (apiKey) {
+      headers['Zotero-API-Key'] = apiKey;
+    }
+
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      throw new AppError(
+        502,
+        'INTERNAL_ERROR',
+        `Zotero request failed with status ${response.status}.`,
+      );
+    }
+
+    const payload = (await response.json()) as Array<Record<string, unknown>>;
+    const importItems = payload
+      .map((entry) =>
+        this.mapZoteroEntryToImportItem(entry, {
+          libraryType: request.library_type,
+          libraryId,
+          tags: baseTags,
+          rightsClass,
+        }),
+      )
+      .filter((item): item is LiteratureImportItem => item !== null);
+
+    const imported = importItems.length > 0 ? await this.import({ items: importItems }) : { results: [] };
+    const importedIds = imported.results.map((row) => row.literature_id);
+    let scopeUpsertedCount = 0;
+
+    if (topicId && importedIds.length > 0) {
+      await this.upsertTopicScope(topicId, {
+        actions: importedIds.map((literatureId) => ({
+          literature_id: literatureId,
+          scope_status: scopeStatus,
+          reason: scopeReason,
+        })),
+      });
+      scopeUpsertedCount = importedIds.length;
+    }
+
+    return {
+      topic_id: topicId || undefined,
+      imported_count: imported.results.length,
+      scope_upserted_count: scopeUpsertedCount,
+      results: imported.results,
+    };
+  }
+
+  async getOverview(query: LiteratureOverviewQuery): Promise<LiteratureOverviewResponse> {
+    const topicId = query.topic_id?.trim();
+    const paperId = query.paper_id?.trim();
+    if (!topicId && !paperId) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Either topic_id or paper_id is required.');
+    }
+
+    const topicScopes = topicId
+      ? await this.literatureRepository.listTopicScopesByTopicId(topicId)
+      : [];
+
+    let paperLinks = [] as Awaited<ReturnType<LiteratureRepository['listPaperLiteratureLinksByPaperId']>>;
+    if (paperId) {
+      const paper = await this.researchRepository.findPaperById(paperId);
+      if (!paper) {
+        throw new AppError(404, 'NOT_FOUND', `Paper ${paperId} not found.`);
+      }
+      paperLinks = await this.literatureRepository.listPaperLiteratureLinksByPaperId(paper.id);
+    }
+
+    const literatureIds = [...new Set([
+      ...topicScopes.map((scope) => scope.literatureId),
+      ...paperLinks.map((link) => link.literatureId),
+    ])];
+
+    const literatures = await this.literatureRepository.listLiteraturesByIds(literatureIds);
+    const literatureMap = new Map(literatures.map((row) => [row.id, row]));
+
+    const scopeStatusByLiterature = new Map<string, TopicScopeStatus>();
+    for (const scope of topicScopes) {
+      scopeStatusByLiterature.set(scope.literatureId, scope.scopeStatus);
+    }
+
+    const citationStatusByLiterature = new Map<string, PaperCitationStatus>();
+    for (const link of paperLinks) {
+      citationStatusByLiterature.set(link.literatureId, link.citationStatus);
+    }
+
+    const providerCounts = new Map<LiteratureProvider, number>();
+    const rightsCounts = new Map<RightsClass, number>();
+    const tagCounts = new Map<string, number>();
+    const items: LiteratureOverviewResponse['items'] = [];
+
+    for (const literatureId of literatureIds) {
+      const literature = literatureMap.get(literatureId);
+      if (!literature) {
+        continue;
+      }
+
+      rightsCounts.set(literature.rightsClass, (rightsCounts.get(literature.rightsClass) ?? 0) + 1);
+      for (const tag of literature.tags) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      }
+
+      const sources = await this.literatureRepository.listSourcesByLiteratureId(literatureId);
+      const latestSource = sources[sources.length - 1] ?? null;
+      const providers = [...new Set(sources.map((source) => source.provider))];
+      for (const provider of providers) {
+        providerCounts.set(provider, (providerCounts.get(provider) ?? 0) + 1);
+      }
+
+      items.push({
+        literature_id: literature.id,
+        title: literature.title,
+        authors: literature.authors,
+        year: literature.year,
+        doi: literature.doiNormalized,
+        arxiv_id: literature.arxivId,
+        rights_class: literature.rightsClass,
+        tags: literature.tags,
+        providers,
+        source_url: latestSource?.sourceUrl ?? null,
+        source_updated_at: latestSource?.fetchedAt ?? null,
+        topic_scope_status: scopeStatusByLiterature.get(literature.id),
+        citation_status: citationStatusByLiterature.get(literature.id),
+      });
+    }
+
+    const sortedItems = items.sort((left, right) => {
+      const yearLeft = left.year ?? 0;
+      const yearRight = right.year ?? 0;
+      if (yearLeft !== yearRight) {
+        return yearRight - yearLeft;
+      }
+      return left.title.localeCompare(right.title);
+    });
+
+    return {
+      topic_id: topicId || undefined,
+      paper_id: paperId || undefined,
+      summary: {
+        total_literatures: sortedItems.length,
+        topic_scope_total: topicScopes.length,
+        in_scope_count: topicScopes.filter((scope) => scope.scopeStatus === 'in_scope').length,
+        excluded_count: topicScopes.filter((scope) => scope.scopeStatus === 'excluded').length,
+        paper_link_total: paperLinks.length,
+        cited_count: paperLinks.filter((link) => link.citationStatus === 'cited').length,
+        used_count: paperLinks.filter((link) => link.citationStatus === 'used').length,
+        provider_counts: [...providerCounts.entries()]
+          .map(([provider, count]) => ({ provider, count }))
+          .sort((left, right) => right.count - left.count),
+        rights_class_counts: [...rightsCounts.entries()]
+          .map(([rightsClass, count]) => ({ rights_class: rightsClass, count }))
+          .sort((left, right) => right.count - left.count),
+        top_tags: [...tagCounts.entries()]
+          .map(([tag, count]) => ({ tag, count }))
+          .sort((left, right) => right.count - left.count)
+          .slice(0, 10),
+      },
+      items: sortedItems,
+    };
   }
 
   async getTopicScope(topicId: string): Promise<TopicLiteratureScopeResponse> {
@@ -333,16 +617,89 @@ export class LiteratureService {
     };
   }
 
+  async updateLiteratureMetadata(
+    literatureId: string,
+    request: UpdateLiteratureMetadataRequest,
+  ): Promise<UpdateLiteratureMetadataResponse> {
+    const existing = await this.literatureRepository.findLiteratureById(literatureId);
+    if (!existing) {
+      throw new AppError(404, 'NOT_FOUND', `Literature ${literatureId} not found.`);
+    }
+
+    const nextTitle = request.title === undefined ? existing.title : request.title.trim();
+    if (!nextTitle) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'title cannot be empty.');
+    }
+
+    const nextAbstract = request.abstract === undefined
+      ? existing.abstractText
+      : request.abstract === null
+        ? null
+        : request.abstract.trim() || null;
+    const nextAuthors = request.authors === undefined
+      ? existing.authors
+      : request.authors.map((author) => author.trim()).filter((author) => author.length > 0);
+    const nextYear = request.year === undefined ? existing.year : request.year;
+    const nextDoi = request.doi === undefined
+      ? existing.doiNormalized
+      : this.normalizeDoi(request.doi ?? undefined);
+    const nextArxivId = request.arxiv_id === undefined
+      ? existing.arxivId
+      : this.normalizeArxivId(request.arxiv_id ?? undefined);
+    const nextRightsClass = request.rights_class ?? existing.rightsClass;
+    const nextTags = request.tags === undefined ? existing.tags : this.normalizeTags(request.tags);
+    const nextHash = this.buildTitleAuthorsYearHashFromFields(nextTitle, nextAuthors, nextYear);
+
+    await this.assertDedupUniqueness(literatureId, {
+      doiNormalized: nextDoi,
+      arxivId: nextArxivId,
+      titleAuthorsYearHash: nextHash,
+    });
+
+    const now = new Date().toISOString();
+    const updated = await this.literatureRepository.updateLiterature({
+      ...existing,
+      title: nextTitle,
+      abstractText: nextAbstract,
+      authors: nextAuthors,
+      year: nextYear,
+      doiNormalized: nextDoi,
+      arxivId: nextArxivId,
+      normalizedTitle: this.normalizeTitle(nextTitle),
+      titleAuthorsYearHash: nextHash,
+      rightsClass: nextRightsClass,
+      tags: nextTags,
+      updatedAt: now,
+    });
+
+    return {
+      literature_id: updated.id,
+      title: updated.title,
+      abstract: updated.abstractText,
+      authors: updated.authors,
+      year: updated.year,
+      doi: updated.doiNormalized,
+      arxiv_id: updated.arxivId,
+      rights_class: updated.rightsClass,
+      tags: updated.tags,
+      updated_at: updated.updatedAt,
+    };
+  }
+
   private async searchWithProvider(
-    provider: LiteratureProvider,
+    provider: SearchableProvider,
     query: string,
     limit: number,
   ): Promise<LiteratureImportItem[]> {
     try {
-      if (provider === 'crossref') {
-        return await this.searchCrossref(query, limit);
+      switch (provider) {
+        case 'crossref':
+          return await this.searchCrossref(query, limit);
+        case 'arxiv':
+          return await this.searchArxiv(query, limit);
+        default:
+          return [];
       }
-      return await this.searchArxiv(query, limit);
     } catch {
       return [];
     }
@@ -365,32 +722,12 @@ export class LiteratureService {
     const items = payload.message?.items ?? [];
     return items
       .map((item) => {
-        const title = this.readFirstString(item.title);
-        if (!title) {
-          return null;
-        }
-
-        const doi = this.readString(item.DOI);
-        const url = this.readString(item.URL);
-        const year = this.readCrossrefYear(item);
-        const authors = this.readCrossrefAuthors(item);
-        const abstractText = this.stripMarkup(this.readString(item.abstract));
-        const sourceUrl = url || (doi ? `https://doi.org/${doi}` : '');
-        if (!sourceUrl) {
-          return null;
-        }
-
-        return this.normalizeImportItem({
+        return this.mapCrossrefRecordToImportItem(item, {
           provider: 'crossref',
-          external_id: doi || sourceUrl,
-          title,
-          abstract: abstractText ?? undefined,
-          authors,
-          year: year ?? undefined,
-          doi: doi ?? undefined,
-          source_url: sourceUrl,
-          rights_class: 'UNKNOWN',
+          fallbackExternalId: this.readString(item.DOI) ?? this.readString(item.URL) ?? crypto.randomUUID(),
+          fallbackSourceUrl: this.readString(item.URL) ?? '',
           tags: [],
+          rightsClass: 'UNKNOWN',
         });
       })
       .filter((item): item is LiteratureImportItem => item !== null);
@@ -409,35 +746,295 @@ export class LiteratureService {
     return entries
       .map((entryMatch) => {
         const entry = entryMatch[1] ?? '';
-        const id = this.readXmlTag(entry, 'id');
-        const title = this.readXmlTag(entry, 'title');
-        if (!id || !title) {
-          return null;
-        }
-
-        const summary = this.readXmlTag(entry, 'summary');
-        const published = this.readXmlTag(entry, 'published');
-        const authors = [...entry.matchAll(/<author>\s*<name>([\s\S]*?)<\/name>\s*<\/author>/g)]
-          .map((match) => this.decodeXmlText(match[1] ?? '').trim())
-          .filter((name) => name.length > 0);
-
-        const normalizedArxivId = this.extractArxivId(id);
-        const year = published ? Number.parseInt(published.slice(0, 4), 10) : undefined;
-
-        return this.normalizeImportItem({
+        return this.mapArxivEntryToImportItem(entry, {
           provider: 'arxiv',
-          external_id: normalizedArxivId || id,
-          title: this.decodeXmlText(title),
-          abstract: summary ? this.decodeXmlText(summary) : undefined,
-          authors,
-          year: Number.isFinite(year ?? Number.NaN) ? year : undefined,
-          arxiv_id: normalizedArxivId || undefined,
-          source_url: id,
-          rights_class: 'UNKNOWN',
+          fallbackSourceUrl: 'https://arxiv.org',
           tags: [],
+          rightsClass: 'UNKNOWN',
         });
       })
       .filter((item): item is LiteratureImportItem => item !== null);
+  }
+
+  private async fetchImportItemFromWebUrl(
+    rawUrl: string,
+    tags: string[],
+    rightsClass: RightsClass,
+  ): Promise<LiteratureImportItem | null> {
+    const normalizedUrl = this.normalizeHttpUrl(rawUrl);
+    if (!normalizedUrl) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `Invalid URL: ${rawUrl}`);
+    }
+
+    const doi = this.extractDoiFromText(normalizedUrl);
+    if (doi) {
+      const crossrefItem = await this.fetchCrossrefByDoi(doi, normalizedUrl, tags, rightsClass);
+      if (crossrefItem) {
+        return crossrefItem;
+      }
+    }
+
+    const arxivId = this.extractArxivId(normalizedUrl);
+    if (arxivId) {
+      const arxivItem = await this.fetchArxivById(arxivId, normalizedUrl, tags, rightsClass);
+      if (arxivItem) {
+        return arxivItem;
+      }
+    }
+
+    return this.scrapeWebMetadataAsImportItem(normalizedUrl, tags, rightsClass);
+  }
+
+  private async fetchCrossrefByDoi(
+    doi: string,
+    fallbackSourceUrl: string,
+    tags: string[],
+    rightsClass: RightsClass,
+  ): Promise<LiteratureImportItem | null> {
+    const response = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`);
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as {
+      message?: Record<string, unknown>;
+    };
+    const message = payload.message ?? {};
+    return this.mapCrossrefRecordToImportItem(message, {
+      provider: 'web',
+      fallbackExternalId: doi,
+      fallbackSourceUrl,
+      tags,
+      rightsClass,
+    });
+  }
+
+  private async fetchArxivById(
+    arxivId: string,
+    fallbackSourceUrl: string,
+    tags: string[],
+    rightsClass: RightsClass,
+  ): Promise<LiteratureImportItem | null> {
+    const response = await fetch(
+      `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxivId)}&max_results=1`,
+    );
+    if (!response.ok) {
+      return null;
+    }
+
+    const xml = await response.text();
+    const entryMatch = xml.match(/<entry>([\s\S]*?)<\/entry>/);
+    if (!entryMatch || !entryMatch[1]) {
+      return null;
+    }
+
+    return this.mapArxivEntryToImportItem(entryMatch[1], {
+      provider: 'web',
+      fallbackSourceUrl,
+      tags,
+      rightsClass,
+    });
+  }
+
+  private async scrapeWebMetadataAsImportItem(
+    url: string,
+    tags: string[],
+    rightsClass: RightsClass,
+  ): Promise<LiteratureImportItem | null> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return null;
+    }
+
+    const html = await response.text();
+    const citationTitle = this.readFirstMetaValue(html, ['citation_title', 'dc.title', 'og:title']);
+    const title = citationTitle ?? this.readHtmlTitle(html);
+    if (!title) {
+      return null;
+    }
+
+    const authors = this.readAllMetaValues(html, ['citation_author', 'dc.creator'])
+      .map((author) => author.trim())
+      .filter((author) => author.length > 0);
+    const publicationDate = this.readFirstMetaValue(html, [
+      'citation_publication_date',
+      'dc.date',
+      'article:published_time',
+    ]);
+    const year = this.parseYearFromText(publicationDate);
+    const doiMeta = this.readFirstMetaValue(html, ['citation_doi', 'dc.identifier', 'doi']);
+    const doi = this.normalizeDoi(doiMeta ?? undefined);
+    const arxivMeta = this.readFirstMetaValue(html, ['citation_arxiv_id', 'arxiv_id']);
+    const arxivId = this.normalizeArxivId(arxivMeta ?? undefined) ?? this.extractArxivId(response.url || url);
+    const abstractText = this.readFirstMetaValue(html, ['citation_abstract', 'description', 'og:description']);
+    const sourceUrl = response.url || url;
+
+    return this.normalizeImportItem({
+      provider: 'web',
+      external_id: doi || arxivId || sourceUrl,
+      title: this.decodeXmlText(title),
+      abstract: abstractText ? this.decodeXmlText(abstractText) : undefined,
+      authors,
+      year: year ?? undefined,
+      doi: doi ?? undefined,
+      arxiv_id: arxivId ?? undefined,
+      source_url: sourceUrl,
+      rights_class: rightsClass,
+      tags,
+    });
+  }
+
+  private mapCrossrefRecordToImportItem(
+    item: Record<string, unknown>,
+    options: {
+      provider: LiteratureProvider;
+      fallbackExternalId: string;
+      fallbackSourceUrl: string;
+      tags: string[];
+      rightsClass: RightsClass;
+    },
+  ): LiteratureImportItem | null {
+    const title = this.readFirstString(item.title);
+    if (!title) {
+      return null;
+    }
+
+    const doi = this.readString(item.DOI);
+    const url = this.readString(item.URL);
+    const year = this.readCrossrefYear(item);
+    const authors = this.readCrossrefAuthors(item);
+    const abstractText = this.stripMarkup(this.readString(item.abstract));
+    const sourceUrl = url || (doi ? `https://doi.org/${doi}` : options.fallbackSourceUrl);
+    if (!sourceUrl) {
+      return null;
+    }
+
+    return this.normalizeImportItem({
+      provider: options.provider,
+      external_id: doi || options.fallbackExternalId,
+      title,
+      abstract: abstractText ?? undefined,
+      authors,
+      year: year ?? undefined,
+      doi: doi ?? undefined,
+      source_url: sourceUrl,
+      rights_class: options.rightsClass,
+      tags: options.tags,
+    });
+  }
+
+  private mapArxivEntryToImportItem(
+    entry: string,
+    options: {
+      provider: LiteratureProvider;
+      fallbackSourceUrl: string;
+      tags: string[];
+      rightsClass: RightsClass;
+    },
+  ): LiteratureImportItem | null {
+    const id = this.readXmlTag(entry, 'id');
+    const title = this.readXmlTag(entry, 'title');
+    if (!id || !title) {
+      return null;
+    }
+
+    const summary = this.readXmlTag(entry, 'summary');
+    const published = this.readXmlTag(entry, 'published');
+    const authors = [...entry.matchAll(/<author>\s*<name>([\s\S]*?)<\/name>\s*<\/author>/g)]
+      .map((match) => this.decodeXmlText(match[1] ?? '').trim())
+      .filter((name) => name.length > 0);
+
+    const normalizedArxivId = this.extractArxivId(id);
+    const year = published ? Number.parseInt(published.slice(0, 4), 10) : undefined;
+
+    return this.normalizeImportItem({
+      provider: options.provider,
+      external_id: normalizedArxivId || id,
+      title: this.decodeXmlText(title),
+      abstract: summary ? this.decodeXmlText(summary) : undefined,
+      authors,
+      year: Number.isFinite(year ?? Number.NaN) ? year : undefined,
+      arxiv_id: normalizedArxivId || undefined,
+      source_url: id || options.fallbackSourceUrl,
+      rights_class: options.rightsClass,
+      tags: options.tags,
+    });
+  }
+
+  private mapZoteroEntryToImportItem(
+    entry: Record<string, unknown>,
+    options: {
+      libraryType: 'users' | 'groups';
+      libraryId: string;
+      tags: string[];
+      rightsClass: RightsClass;
+    },
+  ): LiteratureImportItem | null {
+    const data = this.readRecord(entry.data);
+    if (!data) {
+      return null;
+    }
+
+    const title = this.readString(data.title);
+    if (!title) {
+      return null;
+    }
+
+    const creatorsRaw = Array.isArray(data.creators) ? data.creators : [];
+    const authors = creatorsRaw
+      .map((creator) => this.readRecord(creator))
+      .filter((creator): creator is Record<string, unknown> => creator !== null)
+      .map((creator) => {
+        const name = this.readString(creator.name);
+        if (name) {
+          return name;
+        }
+        const firstName = this.readString(creator.firstName);
+        const lastName = this.readString(creator.lastName);
+        return [firstName, lastName].filter((part): part is string => Boolean(part)).join(' ');
+      })
+      .map((author) => author.trim())
+      .filter((author) => author.length > 0);
+
+    const dateText = this.readString(data.date);
+    const year = this.parseYearFromText(dateText);
+    const doi = this.normalizeDoi(this.readString(data.DOI) ?? this.readString(data.doi));
+    const arxivId = this.normalizeArxivId(
+      this.readString(data.arxivId) ?? this.readString(data.arxiv) ?? undefined,
+    );
+    const itemKey = this.readString(entry.key) ?? this.readString(data.key);
+    const sourceUrl =
+      this.readString(data.url) ??
+      (itemKey
+        ? `https://www.zotero.org/${options.libraryType}/${options.libraryId}/items/${itemKey}`
+        : `https://www.zotero.org/${options.libraryType}/${options.libraryId}`);
+
+    const abstractText = this.readString(data.abstractNote);
+    const itemTags = Array.isArray(data.tags)
+      ? data.tags
+          .map((tagEntry) => {
+            const asRecord = this.readRecord(tagEntry);
+            if (asRecord) {
+              return this.readString(asRecord.tag);
+            }
+            return typeof tagEntry === 'string' ? tagEntry : undefined;
+          })
+          .filter((tag): tag is string => typeof tag === 'string')
+      : [];
+
+    return this.normalizeImportItem({
+      provider: 'zotero',
+      external_id: itemKey || doi || arxivId || sourceUrl,
+      title,
+      abstract: abstractText ?? undefined,
+      authors,
+      year: year ?? undefined,
+      doi: doi ?? undefined,
+      arxiv_id: arxivId ?? undefined,
+      source_url: sourceUrl,
+      rights_class: options.rightsClass,
+      tags: this.mergeTags(options.tags, itemTags),
+    });
   }
 
   private async findExisting(item: LiteratureImportItem): Promise<MatchedDedup> {
@@ -477,16 +1074,24 @@ export class LiteratureService {
   }
 
   private buildTitleAuthorsYearHash(item: LiteratureImportItem): string | null {
-    if (!item.year) {
+    return this.buildTitleAuthorsYearHashFromFields(item.title, item.authors ?? [], item.year ?? null);
+  }
+
+  private buildTitleAuthorsYearHashFromFields(
+    title: string,
+    authors: string[],
+    year: number | null,
+  ): string | null {
+    if (!year) {
       return null;
     }
-    const normalizedTitle = this.normalizeTitle(item.title);
-    const normalizedAuthors = this.normalizeAuthors(item.authors ?? []);
+    const normalizedTitle = this.normalizeTitle(title);
+    const normalizedAuthors = this.normalizeAuthors(authors);
     if (!normalizedTitle || normalizedAuthors.length === 0) {
       return null;
     }
 
-    const raw = `${normalizedTitle}|${normalizedAuthors.join('|')}|${item.year}`;
+    const raw = `${normalizedTitle}|${normalizedAuthors.join('|')}|${year}`;
     return crypto.createHash('sha1').update(raw).digest('hex');
   }
 
@@ -561,11 +1166,18 @@ export class LiteratureService {
       .sort();
   }
 
-  private resolveProviders(providers?: LiteratureProvider[]): LiteratureProvider[] {
+  private normalizeTags(tags: string[]): string[] {
+    return [...new Set(tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0))];
+  }
+
+  private resolveProviders(providers?: SearchableProvider[]): SearchableProvider[] {
     if (!providers || providers.length === 0) {
-      return [...LITERATURE_PROVIDERS];
+      return [...LITERATURE_SEARCH_PROVIDERS];
     }
-    return providers;
+
+    const allowed = new Set<string>(LITERATURE_SEARCH_PROVIDERS);
+    const filtered = providers.filter((provider) => allowed.has(provider));
+    return filtered.length > 0 ? filtered : [...LITERATURE_SEARCH_PROVIDERS];
   }
 
   private resolveLimit(limit?: number): number {
@@ -582,8 +1194,54 @@ export class LiteratureService {
     return Math.floor(limit);
   }
 
+  private resolveZoteroLimit(limit?: number): number {
+    if (!limit || !Number.isFinite(limit)) {
+      return 20;
+    }
+
+    if (limit < 1) {
+      return 1;
+    }
+    if (limit > 50) {
+      return 50;
+    }
+    return Math.floor(limit);
+  }
+
   private mergeTags(existing: string[], incoming: string[]): string[] {
-    return [...new Set([...existing, ...incoming])];
+    return this.normalizeTags([...existing, ...incoming]);
+  }
+
+  private async assertDedupUniqueness(
+    literatureId: string,
+    keys: DedupCandidate,
+  ): Promise<void> {
+    if (keys.doiNormalized) {
+      const existing = await this.literatureRepository.findLiteratureByDoi(keys.doiNormalized);
+      if (existing && existing.id !== literatureId) {
+        throw new AppError(409, 'VERSION_CONFLICT', `DOI ${keys.doiNormalized} already exists.`);
+      }
+    }
+
+    if (keys.arxivId) {
+      const existing = await this.literatureRepository.findLiteratureByArxivId(keys.arxivId);
+      if (existing && existing.id !== literatureId) {
+        throw new AppError(409, 'VERSION_CONFLICT', `arXiv ID ${keys.arxivId} already exists.`);
+      }
+    }
+
+    if (keys.titleAuthorsYearHash) {
+      const existing = await this.literatureRepository.findLiteratureByTitleAuthorsYearHash(
+        keys.titleAuthorsYearHash,
+      );
+      if (existing && existing.id !== literatureId) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          'A literature record with same title/authors/year already exists.',
+        );
+      }
+    }
   }
 
   private resolveRightsClass(current: RightsClass, incoming?: RightsClass): RightsClass {
@@ -598,6 +1256,13 @@ export class LiteratureService {
 
   private readString(value: unknown): string | undefined {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+  }
+
+  private readRecord(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    return value as Record<string, unknown>;
   }
 
   private readFirstString(value: unknown): string | undefined {
@@ -648,6 +1313,91 @@ export class LiteratureService {
     }
 
     return null;
+  }
+
+  private normalizeHttpUrl(value: string): string | null {
+    const attempt = (candidate: string): string | null => {
+      try {
+        const parsed = new URL(candidate);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return null;
+        }
+        return parsed.toString();
+      } catch {
+        return null;
+      }
+    };
+
+    const direct = attempt(value.trim());
+    if (direct) {
+      return direct;
+    }
+
+    if (!value.includes('://')) {
+      return attempt(`https://${value.trim()}`);
+    }
+
+    return null;
+  }
+
+  private extractDoiFromText(value: string): string | null {
+    const decoded = (() => {
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return value;
+      }
+    })();
+    const matched = decoded.match(/10\.\d{4,9}\/[-._;()/:a-z0-9]+/i);
+    return this.normalizeDoi(matched?.[0]);
+  }
+
+  private parseYearFromText(value?: string): number | null {
+    if (!value) {
+      return null;
+    }
+    const match = value.match(/\b(19|20)\d{2}\b/);
+    if (!match || !match[0]) {
+      return null;
+    }
+
+    const year = Number.parseInt(match[0], 10);
+    if (!Number.isInteger(year) || year < 1900 || year > 2100) {
+      return null;
+    }
+    return year;
+  }
+
+  private readAllMetaValues(html: string, names: string[]): string[] {
+    const values: string[] = [];
+    for (const name of names) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(
+        `<meta[^>]+(?:name|property)=["']${escaped}["'][^>]*content=["']([\\s\\S]*?)["'][^>]*>`,
+        'gi',
+      );
+      for (const match of html.matchAll(regex)) {
+        const content = this.decodeXmlText((match[1] ?? '').trim());
+        if (content) {
+          values.push(content);
+        }
+      }
+    }
+    return values;
+  }
+
+  private readFirstMetaValue(html: string, names: string[]): string | undefined {
+    const values = this.readAllMetaValues(html, names);
+    return values[0];
+  }
+
+  private readHtmlTitle(html: string): string | undefined {
+    const matched = html.match(/<title>([\s\S]*?)<\/title>/i);
+    const title = matched?.[1]?.trim();
+    if (!title) {
+      return undefined;
+    }
+    return this.decodeXmlText(title);
   }
 
   private stripMarkup(value?: string): string | undefined {

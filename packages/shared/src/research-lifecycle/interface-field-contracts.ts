@@ -108,8 +108,14 @@ export interface CreatePaperProjectResponse {
   created_at: string;
 }
 
-export const LITERATURE_PROVIDERS = ['crossref', 'arxiv'] as const;
+export const LITERATURE_PROVIDERS = ['crossref', 'arxiv', 'manual', 'web', 'zotero'] as const;
 export type LiteratureProvider = (typeof LITERATURE_PROVIDERS)[number];
+
+export const ZOTERO_LIBRARY_TYPES = ['users', 'groups'] as const;
+export type ZoteroLibraryType = (typeof ZOTERO_LIBRARY_TYPES)[number];
+
+export const LITERATURE_SEARCH_PROVIDERS = ['crossref', 'arxiv'] as const;
+export type LiteratureSearchProvider = (typeof LITERATURE_SEARCH_PROVIDERS)[number];
 
 export const RIGHTS_CLASSES = ['OA', 'USER_AUTH', 'RESTRICTED', 'UNKNOWN'] as const;
 export type RightsClass = (typeof RIGHTS_CLASSES)[number];
@@ -125,7 +131,7 @@ export type PaperCitationStatus = (typeof PAPER_CITATION_STATUSES)[number];
 
 export interface LiteratureSearchRequest {
   query: string;
-  providers?: LiteratureProvider[];
+  providers?: LiteratureSearchProvider[];
   limit?: number;
 }
 
@@ -246,6 +252,115 @@ export interface UpdatePaperLiteratureLinkRequest {
 export interface UpdatePaperLiteratureLinkResponse {
   paper_id: string;
   item: PaperLiteratureLinkView;
+}
+
+export interface LiteratureWebAutoImportRequest {
+  urls: string[];
+  topic_id?: string;
+  scope_status?: TopicScopeStatus;
+  scope_reason?: string;
+  tags?: string[];
+  rights_class?: RightsClass;
+}
+
+export interface LiteratureWebAutoImportResult {
+  url: string;
+  imported: boolean;
+  literature_id?: string;
+  title?: string;
+  matched_by?: DedupMatchType;
+  source_provider?: LiteratureProvider;
+  message?: string;
+}
+
+export interface LiteratureWebAutoImportResponse {
+  topic_id?: string;
+  imported_count: number;
+  scope_upserted_count: number;
+  results: LiteratureWebAutoImportResult[];
+}
+
+export interface ZoteroImportRequest {
+  library_type: ZoteroLibraryType;
+  library_id: string;
+  api_key?: string;
+  query?: string;
+  limit?: number;
+  topic_id?: string;
+  scope_status?: TopicScopeStatus;
+  scope_reason?: string;
+  tags?: string[];
+  rights_class?: RightsClass;
+}
+
+export interface ZoteroImportResponse {
+  topic_id?: string;
+  imported_count: number;
+  scope_upserted_count: number;
+  results: LiteratureImportResult[];
+}
+
+export interface LiteratureOverviewItem {
+  literature_id: string;
+  title: string;
+  authors: string[];
+  year: number | null;
+  doi: string | null;
+  arxiv_id: string | null;
+  rights_class: RightsClass;
+  tags: string[];
+  providers: LiteratureProvider[];
+  source_url: string | null;
+  source_updated_at: string | null;
+  topic_scope_status?: TopicScopeStatus;
+  citation_status?: PaperCitationStatus;
+}
+
+export interface LiteratureOverviewQuery {
+  topic_id?: string;
+  paper_id?: string;
+}
+
+export interface LiteratureOverviewResponse {
+  topic_id?: string;
+  paper_id?: string;
+  summary: {
+    total_literatures: number;
+    topic_scope_total: number;
+    in_scope_count: number;
+    excluded_count: number;
+    paper_link_total: number;
+    cited_count: number;
+    used_count: number;
+    provider_counts: Array<{ provider: LiteratureProvider; count: number }>;
+    rights_class_counts: Array<{ rights_class: RightsClass; count: number }>;
+    top_tags: Array<{ tag: string; count: number }>;
+  };
+  items: LiteratureOverviewItem[];
+}
+
+export interface UpdateLiteratureMetadataRequest {
+  title?: string;
+  abstract?: string | null;
+  authors?: string[];
+  year?: number | null;
+  doi?: string | null;
+  arxiv_id?: string | null;
+  rights_class?: RightsClass;
+  tags?: string[];
+}
+
+export interface UpdateLiteratureMetadataResponse {
+  literature_id: string;
+  title: string;
+  abstract: string | null;
+  authors: string[];
+  year: number | null;
+  doi: string | null;
+  arxiv_id: string | null;
+  rights_class: RightsClass;
+  tags: string[];
+  updated_at: string;
 }
 
 export interface VersionSpineCommitRequest {
@@ -686,7 +801,7 @@ export const literatureSearchRequestSchema = {
     query: { type: 'string', minLength: 1 },
     providers: {
       type: 'array',
-      items: { type: 'string', enum: LITERATURE_PROVIDERS },
+      items: { type: 'string', enum: LITERATURE_SEARCH_PROVIDERS },
       uniqueItems: true,
     },
     limit: { type: 'integer', minimum: 1, maximum: 20, default: 10 },
@@ -732,6 +847,62 @@ export const literatureImportRequestSchema = {
   additionalProperties: false,
 } as const;
 
+export const literatureWebAutoImportRequestSchema = {
+  type: 'object',
+  required: ['urls'],
+  properties: {
+    urls: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 20,
+      items: { type: 'string', minLength: 1 },
+      uniqueItems: true,
+    },
+    topic_id: { type: 'string', minLength: 1 },
+    scope_status: { type: 'string', enum: TOPIC_SCOPE_STATUSES, default: 'in_scope' },
+    scope_reason: { type: 'string' },
+    tags: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      default: [],
+    },
+    rights_class: { type: 'string', enum: RIGHTS_CLASSES, default: 'UNKNOWN' },
+  },
+  additionalProperties: false,
+} as const;
+
+export const zoteroImportRequestSchema = {
+  type: 'object',
+  required: ['library_type', 'library_id'],
+  properties: {
+    library_type: { type: 'string', enum: ZOTERO_LIBRARY_TYPES },
+    library_id: { type: 'string', minLength: 1 },
+    api_key: { type: 'string' },
+    query: { type: 'string' },
+    limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+    topic_id: { type: 'string', minLength: 1 },
+    scope_status: { type: 'string', enum: TOPIC_SCOPE_STATUSES, default: 'in_scope' },
+    scope_reason: { type: 'string' },
+    tags: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      default: [],
+    },
+    rights_class: { type: 'string', enum: RIGHTS_CLASSES, default: 'UNKNOWN' },
+  },
+  additionalProperties: false,
+} as const;
+
+export const literatureOverviewQuerySchema = {
+  type: 'object',
+  properties: {
+    topic_id: { type: 'string', minLength: 1 },
+    paper_id: { type: 'string', minLength: 1 },
+  },
+  additionalProperties: false,
+  anyOf: [{ required: ['topic_id'] }, { required: ['paper_id'] }],
+} as const;
+
 export const upsertTopicLiteratureScopeRequestSchema = {
   type: 'object',
   required: ['actions'],
@@ -770,4 +941,35 @@ export const updatePaperLiteratureLinkRequestSchema = {
     note: { type: 'string' },
   },
   additionalProperties: false,
+} as const;
+
+export const updateLiteratureMetadataRequestSchema = {
+  type: 'object',
+  properties: {
+    title: { type: 'string', minLength: 1 },
+    abstract: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    authors: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+    year: { anyOf: [{ type: 'integer', minimum: 1900, maximum: 2100 }, { type: 'null' }] },
+    doi: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    arxiv_id: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    rights_class: { type: 'string', enum: RIGHTS_CLASSES },
+    tags: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+  },
+  additionalProperties: false,
+  anyOf: [
+    { required: ['title'] },
+    { required: ['abstract'] },
+    { required: ['authors'] },
+    { required: ['year'] },
+    { required: ['doi'] },
+    { required: ['arxiv_id'] },
+    { required: ['rights_class'] },
+    { required: ['tags'] },
+  ],
 } as const;

@@ -1,86 +1,75 @@
 # 02 Architecture
 
-## Context & current state
-- 产品定义已将文献管理列为 8 个核心模块中的底座能力（M1）。
-- 当前代码库尚未形成独立文献管理模块：
-  - backend 未提供文献注册表 API 与持久化表。
-  - desktop 仅有导航入口，缺少流程化 UI。
-  - shared 合同仅体现 paper project 创建时 evidence id 的最小约束。
-- 文献管理必须服务于后续模块：M2（选题）与 M3（论文管理）的输入基础。
+## Frontend module boundaries
+- Workspace Shell (`LiteratureWorkspace`)
+  - 负责共享上下文、标签切换、全局反馈。
+- Tab A: `AutoImportTab`
+  - 负责联网检索候选 + URL 自动抓取导入。
+- Tab B: `ManualImportTab`
+  - 负责文件解析上传 + Zotero 参数输入与导入同步。
+- Tab C: `OverviewTab`
+  - 负责统计、列表、筛选、元数据维护。
+- Shared: `AdvancedQueryBuilder`
+  - 负责条件组编辑（AND/OR）、保存查询、应用查询。
+- Shared: `FeedbackCenter`
+  - 顶部提示 + 内联状态展示。
 
-## Proposed design
+## State model
+### Required UI types
+- `UiOperationStatus = idle | loading | ready | empty | error | saving`
+- `QueryCondition`:
+  - `field`（如 title/provider/tags/rights_class/year/topic_scope_status/citation_status）
+  - `operator`（contains/equals/not_equals/in/gt/lt/is_empty/is_not_empty）
+  - `value`
+- `QueryGroup`:
+  - `logic: AND | OR`
+  - `conditions: QueryCondition[]`
+- `SavedQueryPreset`:
+  - `id`
+  - `name`
+  - `group: QueryGroup`
+  - `defaultSort`
+- `InlineFeedbackModel`:
+  - `slot`（tab/header/row）
+  - `level`（info/success/warning/error）
+  - `message`
+  - `recoveryAction`（retry/reload/edit-fix）
 
-### 流程分层（目标态）
-1. Ingestion（入口层）
-   - 输入：检索关键词、DOI/arXiv、本地导入。
-   - 处理：调用外部源或本地解析，拿到候选文献列表。
-2. Normalize（规范化层）
-   - 统一字段：title/abstract/authors/year/doi/arxiv_id/source_url/source_provider/fetched_at/rights_class。
-3. Dedup（去重层）
-   - 规则：DOI > arXiv ID > normalized(title)+authors+year。
-   - 产出：`is_new`, `matched_literature_id`, `dedup_reason`。
-4. Registry（台账层）
-   - 写入/更新项目级文献注册表，记录来源追溯与标签、引用状态。
-5. Linking（联动层）
-   - 与 topic/paper 建立关联，输出 evidence link。
-6. Governance（治理层）
-   - 约束：摘要级 RAG 可用；`RESTRICTED` 禁止全文向量化/跨设备同步。
+### UI state machine
+1. 导入操作：`idle -> loading -> ready|error`
+2. 查询操作：`idle -> loading -> ready|empty|error`
+3. 元数据保存：`ready -> saving -> ready|error`
+4. 首屏综览：`idle -> loading -> ready|empty|error`
 
-### Components / modules
-- Backend:
-  - `LiteratureSearchService`（外部检索聚合 + 缓存）
-  - `LiteratureRegistryService`（规范化 + 去重 + upsert）
-  - `LiteratureLinkService`（项目关联与引用状态）
-- Data:
-  - 文献主实体、来源追溯实体、项目关联实体、标签与引用状态
-- Desktop:
-  - 文献列表、筛选、详情抽屉、关联到论文项目动作
+## Interaction protocol
+- 顶部反馈（全局）:
+  - 显示当前模块最近一次关键操作结果（成功/失败/恢复建议）。
+- 内联反馈（局部）:
+  - 每个标签与关键表单元素显示状态与错误原因。
+- 恢复动作:
+  - 所有 `error` 状态必须带重试或修复动作入口。
 
-### Interfaces & contracts
-- API endpoints（proposed）:
-  - `POST /literature/search`
-  - `POST /literature/import`
-  - `GET /paper-projects/:id/literature`
-  - `POST /paper-projects/:id/literature-links`
-  - `PATCH /paper-projects/:id/literature-links/:linkId`
-- Data models / schemas（proposed）:
-  - `literature_records`
-  - `literature_sources`
-  - `paper_literature_links`
-  - `literature_tags` / `literature_tag_links`
-- Events / jobs (if any):
-  - `literature.search.executed`
-  - `literature.registry.upserted`
-  - `paper.literature.linked`
+## Data flow
+1. 用户在标签页触发操作。
+2. 统一请求层调用现有 `/literature/*` API。
+3. 结果进入共享状态容器。
+4. 查询构建器对综览 items 执行前端条件求值。
+5. 列表与统计按过滤结果渲染。
 
-### Boundaries & dependency rules
-- Allowed dependencies:
-  - M2、M3 读取 M1 文献注册表与关联关系。
-  - M1 可调用外部检索源，但必须落地来源追溯。
-- Forbidden dependencies:
-  - 论文管理直接绕过 registry 写入“临时文献”作为正式 evidence。
-  - 在 rights=RESTRICTED 情况下执行全文向量化或跨设备同步。
-  - UI 直接拼装去重逻辑，去重必须在服务端统一执行。
+## Minimal backend dependency strategy
+- Default:
+  - 复用现有 endpoint：
+    - `POST /literature/web-import`
+    - `POST /literature/import`
+    - `POST /literature/zotero-import`
+    - `GET /literature/overview`
+    - `PATCH /literature/:literatureId/metadata`
+- Forbidden in this round:
+  - 静默新增/修改破坏性接口。
+- Escalation rule:
+  - 若高级查询在性能/准确性上被验证阻塞，创建“阻塞修复子任务”再扩展后端能力。
 
-## Data migration (if applicable)
-- Migration steps:
-  - Prisma 新增文献相关表与索引（DOI/arXiv/normalized key）。
-  - 旧数据迁移：若无历史台账，采用惰性初始化（首次关联时补建）。
-- Backward compatibility strategy:
-  - 保留既有 `createPaperProject` 入参结构。
-  - 新能力通过新增接口提供，不破坏现有流程。
-- Rollout plan:
-  - 先启用只写 registry + 只读查询，再开启关联写入与状态更新。
-
-## Non-functional considerations
-- Security/auth/permissions:
-  - 记录 source provider 与 rights_class，审计所有导入与状态变更。
-- Performance:
-  - 对检索请求建立查询指纹缓存，减少重复远程调用。
-- Observability (logs/metrics/traces):
-  - 记录 dedup hit rate、search latency、link success rate。
-
-## Open questions
-- 首批必须接入的外部数据源清单与 SLA。
-- 文献标签体系是否先固定一组内置标签。
-- 引用状态枚举是否直接对齐写作中心（draft/used/cited/blocked）。
+## Constraints
+- 中文优先文案；英文术语仅用于必要学术字段。
+- 统一状态机覆盖所有关键交互。
+- UI 结构必须同时适配桌面与小屏。

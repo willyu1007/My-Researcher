@@ -389,5 +389,46 @@ test('literature workflow routes support import, topic scope, paper link sync an
   const scopeQueryBody = scopeQueryRes.json();
   assert.equal(scopeQueryBody.items.length, 1);
 
+  const overviewRes = await app.inject({
+    method: 'GET',
+    url: '/literature/overview?topic_id=TOPIC-INT-LIT-1&paper_id=' + paperId,
+  });
+  assert.equal(overviewRes.statusCode, 200);
+  const overviewBody = overviewRes.json();
+  assert.equal(overviewBody.summary.total_literatures, 1);
+  assert.equal(overviewBody.summary.cited_count, 1);
+
+  const metadataPatchRes = await app.inject({
+    method: 'PATCH',
+    url: '/literature/' + literatureId + '/metadata',
+    payload: {
+      rights_class: 'OA',
+      tags: ['survey', 'baseline'],
+    },
+  });
+  assert.equal(metadataPatchRes.statusCode, 200);
+  const metadataPatchBody = metadataPatchRes.json();
+  assert.equal(metadataPatchBody.literature_id, literatureId);
+  assert.deepEqual(metadataPatchBody.tags, ['survey', 'baseline']);
+  assert.equal(metadataPatchBody.rights_class, 'OA');
+
+  const invalidWebImportRes = await app.inject({
+    method: 'POST',
+    url: '/literature/web-import',
+    payload: {
+      urls: [],
+    },
+  });
+  assert.equal(invalidWebImportRes.statusCode, 400);
+
+  const invalidZoteroImportRes = await app.inject({
+    method: 'POST',
+    url: '/literature/zotero-import',
+    payload: {
+      library_type: 'users',
+    },
+  });
+  assert.equal(invalidZoteroImportRes.statusCode, 400);
+
   await app.close();
 });
