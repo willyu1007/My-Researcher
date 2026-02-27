@@ -20,6 +20,7 @@ import type {
 function toTopicProfileRecord(row: {
   id: string;
   name: string;
+  isActive: boolean;
   includeKeywords: string[];
   excludeKeywords: string[];
   venueFilters: string[];
@@ -32,6 +33,7 @@ function toTopicProfileRecord(row: {
   return {
     id: row.id,
     name: row.name,
+    isActive: row.isActive,
     includeKeywords: row.includeKeywords,
     excludeKeywords: row.excludeKeywords,
     venueFilters: row.venueFilters,
@@ -46,7 +48,6 @@ function toTopicProfileRecord(row: {
 function toRuleRecord(row: {
   id: string;
   scope: string;
-  topicId: string | null;
   name: string;
   status: string;
   querySpec: Prisma.JsonValue;
@@ -58,7 +59,6 @@ function toRuleRecord(row: {
   return {
     id: row.id,
     scope: row.scope as AutoPullRuleRecord['scope'],
-    topicId: row.topicId,
     name: row.name,
     status: row.status as AutoPullRuleRecord['status'],
     querySpec: (row.querySpec as AutoPullRuleRecord['querySpec']) ?? {
@@ -252,6 +252,7 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
       data: {
         id: record.id,
         name: record.name,
+        isActive: record.isActive,
         includeKeywords: record.includeKeywords,
         excludeKeywords: record.excludeKeywords,
         venueFilters: record.venueFilters,
@@ -285,6 +286,7 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
       where: { id: topicId },
       data: {
         ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
         ...(patch.includeKeywords !== undefined ? { includeKeywords: patch.includeKeywords } : {}),
         ...(patch.excludeKeywords !== undefined ? { excludeKeywords: patch.excludeKeywords } : {}),
         ...(patch.venueFilters !== undefined ? { venueFilters: patch.venueFilters } : {}),
@@ -302,7 +304,6 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
       data: {
         id: record.id,
         scope: record.scope,
-        topicId: record.topicId,
         name: record.name,
         status: record.status,
         querySpec: record.querySpec as Prisma.InputJsonValue,
@@ -328,7 +329,15 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
     const rows = await this.prisma.autoPullRule.findMany({
       where: {
         ...(filters?.scope ? { scope: filters.scope } : {}),
-        ...(filters?.topicId ? { topicId: filters.topicId } : {}),
+        ...(filters?.topicId
+          ? {
+            topics: {
+              some: {
+                topicId: filters.topicId,
+              },
+            },
+          }
+          : {}),
         ...(filters?.status ? { status: filters.status } : {}),
       },
       orderBy: { updatedAt: 'desc' },
@@ -344,7 +353,6 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
       where: { id: ruleId },
       data: {
         ...(patch.scope !== undefined ? { scope: patch.scope } : {}),
-        ...(patch.topicId !== undefined ? { topicId: patch.topicId } : {}),
         ...(patch.name !== undefined ? { name: patch.name } : {}),
         ...(patch.status !== undefined ? { status: patch.status } : {}),
         ...(patch.querySpec !== undefined
@@ -392,6 +400,41 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
     return rows.map((row) => toRuleSourceRecord(row));
   }
 
+  async replaceRuleTopics(ruleId: string, topicIds: string[]): Promise<void> {
+    await this.prisma.autoPullRuleTopic.deleteMany({ where: { ruleId } });
+    const uniqueTopicIds = [...new Set(topicIds)];
+    if (uniqueTopicIds.length === 0) {
+      return;
+    }
+
+    await this.prisma.autoPullRuleTopic.createMany({
+      data: uniqueTopicIds.map((topicId) => ({
+        id: `rule-topic:${ruleId}:${topicId}`,
+        ruleId,
+        topicId,
+        createdAt: new Date(),
+      })),
+    });
+  }
+
+  async listRuleTopics(ruleId: string): Promise<TopicProfileRecord[]> {
+    const rows = await this.prisma.autoPullRuleTopic.findMany({
+      where: { ruleId },
+      include: { topic: true },
+      orderBy: { topicId: 'asc' },
+    });
+    return rows.map((row) => toTopicProfileRecord(row.topic));
+  }
+
+  async listRuleTopicIds(ruleId: string): Promise<string[]> {
+    const rows = await this.prisma.autoPullRuleTopic.findMany({
+      where: { ruleId },
+      select: { topicId: true },
+      orderBy: { topicId: 'asc' },
+    });
+    return rows.map((row) => row.topicId);
+  }
+
   async replaceRuleSchedules(ruleId: string, schedules: AutoPullRuleScheduleRecord[]): Promise<void> {
     await this.prisma.autoPullRuleSchedule.deleteMany({ where: { ruleId } });
     if (schedules.length === 0) {
@@ -417,6 +460,32 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
       orderBy: [{ hour: 'asc' }, { minute: 'asc' }],
     });
     return rows.map((row) => toRuleScheduleRecord(row));
+  }
+
+  async replaceTopicRules(topicId: string, ruleIds: string[]): Promise<void> {
+    await this.prisma.autoPullRuleTopic.deleteMany({ where: { topicId } });
+    const uniqueRuleIds = [...new Set(ruleIds)];
+    if (uniqueRuleIds.length === 0) {
+      return;
+    }
+
+    await this.prisma.autoPullRuleTopic.createMany({
+      data: uniqueRuleIds.map((ruleId) => ({
+        id: `rule-topic:${ruleId}:${topicId}`,
+        ruleId,
+        topicId,
+        createdAt: new Date(),
+      })),
+    });
+  }
+
+  async listTopicRuleIds(topicId: string): Promise<string[]> {
+    const rows = await this.prisma.autoPullRuleTopic.findMany({
+      where: { topicId },
+      select: { ruleId: true },
+      orderBy: { ruleId: 'asc' },
+    });
+    return rows.map((row) => row.ruleId);
   }
 
   async createRun(record: AutoPullRunRecord): Promise<AutoPullRunRecord> {

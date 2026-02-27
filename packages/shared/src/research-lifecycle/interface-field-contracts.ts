@@ -275,12 +275,14 @@ export type AutoPullAlertLevel = (typeof AUTO_PULL_ALERT_LEVELS)[number];
 export interface TopicProfileDTO {
   topic_id: string;
   name: string;
+  is_active: boolean;
   include_keywords: string[];
   exclude_keywords: string[];
   venue_filters: string[];
   default_lookback_days: number;
   default_min_year: number | null;
   default_max_year: number | null;
+  rule_ids: string[];
   created_at: string;
   updated_at: string;
 }
@@ -288,22 +290,26 @@ export interface TopicProfileDTO {
 export interface CreateTopicProfileRequest {
   topic_id: string;
   name: string;
+  is_active?: boolean;
   include_keywords?: string[];
   exclude_keywords?: string[];
   venue_filters?: string[];
   default_lookback_days?: number;
   default_min_year?: number | null;
   default_max_year?: number | null;
+  rule_ids?: string[];
 }
 
 export interface UpdateTopicProfileRequest {
   name?: string;
+  is_active?: boolean;
   include_keywords?: string[];
   exclude_keywords?: string[];
   venue_filters?: string[];
   default_lookback_days?: number;
   default_min_year?: number | null;
   default_max_year?: number | null;
+  rule_ids?: string[];
 }
 
 export interface AutoPullRuleSourceDTO {
@@ -326,6 +332,7 @@ export interface AutoPullRuleDTO {
   rule_id: string;
   scope: AutoPullScope;
   topic_id: string | null;
+  topic_ids: string[];
   name: string;
   status: AutoPullRuleStatus;
   query_spec: {
@@ -353,6 +360,7 @@ export interface AutoPullRuleDTO {
 export interface CreateAutoPullRuleRequest {
   scope: AutoPullScope;
   topic_id?: string;
+  topic_ids?: string[];
   name: string;
   status?: AutoPullRuleStatus;
   query_spec?: {
@@ -388,6 +396,9 @@ export interface CreateAutoPullRuleRequest {
 }
 
 export interface UpdateAutoPullRuleRequest {
+  scope?: AutoPullScope;
+  topic_id?: string | null;
+  topic_ids?: string[];
   name?: string;
   status?: AutoPullRuleStatus;
   query_spec?: {
@@ -1076,6 +1087,7 @@ export const createTopicProfileRequestSchema = {
   properties: {
     topic_id: { type: 'string', minLength: 1 },
     name: { type: 'string', minLength: 1 },
+    is_active: { type: 'boolean', default: true },
     include_keywords: {
       type: 'array',
       items: { type: 'string', minLength: 1 },
@@ -1094,6 +1106,12 @@ export const createTopicProfileRequestSchema = {
     default_lookback_days: { type: 'integer', minimum: 1, maximum: 3650, default: 30 },
     default_min_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
     default_max_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+    rule_ids: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      uniqueItems: true,
+      default: [],
+    },
   },
   additionalProperties: false,
 } as const;
@@ -1102,6 +1120,7 @@ export const updateTopicProfileRequestSchema = {
   type: 'object',
   properties: {
     name: { type: 'string', minLength: 1 },
+    is_active: { type: 'boolean' },
     include_keywords: {
       type: 'array',
       items: { type: 'string', minLength: 1 },
@@ -1117,6 +1136,11 @@ export const updateTopicProfileRequestSchema = {
     default_lookback_days: { type: 'integer', minimum: 1, maximum: 3650 },
     default_min_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
     default_max_year: { type: ['integer', 'null'], minimum: 1900, maximum: 2100 },
+    rule_ids: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      uniqueItems: true,
+    },
   },
   additionalProperties: false,
   minProperties: 1,
@@ -1128,6 +1152,11 @@ export const createAutoPullRuleRequestSchema = {
   properties: {
     scope: { type: 'string', enum: AUTO_PULL_SCOPES },
     topic_id: { type: 'string', minLength: 1 },
+    topic_ids: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      uniqueItems: true,
+    },
     name: { type: 'string', minLength: 1 },
     status: { type: 'string', enum: AUTO_PULL_RULE_STATUSES, default: 'ACTIVE' },
     query_spec: {
@@ -1178,6 +1207,13 @@ export const createAutoPullRuleRequestSchema = {
 export const updateAutoPullRuleRequestSchema = {
   type: 'object',
   properties: {
+    scope: { type: 'string', enum: AUTO_PULL_SCOPES },
+    topic_id: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+    topic_ids: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      uniqueItems: true,
+    },
     name: { type: 'string', minLength: 1 },
     status: { type: 'string', enum: AUTO_PULL_RULE_STATUSES },
     query_spec: {

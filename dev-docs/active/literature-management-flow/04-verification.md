@@ -94,6 +94,69 @@
 - 2026-02-27: 告警轻量化与文案去重回归（右下 toast + 自动消失策略）✅
   - `pnpm desktop:typecheck` ✅
   - `pnpm desktop:build` ✅
+- 2026-02-27: 顶栏复合 Tab（一级 + 右侧二级）首版回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 顶栏 Tab 二次精简（激活收起 + 无底色 + 顶部横线）✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 顶栏 Tab 三次微调（移除顶部线条）✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 顶栏高度回调与左侧对齐修复 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 二级 Tab 垂直对齐修复 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 子 Tab 间距与层级区分优化 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 子 Tab 紧凑度与垂直位置二次微调 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 文本层级微调（一级增大 / 二级变浅）✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 方案1（浅色主题一级 Tab 对比增强，组件级）✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 一级/二级 Tab 选中态字重上调 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 自动导入二级 Tab 文案调整 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 自动导入顶部状态区移除 ✅
+  - `pnpm desktop:build` ✅
 - 2026-02-27: `pnpm --filter @paper-engineering-assistant/backend test` ✅（34 passed）
 - 2026-02-27: `pnpm --filter @paper-engineering-assistant/shared typecheck` ✅
 - 2026-02-27: 其余 Manual functional checks / usability checks / gray rollout checks 尚未执行（需人工验收）。
+- 2026-02-27: Topic/Rule many-to-many + 主题启停跳过检索回归 ✅
+  - `pnpm --filter @paper-engineering-assistant/shared typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend test` ✅（36 passed，新增 many-to-many 与 inactive topic skip 用例）
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 新增主题弹窗交互升级回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 新增主题弹窗样式对齐（二次修订）回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 新增主题弹窗细节微调（三次修订）回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 新增主题弹窗细节微调（四次修订：年份范围去外框）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 新增主题弹窗文案微调（五次修订）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 新增主题弹窗间距修正（六次修订：空 token 不占位）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 会议与期刊下拉布局微调（七次修订：每行三项）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 运行方式右侧标题补齐（八次修订）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 运行方式与规则绑定并排修正（九次修订）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 年份范围轴线位置微调（十次修订）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 规则绑定标题外提（十一次修订）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 规则绑定空态样式对齐（十二次修订）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 运行区列宽比例调整（十三次修订：1:2）回归 ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 运行区卡片等高修正（十四次修订）回归 ✅
+  - `pnpm desktop:build` ✅

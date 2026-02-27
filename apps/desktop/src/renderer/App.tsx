@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type ChangeEvent, type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   applyTheme,
   readSystemPrefersDark,
@@ -137,12 +137,14 @@ type LiteratureImportPayload = {
 type AutoPullTopicProfile = {
   topic_id: string;
   name: string;
+  is_active: boolean;
   include_keywords: string[];
   exclude_keywords: string[];
   venue_filters: string[];
   default_lookback_days: number;
   default_min_year: number | null;
   default_max_year: number | null;
+  rule_ids: string[];
   created_at: string;
   updated_at: string;
 };
@@ -167,6 +169,7 @@ type AutoPullRule = {
   rule_id: string;
   scope: AutoPullScope;
   topic_id: string | null;
+  topic_ids: string[];
   name: string;
   status: AutoPullRuleStatus;
   query_spec: {
@@ -335,10 +338,36 @@ const literatureTabs: Array<{ key: LiteratureTabKey; label: string }> = [
   { key: 'overview', label: '文献综览' },
 ];
 const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string }> = [
-  { key: 'topic-settings', label: 'Topic 设置' },
   { key: 'rules-center', label: '规则中心' },
-  { key: 'runs-alerts', label: '运行与告警' },
+  { key: 'topic-settings', label: '设置主题' },
+  { key: 'runs-alerts', label: '执行详情' },
 ];
+const topicPresetVenueOptions = [
+  'ACL',
+  'EMNLP',
+  'NAACL',
+  'ICLR',
+  'NeurIPS',
+  'ICML',
+  'AAAI',
+  'IJCAI',
+  'CVPR',
+  'ICCV',
+  'ECCV',
+  'KDD',
+  'WWW',
+  'SIGIR',
+  'CHI',
+  'UAI',
+  'AISTATS',
+  'TMLR',
+  'JMLR',
+] as const;
+const topicYearMinBound = 1990;
+const topicYearMaxBound = new Date().getFullYear() + 1;
+const literatureSubTabsByTab: Partial<Record<LiteratureTabKey, Array<{ key: string; label: string }>>> = {
+  'auto-import': autoImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
+};
 const queryFieldOptions: Array<{ value: QueryField; label: string }> = [
   { value: 'title', label: '标题' },
   { value: 'authors', label: '作者' },
@@ -438,6 +467,10 @@ function toText(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+function isAutoImportSubTabKey(value: string): value is AutoImportSubTabKey {
+  return value === 'topic-settings' || value === 'rules-center' || value === 'runs-alerts';
+}
+
 function toOptionalNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -478,6 +511,41 @@ function parseTokenList(value: string): string[] {
       .map((item) => item.trim())
       .filter((item) => item.length > 0),
   )];
+}
+
+function hashTopicName(input: string): string {
+  let hash = 0x811c9dc5;
+  for (const char of Array.from(input)) {
+    const codePoint = char.codePointAt(0) ?? 0;
+    const bytes = [
+      codePoint & 0xff,
+      (codePoint >>> 8) & 0xff,
+      (codePoint >>> 16) & 0xff,
+      (codePoint >>> 24) & 0xff,
+    ];
+    for (const byte of bytes) {
+      hash ^= byte;
+      hash = Math.imul(hash, 0x01000193);
+    }
+  }
+  return (hash >>> 0).toString(16).toUpperCase().padStart(8, '0');
+}
+
+function generateTopicIdByName(name: string, existingTopicIds: string[] = []): string {
+  const normalizedName = name.normalize('NFKC').trim();
+  const hash = hashTopicName(normalizedName || 'topic');
+  const baseId = `TOPIC-${hash}`;
+  const existingSet = new Set(existingTopicIds.map((item) => item.toUpperCase()));
+
+  if (!existingSet.has(baseId.toUpperCase())) {
+    return baseId;
+  }
+
+  let suffix = 2;
+  while (existingSet.has(`${baseId}-${suffix}`.toUpperCase())) {
+    suffix += 1;
+  }
+  return `${baseId}-${suffix}`;
 }
 
 function normalizeTimelinePayload(payload: unknown): TimelineEvent[] {
@@ -611,6 +679,7 @@ function normalizeTopicProfilePayload(payload: unknown): AutoPullTopicProfile[] 
       return {
         topic_id: topicId,
         name,
+        is_active: row.is_active !== false,
         include_keywords: Array.isArray(row.include_keywords)
           ? row.include_keywords.filter((value): value is string => typeof value === 'string')
           : [],
@@ -624,6 +693,9 @@ function normalizeTopicProfilePayload(payload: unknown): AutoPullTopicProfile[] 
           typeof row.default_lookback_days === 'number' ? row.default_lookback_days : 30,
         default_min_year: typeof row.default_min_year === 'number' ? row.default_min_year : null,
         default_max_year: typeof row.default_max_year === 'number' ? row.default_max_year : null,
+        rule_ids: Array.isArray(row.rule_ids)
+          ? row.rule_ids.filter((value): value is string => typeof value === 'string')
+          : [],
         created_at: createdAt,
         updated_at: updatedAt,
       };
@@ -672,6 +744,9 @@ function normalizeAutoPullRulePayload(payload: unknown): AutoPullRule[] {
         rule_id: ruleId,
         scope: scope === 'TOPIC' ? 'TOPIC' : 'GLOBAL',
         topic_id: toText(row.topic_id) ?? null,
+        topic_ids: Array.isArray(row.topic_ids)
+          ? row.topic_ids.filter((value): value is string => typeof value === 'string')
+          : (toText(row.topic_id) ? [toText(row.topic_id) as string] : []),
         name,
         status: status === 'PAUSED' ? 'PAUSED' : 'ACTIVE',
         query_spec: {
@@ -1638,18 +1713,24 @@ export function App({ initialThemeMode }: AppProps) {
   const [paperLiteratureLoading, setPaperLiteratureLoading] = useState<boolean>(false);
   const [paperLiteratureError, setPaperLiteratureError] = useState<string | null>(null);
   const [activeLiteratureTab, setActiveLiteratureTab] = useState<LiteratureTabKey>('auto-import');
-  const [autoImportSubTab, setAutoImportSubTab] = useState<AutoImportSubTabKey>('topic-settings');
+  const [autoImportSubTab, setAutoImportSubTab] = useState<AutoImportSubTabKey>('rules-center');
   const [topicProfiles, setTopicProfiles] = useState<AutoPullTopicProfile[]>([]);
   const [topicProfilesStatus, setTopicProfilesStatus] = useState<UiOperationStatus>('idle');
   const [topicProfilesError, setTopicProfilesError] = useState<string | null>(null);
   const [topicFormTopicId, setTopicFormTopicId] = useState<string>('');
   const [topicFormName, setTopicFormName] = useState<string>('');
-  const [topicFormIncludeInput, setTopicFormIncludeInput] = useState<string>('');
-  const [topicFormExcludeInput, setTopicFormExcludeInput] = useState<string>('');
-  const [topicFormVenueInput, setTopicFormVenueInput] = useState<string>('');
+  const [topicFormIsActive, setTopicFormIsActive] = useState<boolean>(true);
+  const [topicFormIncludeKeywords, setTopicFormIncludeKeywords] = useState<string[]>([]);
+  const [topicFormIncludeDraft, setTopicFormIncludeDraft] = useState<string>('');
+  const [topicFormExcludeKeywords, setTopicFormExcludeKeywords] = useState<string[]>([]);
+  const [topicFormExcludeDraft, setTopicFormExcludeDraft] = useState<string>('');
+  const [topicFormVenueSelections, setTopicFormVenueSelections] = useState<string[]>([]);
+  const [topicVenuePickerOpen, setTopicVenuePickerOpen] = useState<boolean>(false);
   const [topicFormLookbackInput, setTopicFormLookbackInput] = useState<string>('30');
-  const [topicFormMinYearInput, setTopicFormMinYearInput] = useState<string>('');
-  const [topicFormMaxYearInput, setTopicFormMaxYearInput] = useState<string>('');
+  const [topicFormYearStart, setTopicFormYearStart] = useState<number>(topicYearMinBound);
+  const [topicFormYearEnd, setTopicFormYearEnd] = useState<number>(topicYearMaxBound);
+  const [topicFormRuleIds, setTopicFormRuleIds] = useState<string[]>([]);
+  const [topicFormModalOpen, setTopicFormModalOpen] = useState<boolean>(false);
   const [topicEditingId, setTopicEditingId] = useState<string | null>(null);
 
   const [autoPullRules, setAutoPullRules] = useState<AutoPullRule[]>([]);
@@ -1657,7 +1738,7 @@ export function App({ initialThemeMode }: AppProps) {
   const [rulesError, setRulesError] = useState<string | null>(null);
   const [ruleEditingId, setRuleEditingId] = useState<string | null>(null);
   const [ruleFormScope, setRuleFormScope] = useState<AutoPullScope>('GLOBAL');
-  const [ruleFormTopicId, setRuleFormTopicId] = useState<string>('');
+  const [ruleFormTopicIdsInput, setRuleFormTopicIdsInput] = useState<string>('');
   const [ruleFormName, setRuleFormName] = useState<string>('');
   const [ruleFormIncludeInput, setRuleFormIncludeInput] = useState<string>('');
   const [ruleFormExcludeInput, setRuleFormExcludeInput] = useState<string>('');
@@ -2047,13 +2128,13 @@ export function App({ initialThemeMode }: AppProps) {
       setTopicProfilesStatus(items.length > 0 ? 'ready' : 'empty');
     } catch (error) {
       setTopicProfiles([]);
-      const message = error instanceof Error ? error.message : '加载 Topic 设置失败。';
+      const message = error instanceof Error ? error.message : '加载主题设置失败。';
       setTopicProfilesStatus('error');
       setTopicProfilesError(message);
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'error',
-        message: `加载 Topic 设置失败：${message}`,
+        message: `加载主题设置失败：${message}`,
       });
     }
   }, [pushLiteratureFeedback]);
@@ -2192,55 +2273,141 @@ export function App({ initialThemeMode }: AppProps) {
     setTopicEditingId(null);
     setTopicFormTopicId('');
     setTopicFormName('');
-    setTopicFormIncludeInput('');
-    setTopicFormExcludeInput('');
-    setTopicFormVenueInput('');
+    setTopicFormIsActive(true);
+    setTopicFormIncludeKeywords([]);
+    setTopicFormIncludeDraft('');
+    setTopicFormExcludeKeywords([]);
+    setTopicFormExcludeDraft('');
+    setTopicFormVenueSelections([]);
+    setTopicVenuePickerOpen(false);
     setTopicFormLookbackInput('30');
-    setTopicFormMinYearInput('');
-    setTopicFormMaxYearInput('');
+    setTopicFormYearStart(topicYearMinBound);
+    setTopicFormYearEnd(topicYearMaxBound);
+    setTopicFormRuleIds([]);
+  };
+
+  const handleOpenCreateTopicProfile = () => {
+    resetTopicForm();
+    setTopicFormModalOpen(true);
+    setAutoImportSubTab('topic-settings');
+  };
+
+  const handleCloseTopicModal = () => {
+    setTopicFormModalOpen(false);
+    setTopicVenuePickerOpen(false);
+    resetTopicForm();
   };
 
   const handleEditTopicProfile = (profile: AutoPullTopicProfile) => {
     setTopicEditingId(profile.topic_id);
     setTopicFormTopicId(profile.topic_id);
     setTopicFormName(profile.name);
-    setTopicFormIncludeInput(profile.include_keywords.join(', '));
-    setTopicFormExcludeInput(profile.exclude_keywords.join(', '));
-    setTopicFormVenueInput(profile.venue_filters.join(', '));
+    setTopicFormIsActive(profile.is_active);
+    setTopicFormIncludeKeywords(profile.include_keywords);
+    setTopicFormIncludeDraft('');
+    setTopicFormExcludeKeywords(profile.exclude_keywords);
+    setTopicFormExcludeDraft('');
+    setTopicFormVenueSelections(profile.venue_filters);
+    setTopicVenuePickerOpen(false);
     setTopicFormLookbackInput(String(profile.default_lookback_days));
-    setTopicFormMinYearInput(profile.default_min_year ? String(profile.default_min_year) : '');
-    setTopicFormMaxYearInput(profile.default_max_year ? String(profile.default_max_year) : '');
+    setTopicFormYearStart(profile.default_min_year ?? topicYearMinBound);
+    setTopicFormYearEnd(profile.default_max_year ?? topicYearMaxBound);
+    setTopicFormRuleIds(profile.rule_ids);
+    setTopicFormModalOpen(true);
     setAutoImportSubTab('topic-settings');
   };
 
+  const handleToggleTopicRuleSelection = (ruleId: string) => {
+    setTopicFormRuleIds((current) =>
+      current.includes(ruleId)
+        ? current.filter((item) => item !== ruleId)
+        : [...current, ruleId],
+    );
+  };
+
+  const handleAddTopicIncludeKeyword = () => {
+    const nextValue = topicFormIncludeDraft.trim();
+    if (!nextValue) {
+      return;
+    }
+    setTopicFormIncludeKeywords((current) =>
+      current.includes(nextValue) ? current : [...current, nextValue],
+    );
+    setTopicFormIncludeDraft('');
+  };
+
+  const handleRemoveTopicIncludeKeyword = (value: string) => {
+    setTopicFormIncludeKeywords((current) => current.filter((item) => item !== value));
+  };
+
+  const handleAddTopicExcludeKeyword = () => {
+    const nextValue = topicFormExcludeDraft.trim();
+    if (!nextValue) {
+      return;
+    }
+    setTopicFormExcludeKeywords((current) =>
+      current.includes(nextValue) ? current : [...current, nextValue],
+    );
+    setTopicFormExcludeDraft('');
+  };
+
+  const handleRemoveTopicExcludeKeyword = (value: string) => {
+    setTopicFormExcludeKeywords((current) => current.filter((item) => item !== value));
+  };
+
+  const handleToggleTopicVenueSelection = (venue: string) => {
+    setTopicFormVenueSelections((current) =>
+      current.includes(venue)
+        ? current.filter((item) => item !== venue)
+        : [...current, venue],
+    );
+  };
+
+  const applyTopicYearPreset = (preset: 'recent-5' | 'recent-10' | 'all') => {
+    const currentYear = new Date().getFullYear();
+    if (preset === 'all') {
+      setTopicFormYearStart(topicYearMinBound);
+      setTopicFormYearEnd(topicYearMaxBound);
+      return;
+    }
+    if (preset === 'recent-5') {
+      setTopicFormYearStart(Math.max(topicYearMinBound, currentYear - 4));
+      setTopicFormYearEnd(Math.min(topicYearMaxBound, currentYear + 1));
+      return;
+    }
+    setTopicFormYearStart(Math.max(topicYearMinBound, currentYear - 9));
+    setTopicFormYearEnd(Math.min(topicYearMaxBound, currentYear + 1));
+  };
+
   const handleSubmitTopicProfile = async () => {
-    const topicIdText = topicFormTopicId.trim();
     const nameText = topicFormName.trim();
-    if (!topicIdText || !nameText) {
+    if (!nameText) {
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'warning',
-        message: 'Topic ID 与 Topic 名称不能为空。',
+        message: '主题名称不能为空。',
       });
       return;
     }
 
     const lookbackValue = Number.parseInt(topicFormLookbackInput.trim(), 10);
-    const minYearValue = Number.parseInt(topicFormMinYearInput.trim(), 10);
-    const maxYearValue = Number.parseInt(topicFormMaxYearInput.trim(), 10);
+    const normalizedStartYear = Math.min(topicFormYearStart, topicFormYearEnd);
+    const normalizedEndYear = Math.max(topicFormYearStart, topicFormYearEnd);
+    const topicIdText = topicEditingId
+      ? topicEditingId
+      : (topicAutoIdPreview || topicFormTopicId.trim() || generateTopicIdByName(nameText, topicProfiles.map((profile) => profile.topic_id)));
+
     const body = {
       topic_id: topicIdText,
       name: nameText,
-      include_keywords: parseTokenList(topicFormIncludeInput),
-      exclude_keywords: parseTokenList(topicFormExcludeInput),
-      venue_filters: parseTokenList(topicFormVenueInput),
+      is_active: topicFormIsActive,
+      include_keywords: topicFormIncludeKeywords,
+      exclude_keywords: topicFormExcludeKeywords,
+      venue_filters: topicFormVenueSelections,
       default_lookback_days: Number.isFinite(lookbackValue) ? lookbackValue : 30,
-      default_min_year: topicFormMinYearInput.trim().length > 0 && Number.isFinite(minYearValue)
-        ? minYearValue
-        : null,
-      default_max_year: topicFormMaxYearInput.trim().length > 0 && Number.isFinite(maxYearValue)
-        ? maxYearValue
-        : null,
+      default_min_year: normalizedStartYear > topicYearMinBound ? normalizedStartYear : null,
+      default_max_year: normalizedEndYear < topicYearMaxBound ? normalizedEndYear : null,
+      rule_ids: topicFormRuleIds,
     };
 
     setTopicProfilesStatus('saving');
@@ -2251,12 +2418,14 @@ export function App({ initialThemeMode }: AppProps) {
           path: `/topics/settings/${encodeURIComponent(topicEditingId)}`,
           body: {
             name: body.name,
+            is_active: body.is_active,
             include_keywords: body.include_keywords,
             exclude_keywords: body.exclude_keywords,
             venue_filters: body.venue_filters,
             default_lookback_days: body.default_lookback_days,
             default_min_year: body.default_min_year,
             default_max_year: body.default_max_year,
+            rule_ids: body.rule_ids,
           },
         });
       } else {
@@ -2267,29 +2436,64 @@ export function App({ initialThemeMode }: AppProps) {
         });
       }
       resetTopicForm();
+      setTopicFormModalOpen(false);
+      setTopicVenuePickerOpen(false);
       await loadTopicProfiles();
+      await loadAutoPullRules();
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'success',
-        message: topicEditingId ? 'Topic 设置已更新。' : 'Topic 设置已创建。',
+        message: topicEditingId ? '主题设置已更新。' : '主题设置已创建。',
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : '保存 Topic 设置失败。';
+      const message = error instanceof Error ? error.message : '保存主题设置失败。';
       setTopicProfilesStatus('error');
       setTopicProfilesError(message);
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'error',
-        message: `保存 Topic 设置失败：${message}`,
+        message: `保存主题设置失败：${message}`,
       });
     }
+  };
+
+  const handleToggleTopicProfileActive = async (profile: AutoPullTopicProfile) => {
+    try {
+      await requestGovernance({
+        method: 'PATCH',
+        path: `/topics/settings/${encodeURIComponent(profile.topic_id)}`,
+        body: {
+          is_active: !profile.is_active,
+        },
+      });
+      await loadTopicProfiles();
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'success',
+        message: `主题已${profile.is_active ? '关闭' : '启用'}：${profile.name}`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '更新主题状态失败。';
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `更新主题状态失败：${message}`,
+      });
+    }
+  };
+
+  const handleCreateRuleShortcutForTopic = (profile: AutoPullTopicProfile) => {
+    resetRuleForm();
+    setRuleFormScope('TOPIC');
+    setRuleFormTopicIdsInput(profile.topic_id);
+    setAutoImportSubTab('rules-center');
   };
 
   const handleEditRule = (rule: AutoPullRule) => {
     const primarySchedule = rule.schedules[0] ?? null;
     setRuleEditingId(rule.rule_id);
     setRuleFormScope(rule.scope);
-    setRuleFormTopicId(rule.topic_id ?? '');
+    setRuleFormTopicIdsInput(rule.topic_ids.join(', '));
     setRuleFormName(rule.name);
     setRuleFormIncludeInput(rule.query_spec.include_keywords.join(', '));
     setRuleFormExcludeInput(rule.query_spec.exclude_keywords.join(', '));
@@ -2321,7 +2525,7 @@ export function App({ initialThemeMode }: AppProps) {
   const resetRuleForm = () => {
     setRuleEditingId(null);
     setRuleFormScope('GLOBAL');
-    setRuleFormTopicId('');
+    setRuleFormTopicIdsInput('');
     setRuleFormName('');
     setRuleFormIncludeInput('');
     setRuleFormExcludeInput('');
@@ -2356,11 +2560,12 @@ export function App({ initialThemeMode }: AppProps) {
       return;
     }
 
-    if (ruleFormScope === 'TOPIC' && !ruleFormTopicId.trim()) {
+    const topicIds = parseTokenList(ruleFormTopicIdsInput);
+    if (ruleFormScope === 'TOPIC' && topicIds.length === 0) {
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'warning',
-        message: 'Topic 规则必须选择 Topic ID。',
+        message: 'Topic 规则至少绑定一个主题。',
       });
       return;
     }
@@ -2418,7 +2623,7 @@ export function App({ initialThemeMode }: AppProps) {
 
     const payload = {
       scope: ruleFormScope,
-      topic_id: ruleFormScope === 'TOPIC' ? ruleFormTopicId.trim() : undefined,
+      topic_ids: ruleFormScope === 'TOPIC' ? topicIds : undefined,
       name: nameText,
       query_spec: {
         include_keywords: parseTokenList(ruleFormIncludeInput),
@@ -3123,6 +3328,12 @@ export function App({ initialThemeMode }: AppProps) {
     loadTopicProfiles,
   ]);
 
+  useEffect(() => {
+    if (activeLiteratureTab !== 'auto-import' || autoImportSubTab !== 'topic-settings') {
+      setTopicFormModalOpen(false);
+    }
+  }, [activeLiteratureTab, autoImportSubTab]);
+
   const releaseQueue = useMemo(() => {
     return timelinePanel.data
       .filter(
@@ -3186,6 +3397,51 @@ export function App({ initialThemeMode }: AppProps) {
     usedCount,
   ]);
 
+  const topicScopedRules = useMemo(
+    () => autoPullRules.filter((rule) => rule.scope === 'TOPIC'),
+    [autoPullRules],
+  );
+  const topicVenueOptions = useMemo(
+    () => [...new Set([
+      ...topicPresetVenueOptions,
+      ...topicProfiles.flatMap((profile) => profile.venue_filters),
+      ...topicFormVenueSelections,
+    ])],
+    [topicFormVenueSelections, topicProfiles],
+  );
+  const topicAutoIdPreview = useMemo(() => {
+    const name = topicFormName.trim();
+    if (!name || topicEditingId) {
+      return '';
+    }
+    return generateTopicIdByName(name, topicProfiles.map((profile) => profile.topic_id));
+  }, [topicEditingId, topicFormName, topicProfiles]);
+  const topicYearLowerBound = Math.min(topicFormYearStart, topicFormYearEnd);
+  const topicYearUpperBound = Math.max(topicFormYearStart, topicFormYearEnd);
+  const topicYearRangeTrackStyle = useMemo<CSSProperties>(() => {
+    const total = Math.max(1, topicYearMaxBound - topicYearMinBound);
+    const startPercent = ((topicYearLowerBound - topicYearMinBound) / total) * 100;
+    const endPercent = ((topicYearUpperBound - topicYearMinBound) / total) * 100;
+    return {
+      '--topic-range-start': `${startPercent}%`,
+      '--topic-range-end': `${endPercent}%`,
+    } as CSSProperties;
+  }, [topicYearLowerBound, topicYearUpperBound]);
+  const topicVenueSelectionLabel = useMemo(() => {
+    if (topicFormVenueSelections.length === 0) {
+      return '不限会议与期刊';
+    }
+    if (topicFormVenueSelections.length <= 2) {
+      return topicFormVenueSelections.join('、');
+    }
+    return `${topicFormVenueSelections.slice(0, 2).join('、')} 等 ${topicFormVenueSelections.length} 项`;
+  }, [topicFormVenueSelections]);
+  const ruleNameById = useMemo(
+    () => new Map(autoPullRules.map((rule) => [rule.rule_id, rule.name])),
+    [autoPullRules],
+  );
+  const autoPullStatusDigest = `${topicProfilesStatus}|${rulesStatus}|${runsStatus}|${alertsStatus}`;
+
   const handleModuleSelect = (moduleName: string) => {
     setActiveModule(moduleName);
     setActionHint(`已切换到「${moduleName}」模块。`);
@@ -3193,6 +3449,13 @@ export function App({ initialThemeMode }: AppProps) {
 
   const handleToggleSidebar = () => {
     setIsSidebarCollapsed((current) => !current);
+  };
+
+  const handleSelectLiteratureSubTab = (tabKey: LiteratureTabKey, subTabKey: string) => {
+    setActiveLiteratureTab(tabKey);
+    if (tabKey === 'auto-import' && isAutoImportSubTabKey(subTabKey)) {
+      setAutoImportSubTab(subTabKey);
+    }
   };
 
   const handleToggleGovernance = () => {
@@ -3329,18 +3592,46 @@ export function App({ initialThemeMode }: AppProps) {
           <div className="topbar-center">
             {activeModule === '文献管理' ? (
               <div className="topbar-literature-tabs" role="tablist" aria-label="文献管理标签页">
-                {literatureTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    role="tab"
-                    className={`topbar-tab-button${activeLiteratureTab === tab.key ? ' is-active' : ''}`}
-                    aria-selected={activeLiteratureTab === tab.key}
-                    onClick={() => setActiveLiteratureTab(tab.key)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+                {literatureTabs.map((tab) => {
+                  const subTabs = literatureSubTabsByTab[tab.key] ?? [];
+                  const activeSubTabKey = tab.key === 'auto-import' ? autoImportSubTab : null;
+                  const shouldShowSubTabs = activeLiteratureTab === tab.key && subTabs.length > 0;
+                  return (
+                    <div
+                      key={tab.key}
+                      className={`topbar-tab-cluster${activeLiteratureTab === tab.key ? ' is-active' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        role="tab"
+                        className={`topbar-tab-button${activeLiteratureTab === tab.key ? ' is-active' : ''}`}
+                        aria-selected={activeLiteratureTab === tab.key}
+                        onClick={() => setActiveLiteratureTab(tab.key)}
+                      >
+                        {tab.label}
+                      </button>
+                      {shouldShowSubTabs ? (
+                        <div className="topbar-inline-subtabs" role="group" aria-label={`${tab.label} 子标签`}>
+                          {subTabs.map((subTab) => {
+                            const isSubTabActive =
+                              activeLiteratureTab === tab.key && activeSubTabKey === subTab.key;
+                            return (
+                              <button
+                                key={`${tab.key}-${subTab.key}`}
+                                type="button"
+                                className={`topbar-subtab-button${isSubTabActive ? ' is-active' : ''}`}
+                                aria-pressed={isSubTabActive}
+                                onClick={() => handleSelectLiteratureSubTab(tab.key, subTab.key)}
+                              >
+                                {subTab.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
           </div>
@@ -3432,122 +3723,12 @@ export function App({ initialThemeMode }: AppProps) {
             <section className="module-dashboard literature-workspace">
               <div data-ui="stack" data-direction="col" data-gap="3">
                 {activeLiteratureTab === 'auto-import' ? (
-                  <section className="literature-tab-panel">
-                    <div data-ui="toolbar" data-align="between" data-wrap="wrap">
-                      <span data-ui="badge" data-variant="subtle" data-tone="neutral">状态</span>
-                      <div data-ui="toolbar" data-gap="2" data-wrap="wrap" className="literature-status-group">
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          Topic：{formatUiOperationStatus(topicProfilesStatus)}
-                        </span>
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          规则：{formatUiOperationStatus(rulesStatus)}
-                        </span>
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          运行：{formatUiOperationStatus(runsStatus)}
-                        </span>
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          告警：{formatUiOperationStatus(alertsStatus)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="auto-pull-subtab-strip" role="tablist" aria-label="自动拉取子标签">
-                      {autoImportSubTabs.map((tab) => (
-                        <button
-                          key={tab.key}
-                          type="button"
-                          role="tab"
-                          className={`auto-pull-subtab-button${autoImportSubTab === tab.key ? ' is-active' : ''}`}
-                          aria-selected={autoImportSubTab === tab.key}
-                          onClick={() => setAutoImportSubTab(tab.key)}
-                        >
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-
+                  <section className="literature-tab-panel" data-autopull-status={autoPullStatusDigest}>
                     {autoImportSubTab === 'topic-settings' ? (
                       <section className="literature-section-block">
-                        <div data-ui="grid" data-cols="2" data-gap="2">
-                          <label data-ui="field">
-                            <span data-slot="label">Topic ID</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={topicFormTopicId}
-                              onChange={(event) => setTopicFormTopicId(event.target.value)}
-                              placeholder="例如 TOPIC-001"
-                              disabled={topicEditingId !== null}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">Topic 名称</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={topicFormName}
-                              onChange={(event) => setTopicFormName(event.target.value)}
-                              placeholder="例如 LLM Evaluation"
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">Include 关键词（逗号/换行）</span>
-                            <textarea
-                              data-ui="textarea"
-                              value={topicFormIncludeInput}
-                              onChange={(event) => setTopicFormIncludeInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">Exclude 关键词（逗号/换行）</span>
-                            <textarea
-                              data-ui="textarea"
-                              value={topicFormExcludeInput}
-                              onChange={(event) => setTopicFormExcludeInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">Venue 过滤（逗号/换行）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={topicFormVenueInput}
-                              onChange={(event) => setTopicFormVenueInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">默认窗口（天）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={topicFormLookbackInput}
-                              onChange={(event) => setTopicFormLookbackInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">最小年份（可选）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={topicFormMinYearInput}
-                              onChange={(event) => setTopicFormMinYearInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">最大年份（可选）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={topicFormMaxYearInput}
-                              onChange={(event) => setTopicFormMaxYearInput(event.target.value)}
-                            />
-                          </label>
-                        </div>
                         <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                          <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleSubmitTopicProfile}>
-                            {topicEditingId ? '更新' : '创建'}
-                          </button>
-                          <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={resetTopicForm}>
-                            清空表单
+                          <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleOpenCreateTopicProfile}>
+                            新增主题
                           </button>
                           <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadTopicProfiles()}>
                             刷新列表
@@ -3556,7 +3737,7 @@ export function App({ initialThemeMode }: AppProps) {
                         {topicProfilesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{topicProfilesError}</p> : null}
                         <div className="literature-list">
                           {topicProfiles.length === 0 ? (
-                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无 Topic 设置。</p>
+                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无主题设置。</p>
                           ) : (
                             topicProfiles.map((profile) => (
                               <div key={profile.topic_id} className="literature-list-item">
@@ -3565,22 +3746,410 @@ export function App({ initialThemeMode }: AppProps) {
                                     {profile.topic_id} · {profile.name}
                                   </p>
                                   <p data-ui="text" data-variant="caption" data-tone="muted">
-                                    include:{profile.include_keywords.length} / exclude:{profile.exclude_keywords.length} / venue:{profile.venue_filters.length}
+                                    {profile.is_active ? '已启用' : '已关闭'} · 包含词:{profile.include_keywords.length} · 排除词:{profile.exclude_keywords.length} · 会议与期刊:{profile.venue_filters.length} · 绑定规则:{profile.rule_ids.length}
+                                  </p>
+                                  <p data-ui="text" data-variant="caption" data-tone="muted">
+                                    规则绑定：{profile.rule_ids.length === 0
+                                      ? '未绑定'
+                                      : profile.rule_ids.map((ruleId) => ruleNameById.get(ruleId) ?? ruleId).join('，')}
                                   </p>
                                 </div>
+                                <div data-ui="toolbar" data-gap="2">
+                                  <button
+                                    data-ui="button"
+                                    data-variant="ghost"
+                                    data-size="sm"
+                                    type="button"
+                                    onClick={() => void handleToggleTopicProfileActive(profile)}
+                                  >
+                                    {profile.is_active ? '关闭主题' : '启用主题'}
+                                  </button>
+                                  <button
+                                    data-ui="button"
+                                    data-variant="ghost"
+                                    data-size="sm"
+                                    type="button"
+                                    onClick={() => handleEditTopicProfile(profile)}
+                                  >
+                                    编辑
+                                  </button>
+                                  <button
+                                    data-ui="button"
+                                    data-variant="secondary"
+                                    data-size="sm"
+                                    type="button"
+                                    onClick={() => handleCreateRuleShortcutForTopic(profile)}
+                                  >
+                                    新建规则
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        {topicFormModalOpen ? (
+                          <div className="topic-profile-modal-backdrop" role="presentation">
+                            <section
+                              className="topic-profile-modal"
+                              role="dialog"
+                              aria-modal="true"
+                              aria-label="主题基础信息"
+                            >
+                              <header className="topic-modal-header">
+                                <h3>主题基础信息</h3>
+                                <button
+                                  type="button"
+                                  className="topic-modal-close"
+                                  onClick={handleCloseTopicModal}
+                                  aria-label="关闭主题弹窗"
+                                >
+                                  ×
+                                </button>
+                              </header>
+
+                              <section className="topic-modal-section">
+                                <div className="topic-modal-grid">
+                                  <label data-ui="field">
+                                    <span data-slot="label">
+                                      主题名称 <span className="topic-required-mark">*</span>
+                                    </span>
+                                    <input
+                                      data-ui="input"
+                                      data-size="sm"
+                                      value={topicFormName}
+                                      onChange={(event) => setTopicFormName(event.target.value)}
+                                      placeholder="输入主题名称"
+                                    />
+                                  </label>
+                                  <label data-ui="field">
+                                    <span data-slot="label">主题标识</span>
+                                    <input
+                                      data-ui="input"
+                                      data-size="sm"
+                                      className="topic-id-readonly-input"
+                                      value={topicEditingId ? topicFormTopicId : topicAutoIdPreview}
+                                      placeholder="将根据主题名称自动生成"
+                                      readOnly
+                                    />
+                                  </label>
+
+                                  <label data-ui="field">
+                                    <span data-slot="label">包含词</span>
+                                    <div className="topic-token-editor">
+                                      <div className="topic-token-editor-input">
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={topicFormIncludeDraft}
+                                          onChange={(event) => setTopicFormIncludeDraft(event.target.value)}
+                                          onKeyDown={(event) => {
+                                            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                                              event.preventDefault();
+                                              handleAddTopicIncludeKeyword();
+                                            }
+                                          }}
+                                          placeholder="输入后按 Enter 添加"
+                                        />
+                                      </div>
+                                      <div className="topic-token-list">
+                                        {topicFormIncludeKeywords.map((keyword) => (
+                                          <span key={`include-${keyword}`} className="topic-token-chip">
+                                            <span>{keyword}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveTopicIncludeKeyword(keyword)}
+                                              aria-label={`移除包含词 ${keyword}`}
+                                            >
+                                              ×
+                                            </button>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </label>
+
+                                  <label data-ui="field">
+                                    <span data-slot="label">排除词</span>
+                                    <div className="topic-token-editor">
+                                      <div className="topic-token-editor-input">
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={topicFormExcludeDraft}
+                                          onChange={(event) => setTopicFormExcludeDraft(event.target.value)}
+                                          onKeyDown={(event) => {
+                                            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                                              event.preventDefault();
+                                              handleAddTopicExcludeKeyword();
+                                            }
+                                          }}
+                                          placeholder="输入后按 Enter 添加"
+                                        />
+                                      </div>
+                                      <div className="topic-token-list">
+                                        {topicFormExcludeKeywords.map((keyword) => (
+                                          <span key={`exclude-${keyword}`} className="topic-token-chip">
+                                            <span>{keyword}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveTopicExcludeKeyword(keyword)}
+                                              aria-label={`移除排除词 ${keyword}`}
+                                            >
+                                              ×
+                                            </button>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </label>
+
+                                  <div data-ui="field" className="topic-venue-picker">
+                                    <span data-slot="label">会议与期刊</span>
+                                    <button
+                                      type="button"
+                                      className={`topic-venue-picker-trigger${topicVenuePickerOpen ? ' is-open' : ''}`}
+                                      onClick={() => setTopicVenuePickerOpen((current) => !current)}
+                                      aria-expanded={topicVenuePickerOpen}
+                                    >
+                                      <span>{topicVenueSelectionLabel}</span>
+                                      <span aria-hidden="true">{topicVenuePickerOpen ? '▲' : '▼'}</span>
+                                    </button>
+                                    {topicVenuePickerOpen ? (
+                                      <div className="topic-venue-picker-panel">
+                                        <div className="topic-venue-picker-actions">
+                                          <button
+                                            data-ui="button"
+                                            data-variant="ghost"
+                                            data-size="sm"
+                                            type="button"
+                                            onClick={() => setTopicFormVenueSelections([])}
+                                          >
+                                            清空选择
+                                          </button>
+                                        </div>
+                                        <div className="topic-venue-picker-list">
+                                          {topicVenueOptions.map((option) => (
+                                            <label key={option} className="topic-venue-picker-item">
+                                              <input
+                                                type="checkbox"
+                                                checked={topicFormVenueSelections.includes(option)}
+                                                onChange={() => handleToggleTopicVenueSelection(option)}
+                                              />
+                                              <span>{option}</span>
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+
+                                  <div data-ui="field" className="topic-year-field">
+                                    <div className="topic-year-header">
+                                      <span data-slot="label">年份范围</span>
+                                      <div className="topic-year-shortcuts">
+                                        <button
+                                          data-ui="button"
+                                          data-variant="ghost"
+                                          data-size="sm"
+                                          type="button"
+                                          onClick={() => applyTopicYearPreset('recent-5')}
+                                        >
+                                          近5年
+                                        </button>
+                                        <button
+                                          data-ui="button"
+                                          data-variant="ghost"
+                                          data-size="sm"
+                                          type="button"
+                                          onClick={() => applyTopicYearPreset('recent-10')}
+                                        >
+                                          近10年
+                                        </button>
+                                        <button
+                                          data-ui="button"
+                                          data-variant="ghost"
+                                          data-size="sm"
+                                          type="button"
+                                          onClick={() => applyTopicYearPreset('all')}
+                                        >
+                                          全部
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="topic-year-range-main">
+                                      <input
+                                        className="topic-year-bound-input"
+                                        type="number"
+                                        min={topicYearMinBound}
+                                        max={topicYearMaxBound}
+                                        value={topicYearLowerBound}
+                                        onChange={(event) => {
+                                          const value = Number.parseInt(event.target.value, 10);
+                                          if (!Number.isFinite(value)) {
+                                            return;
+                                          }
+                                          const clamped = Math.max(topicYearMinBound, Math.min(value, topicFormYearEnd));
+                                          setTopicFormYearStart(clamped);
+                                        }}
+                                      />
+                                      <div
+                                        className="topic-year-range-sliders"
+                                        role="group"
+                                        aria-label="年份范围滑动选择"
+                                        style={topicYearRangeTrackStyle}
+                                      >
+                                        <input
+                                          type="range"
+                                          min={topicYearMinBound}
+                                          max={topicYearMaxBound}
+                                          value={topicFormYearStart}
+                                          className="topic-year-slider topic-year-slider-start"
+                                          onChange={(event) => {
+                                            const value = Number.parseInt(event.target.value, 10);
+                                            if (!Number.isFinite(value)) {
+                                              return;
+                                            }
+                                            setTopicFormYearStart(Math.min(value, topicFormYearEnd));
+                                          }}
+                                        />
+                                        <input
+                                          type="range"
+                                          min={topicYearMinBound}
+                                          max={topicYearMaxBound}
+                                          value={topicFormYearEnd}
+                                          className="topic-year-slider topic-year-slider-end"
+                                          onChange={(event) => {
+                                            const value = Number.parseInt(event.target.value, 10);
+                                            if (!Number.isFinite(value)) {
+                                              return;
+                                            }
+                                            setTopicFormYearEnd(Math.max(value, topicFormYearStart));
+                                          }}
+                                        />
+                                      </div>
+                                      <input
+                                        className="topic-year-bound-input"
+                                        type="number"
+                                        min={topicYearMinBound}
+                                        max={topicYearMaxBound}
+                                        value={topicYearUpperBound}
+                                        onChange={(event) => {
+                                          const value = Number.parseInt(event.target.value, 10);
+                                          if (!Number.isFinite(value)) {
+                                            return;
+                                          }
+                                          const clamped = Math.min(topicYearMaxBound, Math.max(value, topicFormYearStart));
+                                          setTopicFormYearEnd(clamped);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                              </section>
+
+                              <section className="topic-modal-section">
+                                <div className="topic-modal-grid topic-modal-grid-run">
+                                  <div className="topic-run-column">
+                                    <h4 className="topic-modal-section-title">运行方式</h4>
+                                    <div className="topic-run-mode-card">
+                                      <label className="auto-pull-source-toggle topic-active-toggle">
+                                        <input
+                                          type="checkbox"
+                                          checked={topicFormIsActive}
+                                          onChange={(event) => setTopicFormIsActive(event.target.checked)}
+                                        />
+                                        参与自动检索
+                                      </label>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted" className="topic-form-helper">
+                                        勾选后主题会参与规则检索。取消勾选时，规则继续运行，但会跳过该主题。
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="topic-rule-binding-column">
+                                    <h4 className="topic-modal-section-title">规则绑定</h4>
+                                    <div className="topic-rule-binding-card">
+                                      {topicScopedRules.length === 0 ? (
+                                        <div className="topic-rule-empty-state">
+                                          <span className="topic-rule-empty-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                              <path d="M12 2 4 6v5c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Z" />
+                                              <rect x="9" y="10.2" width="6" height="4.6" rx="0.9" />
+                                              <path d="M10.2 10.2v-1.1a1.8 1.8 0 1 1 3.6 0v1.1" />
+                                            </svg>
+                                          </span>
+                                          <p data-ui="text" data-variant="caption" data-tone="muted">
+                                            暂无可绑定规则，请先到规则中心创建规则
+                                          </p>
+                                          <button
+                                            data-ui="button"
+                                            data-variant="secondary"
+                                            data-size="sm"
+                                            type="button"
+                                            className="topic-rule-empty-action"
+                                            onClick={() => {
+                                              setTopicFormModalOpen(false);
+                                              setTopicVenuePickerOpen(false);
+                                              setAutoImportSubTab('rules-center');
+                                            }}
+                                          >
+                                            去规则中心创建规则
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <div className="topic-rule-binding-header">
+                                            <button
+                                              data-ui="button"
+                                              data-variant="ghost"
+                                              data-size="sm"
+                                              type="button"
+                                              onClick={() => {
+                                                setTopicFormModalOpen(false);
+                                                setTopicVenuePickerOpen(false);
+                                                setAutoImportSubTab('rules-center');
+                                              }}
+                                            >
+                                              创建规则
+                                            </button>
+                                          </div>
+                                          <div className="topic-rule-selector-list">
+                                            {topicScopedRules.map((rule) => (
+                                              <label key={rule.rule_id} className="auto-pull-source-toggle">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={topicFormRuleIds.includes(rule.rule_id)}
+                                                  onChange={() => handleToggleTopicRuleSelection(rule.rule_id)}
+                                                />
+                                                {rule.name}
+                                              </label>
+                                            ))}
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </section>
+
+                              <footer className="topic-modal-footer">
                                 <button
                                   data-ui="button"
                                   data-variant="ghost"
                                   data-size="sm"
                                   type="button"
-                                  onClick={() => handleEditTopicProfile(profile)}
+                                  onClick={handleCloseTopicModal}
                                 >
-                                  编辑
+                                  取消
                                 </button>
-                              </div>
-                            ))
-                          )}
-                        </div>
+                                <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleSubmitTopicProfile}>
+                                  {topicEditingId ? '更新主题' : '创建主题'}
+                                </button>
+                              </footer>
+                            </section>
+                          </div>
+                        ) : null}
                       </section>
                     ) : null}
 
@@ -3632,13 +4201,13 @@ export function App({ initialThemeMode }: AppProps) {
                             </select>
                           </label>
                           <label data-ui="field">
-                            <span data-slot="label">Topic ID（TOPIC 规则必填）</span>
+                            <span data-slot="label">绑定主题（TOPIC 规则，逗号/换行）</span>
                             <input
                               data-ui="input"
                               data-size="sm"
-                              value={ruleFormTopicId}
-                              onChange={(event) => setRuleFormTopicId(event.target.value)}
-                              placeholder="例如 TOPIC-001"
+                              value={ruleFormTopicIdsInput}
+                              onChange={(event) => setRuleFormTopicIdsInput(event.target.value)}
+                              placeholder="例如 TOPIC-001, TOPIC-002"
                             />
                           </label>
                           <label data-ui="field">
@@ -3686,7 +4255,7 @@ export function App({ initialThemeMode }: AppProps) {
                             />
                           </label>
                           <label data-ui="field">
-                            <span data-slot="label">Venue 关键词</span>
+                            <span data-slot="label">期刊/会议关键词</span>
                             <input
                               data-ui="input"
                               data-size="sm"
@@ -3859,7 +4428,7 @@ export function App({ initialThemeMode }: AppProps) {
                                   <div>
                                     <p data-ui="text" data-variant="body" data-tone="primary">{rule.name}</p>
                                     <p data-ui="text" data-variant="caption" data-tone="muted">
-                                      {rule.status} · sources:{rule.sources.filter((source) => source.enabled).length}
+                                      {rule.status} · topics:{rule.topic_ids.length} · sources:{rule.sources.filter((source) => source.enabled).length}
                                     </p>
                                   </div>
                                   <div data-ui="toolbar" data-gap="2">
@@ -3885,7 +4454,7 @@ export function App({ initialThemeMode }: AppProps) {
                                 <div key={rule.rule_id} className="literature-list-item">
                                   <div>
                                     <p data-ui="text" data-variant="body" data-tone="primary">
-                                      {rule.name} · {rule.topic_id ?? '--'}
+                                      {rule.name} · {rule.topic_ids.length > 0 ? rule.topic_ids.join(', ') : '--'}
                                     </p>
                                     <p data-ui="text" data-variant="caption" data-tone="muted">
                                       {rule.status} · sources:{rule.sources.filter((source) => source.enabled).length}

@@ -168,3 +168,59 @@ test('retry-failed-sources creates a follow-up run', async () => {
   assert.equal(retriedDone.status, 'FAILED');
   assert.equal(retriedDone.source_attempts?.[0]?.source, 'ZOTERO');
 });
+
+test('many-to-many topic binding executes only active topics', async () => {
+  const { service } = buildService();
+
+  await service.createTopicProfile({
+    topic_id: 'TOPIC-AUTO-UNIT-ACTIVE',
+    name: 'Active Topic',
+    is_active: true,
+  });
+  await service.createTopicProfile({
+    topic_id: 'TOPIC-AUTO-UNIT-INACTIVE',
+    name: 'Inactive Topic',
+    is_active: false,
+  });
+
+  const rule = await service.createRule({
+    scope: 'TOPIC',
+    topic_ids: ['TOPIC-AUTO-UNIT-ACTIVE', 'TOPIC-AUTO-UNIT-INACTIVE'],
+    name: 'topic-many-to-many-rule',
+    sources: [{ source: 'ZOTERO', enabled: true, priority: 1, config: {} }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+  assert.deepEqual(rule.topic_ids, ['TOPIC-AUTO-UNIT-ACTIVE', 'TOPIC-AUTO-UNIT-INACTIVE']);
+
+  const queued = await service.triggerRuleRun(rule.rule_id, { trigger_type: 'MANUAL' });
+  const terminal = await waitForTerminalRun(service, queued.run_id);
+  assert.equal(terminal.status, 'FAILED');
+  assert.deepEqual(terminal.summary.skipped_topic_ids, ['TOPIC-AUTO-UNIT-INACTIVE']);
+  assert.deepEqual(terminal.source_attempts?.[0]?.meta.topic_ids, ['TOPIC-AUTO-UNIT-ACTIVE']);
+});
+
+test('run is skipped when all linked topics are inactive', async () => {
+  const { service } = buildService();
+
+  await service.createTopicProfile({
+    topic_id: 'TOPIC-AUTO-UNIT-INACTIVE-ONLY',
+    name: 'Inactive Topic',
+    is_active: false,
+  });
+
+  const rule = await service.createRule({
+    scope: 'TOPIC',
+    topic_ids: ['TOPIC-AUTO-UNIT-INACTIVE-ONLY'],
+    name: 'inactive-only-topic-rule',
+    sources: [{ source: 'ZOTERO', enabled: true, priority: 1, config: {} }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  const queued = await service.triggerRuleRun(rule.rule_id, { trigger_type: 'MANUAL' });
+  const terminal = await waitForTerminalRun(service, queued.run_id);
+  assert.equal(terminal.status, 'SKIPPED');
+  assert.equal(terminal.error_code, 'NO_ACTIVE_TOPIC');
+
+  const alerts = await service.listAlerts({ ruleId: rule.rule_id, acked: false });
+  assert.equal(alerts.some((alert) => alert.code === 'NO_ACTIVE_TOPIC'), true);
+});

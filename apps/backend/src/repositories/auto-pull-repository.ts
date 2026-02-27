@@ -12,6 +12,7 @@ import type {
 export type TopicProfileRecord = {
   id: string;
   name: string;
+  isActive: boolean;
   includeKeywords: string[];
   excludeKeywords: string[];
   venueFilters: string[];
@@ -44,7 +45,6 @@ export type AutoPullQualitySpec = {
 export type AutoPullRuleRecord = {
   id: string;
   scope: AutoPullScope;
-  topicId: string | null;
   name: string;
   status: AutoPullRuleStatus;
   querySpec: AutoPullQuerySpec;
@@ -52,6 +52,13 @@ export type AutoPullRuleRecord = {
   qualitySpec: AutoPullQualitySpec;
   createdAt: string;
   updatedAt: string;
+};
+
+export type AutoPullRuleTopicRecord = {
+  id: string;
+  ruleId: string;
+  topicId: string;
+  createdAt: string;
 };
 
 export type AutoPullRuleSourceRecord = {
@@ -159,8 +166,13 @@ export interface AutoPullRepository {
 
   replaceRuleSources(ruleId: string, sources: AutoPullRuleSourceRecord[]): Promise<void>;
   listRuleSources(ruleId: string): Promise<AutoPullRuleSourceRecord[]>;
+  replaceRuleTopics(ruleId: string, topicIds: string[]): Promise<void>;
+  listRuleTopics(ruleId: string): Promise<TopicProfileRecord[]>;
+  listRuleTopicIds(ruleId: string): Promise<string[]>;
   replaceRuleSchedules(ruleId: string, schedules: AutoPullRuleScheduleRecord[]): Promise<void>;
   listRuleSchedules(ruleId: string): Promise<AutoPullRuleScheduleRecord[]>;
+  replaceTopicRules(topicId: string, ruleIds: string[]): Promise<void>;
+  listTopicRuleIds(topicId: string): Promise<string[]>;
 
   createRun(record: AutoPullRunRecord): Promise<AutoPullRunRecord>;
   findRunById(runId: string): Promise<AutoPullRunRecord | null>;

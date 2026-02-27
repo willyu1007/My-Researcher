@@ -22,6 +22,7 @@ import {
 import { AppError } from '../errors/app-error.js';
 import type {
   AutoPullAlertRecord,
+  AutoPullQualitySpec,
   AutoPullQuerySpec,
   AutoPullRepository,
   AutoPullRuleRecord,
@@ -43,17 +44,33 @@ type SourceExecutionResult = {
   errorCode: string | null;
   errorMessage: string | null;
   attemptStatus: AutoPullRunSourceAttemptRecord['status'];
-  suggestions: Array<{ literatureId: string; suggestedScope: TopicScopeStatus; reason: string; score: number }>;
+  suggestions: Array<{
+    literatureId: string;
+    topicId: string | null;
+    suggestedScope: TopicScopeStatus;
+    reason: string;
+    score: number;
+  }>;
+  meta?: Record<string, unknown>;
 };
 
 type RuleBundle = {
   rule: AutoPullRuleRecord;
+  topicIds: string[];
+  topics: TopicProfileRecord[];
   sources: AutoPullRuleSourceRecord[];
   schedules: AutoPullRuleScheduleRecord[];
 };
 
+type TopicExecutionContext = {
+  topicId: string | null;
+  querySpec: AutoPullQuerySpec;
+  timeSpec: AutoPullTimeSpec;
+};
+
 const AUTOPULL_ALERT_CODES = {
   NO_SOURCE_CONFIG: 'NO_SOURCE_CONFIG',
+  NO_ACTIVE_TOPIC: 'NO_ACTIVE_TOPIC',
   SOURCE_UNREACHABLE: 'SOURCE_UNREACHABLE',
   SOURCE_AUTH_ERROR: 'SOURCE_AUTH_ERROR',
   SOURCE_RATE_LIMIT: 'SOURCE_RATE_LIMIT',
@@ -75,6 +92,10 @@ export class AutoPullService {
     if (!topicId) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'topic_id is required.');
     }
+    const topicName = request.name.trim();
+    if (!topicName) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'name is required.');
+    }
 
     const now = new Date().toISOString();
     const existing = await this.repository.findTopicProfileById(topicId);
@@ -84,7 +105,8 @@ export class AutoPullService {
 
     const record = await this.repository.createTopicProfile({
       id: topicId,
-      name: request.name.trim(),
+      name: topicName,
+      isActive: request.is_active ?? true,
       includeKeywords: this.normalizeKeywords(request.include_keywords),
       excludeKeywords: this.normalizeKeywords(request.exclude_keywords),
       venueFilters: this.normalizeKeywords(request.venue_filters),
@@ -95,12 +117,19 @@ export class AutoPullService {
       updatedAt: now,
     });
 
-    return this.toTopicProfileDTO(record);
+    if (request.rule_ids !== undefined) {
+      const ruleIds = await this.resolveTopicRuleIds(request.rule_ids);
+      await this.repository.replaceTopicRules(topicId, ruleIds);
+    }
+
+    return this.toTopicProfileDTO(record, await this.repository.listTopicRuleIds(topicId));
   }
 
   async listTopicProfiles(): Promise<TopicProfileDTO[]> {
     const profiles = await this.repository.listTopicProfiles();
-    return profiles.map((item) => this.toTopicProfileDTO(item));
+    return Promise.all(
+      profiles.map(async (item) => this.toTopicProfileDTO(item, await this.repository.listTopicRuleIds(item.id))),
+    );
   }
 
   async updateTopicProfile(topicId: string, request: UpdateTopicProfileRequest): Promise<TopicProfileDTO> {
@@ -109,9 +138,13 @@ export class AutoPullService {
     if (!existing) {
       throw new AppError(404, 'NOT_FOUND', `Topic profile ${normalizedTopicId} not found.`);
     }
+    if (request.name !== undefined && request.name.trim().length === 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'name cannot be empty.');
+    }
 
     const updated = await this.repository.updateTopicProfile(normalizedTopicId, {
       ...(request.name !== undefined ? { name: request.name.trim() } : {}),
+      ...(request.is_active !== undefined ? { isActive: request.is_active } : {}),
       ...(request.include_keywords !== undefined
         ? { includeKeywords: this.normalizeKeywords(request.include_keywords) }
         : {}),
@@ -133,28 +166,34 @@ export class AutoPullService {
       updatedAt: new Date().toISOString(),
     });
 
-    return this.toTopicProfileDTO(updated);
+    if (request.rule_ids !== undefined) {
+      const ruleIds = await this.resolveTopicRuleIds(request.rule_ids);
+      await this.repository.replaceTopicRules(normalizedTopicId, ruleIds);
+    }
+
+    return this.toTopicProfileDTO(updated, await this.repository.listTopicRuleIds(normalizedTopicId));
   }
 
   async createRule(request: CreateAutoPullRuleRequest): Promise<AutoPullRuleDTO> {
-    if (request.scope === 'TOPIC' && !request.topic_id?.trim()) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'topic_id is required when scope is TOPIC.');
+    const ruleName = request.name.trim();
+    if (!ruleName) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'name is required.');
     }
-    if (request.scope === 'GLOBAL' && request.topic_id?.trim()) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'topic_id must be empty when scope is GLOBAL.');
+    const topicIds = this.normalizeTopicIdsFromPayload(request.topic_ids, request.topic_id);
+    if (request.scope === 'TOPIC' && topicIds.length === 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'topic_ids is required when scope is TOPIC.');
+    }
+    if (request.scope === 'GLOBAL' && topicIds.length > 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'topic_ids must be empty when scope is GLOBAL.');
     }
 
-    const topicProfile = request.topic_id?.trim()
-      ? await this.repository.findTopicProfileById(request.topic_id.trim())
-      : null;
-    if (request.scope === 'TOPIC' && !topicProfile) {
-      throw new AppError(404, 'NOT_FOUND', `Topic profile ${request.topic_id?.trim()} not found.`);
-    }
+    const topicProfiles = await this.loadTopicProfilesOrThrow(topicIds);
+    const primaryTopicProfile = topicProfiles[0] ?? null;
     const now = new Date().toISOString();
     const ruleId = crypto.randomUUID();
 
-    const querySpec = this.normalizeQuerySpec(request.query_spec, topicProfile);
-    const timeSpec = this.normalizeTimeSpec(request.time_spec, topicProfile);
+    const querySpec = this.normalizeQuerySpec(request.query_spec, primaryTopicProfile);
+    const timeSpec = this.normalizeTimeSpec(request.time_spec, primaryTopicProfile);
     const qualitySpec = this.normalizeQualitySpec(request.quality_spec);
     const sources = this.normalizeSources(ruleId, request.sources);
     const schedules = this.normalizeSchedules(ruleId, request.schedules);
@@ -162,8 +201,7 @@ export class AutoPullService {
     const rule = await this.repository.createRule({
       id: ruleId,
       scope: request.scope,
-      topicId: request.topic_id?.trim() ?? null,
-      name: request.name.trim(),
+      name: ruleName,
       status: request.status ?? 'ACTIVE',
       querySpec,
       timeSpec,
@@ -171,11 +209,14 @@ export class AutoPullService {
       createdAt: now,
       updatedAt: now,
     });
+    await this.repository.replaceRuleTopics(rule.id, topicIds);
     await this.repository.replaceRuleSources(rule.id, sources);
     await this.repository.replaceRuleSchedules(rule.id, schedules);
 
     return this.buildRuleDTO({
       rule,
+      topicIds,
+      topics: topicProfiles,
       sources,
       schedules,
     });
@@ -196,19 +237,31 @@ export class AutoPullService {
     if (!existing.rule) {
       throw new AppError(404, 'NOT_FOUND', `Rule ${ruleId} not found.`);
     }
+    if (request.name !== undefined && request.name.trim().length === 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'name cannot be empty.');
+    }
 
-    const topicProfile = existing.rule.topicId
-      ? await this.repository.findTopicProfileById(existing.rule.topicId)
-      : null;
+    const nextScope = request.scope ?? existing.rule.scope;
+    const requestedTopicIds = this.resolveNextRuleTopicIds(request, existing.topicIds, nextScope);
+    if (nextScope === 'TOPIC' && requestedTopicIds.length === 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'topic_ids is required when scope is TOPIC.');
+    }
+    if (nextScope === 'GLOBAL' && requestedTopicIds.length > 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'topic_ids must be empty when scope is GLOBAL.');
+    }
+    const topicProfiles = await this.loadTopicProfilesOrThrow(requestedTopicIds);
+    const primaryTopicProfile = topicProfiles[0] ?? existing.topics[0] ?? null;
+
     const now = new Date().toISOString();
     const updatedRule = await this.repository.updateRule(ruleId, {
+      ...(request.scope !== undefined ? { scope: request.scope } : {}),
       ...(request.name !== undefined ? { name: request.name.trim() } : {}),
       ...(request.status !== undefined ? { status: request.status } : {}),
       ...(request.query_spec !== undefined
-        ? { querySpec: this.normalizeQuerySpec(request.query_spec, topicProfile) }
+        ? { querySpec: this.normalizeQuerySpec(request.query_spec, primaryTopicProfile) }
         : {}),
       ...(request.time_spec !== undefined
-        ? { timeSpec: this.normalizeTimeSpec(request.time_spec, topicProfile) }
+        ? { timeSpec: this.normalizeTimeSpec(request.time_spec, primaryTopicProfile) }
         : {}),
       ...(request.quality_spec !== undefined
         ? { qualitySpec: this.normalizeQualitySpec(request.quality_spec) }
@@ -221,6 +274,9 @@ export class AutoPullService {
     }
     if (request.schedules !== undefined) {
       await this.repository.replaceRuleSchedules(ruleId, this.normalizeSchedules(ruleId, request.schedules));
+    }
+    if (request.scope !== undefined || request.topic_id !== undefined || request.topic_ids !== undefined) {
+      await this.repository.replaceRuleTopics(ruleId, nextScope === 'TOPIC' ? requestedTopicIds : []);
     }
 
     return this.buildRuleDTO(await this.loadRuleBundle(ruleId, updatedRule));
@@ -410,6 +466,10 @@ export class AutoPullService {
         .filter((source) => source.enabled)
         .filter((source) => (sourceFilter ? sourceFilter.has(source.source) : true))
         .sort((a, b) => a.priority - b.priority);
+      const topicContexts = this.buildTopicExecutionContexts(rule, bundle.topics);
+      const skippedTopicIds = rule.scope === 'TOPIC'
+        ? bundle.topics.filter((topic) => !topic.isActive).map((topic) => topic.id)
+        : [];
 
       if (enabledSources.length === 0) {
         const finishedAt = new Date().toISOString();
@@ -441,9 +501,53 @@ export class AutoPullService {
         return;
       }
 
+      if (rule.scope === 'TOPIC' && topicContexts.length === 0) {
+        const finishedAt = new Date().toISOString();
+        await this.repository.updateRun(runId, {
+          status: 'SKIPPED',
+          finishedAt,
+          summary: {
+            ...runningRun.summary,
+            imported_count: 0,
+            failed_count: 0,
+            reason: AUTOPULL_ALERT_CODES.NO_ACTIVE_TOPIC,
+            skipped_topic_ids: skippedTopicIds,
+          },
+          errorCode: AUTOPULL_ALERT_CODES.NO_ACTIVE_TOPIC,
+          errorMessage: 'No active topics linked to current rule.',
+          updatedAt: finishedAt,
+        });
+        await this.repository.createAlert({
+          id: crypto.randomUUID(),
+          ruleId: rule.id,
+          runId,
+          source: null,
+          level: 'WARNING',
+          code: AUTOPULL_ALERT_CODES.NO_ACTIVE_TOPIC,
+          message: 'Rule has no active topics; run skipped.',
+          detail: {
+            skipped_topic_ids: skippedTopicIds,
+          },
+          ackAt: null,
+          createdAt: finishedAt,
+        });
+        return;
+      }
+
       const sourceResults: SourceExecutionResult[] = [];
       for (const source of enabledSources) {
-        sourceResults.push(await this.executeSource(rule, source, runId));
+        const scopedResults: SourceExecutionResult[] = [];
+        for (const context of topicContexts) {
+          scopedResults.push(await this.executeSource(rule, source, runId, context));
+        }
+        sourceResults.push(
+          this.aggregateSourceResults(
+            source.source,
+            scopedResults,
+            topicContexts.map((context) => context.topicId),
+            skippedTopicIds,
+          ),
+        );
       }
 
       const finishedAt = new Date().toISOString();
@@ -465,6 +569,12 @@ export class AutoPullService {
           imported_count: totalImported,
           failed_count: totalFailed,
           source_total: sourceResults.length,
+          ...(rule.scope === 'TOPIC'
+            ? {
+              active_topic_ids: topicContexts.map((context) => context.topicId),
+              skipped_topic_ids: skippedTopicIds,
+            }
+            : {}),
         },
         errorCode: status === 'FAILED' ? AUTOPULL_ALERT_CODES.IMPORT_FAILED : null,
         errorMessage: status === 'FAILED' ? 'All sources failed.' : null,
@@ -483,9 +593,7 @@ export class AutoPullService {
         errorMessage: item.errorMessage,
         startedAt,
         finishedAt,
-        meta: {
-          fetched_count: item.fetchedItems.length,
-        },
+        meta: item.meta ?? { fetched_count: item.fetchedItems.length },
       }));
       await this.repository.createRunSourceAttempts(attempts);
 
@@ -494,7 +602,7 @@ export class AutoPullService {
           id: crypto.randomUUID(),
           runId,
           literatureId: suggestion.literatureId,
-          topicId: rule.topicId,
+          topicId: suggestion.topicId,
           suggestedScope: suggestion.suggestedScope,
           reason: suggestion.reason,
           score: suggestion.score,
@@ -557,11 +665,15 @@ export class AutoPullService {
     rule: AutoPullRuleRecord,
     source: AutoPullRuleSourceRecord,
     runId: string,
+    context: TopicExecutionContext,
   ): Promise<SourceExecutionResult> {
     try {
-      const fetchedItems = await this.fetchSourceItems(rule, source);
+      const fetchedItems = await this.fetchSourceItems(source, context.querySpec, context.timeSpec);
       const accepted = fetchedItems
-        .map((item) => ({ item, gate: this.evaluateQualityGate(item, rule) }))
+        .map((item) => ({
+          item,
+          gate: this.evaluateQualityGate(item, context.querySpec, rule.qualitySpec),
+        }))
         .filter((item) => item.gate.allowed);
 
       const imported = accepted.length > 0
@@ -574,6 +686,7 @@ export class AutoPullService {
         const gate = accepted[index]?.gate;
         return {
           literatureId: result.literature_id,
+          topicId: context.topicId,
           suggestedScope: gate?.suggestedScope ?? 'in_scope',
           reason: gate?.reason ?? 'quality-gate-pass',
           score: gate?.score ?? 0.8,
@@ -601,6 +714,7 @@ export class AutoPullService {
           detail: {
             fetched_count: fetchedItems.length,
             imported_count: imported.results.length,
+            topic_id: context.topicId,
           },
           ackAt: null,
           createdAt: new Date().toISOString(),
@@ -616,6 +730,12 @@ export class AutoPullService {
         errorMessage: null,
         attemptStatus: failedCount > 0 ? 'PARTIAL' : 'SUCCESS',
         suggestions,
+        meta: {
+          topic_id: context.topicId,
+          fetched_count: fetchedItems.length,
+          imported_count: imported.results.length,
+          failed_count: failedCount,
+        },
       };
     } catch (error) {
       const { alertCode, level } = this.resolveSourceError(error);
@@ -627,7 +747,9 @@ export class AutoPullService {
         level,
         code: alertCode,
         message: error instanceof Error ? error.message : 'Unknown source error.',
-        detail: {},
+        detail: {
+          topic_id: context.topicId,
+        },
         ackAt: null,
         createdAt: new Date().toISOString(),
       });
@@ -641,6 +763,12 @@ export class AutoPullService {
         errorMessage: error instanceof Error ? error.message : 'Unknown source error.',
         attemptStatus: 'FAILED',
         suggestions: [],
+        meta: {
+          topic_id: context.topicId,
+          fetched_count: 0,
+          imported_count: 0,
+          failed_count: 1,
+        },
       };
     }
   }
@@ -660,21 +788,25 @@ export class AutoPullService {
   }
 
   private async fetchSourceItems(
-    rule: AutoPullRuleRecord,
     source: AutoPullRuleSourceRecord,
+    querySpec: AutoPullQuerySpec,
+    timeSpec: AutoPullTimeSpec,
   ): Promise<LiteratureImportItem[]> {
-    const queryText = this.buildSearchQuery(rule.querySpec);
+    const queryText = this.buildSearchQuery(querySpec);
     if (source.source === 'CROSSREF') {
-      return this.fetchCrossrefItems(queryText, rule);
+      return this.fetchCrossrefItems(queryText, querySpec.maxResultsPerSource, timeSpec);
     }
     if (source.source === 'ARXIV') {
-      return this.fetchArxivItems(queryText, rule);
+      return this.fetchArxivItems(queryText, querySpec.maxResultsPerSource, timeSpec);
     }
-    return this.fetchZoteroItems(queryText, source.config, rule);
+    return this.fetchZoteroItems(queryText, source.config, querySpec.maxResultsPerSource, timeSpec);
   }
 
-  private async fetchCrossrefItems(query: string, rule: AutoPullRuleRecord): Promise<LiteratureImportItem[]> {
-    const limit = rule.querySpec.maxResultsPerSource;
+  private async fetchCrossrefItems(
+    query: string,
+    limit: number,
+    timeSpec: AutoPullTimeSpec,
+  ): Promise<LiteratureImportItem[]> {
     const response = await fetch(
       `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${limit}`,
     );
@@ -690,11 +822,14 @@ export class AutoPullService {
     return items
       .map((item, index) => this.mapCrossrefRecord(item, `crossref-${index + 1}`))
       .filter((item): item is LiteratureImportItem => item !== null)
-      .filter((item) => this.matchesTimeWindow(item, rule.timeSpec));
+      .filter((item) => this.matchesTimeWindow(item, timeSpec));
   }
 
-  private async fetchArxivItems(query: string, rule: AutoPullRuleRecord): Promise<LiteratureImportItem[]> {
-    const limit = rule.querySpec.maxResultsPerSource;
+  private async fetchArxivItems(
+    query: string,
+    limit: number,
+    timeSpec: AutoPullTimeSpec,
+  ): Promise<LiteratureImportItem[]> {
     const response = await fetch(
       `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=${limit}`,
     );
@@ -706,13 +841,14 @@ export class AutoPullService {
     return entries
       .map((entry) => this.mapArxivEntry(entry[1] ?? ''))
       .filter((item): item is LiteratureImportItem => item !== null)
-      .filter((item) => this.matchesTimeWindow(item, rule.timeSpec));
+      .filter((item) => this.matchesTimeWindow(item, timeSpec));
   }
 
   private async fetchZoteroItems(
     query: string,
     config: Record<string, unknown>,
-    rule: AutoPullRuleRecord,
+    maxResultsPerSource: number,
+    timeSpec: AutoPullTimeSpec,
   ): Promise<LiteratureImportItem[]> {
     const libraryType = this.readString(config.library_type) as ZoteroLibraryType | undefined;
     const libraryId = this.readString(config.library_id);
@@ -724,7 +860,7 @@ export class AutoPullService {
       `https://api.zotero.org/${libraryType}/${encodeURIComponent(libraryId)}/items/top`,
     );
     url.searchParams.set('format', 'json');
-    url.searchParams.set('limit', String(rule.querySpec.maxResultsPerSource));
+    url.searchParams.set('limit', String(maxResultsPerSource));
     url.searchParams.set('sort', 'dateModified');
     url.searchParams.set('direction', 'desc');
     url.searchParams.set('q', this.readString(config.query) ?? query);
@@ -745,7 +881,7 @@ export class AutoPullService {
     return payload
       .map((entry) => this.mapZoteroEntry(entry, libraryType, libraryId))
       .filter((item): item is LiteratureImportItem => item !== null)
-      .filter((item) => this.matchesTimeWindow(item, rule.timeSpec));
+      .filter((item) => this.matchesTimeWindow(item, timeSpec));
   }
 
   private mapCrossrefRecord(record: Record<string, unknown>, fallbackId: string): LiteratureImportItem | null {
@@ -858,14 +994,15 @@ export class AutoPullService {
 
   private evaluateQualityGate(
     item: LiteratureImportItem,
-    rule: AutoPullRuleRecord,
+    querySpec: AutoPullQuerySpec,
+    qualitySpec: AutoPullQualitySpec,
   ): { allowed: boolean; suggestedScope: TopicScopeStatus; reason: string; score: number } {
     const title = item.title.toLowerCase();
     const abstract = (item.abstract ?? '').toLowerCase();
     const corpus = `${title} ${abstract} ${(item.authors ?? []).join(' ').toLowerCase()}`;
-    const includeMatched = rule.querySpec.includeKeywords.length === 0
-      || rule.querySpec.includeKeywords.some((keyword) => corpus.includes(keyword.toLowerCase()));
-    const excludeMatched = rule.querySpec.excludeKeywords.some((keyword) =>
+    const includeMatched = querySpec.includeKeywords.length === 0
+      || querySpec.includeKeywords.some((keyword) => corpus.includes(keyword.toLowerCase()));
+    const excludeMatched = querySpec.excludeKeywords.some((keyword) =>
       corpus.includes(keyword.toLowerCase()),
     );
 
@@ -878,7 +1015,7 @@ export class AutoPullService {
         score: completenessScore,
       };
     }
-    if (rule.qualitySpec.requireIncludeMatch && !includeMatched) {
+    if (qualitySpec.requireIncludeMatch && !includeMatched) {
       return {
         allowed: false,
         suggestedScope: 'excluded',
@@ -886,7 +1023,7 @@ export class AutoPullService {
         score: completenessScore,
       };
     }
-    if (completenessScore < rule.qualitySpec.minCompletenessScore) {
+    if (completenessScore < qualitySpec.minCompletenessScore) {
       return {
         allowed: false,
         suggestedScope: 'excluded',
@@ -978,18 +1115,21 @@ export class AutoPullService {
     if (!rule) {
       throw new AppError(404, 'NOT_FOUND', `Rule ${ruleId} not found.`);
     }
-    const [sources, schedules] = await Promise.all([
+    const [topicIds, topics, sources, schedules] = await Promise.all([
+      this.repository.listRuleTopicIds(ruleId),
+      this.repository.listRuleTopics(ruleId),
       this.repository.listRuleSources(ruleId),
       this.repository.listRuleSchedules(ruleId),
     ]);
-    return { rule, sources, schedules };
+    return { rule, topicIds, topics, sources, schedules };
   }
 
   private buildRuleDTO(bundle: RuleBundle): AutoPullRuleDTO {
     return {
       rule_id: bundle.rule.id,
       scope: bundle.rule.scope,
-      topic_id: bundle.rule.topicId,
+      topic_id: bundle.topicIds[0] ?? null,
+      topic_ids: bundle.topicIds,
       name: bundle.rule.name,
       status: bundle.rule.status,
       query_spec: {
@@ -1027,16 +1167,18 @@ export class AutoPullService {
     };
   }
 
-  private toTopicProfileDTO(record: TopicProfileRecord): TopicProfileDTO {
+  private toTopicProfileDTO(record: TopicProfileRecord, ruleIds: string[]): TopicProfileDTO {
     return {
       topic_id: record.id,
       name: record.name,
+      is_active: record.isActive,
       include_keywords: record.includeKeywords,
       exclude_keywords: record.excludeKeywords,
       venue_filters: record.venueFilters,
       default_lookback_days: record.defaultLookbackDays,
       default_min_year: record.defaultMinYear,
       default_max_year: record.defaultMaxYear,
+      rule_ids: ruleIds,
       created_at: record.createdAt,
       updated_at: record.updatedAt,
     };
@@ -1103,6 +1245,155 @@ export class AutoPullService {
       detail: record.detail,
       ack_at: record.ackAt,
       created_at: record.createdAt,
+    };
+  }
+
+  private normalizeTopicIdsFromPayload(
+    topicIds?: string[] | null,
+    topicId?: string | null,
+  ): string[] {
+    const values = [
+      ...(topicIds ?? []),
+      ...(topicId ? [topicId] : []),
+    ];
+    return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
+  }
+
+  private resolveNextRuleTopicIds(
+    request: UpdateAutoPullRuleRequest,
+    existingTopicIds: string[],
+    nextScope: AutoPullRuleRecord['scope'],
+  ): string[] {
+    if (request.scope === 'GLOBAL' && request.topic_ids === undefined && request.topic_id === undefined) {
+      return [];
+    }
+    if (request.topic_ids !== undefined) {
+      return this.normalizeTopicIdsFromPayload(request.topic_ids, request.topic_id);
+    }
+    if (request.topic_id !== undefined) {
+      return this.normalizeTopicIdsFromPayload(undefined, request.topic_id);
+    }
+    if (nextScope === 'GLOBAL') {
+      return [];
+    }
+    return existingTopicIds;
+  }
+
+  private async loadTopicProfilesOrThrow(topicIds: string[]): Promise<TopicProfileRecord[]> {
+    const normalizedTopicIds = [...new Set(topicIds)];
+    const profiles = await Promise.all(
+      normalizedTopicIds.map(async (topicId) => {
+        const profile = await this.repository.findTopicProfileById(topicId);
+        if (!profile) {
+          throw new AppError(404, 'NOT_FOUND', `Topic profile ${topicId} not found.`);
+        }
+        return profile;
+      }),
+    );
+    return profiles;
+  }
+
+  private async resolveTopicRuleIds(ruleIds: string[]): Promise<string[]> {
+    const normalizedRuleIds = [...new Set(ruleIds.map((value) => value.trim()).filter((value) => value.length > 0))];
+    await Promise.all(
+      normalizedRuleIds.map(async (ruleId) => {
+        const rule = await this.repository.findRuleById(ruleId);
+        if (!rule) {
+          throw new AppError(404, 'NOT_FOUND', `Rule ${ruleId} not found.`);
+        }
+        if (rule.scope !== 'TOPIC') {
+          throw new AppError(400, 'INVALID_PAYLOAD', `Rule ${ruleId} is not a TOPIC rule.`);
+        }
+      }),
+    );
+    return normalizedRuleIds;
+  }
+
+  private buildTopicExecutionContexts(
+    rule: AutoPullRuleRecord,
+    topics: TopicProfileRecord[],
+  ): TopicExecutionContext[] {
+    if (rule.scope === 'GLOBAL') {
+      return [{
+        topicId: null,
+        querySpec: rule.querySpec,
+        timeSpec: rule.timeSpec,
+      }];
+    }
+
+    return topics
+      .filter((topic) => topic.isActive)
+      .map((topic) => ({
+        topicId: topic.id,
+        querySpec: this.mergeQuerySpecForTopic(rule.querySpec, topic),
+        timeSpec: this.mergeTimeSpecForTopic(rule.timeSpec, topic),
+      }));
+  }
+
+  private mergeQuerySpecForTopic(
+    baseQuerySpec: AutoPullQuerySpec,
+    topic: TopicProfileRecord,
+  ): AutoPullQuerySpec {
+    return {
+      includeKeywords: baseQuerySpec.includeKeywords.length > 0
+        ? baseQuerySpec.includeKeywords
+        : topic.includeKeywords,
+      excludeKeywords: baseQuerySpec.excludeKeywords.length > 0
+        ? baseQuerySpec.excludeKeywords
+        : topic.excludeKeywords,
+      authors: baseQuerySpec.authors,
+      venues: baseQuerySpec.venues.length > 0 ? baseQuerySpec.venues : topic.venueFilters,
+      maxResultsPerSource: baseQuerySpec.maxResultsPerSource,
+    };
+  }
+
+  private mergeTimeSpecForTopic(
+    baseTimeSpec: AutoPullTimeSpec,
+    topic: TopicProfileRecord,
+  ): AutoPullTimeSpec {
+    return {
+      lookbackDays: baseTimeSpec.lookbackDays || topic.defaultLookbackDays,
+      minYear: baseTimeSpec.minYear ?? topic.defaultMinYear,
+      maxYear: baseTimeSpec.maxYear ?? topic.defaultMaxYear,
+    };
+  }
+
+  private aggregateSourceResults(
+    source: AutoPullSource,
+    results: SourceExecutionResult[],
+    activeTopicIds: Array<string | null>,
+    skippedTopicIds: string[],
+  ): SourceExecutionResult {
+    const fetchedItems = results.flatMap((item) => item.fetchedItems);
+    const importedCount = results.reduce((sum, item) => sum + item.importedCount, 0);
+    const failedCount = results.reduce((sum, item) => sum + item.failedCount, 0);
+    const hasFailure = results.some((item) => item.attemptStatus === 'FAILED');
+    const hasPartial = results.some((item) => item.attemptStatus === 'PARTIAL');
+    const attemptStatus: AutoPullRunSourceAttemptRecord['status'] = hasFailure
+      ? importedCount > 0
+        ? 'PARTIAL'
+        : 'FAILED'
+      : hasPartial
+        ? 'PARTIAL'
+        : 'SUCCESS';
+
+    const firstError = results.find((item) => Boolean(item.errorCode || item.errorMessage));
+    return {
+      source,
+      fetchedItems,
+      importedCount,
+      failedCount,
+      errorCode: firstError?.errorCode ?? null,
+      errorMessage: firstError?.errorMessage ?? null,
+      attemptStatus,
+      suggestions: results.flatMap((item) => item.suggestions),
+      meta: {
+        topic_ids: activeTopicIds.filter((value): value is string => typeof value === 'string'),
+        skipped_topic_ids: skippedTopicIds,
+        fetched_count: fetchedItems.length,
+        imported_count: importedCount,
+        failed_count: failedCount,
+      },
     };
   }
 

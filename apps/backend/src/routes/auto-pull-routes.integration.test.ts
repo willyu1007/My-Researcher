@@ -45,6 +45,7 @@ test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack
   assert.equal(createTopicRes.statusCode, 201);
   const createdTopic = createTopicRes.json();
   assert.equal(createdTopic.topic_id, 'TOPIC-AUTO-INT-1');
+  assert.equal(createdTopic.is_active, true);
 
   const listTopicRes = await app.inject({ method: 'GET', url: '/topics/settings' });
   assert.equal(listTopicRes.statusCode, 200);
@@ -62,6 +63,17 @@ test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack
   });
   assert.equal(patchTopicRes.statusCode, 200);
   assert.equal(patchTopicRes.json().default_lookback_days, 90);
+
+  const createTopicRes2 = await app.inject({
+    method: 'POST',
+    url: '/topics/settings',
+    payload: {
+      topic_id: 'TOPIC-AUTO-INT-2',
+      name: 'Auto Pull Topic 2',
+      is_active: true,
+    },
+  });
+  assert.equal(createTopicRes2.statusCode, 201);
 
   const createRuleRes = await app.inject({
     method: 'POST',
@@ -163,7 +175,7 @@ test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack
     url: '/auto-pull/rules',
     payload: {
       scope: 'TOPIC',
-      topic_id: 'TOPIC-AUTO-INT-1',
+      topic_ids: ['TOPIC-AUTO-INT-1', 'TOPIC-AUTO-INT-2'],
       name: 'Topic Rule Invalid Zotero Config',
       sources: [
         {
@@ -186,6 +198,19 @@ test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack
   });
   assert.equal(createTopicRuleRes.statusCode, 201);
   const topicRuleId = createTopicRuleRes.json().rule_id as string;
+  assert.deepEqual(createTopicRuleRes.json().topic_ids, ['TOPIC-AUTO-INT-1', 'TOPIC-AUTO-INT-2']);
+
+  const patchTopicActiveRes = await app.inject({
+    method: 'PATCH',
+    url: '/topics/settings/TOPIC-AUTO-INT-1',
+    payload: {
+      is_active: false,
+      rule_ids: [topicRuleId],
+    },
+  });
+  assert.equal(patchTopicActiveRes.statusCode, 200);
+  assert.equal(patchTopicActiveRes.json().is_active, false);
+  assert.deepEqual(patchTopicActiveRes.json().rule_ids, [topicRuleId]);
 
   const topicRunRes = await app.inject({
     method: 'POST',
@@ -197,6 +222,8 @@ test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack
   assert.equal(topicQueuedRun.status, 'PENDING');
   const topicRun = await waitForTerminalRun(app, topicQueuedRun.run_id as string);
   assert.equal(topicRun.status, 'FAILED');
+  const topicRunSummary = (topicRun.summary as Record<string, unknown>) ?? {};
+  assert.deepEqual(topicRunSummary.skipped_topic_ids, ['TOPIC-AUTO-INT-1']);
   const topicAttempts = Array.isArray(topicRun.source_attempts)
     ? (topicRun.source_attempts as Array<{ source?: string }>)
     : [];

@@ -129,24 +129,24 @@ model PaperLiteratureLink {
 }
 
 model TopicProfile {
-  id                 String               @id
-  name               String
-  includeKeywords    String[]             @default([])
-  excludeKeywords    String[]             @default([])
-  venueFilters       String[]             @default([])
-  defaultLookbackDays Int                 @default(30)
-  defaultMinYear     Int?
-  defaultMaxYear     Int?
-  createdAt          DateTime             @db.Timestamptz(6)
-  updatedAt          DateTime             @db.Timestamptz(6)
-  rules              AutoPullRule[]
-  suggestions        AutoPullSuggestion[]
+  id                  String               @id
+  name                String
+  isActive            Boolean              @default(true)
+  includeKeywords     String[]             @default([])
+  excludeKeywords     String[]             @default([])
+  venueFilters        String[]             @default([])
+  defaultLookbackDays Int                  @default(30)
+  defaultMinYear      Int?
+  defaultMaxYear      Int?
+  createdAt           DateTime             @db.Timestamptz(6)
+  updatedAt           DateTime             @db.Timestamptz(6)
+  ruleLinks           AutoPullRuleTopic[]
+  suggestions         AutoPullSuggestion[]
 }
 
 model AutoPullRule {
   id          String               @id
   scope       String
-  topicId     String?
   name        String
   status      String
   querySpec   Json
@@ -154,7 +154,7 @@ model AutoPullRule {
   qualitySpec Json
   createdAt   DateTime             @db.Timestamptz(6)
   updatedAt   DateTime             @db.Timestamptz(6)
-  topic       TopicProfile?        @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  topics      AutoPullRuleTopic[]
   sources     AutoPullRuleSource[]
   schedules   AutoPullRuleSchedule[]
   runs        AutoPullRun[]
@@ -162,7 +162,19 @@ model AutoPullRule {
   alerts      AutoPullAlert[]
 
   @@index([scope, status])
+}
+
+model AutoPullRuleTopic {
+  id        String       @id
+  ruleId    String
+  topicId   String
+  createdAt DateTime     @db.Timestamptz(6)
+  rule      AutoPullRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  topic     TopicProfile @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, topicId])
   @@index([topicId])
+  @@index([ruleId])
 }
 
 model AutoPullRuleSource {

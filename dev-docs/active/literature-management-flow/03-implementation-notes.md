@@ -104,6 +104,7 @@
 - Verification:
   - `pnpm desktop:typecheck` ✅
   - `pnpm desktop:build` ✅
+  - `pnpm desktop:build` ✅
 
 ### 2026-02-26 - 筛选语义强化与去卡片化（二次修订）
 - Trigger:
@@ -228,3 +229,388 @@
 - Verification:
   - `pnpm desktop:typecheck` ✅
   - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 顶栏复合 Tab（一级 + 右侧二级）首版
+- Trigger:
+  - 用户要求将二级 Tab（Topic 设置 / 规则中心 / 运行与告警）移动到一级 Tab 右侧，并统一二级 Tab 交互逻辑。
+- What changed:
+  - 顶栏文献管理导航改为复合结构：
+    - `自动导入` 与其二级项（Topic 设置 / 规则中心 / 运行与告警）同框展示。
+    - `手动导入`、`文献综览` 保持一级入口并与复合入口并列。
+  - 二级 Tab 交互统一为同一套入口逻辑：
+    - 点击二级项会自动切回 `auto-import` 主 Tab，并切换对应子页。
+    - 内容区移除旧 `auto-pull-subtab-strip`，避免顶部与内容区双重二级导航重复。
+  - 顶栏样式改为自适应单行：
+    - 中央 Tab 区支持横向滚动（窄宽时不换行、不挤压主布局）。
+    - 新增复合 Tab 外框与主/子项状态样式。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 顶栏 Tab 二次精简（激活收起 + 无底色 + 顶部横线）
+- Trigger:
+  - 用户要求二级项仅在对应一级激活时显示，并移除 Tab 胶囊外框与底色，改为顶部横线风格。
+- What changed:
+  - 二级项挂载规则调整：
+    - 仅当“当前激活一级 Tab 且该一级存在二级配置”时渲染二级项；切换到无二级的一级项时自动收起。
+  - Tab 视觉结构精简：
+    - 移除一级/二级 Tab 的底色、外框、胶囊圆角背景。
+    - 导航容器改为顶部基线（top border）样式。
+    - 激活态改为“顶部高亮线 + 字色/字重”而非背景填充。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 顶栏 Tab 三次微调（移除顶部线条）
+- Trigger:
+  - 用户要求取消顶部的两条横线。
+- What changed:
+  - 移除文献 Tab 容器顶部基线。
+  - 移除一级/二级 Tab 激活态顶部高亮线，保留文字颜色与字重作为状态反馈。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 顶栏高度回调与左侧对齐修复
+- Trigger:
+  - 用户反馈当前顶栏高度偏离此前版本，左侧区域出现明显错位。
+- What changed:
+  - 恢复文献导航区高度节奏到此前版本：
+    - 去除额外顶端内边距，恢复一级/二级按钮的最小高度与垂直内边距。
+    - 恢复一级/二级项之间的紧凑间距。
+  - macOS 顶栏对齐修复：
+    - 将 `.topbar-literature-tabs` 纵向偏移从 `translateY(3px)` 调整为 `translateY(1.5px)`，与左侧按钮/右侧控件保持一致。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 二级 Tab 垂直对齐修复
+- Trigger:
+  - 用户反馈次级 Tab 文案视觉上偏上。
+- What changed:
+  - 将二级按钮的 `line-height / min-height / padding` 调整为与一级按钮更接近的垂直节奏，消除上浮感。
+  - 小屏样式同步调整二级按钮最小高度与垂直内边距。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 子 Tab 间距与层级区分优化
+- Trigger:
+  - 用户要求子 Tab 更靠近主 Tab、子项更紧凑，并与一级 Tab 做更明确区分。
+- What changed:
+  - 间距收紧：
+    - 缩小主/子间距与子项之间 gap。
+    - 缩小子 Tab 水平内边距，保持垂直高度稳定。
+  - 层级区分：
+    - 在子 Tab 左侧增加分隔符 `|`。
+    - 子 Tab 默认色改为更浅层级，hover 与 active 色强度低于一级 Tab。
+    - 子 Tab 激活字重从 600 降到 500，避免与一级抢视觉焦点。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 子 Tab 紧凑度与垂直位置二次微调
+- Trigger:
+  - 用户要求进一步紧凑子 Tab，并将子 Tab 整体再下移。
+- What changed:
+  - 紧凑度：
+    - 主/子与子项 gap 进一步压缩为 0。
+    - 子 Tab 左缩进、分隔符右间距、子按钮内边距进一步收紧。
+    - 子按钮最小高度下调（桌面/小屏分别下调）。
+  - 垂直位置：
+    - 子 Tab 容器增加 `translateY(1px)`，使其视觉位置略低于主 Tab。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 文本层级微调（一级增大 / 二级变浅）
+- Trigger:
+  - 用户要求一级 Tab 字体稍大，二级 Tab 颜色再浅一些。
+- What changed:
+  - 一级 Tab 字号上调一档（含小屏断点字号同步上调）。
+  - 二级 Tab 默认/hover/active 颜色统一下调强度，整体层级更轻。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 方案1：浅色主题下一级 Tab 对比增强（组件级）
+- Trigger:
+  - 用户确认采用方案1：不改全局 token，仅增强浅色主题一级 Tab 的选中/未选中对比。
+- What changed:
+  - 仅在 `morethan.light` 下覆盖一级 Tab 颜色：
+    - 未选中：使用 `text_secondary` 与 `text_muted` 混合，降低强度。
+    - hover：回到 `text_secondary`。
+    - 选中：使用 `primary_active`，与未选中拉开差异。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 一级/二级 Tab 选中态字重上调
+- Trigger:
+  - 用户要求同时增加一级与二级 Tab 的选中态字重。
+- What changed:
+  - 一级 Tab 选中态字重由 `600` 上调到 `700`。
+  - 二级 Tab 选中态字重由 `500` 上调到 `600`。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 自动导入二级 Tab 文案调整
+- Trigger:
+  - 用户要求替换二级 Tab 文案。
+- What changed:
+  - `Topic 设置` -> `设置主题`
+  - `运行与告警` -> `执行详情`
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 自动导入顶部状态区移除
+- Trigger:
+  - 用户要求移除自动导入页顶部“状态/Topic/规则/运行/告警”整行信息及对应横线。
+- What changed:
+  - 删除自动导入页顶部状态工具条（包含左侧“状态”与右侧四个状态 badge）。
+  - 针对文献工作区覆盖 `module-dashboard` 的顶部边线与内边距，移除该区域横线视觉。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - Topic/Rule many-to-many + 主题启停跳过检索
+- Trigger:
+  - 用户确认三项约束：
+    - 主题关闭时不暂停规则，而是在检索执行中跳过该主题。
+    - Topic 侧需要可选择已有规则，并支持“新建规则”快捷跳转。
+    - 规则与主题按 many-to-many 规划。
+- What changed:
+  - 数据模型与迁移：
+    - `TopicProfile` 新增 `isActive`。
+    - `AutoPullRule` 移除单一 `topicId`，改为通过 `AutoPullRuleTopic` 关联表绑定主题。
+    - 新增迁移 `20260227163000_autopull_rule_topic_many_to_many`，包含旧 `topicId` 到关联表的数据回填。
+  - Shared 契约：
+    - `TopicProfileDTO` 新增 `is_active`、`rule_ids`。
+    - `Create/UpdateTopicProfileRequest` 新增 `is_active`、`rule_ids`。
+    - `AutoPullRuleDTO` 新增 `topic_ids`（保留 `topic_id` 兼容字段）。
+    - `Create/UpdateAutoPullRuleRequest` 新增 `topic_ids`（并兼容 `topic_id`）。
+  - 后端服务/仓储：
+    - 仓储新增 rule-topic 读写接口（Prisma + InMemory 双实现）。
+    - `AutoPullService` 改为按 many-to-many 解析规则绑定。
+    - TOPIC 规则执行改为“按 active topic 上下文执行”，inactive topic 进入 `skipped_topic_ids`。
+    - 当 TOPIC 规则无 active topic 时，run 直接 `SKIPPED`，并产出 `NO_ACTIVE_TOPIC` 告警。
+    - Topic 设置接口支持直接维护 `rule_ids` 绑定。
+  - 前端 UI/交互（自动导入）：
+    - 子 Tab 顺序调整为：`规则中心` -> `设置主题` -> `执行详情`。
+    - `设置主题`改为“主题列表为主”：展示主题详情、启用/关闭、绑定规则概览。
+    - 新增“新增主题”弹框（创建/编辑复用），弹框内可选择已有 TOPIC 规则绑定。
+    - 新增“新建规则”快捷跳转：从主题列表一键跳到规则中心并预填绑定主题。
+    - 规则表单改为 `topic_ids` 输入（逗号/换行），适配 many-to-many。
+    - 文案将 `Venue` 明确为“期刊/会议来源过滤”或“期刊/会议关键词”。
+- Impact scope:
+  - `prisma/schema.prisma`
+  - `prisma/migrations/20260227163000_autopull_rule_topic_many_to_many/migration.sql`
+  - `packages/shared/src/research-lifecycle/interface-field-contracts.ts`
+  - `apps/backend/src/repositories/auto-pull-repository.ts`
+  - `apps/backend/src/repositories/prisma/prisma-auto-pull-repository.ts`
+  - `apps/backend/src/repositories/in-memory-auto-pull-repository.ts`
+  - `apps/backend/src/services/auto-pull-service.ts`
+  - `apps/backend/src/services/auto-pull-service.unit.test.ts`
+  - `apps/backend/src/routes/auto-pull-routes.integration.test.ts`
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+- Notes:
+  - 保持旧 `topic_id` 入参兼容，前端已切换至 `topic_ids` 主路径。
+
+### 2026-02-27 - 新增主题弹窗交互升级（自动标识 + 下拉多选 + 双滑块）
+- Trigger:
+  - 用户要求优化“新增主题”样式与交互：
+    - Topic 标识自动生成
+    - 文案避免中英混排
+    - 包含词/排除词使用加号添加
+    - 会议/期刊改为下拉多选
+    - 年份改为双滑块时间轴
+    - 明确“默认窗口 / 主题勾选 / 规则绑定”语义
+- What changed:
+  - Topic 标识生成策略改为稳定自动生成：
+    - 基于主题名称生成 `TOPIC-<SLUG>`。
+    - 若冲突自动追加递增后缀（`-2/-3...`），避免随机后缀导致预览与提交不一致。
+  - 主题弹窗 UI 重构：
+    - “包含词 / 排除词”改为 token 加号添加模式，支持回删。
+    - “会议与期刊”改为下拉多选面板（checkbox 列表 + 清空选择）。
+    - “年份范围”改为双滑块时间轴样式，并显示当前起止年份。
+  - 语义可解释性增强：
+    - “默认检索窗口天数”新增说明文案，明确其在未单独设置时间范围时生效。
+    - “参与自动检索”勾选项新增说明文案，明确取消勾选时规则继续运行但跳过该主题。
+    - 规则绑定区新增“前往规则中心”快捷入口，并明确“在此勾选后加入规则检索目标”。
+  - 文案清理：
+    - 将主题设置区相关提示统一为中文表达（例如“暂无主题设置”“包含词/排除词”等）。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 新增主题弹窗样式对齐（二次修订：中文哈希 ID + 回车添加 + 分区布局）
+- Trigger:
+  - 用户反馈“主题名称似乎不支持中文”，并提供目标弹窗参考图，要求先对齐方案后实施。
+- What changed:
+  - 主题标识生成改为“中文安全哈希”：
+    - `generateTopicIdByName` 不再依赖英文 slug，而是基于主题名称 `NFKC` 归一化后生成稳定 8 位十六进制哈希。
+    - 生成规则为 `TOPIC-<HASH>`，冲突时自动追加递增后缀（`-2/-3...`）。
+  - 包含词/排除词交互改为“回车自动添加”：
+    - 移除加号按钮。
+    - 输入框按 `Enter`（且非输入法组合态）直接加入词条。
+  - 弹窗布局按参考图重排：
+    - 顶部标题栏（创建/编辑主题 + 关闭按钮）。
+    - 两个分区：`主题基础信息` 与 `运行方式与规则`。
+    - 基础信息采用双列布局：主题名称/主题标识、包含词/排除词、会议与期刊/默认检索窗口。
+    - 年份范围改为“起始年输入 + 双滑块 + 结束年输入”，并增加快捷按钮（近5年/近10年/全部）。
+    - 运行区改为左右卡片：左侧启用策略说明，右侧规则绑定面板（含“去规则中心创建规则”）。
+    - 底部固定操作区：取消 + 创建/更新主题。
+  - 响应式补齐：
+    - 小屏下主题表单自动改为单列，年份区自动纵向堆叠，避免控件拥挤。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 新增主题弹窗细节微调（三次修订：去默认窗口 + 年份轨道高亮）
+- Trigger:
+  - 用户继续提出弹窗细节调整：
+    - 移除“自动生成主题标识”说明文案
+    - 主题标识输入框改灰底
+    - 取消“默认检索窗口”，将年份范围移动到该位置
+    - 年份双滑块两个点之间高亮着色
+    - 近5/近10/全部快捷项移动到“年份范围”标题旁
+- What changed:
+  - UI 文案与样式：
+    - 移除主题名称下方辅助说明文案。
+    - `主题标识` 只读输入框新增灰底样式。
+  - 表单结构：
+    - 删除“默认检索窗口”可视输入控件。
+    - 将“年份范围”并入 `topic-modal-grid` 右列（替代默认窗口原位置）。
+    - 年份快捷项移动到标题右侧，和标题同行展示。
+  - 年份轨道高亮：
+    - 引入 `topicYearRangeTrackStyle`（CSS 变量）计算当前起止年份百分比。
+    - 滑块底轨改为分段渐变，起止点之间使用主色高亮。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 新增主题弹窗细节微调（四次修订：年份范围去外框）
+- Trigger:
+  - 用户要求“年份范围不需要外框”。
+- What changed:
+  - 将年份起止输入框样式改为无边框、透明背景、居中文本，保留数值编辑能力。
+  - 聚焦时仅提升文字对比，不再显示输入框边框高亮。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 新增主题弹窗文案微调（五次修订：标题替换与去重复）
+- Trigger:
+  - 用户要求将“创建主题”替换为“主题基础信息”（保持蓝色），并去除内容区重复的“主题基础信息”标题。
+- What changed:
+  - 弹窗头部标题由创建/编辑态文案统一为“主题基础信息”。
+  - 弹窗 `aria-label` 同步改为“主题基础信息”。
+  - 删除第一分区内重复的小标题“主题基础信息”。
+  - 弹窗头部标题颜色调整为蓝色主色。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 新增主题弹窗间距修正（六次修订：空 token 不占位）
+- Trigger:
+  - 用户反馈“主题名称 / 包含词 / 会议与期刊”三行之间垂直间距不一致。
+- What changed:
+  - `topic-token-list` 在空状态下不再占位（`:empty` 时不渲染），消除“包含词”行额外留白。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 会议与期刊下拉布局微调（七次修订：每行三项）
+- Trigger:
+  - 用户要求“会议与期刊”的下拉选择改为一行三个选项。
+- What changed:
+  - `topic-venue-picker-list` 改为三列网格（桌面每行 3 项）。
+  - 小屏降级为两列，避免选项挤压。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 运行方式右侧标题补齐（八次修订）
+- Trigger:
+  - 用户要求在右侧卡片添加标题“规则绑定”。
+- What changed:
+  - 右侧规则卡片头部由弱化 caption 文本改为明确标题 `规则绑定`。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 运行方式与规则绑定并排修正（九次修订）
+- Trigger:
+  - 用户要求“规则绑定”和“运行方式”同行展示。
+- What changed:
+  - 在中等宽度断点下保留 `topic-modal-grid-run` 双列布局，避免该分区被全局单列规则折叠。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 年份范围轴线位置微调（十次修订）
+- Trigger:
+  - 用户要求“年份范围选择轴上移一点，保持视觉统一”。
+- What changed:
+  - `topic-year-range-main` 增加轻微负上边距，使年份数值与滑轨整体上移。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 规则绑定标题外提（十一次修订）
+- Trigger:
+  - 用户要求“规则绑定”移到框外，并与“运行方式”使用同级标题样式。
+- What changed:
+  - 运行区重构为左右两列各自标题：
+    - 左列标题：运行方式
+    - 右列标题：规则绑定
+  - 右侧卡片内移除原嵌入标题，仅保留“创建规则”按钮与规则列表。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 规则绑定空态样式对齐（十二次修订）
+- Trigger:
+  - 用户提供参考图，要求“规则绑定”空态 UI 对齐。
+- What changed:
+  - 规则绑定卡片改为双态：
+    - 无规则：居中空态（图标 + 提示文案 + “去规则中心创建规则”按钮）
+    - 有规则：保留“创建规则”按钮与绑定列表
+  - 新增空态图标容器与强调按钮样式，使视觉层级接近参考图。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 运行区列宽比例调整（十三次修订：1:2）
+- Trigger:
+  - 用户要求“运行方式”和“规则绑定”区域宽度比例调整为 `1:2`。
+- What changed:
+  - `topic-modal-grid-run` 列宽改为 `1fr : 2fr`。
+  - 中等宽度断点保持同样比例，避免回退为等宽。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 运行区卡片等高修正（十四次修订）
+- Trigger:
+  - 用户要求“运行方式”和“规则绑定”外框等高。
+- What changed:
+  - 运行区网格改为拉伸对齐。
+  - 左右列改为 `auto + 1fr` 行结构，卡片层设置 `height: 100%`。
+  - 两侧卡片统一最小高度为 `144px`。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`

@@ -22,6 +22,8 @@ export class InMemoryAutoPullRepository implements AutoPullRepository {
   private readonly topicProfiles = new Map<string, TopicProfileRecord>();
 
   private readonly rules = new Map<string, AutoPullRuleRecord>();
+  private readonly topicIdsByRule = new Map<string, string[]>();
+  private readonly ruleIdsByTopic = new Map<string, string[]>();
   private readonly ruleSourcesByRule = new Map<string, AutoPullRuleSourceRecord[]>();
   private readonly ruleSchedulesByRule = new Map<string, AutoPullRuleScheduleRecord[]>();
 
@@ -81,7 +83,13 @@ export class InMemoryAutoPullRepository implements AutoPullRepository {
   }): Promise<AutoPullRuleRecord[]> {
     return [...this.rules.values()]
       .filter((rule) => (filters?.scope ? rule.scope === filters.scope : true))
-      .filter((rule) => (filters?.topicId ? rule.topicId === filters.topicId : true))
+      .filter((rule) => {
+        if (!filters?.topicId) {
+          return true;
+        }
+        const topicIds = this.topicIdsByRule.get(rule.id) ?? [];
+        return topicIds.includes(filters.topicId);
+      })
       .filter((rule) => (filters?.status ? rule.status === filters.status : true))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
@@ -108,6 +116,12 @@ export class InMemoryAutoPullRepository implements AutoPullRepository {
 
   async deleteRule(ruleId: string): Promise<void> {
     this.rules.delete(ruleId);
+    const topicIds = this.topicIdsByRule.get(ruleId) ?? [];
+    this.topicIdsByRule.delete(ruleId);
+    for (const topicId of topicIds) {
+      const current = this.ruleIdsByTopic.get(topicId) ?? [];
+      this.ruleIdsByTopic.set(topicId, current.filter((currentRuleId) => currentRuleId !== ruleId));
+    }
     this.ruleSourcesByRule.delete(ruleId);
     this.ruleSchedulesByRule.delete(ruleId);
 
@@ -141,12 +155,62 @@ export class InMemoryAutoPullRepository implements AutoPullRepository {
     return [...items].sort((a, b) => a.priority - b.priority);
   }
 
+  async replaceRuleTopics(ruleId: string, topicIds: string[]): Promise<void> {
+    const previous = this.topicIdsByRule.get(ruleId) ?? [];
+    for (const topicId of previous) {
+      const currentRuleIds = this.ruleIdsByTopic.get(topicId) ?? [];
+      this.ruleIdsByTopic.set(topicId, currentRuleIds.filter((currentRuleId) => currentRuleId !== ruleId));
+    }
+
+    const nextTopicIds = [...new Set(topicIds)];
+    this.topicIdsByRule.set(ruleId, nextTopicIds);
+    for (const topicId of nextTopicIds) {
+      const currentRuleIds = this.ruleIdsByTopic.get(topicId) ?? [];
+      if (!currentRuleIds.includes(ruleId)) {
+        this.ruleIdsByTopic.set(topicId, [...currentRuleIds, ruleId].sort());
+      }
+    }
+  }
+
+  async listRuleTopics(ruleId: string): Promise<TopicProfileRecord[]> {
+    const topicIds = this.topicIdsByRule.get(ruleId) ?? [];
+    return topicIds
+      .map((topicId) => this.topicProfiles.get(topicId))
+      .filter((item): item is TopicProfileRecord => Boolean(item))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }
+
+  async listRuleTopicIds(ruleId: string): Promise<string[]> {
+    return [...(this.topicIdsByRule.get(ruleId) ?? [])].sort((a, b) => a.localeCompare(b));
+  }
+
   async replaceRuleSchedules(ruleId: string, schedules: AutoPullRuleScheduleRecord[]): Promise<void> {
     this.ruleSchedulesByRule.set(ruleId, [...schedules]);
   }
 
   async listRuleSchedules(ruleId: string): Promise<AutoPullRuleScheduleRecord[]> {
     return [...(this.ruleSchedulesByRule.get(ruleId) ?? [])];
+  }
+
+  async replaceTopicRules(topicId: string, ruleIds: string[]): Promise<void> {
+    const previousRuleIds = this.ruleIdsByTopic.get(topicId) ?? [];
+    for (const ruleId of previousRuleIds) {
+      const currentTopicIds = this.topicIdsByRule.get(ruleId) ?? [];
+      this.topicIdsByRule.set(ruleId, currentTopicIds.filter((currentTopicId) => currentTopicId !== topicId));
+    }
+
+    const nextRuleIds = [...new Set(ruleIds)];
+    this.ruleIdsByTopic.set(topicId, nextRuleIds);
+    for (const ruleId of nextRuleIds) {
+      const currentTopicIds = this.topicIdsByRule.get(ruleId) ?? [];
+      if (!currentTopicIds.includes(topicId)) {
+        this.topicIdsByRule.set(ruleId, [...currentTopicIds, topicId].sort());
+      }
+    }
+  }
+
+  async listTopicRuleIds(topicId: string): Promise<string[]> {
+    return [...(this.ruleIdsByTopic.get(topicId) ?? [])].sort((a, b) => a.localeCompare(b));
   }
 
   async createRun(record: AutoPullRunRecord): Promise<AutoPullRunRecord> {
