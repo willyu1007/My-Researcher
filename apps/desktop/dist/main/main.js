@@ -12,7 +12,7 @@ const preloadCandidates = [
 ];
 const preloadPath = preloadCandidates.find((candidate) => fs.existsSync(candidate)) ?? preloadCandidates[0];
 const backendBaseUrl = process.env.DESKTOP_BACKEND_BASE_URL ?? 'http://127.0.0.1:3000';
-const allowedGovernanceMethods = new Set(['GET', 'POST', 'PATCH']);
+const allowedGovernanceMethods = new Set(['GET', 'POST', 'PATCH', 'DELETE']);
 const isMacOS = process.platform === 'darwin';
 let mainWindow = null;
 function focusAndCenterWindow(window) {
@@ -78,7 +78,8 @@ function createWindow() {
 function normalizeGovernancePath(input) {
     if (!input.startsWith('/paper-projects/') &&
         !input.startsWith('/literature/') &&
-        !input.startsWith('/topics/')) {
+        !input.startsWith('/topics/') &&
+        !input.startsWith('/auto-pull/')) {
         throw new Error('Unsupported governance path.');
     }
     return input;

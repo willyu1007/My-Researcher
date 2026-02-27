@@ -188,3 +188,43 @@
   - `apps/desktop/src/renderer/app-layout.css`
 - Notes:
   - 现有 `manual import / zotero import / overview / metadata` 主流程未破坏。
+
+### 2026-02-27 - 自动导入遗留清理 + 底部告警可关闭
+- Trigger:
+  - 用户要求继续执行“人工验收脚本 + 清理遗留状态”，并将告警信息统一放到底部且允许关闭。
+- What changed:
+  - 清理 `App.tsx` 中旧自动导入遗留实现：
+    - 删除旧即时检索/候选导入/URL 批量抓取的状态变量、类型定义、解析函数与恢复动作分支。
+    - 删除对应占位 handler（`handleSearchLiterature`、`handleImportSelectedCandidates`、`handleAutoImportFromWeb`）和冗余 `void` 占位引用。
+  - 统一反馈告警展示位置：
+    - 原顶部 `literature-top-feedback` 改为全局底部 `literature-bottom-alert`。
+    - 告警支持显式“关闭”按钮；有恢复动作时保留“执行恢复动作”入口。
+  - 规则告警列表交互文案对齐：
+    - 告警列表中未确认按钮由 `Ack` 改为“关闭”（底层仍走 ack 接口）。
+    - 关闭后反馈文案更新为“告警已关闭”。
+  - 样式层新增底部浮层在桌面/小屏的响应式布局，避免遮挡核心表单交互。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+
+### 2026-02-27 - 告警轻量化与文案去重（对齐修订）
+- Trigger:
+  - 用户反馈告警“过大且显眼，并侵占左侧区域”，同时要求减少重复信息（例如“自动拉取 / Topic 设置”重复出现）。
+- What changed:
+  - 告警浮层从底部居中宽横幅改为“右下角轻量 toast”（固定窄宽，不跨越左侧导航区域）。
+  - 告警行为改为分级消失策略：
+    - `success/info`：3 秒自动关闭
+    - `warning/error`：常驻，需手动关闭
+  - 自动导入页去重文案：
+    - 移除“自动拉取（规则驱动 + 异步运行）”重复大标题
+    - 移除子 Tab 内容区内重复的“Topic 设置 / 规则中心 / 运行与告警”段落标题
+    - 仅保留子 Tab 导航本身表达当前语义
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+- Verification:
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅

@@ -12,7 +12,7 @@
 - [x] 文献管理专项 E2E（本地脚本化链路：web-import -> manual import -> zotero-import -> overview -> metadata -> paper sync -> citation）
 
 ## Manual functional checks
-- [ ] 自动联网导入：成功、部分失败、全失败、恢复重试。
+- [x] 自动拉取链路：Topic 设置 / 规则创建 / 手动触发 / run 详情 / 告警 ack / failed source retry。
 - [ ] 手动上传：JSON/CSV/BibTeX 正常与异常文件。
 - [ ] 文献库联动：公开库与授权库流程。
 - [ ] 高级查询：多条件组合、保存查询、复用查询。
@@ -80,4 +80,20 @@
     - Topic settings / auto-pull 规则 CRUD、run 触发、retry failed sources、alerts ack（集成测试通过）
     - 单飞跳过告警、无数据源失败告警、scheduled due 判定、retry 路径（单测通过）
     - `/literature/web-import`、`/literature/search` 删除后 404 回归（集成测试通过）
-- 2026-02-26: Manual functional checks / usability checks / gray rollout checks 尚未执行（需人工验收）。
+- 2026-02-27: 自动拉取人工验收脚本（Topic/Rule/Run/Alert 全链路）✅
+  - 命令：`pnpm exec node --loader ts-node/esm .tmp/manual-auto-pull-acceptance.ts`（在 `apps/backend` 下执行）
+  - 结果摘要：
+    - `topic_id=TOPIC-MANUAL-1772157442798`
+    - `rule_id=1436c3bc-cb23-4143-b412-f985a593d0d6`
+    - 首次 run：`249deb58-86ab-4448-bf21-4f34a89db08a`，`status=FAILED`，source=`ZOTERO`，错误=`Zotero source config requires library_type and library_id.`
+    - 重试 run：`44d63af8-638d-4463-befb-bae042895e7a`，`status=FAILED`
+    - 告警链路：未确认告警>0，ack 成功，run 总数=2
+- 2026-02-27: 自动导入遗留清理 + 底部可关闭告警回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 告警轻量化与文案去重回归（右下 toast + 自动消失策略）✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: `pnpm --filter @paper-engineering-assistant/backend test` ✅（34 passed）
+- 2026-02-27: `pnpm --filter @paper-engineering-assistant/shared typecheck` ✅
+- 2026-02-27: 其余 Manual functional checks / usability checks / gray rollout checks 尚未执行（需人工验收）。

@@ -2,7 +2,7 @@
 
 ## Status
 - State: in-progress
-- Next step: 执行自动拉取新链路的人工验收（Topic/Rule/Run/Alert）并确认 Go/No-Go gate
+- Next step: 执行剩余手工验收（手动上传/Zotero/综览可用性）并确认 Go/No-Go gate
 
 ## Goal
 - 将“自动拉取”升级为规则驱动 + 异步执行 + 可观测告警系统，并保持文献管理 UIUX 在导入/综览/元数据链路可用。

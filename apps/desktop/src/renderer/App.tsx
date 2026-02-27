@@ -54,7 +54,6 @@ type ReleaseGateResponse = {
   };
 };
 
-type DedupMatchType = 'none' | 'doi' | 'arxiv_id' | 'title_authors_year';
 type CitationStatus = 'seeded' | 'selected' | 'used' | 'cited' | 'dropped';
 type ScopeStatus = 'in_scope' | 'excluded';
 type RightsClass = 'OA' | 'USER_AUTH' | 'RESTRICTED' | 'UNKNOWN';
@@ -111,11 +110,8 @@ type SavedQueryPreset = {
 };
 
 type FeedbackRecoveryAction =
-  | 'retry-web-import'
-  | 'retry-web-import-failed'
   | 'retry-zotero-import'
   | 'retry-query'
-  | 'retry-candidate-import'
   | 'reload-overview';
 type InlineFeedbackModel = {
   slot: 'header' | 'auto-import' | 'manual-import' | 'overview';
@@ -136,25 +132,6 @@ type LiteratureImportPayload = {
   source_url: string;
   rights_class?: RightsClass;
   tags?: string[];
-};
-
-type LiteratureSearchItem = {
-  import_payload: LiteratureImportPayload;
-  dedup: {
-    is_existing: boolean;
-    literature_id?: string;
-    matched_by: DedupMatchType;
-  };
-};
-
-type LiteratureWebImportResult = {
-  url: string;
-  imported: boolean;
-  literature_id?: string;
-  title?: string;
-  matched_by?: DedupMatchType;
-  source_provider?: LiteratureProvider;
-  message?: string;
 };
 
 type AutoPullTopicProfile = {
@@ -893,107 +870,6 @@ function normalizeAutoPullAlertsPayload(payload: unknown): AutoPullAlert[] {
     .filter((item): item is AutoPullAlert => item !== null);
 }
 
-function normalizeLiteratureSearchPayload(payload: unknown): LiteratureSearchItem[] {
-  const root = asRecord(payload);
-  const itemsRaw = root?.items;
-  if (!Array.isArray(itemsRaw)) {
-    return [];
-  }
-
-  return itemsRaw
-    .map((item): LiteratureSearchItem | null => {
-      const row = asRecord(item);
-      const importPayload = row ? asRecord(row.import_payload) : null;
-      const dedup = row ? asRecord(row.dedup) : null;
-      if (!importPayload || !dedup) {
-        return null;
-      }
-
-      const provider = toText(importPayload.provider);
-      const externalId = toText(importPayload.external_id);
-      const title = toText(importPayload.title);
-      const sourceUrl = toText(importPayload.source_url);
-      if (!provider || !externalId || !title || !sourceUrl) {
-        return null;
-      }
-
-      const dedupMatchedBy = toText(dedup.matched_by);
-      const isExisting = dedup.is_existing;
-      if (typeof isExisting !== 'boolean' || !dedupMatchedBy) {
-        return null;
-      }
-
-      return {
-        import_payload: {
-          provider: normalizeLiteratureProvider(provider),
-          external_id: externalId,
-          title,
-          abstract: toText(importPayload.abstract),
-          authors: Array.isArray(importPayload.authors)
-            ? importPayload.authors.filter((author): author is string => typeof author === 'string')
-            : [],
-          year: typeof importPayload.year === 'number' ? importPayload.year : undefined,
-          doi: toText(importPayload.doi),
-          arxiv_id: toText(importPayload.arxiv_id),
-          source_url: sourceUrl,
-          rights_class: normalizeRightsClass(toText(importPayload.rights_class)),
-          tags: Array.isArray(importPayload.tags)
-            ? importPayload.tags.filter((tag): tag is string => typeof tag === 'string')
-            : [],
-        },
-        dedup: {
-          is_existing: isExisting,
-          literature_id: toText(dedup.literature_id),
-          matched_by:
-            dedupMatchedBy === 'doi' ||
-            dedupMatchedBy === 'arxiv_id' ||
-            dedupMatchedBy === 'title_authors_year'
-              ? dedupMatchedBy
-              : 'none',
-        },
-      };
-    })
-    .filter((row): row is LiteratureSearchItem => row !== null);
-}
-
-function normalizeWebImportResultPayload(payload: unknown): LiteratureWebImportResult[] {
-  const root = asRecord(payload);
-  const resultsRaw = root?.results;
-  if (!Array.isArray(resultsRaw)) {
-    return [];
-  }
-
-  return resultsRaw
-    .map((entry): LiteratureWebImportResult | null => {
-      const row = asRecord(entry);
-      if (!row) {
-        return null;
-      }
-
-      const url = toText(row.url);
-      const imported = row.imported;
-      if (!url || typeof imported !== 'boolean') {
-        return null;
-      }
-
-      const matchedBy = toText(row.matched_by);
-      const sourceProvider = toText(row.source_provider);
-      return {
-        url,
-        imported,
-        literature_id: toText(row.literature_id),
-        title: toText(row.title),
-        matched_by:
-          matchedBy === 'doi' || matchedBy === 'arxiv_id' || matchedBy === 'title_authors_year'
-            ? matchedBy
-            : 'none',
-        source_provider: sourceProvider ? normalizeLiteratureProvider(sourceProvider) : undefined,
-        message: toText(row.message),
-      };
-    })
-    .filter((entry): entry is LiteratureWebImportResult => entry !== null);
-}
-
 function normalizeTopicScopePayload(payload: unknown): TopicScopeItem[] {
   const root = asRecord(payload);
   const itemsRaw = root?.items;
@@ -1380,19 +1256,6 @@ function parseManualUploadItems(fileName: string, text: string): LiteratureImpor
   return parseManualBibText(text);
 }
 
-function parseBatchUrls(value: string): string[] {
-  return [...new Set(
-    value
-      .split(/\r?\n|,|;/)
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0),
-  )];
-}
-
-void normalizeLiteratureSearchPayload;
-void normalizeWebImportResultPayload;
-void parseBatchUrls;
-
 function createQueryCondition(
   field: QueryField = 'title',
   operator: QueryOperator = 'contains',
@@ -1768,15 +1631,6 @@ export function App({ initialThemeMode }: AppProps) {
   });
   const [topicIdInput, setTopicIdInput] = useState<string>('TOPIC-001');
   const [topicId, setTopicId] = useState<string>('TOPIC-001');
-  const [literatureQuery, setLiteratureQuery] = useState<string>('large language model evaluation');
-  const [searchItems, setSearchItems] = useState<LiteratureSearchItem[]>([]);
-  const [searchLoading, setSearchLoading] = useState<boolean>(false);
-  const [searchStatus, setSearchStatus] = useState<UiOperationStatus>('idle');
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [selectedCandidates, setSelectedCandidates] = useState<Record<string, boolean>>({});
-  const [candidateImportLoading, setCandidateImportLoading] = useState<boolean>(false);
-  const [candidateImportStatus, setCandidateImportStatus] = useState<UiOperationStatus>('idle');
-  const [candidateImportError, setCandidateImportError] = useState<string | null>(null);
   const [topicScopeItems, setTopicScopeItems] = useState<TopicScopeItem[]>([]);
   const [topicScopeLoading, setTopicScopeLoading] = useState<boolean>(false);
   const [topicScopeError, setTopicScopeError] = useState<string | null>(null);
@@ -1850,25 +1704,6 @@ export function App({ initialThemeMode }: AppProps) {
   const [literatureActionMessage, setLiteratureActionMessage] = useState<string>('');
   const [scopeReasonInput, setScopeReasonInput] = useState<string>('初筛保留');
   const [batchTagsInput, setBatchTagsInput] = useState<string>('survey, baseline');
-  const [webImportUrlsInput, setWebImportUrlsInput] = useState<string>('');
-  const [webImportLoading, setWebImportLoading] = useState<boolean>(false);
-  const [webImportStatus, setWebImportStatus] = useState<UiOperationStatus>('idle');
-  const [webImportError, setWebImportError] = useState<string | null>(null);
-  const [webImportResults, setWebImportResults] = useState<LiteratureWebImportResult[]>([]);
-  void [
-    literatureQuery,
-    setLiteratureQuery,
-    searchLoading,
-    searchStatus,
-    searchError,
-    candidateImportLoading,
-    candidateImportStatus,
-    candidateImportError,
-    webImportUrlsInput,
-    webImportLoading,
-    webImportStatus,
-    webImportError,
-  ];
   const [manualUploadLoading, setManualUploadLoading] = useState<boolean>(false);
   const [manualUploadStatus, setManualUploadStatus] = useState<UiOperationStatus>('idle');
   const [manualUploadError, setManualUploadError] = useState<string | null>(null);
@@ -1969,6 +1804,22 @@ export function App({ initialThemeMode }: AppProps) {
     setTopFeedback(feedback);
     setLiteratureActionMessage(feedback.message);
   }, []);
+
+  useEffect(() => {
+    if (!topFeedback) {
+      return;
+    }
+    if (topFeedback.level === 'warning' || topFeedback.level === 'error') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setTopFeedback(null);
+    }, 3_000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [topFeedback]);
 
   const loadGovernancePanels = useCallback(async (targetPaperId: string) => {
     const normalizedPaperId = targetPaperId.trim();
@@ -2726,7 +2577,7 @@ export function App({ initialThemeMode }: AppProps) {
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'success',
-        message: '告警已确认。',
+        message: '告警已关闭。',
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : '确认告警失败。';
@@ -2736,131 +2587,6 @@ export function App({ initialThemeMode }: AppProps) {
         message: `确认告警失败：${message}`,
       });
     }
-  };
-
-  const handleSearchLiterature = async () => {
-    setSearchLoading(false);
-    setSearchStatus('error');
-    setSearchItems([]);
-    setSearchError('旧版即时检索已下线，请使用规则中心创建自动拉取规则。');
-    pushLiteratureFeedback({
-      slot: 'auto-import',
-      level: 'warning',
-      message: '旧版即时检索已下线，请改用规则中心。',
-    });
-  };
-
-  const handleToggleCandidate = (key: string) => {
-    setSelectedCandidates((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
-  };
-  void handleToggleCandidate;
-
-  const handleImportSelectedCandidates = async () => {
-    const selectedItems = searchItems.filter((item) =>
-      selectedCandidates[item.import_payload.external_id],
-    );
-    if (selectedItems.length === 0) {
-      setCandidateImportStatus('error');
-      setCandidateImportError('请至少选择一条候选文献。');
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'warning',
-        message: '请至少选择一条候选文献。',
-      });
-      return;
-    }
-
-    const normalizedTopicId = topicId.trim();
-    if (!normalizedTopicId) {
-      const message = '请先输入 Topic ID，再将候选文献加入选题范围。';
-      setCandidateImportStatus('error');
-      setCandidateImportError(message);
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'warning',
-        message,
-      });
-      return;
-    }
-
-    setCandidateImportLoading(true);
-    setCandidateImportStatus('loading');
-    setCandidateImportError(null);
-    try {
-      const payload = await requestGovernance({
-        method: 'POST',
-        path: '/literature/import',
-        body: {
-          items: selectedItems.map((item) => item.import_payload),
-        },
-      });
-      const root = asRecord(payload);
-      const results = root?.results;
-      const importedIds = Array.isArray(results)
-        ? results
-            .map((row) => asRecord(row))
-            .map((row) => (row ? toText(row.literature_id) : undefined))
-            .filter((id): id is string => Boolean(id))
-        : [];
-
-      if (importedIds.length > 0) {
-        await requestGovernance({
-          method: 'POST',
-          path: `/topics/${encodeURIComponent(normalizedTopicId)}/literature-scope`,
-          body: {
-            actions: importedIds.map((literatureId) => ({
-              literature_id: literatureId,
-              scope_status: 'in_scope',
-              reason: scopeReasonInput.trim() || undefined,
-            })),
-          },
-        });
-      }
-
-      setCandidateImportStatus(importedIds.length > 0 ? 'ready' : 'empty');
-      setCandidateImportError(null);
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: importedIds.length > 0 ? 'success' : 'warning',
-        message:
-          importedIds.length > 0
-            ? `已导入 ${importedIds.length} 条文献，并加入当前选题范围。`
-            : '未导入新文献，请调整候选后重试。',
-      });
-      setActionHint(`候选导入完成：${importedIds.length} 条。`);
-      if (importedIds.length > 0) {
-        await loadTopicScope(normalizedTopicId);
-        await loadLiteratureOverview(normalizedTopicId, paperId);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '导入失败。';
-      setCandidateImportStatus('error');
-      setCandidateImportError(message);
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'error',
-        message: `检索结果导入失败：${message}`,
-        recoveryAction: 'retry-candidate-import',
-      });
-    } finally {
-      setCandidateImportLoading(false);
-    }
-  };
-
-  const handleAutoImportFromWeb = async (overrideUrls?: string[]) => {
-    void overrideUrls;
-    setWebImportLoading(false);
-    setWebImportStatus('error');
-    setWebImportError('旧版 URL 批量抓取已下线，请在规则中心通过数据源规则自动拉取。');
-    setWebImportResults([]);
-    pushLiteratureFeedback({
-      slot: 'auto-import',
-      level: 'warning',
-      message: '旧版 URL 批量抓取已下线，请改用规则中心。',
-    });
   };
 
   const handleManualUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -3335,37 +3061,12 @@ export function App({ initialThemeMode }: AppProps) {
       return;
     }
 
-    if (topFeedback.recoveryAction === 'retry-web-import') {
-      void handleAutoImportFromWeb();
-      return;
-    }
     if (topFeedback.recoveryAction === 'retry-zotero-import') {
       void handleImportFromZotero();
       return;
     }
     if (topFeedback.recoveryAction === 'retry-query') {
-      if (activeLiteratureTab === 'overview') {
-        handleApplyAdvancedQuery();
-      } else {
-        void handleSearchLiterature();
-      }
-      return;
-    }
-    if (topFeedback.recoveryAction === 'retry-candidate-import') {
-      void handleImportSelectedCandidates();
-      return;
-    }
-    if (topFeedback.recoveryAction === 'retry-web-import-failed') {
-      const failedUrls = webImportResults
-        .filter((entry) => !entry.imported)
-        .map((entry) => entry.url.trim())
-        .filter((entry) => entry.length > 0);
-      if (failedUrls.length === 0) {
-        void handleAutoImportFromWeb();
-        return;
-      }
-      setWebImportUrlsInput(failedUrls.join('\n'));
-      void handleAutoImportFromWeb(failedUrls);
+      handleApplyAdvancedQuery();
       return;
     }
     if (topFeedback.recoveryAction === 'reload-overview') {
@@ -3730,29 +3431,10 @@ export function App({ initialThemeMode }: AppProps) {
           {activeModule === '文献管理' ? (
             <section className="module-dashboard literature-workspace">
               <div data-ui="stack" data-direction="col" data-gap="3">
-                {topFeedback ? (
-                  <div className={`literature-top-feedback is-${topFeedback.level}`}>
-                    <p data-ui="text" data-variant="caption" data-tone={topFeedback.level === 'error' ? 'danger' : 'primary'}>
-                      {topFeedback.message}
-                    </p>
-                    {topFeedback.recoveryAction ? (
-                      <button
-                        data-ui="button"
-                        data-variant="ghost"
-                        data-size="sm"
-                        type="button"
-                        onClick={handleTopFeedbackRecovery}
-                      >
-                        执行恢复动作
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-
                 {activeLiteratureTab === 'auto-import' ? (
                   <section className="literature-tab-panel">
                     <div data-ui="toolbar" data-align="between" data-wrap="wrap">
-                      <p data-ui="text" data-variant="label" data-tone="secondary">自动拉取（规则驱动 + 异步运行）</p>
+                      <span data-ui="badge" data-variant="subtle" data-tone="neutral">状态</span>
                       <div data-ui="toolbar" data-gap="2" data-wrap="wrap" className="literature-status-group">
                         <span data-ui="badge" data-variant="subtle" data-tone="neutral">
                           Topic：{formatUiOperationStatus(topicProfilesStatus)}
@@ -3785,7 +3467,6 @@ export function App({ initialThemeMode }: AppProps) {
 
                     {autoImportSubTab === 'topic-settings' ? (
                       <section className="literature-section-block">
-                        <p data-ui="text" data-variant="label" data-tone="secondary">Topic 设置</p>
                         <div data-ui="grid" data-cols="2" data-gap="2">
                           <label data-ui="field">
                             <span data-slot="label">Topic ID</span>
@@ -3863,13 +3544,13 @@ export function App({ initialThemeMode }: AppProps) {
                         </div>
                         <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
                           <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleSubmitTopicProfile}>
-                            {topicEditingId ? '更新 Topic 设置' : '创建 Topic 设置'}
+                            {topicEditingId ? '更新' : '创建'}
                           </button>
                           <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={resetTopicForm}>
                             清空表单
                           </button>
                           <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadTopicProfiles()}>
-                            刷新 Topic 列表
+                            刷新列表
                           </button>
                         </div>
                         {topicProfilesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{topicProfilesError}</p> : null}
@@ -3905,7 +3586,6 @@ export function App({ initialThemeMode }: AppProps) {
 
                     {autoImportSubTab === 'rules-center' ? (
                       <section className="literature-section-block">
-                        <p data-ui="text" data-variant="label" data-tone="secondary">规则中心</p>
                         <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
                           <label data-ui="field">
                             <span data-slot="label">Scope 过滤</span>
@@ -4227,7 +3907,6 @@ export function App({ initialThemeMode }: AppProps) {
 
                     {autoImportSubTab === 'runs-alerts' ? (
                       <section className="literature-section-block">
-                        <p data-ui="text" data-variant="label" data-tone="secondary">运行与告警</p>
                         <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
                           <label data-ui="field">
                             <span data-slot="label">Run Rule 过滤</span>
@@ -4344,7 +4023,7 @@ export function App({ initialThemeMode }: AppProps) {
                             </select>
                           </label>
                           <label data-ui="field">
-                            <span data-slot="label">Ack 过滤</span>
+                            <span data-slot="label">确认状态</span>
                             <select
                               data-ui="select"
                               data-size="sm"
@@ -4381,7 +4060,7 @@ export function App({ initialThemeMode }: AppProps) {
                                   </span>
                                   {!alert.ack_at ? (
                                     <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void handleAckAlert(alert.alert_id)}>
-                                      Ack
+                                      关闭
                                     </button>
                                   ) : null}
                                 </div>
@@ -5222,6 +4901,36 @@ export function App({ initialThemeMode }: AppProps) {
                   </div>
                 </article>
               </section>
+            </section>
+          ) : null}
+
+          {topFeedback ? (
+            <section className={`literature-bottom-alert is-${topFeedback.level}`} role="status" aria-live="polite">
+              <p
+                data-ui="text"
+                data-variant="caption"
+                data-tone={topFeedback.level === 'error' ? 'danger' : 'primary'}
+                title={topFeedback.message}
+              >
+                {topFeedback.message}
+              </p>
+              {topFeedback.recoveryAction ? (
+                <button
+                  className="literature-bottom-alert-link"
+                  type="button"
+                  onClick={handleTopFeedbackRecovery}
+                >
+                  恢复
+                </button>
+              ) : null}
+              <button
+                className="literature-bottom-alert-close"
+                type="button"
+                aria-label="关闭提示"
+                onClick={() => setTopFeedback(null)}
+              >
+                ×
+              </button>
             </section>
           ) : null}
         </main>
