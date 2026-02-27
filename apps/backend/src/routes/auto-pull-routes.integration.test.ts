@@ -103,6 +103,33 @@ test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack
   const ruleId = createRuleRes.json().rule_id as string;
   assert.ok(ruleId);
 
+  const createBackupGlobalRuleRes = await app.inject({
+    method: 'POST',
+    url: '/auto-pull/rules',
+    payload: {
+      scope: 'GLOBAL',
+      name: 'Backup Active Global Rule',
+      status: 'ACTIVE',
+      sources: [
+        {
+          source: 'ARXIV',
+          enabled: false,
+          priority: 1,
+        },
+      ],
+      schedules: [
+        {
+          frequency: 'DAILY',
+          hour: 9,
+          minute: 30,
+          timezone: 'UTC',
+          active: true,
+        },
+      ],
+    },
+  });
+  assert.equal(createBackupGlobalRuleRes.statusCode, 201);
+
   const listRulesRes = await app.inject({
     method: 'GET',
     url: '/auto-pull/rules?scope=GLOBAL&status=ACTIVE',
@@ -258,4 +285,59 @@ test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack
   );
 
   await app.close();
+});
+
+test('cannot pause or delete last active global rule via routes', async () => {
+  const app = buildApp();
+  try {
+    const createGlobalRes = await app.inject({
+      method: 'POST',
+      url: '/auto-pull/rules',
+      payload: {
+        scope: 'GLOBAL',
+        name: 'Only Active Global Rule',
+        status: 'ACTIVE',
+        sources: [
+          {
+            source: 'CROSSREF',
+            enabled: false,
+            priority: 1,
+          },
+        ],
+        schedules: [
+          {
+            frequency: 'DAILY',
+            hour: 9,
+            minute: 0,
+            timezone: 'UTC',
+          },
+        ],
+      },
+    });
+    assert.equal(createGlobalRes.statusCode, 201);
+    const ruleId = createGlobalRes.json().rule_id as string;
+
+    const pauseRes = await app.inject({
+      method: 'PATCH',
+      url: `/auto-pull/rules/${ruleId}`,
+      payload: { status: 'PAUSED' },
+    });
+    assert.equal(pauseRes.statusCode, 400);
+    assert.equal(
+      String(pauseRes.json().error?.message).includes('At least one ACTIVE GLOBAL rule is required'),
+      true,
+    );
+
+    const deleteRes = await app.inject({
+      method: 'DELETE',
+      url: `/auto-pull/rules/${ruleId}`,
+    });
+    assert.equal(deleteRes.statusCode, 400);
+    assert.equal(
+      String(deleteRes.json().error?.message).includes('At least one ACTIVE GLOBAL rule is required'),
+      true,
+    );
+  } finally {
+    await app.close();
+  }
 });

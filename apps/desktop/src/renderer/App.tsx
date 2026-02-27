@@ -1750,6 +1750,7 @@ export function App({ initialThemeMode }: AppProps) {
   const [ruleFormMaxYearInput, setRuleFormMaxYearInput] = useState<string>('');
   const [ruleFormMinCompletenessInput, setRuleFormMinCompletenessInput] = useState<string>('0.6');
   const [ruleFormRequireIncludeMatch, setRuleFormRequireIncludeMatch] = useState<boolean>(true);
+  const [ruleFormAdvancedOpen, setRuleFormAdvancedOpen] = useState<boolean>(false);
   const [ruleFormFrequency, setRuleFormFrequency] = useState<AutoPullFrequency>('DAILY');
   const [ruleFormDaysInput, setRuleFormDaysInput] = useState<string>('MON');
   const [ruleFormHourInput, setRuleFormHourInput] = useState<string>('9');
@@ -1765,6 +1766,7 @@ export function App({ initialThemeMode }: AppProps) {
   const [ruleSourceZoteroApiKey, setRuleSourceZoteroApiKey] = useState<string>('');
   const [ruleFilterScope, setRuleFilterScope] = useState<'' | AutoPullScope>('');
   const [ruleFilterStatus, setRuleFilterStatus] = useState<'' | AutoPullRuleStatus>('');
+  const [activeGlobalRuleCount, setActiveGlobalRuleCount] = useState<number>(0);
 
   const [autoPullRuns, setAutoPullRuns] = useState<AutoPullRun[]>([]);
   const [runsStatus, setRunsStatus] = useState<UiOperationStatus>('idle');
@@ -2150,15 +2152,24 @@ export function App({ initialThemeMode }: AppProps) {
       if (ruleFilterStatus) {
         query.set('status', ruleFilterStatus);
       }
-      const payload = await requestGovernance({
-        method: 'GET',
-        path: `/auto-pull/rules${query.size > 0 ? `?${query.toString()}` : ''}`,
-      });
+      const [payload, activeGlobalPayload] = await Promise.all([
+        requestGovernance({
+          method: 'GET',
+          path: `/auto-pull/rules${query.size > 0 ? `?${query.toString()}` : ''}`,
+        }),
+        requestGovernance({
+          method: 'GET',
+          path: '/auto-pull/rules?scope=GLOBAL&status=ACTIVE',
+        }),
+      ]);
       const items = normalizeAutoPullRulePayload(payload);
+      const activeGlobalItems = normalizeAutoPullRulePayload(activeGlobalPayload);
       setAutoPullRules(items);
+      setActiveGlobalRuleCount(activeGlobalItems.length);
       setRulesStatus(items.length > 0 ? 'ready' : 'empty');
     } catch (error) {
       setAutoPullRules([]);
+      setActiveGlobalRuleCount(0);
       const message = error instanceof Error ? error.message : '加载规则失败。';
       setRulesStatus('error');
       setRulesError(message);
@@ -2492,6 +2503,7 @@ export function App({ initialThemeMode }: AppProps) {
   const handleEditRule = (rule: AutoPullRule) => {
     const primarySchedule = rule.schedules[0] ?? null;
     setRuleEditingId(rule.rule_id);
+    setRuleFormAdvancedOpen(true);
     setRuleFormScope(rule.scope);
     setRuleFormTopicIdsInput(rule.topic_ids.join(', '));
     setRuleFormName(rule.name);
@@ -2524,6 +2536,7 @@ export function App({ initialThemeMode }: AppProps) {
 
   const resetRuleForm = () => {
     setRuleEditingId(null);
+    setRuleFormAdvancedOpen(false);
     setRuleFormScope('GLOBAL');
     setRuleFormTopicIdsInput('');
     setRuleFormName('');
@@ -2561,14 +2574,6 @@ export function App({ initialThemeMode }: AppProps) {
     }
 
     const topicIds = parseTokenList(ruleFormTopicIdsInput);
-    if (ruleFormScope === 'TOPIC' && topicIds.length === 0) {
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'warning',
-        message: 'Topic 规则至少绑定一个主题。',
-      });
-      return;
-    }
 
     const sources: Array<{
       source: AutoPullSource;
@@ -2691,6 +2696,14 @@ export function App({ initialThemeMode }: AppProps) {
 
   const handleToggleRuleStatus = async (rule: AutoPullRule) => {
     const nextStatus: AutoPullRuleStatus = rule.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    if (rule.scope === 'GLOBAL' && rule.status === 'ACTIVE' && nextStatus === 'PAUSED' && activeGlobalRuleCount <= 1) {
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'warning',
+        message: '至少保留一条启用中的全局规则。',
+      });
+      return;
+    }
     try {
       await requestGovernance({
         method: 'PATCH',
@@ -2711,37 +2724,6 @@ export function App({ initialThemeMode }: AppProps) {
         slot: 'auto-import',
         level: 'error',
         message: `更新规则状态失败：${message}`,
-      });
-    }
-  };
-
-  const handleRunRuleNow = async (ruleId: string) => {
-    try {
-      const payload = await requestGovernance({
-        method: 'POST',
-        path: `/auto-pull/rules/${encodeURIComponent(ruleId)}/runs`,
-        body: {
-          trigger_type: 'MANUAL',
-        },
-      });
-      const run = normalizeAutoPullRun(payload);
-      if (run) {
-        setSelectedRunDetail(run);
-      }
-      await loadAutoPullRuns();
-      await loadAutoPullAlerts();
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'success',
-        message: '规则已触发运行。',
-      });
-      setAutoImportSubTab('runs-alerts');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '触发运行失败。';
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'error',
-        message: `触发运行失败：${message}`,
       });
     }
   };
@@ -3397,6 +3379,10 @@ export function App({ initialThemeMode }: AppProps) {
     usedCount,
   ]);
 
+  const globalScopedRules = useMemo(
+    () => autoPullRules.filter((rule) => rule.scope === 'GLOBAL'),
+    [autoPullRules],
+  );
   const topicScopedRules = useMemo(
     () => autoPullRules.filter((rule) => rule.scope === 'TOPIC'),
     [autoPullRules],
@@ -4201,13 +4187,14 @@ export function App({ initialThemeMode }: AppProps) {
                             </select>
                           </label>
                           <label data-ui="field">
-                            <span data-slot="label">绑定主题（TOPIC 规则，逗号/换行）</span>
+                            <span data-slot="label">绑定主题（可选）</span>
                             <input
                               data-ui="input"
                               data-size="sm"
                               value={ruleFormTopicIdsInput}
                               onChange={(event) => setRuleFormTopicIdsInput(event.target.value)}
-                              placeholder="例如 TOPIC-001, TOPIC-002"
+                              placeholder={ruleFormScope === 'TOPIC' ? '例如 TOPIC-001, TOPIC-002' : 'GLOBAL 规则无需绑定主题'}
+                              disabled={ruleFormScope !== 'TOPIC'}
                             />
                           </label>
                           <label data-ui="field">
@@ -4245,109 +4232,6 @@ export function App({ initialThemeMode }: AppProps) {
                               onChange={(event) => setRuleFormExcludeInput(event.target.value)}
                             />
                           </label>
-                          <label data-ui="field">
-                            <span data-slot="label">作者关键词</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormAuthorsInput}
-                              onChange={(event) => setRuleFormAuthorsInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">期刊/会议关键词</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormVenuesInput}
-                              onChange={(event) => setRuleFormVenuesInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">滚动窗口（天）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormLookbackInput}
-                              onChange={(event) => setRuleFormLookbackInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">质量门最小完整度（0-1）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormMinCompletenessInput}
-                              onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">最小年份</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormMinYearInput}
-                              onChange={(event) => setRuleFormMinYearInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">最大年份</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormMaxYearInput}
-                              onChange={(event) => setRuleFormMaxYearInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">频率</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={ruleFormFrequency}
-                              onChange={(event) => setRuleFormFrequency(event.target.value as AutoPullFrequency)}
-                            >
-                              <option value="DAILY">DAILY</option>
-                              <option value="WEEKLY">WEEKLY</option>
-                            </select>
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">星期（WEEKLY）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormDaysInput}
-                              onChange={(event) => setRuleFormDaysInput(event.target.value)}
-                              placeholder="MON,TUE"
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">小时</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormHourInput}
-                              onChange={(event) => setRuleFormHourInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">分钟</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormMinuteInput}
-                              onChange={(event) => setRuleFormMinuteInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">时区</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormTimezone}
-                              onChange={(event) => setRuleFormTimezone(event.target.value)}
-                            />
-                          </label>
                         </div>
                         <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
                           <label className="auto-pull-source-toggle">
@@ -4362,15 +4246,135 @@ export function App({ initialThemeMode }: AppProps) {
                             <input type="checkbox" checked={ruleSourceZotero} onChange={(event) => setRuleSourceZotero(event.target.checked)} />
                             ZOTERO
                           </label>
-                          <label className="auto-pull-source-toggle">
-                            <input
-                              type="checkbox"
-                              checked={ruleFormRequireIncludeMatch}
-                              onChange={(event) => setRuleFormRequireIncludeMatch(event.target.checked)}
-                            />
-                            命中 Include 才通过
-                          </label>
+                          <button
+                            data-ui="button"
+                            data-variant="ghost"
+                            data-size="sm"
+                            type="button"
+                            onClick={() => setRuleFormAdvancedOpen((current) => !current)}
+                          >
+                            {ruleFormAdvancedOpen ? '收起高级选项' : '展开高级选项'}
+                          </button>
                         </div>
+                        {ruleFormAdvancedOpen ? (
+                          <>
+                            <div data-ui="grid" data-cols="2" data-gap="2">
+                              <label data-ui="field">
+                                <span data-slot="label">作者关键词</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormAuthorsInput}
+                                  onChange={(event) => setRuleFormAuthorsInput(event.target.value)}
+                                />
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">期刊/会议关键词</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormVenuesInput}
+                                  onChange={(event) => setRuleFormVenuesInput(event.target.value)}
+                                />
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">滚动窗口（天）</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormLookbackInput}
+                                  onChange={(event) => setRuleFormLookbackInput(event.target.value)}
+                                />
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">质量门最小完整度（0-1）</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormMinCompletenessInput}
+                                  onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
+                                />
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">最小年份</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormMinYearInput}
+                                  onChange={(event) => setRuleFormMinYearInput(event.target.value)}
+                                />
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">最大年份</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormMaxYearInput}
+                                  onChange={(event) => setRuleFormMaxYearInput(event.target.value)}
+                                />
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">频率</span>
+                                <select
+                                  data-ui="select"
+                                  data-size="sm"
+                                  value={ruleFormFrequency}
+                                  onChange={(event) => setRuleFormFrequency(event.target.value as AutoPullFrequency)}
+                                >
+                                  <option value="DAILY">DAILY</option>
+                                  <option value="WEEKLY">WEEKLY</option>
+                                </select>
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">星期（WEEKLY）</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormDaysInput}
+                                  onChange={(event) => setRuleFormDaysInput(event.target.value)}
+                                  placeholder="MON,TUE"
+                                />
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">小时</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormHourInput}
+                                  onChange={(event) => setRuleFormHourInput(event.target.value)}
+                                />
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">分钟</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormMinuteInput}
+                                  onChange={(event) => setRuleFormMinuteInput(event.target.value)}
+                                />
+                              </label>
+                              <label data-ui="field">
+                                <span data-slot="label">时区</span>
+                                <input
+                                  data-ui="input"
+                                  data-size="sm"
+                                  value={ruleFormTimezone}
+                                  onChange={(event) => setRuleFormTimezone(event.target.value)}
+                                />
+                              </label>
+                            </div>
+                            <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                              <label className="auto-pull-source-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={ruleFormRequireIncludeMatch}
+                                  onChange={(event) => setRuleFormRequireIncludeMatch(event.target.checked)}
+                                />
+                                命中 Include 才通过
+                              </label>
+                            </div>
+                          </>
+                        ) : null}
                         {ruleSourceZotero ? (
                           <div data-ui="grid" data-cols="2" data-gap="2">
                             <label data-ui="field">
@@ -4417,13 +4421,14 @@ export function App({ initialThemeMode }: AppProps) {
                         {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
 
                         <p data-ui="text" data-variant="caption" data-tone="muted">全局规则</p>
+                        <p data-ui="text" data-variant="caption" data-tone="muted">至少保留一条启用中的全局规则（当前 {activeGlobalRuleCount} 条）。</p>
                         <div className="literature-list">
-                          {autoPullRules.filter((rule) => rule.scope === 'GLOBAL').length === 0 ? (
+                          {globalScopedRules.length === 0 ? (
                             <p data-ui="text" data-variant="caption" data-tone="muted">暂无全局规则。</p>
                           ) : (
-                            autoPullRules
-                              .filter((rule) => rule.scope === 'GLOBAL')
-                              .map((rule) => (
+                            globalScopedRules.map((rule) => {
+                              const pauseLocked = rule.status === 'ACTIVE' && activeGlobalRuleCount <= 1;
+                              return (
                                 <div key={rule.rule_id} className="literature-list-item">
                                   <div>
                                     <p data-ui="text" data-variant="body" data-tone="primary">{rule.name}</p>
@@ -4433,24 +4438,30 @@ export function App({ initialThemeMode }: AppProps) {
                                   </div>
                                   <div data-ui="toolbar" data-gap="2">
                                     <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => handleEditRule(rule)}>编辑</button>
-                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void handleToggleRuleStatus(rule)}>
+                                    <button
+                                      data-ui="button"
+                                      data-variant="ghost"
+                                      data-size="sm"
+                                      type="button"
+                                      onClick={() => void handleToggleRuleStatus(rule)}
+                                      disabled={pauseLocked}
+                                      title={pauseLocked ? '至少保留一条启用中的全局规则' : undefined}
+                                    >
                                       {rule.status === 'ACTIVE' ? '暂停' : '启用'}
                                     </button>
-                                    <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void handleRunRuleNow(rule.rule_id)}>立即运行</button>
                                   </div>
                                 </div>
-                              ))
+                              );
+                            })
                           )}
                         </div>
 
                         <p data-ui="text" data-variant="caption" data-tone="muted">Topic 规则</p>
                         <div className="literature-list">
-                          {autoPullRules.filter((rule) => rule.scope === 'TOPIC').length === 0 ? (
+                          {topicScopedRules.length === 0 ? (
                             <p data-ui="text" data-variant="caption" data-tone="muted">暂无 Topic 规则。</p>
                           ) : (
-                            autoPullRules
-                              .filter((rule) => rule.scope === 'TOPIC')
-                              .map((rule) => (
+                            topicScopedRules.map((rule) => (
                                 <div key={rule.rule_id} className="literature-list-item">
                                   <div>
                                     <p data-ui="text" data-variant="body" data-tone="primary">
@@ -4465,7 +4476,6 @@ export function App({ initialThemeMode }: AppProps) {
                                     <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void handleToggleRuleStatus(rule)}>
                                       {rule.status === 'ACTIVE' ? '暂停' : '启用'}
                                     </button>
-                                    <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void handleRunRuleNow(rule.rule_id)}>立即运行</button>
                                   </div>
                                 </div>
                               ))

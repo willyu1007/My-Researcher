@@ -179,13 +179,15 @@ export class AutoPullService {
     if (!ruleName) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'name is required.');
     }
+    const nextStatus = request.status ?? 'ACTIVE';
     const topicIds = this.normalizeTopicIdsFromPayload(request.topic_ids, request.topic_id);
-    if (request.scope === 'TOPIC' && topicIds.length === 0) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'topic_ids is required when scope is TOPIC.');
-    }
     if (request.scope === 'GLOBAL' && topicIds.length > 0) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'topic_ids must be empty when scope is GLOBAL.');
     }
+    await this.ensureAtLeastOneActiveGlobalRule({
+      nextScope: request.scope,
+      nextStatus,
+    });
 
     const topicProfiles = await this.loadTopicProfilesOrThrow(topicIds);
     const primaryTopicProfile = topicProfiles[0] ?? null;
@@ -202,7 +204,7 @@ export class AutoPullService {
       id: ruleId,
       scope: request.scope,
       name: ruleName,
-      status: request.status ?? 'ACTIVE',
+      status: nextStatus,
       querySpec,
       timeSpec,
       qualitySpec,
@@ -242,13 +244,18 @@ export class AutoPullService {
     }
 
     const nextScope = request.scope ?? existing.rule.scope;
+    const nextStatus = request.status ?? existing.rule.status;
     const requestedTopicIds = this.resolveNextRuleTopicIds(request, existing.topicIds, nextScope);
-    if (nextScope === 'TOPIC' && requestedTopicIds.length === 0) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'topic_ids is required when scope is TOPIC.');
-    }
     if (nextScope === 'GLOBAL' && requestedTopicIds.length > 0) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'topic_ids must be empty when scope is GLOBAL.');
     }
+    await this.ensureAtLeastOneActiveGlobalRule({
+      ruleId: existing.rule.id,
+      currentScope: existing.rule.scope,
+      currentStatus: existing.rule.status,
+      nextScope,
+      nextStatus,
+    });
     const topicProfiles = await this.loadTopicProfilesOrThrow(requestedTopicIds);
     const primaryTopicProfile = topicProfiles[0] ?? existing.topics[0] ?? null;
 
@@ -287,6 +294,13 @@ export class AutoPullService {
     if (!existing) {
       throw new AppError(404, 'NOT_FOUND', `Rule ${ruleId} not found.`);
     }
+    await this.ensureAtLeastOneActiveGlobalRule({
+      ruleId: existing.id,
+      currentScope: existing.scope,
+      currentStatus: existing.status,
+      nextScope: null,
+      nextStatus: null,
+    });
     await this.repository.deleteRule(ruleId);
   }
 
@@ -1257,6 +1271,37 @@ export class AutoPullService {
       ...(topicId ? [topicId] : []),
     ];
     return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
+  }
+
+  private async ensureAtLeastOneActiveGlobalRule(input: {
+    ruleId?: string;
+    currentScope?: AutoPullRuleRecord['scope'];
+    currentStatus?: AutoPullRuleRecord['status'];
+    nextScope: AutoPullRuleRecord['scope'] | null;
+    nextStatus: AutoPullRuleRecord['status'] | null;
+  }): Promise<void> {
+    const activeGlobalRules = await this.repository.listRules({
+      scope: 'GLOBAL',
+      status: 'ACTIVE',
+    });
+    const activeGlobalRuleIds = new Set(activeGlobalRules.map((rule) => rule.id));
+
+    const currentRuleIsActiveGlobal = input.ruleId !== undefined
+      && input.currentScope === 'GLOBAL'
+      && input.currentStatus === 'ACTIVE'
+      && activeGlobalRuleIds.has(input.ruleId);
+    const nextRuleIsActiveGlobal = input.nextScope === 'GLOBAL' && input.nextStatus === 'ACTIVE';
+
+    const remainingCount = activeGlobalRuleIds.size
+      - (currentRuleIsActiveGlobal ? 1 : 0)
+      + (nextRuleIsActiveGlobal ? 1 : 0);
+    if (remainingCount < 1) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'At least one ACTIVE GLOBAL rule is required.',
+      );
+    }
   }
 
   private resolveNextRuleTopicIds(

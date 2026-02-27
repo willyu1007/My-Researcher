@@ -93,6 +93,13 @@ test('run fails with NO_SOURCE_CONFIG when no enabled source exists', async () =
 
 test('topic rule creation requires existing topic profile', async () => {
   const { service } = buildService();
+  await service.createRule({
+    scope: 'GLOBAL',
+    name: 'baseline-global-active-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
   await assert.rejects(
     async () => service.createRule({
       scope: 'TOPIC',
@@ -141,6 +148,13 @@ test('scheduled tick only runs due rules', async () => {
 
 test('retry-failed-sources creates a follow-up run', async () => {
   const { service } = buildService();
+  await service.createRule({
+    scope: 'GLOBAL',
+    name: 'baseline-global-active-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
 
   await service.createTopicProfile({
     topic_id: 'TOPIC-AUTO-UNIT-1',
@@ -171,6 +185,13 @@ test('retry-failed-sources creates a follow-up run', async () => {
 
 test('many-to-many topic binding executes only active topics', async () => {
   const { service } = buildService();
+  await service.createRule({
+    scope: 'GLOBAL',
+    name: 'baseline-global-active-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
 
   await service.createTopicProfile({
     topic_id: 'TOPIC-AUTO-UNIT-ACTIVE',
@@ -201,6 +222,13 @@ test('many-to-many topic binding executes only active topics', async () => {
 
 test('run is skipped when all linked topics are inactive', async () => {
   const { service } = buildService();
+  await service.createRule({
+    scope: 'GLOBAL',
+    name: 'baseline-global-active-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
 
   await service.createTopicProfile({
     topic_id: 'TOPIC-AUTO-UNIT-INACTIVE-ONLY',
@@ -223,4 +251,46 @@ test('run is skipped when all linked topics are inactive', async () => {
 
   const alerts = await service.listAlerts({ ruleId: rule.rule_id, acked: false });
   assert.equal(alerts.some((alert) => alert.code === 'NO_ACTIVE_TOPIC'), true);
+});
+
+test('topic rule can be created without bound topics', async () => {
+  const { service } = buildService();
+  await service.createRule({
+    scope: 'GLOBAL',
+    name: 'baseline-global-active-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  const topicRule = await service.createRule({
+    scope: 'TOPIC',
+    topic_ids: [],
+    name: 'topic-rule-without-binding',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  assert.equal(topicRule.scope, 'TOPIC');
+  assert.deepEqual(topicRule.topic_ids, []);
+});
+
+test('cannot pause or delete last active global rule', async () => {
+  const { service } = buildService();
+  const onlyGlobal = await service.createRule({
+    scope: 'GLOBAL',
+    name: 'only-active-global-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  await assert.rejects(
+    async () => service.updateRule(onlyGlobal.rule_id, { status: 'PAUSED' }),
+    (error: unknown) => error instanceof Error && error.message.includes('At least one ACTIVE GLOBAL rule is required'),
+  );
+  await assert.rejects(
+    async () => service.deleteRule(onlyGlobal.rule_id),
+    (error: unknown) => error instanceof Error && error.message.includes('At least one ACTIVE GLOBAL rule is required'),
+  );
 });
