@@ -1,4 +1,14 @@
-import { type CSSProperties, type ChangeEvent, type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  type CSSProperties,
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   applyTheme,
   readSystemPrefersDark,
@@ -7,6 +17,19 @@ import {
   THEME_MODE_STORAGE_KEY,
   type ThemeMode,
 } from './theme';
+import {
+  applyBatchRightsClass,
+  normalizeManualRightsClass,
+  parseManualUploadToDraftRows,
+  validateManualDraftRows,
+} from './literature/manual-import-utils';
+import {
+  MANUAL_RIGHTS_CLASSES,
+  type ManualDraftRow,
+  type ManualImportPayload,
+  type ManualImportSession,
+  type ManualRowValidation,
+} from './literature/manual-import-types';
 
 type PanelStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 type UiOperationStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error' | 'saving';
@@ -60,6 +83,8 @@ type RightsClass = 'OA' | 'USER_AUTH' | 'RESTRICTED' | 'UNKNOWN';
 type LiteratureProvider = 'crossref' | 'arxiv' | 'manual' | 'web' | 'zotero';
 type LiteratureTabKey = 'auto-import' | 'manual-import' | 'overview';
 type AutoImportSubTabKey = 'topic-settings' | 'rules-center' | 'runs-alerts';
+type ManualImportSubTabKey = 'file-review' | 'zotero-sync';
+type AppMode = 'standard' | 'dev';
 type AutoPullScope = 'GLOBAL' | 'TOPIC';
 type AutoPullRuleStatus = 'ACTIVE' | 'PAUSED';
 type AutoPullSource = 'CROSSREF' | 'ARXIV' | 'ZOTERO';
@@ -118,20 +143,6 @@ type InlineFeedbackModel = {
   level: 'info' | 'success' | 'warning' | 'error';
   message: string;
   recoveryAction?: FeedbackRecoveryAction;
-};
-
-type LiteratureImportPayload = {
-  provider: LiteratureProvider;
-  external_id: string;
-  title: string;
-  abstract?: string;
-  authors?: string[];
-  year?: number;
-  doi?: string;
-  arxiv_id?: string;
-  source_url: string;
-  rights_class?: RightsClass;
-  tags?: string[];
 };
 
 type AutoPullTopicProfile = {
@@ -328,6 +339,7 @@ const themeModeOptions: Array<{ value: ThemeMode; label: string }> = [
   { value: 'light', label: '浅色' },
   { value: 'dark', label: '深色' },
 ];
+const APP_MODE_STORAGE_KEY = 'pea.app.mode';
 
 const initialModule = coreNavItems[0] ?? '';
 const citationStatusOptions: CitationStatus[] = ['seeded', 'selected', 'used', 'cited', 'dropped'];
@@ -341,6 +353,10 @@ const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string }> = [
   { key: 'rules-center', label: '规则中心' },
   { key: 'topic-settings', label: '设置主题' },
   { key: 'runs-alerts', label: '执行详情' },
+];
+const manualImportSubTabs: Array<{ key: ManualImportSubTabKey; label: string }> = [
+  { key: 'file-review', label: '上传本地文件' },
+  { key: 'zotero-sync', label: '从Zotero获取' },
 ];
 const topicPresetVenueOptions = [
   'ACL',
@@ -396,6 +412,72 @@ const querySortOptions: Array<{ value: QuerySort; label: string }> = [
   { value: 'year_asc', label: '按年份（旧->新）' },
   { value: 'title_asc', label: '按标题（A->Z）' },
   { value: 'title_desc', label: '按标题（Z->A）' },
+];
+const manualImportTestItems: ManualImportPayload[] = [
+  {
+    provider: 'manual',
+    external_id: 'demo-doi-1',
+    title: 'Benchmarking RAG Systems with Real-World Constraints',
+    abstract: 'Evaluates retrieval and answer quality under realistic latency and cost budgets.',
+    authors: ['Lin Zhou', 'Marta Chen'],
+    year: 2024,
+    doi: '10.1145/3700000.3700123',
+    rights_class: 'OA',
+    tags: ['survey', 'baseline'],
+    source_url: '',
+  },
+  {
+    provider: 'manual',
+    external_id: 'demo-arxiv-1',
+    title: 'LLM Agent Evaluation in Multi-Step Tool Use',
+    authors: ['A. Kumar'],
+    year: 2025,
+    arxiv_id: '2501.01234',
+    rights_class: 'USER_AUTH',
+    tags: ['agent', 'evaluation'],
+    source_url: '',
+  },
+  {
+    provider: 'manual',
+    external_id: 'demo-missing-authors',
+    title: 'Missing Author Example',
+    authors: [],
+    year: 2023,
+    doi: '10.1000/demo.missing-authors',
+    rights_class: 'UNKNOWN',
+    tags: ['invalid'],
+    source_url: '',
+  },
+  {
+    provider: 'manual',
+    external_id: 'demo-invalid-year',
+    title: 'Invalid Year Example',
+    authors: ['Debug Bot'],
+    year: 1888,
+    source_url: 'https://example.org/invalid-year',
+    rights_class: 'UNKNOWN',
+    tags: ['invalid', 'year'],
+  },
+  {
+    provider: 'manual',
+    external_id: 'demo-invalid-url',
+    title: 'Invalid URL Example',
+    authors: ['QA Bot'],
+    year: 2022,
+    source_url: 'ftp://example.org/not-http',
+    rights_class: 'UNKNOWN',
+    tags: ['invalid', 'url'],
+  },
+  {
+    provider: 'manual',
+    external_id: 'demo-url-1',
+    title: 'Fast Re-ranking Pipelines for Dense Retrieval',
+    authors: ['Nina Park', 'Tom Li'],
+    year: 2021,
+    source_url: 'https://openreview.net/forum?id=demo-reranker',
+    rights_class: 'RESTRICTED',
+    tags: ['retrieval', 'reranker'],
+  },
 ];
 
 const emptyMetric: RuntimeMetric = {
@@ -453,6 +535,18 @@ function isFlagEnabled(value?: string): boolean {
   }
 
   return value === '1' || value.toLowerCase() === 'true';
+}
+
+function readStoredAppMode(): AppMode {
+  if (typeof window === 'undefined') {
+    return 'standard';
+  }
+  try {
+    const value = window.localStorage.getItem(APP_MODE_STORAGE_KEY);
+    return value === 'dev' ? 'dev' : 'standard';
+  } catch {
+    return 'standard';
+  }
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -1152,185 +1246,6 @@ function normalizeLiteratureOverviewPayload(payload: unknown): LiteratureOvervie
   };
 }
 
-function parseDelimitedLine(line: string, delimiter: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    if (char === '"') {
-      const next = line[index + 1];
-      if (inQuotes && next === '"') {
-        current += '"';
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === delimiter && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  result.push(current.trim());
-  return result;
-}
-
-function normalizeManualImportItem(
-  raw: Record<string, unknown>,
-  fallbackExternalId: string,
-): LiteratureImportPayload | null {
-  const title = toText(raw.title);
-  if (!title || title.trim().length === 0) {
-    return null;
-  }
-
-  const authors = (() => {
-    if (Array.isArray(raw.authors)) {
-      return raw.authors.filter((author): author is string => typeof author === 'string');
-    }
-    const authorText = toText(raw.authors) ?? toText(raw.author);
-    if (!authorText) {
-      return [];
-    }
-    return authorText
-      .split(/\s+and\s+|,|;/i)
-      .map((author) => author.trim())
-      .filter((author) => author.length > 0);
-  })();
-
-  const yearValue = typeof raw.year === 'number'
-    ? raw.year
-    : (() => {
-        const text = toText(raw.year);
-        if (!text) {
-          return undefined;
-        }
-        const parsed = Number.parseInt(text, 10);
-        return Number.isFinite(parsed) ? parsed : undefined;
-      })();
-
-  const doi = toText(raw.doi);
-  const arxivId = toText(raw.arxiv_id) ?? toText(raw.arxivId);
-  const sourceUrl = toText(raw.source_url) ?? toText(raw.url) ?? `local://${fallbackExternalId}`;
-  const abstractText = toText(raw.abstract) ?? toText(raw.abstractText);
-  const rightsClass = normalizeRightsClass(toText(raw.rights_class));
-  const tags = (() => {
-    if (Array.isArray(raw.tags)) {
-      return raw.tags.filter((tag): tag is string => typeof tag === 'string');
-    }
-    const text = toText(raw.tags) ?? toText(raw.keywords);
-    if (!text) {
-      return [];
-    }
-    return text
-      .split(/,|;/)
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0);
-  })();
-
-  return {
-    provider: 'manual',
-    external_id: toText(raw.external_id) ?? doi ?? arxivId ?? fallbackExternalId,
-    title: title.trim(),
-    abstract: abstractText,
-    authors,
-    year: yearValue,
-    doi: doi ?? undefined,
-    arxiv_id: arxivId ?? undefined,
-    source_url: sourceUrl,
-    rights_class: rightsClass,
-    tags,
-  };
-}
-
-function parseManualJson(text: string): LiteratureImportPayload[] {
-  const parsed = JSON.parse(text) as unknown;
-  const root = Array.isArray(parsed) ? parsed : asRecord(parsed)?.items;
-  if (!Array.isArray(root)) {
-    return [];
-  }
-
-  return root
-    .map((item) => asRecord(item))
-    .filter((item): item is Record<string, unknown> => item !== null)
-    .map((item, index) => normalizeManualImportItem(item, `manual-json-${index + 1}`))
-    .filter((item): item is LiteratureImportPayload => item !== null);
-}
-
-function parseManualCsv(text: string): LiteratureImportPayload[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  if (lines.length < 2) {
-    return [];
-  }
-
-  const headers = parseDelimitedLine(lines[0], ',').map((header) => header.trim().toLowerCase());
-  return lines
-    .slice(1)
-    .map((line, index) => {
-      const values = parseDelimitedLine(line, ',');
-      const row: Record<string, unknown> = {};
-      headers.forEach((header, headerIndex) => {
-        row[header] = values[headerIndex];
-      });
-      return normalizeManualImportItem(row, `manual-csv-${index + 1}`);
-    })
-    .filter((item): item is LiteratureImportPayload => item !== null);
-}
-
-function parseManualBibText(text: string): LiteratureImportPayload[] {
-  const entries = [...text.matchAll(/@[\w-]+\s*\{\s*([^,]+),([\s\S]*?)\n\}/g)];
-  return entries
-    .map((entry, index) => {
-      const body = entry[2] ?? '';
-      const fields: Record<string, unknown> = {};
-      for (const field of body.matchAll(/(\w+)\s*=\s*[{"]([\s\S]*?)[}"],?/g)) {
-        const key = (field[1] ?? '').toLowerCase();
-        const value = (field[2] ?? '').replace(/\s+/g, ' ').trim();
-        if (key) {
-          fields[key] = value;
-        }
-      }
-
-      return normalizeManualImportItem(
-        {
-          ...fields,
-          title: fields.title,
-          authors: fields.author,
-          year: fields.year,
-          doi: fields.doi,
-          arxiv_id: fields.eprint,
-          url: fields.url,
-          abstract: fields.abstract,
-          keywords: fields.keywords,
-        },
-        `manual-bib-${entry[1] ?? index + 1}`,
-      );
-    })
-    .filter((item): item is LiteratureImportPayload => item !== null);
-}
-
-function parseManualUploadItems(fileName: string, text: string): LiteratureImportPayload[] {
-  const lowerName = fileName.toLowerCase();
-  if (lowerName.endsWith('.json')) {
-    return parseManualJson(text);
-  }
-  if (lowerName.endsWith('.csv')) {
-    return parseManualCsv(text);
-  }
-  return parseManualBibText(text);
-}
-
 function createQueryCondition(
   field: QueryField = 'title',
   operator: QueryOperator = 'contains',
@@ -1679,6 +1594,9 @@ export function App({ initialThemeMode }: AppProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMacDesktop, setIsMacDesktop] = useState<boolean>(() => detectMacDesktopFromNavigator());
   const [themeMode, setThemeMode] = useState<ThemeMode>(initialThemeMode);
+  const [appMode, setAppMode] = useState<AppMode>(() => readStoredAppMode());
+  const [settingsPanelOpen, setSettingsPanelOpen] = useState<boolean>(false);
+  const settingsPanelRef = useRef<HTMLDivElement | null>(null);
   const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => readSystemPrefersDark());
   const [toolbarSearchInput, setToolbarSearchInput] = useState<string>('');
   const [, setActionHint] = useState<string>('请选择一个模块开始浏览。');
@@ -1785,11 +1703,15 @@ export function App({ initialThemeMode }: AppProps) {
   const [alertsFilterAcked, setAlertsFilterAcked] = useState<'all' | 'acked' | 'unacked'>('unacked');
   const [topFeedback, setTopFeedback] = useState<InlineFeedbackModel | null>(null);
   const [literatureActionMessage, setLiteratureActionMessage] = useState<string>('');
-  const [scopeReasonInput, setScopeReasonInput] = useState<string>('初筛保留');
-  const [batchTagsInput, setBatchTagsInput] = useState<string>('survey, baseline');
+  const [scopeReasonInput] = useState<string>('初筛保留');
   const [manualUploadLoading, setManualUploadLoading] = useState<boolean>(false);
   const [manualUploadStatus, setManualUploadStatus] = useState<UiOperationStatus>('idle');
   const [manualUploadError, setManualUploadError] = useState<string | null>(null);
+  const [manualImportSession, setManualImportSession] = useState<ManualImportSession | null>(null);
+  const [manualImportSubTab, setManualImportSubTab] = useState<ManualImportSubTabKey>('file-review');
+  const [manualShowErrorOnly, setManualShowErrorOnly] = useState<boolean>(false);
+  const [manualDropActive, setManualDropActive] = useState<boolean>(false);
+  const [manualBatchRightsClass, setManualBatchRightsClass] = useState<ManualDraftRow['rights_class']>('UNKNOWN');
   const [zoteroLibraryType, setZoteroLibraryType] = useState<'users' | 'groups'>('users');
   const [zoteroLibraryId, setZoteroLibraryId] = useState<string>('');
   const [zoteroApiKey, setZoteroApiKey] = useState<string>('');
@@ -1882,6 +1804,42 @@ export function App({ initialThemeMode }: AppProps) {
       // Ignore storage write failures and keep runtime state.
     }
   }, [themeMode, systemPrefersDark]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      window.localStorage.setItem(APP_MODE_STORAGE_KEY, appMode);
+    } catch {
+      // Ignore storage write failures and keep runtime state.
+    }
+  }, [appMode]);
+
+  useEffect(() => {
+    if (isSidebarCollapsed) {
+      setSettingsPanelOpen(false);
+    }
+  }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (!settingsPanelOpen || typeof window === 'undefined') {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!settingsPanelRef.current || settingsPanelRef.current.contains(target)) {
+        return;
+      }
+      setSettingsPanelOpen(false);
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [settingsPanelOpen]);
 
   const pushLiteratureFeedback = useCallback((feedback: InlineFeedbackModel) => {
     setTopFeedback(feedback);
@@ -2776,21 +2734,40 @@ export function App({ initialThemeMode }: AppProps) {
     }
   };
 
-  const handleManualUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    const file = files && files.length > 0 ? files[0] : null;
-    if (!file) {
-      return;
-    }
+  const applyManualImportSessionRows = (fileName: string, rows: ManualDraftRow[], source: 'upload' | 'seed') => {
+    const nextSession: ManualImportSession = {
+      file_name: fileName,
+      rows,
+    };
+    const validations = validateManualDraftRows(rows);
+    const invalidCount = validations.filter((item) => !item.is_valid).length;
 
+    setManualImportSession(nextSession);
+    setManualShowErrorOnly(false);
+    setManualUploadStatus('ready');
+    setManualUploadError(null);
+    pushLiteratureFeedback({
+      slot: 'manual-import',
+      level: invalidCount > 0 ? 'warning' : 'success',
+      message:
+        source === 'seed'
+          ? `已注入测试数据 ${rows.length} 行，其中 ${invalidCount} 行待修复后可导入。`
+          : invalidCount > 0
+            ? `解析 ${rows.length} 行，其中 ${invalidCount} 行待修复后可导入。`
+            : `解析 ${rows.length} 行，均可直接导入。`,
+    });
+  };
+
+  const importManualFileIntoSession = async (file: File) => {
     setManualUploadLoading(true);
     setManualUploadStatus('loading');
     setManualUploadError(null);
     try {
       const content = await file.text();
-      const items = parseManualUploadItems(file.name, content);
-      if (items.length === 0) {
+      const rows = parseManualUploadToDraftRows(file.name, content);
+      if (rows.length === 0) {
         const message = '未解析到可导入文献，请检查文件格式（JSON/CSV/BibTeX）。';
+        setManualImportSession(null);
         setManualUploadStatus('empty');
         setManualUploadError(message);
         pushLiteratureFeedback({
@@ -2801,61 +2778,310 @@ export function App({ initialThemeMode }: AppProps) {
         return;
       }
 
-      const payload = await requestGovernance({
-        method: 'POST',
-        path: '/literature/import',
-        body: {
-          items: items.map((item) => ({
-            ...item,
-            tags: [...new Set([...(item.tags ?? []), ...parseTagsInput(batchTagsInput)])],
-            rights_class: item.rights_class ?? 'UNKNOWN',
-          })),
-        },
-      });
-
-      const root = asRecord(payload);
-      const results = root?.results;
-      const importedIds = Array.isArray(results)
-        ? results
-            .map((row) => asRecord(row))
-            .map((row) => (row ? toText(row.literature_id) : undefined))
-            .filter((id): id is string => Boolean(id))
-        : [];
-
-      if (importedIds.length > 0) {
-        await requestGovernance({
-          method: 'POST',
-          path: `/topics/${encodeURIComponent(topicId.trim())}/literature-scope`,
-          body: {
-            actions: importedIds.map((literatureId) => ({
-              literature_id: literatureId,
-              scope_status: 'in_scope',
-              reason: scopeReasonInput.trim() || undefined,
-            })),
-          },
-        });
-      }
-
-      setManualUploadStatus(importedIds.length > 0 ? 'ready' : 'empty');
-      pushLiteratureFeedback({
-        slot: 'manual-import',
-        level: importedIds.length > 0 ? 'success' : 'warning',
-        message: `手动上传完成：导入 ${importedIds.length} 条文献。`,
-      });
-      await loadTopicScope(topicId);
-      await loadLiteratureOverview(topicId, paperId);
+      applyManualImportSessionRows(file.name, rows, 'upload');
     } catch (error) {
-      const message = error instanceof Error ? error.message : '手动上传失败。';
+      const message = error instanceof Error ? error.message : '文件解析失败。';
+      setManualImportSession(null);
       setManualUploadStatus('error');
       setManualUploadError(message);
       pushLiteratureFeedback({
         slot: 'manual-import',
         level: 'error',
-        message: `手动上传失败：${message}`,
+        message: `文件解析失败：${message}`,
       });
     } finally {
       setManualUploadLoading(false);
-      event.target.value = '';
+      setManualDropActive(false);
+    }
+  };
+
+  const handleManualUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    const file = files && files.length > 0 ? files[0] : null;
+    if (!file) {
+      return;
+    }
+    await importManualFileIntoSession(file);
+    event.target.value = '';
+  };
+
+  const handleManualUploadDrop = async (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    const files = event.dataTransfer.files;
+    const file = files && files.length > 0 ? files[0] : null;
+    if (!file) {
+      return;
+    }
+    await importManualFileIntoSession(file);
+  };
+
+  const handleInjectManualImportTestData = () => {
+    const rows = parseManualUploadToDraftRows('manual-import-test.json', JSON.stringify(manualImportTestItems));
+    if (rows.length === 0) {
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: 'error',
+        message: '测试数据注入失败，请检查样例数据。',
+      });
+      return;
+    }
+
+    applyManualImportSessionRows('manual-import-test.json', rows, 'seed');
+  };
+
+  const handleClearInjectedManualImportData = () => {
+    setManualImportSession(null);
+    setManualShowErrorOnly(false);
+    setManualUploadStatus('idle');
+    setManualUploadError(null);
+    pushLiteratureFeedback({
+      slot: 'manual-import',
+      level: 'info',
+      message: '已取消注入数据并清空当前手动导入草稿。',
+    });
+  };
+
+  const handleManualDraftFieldChange = (
+    rowId: string,
+    field:
+      | 'title'
+      | 'authors_text'
+      | 'year_text'
+      | 'doi'
+      | 'arxiv_id'
+      | 'source_url'
+      | 'rights_class'
+      | 'tags_text',
+    value: string,
+  ) => {
+    setManualImportSession((current) => {
+      if (!current) {
+        return current;
+      }
+      return {
+        ...current,
+        rows: current.rows.map((row) => {
+          if (row.id !== rowId) {
+            return row;
+          }
+          if (field === 'rights_class') {
+            return {
+              ...row,
+              rights_class: normalizeManualRightsClass(value),
+            };
+          }
+          return {
+            ...row,
+            [field]: value,
+          };
+        }),
+      };
+    });
+  };
+
+  const handleToggleManualRowInclude = (rowId: string, include: boolean) => {
+    setManualImportSession((current) => {
+      if (!current) {
+        return current;
+      }
+      return {
+        ...current,
+        rows: current.rows.map((row) =>
+          row.id === rowId
+            ? {
+              ...row,
+              include,
+            }
+            : row),
+      };
+    });
+  };
+
+  const handleRemoveManualRow = (rowId: string) => {
+    setManualImportSession((current) => {
+      if (!current) {
+        return current;
+      }
+      const nextRows = current.rows.filter((row) => row.id !== rowId);
+      if (nextRows.length === 0) {
+        return null;
+      }
+      return {
+        ...current,
+        rows: nextRows,
+      };
+    });
+  };
+
+  const handleSelectAllImportableRows = () => {
+    setManualImportSession((current) => {
+      if (!current) {
+        return current;
+      }
+      const validIds = new Set(
+        validateManualDraftRows(current.rows)
+          .filter((item) => item.is_valid)
+          .map((item) => item.row_id),
+      );
+      if (validIds.size === 0) {
+        return current;
+      }
+      return {
+        ...current,
+        rows: current.rows.map((row) =>
+          validIds.has(row.id)
+            ? {
+              ...row,
+              include: true,
+            }
+            : row),
+      };
+    });
+  };
+
+  const handleInvertImportableRows = () => {
+    setManualImportSession((current) => {
+      if (!current) {
+        return current;
+      }
+      const validIds = new Set(
+        validateManualDraftRows(current.rows)
+          .filter((item) => item.is_valid)
+          .map((item) => item.row_id),
+      );
+      if (validIds.size === 0) {
+        return current;
+      }
+      return {
+        ...current,
+        rows: current.rows.map((row) =>
+          validIds.has(row.id)
+            ? {
+              ...row,
+              include: !row.include,
+            }
+            : row),
+      };
+    });
+  };
+
+  const handleApplyBatchRightsToManualRows = () => {
+    setManualImportSession((current) => {
+      if (!current) {
+        return current;
+      }
+      return {
+        ...current,
+        rows: applyBatchRightsClass(current.rows, manualBatchRightsClass, true),
+      };
+    });
+    pushLiteratureFeedback({
+      slot: 'manual-import',
+      level: 'success',
+      message: `已向勾选行批量设置 rights_class=${manualBatchRightsClass}。`,
+    });
+  };
+
+  const handleSubmitManualReviewedRows = async () => {
+    if (!manualImportSession || manualImportSession.rows.length === 0) {
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: 'warning',
+        message: '请先上传并审阅文献，再执行导入。',
+      });
+      return;
+    }
+
+    const selectedValidRows = manualImportSession.rows
+      .map((row) => ({
+        row,
+        validation: manualValidationByRowId.get(row.id),
+      }))
+      .filter(
+        (entry): entry is { row: ManualDraftRow; validation: ManualRowValidation & { normalized: ManualImportPayload } } =>
+          entry.row.include && Boolean(entry.validation?.is_valid && entry.validation.normalized),
+      );
+
+    if (selectedValidRows.length === 0) {
+      setManualUploadStatus('empty');
+      const message = '没有已勾选且通过校验的行可导入。';
+      setManualUploadError(message);
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: 'warning',
+        message,
+      });
+      return;
+    }
+
+    setManualUploadLoading(true);
+    setManualUploadStatus('saving');
+    setManualUploadError(null);
+
+    try {
+      const importItems = selectedValidRows.map((entry) => {
+        const normalized = entry.validation.normalized;
+        return {
+          ...normalized,
+          rights_class: normalizeManualRightsClass(normalized.rights_class),
+        };
+      });
+
+      const payload = await requestGovernance({
+        method: 'POST',
+        path: '/literature/import',
+        body: {
+          items: importItems,
+        },
+      });
+      const root = asRecord(payload);
+      const results = Array.isArray(root?.results) ? root.results : [];
+      const normalizedResults = results
+        .map((row) => asRecord(row))
+        .filter((row): row is Record<string, unknown> => row !== null);
+
+      const newCount = normalizedResults.filter((row) => row.is_new === true).length;
+      const dedupCount = normalizedResults.filter((row) => row.is_new === false).length;
+      const failedCount = Math.max(0, selectedValidRows.length - normalizedResults.length);
+      const fullSuccess = normalizedResults.length === selectedValidRows.length;
+
+      if (fullSuccess) {
+        const selectedRowIds = new Set(selectedValidRows.map((entry) => entry.row.id));
+        setManualImportSession((current) => {
+          if (!current) {
+            return current;
+          }
+          const nextRows = current.rows.filter((row) => !selectedRowIds.has(row.id));
+          if (nextRows.length === 0) {
+            return null;
+          }
+          return {
+            ...current,
+            rows: nextRows,
+          };
+        });
+      }
+
+      setManualUploadStatus('ready');
+      setManualUploadError(null);
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: failedCount > 0 ? 'warning' : 'success',
+        message: `入库完成：新增 ${newCount}，去重 ${dedupCount}，失败 ${failedCount}${fullSuccess ? '' : '。存在失败行，已保留在表格中供继续修正。'}`,
+      });
+
+      await loadLiteratureOverview(topicId, paperId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '手动导入失败。';
+      setManualUploadStatus('error');
+      setManualUploadError(message);
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: 'error',
+        message: `手动导入失败：${message}`,
+      });
+    } finally {
+      setManualUploadLoading(false);
     }
   };
 
@@ -2874,7 +3100,16 @@ export function App({ initialThemeMode }: AppProps) {
     }
 
     const parsedLimit = Number.parseInt(zoteroLimitInput.trim(), 10);
-    const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
+    const normalizedLimit = Number.isFinite(parsedLimit) ? parsedLimit : 20;
+    const limit = Math.min(50, Math.max(1, normalizedLimit));
+    if (limit !== normalizedLimit) {
+      setZoteroLimitInput(String(limit));
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: 'warning',
+        message: `Zotero limit 已自动修正为 ${limit}（允许范围 1-50）。`,
+      });
+    }
 
     setZoteroLoading(true);
     setZoteroStatus('loading');
@@ -2889,23 +3124,17 @@ export function App({ initialThemeMode }: AppProps) {
           api_key: zoteroApiKey.trim() || undefined,
           query: zoteroQuery.trim() || undefined,
           limit,
-          topic_id: topicId.trim() || undefined,
-          scope_status: 'in_scope',
-          scope_reason: scopeReasonInput.trim() || undefined,
-          tags: parseTagsInput(batchTagsInput),
         },
       });
 
       const root = asRecord(payload);
       const importedCount = typeof root?.imported_count === 'number' ? root.imported_count : 0;
-      const scopedCount = typeof root?.scope_upserted_count === 'number' ? root.scope_upserted_count : 0;
       setZoteroStatus(importedCount > 0 ? 'ready' : 'empty');
       pushLiteratureFeedback({
         slot: 'manual-import',
         level: importedCount > 0 ? 'success' : 'warning',
-        message: `Zotero 同步完成：导入 ${importedCount} 条，加入范围 ${scopedCount} 条。`,
+        message: `Zotero 同步完成：导入 ${importedCount} 条。`,
       });
-      await loadTopicScope(topicId);
       await loadLiteratureOverview(topicId, paperId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Zotero 导入失败。';
@@ -3327,6 +3556,53 @@ export function App({ initialThemeMode }: AppProps) {
       .reverse();
   }, [timelinePanel.data]);
 
+  const manualDraftRows = manualImportSession?.rows ?? [];
+  const isDevMode = appMode === 'dev';
+  const manualRowValidations = useMemo<ManualRowValidation[]>(
+    () => validateManualDraftRows(manualDraftRows),
+    [manualDraftRows],
+  );
+  const manualValidationByRowId = useMemo(
+    () => new Map(manualRowValidations.map((item) => [item.row_id, item])),
+    [manualRowValidations],
+  );
+  const manualVisibleRows = useMemo(
+    () =>
+      manualShowErrorOnly
+        ? manualDraftRows.filter((row) => !manualValidationByRowId.get(row.id)?.is_valid)
+        : manualDraftRows,
+    [manualDraftRows, manualShowErrorOnly, manualValidationByRowId],
+  );
+  const manualRowStats = useMemo(() => {
+    let validCount = 0;
+    let invalidCount = 0;
+    let selectedValidCount = 0;
+    let selectedInvalidCount = 0;
+
+    for (const row of manualDraftRows) {
+      const validation = manualValidationByRowId.get(row.id);
+      if (validation?.is_valid) {
+        validCount += 1;
+        if (row.include) {
+          selectedValidCount += 1;
+        }
+      } else {
+        invalidCount += 1;
+        if (row.include) {
+          selectedInvalidCount += 1;
+        }
+      }
+    }
+
+    return {
+      totalCount: manualDraftRows.length,
+      validCount,
+      invalidCount,
+      selectedValidCount,
+      selectedInvalidCount,
+    };
+  }, [manualDraftRows, manualValidationByRowId]);
+
   const inScopeCount = topicScopeItems.filter((item) => item.scope_status === 'in_scope').length;
   const citedCount = paperLiteratureItems.filter((item) => item.citation_status === 'cited').length;
   const usedCount = paperLiteratureItems.filter((item) => item.citation_status === 'used').length;
@@ -3660,36 +3936,87 @@ export function App({ initialThemeMode }: AppProps) {
       <div className={`shell-main${isSidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
         <aside className="sidebar-pane">
           {!isSidebarCollapsed ? (
-            <nav className="sidebar-nav-zones" aria-label="模块导航">
-              <section className="sidebar-nav-zone sidebar-nav-zone-core">
-                <div className="module-nav-list">
-                  {coreNavItems.map((item) => (
+            <>
+              <nav className="sidebar-nav-zones" aria-label="模块导航">
+                <section className="sidebar-nav-zone sidebar-nav-zone-core">
+                  <div className="module-nav-list">
+                    {coreNavItems.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className={`module-nav-item${activeModule === item ? ' is-active' : ''}`}
+                        onClick={() => handleModuleSelect(item)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+                <section className="sidebar-nav-zone sidebar-nav-zone-writing">
+                  <div className="module-nav-list">
+                    {writingNavItems.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className={`module-nav-item${activeModule === item ? ' is-active' : ''}`}
+                        onClick={() => handleModuleSelect(item)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </nav>
+              <div className="sidebar-footer-settings" ref={settingsPanelRef}>
+                {settingsPanelOpen ? (
+                  <div id="sidebar-settings-panel" className="sidebar-settings-popover" role="dialog" aria-label="侧栏设置">
+                    <div className="sidebar-settings-item">
+                      <span className="sidebar-settings-item-label">开发模式</span>
+                      <button
+                        type="button"
+                        className={`sidebar-settings-mode-switch${isDevMode ? ' is-dev' : ''}`}
+                        role="switch"
+                        aria-checked={isDevMode}
+                        aria-label="开发模式开关"
+                        onClick={() => setAppMode((current) => (current === 'dev' ? 'standard' : 'dev'))}
+                      >
+                        <span className="sidebar-settings-mode-track" aria-hidden="true">
+                          <span className="sidebar-settings-mode-thumb" />
+                        </span>
+                      </button>
+                    </div>
+                    <div className="sidebar-settings-divider" aria-hidden="true" />
                     <button
-                      key={item}
                       type="button"
-                      className={`module-nav-item${activeModule === item ? ' is-active' : ''}`}
-                      onClick={() => handleModuleSelect(item)}
+                      className="sidebar-settings-item sidebar-settings-item-button"
+                      onClick={handleInjectManualImportTestData}
+                      disabled={!isDevMode}
                     >
-                      {item}
+                      <span>注入测试数据</span>
+                      <span className="sidebar-settings-item-arrow" aria-hidden="true">›</span>
                     </button>
-                  ))}
-                </div>
-              </section>
-              <section className="sidebar-nav-zone sidebar-nav-zone-writing">
-                <div className="module-nav-list">
-                  {writingNavItems.map((item) => (
                     <button
-                      key={item}
                       type="button"
-                      className={`module-nav-item${activeModule === item ? ' is-active' : ''}`}
-                      onClick={() => handleModuleSelect(item)}
+                      className="sidebar-settings-item sidebar-settings-item-button"
+                      onClick={handleClearInjectedManualImportData}
+                      disabled={!isDevMode}
                     >
-                      {item}
+                      <span>取消注入数据</span>
+                      <span className="sidebar-settings-item-arrow" aria-hidden="true">›</span>
                     </button>
-                  ))}
-                </div>
-              </section>
-            </nav>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className={`sidebar-settings-trigger${settingsPanelOpen ? ' is-active' : ''}`}
+                  onClick={() => setSettingsPanelOpen((current) => !current)}
+                  aria-expanded={settingsPanelOpen}
+                  aria-controls="sidebar-settings-panel"
+                >
+                  <span>设置</span>
+                </button>
+              </div>
+            </>
           ) : null}
         </aside>
 
@@ -4653,133 +4980,387 @@ export function App({ initialThemeMode }: AppProps) {
                 ) : null}
 
                 {activeLiteratureTab === 'manual-import' ? (
-                  <section className="literature-tab-panel">
-                    <div data-ui="toolbar" data-align="between" data-wrap="wrap">
-                      <p data-ui="text" data-variant="label" data-tone="secondary">手动导入（文件上传 + 文献库联动）</p>
+                  <section className="literature-tab-panel manual-import-panel">
+                    <div className="manual-import-switch-shell">
+                      <div className="manual-import-switch" role="tablist" aria-label="手动导入方式">
+                        {manualImportSubTabs.map((tab) => {
+                          const isActive = manualImportSubTab === tab.key;
+                          return (
+                            <button
+                              key={tab.key}
+                              type="button"
+                              role="tab"
+                              aria-selected={isActive}
+                              className={`manual-import-switch-button${isActive ? ' is-active' : ''}`}
+                              onClick={() => setManualImportSubTab(tab.key)}
+                            >
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="manual-import-status-row" data-ui="toolbar" data-align="between" data-wrap="wrap">
+                      <p data-ui="text" data-variant="label" data-tone="secondary">手动导入（先审阅后入库）</p>
                       <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
                         <span data-ui="badge" data-variant="subtle" data-tone="neutral">
                           文件：{formatUiOperationStatus(manualUploadStatus)}
+                        </span>
+                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
+                          草稿：{manualRowStats.totalCount} 行（可导入 {manualRowStats.validCount}）
                         </span>
                         <span data-ui="badge" data-variant="subtle" data-tone="neutral">
                           Zotero：{formatUiOperationStatus(zoteroStatus)}
                         </span>
                       </div>
                     </div>
-                    <section className="literature-section-block">
-                      <p data-ui="text" data-variant="caption" data-tone="muted">导入默认参数</p>
-                      <div data-ui="grid" data-cols="2" data-gap="2" className="literature-defaults-grid">
-                        <label data-ui="field">
-                          <span data-slot="label">默认分类标签（逗号分隔）</span>
-                          <input
-                            data-ui="input"
-                            data-size="sm"
-                            value={batchTagsInput}
-                            onChange={(event) => setBatchTagsInput(event.target.value)}
-                            placeholder="例如：survey, baseline, method:nlp"
-                          />
-                        </label>
-                        <label data-ui="field">
-                          <span data-slot="label">范围变更原因（可选）</span>
-                          <input
-                            data-ui="input"
-                            data-size="sm"
-                            value={scopeReasonInput}
-                            onChange={(event) => setScopeReasonInput(event.target.value)}
-                            placeholder="例如：选题核心相关"
-                          />
-                        </label>
-                      </div>
-                    </section>
 
-                    <section className="literature-section-block">
-                      <p data-ui="text" data-variant="label" data-tone="secondary">A) 文件上传导入</p>
-                      <label data-ui="field">
-                        <span data-slot="label">上传文件（JSON / CSV / BibTeX）</span>
-                        <input
-                          data-ui="input"
-                          type="file"
-                          accept=".json,.csv,.bib,.bibtex,.txt"
-                          onChange={handleManualUpload}
-                        />
-                      </label>
-                      <p data-ui="text" data-variant="caption" data-tone="muted">
-                        {manualUploadLoading ? '文件解析与导入中...' : '上传后自动解析并导入到当前 Topic。'}
-                      </p>
-                      {manualUploadError ? (
-                        <p data-ui="text" data-variant="caption" data-tone="danger">
-                          {manualUploadError}（恢复动作：修复文件格式后重新上传）
-                        </p>
-                      ) : null}
-                    </section>
-
-                    <section className="literature-section-block">
-                      <p data-ui="text" data-variant="label" data-tone="secondary">B) 文献库联动（Zotero）</p>
-                      <div data-ui="grid" data-cols="2" data-gap="2" className="zotero-fields-grid">
-                        <label data-ui="field">
-                          <span data-slot="label">Library Type</span>
-                          <select
-                            data-ui="select"
-                            data-size="sm"
-                            value={zoteroLibraryType}
-                            onChange={(event) => setZoteroLibraryType(event.target.value as 'users' | 'groups')}
+                    {manualImportSubTab === 'file-review' ? (
+                      <>
+                        <section className="literature-section-block manual-upload-card">
+                          <p data-ui="text" data-variant="label" data-tone="secondary">A) 上传本地文件</p>
+                          <p data-ui="text" data-variant="caption" data-tone="muted">支持格式：JSON / CSV / BibTeX</p>
+                          <label
+                            className={`manual-upload-dropzone${manualDropActive ? ' is-drag-active' : ''}${manualUploadLoading ? ' is-loading' : ''}`}
+                            onDragOver={(event) => event.preventDefault()}
+                            onDragEnter={(event) => {
+                              event.preventDefault();
+                              setManualDropActive(true);
+                            }}
+                            onDragLeave={(event) => {
+                              event.preventDefault();
+                              setManualDropActive(false);
+                            }}
+                            onDrop={(event) => void handleManualUploadDrop(event)}
                           >
-                            <option value="users">users</option>
-                            <option value="groups">groups</option>
-                          </select>
-                        </label>
+                            <input
+                              className="manual-upload-input"
+                              type="file"
+                              accept=".json,.csv,.bib,.bibtex,.txt"
+                              onChange={(event) => void handleManualUpload(event)}
+                            />
+                            <span className="manual-upload-dropzone-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M8.5 18.5h8a3 3 0 1 0-.3-5.99A5 5 0 0 0 6.3 11.4 3.2 3.2 0 0 0 8.5 18.5Z" />
+                                <path d="M12 8.2v6.1M9.8 10.4 12 8.2l2.2 2.2" />
+                              </svg>
+                            </span>
+                            <span className="manual-upload-dropzone-title">
+                              {manualUploadLoading ? '文件解析中...' : '点击或拖拽文件到此处上传'}
+                            </span>
+                            <span className="manual-upload-dropzone-action">选择文件</span>
+                          </label>
+                          {manualUploadError ? (
+                            <p data-ui="text" data-variant="caption" data-tone="danger">
+                              {manualUploadError}
+                            </p>
+                          ) : null}
+                        </section>
+
+                        {manualImportSession ? (
+                          <section className="literature-section-block">
+                            <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+                              <p data-ui="text" data-variant="label" data-tone="secondary">
+                                可编辑审阅表格：{manualImportSession.file_name}
+                              </p>
+                              <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                                <span data-ui="badge" data-variant="subtle" data-tone={manualRowStats.invalidCount > 0 ? 'warning' : 'neutral'}>
+                                  错误行 {manualRowStats.invalidCount}
+                                </span>
+                                <span data-ui="badge" data-variant="subtle" data-tone="neutral">
+                                  已选可导入 {manualRowStats.selectedValidCount}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div data-ui="toolbar" data-wrap="wrap" data-gap="2">
+                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleSelectAllImportableRows}>
+                                全选可导入行
+                              </button>
+                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleInvertImportableRows}>
+                                反选可导入行
+                              </button>
+                              <label className="manual-error-filter-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={manualShowErrorOnly}
+                                  onChange={(event) => setManualShowErrorOnly(event.target.checked)}
+                                />
+                                仅看错误行
+                              </label>
+                            </div>
+
+                            <div data-ui="toolbar" data-wrap="wrap" data-gap="2">
+                              <label data-ui="field">
+                                <span data-slot="label">批量 rights_class（作用于已勾选）</span>
+                                <select
+                                  data-ui="select"
+                                  data-size="sm"
+                                  value={manualBatchRightsClass}
+                                  onChange={(event) =>
+                                    setManualBatchRightsClass(
+                                      normalizeManualRightsClass(event.target.value),
+                                    )
+                                  }
+                                >
+                                  {MANUAL_RIGHTS_CLASSES.map((option) => (
+                                    <option key={option} value={option}>
+                                      {option}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleApplyBatchRightsToManualRows}>
+                                批量设置 rights_class
+                              </button>
+                              <button
+                                data-ui="button"
+                                data-variant="primary"
+                                data-size="sm"
+                                type="button"
+                                onClick={() => void handleSubmitManualReviewedRows()}
+                                disabled={manualUploadLoading || manualRowStats.selectedValidCount === 0}
+                              >
+                                {manualUploadLoading ? '导入中...' : '导入已选可用行'}
+                              </button>
+                            </div>
+                            {manualRowStats.selectedInvalidCount > 0 ? (
+                              <p data-ui="text" data-variant="caption" data-tone="warning">
+                                已勾选但未通过校验 {manualRowStats.selectedInvalidCount} 行；提交时将自动跳过。
+                              </p>
+                            ) : null}
+
+                            <div className="manual-import-table-shell">
+                              <table className="manual-import-table">
+                                <thead>
+                                  <tr>
+                                    <th>是否导入</th>
+                                    <th>标题</th>
+                                    <th>作者</th>
+                                    <th>年份</th>
+                                    <th>DOI</th>
+                                    <th>arXiv ID</th>
+                                    <th>来源链接</th>
+                                    <th>rights_class</th>
+                                    <th>标签</th>
+                                    <th>校验结果</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {manualVisibleRows.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={10}>
+                                        {manualShowErrorOnly ? '暂无错误行。' : '当前没有待审阅行。'}
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    manualVisibleRows.map((row) => {
+                                      const validation = manualValidationByRowId.get(row.id);
+                                      return (
+                                        <tr key={row.id} className={validation?.is_valid ? 'is-valid' : 'is-invalid'}>
+                                          <td>
+                                            <input
+                                              type="checkbox"
+                                              checked={row.include}
+                                              onChange={(event) =>
+                                                handleToggleManualRowInclude(row.id, event.target.checked)
+                                              }
+                                            />
+                                          </td>
+                                          <td>
+                                            <input
+                                              data-ui="input"
+                                              data-size="sm"
+                                              value={row.title}
+                                              onChange={(event) =>
+                                                handleManualDraftFieldChange(row.id, 'title', event.target.value)
+                                              }
+                                            />
+                                          </td>
+                                          <td>
+                                            <input
+                                              data-ui="input"
+                                              data-size="sm"
+                                              value={row.authors_text}
+                                              onChange={(event) =>
+                                                handleManualDraftFieldChange(row.id, 'authors_text', event.target.value)
+                                              }
+                                              placeholder="Alice, Bob"
+                                            />
+                                          </td>
+                                          <td>
+                                            <input
+                                              data-ui="input"
+                                              data-size="sm"
+                                              value={row.year_text}
+                                              onChange={(event) =>
+                                                handleManualDraftFieldChange(row.id, 'year_text', event.target.value)
+                                              }
+                                              placeholder="2024"
+                                            />
+                                          </td>
+                                          <td>
+                                            <input
+                                              data-ui="input"
+                                              data-size="sm"
+                                              value={row.doi}
+                                              onChange={(event) =>
+                                                handleManualDraftFieldChange(row.id, 'doi', event.target.value)
+                                              }
+                                              placeholder="10.1000/xyz"
+                                            />
+                                          </td>
+                                          <td>
+                                            <input
+                                              data-ui="input"
+                                              data-size="sm"
+                                              value={row.arxiv_id}
+                                              onChange={(event) =>
+                                                handleManualDraftFieldChange(row.id, 'arxiv_id', event.target.value)
+                                              }
+                                              placeholder="2401.00001"
+                                            />
+                                          </td>
+                                          <td>
+                                            <input
+                                              data-ui="input"
+                                              data-size="sm"
+                                              value={row.source_url}
+                                              onChange={(event) =>
+                                                handleManualDraftFieldChange(row.id, 'source_url', event.target.value)
+                                              }
+                                              placeholder="https://..."
+                                            />
+                                          </td>
+                                          <td>
+                                            <select
+                                              data-ui="select"
+                                              data-size="sm"
+                                              value={row.rights_class}
+                                              onChange={(event) =>
+                                                handleManualDraftFieldChange(row.id, 'rights_class', event.target.value)
+                                              }
+                                            >
+                                              {MANUAL_RIGHTS_CLASSES.map((option) => (
+                                                <option key={option} value={option}>
+                                                  {option}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </td>
+                                          <td>
+                                            <input
+                                              data-ui="input"
+                                              data-size="sm"
+                                              value={row.tags_text}
+                                              onChange={(event) =>
+                                                handleManualDraftFieldChange(row.id, 'tags_text', event.target.value)
+                                              }
+                                              placeholder="survey, baseline"
+                                            />
+                                          </td>
+                                          <td>
+                                            {validation?.is_valid ? (
+                                              <span data-ui="badge" data-variant="subtle" data-tone="success">可导入</span>
+                                            ) : (
+                                              <div className="manual-row-errors">
+                                                {(validation?.errors ?? []).map((errorItem) => (
+                                                  <p key={errorItem}>{errorItem}</p>
+                                                ))}
+                                              </div>
+                                            )}
+                                            <button
+                                              data-ui="button"
+                                              data-variant="ghost"
+                                              data-size="sm"
+                                              type="button"
+                                              onClick={() => handleRemoveManualRow(row.id)}
+                                            >
+                                              删除行
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </section>
+                        ) : null}
+                      </>
+                    ) : (
+                      <section className="literature-section-block manual-zotero-card">
+                        <p data-ui="text" data-variant="label" data-tone="secondary">文献库联动（Zotero）</p>
+                        <div data-ui="grid" data-cols="2" data-gap="2" className="zotero-fields-grid">
+                          <label data-ui="field">
+                            <span data-slot="label">Library Type</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={zoteroLibraryType}
+                              onChange={(event) => setZoteroLibraryType(event.target.value as 'users' | 'groups')}
+                            >
+                              <option value="users">users</option>
+                              <option value="groups">groups</option>
+                            </select>
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Library ID</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={zoteroLibraryId}
+                              onChange={(event) => setZoteroLibraryId(event.target.value)}
+                              placeholder="例如 123456"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">API Key（可选）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              type="password"
+                              value={zoteroApiKey}
+                              onChange={(event) => setZoteroApiKey(event.target.value)}
+                              placeholder="公开库可留空"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Limit（1-50）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={zoteroLimitInput}
+                              onChange={(event) => setZoteroLimitInput(event.target.value)}
+                              placeholder="20"
+                            />
+                          </label>
+                        </div>
                         <label data-ui="field">
-                          <span data-slot="label">Library ID</span>
+                          <span data-slot="label">查询关键词（可选）</span>
                           <input
                             data-ui="input"
                             data-size="sm"
-                            value={zoteroLibraryId}
-                            onChange={(event) => setZoteroLibraryId(event.target.value)}
-                            placeholder="例如 123456"
+                            value={zoteroQuery}
+                            onChange={(event) => setZoteroQuery(event.target.value)}
+                            placeholder="例如 retrieval evaluation"
                           />
                         </label>
-                        <label data-ui="field">
-                          <span data-slot="label">API Key（可选）</span>
-                          <input
-                            data-ui="input"
-                            data-size="sm"
-                            type="password"
-                            value={zoteroApiKey}
-                            onChange={(event) => setZoteroApiKey(event.target.value)}
-                            placeholder="公开库可留空"
-                          />
-                        </label>
-                        <label data-ui="field">
-                          <span data-slot="label">Limit</span>
-                          <input
-                            data-ui="input"
-                            data-size="sm"
-                            value={zoteroLimitInput}
-                            onChange={(event) => setZoteroLimitInput(event.target.value)}
-                            placeholder="20"
-                          />
-                        </label>
-                      </div>
-                      <label data-ui="field">
-                        <span data-slot="label">查询关键词（可选）</span>
-                        <input
-                          data-ui="input"
+                        <button
+                          data-ui="button"
+                          data-variant="secondary"
                           data-size="sm"
-                          value={zoteroQuery}
-                          onChange={(event) => setZoteroQuery(event.target.value)}
-                          placeholder="例如 retrieval evaluation"
-                        />
-                      </label>
-                      <button
-                        data-ui="button"
-                        data-variant="secondary"
-                        data-size="sm"
-                        type="button"
-                        onClick={handleImportFromZotero}
-                      >
-                        {zoteroLoading ? '同步中...' : '从 Zotero 同步导入'}
-                      </button>
-                      {zoteroError ? <p data-ui="text" data-variant="caption" data-tone="danger">{zoteroError}</p> : null}
-                    </section>
+                          type="button"
+                          onClick={handleImportFromZotero}
+                        >
+                          {zoteroLoading ? '同步中...' : '从 Zotero 同步导入'}
+                        </button>
+                        <p data-ui="text" data-variant="caption" data-tone="muted">Zotero 保持一键同步，不进入可编辑表格，且固定仅入库。</p>
+                        {zoteroError ? <p data-ui="text" data-variant="caption" data-tone="danger">{zoteroError}</p> : null}
+                      </section>
+                    )}
                   </section>
                 ) : null}
 
