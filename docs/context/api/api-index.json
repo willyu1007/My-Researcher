@@ -1,11 +1,1180 @@
 {
   "version": 1,
-  "generatedAt": "2026-02-21T05:41:41.352Z",
+  "generatedAt": "2026-02-27T14:50:35.955Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "ed8b0640efd49b9a12d81bc01a2d4fed4d8fa3d2235fc8be20b5c05080322c68",
+  "sourceChecksumSha256": "4a80c048f3f7b75a7eb1949d302e2dd1af582d268e5cc6b83f258f7b97c2e392",
   "stats": {
-    "totalEndpoints": 0,
-    "byTag": {}
+    "totalEndpoints": 31,
+    "byTag": {
+      "health": 1,
+      "research-lifecycle": 8,
+      "literature": 9,
+      "topic-settings": 3,
+      "auto-pull": 10
+    }
   },
-  "endpoints": []
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "operationId": "getHealth",
+      "summary": "Check service liveness.",
+      "tag": "health",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "ok"
+        ]
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/health'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-projects",
+      "operationId": "createPaperProject",
+      "summary": "Create a paper project.",
+      "tag": "research-lifecycle",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "topic_id",
+            "title",
+            "created_by",
+            "initial_context"
+          ],
+          "optional": [
+            "research_direction"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": [
+          "paper_id",
+          "status",
+          "paper_active_sp_full",
+          "paper_active_sp_partial",
+          "created_at"
+        ]
+      },
+      "errors": [
+        400,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-projects' -H 'Content-Type: application/json' -d '{\"topic_id\":\"<topic_id>\",\"title\":\"<title>\",\"created_by\":\"<created_by>\",\"initial_context\":\"<initial_context>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-projects/{id}/version-spine/commit",
+      "operationId": "commitVersionSpine",
+      "summary": "Commit a version spine node for a paper.",
+      "tag": "research-lifecycle",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "lineage_meta",
+            "payload_ref",
+            "node_status"
+          ],
+          "optional": [
+            "value_judgement_payload"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "node_id",
+          "accepted",
+          "node_status"
+        ]
+      },
+      "errors": [
+        400,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-projects/{id}/version-spine/commit' -H 'Content-Type: application/json' -d '{\"lineage_meta\":\"<lineage_meta>\",\"payload_ref\":\"<payload_ref>\",\"node_status\":\"<node_status>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-projects/{id}/stage-gates/{gate}/verify",
+      "operationId": "verifyStageGate",
+      "summary": "Verify stage gate candidates for a paper.",
+      "tag": "research-lifecycle",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id",
+          "gate"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "candidate_node_ids",
+            "config_version",
+            "reviewer_mode",
+            "analysis_contract"
+          ],
+          "optional": [
+            "override_context"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "gate_run_id",
+          "results",
+          "snapshot",
+          "pointer_update"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        422,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-projects/{id}/stage-gates/{gate}/verify' -H 'Content-Type: application/json' -d '{\"candidate_node_ids\":\"<candidate_node_ids>\",\"config_version\":\"<config_version>\",\"reviewer_mode\":\"<reviewer_mode>\",\"analysis_contract\":\"<analysis_contract>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-projects/{id}/writing-packages/build",
+      "operationId": "buildWritingPackage",
+      "summary": "Build a writing package from a snapshot.",
+      "tag": "research-lifecycle",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "source_snapshot_id",
+            "writing_mode",
+            "target_release_tag",
+            "sections"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "writing_package_id",
+          "source_snapshot_id",
+          "release_tag",
+          "section_node_ids",
+          "compliance_flags"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-projects/{id}/writing-packages/build' -H 'Content-Type: application/json' -d '{\"source_snapshot_id\":\"<source_snapshot_id>\",\"writing_mode\":\"<writing_mode>\",\"target_release_tag\":\"<target_release_tag>\",\"sections\":\"<sections>\"}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/paper-projects/{id}/timeline",
+      "operationId": "getPaperTimeline",
+      "summary": "Get timeline events for a paper.",
+      "tag": "research-lifecycle",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "paper_id",
+          "events"
+        ]
+      },
+      "errors": [
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/paper-projects/{id}/timeline'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/paper-projects/{id}/resource-metrics",
+      "operationId": "getPaperResourceMetrics",
+      "summary": "Get runtime resource metrics for a paper.",
+      "tag": "research-lifecycle",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "paper_id",
+          "paper_runtime_metric"
+        ]
+      },
+      "errors": [
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/paper-projects/{id}/resource-metrics'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/paper-projects/{id}/artifact-bundle",
+      "operationId": "getPaperArtifactBundle",
+      "summary": "Get artifact bundle URLs for a paper.",
+      "tag": "research-lifecycle",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "paper_id",
+          "artifact_bundle"
+        ]
+      },
+      "errors": [
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/paper-projects/{id}/artifact-bundle'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-projects/{id}/release-gate/review",
+      "operationId": "reviewReleaseGate",
+      "summary": "Submit release gate review decision.",
+      "tag": "research-lifecycle",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "reviewers",
+            "decision",
+            "risk_flags",
+            "label_policy"
+          ],
+          "optional": [
+            "comment"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "gate_result"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-projects/{id}/release-gate/review' -H 'Content-Type: application/json' -d '{\"reviewers\":\"<reviewers>\",\"decision\":\"<decision>\",\"risk_flags\":\"<risk_flags>\",\"label_policy\":\"<label_policy>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/import",
+      "operationId": "importLiterature",
+      "summary": "Import literature items into repository.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "items"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "results"
+        ]
+      },
+      "errors": [
+        400,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/import' -H 'Content-Type: application/json' -d '{\"items\":\"<items>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/zotero-import",
+      "operationId": "importLiteratureFromZotero",
+      "summary": "Import literature from Zotero library.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "library_type",
+            "library_id"
+          ],
+          "optional": [
+            "api_key",
+            "query",
+            "limit",
+            "topic_id",
+            "scope_status",
+            "scope_reason",
+            "tags",
+            "rights_class"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "imported_count",
+          "scope_upserted_count",
+          "results",
+          "topic_id"
+        ]
+      },
+      "errors": [
+        400,
+        500,
+        502
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/zotero-import' -H 'Content-Type: application/json' -d '{\"library_type\":\"<library_type>\",\"library_id\":\"<library_id>\"}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/literature/overview",
+      "operationId": "getLiteratureOverview",
+      "summary": "Get literature overview filtered by topic and/or paper.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "summary",
+          "items",
+          "topic_id",
+          "paper_id"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/literature/overview'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/topics/{topicId}/literature-scope",
+      "operationId": "getTopicLiteratureScope",
+      "summary": "Get literature scope list for a topic.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "topicId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "topic_id",
+          "items"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/topics/{topicId}/literature-scope'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/topics/{topicId}/literature-scope",
+      "operationId": "upsertTopicLiteratureScope",
+      "summary": "Upsert literature scope actions for a topic.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "topicId"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "actions"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "topic_id",
+          "items"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/topics/{topicId}/literature-scope' -H 'Content-Type: application/json' -d '{\"actions\":\"<actions>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-projects/{id}/literature-links/from-topic",
+      "operationId": "syncPaperLiteratureFromTopic",
+      "summary": "Sync in-scope topic literature into paper links.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "topic_id"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "paper_id",
+          "topic_id",
+          "linked_count",
+          "skipped_count"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-projects/{id}/literature-links/from-topic' -H 'Content-Type: application/json' -d '{\"topic_id\":\"<topic_id>\"}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/paper-projects/{id}/literature",
+      "operationId": "getPaperLiterature",
+      "summary": "Get literature links under a paper.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "paper_id",
+          "items"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/paper-projects/{id}/literature'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/paper-projects/{id}/literature-links/{linkId}",
+      "operationId": "updatePaperLiteratureLink",
+      "summary": "Update citation status or note of a paper literature link.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "id",
+          "linkId"
+        ],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "citation_status",
+            "note"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "paper_id",
+          "item"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X PATCH '/paper-projects/{id}/literature-links/{linkId}'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/literature/{literatureId}/metadata",
+      "operationId": "updateLiteratureMetadata",
+      "summary": "Update literature metadata fields.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "literatureId"
+        ],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "title",
+            "abstract",
+            "authors",
+            "year",
+            "doi",
+            "arxiv_id",
+            "rights_class",
+            "tags"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "literature_id",
+          "title",
+          "abstract",
+          "authors",
+          "year",
+          "doi",
+          "arxiv_id",
+          "rights_class",
+          "tags",
+          "updated_at"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X PATCH '/literature/{literatureId}/metadata'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/topics/settings",
+      "operationId": "listTopicProfiles",
+      "summary": "List topic profiles.",
+      "tag": "topic-settings",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "items"
+        ]
+      },
+      "errors": [
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/topics/settings'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/topics/settings",
+      "operationId": "createTopicProfile",
+      "summary": "Create a topic profile.",
+      "tag": "topic-settings",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "topic_id",
+            "name"
+          ],
+          "optional": [
+            "is_active",
+            "include_keywords",
+            "exclude_keywords",
+            "venue_filters",
+            "default_lookback_days",
+            "default_min_year",
+            "default_max_year",
+            "rule_ids"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": [
+          "topic_id",
+          "name",
+          "is_active",
+          "include_keywords",
+          "exclude_keywords",
+          "venue_filters",
+          "default_lookback_days",
+          "default_min_year",
+          "default_max_year",
+          "rule_ids",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "errors": [
+        400,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/topics/settings' -H 'Content-Type: application/json' -d '{\"topic_id\":\"<topic_id>\",\"name\":\"<name>\"}'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/topics/settings/{topicId}",
+      "operationId": "updateTopicProfile",
+      "summary": "Update a topic profile.",
+      "tag": "topic-settings",
+      "auth": "none",
+      "input": {
+        "params": [
+          "topicId"
+        ],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "name",
+            "is_active",
+            "include_keywords",
+            "exclude_keywords",
+            "venue_filters",
+            "default_lookback_days",
+            "default_min_year",
+            "default_max_year",
+            "rule_ids"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "topic_id",
+          "name",
+          "is_active",
+          "include_keywords",
+          "exclude_keywords",
+          "venue_filters",
+          "default_lookback_days",
+          "default_min_year",
+          "default_max_year",
+          "rule_ids",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X PATCH '/topics/settings/{topicId}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/auto-pull/rules",
+      "operationId": "listAutoPullRules",
+      "summary": "List auto-pull rules by filters.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "items"
+        ]
+      },
+      "errors": [
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/auto-pull/rules'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/auto-pull/rules",
+      "operationId": "createAutoPullRule",
+      "summary": "Create an auto-pull rule.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "scope",
+            "name",
+            "sources",
+            "schedules"
+          ],
+          "optional": [
+            "topic_id",
+            "topic_ids",
+            "status",
+            "query_spec",
+            "time_spec",
+            "quality_spec"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": [
+          "rule_id",
+          "scope",
+          "topic_id",
+          "topic_ids",
+          "name",
+          "status",
+          "query_spec",
+          "time_spec",
+          "quality_spec",
+          "sources",
+          "schedules",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/auto-pull/rules' -H 'Content-Type: application/json' -d '{\"scope\":\"<scope>\",\"name\":\"<name>\",\"sources\":\"<sources>\",\"schedules\":\"<schedules>\"}'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/auto-pull/rules/{ruleId}",
+      "operationId": "updateAutoPullRule",
+      "summary": "Update an auto-pull rule.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [
+          "ruleId"
+        ],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "scope",
+            "topic_id",
+            "topic_ids",
+            "name",
+            "status",
+            "query_spec",
+            "time_spec",
+            "quality_spec",
+            "sources",
+            "schedules"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "rule_id",
+          "scope",
+          "topic_id",
+          "topic_ids",
+          "name",
+          "status",
+          "query_spec",
+          "time_spec",
+          "quality_spec",
+          "sources",
+          "schedules",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X PATCH '/auto-pull/rules/{ruleId}'"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/auto-pull/rules/{ruleId}",
+      "operationId": "deleteAutoPullRule",
+      "summary": "Delete an auto-pull rule.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [
+          "ruleId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 204,
+        "coreFields": []
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X DELETE '/auto-pull/rules/{ruleId}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/auto-pull/rules/{ruleId}/runs",
+      "operationId": "triggerAutoPullRuleRun",
+      "summary": "Trigger a run for a rule.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [
+          "ruleId"
+        ],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "trigger_type"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": [
+          "run_id",
+          "rule_id",
+          "trigger_type",
+          "status",
+          "started_at",
+          "finished_at",
+          "summary",
+          "error_code",
+          "error_message",
+          "created_at",
+          "updated_at",
+          "source_attempts",
+          "suggestions"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/auto-pull/rules/{ruleId}/runs'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/auto-pull/runs/{runId}/retry-failed-sources",
+      "operationId": "retryFailedAutoPullSources",
+      "summary": "Retry failed sources from a previous run.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [
+          "runId"
+        ],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "sources"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": [
+          "run_id",
+          "rule_id",
+          "trigger_type",
+          "status",
+          "started_at",
+          "finished_at",
+          "summary",
+          "error_code",
+          "error_message",
+          "created_at",
+          "updated_at",
+          "source_attempts",
+          "suggestions"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/auto-pull/runs/{runId}/retry-failed-sources'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/auto-pull/runs",
+      "operationId": "listAutoPullRuns",
+      "summary": "List auto-pull runs by filters.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "items"
+        ]
+      },
+      "errors": [
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/auto-pull/runs'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/auto-pull/runs/{runId}",
+      "operationId": "getAutoPullRun",
+      "summary": "Get auto-pull run detail.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [
+          "runId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "run_id",
+          "rule_id",
+          "trigger_type",
+          "status",
+          "started_at",
+          "finished_at",
+          "summary",
+          "error_code",
+          "error_message",
+          "created_at",
+          "updated_at",
+          "source_attempts",
+          "suggestions"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/auto-pull/runs/{runId}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/auto-pull/alerts",
+      "operationId": "listAutoPullAlerts",
+      "summary": "List auto-pull alerts by filters.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "items"
+        ]
+      },
+      "errors": [
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/auto-pull/alerts'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/auto-pull/alerts/{alertId}/ack",
+      "operationId": "acknowledgeAutoPullAlert",
+      "summary": "Acknowledge an alert.",
+      "tag": "auto-pull",
+      "auth": "none",
+      "input": {
+        "params": [
+          "alertId"
+        ],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "ack_at"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "alert_id",
+          "rule_id",
+          "run_id",
+          "source",
+          "level",
+          "code",
+          "message",
+          "detail",
+          "ack_at",
+          "created_at"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/auto-pull/alerts/{alertId}/ack'"
+      }
+    }
+  ]
 }

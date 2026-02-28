@@ -614,3 +614,151 @@
   - 两侧卡片统一最小高度为 `144px`。
 - Impact scope:
   - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - 契约漂移修复 + 手动导入可编辑工作台（引用就绪）
+- Trigger:
+  - 用户要求执行“契约漂移修复 + 手动导入工作台”实施计划，优先修复手动导入 UI 与契约一致性。
+- What changed:
+  - API 契约与上下文：
+    - 完整重写 `docs/context/api/openapi.yaml`，覆盖后端当前 31 个 endpoint（含 `/health`），按 `health/research-lifecycle/literature/topic-settings/auto-pull` 分 tag。
+    - 为关键接口补 request/response example：`POST /paper-projects`、`POST /literature/import`、`POST /literature/zotero-import`、`POST /topics/settings`、`POST /auto-pull/rules`、`GET /auto-pull/runs/{runId}`。
+    - 生成 `docs/context/api/api-index.json`、`docs/context/api/API-INDEX.md` 并通过 `--touch` 同步 `docs/context/registry.json` checksum。
+  - 手动导入工作台（桌面端）：
+    - 新增 `apps/desktop/src/renderer/literature/manual-import-types.ts`：`ManualImportMode`、`ManualDraftRow`、`ManualRowValidation`、`ManualImportSession` 等内部类型。
+    - 新增 `apps/desktop/src/renderer/literature/manual-import-utils.ts`：JSON/CSV/BibTeX 解析、引用就绪校验、字段规范化、批量标签/rights 纯函数。
+    - `App.tsx` 重构手动导入链路为“上传 -> 可编辑表格审阅 -> 导入已选可用行”：
+      - 行级编辑/删除、仅错误行过滤、全选/反选可导入行。
+      - 批量追加标签、批量设置 `rights_class`。
+      - 导入策略单选：默认 `import_and_scope`，可切换 `import_only`。
+      - 提交时仅发送“勾选且通过校验”的行；成功后移除已成功提交行，保留其余行继续编辑。
+      - `import_and_scope` 且 Topic 为空时阻断并提示。
+    - Zotero 保持一键同步，不进入审阅表格；前端 `limit` 超界自动收敛到 `1-50` 并提示。
+  - 样式更新：
+    - `apps/desktop/src/renderer/app-layout.css` 新增手动审阅表格样式（固定表头、横向滚动、错误行高亮、移动端可读）。
+- Impact scope:
+  - `docs/context/api/openapi.yaml`
+  - `docs/context/api/api-index.json`
+  - `docs/context/api/API-INDEX.md`
+  - `docs/context/registry.json`
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+  - `apps/desktop/src/renderer/literature/manual-import-types.ts`
+  - `apps/desktop/src/renderer/literature/manual-import-utils.ts`
+
+### 2026-02-27 - 手动导入策略开关下线（固定仅入库）
+- Trigger:
+  - 用户明确当前链路下文献管理应聚焦“提供足够文献”，不需要手动导入策略选择。
+- What changed:
+  - `App.tsx` 移除手动文件导入策略单选（`import_and_scope` / `import_only`）。
+  - 文件导入提交逻辑改为固定仅入库：仅调用 `POST /literature/import`，不再在手动文件导入中写 topic scope。
+  - 导入完成提示改为“入库完成（新增/去重/失败）”。
+  - “范围变更原因”字段文案调整为 `Zotero 范围变更原因（可选）`，避免与手动文件导入语义混淆。
+  - 清理对应无用样式（`manual-import-mode-*`）。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-27 - Zotero 入口改为固定仅入库
+- Trigger:
+  - 用户确认“文献管理核心是提供足够文献”，要求 Zotero 与手动文件导入保持同一语义（不做导入时 scope 写入）。
+- What changed:
+  - `handleImportFromZotero` 请求体移除 `topic_id/scope_status/scope_reason`。
+  - Zotero 成功提示由“导入 + 加入范围”改为仅“导入 N 条”。
+  - 手动导入页移除 Zotero scope reason 输入项，底部说明更新为“固定仅入库”。
+  - 保留 `scopeReasonInput` 内部默认值，仅供综览页手动 scope 调整时附带 reason。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+
+### 2026-02-27 - 移除“导入默认参数”与默认标签自动注入
+- Trigger:
+  - 用户确认“标签应在后续阶段填写”，要求删除“导入默认参数”模块。
+- What changed:
+  - 删除手动导入页“导入默认参数/默认分类标签”UI。
+  - 删除默认标签状态与相关逻辑：
+    - 上传后不再自动给草稿行追加默认标签。
+    - 提交手动导入时不再自动并入默认标签。
+    - Zotero 导入请求不再携带 `tags`。
+  - 审阅表格保留“标签”列，仅支持按行手工填写（如需）。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+
+### 2026-02-28 - 手动导入布局对齐截图 + 注入测试数据
+- Trigger:
+  - 用户要求“手动导入”参考目标截图布局，并提供一组可直接注入的测试数据用于联调与演示。
+- What changed:
+  - `App.tsx`
+    - 手动导入页新增分段切换：`文件上传与审阅` / `文献库联动 (Zotero)`。
+    - 文件入口改为卡片化上传区（支持点击与拖拽），视觉结构对齐目标图：顶部分段 + 上传卡片 + 虚线拖拽区。
+    - 新增“注入测试数据”按钮：一键写入 6 行草稿（覆盖可导入、缺作者、年份非法、URL 非法等场景）。
+    - 上传解析逻辑抽出为 `importManualFileIntoSession`，文件选择与拖拽复用同一条解析链路。
+  - `app-layout.css`
+    - 新增手动导入分段控件样式、上传卡片与拖拽区样式、移动端适配（`max-width: 1100px`）。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-28 - 侧栏设置入口 + 开发模式开关 + 上传区视觉收敛
+- Trigger:
+  - 用户要求设置入口常驻左侧导航左下角，支持“标准/开发模式”切换；并在开发模式下控制“注入测试数据”显示，同时进一步收敛上传区视觉权重。
+- What changed:
+  - `App.tsx`
+    - 新增左侧导航底部常驻“设置”入口，带弹出面板。
+    - 设置面板新增模式切换：`标准模式` / `开发模式`。
+    - 开发模式下显示开关：`显示“注入测试数据”`；仅在该条件满足时，手动导入页显示注入按钮。
+    - 新增本地持久化键：`pea.app.mode`、`pea.dev.manual-seed-visible`。
+    - 手动导入分段文案更新为：`上传本地文件`、`从Zotero获取`。
+  - `app-layout.css`
+    - 新增侧栏设置入口/弹层样式，风格对齐轻量菜单。
+    - 上传卡片与拖拽区样式收敛：降低字重与对比、弱化高亮、替换为细线图标、弱化按钮阴影。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-28 - 设置入口去底色 + 去分割线 + 继续降字重
+- Trigger:
+  - 用户要求：左侧设置按键不使用底色、上方不加分割线，并继续降低整体字重。
+- What changed:
+  - `app-layout.css`
+    - `sidebar-settings-trigger` 背景改为透明，hover/active 仅轻微高亮。
+    - `sidebar-footer-settings` 去除顶部边线。
+    - 设置面板按钮、手动导入分段按钮、上传区标题/按钮字重继续下调为 `400`。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-28 - 设置面板改为开关模式 + 测试数据双操作项
+- Trigger:
+  - 用户要求：模式选择改为同一行开关样式；移除“显示注入测试数据”开关，改为“注入测试数据 / 取消注入数据”两个设置项，且仅开发模式可点击（标准模式灰态禁用）。
+- What changed:
+  - `App.tsx`
+    - 设置面板改为“模式开关（标准/开发）+ 两个测试操作按钮”。
+    - 新增 `handleClearInjectedManualImportData`，用于取消注入并清空当前手动导入草稿。
+    - 移除旧逻辑：`devManualSeedVisible` 状态、对应 localStorage、以及上传区内联“注入测试数据”按钮。
+  - `app-layout.css`
+    - 新增模式开关样式（track/thumb）与动作按钮样式。
+    - 非开发模式下动作按钮呈灰态禁用（`disabled`）。
+    - 删除不再使用的旧样式类（segment/toggle/manual-upload-actions）。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-28 - 设置弹窗改为列表分割线风格（无内嵌卡片）
+- Trigger:
+  - 用户要求设置按钮字体更小，设置弹窗参考菜单样式，使用分割线并去掉内嵌卡片结构。
+- What changed:
+  - `App.tsx`
+    - 设置弹窗改为“行列表结构”：`开发模式` 行 + 分割线 + `注入测试数据` + `取消注入数据`。
+    - 设置按钮保留纯文本“设置”。
+  - `app-layout.css`
+    - `sidebar-settings-trigger` 字号调整为 `13px`。
+    - 设置弹窗改为紧凑列表样式（`padding: 6px 0`, 行 hover, 分割线）。
+    - 删除旧的“卡片式/按钮组”样式定义。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-02-28 - 设置测试项增加右侧轻箭头
+- Trigger:
+  - 用户确认设置项可继续对齐参考图，要求测试项带右侧轻箭头。
+- What changed:
+  - `App.tsx`：`注入测试数据` / `取消注入数据` 行增加右侧箭头字符。
+  - `app-layout.css`：新增 `.sidebar-settings-item-arrow`，并补充 disabled 时箭头灰态。

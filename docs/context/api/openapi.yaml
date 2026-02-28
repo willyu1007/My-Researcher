@@ -1,59 +1,2942 @@
 openapi: 3.1.0
 info:
-  title: Project API
+  title: Paper Engineering Assistant API
   version: 0.1.0
   description: |
-    Canonical API contract for this repository.
-    After edits run:
-      node .ai/skills/features/context-awareness/scripts/ctl-context.mjs touch
-      node .ai/scripts/ctl-api-index.mjs generate --touch
-  # x-source-mapping:
-  #   routes: src/routes/
-  #   controllers: src/controllers/
-  #   schemas: src/schemas/
-  #   middleware: src/middleware/
-servers: []
-  # - url: http://localhost:3000
-  #   description: Local development
-paths: {}
-  # /api/example:
-  #   get:
-  #     operationId: getExample
-  #     summary: Get example resource
-  #     tags: [example]
-  #     security:
-  #       - bearerAuth: []
-  #     parameters:
-  #       - name: id
-  #         in: path
-  #         required: true
-  #         schema:
-  #           type: string
-  #     responses:
-  #       '200':
-  #         description: Success
-  #         content:
-  #           application/json:
-  #             schema:
-  #               $ref: '#/components/schemas/ExampleResponse'
-  #       '401':
-  #         description: Unauthorized
-  #       '404':
-  #         description: Not found
+    Canonical REST contract for backend routes used by desktop literature and governance workflows.
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: health
+    description: Service health endpoint.
+  - name: research-lifecycle
+    description: Paper project lifecycle and governance endpoints.
+  - name: literature
+    description: Literature import, scope, overview, and metadata endpoints.
+  - name: topic-settings
+    description: Topic profile settings for auto-pull.
+  - name: auto-pull
+    description: Rule-driven automatic pull, runs, and alerts.
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check service liveness.
+      tags: [health]
+      responses:
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /paper-projects:
+    post:
+      operationId: createPaperProject
+      summary: Create a paper project.
+      tags: [research-lifecycle]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaperProjectRequest'
+            example:
+              topic_id: TOPIC-001
+              title: Retrieval-Augmented Generation Evaluation
+              research_direction: LLM
+              created_by: human
+              initial_context:
+                literature_evidence_ids:
+                  - LIT-0001
+                  - LIT-0002
+      responses:
+        '201':
+          description: Paper project created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePaperProjectResponse'
+              example:
+                paper_id: P001
+                status: active
+                paper_active_sp_full: null
+                paper_active_sp_partial: null
+                created_at: '2026-02-27T08:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/version-spine/commit:
+    post:
+      operationId: commitVersionSpine
+      summary: Commit a version spine node for a paper.
+      tags: [research-lifecycle]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionSpineCommitRequest'
+      responses:
+        '200':
+          description: Version spine node committed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionSpineCommitResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/stage-gates/{gate}/verify:
+    post:
+      operationId: verifyStageGate
+      summary: Verify stage gate candidates for a paper.
+      tags: [research-lifecycle]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: gate
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StageGateVerifyRequest'
+      responses:
+        '200':
+          description: Stage gate verification completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StageGateVerifyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/writing-packages/build:
+    post:
+      operationId: buildWritingPackage
+      summary: Build a writing package from a snapshot.
+      tags: [research-lifecycle]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WritingPackageBuildRequest'
+      responses:
+        '200':
+          description: Writing package built.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WritingPackageBuildResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/timeline:
+    get:
+      operationId: getPaperTimeline
+      summary: Get timeline events for a paper.
+      tags: [research-lifecycle]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Paper timeline.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPaperTimelineResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/resource-metrics:
+    get:
+      operationId: getPaperResourceMetrics
+      summary: Get runtime resource metrics for a paper.
+      tags: [research-lifecycle]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Paper runtime metrics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPaperResourceMetricsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/artifact-bundle:
+    get:
+      operationId: getPaperArtifactBundle
+      summary: Get artifact bundle URLs for a paper.
+      tags: [research-lifecycle]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Paper artifact bundle.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPaperArtifactBundleResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/release-gate/review:
+    post:
+      operationId: reviewReleaseGate
+      summary: Submit release gate review decision.
+      tags: [research-lifecycle]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseReviewRequest'
+      responses:
+        '200':
+          description: Release gate review recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseGateReviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/import:
+    post:
+      operationId: importLiterature
+      summary: Import literature items into repository.
+      tags: [literature]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LiteratureImportRequest'
+            example:
+              items:
+                - provider: manual
+                  external_id: manual-1
+                  title: Calibrating LLM Evaluators for Citation Grounding
+                  authors: [Alice Chen, Bob Li]
+                  year: 2025
+                  doi: 10.1145/1234567.8901234
+                  source_url: https://doi.org/10.1145/1234567.8901234
+                  rights_class: OA
+                  tags: [survey, eval]
+      responses:
+        '200':
+          description: Import finished.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureImportResponse'
+              example:
+                results:
+                  - literature_id: LIT-0001
+                    is_new: true
+                    matched_by: none
+                    title: Calibrating LLM Evaluators for Citation Grounding
+                    source_provider: manual
+                    source_url: https://doi.org/10.1145/1234567.8901234
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/zotero-import:
+    post:
+      operationId: importLiteratureFromZotero
+      summary: Import literature from Zotero library.
+      tags: [literature]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoteroImportRequest'
+            example:
+              library_type: users
+              library_id: '123456'
+              query: retrieval evaluation
+              limit: 20
+              topic_id: TOPIC-001
+              scope_status: in_scope
+              scope_reason: initial seeding
+              tags: [zotero, seed]
+      responses:
+        '200':
+          description: Zotero import finished.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoteroImportResponse'
+              example:
+                topic_id: TOPIC-001
+                imported_count: 8
+                scope_upserted_count: 8
+                results:
+                  - literature_id: LIT-1001
+                    is_new: true
+                    matched_by: none
+                    title: Retrieval-Augmented Evaluation Benchmarks
+                    source_provider: zotero
+                    source_url: https://www.zotero.org/users/123456/items/ABCD1234
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/overview:
+    get:
+      operationId: getLiteratureOverview
+      summary: Get literature overview filtered by topic and/or paper.
+      tags: [literature]
+      description: At least one of `topic_id` or `paper_id` must be provided.
+      parameters:
+        - $ref: '#/components/parameters/TopicIdQueryParam'
+        - $ref: '#/components/parameters/PaperIdQueryParam'
+      responses:
+        '200':
+          description: Literature overview.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureOverviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topics/{topicId}/literature-scope:
+    get:
+      operationId: getTopicLiteratureScope
+      summary: Get literature scope list for a topic.
+      tags: [literature]
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Topic literature scope list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicLiteratureScopeResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: upsertTopicLiteratureScope
+      summary: Upsert literature scope actions for a topic.
+      tags: [literature]
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertTopicLiteratureScopeRequest'
+      responses:
+        '200':
+          description: Updated topic scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicLiteratureScopeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/literature-links/from-topic:
+    post:
+      operationId: syncPaperLiteratureFromTopic
+      summary: Sync in-scope topic literature into paper links.
+      tags: [literature]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPaperLiteratureFromTopicRequest'
+      responses:
+        '200':
+          description: Sync summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPaperLiteratureFromTopicResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/literature:
+    get:
+      operationId: getPaperLiterature
+      summary: Get literature links under a paper.
+      tags: [literature]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Paper literature links.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPaperLiteratureResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-projects/{id}/literature-links/{linkId}:
+    patch:
+      operationId: updatePaperLiteratureLink
+      summary: Update citation status or note of a paper literature link.
+      tags: [literature]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: linkId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePaperLiteratureLinkRequest'
+      responses:
+        '200':
+          description: Updated paper literature link.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatePaperLiteratureLinkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/{literatureId}/metadata:
+    patch:
+      operationId: updateLiteratureMetadata
+      summary: Update literature metadata fields.
+      tags: [literature]
+      parameters:
+        - name: literatureId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLiteratureMetadataRequest'
+      responses:
+        '200':
+          description: Updated literature metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateLiteratureMetadataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topics/settings:
+    post:
+      operationId: createTopicProfile
+      summary: Create a topic profile.
+      tags: [topic-settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTopicProfileRequest'
+            example:
+              topic_id: TOPIC-LLM-EVAL
+              name: LLM Evaluation
+              is_active: true
+              include_keywords: [llm, evaluation]
+              exclude_keywords: [biology]
+              venue_filters: [NeurIPS, ICML]
+              default_lookback_days: 30
+      responses:
+        '201':
+          description: Topic profile created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicProfileDTO'
+              example:
+                topic_id: TOPIC-LLM-EVAL
+                name: LLM Evaluation
+                is_active: true
+                include_keywords: [llm, evaluation]
+                exclude_keywords: [biology]
+                venue_filters: [NeurIPS, ICML]
+                default_lookback_days: 30
+                default_min_year: null
+                default_max_year: null
+                rule_ids: []
+                created_at: '2026-02-27T08:10:00.000Z'
+                updated_at: '2026-02-27T08:10:00.000Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: listTopicProfiles
+      summary: List topic profiles.
+      tags: [topic-settings]
+      responses:
+        '200':
+          description: Topic profile list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicProfileListResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topics/settings/{topicId}:
+    patch:
+      operationId: updateTopicProfile
+      summary: Update a topic profile.
+      tags: [topic-settings]
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTopicProfileRequest'
+      responses:
+        '200':
+          description: Topic profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicProfileDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auto-pull/rules:
+    post:
+      operationId: createAutoPullRule
+      summary: Create an auto-pull rule.
+      tags: [auto-pull]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAutoPullRuleRequest'
+            example:
+              scope: TOPIC
+              topic_ids: [TOPIC-LLM-EVAL]
+              name: Weekly LLM Eval Digest
+              status: ACTIVE
+              query_spec:
+                include_keywords: [llm, evaluation]
+                exclude_keywords: [biology]
+                authors: []
+                venues: [NeurIPS, ICML]
+                max_results_per_source: 20
+              time_spec:
+                lookback_days: 30
+                min_year: 2020
+                max_year: null
+              quality_spec:
+                min_completeness_score: 0.6
+                require_include_match: true
+              sources:
+                - source: CROSSREF
+                  enabled: true
+                  priority: 1
+                  config: {}
+                - source: ARXIV
+                  enabled: true
+                  priority: 2
+                  config: {}
+              schedules:
+                - frequency: WEEKLY
+                  days_of_week: [MON]
+                  hour: 9
+                  minute: 0
+                  timezone: UTC
+                  active: true
+      responses:
+        '201':
+          description: Rule created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoPullRuleDTO'
+              example:
+                rule_id: 8f6a8a66-bf90-4e69-9315-efa8d2f84f7e
+                scope: TOPIC
+                topic_id: TOPIC-LLM-EVAL
+                topic_ids: [TOPIC-LLM-EVAL]
+                name: Weekly LLM Eval Digest
+                status: ACTIVE
+                query_spec:
+                  include_keywords: [llm, evaluation]
+                  exclude_keywords: [biology]
+                  authors: []
+                  venues: [NeurIPS, ICML]
+                  max_results_per_source: 20
+                time_spec:
+                  lookback_days: 30
+                  min_year: 2020
+                  max_year: null
+                quality_spec:
+                  min_completeness_score: 0.6
+                  require_include_match: true
+                sources:
+                  - source: CROSSREF
+                    enabled: true
+                    priority: 1
+                    config: {}
+                schedules:
+                  - frequency: WEEKLY
+                    days_of_week: [MON]
+                    hour: 9
+                    minute: 0
+                    timezone: UTC
+                    active: true
+                created_at: '2026-02-27T08:15:00.000Z'
+                updated_at: '2026-02-27T08:15:00.000Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: listAutoPullRules
+      summary: List auto-pull rules by filters.
+      tags: [auto-pull]
+      parameters:
+        - $ref: '#/components/parameters/AutoPullScopeQueryParam'
+        - $ref: '#/components/parameters/TopicIdQueryParam'
+        - $ref: '#/components/parameters/AutoPullRuleStatusQueryParam'
+      responses:
+        '200':
+          description: Rule list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoPullRuleListResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auto-pull/rules/{ruleId}:
+    patch:
+      operationId: updateAutoPullRule
+      summary: Update an auto-pull rule.
+      tags: [auto-pull]
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAutoPullRuleRequest'
+      responses:
+        '200':
+          description: Rule updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoPullRuleDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteAutoPullRule
+      summary: Delete an auto-pull rule.
+      tags: [auto-pull]
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '204':
+          description: Rule deleted.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auto-pull/rules/{ruleId}/runs:
+    post:
+      operationId: triggerAutoPullRuleRun
+      summary: Trigger a run for a rule.
+      tags: [auto-pull]
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAutoPullRunRequest'
+      responses:
+        '201':
+          description: Run queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoPullRunDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auto-pull/runs/{runId}/retry-failed-sources:
+    post:
+      operationId: retryFailedAutoPullSources
+      summary: Retry failed sources from a previous run.
+      tags: [auto-pull]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetryFailedSourcesRequest'
+      responses:
+        '201':
+          description: Retry run queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoPullRunDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auto-pull/runs:
+    get:
+      operationId: listAutoPullRuns
+      summary: List auto-pull runs by filters.
+      tags: [auto-pull]
+      parameters:
+        - $ref: '#/components/parameters/RuleIdQueryParam'
+        - $ref: '#/components/parameters/AutoPullRunStatusQueryParam'
+        - $ref: '#/components/parameters/Limit200QueryParam'
+      responses:
+        '200':
+          description: Run list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoPullRunListResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auto-pull/runs/{runId}:
+    get:
+      operationId: getAutoPullRun
+      summary: Get auto-pull run detail.
+      tags: [auto-pull]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Run detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoPullRunDTO'
+              example:
+                run_id: 5615da87-c23b-41cc-aa0e-6e56b8bafb17
+                rule_id: 8f6a8a66-bf90-4e69-9315-efa8d2f84f7e
+                trigger_type: MANUAL
+                status: PARTIAL
+                started_at: '2026-02-27T08:20:00.000Z'
+                finished_at: '2026-02-27T08:20:30.000Z'
+                summary:
+                  imported_count: 5
+                  failed_count: 2
+                  source_total: 2
+                error_code: null
+                error_message: null
+                created_at: '2026-02-27T08:20:00.000Z'
+                updated_at: '2026-02-27T08:20:30.000Z'
+                source_attempts:
+                  - source: CROSSREF
+                    status: SUCCESS
+                    fetched_count: 8
+                    imported_count: 5
+                    failed_count: 0
+                    error_code: null
+                    error_message: null
+                    started_at: '2026-02-27T08:20:00.000Z'
+                    finished_at: '2026-02-27T08:20:20.000Z'
+                    meta:
+                      fetched_count: 8
+                      imported_count: 5
+                      failed_count: 0
+                  - source: ARXIV
+                    status: FAILED
+                    fetched_count: 0
+                    imported_count: 0
+                    failed_count: 2
+                    error_code: SOURCE_UNREACHABLE
+                    error_message: arXiv request failed with status 503
+                    started_at: '2026-02-27T08:20:20.000Z'
+                    finished_at: '2026-02-27T08:20:30.000Z'
+                    meta:
+                      fetched_count: 0
+                      imported_count: 0
+                      failed_count: 2
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auto-pull/alerts:
+    get:
+      operationId: listAutoPullAlerts
+      summary: List auto-pull alerts by filters.
+      tags: [auto-pull]
+      parameters:
+        - $ref: '#/components/parameters/RuleIdQueryParam'
+        - $ref: '#/components/parameters/AutoPullAlertLevelQueryParam'
+        - $ref: '#/components/parameters/AckedQueryParam'
+        - $ref: '#/components/parameters/LimitAlertQueryParam'
+      responses:
+        '200':
+          description: Alert list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoPullAlertListResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auto-pull/alerts/{alertId}/ack:
+    post:
+      operationId: acknowledgeAutoPullAlert
+      summary: Acknowledge an alert.
+      tags: [auto-pull]
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcknowledgeAlertRequest'
+      responses:
+        '200':
+          description: Alert acknowledged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoPullAlertDTO'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
-  schemas: {}
-    # ExampleResponse:
-    #   type: object
-    #   required: [id, name]
-    #   properties:
-    #     id:
-    #       type: string
-    #     name:
-    #       type: string
-    #     createdAt:
-    #       type: string
-    #       format: date-time
-  # securitySchemes:
-  #   bearerAuth:
-  #     type: http
-  #     scheme: bearer
+  parameters:
+    PaperIdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    GateParam:
+      name: gate
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    TopicIdParam:
+      name: topicId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    RuleIdParam:
+      name: ruleId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    RunIdParam:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    AlertIdParam:
+      name: alertId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    LinkIdParam:
+      name: linkId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    LiteratureIdParam:
+      name: literatureId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    TopicIdQueryParam:
+      name: topic_id
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+    PaperIdQueryParam:
+      name: paper_id
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+    RuleIdQueryParam:
+      name: rule_id
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+    AutoPullScopeQueryParam:
+      name: scope
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/AutoPullScope'
+    AutoPullRuleStatusQueryParam:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/AutoPullRuleStatus'
+    AutoPullRunStatusQueryParam:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/AutoPullRunStatus'
+    AutoPullAlertLevelQueryParam:
+      name: level
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/AutoPullAlertLevel'
+    AckedQueryParam:
+      name: acked
+      in: query
+      required: false
+      schema:
+        type: boolean
+    Limit200QueryParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    LimitAlertQueryParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 100
+
+  responses:
+    BadRequest:
+      description: Invalid request payload or parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Requested resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Business conflict or version conflict.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Request violates policy constraints.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadGateway:
+      description: Upstream dependency call failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+          additionalProperties: false
+      additionalProperties: false
+
+    HealthResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+      additionalProperties: false
+
+    CreatedByMode:
+      type: string
+      enum: [llm, human, hybrid]
+
+    ModuleId:
+      type: string
+      enum: [M4, M5, M6, M7]
+
+    GateDecision:
+      type: string
+      enum: [promote, hold, reject, loopback]
+
+    AnalysisContract:
+      type: string
+      enum: [with_m6, no_m6]
+
+    SpineSnapshotType:
+      type: string
+      enum: [SP-partial, SP-full]
+
+    ReleaseReviewDecision:
+      type: string
+      enum: [approve, reject, hold]
+
+    LiteratureProvider:
+      type: string
+      enum: [crossref, arxiv, manual, web, zotero]
+
+    ZoteroLibraryType:
+      type: string
+      enum: [users, groups]
+
+    RightsClass:
+      type: string
+      enum: [OA, USER_AUTH, RESTRICTED, UNKNOWN]
+
+    DedupMatchType:
+      type: string
+      enum: [none, doi, arxiv_id, title_authors_year]
+
+    TopicScopeStatus:
+      type: string
+      enum: [in_scope, excluded]
+
+    PaperCitationStatus:
+      type: string
+      enum: [seeded, selected, used, cited, dropped]
+
+    AutoPullScope:
+      type: string
+      enum: [GLOBAL, TOPIC]
+
+    AutoPullRuleStatus:
+      type: string
+      enum: [ACTIVE, PAUSED]
+
+    AutoPullSource:
+      type: string
+      enum: [CROSSREF, ARXIV, ZOTERO]
+
+    AutoPullFrequency:
+      type: string
+      enum: [DAILY, WEEKLY]
+
+    AutoPullTriggerType:
+      type: string
+      enum: [MANUAL, SCHEDULE]
+
+    AutoPullRunStatus:
+      type: string
+      enum: [PENDING, RUNNING, PARTIAL, SUCCESS, FAILED, SKIPPED]
+
+    AutoPullAlertLevel:
+      type: string
+      enum: [WARNING, ERROR]
+
+    CreatePaperProjectRequest:
+      type: object
+      required: [topic_id, title, created_by, initial_context]
+      properties:
+        topic_id:
+          type: string
+          minLength: 1
+        title:
+          type: string
+          minLength: 1
+        research_direction:
+          type: string
+        created_by:
+          type: string
+          enum: [human, hybrid]
+        initial_context:
+          type: object
+          required: [literature_evidence_ids]
+          properties:
+            literature_evidence_ids:
+              type: array
+              minItems: 1
+              items:
+                type: string
+                minLength: 1
+          additionalProperties: false
+      additionalProperties: false
+
+    CreatePaperProjectResponse:
+      type: object
+      required: [paper_id, status, paper_active_sp_full, paper_active_sp_partial, created_at]
+      properties:
+        paper_id:
+          type: string
+        status:
+          type: string
+          enum: [active]
+        paper_active_sp_full:
+          type: [string, 'null']
+        paper_active_sp_partial:
+          type: [string, 'null']
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    LineageMeta:
+      type: object
+      required:
+        - paper_id
+        - stage_id
+        - module_id
+        - version_id
+        - run_id
+        - lane_id
+        - attempt_id
+        - created_by
+        - created_at
+      properties:
+        paper_id:
+          type: string
+        stage_id:
+          type: string
+        module_id:
+          $ref: '#/components/schemas/ModuleId'
+        version_id:
+          type: string
+          pattern: '^P\\d+-M[1-8]-B\\d+-N\\d+$'
+        parent_version_id:
+          type: string
+        parent_node_ids:
+          type: array
+          items:
+            type: string
+        run_id:
+          type: string
+        lane_id:
+          type: string
+        attempt_id:
+          type: string
+        created_by:
+          $ref: '#/components/schemas/CreatedByMode'
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    ValueJudgementPayload:
+      type: object
+      required:
+        - judgement_id
+        - decision
+        - core_score_vector
+        - extension_score_vector
+        - confidence
+        - reason_summary
+        - reviewer
+        - timestamp
+      properties:
+        judgement_id:
+          type: string
+        decision:
+          $ref: '#/components/schemas/GateDecision'
+        core_score_vector:
+          type: object
+          additionalProperties:
+            type: number
+        extension_score_vector:
+          type: object
+          additionalProperties:
+            type: number
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        reason_summary:
+          type: string
+          minLength: 1
+        reviewer:
+          $ref: '#/components/schemas/CreatedByMode'
+        timestamp:
+          type: string
+          format: date-time
+      additionalProperties: true
+
+    VersionSpineCommitRequest:
+      type: object
+      required: [lineage_meta, payload_ref, node_status]
+      properties:
+        lineage_meta:
+          $ref: '#/components/schemas/LineageMeta'
+        payload_ref:
+          type: string
+          minLength: 1
+        node_status:
+          type: string
+          enum: [draft, candidate]
+        value_judgement_payload:
+          $ref: '#/components/schemas/ValueJudgementPayload'
+      additionalProperties: false
+
+    VersionSpineCommitResponse:
+      type: object
+      required: [node_id, accepted, node_status]
+      properties:
+        node_id:
+          type: string
+        accepted:
+          type: boolean
+        node_status:
+          type: string
+          enum: [draft, candidate, promoted, hold, rejected, superseded]
+      additionalProperties: false
+
+    StageGateVerifyRequest:
+      type: object
+      required: [candidate_node_ids, config_version, reviewer_mode, analysis_contract]
+      properties:
+        candidate_node_ids:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+        config_version:
+          type: string
+          minLength: 1
+        reviewer_mode:
+          $ref: '#/components/schemas/CreatedByMode'
+        analysis_contract:
+          $ref: '#/components/schemas/AnalysisContract'
+        override_context:
+          type: object
+          properties:
+            skip_m6_reason:
+              type: string
+            training_claim_allowed:
+              type: boolean
+          additionalProperties: false
+      additionalProperties: false
+
+    StageGateVerifyResult:
+      type: object
+      required: [node_id, decision, reason_summary]
+      properties:
+        node_id:
+          type: string
+        decision:
+          $ref: '#/components/schemas/GateDecision'
+        reason_summary:
+          type: string
+      additionalProperties: false
+
+    StageGateSnapshotInfo:
+      type: object
+      required: [snapshot_id, snapshot_type]
+      properties:
+        snapshot_id:
+          type: string
+        snapshot_type:
+          $ref: '#/components/schemas/SpineSnapshotType'
+        spine_type:
+          $ref: '#/components/schemas/AnalysisContract'
+      additionalProperties: false
+
+    StageGatePointerUpdate:
+      type: object
+      properties:
+        paper_active_sp_full:
+          type: string
+        paper_active_sp_partial:
+          type: string
+      additionalProperties: false
+
+    StageGateVerifyResponse:
+      type: object
+      required: [gate_run_id, results]
+      properties:
+        gate_run_id:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StageGateVerifyResult'
+        snapshot:
+          $ref: '#/components/schemas/StageGateSnapshotInfo'
+        pointer_update:
+          $ref: '#/components/schemas/StageGatePointerUpdate'
+      additionalProperties: false
+
+    WritingPackageBuildRequest:
+      type: object
+      required: [source_snapshot_id, writing_mode, target_release_tag, sections]
+      properties:
+        source_snapshot_id:
+          type: string
+          pattern: '^SP-\\d{4}$'
+        writing_mode:
+          type: string
+          enum: [submission, revision, draft]
+        target_release_tag:
+          type: string
+          pattern: '^R\\d+\\.\\d+\\.\\d+$'
+        sections:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+      additionalProperties: false
+
+    WritingPackageBuildComplianceFlags:
+      type: object
+      required: [claim_evidence_coverage_ok, no_m6_wording_ok]
+      properties:
+        claim_evidence_coverage_ok:
+          type: boolean
+        no_m6_wording_ok:
+          type: boolean
+      additionalProperties: false
+
+    WritingPackageBuildResponse:
+      type: object
+      required:
+        - writing_package_id
+        - source_snapshot_id
+        - release_tag
+        - section_node_ids
+        - compliance_flags
+      properties:
+        writing_package_id:
+          type: string
+        source_snapshot_id:
+          type: string
+        release_tag:
+          type: string
+        section_node_ids:
+          type: array
+          items:
+            type: string
+        compliance_flags:
+          $ref: '#/components/schemas/WritingPackageBuildComplianceFlags'
+      additionalProperties: false
+
+    PaperTimelineEvent:
+      type: object
+      required: [event_id, event_type, timestamp, summary]
+      properties:
+        event_id:
+          type: string
+        event_type:
+          type: string
+        module_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        node_id:
+          type: string
+        summary:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, error]
+      additionalProperties: false
+
+    GetPaperTimelineResponse:
+      type: object
+      required: [paper_id, events]
+      properties:
+        paper_id:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaperTimelineEvent'
+      additionalProperties: false
+
+    PaperRuntimeMetric:
+      type: object
+      required: [tokens, cost_usd, gpu_requested, gpu_total, updated_at]
+      properties:
+        tokens:
+          type: [number, 'null']
+        cost_usd:
+          type: [number, 'null']
+        gpu_requested:
+          type: [number, 'null']
+        gpu_total:
+          type: [number, 'null']
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    GetPaperResourceMetricsResponse:
+      type: object
+      required: [paper_id, paper_runtime_metric]
+      properties:
+        paper_id:
+          type: string
+        paper_runtime_metric:
+          $ref: '#/components/schemas/PaperRuntimeMetric'
+      additionalProperties: false
+
+    ArtifactBundle:
+      type: object
+      required: [proposal_url, paper_url, repo_url, review_url]
+      properties:
+        proposal_url:
+          type: [string, 'null']
+        paper_url:
+          type: [string, 'null']
+        repo_url:
+          type: [string, 'null']
+        review_url:
+          type: [string, 'null']
+      additionalProperties: false
+
+    GetPaperArtifactBundleResponse:
+      type: object
+      required: [paper_id, artifact_bundle]
+      properties:
+        paper_id:
+          type: string
+        artifact_bundle:
+          $ref: '#/components/schemas/ArtifactBundle'
+      additionalProperties: false
+
+    ReleaseReviewRequest:
+      type: object
+      required: [reviewers, decision, risk_flags, label_policy]
+      properties:
+        reviewers:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+        decision:
+          $ref: '#/components/schemas/ReleaseReviewDecision'
+        risk_flags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        label_policy:
+          type: string
+          minLength: 1
+        comment:
+          type: string
+      additionalProperties: false
+
+    ReleaseGateReviewResult:
+      type: object
+      required: [accepted, review_id, audit_ref]
+      properties:
+        accepted:
+          type: boolean
+        review_id:
+          type: string
+        approved_by:
+          type: string
+        approved_at:
+          type: string
+          format: date-time
+        audit_ref:
+          type: string
+      additionalProperties: false
+
+    ReleaseGateReviewResponse:
+      type: object
+      required: [gate_result]
+      properties:
+        gate_result:
+          $ref: '#/components/schemas/ReleaseGateReviewResult'
+      additionalProperties: false
+
+    LiteratureImportItem:
+      type: object
+      required: [provider, external_id, title, source_url]
+      properties:
+        provider:
+          $ref: '#/components/schemas/LiteratureProvider'
+        external_id:
+          type: string
+          minLength: 1
+        title:
+          type: string
+          minLength: 1
+        abstract:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2100
+        doi:
+          type: string
+        arxiv_id:
+          type: string
+        source_url:
+          type: string
+          minLength: 1
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+      additionalProperties: false
+
+    LiteratureImportRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/LiteratureImportItem'
+      additionalProperties: false
+
+    LiteratureImportResult:
+      type: object
+      required: [literature_id, is_new, matched_by, title, source_provider, source_url]
+      properties:
+        literature_id:
+          type: string
+        is_new:
+          type: boolean
+        matched_by:
+          $ref: '#/components/schemas/DedupMatchType'
+        title:
+          type: string
+        source_provider:
+          $ref: '#/components/schemas/LiteratureProvider'
+        source_url:
+          type: string
+      additionalProperties: false
+
+    LiteratureImportResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureImportResult'
+      additionalProperties: false
+
+    ZoteroImportRequest:
+      type: object
+      required: [library_type, library_id]
+      properties:
+        library_type:
+          $ref: '#/components/schemas/ZoteroLibraryType'
+        library_id:
+          type: string
+          minLength: 1
+        api_key:
+          type: string
+        query:
+          type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+        topic_id:
+          type: string
+          minLength: 1
+        scope_status:
+          $ref: '#/components/schemas/TopicScopeStatus'
+        scope_reason:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+      additionalProperties: false
+
+    ZoteroImportResponse:
+      type: object
+      required: [imported_count, scope_upserted_count, results]
+      properties:
+        topic_id:
+          type: string
+        imported_count:
+          type: integer
+        scope_upserted_count:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureImportResult'
+      additionalProperties: false
+
+    TopicLiteratureScopeAction:
+      type: object
+      required: [literature_id, scope_status]
+      properties:
+        literature_id:
+          type: string
+          minLength: 1
+        scope_status:
+          $ref: '#/components/schemas/TopicScopeStatus'
+        reason:
+          type: string
+      additionalProperties: false
+
+    UpsertTopicLiteratureScopeRequest:
+      type: object
+      required: [actions]
+      properties:
+        actions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TopicLiteratureScopeAction'
+      additionalProperties: false
+
+    TopicLiteratureScopeItem:
+      type: object
+      required:
+        - scope_id
+        - topic_id
+        - literature_id
+        - scope_status
+        - updated_at
+        - title
+        - authors
+        - year
+        - doi
+        - arxiv_id
+      properties:
+        scope_id:
+          type: string
+        topic_id:
+          type: string
+        literature_id:
+          type: string
+        scope_status:
+          $ref: '#/components/schemas/TopicScopeStatus'
+        reason:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        year:
+          type: [integer, 'null']
+        doi:
+          type: [string, 'null']
+        arxiv_id:
+          type: [string, 'null']
+      additionalProperties: false
+
+    TopicLiteratureScopeResponse:
+      type: object
+      required: [topic_id, items]
+      properties:
+        topic_id:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicLiteratureScopeItem'
+      additionalProperties: false
+
+    SyncPaperLiteratureFromTopicRequest:
+      type: object
+      required: [topic_id]
+      properties:
+        topic_id:
+          type: string
+          minLength: 1
+      additionalProperties: false
+
+    SyncPaperLiteratureFromTopicResponse:
+      type: object
+      required: [paper_id, topic_id, linked_count, skipped_count]
+      properties:
+        paper_id:
+          type: string
+        topic_id:
+          type: string
+        linked_count:
+          type: integer
+        skipped_count:
+          type: integer
+      additionalProperties: false
+
+    PaperLiteratureLinkView:
+      type: object
+      required:
+        - link_id
+        - paper_id
+        - topic_id
+        - literature_id
+        - citation_status
+        - note
+        - created_at
+        - updated_at
+        - title
+        - authors
+        - year
+        - doi
+        - arxiv_id
+        - source_provider
+        - source_url
+        - tags
+      properties:
+        link_id:
+          type: string
+        paper_id:
+          type: string
+        topic_id:
+          type: [string, 'null']
+        literature_id:
+          type: string
+        citation_status:
+          $ref: '#/components/schemas/PaperCitationStatus'
+        note:
+          type: [string, 'null']
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        year:
+          type: [integer, 'null']
+        doi:
+          type: [string, 'null']
+        arxiv_id:
+          type: [string, 'null']
+        source_provider:
+          type: [string, 'null']
+        source_url:
+          type: [string, 'null']
+        tags:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+
+    GetPaperLiteratureResponse:
+      type: object
+      required: [paper_id, items]
+      properties:
+        paper_id:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaperLiteratureLinkView'
+      additionalProperties: false
+
+    UpdatePaperLiteratureLinkRequest:
+      type: object
+      properties:
+        citation_status:
+          $ref: '#/components/schemas/PaperCitationStatus'
+        note:
+          type: string
+      additionalProperties: false
+      minProperties: 1
+
+    UpdatePaperLiteratureLinkResponse:
+      type: object
+      required: [paper_id, item]
+      properties:
+        paper_id:
+          type: string
+        item:
+          $ref: '#/components/schemas/PaperLiteratureLinkView'
+      additionalProperties: false
+
+    LiteratureOverviewProviderCount:
+      type: object
+      required: [provider, count]
+      properties:
+        provider:
+          $ref: '#/components/schemas/LiteratureProvider'
+        count:
+          type: integer
+      additionalProperties: false
+
+    LiteratureOverviewRightsClassCount:
+      type: object
+      required: [rights_class, count]
+      properties:
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+        count:
+          type: integer
+      additionalProperties: false
+
+    LiteratureOverviewTagCount:
+      type: object
+      required: [tag, count]
+      properties:
+        tag:
+          type: string
+        count:
+          type: integer
+      additionalProperties: false
+
+    LiteratureOverviewSummary:
+      type: object
+      required:
+        - total_literatures
+        - topic_scope_total
+        - in_scope_count
+        - excluded_count
+        - paper_link_total
+        - cited_count
+        - used_count
+        - provider_counts
+        - rights_class_counts
+        - top_tags
+      properties:
+        total_literatures:
+          type: integer
+        topic_scope_total:
+          type: integer
+        in_scope_count:
+          type: integer
+        excluded_count:
+          type: integer
+        paper_link_total:
+          type: integer
+        cited_count:
+          type: integer
+        used_count:
+          type: integer
+        provider_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureOverviewProviderCount'
+        rights_class_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureOverviewRightsClassCount'
+        top_tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureOverviewTagCount'
+      additionalProperties: false
+
+    LiteratureOverviewItem:
+      type: object
+      required:
+        - literature_id
+        - title
+        - authors
+        - year
+        - doi
+        - arxiv_id
+        - rights_class
+        - tags
+        - providers
+        - source_url
+        - source_updated_at
+      properties:
+        literature_id:
+          type: string
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        year:
+          type: [integer, 'null']
+        doi:
+          type: [string, 'null']
+        arxiv_id:
+          type: [string, 'null']
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+        tags:
+          type: array
+          items:
+            type: string
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureProvider'
+        source_url:
+          type: [string, 'null']
+        source_updated_at:
+          type: [string, 'null']
+        topic_scope_status:
+          $ref: '#/components/schemas/TopicScopeStatus'
+        citation_status:
+          $ref: '#/components/schemas/PaperCitationStatus'
+      additionalProperties: false
+
+    LiteratureOverviewResponse:
+      type: object
+      required: [summary, items]
+      properties:
+        topic_id:
+          type: string
+        paper_id:
+          type: string
+        summary:
+          $ref: '#/components/schemas/LiteratureOverviewSummary'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureOverviewItem'
+      additionalProperties: false
+
+    UpdateLiteratureMetadataRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        abstract:
+          type: [string, 'null']
+        authors:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        year:
+          type: [integer, 'null']
+          minimum: 1900
+          maximum: 2100
+        doi:
+          type: [string, 'null']
+        arxiv_id:
+          type: [string, 'null']
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+      additionalProperties: false
+      minProperties: 1
+
+    UpdateLiteratureMetadataResponse:
+      type: object
+      required:
+        - literature_id
+        - title
+        - abstract
+        - authors
+        - year
+        - doi
+        - arxiv_id
+        - rights_class
+        - tags
+        - updated_at
+      properties:
+        literature_id:
+          type: string
+        title:
+          type: string
+        abstract:
+          type: [string, 'null']
+        authors:
+          type: array
+          items:
+            type: string
+        year:
+          type: [integer, 'null']
+        doi:
+          type: [string, 'null']
+        arxiv_id:
+          type: [string, 'null']
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+        tags:
+          type: array
+          items:
+            type: string
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    TopicProfileDTO:
+      type: object
+      required:
+        - topic_id
+        - name
+        - is_active
+        - include_keywords
+        - exclude_keywords
+        - venue_filters
+        - default_lookback_days
+        - default_min_year
+        - default_max_year
+        - rule_ids
+        - created_at
+        - updated_at
+      properties:
+        topic_id:
+          type: string
+        name:
+          type: string
+        is_active:
+          type: boolean
+        include_keywords:
+          type: array
+          items:
+            type: string
+        exclude_keywords:
+          type: array
+          items:
+            type: string
+        venue_filters:
+          type: array
+          items:
+            type: string
+        default_lookback_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        default_min_year:
+          type: [integer, 'null']
+          minimum: 1900
+          maximum: 2100
+        default_max_year:
+          type: [integer, 'null']
+          minimum: 1900
+          maximum: 2100
+        rule_ids:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    TopicProfileListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicProfileDTO'
+      additionalProperties: false
+
+    CreateTopicProfileRequest:
+      type: object
+      required: [topic_id, name]
+      properties:
+        topic_id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        is_active:
+          type: boolean
+        include_keywords:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        exclude_keywords:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        venue_filters:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        default_lookback_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        default_min_year:
+          type: [integer, 'null']
+          minimum: 1900
+          maximum: 2100
+        default_max_year:
+          type: [integer, 'null']
+          minimum: 1900
+          maximum: 2100
+        rule_ids:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+      additionalProperties: false
+
+    UpdateTopicProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        is_active:
+          type: boolean
+        include_keywords:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        exclude_keywords:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        venue_filters:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        default_lookback_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        default_min_year:
+          type: [integer, 'null']
+          minimum: 1900
+          maximum: 2100
+        default_max_year:
+          type: [integer, 'null']
+          minimum: 1900
+          maximum: 2100
+        rule_ids:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+      additionalProperties: false
+      minProperties: 1
+
+    AutoPullRuleSourceInput:
+      type: object
+      required: [source]
+      properties:
+        source:
+          $ref: '#/components/schemas/AutoPullSource'
+        enabled:
+          type: boolean
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 999
+        config:
+          type: object
+          additionalProperties: true
+      additionalProperties: false
+
+    AutoPullRuleScheduleInput:
+      type: object
+      required: [frequency, hour, minute, timezone]
+      properties:
+        frequency:
+          $ref: '#/components/schemas/AutoPullFrequency'
+        days_of_week:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        minute:
+          type: integer
+          minimum: 0
+          maximum: 59
+        timezone:
+          type: string
+          minLength: 1
+        active:
+          type: boolean
+      additionalProperties: false
+
+    AutoPullRuleQuerySpec:
+      type: object
+      required: [include_keywords, exclude_keywords, authors, venues, max_results_per_source]
+      properties:
+        include_keywords:
+          type: array
+          items:
+            type: string
+        exclude_keywords:
+          type: array
+          items:
+            type: string
+        authors:
+          type: array
+          items:
+            type: string
+        venues:
+          type: array
+          items:
+            type: string
+        max_results_per_source:
+          type: integer
+          minimum: 1
+          maximum: 200
+      additionalProperties: false
+
+    AutoPullRuleTimeSpec:
+      type: object
+      required: [lookback_days, min_year, max_year]
+      properties:
+        lookback_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        min_year:
+          type: [integer, 'null']
+          minimum: 1900
+          maximum: 2100
+        max_year:
+          type: [integer, 'null']
+          minimum: 1900
+          maximum: 2100
+      additionalProperties: false
+
+    AutoPullRuleQualitySpec:
+      type: object
+      required: [min_completeness_score, require_include_match]
+      properties:
+        min_completeness_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        require_include_match:
+          type: boolean
+      additionalProperties: false
+
+    CreateAutoPullRuleRequest:
+      type: object
+      required: [scope, name, sources, schedules]
+      properties:
+        scope:
+          $ref: '#/components/schemas/AutoPullScope'
+        topic_id:
+          type: string
+          minLength: 1
+        topic_ids:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+        name:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/AutoPullRuleStatus'
+        query_spec:
+          type: object
+          properties:
+            include_keywords:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            exclude_keywords:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            authors:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            venues:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            max_results_per_source:
+              type: integer
+              minimum: 1
+              maximum: 200
+          additionalProperties: false
+        time_spec:
+          type: object
+          properties:
+            lookback_days:
+              type: integer
+              minimum: 1
+              maximum: 3650
+            min_year:
+              type: [integer, 'null']
+              minimum: 1900
+              maximum: 2100
+            max_year:
+              type: [integer, 'null']
+              minimum: 1900
+              maximum: 2100
+          additionalProperties: false
+        quality_spec:
+          type: object
+          properties:
+            min_completeness_score:
+              type: number
+              minimum: 0
+              maximum: 1
+            require_include_match:
+              type: boolean
+          additionalProperties: false
+        sources:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AutoPullRuleSourceInput'
+        schedules:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AutoPullRuleScheduleInput'
+      additionalProperties: false
+
+    UpdateAutoPullRuleRequest:
+      type: object
+      properties:
+        scope:
+          $ref: '#/components/schemas/AutoPullScope'
+        topic_id:
+          type: [string, 'null']
+        topic_ids:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+        name:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/AutoPullRuleStatus'
+        query_spec:
+          type: object
+          properties:
+            include_keywords:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            exclude_keywords:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            authors:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            venues:
+              type: array
+              items:
+                type: string
+                minLength: 1
+            max_results_per_source:
+              type: integer
+              minimum: 1
+              maximum: 200
+          additionalProperties: false
+        time_spec:
+          type: object
+          properties:
+            lookback_days:
+              type: integer
+              minimum: 1
+              maximum: 3650
+            min_year:
+              type: [integer, 'null']
+              minimum: 1900
+              maximum: 2100
+            max_year:
+              type: [integer, 'null']
+              minimum: 1900
+              maximum: 2100
+          additionalProperties: false
+        quality_spec:
+          type: object
+          properties:
+            min_completeness_score:
+              type: number
+              minimum: 0
+              maximum: 1
+            require_include_match:
+              type: boolean
+          additionalProperties: false
+        sources:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AutoPullRuleSourceInput'
+        schedules:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AutoPullRuleScheduleInput'
+      additionalProperties: false
+      minProperties: 1
+
+    AutoPullRuleDTO:
+      type: object
+      required:
+        - rule_id
+        - scope
+        - topic_id
+        - topic_ids
+        - name
+        - status
+        - query_spec
+        - time_spec
+        - quality_spec
+        - sources
+        - schedules
+        - created_at
+        - updated_at
+      properties:
+        rule_id:
+          type: string
+        scope:
+          $ref: '#/components/schemas/AutoPullScope'
+        topic_id:
+          type: [string, 'null']
+        topic_ids:
+          type: array
+          items:
+            type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/AutoPullRuleStatus'
+        query_spec:
+          $ref: '#/components/schemas/AutoPullRuleQuerySpec'
+        time_spec:
+          $ref: '#/components/schemas/AutoPullRuleTimeSpec'
+        quality_spec:
+          $ref: '#/components/schemas/AutoPullRuleQualitySpec'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoPullRuleSourceInput'
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoPullRuleScheduleInput'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    AutoPullRuleListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoPullRuleDTO'
+      additionalProperties: false
+
+    CreateAutoPullRunRequest:
+      type: object
+      properties:
+        trigger_type:
+          $ref: '#/components/schemas/AutoPullTriggerType'
+      additionalProperties: false
+
+    RetryFailedSourcesRequest:
+      type: object
+      properties:
+        sources:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AutoPullSource'
+      additionalProperties: false
+
+    AutoPullRunSourceAttemptDTO:
+      type: object
+      required:
+        - source
+        - status
+        - fetched_count
+        - imported_count
+        - failed_count
+        - error_code
+        - error_message
+        - started_at
+        - finished_at
+        - meta
+      properties:
+        source:
+          $ref: '#/components/schemas/AutoPullSource'
+        status:
+          $ref: '#/components/schemas/AutoPullRunStatus'
+        fetched_count:
+          type: integer
+        imported_count:
+          type: integer
+        failed_count:
+          type: integer
+        error_code:
+          type: [string, 'null']
+        error_message:
+          type: [string, 'null']
+        started_at:
+          type: [string, 'null']
+        finished_at:
+          type: [string, 'null']
+        meta:
+          type: object
+          additionalProperties: true
+      additionalProperties: false
+
+    AutoPullSuggestionDTO:
+      type: object
+      required: [suggestion_id, literature_id, topic_id, suggested_scope, reason, score, created_at]
+      properties:
+        suggestion_id:
+          type: string
+        literature_id:
+          type: string
+        topic_id:
+          type: [string, 'null']
+        suggested_scope:
+          $ref: '#/components/schemas/TopicScopeStatus'
+        reason:
+          type: string
+        score:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    AutoPullRunDTO:
+      type: object
+      required:
+        - run_id
+        - rule_id
+        - trigger_type
+        - status
+        - started_at
+        - finished_at
+        - summary
+        - error_code
+        - error_message
+        - created_at
+        - updated_at
+      properties:
+        run_id:
+          type: string
+        rule_id:
+          type: string
+        trigger_type:
+          $ref: '#/components/schemas/AutoPullTriggerType'
+        status:
+          $ref: '#/components/schemas/AutoPullRunStatus'
+        started_at:
+          type: [string, 'null']
+        finished_at:
+          type: [string, 'null']
+        summary:
+          type: object
+          additionalProperties: true
+        error_code:
+          type: [string, 'null']
+        error_message:
+          type: [string, 'null']
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        source_attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoPullRunSourceAttemptDTO'
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoPullSuggestionDTO'
+      additionalProperties: false
+
+    AutoPullRunListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoPullRunDTO'
+      additionalProperties: false
+
+    AutoPullAlertDTO:
+      type: object
+      required:
+        - alert_id
+        - rule_id
+        - run_id
+        - source
+        - level
+        - code
+        - message
+        - detail
+        - ack_at
+        - created_at
+      properties:
+        alert_id:
+          type: string
+        rule_id:
+          type: string
+        run_id:
+          type: [string, 'null']
+        source:
+          type: [string, 'null']
+          enum: [CROSSREF, ARXIV, ZOTERO, null]
+        level:
+          $ref: '#/components/schemas/AutoPullAlertLevel'
+        code:
+          type: string
+        message:
+          type: string
+        detail:
+          type: object
+          additionalProperties: true
+        ack_at:
+          type: [string, 'null']
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    AutoPullAlertListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoPullAlertDTO'
+      additionalProperties: false
+
+    AcknowledgeAlertRequest:
+      type: object
+      properties:
+        ack_at:
+          type: string
+          format: date-time
+      additionalProperties: false

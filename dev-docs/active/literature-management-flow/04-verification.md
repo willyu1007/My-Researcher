@@ -160,3 +160,38 @@
   - `pnpm desktop:build` ✅
 - 2026-02-27: 运行区卡片等高修正（十四次修订）回归 ✅
   - `pnpm desktop:build` ✅
+- 2026-02-27: 契约漂移修复 + 手动导入工作台回归 ✅
+  - `node .ai/scripts/ctl-openapi-quality.mjs verify --strict` ✅
+  - `node .ai/scripts/ctl-api-index.mjs generate --touch` ✅（31 endpoints）
+  - `node .ai/scripts/ctl-api-index.mjs verify --strict` ✅
+  - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict` ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend test` ✅（39 passed）
+- 2026-02-27: 手动导入策略开关下线（固定仅入库）回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: Zotero 固定仅入库回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-27: 删除“导入默认参数”回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-28: 手动导入布局对齐 + 测试数据注入回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-28: 侧栏设置入口 + 开发模式控制注入按钮 + 上传区样式收敛回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-28: 设置入口去底色 + 去分割线 + 字重继续下调回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-28: 设置面板开关化 + 测试数据双操作项回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-28: 设置按钮小字号 + 弹窗列表化（分割线）回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-02-28: 设置测试项右侧箭头回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
