@@ -439,5 +439,14 @@ test('literature workflow routes support import, topic scope, paper link sync an
   });
   assert.equal(invalidZoteroImportRes.statusCode, 400);
 
+  const invalidZoteroPreviewRes = await app.inject({
+    method: 'POST',
+    url: '/literature/zotero-preview',
+    payload: {
+      library_type: 'users',
+    },
+  });
+  assert.equal(invalidZoteroPreviewRes.statusCode, 400);
+
   await app.close();
 });

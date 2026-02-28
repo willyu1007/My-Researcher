@@ -1,13 +1,11 @@
-export const MANUAL_RIGHTS_CLASSES = ['OA', 'USER_AUTH', 'RESTRICTED', 'UNKNOWN'] as const;
-
-export type ManualRightsClass = (typeof MANUAL_RIGHTS_CLASSES)[number];
-
 export type ManualImportMode = 'import_and_scope' | 'import_only';
+
+export type ManualDraftProvider = 'manual' | 'zotero';
 
 export type ManualDraftRow = {
   id: string;
   include: boolean;
-  provider: 'manual';
+  provider: ManualDraftProvider;
   external_id: string;
   title: string;
   abstract: string;
@@ -16,12 +14,11 @@ export type ManualDraftRow = {
   doi: string;
   arxiv_id: string;
   source_url: string;
-  rights_class: ManualRightsClass;
   tags_text: string;
 };
 
 export type ManualImportPayload = {
-  provider: 'manual';
+  provider: ManualDraftProvider;
   external_id: string;
   title: string;
   abstract?: string;
@@ -30,7 +27,6 @@ export type ManualImportPayload = {
   doi?: string;
   arxiv_id?: string;
   source_url: string;
-  rights_class?: ManualRightsClass;
   tags?: string[];
 };
 

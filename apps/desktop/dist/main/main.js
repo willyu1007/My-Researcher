@@ -28,10 +28,10 @@ function focusAndCenterWindow(window) {
 }
 function createWindow() {
     const window = new BrowserWindow({
-        width: 1360,
-        height: 880,
-        minWidth: 1080,
-        minHeight: 720,
+        width: 1440,
+        height: 920,
+        minWidth: 1180,
+        minHeight: 760,
         center: true,
         show: false,
         backgroundColor: isMacOS ? '#00000000' : '#f3f5f8',

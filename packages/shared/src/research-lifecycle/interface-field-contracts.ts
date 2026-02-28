@@ -244,6 +244,13 @@ export interface ZoteroImportRequest {
   rights_class?: RightsClass;
 }
 
+export type ZoteroPreviewRequest = ZoteroImportRequest;
+
+export interface ZoteroPreviewResponse {
+  fetched_count: number;
+  items: LiteratureImportItem[];
+}
+
 export interface ZoteroImportResponse {
   topic_id?: string;
   imported_count: number;

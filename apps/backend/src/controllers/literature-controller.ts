@@ -14,6 +14,8 @@ import type {
   UpsertTopicLiteratureScopeRequest,
   ZoteroImportRequest,
   ZoteroImportResponse,
+  ZoteroPreviewRequest,
+  ZoteroPreviewResponse,
 } from '@paper-engineering-assistant/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError } from '../errors/app-error.js';
@@ -58,6 +60,18 @@ export class LiteratureController {
     try {
       const result = await this.service.zoteroImport(request.body);
       reply.status(200).send(result satisfies ZoteroImportResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async zoteroPreview(
+    request: FastifyRequest<{ Body: ZoteroPreviewRequest }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.zoteroPreview(request.body);
+      reply.status(200).send(result satisfies ZoteroPreviewResponse);
     } catch (error) {
       this.handleError(reply, error);
     }

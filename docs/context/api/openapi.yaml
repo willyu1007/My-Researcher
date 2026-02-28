@@ -381,6 +381,50 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /literature/zotero-preview:
+    post:
+      operationId: previewLiteratureFromZotero
+      summary: Fetch Zotero literature candidates for manual review table.
+      tags: [literature]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoteroImportRequest'
+            example:
+              library_type: users
+              library_id: '123456'
+              query: retrieval evaluation
+              limit: 20
+              tags: [zotero, review]
+      responses:
+        '200':
+          description: Zotero preview fetched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoteroPreviewResponse'
+              example:
+                fetched_count: 2
+                items:
+                  - provider: zotero
+                    external_id: ABCD1234
+                    title: Retrieval-Augmented Evaluation Benchmarks
+                    abstract: ...
+                    authors: [Alice, Bob]
+                    year: 2025
+                    doi: 10.1145/1234567.8901234
+                    source_url: https://www.zotero.org/users/123456/items/ABCD1234
+                    rights_class: USER_AUTH
+                    tags: [zotero, review]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /literature/overview:
     get:
       operationId: getLiteratureOverview
@@ -1853,6 +1897,18 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LiteratureImportResult'
+      additionalProperties: false
+
+    ZoteroPreviewResponse:
+      type: object
+      required: [fetched_count, items]
+      properties:
+        fetched_count:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureImportItem'
       additionalProperties: false
 
     TopicLiteratureScopeAction:

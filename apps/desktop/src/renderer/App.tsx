@@ -1,4 +1,5 @@
 import {
+  Fragment,
   type CSSProperties,
   type ChangeEvent,
   type DragEvent,
@@ -18,13 +19,11 @@ import {
   type ThemeMode,
 } from './theme';
 import {
-  applyBatchRightsClass,
-  normalizeManualRightsClass,
+  convertImportItemsToDraftRows,
   parseManualUploadToDraftRows,
   validateManualDraftRows,
 } from './literature/manual-import-utils';
 import {
-  MANUAL_RIGHTS_CLASSES,
   type ManualDraftRow,
   type ManualImportPayload,
   type ManualImportSession,
@@ -84,6 +83,7 @@ type LiteratureProvider = 'crossref' | 'arxiv' | 'manual' | 'web' | 'zotero';
 type LiteratureTabKey = 'auto-import' | 'manual-import' | 'overview';
 type AutoImportSubTabKey = 'topic-settings' | 'rules-center' | 'runs-alerts';
 type ManualImportSubTabKey = 'file-review' | 'zotero-sync';
+type ManualUploadFileStatus = 'processing' | 'parsed' | 'empty' | 'failed' | 'accepted' | 'duplicate';
 type AppMode = 'standard' | 'dev';
 type AutoPullScope = 'GLOBAL' | 'TOPIC';
 type AutoPullRuleStatus = 'ACTIVE' | 'PAUSED';
@@ -132,6 +132,14 @@ type SavedQueryPreset = {
   name: string;
   group: QueryGroup;
   defaultSort: QuerySort;
+};
+
+type ManualUploadFileItem = {
+  id: string;
+  fileName: string;
+  format: string;
+  status: ManualUploadFileStatus;
+  rowCount: number;
 };
 
 type FeedbackRecoveryAction =
@@ -355,9 +363,13 @@ const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string }> = [
   { key: 'runs-alerts', label: '执行详情' },
 ];
 const manualImportSubTabs: Array<{ key: ManualImportSubTabKey; label: string }> = [
-  { key: 'file-review', label: '上传本地文件' },
-  { key: 'zotero-sync', label: '从Zotero获取' },
+  { key: 'file-review', label: '本地文件' },
+  { key: 'zotero-sync', label: 'Zotero' },
 ];
+const manualUploadFormatHint = [
+  '可解析：JSON / CSV / BibTeX / TXT',
+  '待解析支持：PDF / TeX / BBL / AUX / RIS',
+].join('\n');
 const topicPresetVenueOptions = [
   'ACL',
   'EMNLP',
@@ -383,6 +395,7 @@ const topicYearMinBound = 1990;
 const topicYearMaxBound = new Date().getFullYear() + 1;
 const literatureSubTabsByTab: Partial<Record<LiteratureTabKey, Array<{ key: string; label: string }>>> = {
   'auto-import': autoImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
+  'manual-import': manualImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
 };
 const queryFieldOptions: Array<{ value: QueryField; label: string }> = [
   { value: 'title', label: '标题' },
@@ -422,7 +435,6 @@ const manualImportTestItems: ManualImportPayload[] = [
     authors: ['Lin Zhou', 'Marta Chen'],
     year: 2024,
     doi: '10.1145/3700000.3700123',
-    rights_class: 'OA',
     tags: ['survey', 'baseline'],
     source_url: '',
   },
@@ -433,7 +445,6 @@ const manualImportTestItems: ManualImportPayload[] = [
     authors: ['A. Kumar'],
     year: 2025,
     arxiv_id: '2501.01234',
-    rights_class: 'USER_AUTH',
     tags: ['agent', 'evaluation'],
     source_url: '',
   },
@@ -444,7 +455,6 @@ const manualImportTestItems: ManualImportPayload[] = [
     authors: [],
     year: 2023,
     doi: '10.1000/demo.missing-authors',
-    rights_class: 'UNKNOWN',
     tags: ['invalid'],
     source_url: '',
   },
@@ -455,7 +465,6 @@ const manualImportTestItems: ManualImportPayload[] = [
     authors: ['Debug Bot'],
     year: 1888,
     source_url: 'https://example.org/invalid-year',
-    rights_class: 'UNKNOWN',
     tags: ['invalid', 'year'],
   },
   {
@@ -465,7 +474,6 @@ const manualImportTestItems: ManualImportPayload[] = [
     authors: ['QA Bot'],
     year: 2022,
     source_url: 'ftp://example.org/not-http',
-    rights_class: 'UNKNOWN',
     tags: ['invalid', 'url'],
   },
   {
@@ -475,7 +483,6 @@ const manualImportTestItems: ManualImportPayload[] = [
     authors: ['Nina Park', 'Tom Li'],
     year: 2021,
     source_url: 'https://openreview.net/forum?id=demo-reranker',
-    rights_class: 'RESTRICTED',
     tags: ['retrieval', 'reranker'],
   },
 ];
@@ -561,8 +568,223 @@ function toText(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+function toTextArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function toOptionalYear(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value.trim(), 10);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+function normalizeManualDedupDoi(value: string): string | null {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/doi\.org\//, '')
+    .replace(/^doi:/, '')
+    .trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeManualDedupArxivId(value: string): string | null {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/arxiv\.org\/abs\//, '')
+    .replace(/^arxiv:/, '')
+    .trim()
+    .replace(/v\d+$/, '');
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeManualDedupToken(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseManualDedupAuthors(value: string): string[] {
+  return value
+    .split(/\s+and\s+|,|;/i)
+    .map((author) => normalizeManualDedupToken(author))
+    .filter((author) => author.length > 0)
+    .sort();
+}
+
+function buildManualDraftRowDedupKey(row: ManualDraftRow): string | null {
+  const doi = normalizeManualDedupDoi(row.doi);
+  if (doi) {
+    return `doi:${doi}`;
+  }
+
+  const arxivId = normalizeManualDedupArxivId(row.arxiv_id);
+  if (arxivId) {
+    return `arxiv:${arxivId}`;
+  }
+
+  const year = Number.parseInt(row.year_text.trim(), 10);
+  if (!Number.isFinite(year)) {
+    return null;
+  }
+
+  const normalizedTitle = normalizeManualDedupToken(row.title);
+  const normalizedAuthors = parseManualDedupAuthors(row.authors_text);
+  if (!normalizedTitle || normalizedAuthors.length === 0) {
+    return null;
+  }
+
+  return `tay:${normalizedTitle}|${normalizedAuthors.join('|')}|${year}`;
+}
+
+function mergeManualDraftRows(existingRows: ManualDraftRow[], incomingRows: ManualDraftRow[]) {
+  const rows = [...existingRows];
+  const seenKeys = new Set<string>();
+
+  for (const row of existingRows) {
+    const key = buildManualDraftRowDedupKey(row);
+    if (key) {
+      seenKeys.add(key);
+    }
+  }
+
+  let skippedDuplicates = 0;
+  let appendedCount = 0;
+
+  for (const row of incomingRows) {
+    const key = buildManualDraftRowDedupKey(row);
+    if (key && seenKeys.has(key)) {
+      skippedDuplicates += 1;
+      continue;
+    }
+    if (key) {
+      seenKeys.add(key);
+    }
+    rows.push(row);
+    appendedCount += 1;
+  }
+
+  return {
+    rows,
+    appendedCount,
+    skippedDuplicates,
+  };
+}
+
+type ManualFieldErrorKey =
+  | 'title'
+  | 'authors_text'
+  | 'year_text'
+  | 'doi'
+  | 'arxiv_id'
+  | 'source_url'
+  | 'tags_text';
+
+type ManualFieldErrorMap = Partial<Record<ManualFieldErrorKey, string[]>>;
+
+function pushManualFieldError(map: ManualFieldErrorMap, key: ManualFieldErrorKey, message: string): void {
+  const bucket = map[key] ?? [];
+  if (!bucket.includes(message)) {
+    bucket.push(message);
+  }
+  map[key] = bucket;
+}
+
+function mapManualValidationErrors(validation?: ManualRowValidation): ManualFieldErrorMap {
+  const map: ManualFieldErrorMap = {};
+  if (!validation || validation.is_valid) {
+    return map;
+  }
+
+  for (const message of validation.errors) {
+    if (message.includes('标题')) {
+      pushManualFieldError(map, 'title', message);
+    }
+    if (message.includes('作者')) {
+      pushManualFieldError(map, 'authors_text', message);
+    }
+    if (message.includes('年份')) {
+      pushManualFieldError(map, 'year_text', message);
+    }
+    if (message.includes('需要 DOI / arXiv ID / 来源链接 其中之一')) {
+      pushManualFieldError(map, 'doi', message);
+      pushManualFieldError(map, 'arxiv_id', message);
+      pushManualFieldError(map, 'source_url', message);
+    }
+    if (message.includes('来源链接')) {
+      pushManualFieldError(map, 'source_url', message);
+    }
+  }
+
+  return map;
+}
+
+function getManualFieldErrorText(map: ManualFieldErrorMap, key: ManualFieldErrorKey): string {
+  return (map[key] ?? []).join('；');
+}
+
+function parseZoteroPreviewItems(payload: unknown): ManualImportPayload[] {
+  const root = asRecord(payload);
+  const items = Array.isArray(root?.items) ? root.items : [];
+  const parsedItems: ManualImportPayload[] = [];
+  items.forEach((item, index) => {
+    const record = asRecord(item);
+    if (!record) {
+      return;
+    }
+    const title = toText(record.title)?.trim() ?? '';
+    if (!title) {
+      return;
+    }
+    const provider = normalizeLiteratureProvider(record.provider);
+    const normalizedProvider = provider === 'zotero' ? 'zotero' : 'manual';
+    const sourceUrl = toText(record.source_url)?.trim() ?? '';
+    const externalIdFromPayload = toText(record.external_id)?.trim() ?? '';
+    const externalId = externalIdFromPayload || sourceUrl || `zotero-preview-${index + 1}`;
+    if (!externalId) {
+      return;
+    }
+
+    parsedItems.push({
+      provider: normalizedProvider,
+      external_id: externalId,
+      title,
+      abstract: toText(record.abstract)?.trim() ?? undefined,
+      authors: toTextArray(record.authors),
+      year: toOptionalYear(record.year),
+      doi: toText(record.doi)?.trim() || undefined,
+      arxiv_id: toText(record.arxiv_id)?.trim() || undefined,
+      source_url: sourceUrl,
+      tags: toTextArray(record.tags),
+    });
+  });
+
+  return parsedItems;
+}
+
 function isAutoImportSubTabKey(value: string): value is AutoImportSubTabKey {
   return value === 'topic-settings' || value === 'rules-center' || value === 'runs-alerts';
+}
+
+function isManualImportSubTabKey(value: string): value is ManualImportSubTabKey {
+  return value === 'file-review' || value === 'zotero-sync';
 }
 
 function toOptionalNumber(value: unknown): number | null {
@@ -1466,6 +1688,87 @@ function formatUiOperationStatus(status: UiOperationStatus): string {
   return '异常';
 }
 
+function detectManualUploadFileFormat(fileName: string): string {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.json')) {
+    return 'JSON';
+  }
+  if (lower.endsWith('.csv')) {
+    return 'CSV';
+  }
+  if (lower.endsWith('.bib') || lower.endsWith('.bibtex')) {
+    return 'BibTeX';
+  }
+  if (lower.endsWith('.pdf')) {
+    return 'PDF';
+  }
+  if (lower.endsWith('.txt')) {
+    return 'TXT';
+  }
+  if (lower.endsWith('.tex') || lower.endsWith('.ltx')) {
+    return 'TeX';
+  }
+  if (lower.endsWith('.bbl')) {
+    return 'BBL';
+  }
+  if (lower.endsWith('.aux')) {
+    return 'AUX';
+  }
+  if (lower.endsWith('.ris')) {
+    return 'RIS';
+  }
+  return '其他';
+}
+
+function isManualUploadParseSupported(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return (
+    lower.endsWith('.json')
+    || lower.endsWith('.csv')
+    || lower.endsWith('.bib')
+    || lower.endsWith('.bibtex')
+    || lower.endsWith('.txt')
+  );
+}
+
+function isManualUploadLlmSupported(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return (
+    lower.endsWith('.pdf')
+    || lower.endsWith('.tex')
+    || lower.endsWith('.ltx')
+    || lower.endsWith('.bbl')
+    || lower.endsWith('.aux')
+    || lower.endsWith('.ris')
+  );
+}
+
+function buildManualUploadDuplicateKey(value: string): string | null {
+  const normalized = normalizeManualDedupToken(
+    value.replace(/\.(json|csv|bib|bibtex|txt|pdf|tex|ltx|bbl|aux|ris)$/i, ''),
+  );
+  return normalized.length > 0 ? normalized : null;
+}
+
+function formatManualUploadFileStatusLabel(item: ManualUploadFileItem): string {
+  if (item.status === 'processing') {
+    return '处理中';
+  }
+  if (item.status === 'parsed') {
+    return '已解析';
+  }
+  if (item.status === 'duplicate') {
+    return '重复';
+  }
+  if (item.status === 'accepted') {
+    return '已接收';
+  }
+  if (item.status === 'empty') {
+    return '已接收';
+  }
+  return '解析失败';
+}
+
 function readErrorMessage(payload: unknown, status: number): string {
   const root = asRecord(payload);
   const error = root ? asRecord(root.error) : null;
@@ -1656,7 +1959,6 @@ export function App({ initialThemeMode }: AppProps) {
   const [rulesError, setRulesError] = useState<string | null>(null);
   const [ruleEditingId, setRuleEditingId] = useState<string | null>(null);
   const [ruleFormScope, setRuleFormScope] = useState<AutoPullScope>('GLOBAL');
-  const [ruleFormTopicIdsInput, setRuleFormTopicIdsInput] = useState<string>('');
   const [ruleFormName, setRuleFormName] = useState<string>('');
   const [ruleFormIncludeInput, setRuleFormIncludeInput] = useState<string>('');
   const [ruleFormExcludeInput, setRuleFormExcludeInput] = useState<string>('');
@@ -1678,10 +1980,6 @@ export function App({ initialThemeMode }: AppProps) {
   );
   const [ruleSourceCrossref, setRuleSourceCrossref] = useState<boolean>(true);
   const [ruleSourceArxiv, setRuleSourceArxiv] = useState<boolean>(true);
-  const [ruleSourceZotero, setRuleSourceZotero] = useState<boolean>(false);
-  const [ruleSourceZoteroLibraryType, setRuleSourceZoteroLibraryType] = useState<'users' | 'groups'>('users');
-  const [ruleSourceZoteroLibraryId, setRuleSourceZoteroLibraryId] = useState<string>('');
-  const [ruleSourceZoteroApiKey, setRuleSourceZoteroApiKey] = useState<string>('');
   const [ruleFilterScope, setRuleFilterScope] = useState<'' | AutoPullScope>('');
   const [ruleFilterStatus, setRuleFilterStatus] = useState<'' | AutoPullRuleStatus>('');
   const [activeGlobalRuleCount, setActiveGlobalRuleCount] = useState<number>(0);
@@ -1707,11 +2005,16 @@ export function App({ initialThemeMode }: AppProps) {
   const [manualUploadLoading, setManualUploadLoading] = useState<boolean>(false);
   const [manualUploadStatus, setManualUploadStatus] = useState<UiOperationStatus>('idle');
   const [manualUploadError, setManualUploadError] = useState<string | null>(null);
+  const [literatureAutoParseDocuments, setLiteratureAutoParseDocuments] = useState<boolean>(false);
+  const [literatureAutoExtractAbstracts, setLiteratureAutoExtractAbstracts] = useState<boolean>(false);
+  const [manualUploadFiles, setManualUploadFiles] = useState<ManualUploadFileItem[]>([]);
   const [manualImportSession, setManualImportSession] = useState<ManualImportSession | null>(null);
   const [manualImportSubTab, setManualImportSubTab] = useState<ManualImportSubTabKey>('file-review');
+  const [manualShowImportableOnly, setManualShowImportableOnly] = useState<boolean>(false);
   const [manualShowErrorOnly, setManualShowErrorOnly] = useState<boolean>(false);
+  const [manualOpenRowId, setManualOpenRowId] = useState<string | null>(null);
+  const [manualOpenRowPanel, setManualOpenRowPanel] = useState<'expand' | 'summary' | null>(null);
   const [manualDropActive, setManualDropActive] = useState<boolean>(false);
-  const [manualBatchRightsClass, setManualBatchRightsClass] = useState<ManualDraftRow['rights_class']>('UNKNOWN');
   const [zoteroLibraryType, setZoteroLibraryType] = useState<'users' | 'groups'>('users');
   const [zoteroLibraryId, setZoteroLibraryId] = useState<string>('');
   const [zoteroApiKey, setZoteroApiKey] = useState<string>('');
@@ -2451,10 +2754,9 @@ export function App({ initialThemeMode }: AppProps) {
     }
   };
 
-  const handleCreateRuleShortcutForTopic = (profile: AutoPullTopicProfile) => {
+  const handleCreateRuleShortcutForTopic = () => {
     resetRuleForm();
     setRuleFormScope('TOPIC');
-    setRuleFormTopicIdsInput(profile.topic_id);
     setAutoImportSubTab('rules-center');
   };
 
@@ -2463,7 +2765,6 @@ export function App({ initialThemeMode }: AppProps) {
     setRuleEditingId(rule.rule_id);
     setRuleFormAdvancedOpen(true);
     setRuleFormScope(rule.scope);
-    setRuleFormTopicIdsInput(rule.topic_ids.join(', '));
     setRuleFormName(rule.name);
     setRuleFormIncludeInput(rule.query_spec.include_keywords.join(', '));
     setRuleFormExcludeInput(rule.query_spec.exclude_keywords.join(', '));
@@ -2482,13 +2783,6 @@ export function App({ initialThemeMode }: AppProps) {
     setRuleFormTimezone(primarySchedule?.timezone ?? 'UTC');
     setRuleSourceCrossref(rule.sources.some((source) => source.source === 'CROSSREF' && source.enabled));
     setRuleSourceArxiv(rule.sources.some((source) => source.source === 'ARXIV' && source.enabled));
-    const zoteroSource = rule.sources.find((source) => source.source === 'ZOTERO' && source.enabled);
-    setRuleSourceZotero(Boolean(zoteroSource));
-    setRuleSourceZoteroLibraryType(
-      (toText(zoteroSource?.config.library_type) as 'users' | 'groups') ?? 'users',
-    );
-    setRuleSourceZoteroLibraryId(toText(zoteroSource?.config.library_id) ?? '');
-    setRuleSourceZoteroApiKey(toText(zoteroSource?.config.api_key) ?? '');
     setAutoImportSubTab('rules-center');
   };
 
@@ -2496,7 +2790,6 @@ export function App({ initialThemeMode }: AppProps) {
     setRuleEditingId(null);
     setRuleFormAdvancedOpen(false);
     setRuleFormScope('GLOBAL');
-    setRuleFormTopicIdsInput('');
     setRuleFormName('');
     setRuleFormIncludeInput('');
     setRuleFormExcludeInput('');
@@ -2514,10 +2807,6 @@ export function App({ initialThemeMode }: AppProps) {
     setRuleFormMinuteInput('0');
     setRuleSourceCrossref(true);
     setRuleSourceArxiv(true);
-    setRuleSourceZotero(false);
-    setRuleSourceZoteroLibraryType('users');
-    setRuleSourceZoteroLibraryId('');
-    setRuleSourceZoteroApiKey('');
   };
 
   const handleSubmitRule = async () => {
@@ -2531,8 +2820,6 @@ export function App({ initialThemeMode }: AppProps) {
       return;
     }
 
-    const topicIds = parseTokenList(ruleFormTopicIdsInput);
-
     const sources: Array<{
       source: AutoPullSource;
       enabled: boolean;
@@ -2544,18 +2831,6 @@ export function App({ initialThemeMode }: AppProps) {
     }
     if (ruleSourceArxiv) {
       sources.push({ source: 'ARXIV', enabled: true, priority: 20 });
-    }
-    if (ruleSourceZotero) {
-      const config: Record<string, unknown> = {
-        library_type: ruleSourceZoteroLibraryType,
-      };
-      if (ruleSourceZoteroLibraryId.trim()) {
-        config.library_id = ruleSourceZoteroLibraryId.trim();
-      }
-      if (ruleSourceZoteroApiKey.trim()) {
-        config.api_key = ruleSourceZoteroApiKey.trim();
-      }
-      sources.push({ source: 'ZOTERO', enabled: true, priority: 30, config });
     }
 
     if (sources.length === 0) {
@@ -2586,7 +2861,6 @@ export function App({ initialThemeMode }: AppProps) {
 
     const payload = {
       scope: ruleFormScope,
-      topic_ids: ruleFormScope === 'TOPIC' ? topicIds : undefined,
       name: nameText,
       query_spec: {
         include_keywords: parseTokenList(ruleFormIncludeInput),
@@ -2734,40 +3008,233 @@ export function App({ initialThemeMode }: AppProps) {
     }
   };
 
-  const applyManualImportSessionRows = (fileName: string, rows: ManualDraftRow[], source: 'upload' | 'seed') => {
-    const nextSession: ManualImportSession = {
-      file_name: fileName,
-      rows,
-    };
-    const validations = validateManualDraftRows(rows);
+  const applyManualImportSessionRows = (
+    fileName: string,
+    rows: ManualDraftRow[],
+    source: 'upload' | 'seed' | 'zotero-preview',
+  ) => {
+    const baseRows = source === 'seed' ? [] : manualImportSession?.rows ?? [];
+    const merged = mergeManualDraftRows(baseRows, rows);
+    const nextSession: ManualImportSession | null = merged.rows.length > 0
+      ? {
+        file_name: source === 'seed' ? fileName : manualImportSession?.file_name ?? fileName,
+        rows: merged.rows,
+      }
+      : null;
+    const validations = validateManualDraftRows(merged.rows);
     const invalidCount = validations.filter((item) => !item.is_valid).length;
 
+    if (!nextSession) {
+      return;
+    }
+
+    const appended = source === 'seed' ? merged.rows.length : merged.appendedCount;
+    const duplicateSkipped = source === 'seed' ? 0 : merged.skippedDuplicates;
+    const level =
+      appended === 0
+        ? 'warning'
+        : invalidCount > 0 || duplicateSkipped > 0
+          ? 'warning'
+          : 'success';
+    const statusText = `当前检查表 ${merged.rows.length} 行，错误 ${invalidCount} 行。`;
+
     setManualImportSession(nextSession);
+    setManualShowImportableOnly(false);
     setManualShowErrorOnly(false);
+    setManualOpenRowId(null);
+    setManualOpenRowPanel(null);
     setManualUploadStatus('ready');
     setManualUploadError(null);
     pushLiteratureFeedback({
       slot: 'manual-import',
-      level: invalidCount > 0 ? 'warning' : 'success',
+      level,
       message:
         source === 'seed'
-          ? `已注入测试数据 ${rows.length} 行，其中 ${invalidCount} 行待修复后可导入。`
-          : invalidCount > 0
-            ? `解析 ${rows.length} 行，其中 ${invalidCount} 行待修复后可导入。`
-            : `解析 ${rows.length} 行，均可直接导入。`,
+          ? `已注入测试数据 ${merged.rows.length} 行，其中 ${invalidCount} 行待修复后可导入。`
+          : source === 'zotero-preview'
+            ? `Zotero 新增 ${appended} 行，去重跳过 ${duplicateSkipped} 行。${statusText}`
+            : `本地上传新增 ${appended} 行，去重跳过 ${duplicateSkipped} 行。${statusText}`,
     });
   };
 
-  const importManualFileIntoSession = async (file: File) => {
+  const invokeManualUploadLlmReserved = async (
+    action: 'parse' | 'abstract',
+    fileName: string,
+  ): Promise<void> => {
+    // Placeholder hook for future LLM integration.
+    void action;
+    void fileName;
+    await Promise.resolve();
+  };
+
+  const pushManualUploadLlmFeedback = (
+    action: 'parse' | 'abstract',
+    fileName: string,
+    trigger: 'manual' | 'auto',
+  ) => {
+    const actionLabel = action === 'parse' ? '解析' : '提取摘要';
+    pushLiteratureFeedback({
+      slot: 'manual-import',
+      level: 'info',
+      message:
+        trigger === 'auto'
+          ? `已按设置触发「${actionLabel}」：${fileName}（LLM 接口预留）。`
+          : `已触发「${actionLabel}」：${fileName}（LLM 接口预留）。`,
+    });
+  };
+
+  const handleManualUploadFileLlmAction = async (
+    fileId: string,
+    action: 'parse' | 'abstract',
+  ) => {
+    const fileItem = manualUploadFiles.find((item) => item.id === fileId);
+    if (!fileItem || fileItem.status === 'duplicate' || !isManualUploadLlmSupported(fileItem.fileName)) {
+      return;
+    }
+
+    await invokeManualUploadLlmReserved(action, fileItem.fileName);
+    pushManualUploadLlmFeedback(action, fileItem.fileName, 'manual');
+  };
+
+  const importManualFilesIntoSession = async (files: File[]) => {
     setManualUploadLoading(true);
     setManualUploadStatus('loading');
     setManualUploadError(null);
+    const batchIdPrefix = `manual-upload-${Date.now()}`;
+    const batchFiles = files.map((file, index) => ({
+      id: `${batchIdPrefix}-${index + 1}`,
+      fileName: file.name,
+      format: detectManualUploadFileFormat(file.name),
+      status: 'processing' as const,
+      rowCount: 0,
+    }));
+    setManualUploadFiles((current) => [...batchFiles, ...current]);
+
+    const updateBatchFile = (id: string, patch: Partial<ManualUploadFileItem>) => {
+      setManualUploadFiles((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+              ...item,
+              ...patch,
+            }
+            : item),
+      );
+    };
+
+    const existingUploadNameKeys = new Set(
+      manualUploadFiles
+        .map((item) => buildManualUploadDuplicateKey(item.fileName))
+        .filter((value): value is string => Boolean(value)),
+    );
+    const existingManualTitleKeys = new Set(
+      (manualImportSession?.rows ?? [])
+        .map((row) => buildManualUploadDuplicateKey(row.title))
+        .filter((value): value is string => Boolean(value)),
+    );
+    const seenBatchUnsupportedKeys = new Set<string>();
+
     try {
-      const content = await file.text();
-      const rows = parseManualUploadToDraftRows(file.name, content);
-      if (rows.length === 0) {
+      const parsedRows: ManualDraftRow[] = [];
+      let emptyFiles = 0;
+      let failedFiles = 0;
+      let acceptedPendingFiles = 0;
+      let duplicateFiles = 0;
+      const acceptedPendingFileNames: string[] = [];
+
+      const triggerAutoLlmActions = () => {
+        if (acceptedPendingFileNames.length === 0) {
+          return;
+        }
+        if (literatureAutoParseDocuments) {
+          for (const fileName of acceptedPendingFileNames) {
+            void invokeManualUploadLlmReserved('parse', fileName);
+            pushManualUploadLlmFeedback('parse', fileName, 'auto');
+          }
+        }
+        if (literatureAutoExtractAbstracts) {
+          for (const fileName of acceptedPendingFileNames) {
+            void invokeManualUploadLlmReserved('abstract', fileName);
+            pushManualUploadLlmFeedback('abstract', fileName, 'auto');
+          }
+        }
+      };
+
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        const batchItem = batchFiles[index];
+        if (!isManualUploadParseSupported(file.name)) {
+          const duplicateKey = buildManualUploadDuplicateKey(file.name);
+          const isDuplicate = Boolean(
+            duplicateKey
+            && (
+              existingUploadNameKeys.has(duplicateKey)
+              || existingManualTitleKeys.has(duplicateKey)
+              || seenBatchUnsupportedKeys.has(duplicateKey)
+            ),
+          );
+          if (isDuplicate) {
+            duplicateFiles += 1;
+            updateBatchFile(batchItem.id, {
+              status: 'duplicate',
+              rowCount: 0,
+            });
+            continue;
+          }
+          if (duplicateKey) {
+            existingUploadNameKeys.add(duplicateKey);
+            seenBatchUnsupportedKeys.add(duplicateKey);
+          }
+          acceptedPendingFiles += 1;
+          acceptedPendingFileNames.push(file.name);
+          updateBatchFile(batchItem.id, {
+            status: 'accepted',
+            rowCount: 0,
+          });
+          continue;
+        }
+
+        try {
+          const content = await file.text();
+          const rows = parseManualUploadToDraftRows(file.name, content);
+          if (rows.length === 0) {
+            emptyFiles += 1;
+            updateBatchFile(batchItem.id, {
+              status: 'empty',
+              rowCount: 0,
+            });
+            continue;
+          }
+          parsedRows.push(...rows);
+          updateBatchFile(batchItem.id, {
+            status: 'parsed',
+            rowCount: rows.length,
+          });
+        } catch {
+          failedFiles += 1;
+          updateBatchFile(batchItem.id, {
+            status: 'failed',
+            rowCount: 0,
+          });
+        }
+      }
+
+      if (parsedRows.length === 0) {
+        if (acceptedPendingFiles > 0 || duplicateFiles > 0) {
+          setManualUploadStatus('ready');
+          setManualUploadError(null);
+          triggerAutoLlmActions();
+          pushLiteratureFeedback({
+            slot: 'manual-import',
+            level: duplicateFiles > 0 ? 'warning' : 'info',
+            message:
+              duplicateFiles > 0
+                ? `已接收 ${acceptedPendingFiles} 个文件待后续解析支持，检测到重复 ${duplicateFiles} 个文件（仅允许移除）。`
+                : `已接收 ${acceptedPendingFiles} 个文件，当前版本暂不支持其自动解析（如 PDF / TeX / BBL / AUX / RIS）。`,
+          });
+          return;
+        }
         const message = '未解析到可导入文献，请检查文件格式（JSON/CSV/BibTeX）。';
-        setManualImportSession(null);
         setManualUploadStatus('empty');
         setManualUploadError(message);
         pushLiteratureFeedback({
@@ -2778,10 +3245,17 @@ export function App({ initialThemeMode }: AppProps) {
         return;
       }
 
-      applyManualImportSessionRows(file.name, rows, 'upload');
+      applyManualImportSessionRows(files[0]?.name ?? 'manual-upload', parsedRows, 'upload');
+      triggerAutoLlmActions();
+      if (emptyFiles > 0 || failedFiles > 0 || acceptedPendingFiles > 0 || duplicateFiles > 0) {
+        pushLiteratureFeedback({
+          slot: 'manual-import',
+          level: 'warning',
+          message: `额外提示：${emptyFiles} 个文件未解析到条目，${failedFiles} 个文件解析失败，${acceptedPendingFiles} 个文件已接收待后续解析支持，重复 ${duplicateFiles} 个。`,
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : '文件解析失败。';
-      setManualImportSession(null);
       setManualUploadStatus('error');
       setManualUploadError(message);
       pushLiteratureFeedback({
@@ -2796,23 +3270,21 @@ export function App({ initialThemeMode }: AppProps) {
   };
 
   const handleManualUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    const file = files && files.length > 0 ? files[0] : null;
-    if (!file) {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    if (files.length === 0) {
       return;
     }
-    await importManualFileIntoSession(file);
+    await importManualFilesIntoSession(files);
     event.target.value = '';
   };
 
   const handleManualUploadDrop = async (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
-    const files = event.dataTransfer.files;
-    const file = files && files.length > 0 ? files[0] : null;
-    if (!file) {
+    const files = Array.from(event.dataTransfer.files ?? []);
+    if (files.length === 0) {
       return;
     }
-    await importManualFileIntoSession(file);
+    await importManualFilesIntoSession(files);
   };
 
   const handleInjectManualImportTestData = () => {
@@ -2831,7 +3303,11 @@ export function App({ initialThemeMode }: AppProps) {
 
   const handleClearInjectedManualImportData = () => {
     setManualImportSession(null);
+    setManualUploadFiles([]);
+    setManualShowImportableOnly(false);
     setManualShowErrorOnly(false);
+    setManualOpenRowId(null);
+    setManualOpenRowPanel(null);
     setManualUploadStatus('idle');
     setManualUploadError(null);
     pushLiteratureFeedback({
@@ -2841,16 +3317,20 @@ export function App({ initialThemeMode }: AppProps) {
     });
   };
 
+  const handleRemoveManualUploadFile = (fileId: string) => {
+    setManualUploadFiles((current) => current.filter((item) => item.id !== fileId));
+  };
+
   const handleManualDraftFieldChange = (
     rowId: string,
     field:
       | 'title'
+      | 'abstract'
       | 'authors_text'
       | 'year_text'
       | 'doi'
       | 'arxiv_id'
       | 'source_url'
-      | 'rights_class'
       | 'tags_text',
     value: string,
   ) => {
@@ -2863,12 +3343,6 @@ export function App({ initialThemeMode }: AppProps) {
         rows: current.rows.map((row) => {
           if (row.id !== rowId) {
             return row;
-          }
-          if (field === 'rights_class') {
-            return {
-              ...row,
-              rights_class: normalizeManualRightsClass(value),
-            };
           }
           return {
             ...row,
@@ -2913,73 +3387,43 @@ export function App({ initialThemeMode }: AppProps) {
     });
   };
 
-  const handleSelectAllImportableRows = () => {
-    setManualImportSession((current) => {
-      if (!current) {
-        return current;
-      }
-      const validIds = new Set(
-        validateManualDraftRows(current.rows)
-          .filter((item) => item.is_valid)
-          .map((item) => item.row_id),
-      );
-      if (validIds.size === 0) {
-        return current;
-      }
-      return {
-        ...current,
-        rows: current.rows.map((row) =>
-          validIds.has(row.id)
-            ? {
-              ...row,
-              include: true,
-            }
-            : row),
-      };
-    });
+  const handleToggleManualRowPanel = (rowId: string, panel: 'expand' | 'summary') => {
+    if (manualOpenRowId === rowId && manualOpenRowPanel === panel) {
+      setManualOpenRowId(null);
+      setManualOpenRowPanel(null);
+      return;
+    }
+    setManualOpenRowId(rowId);
+    setManualOpenRowPanel(panel);
   };
 
-  const handleInvertImportableRows = () => {
-    setManualImportSession((current) => {
-      if (!current) {
-        return current;
+  const handleCopyManualCellValue = async (rawValue: string) => {
+    const value = rawValue.trim();
+    if (!value) {
+      return;
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return;
       }
-      const validIds = new Set(
-        validateManualDraftRows(current.rows)
-          .filter((item) => item.is_valid)
-          .map((item) => item.row_id),
-      );
-      if (validIds.size === 0) {
-        return current;
-      }
-      return {
-        ...current,
-        rows: current.rows.map((row) =>
-          validIds.has(row.id)
-            ? {
-              ...row,
-              include: !row.include,
-            }
-            : row),
-      };
-    });
-  };
+    } catch {
+      // fall through to execCommand fallback
+    }
 
-  const handleApplyBatchRightsToManualRows = () => {
-    setManualImportSession((current) => {
-      if (!current) {
-        return current;
-      }
-      return {
-        ...current,
-        rows: applyBatchRightsClass(current.rows, manualBatchRightsClass, true),
-      };
-    });
-    pushLiteratureFeedback({
-      slot: 'manual-import',
-      level: 'success',
-      message: `已向勾选行批量设置 rights_class=${manualBatchRightsClass}。`,
-    });
+    try {
+      const input = document.createElement('textarea');
+      input.value = value;
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.focus();
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+    } catch {
+      // no-op
+    }
   };
 
   const handleSubmitManualReviewedRows = async () => {
@@ -3019,13 +3463,7 @@ export function App({ initialThemeMode }: AppProps) {
     setManualUploadError(null);
 
     try {
-      const importItems = selectedValidRows.map((entry) => {
-        const normalized = entry.validation.normalized;
-        return {
-          ...normalized,
-          rights_class: normalizeManualRightsClass(normalized.rights_class),
-        };
-      });
+      const importItems = selectedValidRows.map((entry) => entry.validation.normalized);
 
       const payload = await requestGovernance({
         method: 'POST',
@@ -3082,6 +3520,80 @@ export function App({ initialThemeMode }: AppProps) {
       });
     } finally {
       setManualUploadLoading(false);
+    }
+  };
+
+  const handleLoadZoteroToReview = async () => {
+    const libraryId = zoteroLibraryId.trim();
+    if (!libraryId) {
+      const message = '请填写 Zotero Library ID。';
+      setZoteroStatus('error');
+      setZoteroError(message);
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: 'warning',
+        message,
+      });
+      return;
+    }
+
+    const parsedLimit = Number.parseInt(zoteroLimitInput.trim(), 10);
+    const normalizedLimit = Number.isFinite(parsedLimit) ? parsedLimit : 20;
+    const limit = Math.min(50, Math.max(1, normalizedLimit));
+    if (limit !== normalizedLimit) {
+      setZoteroLimitInput(String(limit));
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: 'warning',
+        message: `Zotero limit 已自动修正为 ${limit}（允许范围 1-50）。`,
+      });
+    }
+
+    setZoteroLoading(true);
+    setZoteroStatus('loading');
+    setZoteroError(null);
+    try {
+      const payload = await requestGovernance({
+        method: 'POST',
+        path: '/literature/zotero-preview',
+        body: {
+          library_type: zoteroLibraryType,
+          library_id: libraryId,
+          api_key: zoteroApiKey.trim() || undefined,
+          query: zoteroQuery.trim() || undefined,
+          limit,
+        },
+      });
+
+      const previewItems = parseZoteroPreviewItems(payload);
+      if (previewItems.length === 0) {
+        setZoteroStatus('empty');
+        pushLiteratureFeedback({
+          slot: 'manual-import',
+          level: 'warning',
+          message: '未从 Zotero 拉取到可审阅条目。',
+        });
+        return;
+      }
+
+      const sessionName = zoteroQuery.trim()
+        ? `zotero:${zoteroLibraryType}/${libraryId} · ${zoteroQuery.trim()}`
+        : `zotero:${zoteroLibraryType}/${libraryId}`;
+      const rows = convertImportItemsToDraftRows(previewItems);
+      applyManualImportSessionRows(sessionName, rows, 'zotero-preview');
+      setZoteroStatus('ready');
+      setZoteroError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Zotero 预览失败。';
+      setZoteroStatus('error');
+      setZoteroError(message);
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: 'error',
+        message: `Zotero 预览失败：${message}`,
+      });
+    } finally {
+      setZoteroLoading(false);
     }
   };
 
@@ -3567,11 +4079,16 @@ export function App({ initialThemeMode }: AppProps) {
     [manualRowValidations],
   );
   const manualVisibleRows = useMemo(
-    () =>
-      manualShowErrorOnly
-        ? manualDraftRows.filter((row) => !manualValidationByRowId.get(row.id)?.is_valid)
-        : manualDraftRows,
-    [manualDraftRows, manualShowErrorOnly, manualValidationByRowId],
+    () => {
+      if (manualShowImportableOnly === manualShowErrorOnly) {
+        return manualDraftRows;
+      }
+      if (manualShowImportableOnly) {
+        return manualDraftRows.filter((row) => Boolean(manualValidationByRowId.get(row.id)?.is_valid));
+      }
+      return manualDraftRows.filter((row) => !manualValidationByRowId.get(row.id)?.is_valid);
+    },
+    [manualDraftRows, manualShowErrorOnly, manualShowImportableOnly, manualValidationByRowId],
   );
   const manualRowStats = useMemo(() => {
     let validCount = 0;
@@ -3602,6 +4119,58 @@ export function App({ initialThemeMode }: AppProps) {
       selectedInvalidCount,
     };
   }, [manualDraftRows, manualValidationByRowId]);
+  const hasManualSession = manualDraftRows.length > 0;
+
+  useEffect(() => {
+    if (!manualImportSession) {
+      return;
+    }
+
+    const invalidSelectedIds = manualDraftRows
+      .filter((row) => row.include && !manualValidationByRowId.get(row.id)?.is_valid)
+      .map((row) => row.id);
+
+    if (invalidSelectedIds.length === 0) {
+      return;
+    }
+
+    const invalidIdSet = new Set(invalidSelectedIds);
+    setManualImportSession((current) => {
+      if (!current) {
+        return current;
+      }
+      let changed = false;
+      const nextRows = current.rows.map((row) => {
+        if (!row.include || !invalidIdSet.has(row.id)) {
+          return row;
+        }
+        changed = true;
+        return {
+          ...row,
+          include: false,
+        };
+      });
+      if (!changed) {
+        return current;
+      }
+      return {
+        ...current,
+        rows: nextRows,
+      };
+    });
+  }, [manualDraftRows, manualImportSession, manualValidationByRowId]);
+
+  useEffect(() => {
+    if (!manualOpenRowId) {
+      return;
+    }
+    const exists = manualDraftRows.some((row) => row.id === manualOpenRowId);
+    if (exists) {
+      return;
+    }
+    setManualOpenRowId(null);
+    setManualOpenRowPanel(null);
+  }, [manualDraftRows, manualOpenRowId]);
 
   const inScopeCount = topicScopeItems.filter((item) => item.scope_status === 'in_scope').length;
   const citedCount = paperLiteratureItems.filter((item) => item.citation_status === 'cited').length;
@@ -3655,10 +4224,6 @@ export function App({ initialThemeMode }: AppProps) {
     usedCount,
   ]);
 
-  const globalScopedRules = useMemo(
-    () => autoPullRules.filter((rule) => rule.scope === 'GLOBAL'),
-    [autoPullRules],
-  );
   const topicScopedRules = useMemo(
     () => autoPullRules.filter((rule) => rule.scope === 'TOPIC'),
     [autoPullRules],
@@ -3717,6 +4282,10 @@ export function App({ initialThemeMode }: AppProps) {
     setActiveLiteratureTab(tabKey);
     if (tabKey === 'auto-import' && isAutoImportSubTabKey(subTabKey)) {
       setAutoImportSubTab(subTabKey);
+      return;
+    }
+    if (tabKey === 'manual-import' && isManualImportSubTabKey(subTabKey)) {
+      setManualImportSubTab(subTabKey);
     }
   };
 
@@ -3856,7 +4425,12 @@ export function App({ initialThemeMode }: AppProps) {
               <div className="topbar-literature-tabs" role="tablist" aria-label="文献管理标签页">
                 {literatureTabs.map((tab) => {
                   const subTabs = literatureSubTabsByTab[tab.key] ?? [];
-                  const activeSubTabKey = tab.key === 'auto-import' ? autoImportSubTab : null;
+                  const activeSubTabKey =
+                    tab.key === 'auto-import'
+                      ? autoImportSubTab
+                      : tab.key === 'manual-import'
+                        ? manualImportSubTab
+                        : null;
                   const shouldShowSubTabs = activeLiteratureTab === tab.key && subTabs.length > 0;
                   return (
                     <div
@@ -3986,6 +4560,26 @@ export function App({ initialThemeMode }: AppProps) {
                       </button>
                     </div>
                     <div className="sidebar-settings-divider" aria-hidden="true" />
+                    <section className="sidebar-settings-group" aria-label="文献管理设置">
+                      <p className="sidebar-settings-group-title">文献管理</p>
+                      <label className="sidebar-settings-check">
+                        <input
+                          type="checkbox"
+                          checked={literatureAutoParseDocuments}
+                          onChange={(event) => setLiteratureAutoParseDocuments(event.target.checked)}
+                        />
+                        <span>自动解析文档</span>
+                      </label>
+                      <label className="sidebar-settings-check">
+                        <input
+                          type="checkbox"
+                          checked={literatureAutoExtractAbstracts}
+                          onChange={(event) => setLiteratureAutoExtractAbstracts(event.target.checked)}
+                        />
+                        <span>自动提取摘要</span>
+                      </label>
+                    </section>
+                    <div className="sidebar-settings-divider" aria-hidden="true" />
                     <button
                       type="button"
                       className="sidebar-settings-item sidebar-settings-item-button"
@@ -4091,7 +4685,7 @@ export function App({ initialThemeMode }: AppProps) {
                                     data-variant="secondary"
                                     data-size="sm"
                                     type="button"
-                                    onClick={() => handleCreateRuleShortcutForTopic(profile)}
+                                    onClick={() => handleCreateRuleShortcutForTopic()}
                                   >
                                     新建规则
                                   </button>
@@ -4467,346 +5061,284 @@ export function App({ initialThemeMode }: AppProps) {
                     ) : null}
 
                     {autoImportSubTab === 'rules-center' ? (
-                      <section className="literature-section-block">
-                        <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
-                          <label data-ui="field">
-                            <span data-slot="label">Scope 过滤</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={ruleFilterScope}
-                              onChange={(event) => setRuleFilterScope(event.target.value as '' | AutoPullScope)}
-                            >
-                              <option value="">全部</option>
-                              <option value="GLOBAL">GLOBAL</option>
-                              <option value="TOPIC">TOPIC</option>
-                            </select>
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">状态过滤</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={ruleFilterStatus}
-                              onChange={(event) => setRuleFilterStatus(event.target.value as '' | AutoPullRuleStatus)}
-                            >
-                              <option value="">全部</option>
-                              <option value="ACTIVE">ACTIVE</option>
-                              <option value="PAUSED">PAUSED</option>
-                            </select>
-                          </label>
-                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadAutoPullRules()}>
-                            刷新规则
-                          </button>
-                        </div>
+                      <section className="literature-section-block rules-center-section">
+                        <div className="rules-center-split">
+                          <section className="rules-center-create-wrap">
+                            <div className="rules-center-create-card">
+                              <div className="rules-center-create-body">
+                                <div data-ui="grid" data-cols="2" data-gap="2">
+                                  <label data-ui="field">
+                                    <span data-slot="label">Scope</span>
+                                    <select
+                                      data-ui="select"
+                                      data-size="sm"
+                                      value={ruleFormScope}
+                                      onChange={(event) => setRuleFormScope(event.target.value as AutoPullScope)}
+                                    >
+                                      <option value="GLOBAL">GLOBAL</option>
+                                      <option value="TOPIC">TOPIC</option>
+                                    </select>
+                                  </label>
+                                  <label data-ui="field">
+                                    <span data-slot="label">规则名称</span>
+                                    <input
+                                      data-ui="input"
+                                      data-size="sm"
+                                      value={ruleFormName}
+                                      onChange={(event) => setRuleFormName(event.target.value)}
+                                      placeholder="例如 每日增量拉取"
+                                    />
+                                  </label>
+                                  <label data-ui="field">
+                                    <span data-slot="label">每源最大结果数</span>
+                                    <input
+                                      data-ui="input"
+                                      data-size="sm"
+                                      value={ruleFormMaxResultsInput}
+                                      onChange={(event) => setRuleFormMaxResultsInput(event.target.value)}
+                                    />
+                                  </label>
+                                  <label data-ui="field">
+                                    <span data-slot="label">Include 关键词</span>
+                                    <textarea
+                                      data-ui="textarea"
+                                      value={ruleFormIncludeInput}
+                                      onChange={(event) => setRuleFormIncludeInput(event.target.value)}
+                                    />
+                                  </label>
+                                  <label data-ui="field">
+                                    <span data-slot="label">Exclude 关键词</span>
+                                    <textarea
+                                      data-ui="textarea"
+                                      value={ruleFormExcludeInput}
+                                      onChange={(event) => setRuleFormExcludeInput(event.target.value)}
+                                    />
+                                  </label>
+                                </div>
+                                <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                                  <label className="auto-pull-source-toggle">
+                                    <input type="checkbox" checked={ruleSourceCrossref} onChange={(event) => setRuleSourceCrossref(event.target.checked)} />
+                                    CROSSREF
+                                  </label>
+                                  <label className="auto-pull-source-toggle">
+                                    <input type="checkbox" checked={ruleSourceArxiv} onChange={(event) => setRuleSourceArxiv(event.target.checked)} />
+                                    ARXIV
+                                  </label>
+                                  <button
+                                    data-ui="button"
+                                    data-variant="ghost"
+                                    data-size="sm"
+                                    type="button"
+                                    onClick={() => setRuleFormAdvancedOpen((current) => !current)}
+                                  >
+                                    {ruleFormAdvancedOpen ? '收起高级选项' : '展开高级选项'}
+                                  </button>
+                                </div>
+                                {ruleFormAdvancedOpen ? (
+                                  <>
+                                    <div data-ui="grid" data-cols="2" data-gap="2">
+                                      <label data-ui="field">
+                                        <span data-slot="label">作者关键词</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormAuthorsInput}
+                                          onChange={(event) => setRuleFormAuthorsInput(event.target.value)}
+                                        />
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">期刊/会议关键词</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormVenuesInput}
+                                          onChange={(event) => setRuleFormVenuesInput(event.target.value)}
+                                        />
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">滚动窗口（天）</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormLookbackInput}
+                                          onChange={(event) => setRuleFormLookbackInput(event.target.value)}
+                                        />
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">质量门最小完整度（0-1）</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormMinCompletenessInput}
+                                          onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
+                                        />
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">最小年份</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormMinYearInput}
+                                          onChange={(event) => setRuleFormMinYearInput(event.target.value)}
+                                        />
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">最大年份</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormMaxYearInput}
+                                          onChange={(event) => setRuleFormMaxYearInput(event.target.value)}
+                                        />
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">频率</span>
+                                        <select
+                                          data-ui="select"
+                                          data-size="sm"
+                                          value={ruleFormFrequency}
+                                          onChange={(event) => setRuleFormFrequency(event.target.value as AutoPullFrequency)}
+                                        >
+                                          <option value="DAILY">DAILY</option>
+                                          <option value="WEEKLY">WEEKLY</option>
+                                        </select>
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">星期（WEEKLY）</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormDaysInput}
+                                          onChange={(event) => setRuleFormDaysInput(event.target.value)}
+                                          placeholder="MON,TUE"
+                                        />
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">小时</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormHourInput}
+                                          onChange={(event) => setRuleFormHourInput(event.target.value)}
+                                        />
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">分钟</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormMinuteInput}
+                                          onChange={(event) => setRuleFormMinuteInput(event.target.value)}
+                                        />
+                                      </label>
+                                      <label data-ui="field">
+                                        <span data-slot="label">时区</span>
+                                        <input
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={ruleFormTimezone}
+                                          onChange={(event) => setRuleFormTimezone(event.target.value)}
+                                        />
+                                      </label>
+                                    </div>
+                                    <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                                      <label className="auto-pull-source-toggle">
+                                        <input
+                                          type="checkbox"
+                                          checked={ruleFormRequireIncludeMatch}
+                                          onChange={(event) => setRuleFormRequireIncludeMatch(event.target.checked)}
+                                        />
+                                        命中 Include 才通过
+                                      </label>
+                                    </div>
+                                  </>
+                                ) : null}
+                              </div>
+                            <div className="rules-center-create-footer" data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                              <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleSubmitRule}>
+                                {ruleEditingId ? '更新规则' : '创建规则'}
+                              </button>
+                              <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={resetRuleForm}>
+                                清空表单
+                              </button>
+                            </div>
+                              {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
+                            </div>
+                          </section>
 
-                        <div data-ui="grid" data-cols="2" data-gap="2">
-                          <label data-ui="field">
-                            <span data-slot="label">Scope</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={ruleFormScope}
-                              onChange={(event) => setRuleFormScope(event.target.value as AutoPullScope)}
-                            >
-                              <option value="GLOBAL">GLOBAL</option>
-                              <option value="TOPIC">TOPIC</option>
-                            </select>
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">绑定主题（可选）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormTopicIdsInput}
-                              onChange={(event) => setRuleFormTopicIdsInput(event.target.value)}
-                              placeholder={ruleFormScope === 'TOPIC' ? '例如 TOPIC-001, TOPIC-002' : 'GLOBAL 规则无需绑定主题'}
-                              disabled={ruleFormScope !== 'TOPIC'}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">规则名称</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormName}
-                              onChange={(event) => setRuleFormName(event.target.value)}
-                              placeholder="例如 每日增量拉取"
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">每源最大结果数</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={ruleFormMaxResultsInput}
-                              onChange={(event) => setRuleFormMaxResultsInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">Include 关键词</span>
-                            <textarea
-                              data-ui="textarea"
-                              value={ruleFormIncludeInput}
-                              onChange={(event) => setRuleFormIncludeInput(event.target.value)}
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">Exclude 关键词</span>
-                            <textarea
-                              data-ui="textarea"
-                              value={ruleFormExcludeInput}
-                              onChange={(event) => setRuleFormExcludeInput(event.target.value)}
-                            />
-                          </label>
-                        </div>
-                        <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                          <label className="auto-pull-source-toggle">
-                            <input type="checkbox" checked={ruleSourceCrossref} onChange={(event) => setRuleSourceCrossref(event.target.checked)} />
-                            CROSSREF
-                          </label>
-                          <label className="auto-pull-source-toggle">
-                            <input type="checkbox" checked={ruleSourceArxiv} onChange={(event) => setRuleSourceArxiv(event.target.checked)} />
-                            ARXIV
-                          </label>
-                          <label className="auto-pull-source-toggle">
-                            <input type="checkbox" checked={ruleSourceZotero} onChange={(event) => setRuleSourceZotero(event.target.checked)} />
-                            ZOTERO
-                          </label>
-                          <button
-                            data-ui="button"
-                            data-variant="ghost"
-                            data-size="sm"
-                            type="button"
-                            onClick={() => setRuleFormAdvancedOpen((current) => !current)}
-                          >
-                            {ruleFormAdvancedOpen ? '收起高级选项' : '展开高级选项'}
-                          </button>
-                        </div>
-                        {ruleFormAdvancedOpen ? (
-                          <>
-                            <div data-ui="grid" data-cols="2" data-gap="2">
+                          <div className="rules-center-divider" aria-hidden="true" />
+
+                          <section className="rules-center-list-wrap">
+                            <p data-ui="text" data-variant="caption" data-tone="muted">所有规则</p>
+                            <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
                               <label data-ui="field">
-                                <span data-slot="label">作者关键词</span>
-                                <input
-                                  data-ui="input"
-                                  data-size="sm"
-                                  value={ruleFormAuthorsInput}
-                                  onChange={(event) => setRuleFormAuthorsInput(event.target.value)}
-                                />
-                              </label>
-                              <label data-ui="field">
-                                <span data-slot="label">期刊/会议关键词</span>
-                                <input
-                                  data-ui="input"
-                                  data-size="sm"
-                                  value={ruleFormVenuesInput}
-                                  onChange={(event) => setRuleFormVenuesInput(event.target.value)}
-                                />
-                              </label>
-                              <label data-ui="field">
-                                <span data-slot="label">滚动窗口（天）</span>
-                                <input
-                                  data-ui="input"
-                                  data-size="sm"
-                                  value={ruleFormLookbackInput}
-                                  onChange={(event) => setRuleFormLookbackInput(event.target.value)}
-                                />
-                              </label>
-                              <label data-ui="field">
-                                <span data-slot="label">质量门最小完整度（0-1）</span>
-                                <input
-                                  data-ui="input"
-                                  data-size="sm"
-                                  value={ruleFormMinCompletenessInput}
-                                  onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
-                                />
-                              </label>
-                              <label data-ui="field">
-                                <span data-slot="label">最小年份</span>
-                                <input
-                                  data-ui="input"
-                                  data-size="sm"
-                                  value={ruleFormMinYearInput}
-                                  onChange={(event) => setRuleFormMinYearInput(event.target.value)}
-                                />
-                              </label>
-                              <label data-ui="field">
-                                <span data-slot="label">最大年份</span>
-                                <input
-                                  data-ui="input"
-                                  data-size="sm"
-                                  value={ruleFormMaxYearInput}
-                                  onChange={(event) => setRuleFormMaxYearInput(event.target.value)}
-                                />
-                              </label>
-                              <label data-ui="field">
-                                <span data-slot="label">频率</span>
+                                <span data-slot="label">Scope 过滤</span>
                                 <select
                                   data-ui="select"
                                   data-size="sm"
-                                  value={ruleFormFrequency}
-                                  onChange={(event) => setRuleFormFrequency(event.target.value as AutoPullFrequency)}
+                                  value={ruleFilterScope}
+                                  onChange={(event) => setRuleFilterScope(event.target.value as '' | AutoPullScope)}
                                 >
-                                  <option value="DAILY">DAILY</option>
-                                  <option value="WEEKLY">WEEKLY</option>
+                                  <option value="">全部</option>
+                                  <option value="GLOBAL">GLOBAL</option>
+                                  <option value="TOPIC">TOPIC</option>
                                 </select>
                               </label>
                               <label data-ui="field">
-                                <span data-slot="label">星期（WEEKLY）</span>
-                                <input
-                                  data-ui="input"
+                                <span data-slot="label">状态过滤</span>
+                                <select
+                                  data-ui="select"
                                   data-size="sm"
-                                  value={ruleFormDaysInput}
-                                  onChange={(event) => setRuleFormDaysInput(event.target.value)}
-                                  placeholder="MON,TUE"
-                                />
+                                  value={ruleFilterStatus}
+                                  onChange={(event) => setRuleFilterStatus(event.target.value as '' | AutoPullRuleStatus)}
+                                >
+                                  <option value="">全部</option>
+                                  <option value="ACTIVE">ACTIVE</option>
+                                  <option value="PAUSED">PAUSED</option>
+                                </select>
                               </label>
-                              <label data-ui="field">
-                                <span data-slot="label">小时</span>
-                                <input
-                                  data-ui="input"
-                                  data-size="sm"
-                                  value={ruleFormHourInput}
-                                  onChange={(event) => setRuleFormHourInput(event.target.value)}
-                                />
-                              </label>
-                              <label data-ui="field">
-                                <span data-slot="label">分钟</span>
-                                <input
-                                  data-ui="input"
-                                  data-size="sm"
-                                  value={ruleFormMinuteInput}
-                                  onChange={(event) => setRuleFormMinuteInput(event.target.value)}
-                                />
-                              </label>
-                              <label data-ui="field">
-                                <span data-slot="label">时区</span>
-                                <input
-                                  data-ui="input"
-                                  data-size="sm"
-                                  value={ruleFormTimezone}
-                                  onChange={(event) => setRuleFormTimezone(event.target.value)}
-                                />
-                              </label>
+                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadAutoPullRules()}>
+                                刷新规则
+                              </button>
                             </div>
-                            <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                              <label className="auto-pull-source-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={ruleFormRequireIncludeMatch}
-                                  onChange={(event) => setRuleFormRequireIncludeMatch(event.target.checked)}
-                                />
-                                命中 Include 才通过
-                              </label>
+                            <div className="literature-list">
+                              {autoPullRules.length === 0 ? (
+                                <p data-ui="text" data-variant="caption" data-tone="muted">暂无规则。</p>
+                              ) : (
+                                autoPullRules.map((rule) => {
+                                  const pauseLocked = rule.scope === 'GLOBAL' && rule.status === 'ACTIVE' && activeGlobalRuleCount <= 1;
+                                  const sourceText = rule.sources
+                                    .filter((source) => source.enabled)
+                                    .map((source) => source.source)
+                                    .join(', ');
+                                  return (
+                                    <div key={rule.rule_id} className="literature-list-item">
+                                      <div>
+                                        <p data-ui="text" data-variant="body" data-tone="primary">{rule.name}</p>
+                                        <p data-ui="text" data-variant="caption" data-tone="muted">
+                                          {rule.scope} · {rule.status} · sources:{sourceText || '--'} · {formatTimestamp(rule.updated_at)}
+                                        </p>
+                                      </div>
+                                      <div data-ui="toolbar" data-gap="2">
+                                        <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => handleEditRule(rule)}>编辑</button>
+                                        <button
+                                          data-ui="button"
+                                          data-variant="ghost"
+                                          data-size="sm"
+                                          type="button"
+                                          onClick={() => void handleToggleRuleStatus(rule)}
+                                          disabled={pauseLocked}
+                                          title={pauseLocked ? '至少保留一条启用中的全局规则' : undefined}
+                                        >
+                                          {rule.status === 'ACTIVE' ? '暂停' : '启用'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
                             </div>
-                          </>
-                        ) : null}
-                        {ruleSourceZotero ? (
-                          <div data-ui="grid" data-cols="2" data-gap="2">
-                            <label data-ui="field">
-                              <span data-slot="label">Zotero Library Type</span>
-                              <select
-                                data-ui="select"
-                                data-size="sm"
-                                value={ruleSourceZoteroLibraryType}
-                                onChange={(event) => setRuleSourceZoteroLibraryType(event.target.value as 'users' | 'groups')}
-                              >
-                                <option value="users">users</option>
-                                <option value="groups">groups</option>
-                              </select>
-                            </label>
-                            <label data-ui="field">
-                              <span data-slot="label">Zotero Library ID</span>
-                              <input
-                                data-ui="input"
-                                data-size="sm"
-                                value={ruleSourceZoteroLibraryId}
-                                onChange={(event) => setRuleSourceZoteroLibraryId(event.target.value)}
-                              />
-                            </label>
-                            <label data-ui="field">
-                              <span data-slot="label">Zotero API Key（可选）</span>
-                              <input
-                                data-ui="input"
-                                data-size="sm"
-                                type="password"
-                                value={ruleSourceZoteroApiKey}
-                                onChange={(event) => setRuleSourceZoteroApiKey(event.target.value)}
-                              />
-                            </label>
-                          </div>
-                        ) : null}
-                        <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                          <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleSubmitRule}>
-                            {ruleEditingId ? '更新规则' : '创建规则'}
-                          </button>
-                          <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={resetRuleForm}>
-                            清空表单
-                          </button>
-                        </div>
-                        {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
-
-                        <p data-ui="text" data-variant="caption" data-tone="muted">全局规则</p>
-                        <p data-ui="text" data-variant="caption" data-tone="muted">至少保留一条启用中的全局规则（当前 {activeGlobalRuleCount} 条）。</p>
-                        <div className="literature-list">
-                          {globalScopedRules.length === 0 ? (
-                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无全局规则。</p>
-                          ) : (
-                            globalScopedRules.map((rule) => {
-                              const pauseLocked = rule.status === 'ACTIVE' && activeGlobalRuleCount <= 1;
-                              return (
-                                <div key={rule.rule_id} className="literature-list-item">
-                                  <div>
-                                    <p data-ui="text" data-variant="body" data-tone="primary">{rule.name}</p>
-                                    <p data-ui="text" data-variant="caption" data-tone="muted">
-                                      {rule.status} · topics:{rule.topic_ids.length} · sources:{rule.sources.filter((source) => source.enabled).length}
-                                    </p>
-                                  </div>
-                                  <div data-ui="toolbar" data-gap="2">
-                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => handleEditRule(rule)}>编辑</button>
-                                    <button
-                                      data-ui="button"
-                                      data-variant="ghost"
-                                      data-size="sm"
-                                      type="button"
-                                      onClick={() => void handleToggleRuleStatus(rule)}
-                                      disabled={pauseLocked}
-                                      title={pauseLocked ? '至少保留一条启用中的全局规则' : undefined}
-                                    >
-                                      {rule.status === 'ACTIVE' ? '暂停' : '启用'}
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-
-                        <p data-ui="text" data-variant="caption" data-tone="muted">Topic 规则</p>
-                        <div className="literature-list">
-                          {topicScopedRules.length === 0 ? (
-                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无 Topic 规则。</p>
-                          ) : (
-                            topicScopedRules.map((rule) => (
-                                <div key={rule.rule_id} className="literature-list-item">
-                                  <div>
-                                    <p data-ui="text" data-variant="body" data-tone="primary">
-                                      {rule.name} · {rule.topic_ids.length > 0 ? rule.topic_ids.join(', ') : '--'}
-                                    </p>
-                                    <p data-ui="text" data-variant="caption" data-tone="muted">
-                                      {rule.status} · sources:{rule.sources.filter((source) => source.enabled).length}
-                                    </p>
-                                  </div>
-                                  <div data-ui="toolbar" data-gap="2">
-                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => handleEditRule(rule)}>编辑</button>
-                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void handleToggleRuleStatus(rule)}>
-                                      {rule.status === 'ACTIVE' ? '暂停' : '启用'}
-                                    </button>
-                                  </div>
-                                </div>
-                              ))
-                          )}
+                          </section>
                         </div>
                       </section>
                     ) : null}
@@ -4981,386 +5513,638 @@ export function App({ initialThemeMode }: AppProps) {
 
                 {activeLiteratureTab === 'manual-import' ? (
                   <section className="literature-tab-panel manual-import-panel">
-                    <div className="manual-import-switch-shell">
-                      <div className="manual-import-switch" role="tablist" aria-label="手动导入方式">
-                        {manualImportSubTabs.map((tab) => {
-                          const isActive = manualImportSubTab === tab.key;
-                          return (
-                            <button
-                              key={tab.key}
-                              type="button"
-                              role="tab"
-                              aria-selected={isActive}
-                              className={`manual-import-switch-button${isActive ? ' is-active' : ''}`}
-                              onClick={() => setManualImportSubTab(tab.key)}
+                    <section className="manual-import-top-pane">
+                      {manualImportSubTab === 'file-review' ? (
+                        <section
+                          className="literature-section-block manual-upload-card"
+                          data-upload-status={manualUploadStatus}
+                        >
+                          <div className="manual-upload-workbench">
+                            <label
+                              className={`manual-upload-dropzone${manualDropActive ? ' is-drag-active' : ''}${manualUploadLoading ? ' is-loading' : ''}`}
+                              onDragOver={(event) => event.preventDefault()}
+                              onDragEnter={(event) => {
+                                event.preventDefault();
+                                setManualDropActive(true);
+                              }}
+                              onDragLeave={(event) => {
+                                event.preventDefault();
+                                setManualDropActive(false);
+                              }}
+                              onDrop={(event) => void handleManualUploadDrop(event)}
                             >
-                              {tab.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                              <input
+                                className="manual-upload-input"
+                                type="file"
+                                multiple
+                                accept=".json,.csv,.bib,.bibtex,.txt,.pdf,.tex,.ltx,.bbl,.aux,.ris"
+                                onChange={(event) => void handleManualUpload(event)}
+                              />
+                              <span className="manual-upload-dropzone-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                  <path d="M4.5 7.2h15a1.8 1.8 0 0 1 1.8 1.8v6a2.3 2.3 0 0 1-2.3 2.3H4.9A2.3 2.3 0 0 1 2.6 15V9a1.8 1.8 0 0 1 1.9-1.8Z" />
+                                  <path d="m3.3 8.2 8.7 6 8.7-6" />
+                                </svg>
+                              </span>
+                              {manualUploadLoading ? (
+                                <span className="manual-upload-dropzone-title">文件解析中...</span>
+                              ) : null}
+                              <span className="manual-upload-dropzone-action">选择或拖拽文件</span>
+                            </label>
 
-                    <div className="manual-import-status-row" data-ui="toolbar" data-align="between" data-wrap="wrap">
-                      <p data-ui="text" data-variant="label" data-tone="secondary">手动导入（先审阅后入库）</p>
-                      <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          文件：{formatUiOperationStatus(manualUploadStatus)}
-                        </span>
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          草稿：{manualRowStats.totalCount} 行（可导入 {manualRowStats.validCount}）
-                        </span>
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          Zotero：{formatUiOperationStatus(zoteroStatus)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {manualImportSubTab === 'file-review' ? (
-                      <>
-                        <section className="literature-section-block manual-upload-card">
-                          <p data-ui="text" data-variant="label" data-tone="secondary">A) 上传本地文件</p>
-                          <p data-ui="text" data-variant="caption" data-tone="muted">支持格式：JSON / CSV / BibTeX</p>
-                          <label
-                            className={`manual-upload-dropzone${manualDropActive ? ' is-drag-active' : ''}${manualUploadLoading ? ' is-loading' : ''}`}
-                            onDragOver={(event) => event.preventDefault()}
-                            onDragEnter={(event) => {
-                              event.preventDefault();
-                              setManualDropActive(true);
-                            }}
-                            onDragLeave={(event) => {
-                              event.preventDefault();
-                              setManualDropActive(false);
-                            }}
-                            onDrop={(event) => void handleManualUploadDrop(event)}
-                          >
-                            <input
-                              className="manual-upload-input"
-                              type="file"
-                              accept=".json,.csv,.bib,.bibtex,.txt"
-                              onChange={(event) => void handleManualUpload(event)}
-                            />
-                            <span className="manual-upload-dropzone-icon" aria-hidden="true">
-                              <svg viewBox="0 0 24 24" focusable="false">
-                                <path d="M8.5 18.5h8a3 3 0 1 0-.3-5.99A5 5 0 0 0 6.3 11.4 3.2 3.2 0 0 0 8.5 18.5Z" />
-                                <path d="M12 8.2v6.1M9.8 10.4 12 8.2l2.2 2.2" />
-                              </svg>
-                            </span>
-                            <span className="manual-upload-dropzone-title">
-                              {manualUploadLoading ? '文件解析中...' : '点击或拖拽文件到此处上传'}
-                            </span>
-                            <span className="manual-upload-dropzone-action">选择文件</span>
-                          </label>
+                            <section className="manual-upload-files-pane" aria-label="已接收上传文件">
+                              <div className="manual-upload-files-pane-scroll">
+                                <table className="manual-upload-files-table">
+                                  <thead>
+                                    <tr>
+                                      <th>文件名称</th>
+                                      <th>
+                                        <span className="manual-upload-format-heading">
+                                          格式
+                                          <span
+                                            className="manual-upload-format-help"
+                                            data-help={manualUploadFormatHint}
+                                            aria-label="查看支持文件格式"
+                                            tabIndex={0}
+                                          >
+                                            ?
+                                          </span>
+                                        </span>
+                                      </th>
+                                      <th>处理状态</th>
+                                      <th>操作</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {manualUploadFiles.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={4}>暂无上传文件。</td>
+                                      </tr>
+                                    ) : (
+                                      manualUploadFiles.map((fileItem) => {
+                                        const canRunLlmActions = isManualUploadLlmSupported(fileItem.fileName)
+                                          && fileItem.status !== 'duplicate'
+                                          && fileItem.status !== 'processing';
+                                        return (
+                                          <tr key={fileItem.id}>
+                                            <td title={fileItem.fileName}>{fileItem.fileName}</td>
+                                            <td>{fileItem.format}</td>
+                                            <td>
+                                              <span
+                                                className={`manual-upload-file-status is-${fileItem.status}`}
+                                              >
+                                                {formatManualUploadFileStatusLabel(fileItem)}
+                                              </span>
+                                            </td>
+                                            <td>
+                                              <div className="manual-upload-file-actions">
+                                                {canRunLlmActions ? (
+                                                  <>
+                                                    <button
+                                                      className="manual-upload-file-action"
+                                                      type="button"
+                                                      onClick={() => void handleManualUploadFileLlmAction(fileItem.id, 'parse')}
+                                                    >
+                                                      解析
+                                                    </button>
+                                                    <button
+                                                      className="manual-upload-file-action"
+                                                      type="button"
+                                                      onClick={() => void handleManualUploadFileLlmAction(fileItem.id, 'abstract')}
+                                                    >
+                                                      提取摘要
+                                                    </button>
+                                                  </>
+                                                ) : null}
+                                                <button
+                                                  className="manual-upload-file-action is-danger"
+                                                  type="button"
+                                                  onClick={() => handleRemoveManualUploadFile(fileItem.id)}
+                                                  disabled={fileItem.status === 'processing'}
+                                                >
+                                                  移除
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </section>
+                          </div>
                           {manualUploadError ? (
                             <p data-ui="text" data-variant="caption" data-tone="danger">
                               {manualUploadError}
                             </p>
                           ) : null}
                         </section>
-
-                        {manualImportSession ? (
-                          <section className="literature-section-block">
-                            <div data-ui="toolbar" data-align="between" data-wrap="wrap">
-                              <p data-ui="text" data-variant="label" data-tone="secondary">
-                                可编辑审阅表格：{manualImportSession.file_name}
-                              </p>
-                              <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                                <span data-ui="badge" data-variant="subtle" data-tone={manualRowStats.invalidCount > 0 ? 'warning' : 'neutral'}>
-                                  错误行 {manualRowStats.invalidCount}
-                                </span>
-                                <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                                  已选可导入 {manualRowStats.selectedValidCount}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div data-ui="toolbar" data-wrap="wrap" data-gap="2">
-                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleSelectAllImportableRows}>
-                                全选可导入行
-                              </button>
-                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleInvertImportableRows}>
-                                反选可导入行
-                              </button>
-                              <label className="manual-error-filter-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={manualShowErrorOnly}
-                                  onChange={(event) => setManualShowErrorOnly(event.target.checked)}
-                                />
-                                仅看错误行
-                              </label>
-                            </div>
-
-                            <div data-ui="toolbar" data-wrap="wrap" data-gap="2">
-                              <label data-ui="field">
-                                <span data-slot="label">批量 rights_class（作用于已勾选）</span>
-                                <select
-                                  data-ui="select"
-                                  data-size="sm"
-                                  value={manualBatchRightsClass}
-                                  onChange={(event) =>
-                                    setManualBatchRightsClass(
-                                      normalizeManualRightsClass(event.target.value),
-                                    )
-                                  }
-                                >
-                                  {MANUAL_RIGHTS_CLASSES.map((option) => (
-                                    <option key={option} value={option}>
-                                      {option}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleApplyBatchRightsToManualRows}>
-                                批量设置 rights_class
-                              </button>
-                              <button
-                                data-ui="button"
-                                data-variant="primary"
+                      ) : (
+                        <section className="literature-section-block manual-zotero-card">
+                          <div data-ui="grid" data-cols="2" data-gap="2" className="zotero-fields-grid">
+                            <label data-ui="field">
+                              <span data-slot="label">Library Type</span>
+                              <select
+                                data-ui="select"
                                 data-size="sm"
-                                type="button"
-                                onClick={() => void handleSubmitManualReviewedRows()}
-                                disabled={manualUploadLoading || manualRowStats.selectedValidCount === 0}
+                                value={zoteroLibraryType}
+                                onChange={(event) => setZoteroLibraryType(event.target.value as 'users' | 'groups')}
                               >
-                                {manualUploadLoading ? '导入中...' : '导入已选可用行'}
-                              </button>
-                            </div>
-                            {manualRowStats.selectedInvalidCount > 0 ? (
-                              <p data-ui="text" data-variant="caption" data-tone="warning">
-                                已勾选但未通过校验 {manualRowStats.selectedInvalidCount} 行；提交时将自动跳过。
-                              </p>
-                            ) : null}
+                                <option value="users">users</option>
+                                <option value="groups">groups</option>
+                              </select>
+                            </label>
+                            <label data-ui="field">
+                              <span data-slot="label">Library ID</span>
+                              <input
+                                data-ui="input"
+                                data-size="sm"
+                                value={zoteroLibraryId}
+                                onChange={(event) => setZoteroLibraryId(event.target.value)}
+                                placeholder="例如 123456"
+                              />
+                            </label>
+                            <label data-ui="field">
+                              <span data-slot="label">API Key（可选）</span>
+                              <input
+                                data-ui="input"
+                                data-size="sm"
+                                type="password"
+                                value={zoteroApiKey}
+                                onChange={(event) => setZoteroApiKey(event.target.value)}
+                                placeholder="公开库可留空"
+                              />
+                            </label>
+                            <label data-ui="field">
+                              <span data-slot="label">Limit（1-50）</span>
+                              <input
+                                data-ui="input"
+                                data-size="sm"
+                                value={zoteroLimitInput}
+                                onChange={(event) => setZoteroLimitInput(event.target.value)}
+                                placeholder="20"
+                              />
+                            </label>
+                          </div>
+                          <label data-ui="field">
+                            <span data-slot="label">查询关键词（可选）</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={zoteroQuery}
+                              onChange={(event) => setZoteroQuery(event.target.value)}
+                              placeholder="例如 retrieval evaluation"
+                            />
+                          </label>
+                          <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                            <button
+                              data-ui="button"
+                              data-variant="primary"
+                              data-size="sm"
+                              type="button"
+                              onClick={() => void handleLoadZoteroToReview()}
+                              disabled={zoteroLoading}
+                            >
+                              {zoteroLoading ? '拉取中...' : '拉取到检查表'}
+                            </button>
+                            <button
+                              data-ui="button"
+                              data-variant="secondary"
+                              data-size="sm"
+                              type="button"
+                              onClick={handleImportFromZotero}
+                              disabled={zoteroLoading}
+                            >
+                              {zoteroLoading ? '同步中...' : '一键同步导入'}
+                            </button>
+                          </div>
+                          <p data-ui="text" data-variant="caption" data-tone="muted">状态：{formatUiOperationStatus(zoteroStatus)}</p>
+                          {zoteroError ? <p data-ui="text" data-variant="caption" data-tone="danger">{zoteroError}</p> : null}
+                        </section>
+                      )}
+                    </section>
 
-                            <div className="manual-import-table-shell">
-                              <table className="manual-import-table">
-                                <thead>
-                                  <tr>
-                                    <th>是否导入</th>
-                                    <th>标题</th>
-                                    <th>作者</th>
-                                    <th>年份</th>
-                                    <th>DOI</th>
-                                    <th>arXiv ID</th>
-                                    <th>来源链接</th>
-                                    <th>rights_class</th>
-                                    <th>标签</th>
-                                    <th>校验结果</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {manualVisibleRows.length === 0 ? (
-                                    <tr>
-                                      <td colSpan={10}>
-                                        {manualShowErrorOnly ? '暂无错误行。' : '当前没有待审阅行。'}
+                    <section className="literature-section-block manual-import-bottom-pane">
+                      <div className="manual-import-actions-scroll">
+                        <div className="manual-import-actions-row">
+                          <div className="manual-actions-group">
+                            <label className="manual-check-toggle">
+                              <input
+                                type="checkbox"
+                                checked={manualShowImportableOnly}
+                                onChange={(event) => {
+                                  const checked = event.target.checked;
+                                  setManualShowImportableOnly(checked);
+                                  if (checked) {
+                                    setManualShowErrorOnly(false);
+                                  }
+                                }}
+                                disabled={!hasManualSession}
+                              />
+                              可导入行
+                            </label>
+                            <label className="manual-check-toggle">
+                              <input
+                                type="checkbox"
+                                checked={manualShowErrorOnly}
+                                onChange={(event) => {
+                                  const checked = event.target.checked;
+                                  setManualShowErrorOnly(checked);
+                                  if (checked) {
+                                    setManualShowImportableOnly(false);
+                                  }
+                                }}
+                                disabled={!hasManualSession}
+                              />
+                              错误行
+                            </label>
+                          </div>
+
+                          <div className="manual-actions-group manual-actions-group-status">
+                            <span className="manual-status-plain">
+                              可导入 {manualRowStats.selectedValidCount}
+                            </span>
+                            <span className="manual-status-plain manual-status-error">
+                              错误 {manualRowStats.invalidCount}
+                            </span>
+                            {manualRowStats.selectedInvalidCount > 0 ? (
+                              <span className="manual-status-plain manual-status-skip" title="提交时将自动跳过未通过校验行。">
+                                跳过 {manualRowStats.selectedInvalidCount}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <button
+                            className="manual-import-submit-button"
+                            data-ui="button"
+                            data-variant="primary"
+                            data-size="sm"
+                            type="button"
+                            onClick={() => void handleSubmitManualReviewedRows()}
+                            disabled={!hasManualSession || manualUploadLoading || manualRowStats.selectedValidCount === 0}
+                          >
+                            {manualUploadLoading ? '导入中...' : '导入'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="manual-import-table-shell">
+                        <table className="manual-import-table">
+                          <colgroup>
+                            <col className="manual-col-select" />
+                            <col className="manual-col-title" />
+                            <col className="manual-col-authors" />
+                            <col className="manual-col-year" />
+                            <col className="manual-col-doi" />
+                            <col className="manual-col-arxiv" />
+                            <col className="manual-col-source" />
+                            <col className="manual-col-tags" />
+                            <col className="manual-col-actions" />
+                          </colgroup>
+                          <thead>
+                            <tr>
+                              <th aria-label="导入选择" />
+                              <th>标题</th>
+                              <th>作者</th>
+                              <th>年份</th>
+                              <th>DOI</th>
+                              <th>arXiv ID</th>
+                              <th>来源链接</th>
+                              <th>标签</th>
+                              <th>操作</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {manualVisibleRows.length === 0 ? (
+                              <tr>
+                                <td colSpan={9}>
+                                  {manualShowImportableOnly && !manualShowErrorOnly
+                                    ? '暂无可导入行。'
+                                    : manualShowErrorOnly && !manualShowImportableOnly
+                                      ? '暂无错误行。'
+                                      : '当前没有待审阅行。'}
+                                </td>
+                              </tr>
+                            ) : (
+                              manualVisibleRows.map((row) => {
+                                const validation = manualValidationByRowId.get(row.id);
+                                const isRowValid = Boolean(validation?.is_valid);
+                                const isRowOpened = manualOpenRowId === row.id;
+                                const isSummaryOpened = isRowOpened && manualOpenRowPanel === 'summary';
+                                const isExpandOpened = isRowOpened && manualOpenRowPanel === 'expand';
+                                const fieldErrors = mapManualValidationErrors(validation);
+                                const titleError = getManualFieldErrorText(fieldErrors, 'title');
+                                const authorsError = getManualFieldErrorText(fieldErrors, 'authors_text');
+                                const yearError = getManualFieldErrorText(fieldErrors, 'year_text');
+                                const doiError = getManualFieldErrorText(fieldErrors, 'doi');
+                                const arxivError = getManualFieldErrorText(fieldErrors, 'arxiv_id');
+                                const sourceUrlError = getManualFieldErrorText(fieldErrors, 'source_url');
+                                return (
+                                  <Fragment key={row.id}>
+                                    <tr className={isRowOpened ? 'is-row-opened' : ''}>
+                                      <td className="manual-select-cell">
+                                        <input
+                                          type="checkbox"
+                                          checked={isRowValid ? row.include : false}
+                                          disabled={!isRowValid}
+                                          onChange={(event) =>
+                                            handleToggleManualRowInclude(row.id, event.target.checked)
+                                          }
+                                        />
+                                      </td>
+                                      <td
+                                        className={`manual-cell${titleError ? ' has-error' : ''}`}
+                                        data-error-text={titleError || undefined}
+                                      >
+                                        {isExpandOpened ? (
+                                          <textarea
+                                            className="manual-field-textarea"
+                                            value={row.title}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'title', event.target.value)
+                                            }
+                                          />
+                                        ) : (
+                                          <input
+                                            className="manual-field-input"
+                                            data-ui="input"
+                                            data-size="sm"
+                                            value={row.title}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'title', event.target.value)
+                                            }
+                                          />
+                                        )}
+                                        {!titleError && row.title.trim() ? (
+                                          <button
+                                            className="manual-copy-action"
+                                            type="button"
+                                            onClick={() => void handleCopyManualCellValue(row.title)}
+                                          >
+                                            复制
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                      <td
+                                        className={`manual-cell${authorsError ? ' has-error' : ''}`}
+                                        data-error-text={authorsError || undefined}
+                                      >
+                                        {isExpandOpened ? (
+                                          <textarea
+                                            className="manual-field-textarea"
+                                            value={row.authors_text}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'authors_text', event.target.value)
+                                            }
+                                            placeholder="Alice, Bob"
+                                          />
+                                        ) : (
+                                          <input
+                                            className="manual-field-input"
+                                            data-ui="input"
+                                            data-size="sm"
+                                            value={row.authors_text}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'authors_text', event.target.value)
+                                            }
+                                            placeholder="Alice, Bob"
+                                          />
+                                        )}
+                                        {!authorsError && row.authors_text.trim() ? (
+                                          <button
+                                            className="manual-copy-action"
+                                            type="button"
+                                            onClick={() => void handleCopyManualCellValue(row.authors_text)}
+                                          >
+                                            复制
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                      <td
+                                        className={`manual-cell manual-cell-year${yearError ? ' has-error' : ''}`}
+                                        data-error-text={yearError || undefined}
+                                      >
+                                        <input
+                                          className="manual-field-input"
+                                          data-ui="input"
+                                          data-size="sm"
+                                          value={row.year_text}
+                                          onChange={(event) =>
+                                            handleManualDraftFieldChange(row.id, 'year_text', event.target.value)
+                                          }
+                                          placeholder="2024"
+                                        />
+                                        {!yearError && row.year_text.trim() ? (
+                                          <button
+                                            className="manual-copy-action"
+                                            type="button"
+                                            onClick={() => void handleCopyManualCellValue(row.year_text)}
+                                          >
+                                            复制
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                      <td
+                                        className={`manual-cell${doiError ? ' has-error' : ''}`}
+                                        data-error-text={doiError || undefined}
+                                      >
+                                        {isExpandOpened ? (
+                                          <textarea
+                                            className="manual-field-textarea"
+                                            value={row.doi}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'doi', event.target.value)
+                                            }
+                                            placeholder="10.1000/xyz"
+                                          />
+                                        ) : (
+                                          <input
+                                            className="manual-field-input"
+                                            data-ui="input"
+                                            data-size="sm"
+                                            value={row.doi}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'doi', event.target.value)
+                                            }
+                                            placeholder="10.1000/xyz"
+                                          />
+                                        )}
+                                        {!doiError && row.doi.trim() ? (
+                                          <button
+                                            className="manual-copy-action"
+                                            type="button"
+                                            onClick={() => void handleCopyManualCellValue(row.doi)}
+                                          >
+                                            复制
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                      <td
+                                        className={`manual-cell${arxivError ? ' has-error' : ''}`}
+                                        data-error-text={arxivError || undefined}
+                                      >
+                                        {isExpandOpened ? (
+                                          <textarea
+                                            className="manual-field-textarea"
+                                            value={row.arxiv_id}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'arxiv_id', event.target.value)
+                                            }
+                                            placeholder="2401.00001"
+                                          />
+                                        ) : (
+                                          <input
+                                            className="manual-field-input"
+                                            data-ui="input"
+                                            data-size="sm"
+                                            value={row.arxiv_id}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'arxiv_id', event.target.value)
+                                            }
+                                            placeholder="2401.00001"
+                                          />
+                                        )}
+                                        {!arxivError && row.arxiv_id.trim() ? (
+                                          <button
+                                            className="manual-copy-action"
+                                            type="button"
+                                            onClick={() => void handleCopyManualCellValue(row.arxiv_id)}
+                                          >
+                                            复制
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                      <td
+                                        className={`manual-cell${sourceUrlError ? ' has-error' : ''}`}
+                                        data-error-text={sourceUrlError || undefined}
+                                      >
+                                        {isExpandOpened ? (
+                                          <textarea
+                                            className="manual-field-textarea"
+                                            value={row.source_url}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'source_url', event.target.value)
+                                            }
+                                            placeholder="https://..."
+                                          />
+                                        ) : (
+                                          <input
+                                            className="manual-field-input"
+                                            data-ui="input"
+                                            data-size="sm"
+                                            value={row.source_url}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'source_url', event.target.value)
+                                            }
+                                            placeholder="https://..."
+                                          />
+                                        )}
+                                        {!sourceUrlError && row.source_url.trim() ? (
+                                          <button
+                                            className="manual-copy-action"
+                                            type="button"
+                                            onClick={() => void handleCopyManualCellValue(row.source_url)}
+                                          >
+                                            复制
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                      <td className="manual-cell">
+                                        {isExpandOpened ? (
+                                          <textarea
+                                            className="manual-field-textarea"
+                                            value={row.tags_text}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'tags_text', event.target.value)
+                                            }
+                                            placeholder="survey, baseline"
+                                          />
+                                        ) : (
+                                          <input
+                                            className="manual-field-input"
+                                            data-ui="input"
+                                            data-size="sm"
+                                            value={row.tags_text}
+                                            onChange={(event) =>
+                                              handleManualDraftFieldChange(row.id, 'tags_text', event.target.value)
+                                            }
+                                            placeholder="survey, baseline"
+                                          />
+                                        )}
+                                        {row.tags_text.trim() ? (
+                                          <button
+                                            className="manual-copy-action"
+                                            type="button"
+                                            onClick={() => void handleCopyManualCellValue(row.tags_text)}
+                                          >
+                                            复制
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                      <td className="manual-ops-cell">
+                                        <div className="manual-ops-actions">
+                                          <button
+                                            className="manual-row-action"
+                                            type="button"
+                                            onClick={() => handleToggleManualRowPanel(row.id, 'expand')}
+                                          >
+                                            {isExpandOpened ? '收起' : '展开'}
+                                          </button>
+                                          <button
+                                            className="manual-row-action"
+                                            type="button"
+                                            onClick={() => handleToggleManualRowPanel(row.id, 'summary')}
+                                          >
+                                            {isSummaryOpened ? '收起摘要' : '摘要'}
+                                          </button>
+                                          <button
+                                            className="manual-row-action is-danger"
+                                            type="button"
+                                            onClick={() => handleRemoveManualRow(row.id)}
+                                          >
+                                            删除
+                                          </button>
+                                        </div>
                                       </td>
                                     </tr>
-                                  ) : (
-                                    manualVisibleRows.map((row) => {
-                                      const validation = manualValidationByRowId.get(row.id);
-                                      return (
-                                        <tr key={row.id} className={validation?.is_valid ? 'is-valid' : 'is-invalid'}>
-                                          <td>
-                                            <input
-                                              type="checkbox"
-                                              checked={row.include}
+                                    {isSummaryOpened ? (
+                                      <tr className="manual-abstract-row">
+                                        <td colSpan={9}>
+                                          <div className="manual-abstract-editor">
+                                            <div className="manual-abstract-header">
+                                              <span>摘要</span>
+                                              {row.abstract.trim() ? (
+                                                <button
+                                                  className="manual-copy-action is-visible"
+                                                  type="button"
+                                                  onClick={() => void handleCopyManualCellValue(row.abstract)}
+                                                >
+                                                  复制
+                                                </button>
+                                              ) : null}
+                                            </div>
+                                            <textarea
+                                              className="manual-abstract-textarea"
+                                              value={row.abstract}
+                                              placeholder="可在此补充或修改摘要..."
                                               onChange={(event) =>
-                                                handleToggleManualRowInclude(row.id, event.target.checked)
+                                                handleManualDraftFieldChange(row.id, 'abstract', event.target.value)
                                               }
                                             />
-                                          </td>
-                                          <td>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={row.title}
-                                              onChange={(event) =>
-                                                handleManualDraftFieldChange(row.id, 'title', event.target.value)
-                                              }
-                                            />
-                                          </td>
-                                          <td>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={row.authors_text}
-                                              onChange={(event) =>
-                                                handleManualDraftFieldChange(row.id, 'authors_text', event.target.value)
-                                              }
-                                              placeholder="Alice, Bob"
-                                            />
-                                          </td>
-                                          <td>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={row.year_text}
-                                              onChange={(event) =>
-                                                handleManualDraftFieldChange(row.id, 'year_text', event.target.value)
-                                              }
-                                              placeholder="2024"
-                                            />
-                                          </td>
-                                          <td>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={row.doi}
-                                              onChange={(event) =>
-                                                handleManualDraftFieldChange(row.id, 'doi', event.target.value)
-                                              }
-                                              placeholder="10.1000/xyz"
-                                            />
-                                          </td>
-                                          <td>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={row.arxiv_id}
-                                              onChange={(event) =>
-                                                handleManualDraftFieldChange(row.id, 'arxiv_id', event.target.value)
-                                              }
-                                              placeholder="2401.00001"
-                                            />
-                                          </td>
-                                          <td>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={row.source_url}
-                                              onChange={(event) =>
-                                                handleManualDraftFieldChange(row.id, 'source_url', event.target.value)
-                                              }
-                                              placeholder="https://..."
-                                            />
-                                          </td>
-                                          <td>
-                                            <select
-                                              data-ui="select"
-                                              data-size="sm"
-                                              value={row.rights_class}
-                                              onChange={(event) =>
-                                                handleManualDraftFieldChange(row.id, 'rights_class', event.target.value)
-                                              }
-                                            >
-                                              {MANUAL_RIGHTS_CLASSES.map((option) => (
-                                                <option key={option} value={option}>
-                                                  {option}
-                                                </option>
-                                              ))}
-                                            </select>
-                                          </td>
-                                          <td>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={row.tags_text}
-                                              onChange={(event) =>
-                                                handleManualDraftFieldChange(row.id, 'tags_text', event.target.value)
-                                              }
-                                              placeholder="survey, baseline"
-                                            />
-                                          </td>
-                                          <td>
-                                            {validation?.is_valid ? (
-                                              <span data-ui="badge" data-variant="subtle" data-tone="success">可导入</span>
-                                            ) : (
-                                              <div className="manual-row-errors">
-                                                {(validation?.errors ?? []).map((errorItem) => (
-                                                  <p key={errorItem}>{errorItem}</p>
-                                                ))}
-                                              </div>
-                                            )}
-                                            <button
-                                              data-ui="button"
-                                              data-variant="ghost"
-                                              data-size="sm"
-                                              type="button"
-                                              onClick={() => handleRemoveManualRow(row.id)}
-                                            >
-                                              删除行
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          </section>
-                        ) : null}
-                      </>
-                    ) : (
-                      <section className="literature-section-block manual-zotero-card">
-                        <p data-ui="text" data-variant="label" data-tone="secondary">文献库联动（Zotero）</p>
-                        <div data-ui="grid" data-cols="2" data-gap="2" className="zotero-fields-grid">
-                          <label data-ui="field">
-                            <span data-slot="label">Library Type</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={zoteroLibraryType}
-                              onChange={(event) => setZoteroLibraryType(event.target.value as 'users' | 'groups')}
-                            >
-                              <option value="users">users</option>
-                              <option value="groups">groups</option>
-                            </select>
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">Library ID</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={zoteroLibraryId}
-                              onChange={(event) => setZoteroLibraryId(event.target.value)}
-                              placeholder="例如 123456"
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">API Key（可选）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              type="password"
-                              value={zoteroApiKey}
-                              onChange={(event) => setZoteroApiKey(event.target.value)}
-                              placeholder="公开库可留空"
-                            />
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">Limit（1-50）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={zoteroLimitInput}
-                              onChange={(event) => setZoteroLimitInput(event.target.value)}
-                              placeholder="20"
-                            />
-                          </label>
-                        </div>
-                        <label data-ui="field">
-                          <span data-slot="label">查询关键词（可选）</span>
-                          <input
-                            data-ui="input"
-                            data-size="sm"
-                            value={zoteroQuery}
-                            onChange={(event) => setZoteroQuery(event.target.value)}
-                            placeholder="例如 retrieval evaluation"
-                          />
-                        </label>
-                        <button
-                          data-ui="button"
-                          data-variant="secondary"
-                          data-size="sm"
-                          type="button"
-                          onClick={handleImportFromZotero}
-                        >
-                          {zoteroLoading ? '同步中...' : '从 Zotero 同步导入'}
-                        </button>
-                        <p data-ui="text" data-variant="caption" data-tone="muted">Zotero 保持一键同步，不进入可编辑表格，且固定仅入库。</p>
-                        {zoteroError ? <p data-ui="text" data-variant="caption" data-tone="danger">{zoteroError}</p> : null}
-                      </section>
-                    )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ) : null}
+                                  </Fragment>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
                   </section>
                 ) : null}
 

@@ -22,6 +22,8 @@ import {
   type UpsertTopicLiteratureScopeRequest,
   type ZoteroImportRequest,
   type ZoteroImportResponse,
+  type ZoteroPreviewRequest,
+  type ZoteroPreviewResponse,
 } from '@paper-engineering-assistant/shared';
 import { AppError } from '../errors/app-error.js';
 import type { LiteratureRecord, LiteratureRepository } from '../repositories/literature-repository.js';
@@ -117,11 +119,45 @@ export class LiteratureService {
     return { results };
   }
 
+  async zoteroPreview(request: ZoteroPreviewRequest): Promise<ZoteroPreviewResponse> {
+    const items = await this.fetchZoteroImportItems(request);
+    return {
+      fetched_count: items.length,
+      items,
+    };
+  }
+
 
   async zoteroImport(request: ZoteroImportRequest): Promise<ZoteroImportResponse> {
     const topicId = request.topic_id?.trim();
     const scopeStatus = request.scope_status ?? 'in_scope';
     const scopeReason = request.scope_reason?.trim() || undefined;
+    const importItems = await this.fetchZoteroImportItems(request);
+
+    const imported = importItems.length > 0 ? await this.import({ items: importItems }) : { results: [] };
+    const importedIds = imported.results.map((row) => row.literature_id);
+    let scopeUpsertedCount = 0;
+
+    if (topicId && importedIds.length > 0) {
+      await this.upsertTopicScope(topicId, {
+        actions: importedIds.map((literatureId) => ({
+          literature_id: literatureId,
+          scope_status: scopeStatus,
+          reason: scopeReason,
+        })),
+      });
+      scopeUpsertedCount = importedIds.length;
+    }
+
+    return {
+      topic_id: topicId || undefined,
+      imported_count: imported.results.length,
+      scope_upserted_count: scopeUpsertedCount,
+      results: imported.results,
+    };
+  }
+
+  private async fetchZoteroImportItems(request: ZoteroImportRequest): Promise<LiteratureImportItem[]> {
     const limit = this.resolveZoteroLimit(request.limit);
     const query = request.query?.trim();
     const libraryId = request.library_id.trim();
@@ -157,7 +193,7 @@ export class LiteratureService {
     }
 
     const payload = (await response.json()) as Array<Record<string, unknown>>;
-    const importItems = payload
+    return payload
       .map((entry) =>
         this.mapZoteroEntryToImportItem(entry, {
           libraryType: request.library_type,
@@ -167,28 +203,6 @@ export class LiteratureService {
         }),
       )
       .filter((item): item is LiteratureImportItem => item !== null);
-
-    const imported = importItems.length > 0 ? await this.import({ items: importItems }) : { results: [] };
-    const importedIds = imported.results.map((row) => row.literature_id);
-    let scopeUpsertedCount = 0;
-
-    if (topicId && importedIds.length > 0) {
-      await this.upsertTopicScope(topicId, {
-        actions: importedIds.map((literatureId) => ({
-          literature_id: literatureId,
-          scope_status: scopeStatus,
-          reason: scopeReason,
-        })),
-      });
-      scopeUpsertedCount = importedIds.length;
-    }
-
-    return {
-      topic_id: topicId || undefined,
-      imported_count: imported.results.length,
-      scope_upserted_count: scopeUpsertedCount,
-      results: imported.results,
-    };
   }
 
   async getOverview(query: LiteratureOverviewQuery): Promise<LiteratureOverviewResponse> {

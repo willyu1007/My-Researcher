@@ -13,6 +13,7 @@ import {
   type UpdatePaperLiteratureLinkRequest,
   type UpsertTopicLiteratureScopeRequest,
   type ZoteroImportRequest,
+  type ZoteroPreviewRequest,
 } from '@paper-engineering-assistant/shared';
 import type { FastifyInstance } from 'fastify';
 import { LiteratureController } from '../controllers/literature-controller.js';
@@ -76,6 +77,16 @@ export async function registerLiteratureRoutes(
       },
     },
     async (request, reply) => controller.zoteroImport(request, reply),
+  );
+
+  app.post<{ Body: ZoteroPreviewRequest }>(
+    '/literature/zotero-preview',
+    {
+      schema: {
+        body: zoteroImportRequestSchema,
+      },
+    },
+    async (request, reply) => controller.zoteroPreview(request, reply),
   );
 
   app.get<{ Querystring: LiteratureOverviewQuery }>(

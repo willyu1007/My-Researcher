@@ -1,8 +1,6 @@
 import {
-  MANUAL_RIGHTS_CLASSES,
   type ManualDraftRow,
   type ManualImportPayload,
-  type ManualRightsClass,
   type ManualRowValidation,
 } from './manual-import-types';
 
@@ -64,16 +62,6 @@ function parseTagTokens(value: string): string[] {
     .split(/,|;/)
     .map((tag) => tag.trim())
     .filter((tag) => tag.length > 0))];
-}
-
-function normalizeRightsClass(value?: string): ManualRightsClass {
-  if (!value) {
-    return 'UNKNOWN';
-  }
-  if (MANUAL_RIGHTS_CLASSES.includes(value as ManualRightsClass)) {
-    return value as ManualRightsClass;
-  }
-  return 'UNKNOWN';
 }
 
 function normalizeDoi(value?: string): string | undefined {
@@ -157,7 +145,6 @@ function normalizeImportItem(raw: Record<string, unknown>, fallbackExternalId: s
     doi,
     arxiv_id: arxivId,
     source_url: sourceUrl ?? '',
-    rights_class: normalizeRightsClass(toText(raw.rights_class)),
     tags,
   };
 }
@@ -235,7 +222,7 @@ function toDraftRow(item: ManualImportPayload, index: number): ManualDraftRow {
   return {
     id: `manual-row-${Date.now()}-${index + 1}-${Math.random().toString(36).slice(2, 8)}`,
     include: true,
-    provider: 'manual',
+    provider: item.provider,
     external_id: item.external_id,
     title: item.title,
     abstract: item.abstract ?? '',
@@ -244,9 +231,12 @@ function toDraftRow(item: ManualImportPayload, index: number): ManualDraftRow {
     doi: item.doi ?? '',
     arxiv_id: item.arxiv_id ?? '',
     source_url: item.source_url,
-    rights_class: normalizeRightsClass(item.rights_class),
     tags_text: (item.tags ?? []).join(', '),
   };
+}
+
+export function convertImportItemsToDraftRows(items: ManualImportPayload[]): ManualDraftRow[] {
+  return items.map((item, index) => toDraftRow(item, index));
 }
 
 export function parseManualUploadToDraftRows(fileName: string, text: string): ManualDraftRow[] {
@@ -261,7 +251,7 @@ export function parseManualUploadToDraftRows(fileName: string, text: string): Ma
     return parseManualBibText(text);
   })();
 
-  return items.map((item, index) => toDraftRow(item, index));
+  return convertImportItemsToDraftRows(items);
 }
 
 export function validateManualDraftRow(row: ManualDraftRow): ManualRowValidation {
@@ -318,7 +308,7 @@ export function validateManualDraftRow(row: ManualDraftRow): ManualRowValidation
   const isValid = errors.length === 0;
   const normalized = isValid
     ? {
-      provider: 'manual' as const,
+      provider: row.provider,
       external_id: row.external_id.trim() || doi || arxivId || row.id,
       title,
       ...(row.abstract.trim() ? { abstract: row.abstract.trim() } : {}),
@@ -327,7 +317,6 @@ export function validateManualDraftRow(row: ManualDraftRow): ManualRowValidation
       ...(doi ? { doi } : {}),
       ...(arxivId ? { arxiv_id: arxivId } : {}),
       source_url: sourceUrl,
-      rights_class: normalizeRightsClass(row.rights_class),
       tags: parseTagTokens(row.tags_text),
     }
     : undefined;
@@ -360,24 +349,4 @@ export function applyBatchTags(rows: ManualDraftRow[], tagText: string, onlyIncl
       tags_text: merged.join(', '),
     };
   });
-}
-
-export function applyBatchRightsClass(
-  rows: ManualDraftRow[],
-  rightsClass: ManualRightsClass,
-  onlyIncluded = true,
-): ManualDraftRow[] {
-  return rows.map((row) => {
-    if (onlyIncluded && !row.include) {
-      return row;
-    }
-    return {
-      ...row,
-      rights_class: normalizeRightsClass(rightsClass),
-    };
-  });
-}
-
-export function normalizeManualRightsClass(value?: string): ManualRightsClass {
-  return normalizeRightsClass(value);
 }
