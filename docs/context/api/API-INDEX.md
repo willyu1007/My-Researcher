@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-02-27T14:50:35.955Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `4a80c048f3f7...`)
+> Auto-generated at 2026-03-01T02:11:26.301Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `8a415e739f79...`)
 
-Total endpoints: **31**
+Total endpoints: **32**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -18,6 +18,7 @@ Total endpoints: **31**
 | POST | /paper-projects/{id}/release-gate/review | Submit release gate review decision. | none | reviewers, decision, risk_flags, label_policy | gate_result | 400, 404, 409, 500 |
 | POST | /literature/import | Import literature items into repository. | none | items | results | 400, 409, 500 |
 | POST | /literature/zotero-import | Import literature from Zotero library. | none | library_type, library_id | imported_count, scope_upserted_count, results, topic_id | 400, 500, 502 |
+| POST | /literature/zotero-preview | Fetch Zotero literature candidates for manual review table. | none | library_type, library_id | fetched_count, items | 400, 500, 502 |
 | GET | /literature/overview | Get literature overview filtered by topic and/or paper. | none | — | summary, items, topic_id, paper_id | 400, 404, 500 |
 | GET | /topics/{topicId}/literature-scope | Get literature scope list for a topic. | none | topicId | topic_id, items | 404, 500 |
 | POST | /topics/{topicId}/literature-scope | Upsert literature scope actions for a topic. | none | actions | topic_id, items | 400, 404, 500 |

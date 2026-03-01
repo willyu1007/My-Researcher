@@ -288,6 +288,18 @@ export class InMemoryAutoPullRepository implements AutoPullRepository {
     return this.cursorByRuleSource.get(this.cursorKey(ruleId, source)) ?? null;
   }
 
+  async clearCursor(ruleId: string, source?: AutoPullSource): Promise<void> {
+    if (source) {
+      this.cursorByRuleSource.delete(this.cursorKey(ruleId, source));
+      return;
+    }
+    for (const [key, cursor] of this.cursorByRuleSource.entries()) {
+      if (cursor.ruleId === ruleId) {
+        this.cursorByRuleSource.delete(key);
+      }
+    }
+  }
+
   async createAlert(record: AutoPullAlertRecord): Promise<AutoPullAlertRecord> {
     this.alerts.set(record.id, record);
     return record;

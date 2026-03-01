@@ -903,6 +903,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateAutoPullRunRequest'
+            example:
+              trigger_type: MANUAL
+              full_refresh: true
       responses:
         '201':
           description: Run queued.
@@ -2809,6 +2812,9 @@ components:
       properties:
         trigger_type:
           $ref: '#/components/schemas/AutoPullTriggerType'
+        full_refresh:
+          type: boolean
+          default: false
       additionalProperties: false
 
     RetryFailedSourcesRequest:

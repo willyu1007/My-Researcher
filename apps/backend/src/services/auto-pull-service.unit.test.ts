@@ -183,6 +183,55 @@ test('retry-failed-sources creates a follow-up run', async () => {
   assert.equal(retriedDone.source_attempts?.[0]?.source, 'ZOTERO');
 });
 
+test('time window mode switches to incremental after cursor is present', async () => {
+  const { service, repository } = buildService();
+  await service.createRule({
+    scope: 'GLOBAL',
+    name: 'baseline-global-active-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  const rule = await service.createRule({
+    scope: 'GLOBAL',
+    name: 'window-mode-rule',
+    sources: [{ source: 'ZOTERO', enabled: true, priority: 1, config: {} }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  const firstQueued = await service.triggerRuleRun(rule.rule_id, { trigger_type: 'MANUAL' });
+  const firstRun = await waitForTerminalRun(service, firstQueued.run_id);
+  assert.equal(firstRun.source_attempts?.[0]?.status, 'FAILED');
+  const firstMeta = firstRun.source_attempts?.[0]?.meta as Record<string, unknown> | undefined;
+  assert.equal(firstMeta?.time_window_mode, 'bootstrap_full_range');
+
+  const now = new Date().toISOString();
+  await repository.upsertCursor({
+    id: 'CURSOR-UNIT-1',
+    ruleId: rule.rule_id,
+    source: 'ZOTERO',
+    cursorValue: now,
+    cursorAt: now,
+  });
+
+  const secondQueued = await service.triggerRuleRun(rule.rule_id, { trigger_type: 'MANUAL' });
+  const secondRun = await waitForTerminalRun(service, secondQueued.run_id);
+  assert.equal(secondRun.source_attempts?.[0]?.status, 'FAILED');
+  const secondMeta = secondRun.source_attempts?.[0]?.meta as Record<string, unknown> | undefined;
+  assert.equal(secondMeta?.time_window_mode, 'incremental_lookback');
+
+  const thirdQueued = await service.triggerRuleRun(rule.rule_id, {
+    trigger_type: 'MANUAL',
+    full_refresh: true,
+  });
+  const thirdRun = await waitForTerminalRun(service, thirdQueued.run_id);
+  const thirdMeta = thirdRun.source_attempts?.[0]?.meta as Record<string, unknown> | undefined;
+  assert.equal(thirdMeta?.time_window_mode, 'bootstrap_full_range');
+  const thirdSummary = thirdRun.summary as Record<string, unknown>;
+  assert.equal(thirdSummary.full_refresh, true);
+});
+
 test('many-to-many topic binding executes only active topics', async () => {
   const { service } = buildService();
   await service.createRule({

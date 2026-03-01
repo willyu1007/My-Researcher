@@ -68,6 +68,8 @@ type TopicExecutionContext = {
   timeSpec: AutoPullTimeSpec;
 };
 
+type SourceTimeWindowMode = 'bootstrap_full_range' | 'incremental_lookback';
+
 const AUTOPULL_ALERT_CODES = {
   NO_SOURCE_CONFIG: 'NO_SOURCE_CONFIG',
   NO_ACTIVE_TOPIC: 'NO_ACTIVE_TOPIC',
@@ -305,7 +307,9 @@ export class AutoPullService {
   }
 
   async triggerRuleRun(ruleId: string, request?: CreateAutoPullRunRequest): Promise<AutoPullRunDTO> {
-    return this.enqueueRuleRun(ruleId, request?.trigger_type ?? 'MANUAL');
+    return this.enqueueRuleRun(ruleId, request?.trigger_type ?? 'MANUAL', undefined, {
+      fullRefresh: request?.full_refresh ?? false,
+    });
   }
 
   async retryFailedSources(runId: string, request: RetryFailedSourcesRequest): Promise<AutoPullRunDTO> {
@@ -380,6 +384,9 @@ export class AutoPullService {
     ruleId: string,
     triggerType: AutoPullRunRecord['triggerType'],
     sourceFilter?: Set<AutoPullSource>,
+    options?: {
+      fullRefresh?: boolean;
+    },
   ): Promise<AutoPullRunDTO> {
     const bundle = await this.loadRuleBundle(ruleId);
     const rule = bundle.rule;
@@ -400,6 +407,7 @@ export class AutoPullService {
         summary: {
           reason: AUTOPULL_ALERT_CODES.RUN_SKIPPED_SINGLE_FLIGHT,
           in_flight_run_ids: inFlightRuns.map((item) => item.id),
+          ...(options?.fullRefresh ? { full_refresh: true } : {}),
         },
         errorCode: AUTOPULL_ALERT_CODES.RUN_SKIPPED_SINGLE_FLIGHT,
         errorMessage: 'Existing run is still in-flight.',
@@ -433,22 +441,27 @@ export class AutoPullService {
       summary: {
         queued_at: now,
         ...(sourceFilter ? { source_filter: [...sourceFilter] } : {}),
+        ...(options?.fullRefresh ? { full_refresh: true } : {}),
       },
       errorCode: null,
       errorMessage: null,
       createdAt: now,
       updatedAt: now,
     });
-    this.scheduleRunProcessing(run.id, sourceFilter);
+    this.scheduleRunProcessing(run.id, sourceFilter, options?.fullRefresh ?? false);
     return this.toRunDTO(run);
   }
 
-  private scheduleRunProcessing(runId: string, sourceFilter?: Set<AutoPullSource>): void {
+  private scheduleRunProcessing(
+    runId: string,
+    sourceFilter?: Set<AutoPullSource>,
+    fullRefresh = false,
+  ): void {
     if (this.runJobs.has(runId)) {
       return;
     }
 
-    const task = this.processRun(runId, sourceFilter ? new Set(sourceFilter) : undefined)
+    const task = this.processRun(runId, sourceFilter ? new Set(sourceFilter) : undefined, fullRefresh)
       .catch(() => undefined)
       .finally(() => {
         this.runJobs.delete(runId);
@@ -456,7 +469,11 @@ export class AutoPullService {
     this.runJobs.set(runId, task);
   }
 
-  private async processRun(runId: string, sourceFilter?: Set<AutoPullSource>): Promise<void> {
+  private async processRun(
+    runId: string,
+    sourceFilter?: Set<AutoPullSource>,
+    fullRefresh = false,
+  ): Promise<void> {
     const initialRun = await this.repository.findRunById(runId);
     if (!initialRun) {
       return;
@@ -550,9 +567,18 @@ export class AutoPullService {
 
       const sourceResults: SourceExecutionResult[] = [];
       for (const source of enabledSources) {
+        if (fullRefresh) {
+          await this.repository.clearCursor(rule.id, source.source);
+        }
+        const existingCursor = fullRefresh
+          ? null
+          : await this.repository.findCursor(rule.id, source.source);
+        const timeWindowMode: SourceTimeWindowMode = existingCursor
+          ? 'incremental_lookback'
+          : 'bootstrap_full_range';
         const scopedResults: SourceExecutionResult[] = [];
         for (const context of topicContexts) {
-          scopedResults.push(await this.executeSource(rule, source, runId, context));
+          scopedResults.push(await this.executeSource(rule, source, runId, context, timeWindowMode));
         }
         sourceResults.push(
           this.aggregateSourceResults(
@@ -560,6 +586,7 @@ export class AutoPullService {
             scopedResults,
             topicContexts.map((context) => context.topicId),
             skippedTopicIds,
+            timeWindowMode,
           ),
         );
       }
@@ -680,9 +707,15 @@ export class AutoPullService {
     source: AutoPullRuleSourceRecord,
     runId: string,
     context: TopicExecutionContext,
+    timeWindowMode: SourceTimeWindowMode,
   ): Promise<SourceExecutionResult> {
     try {
-      const fetchedItems = await this.fetchSourceItems(source, context.querySpec, context.timeSpec);
+      const fetchedItems = await this.fetchSourceItems(
+        source,
+        context.querySpec,
+        context.timeSpec,
+        timeWindowMode,
+      );
       const accepted = fetchedItems
         .map((item) => ({
           item,
@@ -746,6 +779,7 @@ export class AutoPullService {
         suggestions,
         meta: {
           topic_id: context.topicId,
+          time_window_mode: timeWindowMode,
           fetched_count: fetchedItems.length,
           imported_count: imported.results.length,
           failed_count: failedCount,
@@ -779,6 +813,7 @@ export class AutoPullService {
         suggestions: [],
         meta: {
           topic_id: context.topicId,
+          time_window_mode: timeWindowMode,
           fetched_count: 0,
           imported_count: 0,
           failed_count: 1,
@@ -805,21 +840,39 @@ export class AutoPullService {
     source: AutoPullRuleSourceRecord,
     querySpec: AutoPullQuerySpec,
     timeSpec: AutoPullTimeSpec,
+    timeWindowMode: SourceTimeWindowMode,
   ): Promise<LiteratureImportItem[]> {
     const queryText = this.buildSearchQuery(querySpec);
     if (source.source === 'CROSSREF') {
-      return this.fetchCrossrefItems(queryText, querySpec.maxResultsPerSource, timeSpec);
+      return this.fetchCrossrefItems(
+        queryText,
+        querySpec.maxResultsPerSource,
+        timeSpec,
+        timeWindowMode,
+      );
     }
     if (source.source === 'ARXIV') {
-      return this.fetchArxivItems(queryText, querySpec.maxResultsPerSource, timeSpec);
+      return this.fetchArxivItems(
+        queryText,
+        querySpec.maxResultsPerSource,
+        timeSpec,
+        timeWindowMode,
+      );
     }
-    return this.fetchZoteroItems(queryText, source.config, querySpec.maxResultsPerSource, timeSpec);
+    return this.fetchZoteroItems(
+      queryText,
+      source.config,
+      querySpec.maxResultsPerSource,
+      timeSpec,
+      timeWindowMode,
+    );
   }
 
   private async fetchCrossrefItems(
     query: string,
     limit: number,
     timeSpec: AutoPullTimeSpec,
+    timeWindowMode: SourceTimeWindowMode,
   ): Promise<LiteratureImportItem[]> {
     const response = await fetch(
       `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${limit}`,
@@ -836,13 +889,14 @@ export class AutoPullService {
     return items
       .map((item, index) => this.mapCrossrefRecord(item, `crossref-${index + 1}`))
       .filter((item): item is LiteratureImportItem => item !== null)
-      .filter((item) => this.matchesTimeWindow(item, timeSpec));
+      .filter((item) => this.matchesTimeWindow(item, timeSpec, timeWindowMode));
   }
 
   private async fetchArxivItems(
     query: string,
     limit: number,
     timeSpec: AutoPullTimeSpec,
+    timeWindowMode: SourceTimeWindowMode,
   ): Promise<LiteratureImportItem[]> {
     const response = await fetch(
       `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=${limit}`,
@@ -855,7 +909,7 @@ export class AutoPullService {
     return entries
       .map((entry) => this.mapArxivEntry(entry[1] ?? ''))
       .filter((item): item is LiteratureImportItem => item !== null)
-      .filter((item) => this.matchesTimeWindow(item, timeSpec));
+      .filter((item) => this.matchesTimeWindow(item, timeSpec, timeWindowMode));
   }
 
   private async fetchZoteroItems(
@@ -863,6 +917,7 @@ export class AutoPullService {
     config: Record<string, unknown>,
     maxResultsPerSource: number,
     timeSpec: AutoPullTimeSpec,
+    timeWindowMode: SourceTimeWindowMode,
   ): Promise<LiteratureImportItem[]> {
     const libraryType = this.readString(config.library_type) as ZoteroLibraryType | undefined;
     const libraryId = this.readString(config.library_id);
@@ -895,7 +950,7 @@ export class AutoPullService {
     return payload
       .map((entry) => this.mapZoteroEntry(entry, libraryType, libraryId))
       .filter((item): item is LiteratureImportItem => item !== null)
-      .filter((item) => this.matchesTimeWindow(item, timeSpec));
+      .filter((item) => this.matchesTimeWindow(item, timeSpec, timeWindowMode));
   }
 
   private mapCrossrefRecord(record: Record<string, unknown>, fallbackId: string): LiteratureImportItem | null {
@@ -1066,15 +1121,26 @@ export class AutoPullService {
     return Number((hit / fields.length).toFixed(4));
   }
 
-  private matchesTimeWindow(item: LiteratureImportItem, timeSpec: AutoPullTimeSpec): boolean {
+  private matchesTimeWindow(
+    item: LiteratureImportItem,
+    timeSpec: AutoPullTimeSpec,
+    timeWindowMode: SourceTimeWindowMode,
+  ): boolean {
     const nowYear = new Date().getUTCFullYear();
-    const minYearByLookback = nowYear - Math.max(0, timeSpec.lookbackDays / 365);
-    const minYear = timeSpec.minYear ?? Math.floor(minYearByLookback);
     const maxYear = timeSpec.maxYear ?? nowYear + 1;
     const year = item.year;
     if (!year) {
       return true;
     }
+    if (timeWindowMode === 'bootstrap_full_range') {
+      const minYear = timeSpec.minYear ?? Number.NEGATIVE_INFINITY;
+      return year >= minYear && year <= maxYear;
+    }
+    const minYearByLookback = nowYear - Math.max(0, timeSpec.lookbackDays / 365);
+    const lookbackMinYear = Math.floor(minYearByLookback);
+    const minYear = typeof timeSpec.minYear === 'number'
+      ? Math.max(timeSpec.minYear, lookbackMinYear)
+      : lookbackMinYear;
     return year >= minYear && year <= maxYear;
   }
 
@@ -1408,6 +1474,7 @@ export class AutoPullService {
     results: SourceExecutionResult[],
     activeTopicIds: Array<string | null>,
     skippedTopicIds: string[],
+    timeWindowMode: SourceTimeWindowMode,
   ): SourceExecutionResult {
     const fetchedItems = results.flatMap((item) => item.fetchedItems);
     const importedCount = results.reduce((sum, item) => sum + item.importedCount, 0);
@@ -1435,6 +1502,7 @@ export class AutoPullService {
       meta: {
         topic_ids: activeTopicIds.filter((value): value is string => typeof value === 'string'),
         skipped_topic_ids: skippedTopicIds,
+        time_window_mode: timeWindowMode,
         fetched_count: fetchedItems.length,
         imported_count: importedCount,
         failed_count: failedCount,

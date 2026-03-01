@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "generatedAt": "2026-02-27T14:50:35.955Z",
+  "generatedAt": "2026-03-01T02:11:26.301Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "4a80c048f3f7b75a7eb1949d302e2dd1af582d268e5cc6b83f258f7b97c2e392",
+  "sourceChecksumSha256": "8a415e739f79dea0d17b59d97f00703eeaf73233c70437ba046cc17adc56081e",
   "stats": {
-    "totalEndpoints": 31,
+    "totalEndpoints": 32,
     "byTag": {
       "health": 1,
       "research-lifecycle": 8,
-      "literature": 9,
+      "literature": 10,
       "topic-settings": 3,
       "auto-pull": 10
     }
@@ -409,6 +409,49 @@
       ],
       "example": {
         "curl": "curl -X POST '/literature/zotero-import' -H 'Content-Type: application/json' -d '{\"library_type\":\"<library_type>\",\"library_id\":\"<library_id>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/zotero-preview",
+      "operationId": "previewLiteratureFromZotero",
+      "summary": "Fetch Zotero literature candidates for manual review table.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "library_type",
+            "library_id"
+          ],
+          "optional": [
+            "api_key",
+            "query",
+            "limit",
+            "topic_id",
+            "scope_status",
+            "scope_reason",
+            "tags",
+            "rights_class"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "fetched_count",
+          "items"
+        ]
+      },
+      "errors": [
+        400,
+        500,
+        502
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/zotero-preview' -H 'Content-Type: application/json' -d '{\"library_type\":\"<library_type>\",\"library_id\":\"<library_id>\"}'"
       }
     },
     {
@@ -967,7 +1010,8 @@
         "body": {
           "required": [],
           "optional": [
-            "trigger_type"
+            "trigger_type",
+            "full_refresh"
           ]
         }
       },

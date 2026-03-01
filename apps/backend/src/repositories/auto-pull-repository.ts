@@ -193,6 +193,7 @@ export interface AutoPullRepository {
 
   upsertCursor(record: AutoPullCursorRecord): Promise<AutoPullCursorRecord>;
   findCursor(ruleId: string, source: AutoPullSource): Promise<AutoPullCursorRecord | null>;
+  clearCursor(ruleId: string, source?: AutoPullSource): Promise<void>;
 
   createAlert(record: AutoPullAlertRecord): Promise<AutoPullAlertRecord>;
   listAlerts(filters?: {

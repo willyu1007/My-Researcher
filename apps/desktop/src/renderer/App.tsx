@@ -81,7 +81,7 @@ type ScopeStatus = 'in_scope' | 'excluded';
 type RightsClass = 'OA' | 'USER_AUTH' | 'RESTRICTED' | 'UNKNOWN';
 type LiteratureProvider = 'crossref' | 'arxiv' | 'manual' | 'web' | 'zotero';
 type LiteratureTabKey = 'auto-import' | 'manual-import' | 'overview';
-type AutoImportSubTabKey = 'topic-settings' | 'rules-center' | 'runs-alerts';
+type AutoImportSubTabKey = 'topic-settings' | 'runs-alerts';
 type ManualImportSubTabKey = 'file-review' | 'zotero-sync';
 type ManualUploadFileStatus = 'processing' | 'parsed' | 'empty' | 'failed' | 'accepted' | 'duplicate';
 type AppMode = 'standard' | 'dev';
@@ -140,6 +140,16 @@ type ManualUploadFileItem = {
   format: string;
   status: ManualUploadFileStatus;
   rowCount: number;
+};
+
+type ZoteroAction = 'idle' | 'test-link' | 'load-to-list' | 'sync-import';
+type ZoteroLinkResult = {
+  tested: boolean;
+  connected: boolean;
+  totalCount: number;
+  duplicateCount: number;
+  unparsedCount: number;
+  importableCount: number;
 };
 
 type FeedbackRecoveryAction =
@@ -358,7 +368,6 @@ const literatureTabs: Array<{ key: LiteratureTabKey; label: string }> = [
   { key: 'overview', label: '文献综览' },
 ];
 const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string }> = [
-  { key: 'rules-center', label: '规则中心' },
   { key: 'topic-settings', label: '设置主题' },
   { key: 'runs-alerts', label: '执行详情' },
 ];
@@ -518,6 +527,15 @@ const emptyLiteratureOverviewSummary: LiteratureOverviewSummary = {
 const emptyLiteratureOverviewData: LiteratureOverviewData = {
   summary: emptyLiteratureOverviewSummary,
   items: [],
+};
+
+const emptyZoteroLinkResult: ZoteroLinkResult = {
+  tested: false,
+  connected: false,
+  totalCount: 0,
+  duplicateCount: 0,
+  unparsedCount: 0,
+  importableCount: 0,
 };
 
 const defaultApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:3000').trim();
@@ -779,8 +797,40 @@ function parseZoteroPreviewItems(payload: unknown): ManualImportPayload[] {
   return parsedItems;
 }
 
+function computeZoteroPreviewResult(
+  payload: unknown,
+  existingRows: ManualDraftRow[],
+): {
+  rows: ManualDraftRow[];
+  fetchedCount: number;
+  duplicateCount: number;
+  unparsedCount: number;
+  importableCount: number;
+} {
+  const root = asRecord(payload);
+  const fetchedCountRaw = typeof root?.fetched_count === 'number'
+    ? root.fetched_count
+    : Array.isArray(root?.items)
+      ? root.items.length
+      : 0;
+  const fetchedCount = Number.isFinite(fetchedCountRaw) ? Math.max(0, Math.trunc(fetchedCountRaw)) : 0;
+  const previewItems = parseZoteroPreviewItems(payload);
+  const rows = convertImportItemsToDraftRows(previewItems);
+  const merged = mergeManualDraftRows(existingRows, rows);
+  const appendedRows = merged.rows.slice(existingRows.length);
+  const importableCount = validateManualDraftRows(appendedRows).filter((item) => item.is_valid).length;
+
+  return {
+    rows,
+    fetchedCount,
+    duplicateCount: merged.skippedDuplicates,
+    unparsedCount: Math.max(0, fetchedCount - previewItems.length),
+    importableCount,
+  };
+}
+
 function isAutoImportSubTabKey(value: string): value is AutoImportSubTabKey {
-  return value === 'topic-settings' || value === 'rules-center' || value === 'runs-alerts';
+  return value === 'topic-settings' || value === 'runs-alerts';
 }
 
 function isManualImportSubTabKey(value: string): value is ManualImportSubTabKey {
@@ -827,6 +877,14 @@ function parseTokenList(value: string): string[] {
       .map((item) => item.trim())
       .filter((item) => item.length > 0),
   )];
+}
+
+function resolveSystemTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
 }
 
 function hashTopicName(input: string): string {
@@ -1934,7 +1992,7 @@ export function App({ initialThemeMode }: AppProps) {
   const [paperLiteratureLoading, setPaperLiteratureLoading] = useState<boolean>(false);
   const [paperLiteratureError, setPaperLiteratureError] = useState<string | null>(null);
   const [activeLiteratureTab, setActiveLiteratureTab] = useState<LiteratureTabKey>('auto-import');
-  const [autoImportSubTab, setAutoImportSubTab] = useState<AutoImportSubTabKey>('rules-center');
+  const [autoImportSubTab, setAutoImportSubTab] = useState<AutoImportSubTabKey>('topic-settings');
   const [topicProfiles, setTopicProfiles] = useState<AutoPullTopicProfile[]>([]);
   const [topicProfilesStatus, setTopicProfilesStatus] = useState<UiOperationStatus>('idle');
   const [topicProfilesError, setTopicProfilesError] = useState<string | null>(null);
@@ -1960,28 +2018,17 @@ export function App({ initialThemeMode }: AppProps) {
   const [ruleEditingId, setRuleEditingId] = useState<string | null>(null);
   const [ruleFormScope, setRuleFormScope] = useState<AutoPullScope>('GLOBAL');
   const [ruleFormName, setRuleFormName] = useState<string>('');
-  const [ruleFormIncludeInput, setRuleFormIncludeInput] = useState<string>('');
-  const [ruleFormExcludeInput, setRuleFormExcludeInput] = useState<string>('');
-  const [ruleFormAuthorsInput, setRuleFormAuthorsInput] = useState<string>('');
-  const [ruleFormVenuesInput, setRuleFormVenuesInput] = useState<string>('');
   const [ruleFormMaxResultsInput, setRuleFormMaxResultsInput] = useState<string>('20');
   const [ruleFormLookbackInput, setRuleFormLookbackInput] = useState<string>('30');
-  const [ruleFormMinYearInput, setRuleFormMinYearInput] = useState<string>('');
-  const [ruleFormMaxYearInput, setRuleFormMaxYearInput] = useState<string>('');
   const [ruleFormMinCompletenessInput, setRuleFormMinCompletenessInput] = useState<string>('0.6');
-  const [ruleFormRequireIncludeMatch, setRuleFormRequireIncludeMatch] = useState<boolean>(true);
-  const [ruleFormAdvancedOpen, setRuleFormAdvancedOpen] = useState<boolean>(false);
   const [ruleFormFrequency, setRuleFormFrequency] = useState<AutoPullFrequency>('DAILY');
   const [ruleFormDaysInput, setRuleFormDaysInput] = useState<string>('MON');
   const [ruleFormHourInput, setRuleFormHourInput] = useState<string>('9');
   const [ruleFormMinuteInput, setRuleFormMinuteInput] = useState<string>('0');
-  const [ruleFormTimezone, setRuleFormTimezone] = useState<string>(
-    Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-  );
   const [ruleSourceCrossref, setRuleSourceCrossref] = useState<boolean>(true);
   const [ruleSourceArxiv, setRuleSourceArxiv] = useState<boolean>(true);
-  const [ruleFilterScope, setRuleFilterScope] = useState<'' | AutoPullScope>('');
-  const [ruleFilterStatus, setRuleFilterStatus] = useState<'' | AutoPullRuleStatus>('');
+  const [topicRuleComposerOpen, setTopicRuleComposerOpen] = useState<boolean>(false);
+  const [globalRuleComposerOpen, setGlobalRuleComposerOpen] = useState<boolean>(false);
   const [activeGlobalRuleCount, setActiveGlobalRuleCount] = useState<number>(0);
 
   const [autoPullRuns, setAutoPullRuns] = useState<AutoPullRun[]>([]);
@@ -2018,11 +2065,11 @@ export function App({ initialThemeMode }: AppProps) {
   const [zoteroLibraryType, setZoteroLibraryType] = useState<'users' | 'groups'>('users');
   const [zoteroLibraryId, setZoteroLibraryId] = useState<string>('');
   const [zoteroApiKey, setZoteroApiKey] = useState<string>('');
-  const [zoteroQuery, setZoteroQuery] = useState<string>('');
-  const [zoteroLimitInput, setZoteroLimitInput] = useState<string>('20');
   const [zoteroLoading, setZoteroLoading] = useState<boolean>(false);
+  const [zoteroAction, setZoteroAction] = useState<ZoteroAction>('idle');
   const [zoteroStatus, setZoteroStatus] = useState<UiOperationStatus>('idle');
   const [zoteroError, setZoteroError] = useState<string | null>(null);
+  const [zoteroLinkResult, setZoteroLinkResult] = useState<ZoteroLinkResult>(emptyZoteroLinkResult);
   const [overviewPanel, setOverviewPanel] = useState<PanelState<LiteratureOverviewData>>({
     status: 'idle',
     data: emptyLiteratureOverviewData,
@@ -2406,17 +2453,10 @@ export function App({ initialThemeMode }: AppProps) {
     setRulesStatus('loading');
     setRulesError(null);
     try {
-      const query = new URLSearchParams();
-      if (ruleFilterScope) {
-        query.set('scope', ruleFilterScope);
-      }
-      if (ruleFilterStatus) {
-        query.set('status', ruleFilterStatus);
-      }
       const [payload, activeGlobalPayload] = await Promise.all([
         requestGovernance({
           method: 'GET',
-          path: `/auto-pull/rules${query.size > 0 ? `?${query.toString()}` : ''}`,
+          path: '/auto-pull/rules',
         }),
         requestGovernance({
           method: 'GET',
@@ -2440,7 +2480,7 @@ export function App({ initialThemeMode }: AppProps) {
         message: `加载规则失败：${message}`,
       });
     }
-  }, [pushLiteratureFeedback, ruleFilterScope, ruleFilterStatus]);
+  }, [pushLiteratureFeedback]);
 
   const loadAutoPullRuns = useCallback(async () => {
     setRunsStatus('loading');
@@ -2556,6 +2596,7 @@ export function App({ initialThemeMode }: AppProps) {
     setTopicFormYearStart(topicYearMinBound);
     setTopicFormYearEnd(topicYearMaxBound);
     setTopicFormRuleIds([]);
+    setTopicRuleComposerOpen(false);
   };
 
   const handleOpenCreateTopicProfile = () => {
@@ -2567,6 +2608,7 @@ export function App({ initialThemeMode }: AppProps) {
   const handleCloseTopicModal = () => {
     setTopicFormModalOpen(false);
     setTopicVenuePickerOpen(false);
+    setTopicRuleComposerOpen(false);
     resetTopicForm();
   };
 
@@ -2585,8 +2627,17 @@ export function App({ initialThemeMode }: AppProps) {
     setTopicFormYearStart(profile.default_min_year ?? topicYearMinBound);
     setTopicFormYearEnd(profile.default_max_year ?? topicYearMaxBound);
     setTopicFormRuleIds(profile.rule_ids);
+    setTopicRuleComposerOpen(false);
     setTopicFormModalOpen(true);
     setAutoImportSubTab('topic-settings');
+  };
+
+  const handleEditTopicProfileAndCreateRule = (profile: AutoPullTopicProfile) => {
+    handleEditTopicProfile(profile);
+    resetRuleForm();
+    setRuleFormScope('TOPIC');
+    setRuleFormName(`${profile.name} 自动拉取`);
+    setTopicRuleComposerOpen(true);
   };
 
   const handleToggleTopicRuleSelection = (ruleId: string) => {
@@ -2754,53 +2805,55 @@ export function App({ initialThemeMode }: AppProps) {
     }
   };
 
-  const handleCreateRuleShortcutForTopic = () => {
+  const handleOpenTopicRuleComposer = () => {
     resetRuleForm();
     setRuleFormScope('TOPIC');
-    setAutoImportSubTab('rules-center');
+    setRuleFormName(topicFormName.trim() ? `${topicFormName.trim()} 自动拉取` : '');
+    setTopicRuleComposerOpen(true);
+  };
+
+  const handleCloseTopicRuleComposer = () => {
+    resetRuleForm();
+    setRuleFormScope('TOPIC');
+    setTopicRuleComposerOpen(false);
+  };
+
+  const handleOpenGlobalRuleComposer = () => {
+    resetRuleForm();
+    setRuleFormScope('GLOBAL');
+    setRuleFormName('全局默认规则');
+    setGlobalRuleComposerOpen(true);
+  };
+
+  const handleCloseGlobalRuleComposer = () => {
+    resetRuleForm();
+    setRuleFormScope('GLOBAL');
+    setGlobalRuleComposerOpen(false);
   };
 
   const handleEditRule = (rule: AutoPullRule) => {
     const primarySchedule = rule.schedules[0] ?? null;
     setRuleEditingId(rule.rule_id);
-    setRuleFormAdvancedOpen(true);
     setRuleFormScope(rule.scope);
     setRuleFormName(rule.name);
-    setRuleFormIncludeInput(rule.query_spec.include_keywords.join(', '));
-    setRuleFormExcludeInput(rule.query_spec.exclude_keywords.join(', '));
-    setRuleFormAuthorsInput(rule.query_spec.authors.join(', '));
-    setRuleFormVenuesInput(rule.query_spec.venues.join(', '));
     setRuleFormMaxResultsInput(String(rule.query_spec.max_results_per_source));
     setRuleFormLookbackInput(String(rule.time_spec.lookback_days));
-    setRuleFormMinYearInput(rule.time_spec.min_year ? String(rule.time_spec.min_year) : '');
-    setRuleFormMaxYearInput(rule.time_spec.max_year ? String(rule.time_spec.max_year) : '');
     setRuleFormMinCompletenessInput(String(rule.quality_spec.min_completeness_score));
-    setRuleFormRequireIncludeMatch(rule.quality_spec.require_include_match);
     setRuleFormFrequency(primarySchedule?.frequency ?? 'DAILY');
     setRuleFormDaysInput(primarySchedule?.days_of_week.join(', ') ?? 'MON');
     setRuleFormHourInput(String(primarySchedule?.hour ?? 9));
     setRuleFormMinuteInput(String(primarySchedule?.minute ?? 0));
-    setRuleFormTimezone(primarySchedule?.timezone ?? 'UTC');
     setRuleSourceCrossref(rule.sources.some((source) => source.source === 'CROSSREF' && source.enabled));
     setRuleSourceArxiv(rule.sources.some((source) => source.source === 'ARXIV' && source.enabled));
-    setAutoImportSubTab('rules-center');
   };
 
   const resetRuleForm = () => {
     setRuleEditingId(null);
-    setRuleFormAdvancedOpen(false);
     setRuleFormScope('GLOBAL');
     setRuleFormName('');
-    setRuleFormIncludeInput('');
-    setRuleFormExcludeInput('');
-    setRuleFormAuthorsInput('');
-    setRuleFormVenuesInput('');
     setRuleFormMaxResultsInput('20');
     setRuleFormLookbackInput('30');
-    setRuleFormMinYearInput('');
-    setRuleFormMaxYearInput('');
     setRuleFormMinCompletenessInput('0.6');
-    setRuleFormRequireIncludeMatch(true);
     setRuleFormFrequency('DAILY');
     setRuleFormDaysInput('MON');
     setRuleFormHourInput('9');
@@ -2809,7 +2862,12 @@ export function App({ initialThemeMode }: AppProps) {
     setRuleSourceArxiv(true);
   };
 
-  const handleSubmitRule = async () => {
+  const handleSubmitRule = async (options?: {
+    forceScope?: AutoPullScope;
+    bindToTopicDraft?: boolean;
+    closeTopicComposer?: boolean;
+    closeGlobalComposer?: boolean;
+  }) => {
     const nameText = ruleFormName.trim();
     if (!nameText) {
       pushLiteratureFeedback({
@@ -2855,28 +2913,28 @@ export function App({ initialThemeMode }: AppProps) {
 
     const maxResults = Number.parseInt(ruleFormMaxResultsInput.trim(), 10);
     const lookbackDays = Number.parseInt(ruleFormLookbackInput.trim(), 10);
-    const minYear = Number.parseInt(ruleFormMinYearInput.trim(), 10);
-    const maxYear = Number.parseInt(ruleFormMaxYearInput.trim(), 10);
     const minCompleteness = Number.parseFloat(ruleFormMinCompletenessInput.trim());
+    const effectiveScope = options?.forceScope ?? ruleFormScope;
+    const scheduleTimezone = resolveSystemTimezone();
 
     const payload = {
-      scope: ruleFormScope,
+      scope: effectiveScope,
       name: nameText,
       query_spec: {
-        include_keywords: parseTokenList(ruleFormIncludeInput),
-        exclude_keywords: parseTokenList(ruleFormExcludeInput),
-        authors: parseTokenList(ruleFormAuthorsInput),
-        venues: parseTokenList(ruleFormVenuesInput),
+        include_keywords: [],
+        exclude_keywords: [],
+        authors: [],
+        venues: [],
         max_results_per_source: Number.isFinite(maxResults) ? maxResults : 20,
       },
       time_spec: {
         lookback_days: Number.isFinite(lookbackDays) ? lookbackDays : 30,
-        min_year: ruleFormMinYearInput.trim().length > 0 && Number.isFinite(minYear) ? minYear : null,
-        max_year: ruleFormMaxYearInput.trim().length > 0 && Number.isFinite(maxYear) ? maxYear : null,
+        min_year: null,
+        max_year: null,
       },
       quality_spec: {
         min_completeness_score: Number.isFinite(minCompleteness) ? minCompleteness : 0.6,
-        require_include_match: ruleFormRequireIncludeMatch,
+        require_include_match: false,
       },
       sources,
       schedules: [
@@ -2885,7 +2943,7 @@ export function App({ initialThemeMode }: AppProps) {
           days_of_week: ruleFormFrequency === 'WEEKLY' ? parseTokenList(ruleFormDaysInput) : [],
           hour,
           minute,
-          timezone: ruleFormTimezone.trim() || 'UTC',
+          timezone: scheduleTimezone,
           active: true,
         },
       ],
@@ -2893,6 +2951,7 @@ export function App({ initialThemeMode }: AppProps) {
 
     setRulesStatus('saving');
     try {
+      let resolvedRuleId: string | null = ruleEditingId;
       if (ruleEditingId) {
         await requestGovernance({
           method: 'PATCH',
@@ -2900,19 +2959,41 @@ export function App({ initialThemeMode }: AppProps) {
           body: payload,
         });
       } else {
-        await requestGovernance({
+        const createPayload = await requestGovernance({
           method: 'POST',
           path: '/auto-pull/rules',
           body: payload,
         });
+        const createRoot = asRecord(createPayload);
+        const createdRuleId = toText(createRoot?.rule_id)?.trim() ?? '';
+        if (createdRuleId) {
+          resolvedRuleId = createdRuleId;
+        }
+      }
+
+      if (options?.bindToTopicDraft && resolvedRuleId) {
+        setTopicFormRuleIds((current) => (current.includes(resolvedRuleId as string) ? current : [...current, resolvedRuleId as string]));
       }
       resetRuleForm();
+      if (options?.closeTopicComposer) {
+        setTopicRuleComposerOpen(false);
+      }
+      if (options?.closeGlobalComposer) {
+        setGlobalRuleComposerOpen(false);
+      }
       await loadAutoPullRules();
       await loadAutoPullRuns();
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'success',
-        message: ruleEditingId ? '规则已更新。' : '规则已创建。',
+        message:
+          options?.bindToTopicDraft
+            ? ruleEditingId
+              ? '规则已更新并保留在当前主题绑定中。'
+              : '规则已创建并加入当前主题绑定。'
+            : ruleEditingId
+              ? '规则已更新。'
+              : '规则已创建。',
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : '保存规则失败。';
@@ -2956,6 +3037,32 @@ export function App({ initialThemeMode }: AppProps) {
         slot: 'auto-import',
         level: 'error',
         message: `更新规则状态失败：${message}`,
+      });
+    }
+  };
+
+  const handleRunRuleFullRefresh = async (rule: AutoPullRule) => {
+    try {
+      await requestGovernance({
+        method: 'POST',
+        path: `/auto-pull/rules/${encodeURIComponent(rule.rule_id)}/runs`,
+        body: {
+          trigger_type: 'MANUAL',
+          full_refresh: true,
+        },
+      });
+      await loadAutoPullRuns();
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'success',
+        message: `已触发全量重抓：${rule.name}`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '触发全量重抓失败。';
+      pushLiteratureFeedback({
+        slot: 'auto-import',
+        level: 'error',
+        message: `触发全量重抓失败：${message}`,
       });
     }
   };
@@ -3523,7 +3630,7 @@ export function App({ initialThemeMode }: AppProps) {
     }
   };
 
-  const handleLoadZoteroToReview = async () => {
+  const prepareZoteroRequestContext = () => {
     const libraryId = zoteroLibraryId.trim();
     if (!libraryId) {
       const message = '请填写 Zotero Library ID。';
@@ -3534,39 +3641,97 @@ export function App({ initialThemeMode }: AppProps) {
         level: 'warning',
         message,
       });
+      return null;
+    }
+
+    return { libraryId };
+  };
+
+  const requestZoteroPreview = async (libraryId: string) => {
+    return requestGovernance({
+      method: 'POST',
+      path: '/literature/zotero-preview',
+      body: {
+        library_type: zoteroLibraryType,
+        library_id: libraryId,
+        api_key: zoteroApiKey.trim() || undefined,
+      },
+    });
+  };
+
+  const handleTestZoteroConnection = async () => {
+    const context = prepareZoteroRequestContext();
+    if (!context) {
       return;
     }
 
-    const parsedLimit = Number.parseInt(zoteroLimitInput.trim(), 10);
-    const normalizedLimit = Number.isFinite(parsedLimit) ? parsedLimit : 20;
-    const limit = Math.min(50, Math.max(1, normalizedLimit));
-    if (limit !== normalizedLimit) {
-      setZoteroLimitInput(String(limit));
-      pushLiteratureFeedback({
-        slot: 'manual-import',
-        level: 'warning',
-        message: `Zotero limit 已自动修正为 ${limit}（允许范围 1-50）。`,
-      });
-    }
-
     setZoteroLoading(true);
+    setZoteroAction('test-link');
     setZoteroStatus('loading');
     setZoteroError(null);
     try {
-      const payload = await requestGovernance({
-        method: 'POST',
-        path: '/literature/zotero-preview',
-        body: {
-          library_type: zoteroLibraryType,
-          library_id: libraryId,
-          api_key: zoteroApiKey.trim() || undefined,
-          query: zoteroQuery.trim() || undefined,
-          limit,
-        },
+      const payload = await requestZoteroPreview(context.libraryId);
+      const previewResult = computeZoteroPreviewResult(payload, manualImportSession?.rows ?? []);
+
+      setZoteroLinkResult({
+        tested: true,
+        connected: true,
+        totalCount: previewResult.fetchedCount,
+        duplicateCount: previewResult.duplicateCount,
+        unparsedCount: previewResult.unparsedCount,
+        importableCount: previewResult.importableCount,
+      });
+      setZoteroStatus(previewResult.fetchedCount > 0 ? 'ready' : 'empty');
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: previewResult.fetchedCount > 0 ? 'success' : 'warning',
+        message: previewResult.fetchedCount > 0
+          ? `链接测试成功：总数 ${previewResult.fetchedCount}，可导入 ${previewResult.importableCount}。`
+          : '链接测试成功，但当前未拉取到文献。',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Zotero 链接测试失败。';
+      setZoteroStatus('error');
+      setZoteroError(message);
+      setZoteroLinkResult({
+        ...emptyZoteroLinkResult,
+        tested: true,
+        connected: false,
+      });
+      pushLiteratureFeedback({
+        slot: 'manual-import',
+        level: 'error',
+        message: `Zotero 链接测试失败：${message}`,
+      });
+    } finally {
+      setZoteroLoading(false);
+      setZoteroAction('idle');
+    }
+  };
+
+  const handleLoadZoteroToReview = async () => {
+    const context = prepareZoteroRequestContext();
+    if (!context) {
+      return;
+    }
+
+    setZoteroLoading(true);
+    setZoteroAction('load-to-list');
+    setZoteroStatus('loading');
+    setZoteroError(null);
+    try {
+      const payload = await requestZoteroPreview(context.libraryId);
+      const previewResult = computeZoteroPreviewResult(payload, manualImportSession?.rows ?? []);
+      setZoteroLinkResult({
+        tested: true,
+        connected: true,
+        totalCount: previewResult.fetchedCount,
+        duplicateCount: previewResult.duplicateCount,
+        unparsedCount: previewResult.unparsedCount,
+        importableCount: previewResult.importableCount,
       });
 
-      const previewItems = parseZoteroPreviewItems(payload);
-      if (previewItems.length === 0) {
+      if (previewResult.rows.length === 0) {
         setZoteroStatus('empty');
         pushLiteratureFeedback({
           slot: 'manual-import',
@@ -3576,17 +3741,19 @@ export function App({ initialThemeMode }: AppProps) {
         return;
       }
 
-      const sessionName = zoteroQuery.trim()
-        ? `zotero:${zoteroLibraryType}/${libraryId} · ${zoteroQuery.trim()}`
-        : `zotero:${zoteroLibraryType}/${libraryId}`;
-      const rows = convertImportItemsToDraftRows(previewItems);
-      applyManualImportSessionRows(sessionName, rows, 'zotero-preview');
+      const sessionName = `zotero:${zoteroLibraryType}/${context.libraryId}`;
+      applyManualImportSessionRows(sessionName, previewResult.rows, 'zotero-preview');
       setZoteroStatus('ready');
       setZoteroError(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Zotero 预览失败。';
       setZoteroStatus('error');
       setZoteroError(message);
+      setZoteroLinkResult({
+        ...emptyZoteroLinkResult,
+        tested: true,
+        connected: false,
+      });
       pushLiteratureFeedback({
         slot: 'manual-import',
         level: 'error',
@@ -3594,36 +3761,18 @@ export function App({ initialThemeMode }: AppProps) {
       });
     } finally {
       setZoteroLoading(false);
+      setZoteroAction('idle');
     }
   };
 
   const handleImportFromZotero = async () => {
-    const libraryId = zoteroLibraryId.trim();
-    if (!libraryId) {
-      const message = '请填写 Zotero Library ID。';
-      setZoteroStatus('error');
-      setZoteroError(message);
-      pushLiteratureFeedback({
-        slot: 'manual-import',
-        level: 'warning',
-        message,
-      });
+    const context = prepareZoteroRequestContext();
+    if (!context) {
       return;
     }
 
-    const parsedLimit = Number.parseInt(zoteroLimitInput.trim(), 10);
-    const normalizedLimit = Number.isFinite(parsedLimit) ? parsedLimit : 20;
-    const limit = Math.min(50, Math.max(1, normalizedLimit));
-    if (limit !== normalizedLimit) {
-      setZoteroLimitInput(String(limit));
-      pushLiteratureFeedback({
-        slot: 'manual-import',
-        level: 'warning',
-        message: `Zotero limit 已自动修正为 ${limit}（允许范围 1-50）。`,
-      });
-    }
-
     setZoteroLoading(true);
+    setZoteroAction('sync-import');
     setZoteroStatus('loading');
     setZoteroError(null);
     try {
@@ -3632,16 +3781,19 @@ export function App({ initialThemeMode }: AppProps) {
         path: '/literature/zotero-import',
         body: {
           library_type: zoteroLibraryType,
-          library_id: libraryId,
+          library_id: context.libraryId,
           api_key: zoteroApiKey.trim() || undefined,
-          query: zoteroQuery.trim() || undefined,
-          limit,
         },
       });
 
       const root = asRecord(payload);
       const importedCount = typeof root?.imported_count === 'number' ? root.imported_count : 0;
       setZoteroStatus(importedCount > 0 ? 'ready' : 'empty');
+      setZoteroLinkResult((current) => ({
+        ...current,
+        tested: true,
+        connected: true,
+      }));
       pushLiteratureFeedback({
         slot: 'manual-import',
         level: importedCount > 0 ? 'success' : 'warning',
@@ -3660,6 +3812,7 @@ export function App({ initialThemeMode }: AppProps) {
       });
     } finally {
       setZoteroLoading(false);
+      setZoteroAction('idle');
     }
   };
 
@@ -4228,6 +4381,10 @@ export function App({ initialThemeMode }: AppProps) {
     () => autoPullRules.filter((rule) => rule.scope === 'TOPIC'),
     [autoPullRules],
   );
+  const globalRules = useMemo(
+    () => autoPullRules.filter((rule) => rule.scope === 'GLOBAL'),
+    [autoPullRules],
+  );
   const topicVenueOptions = useMemo(
     () => [...new Set([
       ...topicPresetVenueOptions,
@@ -4685,7 +4842,7 @@ export function App({ initialThemeMode }: AppProps) {
                                     data-variant="secondary"
                                     data-size="sm"
                                     type="button"
-                                    onClick={() => handleCreateRuleShortcutForTopic()}
+                                    onClick={() => handleEditTopicProfileAndCreateRule(profile)}
                                   >
                                     新建规则
                                   </button>
@@ -4987,7 +5144,7 @@ export function App({ initialThemeMode }: AppProps) {
                                             </svg>
                                           </span>
                                           <p data-ui="text" data-variant="caption" data-tone="muted">
-                                            暂无可绑定规则，请先到规则中心创建规则
+                                            暂无可绑定规则，可直接在此处新增并绑定
                                           </p>
                                           <button
                                             data-ui="button"
@@ -4995,13 +5152,9 @@ export function App({ initialThemeMode }: AppProps) {
                                             data-size="sm"
                                             type="button"
                                             className="topic-rule-empty-action"
-                                            onClick={() => {
-                                              setTopicFormModalOpen(false);
-                                              setTopicVenuePickerOpen(false);
-                                              setAutoImportSubTab('rules-center');
-                                            }}
+                                            onClick={handleOpenTopicRuleComposer}
                                           >
-                                            去规则中心创建规则
+                                            新建并绑定规则
                                           </button>
                                         </div>
                                       ) : (
@@ -5012,29 +5165,174 @@ export function App({ initialThemeMode }: AppProps) {
                                               data-variant="ghost"
                                               data-size="sm"
                                               type="button"
-                                              onClick={() => {
-                                                setTopicFormModalOpen(false);
-                                                setTopicVenuePickerOpen(false);
-                                                setAutoImportSubTab('rules-center');
-                                              }}
+                                              onClick={handleOpenTopicRuleComposer}
                                             >
-                                              创建规则
+                                              新建规则
                                             </button>
                                           </div>
                                           <div className="topic-rule-selector-list">
                                             {topicScopedRules.map((rule) => (
-                                              <label key={rule.rule_id} className="auto-pull-source-toggle">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={topicFormRuleIds.includes(rule.rule_id)}
-                                                  onChange={() => handleToggleTopicRuleSelection(rule.rule_id)}
-                                                />
-                                                {rule.name}
-                                              </label>
+                                              <div key={rule.rule_id} className="topic-rule-selector-item">
+                                                <label className="auto-pull-source-toggle">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={topicFormRuleIds.includes(rule.rule_id)}
+                                                    onChange={() => handleToggleTopicRuleSelection(rule.rule_id)}
+                                                  />
+                                                  {rule.name}
+                                                </label>
+                                                <div data-ui="toolbar" data-gap="2">
+                                                  <button
+                                                    data-ui="button"
+                                                    data-variant="ghost"
+                                                    data-size="sm"
+                                                    type="button"
+                                                    onClick={() => {
+                                                      handleEditRule(rule);
+                                                      setRuleFormScope('TOPIC');
+                                                      setTopicRuleComposerOpen(true);
+                                                    }}
+                                                  >
+                                                    编辑
+                                                  </button>
+                                                  <button
+                                                    data-ui="button"
+                                                    data-variant="secondary"
+                                                    data-size="sm"
+                                                    type="button"
+                                                    onClick={() => void handleRunRuleFullRefresh(rule)}
+                                                  >
+                                                    全量重抓
+                                                  </button>
+                                                </div>
+                                              </div>
                                             ))}
                                           </div>
                                         </>
                                       )}
+
+                                      {topicRuleComposerOpen ? (
+                                        <section className="topic-rule-inline-editor">
+                                          <p data-ui="text" data-variant="caption" data-tone="muted">
+                                            {ruleEditingId ? '编辑并绑定规则' : '新增并绑定规则'}
+                                          </p>
+                                          <div data-ui="grid" data-cols="2" data-gap="2">
+                                            <label data-ui="field">
+                                              <span data-slot="label">规则名称</span>
+                                              <input
+                                                data-ui="input"
+                                                data-size="sm"
+                                                value={ruleFormName}
+                                                onChange={(event) => setRuleFormName(event.target.value)}
+                                                placeholder="例如 每日增量拉取"
+                                              />
+                                            </label>
+                                            <label data-ui="field">
+                                              <span data-slot="label">每次拉取上限</span>
+                                              <input
+                                                data-ui="input"
+                                                data-size="sm"
+                                                value={ruleFormMaxResultsInput}
+                                                onChange={(event) => setRuleFormMaxResultsInput(event.target.value)}
+                                              />
+                                            </label>
+                                            <label data-ui="field">
+                                              <span data-slot="label">拉取频率</span>
+                                              <select
+                                                data-ui="select"
+                                                data-size="sm"
+                                                value={ruleFormFrequency}
+                                                onChange={(event) => setRuleFormFrequency(event.target.value as AutoPullFrequency)}
+                                              >
+                                                <option value="DAILY">DAILY</option>
+                                                <option value="WEEKLY">WEEKLY</option>
+                                              </select>
+                                            </label>
+                                            <label data-ui="field">
+                                              <span data-slot="label">质量门槛（0-1）</span>
+                                              <input
+                                                data-ui="input"
+                                                data-size="sm"
+                                                value={ruleFormMinCompletenessInput}
+                                                onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
+                                              />
+                                            </label>
+                                            <label data-ui="field">
+                                              <span data-slot="label">小时</span>
+                                              <input
+                                                data-ui="input"
+                                                data-size="sm"
+                                                value={ruleFormHourInput}
+                                                onChange={(event) => setRuleFormHourInput(event.target.value)}
+                                              />
+                                            </label>
+                                            <label data-ui="field">
+                                              <span data-slot="label">分钟</span>
+                                              <input
+                                                data-ui="input"
+                                                data-size="sm"
+                                                value={ruleFormMinuteInput}
+                                                onChange={(event) => setRuleFormMinuteInput(event.target.value)}
+                                              />
+                                            </label>
+                                            <label data-ui="field">
+                                              <span data-slot="label">滑动窗口（天）</span>
+                                              <input
+                                                data-ui="input"
+                                                data-size="sm"
+                                                value={ruleFormLookbackInput}
+                                                onChange={(event) => setRuleFormLookbackInput(event.target.value)}
+                                              />
+                                            </label>
+                                            <label data-ui="field">
+                                              <span data-slot="label">星期（WEEKLY）</span>
+                                              <input
+                                                data-ui="input"
+                                                data-size="sm"
+                                                value={ruleFormDaysInput}
+                                                onChange={(event) => setRuleFormDaysInput(event.target.value)}
+                                                placeholder="MON,TUE"
+                                              />
+                                            </label>
+                                          </div>
+                                          <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                                            <label className="auto-pull-source-toggle">
+                                              <input type="checkbox" checked={ruleSourceCrossref} onChange={(event) => setRuleSourceCrossref(event.target.checked)} />
+                                              CROSSREF
+                                            </label>
+                                            <label className="auto-pull-source-toggle">
+                                              <input type="checkbox" checked={ruleSourceArxiv} onChange={(event) => setRuleSourceArxiv(event.target.checked)} />
+                                              ARXIV
+                                            </label>
+                                          </div>
+
+                                          <div className="topic-rule-inline-actions" data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                                            <button
+                                              data-ui="button"
+                                              data-variant="primary"
+                                              data-size="sm"
+                                              type="button"
+                                              onClick={() => void handleSubmitRule({
+                                                forceScope: 'TOPIC',
+                                                bindToTopicDraft: true,
+                                                closeTopicComposer: true,
+                                              })}
+                                            >
+                                              {ruleEditingId ? '更新并绑定' : '创建并绑定'}
+                                            </button>
+                                            <button
+                                              data-ui="button"
+                                              data-variant="ghost"
+                                              data-size="sm"
+                                              type="button"
+                                              onClick={handleCloseTopicRuleComposer}
+                                            >
+                                              取消
+                                            </button>
+                                          </div>
+                                          {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
+                                        </section>
+                                      ) : null}
                                     </div>
                                   </div>
                                 </div>
@@ -5060,25 +5358,24 @@ export function App({ initialThemeMode }: AppProps) {
                       </section>
                     ) : null}
 
-                    {autoImportSubTab === 'rules-center' ? (
-                      <section className="literature-section-block rules-center-section">
-                        <div className="rules-center-split">
-                          <section className="rules-center-create-wrap">
-                            <div className="rules-center-create-card">
-                              <div className="rules-center-create-body">
+
+                    {autoImportSubTab === 'topic-settings' ? (
+                      <section className="literature-section-block">
+                        <details className="topic-global-rules-details">
+                          <summary className="topic-global-rules-summary">全局规则（高级）</summary>
+                          <div className="topic-global-rules-body">
+                            <div data-ui="toolbar" data-wrap="wrap" data-gap="2">
+                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleOpenGlobalRuleComposer}>
+                                新建全局规则
+                              </button>
+                              <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void loadAutoPullRules()}>
+                                刷新规则
+                              </button>
+                            </div>
+
+                            {globalRuleComposerOpen ? (
+                              <section className="topic-global-rule-editor">
                                 <div data-ui="grid" data-cols="2" data-gap="2">
-                                  <label data-ui="field">
-                                    <span data-slot="label">Scope</span>
-                                    <select
-                                      data-ui="select"
-                                      data-size="sm"
-                                      value={ruleFormScope}
-                                      onChange={(event) => setRuleFormScope(event.target.value as AutoPullScope)}
-                                    >
-                                      <option value="GLOBAL">GLOBAL</option>
-                                      <option value="TOPIC">TOPIC</option>
-                                    </select>
-                                  </label>
                                   <label data-ui="field">
                                     <span data-slot="label">规则名称</span>
                                     <input
@@ -5086,11 +5383,11 @@ export function App({ initialThemeMode }: AppProps) {
                                       data-size="sm"
                                       value={ruleFormName}
                                       onChange={(event) => setRuleFormName(event.target.value)}
-                                      placeholder="例如 每日增量拉取"
+                                      placeholder="例如 全局默认规则"
                                     />
                                   </label>
                                   <label data-ui="field">
-                                    <span data-slot="label">每源最大结果数</span>
+                                    <span data-slot="label">每次拉取上限</span>
                                     <input
                                       data-ui="input"
                                       data-size="sm"
@@ -5099,22 +5396,65 @@ export function App({ initialThemeMode }: AppProps) {
                                     />
                                   </label>
                                   <label data-ui="field">
-                                    <span data-slot="label">Include 关键词</span>
-                                    <textarea
-                                      data-ui="textarea"
-                                      value={ruleFormIncludeInput}
-                                      onChange={(event) => setRuleFormIncludeInput(event.target.value)}
+                                    <span data-slot="label">拉取频率</span>
+                                    <select
+                                      data-ui="select"
+                                      data-size="sm"
+                                      value={ruleFormFrequency}
+                                      onChange={(event) => setRuleFormFrequency(event.target.value as AutoPullFrequency)}
+                                    >
+                                      <option value="DAILY">DAILY</option>
+                                      <option value="WEEKLY">WEEKLY</option>
+                                    </select>
+                                  </label>
+                                  <label data-ui="field">
+                                    <span data-slot="label">质量门槛（0-1）</span>
+                                    <input
+                                      data-ui="input"
+                                      data-size="sm"
+                                      value={ruleFormMinCompletenessInput}
+                                      onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
                                     />
                                   </label>
                                   <label data-ui="field">
-                                    <span data-slot="label">Exclude 关键词</span>
-                                    <textarea
-                                      data-ui="textarea"
-                                      value={ruleFormExcludeInput}
-                                      onChange={(event) => setRuleFormExcludeInput(event.target.value)}
+                                    <span data-slot="label">小时</span>
+                                    <input
+                                      data-ui="input"
+                                      data-size="sm"
+                                      value={ruleFormHourInput}
+                                      onChange={(event) => setRuleFormHourInput(event.target.value)}
+                                    />
+                                  </label>
+                                  <label data-ui="field">
+                                    <span data-slot="label">分钟</span>
+                                    <input
+                                      data-ui="input"
+                                      data-size="sm"
+                                      value={ruleFormMinuteInput}
+                                      onChange={(event) => setRuleFormMinuteInput(event.target.value)}
+                                    />
+                                  </label>
+                                  <label data-ui="field">
+                                    <span data-slot="label">滑动窗口（天）</span>
+                                    <input
+                                      data-ui="input"
+                                      data-size="sm"
+                                      value={ruleFormLookbackInput}
+                                      onChange={(event) => setRuleFormLookbackInput(event.target.value)}
+                                    />
+                                  </label>
+                                  <label data-ui="field">
+                                    <span data-slot="label">星期（WEEKLY）</span>
+                                    <input
+                                      data-ui="input"
+                                      data-size="sm"
+                                      value={ruleFormDaysInput}
+                                      onChange={(event) => setRuleFormDaysInput(event.target.value)}
+                                      placeholder="MON,TUE"
                                     />
                                   </label>
                                 </div>
+
                                 <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
                                   <label className="auto-pull-source-toggle">
                                     <input type="checkbox" checked={ruleSourceCrossref} onChange={(event) => setRuleSourceCrossref(event.target.checked)} />
@@ -5124,189 +5464,40 @@ export function App({ initialThemeMode }: AppProps) {
                                     <input type="checkbox" checked={ruleSourceArxiv} onChange={(event) => setRuleSourceArxiv(event.target.checked)} />
                                     ARXIV
                                   </label>
+                                </div>
+
+                                <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+                                  <button
+                                    data-ui="button"
+                                    data-variant="primary"
+                                    data-size="sm"
+                                    type="button"
+                                    onClick={() => void handleSubmitRule({
+                                      forceScope: 'GLOBAL',
+                                      closeGlobalComposer: true,
+                                    })}
+                                  >
+                                    {ruleEditingId ? '更新全局规则' : '创建全局规则'}
+                                  </button>
                                   <button
                                     data-ui="button"
                                     data-variant="ghost"
                                     data-size="sm"
                                     type="button"
-                                    onClick={() => setRuleFormAdvancedOpen((current) => !current)}
+                                    onClick={handleCloseGlobalRuleComposer}
                                   >
-                                    {ruleFormAdvancedOpen ? '收起高级选项' : '展开高级选项'}
+                                    取消
                                   </button>
                                 </div>
-                                {ruleFormAdvancedOpen ? (
-                                  <>
-                                    <div data-ui="grid" data-cols="2" data-gap="2">
-                                      <label data-ui="field">
-                                        <span data-slot="label">作者关键词</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormAuthorsInput}
-                                          onChange={(event) => setRuleFormAuthorsInput(event.target.value)}
-                                        />
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">期刊/会议关键词</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormVenuesInput}
-                                          onChange={(event) => setRuleFormVenuesInput(event.target.value)}
-                                        />
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">滚动窗口（天）</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormLookbackInput}
-                                          onChange={(event) => setRuleFormLookbackInput(event.target.value)}
-                                        />
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">质量门最小完整度（0-1）</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormMinCompletenessInput}
-                                          onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
-                                        />
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">最小年份</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormMinYearInput}
-                                          onChange={(event) => setRuleFormMinYearInput(event.target.value)}
-                                        />
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">最大年份</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormMaxYearInput}
-                                          onChange={(event) => setRuleFormMaxYearInput(event.target.value)}
-                                        />
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">频率</span>
-                                        <select
-                                          data-ui="select"
-                                          data-size="sm"
-                                          value={ruleFormFrequency}
-                                          onChange={(event) => setRuleFormFrequency(event.target.value as AutoPullFrequency)}
-                                        >
-                                          <option value="DAILY">DAILY</option>
-                                          <option value="WEEKLY">WEEKLY</option>
-                                        </select>
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">星期（WEEKLY）</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormDaysInput}
-                                          onChange={(event) => setRuleFormDaysInput(event.target.value)}
-                                          placeholder="MON,TUE"
-                                        />
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">小时</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormHourInput}
-                                          onChange={(event) => setRuleFormHourInput(event.target.value)}
-                                        />
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">分钟</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormMinuteInput}
-                                          onChange={(event) => setRuleFormMinuteInput(event.target.value)}
-                                        />
-                                      </label>
-                                      <label data-ui="field">
-                                        <span data-slot="label">时区</span>
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={ruleFormTimezone}
-                                          onChange={(event) => setRuleFormTimezone(event.target.value)}
-                                        />
-                                      </label>
-                                    </div>
-                                    <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                                      <label className="auto-pull-source-toggle">
-                                        <input
-                                          type="checkbox"
-                                          checked={ruleFormRequireIncludeMatch}
-                                          onChange={(event) => setRuleFormRequireIncludeMatch(event.target.checked)}
-                                        />
-                                        命中 Include 才通过
-                                      </label>
-                                    </div>
-                                  </>
-                                ) : null}
-                              </div>
-                            <div className="rules-center-create-footer" data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                              <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleSubmitRule}>
-                                {ruleEditingId ? '更新规则' : '创建规则'}
-                              </button>
-                              <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={resetRuleForm}>
-                                清空表单
-                              </button>
-                            </div>
-                              {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
-                            </div>
-                          </section>
+                              </section>
+                            ) : null}
 
-                          <div className="rules-center-divider" aria-hidden="true" />
-
-                          <section className="rules-center-list-wrap">
-                            <p data-ui="text" data-variant="caption" data-tone="muted">所有规则</p>
-                            <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
-                              <label data-ui="field">
-                                <span data-slot="label">Scope 过滤</span>
-                                <select
-                                  data-ui="select"
-                                  data-size="sm"
-                                  value={ruleFilterScope}
-                                  onChange={(event) => setRuleFilterScope(event.target.value as '' | AutoPullScope)}
-                                >
-                                  <option value="">全部</option>
-                                  <option value="GLOBAL">GLOBAL</option>
-                                  <option value="TOPIC">TOPIC</option>
-                                </select>
-                              </label>
-                              <label data-ui="field">
-                                <span data-slot="label">状态过滤</span>
-                                <select
-                                  data-ui="select"
-                                  data-size="sm"
-                                  value={ruleFilterStatus}
-                                  onChange={(event) => setRuleFilterStatus(event.target.value as '' | AutoPullRuleStatus)}
-                                >
-                                  <option value="">全部</option>
-                                  <option value="ACTIVE">ACTIVE</option>
-                                  <option value="PAUSED">PAUSED</option>
-                                </select>
-                              </label>
-                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadAutoPullRules()}>
-                                刷新规则
-                              </button>
-                            </div>
                             <div className="literature-list">
-                              {autoPullRules.length === 0 ? (
-                                <p data-ui="text" data-variant="caption" data-tone="muted">暂无规则。</p>
+                              {globalRules.length === 0 ? (
+                                <p data-ui="text" data-variant="caption" data-tone="muted">暂无全局规则。</p>
                               ) : (
-                                autoPullRules.map((rule) => {
-                                  const pauseLocked = rule.scope === 'GLOBAL' && rule.status === 'ACTIVE' && activeGlobalRuleCount <= 1;
+                                globalRules.map((rule) => {
+                                  const pauseLocked = rule.status === 'ACTIVE' && activeGlobalRuleCount <= 1;
                                   const sourceText = rule.sources
                                     .filter((source) => source.enabled)
                                     .map((source) => source.source)
@@ -5316,11 +5507,32 @@ export function App({ initialThemeMode }: AppProps) {
                                       <div>
                                         <p data-ui="text" data-variant="body" data-tone="primary">{rule.name}</p>
                                         <p data-ui="text" data-variant="caption" data-tone="muted">
-                                          {rule.scope} · {rule.status} · sources:{sourceText || '--'} · {formatTimestamp(rule.updated_at)}
+                                          {rule.status} · sources:{sourceText || '--'} · {formatTimestamp(rule.updated_at)}
                                         </p>
                                       </div>
                                       <div data-ui="toolbar" data-gap="2">
-                                        <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => handleEditRule(rule)}>编辑</button>
+                                        <button
+                                          data-ui="button"
+                                          data-variant="ghost"
+                                          data-size="sm"
+                                          type="button"
+                                          onClick={() => {
+                                            handleEditRule(rule);
+                                            setRuleFormScope('GLOBAL');
+                                            setGlobalRuleComposerOpen(true);
+                                          }}
+                                        >
+                                          编辑
+                                        </button>
+                                        <button
+                                          data-ui="button"
+                                          data-variant="secondary"
+                                          data-size="sm"
+                                          type="button"
+                                          onClick={() => void handleRunRuleFullRefresh(rule)}
+                                        >
+                                          全量重抓
+                                        </button>
                                         <button
                                           data-ui="button"
                                           data-variant="ghost"
@@ -5338,8 +5550,9 @@ export function App({ initialThemeMode }: AppProps) {
                                 })
                               )}
                             </div>
-                          </section>
-                        </div>
+                            {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
+                          </div>
+                        </details>
                       </section>
                     ) : null}
 
@@ -5643,85 +5856,112 @@ export function App({ initialThemeMode }: AppProps) {
                         </section>
                       ) : (
                         <section className="literature-section-block manual-zotero-card">
-                          <div data-ui="grid" data-cols="2" data-gap="2" className="zotero-fields-grid">
-                            <label data-ui="field">
-                              <span data-slot="label">Library Type</span>
-                              <select
-                                data-ui="select"
-                                data-size="sm"
-                                value={zoteroLibraryType}
-                                onChange={(event) => setZoteroLibraryType(event.target.value as 'users' | 'groups')}
-                              >
-                                <option value="users">users</option>
-                                <option value="groups">groups</option>
-                              </select>
-                            </label>
-                            <label data-ui="field">
-                              <span data-slot="label">Library ID</span>
-                              <input
-                                data-ui="input"
-                                data-size="sm"
-                                value={zoteroLibraryId}
-                                onChange={(event) => setZoteroLibraryId(event.target.value)}
-                                placeholder="例如 123456"
-                              />
-                            </label>
-                            <label data-ui="field">
-                              <span data-slot="label">API Key（可选）</span>
-                              <input
-                                data-ui="input"
-                                data-size="sm"
-                                type="password"
-                                value={zoteroApiKey}
-                                onChange={(event) => setZoteroApiKey(event.target.value)}
-                                placeholder="公开库可留空"
-                              />
-                            </label>
-                            <label data-ui="field">
-                              <span data-slot="label">Limit（1-50）</span>
-                              <input
-                                data-ui="input"
-                                data-size="sm"
-                                value={zoteroLimitInput}
-                                onChange={(event) => setZoteroLimitInput(event.target.value)}
-                                placeholder="20"
-                              />
-                            </label>
+                          <div className="zotero-workbench">
+                            <div className="zotero-config-pane">
+                              <div className="zotero-config-card">
+                                <p className="zotero-result-title">连接配置</p>
+                                <label data-ui="field">
+                                  <span data-slot="label">文库类型</span>
+                                  <select
+                                    data-ui="select"
+                                    data-size="sm"
+                                    value={zoteroLibraryType}
+                                    onChange={(event) => setZoteroLibraryType(event.target.value as 'users' | 'groups')}
+                                  >
+                                    <option value="users">users</option>
+                                    <option value="groups">groups</option>
+                                  </select>
+                                </label>
+                                <label data-ui="field">
+                                  <span data-slot="label">Library ID</span>
+                                  <input
+                                    data-ui="input"
+                                    data-size="sm"
+                                    value={zoteroLibraryId}
+                                    onChange={(event) => setZoteroLibraryId(event.target.value)}
+                                    placeholder="例如 123456"
+                                  />
+                                </label>
+                                <label data-ui="field">
+                                  <span data-slot="label">API Key（可选）</span>
+                                  <input
+                                    data-ui="input"
+                                    data-size="sm"
+                                    type="password"
+                                    value={zoteroApiKey}
+                                    onChange={(event) => setZoteroApiKey(event.target.value)}
+                                    placeholder="公开库可留空"
+                                  />
+                                </label>
+                              </div>
+                            </div>
+
+                            <div className="zotero-result-pane" data-zotero-status={zoteroStatus}>
+                              <div className="zotero-result-header">
+                                <p className="zotero-result-title">链接测试结果</p>
+                                <button
+                                  data-ui="button"
+                                  data-variant="secondary"
+                                  data-size="sm"
+                                  type="button"
+                                  onClick={() => void handleTestZoteroConnection()}
+                                  disabled={zoteroLoading}
+                                >
+                                  {zoteroLoading && zoteroAction === 'test-link' ? '测试中...' : '测试链接'}
+                                </button>
+                              </div>
+
+                              <div className="zotero-result-grid">
+                                <div className="zotero-result-row">
+                                  <span className="zotero-result-label">是否连接成功</span>
+                                  <span className={`zotero-result-value ${zoteroLinkResult.tested ? (zoteroLinkResult.connected ? 'is-success' : 'is-error') : ''}`.trim()}>
+                                    {zoteroLinkResult.tested ? (zoteroLinkResult.connected ? '成功' : '失败') : '未测试'}
+                                  </span>
+                                </div>
+                                <div className="zotero-result-row">
+                                  <span className="zotero-result-label">文献总数</span>
+                                  <span className="zotero-result-value">{zoteroLinkResult.tested ? zoteroLinkResult.totalCount : '--'}</span>
+                                </div>
+                                <div className="zotero-result-row">
+                                  <span className="zotero-result-label">重复文献</span>
+                                  <span className="zotero-result-value">{zoteroLinkResult.tested ? zoteroLinkResult.duplicateCount : '--'}</span>
+                                </div>
+                                <div className="zotero-result-row">
+                                  <span className="zotero-result-label">未解析文献</span>
+                                  <span className="zotero-result-value">{zoteroLinkResult.tested ? zoteroLinkResult.unparsedCount : '--'}</span>
+                                </div>
+                                <div className="zotero-result-row">
+                                  <span className="zotero-result-label">可导入文献</span>
+                                  <span className="zotero-result-value">{zoteroLinkResult.tested ? zoteroLinkResult.importableCount : '--'}</span>
+                                </div>
+                              </div>
+
+                              {zoteroError ? <p data-ui="text" data-variant="caption" data-tone="danger">{zoteroError}</p> : null}
+
+                              <div className="zotero-result-actions">
+                                <button
+                                  data-ui="button"
+                                  data-variant="secondary"
+                                  data-size="sm"
+                                  type="button"
+                                  onClick={() => void handleLoadZoteroToReview()}
+                                  disabled={zoteroLoading}
+                                >
+                                  {zoteroLoading && zoteroAction === 'load-to-list' ? '拉取中...' : '拉取到列表'}
+                                </button>
+                                <button
+                                  data-ui="button"
+                                  data-variant="primary"
+                                  data-size="sm"
+                                  type="button"
+                                  onClick={handleImportFromZotero}
+                                  disabled={zoteroLoading}
+                                >
+                                  {zoteroLoading && zoteroAction === 'sync-import' ? '同步中...' : '一键同步导入'}
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <label data-ui="field">
-                            <span data-slot="label">查询关键词（可选）</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={zoteroQuery}
-                              onChange={(event) => setZoteroQuery(event.target.value)}
-                              placeholder="例如 retrieval evaluation"
-                            />
-                          </label>
-                          <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                            <button
-                              data-ui="button"
-                              data-variant="primary"
-                              data-size="sm"
-                              type="button"
-                              onClick={() => void handleLoadZoteroToReview()}
-                              disabled={zoteroLoading}
-                            >
-                              {zoteroLoading ? '拉取中...' : '拉取到检查表'}
-                            </button>
-                            <button
-                              data-ui="button"
-                              data-variant="secondary"
-                              data-size="sm"
-                              type="button"
-                              onClick={handleImportFromZotero}
-                              disabled={zoteroLoading}
-                            >
-                              {zoteroLoading ? '同步中...' : '一键同步导入'}
-                            </button>
-                          </div>
-                          <p data-ui="text" data-variant="caption" data-tone="muted">状态：{formatUiOperationStatus(zoteroStatus)}</p>
-                          {zoteroError ? <p data-ui="text" data-variant="caption" data-tone="danger">{zoteroError}</p> : null}
                         </section>
                       )}
                     </section>

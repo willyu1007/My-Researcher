@@ -242,7 +242,9 @@ test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack
   const topicRunRes = await app.inject({
     method: 'POST',
     url: `/auto-pull/rules/${topicRuleId}/runs`,
-    payload: {},
+    payload: {
+      full_refresh: true,
+    },
   });
   assert.equal(topicRunRes.statusCode, 201);
   const topicQueuedRun = topicRunRes.json();
@@ -250,6 +252,7 @@ test('auto-pull and topic-settings routes support CRUD, run, retry and alert ack
   const topicRun = await waitForTerminalRun(app, topicQueuedRun.run_id as string);
   assert.equal(topicRun.status, 'FAILED');
   const topicRunSummary = (topicRun.summary as Record<string, unknown>) ?? {};
+  assert.equal(topicRunSummary.full_refresh, true);
   assert.deepEqual(topicRunSummary.skipped_topic_ids, ['TOPIC-AUTO-INT-1']);
   const topicAttempts = Array.isArray(topicRun.source_attempts)
     ? (topicRun.source_attempts as Array<{ source?: string }>)

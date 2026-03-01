@@ -651,6 +651,15 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
     return row ? toCursorRecord(row) : null;
   }
 
+  async clearCursor(ruleId: string, source?: AutoPullSource): Promise<void> {
+    await this.prisma.autoPullCursor.deleteMany({
+      where: {
+        ruleId,
+        ...(source ? { source } : {}),
+      },
+    });
+  }
+
   async createAlert(record: AutoPullAlertRecord): Promise<AutoPullAlertRecord> {
     const created = await this.prisma.autoPullAlert.create({
       data: {

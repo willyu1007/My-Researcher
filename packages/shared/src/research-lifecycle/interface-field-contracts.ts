@@ -442,6 +442,7 @@ export interface UpdateAutoPullRuleRequest {
 
 export interface CreateAutoPullRunRequest {
   trigger_type?: AutoPullTriggerType;
+  full_refresh?: boolean;
 }
 
 export interface RetryFailedSourcesRequest {
@@ -1270,6 +1271,7 @@ export const createAutoPullRunRequestSchema = {
   type: 'object',
   properties: {
     trigger_type: { type: 'string', enum: AUTO_PULL_TRIGGER_TYPES, default: 'MANUAL' },
+    full_refresh: { type: 'boolean', default: false },
   },
   additionalProperties: false,
 } as const;
