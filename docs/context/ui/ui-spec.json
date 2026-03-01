@@ -1,6 +1,47 @@
 {
   "ui_spec_version": "1.0.0",
-  "generated_at_utc": "2026-02-24T09:50:30Z",
+  "generated_at_utc": "2026-03-01T14:23:53Z",
+  "alignment_mode": "dual-track-current-first",
+  "effective_profile": {
+    "id": "desktop-hybrid-v1",
+    "description": "Current executable UI profile. Documents real desktop behavior first while keeping governance convergence targets visible.",
+    "runtime_stack": {
+      "shell": "electron",
+      "renderer": "react+vite+typescript"
+    },
+    "style_sources": [
+      "ui/styles/ui.css",
+      "apps/desktop/src/renderer/app-layout.css"
+    ],
+    "theme_runtime": {
+      "modes": [
+        "system",
+        "light",
+        "dark"
+      ],
+      "resolved_themes": [
+        "morethan.light",
+        "morethan.dark"
+      ],
+      "selector": "document.documentElement[data-theme]"
+    },
+    "feature_flags": {
+      "governance_panels": "VITE_ENABLE_GOVERNANCE_PANELS"
+    },
+    "known_realities": [
+      "Feature CSS currently includes visual properties in @layer feature.",
+      "Inline style is used for CSS variable injection in limited locations."
+    ]
+  },
+  "target_profile": {
+    "id": "b1-token-only-target",
+    "tailwind_policy": "B1-layout-only",
+    "theme_policy": "token-only",
+    "feature_css_policy": "Feature CSS should remain structural; visual tokens should come from ui/styles token contract.",
+    "inline_style_policy": "Prefer class/token usage; inline style should be avoided unless approved exception exists.",
+    "hardcoded_literal_policy": "Hardcoded color/shadow literals should be removed from feature CSS.",
+    "governance_gate_expectation": "spec approval aligned + code audit scopes covering desktop renderer paths."
+  },
   "tailwind_policy": "B1-layout-only",
   "theme_policy": "token-only",
   "paths": {
@@ -68,9 +109,62 @@
     "toast",
     "toolbar"
   ],
+  "known_deviations": [
+    {
+      "id": "D-001",
+      "title": "Feature CSS visual-token drift in desktop renderer stylesheet",
+      "severity": "high",
+      "effective_scope": "apps/desktop renderer visual layer",
+      "evidence": [
+        "apps/desktop/src/renderer/app-layout.css"
+      ],
+      "impact": "Current desktop UI remains executable, but policy-level feature_css_audit expectations are not met.",
+      "follow_up_entrypoint": "Future UI convergence task should migrate visual literals and visual properties into token/contract layers.",
+      "status": "accepted-current-state"
+    },
+    {
+      "id": "D-002",
+      "title": "Inline style usage for topic year range CSS variables",
+      "severity": "medium",
+      "effective_scope": "topic rule editor range track",
+      "evidence": [
+        "apps/desktop/src/renderer/App.tsx"
+      ],
+      "impact": "Violates strict no-inline-style governance rule but is currently used for dynamic range rendering.",
+      "follow_up_entrypoint": "Replace with class-based CSS variable strategy or approve a narrow exception with expiry.",
+      "status": "accepted-current-state"
+    },
+    {
+      "id": "D-003",
+      "title": "UI governance scan root does not include monorepo desktop renderer path",
+      "severity": "high",
+      "effective_scope": "ui-governance-gate code audit coverage",
+      "evidence": [
+        "ui/config/governance.json",
+        ".ai/.tmp/ui/20260301T140320Z-89775/ui-gate-report.json"
+      ],
+      "impact": "Gate reports can pass/fail approval checks without scanning actual desktop renderer files.",
+      "follow_up_entrypoint": "Extend include_roots for monorepo desktop paths in a dedicated governance convergence task.",
+      "status": "accepted-current-state"
+    },
+    {
+      "id": "D-004",
+      "title": "UI spec approval fingerprint mismatch",
+      "severity": "high",
+      "effective_scope": "ui-governance-gate approval stage",
+      "evidence": [
+        ".ai/.tmp/ui/20260301T140326Z-89813/ui-gate-report.json",
+        ".ai/.tmp/ui/20260301T140326Z-89813/approval.request.json"
+      ],
+      "impact": "Spec-change approval must be refreshed before expecting green governance gate.",
+      "follow_up_entrypoint": "Run approval flow in a separate governance/ops step; this document task does not approve or alter gate policy.",
+      "status": "recorded-not-remediated"
+    }
+  ],
   "notes": {
     "tailwind_boundary": "Tailwind is allowed for layout only; do not use it for color/typography/radius/shadow/spacing.",
     "global_vs_feature_css": "Global UI lives in ui/styles (layers reset/tokens/contract). Feature CSS must stay in @layer feature and must not define visual tokens.",
-    "change_policy": "Theme changes are token-only. Contract expansion requires RFC + approval."
+    "change_policy": "Theme changes are token-only. Contract expansion requires RFC + approval.",
+    "interpretation_rule": "When effective_profile and target_profile diverge, current execution behavior follows effective_profile and must be explained by known_deviations."
   }
 }

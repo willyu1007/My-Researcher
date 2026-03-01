@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-03-01T02:11:26.330Z",
+  "updatedAt": "2026-03-01T14:25:31.831Z",
   "artifacts": [
     {
       "id": "api-openapi",
@@ -103,6 +103,44 @@
       "source": {
         "kind": "manual",
         "notes": "Replace with real processes or add more .bpmn files; then run ctl-context touch."
+      }
+    },
+    {
+      "id": "ui-spec",
+      "type": "json",
+      "path": "docs/context/ui/ui-spec.json",
+      "mode": "contract",
+      "format": "ui-spec-v1",
+      "tags": [
+        "ui",
+        "llm",
+        "contract"
+      ],
+      "checksumSha256": "ed81eb98f076f9a7d6d1216345ee652a0480c7d5d291bff575b207aa566f9259",
+      "lastUpdated": "2026-03-01T14:25:25.786Z",
+      "source": {
+        "kind": "command",
+        "command": "ctl-context add-artifact",
+        "cwd": "."
+      }
+    },
+    {
+      "id": "ui-current-state-alignment",
+      "type": "markdown",
+      "path": "docs/context/ui/current-state-alignment.md",
+      "mode": "contract",
+      "format": "ui-current-state-alignment-v1",
+      "tags": [
+        "ui",
+        "llm",
+        "governance"
+      ],
+      "checksumSha256": "1a95f83448c5ce9fb1dc142c2ce26b6dccb3960a13c2bf40075adfbdb51a66d1",
+      "lastUpdated": "2026-03-01T14:25:31.831Z",
+      "source": {
+        "kind": "command",
+        "command": "ctl-context add-artifact",
+        "cwd": "."
       }
     }
   ]

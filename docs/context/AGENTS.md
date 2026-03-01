@@ -28,11 +28,18 @@ Read `docs/context/glossary.json` for project-specific term definitions, aliases
 
 Read `docs/context/architecture-principles.md` for cross-cutting rules, conventions, and rejected alternatives.
 
-### Step 6: Source code (only when needed)
+### Step 6: UI tasks (spec first, then alignment)
+
+For UI-related work, read:
+
+1. `docs/context/ui/ui-spec.json` (contract + effective/target profile)
+2. `docs/context/ui/current-state-alignment.md` (current behavior and deviation evidence)
+
+### Step 7: Source code (only when needed)
 
 Only if implementation detail is needed, follow `info.x-source-mapping` in `openapi.yaml` to locate route/controller/schema source files.
 
-### Step 7: Other tasks
+### Step 8: Other tasks
 
 Select artifacts from `registry.json` by tag or type. Open files by path. Do NOT scan folders.
 
@@ -42,6 +49,7 @@ Select artifacts from `registry.json` by tag or type. Open files by path. Do NOT
 - **SHOULD** prefer `api-index.json` over `openapi.yaml` when only endpoint discovery or overview is needed.
 - **SHOULD** prefer `glossary.json` over code/doc scanning when resolving domain terms.
 - **MUST NOT** infer API contracts from source code if `openapi.yaml` exists — it is the authoritative source.
+- **MUST** use `effective_profile + known_deviations` to explain current UI behavior when it differs from target governance rules.
 
 ## Canonical Task Recipes
 
@@ -62,3 +70,13 @@ Select artifacts from `registry.json` by tag or type. Open files by path. Do NOT
 5. Run `node .ai/scripts/ctl-api-index.mjs generate --touch` to regenerate the index.
 6. Implement the endpoint in source code following `x-source-mapping` conventions.
 7. Run `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict` to confirm consistency.
+
+### Recipe: Interpret UI behavior under dual-track governance
+
+1. Read `docs/context/ui/ui-spec.json` and identify `alignment_mode`, `effective_profile`, and `target_profile`.
+2. Read `docs/context/ui/current-state-alignment.md` for current behavior and evidence links.
+3. If behavior and target differ, explain the outcome using `known_deviations` entries (id, scope, impact).
+4. Only then inspect source files for implementation details.
+5. For any doc update, run:
+   - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs touch`
+   - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict`

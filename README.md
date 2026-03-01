@@ -17,12 +17,10 @@ Local-first desktop assistant for CS paper engineering with reviewer-aligned evi
 | Language | typescript |
 | Package Manager | pnpm |
 | Layout | monorepo |
-| Frontend | react |
-
+| Desktop Shell | electron |
+| Frontend (Renderer) | react + vite |
 | Backend | fastify |
-
 | Database | postgres |
-
 | API | rest |
 
 ## Getting Started
@@ -46,15 +44,19 @@ pnpm install
 ### Development
 
 ```bash
-pnpm dev
+# Primary local entrypoint (desktop app)
+pnpm desktop:dev
+
+# Note: root `pnpm dev` is currently a placeholder script.
 ```
 
 ## Project Structure
 
 ```
 apps/
-  frontend/        # Frontend application
+  desktop/         # Electron desktop app (current primary UI)
   backend/         # Backend services
+  frontend/        # Placeholder for potential web-only frontend extraction
 packages/
   shared/          # Shared libraries
 .ai/skills/        # AI skills (SSOT)

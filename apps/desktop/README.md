@@ -6,6 +6,7 @@ Electron + React + Vite + TypeScript desktop shell for the research workflow UI.
 
 - `pnpm --filter @paper-engineering-assistant/desktop dev`
 - `pnpm --filter @paper-engineering-assistant/desktop typecheck`
+- `pnpm --filter @paper-engineering-assistant/desktop smoke:e2e`
 - `pnpm --filter @paper-engineering-assistant/desktop build`
 - `pnpm --filter @paper-engineering-assistant/desktop start`
 
@@ -18,7 +19,7 @@ Electron + React + Vite + TypeScript desktop shell for the research workflow UI.
 - Dev server binds to `127.0.0.1` and auto-selects an available port starting from `5173` (override base with `DESKTOP_DEV_PORT`).
 - Dev bootstrap compiles `tsconfig.main.json` before launching Electron to keep main/preload runtime artifacts in sync.
 - DevTools is off by default; set `DESKTOP_OPEN_DEVTOOLS=1` when you want it to auto-open.
-- App window starts hidden in dev; click the desktop app icon to reveal and focus it at screen center.
+- App window starts hidden in dev; click the Dock/desktop app icon to reveal and focus it at screen center.
 - On app activate, window is explicitly focused and brought to top to ensure immediate interaction.
 - Governance panel feature flag:
   - `VITE_ENABLE_GOVERNANCE_PANELS=1` to enable by default.

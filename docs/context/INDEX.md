@@ -17,6 +17,8 @@ Typical artifacts (not exhaustive):
 - API contract: `docs/context/api/openapi.yaml`
 - API index (LLM summary): `docs/context/api/api-index.json` (generated from openapi.yaml by `ctl-api-index.mjs`)
 - Database schema contract: `docs/context/db/schema.json`
+- UI spec contract: `docs/context/ui/ui-spec.json`
+- UI current-state alignment: `docs/context/ui/current-state-alignment.md`
 - Business processes: `docs/context/process/*.bpmn`
 - Domain glossary: `docs/context/glossary.json` (structured term definitions)
 - Architecture principles: `docs/context/architecture-principles.md` (cross-cutting constraints)
@@ -31,7 +33,8 @@ All artifacts MUST be registered in `docs/context/registry.json`.
 4. For full endpoint detail: read `docs/context/api/openapi.yaml` (complete schemas).
 5. For terminology/concept questions: read `docs/context/glossary.json`.
 6. For architecture constraints: read `docs/context/architecture-principles.md`.
-7. Select only the artifacts needed for the current task. Open those files by path (do not scan folders).
+7. For UI tasks: read `docs/context/ui/ui-spec.json` first, then `docs/context/ui/current-state-alignment.md`.
+8. Select only the artifacts needed for the current task. Open those files by path (do not scan folders).
 
 ## Database schema contract
 
