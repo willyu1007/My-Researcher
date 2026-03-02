@@ -38,8 +38,7 @@ export type AutoPullTimeSpec = {
 };
 
 export type AutoPullQualitySpec = {
-  minCompletenessScore: number;
-  requireIncludeMatch: boolean;
+  minQualityScore: number;
 };
 
 export type AutoPullRuleRecord = {

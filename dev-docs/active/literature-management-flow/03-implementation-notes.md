@@ -762,3 +762,85 @@
 - What changed:
   - `App.tsx`：`注入测试数据` / `取消注入数据` 行增加右侧箭头字符。
   - `app-layout.css`：新增 `.sidebar-settings-item-arrow`，并补充 disabled 时箭头灰态。
+
+### 2026-03-02 - 自动导入质量链路切换为 0-100 LLM 评分
+- Trigger:
+  - 用户确认自动导入质量流程必须固定为“完整性硬校验 -> 预去重 -> LLM 评分(0-100) -> 门槛过滤 -> 排序入库”，并要求去除旧 `0-1` 完整度门槛语义。
+- What changed:
+  - 共享契约：
+    - `packages/shared/src/research-lifecycle/interface-field-contracts.ts`
+    - `quality_spec` 删除 `min_completeness_score/require_include_match`，新增 `min_quality_score(0-100)`，默认 `70`。
+  - 后端仓储与映射：
+    - `apps/backend/src/repositories/auto-pull-repository.ts`
+    - `apps/backend/src/repositories/prisma/prisma-auto-pull-repository.ts`
+    - 统一 `qualitySpec.minQualityScore`。
+  - 执行流程重构：
+    - `apps/backend/src/services/auto-pull-service.ts`
+    - 新增完整性 5 项硬校验（title/authors/year/doi-or-arxiv/http(s) source_url）。
+    - 新增评分前去重：run 内去重 + DB 去重（命中即跳过，不更新既有文献）。
+    - 新增 LLM 评分调用（`AUTO_PULL_LLM_SCORER_URL` 等配置）；评分不可用时 source/run 标记 `QUALITY_SCORE_UNAVAILABLE` 并告警。
+    - 门槛过滤改为 `quality_score >= min_quality_score`。
+    - 排序规则：
+      - `llm_score`：直接按 `quality_score`。
+      - `hybrid_score`：`0.70*quality + 0.15*freshness + 0.10*publication_status + 0.05*citation_score`（四舍五入）。
+    - `source_attempt.meta` 新增标准统计键：
+      - `incomplete_rejected_count`
+      - `duplicate_skipped_count`
+      - `scored_count`
+      - `below_threshold_count`
+      - `eligible_count`
+      - `imported_new_count`
+      - `imported_existing_count`
+      - `llm_score_avg`
+      - `ranking_mode`
+      - `threshold`
+    - `suggestions[].score` 语义改为“本次排序分（llm/hybrid）”。
+    - include/exclude 调整为仅影响检索 query，不再参与质量门槛过滤。
+  - 文献服务：
+    - `apps/backend/src/services/literature-service.ts`
+    - 新增 `findImportDedupMatch`，供 auto-pull 在评分前执行 DB 去重。
+  - 前端规则与说明：
+    - `apps/desktop/src/renderer/App.tsx`
+    - 质量门槛改为 `0-100`，预设更新为 `60/70/80/90`，默认 `70`。
+    - tooltip 文案更新为新链路与排序解释（LLM/综合）。
+    - 执行详情展示新增计数项（不完整/去重跳过/低于门槛/可导入/新增/命中既有/平均质量分）。
+  - API 文档：
+    - `docs/context/api/openapi.yaml`
+    - `quality_spec` 与 `GET /auto-pull/runs/{runId}` 示例同步为新语义与计数字段。
+    - 重新生成 `api-index` 与 context registry 校验产物。
+- Impact scope:
+  - `packages/shared/src/research-lifecycle/interface-field-contracts.ts`
+  - `apps/backend/src/services/auto-pull-service.ts`
+  - `apps/backend/src/services/literature-service.ts`
+  - `apps/backend/src/repositories/auto-pull-repository.ts`
+  - `apps/backend/src/repositories/prisma/prisma-auto-pull-repository.ts`
+  - `apps/backend/src/routes/auto-pull-routes.integration.test.ts`
+  - `apps/backend/src/services/auto-pull-service.unit.test.ts`
+  - `apps/desktop/src/renderer/App.tsx`
+  - `docs/context/api/openapi.yaml`
+  - `docs/context/api/api-index.json`
+  - `docs/context/api/API-INDEX.md`
+  - `docs/context/registry.json`
+
+### 2026-03-02 - 每次拉取上限改为“全局去重后 TopK”，首次拉取 5x
+- Trigger:
+  - 用户要求“每日/每次拉取上限”在首次拉取时放宽到 5 倍，后续拉取按配置执行；并明确上限逻辑应在全局去重后按排序规则取 TopK。
+- What changed:
+  - `apps/backend/src/services/auto-pull-service.ts`
+    - 运行内策略从“source 内直接导入”调整为“两阶段”：
+      - 阶段1：各 source/topic 执行完整性校验、去重、评分、门槛过滤，产出候选池（不直接入库）。
+      - 阶段2：汇总全局候选池，按排序分全局排序后取 TopK，再统一入库。
+    - 首次拉取判定：当启用 source 在本次 run 均处于 `bootstrap_full_range`（无 cursor）时，`effective_limit = configured_limit * 5`；否则 `effective_limit = configured_limit`。
+    - 新增 helper：`resolveEffectivePullLimit`。
+    - `source_attempt.meta` 新增/补齐：
+      - `fetch_limit`、`effective_limit`、`configured_limit`
+      - `initial_pull`、`limit_multiplier`
+      - `selected_topk_count`、`topk_skipped_count`
+    - `run.summary` 同步写入 `effective_limit`、`initial_pull`、`selected_topk_count` 等运行汇总信息。
+  - `apps/desktop/src/renderer/App.tsx`
+    - 新增“每次拉取上限”提示文案：首次 5x、后续按配置、全局去重、按排序规则取 TopK。
+    - 在“规则绑定”与“全局规则编辑”两个“每次拉取上限”字段挂载问号提示。
+- Impact scope:
+  - `apps/backend/src/services/auto-pull-service.ts`
+  - `apps/backend/src/services/auto-pull-service.unit.test.ts`
+  - `apps/desktop/src/renderer/App.tsx`

@@ -748,8 +748,7 @@ paths:
                 min_year: 2020
                 max_year: null
               quality_spec:
-                min_completeness_score: 0.6
-                require_include_match: true
+                min_quality_score: 70
               sources:
                 - source: CROSSREF
                   enabled: true
@@ -791,8 +790,7 @@ paths:
                   min_year: 2020
                   max_year: null
                 quality_spec:
-                  min_completeness_score: 0.6
-                  require_include_match: true
+                  min_quality_score: 70
                 sources:
                   - source: CROSSREF
                     enabled: true
@@ -1016,7 +1014,19 @@ paths:
                     started_at: '2026-02-27T08:20:00.000Z'
                     finished_at: '2026-02-27T08:20:20.000Z'
                     meta:
+                      topic_ids: [TOPIC-LLM-EVAL]
+                      time_window_mode: incremental_lookback
+                      ranking_mode: hybrid_score
+                      threshold: 70
                       fetched_count: 8
+                      incomplete_rejected_count: 1
+                      duplicate_skipped_count: 1
+                      scored_count: 6
+                      below_threshold_count: 1
+                      eligible_count: 5
+                      imported_new_count: 4
+                      imported_existing_count: 1
+                      llm_score_avg: 78.33
                       imported_count: 5
                       failed_count: 0
                   - source: ARXIV
@@ -1029,9 +1039,29 @@ paths:
                     started_at: '2026-02-27T08:20:20.000Z'
                     finished_at: '2026-02-27T08:20:30.000Z'
                     meta:
+                      topic_ids: [TOPIC-LLM-EVAL]
+                      time_window_mode: incremental_lookback
+                      ranking_mode: hybrid_score
+                      threshold: 70
                       fetched_count: 0
+                      incomplete_rejected_count: 0
+                      duplicate_skipped_count: 0
+                      scored_count: 0
+                      below_threshold_count: 0
+                      eligible_count: 0
+                      imported_new_count: 0
+                      imported_existing_count: 0
+                      llm_score_avg: null
                       imported_count: 0
                       failed_count: 2
+                suggestions:
+                  - suggestion_id: 43ac5af0-9d9e-46c1-a4b7-38497c2a5aa4
+                    literature_id: 7f3af2f2-c0f5-4182-a4d2-5b2b7a57c157
+                    topic_id: TOPIC-LLM-EVAL
+                    suggested_scope: in_scope
+                    reason: ranked:hybrid_score
+                    score: 86
+                    created_at: '2026-02-27T08:20:25.000Z'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -2563,14 +2593,13 @@ components:
 
     AutoPullRuleQualitySpec:
       type: object
-      required: [min_completeness_score, require_include_match]
+      required: [min_quality_score]
       properties:
-        min_completeness_score:
-          type: number
+        min_quality_score:
+          type: integer
           minimum: 0
-          maximum: 1
-        require_include_match:
-          type: boolean
+          maximum: 100
+          description: Minimum LLM quality score required for import (0-100).
       additionalProperties: false
 
     CreateAutoPullRuleRequest:
@@ -2640,12 +2669,10 @@ components:
         quality_spec:
           type: object
           properties:
-            min_completeness_score:
-              type: number
+            min_quality_score:
+              type: integer
               minimum: 0
-              maximum: 1
-            require_include_match:
-              type: boolean
+              maximum: 100
           additionalProperties: false
         sources:
           type: array
@@ -2724,12 +2751,10 @@ components:
         quality_spec:
           type: object
           properties:
-            min_completeness_score:
-              type: number
+            min_quality_score:
+              type: integer
               minimum: 0
-              maximum: 1
-            require_include_match:
-              type: boolean
+              maximum: 100
           additionalProperties: false
         sources:
           type: array
@@ -2862,6 +2887,11 @@ components:
           type: [string, 'null']
         meta:
           type: object
+          description: >
+            Source execution counters and ranking context.
+            Standard keys include incomplete_rejected_count, duplicate_skipped_count,
+            scored_count, below_threshold_count, eligible_count, imported_new_count,
+            imported_existing_count, llm_score_avg, ranking_mode, threshold.
           additionalProperties: true
       additionalProperties: false
 
@@ -2881,6 +2911,7 @@ components:
           type: string
         score:
           type: number
+          description: Ranking score used in this run (llm_score or hybrid_score).
         created_at:
           type: string
           format: date-time

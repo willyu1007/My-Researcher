@@ -344,3 +344,85 @@ test('cannot pause or delete last active global rule via routes', async () => {
     await app.close();
   }
 });
+
+test('create rule rejects quality_spec.min_quality_score out of range', async () => {
+  const app = buildApp();
+  try {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auto-pull/rules',
+      payload: {
+        scope: 'GLOBAL',
+        name: 'Invalid Quality Rule',
+        quality_spec: {
+          min_quality_score: 101,
+        },
+        sources: [
+          {
+            source: 'CROSSREF',
+            enabled: true,
+            priority: 1,
+          },
+        ],
+        schedules: [
+          {
+            frequency: 'DAILY',
+            hour: 9,
+            minute: 0,
+            timezone: 'UTC',
+            active: true,
+          },
+        ],
+      },
+    });
+    assert.equal(res.statusCode, 400);
+  } finally {
+    await app.close();
+  }
+});
+
+test('patch rule rejects quality_spec.min_quality_score out of range', async () => {
+  const app = buildApp();
+  try {
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/auto-pull/rules',
+      payload: {
+        scope: 'GLOBAL',
+        name: 'Patch Validation Rule',
+        sources: [
+          {
+            source: 'CROSSREF',
+            enabled: true,
+            priority: 1,
+          },
+        ],
+        schedules: [
+          {
+            frequency: 'DAILY',
+            hour: 9,
+            minute: 0,
+            timezone: 'UTC',
+            active: true,
+          },
+        ],
+      },
+    });
+    assert.equal(createRes.statusCode, 201);
+    const ruleId = createRes.json().rule_id as string;
+    assert.ok(ruleId);
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: `/auto-pull/rules/${ruleId}`,
+      payload: {
+        quality_spec: {
+          min_quality_score: -1,
+        },
+      },
+    });
+    assert.equal(patchRes.statusCode, 400);
+  } finally {
+    await app.close();
+  }
+});

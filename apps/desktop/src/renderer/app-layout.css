@@ -1351,20 +1351,21 @@
   .manual-upload-format-help::after {
     content: attr(data-help);
     position: absolute;
-    left: 50%;
+    left: 0;
     top: calc(100% + 8px);
-    transform: translateX(-50%) translateY(-2px);
+    transform: translateY(-2px);
     width: max-content;
-    max-width: 300px;
+    max-width: min(var(--tooltip-max-width, 300px), calc(100vw - 24px));
     padding: 6px 8px;
     border-radius: 8px;
     border: 1px solid color-mix(in srgb, var(--ui-color-border) 68%, transparent 32%);
     background: color-mix(in srgb, var(--ui-color-surface_elevated) 96%, transparent 4%);
     color: var(--ui-color-text_secondary);
     font-size: 11px;
-    line-height: 1.35;
+    line-height: 1.45;
     white-space: pre-line;
     text-align: left;
+    overflow-wrap: break-word;
     opacity: 0;
     pointer-events: none;
     z-index: 3;
@@ -1377,8 +1378,13 @@
   .manual-upload-format-help:hover::after,
   .manual-upload-format-help:focus-visible::after {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
     transition-delay: 150ms;
+  }
+
+  .manual-upload-format-help[data-tooltip-align='right']::after {
+    left: auto;
+    right: 0;
   }
 
   .field-label-with-help {
@@ -1408,20 +1414,21 @@
   .field-label-help::after {
     content: attr(data-help);
     position: absolute;
-    left: 50%;
+    left: 0;
     top: calc(100% + 8px);
-    transform: translateX(-50%) translateY(-2px);
+    transform: translateY(-2px);
     width: max-content;
-    max-width: 280px;
+    max-width: min(var(--tooltip-max-width, 300px), calc(100vw - 24px));
     padding: 6px 8px;
     border-radius: 8px;
     border: 1px solid color-mix(in srgb, var(--ui-color-border) 68%, transparent 32%);
     background: color-mix(in srgb, var(--ui-color-surface_elevated) 96%, transparent 4%);
     color: var(--ui-color-text_secondary);
     font-size: 11px;
-    line-height: 1.35;
-    white-space: normal;
+    line-height: 1.45;
+    white-space: pre-line;
     text-align: left;
+    overflow-wrap: break-word;
     opacity: 0;
     pointer-events: none;
     z-index: 4;
@@ -1434,8 +1441,13 @@
   .field-label-help:hover::after,
   .field-label-help:focus-visible::after {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
     transition-delay: 150ms;
+  }
+
+  .field-label-help[data-tooltip-align='right']::after {
+    left: auto;
+    right: 0;
   }
 
   .manual-upload-files-table th:nth-child(1),
@@ -2681,43 +2693,6 @@
   .rule-schedule-item [data-ui='select'] {
     min-width: 0;
     width: 100%;
-  }
-
-  .topic-global-rules-details {
-    border: 1px solid color-mix(in srgb, var(--ui-color-border) 64%, transparent 36%);
-    border-radius: var(--ui-radius-md);
-    background: color-mix(in srgb, var(--ui-color-surface) 90%, transparent 10%);
-    overflow: hidden;
-  }
-
-  .topic-global-rules-summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 10px 12px;
-    font-size: 13px;
-    line-height: 1.35;
-    color: var(--ui-color-text_secondary);
-    user-select: none;
-  }
-
-  .topic-global-rules-summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .topic-global-rules-body {
-    border-top: 1px solid color-mix(in srgb, var(--ui-color-border) 62%, transparent 38%);
-    padding: 10px 12px 12px;
-    display: grid;
-    gap: 10px;
-  }
-
-  .topic-global-rule-editor {
-    border: 1px solid color-mix(in srgb, var(--ui-color-border) 64%, transparent 36%);
-    border-radius: var(--ui-radius-md);
-    padding: 10px;
-    display: grid;
-    gap: 8px;
-    background: color-mix(in srgb, var(--ui-color-surface_elevated) 88%, transparent 12%);
   }
 
   .topic-modal-footer {

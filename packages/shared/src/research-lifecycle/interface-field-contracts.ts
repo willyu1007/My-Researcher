@@ -355,8 +355,7 @@ export interface AutoPullRuleDTO {
     max_year: number | null;
   };
   quality_spec: {
-    min_completeness_score: number;
-    require_include_match: boolean;
+    min_quality_score: number;
   };
   sources: AutoPullRuleSourceDTO[];
   schedules: AutoPullRuleScheduleDTO[];
@@ -383,8 +382,7 @@ export interface CreateAutoPullRuleRequest {
     max_year?: number | null;
   };
   quality_spec?: {
-    min_completeness_score?: number;
-    require_include_match?: boolean;
+    min_quality_score?: number;
   };
   sources: Array<{
     source: AutoPullSource;
@@ -421,8 +419,7 @@ export interface UpdateAutoPullRuleRequest {
     max_year?: number | null;
   };
   quality_spec?: {
-    min_completeness_score?: number;
-    require_include_match?: boolean;
+    min_quality_score?: number;
   };
   sources?: Array<{
     source: AutoPullSource;
@@ -1192,8 +1189,7 @@ export const createAutoPullRuleRequestSchema = {
     quality_spec: {
       type: 'object',
       properties: {
-        min_completeness_score: { type: 'number', minimum: 0, maximum: 1, default: 0.6 },
-        require_include_match: { type: 'boolean', default: true },
+        min_quality_score: { type: 'integer', minimum: 0, maximum: 100, default: 70 },
       },
       additionalProperties: false,
       default: {},
@@ -1247,8 +1243,7 @@ export const updateAutoPullRuleRequestSchema = {
     quality_spec: {
       type: 'object',
       properties: {
-        min_completeness_score: { type: 'number', minimum: 0, maximum: 1 },
-        require_include_match: { type: 'boolean' },
+        min_quality_score: { type: 'integer', minimum: 0, maximum: 100 },
       },
       additionalProperties: false,
     },

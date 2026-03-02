@@ -195,3 +195,22 @@
 - 2026-02-28: 设置测试项右侧箭头回归 ✅
   - `pnpm desktop:typecheck` ✅
   - `pnpm desktop:build` ✅
+- 2026-03-02: 自动导入质量链路对齐（0-100 LLM 评分）回归 ✅
+  - `pnpm --filter @paper-engineering-assistant/backend test` ✅（48 passed）
+    - 新增覆盖：
+      - `hybrid_score` 在同 LLM 分条件下按信号调序（citation/freshness/status）生效
+      - `POST/PATCH /auto-pull/rules` 对 `quality_spec.min_quality_score` 范围校验（<0 或 >100 返回 400）
+      - 完整性拒绝、评分前去重、门槛过滤、评分不可用失败告警
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+  - `node .ai/scripts/ctl-openapi-quality.mjs verify --strict` ✅
+  - `node .ai/scripts/ctl-api-index.mjs generate --touch` ✅（32 endpoints）
+  - `node .ai/scripts/ctl-api-index.mjs verify --strict` ✅
+  - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict` ✅
+- 2026-03-02: 每次拉取上限（首次 5x + 全局 TopK）回归 ✅
+  - `pnpm --filter @paper-engineering-assistant/backend test` ✅（50 passed）
+    - 新增覆盖：
+      - 首次拉取 `fetch_limit` 放宽到 `configured_limit * 5`，后续 run 回落到配置值
+      - 跨 source 全局候选池按排序分取 TopK（非逐 source 独立导入）
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅

@@ -216,8 +216,7 @@ type AutoPullRule = {
     max_year: number | null;
   };
   quality_spec: {
-    min_completeness_score: number;
-    require_include_match: boolean;
+    min_quality_score: number;
   };
   sources: AutoPullRuleSourceItem[];
   schedules: AutoPullRuleScheduleItem[];
@@ -391,26 +390,85 @@ const autoPullHourOptions = Array.from({ length: 24 }, (_, hour) => ({
   label: `${String(hour).padStart(2, '0')}:00`,
 }));
 const autoPullQualityPresetOptions: Array<{ value: string; label: string }> = [
-  { value: '0.4', label: '宽松（>=2/5）' },
-  { value: '0.6', label: '标准（>=3/5，默认）' },
-  { value: '0.8', label: '严格（>=4/5）' },
-  { value: '1.0', label: '极严（5/5）' },
+  { value: '60', label: '60（宽松）' },
+  { value: '70', label: '70（标准，默认）' },
+  { value: '80', label: '80（严格）' },
+  { value: '90', label: '90（高严格）' },
 ];
 const manualUploadFormatHint = [
   '可解析：JSON / CSV / BibTeX / TXT',
   '待解析支持：PDF / TeX / BBL / AUX / RIS',
 ].join('\n');
 const autoPullQualityHint = [
-  '系统自动判定，不是人工评分。',
-  '评分维度（每项 0.2）：标题、作者、年份、DOI/arXiv、来源链接。',
-  '最终是否通过还会叠加包含词/排除词规则。',
-  '低于阈值会被过滤，不进入导入。',
-  '档位：0.4(>=2/5)、0.6(>=3/5)、0.8(>=4/5)、1.0(5/5)。',
+  '质量检测流程：',
+  '1) 完整性校验：标题、作者、年份、DOI/arXiv、来源链接必须齐全',
+  '2) 评分前去重：过滤库内与本批次重复文献',
+  '3) LLM 质量评分：输出 0-100 分',
+  '4) 门槛过滤：仅保留 >= 质量门槛（默认 70）',
+].join('\n');
+const autoPullSortHint = [
+  '大模型打分：直接按 LLM 质量分排序',
+  '综合评分：0.70*质量 + 0.15*新近性 + 0.10*投稿/发表状态 + 0.05*引用量',
 ].join('\n');
 const autoPullLookbackHint = [
   '仅影响后续增量抓取窗口（最近 N 天）。',
   '首次抓取或“全量重抓”会走主题时段全量。',
 ].join('\n');
+const autoPullLimitHint = [
+  '上限规则：',
+  '首次拉取：按配置上限的 5 倍执行',
+  '后续拉取：按配置上限执行',
+  '自动去重：先做全局去重',
+  '取数方式：按当前排序规则选取 Top K 入库',
+].join('\n');
+const autoPullParseHint = [
+  '开启：在摘要自动提取之外，系统会对排序后的文献做 LLM 结构化解析，预处理价值、观点、方法、图片等信息，便于进入后续自动流程。',
+  '关闭：仅保留基础信息与摘要，文献仍可引用；如需进入后续流程，可后续手动注入或手动触发 LLM 整理。',
+].join('\n');
+const helpTooltipMaxWidthPx = 300;
+const helpTooltipViewportPaddingPx = 12;
+
+function updateHelpTooltipAlignment(target: HTMLSpanElement): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const rect = target.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const boundaryElement = target.closest('.topic-profile-modal');
+  const boundaryRect = boundaryElement?.getBoundingClientRect();
+  const boundaryLeft = Math.max(
+    helpTooltipViewportPaddingPx,
+    (boundaryRect?.left ?? 0) + helpTooltipViewportPaddingPx,
+  );
+  const boundaryRight = Math.min(
+    viewportWidth - helpTooltipViewportPaddingPx,
+    (boundaryRect?.right ?? viewportWidth) - helpTooltipViewportPaddingPx,
+  );
+  const spaceRight = Math.max(0, boundaryRight - rect.left);
+  const spaceLeft = Math.max(0, rect.right - boundaryLeft);
+  const desiredWidth = Math.min(
+    helpTooltipMaxWidthPx,
+    Math.max(180, boundaryRight - boundaryLeft),
+  );
+
+  let shouldAlignRight = false;
+  if (spaceRight >= desiredWidth) {
+    shouldAlignRight = false;
+  } else if (spaceLeft >= desiredWidth) {
+    shouldAlignRight = true;
+  } else {
+    shouldAlignRight = spaceLeft > spaceRight;
+  }
+
+  const availableWidth = shouldAlignRight ? spaceLeft : spaceRight;
+  const maxBubbleWidth = Math.max(
+    180,
+    Math.min(helpTooltipMaxWidthPx, Math.floor(availableWidth)),
+  );
+
+  target.dataset.tooltipAlign = shouldAlignRight ? 'right' : 'left';
+  target.style.setProperty('--tooltip-max-width', `${maxBubbleWidth}px`);
+}
 const manualImportTestTopicProfiles: Array<{
   topic_id: string;
   name: string;
@@ -966,13 +1024,13 @@ function normalizeScheduleHourValue(hourInput: string): string {
 
 function normalizeQualityPresetValue(input: number): string {
   if (!Number.isFinite(input)) {
-    return '0.6';
+    return '70';
   }
-  const candidates = [0.4, 0.6, 0.8, 1.0];
+  const candidates = [60, 70, 80, 90];
   const nearest = candidates.reduce((best, current) =>
     Math.abs(current - input) < Math.abs(best - input) ? current : best,
-  candidates[0] ?? 0.6);
-  return nearest.toFixed(1);
+  candidates[0] ?? 70);
+  return String(nearest);
 }
 
 function resolveSystemTimezone(): string {
@@ -1243,14 +1301,10 @@ function normalizeAutoPullRulePayload(payload: unknown): AutoPullRule[] {
           max_year: typeof timeSpec.max_year === 'number' ? timeSpec.max_year : null,
         },
         quality_spec: {
-          min_completeness_score:
-            typeof qualitySpec.min_completeness_score === 'number'
-              ? qualitySpec.min_completeness_score
-              : 0.6,
-          require_include_match:
-            typeof qualitySpec.require_include_match === 'boolean'
-              ? qualitySpec.require_include_match
-              : true,
+          min_quality_score:
+            typeof qualitySpec.min_quality_score === 'number'
+              ? qualitySpec.min_quality_score
+              : 70,
         },
         sources: Array.isArray(row.sources)
           ? row.sources
@@ -2112,11 +2166,10 @@ export function App({ initialThemeMode }: AppProps) {
   const [rulesStatus, setRulesStatus] = useState<UiOperationStatus>('idle');
   const [rulesError, setRulesError] = useState<string | null>(null);
   const [ruleEditingId, setRuleEditingId] = useState<string | null>(null);
-  const [ruleFormScope, setRuleFormScope] = useState<AutoPullScope>('GLOBAL');
   const [ruleFormName, setRuleFormName] = useState<string>('');
   const [ruleFormMaxResultsInput, setRuleFormMaxResultsInput] = useState<string>('20');
   const [ruleFormLookbackInput, setRuleFormLookbackInput] = useState<string>('30');
-  const [ruleFormMinCompletenessInput, setRuleFormMinCompletenessInput] = useState<string>('0.6');
+  const [ruleFormMinCompletenessInput, setRuleFormMinCompletenessInput] = useState<string>('70');
   const [ruleFormFrequency, setRuleFormFrequency] = useState<AutoPullFrequency>('DAILY');
   const [ruleFormWeekday, setRuleFormWeekday] = useState<AutoPullWeekday>('MON');
   const [ruleFormHourInput, setRuleFormHourInput] = useState<string>('9');
@@ -2125,8 +2178,6 @@ export function App({ initialThemeMode }: AppProps) {
   const [ruleFormParseAndIngest, setRuleFormParseAndIngest] = useState<boolean>(false);
   const [ruleSourceCrossref, setRuleSourceCrossref] = useState<boolean>(true);
   const [ruleSourceArxiv, setRuleSourceArxiv] = useState<boolean>(true);
-  const [globalRuleComposerOpen, setGlobalRuleComposerOpen] = useState<boolean>(false);
-  const [activeGlobalRuleCount, setActiveGlobalRuleCount] = useState<number>(0);
   const scheduleHourValue = normalizeScheduleHourValue(ruleFormHourInput);
 
   const [autoPullRuns, setAutoPullRuns] = useState<AutoPullRun[]>([]);
@@ -2551,24 +2602,15 @@ export function App({ initialThemeMode }: AppProps) {
     setRulesStatus('loading');
     setRulesError(null);
     try {
-      const [payload, activeGlobalPayload] = await Promise.all([
-        requestGovernance({
-          method: 'GET',
-          path: '/auto-pull/rules',
-        }),
-        requestGovernance({
-          method: 'GET',
-          path: '/auto-pull/rules?scope=GLOBAL&status=ACTIVE',
-        }),
-      ]);
+      const payload = await requestGovernance({
+        method: 'GET',
+        path: '/auto-pull/rules',
+      });
       const items = normalizeAutoPullRulePayload(payload);
-      const activeGlobalItems = normalizeAutoPullRulePayload(activeGlobalPayload);
       setAutoPullRules(items);
-      setActiveGlobalRuleCount(activeGlobalItems.length);
       setRulesStatus(items.length > 0 ? 'ready' : 'empty');
     } catch (error) {
       setAutoPullRules([]);
-      setActiveGlobalRuleCount(0);
       const message = error instanceof Error ? error.message : '加载规则失败。';
       setRulesStatus('error');
       setRulesError(message);
@@ -2695,7 +2737,6 @@ export function App({ initialThemeMode }: AppProps) {
     setTopicFormYearEnd(topicYearMaxBound);
     setTopicFormRuleIds([]);
     resetRuleForm();
-    setRuleFormScope('TOPIC');
   };
 
   const handleOpenCreateTopicProfile = () => {
@@ -2726,7 +2767,6 @@ export function App({ initialThemeMode }: AppProps) {
     setTopicFormYearEnd(profile.default_max_year ?? topicYearMaxBound);
     setTopicFormRuleIds(profile.rule_ids);
     resetRuleForm();
-    setRuleFormScope('TOPIC');
     setRuleFormName(`${profile.name} 自动拉取`);
     setTopicFormModalOpen(true);
     setAutoImportSubTab('topic-settings');
@@ -2735,7 +2775,6 @@ export function App({ initialThemeMode }: AppProps) {
   const handleEditTopicProfileAndCreateRule = (profile: AutoPullTopicProfile) => {
     handleEditTopicProfile(profile);
     resetRuleForm();
-    setRuleFormScope('TOPIC');
     setRuleFormName(`${profile.name} 自动拉取`);
   };
 
@@ -2906,21 +2945,7 @@ export function App({ initialThemeMode }: AppProps) {
 
   const handleResetTopicRuleComposer = () => {
     resetRuleForm();
-    setRuleFormScope('TOPIC');
     setRuleFormName(topicFormName.trim() ? `${topicFormName.trim()} 自动拉取` : '');
-  };
-
-  const handleOpenGlobalRuleComposer = () => {
-    resetRuleForm();
-    setRuleFormScope('GLOBAL');
-    setRuleFormName('全局默认规则');
-    setGlobalRuleComposerOpen(true);
-  };
-
-  const handleCloseGlobalRuleComposer = () => {
-    resetRuleForm();
-    setRuleFormScope('GLOBAL');
-    setGlobalRuleComposerOpen(false);
   };
 
   const handleEditRule = (rule: AutoPullRule) => {
@@ -2928,11 +2953,10 @@ export function App({ initialThemeMode }: AppProps) {
     const sourceConfig = asRecord(rule.sources.find((source) => source.enabled)?.config) ?? {};
     const sortModeRaw = toText(sourceConfig.sort_mode);
     setRuleEditingId(rule.rule_id);
-    setRuleFormScope(rule.scope);
     setRuleFormName(rule.name);
     setRuleFormMaxResultsInput(String(rule.query_spec.max_results_per_source));
     setRuleFormLookbackInput(String(rule.time_spec.lookback_days));
-    setRuleFormMinCompletenessInput(normalizeQualityPresetValue(rule.quality_spec.min_completeness_score));
+    setRuleFormMinCompletenessInput(normalizeQualityPresetValue(rule.quality_spec.min_quality_score));
     setRuleFormFrequency(primarySchedule?.frequency ?? 'DAILY');
     setRuleFormWeekday(normalizeWeekdayToken(primarySchedule?.days_of_week[0]));
     setRuleFormHourInput(String(primarySchedule?.hour ?? 9));
@@ -2945,11 +2969,10 @@ export function App({ initialThemeMode }: AppProps) {
 
   const resetRuleForm = () => {
     setRuleEditingId(null);
-    setRuleFormScope('GLOBAL');
     setRuleFormName('');
     setRuleFormMaxResultsInput('20');
     setRuleFormLookbackInput('30');
-    setRuleFormMinCompletenessInput('0.6');
+    setRuleFormMinCompletenessInput('70');
     setRuleFormFrequency('DAILY');
     setRuleFormWeekday('MON');
     setRuleFormHourInput('9');
@@ -2961,9 +2984,7 @@ export function App({ initialThemeMode }: AppProps) {
   };
 
   const handleSubmitRule = async (options?: {
-    forceScope?: AutoPullScope;
     bindToTopicDraft?: boolean;
-    closeGlobalComposer?: boolean;
   }) => {
     const nameText = ruleFormName.trim();
     if (!nameText) {
@@ -3014,12 +3035,11 @@ export function App({ initialThemeMode }: AppProps) {
 
     const maxResults = Number.parseInt(ruleFormMaxResultsInput.trim(), 10);
     const lookbackDays = Number.parseInt(ruleFormLookbackInput.trim(), 10);
-    const minCompleteness = Number.parseFloat(ruleFormMinCompletenessInput.trim());
-    const effectiveScope = options?.forceScope ?? ruleFormScope;
+    const minCompleteness = Number.parseInt(ruleFormMinCompletenessInput.trim(), 10);
     const scheduleTimezone = resolveSystemTimezone();
 
     const payload = {
-      scope: effectiveScope,
+      scope: 'TOPIC' as const,
       name: nameText,
       query_spec: {
         include_keywords: [],
@@ -3034,8 +3054,7 @@ export function App({ initialThemeMode }: AppProps) {
         max_year: null,
       },
       quality_spec: {
-        min_completeness_score: Number.isFinite(minCompleteness) ? minCompleteness : 0.6,
-        require_include_match: false,
+        min_quality_score: Number.isFinite(minCompleteness) ? minCompleteness : 70,
       },
       sources,
       schedules: [
@@ -3076,12 +3095,8 @@ export function App({ initialThemeMode }: AppProps) {
         setTopicFormRuleIds((current) => (current.includes(resolvedRuleId as string) ? current : [...current, resolvedRuleId as string]));
       }
       resetRuleForm();
-      if (options?.bindToTopicDraft || options?.forceScope === 'TOPIC') {
-        setRuleFormScope('TOPIC');
+      if (options?.bindToTopicDraft) {
         setRuleFormName(topicFormName.trim() ? `${topicFormName.trim()} 自动拉取` : '');
-      }
-      if (options?.closeGlobalComposer) {
-        setGlobalRuleComposerOpen(false);
       }
       await loadAutoPullRules();
       await loadAutoPullRuns();
@@ -3105,40 +3120,6 @@ export function App({ initialThemeMode }: AppProps) {
         slot: 'auto-import',
         level: 'error',
         message: `保存规则失败：${message}`,
-      });
-    }
-  };
-
-  const handleToggleRuleStatus = async (rule: AutoPullRule) => {
-    const nextStatus: AutoPullRuleStatus = rule.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-    if (rule.scope === 'GLOBAL' && rule.status === 'ACTIVE' && nextStatus === 'PAUSED' && activeGlobalRuleCount <= 1) {
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'warning',
-        message: '至少保留一条启用中的全局规则。',
-      });
-      return;
-    }
-    try {
-      await requestGovernance({
-        method: 'PATCH',
-        path: `/auto-pull/rules/${encodeURIComponent(rule.rule_id)}`,
-        body: {
-          status: nextStatus,
-        },
-      });
-      await loadAutoPullRules();
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'success',
-        message: `规则已${nextStatus === 'ACTIVE' ? '启用' : '暂停'}：${rule.name}`,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '更新规则状态失败。';
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'error',
-        message: `更新规则状态失败：${message}`,
       });
     }
   };
@@ -4556,10 +4537,6 @@ export function App({ initialThemeMode }: AppProps) {
     () => autoPullRules.filter((rule) => rule.scope === 'TOPIC'),
     [autoPullRules],
   );
-  const globalRules = useMemo(
-    () => autoPullRules.filter((rule) => rule.scope === 'GLOBAL'),
-    [autoPullRules],
-  );
   const topicVenueOptions = useMemo(
     () => [...new Set([
       ...topicPresetVenueOptions,
@@ -5298,7 +5275,6 @@ export function App({ initialThemeMode }: AppProps) {
                                           type="button"
                                           className="topic-rule-header-action"
                                           onClick={() => void handleSubmitRule({
-                                            forceScope: 'TOPIC',
                                             bindToTopicDraft: true,
                                           })}
                                         >
@@ -5337,7 +5313,6 @@ export function App({ initialThemeMode }: AppProps) {
                                                   type="button"
                                                   onClick={() => {
                                                     handleEditRule(rule);
-                                                    setRuleFormScope('TOPIC');
                                                   }}
                                                 >
                                                   编辑
@@ -5447,6 +5422,8 @@ export function App({ initialThemeMode }: AppProps) {
                                                 data-help={autoPullQualityHint}
                                                 aria-label="质量门槛说明"
                                                 tabIndex={0}
+                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
                                               >
                                                 ?
                                               </span>
@@ -5470,6 +5447,8 @@ export function App({ initialThemeMode }: AppProps) {
                                                 data-help={autoPullLookbackHint}
                                                 aria-label="滑动窗口说明"
                                                 tabIndex={0}
+                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
                                               >
                                                 ?
                                               </span>
@@ -5482,7 +5461,19 @@ export function App({ initialThemeMode }: AppProps) {
                                             />
                                           </label>
                                           <label data-ui="field">
-                                            <span data-slot="label">每次拉取上限</span>
+                                            <span data-slot="label" className="field-label-with-help">
+                                              每次拉取上限
+                                              <span
+                                                className="field-label-help"
+                                                data-help={autoPullLimitHint}
+                                                aria-label="每次拉取上限说明"
+                                                tabIndex={0}
+                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+                                              >
+                                                ?
+                                              </span>
+                                            </span>
                                             <input
                                               data-ui="input"
                                               data-size="sm"
@@ -5491,7 +5482,19 @@ export function App({ initialThemeMode }: AppProps) {
                                             />
                                           </label>
                                           <div data-ui="field" className="topic-rule-toggle-field">
-                                            <span data-slot="label">排序规则</span>
+                                            <span data-slot="label" className="field-label-with-help">
+                                              排序规则
+                                              <span
+                                                className="field-label-help"
+                                                data-help={autoPullSortHint}
+                                                aria-label="排序规则说明"
+                                                tabIndex={0}
+                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+                                              >
+                                                ?
+                                              </span>
+                                            </span>
                                             <div className="rule-option-toggle" role="group" aria-label="排序规则">
                                               <button
                                                 type="button"
@@ -5512,7 +5515,19 @@ export function App({ initialThemeMode }: AppProps) {
                                             </div>
                                           </div>
                                           <div data-ui="field" className="topic-rule-toggle-field">
-                                            <span data-slot="label">解析内容并入库</span>
+                                            <span data-slot="label" className="field-label-with-help">
+                                              解析内容并入库
+                                              <span
+                                                className="field-label-help"
+                                                data-help={autoPullParseHint}
+                                                aria-label="解析内容并入库说明"
+                                                tabIndex={0}
+                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+                                              >
+                                                ?
+                                              </span>
+                                            </span>
                                             <div className="rule-option-toggle" role="group" aria-label="解析内容并入库">
                                               <button
                                                 type="button"
@@ -5558,244 +5573,6 @@ export function App({ initialThemeMode }: AppProps) {
                         ) : null}
                       </section>
                     ) : null}
-
-
-                    {autoImportSubTab === 'topic-settings' ? (
-                      <section className="literature-section-block">
-                        <details className="topic-global-rules-details">
-                          <summary className="topic-global-rules-summary">全局规则（高级）</summary>
-                          <div className="topic-global-rules-body">
-                            <div data-ui="toolbar" data-wrap="wrap" data-gap="2">
-                              <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleOpenGlobalRuleComposer}>
-                                新建全局规则
-                              </button>
-                              <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void loadAutoPullRules()}>
-                                刷新规则
-                              </button>
-                            </div>
-
-                            {globalRuleComposerOpen ? (
-                              <section className="topic-global-rule-editor">
-                                <div data-ui="grid" data-cols="2" data-gap="2">
-                                  <label data-ui="field">
-                                    <span data-slot="label">规则名称</span>
-                                    <input
-                                      data-ui="input"
-                                      data-size="sm"
-                                      value={ruleFormName}
-                                      onChange={(event) => setRuleFormName(event.target.value)}
-                                      placeholder="例如 全局默认规则"
-                                    />
-                                  </label>
-                                  <label data-ui="field">
-                                    <span data-slot="label">每次拉取上限</span>
-                                    <input
-                                      data-ui="input"
-                                      data-size="sm"
-                                      value={ruleFormMaxResultsInput}
-                                      onChange={(event) => setRuleFormMaxResultsInput(event.target.value)}
-                                    />
-                                  </label>
-                                  <label data-ui="field">
-                                    <span data-slot="label" className="field-label-with-help">
-                                      质量门槛
-                                      <span
-                                        className="field-label-help"
-                                        data-help={autoPullQualityHint}
-                                        aria-label="质量门槛说明"
-                                        tabIndex={0}
-                                      >
-                                        ?
-                                      </span>
-                                    </span>
-                                    <select
-                                      data-ui="select"
-                                      data-size="sm"
-                                      value={ruleFormMinCompletenessInput}
-                                      onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
-                                    >
-                                      {autoPullQualityPresetOptions.map((option) => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                      ))}
-                                    </select>
-                                  </label>
-                                  <label data-ui="field">
-                                    <span data-slot="label" className="field-label-with-help">
-                                      滑动窗口（天）
-                                      <span
-                                        className="field-label-help"
-                                        data-help={autoPullLookbackHint}
-                                        aria-label="滑动窗口说明"
-                                        tabIndex={0}
-                                      >
-                                        ?
-                                      </span>
-                                    </span>
-                                    <input
-                                      data-ui="input"
-                                      data-size="sm"
-                                      value={ruleFormLookbackInput}
-                                      onChange={(event) => setRuleFormLookbackInput(event.target.value)}
-                                    />
-                                  </label>
-                                  <div data-ui="field" className="rule-schedule-field">
-                                    <span data-slot="label">调度计划</span>
-                                    <div className="rule-schedule-box">
-                                      <div className="rule-schedule-item">
-                                        <div className="rule-frequency-toggle" role="group" aria-label="全局规则调度频率">
-                                          <button
-                                            type="button"
-                                            className={`rule-frequency-toggle-button${ruleFormFrequency === 'DAILY' ? ' is-active' : ''}`}
-                                            onClick={() => setRuleFormFrequency('DAILY')}
-                                            aria-pressed={ruleFormFrequency === 'DAILY'}
-                                          >
-                                            按日
-                                          </button>
-                                          <button
-                                            type="button"
-                                            className={`rule-frequency-toggle-button${ruleFormFrequency === 'WEEKLY' ? ' is-active' : ''}`}
-                                            onClick={() => setRuleFormFrequency('WEEKLY')}
-                                            aria-pressed={ruleFormFrequency === 'WEEKLY'}
-                                          >
-                                            按周
-                                          </button>
-                                        </div>
-                                      </div>
-                                      <label className="rule-schedule-item">
-                                        <select
-                                          data-ui="select"
-                                          data-size="sm"
-                                          aria-label="全局规则按整点执行时间"
-                                          value={scheduleHourValue}
-                                          onChange={(event) => {
-                                            setRuleFormHourInput(event.target.value);
-                                            setRuleFormMinuteInput('0');
-                                          }}
-                                        >
-                                          {autoPullHourOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                          ))}
-                                        </select>
-                                      </label>
-                                      <label className="rule-schedule-item">
-                                        <select
-                                          data-ui="select"
-                                          data-size="sm"
-                                          aria-label="全局规则按周执行星期"
-                                          value={ruleFormWeekday}
-                                          onChange={(event) => setRuleFormWeekday(event.target.value as AutoPullWeekday)}
-                                          disabled={ruleFormFrequency !== 'WEEKLY'}
-                                        >
-                                          {autoPullWeekdayOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                          ))}
-                                        </select>
-                                      </label>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                                  <label className="auto-pull-source-toggle">
-                                    <input type="checkbox" checked={ruleSourceCrossref} onChange={(event) => setRuleSourceCrossref(event.target.checked)} />
-                                    CROSSREF
-                                  </label>
-                                  <label className="auto-pull-source-toggle">
-                                    <input type="checkbox" checked={ruleSourceArxiv} onChange={(event) => setRuleSourceArxiv(event.target.checked)} />
-                                    ARXIV
-                                  </label>
-                                </div>
-
-                                <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                                  <button
-                                    data-ui="button"
-                                    data-variant="primary"
-                                    data-size="sm"
-                                    type="button"
-                                    onClick={() => void handleSubmitRule({
-                                      forceScope: 'GLOBAL',
-                                      closeGlobalComposer: true,
-                                    })}
-                                  >
-                                    {ruleEditingId ? '更新全局规则' : '创建全局规则'}
-                                  </button>
-                                  <button
-                                    data-ui="button"
-                                    data-variant="ghost"
-                                    data-size="sm"
-                                    type="button"
-                                    onClick={handleCloseGlobalRuleComposer}
-                                  >
-                                    取消
-                                  </button>
-                                </div>
-                              </section>
-                            ) : null}
-
-                            <div className="literature-list">
-                              {globalRules.length === 0 ? (
-                                <p data-ui="text" data-variant="caption" data-tone="muted">暂无全局规则。</p>
-                              ) : (
-                                globalRules.map((rule) => {
-                                  const pauseLocked = rule.status === 'ACTIVE' && activeGlobalRuleCount <= 1;
-                                  const sourceText = rule.sources
-                                    .filter((source) => source.enabled)
-                                    .map((source) => source.source)
-                                    .join(', ');
-                                  return (
-                                    <div key={rule.rule_id} className="literature-list-item">
-                                      <div>
-                                        <p data-ui="text" data-variant="body" data-tone="primary">{rule.name}</p>
-                                        <p data-ui="text" data-variant="caption" data-tone="muted">
-                                          {rule.status} · sources:{sourceText || '--'} · {formatTimestamp(rule.updated_at)}
-                                        </p>
-                                      </div>
-                                      <div data-ui="toolbar" data-gap="2">
-                                        <button
-                                          data-ui="button"
-                                          data-variant="ghost"
-                                          data-size="sm"
-                                          type="button"
-                                          onClick={() => {
-                                            handleEditRule(rule);
-                                            setRuleFormScope('GLOBAL');
-                                            setGlobalRuleComposerOpen(true);
-                                          }}
-                                        >
-                                          编辑
-                                        </button>
-                                        <button
-                                          data-ui="button"
-                                          data-variant="secondary"
-                                          data-size="sm"
-                                          type="button"
-                                          onClick={() => void handleRunRuleFullRefresh(rule)}
-                                        >
-                                          全量重抓
-                                        </button>
-                                        <button
-                                          data-ui="button"
-                                          data-variant="ghost"
-                                          data-size="sm"
-                                          type="button"
-                                          onClick={() => void handleToggleRuleStatus(rule)}
-                                          disabled={pauseLocked}
-                                          title={pauseLocked ? '至少保留一条启用中的全局规则' : undefined}
-                                        >
-                                          {rule.status === 'ACTIVE' ? '暂停' : '启用'}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
-                            {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
-                          </div>
-                        </details>
-                      </section>
-                    ) : null}
-
                     {autoImportSubTab === 'runs-alerts' ? (
                       <section className="literature-section-block">
                         <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
@@ -5870,21 +5647,46 @@ export function App({ initialThemeMode }: AppProps) {
                               运行详情：{selectedRunDetail.run_id} · {selectedRunDetail.status}
                             </p>
                             <div className="literature-list">
-                              {(selectedRunDetail.source_attempts ?? []).map((attempt) => (
-                                <div key={`${selectedRunDetail.run_id}-${attempt.source}`} className="literature-list-item">
-                                  <div>
-                                    <p data-ui="text" data-variant="body" data-tone="primary">
-                                      {attempt.source} · {attempt.status}
-                                    </p>
-                                    <p data-ui="text" data-variant="caption" data-tone="muted">
-                                      fetched:{attempt.fetched_count} / imported:{attempt.imported_count} / failed:{attempt.failed_count}
-                                    </p>
+                              {(selectedRunDetail.source_attempts ?? []).map((attempt) => {
+                                const meta = asRecord(attempt.meta) ?? {};
+                                const incompleteRejectedCount =
+                                  typeof meta.incomplete_rejected_count === 'number' ? meta.incomplete_rejected_count : 0;
+                                const duplicateSkippedCount =
+                                  typeof meta.duplicate_skipped_count === 'number' ? meta.duplicate_skipped_count : 0;
+                                const belowThresholdCount =
+                                  typeof meta.below_threshold_count === 'number' ? meta.below_threshold_count : 0;
+                                const eligibleCount =
+                                  typeof meta.eligible_count === 'number' ? meta.eligible_count : 0;
+                                const importedNewCount =
+                                  typeof meta.imported_new_count === 'number' ? meta.imported_new_count : 0;
+                                const importedExistingCount =
+                                  typeof meta.imported_existing_count === 'number' ? meta.imported_existing_count : 0;
+                                const llmScoreAvg =
+                                  typeof meta.llm_score_avg === 'number' ? meta.llm_score_avg : null;
+
+                                return (
+                                  <div key={`${selectedRunDetail.run_id}-${attempt.source}`} className="literature-list-item">
+                                    <div>
+                                      <p data-ui="text" data-variant="body" data-tone="primary">
+                                        {attempt.source} · {attempt.status}
+                                      </p>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        fetched:{attempt.fetched_count} / imported:{attempt.imported_count} / failed:{attempt.failed_count}
+                                      </p>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        不完整:{incompleteRejectedCount} / 去重跳过:{duplicateSkippedCount} / 低于门槛:{belowThresholdCount} / 可导入:{eligibleCount}
+                                      </p>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        新增:{importedNewCount} / 命中既有:{importedExistingCount}
+                                        {llmScoreAvg !== null ? ` / 平均质量分:${llmScoreAvg}` : ''}
+                                      </p>
+                                    </div>
+                                    {attempt.error_message ? (
+                                      <p data-ui="text" data-variant="caption" data-tone="danger">{attempt.error_message}</p>
+                                    ) : null}
                                   </div>
-                                  {attempt.error_message ? (
-                                    <p data-ui="text" data-variant="caption" data-tone="danger">{attempt.error_message}</p>
-                                  ) : null}
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         ) : null}
@@ -6019,6 +5821,8 @@ export function App({ initialThemeMode }: AppProps) {
                                             data-help={manualUploadFormatHint}
                                             aria-label="查看支持文件格式"
                                             tabIndex={0}
+                                            onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+                                            onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
                                           >
                                             ?
                                           </span>

@@ -74,8 +74,7 @@ function toRuleRecord(row: {
       maxYear: null,
     },
     qualitySpec: (row.qualitySpec as AutoPullRuleRecord['qualitySpec']) ?? {
-      minCompletenessScore: 0.6,
-      requireIncludeMatch: true,
+      minQualityScore: 70,
     },
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

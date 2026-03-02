@@ -119,6 +119,12 @@ export class LiteratureService {
     return { results };
   }
 
+  async findImportDedupMatch(item: LiteratureImportItem): Promise<DedupMatchType> {
+    const normalized = this.normalizeImportItem(item);
+    const dedup = await this.findExisting(normalized);
+    return dedup.matchedBy;
+  }
+
   async zoteroPreview(request: ZoteroPreviewRequest): Promise<ZoteroPreviewResponse> {
     const items = await this.fetchZoteroImportItems(request);
     return {

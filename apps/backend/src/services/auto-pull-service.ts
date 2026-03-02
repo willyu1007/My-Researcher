@@ -22,7 +22,6 @@ import {
 import { AppError } from '../errors/app-error.js';
 import type {
   AutoPullAlertRecord,
-  AutoPullQualitySpec,
   AutoPullQuerySpec,
   AutoPullRepository,
   AutoPullRuleRecord,
@@ -36,9 +35,40 @@ import type {
 } from '../repositories/auto-pull-repository.js';
 import { LiteratureService } from './literature-service.js';
 
+type AutoPullRankingMode = 'llm_score' | 'hybrid_score';
+type PublicationStatusSignal = 'published' | 'accepted' | 'preprint' | 'unknown';
+
+type CandidateRankingSignals = {
+  publicationStatus: PublicationStatusSignal;
+  publicationYear: number | null;
+  citationCount: number | null;
+};
+
+type FetchedCandidate = {
+  item: LiteratureImportItem;
+  rankingSignals: CandidateRankingSignals;
+};
+
+type RankedCandidate = {
+  candidate: FetchedCandidate;
+  qualityScore: number;
+  rankingScore: number;
+  rankingMode: AutoPullRankingMode;
+};
+
+type EligibleCandidate = {
+  source: AutoPullSource;
+  topicId: string | null;
+  candidate: FetchedCandidate;
+  qualityScore: number;
+  rankingScore: number;
+  rankingMode: AutoPullRankingMode;
+};
+
 type SourceExecutionResult = {
   source: AutoPullSource;
   fetchedItems: LiteratureImportItem[];
+  eligibleCandidates: EligibleCandidate[];
   importedCount: number;
   failedCount: number;
   errorCode: string | null;
@@ -78,6 +108,7 @@ const AUTOPULL_ALERT_CODES = {
   SOURCE_RATE_LIMIT: 'SOURCE_RATE_LIMIT',
   PARSE_FAILED: 'PARSE_FAILED',
   IMPORT_FAILED: 'IMPORT_FAILED',
+  QUALITY_SCORE_UNAVAILABLE: 'QUALITY_SCORE_UNAVAILABLE',
   RUN_SKIPPED_SINGLE_FLIGHT: 'RUN_SKIPPED_SINGLE_FLIGHT',
 } as const;
 
@@ -566,6 +597,8 @@ export class AutoPullService {
       }
 
       const sourceResults: SourceExecutionResult[] = [];
+      const seenRunDedupKeys = new Set<string>();
+      const sourcePlans: Array<{ source: AutoPullRuleSourceRecord; timeWindowMode: SourceTimeWindowMode }> = [];
       for (const source of enabledSources) {
         if (fullRefresh) {
           await this.repository.clearCursor(rule.id, source.source);
@@ -576,19 +609,120 @@ export class AutoPullService {
         const timeWindowMode: SourceTimeWindowMode = existingCursor
           ? 'incremental_lookback'
           : 'bootstrap_full_range';
+        sourcePlans.push({ source, timeWindowMode });
+      }
+      const isInitialPull = sourcePlans.every((plan) => plan.timeWindowMode === 'bootstrap_full_range');
+      const effectivePullLimit = this.resolveEffectivePullLimit(rule.querySpec.maxResultsPerSource, isInitialPull);
+
+      for (const plan of sourcePlans) {
         const scopedResults: SourceExecutionResult[] = [];
         for (const context of topicContexts) {
-          scopedResults.push(await this.executeSource(rule, source, runId, context, timeWindowMode));
+          scopedResults.push(
+            await this.executeSource(
+              rule,
+              plan.source,
+              runId,
+              context,
+              plan.timeWindowMode,
+              seenRunDedupKeys,
+              effectivePullLimit,
+            ),
+          );
         }
         sourceResults.push(
           this.aggregateSourceResults(
-            source.source,
+            plan.source.source,
             scopedResults,
             topicContexts.map((context) => context.topicId),
             skippedTopicIds,
-            timeWindowMode,
+            plan.timeWindowMode,
           ),
         );
+      }
+
+      const globalEligibleCandidates = sourceResults
+        .flatMap((item) => item.eligibleCandidates)
+        .sort((left, right) => {
+          if (right.rankingScore !== left.rankingScore) {
+            return right.rankingScore - left.rankingScore;
+          }
+          return right.qualityScore - left.qualityScore;
+        });
+      const selectedCandidates = globalEligibleCandidates.slice(0, effectivePullLimit);
+      const imported = selectedCandidates.length > 0
+        ? await this.literatureService.import({
+          items: selectedCandidates.map((item) => item.candidate.item),
+        })
+        : { results: [] };
+      const selectedBySource = new Map<AutoPullSource, number>();
+      const importedBySource = new Map<AutoPullSource, {
+        importedCount: number;
+        importedNewCount: number;
+        importedExistingCount: number;
+        suggestions: SourceExecutionResult['suggestions'];
+      }>();
+      for (const source of enabledSources) {
+        importedBySource.set(source.source, {
+          importedCount: 0,
+          importedNewCount: 0,
+          importedExistingCount: 0,
+          suggestions: [],
+        });
+      }
+
+      selectedCandidates.forEach((item) => {
+        selectedBySource.set(item.source, (selectedBySource.get(item.source) ?? 0) + 1);
+      });
+
+      imported.results.forEach((result, index) => {
+        const selected = selectedCandidates[index];
+        if (!selected) {
+          return;
+        }
+        const stats = importedBySource.get(selected.source);
+        if (!stats) {
+          return;
+        }
+        stats.importedCount += 1;
+        if (result.is_new) {
+          stats.importedNewCount += 1;
+        } else {
+          stats.importedExistingCount += 1;
+        }
+        stats.suggestions.push({
+          literatureId: result.literature_id,
+          topicId: selected.topicId,
+          suggestedScope: 'in_scope',
+          reason: selected.rankingMode === 'hybrid_score' ? 'ranked:hybrid_score' : 'ranked:llm_score',
+          score: selected.rankingScore,
+        });
+      });
+
+      for (const result of sourceResults) {
+        const stats = importedBySource.get(result.source) ?? {
+          importedCount: 0,
+          importedNewCount: 0,
+          importedExistingCount: 0,
+          suggestions: [],
+        };
+        const selectedCount = selectedBySource.get(result.source) ?? 0;
+        const topkSkippedCount = Math.max(0, result.eligibleCandidates.length - selectedCount);
+        result.importedCount = stats.importedCount;
+        result.suggestions = stats.suggestions;
+        result.meta = {
+          ...(result.meta ?? {}),
+          configured_limit: rule.querySpec.maxResultsPerSource,
+          fetch_limit: effectivePullLimit,
+          effective_limit: effectivePullLimit,
+          limit_multiplier: isInitialPull ? 5 : 1,
+          initial_pull: isInitialPull,
+          selected_topk_count: selectedCount,
+          topk_skipped_count: topkSkippedCount,
+          imported_new_count: stats.importedNewCount,
+          imported_existing_count: stats.importedExistingCount,
+          imported_count: stats.importedCount,
+          failed_count: result.failedCount,
+        };
       }
 
       const finishedAt = new Date().toISOString();
@@ -601,6 +735,12 @@ export class AutoPullService {
         : totalImported > 0
           ? 'PARTIAL'
           : 'FAILED';
+      const terminalErrorCode = status === 'FAILED'
+        ? this.resolveRunFailureCode(sourceResults)
+        : null;
+      const terminalErrorMessage = status === 'FAILED'
+        ? this.resolveRunFailureMessage(sourceResults, terminalErrorCode)
+        : null;
 
       await this.repository.updateRun(runId, {
         status,
@@ -609,6 +749,12 @@ export class AutoPullService {
           ...runningRun.summary,
           imported_count: totalImported,
           failed_count: totalFailed,
+          configured_limit: rule.querySpec.maxResultsPerSource,
+          effective_limit: effectivePullLimit,
+          limit_multiplier: isInitialPull ? 5 : 1,
+          initial_pull: isInitialPull,
+          selected_topk_count: selectedCandidates.length,
+          deduped_eligible_count: globalEligibleCandidates.length,
           source_total: sourceResults.length,
           ...(rule.scope === 'TOPIC'
             ? {
@@ -617,8 +763,8 @@ export class AutoPullService {
             }
             : {}),
         },
-        errorCode: status === 'FAILED' ? AUTOPULL_ALERT_CODES.IMPORT_FAILED : null,
-        errorMessage: status === 'FAILED' ? 'All sources failed.' : null,
+        errorCode: terminalErrorCode,
+        errorMessage: terminalErrorMessage,
         updatedAt: finishedAt,
       });
 
@@ -659,8 +805,8 @@ export class AutoPullService {
           runId,
           source: null,
           level: 'ERROR',
-          code: AUTOPULL_ALERT_CODES.IMPORT_FAILED,
-          message: 'All enabled sources failed during run execution.',
+          code: terminalErrorCode ?? AUTOPULL_ALERT_CODES.IMPORT_FAILED,
+          message: terminalErrorMessage ?? 'All enabled sources failed during run execution.',
           detail: {
             source_total: sourceResults.length,
           },
@@ -708,37 +854,65 @@ export class AutoPullService {
     runId: string,
     context: TopicExecutionContext,
     timeWindowMode: SourceTimeWindowMode,
+    seenRunDedupKeys: Set<string>,
+    fetchLimit: number,
   ): Promise<SourceExecutionResult> {
     try {
-      const fetchedItems = await this.fetchSourceItems(
+      const fetchedCandidates = await this.fetchSourceItems(
         source,
         context.querySpec,
         context.timeSpec,
         timeWindowMode,
+        fetchLimit,
       );
-      const accepted = fetchedItems
+      const fetchedItems = fetchedCandidates.map((candidate) => candidate.item);
+      const rankingMode = this.readRankingMode(source.config);
+      const threshold = rule.qualitySpec.minQualityScore;
+
+      const completeCandidates: FetchedCandidate[] = [];
+      let incompleteRejectedCount = 0;
+      let duplicateSkippedCount = 0;
+
+      for (const candidate of fetchedCandidates) {
+        if (!this.isReferenceReady(candidate.item)) {
+          incompleteRejectedCount += 1;
+          continue;
+        }
+
+        const runDedupKey = this.buildRunDedupFingerprint(candidate.item);
+        if (runDedupKey && seenRunDedupKeys.has(runDedupKey)) {
+          duplicateSkippedCount += 1;
+          continue;
+        }
+
+        const dedupMatchedBy = await this.literatureService.findImportDedupMatch(candidate.item);
+        if (dedupMatchedBy !== 'none') {
+          duplicateSkippedCount += 1;
+          if (runDedupKey) {
+            seenRunDedupKeys.add(runDedupKey);
+          }
+          continue;
+        }
+
+        if (runDedupKey) {
+          seenRunDedupKeys.add(runDedupKey);
+        }
+        completeCandidates.push(candidate);
+      }
+
+      const rankedCandidates = await this.scoreRankedCandidates(completeCandidates, rankingMode);
+      const scoredCount = rankedCandidates.length;
+      const belowThresholdCandidates = rankedCandidates.filter((item) => item.qualityScore < threshold);
+      const eligibleCandidates = rankedCandidates
+        .filter((item) => item.qualityScore >= threshold)
         .map((item) => ({
-          item,
-          gate: this.evaluateQualityGate(item, context.querySpec, rule.qualitySpec),
-        }))
-        .filter((item) => item.gate.allowed);
-
-      const imported = accepted.length > 0
-        ? await this.literatureService.import({
-          items: accepted.map((item) => item.item),
-        })
-        : { results: [] };
-
-      const suggestions = imported.results.map((result, index) => {
-        const gate = accepted[index]?.gate;
-        return {
-          literatureId: result.literature_id,
+          source: source.source,
           topicId: context.topicId,
-          suggestedScope: gate?.suggestedScope ?? 'in_scope',
-          reason: gate?.reason ?? 'quality-gate-pass',
-          score: gate?.score ?? 0.8,
-        };
-      });
+          candidate: item.candidate,
+          qualityScore: item.qualityScore,
+          rankingScore: item.rankingScore,
+          rankingMode: item.rankingMode,
+        }));
 
       await this.repository.upsertCursor({
         id: crypto.randomUUID(),
@@ -748,7 +922,13 @@ export class AutoPullService {
         cursorAt: new Date().toISOString(),
       });
 
-      const failedCount = fetchedItems.length - imported.results.length;
+      const belowThresholdCount = belowThresholdCandidates.length;
+      const eligibleCount = eligibleCandidates.length;
+      const failedCount = incompleteRejectedCount + duplicateSkippedCount + belowThresholdCount;
+      const llmScoreAvg = scoredCount === 0
+        ? null
+        : Number((rankedCandidates.reduce((sum, item) => sum + item.qualityScore, 0) / scoredCount).toFixed(2));
+
       if (failedCount > 0) {
         await this.repository.createAlert({
           id: crypto.randomUUID(),
@@ -757,10 +937,15 @@ export class AutoPullService {
           source: source.source,
           level: 'WARNING',
           code: AUTOPULL_ALERT_CODES.PARSE_FAILED,
-          message: `Some items were filtered out by quality gate for ${source.source}.`,
+          message: `Some fetched items were filtered before global top-k import for ${source.source}.`,
           detail: {
             fetched_count: fetchedItems.length,
-            imported_count: imported.results.length,
+            incomplete_rejected_count: incompleteRejectedCount,
+            duplicate_skipped_count: duplicateSkippedCount,
+            scored_count: scoredCount,
+            below_threshold_count: belowThresholdCount,
+            eligible_count: eligibleCount,
+            imported_count: 0,
             topic_id: context.topicId,
           },
           ackAt: null,
@@ -771,17 +956,30 @@ export class AutoPullService {
       return {
         source: source.source,
         fetchedItems,
-        importedCount: imported.results.length,
+        eligibleCandidates,
+        importedCount: 0,
         failedCount,
         errorCode: null,
         errorMessage: null,
         attemptStatus: failedCount > 0 ? 'PARTIAL' : 'SUCCESS',
-        suggestions,
+        suggestions: [],
         meta: {
           topic_id: context.topicId,
           time_window_mode: timeWindowMode,
+          ranking_mode: rankingMode,
+          threshold,
+          configured_limit: context.querySpec.maxResultsPerSource,
+          fetch_limit: fetchLimit,
           fetched_count: fetchedItems.length,
-          imported_count: imported.results.length,
+          incomplete_rejected_count: incompleteRejectedCount,
+          duplicate_skipped_count: duplicateSkippedCount,
+          scored_count: scoredCount,
+          below_threshold_count: belowThresholdCount,
+          eligible_count: eligibleCount,
+          imported_new_count: 0,
+          imported_existing_count: 0,
+          llm_score_avg: llmScoreAvg,
+          imported_count: 0,
           failed_count: failedCount,
         },
       };
@@ -805,6 +1003,7 @@ export class AutoPullService {
       return {
         source: source.source,
         fetchedItems: [],
+        eligibleCandidates: [],
         importedCount: 0,
         failedCount: 1,
         errorCode: alertCode,
@@ -826,6 +1025,13 @@ export class AutoPullService {
     alertCode: string;
     level: AutoPullAlertRecord['level'];
   } {
+    if (
+      error instanceof AppError
+      && error.errorCode === 'INTERNAL_ERROR'
+      && error.message.includes(AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE)
+    ) {
+      return { alertCode: AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE, level: 'ERROR' };
+    }
     const message = error instanceof Error ? error.message.toLowerCase() : '';
     if (message.includes('429')) {
       return { alertCode: AUTOPULL_ALERT_CODES.SOURCE_RATE_LIMIT, level: 'WARNING' };
@@ -841,12 +1047,13 @@ export class AutoPullService {
     querySpec: AutoPullQuerySpec,
     timeSpec: AutoPullTimeSpec,
     timeWindowMode: SourceTimeWindowMode,
-  ): Promise<LiteratureImportItem[]> {
+    fetchLimit: number,
+  ): Promise<FetchedCandidate[]> {
     const queryText = this.buildSearchQuery(querySpec);
     if (source.source === 'CROSSREF') {
       return this.fetchCrossrefItems(
         queryText,
-        querySpec.maxResultsPerSource,
+        fetchLimit,
         timeSpec,
         timeWindowMode,
       );
@@ -854,7 +1061,7 @@ export class AutoPullService {
     if (source.source === 'ARXIV') {
       return this.fetchArxivItems(
         queryText,
-        querySpec.maxResultsPerSource,
+        fetchLimit,
         timeSpec,
         timeWindowMode,
       );
@@ -862,7 +1069,7 @@ export class AutoPullService {
     return this.fetchZoteroItems(
       queryText,
       source.config,
-      querySpec.maxResultsPerSource,
+      fetchLimit,
       timeSpec,
       timeWindowMode,
     );
@@ -873,7 +1080,7 @@ export class AutoPullService {
     limit: number,
     timeSpec: AutoPullTimeSpec,
     timeWindowMode: SourceTimeWindowMode,
-  ): Promise<LiteratureImportItem[]> {
+  ): Promise<FetchedCandidate[]> {
     const response = await fetch(
       `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${limit}`,
     );
@@ -888,8 +1095,8 @@ export class AutoPullService {
     const items = payload.message?.items ?? [];
     return items
       .map((item, index) => this.mapCrossrefRecord(item, `crossref-${index + 1}`))
-      .filter((item): item is LiteratureImportItem => item !== null)
-      .filter((item) => this.matchesTimeWindow(item, timeSpec, timeWindowMode));
+      .filter((item): item is FetchedCandidate => item !== null)
+      .filter((item) => this.matchesTimeWindow(item.item, timeSpec, timeWindowMode));
   }
 
   private async fetchArxivItems(
@@ -897,7 +1104,7 @@ export class AutoPullService {
     limit: number,
     timeSpec: AutoPullTimeSpec,
     timeWindowMode: SourceTimeWindowMode,
-  ): Promise<LiteratureImportItem[]> {
+  ): Promise<FetchedCandidate[]> {
     const response = await fetch(
       `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=${limit}`,
     );
@@ -908,8 +1115,8 @@ export class AutoPullService {
     const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)];
     return entries
       .map((entry) => this.mapArxivEntry(entry[1] ?? ''))
-      .filter((item): item is LiteratureImportItem => item !== null)
-      .filter((item) => this.matchesTimeWindow(item, timeSpec, timeWindowMode));
+      .filter((item): item is FetchedCandidate => item !== null)
+      .filter((item) => this.matchesTimeWindow(item.item, timeSpec, timeWindowMode));
   }
 
   private async fetchZoteroItems(
@@ -918,7 +1125,7 @@ export class AutoPullService {
     maxResultsPerSource: number,
     timeSpec: AutoPullTimeSpec,
     timeWindowMode: SourceTimeWindowMode,
-  ): Promise<LiteratureImportItem[]> {
+  ): Promise<FetchedCandidate[]> {
     const libraryType = this.readString(config.library_type) as ZoteroLibraryType | undefined;
     const libraryId = this.readString(config.library_id);
     if (!libraryType || !libraryId) {
@@ -949,11 +1156,11 @@ export class AutoPullService {
     const payload = (await response.json()) as Array<Record<string, unknown>>;
     return payload
       .map((entry) => this.mapZoteroEntry(entry, libraryType, libraryId))
-      .filter((item): item is LiteratureImportItem => item !== null)
-      .filter((item) => this.matchesTimeWindow(item, timeSpec, timeWindowMode));
+      .filter((item): item is FetchedCandidate => item !== null)
+      .filter((item) => this.matchesTimeWindow(item.item, timeSpec, timeWindowMode));
   }
 
-  private mapCrossrefRecord(record: Record<string, unknown>, fallbackId: string): LiteratureImportItem | null {
+  private mapCrossrefRecord(record: Record<string, unknown>, fallbackId: string): FetchedCandidate | null {
     const title = this.readFirstString(record.title);
     if (!title) {
       return null;
@@ -964,7 +1171,8 @@ export class AutoPullService {
       return null;
     }
     const year = this.readCrossrefYear(record);
-    return {
+    const publicationStatus = this.resolveCrossrefPublicationStatus(record, year);
+    const item: LiteratureImportItem = {
       provider: 'crossref',
       external_id: doi ?? fallbackId,
       title,
@@ -976,9 +1184,17 @@ export class AutoPullService {
       rights_class: 'UNKNOWN',
       tags: [],
     };
+    return {
+      item,
+      rankingSignals: {
+        publicationStatus,
+        publicationYear: year ?? null,
+        citationCount: this.readCrossrefCitationCount(record),
+      },
+    };
   }
 
-  private mapArxivEntry(entry: string): LiteratureImportItem | null {
+  private mapArxivEntry(entry: string): FetchedCandidate | null {
     const id = this.readXmlTag(entry, 'id');
     const title = this.readXmlTag(entry, 'title');
     if (!id || !title) {
@@ -991,7 +1207,7 @@ export class AutoPullService {
       .map((match) => this.decodeXmlText(match[1] ?? '').trim())
       .filter((item) => item.length > 0);
     const arxivId = this.extractArxivId(id);
-    return {
+    const item: LiteratureImportItem = {
       provider: 'arxiv',
       external_id: arxivId ?? id,
       title: this.decodeXmlText(title),
@@ -1003,13 +1219,21 @@ export class AutoPullService {
       rights_class: 'UNKNOWN',
       tags: [],
     };
+    return {
+      item,
+      rankingSignals: {
+        publicationStatus: 'preprint',
+        publicationYear: Number.isFinite(year ?? Number.NaN) ? year ?? null : null,
+        citationCount: null,
+      },
+    };
   }
 
   private mapZoteroEntry(
     entry: Record<string, unknown>,
     libraryType: ZoteroLibraryType,
     libraryId: string,
-  ): LiteratureImportItem | null {
+  ): FetchedCandidate | null {
     const data = this.readRecord(entry.data);
     if (!data) {
       return null;
@@ -1046,7 +1270,7 @@ export class AutoPullService {
     const dateText = this.readString(data.date);
     const year = this.parseYear(dateText);
 
-    return {
+    const item: LiteratureImportItem = {
       provider: 'zotero',
       external_id: itemKey ?? doi ?? arxivId ?? sourceUrl,
       title: title.trim(),
@@ -1059,66 +1283,202 @@ export class AutoPullService {
       rights_class: 'USER_AUTH',
       tags: [],
     };
-  }
-
-  private evaluateQualityGate(
-    item: LiteratureImportItem,
-    querySpec: AutoPullQuerySpec,
-    qualitySpec: AutoPullQualitySpec,
-  ): { allowed: boolean; suggestedScope: TopicScopeStatus; reason: string; score: number } {
-    const title = item.title.toLowerCase();
-    const abstract = (item.abstract ?? '').toLowerCase();
-    const corpus = `${title} ${abstract} ${(item.authors ?? []).join(' ').toLowerCase()}`;
-    const includeMatched = querySpec.includeKeywords.length === 0
-      || querySpec.includeKeywords.some((keyword) => corpus.includes(keyword.toLowerCase()));
-    const excludeMatched = querySpec.excludeKeywords.some((keyword) =>
-      corpus.includes(keyword.toLowerCase()),
-    );
-
-    const completenessScore = this.computeCompletenessScore(item);
-    if (excludeMatched) {
-      return {
-        allowed: false,
-        suggestedScope: 'excluded',
-        reason: 'matched exclude keyword',
-        score: completenessScore,
-      };
-    }
-    if (qualitySpec.requireIncludeMatch && !includeMatched) {
-      return {
-        allowed: false,
-        suggestedScope: 'excluded',
-        reason: 'include keywords not matched',
-        score: completenessScore,
-      };
-    }
-    if (completenessScore < qualitySpec.minCompletenessScore) {
-      return {
-        allowed: false,
-        suggestedScope: 'excluded',
-        reason: 'completeness score below threshold',
-        score: completenessScore,
-      };
-    }
-
     return {
-      allowed: true,
-      suggestedScope: 'in_scope',
-      reason: includeMatched ? 'matched include keywords' : 'quality gate pass',
-      score: completenessScore,
+      item,
+      rankingSignals: {
+        publicationStatus: 'unknown',
+        publicationYear: year ?? null,
+        citationCount: this.readZoteroCitationCount(data),
+      },
     };
   }
 
-  private computeCompletenessScore(item: LiteratureImportItem): number {
-    const fields = [
-      item.title.trim().length > 0,
-      (item.authors ?? []).length > 0,
-      typeof item.year === 'number',
-      Boolean(item.doi || item.arxiv_id),
-      item.source_url.trim().length > 0,
-    ];
-    const hit = fields.filter(Boolean).length;
-    return Number((hit / fields.length).toFixed(4));
+  private isReferenceReady(item: LiteratureImportItem): boolean {
+    const hasTitle = item.title.trim().length > 0;
+    const hasAuthors = (item.authors ?? []).length > 0;
+    const hasValidYear = typeof item.year === 'number'
+      && Number.isInteger(item.year)
+      && item.year >= 1900
+      && item.year <= 2100;
+    const hasIdentifier = Boolean(this.normalizeDoi(item.doi ?? undefined) || this.normalizeArxivId(item.arxiv_id ?? undefined));
+    const hasSourceUrl = this.isHttpUrl(item.source_url);
+    return hasTitle && hasAuthors && hasValidYear && hasIdentifier && hasSourceUrl;
+  }
+
+  private buildRunDedupFingerprint(item: LiteratureImportItem): string | null {
+    const doi = this.normalizeDoi(item.doi ?? undefined);
+    if (doi) {
+      return `doi:${doi}`;
+    }
+    const arxivId = this.normalizeArxivId(item.arxiv_id ?? undefined);
+    if (arxivId) {
+      return `arxiv:${arxivId}`;
+    }
+    const year = item.year ?? null;
+    if (!year) {
+      return null;
+    }
+    const title = this.normalizeTitle(item.title);
+    const authors = this.normalizeAuthors(item.authors ?? []);
+    if (!title || authors.length === 0) {
+      return null;
+    }
+    return `tay:${crypto.createHash('sha1').update(`${title}|${authors.join('|')}|${year}`).digest('hex')}`;
+  }
+
+  private async scoreRankedCandidates(
+    candidates: FetchedCandidate[],
+    rankingMode: AutoPullRankingMode,
+  ): Promise<RankedCandidate[]> {
+    if (candidates.length === 0) {
+      return [];
+    }
+    const scorerConfig = this.resolveQualityScorerConfig();
+    const scored: RankedCandidate[] = [];
+    for (const candidate of candidates) {
+      const qualityScore = await this.scoreQualityCandidate(candidate, scorerConfig);
+      const rankingScore = this.computeRankingScore(candidate, qualityScore, rankingMode);
+      scored.push({
+        candidate,
+        qualityScore,
+        rankingScore,
+        rankingMode,
+      });
+    }
+    return scored;
+  }
+
+  private computeRankingScore(
+    candidate: FetchedCandidate,
+    qualityScore: number,
+    rankingMode: AutoPullRankingMode,
+  ): number {
+    if (rankingMode === 'llm_score') {
+      return qualityScore;
+    }
+    const freshness = this.computeFreshnessScore(candidate.rankingSignals.publicationYear);
+    const publicationStatus = this.computePublicationStatusScore(candidate.rankingSignals.publicationStatus);
+    const citation = this.computeCitationScore(candidate.rankingSignals.citationCount);
+    const weighted = (qualityScore * 0.70) + (freshness * 0.15) + (publicationStatus * 0.10) + (citation * 0.05);
+    return Math.round(Math.max(0, Math.min(100, weighted)));
+  }
+
+  private computeFreshnessScore(publicationYear: number | null): number {
+    if (!publicationYear || !Number.isFinite(publicationYear)) {
+      return 0;
+    }
+    const age = Math.max(0, new Date().getUTCFullYear() - publicationYear);
+    return Math.max(0, Math.round(100 - (age * 5)));
+  }
+
+  private computePublicationStatusScore(status: PublicationStatusSignal): number {
+    if (status === 'published') {
+      return 100;
+    }
+    if (status === 'accepted') {
+      return 80;
+    }
+    if (status === 'preprint') {
+      return 50;
+    }
+    return 0;
+  }
+
+  private computeCitationScore(citationCount: number | null): number {
+    if (!citationCount || citationCount <= 0) {
+      return 0;
+    }
+    const normalized = Math.log10(citationCount + 1) / Math.log10(501);
+    return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
+  }
+
+  private resolveQualityScorerConfig(): {
+    endpoint: string;
+    apiKey: string | null;
+    model: string;
+  } {
+    const endpoint = (process.env.AUTO_PULL_LLM_SCORER_URL ?? '').trim();
+    if (!endpoint) {
+      throw new AppError(
+        500,
+        'INTERNAL_ERROR',
+        `${AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE}: scorer endpoint is not configured.`,
+      );
+    }
+    const apiKey = (process.env.AUTO_PULL_LLM_SCORER_API_KEY ?? '').trim() || null;
+    const model = (process.env.AUTO_PULL_LLM_SCORER_MODEL ?? 'quality-score-v1').trim() || 'quality-score-v1';
+    return { endpoint, apiKey, model };
+  }
+
+  private async scoreQualityCandidate(
+    candidate: FetchedCandidate,
+    config: { endpoint: string; apiKey: string | null; model: string },
+  ): Promise<number> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (config.apiKey) {
+      headers.Authorization = `Bearer ${config.apiKey}`;
+    }
+    const response = await fetch(config.endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: config.model,
+        input: {
+          title: candidate.item.title,
+          abstract: candidate.item.abstract ?? null,
+          authors: candidate.item.authors ?? [],
+          year: candidate.item.year ?? null,
+          doi: candidate.item.doi ?? null,
+          arxiv_id: candidate.item.arxiv_id ?? null,
+          source_url: candidate.item.source_url,
+          provider: candidate.item.provider,
+        },
+      }),
+    });
+    if (!response.ok) {
+      throw new AppError(
+        500,
+        'INTERNAL_ERROR',
+        `${AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE}: scorer request failed with status ${response.status}.`,
+      );
+    }
+    const payload = (await response.json()) as Record<string, unknown>;
+    const score = this.readQualityScore(payload);
+    if (score === null) {
+      throw new AppError(
+        500,
+        'INTERNAL_ERROR',
+        `${AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE}: scorer response missing score.`,
+      );
+    }
+    return score;
+  }
+
+  private readQualityScore(payload: Record<string, unknown>): number | null {
+    const directScore = this.readNonNegativeNumber(payload.quality_score);
+    if (directScore !== null) {
+      return Math.round(Math.max(0, Math.min(100, directScore)));
+    }
+    const fallbackScore = this.readNonNegativeNumber(payload.score);
+    if (fallbackScore !== null) {
+      return Math.round(Math.max(0, Math.min(100, fallbackScore)));
+    }
+    return null;
+  }
+
+  private readRankingMode(config: Record<string, unknown>): AutoPullRankingMode {
+    const mode = this.readString(config.sort_mode);
+    return mode === 'hybrid_score' ? 'hybrid_score' : 'llm_score';
+  }
+
+  private isHttpUrl(value?: string): boolean {
+    if (!value) {
+      return false;
+    }
+    return /^https?:\/\/.+/i.test(value.trim());
   }
 
   private matchesTimeWindow(
@@ -1225,8 +1585,7 @@ export class AutoPullService {
         max_year: bundle.rule.timeSpec.maxYear,
       },
       quality_spec: {
-        min_completeness_score: bundle.rule.qualitySpec.minCompletenessScore,
-        require_include_match: bundle.rule.qualitySpec.requireIncludeMatch,
+        min_quality_score: bundle.rule.qualitySpec.minQualityScore,
       },
       sources: bundle.sources.map((source) => ({
         source: source.source,
@@ -1477,8 +1836,45 @@ export class AutoPullService {
     timeWindowMode: SourceTimeWindowMode,
   ): SourceExecutionResult {
     const fetchedItems = results.flatMap((item) => item.fetchedItems);
+    const eligibleCandidates = results.flatMap((item) => item.eligibleCandidates);
     const importedCount = results.reduce((sum, item) => sum + item.importedCount, 0);
     const failedCount = results.reduce((sum, item) => sum + item.failedCount, 0);
+    const incompleteRejectedCount = results.reduce(
+      (sum, item) => sum + this.readMetaCount(item.meta, 'incomplete_rejected_count'),
+      0,
+    );
+    const duplicateSkippedCount = results.reduce(
+      (sum, item) => sum + this.readMetaCount(item.meta, 'duplicate_skipped_count'),
+      0,
+    );
+    const scoredCount = results.reduce(
+      (sum, item) => sum + this.readMetaCount(item.meta, 'scored_count'),
+      0,
+    );
+    const belowThresholdCount = results.reduce(
+      (sum, item) => sum + this.readMetaCount(item.meta, 'below_threshold_count'),
+      0,
+    );
+    const eligibleCount = results.reduce(
+      (sum, item) => sum + this.readMetaCount(item.meta, 'eligible_count'),
+      0,
+    );
+    const importedNewCount = results.reduce(
+      (sum, item) => sum + this.readMetaCount(item.meta, 'imported_new_count'),
+      0,
+    );
+    const importedExistingCount = results.reduce(
+      (sum, item) => sum + this.readMetaCount(item.meta, 'imported_existing_count'),
+      0,
+    );
+    const llmScoreWeightedSum = results.reduce((sum, item) => {
+      const avg = this.readMetaFloat(item.meta, 'llm_score_avg');
+      const count = this.readMetaCount(item.meta, 'scored_count');
+      return sum + (avg * count);
+    }, 0);
+    const llmScoreAvg = scoredCount > 0 ? Number((llmScoreWeightedSum / scoredCount).toFixed(2)) : null;
+    const rankingMode = this.readMetaText(results, 'ranking_mode') ?? 'llm_score';
+    const threshold = this.readMetaFloatFromResults(results, 'threshold');
     const hasFailure = results.some((item) => item.attemptStatus === 'FAILED');
     const hasPartial = results.some((item) => item.attemptStatus === 'PARTIAL');
     const attemptStatus: AutoPullRunSourceAttemptRecord['status'] = hasFailure
@@ -1493,6 +1889,7 @@ export class AutoPullService {
     return {
       source,
       fetchedItems,
+      eligibleCandidates,
       importedCount,
       failedCount,
       errorCode: firstError?.errorCode ?? null,
@@ -1503,11 +1900,78 @@ export class AutoPullService {
         topic_ids: activeTopicIds.filter((value): value is string => typeof value === 'string'),
         skipped_topic_ids: skippedTopicIds,
         time_window_mode: timeWindowMode,
+        ranking_mode: rankingMode,
+        ...(threshold !== null ? { threshold } : {}),
         fetched_count: fetchedItems.length,
+        incomplete_rejected_count: incompleteRejectedCount,
+        duplicate_skipped_count: duplicateSkippedCount,
+        scored_count: scoredCount,
+        below_threshold_count: belowThresholdCount,
+        eligible_count: eligibleCount,
+        imported_new_count: importedNewCount,
+        imported_existing_count: importedExistingCount,
+        llm_score_avg: llmScoreAvg,
         imported_count: importedCount,
         failed_count: failedCount,
       },
     };
+  }
+
+  private resolveRunFailureCode(results: SourceExecutionResult[]): string {
+    const codes = [...new Set(results.map((item) => item.errorCode).filter((code): code is string => Boolean(code)))];
+    if (codes.length === 1 && codes[0] === AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE) {
+      return AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE;
+    }
+    return AUTOPULL_ALERT_CODES.IMPORT_FAILED;
+  }
+
+  private resolveRunFailureMessage(
+    results: SourceExecutionResult[],
+    code: string | null,
+  ): string {
+    if (code === AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE) {
+      const first = results.find((item) => item.errorCode === AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE);
+      return first?.errorMessage ?? 'Quality scorer is unavailable.';
+    }
+    return 'All enabled sources failed.';
+  }
+
+  private readMetaCount(meta: Record<string, unknown> | undefined, key: string): number {
+    const value = meta?.[key];
+    return this.readNonNegativeNumber(value) ?? 0;
+  }
+
+  private readMetaFloat(meta: Record<string, unknown> | undefined, key: string): number {
+    const value = meta?.[key];
+    return this.readNonNegativeNumber(value) ?? 0;
+  }
+
+  private readMetaText(results: SourceExecutionResult[], key: string): string | null {
+    for (const item of results) {
+      const meta = item.meta;
+      if (!meta) {
+        continue;
+      }
+      const value = this.readString(meta[key]);
+      if (value) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  private readMetaFloatFromResults(results: SourceExecutionResult[], key: string): number | null {
+    for (const item of results) {
+      const meta = item.meta;
+      if (!meta) {
+        continue;
+      }
+      const value = this.readNonNegativeNumber(meta[key]);
+      if (value !== null) {
+        return value;
+      }
+    }
+    return null;
   }
 
   private normalizeQuerySpec(
@@ -1537,12 +2001,11 @@ export class AutoPullService {
   private normalizeQualitySpec(
     qualitySpec: CreateAutoPullRuleRequest['quality_spec'] | UpdateAutoPullRuleRequest['quality_spec'] | undefined,
   ): AutoPullRuleRecord['qualitySpec'] {
-    const minScore = qualitySpec?.min_completeness_score ?? 0.6;
+    const minScore = qualitySpec?.min_quality_score ?? 70;
     return {
-      minCompletenessScore: Number.isFinite(minScore)
-        ? Math.max(0, Math.min(1, minScore))
-        : 0.6,
-      requireIncludeMatch: qualitySpec?.require_include_match ?? true,
+      minQualityScore: Number.isFinite(minScore)
+        ? Math.max(0, Math.min(100, Math.round(minScore)))
+        : 70,
     };
   }
 
@@ -1655,8 +2118,16 @@ export class AutoPullService {
     return Math.max(1, Math.min(200, normalized));
   }
 
+  private resolveEffectivePullLimit(baseLimit: number, initialPull: boolean): number {
+    const multiplier = initialPull ? 5 : 1;
+    return Math.max(1, Math.min(1000, baseLimit * multiplier));
+  }
+
   private buildSearchQuery(querySpec: AutoPullQuerySpec): string {
     const segments = [...querySpec.includeKeywords];
+    if (querySpec.excludeKeywords.length > 0) {
+      segments.push(...querySpec.excludeKeywords.map((keyword) => `-${keyword}`));
+    }
     if (querySpec.authors.length > 0) {
       segments.push(...querySpec.authors.map((author) => `author:${author}`));
     }
@@ -1680,6 +2151,19 @@ export class AutoPullService {
     return typeof value === 'string' ? value : undefined;
   }
 
+  private readNonNegativeNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number.parseFloat(value.trim());
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        return parsed;
+      }
+    }
+    return null;
+  }
+
   private readFirstString(value: unknown): string | undefined {
     if (Array.isArray(value)) {
       for (const item of value) {
@@ -1690,6 +2174,29 @@ export class AutoPullService {
       return undefined;
     }
     return this.readString(value);
+  }
+
+  private normalizeTitle(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private normalizeAuthors(authors: string[]): string[] {
+    return authors
+      .map((name) =>
+        name
+          .trim()
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}]+/gu, ' ')
+          .replace(/\s+/g, ' ')
+          .trim(),
+      )
+      .filter((name) => name.length > 0)
+      .sort();
   }
 
   private readCrossrefYear(record: Record<string, unknown>): number | undefined {
@@ -1712,6 +2219,25 @@ export class AutoPullService {
     return undefined;
   }
 
+  private resolveCrossrefPublicationStatus(
+    record: Record<string, unknown>,
+    publishedYear: number | undefined,
+  ): PublicationStatusSignal {
+    if (typeof publishedYear === 'number' && Number.isFinite(publishedYear)) {
+      return 'published';
+    }
+    const accepted = this.readRecord(record.accepted);
+    const acceptedDateParts = accepted?.['date-parts'];
+    if (Array.isArray(acceptedDateParts) && acceptedDateParts.length > 0) {
+      return 'accepted';
+    }
+    return 'unknown';
+  }
+
+  private readCrossrefCitationCount(record: Record<string, unknown>): number | null {
+    return this.readNonNegativeNumber(record['is-referenced-by-count']);
+  }
+
   private readCrossrefAuthors(record: Record<string, unknown>): string[] {
     const authors = Array.isArray(record.author) ? record.author : [];
     return authors
@@ -1723,6 +2249,12 @@ export class AutoPullService {
         return [given, family].filter((part): part is string => Boolean(part)).join(' ').trim();
       })
       .filter((author) => author.length > 0);
+  }
+
+  private readZoteroCitationCount(record: Record<string, unknown>): number | null {
+    return this.readNonNegativeNumber(
+      record.numCitations ?? record.citationCount ?? record.timesCited,
+    );
   }
 
   private stripMarkup(value?: string): string | null {
