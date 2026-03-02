@@ -97,7 +97,8 @@ type QuerySort = 'importance' | 'updated_at' | 'published_at' | 'title_initial';
 type SortDirection = 'asc' | 'desc';
 type QuerySortPreset = `${QuerySort}|${SortDirection}`;
 type LiteratureOverviewStatus = 'automation_ready' | 'citable' | 'not_citable' | 'excluded';
-type OverviewScopeFilterInput = 'all' | 'in_scope' | 'excluded';
+type OverviewContentStatus = 'not_extracted' | 'abstracted' | 'preprocessed' | 'vectorized';
+type OverviewScopeFilterInput = 'all' | LiteratureOverviewStatus;
 
 type ManualUploadFileItem = {
   id: string;
@@ -1004,15 +1005,6 @@ function normalizeLiteratureProvider(value: unknown): LiteratureProvider {
   return 'crossref';
 }
 
-function parseTagsInput(value: string): string[] {
-  return [...new Set(
-    value
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0),
-  )];
-}
-
 function normalizeWeekdayToken(value: string | undefined): AutoPullWeekday {
   const token = (value ?? '').trim().toUpperCase();
   const matched = autoPullWeekdayOptions.find((option) => option.value === token);
@@ -1757,6 +1749,67 @@ function formatLiteratureOverviewStatus(status: LiteratureOverviewStatus): strin
   return '不可引用';
 }
 
+function formatOverviewContentStatus(status: OverviewContentStatus): string {
+  if (status === 'abstracted') {
+    return '提取摘要';
+  }
+  if (status === 'preprocessed') {
+    return '预处理全文';
+  }
+  if (status === 'vectorized') {
+    return '完成向量化';
+  }
+  return '未提取';
+}
+
+function normalizeOverviewContentStatus(value: string | null | undefined): OverviewContentStatus {
+  if (value === 'abstracted' || value === 'preprocessed' || value === 'vectorized') {
+    return value;
+  }
+  return 'not_extracted';
+}
+
+function upgradeOverviewContentStatus(
+  current: OverviewContentStatus,
+  target: OverviewContentStatus,
+): OverviewContentStatus {
+  const order: OverviewContentStatus[] = ['not_extracted', 'abstracted', 'preprocessed', 'vectorized'];
+  const currentIndex = order.indexOf(current);
+  const targetIndex = order.indexOf(target);
+  if (currentIndex < 0) {
+    return target;
+  }
+  if (targetIndex < 0) {
+    return current;
+  }
+  return targetIndex > currentIndex ? target : current;
+}
+
+function resolveOverviewPublicationLabel(item: LiteratureOverviewItem): string {
+  const providers = new Set(item.providers);
+  if (providers.has('crossref')) {
+    return '已发表/已收录';
+  }
+  if (providers.has('arxiv')) {
+    return '预印本';
+  }
+  return '--';
+}
+
+function parseCitationCountFromTags(tags: string[]): number | null {
+  for (const tag of tags) {
+    const matched = tag.match(/(?:cite|cites|citation|citations|引用|引用量)[\s:_=-]*(\d+)/i);
+    if (!matched) {
+      continue;
+    }
+    const parsed = Number.parseInt(matched[1] ?? '', 10);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
 function getLiteratureImportanceScore(item: LiteratureOverviewItem): number {
   let score = 0;
   if (item.citation_status === 'cited') {
@@ -1796,16 +1849,16 @@ function applyOverviewQuickFilters(
     keyword: string;
     yearStart: number | null;
     yearEnd: number | null;
-    tagKeyword: string;
-    includeInScope: boolean;
-    includeExcluded: boolean;
+    tagKeywords: string[];
+    statusFilter: OverviewScopeFilterInput;
   },
 ): LiteratureOverviewItem[] {
   const keyword = normalizeComparableText(filters.keyword);
-  const tagKeyword = normalizeComparableText(filters.tagKeyword);
-  if (!filters.includeInScope && !filters.includeExcluded) {
-    return [];
-  }
+  const normalizedTagKeywords = new Set(
+    filters.tagKeywords
+      .map((tag) => normalizeComparableText(tag))
+      .filter((tag) => tag.length > 0),
+  );
 
   return items.filter((item) => {
     if (keyword) {
@@ -1837,16 +1890,16 @@ function applyOverviewQuickFilters(
       }
     }
 
-    if (tagKeyword) {
-      const hit = item.tags.some((tag) => normalizeComparableText(tag) === tagKeyword);
+    if (normalizedTagKeywords.size > 0) {
+      const hit = item.tags.some((tag) => normalizedTagKeywords.has(normalizeComparableText(tag)));
       if (!hit) {
         return false;
       }
     }
 
-    if (filters.includeInScope !== filters.includeExcluded) {
-      const requiredStatus: ScopeStatus = filters.includeInScope ? 'in_scope' : 'excluded';
-      if (item.topic_scope_status !== requiredStatus) {
+    if (filters.statusFilter !== 'all') {
+      const currentStatus = resolveLiteratureOverviewStatus(item);
+      if (currentStatus !== filters.statusFilter) {
         return false;
       }
     }
@@ -1863,18 +1916,16 @@ function projectOverviewItems(
     keyword: string;
     yearStart: number | null;
     yearEnd: number | null;
-    tagKeyword: string;
-    includeInScope: boolean;
-    includeExcluded: boolean;
+    tagKeywords: string[];
+    statusFilter: OverviewScopeFilterInput;
   },
 ): LiteratureOverviewItem[] {
   const quickFilteredItems = applyOverviewQuickFilters(items, {
     keyword: options.keyword,
     yearStart: options.yearStart,
     yearEnd: options.yearEnd,
-    tagKeyword: options.tagKeyword,
-    includeInScope: options.includeInScope,
-    includeExcluded: options.includeExcluded,
+    tagKeywords: options.tagKeywords,
+    statusFilter: options.statusFilter,
   });
   return sortOverviewItems(quickFilteredItems, options.sort, options.direction);
 }
@@ -2242,18 +2293,19 @@ export function App({ initialThemeMode }: AppProps) {
   const [overviewKeyword, setOverviewKeyword] = useState<string>('');
   const [overviewYearStart, setOverviewYearStart] = useState<number | null>(overviewYearDefaultStart);
   const [overviewYearEnd, setOverviewYearEnd] = useState<number | null>(overviewYearDefaultEnd);
-  const [overviewTagKeyword, setOverviewTagKeyword] = useState<string>('');
-  const [overviewIncludeInScope, setOverviewIncludeInScope] = useState<boolean>(true);
-  const [overviewIncludeExcluded, setOverviewIncludeExcluded] = useState<boolean>(true);
+  const [overviewTagKeywords, setOverviewTagKeywords] = useState<string[]>([]);
+  const [overviewStatusFilter, setOverviewStatusFilter] = useState<OverviewScopeFilterInput>('all');
   const [overviewKeywordInput, setOverviewKeywordInput] = useState<string>('');
   const [overviewYearStartInput, setOverviewYearStartInput] = useState<string>('');
   const [overviewYearEndInput, setOverviewYearEndInput] = useState<string>('');
-  const [overviewTagKeywordInput, setOverviewTagKeywordInput] = useState<string>('');
+  const [overviewTagKeywordsInput, setOverviewTagKeywordsInput] = useState<string[]>([]);
+  const [overviewTagPickerOpen, setOverviewTagPickerOpen] = useState<boolean>(false);
   const [overviewScopeFilterInput, setOverviewScopeFilterInput] = useState<OverviewScopeFilterInput>('all');
   const [querySortPresetInput, setQuerySortPresetInput] = useState<QuerySortPreset>('importance|desc');
   const [overviewResultItems, setOverviewResultItems] = useState<LiteratureOverviewItem[]>([]);
-  const [metadataDrafts, setMetadataDrafts] = useState<Record<string, { tagsInput: string }>>({});
-  const [metadataSavingIds, setMetadataSavingIds] = useState<Record<string, boolean>>({});
+  const [overviewContentStatusById, setOverviewContentStatusById] = useState<Record<string, OverviewContentStatus>>({});
+  const [overviewPageIndex, setOverviewPageIndex] = useState<number>(1);
+  const overviewTagPickerRef = useRef<HTMLDivElement | null>(null);
 
   const [reviewersInput, setReviewersInput] = useState<string>('reviewer-1');
   const [decision, setDecision] = useState<ReviewDecision>('hold');
@@ -2534,9 +2586,8 @@ export function App({ initialThemeMode }: AppProps) {
         keyword: overviewKeyword,
         yearStart: overviewYearStart,
         yearEnd: overviewYearEnd,
-        tagKeyword: overviewTagKeyword,
-        includeInScope: overviewIncludeInScope,
-        includeExcluded: overviewIncludeExcluded,
+        tagKeywords: overviewTagKeywords,
+        statusFilter: overviewStatusFilter,
       });
 
       setOverviewPanel({
@@ -2570,9 +2621,8 @@ export function App({ initialThemeMode }: AppProps) {
               keyword: overviewKeyword,
               yearStart: overviewYearStart,
               yearEnd: overviewYearEnd,
-              tagKeyword: overviewTagKeyword,
-              includeInScope: overviewIncludeInScope,
-              includeExcluded: overviewIncludeExcluded,
+              tagKeywords: overviewTagKeywords,
+              statusFilter: overviewStatusFilter,
             });
             setOverviewPanel({
               status: topicOnlyNormalized.items.length > 0 ? 'ready' : 'empty',
@@ -2607,10 +2657,9 @@ export function App({ initialThemeMode }: AppProps) {
       });
     }
   }, [
-    overviewIncludeExcluded,
-    overviewIncludeInScope,
     overviewKeyword,
-    overviewTagKeyword,
+    overviewStatusFilter,
+    overviewTagKeywords,
     overviewYearEnd,
     overviewYearStart,
     pushLiteratureFeedback,
@@ -2619,13 +2668,10 @@ export function App({ initialThemeMode }: AppProps) {
   ]);
 
   useEffect(() => {
-    setMetadataDrafts((current) => {
-      const next: Record<string, { tagsInput: string }> = {};
+    setOverviewContentStatusById((current) => {
+      const next: Record<string, OverviewContentStatus> = {};
       for (const item of overviewPanel.data.items) {
-        const existing = current[item.literature_id];
-        next[item.literature_id] = existing ?? {
-          tagsInput: item.tags.join(', '),
-        };
+        next[item.literature_id] = normalizeOverviewContentStatus(current[item.literature_id]);
       }
       return next;
     });
@@ -2642,18 +2688,16 @@ export function App({ initialThemeMode }: AppProps) {
       keyword: overviewKeyword,
       yearStart: overviewYearStart,
       yearEnd: overviewYearEnd,
-      tagKeyword: overviewTagKeyword,
-      includeInScope: overviewIncludeInScope,
-      includeExcluded: overviewIncludeExcluded,
+      tagKeywords: overviewTagKeywords,
+      statusFilter: overviewStatusFilter,
     });
     setOverviewResultItems(sortedItems);
   }, [
-    overviewIncludeExcluded,
-    overviewIncludeInScope,
     overviewKeyword,
+    overviewStatusFilter,
     overviewPanel.data.items,
     overviewPanel.status,
-    overviewTagKeyword,
+    overviewTagKeywords,
     overviewYearEnd,
     overviewYearStart,
     querySort,
@@ -2697,6 +2741,24 @@ export function App({ initialThemeMode }: AppProps) {
       excludedCount,
     };
   }, [overviewResultItems]);
+  const overviewPageSize = 10;
+  const overviewTotalPages = Math.max(1, Math.ceil(overviewResultItems.length / overviewPageSize));
+  const overviewPageItems = useMemo(() => {
+    const start = (overviewPageIndex - 1) * overviewPageSize;
+    return overviewResultItems.slice(start, start + overviewPageSize);
+  }, [overviewPageIndex, overviewPageSize, overviewResultItems]);
+
+  useEffect(() => {
+    setOverviewPageIndex((current) => {
+      if (current < 1) {
+        return 1;
+      }
+      if (current > overviewTotalPages) {
+        return overviewTotalPages;
+      }
+      return current;
+    });
+  }, [overviewTotalPages]);
 
   const overviewTagOptions = useMemo(() => {
     const tagSet = new Set<string>();
@@ -2710,6 +2772,37 @@ export function App({ initialThemeMode }: AppProps) {
     });
     return [...tagSet].sort((left, right) => left.localeCompare(right, 'zh-CN'));
   }, [overviewPanel.data.items]);
+  const overviewTagSelectionLabel = useMemo(() => {
+    if (overviewTagKeywordsInput.length === 0) {
+      return '全部标签';
+    }
+    if (overviewTagKeywordsInput.length <= 2) {
+      return overviewTagKeywordsInput.join('、');
+    }
+    return `已选 ${overviewTagKeywordsInput.length} 个标签`;
+  }, [overviewTagKeywordsInput]);
+
+  useEffect(() => {
+    if (!overviewTagPickerOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (overviewTagPickerRef.current?.contains(target)) {
+        return;
+      }
+      setOverviewTagPickerOpen(false);
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [overviewTagPickerOpen]);
 
   const loadTopicProfiles = useCallback(async () => {
     setTopicProfilesStatus('loading');
@@ -4375,57 +4468,6 @@ export function App({ initialThemeMode }: AppProps) {
     }
   };
 
-  const handleChangeMetadataDraft = (
-    literatureId: string,
-    field: 'tagsInput',
-    value: string,
-  ) => {
-    setMetadataDrafts((current) => {
-      const existing = current[literatureId] ?? { tagsInput: '' };
-      return {
-        ...current,
-        [literatureId]: {
-          ...existing,
-          [field]: value,
-        },
-      };
-    });
-  };
-
-  const handleSaveMetadata = async (literatureId: string) => {
-    const draft = metadataDrafts[literatureId];
-    if (!draft) {
-      return;
-    }
-
-    setMetadataSavingIds((current) => ({ ...current, [literatureId]: true }));
-    try {
-      await requestGovernance({
-        method: 'PATCH',
-        path: `/literature/${encodeURIComponent(literatureId)}/metadata`,
-        body: {
-          tags: parseTagsInput(draft.tagsInput),
-        },
-      });
-      pushLiteratureFeedback({
-        slot: 'overview',
-        level: 'success',
-        message: `元数据已更新：${literatureId}`,
-      });
-      await loadLiteratureOverview(topicId, paperId);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '元数据更新失败。';
-      pushLiteratureFeedback({
-        slot: 'overview',
-        level: 'error',
-        message: `元数据更新失败：${message}`,
-        recoveryAction: 'reload-overview',
-      });
-    } finally {
-      setMetadataSavingIds((current) => ({ ...current, [literatureId]: false }));
-    }
-  };
-
   const handleScopeStatusChange = async (literatureId: string, scopeStatus: ScopeStatus) => {
     try {
       await requestGovernance({
@@ -4550,18 +4592,16 @@ export function App({ initialThemeMode }: AppProps) {
     if (yearStart > yearEnd) {
       [yearStart, yearEnd] = [yearEnd, yearStart];
     }
-    const includeInScope = overviewScopeFilterInput === 'all' || overviewScopeFilterInput === 'in_scope';
-    const includeExcluded = overviewScopeFilterInput === 'all' || overviewScopeFilterInput === 'excluded';
-
     setOverviewKeyword(overviewKeywordInput.trim());
     setOverviewYearStart(yearStart);
     setOverviewYearEnd(yearEnd);
-    setOverviewTagKeyword(overviewTagKeywordInput.trim());
-    setOverviewIncludeInScope(includeInScope);
-    setOverviewIncludeExcluded(includeExcluded);
+    setOverviewTagKeywords(overviewTagKeywordsInput);
+    setOverviewStatusFilter(overviewScopeFilterInput);
     const nextSortPreset = parseQuerySortPreset(querySortPresetInput);
     setQuerySort(nextSortPreset.sort);
     setSortDirection(nextSortPreset.direction);
+    setOverviewTagPickerOpen(false);
+    setOverviewPageIndex(1);
     pushLiteratureFeedback({
       slot: 'overview',
       level: 'info',
@@ -4573,21 +4613,61 @@ export function App({ initialThemeMode }: AppProps) {
     setOverviewKeywordInput('');
     setOverviewYearStartInput('');
     setOverviewYearEndInput('');
-    setOverviewTagKeywordInput('');
+    setOverviewTagKeywordsInput([]);
+    setOverviewTagPickerOpen(false);
     setOverviewScopeFilterInput('all');
     setQuerySortPresetInput('importance|desc');
     setOverviewKeyword('');
     setOverviewYearStart(overviewYearDefaultStart);
     setOverviewYearEnd(overviewYearDefaultEnd);
-    setOverviewTagKeyword('');
-    setOverviewIncludeInScope(true);
-    setOverviewIncludeExcluded(true);
+    setOverviewTagKeywords([]);
+    setOverviewStatusFilter('all');
     setQuerySort('importance');
     setSortDirection('desc');
+    setOverviewPageIndex(1);
     pushLiteratureFeedback({
       slot: 'overview',
       level: 'info',
       message: '已重置轻量筛选。',
+    });
+  };
+
+  const handleToggleOverviewTagKeyword = (tag: string) => {
+    setOverviewTagKeywordsInput((current) =>
+      current.includes(tag)
+        ? current.filter((value) => value !== tag)
+        : [...current, tag],
+    );
+  };
+
+  const handleSelectAllOverviewTags = () => {
+    setOverviewTagKeywordsInput(overviewTagOptions);
+  };
+
+  const handleClearOverviewTagSelection = () => {
+    setOverviewTagKeywordsInput([]);
+  };
+
+  const handleRunOverviewContentAction = (
+    literatureId: string,
+    targetStatus: OverviewContentStatus,
+    actionLabel: string,
+  ) => {
+    setOverviewContentStatusById((current) => {
+      const currentStatus = normalizeOverviewContentStatus(current[literatureId]);
+      const nextStatus = upgradeOverviewContentStatus(currentStatus, targetStatus);
+      if (nextStatus === currentStatus) {
+        return current;
+      }
+      return {
+        ...current,
+        [literatureId]: nextStatus,
+      };
+    });
+    pushLiteratureFeedback({
+      slot: 'overview',
+      level: 'info',
+      message: `${actionLabel}已加入待执行队列（当前为前端占位流程）。`,
     });
   };
 
@@ -4805,6 +4885,14 @@ export function App({ initialThemeMode }: AppProps) {
     () => autoPullRules.filter((rule) => rule.scope === 'TOPIC'),
     [autoPullRules],
   );
+  const topicSettingsSummaryStats = useMemo(() => {
+    const totalCount = topicProfiles.length;
+    const activeCount = topicProfiles.filter((profile) => profile.is_active).length;
+    return {
+      totalCount,
+      activeCount,
+    };
+  }, [topicProfiles]);
   const autoPullRuleById = useMemo(
     () => new Map(autoPullRules.map((rule) => [rule.rule_id, rule])),
     [autoPullRules],
@@ -5224,9 +5312,6 @@ export function App({ initialThemeMode }: AppProps) {
                           <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleOpenCreateTopicProfile}>
                             新增主题
                           </button>
-                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadTopicProfiles()}>
-                            刷新列表
-                          </button>
                         </div>
                         {topicProfilesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{topicProfilesError}</p> : null}
                         <div className="topic-settings-table-wrap">
@@ -5329,6 +5414,20 @@ export function App({ initialThemeMode }: AppProps) {
                                   );
                                 })}
                               </tbody>
+                              <tfoot>
+                                <tr className="topic-settings-table-summary-row">
+                                  <td colSpan={6}>
+                                    <div className="topic-settings-table-summary">
+                                      <span data-ui="text" data-variant="caption" data-tone="muted">
+                                        总主题 <strong>{topicSettingsSummaryStats.totalCount}</strong>
+                                      </span>
+                                      <span data-ui="text" data-variant="caption" data-tone="muted">
+                                        参与检索 <strong>{topicSettingsSummaryStats.activeCount}</strong>
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              </tfoot>
                             </table>
                           )}
                         </div>
@@ -6800,22 +6899,51 @@ export function App({ initialThemeMode }: AppProps) {
                               />
                             </div>
                           </label>
-                          <label data-ui="field" className="literature-filter-tag">
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              aria-label="标签选择"
-                              value={overviewTagKeywordInput}
-                              onChange={(event) => setOverviewTagKeywordInput(event.target.value)}
+                          <div data-ui="field" className="literature-filter-tag">
+                            <div
+                              className={`literature-tag-picker${overviewTagPickerOpen ? ' is-open' : ''}`}
+                              ref={overviewTagPickerRef}
                             >
-                              <option value="">全部标签</option>
-                              {overviewTagOptions.map((tag) => (
-                                <option key={tag} value={tag}>
-                                  {tag}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                              <button
+                                type="button"
+                                className="literature-tag-picker-trigger"
+                                aria-label="标签多选筛选"
+                                aria-expanded={overviewTagPickerOpen}
+                                onClick={() => setOverviewTagPickerOpen((current) => !current)}
+                              >
+                                <span>{overviewTagSelectionLabel}</span>
+                                <span aria-hidden="true">▾</span>
+                              </button>
+                              {overviewTagPickerOpen ? (
+                                <div className="literature-tag-picker-panel">
+                                  <div className="literature-tag-picker-actions">
+                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleSelectAllOverviewTags}>
+                                      全选
+                                    </button>
+                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleClearOverviewTagSelection}>
+                                      清空
+                                    </button>
+                                  </div>
+                                  <div className="literature-tag-picker-list">
+                                    {overviewTagOptions.length === 0 ? (
+                                      <span data-ui="text" data-variant="caption" data-tone="muted">暂无标签</span>
+                                    ) : (
+                                      overviewTagOptions.map((tag) => (
+                                        <label key={tag} className="literature-tag-picker-item">
+                                          <input
+                                            type="checkbox"
+                                            checked={overviewTagKeywordsInput.includes(tag)}
+                                            onChange={() => handleToggleOverviewTagKeyword(tag)}
+                                          />
+                                          <span>{tag}</span>
+                                        </label>
+                                      ))
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
                           <label data-ui="field" className="literature-filter-scope">
                             <select
                               data-ui="select"
@@ -6825,8 +6953,10 @@ export function App({ initialThemeMode }: AppProps) {
                               onChange={(event) => setOverviewScopeFilterInput(event.target.value as OverviewScopeFilterInput)}
                             >
                               <option value="all">全部状态</option>
-                              <option value="in_scope">保留</option>
-                              <option value="excluded">排除</option>
+                              <option value="automation_ready">自动化就绪</option>
+                              <option value="citable">可被引用</option>
+                              <option value="not_citable">不可引用</option>
+                              <option value="excluded">已排除</option>
                             </select>
                           </label>
                           <label data-ui="field" className="literature-filter-sort">
@@ -6846,12 +6976,14 @@ export function App({ initialThemeMode }: AppProps) {
                               </select>
                             </div>
                           </label>
-                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" className="literature-filter-action" onClick={handleApplyLiteratureFilters}>
-                            应用
-                          </button>
-                          <button data-ui="button" data-variant="ghost" data-size="sm" type="button" className="literature-filter-action" onClick={handleResetLightweightFilters}>
-                            重置
-                          </button>
+                          <div className="literature-filter-actions">
+                            <button data-ui="button" data-variant="ghost" data-size="sm" type="button" className="literature-filter-action" onClick={handleResetLightweightFilters}>
+                              重置
+                            </button>
+                            <button data-ui="button" data-variant="primary" data-size="sm" type="button" className="literature-filter-action" onClick={handleApplyLiteratureFilters}>
+                              应用
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </section>
@@ -6869,45 +7001,68 @@ export function App({ initialThemeMode }: AppProps) {
                       <table className="literature-overview-table">
                         <thead>
                           <tr>
-                            <th>标题与来源</th>
-                            <th>作者 / 年份</th>
-                            <th>状态</th>
-                            <th>标签</th>
-                            <th>操作</th>
+                            <th className="overview-col-title">标题</th>
+                            <th className="overview-col-importance">重要程度 / 来源链接</th>
+                            <th className="overview-col-publication">发表情况 / 引用数量</th>
+                            <th className="overview-col-authors">作者 / 年份</th>
+                            <th className="overview-col-status">状态 / 内容</th>
+                            <th className="overview-col-tags">标签</th>
+                            <th className="overview-col-actions">操作</th>
                           </tr>
                         </thead>
                         <tbody>
                           {overviewResultItems.length === 0 ? (
                             <tr>
-                              <td colSpan={5}>
+                              <td colSpan={7}>
                                 <p data-ui="text" data-variant="caption" data-tone="muted" className="literature-overview-table-empty">
                                   暂无可展示文献，请先导入或调整筛选。
                                 </p>
                               </td>
                             </tr>
                           ) : (
-                            overviewResultItems.map((item) => {
-                              const draft = metadataDrafts[item.literature_id] ?? {
-                                tagsInput: item.tags.join(', '),
-                              };
+                            overviewPageItems.map((item) => {
                               const overviewStatus = resolveLiteratureOverviewStatus(item);
+                              const contentStatus = normalizeOverviewContentStatus(overviewContentStatusById[item.literature_id]);
+                              const citationCount = parseCitationCountFromTags(item.tags);
+                              const importanceScore = Math.max(0, Math.round(getLiteratureImportanceScore(item)));
+                              const visibleTags = item.tags.slice(0, 4);
+                              const tagSlots = item.tags.length > 4
+                                ? [...visibleTags.slice(0, 3), '...']
+                                : visibleTags;
+                              const isExcluded = overviewStatus === 'excluded';
+                              const hasAbstracted = contentStatus !== 'not_extracted';
+                              const hasPreprocessed = contentStatus === 'preprocessed' || contentStatus === 'vectorized';
+                              const hasVectorized = contentStatus === 'vectorized';
 
                               return (
                                 <tr key={item.literature_id}>
                                   <td>
                                     <div className="literature-overview-main">
                                       <p data-ui="text" data-variant="body" data-tone="primary">{item.title}</p>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <div className="literature-overview-main">
                                       <p data-ui="text" data-variant="caption" data-tone="muted">
-                                        doi: {item.doi ?? '--'} · arxiv: {item.arxiv_id ?? '--'}
-                                      </p>
-                                      <p data-ui="text" data-variant="caption" data-tone="muted">
-                                        provider: {item.providers.join(', ') || '--'}
+                                        重要程度：{importanceScore}
                                       </p>
                                       {item.source_url ? (
                                         <a className="literature-source-link" href={item.source_url} target="_blank" rel="noreferrer">
                                           来源链接
                                         </a>
-                                      ) : null}
+                                      ) : (
+                                        <p data-ui="text" data-variant="caption" data-tone="muted">来源链接：--</p>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <div className="literature-overview-main">
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        发表情况：{resolveOverviewPublicationLabel(item)}
+                                      </p>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        引用数量：{citationCount !== null ? citationCount : '--'}
+                                      </p>
                                     </div>
                                   </td>
                                   <td>
@@ -6916,7 +7071,7 @@ export function App({ initialThemeMode }: AppProps) {
                                         {item.authors.join(', ') || '--'}
                                       </p>
                                       <p data-ui="text" data-variant="caption" data-tone="muted">
-                                        年份: {item.year ?? '--'}
+                                        年份：{item.year ?? '--'}
                                       </p>
                                     </div>
                                   </td>
@@ -6925,49 +7080,61 @@ export function App({ initialThemeMode }: AppProps) {
                                       <p data-ui="text" data-variant="caption" data-tone="primary">
                                         {formatLiteratureOverviewStatus(overviewStatus)}
                                       </p>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        {formatOverviewContentStatus(contentStatus)}
+                                      </p>
                                     </div>
                                   </td>
                                   <td>
-                                    <input
-                                      data-ui="input"
-                                      data-size="sm"
-                                      value={draft.tagsInput}
-                                      onChange={(event) =>
-                                        handleChangeMetadataDraft(item.literature_id, 'tagsInput', event.target.value)
-                                      }
-                                      placeholder="标签：survey, baseline, method:nlp"
-                                    />
+                                    <div className="literature-overview-tag-list">
+                                      {item.tags.length === 0 ? (
+                                        <span data-ui="text" data-variant="caption" data-tone="muted">--</span>
+                                      ) : (
+                                        tagSlots.map((tag, index) => (
+                                          <span key={`${item.literature_id}-${tag}-${index}`} className="literature-overview-tag-text">
+                                            {tag}
+                                          </span>
+                                        ))
+                                      )}
+                                    </div>
                                   </td>
                                   <td>
-                                    <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-overview-actions">
-                                      <button
-                                        data-ui="button"
-                                        data-variant="ghost"
-                                        data-size="sm"
-                                        type="button"
-                                        onClick={() => handleScopeStatusChange(item.literature_id, 'in_scope')}
-                                      >
-                                        保留
-                                      </button>
-                                      <button
-                                        data-ui="button"
-                                        data-variant="ghost"
-                                        data-size="sm"
-                                        type="button"
-                                        onClick={() => handleScopeStatusChange(item.literature_id, 'excluded')}
-                                      >
-                                        排除
-                                      </button>
-                                      <button
-                                        data-ui="button"
-                                        data-variant="ghost"
-                                        data-size="sm"
-                                        type="button"
-                                        disabled={Boolean(metadataSavingIds[item.literature_id])}
-                                        onClick={() => handleSaveMetadata(item.literature_id)}
-                                      >
-                                        {metadataSavingIds[item.literature_id] ? '保存中...' : '保存元数据'}
-                                      </button>
+                                    <div className="literature-overview-actions">
+                                      <div className="literature-overview-action-row">
+                                        <button
+                                          type="button"
+                                          className="literature-overview-action-link"
+                                          onClick={() => handleScopeStatusChange(item.literature_id, 'excluded')}
+                                        >
+                                          排除
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="literature-overview-action-link"
+                                          disabled={isExcluded || hasAbstracted}
+                                          onClick={() => handleRunOverviewContentAction(item.literature_id, 'abstracted', '提取摘要')}
+                                        >
+                                          提取摘要
+                                        </button>
+                                      </div>
+                                      <div className="literature-overview-action-row">
+                                        <button
+                                          type="button"
+                                          className="literature-overview-action-link"
+                                          disabled={isExcluded || !hasAbstracted || hasPreprocessed}
+                                          onClick={() => handleRunOverviewContentAction(item.literature_id, 'preprocessed', '预处理全文')}
+                                        >
+                                          预处理
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="literature-overview-action-link"
+                                          disabled={isExcluded || !hasPreprocessed || hasVectorized}
+                                          onClick={() => handleRunOverviewContentAction(item.literature_id, 'vectorized', '向量化')}
+                                        >
+                                          向量化
+                                        </button>
+                                      </div>
                                     </div>
                                   </td>
                                 </tr>
@@ -6977,23 +7144,50 @@ export function App({ initialThemeMode }: AppProps) {
                         </tbody>
                         <tfoot>
                           <tr className="literature-overview-table-summary-row">
-                            <td colSpan={5}>
-                              <div className="literature-overview-table-summary">
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  总文献 <strong>{overviewSummaryStats.totalCount}</strong>
-                                </span>
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  最近更新 <strong>{overviewSummaryStats.latestUpdatedLabel}</strong>
-                                </span>
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  自动化就绪文献 <strong>{overviewSummaryStats.automationReadyCount}</strong>
-                                </span>
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  可被引用文献 <strong>{overviewSummaryStats.citableCount}</strong>
-                                </span>
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  已排除文献 <strong>{overviewSummaryStats.excludedCount}</strong>
-                                </span>
+                            <td colSpan={7}>
+                              <div className="literature-overview-table-summary-row-wrap">
+                                <div className="literature-overview-table-summary">
+                                  <span data-ui="text" data-variant="caption" data-tone="muted">
+                                    总文献 <strong>{overviewSummaryStats.totalCount}</strong>
+                                  </span>
+                                  <span data-ui="text" data-variant="caption" data-tone="muted">
+                                    最近更新 <strong>{overviewSummaryStats.latestUpdatedLabel}</strong>
+                                  </span>
+                                  <span data-ui="text" data-variant="caption" data-tone="muted">
+                                    自动化就绪文献 <strong>{overviewSummaryStats.automationReadyCount}</strong>
+                                  </span>
+                                  <span data-ui="text" data-variant="caption" data-tone="muted">
+                                    可被引用文献 <strong>{overviewSummaryStats.citableCount}</strong>
+                                  </span>
+                                  <span data-ui="text" data-variant="caption" data-tone="muted">
+                                    已排除文献 <strong>{overviewSummaryStats.excludedCount}</strong>
+                                  </span>
+                                </div>
+                                <div className="literature-overview-pagination">
+                                  <button
+                                    data-ui="button"
+                                    data-variant="ghost"
+                                    data-size="sm"
+                                    type="button"
+                                    onClick={() => setOverviewPageIndex((current) => Math.max(1, current - 1))}
+                                    disabled={overviewPageIndex <= 1}
+                                  >
+                                    上一页
+                                  </button>
+                                  <span data-ui="text" data-variant="caption" data-tone="muted">
+                                    第 <strong>{overviewPageIndex}</strong> / {overviewTotalPages} 页
+                                  </span>
+                                  <button
+                                    data-ui="button"
+                                    data-variant="ghost"
+                                    data-size="sm"
+                                    type="button"
+                                    onClick={() => setOverviewPageIndex((current) => Math.min(overviewTotalPages, current + 1))}
+                                    disabled={overviewPageIndex >= overviewTotalPages}
+                                  >
+                                    下一页
+                                  </button>
+                                </div>
                               </div>
                             </td>
                           </tr>
