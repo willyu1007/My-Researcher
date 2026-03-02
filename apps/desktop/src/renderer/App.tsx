@@ -92,7 +92,6 @@ type AutoPullWeekday = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';
 type AutoPullSortMode = 'llm_score' | 'hybrid_score';
 type AutoPullTriggerType = 'MANUAL' | 'SCHEDULE';
 type AutoPullRunStatus = 'PENDING' | 'RUNNING' | 'PARTIAL' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
-type AutoPullAlertLevel = 'WARNING' | 'ERROR';
 type QuerySort = 'importance' | 'updated_at' | 'published_at' | 'title_initial';
 type SortDirection = 'asc' | 'desc';
 type QuerySortPreset = `${QuerySort}|${SortDirection}`;
@@ -224,19 +223,6 @@ type AutoPullRun = {
   updated_at: string;
   source_attempts?: AutoPullSourceAttempt[];
   suggestions?: AutoPullSuggestion[];
-};
-
-type AutoPullAlert = {
-  alert_id: string;
-  rule_id: string;
-  run_id: string | null;
-  source: AutoPullSource | null;
-  level: AutoPullAlertLevel;
-  code: string;
-  message: string;
-  detail: Record<string, unknown>;
-  ack_at: string | null;
-  created_at: string;
 };
 
 type TopicScopeItem = {
@@ -1426,44 +1412,6 @@ function normalizeAutoPullRun(payload: unknown): AutoPullRun | null {
   };
 }
 
-function normalizeAutoPullAlertsPayload(payload: unknown): AutoPullAlert[] {
-  const root = asRecord(payload);
-  const itemsRaw = root?.items;
-  if (!Array.isArray(itemsRaw)) {
-    return [];
-  }
-
-  return itemsRaw
-    .map((item): AutoPullAlert | null => {
-      const row = asRecord(item);
-      if (!row) {
-        return null;
-      }
-      const alertId = toText(row.alert_id);
-      const ruleId = toText(row.rule_id);
-      const level = toText(row.level);
-      const code = toText(row.code);
-      const message = toText(row.message);
-      const createdAt = toText(row.created_at);
-      if (!alertId || !ruleId || !level || !code || !message || !createdAt) {
-        return null;
-      }
-      return {
-        alert_id: alertId,
-        rule_id: ruleId,
-        run_id: toText(row.run_id) ?? null,
-        source: (toText(row.source) as AutoPullSource | undefined) ?? null,
-        level: level === 'ERROR' ? 'ERROR' : 'WARNING',
-        code,
-        message,
-        detail: asRecord(row.detail) ?? {},
-        ack_at: toText(row.ack_at) ?? null,
-        created_at: createdAt,
-      };
-    })
-    .filter((item): item is AutoPullAlert => item !== null);
-}
-
 function normalizeTopicScopePayload(payload: unknown): TopicScopeItem[] {
   const root = asRecord(payload);
   const itemsRaw = root?.items;
@@ -2247,18 +2195,11 @@ export function App({ initialThemeMode }: AppProps) {
   const [autoPullRuns, setAutoPullRuns] = useState<AutoPullRun[]>([]);
   const [runsStatus, setRunsStatus] = useState<UiOperationStatus>('idle');
   const [runsError, setRunsError] = useState<string | null>(null);
-  const [runsFilterRuleId, setRunsFilterRuleId] = useState<string>('');
-  const [runsFilterStatus, setRunsFilterStatus] = useState<'' | AutoPullRunStatus>('');
+  const [runsFilterStatus, setRunsFilterStatus] = useState<'' | AutoPullRunStatus | 'EXCEPTION'>('');
+  const [runsPageIndex, setRunsPageIndex] = useState<number>(1);
   const [selectedRunDetail, setSelectedRunDetail] = useState<AutoPullRun | null>(null);
   const [runDetailLoading, setRunDetailLoading] = useState<boolean>(false);
   const [runDetailError, setRunDetailError] = useState<string | null>(null);
-
-  const [autoPullAlerts, setAutoPullAlerts] = useState<AutoPullAlert[]>([]);
-  const [alertsStatus, setAlertsStatus] = useState<UiOperationStatus>('idle');
-  const [alertsError, setAlertsError] = useState<string | null>(null);
-  const [alertsFilterRuleId, setAlertsFilterRuleId] = useState<string>('');
-  const [alertsFilterLevel, setAlertsFilterLevel] = useState<'' | AutoPullAlertLevel>('');
-  const [alertsFilterAcked, setAlertsFilterAcked] = useState<'all' | 'acked' | 'unacked'>('unacked');
   const [topFeedback, setTopFeedback] = useState<InlineFeedbackModel | null>(null);
   const [literatureActionMessage, setLiteratureActionMessage] = useState<string>('');
   const [scopeReasonInput] = useState<string>('初筛保留');
@@ -2857,10 +2798,7 @@ export function App({ initialThemeMode }: AppProps) {
     setRunsError(null);
     try {
       const query = new URLSearchParams();
-      if (runsFilterRuleId.trim()) {
-        query.set('rule_id', runsFilterRuleId.trim());
-      }
-      if (runsFilterStatus) {
+      if (runsFilterStatus && runsFilterStatus !== 'EXCEPTION') {
         query.set('status', runsFilterStatus);
       }
       query.set('limit', '50');
@@ -2868,9 +2806,19 @@ export function App({ initialThemeMode }: AppProps) {
         method: 'GET',
         path: `/auto-pull/runs?${query.toString()}`,
       });
-      const items = normalizeAutoPullRunsPayload(payload);
-      setAutoPullRuns(items);
-      setRunsStatus(items.length > 0 ? 'ready' : 'empty');
+      const items = normalizeAutoPullRunsPayload(payload).sort(
+        (left, right) => resolveRunSortTimeMs(right) - resolveRunSortTimeMs(left),
+      );
+      const filteredItems =
+        runsFilterStatus === 'EXCEPTION'
+          ? items.filter((item) => item.status === 'FAILED' || item.status === 'PARTIAL')
+          : items;
+      setAutoPullRuns(filteredItems);
+      if (filteredItems.length === 0) {
+        setSelectedRunDetail(null);
+        setRunDetailError(null);
+      }
+      setRunsStatus(filteredItems.length > 0 ? 'ready' : 'empty');
     } catch (error) {
       setAutoPullRuns([]);
       const message = error instanceof Error ? error.message : '加载运行记录失败。';
@@ -2882,44 +2830,7 @@ export function App({ initialThemeMode }: AppProps) {
         message: `加载运行记录失败：${message}`,
       });
     }
-  }, [pushLiteratureFeedback, runsFilterRuleId, runsFilterStatus]);
-
-  const loadAutoPullAlerts = useCallback(async () => {
-    setAlertsStatus('loading');
-    setAlertsError(null);
-    try {
-      const query = new URLSearchParams();
-      if (alertsFilterRuleId.trim()) {
-        query.set('rule_id', alertsFilterRuleId.trim());
-      }
-      if (alertsFilterLevel) {
-        query.set('level', alertsFilterLevel);
-      }
-      if (alertsFilterAcked === 'acked') {
-        query.set('acked', 'true');
-      } else if (alertsFilterAcked === 'unacked') {
-        query.set('acked', 'false');
-      }
-      query.set('limit', '100');
-      const payload = await requestGovernance({
-        method: 'GET',
-        path: `/auto-pull/alerts?${query.toString()}`,
-      });
-      const items = normalizeAutoPullAlertsPayload(payload);
-      setAutoPullAlerts(items);
-      setAlertsStatus(items.length > 0 ? 'ready' : 'empty');
-    } catch (error) {
-      setAutoPullAlerts([]);
-      const message = error instanceof Error ? error.message : '加载告警失败。';
-      setAlertsStatus('error');
-      setAlertsError(message);
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'error',
-        message: `加载告警失败：${message}`,
-      });
-    }
-  }, [alertsFilterAcked, alertsFilterLevel, alertsFilterRuleId, pushLiteratureFeedback]);
+  }, [pushLiteratureFeedback, runsFilterStatus]);
 
   const loadAutoPullRunDetail = useCallback(async (runId: string) => {
     const normalizedRunId = runId.trim();
@@ -3378,7 +3289,6 @@ export function App({ initialThemeMode }: AppProps) {
         body: {},
       });
       await loadAutoPullRuns();
-      await loadAutoPullAlerts();
       await loadAutoPullRunDetail(runId);
       pushLiteratureFeedback({
         slot: 'auto-import',
@@ -3391,29 +3301,6 @@ export function App({ initialThemeMode }: AppProps) {
         slot: 'auto-import',
         level: 'error',
         message: `重试失败源失败：${message}`,
-      });
-    }
-  };
-
-  const handleAckAlert = async (alertId: string) => {
-    try {
-      await requestGovernance({
-        method: 'POST',
-        path: `/auto-pull/alerts/${encodeURIComponent(alertId)}/ack`,
-        body: {},
-      });
-      await loadAutoPullAlerts();
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'success',
-        message: '告警已关闭。',
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '确认告警失败。';
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'error',
-        message: `确认告警失败：${message}`,
       });
     }
   };
@@ -4698,14 +4585,32 @@ export function App({ initialThemeMode }: AppProps) {
     void loadTopicProfiles();
     void loadAutoPullRules();
     void loadAutoPullRuns();
-    void loadAutoPullAlerts();
   }, [
     activeLiteratureTab,
     activeModule,
-    loadAutoPullAlerts,
     loadAutoPullRules,
     loadAutoPullRuns,
     loadTopicProfiles,
+  ]);
+
+  useEffect(() => {
+    if (activeModule !== '文献管理' || activeLiteratureTab !== 'auto-import' || autoImportSubTab !== 'runs-alerts') {
+      return;
+    }
+    if (autoPullRuns.length === 0) {
+      return;
+    }
+    if (selectedRunDetail && autoPullRuns.some((run) => run.run_id === selectedRunDetail.run_id)) {
+      return;
+    }
+    void loadAutoPullRunDetail(autoPullRuns[0].run_id);
+  }, [
+    activeLiteratureTab,
+    activeModule,
+    autoImportSubTab,
+    autoPullRuns,
+    loadAutoPullRunDetail,
+    selectedRunDetail,
   ]);
 
   useEffect(() => {
@@ -4835,10 +4740,11 @@ export function App({ initialThemeMode }: AppProps) {
 
   const metricCards = useMemo(() => {
     if (activeModule === '文献管理' || activeModule === '选题管理') {
+      const exceptionalRunCount = autoPullRuns.filter((run) => run.status === 'FAILED' || run.status === 'PARTIAL').length;
       return [
         { label: '自动规则', value: String(autoPullRules.length) },
         { label: '运行记录', value: String(autoPullRuns.length) },
-        { label: '未确认告警', value: String(autoPullAlerts.filter((alert) => !alert.ack_at).length) },
+        { label: '异常运行', value: String(exceptionalRunCount) },
         { label: '综览总量', value: String(overviewPanel.data.summary.total_literatures) },
       ];
     }
@@ -4869,9 +4775,9 @@ export function App({ initialThemeMode }: AppProps) {
     ];
   }, [
     activeModule,
-    autoPullAlerts,
     autoPullRules.length,
     autoPullRuns.length,
+    autoPullRuns,
     citedCount,
     inScopeCount,
     overviewPanel.data.summary.total_literatures,
@@ -4897,6 +4803,10 @@ export function App({ initialThemeMode }: AppProps) {
     () => new Map(autoPullRules.map((rule) => [rule.rule_id, rule])),
     [autoPullRules],
   );
+  const topicProfileNameById = useMemo(
+    () => new Map(topicProfiles.map((profile) => [profile.topic_id, profile.name])),
+    [topicProfiles],
+  );
   const latestRunByRuleId = useMemo(() => {
     const latestRuns = new Map<string, AutoPullRun>();
     autoPullRuns.forEach((run) => {
@@ -4907,6 +4817,40 @@ export function App({ initialThemeMode }: AppProps) {
     });
     return latestRuns;
   }, [autoPullRuns]);
+  const runsPageSize = 8;
+  const runsTotalPages = Math.max(1, Math.ceil(autoPullRuns.length / runsPageSize));
+  const runsPageItems = useMemo(() => {
+    const start = (runsPageIndex - 1) * runsPageSize;
+    return autoPullRuns.slice(start, start + runsPageSize);
+  }, [autoPullRuns, runsPageIndex, runsPageSize]);
+  const selectedRunTopicLabel = useMemo(() => {
+    if (!selectedRunDetail) {
+      return '--';
+    }
+    const rule = autoPullRuleById.get(selectedRunDetail.rule_id);
+    if (!rule) {
+      return '--';
+    }
+    const topicId = rule.topic_ids[0] ?? rule.topic_id;
+    if (!topicId) {
+      return '--';
+    }
+    return topicProfileNameById.get(topicId) ?? topicId;
+  }, [autoPullRuleById, selectedRunDetail, topicProfileNameById]);
+  const selectedRunPulledAtLabel = useMemo(() => {
+    if (!selectedRunDetail) {
+      return '--';
+    }
+    const value = selectedRunDetail.started_at ?? selectedRunDetail.created_at;
+    return value ? formatTimestamp(value) : '--';
+  }, [selectedRunDetail]);
+  const selectedRunDurationLabel = useMemo(
+    () =>
+      selectedRunDetail
+        ? formatRunDuration(selectedRunDetail.started_at, selectedRunDetail.finished_at)
+        : '--',
+    [selectedRunDetail],
+  );
   const topicVenueOptions = useMemo(
     () => [...new Set([
       ...topicPresetVenueOptions,
@@ -4942,7 +4886,19 @@ export function App({ initialThemeMode }: AppProps) {
     }
     return `${topicFormVenueSelections.slice(0, 2).join('、')} 等 ${topicFormVenueSelections.length} 项`;
   }, [topicFormVenueSelections]);
-  const autoPullStatusDigest = `${topicProfilesStatus}|${rulesStatus}|${runsStatus}|${alertsStatus}`;
+  const autoPullStatusDigest = `${topicProfilesStatus}|${rulesStatus}|${runsStatus}`;
+
+  useEffect(() => {
+    setRunsPageIndex((current) => {
+      if (current < 1) {
+        return 1;
+      }
+      if (current > runsTotalPages) {
+        return runsTotalPages;
+      }
+      return current;
+    });
+  }, [runsTotalPages]);
 
   const handleModuleSelect = (moduleName: string) => {
     setActiveModule(moduleName);
@@ -6005,25 +5961,18 @@ export function App({ initialThemeMode }: AppProps) {
                     {autoImportSubTab === 'runs-alerts' ? (
                       <section className="literature-section-block">
                         <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
-                          <label data-ui="field" className="literature-filter-keyword">
-                            <span data-slot="label">Run Rule 过滤</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={runsFilterRuleId}
-                              onChange={(event) => setRunsFilterRuleId(event.target.value)}
-                              placeholder="rule_id"
-                            />
-                          </label>
-                          <label data-ui="field" className="literature-filter-year">
-                            <span data-slot="label">Run 状态</span>
+                          <label data-ui="field" className="literature-filter-year is-prefixed" aria-label="执行状态筛选">
                             <select
                               data-ui="select"
                               data-size="sm"
                               value={runsFilterStatus}
-                              onChange={(event) => setRunsFilterStatus(event.target.value as '' | AutoPullRunStatus)}
+                              onChange={(event) => {
+                                setRunsFilterStatus(event.target.value as '' | AutoPullRunStatus | 'EXCEPTION');
+                                setRunsPageIndex(1);
+                              }}
                             >
                               <option value="">全部</option>
+                              <option value="EXCEPTION">异常（FAILED / PARTIAL）</option>
                               <option value="PENDING">PENDING</option>
                               <option value="RUNNING">RUNNING</option>
                               <option value="PARTIAL">PARTIAL</option>
@@ -6032,163 +5981,136 @@ export function App({ initialThemeMode }: AppProps) {
                               <option value="SKIPPED">SKIPPED</option>
                             </select>
                           </label>
-                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadAutoPullRuns()}>
-                            刷新 Run
-                          </button>
                         </div>
                         {runsError ? <p data-ui="text" data-variant="caption" data-tone="danger">{runsError}</p> : null}
-                        <div className="literature-list">
-                          {autoPullRuns.length === 0 ? (
-                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无运行记录。</p>
-                          ) : (
-                            autoPullRuns.map((run) => (
-                              <div key={run.run_id} className="literature-list-item">
-                                <div>
-                                  <p data-ui="text" data-variant="body" data-tone="primary">
-                                    {run.run_id} · {run.status}
-                                  </p>
-                                  <p data-ui="text" data-variant="caption" data-tone="muted">
-                                    {run.trigger_type} · duration:{formatRunDuration(run.started_at, run.finished_at)} · imported:{String(run.summary.imported_count ?? 0)} · failed:{String(run.summary.failed_count ?? 0)}
-                                  </p>
-                                </div>
-                                <div data-ui="toolbar" data-gap="2">
-                                  <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void loadAutoPullRunDetail(run.run_id)}>
-                                    详情
-                                  </button>
-                                  <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void handleRetryRun(run.run_id)}>
-                                    重试失败源
-                                  </button>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-
-                        {runDetailLoading ? (
-                          <p data-ui="text" data-variant="caption" data-tone="muted">加载运行详情中...</p>
-                        ) : null}
-                        {runDetailError ? (
-                          <p data-ui="text" data-variant="caption" data-tone="danger">{runDetailError}</p>
-                        ) : null}
-                        {selectedRunDetail ? (
-                          <div className="auto-pull-run-detail">
-                            <p data-ui="text" data-variant="caption" data-tone="muted">
-                              运行详情：{selectedRunDetail.run_id} · {selectedRunDetail.status}
-                            </p>
-                            <div className="literature-list">
-                              {(selectedRunDetail.source_attempts ?? []).map((attempt) => {
-                                const meta = asRecord(attempt.meta) ?? {};
-                                const incompleteRejectedCount =
-                                  typeof meta.incomplete_rejected_count === 'number' ? meta.incomplete_rejected_count : 0;
-                                const duplicateSkippedCount =
-                                  typeof meta.duplicate_skipped_count === 'number' ? meta.duplicate_skipped_count : 0;
-                                const belowThresholdCount =
-                                  typeof meta.below_threshold_count === 'number' ? meta.below_threshold_count : 0;
-                                const eligibleCount =
-                                  typeof meta.eligible_count === 'number' ? meta.eligible_count : 0;
-                                const importedNewCount =
-                                  typeof meta.imported_new_count === 'number' ? meta.imported_new_count : 0;
-                                const importedExistingCount =
-                                  typeof meta.imported_existing_count === 'number' ? meta.imported_existing_count : 0;
-                                const llmScoreAvg =
-                                  typeof meta.llm_score_avg === 'number' ? meta.llm_score_avg : null;
-
-                                return (
-                                  <div key={`${selectedRunDetail.run_id}-${attempt.source}`} className="literature-list-item">
+                        <div className="auto-pull-runs-layout">
+                          <section className="auto-pull-runs-pane auto-pull-runs-list-pane">
+                            <div className="literature-list auto-pull-runs-list">
+                              {autoPullRuns.length === 0 ? (
+                                <p data-ui="text" data-variant="caption" data-tone="muted" className="auto-pull-runs-empty">
+                                  暂无运行记录。
+                                </p>
+                              ) : (
+                                runsPageItems.map((run) => (
+                                  <div
+                                    key={run.run_id}
+                                    className={`literature-list-item auto-pull-run-item${selectedRunDetail?.run_id === run.run_id ? ' is-selected' : ''}`}
+                                  >
                                     <div>
                                       <p data-ui="text" data-variant="body" data-tone="primary">
-                                        {attempt.source} · {attempt.status}
-                                      </p>
-                                      <p data-ui="text" data-variant="caption" data-tone="muted">
-                                        fetched:{attempt.fetched_count} / imported:{attempt.imported_count} / failed:{attempt.failed_count}
-                                      </p>
-                                      <p data-ui="text" data-variant="caption" data-tone="muted">
-                                        不完整:{incompleteRejectedCount} / 去重跳过:{duplicateSkippedCount} / 低于门槛:{belowThresholdCount} / 可导入:{eligibleCount}
-                                      </p>
-                                      <p data-ui="text" data-variant="caption" data-tone="muted">
-                                        新增:{importedNewCount} / 命中既有:{importedExistingCount}
-                                        {llmScoreAvg !== null ? ` / 平均质量分:${llmScoreAvg}` : ''}
+                                        {run.run_id} · {run.status} · 录入：{String(run.summary.imported_count ?? 0)} · 失败：{String(run.summary.failed_count ?? 0)}
                                       </p>
                                     </div>
-                                    {attempt.error_message ? (
-                                      <p data-ui="text" data-variant="caption" data-tone="danger">{attempt.error_message}</p>
-                                    ) : null}
+                                    <div data-ui="toolbar" data-gap="2">
+                                      <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void loadAutoPullRunDetail(run.run_id)}>
+                                        详情
+                                      </button>
+                                      <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void handleRetryRun(run.run_id)}>
+                                        重试失败源
+                                      </button>
+                                    </div>
                                   </div>
-                                );
-                              })}
+                                ))
+                              )}
                             </div>
-                          </div>
-                        ) : null}
+                            {autoPullRuns.length > 0 ? (
+                              <div className="auto-pull-runs-pagination">
+                                <button
+                                  data-ui="button"
+                                  data-variant="ghost"
+                                  data-size="sm"
+                                  type="button"
+                                  onClick={() => setRunsPageIndex((current) => Math.max(1, current - 1))}
+                                  disabled={runsPageIndex <= 1}
+                                >
+                                  上一页
+                                </button>
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  第 <strong>{runsPageIndex}</strong> / {runsTotalPages} 页
+                                </span>
+                                <button
+                                  data-ui="button"
+                                  data-variant="ghost"
+                                  data-size="sm"
+                                  type="button"
+                                  onClick={() => setRunsPageIndex((current) => Math.min(runsTotalPages, current + 1))}
+                                  disabled={runsPageIndex >= runsTotalPages}
+                                >
+                                  下一页
+                                </button>
+                              </div>
+                            ) : null}
+                          </section>
 
-                        <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
-                          <label data-ui="field" className="literature-filter-tag">
-                            <span data-slot="label">Alert Rule 过滤</span>
-                            <input
-                              data-ui="input"
-                              data-size="sm"
-                              value={alertsFilterRuleId}
-                              onChange={(event) => setAlertsFilterRuleId(event.target.value)}
-                              placeholder="rule_id"
-                            />
-                          </label>
-                          <label data-ui="field" className="literature-filter-scope">
-                            <span data-slot="label">Alert 级别</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={alertsFilterLevel}
-                              onChange={(event) => setAlertsFilterLevel(event.target.value as '' | AutoPullAlertLevel)}
-                            >
-                              <option value="">全部</option>
-                              <option value="WARNING">WARNING</option>
-                              <option value="ERROR">ERROR</option>
-                            </select>
-                          </label>
-                          <label data-ui="field" className="literature-filter-sort">
-                            <span data-slot="label">确认状态</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={alertsFilterAcked}
-                              onChange={(event) => setAlertsFilterAcked(event.target.value as 'all' | 'acked' | 'unacked')}
-                            >
-                              <option value="all">全部</option>
-                              <option value="unacked">仅未确认</option>
-                              <option value="acked">仅已确认</option>
-                            </select>
-                          </label>
-                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void loadAutoPullAlerts()}>
-                            刷新 Alert
-                          </button>
-                        </div>
-                        {alertsError ? <p data-ui="text" data-variant="caption" data-tone="danger">{alertsError}</p> : null}
-                        <div className="literature-list">
-                          {autoPullAlerts.length === 0 ? (
-                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无告警。</p>
-                          ) : (
-                            autoPullAlerts.map((alert) => (
-                              <div key={alert.alert_id} className="literature-list-item">
-                                <div>
-                                  <p data-ui="text" data-variant="body" data-tone={alert.level === 'ERROR' ? 'danger' : 'primary'}>
-                                    {alert.level} · {alert.code}
-                                  </p>
+                          <section className="auto-pull-runs-pane auto-pull-runs-detail-pane">
+                            {runDetailLoading ? (
+                              <p data-ui="text" data-variant="caption" data-tone="muted">加载运行详情中...</p>
+                            ) : null}
+                            {runDetailError ? (
+                              <p data-ui="text" data-variant="caption" data-tone="danger">{runDetailError}</p>
+                            ) : null}
+                            {selectedRunDetail ? (
+                              <div className="auto-pull-run-detail">
+                                <p data-ui="text" data-variant="caption" data-tone="muted">
+                                  运行详情：{selectedRunDetail.run_id} · {selectedRunDetail.status}
+                                </p>
+                                <div className="auto-pull-run-detail-meta">
                                   <p data-ui="text" data-variant="caption" data-tone="muted">
-                                    {alert.message}
+                                    录入：{String(selectedRunDetail.summary.imported_count ?? 0)} · 失败：{String(selectedRunDetail.summary.failed_count ?? 0)}
                                   </p>
+                                  <p data-ui="text" data-variant="caption" data-tone="muted">主题名称：{selectedRunTopicLabel}</p>
+                                  <p data-ui="text" data-variant="caption" data-tone="muted">拉取时间：{selectedRunPulledAtLabel}</p>
+                                  <p data-ui="text" data-variant="caption" data-tone="muted">持续时间：{selectedRunDurationLabel}</p>
                                 </div>
-                                <div data-ui="toolbar" data-gap="2">
-                                  <span data-ui="badge" data-variant="subtle" data-tone={alert.ack_at ? 'neutral' : 'warning'}>
-                                    {alert.ack_at ? '已确认' : '未确认'}
-                                  </span>
-                                  {!alert.ack_at ? (
-                                    <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void handleAckAlert(alert.alert_id)}>
-                                      关闭
-                                    </button>
-                                  ) : null}
+                                <div className="literature-list auto-pull-runs-detail-list">
+                                  {(selectedRunDetail.source_attempts ?? []).map((attempt) => {
+                                    const meta = asRecord(attempt.meta) ?? {};
+                                    const incompleteRejectedCount =
+                                      typeof meta.incomplete_rejected_count === 'number' ? meta.incomplete_rejected_count : 0;
+                                    const duplicateSkippedCount =
+                                      typeof meta.duplicate_skipped_count === 'number' ? meta.duplicate_skipped_count : 0;
+                                    const belowThresholdCount =
+                                      typeof meta.below_threshold_count === 'number' ? meta.below_threshold_count : 0;
+                                    const eligibleCount =
+                                      typeof meta.eligible_count === 'number' ? meta.eligible_count : 0;
+                                    const importedNewCount =
+                                      typeof meta.imported_new_count === 'number' ? meta.imported_new_count : 0;
+                                    const importedExistingCount =
+                                      typeof meta.imported_existing_count === 'number' ? meta.imported_existing_count : 0;
+                                    const llmScoreAvg =
+                                      typeof meta.llm_score_avg === 'number' ? meta.llm_score_avg : null;
+
+                                    return (
+                                      <div key={`${selectedRunDetail.run_id}-${attempt.source}`} className="literature-list-item auto-pull-run-attempt-item">
+                                        <div>
+                                          <p data-ui="text" data-variant="body" data-tone="primary">
+                                            {attempt.source} · {attempt.status}
+                                          </p>
+                                          <p data-ui="text" data-variant="caption" data-tone="muted">
+                                            fetched:{attempt.fetched_count} / imported:{attempt.imported_count} / failed:{attempt.failed_count}
+                                          </p>
+                                          <p data-ui="text" data-variant="caption" data-tone="muted">
+                                            不完整:{incompleteRejectedCount} / 去重跳过:{duplicateSkippedCount} / 低于门槛:{belowThresholdCount} / 可导入:{eligibleCount}
+                                          </p>
+                                          <p data-ui="text" data-variant="caption" data-tone="muted">
+                                            新增:{importedNewCount} / 命中既有:{importedExistingCount}
+                                            {llmScoreAvg !== null ? ` / 平均质量分:${llmScoreAvg}` : ''}
+                                          </p>
+                                        </div>
+                                        {attempt.error_message ? (
+                                          <p data-ui="text" data-variant="caption" data-tone="danger">{attempt.error_message}</p>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
-                            ))
-                          )}
+                            ) : (
+                              <p data-ui="text" data-variant="caption" data-tone="muted" className="auto-pull-runs-empty">
+                                请选择一条 Run 查看详情。
+                              </p>
+                            )}
+                          </section>
                         </div>
                       </section>
                     ) : null}
