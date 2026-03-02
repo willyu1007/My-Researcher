@@ -426,3 +426,109 @@ test('patch rule rejects quality_spec.min_quality_score out of range', async () 
     await app.close();
   }
 });
+
+test('topic profile rejects binding multiple rules', async () => {
+  const app = buildApp();
+  try {
+    const createGlobalRes = await app.inject({
+      method: 'POST',
+      url: '/auto-pull/rules',
+      payload: {
+        scope: 'GLOBAL',
+        name: 'Single Global For Topic Rule Validation',
+        sources: [
+          {
+            source: 'CROSSREF',
+            enabled: true,
+            priority: 1,
+          },
+        ],
+        schedules: [
+          {
+            frequency: 'DAILY',
+            hour: 9,
+            minute: 0,
+            timezone: 'UTC',
+            active: true,
+          },
+        ],
+      },
+    });
+    assert.equal(createGlobalRes.statusCode, 201);
+
+    const createTopicRes = await app.inject({
+      method: 'POST',
+      url: '/topics/settings',
+      payload: {
+        topic_id: 'TOPIC-AUTO-INT-SINGLE-RULE',
+        name: 'Single Rule Topic',
+      },
+    });
+    assert.equal(createTopicRes.statusCode, 201);
+
+    const createTopicRuleARes = await app.inject({
+      method: 'POST',
+      url: '/auto-pull/rules',
+      payload: {
+        scope: 'TOPIC',
+        name: 'Topic Single Rule A',
+        sources: [
+          {
+            source: 'CROSSREF',
+            enabled: true,
+            priority: 1,
+          },
+        ],
+        schedules: [
+          {
+            frequency: 'DAILY',
+            hour: 10,
+            minute: 0,
+            timezone: 'UTC',
+            active: true,
+          },
+        ],
+      },
+    });
+    assert.equal(createTopicRuleARes.statusCode, 201);
+    const ruleAId = createTopicRuleARes.json().rule_id as string;
+
+    const createTopicRuleBRes = await app.inject({
+      method: 'POST',
+      url: '/auto-pull/rules',
+      payload: {
+        scope: 'TOPIC',
+        name: 'Topic Single Rule B',
+        sources: [
+          {
+            source: 'ARXIV',
+            enabled: true,
+            priority: 1,
+          },
+        ],
+        schedules: [
+          {
+            frequency: 'DAILY',
+            hour: 11,
+            minute: 0,
+            timezone: 'UTC',
+            active: true,
+          },
+        ],
+      },
+    });
+    assert.equal(createTopicRuleBRes.statusCode, 201);
+    const ruleBId = createTopicRuleBRes.json().rule_id as string;
+
+    const patchTopicRes = await app.inject({
+      method: 'PATCH',
+      url: '/topics/settings/TOPIC-AUTO-INT-SINGLE-RULE',
+      payload: {
+        rule_ids: [ruleAId, ruleBId],
+      },
+    });
+    assert.equal(patchTopicRes.statusCode, 400);
+  } finally {
+    await app.close();
+  }
+});

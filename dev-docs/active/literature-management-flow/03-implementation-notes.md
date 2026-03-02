@@ -844,3 +844,84 @@
   - `apps/backend/src/services/auto-pull-service.ts`
   - `apps/backend/src/services/auto-pull-service.unit.test.ts`
   - `apps/desktop/src/renderer/App.tsx`
+
+### 2026-03-02 - 文献综览 UI 改为“查询区 + 单大列表（统计入表头）”
+- Trigger:
+  - 用户要求先收敛整体 UI：主区域仅保留一张大列表，按文献状态维度展示，并保留查询选项区；统计信息不单独占区块，放入表头。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 在 `文献综览` 中移除“左侧选题范围 + 右侧结果列表”双面板。
+    - 改为单一大表格：表头第一行展示 `总文献 / In Scope / Cited / Top Tags`，第二行为列名。
+    - 保留查询区（Topic/Paper 筛选 + 高级查询 + 预设）与行内操作（保留/排除/保存元数据）。
+    - 保留状态反馈（查询状态、加载/错误提示），并补充 `topicScopeLoading` 的轻量提示文案。
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 新增单表格样式：`literature-overview-table-*`（容器滚动、表头、摘要行、hover、空态）。
+    - 新增 `literature-overview-actions`，用于操作列按钮布局。
+    - 删除旧双面板布局依赖（`literature-panels` / `literature-panel` / `literature-overview-list` / `literature-overview-row` / `literature-metadata-editor`）在综览中的使用语义。
+    - 移动端保留横向滚动，最小表宽收敛为 `860px`。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-03-02 - 文献综览查询区二次轻量化（1-2 行可用）
+- Trigger:
+  - 用户反馈当前查询/筛选仍偏复杂，要求“1-2 行即可满足”，并要求 UI 进一步轻量化。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 查询区收敛为两行：
+      - 第 1 行：`Topic`、`Paper`、`关键词`、`应用筛选`
+      - 第 2 行：`范围状态`、`引用状态`、`权限`、`排序`、`重置筛选`
+    - 新增轻量筛选状态：`overviewKeyword`、`overviewScopeFilter`、`overviewCitationFilter`、`overviewRightsFilter`。
+    - 新增轻量筛选投影函数 `applyOverviewQuickFilters` + `projectOverviewItems`，统一用于：
+      - 首次加载综览
+      - 本地筛选重算
+      - 高级查询结果投影
+    - 将原高级条件构建器下沉为 `高级筛选（可选）` 折叠区，默认不展开，避免主视图复杂度。
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 新增轻量筛选行样式：`literature-quick-filters`、`literature-quick-row`。
+    - 新增高级折叠区样式：`literature-advanced-query*`。
+    - 表格视觉进一步轻量化：弱化容器边框、降低表头背景强度、收紧单元格间距、降低 hover 强度。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-03-02 - 下线“高级筛选”区块与关联报错功能
+- Trigger:
+  - 用户要求移除文献综览中的“高级筛选（可选）”区域，以及该区域内重复出现的 `NOT_FOUND` 错误提示与相关功能。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 删除高级筛选相关类型与状态：`QueryField/QueryOperator/QueryLogic/QueryCondition/QueryGroup/SavedQueryPreset`。
+    - 删除高级筛选处理逻辑：条件增删改、应用高级查询、重置条件、保存/应用/删除预设。
+    - 删除 `retry-query` 恢复动作分支，错误恢复仅保留 `retry-zotero-import` 与 `reload-overview`。
+    - 删除综览页 `<details className="literature-advanced-query">` 区块与该区域下方独立 `queryError` 文案渲染。
+    - `projectOverviewItems` 收敛为仅“轻量筛选 + 排序”投影，不再接收 `queryGroup`。
+    - 综览标题文案从“高级查询 + 元数据”调整为“轻量筛选 + 元数据”。
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 删除高级筛选相关样式：`literature-advanced-query*`、`literature-query-conditions`、`literature-query-row`（含移动端覆盖）。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-03-02 - 综览中 Paper NOT_FOUND 报错降级为空态
+- Trigger:
+  - 用户反馈在高级筛选下线后，综览区仍出现 `NOT_FOUND: Paper P001 not found.` 红色报错。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 新增 `isPaperNotFoundMessage` 辅助函数识别 `NOT_FOUND + Paper + not found` 错误文案。
+    - 在 `loadLiteratureOverview` 的 `catch` 分支中，对该错误降级为 `empty` 状态：
+      - 不渲染红色错误提示
+      - 保持综览统计与结果列表为空态（0 条）
+      - 不触发 overview 错误反馈气泡
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+
+### 2026-03-02 - 移除综览顶部工具栏元素与状态功能
+- Trigger:
+  - 用户要求去除文献综览顶部的标题、查询状态、刷新综览、同步到论文管理元素及相关功能。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 删除综览顶部工具栏渲染块（标题/查询状态/刷新综览/同步到论文管理）。
+    - 删除 `queryStatus` 状态链（state + 所有 `setQueryStatus` 调用）。
+    - 删除仅用于顶部状态文案的 `formatUiOperationStatus`。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`

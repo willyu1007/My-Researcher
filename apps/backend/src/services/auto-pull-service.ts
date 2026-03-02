@@ -151,6 +151,7 @@ export class AutoPullService {
     });
 
     if (request.rule_ids !== undefined) {
+      this.ensureTopicSingleRuleBinding(request.rule_ids);
       const ruleIds = await this.resolveTopicRuleIds(request.rule_ids);
       await this.repository.replaceTopicRules(topicId, ruleIds);
     }
@@ -200,6 +201,7 @@ export class AutoPullService {
     });
 
     if (request.rule_ids !== undefined) {
+      this.ensureTopicSingleRuleBinding(request.rule_ids);
       const ruleIds = await this.resolveTopicRuleIds(request.rule_ids);
       await this.repository.replaceTopicRules(normalizedTopicId, ruleIds);
     }
@@ -244,7 +246,7 @@ export class AutoPullService {
       createdAt: now,
       updatedAt: now,
     });
-    await this.repository.replaceRuleTopics(rule.id, topicIds);
+    await this.assignRuleToTopics(rule.id, request.scope === 'TOPIC' ? topicIds : []);
     await this.repository.replaceRuleSources(rule.id, sources);
     await this.repository.replaceRuleSchedules(rule.id, schedules);
 
@@ -316,7 +318,7 @@ export class AutoPullService {
       await this.repository.replaceRuleSchedules(ruleId, this.normalizeSchedules(ruleId, request.schedules));
     }
     if (request.scope !== undefined || request.topic_id !== undefined || request.topic_ids !== undefined) {
-      await this.repository.replaceRuleTopics(ruleId, nextScope === 'TOPIC' ? requestedTopicIds : []);
+      await this.assignRuleToTopics(ruleId, nextScope === 'TOPIC' ? requestedTopicIds : []);
     }
 
     return this.buildRuleDTO(await this.loadRuleBundle(ruleId, updatedRule));
@@ -1777,6 +1779,21 @@ export class AutoPullService {
       }),
     );
     return normalizedRuleIds;
+  }
+
+  private ensureTopicSingleRuleBinding(ruleIds: string[]): void {
+    const normalizedRuleIds = [...new Set(ruleIds.map((value) => value.trim()).filter((value) => value.length > 0))];
+    if (normalizedRuleIds.length > 1) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Each topic can bind at most one TOPIC rule.');
+    }
+  }
+
+  private async assignRuleToTopics(ruleId: string, topicIds: string[]): Promise<void> {
+    const normalizedTopicIds = [...new Set(topicIds.map((value) => value.trim()).filter((value) => value.length > 0))];
+    await this.repository.replaceRuleTopics(ruleId, normalizedTopicIds);
+    for (const topicId of normalizedTopicIds) {
+      await this.repository.replaceTopicRules(topicId, [ruleId]);
+    }
   }
 
   private buildTopicExecutionContexts(

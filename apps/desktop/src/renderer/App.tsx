@@ -94,47 +94,10 @@ type AutoPullSortMode = 'llm_score' | 'hybrid_score';
 type AutoPullTriggerType = 'MANUAL' | 'SCHEDULE';
 type AutoPullRunStatus = 'PENDING' | 'RUNNING' | 'PARTIAL' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
 type AutoPullAlertLevel = 'WARNING' | 'ERROR';
-type QueryField =
-  | 'title'
-  | 'authors'
-  | 'providers'
-  | 'tags'
-  | 'rights_class'
-  | 'year'
-  | 'topic_scope_status'
-  | 'citation_status'
-  | 'doi'
-  | 'arxiv_id';
-type QueryOperator =
-  | 'contains'
-  | 'equals'
-  | 'not_equals'
-  | 'in'
-  | 'gt'
-  | 'lt'
-  | 'is_empty'
-  | 'is_not_empty';
-type QueryLogic = 'AND' | 'OR';
 type QuerySort = 'updated_desc' | 'year_desc' | 'year_asc' | 'title_asc' | 'title_desc';
-
-type QueryCondition = {
-  id: string;
-  field: QueryField;
-  operator: QueryOperator;
-  value: string;
-};
-
-type QueryGroup = {
-  logic: QueryLogic;
-  conditions: QueryCondition[];
-};
-
-type SavedQueryPreset = {
-  id: string;
-  name: string;
-  group: QueryGroup;
-  defaultSort: QuerySort;
-};
+type OverviewScopeFilter = 'all' | ScopeStatus;
+type OverviewCitationFilter = 'all' | CitationStatus;
+type OverviewRightsFilter = 'all' | RightsClass;
 
 type ManualUploadFileItem = {
   id: string;
@@ -156,7 +119,6 @@ type ZoteroLinkResult = {
 
 type FeedbackRecoveryAction =
   | 'retry-zotero-import'
-  | 'retry-query'
   | 'reload-overview';
 type InlineFeedbackModel = {
   slot: 'header' | 'auto-import' | 'manual-import' | 'overview';
@@ -414,6 +376,14 @@ const autoPullLookbackHint = [
   '仅影响后续增量抓取窗口（最近 N 天）。',
   '首次抓取或“全量重抓”会走主题时段全量。',
 ].join('\n');
+const autoPullRunStatusLabels: Record<AutoPullRunStatus, string> = {
+  PENDING: '待执行',
+  RUNNING: '执行中',
+  PARTIAL: '部分成功',
+  SUCCESS: '成功',
+  FAILED: '失败',
+  SKIPPED: '已跳过',
+};
 const autoPullLimitHint = [
   '上限规则：',
   '首次拉取：按配置上限的 5 倍执行',
@@ -519,6 +489,67 @@ const manualImportTestTopicProfiles: Array<{
   },
 ];
 const devInjectedTopicIds = manualImportTestTopicProfiles.map((item) => item.topic_id);
+const devAutoPullRuleSeeds: Array<{
+  name: string;
+  scope: AutoPullScope;
+  include_keywords: string[];
+  exclude_keywords: string[];
+  venues: string[];
+  lookback_days: number;
+  min_year: number | null;
+  max_year: number | null;
+  min_quality_score: number;
+}> = [
+  {
+    name: 'DEV 全局增量检索',
+    scope: 'GLOBAL',
+    include_keywords: ['llm', 'agent', 'retrieval'],
+    exclude_keywords: ['biology'],
+    venues: [],
+    lookback_days: 30,
+    min_year: 2020,
+    max_year: null,
+    min_quality_score: 70,
+  },
+  {
+    name: 'DEV RAG 专项检索',
+    scope: 'TOPIC',
+    include_keywords: ['rag', 'retrieval', 'evaluation'],
+    exclude_keywords: ['biology'],
+    venues: ['NeurIPS', 'ICML'],
+    lookback_days: 21,
+    min_year: 2020,
+    max_year: null,
+    min_quality_score: 70,
+  },
+  {
+    name: 'DEV Agent 专项检索',
+    scope: 'TOPIC',
+    include_keywords: ['agent', 'tool use', 'planning'],
+    exclude_keywords: ['robotics'],
+    venues: ['ACL', 'EMNLP'],
+    lookback_days: 30,
+    min_year: 2021,
+    max_year: null,
+    min_quality_score: 70,
+  },
+  {
+    name: 'DEV 系统工程专项检索',
+    scope: 'TOPIC',
+    include_keywords: ['llm systems', 'serving', 'latency'],
+    exclude_keywords: [],
+    venues: ['KDD', 'WWW'],
+    lookback_days: 45,
+    min_year: 2019,
+    max_year: null,
+    min_quality_score: 70,
+  },
+];
+const devTopicRuleBindingsByTopicId: Record<string, string[]> = {
+  'DEV-TOPIC-RAG-EVAL': ['DEV RAG 专项检索'],
+  'DEV-TOPIC-AGENT-TOOL': ['DEV Agent 专项检索'],
+  'DEV-TOPIC-LLM-SYSTEM': ['DEV 系统工程专项检索'],
+};
 const topicPresetVenueOptions = [
   'ACL',
   'EMNLP',
@@ -546,28 +577,6 @@ const literatureSubTabsByTab: Partial<Record<LiteratureTabKey, Array<{ key: stri
   'auto-import': autoImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
   'manual-import': manualImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
 };
-const queryFieldOptions: Array<{ value: QueryField; label: string }> = [
-  { value: 'title', label: '标题' },
-  { value: 'authors', label: '作者' },
-  { value: 'providers', label: '来源 Provider' },
-  { value: 'tags', label: '标签' },
-  { value: 'rights_class', label: '权限分类' },
-  { value: 'year', label: '年份' },
-  { value: 'topic_scope_status', label: '选题范围状态' },
-  { value: 'citation_status', label: '引用状态' },
-  { value: 'doi', label: 'DOI' },
-  { value: 'arxiv_id', label: 'arXiv ID' },
-];
-const queryOperatorOptions: Array<{ value: QueryOperator; label: string }> = [
-  { value: 'contains', label: '包含' },
-  { value: 'equals', label: '等于' },
-  { value: 'not_equals', label: '不等于' },
-  { value: 'in', label: '属于（逗号分隔）' },
-  { value: 'gt', label: '大于' },
-  { value: 'lt', label: '小于' },
-  { value: 'is_empty', label: '为空' },
-  { value: 'is_not_empty', label: '非空' },
-];
 const querySortOptions: Array<{ value: QuerySort; label: string }> = [
   { value: 'updated_desc', label: '按更新时间（新->旧）' },
   { value: 'year_desc', label: '按年份（新->旧）' },
@@ -1676,178 +1685,74 @@ function normalizeLiteratureOverviewPayload(payload: unknown): LiteratureOvervie
   };
 }
 
-function createQueryCondition(
-  field: QueryField = 'title',
-  operator: QueryOperator = 'contains',
-  value = '',
-): QueryCondition {
-  return {
-    id: `cond-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    field,
-    operator,
-    value,
-  };
-}
-
-function cloneQueryGroup(group: QueryGroup): QueryGroup {
-  return {
-    logic: group.logic,
-    conditions: group.conditions.map((condition) => ({
-      ...condition,
-      id: `cond-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    })),
-  };
-}
-
-function queryOperatorNeedsValue(operator: QueryOperator): boolean {
-  return operator !== 'is_empty' && operator !== 'is_not_empty';
-}
-
 function normalizeComparableText(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function getQueryFieldValue(
-  item: LiteratureOverviewItem,
-  field: QueryField,
-): string | number | string[] | null {
-  switch (field) {
-    case 'title':
-      return item.title;
-    case 'authors':
-      return item.authors;
-    case 'providers':
-      return item.providers;
-    case 'tags':
-      return item.tags;
-    case 'rights_class':
-      return item.rights_class;
-    case 'year':
-      return item.year;
-    case 'topic_scope_status':
-      return item.topic_scope_status ?? null;
-    case 'citation_status':
-      return item.citation_status ?? null;
-    case 'doi':
-      return item.doi;
-    case 'arxiv_id':
-      return item.arxiv_id;
-    default:
-      return null;
-  }
+function isPaperNotFoundMessage(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return normalized.includes('not_found') && normalized.includes('paper') && normalized.includes('not found');
 }
 
-function isQueryFieldValueEmpty(value: string | number | string[] | null): boolean {
-  if (value === null || value === undefined) {
+function applyOverviewQuickFilters(
+  items: LiteratureOverviewItem[],
+  filters: {
+    keyword: string;
+    scopeStatus: OverviewScopeFilter;
+    citationStatus: OverviewCitationFilter;
+    rightsClass: OverviewRightsFilter;
+  },
+): LiteratureOverviewItem[] {
+  const keyword = normalizeComparableText(filters.keyword);
+  return items.filter((item) => {
+    if (keyword) {
+      const hit = [
+        item.title,
+        item.authors.join(' '),
+        item.tags.join(' '),
+        item.providers.join(' '),
+        item.doi ?? '',
+        item.arxiv_id ?? '',
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword);
+      if (!hit) {
+        return false;
+      }
+    }
+
+    if (filters.scopeStatus !== 'all' && item.topic_scope_status !== filters.scopeStatus) {
+      return false;
+    }
+    if (filters.citationStatus !== 'all' && item.citation_status !== filters.citationStatus) {
+      return false;
+    }
+    if (filters.rightsClass !== 'all' && item.rights_class !== filters.rightsClass) {
+      return false;
+    }
+
     return true;
-  }
-  if (Array.isArray(value)) {
-    return value.length === 0;
-  }
-  if (typeof value === 'number') {
-    return !Number.isFinite(value);
-  }
-  return value.trim().length === 0;
+  });
 }
 
-function evaluateQueryCondition(item: LiteratureOverviewItem, condition: QueryCondition): boolean {
-  const fieldValue = getQueryFieldValue(item, condition.field);
-  const normalizedValue = normalizeComparableText(condition.value);
-
-  if (condition.operator === 'is_empty') {
-    return isQueryFieldValueEmpty(fieldValue);
-  }
-  if (condition.operator === 'is_not_empty') {
-    return !isQueryFieldValueEmpty(fieldValue);
-  }
-
-  if (fieldValue === null || fieldValue === undefined) {
-    return false;
-  }
-
-  if (Array.isArray(fieldValue)) {
-    const normalizedItems = fieldValue.map((entry) => normalizeComparableText(String(entry)));
-    if (condition.operator === 'contains') {
-      return normalizedItems.some((entry) => entry.includes(normalizedValue));
-    }
-    if (condition.operator === 'equals') {
-      return normalizedItems.some((entry) => entry === normalizedValue);
-    }
-    if (condition.operator === 'not_equals') {
-      return normalizedItems.every((entry) => entry !== normalizedValue);
-    }
-    if (condition.operator === 'in') {
-      const options = condition.value
-        .split(',')
-        .map((entry) => normalizeComparableText(entry))
-        .filter((entry) => entry.length > 0);
-      return options.some((entry) => normalizedItems.includes(entry));
-    }
-    return false;
-  }
-
-  if (typeof fieldValue === 'number') {
-    const target = Number.parseFloat(condition.value);
-    if (!Number.isFinite(target)) {
-      return false;
-    }
-    if (condition.operator === 'gt') {
-      return fieldValue > target;
-    }
-    if (condition.operator === 'lt') {
-      return fieldValue < target;
-    }
-    if (condition.operator === 'equals') {
-      return fieldValue === target;
-    }
-    if (condition.operator === 'not_equals') {
-      return fieldValue !== target;
-    }
-    return false;
-  }
-
-  const normalizedFieldValue = normalizeComparableText(String(fieldValue));
-  if (condition.operator === 'contains') {
-    return normalizedFieldValue.includes(normalizedValue);
-  }
-  if (condition.operator === 'equals') {
-    return normalizedFieldValue === normalizedValue;
-  }
-  if (condition.operator === 'not_equals') {
-    return normalizedFieldValue !== normalizedValue;
-  }
-  if (condition.operator === 'in') {
-    const options = condition.value
-      .split(',')
-      .map((entry) => normalizeComparableText(entry))
-      .filter((entry) => entry.length > 0);
-    return options.includes(normalizedFieldValue);
-  }
-  if (condition.operator === 'gt' || condition.operator === 'lt') {
-    const target = Number.parseFloat(condition.value);
-    const parsedField = Number.parseFloat(normalizedFieldValue);
-    if (!Number.isFinite(target) || !Number.isFinite(parsedField)) {
-      return false;
-    }
-    return condition.operator === 'gt' ? parsedField > target : parsedField < target;
-  }
-
-  return false;
-}
-
-function applyQueryGroup(items: LiteratureOverviewItem[], group: QueryGroup): LiteratureOverviewItem[] {
-  const activeConditions = group.conditions.filter((condition) =>
-    queryOperatorNeedsValue(condition.operator) ? condition.value.trim().length > 0 : true,
-  );
-  if (activeConditions.length === 0) {
-    return [...items];
-  }
-
-  return items.filter((item) =>
-    group.logic === 'AND'
-      ? activeConditions.every((condition) => evaluateQueryCondition(item, condition))
-      : activeConditions.some((condition) => evaluateQueryCondition(item, condition)),
-  );
+function projectOverviewItems(
+  items: LiteratureOverviewItem[],
+  options: {
+    sort: QuerySort;
+    keyword: string;
+    scopeStatus: OverviewScopeFilter;
+    citationStatus: OverviewCitationFilter;
+    rightsClass: OverviewRightsFilter;
+  },
+): LiteratureOverviewItem[] {
+  const quickFilteredItems = applyOverviewQuickFilters(items, {
+    keyword: options.keyword,
+    scopeStatus: options.scopeStatus,
+    citationStatus: options.citationStatus,
+    rightsClass: options.rightsClass,
+  });
+  return sortOverviewItems(quickFilteredItems, options.sort);
 }
 
 function sortOverviewItems(items: LiteratureOverviewItem[], sort: QuerySort): LiteratureOverviewItem[] {
@@ -1875,25 +1780,6 @@ function sortOverviewItems(items: LiteratureOverviewItem[], sort: QuerySort): Li
     return right - left;
   });
   return sorted;
-}
-
-function formatUiOperationStatus(status: UiOperationStatus): string {
-  if (status === 'idle') {
-    return '待执行';
-  }
-  if (status === 'loading') {
-    return '处理中';
-  }
-  if (status === 'ready') {
-    return '已就绪';
-  }
-  if (status === 'empty') {
-    return '无结果';
-  }
-  if (status === 'saving') {
-    return '保存中';
-  }
-  return '异常';
 }
 
 function detectManualUploadFileFormat(fileName: string): string {
@@ -2050,6 +1936,16 @@ function formatRunDuration(startedAt: string | null, finishedAt: string | null):
   const minutes = Math.floor(durationMs / 60_000);
   const seconds = Math.floor((durationMs % 60_000) / 1_000);
   return `${minutes}m ${seconds}s`;
+}
+
+function resolveRunSortTimestamp(run: AutoPullRun): string {
+  return run.finished_at ?? run.started_at ?? run.updated_at ?? run.created_at;
+}
+
+function resolveRunSortTimeMs(run: AutoPullRun): number {
+  const timestamp = resolveRunSortTimestamp(run);
+  const parsedMs = new Date(timestamp).getTime();
+  return Number.isNaN(parsedMs) ? 0 : parsedMs;
 }
 
 function tryGetSnapshotId(summary: string): string | null {
@@ -2224,17 +2120,11 @@ export function App({ initialThemeMode }: AppProps) {
     data: emptyLiteratureOverviewData,
     error: null,
   });
-  const [queryGroup, setQueryGroup] = useState<QueryGroup>({
-    logic: 'AND',
-    conditions: [createQueryCondition()],
-  });
-  const [appliedQueryGroup, setAppliedQueryGroup] = useState<QueryGroup | null>(null);
   const [querySort, setQuerySort] = useState<QuerySort>('updated_desc');
-  const [queryStatus, setQueryStatus] = useState<UiOperationStatus>('idle');
-  const [queryError, setQueryError] = useState<string | null>(null);
-  const [queryPresetNameInput, setQueryPresetNameInput] = useState<string>('');
-  const [savedQueryPresets, setSavedQueryPresets] = useState<SavedQueryPreset[]>([]);
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('');
+  const [overviewKeyword, setOverviewKeyword] = useState<string>('');
+  const [overviewScopeFilter, setOverviewScopeFilter] = useState<OverviewScopeFilter>('all');
+  const [overviewCitationFilter, setOverviewCitationFilter] = useState<OverviewCitationFilter>('all');
+  const [overviewRightsFilter, setOverviewRightsFilter] = useState<OverviewRightsFilter>('all');
   const [overviewResultItems, setOverviewResultItems] = useState<LiteratureOverviewItem[]>([]);
   const [metadataDrafts, setMetadataDrafts] = useState<Record<string, { tagsInput: string; rightsClass: RightsClass }>>({});
   const [metadataSavingIds, setMetadataSavingIds] = useState<Record<string, boolean>>({});
@@ -2485,14 +2375,10 @@ export function App({ initialThemeMode }: AppProps) {
         data: emptyLiteratureOverviewData,
         error: 'Topic ID 与 Paper ID 至少填写一个。',
       });
-      setQueryStatus('error');
-      setQueryError('请先填写 Topic ID 或 Paper ID，再加载综览。');
       return;
     }
 
     setOverviewPanel((current) => ({ ...current, status: 'loading', error: null }));
-    setQueryStatus('loading');
-    setQueryError(null);
     try {
       const query = new URLSearchParams();
       if (normalizedTopicId) {
@@ -2513,14 +2399,16 @@ export function App({ initialThemeMode }: AppProps) {
           error: null,
         });
         setOverviewResultItems([]);
-        setQueryStatus('empty');
         return;
       }
 
-      const baseItems = appliedQueryGroup
-        ? applyQueryGroup(normalized.items, appliedQueryGroup)
-        : normalized.items;
-      const sortedItems = sortOverviewItems(baseItems, querySort);
+      const sortedItems = projectOverviewItems(normalized.items, {
+        sort: querySort,
+        keyword: overviewKeyword,
+        scopeStatus: overviewScopeFilter,
+        citationStatus: overviewCitationFilter,
+        rightsClass: overviewRightsFilter,
+      });
 
       setOverviewPanel({
         status: normalized.items.length > 0 ? 'ready' : 'empty',
@@ -2528,18 +2416,23 @@ export function App({ initialThemeMode }: AppProps) {
         error: null,
       });
       setOverviewResultItems(sortedItems);
-      setQueryStatus(sortedItems.length > 0 ? 'ready' : 'empty');
-      setQueryError(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : '加载文献综览失败。';
+      if (isPaperNotFoundMessage(message)) {
+        setOverviewPanel({
+          status: 'empty',
+          data: emptyLiteratureOverviewData,
+          error: null,
+        });
+        setOverviewResultItems([]);
+        return;
+      }
       setOverviewPanel({
         status: 'error',
         data: emptyLiteratureOverviewData,
         error: message,
       });
       setOverviewResultItems([]);
-      setQueryStatus('error');
-      setQueryError(message);
       pushLiteratureFeedback({
         slot: 'overview',
         level: 'error',
@@ -2547,7 +2440,14 @@ export function App({ initialThemeMode }: AppProps) {
         recoveryAction: 'reload-overview',
       });
     }
-  }, [appliedQueryGroup, pushLiteratureFeedback, querySort]);
+  }, [
+    overviewCitationFilter,
+    overviewKeyword,
+    overviewRightsFilter,
+    overviewScopeFilter,
+    pushLiteratureFeedback,
+    querySort,
+  ]);
 
   useEffect(() => {
     setMetadataDrafts((current) => {
@@ -2568,11 +2468,23 @@ export function App({ initialThemeMode }: AppProps) {
       return;
     }
     const sourceItems = overviewPanel.data.items;
-    const filteredItems = appliedQueryGroup ? applyQueryGroup(sourceItems, appliedQueryGroup) : sourceItems;
-    const sortedItems = sortOverviewItems(filteredItems, querySort);
+    const sortedItems = projectOverviewItems(sourceItems, {
+      sort: querySort,
+      keyword: overviewKeyword,
+      scopeStatus: overviewScopeFilter,
+      citationStatus: overviewCitationFilter,
+      rightsClass: overviewRightsFilter,
+    });
     setOverviewResultItems(sortedItems);
-    setQueryStatus(sortedItems.length > 0 ? 'ready' : 'empty');
-  }, [appliedQueryGroup, overviewPanel.data.items, overviewPanel.status, querySort]);
+  }, [
+    overviewCitationFilter,
+    overviewKeyword,
+    overviewPanel.data.items,
+    overviewPanel.status,
+    overviewRightsFilter,
+    overviewScopeFilter,
+    querySort,
+  ]);
 
   const loadTopicProfiles = useCallback(async () => {
     setTopicProfilesStatus('loading');
@@ -2765,25 +2677,15 @@ export function App({ initialThemeMode }: AppProps) {
     setTopicFormLookbackInput(String(profile.default_lookback_days));
     setTopicFormYearStart(profile.default_min_year ?? topicYearMinBound);
     setTopicFormYearEnd(profile.default_max_year ?? topicYearMaxBound);
-    setTopicFormRuleIds(profile.rule_ids);
+    setTopicFormRuleIds(profile.rule_ids.slice(0, 1));
     resetRuleForm();
     setRuleFormName(`${profile.name} 自动拉取`);
     setTopicFormModalOpen(true);
     setAutoImportSubTab('topic-settings');
   };
 
-  const handleEditTopicProfileAndCreateRule = (profile: AutoPullTopicProfile) => {
-    handleEditTopicProfile(profile);
-    resetRuleForm();
-    setRuleFormName(`${profile.name} 自动拉取`);
-  };
-
   const handleToggleTopicRuleSelection = (ruleId: string) => {
-    setTopicFormRuleIds((current) =>
-      current.includes(ruleId)
-        ? current.filter((item) => item !== ruleId)
-        : [...current, ruleId],
-    );
+    setTopicFormRuleIds((current) => (current[0] === ruleId ? [] : [ruleId]));
   };
 
   const handleAddTopicIncludeKeyword = () => {
@@ -3092,7 +2994,7 @@ export function App({ initialThemeMode }: AppProps) {
       }
 
       if (options?.bindToTopicDraft && resolvedRuleId) {
-        setTopicFormRuleIds((current) => (current.includes(resolvedRuleId as string) ? current : [...current, resolvedRuleId as string]));
+        setTopicFormRuleIds([resolvedRuleId]);
       }
       resetRuleForm();
       if (options?.bindToTopicDraft) {
@@ -3523,6 +3425,203 @@ export function App({ initialThemeMode }: AppProps) {
     return { created, updated, failed };
   };
 
+  const upsertDevAutoPullRules = async (): Promise<{
+    created: number;
+    updated: number;
+    failed: number;
+    ruleIdByName: Map<string, string>;
+  }> => {
+    let created = 0;
+    let updated = 0;
+    let failed = 0;
+    const ruleIdByName = new Map<string, string>();
+    const scheduleTimezone = resolveSystemTimezone();
+    const existingRuleIdByName = new Map<string, string>();
+
+    try {
+      const payload = await requestGovernance({
+        method: 'GET',
+        path: '/auto-pull/rules',
+      });
+      const existingRules = normalizeAutoPullRulePayload(payload);
+      existingRules.forEach((rule) => {
+        existingRuleIdByName.set(rule.name, rule.rule_id);
+      });
+    } catch {
+      // Best effort: continue and try create flow.
+    }
+
+    for (const seed of devAutoPullRuleSeeds) {
+      const body = {
+        scope: seed.scope,
+        name: seed.name,
+        query_spec: {
+          include_keywords: seed.include_keywords,
+          exclude_keywords: seed.exclude_keywords,
+          authors: [],
+          venues: seed.venues,
+          max_results_per_source: 20,
+        },
+        time_spec: {
+          lookback_days: seed.lookback_days,
+          min_year: seed.min_year,
+          max_year: seed.max_year,
+        },
+        quality_spec: {
+          min_quality_score: seed.min_quality_score,
+        },
+        sources: [
+          {
+            source: 'CROSSREF' as const,
+            enabled: true,
+            priority: 10,
+          },
+          {
+            source: 'ARXIV' as const,
+            enabled: true,
+            priority: 20,
+          },
+        ],
+        schedules: [
+          {
+            frequency: 'DAILY' as const,
+            days_of_week: [],
+            hour: 9,
+            minute: 0,
+            timezone: scheduleTimezone,
+            active: true,
+          },
+        ],
+      };
+
+      const existingRuleId = existingRuleIdByName.get(seed.name);
+      if (existingRuleId) {
+        try {
+          await requestGovernance({
+            method: 'PATCH',
+            path: `/auto-pull/rules/${encodeURIComponent(existingRuleId)}`,
+            body,
+          });
+          updated += 1;
+          ruleIdByName.set(seed.name, existingRuleId);
+        } catch {
+          failed += 1;
+        }
+        continue;
+      }
+
+      try {
+        const createPayload = await requestGovernance({
+          method: 'POST',
+          path: '/auto-pull/rules',
+          body,
+        });
+        const root = asRecord(createPayload);
+        const createdRuleId =
+          toText(root?.rule_id)
+          ?? toText(asRecord(root?.item)?.rule_id)
+          ?? toText(asRecord(root?.rule)?.rule_id)
+          ?? null;
+        if (!createdRuleId) {
+          failed += 1;
+          continue;
+        }
+        created += 1;
+        existingRuleIdByName.set(seed.name, createdRuleId);
+        ruleIdByName.set(seed.name, createdRuleId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        const shouldResolveAgain = message.includes('already exists') || message.includes('VERSION_CONFLICT');
+        if (!shouldResolveAgain) {
+          failed += 1;
+          continue;
+        }
+        try {
+          const refetchPayload = await requestGovernance({
+            method: 'GET',
+            path: '/auto-pull/rules',
+          });
+          const matchedRuleId = normalizeAutoPullRulePayload(refetchPayload).find((rule) => rule.name === seed.name)?.rule_id;
+          if (!matchedRuleId) {
+            failed += 1;
+            continue;
+          }
+          await requestGovernance({
+            method: 'PATCH',
+            path: `/auto-pull/rules/${encodeURIComponent(matchedRuleId)}`,
+            body,
+          });
+          existingRuleIdByName.set(seed.name, matchedRuleId);
+          ruleIdByName.set(seed.name, matchedRuleId);
+          updated += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+    }
+
+    return {
+      created,
+      updated,
+      failed,
+      ruleIdByName,
+    };
+  };
+
+  const bindDevRulesToTopics = async (
+    ruleIdByName: Map<string, string>,
+  ): Promise<{ updated: number; failed: number }> => {
+    let updated = 0;
+    let failed = 0;
+
+    for (const topic of manualImportTestTopicProfiles) {
+      const ruleNames = devTopicRuleBindingsByTopicId[topic.topic_id] ?? [];
+      const ruleIds = ruleNames
+        .map((name) => ruleIdByName.get(name))
+        .filter((ruleId): ruleId is string => Boolean(ruleId));
+      try {
+        await requestGovernance({
+          method: 'PATCH',
+          path: `/topics/settings/${encodeURIComponent(topic.topic_id)}`,
+          body: {
+            rule_ids: ruleIds,
+          },
+        });
+        updated += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    return { updated, failed };
+  };
+
+  const triggerDevRuleRuns = async (
+    ruleIds: string[],
+  ): Promise<{ triggered: number; failed: number }> => {
+    let triggered = 0;
+    let failed = 0;
+    const uniqueRuleIds = [...new Set(ruleIds)];
+
+    for (const ruleId of uniqueRuleIds) {
+      try {
+        await requestGovernance({
+          method: 'POST',
+          path: `/auto-pull/rules/${encodeURIComponent(ruleId)}/runs`,
+          body: {
+            trigger_type: 'MANUAL',
+            full_refresh: false,
+          },
+        });
+        triggered += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    return { triggered, failed };
+  };
+
   const handleInjectManualImportTestData = async () => {
     const rows = parseManualUploadToDraftRows('manual-import-test.json', JSON.stringify(manualImportTestItems));
     if (rows.length === 0) {
@@ -3536,11 +3635,22 @@ export function App({ initialThemeMode }: AppProps) {
 
     applyManualImportSessionRows('manual-import-test.json', rows, 'seed');
     const topicSyncResult = await upsertDevTopicProfiles();
+    const ruleSyncResult = await upsertDevAutoPullRules();
+    const topicRuleBindingResult = await bindDevRulesToTopics(ruleSyncResult.ruleIdByName);
+    const runTriggerResult = await triggerDevRuleRuns([...ruleSyncResult.ruleIdByName.values()]);
     await loadTopicProfiles();
+    await loadAutoPullRules();
+    await loadAutoPullRuns();
     pushLiteratureFeedback({
       slot: 'auto-import',
-      level: topicSyncResult.failed > 0 ? 'warning' : 'success',
-      message: `DEV 主题同步完成：新增 ${topicSyncResult.created}，更新 ${topicSyncResult.updated}，失败 ${topicSyncResult.failed}。`,
+      level:
+        topicSyncResult.failed > 0
+        || ruleSyncResult.failed > 0
+        || topicRuleBindingResult.failed > 0
+        || runTriggerResult.failed > 0
+          ? 'warning'
+          : 'success',
+      message: `DEV 注入完成：主题 新增 ${topicSyncResult.created}/更新 ${topicSyncResult.updated}/失败 ${topicSyncResult.failed}；规则 新增 ${ruleSyncResult.created}/更新 ${ruleSyncResult.updated}/失败 ${ruleSyncResult.failed}；主题绑定 成功 ${topicRuleBindingResult.updated}/失败 ${topicRuleBindingResult.failed}；运行触发 成功 ${runTriggerResult.triggered}/失败 ${runTriggerResult.failed}。`,
     });
   };
 
@@ -3996,7 +4106,6 @@ export function App({ initialThemeMode }: AppProps) {
     }
 
     setMetadataSavingIds((current) => ({ ...current, [literatureId]: true }));
-    setQueryStatus('saving');
     try {
       await requestGovernance({
         method: 'PATCH',
@@ -4014,8 +4123,6 @@ export function App({ initialThemeMode }: AppProps) {
       await loadLiteratureOverview(topicId, paperId);
     } catch (error) {
       const message = error instanceof Error ? error.message : '元数据更新失败。';
-      setQueryStatus('error');
-      setQueryError(message);
       pushLiteratureFeedback({
         slot: 'overview',
         level: 'error',
@@ -4125,174 +4232,6 @@ export function App({ initialThemeMode }: AppProps) {
     }
   };
 
-  const handleAddQueryCondition = () => {
-    setQueryGroup((current) => ({
-      ...current,
-      conditions: [...current.conditions, createQueryCondition()],
-    }));
-  };
-
-  const handleUpdateQueryCondition = (conditionId: string, patch: Partial<Omit<QueryCondition, 'id'>>) => {
-    setQueryGroup((current) => ({
-      ...current,
-      conditions: current.conditions.map((condition) =>
-        condition.id === conditionId ? { ...condition, ...patch } : condition,
-      ),
-    }));
-  };
-
-  const handleRemoveQueryCondition = (conditionId: string) => {
-    setQueryGroup((current) => {
-      const nextConditions = current.conditions.filter((condition) => condition.id !== conditionId);
-      return {
-        ...current,
-        conditions: nextConditions.length > 0 ? nextConditions : [createQueryCondition()],
-      };
-    });
-  };
-
-  const executeOverviewQuery = useCallback((group: QueryGroup, sort: QuerySort) => {
-    const filtered = applyQueryGroup(overviewPanel.data.items, group);
-    const sorted = sortOverviewItems(filtered, sort);
-    setOverviewResultItems(sorted);
-    setQueryStatus(sorted.length > 0 ? 'ready' : 'empty');
-    return sorted;
-  }, [overviewPanel.data.items]);
-
-  const handleApplyAdvancedQuery = () => {
-    if (overviewPanel.status === 'loading') {
-      setQueryStatus('loading');
-      return;
-    }
-    if (overviewPanel.status === 'error') {
-      const message = overviewPanel.error ?? '综览数据异常，无法执行查询。';
-      setQueryStatus('error');
-      setQueryError(message);
-      pushLiteratureFeedback({
-        slot: 'overview',
-        level: 'error',
-        message,
-        recoveryAction: 'reload-overview',
-      });
-      return;
-    }
-
-    setQueryStatus('loading');
-    setQueryError(null);
-    try {
-      const frozenGroup = cloneQueryGroup(queryGroup);
-      setAppliedQueryGroup(frozenGroup);
-      const result = executeOverviewQuery(frozenGroup, querySort);
-      pushLiteratureFeedback({
-        slot: 'overview',
-        level: result.length > 0 ? 'success' : 'warning',
-        message: result.length > 0 ? `高级查询完成：命中 ${result.length} 条。` : '高级查询无命中，请调整条件。',
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '高级查询执行失败。';
-      setQueryStatus('error');
-      setQueryError(message);
-      pushLiteratureFeedback({
-        slot: 'overview',
-        level: 'error',
-        message: `高级查询失败：${message}`,
-        recoveryAction: 'retry-query',
-      });
-    }
-  };
-
-  const handleResetAdvancedQuery = () => {
-    const resetGroup: QueryGroup = {
-      logic: 'AND',
-      conditions: [createQueryCondition()],
-    };
-    setQueryGroup(resetGroup);
-    setAppliedQueryGroup(null);
-    const sorted = sortOverviewItems(overviewPanel.data.items, querySort);
-    setOverviewResultItems(sorted);
-    setQueryStatus(sorted.length > 0 ? 'ready' : 'empty');
-    setQueryError(null);
-    pushLiteratureFeedback({
-      slot: 'overview',
-      level: 'info',
-      message: '已重置高级查询条件。',
-    });
-  };
-
-  const handleSaveQueryPreset = () => {
-    const name = queryPresetNameInput.trim();
-    if (!name) {
-      pushLiteratureFeedback({
-        slot: 'overview',
-        level: 'warning',
-        message: '请先输入保存查询名称。',
-      });
-      return;
-    }
-
-    const preset: SavedQueryPreset = {
-      id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      name,
-      group: cloneQueryGroup(queryGroup),
-      defaultSort: querySort,
-    };
-    const existing = savedQueryPresets.find((item) => item.name === name);
-    const targetPresetId = existing ? existing.id : preset.id;
-
-    setSavedQueryPresets((current) => {
-      const existingIndex = current.findIndex((item) => item.name === name);
-      if (existingIndex < 0) {
-        return [...current, preset];
-      }
-      const next = [...current];
-      next[existingIndex] = { ...preset, id: current[existingIndex].id };
-      return next;
-    });
-    setSelectedPresetId(targetPresetId);
-    setQueryPresetNameInput('');
-    pushLiteratureFeedback({
-      slot: 'overview',
-      level: 'success',
-      message: `查询已保存：${name}`,
-    });
-  };
-
-  const handleApplySelectedPreset = () => {
-    const selected = savedQueryPresets.find((preset) => preset.id === selectedPresetId);
-    if (!selected) {
-      pushLiteratureFeedback({
-        slot: 'overview',
-        level: 'warning',
-        message: '请先选择已保存查询。',
-      });
-      return;
-    }
-
-    const nextGroup = cloneQueryGroup(selected.group);
-    setQueryGroup(nextGroup);
-    setAppliedQueryGroup(nextGroup);
-    setQuerySort(selected.defaultSort);
-    const result = executeOverviewQuery(nextGroup, selected.defaultSort);
-    pushLiteratureFeedback({
-      slot: 'overview',
-      level: result.length > 0 ? 'success' : 'warning',
-      message: `已应用查询：${selected.name}（命中 ${result.length} 条）。`,
-    });
-  };
-
-  const handleDeleteSelectedPreset = () => {
-    if (!selectedPresetId) {
-      return;
-    }
-    setSavedQueryPresets((current) => current.filter((preset) => preset.id !== selectedPresetId));
-    setSelectedPresetId('');
-    pushLiteratureFeedback({
-      slot: 'overview',
-      level: 'info',
-      message: '已删除保存查询。',
-    });
-  };
-
   const handleTopFeedbackRecovery = () => {
     if (!topFeedback?.recoveryAction) {
       return;
@@ -4300,10 +4239,6 @@ export function App({ initialThemeMode }: AppProps) {
 
     if (topFeedback.recoveryAction === 'retry-zotero-import') {
       void handleImportFromZotero();
-      return;
-    }
-    if (topFeedback.recoveryAction === 'retry-query') {
-      handleApplyAdvancedQuery();
       return;
     }
     if (topFeedback.recoveryAction === 'reload-overview') {
@@ -4330,6 +4265,18 @@ export function App({ initialThemeMode }: AppProps) {
       slot: 'header',
       level: 'info',
       message: `已应用筛选：Topic=${nextTopic}，Paper=${nextPaper}`,
+    });
+  };
+
+  const handleResetLightweightFilters = () => {
+    setOverviewKeyword('');
+    setOverviewScopeFilter('all');
+    setOverviewCitationFilter('all');
+    setOverviewRightsFilter('all');
+    pushLiteratureFeedback({
+      slot: 'overview',
+      level: 'info',
+      message: '已重置轻量筛选。',
     });
   };
 
@@ -4537,6 +4484,20 @@ export function App({ initialThemeMode }: AppProps) {
     () => autoPullRules.filter((rule) => rule.scope === 'TOPIC'),
     [autoPullRules],
   );
+  const autoPullRuleById = useMemo(
+    () => new Map(autoPullRules.map((rule) => [rule.rule_id, rule])),
+    [autoPullRules],
+  );
+  const latestRunByRuleId = useMemo(() => {
+    const latestRuns = new Map<string, AutoPullRun>();
+    autoPullRuns.forEach((run) => {
+      const current = latestRuns.get(run.rule_id);
+      if (!current || resolveRunSortTimeMs(run) > resolveRunSortTimeMs(current)) {
+        latestRuns.set(run.rule_id, run);
+      }
+    });
+    return latestRuns;
+  }, [autoPullRuns]);
   const topicVenueOptions = useMemo(
     () => [...new Set([
       ...topicPresetVenueOptions,
@@ -4572,10 +4533,6 @@ export function App({ initialThemeMode }: AppProps) {
     }
     return `${topicFormVenueSelections.slice(0, 2).join('、')} 等 ${topicFormVenueSelections.length} 项`;
   }, [topicFormVenueSelections]);
-  const ruleNameById = useMemo(
-    () => new Map(autoPullRules.map((rule) => [rule.rule_id, rule.name])),
-    [autoPullRules],
-  );
   const autoPullStatusDigest = `${topicProfilesStatus}|${rulesStatus}|${runsStatus}|${alertsStatus}`;
 
   const handleModuleSelect = (moduleName: string) => {
@@ -4951,55 +4908,107 @@ export function App({ initialThemeMode }: AppProps) {
                           </button>
                         </div>
                         {topicProfilesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{topicProfilesError}</p> : null}
-                        <div className="literature-list">
+                        <div className="topic-settings-table-wrap">
                           {topicProfiles.length === 0 ? (
                             <p data-ui="text" data-variant="caption" data-tone="muted">暂无主题设置。</p>
                           ) : (
-                            topicProfiles.map((profile) => (
-                              <div key={profile.topic_id} className="literature-list-item">
-                                <div>
-                                  <p data-ui="text" data-variant="body" data-tone="primary">
-                                    {profile.topic_id} · {profile.name}
-                                  </p>
-                                  <p data-ui="text" data-variant="caption" data-tone="muted">
-                                    {profile.is_active ? '已启用' : '已关闭'} · 包含词:{profile.include_keywords.length} · 排除词:{profile.exclude_keywords.length} · 会议与期刊:{profile.venue_filters.length} · 绑定规则:{profile.rule_ids.length}
-                                  </p>
-                                  <p data-ui="text" data-variant="caption" data-tone="muted">
-                                    规则绑定：{profile.rule_ids.length === 0
-                                      ? '未绑定'
-                                      : profile.rule_ids.map((ruleId) => ruleNameById.get(ruleId) ?? ruleId).join('，')}
-                                  </p>
-                                </div>
-                                <div data-ui="toolbar" data-gap="2">
-                                  <label className="topic-list-active-toggle">
-                                    <input
-                                      type="checkbox"
-                                      checked={profile.is_active}
-                                      onChange={() => void handleToggleTopicProfileActive(profile)}
-                                    />
-                                    <span>参与检索</span>
-                                  </label>
-                                  <button
-                                    data-ui="button"
-                                    data-variant="ghost"
-                                    data-size="sm"
-                                    type="button"
-                                    onClick={() => handleEditTopicProfile(profile)}
-                                  >
-                                    编辑
-                                  </button>
-                                  <button
-                                    data-ui="button"
-                                    data-variant="secondary"
-                                    data-size="sm"
-                                    type="button"
-                                    onClick={() => handleEditTopicProfileAndCreateRule(profile)}
-                                  >
-                                    新建规则
-                                  </button>
-                                </div>
-                              </div>
-                            ))
+                            <table className="topic-settings-table">
+                              <thead>
+                                <tr>
+                                  <th className="topic-col-name">名称</th>
+                                  <th className="topic-col-range">检索范围</th>
+                                  <th className="topic-col-filter">筛选</th>
+                                  <th className="topic-col-run">运行记录</th>
+                                  <th className="topic-col-rule">生效规则</th>
+                                  <th className="topic-col-actions">选项</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {topicProfiles.map((profile) => {
+                                  const yearStart = profile.default_min_year ?? topicYearMinBound;
+                                  const yearEnd = profile.default_max_year ?? topicYearMaxBound;
+                                  const venuePreview = profile.venue_filters.length === 0
+                                    ? '不限会议与期刊'
+                                    : `${profile.venue_filters.slice(0, 3).join('、')}${profile.venue_filters.length > 3 ? '...' : ''}`;
+                                  const venueFull = profile.venue_filters.length === 0
+                                    ? '不限会议与期刊'
+                                    : profile.venue_filters.join('、');
+                                  const rangeTooltip = `发布年份：${yearStart} - ${yearEnd}\n期刊范围：${venueFull}`;
+                                  const includePreview = profile.include_keywords.length === 0
+                                    ? '--'
+                                    : `${profile.include_keywords.slice(0, 3).join('、')}${profile.include_keywords.length > 3 ? '...' : ''}`;
+                                  const includeFull = profile.include_keywords.length === 0 ? '--' : profile.include_keywords.join('、');
+                                  const excludePreview = profile.exclude_keywords.length === 0
+                                    ? '--'
+                                    : `${profile.exclude_keywords.slice(0, 3).join('、')}${profile.exclude_keywords.length > 3 ? '...' : ''}`;
+                                  const excludeFull = profile.exclude_keywords.length === 0 ? '--' : profile.exclude_keywords.join('、');
+                                  const filterTooltip = `包含：${includeFull}\n排除：${excludeFull}`;
+                                  const effectiveRuleId = profile.rule_ids[0] ?? null;
+                                  const effectiveRule = effectiveRuleId ? autoPullRuleById.get(effectiveRuleId) ?? null : null;
+                                  const latestRun = effectiveRuleId ? (latestRunByRuleId.get(effectiveRuleId) ?? null) : null;
+
+                                  return (
+                                    <tr key={profile.topic_id}>
+                                      <td className="topic-col-name">
+                                        <div className="topic-settings-name">
+                                          <button
+                                            type="button"
+                                            className="topic-settings-name-trigger"
+                                            onClick={() => handleEditTopicProfile(profile)}
+                                          >
+                                            {profile.name}
+                                          </button>
+                                          {!profile.is_active ? <span className="topic-settings-muted-tag">已关闭</span> : null}
+                                        </div>
+                                      </td>
+                                      <td className="topic-col-range">
+                                        <div className="topic-settings-range" title={rangeTooltip}>
+                                          <span>{yearStart} - {yearEnd}</span>
+                                          <span>{venuePreview}</span>
+                                        </div>
+                                      </td>
+                                      <td className="topic-col-filter">
+                                        <div className="topic-settings-filter" title={filterTooltip}>
+                                          <span>包含：{includePreview}</span>
+                                          <span>排除：{excludePreview}</span>
+                                        </div>
+                                      </td>
+                                      <td className="topic-col-run">
+                                        <div className="topic-settings-run-record">
+                                          <span>{latestRun ? formatTimestamp(resolveRunSortTimestamp(latestRun)) : '--'}</span>
+                                          <span className={`topic-settings-run-status${latestRun ? ` is-${latestRun.status.toLowerCase()}` : ''}`}>
+                                            {latestRun ? autoPullRunStatusLabels[latestRun.status] : '未执行'}
+                                          </span>
+                                        </div>
+                                      </td>
+                                      <td className="topic-col-rule">
+                                        <div className="topic-settings-rule-text">
+                                          {effectiveRule?.status !== 'ACTIVE' ? (
+                                            <span className="topic-settings-muted-text">--</span>
+                                          ) : (
+                                            <span>
+                                              {effectiveRule.name}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="topic-col-actions">
+                                        <div className="topic-settings-options">
+                                          <label className="topic-list-active-toggle">
+                                            <input
+                                              type="checkbox"
+                                              checked={profile.is_active}
+                                              onChange={() => void handleToggleTopicProfileActive(profile)}
+                                            />
+                                            <span>参与检索</span>
+                                          </label>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
                           )}
                         </div>
                         {topicFormModalOpen ? (
@@ -6434,203 +6443,118 @@ export function App({ initialThemeMode }: AppProps) {
 
                 {activeLiteratureTab === 'overview' ? (
                   <section className="literature-overview-panel">
-                    <div data-ui="toolbar" data-align="between" data-wrap="wrap">
-                      <p data-ui="text" data-variant="label" data-tone="secondary">综览与分类工作台（高级查询 + 元数据）</p>
-                      <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          查询状态：{formatUiOperationStatus(queryStatus)}
-                        </span>
-                        <button
-                          data-ui="button"
-                          data-variant="secondary"
-                          data-size="sm"
-                          type="button"
-                          onClick={() => void loadLiteratureOverview(topicId, paperId)}
-                        >
-                          刷新综览
-                        </button>
-                        <button
-                          data-ui="button"
-                          data-variant="secondary"
-                          data-size="sm"
-                          type="button"
-                          onClick={handleSyncPaperFromTopic}
-                        >
-                          同步到论文管理
-                        </button>
-                      </div>
-                    </div>
-
                     <section className="literature-query-builder">
-                      <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
-                        <label data-ui="field">
-                          <span data-slot="label">Topic 筛选（可选）</span>
-                          <input
-                            data-ui="input"
+                      <div className="literature-quick-filters">
+                        <div className="literature-quick-row">
+                          <label data-ui="field">
+                            <span data-slot="label">Topic</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={topicIdInput}
+                              onChange={(event) => setTopicIdInput(event.target.value)}
+                              placeholder="TOPIC-001"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">Paper</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={paperIdInput}
+                              onChange={(event) => setPaperIdInput(event.target.value)}
+                              placeholder="P001"
+                            />
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">关键词</span>
+                            <input
+                              data-ui="input"
+                              data-size="sm"
+                              value={overviewKeyword}
+                              onChange={(event) => setOverviewKeyword(event.target.value)}
+                              placeholder="标题 / 作者 / DOI / arXiv"
+                            />
+                          </label>
+                          <button
+                            data-ui="button"
+                            data-variant="secondary"
                             data-size="sm"
-                            value={topicIdInput}
-                            onChange={(event) => setTopicIdInput(event.target.value)}
-                            placeholder="例如 TOPIC-001"
-                          />
-                        </label>
-                        <label data-ui="field">
-                          <span data-slot="label">Paper 筛选（可选）</span>
-                          <input
-                            data-ui="input"
-                            data-size="sm"
-                            value={paperIdInput}
-                            onChange={(event) => setPaperIdInput(event.target.value)}
-                            placeholder="例如 P001"
-                          />
-                        </label>
-                        <button
-                          data-ui="button"
-                          data-variant="secondary"
-                          data-size="sm"
-                          type="button"
-                          onClick={handleApplyLiteratureFilters}
-                        >
-                          应用筛选
-                        </button>
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          当前筛选 Topic: {topicId || '全部'}
-                        </span>
-                        <span data-ui="badge" data-variant="subtle" data-tone="neutral">
-                          当前筛选 Paper: {paperId || '全部'}
-                        </span>
-                      </div>
-                      <div data-ui="toolbar" data-wrap="wrap" data-gap="2">
-                        <label data-ui="field">
-                          <span data-slot="label">条件逻辑</span>
-                          <select
-                            data-ui="select"
-                            data-size="sm"
-                            value={queryGroup.logic}
-                            onChange={(event) =>
-                              setQueryGroup((current) => ({ ...current, logic: event.target.value as QueryLogic }))
-                            }
+                            type="button"
+                            onClick={handleApplyLiteratureFilters}
                           >
-                            <option value="AND">AND（全部满足）</option>
-                            <option value="OR">OR（满足其一）</option>
-                          </select>
-                        </label>
-                        <label data-ui="field">
-                          <span data-slot="label">默认排序</span>
-                          <select
-                            data-ui="select"
-                            data-size="sm"
-                            value={querySort}
-                            onChange={(event) => setQuerySort(event.target.value as QuerySort)}
-                          >
-                            {querySortOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleAddQueryCondition}>
-                          新增条件
-                        </button>
-                      </div>
-
-                      <div className="literature-query-conditions">
-                        {queryGroup.conditions.map((condition) => (
-                          <div key={condition.id} className="literature-query-row">
+                            应用筛选
+                          </button>
+                        </div>
+                        <div className="literature-quick-row">
+                          <label data-ui="field">
+                            <span data-slot="label">范围状态</span>
                             <select
                               data-ui="select"
                               data-size="sm"
-                              value={condition.field}
-                              onChange={(event) =>
-                                handleUpdateQueryCondition(condition.id, { field: event.target.value as QueryField })
-                              }
+                              value={overviewScopeFilter}
+                              onChange={(event) => setOverviewScopeFilter(event.target.value as OverviewScopeFilter)}
                             >
-                              {queryFieldOptions.map((option) => (
+                              <option value="all">全部</option>
+                              <option value="in_scope">in_scope</option>
+                              <option value="excluded">excluded</option>
+                            </select>
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">引用状态</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={overviewCitationFilter}
+                              onChange={(event) => setOverviewCitationFilter(event.target.value as OverviewCitationFilter)}
+                            >
+                              <option value="all">全部</option>
+                              {citationStatusOptions.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">权限</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={overviewRightsFilter}
+                              onChange={(event) => setOverviewRightsFilter(event.target.value as OverviewRightsFilter)}
+                            >
+                              <option value="all">全部</option>
+                              {rightsClassOptions.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label data-ui="field">
+                            <span data-slot="label">排序</span>
+                            <select
+                              data-ui="select"
+                              data-size="sm"
+                              value={querySort}
+                              onChange={(event) => setQuerySort(event.target.value as QuerySort)}
+                            >
+                              {querySortOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                   {option.label}
                                 </option>
                               ))}
                             </select>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={condition.operator}
-                              onChange={(event) =>
-                                handleUpdateQueryCondition(condition.id, { operator: event.target.value as QueryOperator })
-                              }
-                            >
-                              {queryOperatorOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                            {queryOperatorNeedsValue(condition.operator) ? (
-                              <input
-                                data-ui="input"
-                                data-size="sm"
-                                value={condition.value}
-                                onChange={(event) =>
-                                  handleUpdateQueryCondition(condition.id, { value: event.target.value })
-                                }
-                                placeholder="输入比较值"
-                              />
-                            ) : (
-                              <span data-ui="badge" data-variant="subtle" data-tone="neutral">无需输入值</span>
-                            )}
-                            <button
-                              data-ui="button"
-                              data-variant="ghost"
-                              data-size="sm"
-                              type="button"
-                              onClick={() => handleRemoveQueryCondition(condition.id)}
-                            >
-                              删除
-                            </button>
-                          </div>
-                        ))}
+                          </label>
+                          <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleResetLightweightFilters}>
+                            重置筛选
+                          </button>
+                        </div>
                       </div>
-
-                      <div data-ui="toolbar" data-wrap="wrap" data-gap="2">
-                        <input
-                          data-ui="input"
-                          data-size="sm"
-                          value={queryPresetNameInput}
-                          onChange={(event) => setQueryPresetNameInput(event.target.value)}
-                          placeholder="保存查询名称"
-                        />
-                        <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleSaveQueryPreset}>
-                          保存查询
-                        </button>
-                        <select
-                          data-ui="select"
-                          data-size="sm"
-                          value={selectedPresetId}
-                          onChange={(event) => setSelectedPresetId(event.target.value)}
-                        >
-                          <option value="">选择已保存查询</option>
-                          {savedQueryPresets.map((preset) => (
-                            <option key={preset.id} value={preset.id}>
-                              {preset.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={handleApplySelectedPreset}>
-                          应用已保存查询
-                        </button>
-                        <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleDeleteSelectedPreset}>
-                          删除已保存查询
-                        </button>
-                        <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleResetAdvancedQuery}>
-                          重置条件
-                        </button>
-                        <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleApplyAdvancedQuery}>
-                          应用高级查询
-                        </button>
-                      </div>
-                      {queryError ? <p data-ui="text" data-variant="caption" data-tone="danger">{queryError}</p> : null}
                     </section>
 
+                    {topicScopeLoading ? <p data-ui="text" data-variant="caption" data-tone="muted">正在同步选题范围状态...</p> : null}
                     {topicScopeError ? <p data-ui="text" data-variant="caption" data-tone="danger">{topicScopeError}</p> : null}
                     {overviewPanel.status === 'loading' ? (
                       <p data-ui="text" data-variant="caption" data-tone="muted">正在加载综览...</p>
@@ -6639,71 +6563,48 @@ export function App({ initialThemeMode }: AppProps) {
                       <p data-ui="text" data-variant="caption" data-tone="danger">{overviewPanel.error ?? '综览加载失败。'}</p>
                     ) : null}
 
-                    <div className="literature-overview-summary-strip">
-                      <span data-ui="text" data-variant="caption" data-tone="muted">
-                        总文献 <strong>{overviewPanel.data.summary.total_literatures}</strong>
-                      </span>
-                      <span data-ui="text" data-variant="caption" data-tone="muted">
-                        In Scope <strong>{overviewPanel.data.summary.in_scope_count}</strong>
-                      </span>
-                      <span data-ui="text" data-variant="caption" data-tone="muted">
-                        Cited <strong>{overviewPanel.data.summary.cited_count}</strong>
-                      </span>
-                      <span data-ui="text" data-variant="caption" data-tone="muted">
-                        Top Tags <strong>{overviewPanel.data.summary.top_tags.slice(0, 2).map((tag) => tag.tag).join(' / ') || '--'}</strong>
-                      </span>
-                    </div>
-
-                    <section data-ui="grid" data-cols="2" data-gap="3" className="literature-panels">
-                      <article className="literature-panel">
-                        <p data-ui="text" data-variant="label" data-tone="secondary">选题范围（快速维护）</p>
-                        {topicScopeLoading ? (
-                          <p data-ui="text" data-variant="caption" data-tone="muted">正在加载选题范围...</p>
-                        ) : (
-                          <div className="literature-list">
-                            {topicScopeItems.length === 0 ? (
-                              <p data-ui="text" data-variant="caption" data-tone="muted">当前选题暂无文献范围。</p>
-                            ) : (
-                              topicScopeItems.map((item) => (
-                                <div key={item.scope_id} className="literature-list-item">
-                                  <div>
-                                    <p data-ui="text" data-variant="body" data-tone="primary">{item.title}</p>
-                                    <p data-ui="text" data-variant="caption" data-tone="muted">
-                                      {item.scope_status} · {formatTimestamp(item.updated_at)}
-                                    </p>
-                                  </div>
-                                  <div data-ui="toolbar" data-wrap="nowrap" className="scope-actions">
-                                    <button
-                                      data-ui="button"
-                                      data-variant="ghost"
-                                      data-size="sm"
-                                      type="button"
-                                      onClick={() => handleScopeStatusChange(item.literature_id, 'in_scope')}
-                                    >
-                                      保留
-                                    </button>
-                                    <button
-                                      data-ui="button"
-                                      data-variant="ghost"
-                                      data-size="sm"
-                                      type="button"
-                                      onClick={() => handleScopeStatusChange(item.literature_id, 'excluded')}
-                                    >
-                                      排除
-                                    </button>
-                                  </div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        )}
-                      </article>
-
-                      <article className="literature-panel">
-                        <p data-ui="text" data-variant="label" data-tone="secondary">查询结果列表（行内关键信息 + 快速操作）</p>
-                        <div className="literature-overview-list">
+                    <section className="literature-overview-table-wrap">
+                      <table className="literature-overview-table">
+                        <thead>
+                          <tr className="literature-overview-table-summary-row">
+                            <th colSpan={6}>
+                              <div className="literature-overview-table-summary">
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  总文献 <strong>{overviewPanel.data.summary.total_literatures}</strong>
+                                </span>
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  In Scope <strong>{overviewPanel.data.summary.in_scope_count}</strong>
+                                </span>
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  Cited <strong>{overviewPanel.data.summary.cited_count}</strong>
+                                </span>
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  Top Tags{' '}
+                                  <strong>
+                                    {overviewPanel.data.summary.top_tags.slice(0, 2).map((tag) => tag.tag).join(' / ') || '--'}
+                                  </strong>
+                                </span>
+                              </div>
+                            </th>
+                          </tr>
+                          <tr>
+                            <th>标题与来源</th>
+                            <th>作者 / 年份</th>
+                            <th>状态</th>
+                            <th>标签</th>
+                            <th>权限</th>
+                            <th>操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
                           {overviewResultItems.length === 0 ? (
-                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无可展示文献，请先导入或调整查询。</p>
+                            <tr>
+                              <td colSpan={6}>
+                                <p data-ui="text" data-variant="caption" data-tone="muted" className="literature-overview-table-empty">
+                                  暂无可展示文献，请先导入或调整筛选。
+                                </p>
+                              </td>
+                            </tr>
                           ) : (
                             overviewResultItems.map((item) => {
                               const draft = metadataDrafts[item.literature_id] ?? {
@@ -6712,47 +6613,44 @@ export function App({ initialThemeMode }: AppProps) {
                               };
 
                               return (
-                                <div key={item.literature_id} className="literature-overview-row">
-                                  <div className="literature-overview-main">
-                                    <p data-ui="text" data-variant="body" data-tone="primary">{item.title}</p>
-                                    <p data-ui="text" data-variant="caption" data-tone="muted">
-                                      作者: {item.authors.join(', ') || '--'} · 年份: {item.year ?? '--'} · provider:{' '}
-                                      {item.providers.join(', ') || '--'}
-                                    </p>
-                                    <p data-ui="text" data-variant="caption" data-tone="muted">
-                                      scope: {item.topic_scope_status ?? '--'} · citation: {item.citation_status ?? '--'} · tags:{' '}
-                                      {item.tags.join(', ') || '--'}
-                                    </p>
-                                    <p data-ui="text" data-variant="caption" data-tone="muted">
-                                      doi: {item.doi ?? '--'} · arxiv: {item.arxiv_id ?? '--'}
-                                    </p>
-                                    <div data-ui="toolbar" data-wrap="wrap" data-gap="2">
-                                      <button
-                                        data-ui="button"
-                                        data-variant="ghost"
-                                        data-size="sm"
-                                        type="button"
-                                        onClick={() => handleScopeStatusChange(item.literature_id, 'in_scope')}
-                                      >
-                                        保留到范围
-                                      </button>
-                                      <button
-                                        data-ui="button"
-                                        data-variant="ghost"
-                                        data-size="sm"
-                                        type="button"
-                                        onClick={() => handleScopeStatusChange(item.literature_id, 'excluded')}
-                                      >
-                                        从范围排除
-                                      </button>
+                                <tr key={item.literature_id}>
+                                  <td>
+                                    <div className="literature-overview-main">
+                                      <p data-ui="text" data-variant="body" data-tone="primary">{item.title}</p>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        doi: {item.doi ?? '--'} · arxiv: {item.arxiv_id ?? '--'}
+                                      </p>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        provider: {item.providers.join(', ') || '--'}
+                                      </p>
                                       {item.source_url ? (
                                         <a className="literature-source-link" href={item.source_url} target="_blank" rel="noreferrer">
                                           来源链接
                                         </a>
                                       ) : null}
                                     </div>
-                                  </div>
-                                  <div className="literature-metadata-editor">
+                                  </td>
+                                  <td>
+                                    <div className="literature-overview-main">
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        {item.authors.join(', ') || '--'}
+                                      </p>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        年份: {item.year ?? '--'}
+                                      </p>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <div className="literature-overview-main">
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        scope: {item.topic_scope_status ?? '--'}
+                                      </p>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        citation: {item.citation_status ?? '--'}
+                                      </p>
+                                    </div>
+                                  </td>
+                                  <td>
                                     <input
                                       data-ui="input"
                                       data-size="sm"
@@ -6762,6 +6660,8 @@ export function App({ initialThemeMode }: AppProps) {
                                       }
                                       placeholder="标签：survey, baseline, method:nlp"
                                     />
+                                  </td>
+                                  <td>
                                     <select
                                       data-ui="select"
                                       data-size="sm"
@@ -6776,23 +6676,45 @@ export function App({ initialThemeMode }: AppProps) {
                                         </option>
                                       ))}
                                     </select>
-                                    <button
-                                      data-ui="button"
-                                      data-variant="ghost"
-                                      data-size="sm"
-                                      type="button"
-                                      disabled={Boolean(metadataSavingIds[item.literature_id])}
-                                      onClick={() => handleSaveMetadata(item.literature_id)}
-                                    >
-                                      {metadataSavingIds[item.literature_id] ? '保存中...' : '保存元数据'}
-                                    </button>
-                                  </div>
-                                </div>
+                                  </td>
+                                  <td>
+                                    <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-overview-actions">
+                                      <button
+                                        data-ui="button"
+                                        data-variant="ghost"
+                                        data-size="sm"
+                                        type="button"
+                                        onClick={() => handleScopeStatusChange(item.literature_id, 'in_scope')}
+                                      >
+                                        保留
+                                      </button>
+                                      <button
+                                        data-ui="button"
+                                        data-variant="ghost"
+                                        data-size="sm"
+                                        type="button"
+                                        onClick={() => handleScopeStatusChange(item.literature_id, 'excluded')}
+                                      >
+                                        排除
+                                      </button>
+                                      <button
+                                        data-ui="button"
+                                        data-variant="ghost"
+                                        data-size="sm"
+                                        type="button"
+                                        disabled={Boolean(metadataSavingIds[item.literature_id])}
+                                        onClick={() => handleSaveMetadata(item.literature_id)}
+                                      >
+                                        {metadataSavingIds[item.literature_id] ? '保存中...' : '保存元数据'}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
                               );
                             })
                           )}
-                        </div>
-                      </article>
+                        </tbody>
+                      </table>
                     </section>
                   </section>
                 ) : null}

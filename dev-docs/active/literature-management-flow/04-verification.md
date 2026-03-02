@@ -214,3 +214,26 @@
       - 跨 source 全局候选池按排序分取 TopK（非逐 source 独立导入）
   - `pnpm desktop:typecheck` ✅
   - `pnpm desktop:build` ✅
+- 2026-03-02: 文献综览单大列表 UI 首版回归（查询区 + 表头统计）⚠️
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+  - `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --mode full` ❌
+    - `spec-approval-required`（`spec_status=MISMATCH`）
+    - 报告：`.ai/.tmp/ui/20260302T045915Z-28029/ui-gate-report.json`
+    - 备注：该问题与已登记 UI 治理偏差一致（历史遗留，非本次布局改造新增）。
+- 2026-03-02: 文献综览查询区二次轻量化（两行筛选）⚠️
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+  - `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --mode full` ❌
+    - `spec-approval-required`（`spec_status=MISMATCH`）
+    - 报告：`.ai/.tmp/ui/20260302T055224Z-80950/ui-gate-report.json`
+    - 备注：与历史 UI 治理审批偏差一致，非本轮轻量化引入。
+- 2026-03-02: 下线高级筛选区块与关联报错提示回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 综览 Paper NOT_FOUND 报错降级为空态回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 综览顶部工具栏下线回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
