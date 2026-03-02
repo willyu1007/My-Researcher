@@ -925,3 +925,172 @@
     - 删除仅用于顶部状态文案的 `formatUiOperationStatus`。
 - Impact scope:
   - `apps/desktop/src/renderer/App.tsx`
+
+### 2026-03-02 - 修复“注入测试数据后综览无数据”
+- Trigger:
+  - 用户反馈点击“注入测试数据”后，文献综览仍为空。
+- Root cause:
+  - 注入逻辑仅写入“手动导入草稿”与 DEV 自动拉取配置，不会自动执行 `/literature/import`。
+  - 综览接口仅聚合 `topic_scope` 与 `paper_literature_links`，未被纳入 scope/link 的文献不会出现在综览。
+  - 过滤应用逻辑使用 `nextPaper = input || current`，导致无法清空无效 Paper 过滤（如历史默认 `P001`）。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - `handleInjectManualImportTestData` 增加“注入后自动入库”流程：
+      - 对注入行执行校验，抽取有效 `normalized` 项。
+      - 调用 `/literature/import` 入库。
+      - 将入库结果批量写入当前 Topic 的 `in_scope`（`/topics/:topicId/literature-scope`）。
+      - 自动刷新 `topic scope` 与 `literature overview`。
+      - 自动清空 `paperId` 过滤，避免无效 Paper 阻断综览。
+    - 修复筛选应用逻辑：`handleApplyLiteratureFilters` 改为严格采用输入值，不再回退旧值，支持清空 Paper/Topic 过滤。
+    - 修复模块加载逻辑：当 topic/paper 为空时清空对应面板状态而非触发“不能为空”错误请求。
+    - `paperId/paperIdInput` 默认值由 `P001` 调整为空字符串，减少首次进入综览时的无效过滤。
+    - `loadLiteratureOverview` 增加兜底：当 `paper_id` 不存在但 `topic_id` 存在时，自动回退为 topic-only 查询。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+
+### 2026-03-02 - 前端下线文献“权限分级”UI与交互（个人模式）
+- Trigger:
+  - 用户确认项目为个人使用，不需要权限相关界面与交互。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 文献综览筛选区移除“权限”维度（不再按 rights_class 筛选）。
+    - 文献综览表格移除“权限”列。
+    - 元数据编辑移除 rights_class 下拉，不再发送 `rights_class` 更新；仅保留标签更新。
+    - 前端综览数据模型不再解析/使用 `rights_class` 与 `rights_class_counts`。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+- Notes:
+  - 本次为前端下线（UI/UX + 前端交互）；后端与数据库仍保留 `rights_class` 字段用于兼容现有接口。
+
+### 2026-03-02 - 文献综览移除 Topic/Paper 输入项
+- Trigger:
+  - 用户要求文献综览界面不再显示 Topic 与 Paper 两个输入内容。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 在综览查询区第一行删除 `Topic` 与 `Paper` 两个输入字段，仅保留关键词与其余筛选。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+
+### 2026-03-02 - 文献综览筛选重构为单行轻量版（关键词/年份/标签/包含排除/排序）
+- Trigger:
+  - 用户要求将文献综览筛选改为单行轻量 UI，选项固定为：关键词搜索、发表年份范围、标签筛选、包含排除（勾选框）、排序（重要度评分/更新时间/发布时间/标题首字母 + 正序/倒序三角切换），并保留“应用/重置”按钮。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 过滤项重构：
+      - 新增年份范围（起始/结束）与标签关键词过滤。
+      - 新增包含排除勾选：`保留(in_scope)`、`排除(excluded)`。
+      - 删除旧的范围状态下拉与引用状态下拉。
+    - 排序重构：
+      - 排序规则改为 `importance / updated_at / published_at / title_initial`。
+      - 新增独立排序方向 `asc / desc`，UI 通过 `▲/▼` 切换。
+      - 新增重要度评分函数（基于 citation_status、scope_status、年份、更新时间）用于 `importance` 排序。
+    - 交互重构：
+      - 引入“输入草稿值 + 应用值”双状态，`应用` 按钮生效时才提交过滤条件。
+      - `重置` 同时重置输入草稿值与已应用值。
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 查询区改为单行轻量布局（桌面端单行可横向滚动，移动端回落换行）。
+    - 新增年份范围、包含排除勾选、排序方向按钮组的紧凑样式。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-03-02 - 文献综览筛选区强制单行（不换行）
+- Trigger:
+  - 用户确认筛选区域必须始终一行展示，不接受两行布局。
+- What changed:
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 查询行统一 `flex-wrap: nowrap`，桌面与移动端都禁止换行。
+    - 保持横向滚动兜底：超出宽度时横向滚动而非折行。
+    - 新增 `literature-filter-action` 固定“应用/重置”按钮紧凑宽度。
+    - 删除小屏断点下将筛选行改为 100% 换行的覆盖逻辑。
+  - `apps/desktop/src/renderer/App.tsx`
+    - “应用/重置”按钮增加 `literature-filter-action` 样式类。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`
+  - `apps/desktop/src/renderer/App.tsx`
+
+### 2026-03-02 - 排序方向并入下拉选项（移除 ▲▼）
+- Trigger:
+  - 用户要求去除正序/倒序图标按钮，并将方向整合到排序下拉中（如“重要度评分正序”）。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 新增排序预设类型 `QuerySortPreset`（`规则|方向`）。
+    - 排序下拉改为组合项：每个规则包含正序/倒序两个选项。
+    - 删除排序方向按钮（▲/▼）和对应输入态。
+    - `应用` 时通过 `parseQuerySortPreset` 解析并写入 `querySort + sortDirection`。
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 移除排序方向按钮组样式，排序控件回归单一下拉布局。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-03-02 - 文献综览状态枚举切换 + 统计条下沉至表格底部
+- Trigger:
+  - 用户要求将状态改为：自动化就绪、可被引用、不可引用、已排除；
+  - 并将统计信息从表头移到表格底部，替换为：总文献、最近更新、自动化就绪文献、可被引用文献、已排除文献。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 新增综览状态派生逻辑：
+      - `已排除`：`topic_scope_status === excluded`
+      - `自动化就绪`：非排除且存在来源链接与来源更新时间
+      - `可被引用`：非排除且引用关键信息完整（作者、年份、定位信息 DOI/arXiv/来源链接）
+      - `不可引用`：其余情况
+    - 状态列由原 `scope/citation` 双行原始值展示，改为单一业务状态标签。
+    - 删除表头统计行；新增表格 `tfoot` 统计行，展示指定 5 项指标。
+    - 底部统计按当前综览结果集计算，并新增“最近更新”时间显示。
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 调整表格统计行样式以支持 `tfoot` 底部统计展示（`td` 兼容、上边框分隔）。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-03-02 - 综览筛选控件精简（年份单输入 + 标签下拉 + 状态下拉）
+- Trigger:
+  - 用户要求：
+    - 年份改为一个输入区域；
+    - 标签改为下拉选择；
+    - “保留/排除”点选改为状态下拉框。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 年份筛选：
+      - 双输入（起/止）改为单输入 `overviewYearInput`。
+      - 新增 `parseYearRangeFilterInput`，支持 `2023` 或 `2020-2024`（含 `~ / 至 / 到` 分隔）。
+    - 标签筛选：
+      - 从文本输入改为下拉框。
+      - 下拉项按当前综览数据的标签集合动态生成，默认“全部标签”。
+      - 过滤逻辑由“包含匹配”改为“标签精确匹配”。
+    - 状态筛选：
+      - 勾选框（保留/排除）改为单一状态下拉（全部/保留/排除）。
+      - 应用时映射到现有 scope 过滤逻辑，并在单选状态下执行严格匹配（不混入无状态项）。
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 清理双年份输入与勾选框相关样式。
+    - 调整年份/状态下拉宽度以维持单行轻量布局。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-03-02 - 年份控件回调为双输入（默认 1900-2100，浅灰占位）
+- Trigger:
+  - 用户要求年份区域保留两段式输入，并以浅灰提示默认区间 `1900 - 2100`。
+- What changed:
+  - `apps/desktop/src/renderer/App.tsx`
+    - 将年份输入从单输入恢复为起始/结束双输入。
+    - 年份过滤默认区间设置为 `1900-2100`（输入为空时按默认区间应用）。
+    - `重置` 后恢复默认区间过滤，同时输入框为空以展示占位提示。
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 恢复年份双输入栅格样式。
+    - 为年份输入占位符设置浅灰文本色，匹配“默认值提示”视觉。
+- Impact scope:
+  - `apps/desktop/src/renderer/App.tsx`
+  - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-03-02 - 年份双输入合并为单外框样式
+- Trigger:
+  - 用户要求双输入保留，但视觉上合并为一个外框。
+- What changed:
+  - `apps/desktop/src/renderer/app-layout.css`
+    - 为 `.literature-year-range` 增加统一边框、圆角、背景和 `focus-within` 高亮。
+    - 内部两个年份输入改为无边框透明背景，焦点不再单独出框。
+    - 分隔符颜色与占位符浅灰色保持一致，整体视觉为“同一控件”。
+- Impact scope:
+  - `apps/desktop/src/renderer/app-layout.css`

@@ -78,7 +78,6 @@ type ReleaseGateResponse = {
 
 type CitationStatus = 'seeded' | 'selected' | 'used' | 'cited' | 'dropped';
 type ScopeStatus = 'in_scope' | 'excluded';
-type RightsClass = 'OA' | 'USER_AUTH' | 'RESTRICTED' | 'UNKNOWN';
 type LiteratureProvider = 'crossref' | 'arxiv' | 'manual' | 'web' | 'zotero';
 type LiteratureTabKey = 'auto-import' | 'manual-import' | 'overview';
 type AutoImportSubTabKey = 'topic-settings' | 'runs-alerts';
@@ -94,10 +93,11 @@ type AutoPullSortMode = 'llm_score' | 'hybrid_score';
 type AutoPullTriggerType = 'MANUAL' | 'SCHEDULE';
 type AutoPullRunStatus = 'PENDING' | 'RUNNING' | 'PARTIAL' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
 type AutoPullAlertLevel = 'WARNING' | 'ERROR';
-type QuerySort = 'updated_desc' | 'year_desc' | 'year_asc' | 'title_asc' | 'title_desc';
-type OverviewScopeFilter = 'all' | ScopeStatus;
-type OverviewCitationFilter = 'all' | CitationStatus;
-type OverviewRightsFilter = 'all' | RightsClass;
+type QuerySort = 'importance' | 'updated_at' | 'published_at' | 'title_initial';
+type SortDirection = 'asc' | 'desc';
+type QuerySortPreset = `${QuerySort}|${SortDirection}`;
+type LiteratureOverviewStatus = 'automation_ready' | 'citable' | 'not_citable' | 'excluded';
+type OverviewScopeFilterInput = 'all' | 'in_scope' | 'excluded';
 
 type ManualUploadFileItem = {
   id: string;
@@ -280,7 +280,6 @@ type LiteratureOverviewSummary = {
   cited_count: number;
   used_count: number;
   provider_counts: Array<{ provider: LiteratureProvider; count: number }>;
-  rights_class_counts: Array<{ rights_class: RightsClass; count: number }>;
   top_tags: Array<{ tag: string; count: number }>;
 };
 
@@ -291,7 +290,6 @@ type LiteratureOverviewItem = {
   year: number | null;
   doi: string | null;
   arxiv_id: string | null;
-  rights_class: RightsClass;
   tags: string[];
   providers: LiteratureProvider[];
   source_url: string | null;
@@ -324,7 +322,6 @@ const APP_MODE_STORAGE_KEY = 'pea.app.mode';
 
 const initialModule = coreNavItems[0] ?? '';
 const citationStatusOptions: CitationStatus[] = ['seeded', 'selected', 'used', 'cited', 'dropped'];
-const rightsClassOptions: RightsClass[] = ['UNKNOWN', 'OA', 'USER_AUTH', 'RESTRICTED'];
 const literatureTabs: Array<{ key: LiteratureTabKey; label: string }> = [
   { key: 'auto-import', label: '自动导入' },
   { key: 'manual-import', label: '手动导入' },
@@ -573,16 +570,21 @@ const topicPresetVenueOptions = [
 ] as const;
 const topicYearMinBound = 1990;
 const topicYearMaxBound = new Date().getFullYear() + 1;
+const overviewYearDefaultStart = 1900;
+const overviewYearDefaultEnd = 2100;
 const literatureSubTabsByTab: Partial<Record<LiteratureTabKey, Array<{ key: string; label: string }>>> = {
   'auto-import': autoImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
   'manual-import': manualImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
 };
-const querySortOptions: Array<{ value: QuerySort; label: string }> = [
-  { value: 'updated_desc', label: '按更新时间（新->旧）' },
-  { value: 'year_desc', label: '按年份（新->旧）' },
-  { value: 'year_asc', label: '按年份（旧->新）' },
-  { value: 'title_asc', label: '按标题（A->Z）' },
-  { value: 'title_desc', label: '按标题（Z->A）' },
+const querySortPresetOptions: Array<{ value: QuerySortPreset; label: string }> = [
+  { value: 'importance|desc', label: '重要度评分倒序' },
+  { value: 'importance|asc', label: '重要度评分正序' },
+  { value: 'updated_at|desc', label: '更新时间倒序' },
+  { value: 'updated_at|asc', label: '更新时间正序' },
+  { value: 'published_at|desc', label: '发布时间倒序' },
+  { value: 'published_at|asc', label: '发布时间正序' },
+  { value: 'title_initial|asc', label: '标题首字母正序' },
+  { value: 'title_initial|desc', label: '标题首字母倒序' },
 ];
 const manualImportTestItems: ManualImportPayload[] = [
   {
@@ -669,7 +671,6 @@ const emptyLiteratureOverviewSummary: LiteratureOverviewSummary = {
   cited_count: 0,
   used_count: 0,
   provider_counts: [],
-  rights_class_counts: [],
   top_tags: [],
 };
 
@@ -1001,13 +1002,6 @@ function normalizeLiteratureProvider(value: unknown): LiteratureProvider {
     return value;
   }
   return 'crossref';
-}
-
-function normalizeRightsClass(value: unknown): RightsClass {
-  if (value === 'OA' || value === 'USER_AUTH' || value === 'RESTRICTED' || value === 'UNKNOWN') {
-    return value;
-  }
-  return 'UNKNOWN';
 }
 
 function parseTagsInput(value: string): string[] {
@@ -1613,15 +1607,6 @@ function normalizeLiteratureOverviewPayload(payload: unknown): LiteratureOvervie
             count: typeof item.count === 'number' ? item.count : 0,
           }))
       : [],
-    rights_class_counts: Array.isArray(summary.rights_class_counts)
-      ? summary.rights_class_counts
-          .map((item) => asRecord(item))
-          .filter((item): item is Record<string, unknown> => item !== null)
-          .map((item) => ({
-            rights_class: normalizeRightsClass(toText(item.rights_class)),
-            count: typeof item.count === 'number' ? item.count : 0,
-          }))
-      : [],
     top_tags: Array.isArray(summary.top_tags)
       ? summary.top_tags
           .map((item) => asRecord(item))
@@ -1659,7 +1644,6 @@ function normalizeLiteratureOverviewPayload(payload: unknown): LiteratureOvervie
         year: typeof row.year === 'number' ? row.year : null,
         doi: toText(row.doi) ?? null,
         arxiv_id: toText(row.arxiv_id) ?? null,
-        rights_class: normalizeRightsClass(toText(row.rights_class)),
         tags: Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === 'string') : [],
         providers: Array.isArray(row.providers)
           ? row.providers
@@ -1694,16 +1678,135 @@ function isPaperNotFoundMessage(message: string): boolean {
   return normalized.includes('not_found') && normalized.includes('paper') && normalized.includes('not found');
 }
 
+function parseYearFilterInput(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  const currentYear = new Date().getFullYear() + 1;
+  return Math.max(1900, Math.min(currentYear, parsed));
+}
+
+function parseQuerySortPreset(value: string): { sort: QuerySort; direction: SortDirection } {
+  const [sortToken, directionToken] = value.split('|');
+  const sort: QuerySort =
+    sortToken === 'importance'
+    || sortToken === 'updated_at'
+    || sortToken === 'published_at'
+    || sortToken === 'title_initial'
+      ? sortToken
+      : 'importance';
+  const direction: SortDirection = directionToken === 'asc' || directionToken === 'desc' ? directionToken : 'desc';
+  return { sort, direction };
+}
+
+function hasOverviewCitationCompleteness(item: LiteratureOverviewItem): boolean {
+  const hasAuthors = item.authors.some((author) => author.trim().length > 0);
+  const hasYear = typeof item.year === 'number' && item.year >= 1900;
+  const hasLocator = Boolean((item.doi ?? '').trim() || (item.arxiv_id ?? '').trim() || (item.source_url ?? '').trim());
+  return hasAuthors && hasYear && hasLocator;
+}
+
+function isOverviewExcluded(item: LiteratureOverviewItem): boolean {
+  return item.topic_scope_status === 'excluded';
+}
+
+function isOverviewAutomationReady(item: LiteratureOverviewItem): boolean {
+  if (isOverviewExcluded(item)) {
+    return false;
+  }
+  const hasSourceLink = (item.source_url ?? '').trim().length > 0;
+  const hasSourceUpdatedAt = (item.source_updated_at ?? '').trim().length > 0;
+  return hasSourceLink && hasSourceUpdatedAt;
+}
+
+function isOverviewCitable(item: LiteratureOverviewItem): boolean {
+  if (isOverviewExcluded(item)) {
+    return false;
+  }
+  return hasOverviewCitationCompleteness(item);
+}
+
+function resolveLiteratureOverviewStatus(item: LiteratureOverviewItem): LiteratureOverviewStatus {
+  if (isOverviewExcluded(item)) {
+    return 'excluded';
+  }
+  if (isOverviewAutomationReady(item)) {
+    return 'automation_ready';
+  }
+  if (isOverviewCitable(item)) {
+    return 'citable';
+  }
+  return 'not_citable';
+}
+
+function formatLiteratureOverviewStatus(status: LiteratureOverviewStatus): string {
+  if (status === 'automation_ready') {
+    return '自动化就绪';
+  }
+  if (status === 'citable') {
+    return '可被引用';
+  }
+  if (status === 'excluded') {
+    return '已排除';
+  }
+  return '不可引用';
+}
+
+function getLiteratureImportanceScore(item: LiteratureOverviewItem): number {
+  let score = 0;
+  if (item.citation_status === 'cited') {
+    score += 50;
+  } else if (item.citation_status === 'used') {
+    score += 40;
+  } else if (item.citation_status === 'selected') {
+    score += 30;
+  } else if (item.citation_status === 'seeded') {
+    score += 20;
+  } else if (item.citation_status === 'dropped') {
+    score += 5;
+  }
+
+  if (item.topic_scope_status === 'in_scope') {
+    score += 20;
+  } else if (item.topic_scope_status === 'excluded') {
+    score -= 20;
+  }
+
+  if (typeof item.year === 'number') {
+    score += Math.max(0, Math.min(20, item.year - 2005));
+  }
+
+  if (item.source_updated_at) {
+    const deltaMs = Date.now() - new Date(item.source_updated_at).getTime();
+    const deltaDays = Number.isFinite(deltaMs) ? Math.max(0, Math.floor(deltaMs / 86_400_000)) : 365;
+    score += Math.max(0, 10 - Math.floor(deltaDays / 30));
+  }
+
+  return score;
+}
+
 function applyOverviewQuickFilters(
   items: LiteratureOverviewItem[],
   filters: {
     keyword: string;
-    scopeStatus: OverviewScopeFilter;
-    citationStatus: OverviewCitationFilter;
-    rightsClass: OverviewRightsFilter;
+    yearStart: number | null;
+    yearEnd: number | null;
+    tagKeyword: string;
+    includeInScope: boolean;
+    includeExcluded: boolean;
   },
 ): LiteratureOverviewItem[] {
   const keyword = normalizeComparableText(filters.keyword);
+  const tagKeyword = normalizeComparableText(filters.tagKeyword);
+  if (!filters.includeInScope && !filters.includeExcluded) {
+    return [];
+  }
+
   return items.filter((item) => {
     if (keyword) {
       const hit = [
@@ -1722,14 +1825,30 @@ function applyOverviewQuickFilters(
       }
     }
 
-    if (filters.scopeStatus !== 'all' && item.topic_scope_status !== filters.scopeStatus) {
-      return false;
+    if (filters.yearStart !== null) {
+      if (item.year === null || item.year < filters.yearStart) {
+        return false;
+      }
     }
-    if (filters.citationStatus !== 'all' && item.citation_status !== filters.citationStatus) {
-      return false;
+
+    if (filters.yearEnd !== null) {
+      if (item.year === null || item.year > filters.yearEnd) {
+        return false;
+      }
     }
-    if (filters.rightsClass !== 'all' && item.rights_class !== filters.rightsClass) {
-      return false;
+
+    if (tagKeyword) {
+      const hit = item.tags.some((tag) => normalizeComparableText(tag) === tagKeyword);
+      if (!hit) {
+        return false;
+      }
+    }
+
+    if (filters.includeInScope !== filters.includeExcluded) {
+      const requiredStatus: ScopeStatus = filters.includeInScope ? 'in_scope' : 'excluded';
+      if (item.topic_scope_status !== requiredStatus) {
+        return false;
+      }
     }
 
     return true;
@@ -1740,44 +1859,42 @@ function projectOverviewItems(
   items: LiteratureOverviewItem[],
   options: {
     sort: QuerySort;
+    direction: SortDirection;
     keyword: string;
-    scopeStatus: OverviewScopeFilter;
-    citationStatus: OverviewCitationFilter;
-    rightsClass: OverviewRightsFilter;
+    yearStart: number | null;
+    yearEnd: number | null;
+    tagKeyword: string;
+    includeInScope: boolean;
+    includeExcluded: boolean;
   },
 ): LiteratureOverviewItem[] {
   const quickFilteredItems = applyOverviewQuickFilters(items, {
     keyword: options.keyword,
-    scopeStatus: options.scopeStatus,
-    citationStatus: options.citationStatus,
-    rightsClass: options.rightsClass,
+    yearStart: options.yearStart,
+    yearEnd: options.yearEnd,
+    tagKeyword: options.tagKeyword,
+    includeInScope: options.includeInScope,
+    includeExcluded: options.includeExcluded,
   });
-  return sortOverviewItems(quickFilteredItems, options.sort);
+  return sortOverviewItems(quickFilteredItems, options.sort, options.direction);
 }
 
-function sortOverviewItems(items: LiteratureOverviewItem[], sort: QuerySort): LiteratureOverviewItem[] {
+function sortOverviewItems(items: LiteratureOverviewItem[], sort: QuerySort, direction: SortDirection): LiteratureOverviewItem[] {
   const sorted = [...items];
-  if (sort === 'year_desc') {
-    sorted.sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
-    return sorted;
-  }
-  if (sort === 'year_asc') {
-    sorted.sort((a, b) => (a.year ?? 0) - (b.year ?? 0));
-    return sorted;
-  }
-  if (sort === 'title_asc') {
-    sorted.sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'));
-    return sorted;
-  }
-  if (sort === 'title_desc') {
-    sorted.sort((a, b) => b.title.localeCompare(a.title, 'zh-CN'));
-    return sorted;
-  }
-
+  const factor = direction === 'asc' ? 1 : -1;
   sorted.sort((a, b) => {
-    const left = a.source_updated_at ? new Date(a.source_updated_at).getTime() : 0;
-    const right = b.source_updated_at ? new Date(b.source_updated_at).getTime() : 0;
-    return right - left;
+    if (sort === 'importance') {
+      return (getLiteratureImportanceScore(a) - getLiteratureImportanceScore(b)) * factor;
+    }
+    if (sort === 'updated_at') {
+      const left = a.source_updated_at ? new Date(a.source_updated_at).getTime() : 0;
+      const right = b.source_updated_at ? new Date(b.source_updated_at).getTime() : 0;
+      return (left - right) * factor;
+    }
+    if (sort === 'published_at') {
+      return ((a.year ?? 0) - (b.year ?? 0)) * factor;
+    }
+    return a.title.localeCompare(b.title, 'zh-CN') * factor;
   });
   return sorted;
 }
@@ -2010,8 +2127,8 @@ export function App({ initialThemeMode }: AppProps) {
   const [governanceEnabled, setGovernanceEnabled] = useState<boolean>(
     isFlagEnabled(import.meta.env.VITE_ENABLE_GOVERNANCE_PANELS),
   );
-  const [paperIdInput, setPaperIdInput] = useState<string>('P001');
-  const [paperId, setPaperId] = useState<string>('P001');
+  const [paperIdInput, setPaperIdInput] = useState<string>('');
+  const [paperId, setPaperId] = useState<string>('');
   const [refreshTick, setRefreshTick] = useState<number>(0);
 
   const [timelinePanel, setTimelinePanel] = useState<PanelState<TimelineEvent[]>>({
@@ -2120,13 +2237,22 @@ export function App({ initialThemeMode }: AppProps) {
     data: emptyLiteratureOverviewData,
     error: null,
   });
-  const [querySort, setQuerySort] = useState<QuerySort>('updated_desc');
+  const [querySort, setQuerySort] = useState<QuerySort>('importance');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [overviewKeyword, setOverviewKeyword] = useState<string>('');
-  const [overviewScopeFilter, setOverviewScopeFilter] = useState<OverviewScopeFilter>('all');
-  const [overviewCitationFilter, setOverviewCitationFilter] = useState<OverviewCitationFilter>('all');
-  const [overviewRightsFilter, setOverviewRightsFilter] = useState<OverviewRightsFilter>('all');
+  const [overviewYearStart, setOverviewYearStart] = useState<number | null>(overviewYearDefaultStart);
+  const [overviewYearEnd, setOverviewYearEnd] = useState<number | null>(overviewYearDefaultEnd);
+  const [overviewTagKeyword, setOverviewTagKeyword] = useState<string>('');
+  const [overviewIncludeInScope, setOverviewIncludeInScope] = useState<boolean>(true);
+  const [overviewIncludeExcluded, setOverviewIncludeExcluded] = useState<boolean>(true);
+  const [overviewKeywordInput, setOverviewKeywordInput] = useState<string>('');
+  const [overviewYearStartInput, setOverviewYearStartInput] = useState<string>('');
+  const [overviewYearEndInput, setOverviewYearEndInput] = useState<string>('');
+  const [overviewTagKeywordInput, setOverviewTagKeywordInput] = useState<string>('');
+  const [overviewScopeFilterInput, setOverviewScopeFilterInput] = useState<OverviewScopeFilterInput>('all');
+  const [querySortPresetInput, setQuerySortPresetInput] = useState<QuerySortPreset>('importance|desc');
   const [overviewResultItems, setOverviewResultItems] = useState<LiteratureOverviewItem[]>([]);
-  const [metadataDrafts, setMetadataDrafts] = useState<Record<string, { tagsInput: string; rightsClass: RightsClass }>>({});
+  const [metadataDrafts, setMetadataDrafts] = useState<Record<string, { tagsInput: string }>>({});
   const [metadataSavingIds, setMetadataSavingIds] = useState<Record<string, boolean>>({});
 
   const [reviewersInput, setReviewersInput] = useState<string>('reviewer-1');
@@ -2404,10 +2530,13 @@ export function App({ initialThemeMode }: AppProps) {
 
       const sortedItems = projectOverviewItems(normalized.items, {
         sort: querySort,
+        direction: sortDirection,
         keyword: overviewKeyword,
-        scopeStatus: overviewScopeFilter,
-        citationStatus: overviewCitationFilter,
-        rightsClass: overviewRightsFilter,
+        yearStart: overviewYearStart,
+        yearEnd: overviewYearEnd,
+        tagKeyword: overviewTagKeyword,
+        includeInScope: overviewIncludeInScope,
+        includeExcluded: overviewIncludeExcluded,
       });
 
       setOverviewPanel({
@@ -2419,6 +2548,43 @@ export function App({ initialThemeMode }: AppProps) {
     } catch (error) {
       const message = error instanceof Error ? error.message : '加载文献综览失败。';
       if (isPaperNotFoundMessage(message)) {
+        if (normalizedTopicId) {
+          try {
+            const topicOnlyPayload = await requestGovernance({
+              method: 'GET',
+              path: `/literature/overview?topic_id=${encodeURIComponent(normalizedTopicId)}`,
+            });
+            const topicOnlyNormalized = normalizeLiteratureOverviewPayload(topicOnlyPayload);
+            if (!topicOnlyNormalized) {
+              setOverviewPanel({
+                status: 'empty',
+                data: emptyLiteratureOverviewData,
+                error: null,
+              });
+              setOverviewResultItems([]);
+              return;
+            }
+            const topicOnlySortedItems = projectOverviewItems(topicOnlyNormalized.items, {
+              sort: querySort,
+              direction: sortDirection,
+              keyword: overviewKeyword,
+              yearStart: overviewYearStart,
+              yearEnd: overviewYearEnd,
+              tagKeyword: overviewTagKeyword,
+              includeInScope: overviewIncludeInScope,
+              includeExcluded: overviewIncludeExcluded,
+            });
+            setOverviewPanel({
+              status: topicOnlyNormalized.items.length > 0 ? 'ready' : 'empty',
+              data: topicOnlyNormalized,
+              error: null,
+            });
+            setOverviewResultItems(topicOnlySortedItems);
+            return;
+          } catch {
+            // fall through to empty state when topic-only fallback also fails
+          }
+        }
         setOverviewPanel({
           status: 'empty',
           data: emptyLiteratureOverviewData,
@@ -2441,22 +2607,24 @@ export function App({ initialThemeMode }: AppProps) {
       });
     }
   }, [
-    overviewCitationFilter,
+    overviewIncludeExcluded,
+    overviewIncludeInScope,
     overviewKeyword,
-    overviewRightsFilter,
-    overviewScopeFilter,
+    overviewTagKeyword,
+    overviewYearEnd,
+    overviewYearStart,
     pushLiteratureFeedback,
     querySort,
+    sortDirection,
   ]);
 
   useEffect(() => {
     setMetadataDrafts((current) => {
-      const next: Record<string, { tagsInput: string; rightsClass: RightsClass }> = {};
+      const next: Record<string, { tagsInput: string }> = {};
       for (const item of overviewPanel.data.items) {
         const existing = current[item.literature_id];
         next[item.literature_id] = existing ?? {
           tagsInput: item.tags.join(', '),
-          rightsClass: item.rights_class,
         };
       }
       return next;
@@ -2470,21 +2638,78 @@ export function App({ initialThemeMode }: AppProps) {
     const sourceItems = overviewPanel.data.items;
     const sortedItems = projectOverviewItems(sourceItems, {
       sort: querySort,
+      direction: sortDirection,
       keyword: overviewKeyword,
-      scopeStatus: overviewScopeFilter,
-      citationStatus: overviewCitationFilter,
-      rightsClass: overviewRightsFilter,
+      yearStart: overviewYearStart,
+      yearEnd: overviewYearEnd,
+      tagKeyword: overviewTagKeyword,
+      includeInScope: overviewIncludeInScope,
+      includeExcluded: overviewIncludeExcluded,
     });
     setOverviewResultItems(sortedItems);
   }, [
-    overviewCitationFilter,
+    overviewIncludeExcluded,
+    overviewIncludeInScope,
     overviewKeyword,
     overviewPanel.data.items,
     overviewPanel.status,
-    overviewRightsFilter,
-    overviewScopeFilter,
+    overviewTagKeyword,
+    overviewYearEnd,
+    overviewYearStart,
     querySort,
+    sortDirection,
   ]);
+
+  const overviewSummaryStats = useMemo(() => {
+    let latestUpdatedAt: string | null = null;
+    let latestUpdatedAtMs = 0;
+    let automationReadyCount = 0;
+    let citableCount = 0;
+    let excludedCount = 0;
+
+    overviewResultItems.forEach((item) => {
+      if (isOverviewAutomationReady(item)) {
+        automationReadyCount += 1;
+      }
+      if (isOverviewCitable(item)) {
+        citableCount += 1;
+      }
+      if (isOverviewExcluded(item)) {
+        excludedCount += 1;
+      }
+
+      if (!item.source_updated_at) {
+        return;
+      }
+      const parsedMs = new Date(item.source_updated_at).getTime();
+      if (Number.isNaN(parsedMs) || parsedMs <= latestUpdatedAtMs) {
+        return;
+      }
+      latestUpdatedAtMs = parsedMs;
+      latestUpdatedAt = item.source_updated_at;
+    });
+
+    return {
+      totalCount: overviewResultItems.length,
+      latestUpdatedLabel: latestUpdatedAt ? formatTimestamp(latestUpdatedAt) : '--',
+      automationReadyCount,
+      citableCount,
+      excludedCount,
+    };
+  }, [overviewResultItems]);
+
+  const overviewTagOptions = useMemo(() => {
+    const tagSet = new Set<string>();
+    overviewPanel.data.items.forEach((item) => {
+      item.tags.forEach((tag) => {
+        const normalized = tag.trim();
+        if (normalized.length > 0) {
+          tagSet.add(normalized);
+        }
+      });
+    });
+    return [...tagSet].sort((left, right) => left.localeCompare(right, 'zh-CN'));
+  }, [overviewPanel.data.items]);
 
   const loadTopicProfiles = useCallback(async () => {
     setTopicProfilesStatus('loading');
@@ -3634,6 +3859,71 @@ export function App({ initialThemeMode }: AppProps) {
     }
 
     applyManualImportSessionRows('manual-import-test.json', rows, 'seed');
+    const validSeedItems = validateManualDraftRows(rows)
+      .filter((entry): entry is ManualRowValidation & { normalized: ManualImportPayload } =>
+        entry.is_valid && Boolean(entry.normalized),
+      )
+      .map((entry) => entry.normalized);
+    const activeTopicId = topicIdInput.trim() || topicId.trim();
+    let seedImportNewCount = 0;
+    let seedImportDedupCount = 0;
+    let seedImportFailedCount = 0;
+    let seedScopedCount = 0;
+    let seedImportError: string | null = null;
+    let seedScopeError: string | null = null;
+
+    if (validSeedItems.length > 0) {
+      try {
+        const importPayload = await requestGovernance({
+          method: 'POST',
+          path: '/literature/import',
+          body: {
+            items: validSeedItems,
+          },
+        });
+        const importRoot = asRecord(importPayload);
+        const importResults = Array.isArray(importRoot?.results) ? importRoot.results : [];
+        const normalizedImportResults = importResults
+          .map((item) => asRecord(item))
+          .filter((item): item is Record<string, unknown> => item !== null);
+
+        seedImportNewCount = normalizedImportResults.filter((item) => item.is_new === true).length;
+        seedImportDedupCount = normalizedImportResults.filter((item) => item.is_new === false).length;
+        seedImportFailedCount = Math.max(0, validSeedItems.length - normalizedImportResults.length);
+
+        const importedLiteratureIds = normalizedImportResults
+          .map((item) => toText(item.literature_id))
+          .filter((item): item is string => Boolean(item));
+
+        if (activeTopicId && importedLiteratureIds.length > 0) {
+          try {
+            await requestGovernance({
+              method: 'POST',
+              path: `/topics/${encodeURIComponent(activeTopicId)}/literature-scope`,
+              body: {
+                actions: importedLiteratureIds.map((literatureId) => ({
+                  literature_id: literatureId,
+                  scope_status: 'in_scope',
+                  reason: 'DEV 注入测试数据',
+                })),
+              },
+            });
+            seedScopedCount = importedLiteratureIds.length;
+            setTopicId(activeTopicId);
+            setTopicIdInput(activeTopicId);
+            setPaperId('');
+            setPaperIdInput('');
+            await loadTopicScope(activeTopicId);
+            await loadLiteratureOverview(activeTopicId, '');
+          } catch (error) {
+            seedScopeError = error instanceof Error ? error.message : '注入后写入选题范围失败。';
+          }
+        }
+      } catch (error) {
+        seedImportError = error instanceof Error ? error.message : '注入后自动入库失败。';
+      }
+    }
+
     const topicSyncResult = await upsertDevTopicProfiles();
     const ruleSyncResult = await upsertDevAutoPullRules();
     const topicRuleBindingResult = await bindDevRulesToTopics(ruleSyncResult.ruleIdByName);
@@ -3648,9 +3938,12 @@ export function App({ initialThemeMode }: AppProps) {
         || ruleSyncResult.failed > 0
         || topicRuleBindingResult.failed > 0
         || runTriggerResult.failed > 0
+        || seedImportFailedCount > 0
+        || seedImportError !== null
+        || seedScopeError !== null
           ? 'warning'
           : 'success',
-      message: `DEV 注入完成：主题 新增 ${topicSyncResult.created}/更新 ${topicSyncResult.updated}/失败 ${topicSyncResult.failed}；规则 新增 ${ruleSyncResult.created}/更新 ${ruleSyncResult.updated}/失败 ${ruleSyncResult.failed}；主题绑定 成功 ${topicRuleBindingResult.updated}/失败 ${topicRuleBindingResult.failed}；运行触发 成功 ${runTriggerResult.triggered}/失败 ${runTriggerResult.failed}。`,
+      message: `DEV 注入完成：手动入库 新增 ${seedImportNewCount}/去重 ${seedImportDedupCount}/失败 ${seedImportFailedCount}；写入选题范围 ${seedScopedCount}${seedImportError ? `（入库异常：${seedImportError}）` : ''}${seedScopeError ? `（范围异常：${seedScopeError}）` : ''}；主题 新增 ${topicSyncResult.created}/更新 ${topicSyncResult.updated}/失败 ${topicSyncResult.failed}；规则 新增 ${ruleSyncResult.created}/更新 ${ruleSyncResult.updated}/失败 ${ruleSyncResult.failed}；主题绑定 成功 ${topicRuleBindingResult.updated}/失败 ${topicRuleBindingResult.failed}；运行触发 成功 ${runTriggerResult.triggered}/失败 ${runTriggerResult.failed}。`,
     });
   };
 
@@ -4084,16 +4377,16 @@ export function App({ initialThemeMode }: AppProps) {
 
   const handleChangeMetadataDraft = (
     literatureId: string,
-    field: 'tagsInput' | 'rightsClass',
+    field: 'tagsInput',
     value: string,
   ) => {
     setMetadataDrafts((current) => {
-      const existing = current[literatureId] ?? { tagsInput: '', rightsClass: 'UNKNOWN' };
+      const existing = current[literatureId] ?? { tagsInput: '' };
       return {
         ...current,
         [literatureId]: {
           ...existing,
-          [field]: field === 'rightsClass' ? (normalizeRightsClass(value) as RightsClass) : value,
+          [field]: value,
         },
       };
     });
@@ -4112,7 +4405,6 @@ export function App({ initialThemeMode }: AppProps) {
         path: `/literature/${encodeURIComponent(literatureId)}/metadata`,
         body: {
           tags: parseTagsInput(draft.tagsInput),
-          rights_class: draft.rightsClass,
         },
       });
       pushLiteratureFeedback({
@@ -4247,32 +4539,51 @@ export function App({ initialThemeMode }: AppProps) {
   };
 
   const handleApplyLiteratureFilters = () => {
-    const normalizedTopic = topicIdInput.trim();
-    const normalizedPaper = paperIdInput.trim();
-    const nextTopic = normalizedTopic || topicId;
-    const nextPaper = normalizedPaper || paperId;
+    let yearStart = parseYearFilterInput(overviewYearStartInput);
+    let yearEnd = parseYearFilterInput(overviewYearEndInput);
+    if (yearStart === null) {
+      yearStart = overviewYearDefaultStart;
+    }
+    if (yearEnd === null) {
+      yearEnd = overviewYearDefaultEnd;
+    }
+    if (yearStart > yearEnd) {
+      [yearStart, yearEnd] = [yearEnd, yearStart];
+    }
+    const includeInScope = overviewScopeFilterInput === 'all' || overviewScopeFilterInput === 'in_scope';
+    const includeExcluded = overviewScopeFilterInput === 'all' || overviewScopeFilterInput === 'excluded';
 
-    setTopicId(nextTopic);
-    setPaperId(nextPaper);
-    setTopicIdInput(nextTopic);
-    setPaperIdInput(nextPaper);
-
-    void loadTopicScope(nextTopic);
-    void loadLiteratureOverview(nextTopic, nextPaper);
-    void loadPaperLiterature(nextPaper);
-
+    setOverviewKeyword(overviewKeywordInput.trim());
+    setOverviewYearStart(yearStart);
+    setOverviewYearEnd(yearEnd);
+    setOverviewTagKeyword(overviewTagKeywordInput.trim());
+    setOverviewIncludeInScope(includeInScope);
+    setOverviewIncludeExcluded(includeExcluded);
+    const nextSortPreset = parseQuerySortPreset(querySortPresetInput);
+    setQuerySort(nextSortPreset.sort);
+    setSortDirection(nextSortPreset.direction);
     pushLiteratureFeedback({
-      slot: 'header',
+      slot: 'overview',
       level: 'info',
-      message: `已应用筛选：Topic=${nextTopic}，Paper=${nextPaper}`,
+      message: '已应用筛选。',
     });
   };
 
   const handleResetLightweightFilters = () => {
+    setOverviewKeywordInput('');
+    setOverviewYearStartInput('');
+    setOverviewYearEndInput('');
+    setOverviewTagKeywordInput('');
+    setOverviewScopeFilterInput('all');
+    setQuerySortPresetInput('importance|desc');
     setOverviewKeyword('');
-    setOverviewScopeFilter('all');
-    setOverviewCitationFilter('all');
-    setOverviewRightsFilter('all');
+    setOverviewYearStart(overviewYearDefaultStart);
+    setOverviewYearEnd(overviewYearDefaultEnd);
+    setOverviewTagKeyword('');
+    setOverviewIncludeInScope(true);
+    setOverviewIncludeExcluded(true);
+    setQuerySort('importance');
+    setSortDirection('desc');
     pushLiteratureFeedback({
       slot: 'overview',
       level: 'info',
@@ -4282,11 +4593,21 @@ export function App({ initialThemeMode }: AppProps) {
 
   useEffect(() => {
     if (activeModule === '文献管理') {
-      void loadTopicScope(topicId);
+      if (topicId.trim()) {
+        void loadTopicScope(topicId);
+      } else {
+        setTopicScopeItems([]);
+        setTopicScopeError(null);
+      }
       void loadLiteratureOverview(topicId, paperId);
     }
     if (activeModule === '论文管理' || activeModule === '写作中心') {
-      void loadPaperLiterature(paperId);
+      if (paperId.trim()) {
+        void loadPaperLiterature(paperId);
+      } else {
+        setPaperLiteratureItems([]);
+        setPaperLiteratureError(null);
+      }
     }
   }, [activeModule, loadLiteratureOverview, loadPaperLiterature, loadTopicScope, paperId, topicId]);
 
@@ -5585,7 +5906,7 @@ export function App({ initialThemeMode }: AppProps) {
                     {autoImportSubTab === 'runs-alerts' ? (
                       <section className="literature-section-block">
                         <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
-                          <label data-ui="field">
+                          <label data-ui="field" className="literature-filter-keyword">
                             <span data-slot="label">Run Rule 过滤</span>
                             <input
                               data-ui="input"
@@ -5595,7 +5916,7 @@ export function App({ initialThemeMode }: AppProps) {
                               placeholder="rule_id"
                             />
                           </label>
-                          <label data-ui="field">
+                          <label data-ui="field" className="literature-filter-year">
                             <span data-slot="label">Run 状态</span>
                             <select
                               data-ui="select"
@@ -5701,7 +6022,7 @@ export function App({ initialThemeMode }: AppProps) {
                         ) : null}
 
                         <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
-                          <label data-ui="field">
+                          <label data-ui="field" className="literature-filter-tag">
                             <span data-slot="label">Alert Rule 过滤</span>
                             <input
                               data-ui="input"
@@ -5711,7 +6032,7 @@ export function App({ initialThemeMode }: AppProps) {
                               placeholder="rule_id"
                             />
                           </label>
-                          <label data-ui="field">
+                          <label data-ui="field" className="literature-filter-scope">
                             <span data-slot="label">Alert 级别</span>
                             <select
                               data-ui="select"
@@ -5724,7 +6045,7 @@ export function App({ initialThemeMode }: AppProps) {
                               <option value="ERROR">ERROR</option>
                             </select>
                           </label>
-                          <label data-ui="field">
+                          <label data-ui="field" className="literature-filter-sort">
                             <span data-slot="label">确认状态</span>
                             <select
                               data-ui="select"
@@ -6446,109 +6767,90 @@ export function App({ initialThemeMode }: AppProps) {
                     <section className="literature-query-builder">
                       <div className="literature-quick-filters">
                         <div className="literature-quick-row">
-                          <label data-ui="field">
-                            <span data-slot="label">Topic</span>
+                          <label data-ui="field" className="literature-filter-keyword">
                             <input
                               data-ui="input"
                               data-size="sm"
-                              value={topicIdInput}
-                              onChange={(event) => setTopicIdInput(event.target.value)}
-                              placeholder="TOPIC-001"
+                              aria-label="关键词搜索"
+                              value={overviewKeywordInput}
+                              onChange={(event) => setOverviewKeywordInput(event.target.value)}
+                              placeholder="关键词搜索"
                             />
                           </label>
-                          <label data-ui="field">
-                            <span data-slot="label">Paper</span>
-                            <input
-                              data-ui="input"
+                          <label data-ui="field" className="literature-filter-year">
+                            <div className="literature-year-range">
+                              <input
+                                data-ui="input"
+                                data-size="sm"
+                                aria-label="发表年份起始"
+                                value={overviewYearStartInput}
+                                onChange={(event) => setOverviewYearStartInput(event.target.value)}
+                                placeholder="1900"
+                                inputMode="numeric"
+                              />
+                              <span data-ui="text" data-variant="caption" data-tone="muted">-</span>
+                              <input
+                                data-ui="input"
+                                data-size="sm"
+                                aria-label="发表年份结束"
+                                value={overviewYearEndInput}
+                                onChange={(event) => setOverviewYearEndInput(event.target.value)}
+                                placeholder="2100"
+                                inputMode="numeric"
+                              />
+                            </div>
+                          </label>
+                          <label data-ui="field" className="literature-filter-tag">
+                            <select
+                              data-ui="select"
                               data-size="sm"
-                              value={paperIdInput}
-                              onChange={(event) => setPaperIdInput(event.target.value)}
-                              placeholder="P001"
-                            />
+                              aria-label="标签选择"
+                              value={overviewTagKeywordInput}
+                              onChange={(event) => setOverviewTagKeywordInput(event.target.value)}
+                            >
+                              <option value="">全部标签</option>
+                              {overviewTagOptions.map((tag) => (
+                                <option key={tag} value={tag}>
+                                  {tag}
+                                </option>
+                              ))}
+                            </select>
                           </label>
-                          <label data-ui="field">
-                            <span data-slot="label">关键词</span>
-                            <input
-                              data-ui="input"
+                          <label data-ui="field" className="literature-filter-scope">
+                            <select
+                              data-ui="select"
                               data-size="sm"
-                              value={overviewKeyword}
-                              onChange={(event) => setOverviewKeyword(event.target.value)}
-                              placeholder="标题 / 作者 / DOI / arXiv"
-                            />
+                              aria-label="状态筛选"
+                              value={overviewScopeFilterInput}
+                              onChange={(event) => setOverviewScopeFilterInput(event.target.value as OverviewScopeFilterInput)}
+                            >
+                              <option value="all">全部状态</option>
+                              <option value="in_scope">保留</option>
+                              <option value="excluded">排除</option>
+                            </select>
                           </label>
-                          <button
-                            data-ui="button"
-                            data-variant="secondary"
-                            data-size="sm"
-                            type="button"
-                            onClick={handleApplyLiteratureFilters}
-                          >
-                            应用筛选
+                          <label data-ui="field" className="literature-filter-sort">
+                            <div className="literature-sort-control">
+                              <select
+                                data-ui="select"
+                                data-size="sm"
+                                aria-label="排序规则与方向"
+                                value={querySortPresetInput}
+                                onChange={(event) => setQuerySortPresetInput(event.target.value as QuerySortPreset)}
+                              >
+                                {querySortPresetOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </label>
+                          <button data-ui="button" data-variant="secondary" data-size="sm" type="button" className="literature-filter-action" onClick={handleApplyLiteratureFilters}>
+                            应用
                           </button>
-                        </div>
-                        <div className="literature-quick-row">
-                          <label data-ui="field">
-                            <span data-slot="label">范围状态</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={overviewScopeFilter}
-                              onChange={(event) => setOverviewScopeFilter(event.target.value as OverviewScopeFilter)}
-                            >
-                              <option value="all">全部</option>
-                              <option value="in_scope">in_scope</option>
-                              <option value="excluded">excluded</option>
-                            </select>
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">引用状态</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={overviewCitationFilter}
-                              onChange={(event) => setOverviewCitationFilter(event.target.value as OverviewCitationFilter)}
-                            >
-                              <option value="all">全部</option>
-                              {citationStatusOptions.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">权限</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={overviewRightsFilter}
-                              onChange={(event) => setOverviewRightsFilter(event.target.value as OverviewRightsFilter)}
-                            >
-                              <option value="all">全部</option>
-                              {rightsClassOptions.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label data-ui="field">
-                            <span data-slot="label">排序</span>
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={querySort}
-                              onChange={(event) => setQuerySort(event.target.value as QuerySort)}
-                            >
-                              {querySortOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleResetLightweightFilters}>
-                            重置筛选
+                          <button data-ui="button" data-variant="ghost" data-size="sm" type="button" className="literature-filter-action" onClick={handleResetLightweightFilters}>
+                            重置
                           </button>
                         </div>
                       </div>
@@ -6566,40 +6868,18 @@ export function App({ initialThemeMode }: AppProps) {
                     <section className="literature-overview-table-wrap">
                       <table className="literature-overview-table">
                         <thead>
-                          <tr className="literature-overview-table-summary-row">
-                            <th colSpan={6}>
-                              <div className="literature-overview-table-summary">
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  总文献 <strong>{overviewPanel.data.summary.total_literatures}</strong>
-                                </span>
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  In Scope <strong>{overviewPanel.data.summary.in_scope_count}</strong>
-                                </span>
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  Cited <strong>{overviewPanel.data.summary.cited_count}</strong>
-                                </span>
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  Top Tags{' '}
-                                  <strong>
-                                    {overviewPanel.data.summary.top_tags.slice(0, 2).map((tag) => tag.tag).join(' / ') || '--'}
-                                  </strong>
-                                </span>
-                              </div>
-                            </th>
-                          </tr>
                           <tr>
                             <th>标题与来源</th>
                             <th>作者 / 年份</th>
                             <th>状态</th>
                             <th>标签</th>
-                            <th>权限</th>
                             <th>操作</th>
                           </tr>
                         </thead>
                         <tbody>
                           {overviewResultItems.length === 0 ? (
                             <tr>
-                              <td colSpan={6}>
+                              <td colSpan={5}>
                                 <p data-ui="text" data-variant="caption" data-tone="muted" className="literature-overview-table-empty">
                                   暂无可展示文献，请先导入或调整筛选。
                                 </p>
@@ -6609,8 +6889,8 @@ export function App({ initialThemeMode }: AppProps) {
                             overviewResultItems.map((item) => {
                               const draft = metadataDrafts[item.literature_id] ?? {
                                 tagsInput: item.tags.join(', '),
-                                rightsClass: item.rights_class,
                               };
+                              const overviewStatus = resolveLiteratureOverviewStatus(item);
 
                               return (
                                 <tr key={item.literature_id}>
@@ -6642,11 +6922,8 @@ export function App({ initialThemeMode }: AppProps) {
                                   </td>
                                   <td>
                                     <div className="literature-overview-main">
-                                      <p data-ui="text" data-variant="caption" data-tone="muted">
-                                        scope: {item.topic_scope_status ?? '--'}
-                                      </p>
-                                      <p data-ui="text" data-variant="caption" data-tone="muted">
-                                        citation: {item.citation_status ?? '--'}
+                                      <p data-ui="text" data-variant="caption" data-tone="primary">
+                                        {formatLiteratureOverviewStatus(overviewStatus)}
                                       </p>
                                     </div>
                                   </td>
@@ -6660,22 +6937,6 @@ export function App({ initialThemeMode }: AppProps) {
                                       }
                                       placeholder="标签：survey, baseline, method:nlp"
                                     />
-                                  </td>
-                                  <td>
-                                    <select
-                                      data-ui="select"
-                                      data-size="sm"
-                                      value={draft.rightsClass}
-                                      onChange={(event) =>
-                                        handleChangeMetadataDraft(item.literature_id, 'rightsClass', event.target.value)
-                                      }
-                                    >
-                                      {rightsClassOptions.map((option) => (
-                                        <option key={option} value={option}>
-                                          {option}
-                                        </option>
-                                      ))}
-                                    </select>
                                   </td>
                                   <td>
                                     <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-overview-actions">
@@ -6714,6 +6975,29 @@ export function App({ initialThemeMode }: AppProps) {
                             })
                           )}
                         </tbody>
+                        <tfoot>
+                          <tr className="literature-overview-table-summary-row">
+                            <td colSpan={5}>
+                              <div className="literature-overview-table-summary">
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  总文献 <strong>{overviewSummaryStats.totalCount}</strong>
+                                </span>
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  最近更新 <strong>{overviewSummaryStats.latestUpdatedLabel}</strong>
+                                </span>
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  自动化就绪文献 <strong>{overviewSummaryStats.automationReadyCount}</strong>
+                                </span>
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  可被引用文献 <strong>{overviewSummaryStats.citableCount}</strong>
+                                </span>
+                                <span data-ui="text" data-variant="caption" data-tone="muted">
+                                  已排除文献 <strong>{overviewSummaryStats.excludedCount}</strong>
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </section>
                   </section>

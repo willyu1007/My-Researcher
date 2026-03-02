@@ -1081,26 +1081,98 @@
   }
 
   .literature-quick-filters {
-    display: grid;
-    gap: 8px;
+    display: block;
   }
 
   .literature-quick-row {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-wrap: nowrap;
+    gap: 6px;
     align-items: flex-end;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
   }
 
   .literature-quick-row [data-ui='field'] {
-    flex: 1 1 180px;
-    min-width: 160px;
-    max-width: 280px;
+    display: block;
+    flex: 0 0 auto;
+    min-width: 0;
   }
 
-  .literature-quick-row [data-ui='field']:nth-child(3) {
-    flex: 2 1 280px;
-    max-width: 420px;
+  .literature-quick-row [data-slot='label'] {
+    display: none;
+  }
+
+  .literature-filter-keyword {
+    width: 230px;
+  }
+
+  .literature-filter-year {
+    width: 196px;
+  }
+
+  .literature-filter-tag {
+    width: 170px;
+  }
+
+  .literature-filter-scope {
+    width: 128px;
+  }
+
+  .literature-filter-sort {
+    width: 228px;
+  }
+
+  .literature-year-range {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 4px;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid color-mix(in srgb, var(--ui-color-border) 76%, transparent 24%);
+    border-radius: var(--ui-radius-md);
+    background: color-mix(in srgb, var(--ui-color-surface) 96%, transparent 4%);
+  }
+
+  .literature-year-range:focus-within {
+    border-color: color-mix(in srgb, var(--ui-color-primary) 62%, var(--ui-color-border) 38%);
+  }
+
+  .literature-year-range [data-ui='input'][data-size='sm'] {
+    min-height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+  }
+
+  .literature-year-range [data-ui='input'][data-size='sm']:focus {
+    border: 0;
+    box-shadow: none;
+    outline: none;
+  }
+
+  .literature-year-range > [data-ui='text'] {
+    user-select: none;
+    color: color-mix(in srgb, var(--ui-color-text_muted) 74%, transparent 26%);
+  }
+
+  .literature-year-range [data-ui='input']::placeholder {
+    color: color-mix(in srgb, var(--ui-color-text_muted) 78%, #d0d7e2 22%);
+  }
+
+  .literature-sort-control {
+    display: block;
+  }
+
+  .literature-filter-action {
+    flex: 0 0 auto;
+    min-width: 58px;
   }
 
   .literature-ingest-grid {
@@ -2752,13 +2824,15 @@
 
   .topic-settings-table {
     width: 100%;
-    min-width: 1080px;
+    min-width: 1110px;
     border-collapse: collapse;
     table-layout: fixed;
   }
 
   .topic-settings-table .topic-col-name {
-    width: 19%;
+    width: 180px;
+    min-width: 180px;
+    max-width: 180px;
   }
 
   .topic-settings-table .topic-col-range {
@@ -2768,21 +2842,27 @@
   }
 
   .topic-settings-table .topic-col-filter {
-    width: 260px;
-    min-width: 260px;
-    max-width: 260px;
+    width: 240px;
+    min-width: 240px;
+    max-width: 240px;
   }
 
   .topic-settings-table .topic-col-run {
-    width: 15%;
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
   }
 
   .topic-settings-table .topic-col-rule {
-    width: 18%;
+    width: 180px;
+    min-width: 180px;
+    max-width: 180px;
   }
 
   .topic-settings-table .topic-col-actions {
-    width: 8%;
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
   }
 
   .topic-settings-table thead th {
@@ -2971,7 +3051,8 @@
     vertical-align: middle;
   }
 
-  .literature-overview-table-summary-row th {
+  .literature-overview-table-summary-row > th,
+  .literature-overview-table-summary-row > td {
     padding: 6px 10px;
   }
 
@@ -3000,6 +3081,12 @@
 
   .literature-overview-table tbody tr:hover td {
     background: color-mix(in srgb, var(--ui-color-surface_elevated) 16%, transparent 84%);
+  }
+
+  .literature-overview-table tfoot td {
+    border-top: 1px solid color-mix(in srgb, var(--ui-color-border) 62%, transparent 38%);
+    background: transparent;
+    vertical-align: middle;
   }
 
   .literature-overview-table-empty {
@@ -3184,13 +3271,9 @@
     }
 
     .literature-quick-row {
+      flex-wrap: nowrap;
       gap: 6px;
-    }
-
-    .literature-quick-row [data-ui='field'],
-    .literature-quick-row [data-ui='field']:nth-child(3) {
-      flex: 1 1 100%;
-      max-width: none;
+      overflow-x: auto;
     }
 
     .literature-ingest-grid {

@@ -237,3 +237,33 @@
 - 2026-03-02: 综览顶部工具栏下线回归 ✅
   - `pnpm desktop:typecheck` ✅
   - `pnpm desktop:build` ✅
+- 2026-03-02: 注入测试数据后综览无数据修复回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 前端下线文献权限分级 UI/交互回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 文献综览移除 Topic/Paper 输入项回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 文献综览单行轻量筛选重构回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 文献综览筛选区强制单行回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 排序方向并入下拉选项回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 文献综览状态枚举切换 + 表底统计条回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 综览筛选控件精简（年份单输入 + 标签下拉 + 状态下拉）回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 年份控件回调为双输入（默认 1900-2100，浅灰占位）回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
+- 2026-03-02: 年份双输入合并为单外框样式回归 ✅
+  - `pnpm desktop:typecheck` ✅
+  - `pnpm desktop:build` ✅
