@@ -1,12 +1,18 @@
 import crypto from 'node:crypto';
 import {
+  type CreateLiteraturePipelineRunRequest,
+  type CreateLiteraturePipelineRunResponse,
   type DedupMatchType,
+  type GetLiteraturePipelineResponse,
   type GetPaperLiteratureResponse,
   type LiteratureImportItem,
   type LiteratureImportRequest,
   type LiteratureImportResponse,
+  type LiteraturePipelineTriggerSource,
   type LiteratureOverviewQuery,
   type LiteratureOverviewResponse,
+  type ListLiteraturePipelineRunsQuery,
+  type ListLiteraturePipelineRunsResponse,
   type LiteratureProvider,
   type PaperLiteratureLinkView,
   type PaperCitationStatus,
@@ -28,6 +34,7 @@ import {
 import { AppError } from '../errors/app-error.js';
 import type { LiteratureRecord, LiteratureRepository } from '../repositories/literature-repository.js';
 import type { ResearchLifecycleRepository } from '../repositories/research-lifecycle-repository.js';
+import { LiteratureFlowService } from './literature-flow-service.js';
 
 type DedupCandidate = {
   doiNormalized: string | null;
@@ -44,9 +51,15 @@ export class LiteratureService {
   constructor(
     private readonly literatureRepository: LiteratureRepository,
     private readonly researchRepository: ResearchLifecycleRepository,
+    private readonly literatureFlowService: LiteratureFlowService = new LiteratureFlowService(literatureRepository),
   ) {}
 
-  async import(request: LiteratureImportRequest): Promise<LiteratureImportResponse> {
+  async import(
+    request: LiteratureImportRequest,
+    options?: {
+      triggerSource?: LiteraturePipelineTriggerSource;
+    },
+  ): Promise<LiteratureImportResponse> {
     if (request.items.length === 0) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Import items cannot be empty.');
     }
@@ -66,6 +79,7 @@ export class LiteratureService {
           ...dedup.literature,
           title: dedup.literature.title || normalized.title,
           abstractText: dedup.literature.abstractText || normalized.abstract || null,
+          keyContentDigest: dedup.literature.keyContentDigest,
           authors: dedup.literature.authors.length > 0 ? dedup.literature.authors : normalized.authors ?? [],
           year: dedup.literature.year ?? normalized.year ?? null,
           doiNormalized: dedup.literature.doiNormalized ?? this.normalizeDoi(normalized.doi),
@@ -83,6 +97,7 @@ export class LiteratureService {
           id: literatureId,
           title: normalized.title,
           abstractText: normalized.abstract ?? null,
+          keyContentDigest: null,
           authors: normalized.authors ?? [],
           year: normalized.year ?? null,
           doiNormalized: dedupKeys.doiNormalized,
@@ -106,6 +121,12 @@ export class LiteratureService {
         fetchedAt: now,
       });
 
+      await this.literatureFlowService.handleLiteratureUpserted({
+        literatureId: literatureRecord.id,
+        triggerSource: options?.triggerSource ?? 'MANUAL_IMPORT',
+        dedupStatus: dedup.matchedBy === 'none' ? 'unique' : 'duplicate',
+      });
+
       results.push({
         literature_id: literatureRecord.id,
         is_new: isNew,
@@ -117,6 +138,12 @@ export class LiteratureService {
     }
 
     return { results };
+  }
+
+  async importFromAutoPull(request: LiteratureImportRequest): Promise<LiteratureImportResponse> {
+    return this.import(request, {
+      triggerSource: 'AUTO_PULL',
+    });
   }
 
   async findImportDedupMatch(item: LiteratureImportItem): Promise<DedupMatchType> {
@@ -140,7 +167,9 @@ export class LiteratureService {
     const scopeReason = request.scope_reason?.trim() || undefined;
     const importItems = await this.fetchZoteroImportItems(request);
 
-    const imported = importItems.length > 0 ? await this.import({ items: importItems }) : { results: [] };
+    const imported = importItems.length > 0
+      ? await this.import({ items: importItems }, { triggerSource: 'ZOTERO_IMPORT' })
+      : { results: [] };
     const importedIds = imported.results.map((row) => row.literature_id);
     let scopeUpsertedCount = 0;
 
@@ -238,6 +267,7 @@ export class LiteratureService {
 
     const literatures = await this.literatureRepository.listLiteraturesByIds(literatureIds);
     const literatureMap = new Map(literatures.map((row) => [row.id, row]));
+    const pipelineStateMap = await this.literatureFlowService.refreshPipelineStatesByLiteratureIds(literatureIds);
 
     const scopeStatusByLiterature = new Map<string, TopicScopeStatus>();
     for (const scope of topicScopes) {
@@ -286,6 +316,17 @@ export class LiteratureService {
         source_updated_at: latestSource?.fetchedAt ?? null,
         topic_scope_status: scopeStatusByLiterature.get(literature.id),
         citation_status: citationStatusByLiterature.get(literature.id),
+        overview_status: this.literatureFlowService.resolveOverviewStatus({
+          topicScopeStatus: scopeStatusByLiterature.get(literature.id) ?? null,
+          citationComplete: pipelineStateMap.get(literature.id)?.citationComplete ?? false,
+          abstractReady: pipelineStateMap.get(literature.id)?.abstractReady ?? false,
+          keyContentReady: pipelineStateMap.get(literature.id)?.keyContentReady ?? false,
+        }),
+        pipeline_state: {
+          citation_complete: pipelineStateMap.get(literature.id)?.citationComplete ?? false,
+          abstract_ready: pipelineStateMap.get(literature.id)?.abstractReady ?? false,
+          key_content_ready: pipelineStateMap.get(literature.id)?.keyContentReady ?? false,
+        },
       });
     }
 
@@ -546,6 +587,11 @@ export class LiteratureService {
       : this.normalizeArxivId(request.arxiv_id ?? undefined);
     const nextRightsClass = request.rights_class ?? existing.rightsClass;
     const nextTags = request.tags === undefined ? existing.tags : this.normalizeTags(request.tags);
+    const nextKeyContentDigest = request.key_content_digest === undefined
+      ? existing.keyContentDigest
+      : request.key_content_digest === null
+        ? null
+        : request.key_content_digest.trim() || null;
     const nextHash = this.buildTitleAuthorsYearHashFromFields(nextTitle, nextAuthors, nextYear);
 
     await this.assertDedupUniqueness(literatureId, {
@@ -567,13 +613,20 @@ export class LiteratureService {
       titleAuthorsYearHash: nextHash,
       rightsClass: nextRightsClass,
       tags: nextTags,
+      keyContentDigest: nextKeyContentDigest,
       updatedAt: now,
+    });
+
+    await this.literatureFlowService.handleLiteratureUpserted({
+      literatureId: updated.id,
+      triggerSource: 'METADATA_PATCH',
     });
 
     return {
       literature_id: updated.id,
       title: updated.title,
       abstract: updated.abstractText,
+      key_content_digest: updated.keyContentDigest,
       authors: updated.authors,
       year: updated.year,
       doi: updated.doiNormalized,
@@ -582,6 +635,28 @@ export class LiteratureService {
       tags: updated.tags,
       updated_at: updated.updatedAt,
     };
+  }
+
+  async getPipeline(literatureId: string): Promise<GetLiteraturePipelineResponse> {
+    return this.literatureFlowService.getPipeline(literatureId);
+  }
+
+  async createPipelineRun(
+    literatureId: string,
+    request: CreateLiteraturePipelineRunRequest,
+  ): Promise<CreateLiteraturePipelineRunResponse> {
+    const run = await this.literatureFlowService.triggerOverviewRun(
+      literatureId,
+      request.requested_stages,
+    );
+    return { run };
+  }
+
+  async listPipelineRuns(
+    literatureId: string,
+    query: ListLiteraturePipelineRunsQuery,
+  ): Promise<ListLiteraturePipelineRunsResponse> {
+    return this.literatureFlowService.listPipelineRuns(literatureId, query.limit);
   }
 
   private mapZoteroEntryToImportItem(

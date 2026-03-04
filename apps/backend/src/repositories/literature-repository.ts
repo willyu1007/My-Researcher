@@ -9,6 +9,7 @@ export type LiteratureRecord = {
   id: string;
   title: string;
   abstractText: string | null;
+  keyContentDigest: string | null;
   authors: string[];
   year: number | null;
   doiNormalized: string | null;
@@ -19,6 +20,85 @@ export type LiteratureRecord = {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type LiteratureOverviewStatus = 'excluded' | 'automation_ready' | 'citable' | 'not_citable';
+
+export type LiteraturePipelineStageCode =
+  | 'CITATION_NORMALIZED'
+  | 'ABSTRACT_READY'
+  | 'KEY_CONTENT_READY'
+  | 'FULLTEXT_PREPROCESSED'
+  | 'CHUNKED'
+  | 'EMBEDDED'
+  | 'INDEXED';
+
+export type LiteraturePipelineStageStatus =
+  | 'NOT_STARTED'
+  | 'PENDING'
+  | 'RUNNING'
+  | 'SUCCEEDED'
+  | 'FAILED'
+  | 'BLOCKED'
+  | 'SKIPPED';
+
+export type LiteraturePipelineRunStatus = 'PENDING' | 'RUNNING' | 'PARTIAL' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
+
+export type LiteraturePipelineTriggerSource =
+  | 'AUTO_PULL'
+  | 'MANUAL_IMPORT'
+  | 'ZOTERO_IMPORT'
+  | 'METADATA_PATCH'
+  | 'OVERVIEW_ACTION'
+  | 'BACKFILL';
+
+export type LiteraturePipelineDedupStatus = 'unique' | 'duplicate' | 'unknown';
+
+export type LiteraturePipelineStateRecord = {
+  id: string;
+  literatureId: string;
+  citationComplete: boolean;
+  abstractReady: boolean;
+  keyContentReady: boolean;
+  dedupStatus: LiteraturePipelineDedupStatus;
+  updatedAt: string;
+};
+
+export type LiteraturePipelineStageStateRecord = {
+  id: string;
+  literatureId: string;
+  stageCode: LiteraturePipelineStageCode;
+  status: LiteraturePipelineStageStatus;
+  lastRunId: string | null;
+  detail: Record<string, unknown>;
+  updatedAt: string;
+};
+
+export type LiteraturePipelineRunRecord = {
+  id: string;
+  literatureId: string;
+  triggerSource: LiteraturePipelineTriggerSource;
+  status: LiteraturePipelineRunStatus;
+  requestedStages: LiteraturePipelineStageCode[];
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  updatedAt: string;
+};
+
+export type LiteraturePipelineRunStepRecord = {
+  id: string;
+  runId: string;
+  stageCode: LiteraturePipelineStageCode;
+  status: LiteraturePipelineStageStatus;
+  inputRef: Record<string, unknown>;
+  outputRef: Record<string, unknown>;
+  errorCode: string | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
 };
 
 export type LiteratureSourceRecord = {
@@ -85,4 +165,30 @@ export interface LiteratureRepository {
     linkId: string,
     patch: { citationStatus?: PaperCitationStatus; note?: string | null },
   ): Promise<PaperLiteratureLinkRecord>;
+
+  upsertPipelineState(
+    record: LiteraturePipelineStateRecord,
+  ): Promise<{ record: LiteraturePipelineStateRecord; created: boolean }>;
+  findPipelineStateByLiteratureId(literatureId: string): Promise<LiteraturePipelineStateRecord | null>;
+  listPipelineStatesByLiteratureIds(literatureIds: string[]): Promise<LiteraturePipelineStateRecord[]>;
+
+  upsertPipelineStageState(
+    record: LiteraturePipelineStageStateRecord,
+  ): Promise<{ record: LiteraturePipelineStageStateRecord; created: boolean }>;
+  listPipelineStageStatesByLiteratureId(literatureId: string): Promise<LiteraturePipelineStageStateRecord[]>;
+
+  createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord>;
+  findPipelineRunById(runId: string): Promise<LiteraturePipelineRunRecord | null>;
+  listPipelineRunsByLiteratureId(literatureId: string, limit?: number): Promise<LiteraturePipelineRunRecord[]>;
+  updatePipelineRun(
+    runId: string,
+    patch: Partial<Omit<LiteraturePipelineRunRecord, 'id' | 'literatureId' | 'triggerSource' | 'createdAt'>>,
+  ): Promise<LiteraturePipelineRunRecord>;
+
+  createPipelineRunStep(record: LiteraturePipelineRunStepRecord): Promise<LiteraturePipelineRunStepRecord>;
+  updatePipelineRunStep(
+    stepId: string,
+    patch: Partial<Omit<LiteraturePipelineRunStepRecord, 'id' | 'runId' | 'stageCode'>>,
+  ): Promise<LiteraturePipelineRunStepRecord>;
+  listPipelineRunStepsByRunId(runId: string): Promise<LiteraturePipelineRunStepRecord[]>;
 }

@@ -65,6 +65,7 @@ model LiteratureRecord {
   id                   String                @id
   title                String
   abstractText         String?
+  keyContentDigest     String?
   authors              String[]              @default([])
   year                 Int?
   doiNormalized        String?               @unique
@@ -78,6 +79,9 @@ model LiteratureRecord {
   sources              LiteratureSource[]
   topicScopes          TopicLiteratureScope[]
   paperLinks           PaperLiteratureLink[]
+  pipelineState        LiteraturePipelineState?
+  pipelineStageStates  LiteraturePipelineStageState[]
+  pipelineRuns         LiteraturePipelineRun[]
   autoPullSuggestions  AutoPullSuggestion[]
 
   @@index([normalizedTitle])
@@ -126,6 +130,70 @@ model PaperLiteratureLink {
   @@unique([paperId, literatureId])
   @@index([paperId])
   @@index([literatureId])
+}
+
+model LiteraturePipelineState {
+  id               String           @id
+  literatureId     String           @unique
+  citationComplete Boolean          @default(false)
+  abstractReady    Boolean          @default(false)
+  keyContentReady  Boolean          @default(false)
+  dedupStatus      String           @default("unknown")
+  updatedAt        DateTime         @db.Timestamptz(6)
+  literature       LiteratureRecord @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+}
+
+model LiteraturePipelineRun {
+  id             String                     @id
+  literatureId   String
+  triggerSource  String
+  status         String
+  requestedStages String[]                 @default([])
+  errorCode      String?
+  errorMessage   String?
+  createdAt      DateTime                  @db.Timestamptz(6)
+  startedAt      DateTime?                 @db.Timestamptz(6)
+  finishedAt     DateTime?                 @db.Timestamptz(6)
+  updatedAt      DateTime                  @db.Timestamptz(6)
+  literature     LiteratureRecord          @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  steps          LiteraturePipelineRunStep[]
+  stageStates    LiteraturePipelineStageState[]
+
+  @@index([literatureId, createdAt])
+  @@index([status])
+}
+
+model LiteraturePipelineStageState {
+  id            String                @id
+  literatureId  String
+  stageCode     String
+  status        String
+  lastRunId     String?
+  detail        Json
+  updatedAt     DateTime              @db.Timestamptz(6)
+  literature    LiteratureRecord      @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  lastRun       LiteraturePipelineRun? @relation(fields: [lastRunId], references: [id], onDelete: SetNull)
+
+  @@unique([literatureId, stageCode])
+  @@index([stageCode, status])
+  @@index([lastRunId])
+}
+
+model LiteraturePipelineRunStep {
+  id           String               @id
+  runId        String
+  stageCode    String
+  status       String
+  inputRef     Json
+  outputRef    Json
+  errorCode    String?
+  errorMessage String?
+  startedAt    DateTime?            @db.Timestamptz(6)
+  finishedAt   DateTime?            @db.Timestamptz(6)
+  run          LiteraturePipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([stageCode, status])
 }
 
 model TopicProfile {

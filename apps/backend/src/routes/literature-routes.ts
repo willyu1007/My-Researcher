@@ -1,4 +1,6 @@
 import {
+  createLiteraturePipelineRunRequestSchema,
+  listLiteraturePipelineRunsQuerySchema,
   literatureOverviewQuerySchema,
   literatureImportRequestSchema,
   syncPaperLiteratureFromTopicRequestSchema,
@@ -8,6 +10,8 @@ import {
   zoteroImportRequestSchema,
   type LiteratureOverviewQuery,
   type LiteratureImportRequest,
+  type ListLiteraturePipelineRunsQuery,
+  type CreateLiteraturePipelineRunRequest,
   type SyncPaperLiteratureFromTopicRequest,
   type UpdateLiteratureMetadataRequest,
   type UpdatePaperLiteratureLinkRequest,
@@ -161,5 +165,37 @@ export async function registerLiteratureRoutes(
       },
     },
     async (request, reply) => controller.updateLiteratureMetadata(request, reply),
+  );
+
+  app.get<{ Params: { literatureId: string } }>(
+    '/literature/:literatureId/pipeline',
+    {
+      schema: {
+        params: literatureParamsSchema,
+      },
+    },
+    async (request, reply) => controller.getPipeline(request, reply),
+  );
+
+  app.post<{ Params: { literatureId: string }; Body: CreateLiteraturePipelineRunRequest }>(
+    '/literature/:literatureId/pipeline/runs',
+    {
+      schema: {
+        params: literatureParamsSchema,
+        body: createLiteraturePipelineRunRequestSchema,
+      },
+    },
+    async (request, reply) => controller.createPipelineRun(request, reply),
+  );
+
+  app.get<{ Params: { literatureId: string }; Querystring: ListLiteraturePipelineRunsQuery }>(
+    '/literature/:literatureId/pipeline/runs',
+    {
+      schema: {
+        params: literatureParamsSchema,
+        querystring: listLiteraturePipelineRunsQuerySchema,
+      },
+    },
+    async (request, reply) => controller.listPipelineRuns(request, reply),
   );
 }

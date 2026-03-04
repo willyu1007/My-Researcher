@@ -1,5 +1,9 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type {
+  LiteraturePipelineRunRecord,
+  LiteraturePipelineRunStepRecord,
+  LiteraturePipelineStageStateRecord,
+  LiteraturePipelineStateRecord,
   LiteratureRecord,
   LiteratureRepository,
   LiteratureSourceRecord,
@@ -7,10 +11,18 @@ import type {
   TopicLiteratureScopeRecord,
 } from '../literature-repository.js';
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
 function toLiteratureRecord(row: {
   id: string;
   title: string;
   abstractText: string | null;
+  keyContentDigest: string | null;
   authors: string[];
   year: number | null;
   doiNormalized: string | null;
@@ -26,6 +38,7 @@ function toLiteratureRecord(row: {
     id: row.id,
     title: row.title,
     abstractText: row.abstractText,
+    keyContentDigest: row.keyContentDigest,
     authors: row.authors,
     year: row.year,
     doiNormalized: row.doiNormalized,
@@ -54,7 +67,7 @@ function toSourceRecord(row: {
     provider: row.provider as LiteratureSourceRecord['provider'],
     sourceItemId: row.sourceItemId,
     sourceUrl: row.sourceUrl,
-    rawPayload: (row.rawPayload as Record<string, unknown>) ?? {},
+    rawPayload: asRecord(row.rawPayload),
     fetchedAt: row.fetchedAt.toISOString(),
   };
 }
@@ -101,6 +114,100 @@ function toPaperLinkRecord(row: {
   };
 }
 
+function toPipelineStateRecord(row: {
+  id: string;
+  literatureId: string;
+  citationComplete: boolean;
+  abstractReady: boolean;
+  keyContentReady: boolean;
+  dedupStatus: string;
+  updatedAt: Date;
+}): LiteraturePipelineStateRecord {
+  return {
+    id: row.id,
+    literatureId: row.literatureId,
+    citationComplete: row.citationComplete,
+    abstractReady: row.abstractReady,
+    keyContentReady: row.keyContentReady,
+    dedupStatus: row.dedupStatus as LiteraturePipelineStateRecord['dedupStatus'],
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toPipelineStageStateRecord(row: {
+  id: string;
+  literatureId: string;
+  stageCode: string;
+  status: string;
+  lastRunId: string | null;
+  detail: unknown;
+  updatedAt: Date;
+}): LiteraturePipelineStageStateRecord {
+  return {
+    id: row.id,
+    literatureId: row.literatureId,
+    stageCode: row.stageCode as LiteraturePipelineStageStateRecord['stageCode'],
+    status: row.status as LiteraturePipelineStageStateRecord['status'],
+    lastRunId: row.lastRunId,
+    detail: asRecord(row.detail),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toPipelineRunRecord(row: {
+  id: string;
+  literatureId: string;
+  triggerSource: string;
+  status: string;
+  requestedStages: string[];
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+  updatedAt: Date;
+}): LiteraturePipelineRunRecord {
+  return {
+    id: row.id,
+    literatureId: row.literatureId,
+    triggerSource: row.triggerSource as LiteraturePipelineRunRecord['triggerSource'],
+    status: row.status as LiteraturePipelineRunRecord['status'],
+    requestedStages: row.requestedStages as LiteraturePipelineRunRecord['requestedStages'],
+    errorCode: row.errorCode,
+    errorMessage: row.errorMessage,
+    createdAt: row.createdAt.toISOString(),
+    startedAt: row.startedAt ? row.startedAt.toISOString() : null,
+    finishedAt: row.finishedAt ? row.finishedAt.toISOString() : null,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toPipelineRunStepRecord(row: {
+  id: string;
+  runId: string;
+  stageCode: string;
+  status: string;
+  inputRef: unknown;
+  outputRef: unknown;
+  errorCode: string | null;
+  errorMessage: string | null;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+}): LiteraturePipelineRunStepRecord {
+  return {
+    id: row.id,
+    runId: row.runId,
+    stageCode: row.stageCode as LiteraturePipelineRunStepRecord['stageCode'],
+    status: row.status as LiteraturePipelineRunStepRecord['status'],
+    inputRef: asRecord(row.inputRef),
+    outputRef: asRecord(row.outputRef),
+    errorCode: row.errorCode,
+    errorMessage: row.errorMessage,
+    startedAt: row.startedAt ? row.startedAt.toISOString() : null,
+    finishedAt: row.finishedAt ? row.finishedAt.toISOString() : null,
+  };
+}
+
 export class PrismaLiteratureRepository implements LiteratureRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -126,6 +233,7 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
         id: record.id,
         title: record.title,
         abstractText: record.abstractText,
+        keyContentDigest: record.keyContentDigest,
         authors: record.authors,
         year: record.year,
         doiNormalized: record.doiNormalized,
@@ -147,6 +255,7 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
       data: {
         title: record.title,
         abstractText: record.abstractText,
+        keyContentDigest: record.keyContentDigest,
         authors: record.authors,
         year: record.year,
         doiNormalized: record.doiNormalized,
@@ -359,5 +468,215 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
       },
     });
     return toPaperLinkRecord(updated);
+  }
+
+  async upsertPipelineState(
+    record: LiteraturePipelineStateRecord,
+  ): Promise<{ record: LiteraturePipelineStateRecord; created: boolean }> {
+    const existing = await this.prisma.literaturePipelineState.findUnique({
+      where: { literatureId: record.literatureId },
+    });
+
+    if (existing) {
+      const updated = await this.prisma.literaturePipelineState.update({
+        where: { id: existing.id },
+        data: {
+          citationComplete: record.citationComplete,
+          abstractReady: record.abstractReady,
+          keyContentReady: record.keyContentReady,
+          dedupStatus: record.dedupStatus,
+          updatedAt: new Date(record.updatedAt),
+        },
+      });
+      return { record: toPipelineStateRecord(updated), created: false };
+    }
+
+    const created = await this.prisma.literaturePipelineState.create({
+      data: {
+        id: record.id,
+        literatureId: record.literatureId,
+        citationComplete: record.citationComplete,
+        abstractReady: record.abstractReady,
+        keyContentReady: record.keyContentReady,
+        dedupStatus: record.dedupStatus,
+        updatedAt: new Date(record.updatedAt),
+      },
+    });
+    return { record: toPipelineStateRecord(created), created: true };
+  }
+
+  async findPipelineStateByLiteratureId(literatureId: string): Promise<LiteraturePipelineStateRecord | null> {
+    const row = await this.prisma.literaturePipelineState.findUnique({
+      where: { literatureId },
+    });
+    return row ? toPipelineStateRecord(row) : null;
+  }
+
+  async listPipelineStatesByLiteratureIds(literatureIds: string[]): Promise<LiteraturePipelineStateRecord[]> {
+    if (literatureIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.prisma.literaturePipelineState.findMany({
+      where: {
+        literatureId: {
+          in: literatureIds,
+        },
+      },
+    });
+    return rows.map((row) => toPipelineStateRecord(row));
+  }
+
+  async upsertPipelineStageState(
+    record: LiteraturePipelineStageStateRecord,
+  ): Promise<{ record: LiteraturePipelineStageStateRecord; created: boolean }> {
+    const existing = await this.prisma.literaturePipelineStageState.findUnique({
+      where: {
+        literatureId_stageCode: {
+          literatureId: record.literatureId,
+          stageCode: record.stageCode,
+        },
+      },
+    });
+
+    if (existing) {
+      const updated = await this.prisma.literaturePipelineStageState.update({
+        where: { id: existing.id },
+        data: {
+          status: record.status,
+          lastRunId: record.lastRunId,
+          detail: record.detail as Prisma.InputJsonValue,
+          updatedAt: new Date(record.updatedAt),
+        },
+      });
+      return { record: toPipelineStageStateRecord(updated), created: false };
+    }
+
+    const created = await this.prisma.literaturePipelineStageState.create({
+      data: {
+        id: record.id,
+        literatureId: record.literatureId,
+        stageCode: record.stageCode,
+        status: record.status,
+        lastRunId: record.lastRunId,
+        detail: record.detail as Prisma.InputJsonValue,
+        updatedAt: new Date(record.updatedAt),
+      },
+    });
+    return { record: toPipelineStageStateRecord(created), created: true };
+  }
+
+  async listPipelineStageStatesByLiteratureId(literatureId: string): Promise<LiteraturePipelineStageStateRecord[]> {
+    const rows = await this.prisma.literaturePipelineStageState.findMany({
+      where: { literatureId },
+      orderBy: { updatedAt: 'asc' },
+    });
+    return rows.map((row) => toPipelineStageStateRecord(row));
+  }
+
+  async createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord> {
+    const created = await this.prisma.literaturePipelineRun.create({
+      data: {
+        id: record.id,
+        literatureId: record.literatureId,
+        triggerSource: record.triggerSource,
+        status: record.status,
+        requestedStages: record.requestedStages,
+        errorCode: record.errorCode,
+        errorMessage: record.errorMessage,
+        createdAt: new Date(record.createdAt),
+        startedAt: record.startedAt ? new Date(record.startedAt) : null,
+        finishedAt: record.finishedAt ? new Date(record.finishedAt) : null,
+        updatedAt: new Date(record.updatedAt),
+      },
+    });
+    return toPipelineRunRecord(created);
+  }
+
+  async findPipelineRunById(runId: string): Promise<LiteraturePipelineRunRecord | null> {
+    const row = await this.prisma.literaturePipelineRun.findUnique({
+      where: { id: runId },
+    });
+    return row ? toPipelineRunRecord(row) : null;
+  }
+
+  async listPipelineRunsByLiteratureId(literatureId: string, limit?: number): Promise<LiteraturePipelineRunRecord[]> {
+    const rows = await this.prisma.literaturePipelineRun.findMany({
+      where: { literatureId },
+      orderBy: { createdAt: 'desc' },
+      ...(typeof limit === 'number' && limit > 0 ? { take: limit } : {}),
+    });
+    return rows.map((row) => toPipelineRunRecord(row));
+  }
+
+  async updatePipelineRun(
+    runId: string,
+    patch: Partial<Omit<LiteraturePipelineRunRecord, 'id' | 'literatureId' | 'triggerSource' | 'createdAt'>>,
+  ): Promise<LiteraturePipelineRunRecord> {
+    const updated = await this.prisma.literaturePipelineRun.update({
+      where: { id: runId },
+      data: {
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.requestedStages !== undefined ? { requestedStages: patch.requestedStages } : {}),
+        ...(patch.errorCode !== undefined ? { errorCode: patch.errorCode } : {}),
+        ...(patch.errorMessage !== undefined ? { errorMessage: patch.errorMessage } : {}),
+        ...(patch.startedAt !== undefined
+          ? { startedAt: patch.startedAt ? new Date(patch.startedAt) : null }
+          : {}),
+        ...(patch.finishedAt !== undefined
+          ? { finishedAt: patch.finishedAt ? new Date(patch.finishedAt) : null }
+          : {}),
+        ...(patch.updatedAt !== undefined ? { updatedAt: new Date(patch.updatedAt) } : {}),
+      },
+    });
+    return toPipelineRunRecord(updated);
+  }
+
+  async createPipelineRunStep(record: LiteraturePipelineRunStepRecord): Promise<LiteraturePipelineRunStepRecord> {
+    const created = await this.prisma.literaturePipelineRunStep.create({
+      data: {
+        id: record.id,
+        runId: record.runId,
+        stageCode: record.stageCode,
+        status: record.status,
+        inputRef: record.inputRef as Prisma.InputJsonValue,
+        outputRef: record.outputRef as Prisma.InputJsonValue,
+        errorCode: record.errorCode,
+        errorMessage: record.errorMessage,
+        startedAt: record.startedAt ? new Date(record.startedAt) : null,
+        finishedAt: record.finishedAt ? new Date(record.finishedAt) : null,
+      },
+    });
+    return toPipelineRunStepRecord(created);
+  }
+
+  async updatePipelineRunStep(
+    stepId: string,
+    patch: Partial<Omit<LiteraturePipelineRunStepRecord, 'id' | 'runId' | 'stageCode'>>,
+  ): Promise<LiteraturePipelineRunStepRecord> {
+    const updated = await this.prisma.literaturePipelineRunStep.update({
+      where: { id: stepId },
+      data: {
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.inputRef !== undefined ? { inputRef: patch.inputRef as Prisma.InputJsonValue } : {}),
+        ...(patch.outputRef !== undefined ? { outputRef: patch.outputRef as Prisma.InputJsonValue } : {}),
+        ...(patch.errorCode !== undefined ? { errorCode: patch.errorCode } : {}),
+        ...(patch.errorMessage !== undefined ? { errorMessage: patch.errorMessage } : {}),
+        ...(patch.startedAt !== undefined
+          ? { startedAt: patch.startedAt ? new Date(patch.startedAt) : null }
+          : {}),
+        ...(patch.finishedAt !== undefined
+          ? { finishedAt: patch.finishedAt ? new Date(patch.finishedAt) : null }
+          : {}),
+      },
+    });
+    return toPipelineRunStepRecord(updated);
+  }
+
+  async listPipelineRunStepsByRunId(runId: string): Promise<LiteraturePipelineRunStepRecord[]> {
+    const rows = await this.prisma.literaturePipelineRunStep.findMany({
+      where: { runId },
+    });
+    return rows.map((row) => toPipelineRunStepRecord(row));
   }
 }

@@ -565,8 +565,9 @@ test('quality threshold filters low-score items', async () => {
       const meta = run.source_attempts?.[0]?.meta as Record<string, unknown>;
       assert.equal(meta.scored_count, 1);
       assert.equal(meta.below_threshold_count, 1);
-      assert.equal(meta.imported_count, 0);
+      assert.equal(meta.imported_count, 1);
       assert.equal(meta.eligible_count, 0);
+      assert.equal(run.suggestions?.[0]?.suggested_scope, 'excluded');
     });
   });
 });
@@ -832,6 +833,74 @@ test('run fails with QUALITY_SCORE_UNAVAILABLE when scorer config is missing', a
       assert.equal(run.status, 'FAILED');
       assert.equal(run.error_code, 'QUALITY_SCORE_UNAVAILABLE');
       assert.equal(run.source_attempts?.[0]?.error_code, 'QUALITY_SCORE_UNAVAILABLE');
+    });
+  });
+});
+
+test('auto-pull writes in_scope/excluded to topic scope with hard score cut', async () => {
+  const { service, literatureService } = buildService();
+  await service.createRule({
+    scope: 'GLOBAL',
+    name: 'baseline-global-active-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  await service.createTopicProfile({
+    topic_id: 'TOPIC-AUTO-SCOPE-WB',
+    name: 'Scope Writeback Topic',
+  });
+
+  await withEnv({
+    AUTO_PULL_LLM_SCORER_URL: 'https://mock-llm.local/score',
+    AUTO_PULL_LLM_SCORER_MODEL: 'mock-quality-model',
+  }, async () => {
+    await withMockedFetch((async (
+      input: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ) => {
+      const url = String(input);
+      if (url.startsWith('https://api.crossref.org/works')) {
+        return new Response(JSON.stringify(crossrefPayload([
+          buildCrossrefItem({ title: 'Scope Keep Paper', doi: '10.1000/scope-keep', year: 2025 }),
+          buildCrossrefItem({ title: 'Scope Exclude Paper', doi: '10.1000/scope-exclude', year: 2025 }),
+        ])), { status: 200 });
+      }
+      if (url === 'https://mock-llm.local/score') {
+        const payload = init?.body && typeof init.body === 'string'
+          ? (JSON.parse(init.body) as { input?: { title?: string } })
+          : {};
+        const title = payload.input?.title ?? '';
+        const score = title.includes('Keep') ? 88 : 60;
+        return new Response(JSON.stringify({ quality_score: score }), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    }) as typeof fetch, async () => {
+      const rule = await service.createRule({
+        scope: 'TOPIC',
+        topic_id: 'TOPIC-AUTO-SCOPE-WB',
+        name: 'scope-writeback-rule',
+        quality_spec: { min_quality_score: 70 },
+        sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+        schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+      });
+
+      const queued = await service.triggerRuleRun(rule.rule_id, { trigger_type: 'MANUAL' });
+      const run = await waitForTerminalRun(service, queued.run_id);
+      assert.equal(run.status, 'SUCCESS');
+
+      const scope = await literatureService.getTopicScope('TOPIC-AUTO-SCOPE-WB');
+      assert.equal(scope.items.length, 2);
+
+      const kept = scope.items.find((item) => item.title === 'Scope Keep Paper');
+      const excluded = scope.items.find((item) => item.title === 'Scope Exclude Paper');
+      assert.ok(kept);
+      assert.ok(excluded);
+      assert.equal(kept?.scope_status, 'in_scope');
+      assert.equal(excluded?.scope_status, 'excluded');
+      assert.equal(kept?.reason, 'AUTO_RULE_SCORE_GTE_THRESHOLD');
+      assert.equal(excluded?.reason, 'AUTO_RULE_SCORE_LT_THRESHOLD');
     });
   });
 });

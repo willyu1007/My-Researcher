@@ -1,0 +1,105 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
+import type { LiteratureRepository } from '../repositories/literature-repository.js';
+import { PipelineOrchestrator } from './pipeline-orchestrator.js';
+
+async function seedLiterature(repository: LiteratureRepository, literatureId: string): Promise<void> {
+  const now = new Date().toISOString();
+  await repository.createLiterature({
+    id: literatureId,
+    title: 'Pipeline Unit Test',
+    abstractText: 'abstract',
+    keyContentDigest: null,
+    authors: ['Ada Lovelace'],
+    year: 2025,
+    doiNormalized: '10.1000/pipeline-unit',
+    arxivId: null,
+    normalizedTitle: 'pipeline unit test',
+    titleAuthorsYearHash: 'hash-pipeline-unit',
+    rightsClass: 'UNKNOWN',
+    tags: [],
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+async function waitForTerminalRun(repository: LiteratureRepository, runId: string) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const run = await repository.findPipelineRunById(runId);
+    if (!run) {
+      throw new Error(`Run ${runId} not found.`);
+    }
+    if (run.status === 'SUCCESS' || run.status === 'FAILED' || run.status === 'PARTIAL' || run.status === 'SKIPPED') {
+      return run;
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 10);
+    });
+  }
+  throw new Error(`Timed out waiting run ${runId}.`);
+}
+
+test('PipelineOrchestrator drives run from PENDING to SUCCESS with step records', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  await seedLiterature(repository, 'LIT-PIPE-1');
+
+  const orchestrator = new PipelineOrchestrator(repository, {
+    executeStage: async () => ({
+      status: 'SUCCEEDED',
+      detail: { ok: true },
+      outputRef: { ok: true },
+    }),
+  });
+
+  const run = await orchestrator.enqueueRun({
+    literatureId: 'LIT-PIPE-1',
+    triggerSource: 'MANUAL_IMPORT',
+    requestedStages: ['CITATION_NORMALIZED', 'ABSTRACT_READY'],
+  });
+
+  assert.equal(run.status, 'PENDING');
+
+  const terminal = await waitForTerminalRun(repository, run.id);
+  assert.equal(terminal.status, 'SUCCESS');
+
+  const steps = await repository.listPipelineRunStepsByRunId(run.id);
+  assert.equal(steps.length, 2);
+  assert.equal(steps.every((step) => step.status === 'SUCCEEDED'), true);
+});
+
+test('PipelineOrchestrator marks run as PARTIAL when some stages fail', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  await seedLiterature(repository, 'LIT-PIPE-2');
+
+  const orchestrator = new PipelineOrchestrator(repository, {
+    executeStage: async ({ stageCode }) => {
+      if (stageCode === 'ABSTRACT_READY') {
+        return {
+          status: 'FAILED',
+          detail: { ok: false },
+          errorCode: 'ABSTRACT_MISSING',
+          errorMessage: 'abstract is missing',
+        };
+      }
+      return {
+        status: 'SUCCEEDED',
+        detail: { ok: true },
+      };
+    },
+  });
+
+  const run = await orchestrator.enqueueRun({
+    literatureId: 'LIT-PIPE-2',
+    triggerSource: 'MANUAL_IMPORT',
+    requestedStages: ['CITATION_NORMALIZED', 'ABSTRACT_READY'],
+  });
+
+  const terminal = await waitForTerminalRun(repository, run.id);
+  assert.equal(terminal.status, 'PARTIAL');
+  assert.equal(terminal.errorCode, 'ABSTRACT_MISSING');
+
+  const steps = await repository.listPipelineRunStepsByRunId(run.id);
+  assert.equal(steps.length, 2);
+  assert.equal(steps.some((step) => step.status === 'FAILED'), true);
+});
