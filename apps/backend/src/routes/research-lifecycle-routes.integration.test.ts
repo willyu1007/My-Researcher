@@ -397,6 +397,8 @@ test('literature workflow routes support import, topic scope, paper link sync an
   const overviewBody = overviewRes.json();
   assert.equal(overviewBody.summary.total_literatures, 1);
   assert.equal(overviewBody.summary.cited_count, 1);
+  assert.equal(typeof overviewBody.items[0]?.overview_status, 'string');
+  assert.equal(typeof overviewBody.items[0]?.pipeline_state?.citation_complete, 'boolean');
 
   const metadataPatchRes = await app.inject({
     method: 'PATCH',
@@ -411,6 +413,38 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(metadataPatchBody.literature_id, literatureId);
   assert.deepEqual(metadataPatchBody.tags, ['survey', 'baseline']);
   assert.equal(metadataPatchBody.rights_class, 'OA');
+  assert.equal(metadataPatchBody.key_content_digest, null);
+
+  const pipelineRes = await app.inject({
+    method: 'GET',
+    url: '/literature/' + literatureId + '/pipeline',
+  });
+  assert.equal(pipelineRes.statusCode, 200);
+  const pipelineBody = pipelineRes.json();
+  assert.equal(pipelineBody.literature_id, literatureId);
+  assert.equal(typeof pipelineBody.state.citation_complete, 'boolean');
+  assert.equal(Array.isArray(pipelineBody.stage_states), true);
+
+  const triggerPipelineRunRes = await app.inject({
+    method: 'POST',
+    url: '/literature/' + literatureId + '/pipeline/runs',
+    payload: {
+      requested_stages: ['ABSTRACT_READY'],
+    },
+  });
+  assert.equal(triggerPipelineRunRes.statusCode, 200);
+  const triggerPipelineRunBody = triggerPipelineRunRes.json();
+  assert.equal(triggerPipelineRunBody.run.literature_id, literatureId);
+
+  const listPipelineRunsRes = await app.inject({
+    method: 'GET',
+    url: '/literature/' + literatureId + '/pipeline/runs?limit=5',
+  });
+  assert.equal(listPipelineRunsRes.statusCode, 200);
+  const listPipelineRunsBody = listPipelineRunsRes.json();
+  assert.equal(listPipelineRunsBody.literature_id, literatureId);
+  assert.equal(Array.isArray(listPipelineRunsBody.items), true);
+  assert.equal(listPipelineRunsBody.items.length >= 1, true);
 
   const removedWebImportRes = await app.inject({
     method: 'POST',

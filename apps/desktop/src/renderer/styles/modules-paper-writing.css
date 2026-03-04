@@ -1,0 +1,39 @@
+@layer feature {
+  .paper-literature-table {
+    max-height: 320px;
+    overflow: auto;
+    display: grid;
+    gap: var(--ui-space-2);
+  }
+
+  .paper-literature-row {
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 62%, transparent 38%);
+    background: transparent;
+    padding: var(--ui-space-2) 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--ui-space-3);
+  }
+
+  .paper-literature-row [data-ui='select'] {
+    min-width: 126px;
+  }
+
+  .writing-citation-list {
+    margin-top: var(--ui-space-2);
+    display: grid;
+    gap: var(--ui-space-2);
+    max-height: 260px;
+    overflow: auto;
+  }
+
+  .writing-citation-item {
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 62%, transparent 38%);
+    background: transparent;
+    padding: var(--ui-space-2) 0;
+  }
+
+}

@@ -267,3 +267,15 @@
 - 2026-03-02: 年份双输入合并为单外框样式回归 ✅
   - `pnpm desktop:typecheck` ✅
   - `pnpm desktop:build` ✅
+- 2026-03-04: 统一文献流程 SSOT + Pipeline 骨架回归 ✅
+  - `pnpm --filter @paper-engineering-assistant/shared typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/desktop typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/desktop build` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend test` ✅（55 passed）
+  - 新增覆盖：
+    - `OverviewStatusResolver` 四状态优先级真值表。
+    - `PipelineOrchestrator` run/step 状态机（成功与部分失败）。
+    - 自动导入硬切写回（`in_scope/excluded` + reason code）与 topic scope 自动写入。
+  - 备注：
+    - 根目录 `pnpm typecheck` 仍因仓库既有 `tsconfig.json` 无输入（`TS18003`）失败；该项为历史脚本配置问题，非本次改动引入。

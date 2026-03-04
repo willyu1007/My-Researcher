@@ -1,9 +1,14 @@
 import type {
+  CreateLiteraturePipelineRunRequest,
+  CreateLiteraturePipelineRunResponse,
+  GetLiteraturePipelineResponse,
   GetPaperLiteratureResponse,
   LiteratureImportRequest,
   LiteratureImportResponse,
   LiteratureOverviewQuery,
   LiteratureOverviewResponse,
+  ListLiteraturePipelineRunsQuery,
+  ListLiteraturePipelineRunsResponse,
   SyncPaperLiteratureFromTopicRequest,
   SyncPaperLiteratureFromTopicResponse,
   TopicLiteratureScopeResponse,
@@ -163,6 +168,42 @@ export class LiteratureController {
         request.body,
       );
       reply.status(200).send(result satisfies UpdateLiteratureMetadataResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async getPipeline(
+    request: FastifyRequest<{ Params: LiteratureParams }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.getPipeline(request.params.literatureId);
+      reply.status(200).send(result satisfies GetLiteraturePipelineResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async createPipelineRun(
+    request: FastifyRequest<{ Params: LiteratureParams; Body: CreateLiteraturePipelineRunRequest }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.createPipelineRun(request.params.literatureId, request.body);
+      reply.status(200).send(result satisfies CreateLiteraturePipelineRunResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async listPipelineRuns(
+    request: FastifyRequest<{ Params: LiteratureParams; Querystring: ListLiteraturePipelineRunsQuery }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.listPipelineRuns(request.params.literatureId, request.query);
+      reply.status(200).send(result satisfies ListLiteraturePipelineRunsResponse);
     } catch (error) {
       this.handleError(reply, error);
     }

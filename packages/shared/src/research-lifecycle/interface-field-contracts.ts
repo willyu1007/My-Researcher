@@ -126,6 +126,47 @@ export type TopicScopeStatus = (typeof TOPIC_SCOPE_STATUSES)[number];
 export const PAPER_CITATION_STATUSES = ['seeded', 'selected', 'used', 'cited', 'dropped'] as const;
 export type PaperCitationStatus = (typeof PAPER_CITATION_STATUSES)[number];
 
+export const OVERVIEW_STATUSES = ['excluded', 'automation_ready', 'citable', 'not_citable'] as const;
+export type OverviewStatus = (typeof OVERVIEW_STATUSES)[number];
+
+export const LITERATURE_PIPELINE_STAGE_CODES = [
+  'CITATION_NORMALIZED',
+  'ABSTRACT_READY',
+  'KEY_CONTENT_READY',
+  'FULLTEXT_PREPROCESSED',
+  'CHUNKED',
+  'EMBEDDED',
+  'INDEXED',
+] as const;
+export type LiteraturePipelineStageCode = (typeof LITERATURE_PIPELINE_STAGE_CODES)[number];
+
+export const LITERATURE_PIPELINE_STAGE_STATUSES = [
+  'NOT_STARTED',
+  'PENDING',
+  'RUNNING',
+  'SUCCEEDED',
+  'FAILED',
+  'BLOCKED',
+  'SKIPPED',
+] as const;
+export type LiteraturePipelineStageStatus = (typeof LITERATURE_PIPELINE_STAGE_STATUSES)[number];
+
+export const LITERATURE_PIPELINE_RUN_STATUSES = ['PENDING', 'RUNNING', 'PARTIAL', 'SUCCESS', 'FAILED', 'SKIPPED'] as const;
+export type LiteraturePipelineRunStatus = (typeof LITERATURE_PIPELINE_RUN_STATUSES)[number];
+
+export const LITERATURE_PIPELINE_TRIGGER_SOURCES = [
+  'AUTO_PULL',
+  'MANUAL_IMPORT',
+  'ZOTERO_IMPORT',
+  'METADATA_PATCH',
+  'OVERVIEW_ACTION',
+  'BACKFILL',
+] as const;
+export type LiteraturePipelineTriggerSource = (typeof LITERATURE_PIPELINE_TRIGGER_SOURCES)[number];
+
+export const LITERATURE_PIPELINE_DEDUP_STATUSES = ['unique', 'duplicate', 'unknown'] as const;
+export type LiteraturePipelineDedupStatus = (typeof LITERATURE_PIPELINE_DEDUP_STATUSES)[number];
+
 export interface LiteratureImportItem {
   provider: LiteratureProvider;
   external_id: string;
@@ -502,6 +543,73 @@ export interface AcknowledgeAlertRequest {
   ack_at?: string;
 }
 
+export interface LiteraturePipelineStateDTO {
+  literature_id: string;
+  citation_complete: boolean;
+  abstract_ready: boolean;
+  key_content_ready: boolean;
+  dedup_status: LiteraturePipelineDedupStatus;
+  updated_at: string;
+}
+
+export interface LiteraturePipelineStageStateDTO {
+  stage_code: LiteraturePipelineStageCode;
+  status: LiteraturePipelineStageStatus;
+  last_run_id: string | null;
+  detail: Record<string, unknown>;
+  updated_at: string;
+}
+
+export interface LiteraturePipelineRunStepDTO {
+  step_id: string;
+  stage_code: LiteraturePipelineStageCode;
+  status: LiteraturePipelineStageStatus;
+  input_ref: Record<string, unknown>;
+  output_ref: Record<string, unknown>;
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface LiteraturePipelineRunDTO {
+  run_id: string;
+  literature_id: string;
+  trigger_source: LiteraturePipelineTriggerSource;
+  status: LiteraturePipelineRunStatus;
+  requested_stages: LiteraturePipelineStageCode[];
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+  steps?: LiteraturePipelineRunStepDTO[];
+}
+
+export interface GetLiteraturePipelineResponse {
+  literature_id: string;
+  state: LiteraturePipelineStateDTO;
+  stage_states: LiteraturePipelineStageStateDTO[];
+}
+
+export interface CreateLiteraturePipelineRunRequest {
+  requested_stages?: LiteraturePipelineStageCode[];
+}
+
+export interface CreateLiteraturePipelineRunResponse {
+  run: LiteraturePipelineRunDTO;
+}
+
+export interface ListLiteraturePipelineRunsResponse {
+  literature_id: string;
+  items: LiteraturePipelineRunDTO[];
+}
+
+export interface ListLiteraturePipelineRunsQuery {
+  limit?: number;
+}
+
 export interface LiteratureOverviewItem {
   literature_id: string;
   title: string;
@@ -516,6 +624,12 @@ export interface LiteratureOverviewItem {
   source_updated_at: string | null;
   topic_scope_status?: TopicScopeStatus;
   citation_status?: PaperCitationStatus;
+  overview_status: OverviewStatus;
+  pipeline_state: {
+    citation_complete: boolean;
+    abstract_ready: boolean;
+    key_content_ready: boolean;
+  };
 }
 
 export interface LiteratureOverviewQuery {
@@ -544,6 +658,7 @@ export interface LiteratureOverviewResponse {
 export interface UpdateLiteratureMetadataRequest {
   title?: string;
   abstract?: string | null;
+  key_content_digest?: string | null;
   authors?: string[];
   year?: number | null;
   doi?: string | null;
@@ -556,6 +671,7 @@ export interface UpdateLiteratureMetadataResponse {
   literature_id: string;
   title: string;
   abstract: string | null;
+  key_content_digest: string | null;
   authors: string[];
   year: number | null;
   doi: string | null;
@@ -1335,6 +1451,27 @@ export const literatureOverviewQuerySchema = {
   anyOf: [{ required: ['topic_id'] }, { required: ['paper_id'] }],
 } as const;
 
+export const listLiteraturePipelineRunsQuerySchema = {
+  type: 'object',
+  properties: {
+    limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+  },
+  additionalProperties: false,
+} as const;
+
+export const createLiteraturePipelineRunRequestSchema = {
+  type: 'object',
+  properties: {
+    requested_stages: {
+      type: 'array',
+      items: { type: 'string', enum: LITERATURE_PIPELINE_STAGE_CODES },
+      minItems: 1,
+      uniqueItems: true,
+    },
+  },
+  additionalProperties: false,
+} as const;
+
 export const upsertTopicLiteratureScopeRequestSchema = {
   type: 'object',
   required: ['actions'],
@@ -1380,6 +1517,7 @@ export const updateLiteratureMetadataRequestSchema = {
   properties: {
     title: { type: 'string', minLength: 1 },
     abstract: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    key_content_digest: { anyOf: [{ type: 'string' }, { type: 'null' }] },
     authors: {
       type: 'array',
       items: { type: 'string', minLength: 1 },
@@ -1397,6 +1535,7 @@ export const updateLiteratureMetadataRequestSchema = {
   anyOf: [
     { required: ['title'] },
     { required: ['abstract'] },
+    { required: ['key_content_digest'] },
     { required: ['authors'] },
     { required: ['year'] },
     { required: ['doi'] },

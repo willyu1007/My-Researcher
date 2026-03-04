@@ -2,7 +2,7 @@
 
 ## Status
 - Current status: `in-progress`
-- Last updated: 2026-02-26
+- Last updated: 2026-03-04
 
 ## Final UI decision matrix (alignment output)
 | Decision area | Final decision | Rationale | Frozen |
@@ -1094,3 +1094,79 @@
     - 分隔符颜色与占位符浅灰色保持一致，整体视觉为“同一控件”。
 - Impact scope:
   - `apps/desktop/src/renderer/app-layout.css`
+
+### 2026-03-04 - 统一文献流程 SSOT + Pipeline 骨架（V1）
+- Trigger:
+  - 用户确认按“统一文献流程 SSOT + Pipeline 骨架方案（V1）”直接实施，目标为自动导入/手动导入/文献综览三模块围绕同一后端 SSOT 运作。
+- What changed:
+  - Prisma / DB:
+    - `prisma/schema.prisma`：新增
+      - `LiteraturePipelineState`
+      - `LiteraturePipelineStageState`
+      - `LiteraturePipelineRun`
+      - `LiteraturePipelineRunStep`
+    - `LiteratureRecord` 新增 `keyContentDigest`，并补充 pipeline relation。
+    - 新增 migration：
+      - `prisma/migrations/20260304120000_add_literature_pipeline_ssot/migration.sql`
+  - Shared 契约:
+    - `packages/shared/src/research-lifecycle/interface-field-contracts.ts`
+    - 新增 `OverviewStatus`、pipeline stage/status/run/trigger/dedup 类型与 DTO。
+    - `LiteratureOverviewItem` 新增 `overview_status` 与 `pipeline_state`。
+    - 新增 pipeline API 请求 schema（`listLiteraturePipelineRunsQuerySchema`、`createLiteraturePipelineRunRequestSchema`）。
+    - metadata patch 契约新增 `key_content_digest`。
+  - Backend 服务与编排:
+    - 新增 `apps/backend/src/services/overview-status-resolver.ts`（后端统一状态优先级：`excluded > automation_ready > citable > not_citable`）。
+    - 新增 `apps/backend/src/services/pipeline-orchestrator.ts`（run/step 异步状态机，`PENDING -> RUNNING -> terminal`）。
+    - 新增 `apps/backend/src/services/literature-flow-service.ts`（统一入口触发、阶段执行、pipeline 聚合态维护）。
+    - `apps/backend/src/services/literature-service.ts`：
+      - `import/zoteroImport/updateLiteratureMetadata` 接入统一 flow；
+      - 新增 `importFromAutoPull`；
+      - `getOverview` 改为读取后端计算的 `overview_status + pipeline_state`；
+      - 新增 pipeline 读取/触发/列表接口服务方法。
+  - Backend 仓储:
+    - `apps/backend/src/repositories/literature-repository.ts` 扩展 pipeline record 与仓储接口。
+    - `apps/backend/src/repositories/in-memory-literature-repository.ts` 落地 pipeline state/stage/run/step 内存实现。
+    - `apps/backend/src/repositories/prisma/prisma-literature-repository.ts` 落地 Prisma 实现并补齐 `keyContentDigest`。
+  - Backend 路由/控制器:
+    - `apps/backend/src/controllers/literature-controller.ts`
+    - `apps/backend/src/routes/literature-routes.ts`
+    - 新增:
+      - `GET /literature/:literatureId/pipeline`
+      - `POST /literature/:literatureId/pipeline/runs`
+      - `GET /literature/:literatureId/pipeline/runs`
+  - 自动导入写回策略:
+    - `apps/backend/src/services/auto-pull-service.ts`
+    - 导入调用改为 `literatureService.importFromAutoPull`，触发源统一为 `AUTO_PULL`。
+    - 增加规则信号过滤（include/exclude）后再评分。
+    - 分数硬切改为直接给出 `suggestedScope`：
+      - `>= min_quality_score` -> `in_scope`（reason=`AUTO_RULE_SCORE_GTE_THRESHOLD`）
+      - `< min_quality_score` -> `excluded`（reason=`AUTO_RULE_SCORE_LT_THRESHOLD`）
+    - 对 TOPIC run 自动写回 `TopicLiteratureScope`（最小 reason code 审计）。
+  - 前端综览收敛:
+    - `apps/desktop/src/renderer/App.tsx`
+    - 综览状态不再前端派生，直接消费后端 `overview_status`。
+    - 去除 `overviewContentStatusById` 本地占位状态。
+    - “提取摘要/预处理/向量化”改为调用后端 pipeline 触发接口。
+    - 内容状态展示改为基于 `pipeline_state`（摘要/关键内容就绪）。
+- Impact scope:
+  - `prisma/schema.prisma`
+  - `prisma/migrations/20260304120000_add_literature_pipeline_ssot/migration.sql`
+  - `packages/shared/src/research-lifecycle/interface-field-contracts.ts`
+  - `apps/backend/src/services/overview-status-resolver.ts`
+  - `apps/backend/src/services/pipeline-orchestrator.ts`
+  - `apps/backend/src/services/literature-flow-service.ts`
+  - `apps/backend/src/services/literature-service.ts`
+  - `apps/backend/src/services/auto-pull-service.ts`
+  - `apps/backend/src/controllers/literature-controller.ts`
+  - `apps/backend/src/routes/literature-routes.ts`
+  - `apps/backend/src/repositories/literature-repository.ts`
+  - `apps/backend/src/repositories/in-memory-literature-repository.ts`
+  - `apps/backend/src/repositories/prisma/prisma-literature-repository.ts`
+  - `apps/backend/src/services/overview-status-resolver.unit.test.ts`
+  - `apps/backend/src/services/pipeline-orchestrator.unit.test.ts`
+  - `apps/backend/src/services/auto-pull-service.unit.test.ts`
+  - `apps/backend/src/routes/research-lifecycle-routes.integration.test.ts`
+  - `apps/desktop/src/renderer/App.tsx`
+- Notes:
+  - 按“加字段/加接口”兼容策略实施，旧接口未做破坏性删除。
+  - 回填 job（历史文献 dedup/backfill 统计）作为后续阶段单独执行，当前先落 SSOT 与触发骨架。

@@ -63,6 +63,8 @@ type EligibleCandidate = {
   qualityScore: number;
   rankingScore: number;
   rankingMode: AutoPullRankingMode;
+  suggestedScope: TopicScopeStatus;
+  scopeReason: string;
 };
 
 type SourceExecutionResult = {
@@ -652,7 +654,7 @@ export class AutoPullService {
         });
       const selectedCandidates = globalEligibleCandidates.slice(0, effectivePullLimit);
       const imported = selectedCandidates.length > 0
-        ? await this.literatureService.import({
+        ? await this.literatureService.importFromAutoPull({
           items: selectedCandidates.map((item) => item.candidate.item),
         })
         : { results: [] };
@@ -694,11 +696,36 @@ export class AutoPullService {
         stats.suggestions.push({
           literatureId: result.literature_id,
           topicId: selected.topicId,
-          suggestedScope: 'in_scope',
-          reason: selected.rankingMode === 'hybrid_score' ? 'ranked:hybrid_score' : 'ranked:llm_score',
+          suggestedScope: selected.suggestedScope,
+          reason: selected.scopeReason,
           score: selected.rankingScore,
         });
       });
+
+      const scopeUpsertByTopic = new Map<string, Array<{
+        literature_id: string;
+        scope_status: TopicScopeStatus;
+        reason: string;
+      }>>();
+      for (let index = 0; index < imported.results.length; index += 1) {
+        const result = imported.results[index];
+        const selected = selectedCandidates[index];
+        if (!selected || !selected.topicId) {
+          continue;
+        }
+        const actions = scopeUpsertByTopic.get(selected.topicId) ?? [];
+        actions.push({
+          literature_id: result.literature_id,
+          scope_status: selected.suggestedScope,
+          reason: selected.scopeReason,
+        });
+        scopeUpsertByTopic.set(selected.topicId, actions);
+      }
+      for (const [topicId, actions] of scopeUpsertByTopic.entries()) {
+        await this.literatureService.upsertTopicScope(topicId, {
+          actions,
+        });
+      }
 
       for (const result of sourceResults) {
         const stats = importedBySource.get(result.source) ?? {
@@ -874,6 +901,7 @@ export class AutoPullService {
       const completeCandidates: FetchedCandidate[] = [];
       let incompleteRejectedCount = 0;
       let duplicateSkippedCount = 0;
+      let signalRejectedCount = 0;
 
       for (const candidate of fetchedCandidates) {
         if (!this.isReferenceReady(candidate.item)) {
@@ -899,21 +927,28 @@ export class AutoPullService {
         if (runDedupKey) {
           seenRunDedupKeys.add(runDedupKey);
         }
+
+        if (!this.matchesRuleSignals(candidate.item, context.querySpec)) {
+          signalRejectedCount += 1;
+          continue;
+        }
         completeCandidates.push(candidate);
       }
 
       const rankedCandidates = await this.scoreRankedCandidates(completeCandidates, rankingMode);
       const scoredCount = rankedCandidates.length;
-      const belowThresholdCandidates = rankedCandidates.filter((item) => item.qualityScore < threshold);
       const eligibleCandidates = rankedCandidates
-        .filter((item) => item.qualityScore >= threshold)
-        .map((item) => ({
+        .map((item): EligibleCandidate => ({
           source: source.source,
           topicId: context.topicId,
           candidate: item.candidate,
           qualityScore: item.qualityScore,
           rankingScore: item.rankingScore,
           rankingMode: item.rankingMode,
+          suggestedScope: item.qualityScore >= threshold ? 'in_scope' : 'excluded',
+          scopeReason: item.qualityScore >= threshold
+            ? 'AUTO_RULE_SCORE_GTE_THRESHOLD'
+            : 'AUTO_RULE_SCORE_LT_THRESHOLD',
         }));
 
       await this.repository.upsertCursor({
@@ -924,9 +959,9 @@ export class AutoPullService {
         cursorAt: new Date().toISOString(),
       });
 
-      const belowThresholdCount = belowThresholdCandidates.length;
-      const eligibleCount = eligibleCandidates.length;
-      const failedCount = incompleteRejectedCount + duplicateSkippedCount + belowThresholdCount;
+      const belowThresholdCount = eligibleCandidates.filter((item) => item.suggestedScope === 'excluded').length;
+      const eligibleCount = eligibleCandidates.filter((item) => item.suggestedScope === 'in_scope').length;
+      const failedCount = incompleteRejectedCount + duplicateSkippedCount + signalRejectedCount + belowThresholdCount;
       const llmScoreAvg = scoredCount === 0
         ? null
         : Number((rankedCandidates.reduce((sum, item) => sum + item.qualityScore, 0) / scoredCount).toFixed(2));
@@ -944,6 +979,7 @@ export class AutoPullService {
             fetched_count: fetchedItems.length,
             incomplete_rejected_count: incompleteRejectedCount,
             duplicate_skipped_count: duplicateSkippedCount,
+            signal_rejected_count: signalRejectedCount,
             scored_count: scoredCount,
             below_threshold_count: belowThresholdCount,
             eligible_count: eligibleCount,
@@ -975,6 +1011,7 @@ export class AutoPullService {
           fetched_count: fetchedItems.length,
           incomplete_rejected_count: incompleteRejectedCount,
           duplicate_skipped_count: duplicateSkippedCount,
+          signal_rejected_count: signalRejectedCount,
           scored_count: scoredCount,
           below_threshold_count: belowThresholdCount,
           eligible_count: eligibleCount,
@@ -1506,6 +1543,36 @@ export class AutoPullService {
     return year >= minYear && year <= maxYear;
   }
 
+  private matchesRuleSignals(item: LiteratureImportItem, querySpec: AutoPullQuerySpec): boolean {
+    const text = [
+      item.title,
+      item.abstract ?? '',
+      (item.authors ?? []).join(' '),
+      item.doi ?? '',
+      item.arxiv_id ?? '',
+      item.source_url,
+      (item.tags ?? []).join(' '),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    const includeKeywords = querySpec.includeKeywords
+      .map((keyword) => keyword.trim().toLowerCase())
+      .filter((keyword) => keyword.length > 0);
+    if (includeKeywords.length > 0) {
+      const hitInclude = includeKeywords.some((keyword) => text.includes(keyword));
+      if (!hitInclude) {
+        return false;
+      }
+    }
+
+    const excludeKeywords = querySpec.excludeKeywords
+      .map((keyword) => keyword.trim().toLowerCase())
+      .filter((keyword) => keyword.length > 0);
+    const hitExclude = excludeKeywords.some((keyword) => text.includes(keyword));
+    return !hitExclude;
+  }
+
   private isScheduleDue(schedule: AutoPullRuleScheduleRecord, now: Date): boolean {
     const local = this.toLocalParts(now, schedule.timezone);
     if (!local) {
@@ -1864,6 +1931,10 @@ export class AutoPullService {
       (sum, item) => sum + this.readMetaCount(item.meta, 'duplicate_skipped_count'),
       0,
     );
+    const signalRejectedCount = results.reduce(
+      (sum, item) => sum + this.readMetaCount(item.meta, 'signal_rejected_count'),
+      0,
+    );
     const scoredCount = results.reduce(
       (sum, item) => sum + this.readMetaCount(item.meta, 'scored_count'),
       0,
@@ -1922,6 +1993,7 @@ export class AutoPullService {
         fetched_count: fetchedItems.length,
         incomplete_rejected_count: incompleteRejectedCount,
         duplicate_skipped_count: duplicateSkippedCount,
+        signal_rejected_count: signalRejectedCount,
         scored_count: scoredCount,
         below_threshold_count: belowThresholdCount,
         eligible_count: eligibleCount,

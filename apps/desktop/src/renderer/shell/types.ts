@@ -1,0 +1,44 @@
+import type { RefObject } from 'react';
+import type { ThemeMode } from '../theme';
+import type {
+  AutoImportSubTabKey,
+  LiteratureTabKey,
+  ManualImportSubTabKey,
+} from '../literature/shared/types';
+
+export type TopbarProps = {
+  activeModule: string;
+  isSidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
+  activeLiteratureTab: LiteratureTabKey;
+  autoImportSubTab: AutoImportSubTabKey;
+  manualImportSubTab: ManualImportSubTabKey;
+  literatureTabs: Array<{ key: LiteratureTabKey; label: string }>;
+  literatureSubTabsByTab: Partial<Record<LiteratureTabKey, Array<{ key: string; label: string }>>>;
+  onSelectLiteratureTab: (tab: LiteratureTabKey) => void;
+  onSelectLiteratureSubTab: (tab: LiteratureTabKey, subTab: string) => void;
+  toolbarSearchInput: string;
+  onToolbarSearchInputChange: (value: string) => void;
+  themeModeOptions: Array<{ value: ThemeMode; label: string }>;
+  themeMode: ThemeMode;
+  onThemeModeChange: (mode: ThemeMode) => void;
+};
+
+export type SidebarProps = {
+  isSidebarCollapsed: boolean;
+  coreNavItems: string[];
+  writingNavItems: string[];
+  activeModule: string;
+  onModuleSelect: (moduleName: string) => void;
+  settingsPanelOpen: boolean;
+  settingsPanelRef: RefObject<HTMLDivElement>;
+  isDevMode: boolean;
+  onToggleAppMode: () => void;
+  literatureAutoParseDocuments: boolean;
+  onLiteratureAutoParseDocumentsChange: (value: boolean) => void;
+  literatureAutoExtractAbstracts: boolean;
+  onLiteratureAutoExtractAbstractsChange: (value: boolean) => void;
+  onInjectManualImportTestData: () => Promise<void>;
+  onClearInjectedManualImportData: () => Promise<void>;
+  onToggleSettingsPanel: () => void;
+};
