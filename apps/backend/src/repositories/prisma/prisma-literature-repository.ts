@@ -676,6 +676,10 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
   async listPipelineRunStepsByRunId(runId: string): Promise<LiteraturePipelineRunStepRecord[]> {
     const rows = await this.prisma.literaturePipelineRunStep.findMany({
       where: { runId },
+      orderBy: [
+        { startedAt: 'asc' },
+        { id: 'asc' },
+      ],
     });
     return rows.map((row) => toPipelineRunStepRecord(row));
   }

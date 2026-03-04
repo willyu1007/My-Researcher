@@ -70,7 +70,9 @@ export class PipelineOrchestrator {
     }
 
     const task = this.processRun(runId)
-      .catch(() => undefined)
+      .catch(async (error) => {
+        await this.failRunOnUnhandledError(runId, error);
+      })
       .finally(() => {
         this.runJobs.delete(runId);
       });
@@ -255,6 +257,32 @@ export class PipelineOrchestrator {
       runId,
       status,
     });
+  }
+
+  private async failRunOnUnhandledError(runId: string, error: unknown): Promise<void> {
+    try {
+      const run = await this.repository.findPipelineRunById(runId);
+      if (!run) {
+        return;
+      }
+
+      if (run.status === 'SUCCESS' || run.status === 'FAILED' || run.status === 'PARTIAL' || run.status === 'SKIPPED') {
+        return;
+      }
+
+      const finishedAt = new Date().toISOString();
+      const message = error instanceof Error ? error.message : 'Pipeline run processing failed.';
+      await this.repository.updatePipelineRun(runId, {
+        status: 'FAILED',
+        errorCode: 'PIPELINE_RUN_PROCESSING_FAILED',
+        errorMessage: message,
+        finishedAt,
+        updatedAt: finishedAt,
+      });
+      await this.notifyRunCompleted(run.literatureId, run.id, 'FAILED');
+    } catch {
+      // Do not rethrow from async scheduler error handling.
+    }
   }
 }
 

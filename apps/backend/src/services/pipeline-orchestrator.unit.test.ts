@@ -103,3 +103,33 @@ test('PipelineOrchestrator marks run as PARTIAL when some stages fail', async ()
   assert.equal(steps.length, 2);
   assert.equal(steps.some((step) => step.status === 'FAILED'), true);
 });
+
+test('PipelineOrchestrator marks run as FAILED when unhandled processing error occurs', async () => {
+  class FailingStageStateRepository extends InMemoryLiteratureRepository {
+    override async upsertPipelineStageState(record: Parameters<InMemoryLiteratureRepository['upsertPipelineStageState']>[0]): Promise<never> {
+      void record;
+      throw new Error('stage-state write failed');
+    }
+  }
+
+  const repository = new FailingStageStateRepository();
+  await seedLiterature(repository, 'LIT-PIPE-3');
+
+  const orchestrator = new PipelineOrchestrator(repository, {
+    executeStage: async () => ({
+      status: 'SUCCEEDED',
+      detail: { ok: true },
+    }),
+  });
+
+  const run = await orchestrator.enqueueRun({
+    literatureId: 'LIT-PIPE-3',
+    triggerSource: 'MANUAL_IMPORT',
+    requestedStages: ['CITATION_NORMALIZED'],
+  });
+
+  const terminal = await waitForTerminalRun(repository, run.id);
+  assert.equal(terminal.status, 'FAILED');
+  assert.equal(terminal.errorCode, 'PIPELINE_RUN_PROCESSING_FAILED');
+  assert.equal(terminal.errorMessage?.includes('stage-state write failed'), true);
+});

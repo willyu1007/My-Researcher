@@ -355,7 +355,15 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
     const ids = this.pipelineStepIdsByRun.get(runId) ?? [];
     return ids
       .map((id) => this.pipelineRunSteps.get(id))
-      .filter((record): record is LiteraturePipelineRunStepRecord => record !== undefined);
+      .filter((record): record is LiteraturePipelineRunStepRecord => record !== undefined)
+      .sort((left, right) => {
+        const leftTime = left.startedAt ? new Date(left.startedAt).getTime() : Number.POSITIVE_INFINITY;
+        const rightTime = right.startedAt ? new Date(right.startedAt).getTime() : Number.POSITIVE_INFINITY;
+        if (leftTime !== rightTime) {
+          return leftTime - rightTime;
+        }
+        return left.id.localeCompare(right.id);
+      });
   }
 
   private reindexLiterature(record: LiteratureRecord): void {

@@ -117,12 +117,34 @@ export class LiteratureFlowService {
 
   async refreshPipelineStatesByLiteratureIds(literatureIds: string[]): Promise<Map<string, LiteraturePipelineStateRecord>> {
     const uniqueIds = [...new Set(literatureIds)];
-    const records = await Promise.all(uniqueIds.map(async (literatureId) => {
-      await this.ensurePipelineScaffold(literatureId);
-      return this.refreshPipelineState(literatureId);
-    }));
+    if (uniqueIds.length === 0) {
+      return new Map();
+    }
 
-    return new Map(records.map((record) => [record.literatureId, record]));
+    const existingStates = await this.repository.listPipelineStatesByLiteratureIds(uniqueIds);
+    const stateByLiteratureId = new Map(existingStates.map((record) => [record.literatureId, record]));
+
+    const missingLiteratureIds = uniqueIds.filter((literatureId) => !stateByLiteratureId.has(literatureId));
+    if (missingLiteratureIds.length === 0) {
+      return stateByLiteratureId;
+    }
+
+    const initializedStates = await Promise.all(
+      missingLiteratureIds.map(async (literatureId) => {
+        await this.ensurePipelineScaffold(literatureId);
+        const state = await this.repository.findPipelineStateByLiteratureId(literatureId);
+        if (state) {
+          return state;
+        }
+        return this.refreshPipelineState(literatureId);
+      }),
+    );
+
+    for (const record of initializedStates) {
+      stateByLiteratureId.set(record.literatureId, record);
+    }
+
+    return stateByLiteratureId;
   }
 
   resolveOverviewStatus(input: OverviewStatusResolverInput) {
@@ -193,7 +215,11 @@ export class LiteratureFlowService {
     dedupStatus: LiteraturePipelineDedupStatus = 'unknown',
   ): Promise<void> {
     await this.assertLiteratureExists(literatureId);
-    await this.refreshPipelineState(literatureId, dedupStatus);
+    const existingState = await this.repository.findPipelineStateByLiteratureId(literatureId);
+    const shouldRefreshState = !existingState || dedupStatus !== 'unknown';
+    if (shouldRefreshState) {
+      await this.refreshPipelineState(literatureId, dedupStatus);
+    }
 
     const existingStages = await this.repository.listPipelineStageStatesByLiteratureId(literatureId);
     const stageMap = new Map(existingStages.map((stage) => [stage.stageCode, stage]));
@@ -201,14 +227,17 @@ export class LiteratureFlowService {
 
     for (const stageCode of PIPELINE_STAGE_CODES) {
       const existing = stageMap.get(stageCode);
+      if (existing) {
+        continue;
+      }
       await this.repository.upsertPipelineStageState({
-        id: existing?.id ?? crypto.randomUUID(),
+        id: crypto.randomUUID(),
         literatureId,
         stageCode,
-        status: existing?.status ?? 'NOT_STARTED',
-        lastRunId: existing?.lastRunId ?? null,
-        detail: existing?.detail ?? {},
-        updatedAt: existing?.updatedAt ?? now,
+        status: 'NOT_STARTED',
+        lastRunId: null,
+        detail: {},
+        updatedAt: now,
       });
     }
   }
