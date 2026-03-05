@@ -2,7 +2,7 @@
 
 ## Status
 - State: in-progress
-- Next step: 用户验收“文献管线 V2（7 阶段完整可执行 + API/DB/前端语义一致化）”实现，并确认回填脚本执行窗口（`pipeline:backfill --apply`）。
+- Next step: 用户验收“Pipeline V2.1 三项缺口修复（embedding 版本化映射 / 全局 retrieve / metadata intake 侧栏）”，并确认 embedding 映射回填窗口（`pipeline:backfill-embedding-mapping --apply`）。
 
 ## Goal
 - 在既有自动拉取体系基础上，完成文献 pipeline 从 V1 骨架到 V2 完整可运行版本的升级，确保 API/DB/前端语义与文档契约一致，并为后续能力（回填、检索增强、向量能力扩展）提供稳定底座。

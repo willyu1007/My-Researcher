@@ -300,3 +300,15 @@
   - `node .ai/scripts/ctl-openapi-quality.mjs verify --strict` ✅
   - `node .ai/scripts/ctl-api-index.mjs verify --strict` ✅
   - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict` ✅
+- 2026-03-05: Pipeline V2.1（三项缺口修复）回归 ✅
+  - `pnpm --filter @paper-engineering-assistant/shared typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend test` ✅（65 passed）
+  - `pnpm --filter @paper-engineering-assistant/desktop typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/desktop build` ✅
+  - `node .ai/scripts/ctl-openapi-quality.mjs verify --strict` ✅
+  - `node .ai/scripts/ctl-api-index.mjs generate --touch` ✅（37 endpoints）
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context` ✅
+  - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict` ✅
+- 2026-03-05: backfill script 语法校验 ✅
+  - `node --check apps/backend/scripts/backfill-embedding-version-mapping.mjs` ✅

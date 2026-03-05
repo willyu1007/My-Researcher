@@ -1264,3 +1264,55 @@
 - Notes:
   - 回填作业仅交付脚本与执行参数，不在本轮自动触发历史数据回填。
   - 向量持久化维持本地优先，不引入外部向量数据库。
+
+### 2026-03-05 - Pipeline 工作流缺口修复 V2.1（三项优先）
+- Trigger:
+  - 用户确认优先修复三项工作流缺口：
+    - embedding 版本化映射（保留历史 + 自动激活最新成功版本）
+    - 全局 retrieve + chunk 证据 API
+    - 手动录入入口改为独立 side panel（Overview 仅触发）
+- What changed:
+  - Commit A `527d2ef`:
+    - Prisma 新增 `LiteratureEmbeddingVersion / LiteratureEmbeddingChunk / LiteratureEmbeddingTokenIndex`。
+    - `LiteratureRecord.activeEmbeddingVersionId` 落库。
+    - repository（prisma + in-memory + interface）扩展版本化读写能力。
+    - shared 契约新增 `GetLiteratureMetadataResponse`、retrieve request/response/hit/evidence 类型。
+  - Commit B `df0ac28`:
+    - `literature-flow-service` 在 `EMBEDDED/INDEXED` 阶段写入新 embedding version。
+    - 仅在 `INDEXED` 成功后切换 `activeEmbeddingVersionId`，失败 run 不切换。
+  - Commit C `dbc07a5`:
+    - 新增 `GET /literature/{literatureId}/metadata`。
+    - 新增 `POST /literature/retrieve` 与 `LiteratureRetrievalService`（Hybrid=0.7 vector + 0.3 lexical，返回 evidence chunks）。
+    - OpenAPI + API index 同步。
+  - Commit D `3b9fe34`:
+    - 前端新增 `Metadata Intake Panel`（独立侧栏录入）。
+    - Overview 每行新增“录入内容”触发按钮，面板负责 GET/PATCH metadata、成功后关闭并刷新 overview。
+  - Commit E（本次）:
+    - 新增 `apps/backend/scripts/backfill-embedding-version-mapping.mjs`（默认 dry-run，支持 `--apply --batch-size --concurrency`）。
+    - `apps/backend/package.json` 新增 `pipeline:backfill-embedding-mapping` 脚本。
+    - dev-docs 与 verification 记录补齐。
+- Impact scope:
+  - `prisma/schema.prisma`
+  - `prisma/migrations/20260305190000_add_embedding_version_mapping/migration.sql`
+  - `apps/backend/src/repositories/literature-repository.ts`
+  - `apps/backend/src/repositories/prisma/prisma-literature-repository.ts`
+  - `apps/backend/src/repositories/in-memory-literature-repository.ts`
+  - `apps/backend/src/services/literature-flow-service.ts`
+  - `apps/backend/src/services/literature-retrieval-service.ts`
+  - `apps/backend/src/services/literature-service.ts`
+  - `apps/backend/src/controllers/literature-controller.ts`
+  - `apps/backend/src/routes/literature-routes.ts`
+  - `apps/backend/scripts/backfill-embedding-version-mapping.mjs`
+  - `apps/backend/package.json`
+  - `apps/desktop/src/renderer/literature/intake/MetadataIntakePanel.tsx`
+  - `apps/desktop/src/renderer/literature/intake/useMetadataIntakeController.ts`
+  - `apps/desktop/src/renderer/literature/overview/OverviewTab.tsx`
+  - `apps/desktop/src/renderer/literature/overview/useOverviewActionsController.ts`
+  - `apps/desktop/src/renderer/literature/shared/types.ts`
+  - `apps/desktop/src/renderer/literature/shared/normalizers.ts`
+  - `apps/desktop/src/renderer/styles/literature-overview.css`
+  - `docs/context/api/openapi.yaml`
+  - `docs/context/api/api-index.json`
+  - `docs/context/api/API-INDEX.md`
+- Notes:
+  - 本轮未自动执行 backfill 写入；仅交付脚本与执行参数。
