@@ -16,6 +16,7 @@ import type {
 } from '@paper-engineering-assistant/shared';
 import { AppError } from '../errors/app-error.js';
 import type {
+  LiteratureEmbeddingVersionRecord,
   LiteraturePipelineArtifactRecord,
   LiteraturePipelineDedupStatus,
   LiteraturePipelineRunRecord,
@@ -405,17 +406,27 @@ export class LiteratureFlowService {
       const vectorCount = Array.isArray(embedded.payload.vectors)
         ? embedded.payload.vectors.length
         : 0;
+      const embeddingVersion = await this.persistEmbeddingVersionSnapshot({
+        literatureId: context.literatureId,
+        chunkArtifact,
+        embeddedArtifact: embedded,
+        activate: false,
+      });
       return {
         status: 'SUCCEEDED',
         detail: {
           stage_code: context.stageCode,
           embedding_provider: embedded.payload.provider,
           vector_count: vectorCount,
+          embedding_version_id: embeddingVersion.id,
+          activated: false,
         },
         outputRef: {
           artifact_id: embedded.id,
           vector_count: vectorCount,
           embedding_provider: embedded.payload.provider,
+          embedding_version_id: embeddingVersion.id,
+          activated: false,
         },
       };
     }
@@ -428,15 +439,26 @@ export class LiteratureFlowService {
       }
       const indexed = await this.ensureIndexed(context.literatureId, chunked, embedded);
       const tokenCount = typeof indexed.payload.token_count === 'number' ? indexed.payload.token_count : 0;
+      const embeddingVersion = await this.persistEmbeddingVersionSnapshot({
+        literatureId: context.literatureId,
+        chunkArtifact: chunked,
+        embeddedArtifact: embedded,
+        tokenToChunkIds: this.readTokenToChunkIds(indexed),
+        activate: true,
+      });
       return {
         status: 'SUCCEEDED',
         detail: {
           stage_code: context.stageCode,
           token_count: tokenCount,
+          embedding_version_id: embeddingVersion.id,
+          activated: true,
         },
         outputRef: {
           artifact_id: indexed.id,
           token_count: tokenCount,
+          embedding_version_id: embeddingVersion.id,
+          activated: true,
         },
       };
     }
@@ -778,6 +800,85 @@ export class LiteratureFlowService {
     });
   }
 
+  private async persistEmbeddingVersionSnapshot(input: {
+    literatureId: string;
+    chunkArtifact: LiteraturePipelineArtifactRecord;
+    embeddedArtifact: LiteraturePipelineArtifactRecord;
+    tokenToChunkIds?: Map<string, string[]>;
+    activate: boolean;
+  }): Promise<LiteratureEmbeddingVersionRecord> {
+    const literature = await this.repository.findLiteratureById(input.literatureId);
+    if (!literature) {
+      throw new AppError(404, 'NOT_FOUND', `Literature ${input.literatureId} not found.`);
+    }
+
+    const latestVersion = await this.repository.findLatestEmbeddingVersionByLiteratureId(input.literatureId);
+    const now = new Date().toISOString();
+    const chunks = this.readChunks(input.chunkArtifact);
+    const vectors = this.readEmbeddings(input.embeddedArtifact);
+    const vectorByChunkId = new Map(vectors.map((vector) => [vector.chunk_id, vector.vector]));
+    const tokenEntries = [...(input.tokenToChunkIds?.entries() ?? [])];
+    const provider = typeof input.embeddedArtifact.payload.provider === 'string'
+      ? input.embeddedArtifact.payload.provider
+      : 'local';
+    const model = typeof input.embeddedArtifact.payload.model === 'string'
+      ? input.embeddedArtifact.payload.model
+      : 'local-hash-embedding-v1';
+    const dimension = vectors[0]?.vector.length ?? 0;
+
+    const version = await this.repository.createEmbeddingVersion({
+      id: crypto.randomUUID(),
+      literatureId: input.literatureId,
+      versionNo: (latestVersion?.versionNo ?? 0) + 1,
+      provider,
+      model,
+      dimension,
+      chunkCount: chunks.length,
+      vectorCount: vectors.length,
+      tokenCount: tokenEntries.length,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const embeddingChunks = chunks.map((chunk) => ({
+      id: crypto.randomUUID(),
+      embeddingVersionId: version.id,
+      literatureId: input.literatureId,
+      chunkId: chunk.chunk_id,
+      chunkIndex: chunk.index,
+      text: chunk.text,
+      startOffset: chunk.start_offset,
+      endOffset: chunk.end_offset,
+      vector: vectorByChunkId.get(chunk.chunk_id) ?? [],
+      createdAt: now,
+      updatedAt: now,
+    }));
+    await this.repository.createEmbeddingChunks(embeddingChunks);
+
+    const tokenIndexes = tokenEntries.map(([token, chunkIds]) => ({
+      id: crypto.randomUUID(),
+      embeddingVersionId: version.id,
+      literatureId: input.literatureId,
+      token,
+      chunkIds,
+      createdAt: now,
+      updatedAt: now,
+    }));
+    if (tokenIndexes.length > 0) {
+      await this.repository.createEmbeddingTokenIndexes(tokenIndexes);
+    }
+
+    if (input.activate) {
+      await this.repository.updateLiterature({
+        ...literature,
+        activeEmbeddingVersionId: version.id,
+        updatedAt: now,
+      });
+    }
+
+    return version;
+  }
+
   private async upsertPipelineArtifact(input: {
     literatureId: string;
     stageCode: LiteraturePipelineArtifactRecord['stageCode'];
@@ -876,6 +977,49 @@ export class LiteratureFlowService {
         } satisfies ChunkRecord;
       })
       .filter((row): row is ChunkRecord => row !== null);
+  }
+
+  private readEmbeddings(embeddedArtifact: LiteraturePipelineArtifactRecord): EmbeddingRecord[] {
+    const payloadVectors = embeddedArtifact.payload.vectors;
+    if (!Array.isArray(payloadVectors)) {
+      return [];
+    }
+    return payloadVectors
+      .map((item, index) => {
+        if (!item || typeof item !== 'object') {
+          return null;
+        }
+        const row = item as Record<string, unknown>;
+        const rawVector = Array.isArray(row.vector)
+          ? row.vector.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+          : [];
+        const chunkId = typeof row.chunk_id === 'string' ? row.chunk_id : `chunk-${String(index + 1).padStart(4, '0')}`;
+        const chunkIndex = typeof row.index === 'number' ? row.index : index;
+        return {
+          chunk_id: chunkId,
+          index: chunkIndex,
+          vector: rawVector,
+        } satisfies EmbeddingRecord;
+      })
+      .filter((row): row is EmbeddingRecord => row !== null);
+  }
+
+  private readTokenToChunkIds(indexedArtifact: LiteraturePipelineArtifactRecord): Map<string, string[]> {
+    const payload = indexedArtifact.payload.token_to_chunk_ids;
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return new Map();
+    }
+    return new Map(
+      Object.entries(payload).flatMap(([token, rawChunkIds]) => {
+        if (!Array.isArray(rawChunkIds)) {
+          return [];
+        }
+        const chunkIds = rawChunkIds
+          .map((value) => (typeof value === 'string' ? value : null))
+          .filter((value): value is string => value !== null);
+        return chunkIds.length > 0 ? [[token, [...new Set(chunkIds)]]] : [];
+      }),
+    );
   }
 
   private async embedChunks(chunks: ChunkRecord[]): Promise<{

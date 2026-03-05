@@ -78,6 +78,20 @@ test('literature flow executes all seven stages and persists stage artifacts', a
   const artifacts = await repository.listPipelineArtifactsByLiteratureId('LIT-FLOW-1');
   const artifactTypes = artifacts.map((item) => item.artifactType).sort();
   assert.deepEqual(artifactTypes, ['CHUNKS', 'EMBEDDINGS', 'LOCAL_INDEX', 'PREPROCESSED_TEXT']);
+
+  const versions = await repository.listEmbeddingVersionsByLiteratureIds(['LIT-FLOW-1']);
+  assert.equal(versions.length, 2);
+  assert.equal(versions[0]?.versionNo, 1);
+  assert.equal(versions[1]?.versionNo, 2);
+
+  const literature = await repository.findLiteratureById('LIT-FLOW-1');
+  assert.ok(literature);
+  assert.equal(literature.activeEmbeddingVersionId, versions[1]?.id ?? null);
+
+  const activeChunkRows = await repository.listEmbeddingChunksByEmbeddingVersionId(versions[1]!.id);
+  assert.equal(activeChunkRows.length > 0, true);
+  const activeTokenRows = await repository.listEmbeddingTokenIndexesByEmbeddingVersionId(versions[1]!.id);
+  assert.equal(activeTokenRows.length > 0, true);
 });
 
 test('literature flow blocks deep stages for RESTRICTED rights class', async () => {
@@ -185,4 +199,90 @@ test('literature flow enforces USER_AUTH gate by global env switch', async () =>
       process.env.LITERATURE_USER_AUTH_PIPELINE_ENABLED = previous;
     }
   }
+});
+
+test('literature flow creates new embedding versions on rerun and switches active version after INDEXED success', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository);
+  await seedLiterature(repository, 'LIT-FLOW-VERSIONING', 'OA');
+
+  const firstRun = await service.handleLiteratureUpserted({
+    literatureId: 'LIT-FLOW-VERSIONING',
+    triggerSource: 'OVERVIEW_ACTION',
+    requestedStages: ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+  });
+  const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
+  assert.equal(firstTerminal.status, 'SUCCESS');
+
+  const literatureAfterFirst = await repository.findLiteratureById('LIT-FLOW-VERSIONING');
+  assert.ok(literatureAfterFirst?.activeEmbeddingVersionId);
+  const activeAfterFirst = literatureAfterFirst.activeEmbeddingVersionId!;
+
+  const literature = await repository.findLiteratureById('LIT-FLOW-VERSIONING');
+  assert.ok(literature);
+  await repository.updateLiterature({
+    ...literature,
+    keyContentDigest: 'Versioning test digest updated for rerun.',
+    updatedAt: new Date().toISOString(),
+  });
+
+  const secondRun = await service.handleLiteratureUpserted({
+    literatureId: 'LIT-FLOW-VERSIONING',
+    triggerSource: 'OVERVIEW_ACTION',
+    requestedStages: ['FULLTEXT_PREPROCESSED', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+  });
+  const secondTerminal = await waitForTerminalRun(repository, secondRun.run_id);
+  assert.equal(secondTerminal.status, 'SUCCESS');
+
+  const versions = await repository.listEmbeddingVersionsByLiteratureIds(['LIT-FLOW-VERSIONING']);
+  assert.equal(versions.length, 4);
+  assert.equal(versions[3]?.versionNo, 4);
+
+  const literatureAfterSecond = await repository.findLiteratureById('LIT-FLOW-VERSIONING');
+  assert.ok(literatureAfterSecond?.activeEmbeddingVersionId);
+  assert.notEqual(literatureAfterSecond?.activeEmbeddingVersionId, activeAfterFirst);
+
+  const oldVersion = await repository.findEmbeddingVersionById(activeAfterFirst);
+  assert.ok(oldVersion);
+});
+
+test('literature flow keeps active embedding version unchanged when INDEXED stage fails', async () => {
+  class FailingTokenIndexRepository extends InMemoryLiteratureRepository {
+    failTokenWrite = false;
+
+    override async createEmbeddingTokenIndexes(records: Parameters<InMemoryLiteratureRepository['createEmbeddingTokenIndexes']>[0]) {
+      if (this.failTokenWrite) {
+        throw new Error('token-index write failed');
+      }
+      return super.createEmbeddingTokenIndexes(records);
+    }
+  }
+
+  const repository = new FailingTokenIndexRepository();
+  const service = new LiteratureFlowService(repository);
+  await seedLiterature(repository, 'LIT-FLOW-ACTIVE-GUARD', 'OA');
+
+  const firstRun = await service.handleLiteratureUpserted({
+    literatureId: 'LIT-FLOW-ACTIVE-GUARD',
+    triggerSource: 'OVERVIEW_ACTION',
+    requestedStages: ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+  });
+  const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
+  assert.equal(firstTerminal.status, 'SUCCESS');
+
+  const literatureAfterFirst = await repository.findLiteratureById('LIT-FLOW-ACTIVE-GUARD');
+  assert.ok(literatureAfterFirst?.activeEmbeddingVersionId);
+  const activeVersionBeforeFailure = literatureAfterFirst.activeEmbeddingVersionId;
+
+  repository.failTokenWrite = true;
+  const failedRun = await service.handleLiteratureUpserted({
+    literatureId: 'LIT-FLOW-ACTIVE-GUARD',
+    triggerSource: 'OVERVIEW_ACTION',
+    requestedStages: ['FULLTEXT_PREPROCESSED', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+  });
+  const failedTerminal = await waitForTerminalRun(repository, failedRun.run_id);
+  assert.equal(failedTerminal.status, 'PARTIAL');
+
+  const literatureAfterFailure = await repository.findLiteratureById('LIT-FLOW-ACTIVE-GUARD');
+  assert.equal(literatureAfterFailure?.activeEmbeddingVersionId, activeVersionBeforeFailure);
 });
