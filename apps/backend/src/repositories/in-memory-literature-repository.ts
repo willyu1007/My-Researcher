@@ -358,6 +358,12 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
     return versions[0] ?? null;
   }
 
+  async listActiveEmbeddingVersions(): Promise<LiteratureEmbeddingVersionRecord[]> {
+    return [...this.literatures.values()]
+      .map((record) => (record.activeEmbeddingVersionId ? this.embeddingVersions.get(record.activeEmbeddingVersionId) : null))
+      .filter((record): record is LiteratureEmbeddingVersionRecord => record !== null && record !== undefined);
+  }
+
   async listEmbeddingVersionsByLiteratureIds(literatureIds: string[]): Promise<LiteratureEmbeddingVersionRecord[]> {
     if (literatureIds.length === 0) {
       return [];

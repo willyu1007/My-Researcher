@@ -797,6 +797,23 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
     return row ? toEmbeddingVersionRecord(row) : null;
   }
 
+  async listActiveEmbeddingVersions(): Promise<LiteratureEmbeddingVersionRecord[]> {
+    const rows = await this.prisma.literatureRecord.findMany({
+      where: {
+        activeEmbeddingVersionId: {
+          not: null,
+        },
+      },
+      select: {
+        activeEmbeddingVersion: true,
+      },
+    });
+    return rows
+      .map((row) => row.activeEmbeddingVersion)
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .map((row) => toEmbeddingVersionRecord(row));
+  }
+
   async listEmbeddingVersionsByLiteratureIds(literatureIds: string[]): Promise<LiteratureEmbeddingVersionRecord[]> {
     if (literatureIds.length === 0) {
       return [];

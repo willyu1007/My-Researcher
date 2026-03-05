@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-05T05:18:36.127Z",
+  "generatedAt": "2026-03-05T09:13:36.885Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "cb91e5076344d201d131c68302b070040b8ca34a4830a53cde81d0a9dae0d96e",
+  "sourceChecksumSha256": "3096bab116257ddf2cd17a659b94eddc4b20519f752c937d2e472298373d3b2b",
   "stats": {
-    "totalEndpoints": 35,
+    "totalEndpoints": 37,
     "byTag": {
       "health": 1,
       "research-lifecycle": 8,
-      "literature": 13,
+      "literature": 15,
       "topic-settings": 3,
       "auto-pull": 10
     }
@@ -485,6 +485,43 @@
       }
     },
     {
+      "method": "POST",
+      "path": "/literature/retrieve",
+      "operationId": "retrieveLiterature",
+      "summary": "Retrieve relevant literature chunks from active embedding versions.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "query"
+          ],
+          "optional": [
+            "topic_id",
+            "paper_id",
+            "top_k",
+            "evidence_per_literature"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "items",
+          "meta"
+        ]
+      },
+      "errors": [
+        400,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/retrieve' -H 'Content-Type: application/json' -d '{\"query\":\"<query>\"}'"
+      }
+    },
+    {
       "method": "GET",
       "path": "/topics/{topicId}/literature-scope",
       "operationId": "getTopicLiteratureScope",
@@ -649,6 +686,38 @@
       ],
       "example": {
         "curl": "curl -X PATCH '/paper-projects/{id}/literature-links/{linkId}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/literature/{literatureId}/metadata",
+      "operationId": "getLiteratureMetadata",
+      "summary": "Get editable metadata fields of one literature.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "literatureId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "literature_id",
+          "title",
+          "abstract",
+          "key_content_digest",
+          "updated_at"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/literature/{literatureId}/metadata'"
       }
     },
     {

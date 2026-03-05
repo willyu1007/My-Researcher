@@ -4,10 +4,13 @@ import {
   type CreateLiteraturePipelineRunResponse,
   type DedupMatchType,
   type GetLiteraturePipelineResponse,
+  type GetLiteratureMetadataResponse,
   type GetPaperLiteratureResponse,
   type LiteratureImportItem,
   type LiteratureImportRequest,
   type LiteratureImportResponse,
+  type LiteratureRetrieveRequest,
+  type LiteratureRetrieveResponse,
   type LiteraturePipelineTriggerSource,
   type LiteratureOverviewQuery,
   type LiteratureOverviewResponse,
@@ -39,6 +42,7 @@ import type {
 } from '../repositories/literature-repository.js';
 import type { ResearchLifecycleRepository } from '../repositories/research-lifecycle-repository.js';
 import { LiteratureFlowService } from './literature-flow-service.js';
+import { LiteratureRetrievalService } from './literature-retrieval-service.js';
 
 type DedupCandidate = {
   doiNormalized: string | null;
@@ -56,6 +60,7 @@ export class LiteratureService {
     private readonly literatureRepository: LiteratureRepository,
     private readonly researchRepository: ResearchLifecycleRepository,
     private readonly literatureFlowService: LiteratureFlowService = new LiteratureFlowService(literatureRepository),
+    private readonly literatureRetrievalService: LiteratureRetrievalService = new LiteratureRetrievalService(literatureRepository),
   ) {}
 
   async import(
@@ -675,6 +680,25 @@ export class LiteratureService {
       tags: updated.tags,
       updated_at: updated.updatedAt,
     };
+  }
+
+  async getLiteratureMetadata(literatureId: string): Promise<GetLiteratureMetadataResponse> {
+    const literature = await this.literatureRepository.findLiteratureById(literatureId);
+    if (!literature) {
+      throw new AppError(404, 'NOT_FOUND', `Literature ${literatureId} not found.`);
+    }
+
+    return {
+      literature_id: literature.id,
+      title: literature.title,
+      abstract: literature.abstractText,
+      key_content_digest: literature.keyContentDigest,
+      updated_at: literature.updatedAt,
+    };
+  }
+
+  async retrieveLiterature(request: LiteratureRetrieveRequest): Promise<LiteratureRetrieveResponse> {
+    return this.literatureRetrievalService.retrieve(request);
   }
 
   async getPipeline(literatureId: string): Promise<GetLiteraturePipelineResponse> {

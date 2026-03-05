@@ -418,6 +418,15 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(metadataPatchBody.rights_class, 'OA');
   assert.equal(typeof metadataPatchBody.key_content_digest, 'string');
 
+  const metadataGetRes = await app.inject({
+    method: 'GET',
+    url: '/literature/' + literatureId + '/metadata',
+  });
+  assert.equal(metadataGetRes.statusCode, 200);
+  const metadataGetBody = metadataGetRes.json();
+  assert.equal(metadataGetBody.literature_id, literatureId);
+  assert.equal(typeof metadataGetBody.key_content_digest, 'string');
+
   const pipelineRes = await app.inject({
     method: 'GET',
     url: '/literature/' + literatureId + '/pipeline',
@@ -449,6 +458,21 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(listPipelineRunsBody.literature_id, literatureId);
   assert.equal(Array.isArray(listPipelineRunsBody.items), true);
   assert.equal(listPipelineRunsBody.items.length >= 1, true);
+
+  const retrieveRes = await app.inject({
+    method: 'POST',
+    url: '/literature/retrieve',
+    payload: {
+      query: 'workflow paper',
+      topic_id: 'TOPIC-INT-LIT-1',
+      top_k: 5,
+      evidence_per_literature: 2,
+    },
+  });
+  assert.equal(retrieveRes.statusCode, 200);
+  const retrieveBody = retrieveRes.json();
+  assert.equal(Array.isArray(retrieveBody.items), true);
+  assert.equal(Array.isArray(retrieveBody.meta.query_tokens), true);
 
   const removedWebImportRes = await app.inject({
     method: 'POST',

@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-03-05T05:18:36.127Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `cb91e5076344...`)
+> Auto-generated at 2026-03-05T09:13:36.885Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `3096bab11625...`)
 
-Total endpoints: **35**
+Total endpoints: **37**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -20,11 +20,13 @@ Total endpoints: **35**
 | POST | /literature/zotero-import | Import literature from Zotero library. | none | library_type, library_id | imported_count, scope_upserted_count, results, topic_id | 400, 500, 502 |
 | POST | /literature/zotero-preview | Fetch Zotero literature candidates for manual review table. | none | library_type, library_id | fetched_count, items | 400, 500, 502 |
 | GET | /literature/overview | Get literature overview filtered by topic and/or paper. | none | — | summary, items, topic_id, paper_id | 400, 404, 500 |
+| POST | /literature/retrieve | Retrieve relevant literature chunks from active embedding versions. | none | query | items, meta | 400, 500 |
 | GET | /topics/{topicId}/literature-scope | Get literature scope list for a topic. | none | topicId | topic_id, items | 404, 500 |
 | POST | /topics/{topicId}/literature-scope | Upsert literature scope actions for a topic. | none | actions | topic_id, items | 400, 404, 500 |
 | POST | /paper-projects/{id}/literature-links/from-topic | Sync in-scope topic literature into paper links. | none | topic_id | paper_id, topic_id, linked_count, skipped_count | 400, 404, 500 |
 | GET | /paper-projects/{id}/literature | Get literature links under a paper. | none | id | paper_id, items | 404, 500 |
 | PATCH | /paper-projects/{id}/literature-links/{linkId} | Update citation status or note of a paper literature link. | none | id, linkId | paper_id, item | 400, 404, 500 |
+| GET | /literature/{literatureId}/metadata | Get editable metadata fields of one literature. | none | literatureId | literature_id, title, abstract, key_content_digest, updated_at | 404, 500 |
 | PATCH | /literature/{literatureId}/metadata | Update literature metadata fields. | none | literatureId | literature_id, title, abstract, key_content_digest, authors, year, doi, arxiv_id, rights_class, tags, updated_at | 400, 404, 409, 500 |
 | GET | /literature/{literatureId}/pipeline | Get pipeline aggregate state and stage states for a literature. | none | literatureId | literature_id, state, stage_states | 404, 500 |
 | GET | /literature/{literatureId}/pipeline/runs | List pipeline runs for one literature. | none | literatureId | literature_id, items | 404, 500 |

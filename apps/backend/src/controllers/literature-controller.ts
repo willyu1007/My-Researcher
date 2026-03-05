@@ -2,11 +2,14 @@ import type {
   CreateLiteraturePipelineRunRequest,
   CreateLiteraturePipelineRunResponse,
   GetLiteraturePipelineResponse,
+  GetLiteratureMetadataResponse,
   GetPaperLiteratureResponse,
   LiteratureImportRequest,
   LiteratureImportResponse,
   LiteratureOverviewQuery,
   LiteratureOverviewResponse,
+  LiteratureRetrieveRequest,
+  LiteratureRetrieveResponse,
   ListLiteraturePipelineRunsQuery,
   ListLiteraturePipelineRunsResponse,
   SyncPaperLiteratureFromTopicRequest,
@@ -168,6 +171,30 @@ export class LiteratureController {
         request.body,
       );
       reply.status(200).send(result satisfies UpdateLiteratureMetadataResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async getLiteratureMetadata(
+    request: FastifyRequest<{ Params: LiteratureParams }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.getLiteratureMetadata(request.params.literatureId);
+      reply.status(200).send(result satisfies GetLiteratureMetadataResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async retrieve(
+    request: FastifyRequest<{ Body: LiteratureRetrieveRequest }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.retrieveLiterature(request.body);
+      reply.status(200).send(result satisfies LiteratureRetrieveResponse);
     } catch (error) {
       this.handleError(reply, error);
     }
