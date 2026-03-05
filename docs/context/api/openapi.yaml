@@ -630,6 +630,92 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /literature/{literatureId}/pipeline:
+    get:
+      operationId: getLiteraturePipeline
+      summary: Get pipeline aggregate state and stage states for a literature.
+      tags: [literature]
+      parameters:
+        - name: literatureId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Literature pipeline aggregate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetLiteraturePipelineResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/{literatureId}/pipeline/runs:
+    post:
+      operationId: createLiteraturePipelineRun
+      summary: Trigger a pipeline run for one literature.
+      tags: [literature]
+      parameters:
+        - name: literatureId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLiteraturePipelineRunRequest'
+      responses:
+        '200':
+          description: Pipeline run accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateLiteraturePipelineRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: listLiteraturePipelineRuns
+      summary: List pipeline runs for one literature.
+      tags: [literature]
+      parameters:
+        - name: literatureId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Pipeline run list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListLiteraturePipelineRunsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /topics/settings:
     post:
       operationId: createTopicProfile
@@ -1357,6 +1443,52 @@ components:
     PaperCitationStatus:
       type: string
       enum: [seeded, selected, used, cited, dropped]
+
+    OverviewStatus:
+      type: string
+      enum: [excluded, automation_ready, citable, not_citable]
+
+    LiteraturePipelineDedupStatus:
+      type: string
+      enum: [unique, duplicate, unknown]
+
+    LiteraturePipelineStageCode:
+      type: string
+      enum:
+        - CITATION_NORMALIZED
+        - ABSTRACT_READY
+        - KEY_CONTENT_READY
+        - FULLTEXT_PREPROCESSED
+        - CHUNKED
+        - EMBEDDED
+        - INDEXED
+
+    LiteraturePipelineStageStatus:
+      type: string
+      enum: [NOT_STARTED, PENDING, RUNNING, SUCCEEDED, FAILED, BLOCKED, SKIPPED]
+
+    LiteraturePipelineRunStatus:
+      type: string
+      enum: [PENDING, RUNNING, PARTIAL, SUCCESS, FAILED, SKIPPED]
+
+    LiteraturePipelineTriggerSource:
+      type: string
+      enum: [AUTO_PULL, MANUAL_IMPORT, ZOTERO_IMPORT, METADATA_PATCH, OVERVIEW_ACTION, BACKFILL]
+
+    LiteraturePipelineActionCode:
+      type: string
+      enum: [EXTRACT_ABSTRACT, PREPROCESS_FULLTEXT, VECTORIZE]
+
+    LiteraturePipelineActionReasonCode:
+      type: string
+      enum:
+        - READY
+        - EXCLUDED_BY_SCOPE
+        - RIGHTS_RESTRICTED
+        - USER_AUTH_DISABLED
+        - PREREQUISITE_NOT_READY
+        - STAGE_ALREADY_READY
+        - RUN_IN_FLIGHT
 
     AutoPullScope:
       type: string
@@ -2136,6 +2268,249 @@ components:
           $ref: '#/components/schemas/PaperLiteratureLinkView'
       additionalProperties: false
 
+    LiteraturePipelineStageStatusMap:
+      type: object
+      required:
+        - CITATION_NORMALIZED
+        - ABSTRACT_READY
+        - KEY_CONTENT_READY
+        - FULLTEXT_PREPROCESSED
+        - CHUNKED
+        - EMBEDDED
+        - INDEXED
+      properties:
+        CITATION_NORMALIZED:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+        ABSTRACT_READY:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+        KEY_CONTENT_READY:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+        FULLTEXT_PREPROCESSED:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+        CHUNKED:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+        EMBEDDED:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+        INDEXED:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+      additionalProperties: false
+
+    LiteraturePipelineActionAvailability:
+      type: object
+      required: [action_code, enabled, reason_code, reason_message, requested_stages]
+      properties:
+        action_code:
+          $ref: '#/components/schemas/LiteraturePipelineActionCode'
+        enabled:
+          type: boolean
+        reason_code:
+          anyOf:
+            - $ref: '#/components/schemas/LiteraturePipelineActionReasonCode'
+            - type: 'null'
+        reason_message:
+          type: [string, 'null']
+        requested_stages:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/LiteraturePipelineStageCode'
+      additionalProperties: false
+
+    LiteraturePipelineActionSet:
+      type: object
+      required: [extract_abstract, preprocess_fulltext, vectorize]
+      properties:
+        extract_abstract:
+          $ref: '#/components/schemas/LiteraturePipelineActionAvailability'
+        preprocess_fulltext:
+          $ref: '#/components/schemas/LiteraturePipelineActionAvailability'
+        vectorize:
+          $ref: '#/components/schemas/LiteraturePipelineActionAvailability'
+      additionalProperties: false
+
+    LiteraturePipelineState:
+      type: object
+      required:
+        - literature_id
+        - citation_complete
+        - abstract_ready
+        - key_content_ready
+        - fulltext_preprocessed
+        - chunked
+        - embedded
+        - indexed
+        - dedup_status
+        - updated_at
+      properties:
+        literature_id:
+          type: string
+        citation_complete:
+          type: boolean
+        abstract_ready:
+          type: boolean
+        key_content_ready:
+          type: boolean
+        fulltext_preprocessed:
+          type: boolean
+        chunked:
+          type: boolean
+        embedded:
+          type: boolean
+        indexed:
+          type: boolean
+        dedup_status:
+          $ref: '#/components/schemas/LiteraturePipelineDedupStatus'
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    LiteraturePipelineStageState:
+      type: object
+      required: [stage_code, status, last_run_id, detail, updated_at]
+      properties:
+        stage_code:
+          $ref: '#/components/schemas/LiteraturePipelineStageCode'
+        status:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+        last_run_id:
+          type: [string, 'null']
+        detail:
+          type: object
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    LiteraturePipelineRunStep:
+      type: object
+      required:
+        - step_id
+        - stage_code
+        - status
+        - input_ref
+        - output_ref
+        - error_code
+        - error_message
+        - started_at
+        - finished_at
+      properties:
+        step_id:
+          type: string
+        stage_code:
+          $ref: '#/components/schemas/LiteraturePipelineStageCode'
+        status:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+        input_ref:
+          type: object
+        output_ref:
+          type: object
+        error_code:
+          type: [string, 'null']
+        error_message:
+          type: [string, 'null']
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        finished_at:
+          type: [string, 'null']
+          format: date-time
+      additionalProperties: false
+
+    LiteraturePipelineRun:
+      type: object
+      required:
+        - run_id
+        - literature_id
+        - trigger_source
+        - status
+        - requested_stages
+        - error_code
+        - error_message
+        - created_at
+        - started_at
+        - finished_at
+        - updated_at
+      properties:
+        run_id:
+          type: string
+        literature_id:
+          type: string
+        trigger_source:
+          $ref: '#/components/schemas/LiteraturePipelineTriggerSource'
+        status:
+          $ref: '#/components/schemas/LiteraturePipelineRunStatus'
+        requested_stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteraturePipelineStageCode'
+        error_code:
+          type: [string, 'null']
+        error_message:
+          type: [string, 'null']
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        finished_at:
+          type: [string, 'null']
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteraturePipelineRunStep'
+      additionalProperties: false
+
+    GetLiteraturePipelineResponse:
+      type: object
+      required: [literature_id, state, stage_states]
+      properties:
+        literature_id:
+          type: string
+        state:
+          $ref: '#/components/schemas/LiteraturePipelineState'
+        stage_states:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteraturePipelineStageState'
+      additionalProperties: false
+
+    CreateLiteraturePipelineRunRequest:
+      type: object
+      properties:
+        requested_stages:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/LiteraturePipelineStageCode'
+      additionalProperties: false
+
+    CreateLiteraturePipelineRunResponse:
+      type: object
+      required: [run]
+      properties:
+        run:
+          $ref: '#/components/schemas/LiteraturePipelineRun'
+      additionalProperties: false
+
+    ListLiteraturePipelineRunsResponse:
+      type: object
+      required: [literature_id, items]
+      properties:
+        literature_id:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteraturePipelineRun'
+      additionalProperties: false
+
     LiteratureOverviewProviderCount:
       type: object
       required: [provider, count]
@@ -2222,6 +2597,10 @@ components:
         - providers
         - source_url
         - source_updated_at
+        - overview_status
+        - pipeline_state
+        - pipeline_stage_status
+        - pipeline_actions
       properties:
         literature_id:
           type: string
@@ -2255,6 +2634,38 @@ components:
           $ref: '#/components/schemas/TopicScopeStatus'
         citation_status:
           $ref: '#/components/schemas/PaperCitationStatus'
+        overview_status:
+          $ref: '#/components/schemas/OverviewStatus'
+        pipeline_state:
+          type: object
+          required:
+            - citation_complete
+            - abstract_ready
+            - key_content_ready
+            - fulltext_preprocessed
+            - chunked
+            - embedded
+            - indexed
+          properties:
+            citation_complete:
+              type: boolean
+            abstract_ready:
+              type: boolean
+            key_content_ready:
+              type: boolean
+            fulltext_preprocessed:
+              type: boolean
+            chunked:
+              type: boolean
+            embedded:
+              type: boolean
+            indexed:
+              type: boolean
+          additionalProperties: false
+        pipeline_stage_status:
+          $ref: '#/components/schemas/LiteraturePipelineStageStatusMap'
+        pipeline_actions:
+          $ref: '#/components/schemas/LiteraturePipelineActionSet'
       additionalProperties: false
 
     LiteratureOverviewResponse:
@@ -2280,6 +2691,8 @@ components:
           type: string
           minLength: 1
         abstract:
+          type: [string, 'null']
+        key_content_digest:
           type: [string, 'null']
         authors:
           type: array
@@ -2310,6 +2723,7 @@ components:
         - literature_id
         - title
         - abstract
+        - key_content_digest
         - authors
         - year
         - doi
@@ -2323,6 +2737,8 @@ components:
         title:
           type: string
         abstract:
+          type: [string, 'null']
+        key_content_digest:
           type: [string, 'null']
         authors:
           type: array

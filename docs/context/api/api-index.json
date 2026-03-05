@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-01T22:20:49.406Z",
+  "generatedAt": "2026-03-05T05:18:36.127Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "520da4ba6d2a58f9e40fb22ce9598a9bd547c2ff1956795c2ce869ccc51b8e17",
+  "sourceChecksumSha256": "cb91e5076344d201d131c68302b070040b8ca34a4830a53cde81d0a9dae0d96e",
   "stats": {
-    "totalEndpoints": 32,
+    "totalEndpoints": 35,
     "byTag": {
       "health": 1,
       "research-lifecycle": 8,
-      "literature": 10,
+      "literature": 13,
       "topic-settings": 3,
       "auto-pull": 10
     }
@@ -668,6 +668,7 @@
           "optional": [
             "title",
             "abstract",
+            "key_content_digest",
             "authors",
             "year",
             "doi",
@@ -683,6 +684,7 @@
           "literature_id",
           "title",
           "abstract",
+          "key_content_digest",
           "authors",
           "year",
           "doi",
@@ -700,6 +702,101 @@
       ],
       "example": {
         "curl": "curl -X PATCH '/literature/{literatureId}/metadata'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/literature/{literatureId}/pipeline",
+      "operationId": "getLiteraturePipeline",
+      "summary": "Get pipeline aggregate state and stage states for a literature.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "literatureId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "literature_id",
+          "state",
+          "stage_states"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/literature/{literatureId}/pipeline'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/literature/{literatureId}/pipeline/runs",
+      "operationId": "listLiteraturePipelineRuns",
+      "summary": "List pipeline runs for one literature.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "literatureId"
+        ],
+        "query": [
+          "limit"
+        ],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "literature_id",
+          "items"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/literature/{literatureId}/pipeline/runs'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/{literatureId}/pipeline/runs",
+      "operationId": "createLiteraturePipelineRun",
+      "summary": "Trigger a pipeline run for one literature.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "literatureId"
+        ],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "requested_stages"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "run"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/{literatureId}/pipeline/runs'"
       }
     },
     {

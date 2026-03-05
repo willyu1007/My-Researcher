@@ -2,10 +2,10 @@
 
 ## Status
 - State: in-progress
-- Next step: 用户验收“统一文献流程 SSOT + Pipeline 骨架（自动导入/手动导入/综览统一状态与触发）”实现，并确认是否进入 backfill job 与灰度切换
+- Next step: 用户验收“文献管线 V2（7 阶段完整可执行 + API/DB/前端语义一致化）”实现，并确认回填脚本执行窗口（`pipeline:backfill --apply`）。
 
 ## Goal
-- 将“自动拉取”升级为规则驱动 + 异步执行 + 可观测告警系统，并保持文献管理 UIUX 在导入/综览/元数据链路可用。
+- 在既有自动拉取体系基础上，完成文献 pipeline 从 V1 骨架到 V2 完整可运行版本的升级，确保 API/DB/前端语义与文档契约一致，并为后续能力（回填、检索增强、向量能力扩展）提供稳定底座。
 
 ## Non-goals
 - 不做视觉品牌重设计。
@@ -30,6 +30,18 @@
   - 联动 Zotero 等成熟文献源
   - 文献管理综览
   - 元数据管理与分类系统
+  - 文献 pipeline V2（7 阶段完整执行）：
+    - `CITATION_NORMALIZED`
+    - `ABSTRACT_READY`
+    - `KEY_CONTENT_READY`
+    - `FULLTEXT_PREPROCESSED`
+    - `CHUNKED`
+    - `EMBEDDED`
+    - `INDEXED`
+  - 综览语义统一输出：
+    - `pipeline_state`（深阶段就绪位）
+    - `pipeline_stage_status`（7 阶段状态）
+    - `pipeline_actions`（3 动作启用与原因）
 
 ## High-level acceptance criteria
 - [x] 自动导入页已替换为 Topic/规则/运行告警三子标签。
@@ -40,3 +52,8 @@
 - [x] 主题与规则已支持 many-to-many；主题关闭后不暂停规则，而是在 TOPIC 检索执行期跳过该主题。
 - [x] 自动导入质量门槛已切换为 `min_quality_score(0-100)`，默认 `70`。
 - [x] 运行明细 `source_attempt.meta` 已输出完整性拒绝/去重跳过/评分/门槛过滤/入库统计。
+- [x] 文献 pipeline 已升级为 7 阶段全可执行（不再返回 `STAGE_NOT_IMPLEMENTED_IN_V1`）。
+- [x] 深阶段门禁已收敛：`RESTRICTED` 阻断后四阶段，`USER_AUTH` 受 `LITERATURE_USER_AUTH_PIPELINE_ENABLED` 控制。
+- [x] pipeline 产物已落库（`LiteraturePipelineArtifact`），支持预处理/切分/向量/索引复用。
+- [x] 综览已由后端直接输出 `pipeline_stage_status + pipeline_actions`，前端不再猜测按钮启用条件。
+- [x] OpenAPI/API-Index/DB context 已与代码同步，context 严格校验通过。

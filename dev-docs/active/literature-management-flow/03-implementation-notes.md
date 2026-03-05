@@ -2,7 +2,7 @@
 
 ## Status
 - Current status: `in-progress`
-- Last updated: 2026-03-04
+- Last updated: 2026-03-05
 
 ## Final UI decision matrix (alignment output)
 | Decision area | Final decision | Rationale | Frozen |
@@ -1170,3 +1170,97 @@
 - Notes:
   - 按“加字段/加接口”兼容策略实施，旧接口未做破坏性删除。
   - 回填 job（历史文献 dedup/backfill 统计）作为后续阶段单独执行，当前先落 SSOT 与触发骨架。
+
+### 2026-03-05 - 文献管线 V2 完整化（7 阶段可执行 + 契约一致化）
+- Trigger:
+  - 用户要求将文献 pipeline 从 V1 骨架升级为“完整可运行 7 阶段管线”，并完成 API/DB/前端语义与文档一致化。
+- What changed:
+  - Prisma / DB:
+    - `prisma/schema.prisma`
+      - 新增 `LiteraturePipelineArtifact` 模型，承载 `PREPROCESSED_TEXT/CHUNKS/EMBEDDINGS/LOCAL_INDEX` 中间产物。
+      - `LiteraturePipelineRun` 新增 in-flight 查询索引：`@@index([literatureId, status])`。
+    - 新增 migration：
+      - `prisma/migrations/20260305130000_upgrade_literature_pipeline_v2/migration.sql`
+  - Repository:
+    - `apps/backend/src/repositories/literature-repository.ts`
+      - 扩展 pipeline artifact record/type。
+      - 新增批量 stage-state 查询与 artifact 读写接口。
+    - `apps/backend/src/repositories/prisma/prisma-literature-repository.ts`
+    - `apps/backend/src/repositories/in-memory-literature-repository.ts`
+      - 完成上述接口双实现。
+  - Pipeline orchestrator:
+    - `apps/backend/src/services/pipeline-orchestrator.ts`
+      - 新增 literature 维度 single-flight：已有 in-flight run 时新 run 直接 `SKIPPED` 并写 `PIPELINE_RUN_SKIPPED_SINGLE_FLIGHT`。
+      - 标准化 step input/output 引用结构。
+  - 7 阶段执行器:
+    - `apps/backend/src/services/literature-flow-service.ts`
+      - 移除 V1 未实现占位，7 阶段全部可执行。
+      - 权限门禁收敛：
+        - `RESTRICTED` 阻断后四阶段。
+        - `USER_AUTH` 受 `LITERATURE_USER_AUTH_PIPELINE_ENABLED` 控制。
+      - 向量化策略：外部 embedding 服务优先，失败自动回退本地 embedding。
+      - 新增 stage artifact 写入/覆盖逻辑，支持重复运行复用。
+      - 提供综览语义构建能力：`pipeline_state` 深阶段位、`pipeline_stage_status`、`pipeline_actions`。
+  - 综览与前端语义:
+    - `apps/backend/src/services/literature-service.ts`
+      - `GET /literature/overview` 返回 `pipeline_stage_status + pipeline_actions`。
+    - `packages/shared/src/research-lifecycle/interface-field-contracts.ts`
+      - 扩展 `LiteratureOverviewItem`、`LiteraturePipelineStateDTO`、action/stage 状态类型。
+      - 对齐 `UpdateLiteratureMetadataRequest/Response` 的 `key_content_digest`。
+    - 前端：
+      - `apps/desktop/src/renderer/literature/shared/types.ts`
+      - `apps/desktop/src/renderer/literature/shared/normalizers.ts`
+      - `apps/desktop/src/renderer/literature/overview/OverviewTab.tsx`
+      - 三动作启停与禁用原因改为后端直出语义，不再前端推断。
+  - API / Context:
+    - `docs/context/api/openapi.yaml`：
+      - 文档化 `GET /literature/{literatureId}/pipeline`
+      - 文档化 `POST /literature/{literatureId}/pipeline/runs`
+      - 文档化 `GET /literature/{literatureId}/pipeline/runs`
+      - 更新 `LiteratureOverviewItem` 与 metadata schema 漂移。
+    - 生成并同步：
+      - `docs/context/api/api-index.json`
+      - `docs/context/api/API-INDEX.md`
+      - `docs/context/db/schema.json`
+      - `docs/context/registry.json`
+  - 回填脚本:
+    - 新增 `apps/backend/scripts/backfill-literature-pipeline.mjs`
+      - 默认 dry-run，`--apply` 才真实触发。
+      - 支持批次、并发、审计汇总（触发/跳过/失败原因分布）。
+    - `apps/backend/package.json` 新增 `pipeline:backfill` 脚本入口。
+  - 环境契约:
+    - `env/contract.yaml` 与 `env/values/*.yaml` 补充：
+      - `LITERATURE_USER_AUTH_PIPELINE_ENABLED`（默认 `false`）
+      - `LITERATURE_PIPELINE_EMBEDDING_URL`
+      - `LITERATURE_PIPELINE_EMBEDDING_API_KEY`
+      - `LITERATURE_PIPELINE_EMBEDDING_MODEL`
+- Impact scope:
+  - `prisma/schema.prisma`
+  - `prisma/migrations/20260305130000_upgrade_literature_pipeline_v2/migration.sql`
+  - `packages/shared/src/research-lifecycle/interface-field-contracts.ts`
+  - `apps/backend/src/repositories/literature-repository.ts`
+  - `apps/backend/src/repositories/prisma/prisma-literature-repository.ts`
+  - `apps/backend/src/repositories/in-memory-literature-repository.ts`
+  - `apps/backend/src/services/literature-flow-service.ts`
+  - `apps/backend/src/services/literature-service.ts`
+  - `apps/backend/src/services/pipeline-orchestrator.ts`
+  - `apps/backend/src/services/pipeline-orchestrator.unit.test.ts`
+  - `apps/backend/src/services/literature-flow-service.unit.test.ts`
+  - `apps/backend/src/routes/research-lifecycle-routes.integration.test.ts`
+  - `apps/backend/scripts/backfill-literature-pipeline.mjs`
+  - `apps/backend/package.json`
+  - `apps/desktop/src/renderer/literature/shared/types.ts`
+  - `apps/desktop/src/renderer/literature/shared/normalizers.ts`
+  - `apps/desktop/src/renderer/literature/overview/OverviewTab.tsx`
+  - `docs/context/api/openapi.yaml`
+  - `docs/context/api/api-index.json`
+  - `docs/context/api/API-INDEX.md`
+  - `docs/context/db/schema.json`
+  - `docs/context/registry.json`
+  - `env/contract.yaml`
+  - `env/values/dev.yaml`
+  - `env/values/staging.yaml`
+  - `env/values/prod.yaml`
+- Notes:
+  - 回填作业仅交付脚本与执行参数，不在本轮自动触发历史数据回填。
+  - 向量持久化维持本地优先，不引入外部向量数据库。

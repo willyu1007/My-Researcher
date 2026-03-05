@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-03-01T22:20:49.406Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `520da4ba6d2a...`)
+> Auto-generated at 2026-03-05T05:18:36.127Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `cb91e5076344...`)
 
-Total endpoints: **32**
+Total endpoints: **35**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -25,7 +25,10 @@ Total endpoints: **32**
 | POST | /paper-projects/{id}/literature-links/from-topic | Sync in-scope topic literature into paper links. | none | topic_id | paper_id, topic_id, linked_count, skipped_count | 400, 404, 500 |
 | GET | /paper-projects/{id}/literature | Get literature links under a paper. | none | id | paper_id, items | 404, 500 |
 | PATCH | /paper-projects/{id}/literature-links/{linkId} | Update citation status or note of a paper literature link. | none | id, linkId | paper_id, item | 400, 404, 500 |
-| PATCH | /literature/{literatureId}/metadata | Update literature metadata fields. | none | literatureId | literature_id, title, abstract, authors, year, doi, arxiv_id, rights_class, tags, updated_at | 400, 404, 409, 500 |
+| PATCH | /literature/{literatureId}/metadata | Update literature metadata fields. | none | literatureId | literature_id, title, abstract, key_content_digest, authors, year, doi, arxiv_id, rights_class, tags, updated_at | 400, 404, 409, 500 |
+| GET | /literature/{literatureId}/pipeline | Get pipeline aggregate state and stage states for a literature. | none | literatureId | literature_id, state, stage_states | 404, 500 |
+| GET | /literature/{literatureId}/pipeline/runs | List pipeline runs for one literature. | none | literatureId | literature_id, items | 404, 500 |
+| POST | /literature/{literatureId}/pipeline/runs | Trigger a pipeline run for one literature. | none | literatureId | run | 400, 404, 500 |
 | GET | /topics/settings | List topic profiles. | none | — | items | 500 |
 | POST | /topics/settings | Create a topic profile. | none | topic_id, name | topic_id, name, is_active, include_keywords, exclude_keywords, venue_filters, default_lookback_days, default_min_year, default_max_year, rule_ids, created_at, updated_at | 400, 409, 500 |
 | PATCH | /topics/settings/{topicId} | Update a topic profile. | none | topicId | topic_id, name, is_active, include_keywords, exclude_keywords, venue_filters, default_lookback_days, default_min_year, default_max_year, rule_ids, created_at, updated_at | 400, 404, 500 |

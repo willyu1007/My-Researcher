@@ -51,12 +51,39 @@
 
 ## Quality gate and import policy
 - 默认质量门：
-  - `min_completeness_score >= 0.6`
-  - `require_include_match = true`
-  - 命中 exclude 关键词直接建议 `excluded`
+  - `min_quality_score`（0-100）作为主门槛，默认 `70`
+  - 保留 include/exclude 规则信号参与建议判定
+  - 评分低于门槛时建议 `excluded`
 - 结果策略：
   - 生成 `AutoPullSuggestion`
-  - 不直接写入 `TopicLiteratureScope`
+  - TOPIC run 可按规则写回 `TopicLiteratureScope`（`in_scope/excluded` + reason code）
+
+## Literature pipeline V2 architecture
+- Pipeline 执行以 literature 为粒度，采用统一 run/step 状态机与 stage-state 聚合。
+- 固定 7 阶段：
+  - `CITATION_NORMALIZED`
+  - `ABSTRACT_READY`
+  - `KEY_CONTENT_READY`
+  - `FULLTEXT_PREPROCESSED`
+  - `CHUNKED`
+  - `EMBEDDED`
+  - `INDEXED`
+- 中间产物持久化采用 `LiteraturePipelineArtifact`：
+  - `PREPROCESSED_TEXT`
+  - `CHUNKS`
+  - `EMBEDDINGS`
+  - `LOCAL_INDEX`
+- 权限门禁：
+  - `RESTRICTED`：后四阶段直接 `BLOCKED`
+  - `USER_AUTH`：仅 `LITERATURE_USER_AUTH_PIPELINE_ENABLED=true` 时允许后四阶段
+  - `OA`：全流程可执行
+- 并发与可靠性：
+  - 同一 literature 存在 in-flight run 时，新的触发写 `SKIPPED` run（single-flight）
+  - step 输入输出结构标准化，便于前端展示与后续消费
+- 综览语义由后端统一输出：
+  - `pipeline_state`（深阶段 ready 位）
+  - `pipeline_stage_status`（每阶段状态）
+  - `pipeline_actions`（3 动作可执行性与禁用原因）
 
 ## API contract
 - 新增：

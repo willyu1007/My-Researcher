@@ -279,3 +279,24 @@
     - 自动导入硬切写回（`in_scope/excluded` + reason code）与 topic scope 自动写入。
   - 备注：
     - 根目录 `pnpm typecheck` 仍因仓库既有 `tsconfig.json` 无输入（`TS18003`）失败；该项为历史脚本配置问题，非本次改动引入。
+- 2026-03-05: 文献管线 V2 完整化回归 ✅
+  - `pnpm --filter @paper-engineering-assistant/shared typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend test` ✅（61 passed）
+    - 新增覆盖：
+      - `literature-flow-service.unit.test.ts`：7 阶段全链路 + `RESTRICTED` 阻断 + `USER_AUTH` 开关
+      - `pipeline-orchestrator.unit.test.ts`：single-flight 下新 run `SKIPPED`
+      - `research-lifecycle-routes.integration.test.ts`：pipeline 三接口与综览字段一致性
+  - `pnpm --filter @paper-engineering-assistant/desktop typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/desktop build` ✅
+  - `node .ai/scripts/ctl-openapi-quality.mjs verify --strict` ✅
+  - `node .ai/scripts/ctl-api-index.mjs generate --touch` ✅（35 endpoints）
+  - `node .ai/scripts/ctl-api-index.mjs verify --strict` ✅
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context` ✅
+  - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict` ✅
+- 2026-03-05: 文献管线 V2 最终快检（收尾）✅
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck` ✅
+  - `pnpm --filter @paper-engineering-assistant/backend test` ✅（61 passed）
+  - `node .ai/scripts/ctl-openapi-quality.mjs verify --strict` ✅
+  - `node .ai/scripts/ctl-api-index.mjs verify --strict` ✅
+  - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict` ✅
