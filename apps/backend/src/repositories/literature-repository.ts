@@ -101,6 +101,23 @@ export type LiteraturePipelineRunStepRecord = {
   finishedAt: string | null;
 };
 
+export type LiteraturePipelineArtifactType =
+  | 'PREPROCESSED_TEXT'
+  | 'CHUNKS'
+  | 'EMBEDDINGS'
+  | 'LOCAL_INDEX';
+
+export type LiteraturePipelineArtifactRecord = {
+  id: string;
+  literatureId: string;
+  stageCode: LiteraturePipelineStageCode;
+  artifactType: LiteraturePipelineArtifactType;
+  payload: Record<string, unknown>;
+  checksum: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LiteratureSourceRecord = {
   id: string;
   literatureId: string;
@@ -176,9 +193,21 @@ export interface LiteratureRepository {
     record: LiteraturePipelineStageStateRecord,
   ): Promise<{ record: LiteraturePipelineStageStateRecord; created: boolean }>;
   listPipelineStageStatesByLiteratureId(literatureId: string): Promise<LiteraturePipelineStageStateRecord[]>;
+  listPipelineStageStatesByLiteratureIds(literatureIds: string[]): Promise<LiteraturePipelineStageStateRecord[]>;
+
+  upsertPipelineArtifact(
+    record: LiteraturePipelineArtifactRecord,
+  ): Promise<{ record: LiteraturePipelineArtifactRecord; created: boolean }>;
+  findPipelineArtifact(
+    literatureId: string,
+    stageCode: LiteraturePipelineStageCode,
+    artifactType: LiteraturePipelineArtifactType,
+  ): Promise<LiteraturePipelineArtifactRecord | null>;
+  listPipelineArtifactsByLiteratureId(literatureId: string): Promise<LiteraturePipelineArtifactRecord[]>;
 
   createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord>;
   findPipelineRunById(runId: string): Promise<LiteraturePipelineRunRecord | null>;
+  listInFlightPipelineRunsByLiteratureId(literatureId: string): Promise<LiteraturePipelineRunRecord[]>;
   listPipelineRunsByLiteratureId(literatureId: string, limit?: number): Promise<LiteraturePipelineRunRecord[]>;
   updatePipelineRun(
     runId: string,

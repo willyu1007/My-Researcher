@@ -399,6 +399,9 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(overviewBody.summary.cited_count, 1);
   assert.equal(typeof overviewBody.items[0]?.overview_status, 'string');
   assert.equal(typeof overviewBody.items[0]?.pipeline_state?.citation_complete, 'boolean');
+  assert.equal(typeof overviewBody.items[0]?.pipeline_state?.fulltext_preprocessed, 'boolean');
+  assert.equal(typeof overviewBody.items[0]?.pipeline_stage_status?.ABSTRACT_READY, 'string');
+  assert.equal(typeof overviewBody.items[0]?.pipeline_actions?.extract_abstract?.enabled, 'boolean');
 
   const metadataPatchRes = await app.inject({
     method: 'PATCH',
@@ -413,7 +416,7 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(metadataPatchBody.literature_id, literatureId);
   assert.deepEqual(metadataPatchBody.tags, ['survey', 'baseline']);
   assert.equal(metadataPatchBody.rights_class, 'OA');
-  assert.equal(metadataPatchBody.key_content_digest, null);
+  assert.equal(typeof metadataPatchBody.key_content_digest, 'string');
 
   const pipelineRes = await app.inject({
     method: 'GET',
@@ -423,6 +426,7 @@ test('literature workflow routes support import, topic scope, paper link sync an
   const pipelineBody = pipelineRes.json();
   assert.equal(pipelineBody.literature_id, literatureId);
   assert.equal(typeof pipelineBody.state.citation_complete, 'boolean');
+  assert.equal(typeof pipelineBody.state.fulltext_preprocessed, 'boolean');
   assert.equal(Array.isArray(pipelineBody.stage_states), true);
 
   const triggerPipelineRunRes = await app.inject({

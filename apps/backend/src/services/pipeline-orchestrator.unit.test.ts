@@ -133,3 +133,36 @@ test('PipelineOrchestrator marks run as FAILED when unhandled processing error o
   assert.equal(terminal.errorCode, 'PIPELINE_RUN_PROCESSING_FAILED');
   assert.equal(terminal.errorMessage?.includes('stage-state write failed'), true);
 });
+
+test('PipelineOrchestrator skips new run when same literature already has in-flight run', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  await seedLiterature(repository, 'LIT-PIPE-4');
+
+  const orchestrator = new PipelineOrchestrator(repository, {
+    executeStage: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return {
+        status: 'SUCCEEDED',
+        detail: { ok: true },
+      };
+    },
+  });
+
+  const firstRun = await orchestrator.enqueueRun({
+    literatureId: 'LIT-PIPE-4',
+    triggerSource: 'MANUAL_IMPORT',
+    requestedStages: ['CITATION_NORMALIZED'],
+  });
+
+  const secondRun = await orchestrator.enqueueRun({
+    literatureId: 'LIT-PIPE-4',
+    triggerSource: 'OVERVIEW_ACTION',
+    requestedStages: ['ABSTRACT_READY'],
+  });
+
+  assert.equal(secondRun.status, 'SKIPPED');
+  assert.equal(secondRun.errorCode, 'PIPELINE_RUN_SKIPPED_SINGLE_FLIGHT');
+
+  const firstTerminal = await waitForTerminalRun(repository, firstRun.id);
+  assert.equal(firstTerminal.status, 'SUCCESS');
+});

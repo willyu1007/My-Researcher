@@ -32,7 +32,11 @@ import {
   type ZoteroPreviewResponse,
 } from '@paper-engineering-assistant/shared';
 import { AppError } from '../errors/app-error.js';
-import type { LiteratureRecord, LiteratureRepository } from '../repositories/literature-repository.js';
+import type {
+  LiteraturePipelineStageStateRecord,
+  LiteratureRecord,
+  LiteratureRepository,
+} from '../repositories/literature-repository.js';
 import type { ResearchLifecycleRepository } from '../repositories/research-lifecycle-repository.js';
 import { LiteratureFlowService } from './literature-flow-service.js';
 
@@ -268,6 +272,13 @@ export class LiteratureService {
     const literatures = await this.literatureRepository.listLiteraturesByIds(literatureIds);
     const literatureMap = new Map(literatures.map((row) => [row.id, row]));
     const pipelineStateMap = await this.literatureFlowService.refreshPipelineStatesByLiteratureIds(literatureIds);
+    const pipelineStageStates = await this.literatureRepository.listPipelineStageStatesByLiteratureIds(literatureIds);
+    const pipelineStageStatesByLiterature = new Map<string, LiteraturePipelineStageStateRecord[]>();
+    for (const stageState of pipelineStageStates) {
+      const rows = pipelineStageStatesByLiterature.get(stageState.literatureId) ?? [];
+      rows.push(stageState);
+      pipelineStageStatesByLiterature.set(stageState.literatureId, rows);
+    }
 
     const scopeStatusByLiterature = new Map<string, TopicScopeStatus>();
     for (const scope of topicScopes) {
@@ -302,6 +313,28 @@ export class LiteratureService {
         providerCounts.set(provider, (providerCounts.get(provider) ?? 0) + 1);
       }
 
+      const pipelineStateRecord = pipelineStateMap.get(literature.id);
+      const stageStates = pipelineStageStatesByLiterature.get(literature.id) ?? [];
+      const normalizedPipelineState = this.literatureFlowService.buildPipelineStateDTO(
+        pipelineStateRecord ?? {
+          id: `__virtual_${literature.id}`,
+          literatureId: literature.id,
+          citationComplete: false,
+          abstractReady: false,
+          keyContentReady: false,
+          dedupStatus: 'unknown',
+          updatedAt: new Date(0).toISOString(),
+        },
+        stageStates,
+      );
+      const stageStatusMap = this.literatureFlowService.buildStageStatusMap(stageStates);
+      const pipelineActions = this.literatureFlowService.buildOverviewPipelineActions({
+        topicScopeStatus: scopeStatusByLiterature.get(literature.id) ?? null,
+        rightsClass: literature.rightsClass,
+        pipelineState: normalizedPipelineState,
+        stageStatusMap,
+      });
+
       items.push({
         literature_id: literature.id,
         title: literature.title,
@@ -318,15 +351,21 @@ export class LiteratureService {
         citation_status: citationStatusByLiterature.get(literature.id),
         overview_status: this.literatureFlowService.resolveOverviewStatus({
           topicScopeStatus: scopeStatusByLiterature.get(literature.id) ?? null,
-          citationComplete: pipelineStateMap.get(literature.id)?.citationComplete ?? false,
-          abstractReady: pipelineStateMap.get(literature.id)?.abstractReady ?? false,
-          keyContentReady: pipelineStateMap.get(literature.id)?.keyContentReady ?? false,
+          citationComplete: normalizedPipelineState.citation_complete,
+          abstractReady: normalizedPipelineState.abstract_ready,
+          keyContentReady: normalizedPipelineState.key_content_ready,
         }),
         pipeline_state: {
-          citation_complete: pipelineStateMap.get(literature.id)?.citationComplete ?? false,
-          abstract_ready: pipelineStateMap.get(literature.id)?.abstractReady ?? false,
-          key_content_ready: pipelineStateMap.get(literature.id)?.keyContentReady ?? false,
+          citation_complete: normalizedPipelineState.citation_complete,
+          abstract_ready: normalizedPipelineState.abstract_ready,
+          key_content_ready: normalizedPipelineState.key_content_ready,
+          fulltext_preprocessed: normalizedPipelineState.fulltext_preprocessed,
+          chunked: normalizedPipelineState.chunked,
+          embedded: normalizedPipelineState.embedded,
+          indexed: normalizedPipelineState.indexed,
         },
+        pipeline_stage_status: stageStatusMap,
+        pipeline_actions: pipelineActions,
       });
     }
 

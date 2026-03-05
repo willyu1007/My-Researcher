@@ -1,4 +1,5 @@
 import type {
+  LiteraturePipelineArtifactRecord,
   LiteratureRepository,
   LiteraturePipelineRunRecord,
   LiteraturePipelineRunStepRecord,
@@ -34,6 +35,8 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
   private readonly pipelineRunIdsByLiterature = new Map<string, string[]>();
   private readonly pipelineRunSteps = new Map<string, LiteraturePipelineRunStepRecord>();
   private readonly pipelineStepIdsByRun = new Map<string, string[]>();
+  private readonly pipelineArtifacts = new Map<string, LiteraturePipelineArtifactRecord>();
+  private readonly pipelineArtifactIdsByLiterature = new Map<string, string[]>();
 
   async countLiteratures(): Promise<number> {
     return this.literatures.size;
@@ -277,6 +280,55 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
       .sort((left, right) => left.stageCode.localeCompare(right.stageCode));
   }
 
+  async listPipelineStageStatesByLiteratureIds(literatureIds: string[]): Promise<LiteraturePipelineStageStateRecord[]> {
+    if (literatureIds.length === 0) {
+      return [];
+    }
+    const keys = literatureIds.flatMap((literatureId) => this.pipelineStageIdsByLiterature.get(literatureId) ?? []);
+    return keys
+      .map((key) => this.pipelineStageStates.get(key))
+      .filter((record): record is LiteraturePipelineStageStateRecord => record !== undefined);
+  }
+
+  async upsertPipelineArtifact(
+    record: LiteraturePipelineArtifactRecord,
+  ): Promise<{ record: LiteraturePipelineArtifactRecord; created: boolean }> {
+    const key = this.pipelineArtifactKey(record.literatureId, record.stageCode, record.artifactType);
+    const existing = this.pipelineArtifacts.get(key);
+    if (existing) {
+      const next: LiteraturePipelineArtifactRecord = {
+        ...existing,
+        payload: record.payload,
+        checksum: record.checksum,
+        updatedAt: record.updatedAt,
+      };
+      this.pipelineArtifacts.set(key, next);
+      return { record: next, created: false };
+    }
+
+    this.pipelineArtifacts.set(key, record);
+    const ids = this.pipelineArtifactIdsByLiterature.get(record.literatureId) ?? [];
+    this.pipelineArtifactIdsByLiterature.set(record.literatureId, [...ids, key]);
+    return { record, created: true };
+  }
+
+  async findPipelineArtifact(
+    literatureId: string,
+    stageCode: LiteraturePipelineArtifactRecord['stageCode'],
+    artifactType: LiteraturePipelineArtifactRecord['artifactType'],
+  ): Promise<LiteraturePipelineArtifactRecord | null> {
+    const key = this.pipelineArtifactKey(literatureId, stageCode, artifactType);
+    return this.pipelineArtifacts.get(key) ?? null;
+  }
+
+  async listPipelineArtifactsByLiteratureId(literatureId: string): Promise<LiteraturePipelineArtifactRecord[]> {
+    const keys = this.pipelineArtifactIdsByLiterature.get(literatureId) ?? [];
+    return keys
+      .map((key) => this.pipelineArtifacts.get(key))
+      .filter((record): record is LiteraturePipelineArtifactRecord => record !== undefined)
+      .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
+  }
+
   async createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord> {
     this.pipelineRuns.set(record.id, record);
     const ids = this.pipelineRunIdsByLiterature.get(record.literatureId) ?? [];
@@ -286,6 +338,15 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
 
   async findPipelineRunById(runId: string): Promise<LiteraturePipelineRunRecord | null> {
     return this.pipelineRuns.get(runId) ?? null;
+  }
+
+  async listInFlightPipelineRunsByLiteratureId(literatureId: string): Promise<LiteraturePipelineRunRecord[]> {
+    const ids = this.pipelineRunIdsByLiterature.get(literatureId) ?? [];
+    return ids
+      .map((id) => this.pipelineRuns.get(id))
+      .filter((record): record is LiteraturePipelineRunRecord => record !== undefined)
+      .filter((record) => record.status === 'PENDING' || record.status === 'RUNNING')
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
   async listPipelineRunsByLiteratureId(literatureId: string, limit?: number): Promise<LiteraturePipelineRunRecord[]> {
@@ -388,5 +449,13 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
 
   private pipelineStageKey(literatureId: string, stageCode: string): string {
     return `${literatureId}::${stageCode}`;
+  }
+
+  private pipelineArtifactKey(
+    literatureId: string,
+    stageCode: string,
+    artifactType: string,
+  ): string {
+    return `${literatureId}::${stageCode}::${artifactType}`;
   }
 }

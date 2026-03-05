@@ -82,6 +82,7 @@ model LiteratureRecord {
   pipelineState        LiteraturePipelineState?
   pipelineStageStates  LiteraturePipelineStageState[]
   pipelineRuns         LiteraturePipelineRun[]
+  pipelineArtifacts    LiteraturePipelineArtifact[]
   autoPullSuggestions  AutoPullSuggestion[]
 
   @@index([normalizedTitle])
@@ -160,6 +161,7 @@ model LiteraturePipelineRun {
   stageStates    LiteraturePipelineStageState[]
 
   @@index([literatureId, createdAt])
+  @@index([literatureId, status])
   @@index([status])
 }
 
@@ -194,6 +196,22 @@ model LiteraturePipelineRunStep {
 
   @@index([runId])
   @@index([stageCode, status])
+}
+
+model LiteraturePipelineArtifact {
+  id           String           @id
+  literatureId String
+  stageCode    String
+  artifactType String
+  payload      Json
+  checksum     String?
+  createdAt    DateTime         @db.Timestamptz(6)
+  updatedAt    DateTime         @db.Timestamptz(6)
+  literature   LiteratureRecord @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@unique([literatureId, stageCode, artifactType])
+  @@index([literatureId, stageCode])
+  @@index([stageCode, artifactType])
 }
 
 model TopicProfile {

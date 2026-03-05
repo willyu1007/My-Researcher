@@ -45,6 +45,24 @@ export class PipelineOrchestrator {
     triggerSource: LiteraturePipelineTriggerSource;
     requestedStages: LiteraturePipelineStageCode[];
   }): Promise<LiteraturePipelineRunRecord> {
+    const inFlightRuns = await this.repository.listInFlightPipelineRunsByLiteratureId(input.literatureId);
+    if (inFlightRuns.length > 0) {
+      const now = new Date().toISOString();
+      return this.repository.createPipelineRun({
+        id: crypto.randomUUID(),
+        literatureId: input.literatureId,
+        triggerSource: input.triggerSource,
+        status: 'SKIPPED',
+        requestedStages: [...input.requestedStages],
+        errorCode: 'PIPELINE_RUN_SKIPPED_SINGLE_FLIGHT',
+        errorMessage: 'Existing pipeline run is still in-flight.',
+        createdAt: now,
+        startedAt: now,
+        finishedAt: now,
+        updatedAt: now,
+      });
+    }
+
     const now = new Date().toISOString();
     const run = await this.repository.createPipelineRun({
       id: crypto.randomUUID(),
@@ -129,7 +147,11 @@ export class PipelineOrchestrator {
         runId: running.id,
         stageCode,
         status: 'RUNNING',
-        inputRef: {},
+        inputRef: {
+          literature_id: running.literatureId,
+          run_id: running.id,
+          stage_code: stageCode,
+        },
         outputRef: {},
         errorCode: null,
         errorMessage: null,

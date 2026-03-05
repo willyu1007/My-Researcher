@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type {
+  LiteraturePipelineArtifactRecord,
   LiteraturePipelineRunRecord,
   LiteraturePipelineRunStepRecord,
   LiteraturePipelineStageStateRecord,
@@ -205,6 +206,28 @@ function toPipelineRunStepRecord(row: {
     errorMessage: row.errorMessage,
     startedAt: row.startedAt ? row.startedAt.toISOString() : null,
     finishedAt: row.finishedAt ? row.finishedAt.toISOString() : null,
+  };
+}
+
+function toPipelineArtifactRecord(row: {
+  id: string;
+  literatureId: string;
+  stageCode: string;
+  artifactType: string;
+  payload: unknown;
+  checksum: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteraturePipelineArtifactRecord {
+  return {
+    id: row.id,
+    literatureId: row.literatureId,
+    stageCode: row.stageCode as LiteraturePipelineArtifactRecord['stageCode'],
+    artifactType: row.artifactType as LiteraturePipelineArtifactRecord['artifactType'],
+    payload: asRecord(row.payload),
+    checksum: row.checksum,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
@@ -574,6 +597,85 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
     return rows.map((row) => toPipelineStageStateRecord(row));
   }
 
+  async listPipelineStageStatesByLiteratureIds(literatureIds: string[]): Promise<LiteraturePipelineStageStateRecord[]> {
+    if (literatureIds.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.literaturePipelineStageState.findMany({
+      where: {
+        literatureId: {
+          in: literatureIds,
+        },
+      },
+    });
+    return rows.map((row) => toPipelineStageStateRecord(row));
+  }
+
+  async upsertPipelineArtifact(
+    record: LiteraturePipelineArtifactRecord,
+  ): Promise<{ record: LiteraturePipelineArtifactRecord; created: boolean }> {
+    const existing = await this.prisma.literaturePipelineArtifact.findUnique({
+      where: {
+        literatureId_stageCode_artifactType: {
+          literatureId: record.literatureId,
+          stageCode: record.stageCode,
+          artifactType: record.artifactType,
+        },
+      },
+    });
+
+    if (existing) {
+      const updated = await this.prisma.literaturePipelineArtifact.update({
+        where: { id: existing.id },
+        data: {
+          payload: record.payload as Prisma.InputJsonValue,
+          checksum: record.checksum,
+          updatedAt: new Date(record.updatedAt),
+        },
+      });
+      return { record: toPipelineArtifactRecord(updated), created: false };
+    }
+
+    const created = await this.prisma.literaturePipelineArtifact.create({
+      data: {
+        id: record.id,
+        literatureId: record.literatureId,
+        stageCode: record.stageCode,
+        artifactType: record.artifactType,
+        payload: record.payload as Prisma.InputJsonValue,
+        checksum: record.checksum,
+        createdAt: new Date(record.createdAt),
+        updatedAt: new Date(record.updatedAt),
+      },
+    });
+    return { record: toPipelineArtifactRecord(created), created: true };
+  }
+
+  async findPipelineArtifact(
+    literatureId: string,
+    stageCode: LiteraturePipelineArtifactRecord['stageCode'],
+    artifactType: LiteraturePipelineArtifactRecord['artifactType'],
+  ): Promise<LiteraturePipelineArtifactRecord | null> {
+    const row = await this.prisma.literaturePipelineArtifact.findUnique({
+      where: {
+        literatureId_stageCode_artifactType: {
+          literatureId,
+          stageCode,
+          artifactType,
+        },
+      },
+    });
+    return row ? toPipelineArtifactRecord(row) : null;
+  }
+
+  async listPipelineArtifactsByLiteratureId(literatureId: string): Promise<LiteraturePipelineArtifactRecord[]> {
+    const rows = await this.prisma.literaturePipelineArtifact.findMany({
+      where: { literatureId },
+      orderBy: { updatedAt: 'asc' },
+    });
+    return rows.map((row) => toPipelineArtifactRecord(row));
+  }
+
   async createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord> {
     const created = await this.prisma.literaturePipelineRun.create({
       data: {
@@ -598,6 +700,19 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
       where: { id: runId },
     });
     return row ? toPipelineRunRecord(row) : null;
+  }
+
+  async listInFlightPipelineRunsByLiteratureId(literatureId: string): Promise<LiteraturePipelineRunRecord[]> {
+    const rows = await this.prisma.literaturePipelineRun.findMany({
+      where: {
+        literatureId,
+        status: {
+          in: ['PENDING', 'RUNNING'],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => toPipelineRunRecord(row));
   }
 
   async listPipelineRunsByLiteratureId(literatureId: string, limit?: number): Promise<LiteraturePipelineRunRecord[]> {
