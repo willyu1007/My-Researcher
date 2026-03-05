@@ -37,6 +37,8 @@ import type {
   RuntimeMetric,
   ScopeStatus,
   SortDirection,
+  PipelineActionSet,
+  PipelineStageStatusMap,
   TimelineEvent,
   TopicScopeItem,
   ArtifactBundle,
@@ -949,6 +951,20 @@ export function normalizeLiteratureOverviewPayload(payload: unknown): Literature
       const keyContentReady = typeof pipelineStateRoot?.key_content_ready === 'boolean'
         ? pipelineStateRoot.key_content_ready
         : false;
+      const fulltextPreprocessed = typeof pipelineStateRoot?.fulltext_preprocessed === 'boolean'
+        ? pipelineStateRoot.fulltext_preprocessed
+        : false;
+      const chunked = typeof pipelineStateRoot?.chunked === 'boolean'
+        ? pipelineStateRoot.chunked
+        : false;
+      const embedded = typeof pipelineStateRoot?.embedded === 'boolean'
+        ? pipelineStateRoot.embedded
+        : false;
+      const indexed = typeof pipelineStateRoot?.indexed === 'boolean'
+        ? pipelineStateRoot.indexed
+        : false;
+      const pipelineStageStatus = normalizePipelineStageStatusMap(asRecord(row.pipeline_stage_status));
+      const pipelineActions = normalizePipelineActions(asRecord(row.pipeline_actions));
       const overviewStatusRaw = toText(row.overview_status);
       const overviewStatus = normalizeOverviewStatus(overviewStatusRaw)
         ?? deriveOverviewStatusFromSignals({
@@ -985,7 +1001,13 @@ export function normalizeLiteratureOverviewPayload(payload: unknown): Literature
           citation_complete: citationComplete,
           abstract_ready: abstractReady,
           key_content_ready: keyContentReady,
+          fulltext_preprocessed: fulltextPreprocessed,
+          chunked,
+          embedded,
+          indexed,
         },
+        pipeline_stage_status: pipelineStageStatus,
+        pipeline_actions: pipelineActions,
       };
     })
     .filter((item): item is LiteratureOverviewItem => item !== null);
@@ -1056,6 +1078,87 @@ export function deriveOverviewStatusFromSignals(input: {
     return 'citable';
   }
   return 'not_citable';
+}
+
+function normalizePipelineStageStatusMap(
+  root: Record<string, unknown> | null,
+): PipelineStageStatusMap {
+  return {
+    CITATION_NORMALIZED: readPipelineStageStatus(root?.CITATION_NORMALIZED),
+    ABSTRACT_READY: readPipelineStageStatus(root?.ABSTRACT_READY),
+    KEY_CONTENT_READY: readPipelineStageStatus(root?.KEY_CONTENT_READY),
+    FULLTEXT_PREPROCESSED: readPipelineStageStatus(root?.FULLTEXT_PREPROCESSED),
+    CHUNKED: readPipelineStageStatus(root?.CHUNKED),
+    EMBEDDED: readPipelineStageStatus(root?.EMBEDDED),
+    INDEXED: readPipelineStageStatus(root?.INDEXED),
+  };
+}
+
+function readPipelineStageStatus(value: unknown): PipelineStageStatusMap['CITATION_NORMALIZED'] {
+  return value === 'NOT_STARTED'
+    || value === 'PENDING'
+    || value === 'RUNNING'
+    || value === 'SUCCEEDED'
+    || value === 'FAILED'
+    || value === 'BLOCKED'
+    || value === 'SKIPPED'
+    ? value
+    : 'NOT_STARTED';
+}
+
+function normalizePipelineActions(root: Record<string, unknown> | null): PipelineActionSet {
+  return {
+    extract_abstract: normalizePipelineActionItem(root?.extract_abstract, 'EXTRACT_ABSTRACT', ['ABSTRACT_READY']),
+    preprocess_fulltext: normalizePipelineActionItem(
+      root?.preprocess_fulltext,
+      'PREPROCESS_FULLTEXT',
+      ['FULLTEXT_PREPROCESSED'],
+    ),
+    vectorize: normalizePipelineActionItem(root?.vectorize, 'VECTORIZE', ['CHUNKED', 'EMBEDDED', 'INDEXED']),
+  };
+}
+
+function normalizePipelineActionItem(
+  value: unknown,
+  fallbackCode: PipelineActionSet['extract_abstract']['action_code'],
+  fallbackStages: PipelineActionSet['extract_abstract']['requested_stages'],
+): PipelineActionSet['extract_abstract'] {
+  const row = asRecord(value);
+  const actionCode = toText(row?.action_code);
+  const reasonCode = toText(row?.reason_code);
+  const reasonMessage = toText(row?.reason_message) ?? null;
+  const requestedStages = Array.isArray(row?.requested_stages)
+    ? row.requested_stages
+        .map((item) => toText(item))
+        .filter((item): item is PipelineActionSet['extract_abstract']['requested_stages'][number] =>
+          item === 'CITATION_NORMALIZED'
+          || item === 'ABSTRACT_READY'
+          || item === 'KEY_CONTENT_READY'
+          || item === 'FULLTEXT_PREPROCESSED'
+          || item === 'CHUNKED'
+          || item === 'EMBEDDED'
+          || item === 'INDEXED')
+    : fallbackStages;
+
+  return {
+    action_code:
+      actionCode === 'EXTRACT_ABSTRACT' || actionCode === 'PREPROCESS_FULLTEXT' || actionCode === 'VECTORIZE'
+        ? actionCode
+        : fallbackCode,
+    enabled: typeof row?.enabled === 'boolean' ? row.enabled : true,
+    reason_code:
+      reasonCode === 'READY'
+      || reasonCode === 'EXCLUDED_BY_SCOPE'
+      || reasonCode === 'RIGHTS_RESTRICTED'
+      || reasonCode === 'USER_AUTH_DISABLED'
+      || reasonCode === 'PREREQUISITE_NOT_READY'
+      || reasonCode === 'STAGE_ALREADY_READY'
+      || reasonCode === 'RUN_IN_FLIGHT'
+        ? reasonCode
+        : null,
+    reason_message: reasonMessage,
+    requested_stages: requestedStages.length > 0 ? requestedStages : fallbackStages,
+  };
 }
 
 export function isOverviewExcluded(item: LiteratureOverviewItem): boolean {

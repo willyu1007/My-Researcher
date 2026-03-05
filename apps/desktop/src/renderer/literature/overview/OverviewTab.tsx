@@ -3,6 +3,7 @@ import type {
   LiteratureOverviewItem,
   OverviewScopeFilterInput,
   PipelineStageCode,
+  PipelineStageStatus,
   QuerySortPreset,
   ScopeStatus,
 } from '../shared/types';
@@ -15,6 +16,28 @@ import {
   resolveOverviewContentStatus,
   resolveOverviewPublicationLabel,
 } from './overviewStatus';
+
+function formatPipelineStageStatusLabel(status: PipelineStageStatus): string {
+  if (status === 'SUCCEEDED') {
+    return '完成';
+  }
+  if (status === 'RUNNING') {
+    return '执行中';
+  }
+  if (status === 'PENDING') {
+    return '排队中';
+  }
+  if (status === 'BLOCKED') {
+    return '阻塞';
+  }
+  if (status === 'FAILED') {
+    return '失败';
+  }
+  if (status === 'SKIPPED') {
+    return '跳过';
+  }
+  return '未开始';
+}
 
 type OverviewPanelState = {
   status: 'idle' | 'loading' | 'ready' | 'empty' | 'error';
@@ -274,9 +297,9 @@ export function OverviewTab({
                 const tagSlots = item.tags.length > 4
                   ? [...visibleTags.slice(0, 3), '...']
                   : visibleTags;
-                const isExcluded = overviewStatus === 'excluded';
-                const hasAbstractReady = item.pipeline_state.abstract_ready;
-                const hasKeyContentReady = item.pipeline_state.key_content_ready;
+                const extractAbstractAction = item.pipeline_actions.extract_abstract;
+                const preprocessAction = item.pipeline_actions.preprocess_fulltext;
+                const vectorizeAction = item.pipeline_actions.vectorize;
 
                 return (
                   <tr key={item.literature_id}>
@@ -327,6 +350,11 @@ export function OverviewTab({
                         <p data-ui="text" data-variant="caption" data-tone="muted">
                           {formatOverviewContentStatus(contentStatus)}
                         </p>
+                        <p data-ui="text" data-variant="caption" data-tone="muted">
+                          摘要:{formatPipelineStageStatusLabel(item.pipeline_stage_status.ABSTRACT_READY)}
+                          {' '}| 预处理:{formatPipelineStageStatusLabel(item.pipeline_stage_status.FULLTEXT_PREPROCESSED)}
+                          {' '}| 向量:{formatPipelineStageStatusLabel(item.pipeline_stage_status.INDEXED)}
+                        </p>
                       </div>
                     </td>
                     <td>
@@ -355,8 +383,13 @@ export function OverviewTab({
                           <button
                             type="button"
                             className="literature-overview-action-link"
-                            disabled={isExcluded || hasAbstractReady}
-                            onClick={() => void onRunOverviewContentAction(item.literature_id, ['ABSTRACT_READY'], '提取摘要')}
+                            disabled={!extractAbstractAction.enabled}
+                            title={extractAbstractAction.reason_message ?? undefined}
+                            onClick={() => void onRunOverviewContentAction(
+                              item.literature_id,
+                              extractAbstractAction.requested_stages,
+                              '提取摘要',
+                            )}
                           >
                             提取摘要
                           </button>
@@ -365,20 +398,45 @@ export function OverviewTab({
                           <button
                             type="button"
                             className="literature-overview-action-link"
-                            disabled={isExcluded || !hasAbstractReady}
-                            onClick={() => void onRunOverviewContentAction(item.literature_id, ['FULLTEXT_PREPROCESSED'], '预处理全文')}
+                            disabled={!preprocessAction.enabled}
+                            title={preprocessAction.reason_message ?? undefined}
+                            onClick={() => void onRunOverviewContentAction(
+                              item.literature_id,
+                              preprocessAction.requested_stages,
+                              '预处理全文',
+                            )}
                           >
                             预处理
                           </button>
                           <button
                             type="button"
                             className="literature-overview-action-link"
-                            disabled={isExcluded || !hasAbstractReady || hasKeyContentReady}
-                            onClick={() => void onRunOverviewContentAction(item.literature_id, ['CHUNKED', 'EMBEDDED', 'INDEXED'], '向量化')}
+                            disabled={!vectorizeAction.enabled}
+                            title={vectorizeAction.reason_message ?? undefined}
+                            onClick={() => void onRunOverviewContentAction(
+                              item.literature_id,
+                              vectorizeAction.requested_stages,
+                              '向量化',
+                            )}
                           >
                             向量化
                           </button>
                         </div>
+                        {!extractAbstractAction.enabled && extractAbstractAction.reason_message ? (
+                          <p data-ui="text" data-variant="caption" data-tone="muted">
+                            提取摘要：{extractAbstractAction.reason_message}
+                          </p>
+                        ) : null}
+                        {!preprocessAction.enabled && preprocessAction.reason_message ? (
+                          <p data-ui="text" data-variant="caption" data-tone="muted">
+                            预处理：{preprocessAction.reason_message}
+                          </p>
+                        ) : null}
+                        {!vectorizeAction.enabled && vectorizeAction.reason_message ? (
+                          <p data-ui="text" data-variant="caption" data-tone="muted">
+                            向量化：{vectorizeAction.reason_message}
+                          </p>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

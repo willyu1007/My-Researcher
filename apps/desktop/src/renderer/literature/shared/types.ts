@@ -76,6 +76,36 @@ export type PipelineStageCode =
   | 'CHUNKED'
   | 'EMBEDDED'
   | 'INDEXED';
+export type PipelineStageStatus =
+  | 'NOT_STARTED'
+  | 'PENDING'
+  | 'RUNNING'
+  | 'SUCCEEDED'
+  | 'FAILED'
+  | 'BLOCKED'
+  | 'SKIPPED';
+export type PipelineActionCode = 'EXTRACT_ABSTRACT' | 'PREPROCESS_FULLTEXT' | 'VECTORIZE';
+export type PipelineActionReasonCode =
+  | 'READY'
+  | 'EXCLUDED_BY_SCOPE'
+  | 'RIGHTS_RESTRICTED'
+  | 'USER_AUTH_DISABLED'
+  | 'PREREQUISITE_NOT_READY'
+  | 'STAGE_ALREADY_READY'
+  | 'RUN_IN_FLIGHT';
+export type PipelineStageStatusMap = Record<PipelineStageCode, PipelineStageStatus>;
+export type PipelineActionAvailability = {
+  action_code: PipelineActionCode;
+  enabled: boolean;
+  reason_code: PipelineActionReasonCode | null;
+  reason_message: string | null;
+  requested_stages: PipelineStageCode[];
+};
+export type PipelineActionSet = {
+  extract_abstract: PipelineActionAvailability;
+  preprocess_fulltext: PipelineActionAvailability;
+  vectorize: PipelineActionAvailability;
+};
 
 export type ManualUploadFileItem = {
   id: string;
@@ -266,7 +296,13 @@ export type LiteratureOverviewItem = {
     citation_complete: boolean;
     abstract_ready: boolean;
     key_content_ready: boolean;
+    fulltext_preprocessed: boolean;
+    chunked: boolean;
+    embedded: boolean;
+    indexed: boolean;
   };
+  pipeline_stage_status: PipelineStageStatusMap;
+  pipeline_actions: PipelineActionSet;
 };
 
 export type LiteratureOverviewData = {

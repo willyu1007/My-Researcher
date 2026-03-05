@@ -167,6 +167,24 @@ export type LiteraturePipelineTriggerSource = (typeof LITERATURE_PIPELINE_TRIGGE
 export const LITERATURE_PIPELINE_DEDUP_STATUSES = ['unique', 'duplicate', 'unknown'] as const;
 export type LiteraturePipelineDedupStatus = (typeof LITERATURE_PIPELINE_DEDUP_STATUSES)[number];
 
+export const LITERATURE_PIPELINE_ACTION_CODES = [
+  'EXTRACT_ABSTRACT',
+  'PREPROCESS_FULLTEXT',
+  'VECTORIZE',
+] as const;
+export type LiteraturePipelineActionCode = (typeof LITERATURE_PIPELINE_ACTION_CODES)[number];
+
+export const LITERATURE_PIPELINE_ACTION_REASON_CODES = [
+  'READY',
+  'EXCLUDED_BY_SCOPE',
+  'RIGHTS_RESTRICTED',
+  'USER_AUTH_DISABLED',
+  'PREREQUISITE_NOT_READY',
+  'STAGE_ALREADY_READY',
+  'RUN_IN_FLIGHT',
+] as const;
+export type LiteraturePipelineActionReasonCode = (typeof LITERATURE_PIPELINE_ACTION_REASON_CODES)[number];
+
 export interface LiteratureImportItem {
   provider: LiteratureProvider;
   external_id: string;
@@ -548,8 +566,28 @@ export interface LiteraturePipelineStateDTO {
   citation_complete: boolean;
   abstract_ready: boolean;
   key_content_ready: boolean;
+  fulltext_preprocessed: boolean;
+  chunked: boolean;
+  embedded: boolean;
+  indexed: boolean;
   dedup_status: LiteraturePipelineDedupStatus;
   updated_at: string;
+}
+
+export type LiteraturePipelineStageStatusMap = Record<LiteraturePipelineStageCode, LiteraturePipelineStageStatus>;
+
+export interface LiteraturePipelineActionAvailability {
+  action_code: LiteraturePipelineActionCode;
+  enabled: boolean;
+  reason_code: LiteraturePipelineActionReasonCode | null;
+  reason_message: string | null;
+  requested_stages: LiteraturePipelineStageCode[];
+}
+
+export interface LiteraturePipelineActionSet {
+  extract_abstract: LiteraturePipelineActionAvailability;
+  preprocess_fulltext: LiteraturePipelineActionAvailability;
+  vectorize: LiteraturePipelineActionAvailability;
 }
 
 export interface LiteraturePipelineStageStateDTO {
@@ -629,7 +667,13 @@ export interface LiteratureOverviewItem {
     citation_complete: boolean;
     abstract_ready: boolean;
     key_content_ready: boolean;
+    fulltext_preprocessed: boolean;
+    chunked: boolean;
+    embedded: boolean;
+    indexed: boolean;
   };
+  pipeline_stage_status: LiteraturePipelineStageStatusMap;
+  pipeline_actions: LiteraturePipelineActionSet;
 }
 
 export interface LiteratureOverviewQuery {
