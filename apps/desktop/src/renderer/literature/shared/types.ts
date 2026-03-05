@@ -312,6 +312,14 @@ export type LiteratureOverviewData = {
   items: LiteratureOverviewItem[];
 };
 
+export type LiteratureMetadataRecord = {
+  literature_id: string;
+  title: string;
+  abstract: string | null;
+  key_content_digest: string | null;
+  updated_at: string;
+};
+
 export type GovernanceRequest = {
   method: 'GET' | 'POST' | 'PATCH';
   path: string;

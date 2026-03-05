@@ -449,6 +449,123 @@
     gap: 6px;
   }
 
+  .metadata-intake-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 26;
+    display: flex;
+    justify-content: flex-end;
+    background: color-mix(in srgb, #0f172a 14%, transparent 86%);
+    padding: 12px;
+  }
+
+  .metadata-intake-panel {
+    width: min(560px, calc(100vw - 24px));
+    height: calc(100vh - 24px);
+    background: var(--ui-color-surface);
+    border: 1px solid color-mix(in srgb, var(--ui-color-border) 70%, transparent 30%);
+    border-radius: var(--ui-radius-lg);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .metadata-intake-header {
+    min-height: 52px;
+    padding: 10px 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 64%, transparent 36%);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .metadata-intake-title-wrap {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .metadata-intake-title-wrap h3 {
+    margin: 0;
+    color: var(--ui-color-primary);
+    font-size: 16px;
+    line-height: 1.25;
+    font-weight: 700;
+  }
+
+  .metadata-intake-title-wrap p {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .metadata-intake-close {
+    border: 0;
+    background: transparent;
+    color: var(--ui-color-text_muted);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .metadata-intake-close:hover {
+    color: var(--ui-color-text_secondary);
+    background: color-mix(in srgb, var(--ui-color-surface_elevated) 64%, transparent 36%);
+  }
+
+  .metadata-intake-body {
+    padding: 14px;
+    display: grid;
+    gap: 10px;
+    overflow: auto;
+  }
+
+  .metadata-intake-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .metadata-intake-field [data-ui='textarea'] {
+    width: 100%;
+    min-width: 0;
+    resize: vertical;
+    min-height: 120px;
+  }
+
+  .metadata-intake-footer {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 10px;
+    background: color-mix(in srgb, var(--ui-color-surface) 90%, transparent 10%);
+    border-top: 1px solid color-mix(in srgb, var(--ui-color-border) 58%, transparent 42%);
+  }
+
+  @media (max-width: 840px) {
+    .metadata-intake-backdrop {
+      justify-content: center;
+      padding: 8px;
+    }
+
+    .metadata-intake-panel {
+      width: min(100vw - 16px, 680px);
+      height: calc(100vh - 16px);
+    }
+  }
+
   .literature-list {
     max-height: 280px;
     overflow: auto;

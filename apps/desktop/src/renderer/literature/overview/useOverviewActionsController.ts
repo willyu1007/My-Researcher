@@ -20,6 +20,7 @@ export type OverviewActionsControllerOutput = {
     requestedStages: PipelineStageCode[],
     actionLabel: string,
   ) => Promise<void>;
+  handleOpenMetadataIntake: (literatureId: string) => void;
 };
 
 export function useOverviewActionsController(
@@ -57,6 +58,7 @@ export function useOverviewActionsController(
     overviewTagOptions,
     topFeedback,
     handleImportFromZotero,
+    openMetadataIntakePanel,
   } = input;
 
   const handleScopeStatusChange = async (literatureId: string, scopeStatus: ScopeStatus) => {
@@ -268,6 +270,10 @@ export function useOverviewActionsController(
     }
   };
 
+  const handleOpenMetadataIntake = (literatureId: string) => {
+    openMetadataIntakePanel(literatureId);
+  };
+
   return {
     handleScopeStatusChange,
     handleSyncPaperFromTopic,
@@ -279,5 +285,6 @@ export function useOverviewActionsController(
     handleSelectAllOverviewTags,
     handleClearOverviewTagSelection,
     handleRunOverviewContentAction,
+    handleOpenMetadataIntake,
   };
 }

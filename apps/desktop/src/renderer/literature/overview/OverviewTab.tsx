@@ -87,6 +87,7 @@ type OverviewTabProps = {
     stages: PipelineStageCode[],
     actionLabel: string,
   ) => Promise<void>;
+  onOpenMetadataIntake: (literatureId: string) => void;
   overviewSummaryStats: OverviewSummaryStats;
   overviewPageIndex: number;
   overviewTotalPages: number;
@@ -124,6 +125,7 @@ export function OverviewTab({
   overviewPageItems,
   onScopeStatusChange,
   onRunOverviewContentAction,
+  onOpenMetadataIntake,
   overviewSummaryStats,
   overviewPageIndex,
   overviewTotalPages,
@@ -379,6 +381,13 @@ export function OverviewTab({
                             onClick={() => void onScopeStatusChange(item.literature_id, 'excluded')}
                           >
                             排除
+                          </button>
+                          <button
+                            type="button"
+                            className="literature-overview-action-link"
+                            onClick={() => onOpenMetadataIntake(item.literature_id)}
+                          >
+                            录入内容
                           </button>
                           <button
                             type="button"

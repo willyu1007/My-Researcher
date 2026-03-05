@@ -92,6 +92,8 @@ import { AutoImportTab } from './literature/auto-import/AutoImportTab';
 import { ManualImportTab } from './literature/manual-import/ManualImportTab';
 import { useOverviewController } from './literature/overview/useOverviewController';
 import { useOverviewActionsController } from './literature/overview/useOverviewActionsController';
+import { MetadataIntakePanel } from './literature/intake/MetadataIntakePanel';
+import { useMetadataIntakeController } from './literature/intake/useMetadataIntakeController';
 import { useAutoImportController } from './literature/auto-import/useAutoImportController';
 import { useManualImportController } from './literature/manual-import/useManualImportController';
 import type {
@@ -263,6 +265,7 @@ export function App({ initialThemeMode }: AppProps) {
   const [overviewResultItems, setOverviewResultItems] = useState<LiteratureOverviewItem[]>([]);
   const [overviewPageIndex, setOverviewPageIndex] = useState<number>(1);
   const overviewTagPickerRef = useRef<HTMLDivElement | null>(null);
+  const [metadataIntakeLiteratureId, setMetadataIntakeLiteratureId] = useState<string | null>(null);
 
   const [reviewersInput, setReviewersInput] = useState<string>('reviewer-1');
   const [decision, setDecision] = useState<ReviewDecision>('hold');
@@ -946,6 +949,7 @@ export function App({ initialThemeMode }: AppProps) {
     handleSelectAllOverviewTags,
     handleClearOverviewTagSelection,
     handleRunOverviewContentAction,
+    handleOpenMetadataIntake,
   } = useOverviewActionsController({
     topicId,
     paperId,
@@ -978,6 +982,21 @@ export function App({ initialThemeMode }: AppProps) {
     overviewTagOptions,
     topFeedback,
     handleImportFromZotero,
+    openMetadataIntakePanel: setMetadataIntakeLiteratureId,
+  });
+
+  const handleCloseMetadataIntakePanel = useCallback(() => {
+    setMetadataIntakeLiteratureId(null);
+  }, []);
+
+  const metadataIntakeController = useMetadataIntakeController({
+    open: metadataIntakeLiteratureId !== null,
+    literatureId: metadataIntakeLiteratureId,
+    topicId,
+    paperId,
+    onClose: handleCloseMetadataIntakePanel,
+    loadLiteratureOverview,
+    pushLiteratureFeedback,
   });
 
   useEffect(() => {
@@ -1040,6 +1059,12 @@ export function App({ initialThemeMode }: AppProps) {
       setTopicFormModalOpen(false);
     }
   }, [activeLiteratureTab, autoImportSubTab]);
+
+  useEffect(() => {
+    if (activeModule !== '文献管理' || activeLiteratureTab !== 'overview') {
+      setMetadataIntakeLiteratureId(null);
+    }
+  }, [activeLiteratureTab, activeModule]);
 
   const isDevMode = appMode === 'dev';
   const { metricCards, releaseQueue } = useDashboardMetrics({
@@ -1174,6 +1199,7 @@ export function App({ initialThemeMode }: AppProps) {
     overviewPageItems,
     onScopeStatusChange: handleScopeStatusChange,
     onRunOverviewContentAction: handleRunOverviewContentAction,
+    onOpenMetadataIntake: handleOpenMetadataIntake,
     overviewSummaryStats,
     overviewPageIndex,
     overviewTotalPages,
@@ -1405,6 +1431,13 @@ export function App({ initialThemeMode }: AppProps) {
               </div>
             </section>
           ) : null}
+
+          <MetadataIntakePanel
+            open={metadataIntakeLiteratureId !== null}
+            literatureId={metadataIntakeLiteratureId}
+            onClose={handleCloseMetadataIntakePanel}
+            controller={metadataIntakeController}
+          />
 
           {activeModule === '论文管理' ? (
             <PaperModule

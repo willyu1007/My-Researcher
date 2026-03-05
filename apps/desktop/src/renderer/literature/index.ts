@@ -10,3 +10,5 @@ export * from './manual-import/ManualImportTab';
 export * from './manual-import/useManualImportController';
 export * from './overview/OverviewTab';
 export * from './overview/useOverviewController';
+export * from './intake/MetadataIntakePanel';
+export * from './intake/useMetadataIntakeController';
