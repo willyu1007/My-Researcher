@@ -24,6 +24,7 @@ async function seedLiterature(
     titleAuthorsYearHash: `hash-${literatureId.toLowerCase()}`,
     rightsClass,
     tags: ['pipeline-test'],
+    activeEmbeddingVersionId: null,
     createdAt: now,
     updatedAt: now,
   });

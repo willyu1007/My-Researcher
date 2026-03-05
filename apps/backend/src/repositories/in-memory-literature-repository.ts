@@ -1,4 +1,7 @@
 import type {
+  LiteratureEmbeddingChunkRecord,
+  LiteratureEmbeddingTokenIndexRecord,
+  LiteratureEmbeddingVersionRecord,
   LiteraturePipelineArtifactRecord,
   LiteratureRepository,
   LiteraturePipelineRunRecord,
@@ -37,6 +40,12 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
   private readonly pipelineStepIdsByRun = new Map<string, string[]>();
   private readonly pipelineArtifacts = new Map<string, LiteraturePipelineArtifactRecord>();
   private readonly pipelineArtifactIdsByLiterature = new Map<string, string[]>();
+  private readonly embeddingVersions = new Map<string, LiteratureEmbeddingVersionRecord>();
+  private readonly embeddingVersionIdsByLiterature = new Map<string, string[]>();
+  private readonly embeddingChunks = new Map<string, LiteratureEmbeddingChunkRecord>();
+  private readonly embeddingChunkIdsByVersion = new Map<string, string[]>();
+  private readonly embeddingTokenIndexes = new Map<string, LiteratureEmbeddingTokenIndexRecord>();
+  private readonly embeddingTokenIndexIdsByVersion = new Map<string, string[]>();
 
   async countLiteratures(): Promise<number> {
     return this.literatures.size;
@@ -327,6 +336,99 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
       .map((key) => this.pipelineArtifacts.get(key))
       .filter((record): record is LiteraturePipelineArtifactRecord => record !== undefined)
       .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
+  }
+
+  async createEmbeddingVersion(record: LiteratureEmbeddingVersionRecord): Promise<LiteratureEmbeddingVersionRecord> {
+    this.embeddingVersions.set(record.id, record);
+    const ids = this.embeddingVersionIdsByLiterature.get(record.literatureId) ?? [];
+    this.embeddingVersionIdsByLiterature.set(record.literatureId, [...ids, record.id]);
+    return record;
+  }
+
+  async findEmbeddingVersionById(embeddingVersionId: string): Promise<LiteratureEmbeddingVersionRecord | null> {
+    return this.embeddingVersions.get(embeddingVersionId) ?? null;
+  }
+
+  async findLatestEmbeddingVersionByLiteratureId(literatureId: string): Promise<LiteratureEmbeddingVersionRecord | null> {
+    const ids = this.embeddingVersionIdsByLiterature.get(literatureId) ?? [];
+    const versions = ids
+      .map((id) => this.embeddingVersions.get(id))
+      .filter((record): record is LiteratureEmbeddingVersionRecord => record !== undefined)
+      .sort((left, right) => right.versionNo - left.versionNo);
+    return versions[0] ?? null;
+  }
+
+  async listEmbeddingVersionsByLiteratureIds(literatureIds: string[]): Promise<LiteratureEmbeddingVersionRecord[]> {
+    if (literatureIds.length === 0) {
+      return [];
+    }
+    const ids = literatureIds.flatMap((literatureId) => this.embeddingVersionIdsByLiterature.get(literatureId) ?? []);
+    return ids
+      .map((id) => this.embeddingVersions.get(id))
+      .filter((record): record is LiteratureEmbeddingVersionRecord => record !== undefined)
+      .sort((left, right) => {
+        if (left.literatureId !== right.literatureId) {
+          return left.literatureId.localeCompare(right.literatureId);
+        }
+        return left.versionNo - right.versionNo;
+      });
+  }
+
+  async listActiveEmbeddingVersionsByLiteratureIds(literatureIds: string[]): Promise<LiteratureEmbeddingVersionRecord[]> {
+    if (literatureIds.length === 0) {
+      return [];
+    }
+    return literatureIds
+      .map((literatureId) => this.literatures.get(literatureId))
+      .filter((record): record is LiteratureRecord => record !== undefined)
+      .map((record) => record.activeEmbeddingVersionId ? this.embeddingVersions.get(record.activeEmbeddingVersionId) : null)
+      .filter((record): record is LiteratureEmbeddingVersionRecord => record !== undefined && record !== null);
+  }
+
+  async createEmbeddingChunks(records: LiteratureEmbeddingChunkRecord[]): Promise<LiteratureEmbeddingChunkRecord[]> {
+    for (const record of records) {
+      this.embeddingChunks.set(record.id, record);
+      const ids = this.embeddingChunkIdsByVersion.get(record.embeddingVersionId) ?? [];
+      this.embeddingChunkIdsByVersion.set(record.embeddingVersionId, [...ids, record.id]);
+    }
+    return records;
+  }
+
+  async listEmbeddingChunksByEmbeddingVersionId(embeddingVersionId: string): Promise<LiteratureEmbeddingChunkRecord[]> {
+    const ids = this.embeddingChunkIdsByVersion.get(embeddingVersionId) ?? [];
+    return ids
+      .map((id) => this.embeddingChunks.get(id))
+      .filter((record): record is LiteratureEmbeddingChunkRecord => record !== undefined)
+      .sort((left, right) => left.chunkIndex - right.chunkIndex);
+  }
+
+  async listEmbeddingChunksByEmbeddingVersionIds(embeddingVersionIds: string[]): Promise<LiteratureEmbeddingChunkRecord[]> {
+    if (embeddingVersionIds.length === 0) {
+      return [];
+    }
+    const ids = embeddingVersionIds.flatMap((embeddingVersionId) => this.embeddingChunkIdsByVersion.get(embeddingVersionId) ?? []);
+    return ids
+      .map((id) => this.embeddingChunks.get(id))
+      .filter((record): record is LiteratureEmbeddingChunkRecord => record !== undefined);
+  }
+
+  async createEmbeddingTokenIndexes(records: LiteratureEmbeddingTokenIndexRecord[]): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
+    for (const record of records) {
+      this.embeddingTokenIndexes.set(record.id, record);
+      const ids = this.embeddingTokenIndexIdsByVersion.get(record.embeddingVersionId) ?? [];
+      this.embeddingTokenIndexIdsByVersion.set(record.embeddingVersionId, [...ids, record.id]);
+    }
+    return records;
+  }
+
+  async listEmbeddingTokenIndexesByEmbeddingVersionId(
+    embeddingVersionId: string,
+  ): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
+    const ids = this.embeddingTokenIndexIdsByVersion.get(embeddingVersionId) ?? [];
+    return ids
+      .map((id) => this.embeddingTokenIndexes.get(id))
+      .filter((record): record is LiteratureEmbeddingTokenIndexRecord => record !== undefined)
+      .sort((left, right) => left.token.localeCompare(right.token));
   }
 
   async createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord> {

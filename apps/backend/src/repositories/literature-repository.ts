@@ -18,6 +18,7 @@ export type LiteratureRecord = {
   titleAuthorsYearHash: string | null;
   rightsClass: RightsClass;
   tags: string[];
+  activeEmbeddingVersionId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -118,6 +119,44 @@ export type LiteraturePipelineArtifactRecord = {
   updatedAt: string;
 };
 
+export type LiteratureEmbeddingVersionRecord = {
+  id: string;
+  literatureId: string;
+  versionNo: number;
+  provider: string;
+  model: string;
+  dimension: number;
+  chunkCount: number;
+  vectorCount: number;
+  tokenCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureEmbeddingChunkRecord = {
+  id: string;
+  embeddingVersionId: string;
+  literatureId: string;
+  chunkId: string;
+  chunkIndex: number;
+  text: string;
+  startOffset: number;
+  endOffset: number;
+  vector: number[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureEmbeddingTokenIndexRecord = {
+  id: string;
+  embeddingVersionId: string;
+  literatureId: string;
+  token: string;
+  chunkIds: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LiteratureSourceRecord = {
   id: string;
   literatureId: string;
@@ -204,6 +243,19 @@ export interface LiteratureRepository {
     artifactType: LiteraturePipelineArtifactType,
   ): Promise<LiteraturePipelineArtifactRecord | null>;
   listPipelineArtifactsByLiteratureId(literatureId: string): Promise<LiteraturePipelineArtifactRecord[]>;
+
+  createEmbeddingVersion(record: LiteratureEmbeddingVersionRecord): Promise<LiteratureEmbeddingVersionRecord>;
+  findEmbeddingVersionById(embeddingVersionId: string): Promise<LiteratureEmbeddingVersionRecord | null>;
+  findLatestEmbeddingVersionByLiteratureId(literatureId: string): Promise<LiteratureEmbeddingVersionRecord | null>;
+  listEmbeddingVersionsByLiteratureIds(literatureIds: string[]): Promise<LiteratureEmbeddingVersionRecord[]>;
+  listActiveEmbeddingVersionsByLiteratureIds(literatureIds: string[]): Promise<LiteratureEmbeddingVersionRecord[]>;
+
+  createEmbeddingChunks(records: LiteratureEmbeddingChunkRecord[]): Promise<LiteratureEmbeddingChunkRecord[]>;
+  listEmbeddingChunksByEmbeddingVersionId(embeddingVersionId: string): Promise<LiteratureEmbeddingChunkRecord[]>;
+  listEmbeddingChunksByEmbeddingVersionIds(embeddingVersionIds: string[]): Promise<LiteratureEmbeddingChunkRecord[]>;
+
+  createEmbeddingTokenIndexes(records: LiteratureEmbeddingTokenIndexRecord[]): Promise<LiteratureEmbeddingTokenIndexRecord[]>;
+  listEmbeddingTokenIndexesByEmbeddingVersionId(embeddingVersionId: string): Promise<LiteratureEmbeddingTokenIndexRecord[]>;
 
   createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord>;
   findPipelineRunById(runId: string): Promise<LiteraturePipelineRunRecord | null>;

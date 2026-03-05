@@ -74,6 +74,7 @@ model LiteratureRecord {
   titleAuthorsYearHash String?               @unique
   rightsClass          String
   tags                 String[]              @default([])
+  activeEmbeddingVersionId String?
   createdAt            DateTime              @db.Timestamptz(6)
   updatedAt            DateTime              @db.Timestamptz(6)
   sources              LiteratureSource[]
@@ -83,9 +84,14 @@ model LiteratureRecord {
   pipelineStageStates  LiteraturePipelineStageState[]
   pipelineRuns         LiteraturePipelineRun[]
   pipelineArtifacts    LiteraturePipelineArtifact[]
+  activeEmbeddingVersion LiteratureEmbeddingVersion? @relation("ActiveEmbeddingVersion", fields: [activeEmbeddingVersionId], references: [id], onDelete: SetNull)
+  embeddingVersions    LiteratureEmbeddingVersion[] @relation("LiteratureEmbeddingVersionOwner")
+  embeddingChunks      LiteratureEmbeddingChunk[]
+  embeddingTokenIndexes LiteratureEmbeddingTokenIndex[]
   autoPullSuggestions  AutoPullSuggestion[]
 
   @@index([normalizedTitle])
+  @@index([activeEmbeddingVersionId])
 }
 
 model LiteratureSource {
@@ -212,6 +218,63 @@ model LiteraturePipelineArtifact {
   @@unique([literatureId, stageCode, artifactType])
   @@index([literatureId, stageCode])
   @@index([stageCode, artifactType])
+}
+
+model LiteratureEmbeddingVersion {
+  id           String                     @id
+  literatureId String
+  versionNo    Int
+  provider     String
+  model        String
+  dimension    Int
+  chunkCount   Int
+  vectorCount  Int
+  tokenCount   Int
+  createdAt    DateTime                   @db.Timestamptz(6)
+  updatedAt    DateTime                   @db.Timestamptz(6)
+  literature   LiteratureRecord           @relation("LiteratureEmbeddingVersionOwner", fields: [literatureId], references: [id], onDelete: Cascade)
+  activeFor    LiteratureRecord[]         @relation("ActiveEmbeddingVersion")
+  chunks       LiteratureEmbeddingChunk[]
+  tokenIndexes LiteratureEmbeddingTokenIndex[]
+
+  @@unique([literatureId, versionNo])
+  @@index([literatureId, createdAt])
+  @@index([provider, model, dimension])
+}
+
+model LiteratureEmbeddingChunk {
+  id                 String                    @id
+  embeddingVersionId String
+  literatureId       String
+  chunkId            String
+  chunkIndex         Int
+  text               String
+  startOffset        Int
+  endOffset          Int
+  vector             Json
+  createdAt          DateTime                  @db.Timestamptz(6)
+  updatedAt          DateTime                  @db.Timestamptz(6)
+  embeddingVersion   LiteratureEmbeddingVersion @relation(fields: [embeddingVersionId], references: [id], onDelete: Cascade)
+  literature         LiteratureRecord          @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@unique([embeddingVersionId, chunkId])
+  @@index([embeddingVersionId, chunkIndex])
+  @@index([literatureId, chunkId])
+}
+
+model LiteratureEmbeddingTokenIndex {
+  id                 String                    @id
+  embeddingVersionId String
+  literatureId       String
+  token              String
+  chunkIds           String[]                  @default([])
+  createdAt          DateTime                  @db.Timestamptz(6)
+  updatedAt          DateTime                  @db.Timestamptz(6)
+  embeddingVersion   LiteratureEmbeddingVersion @relation(fields: [embeddingVersionId], references: [id], onDelete: Cascade)
+  literature         LiteratureRecord          @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@unique([embeddingVersionId, token])
+  @@index([literatureId, token])
 }
 
 model TopicProfile {

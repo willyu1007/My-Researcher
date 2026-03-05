@@ -725,6 +725,61 @@ export interface UpdateLiteratureMetadataResponse {
   updated_at: string;
 }
 
+export interface GetLiteratureMetadataResponse {
+  literature_id: string;
+  title: string;
+  abstract: string | null;
+  key_content_digest: string | null;
+  updated_at: string;
+}
+
+export interface LiteratureRetrieveRequest {
+  query: string;
+  topic_id?: string;
+  paper_id?: string;
+  top_k?: number;
+  evidence_per_literature?: number;
+}
+
+export interface LiteratureRetrieveEvidenceChunk {
+  chunk_id: string;
+  text: string;
+  start_offset: number;
+  end_offset: number;
+  hybrid_score: number;
+  vector_score: number;
+  lexical_score: number;
+}
+
+export interface LiteratureRetrieveHit {
+  literature_id: string;
+  title: string;
+  embedding_version_id: string;
+  hybrid_score: number;
+  vector_score: number;
+  lexical_score: number;
+  evidence_chunks: LiteratureRetrieveEvidenceChunk[];
+}
+
+export interface LiteratureRetrieveResponse {
+  items: LiteratureRetrieveHit[];
+  meta: {
+    query_tokens: string[];
+    profiles_used: Array<{
+      provider: string;
+      model: string;
+      dimension: number;
+      literature_count: number;
+    }>;
+    skipped_profiles: Array<{
+      provider: string;
+      model: string;
+      dimension: number;
+      reason: string;
+    }>;
+  };
+}
+
 export interface VersionSpineCommitRequest {
   lineage_meta: LineageMeta;
   payload_ref: string;
@@ -1493,6 +1548,19 @@ export const literatureOverviewQuerySchema = {
   },
   additionalProperties: false,
   anyOf: [{ required: ['topic_id'] }, { required: ['paper_id'] }],
+} as const;
+
+export const literatureRetrieveRequestSchema = {
+  type: 'object',
+  required: ['query'],
+  properties: {
+    query: { type: 'string', minLength: 1 },
+    topic_id: { type: 'string', minLength: 1 },
+    paper_id: { type: 'string', minLength: 1 },
+    top_k: { type: 'integer', minimum: 1, maximum: 30, default: 10 },
+    evidence_per_literature: { type: 'integer', minimum: 1, maximum: 5, default: 3 },
+  },
+  additionalProperties: false,
 } as const;
 
 export const listLiteraturePipelineRunsQuerySchema = {

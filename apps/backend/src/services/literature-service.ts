@@ -110,6 +110,7 @@ export class LiteratureService {
           titleAuthorsYearHash: dedupKeys.titleAuthorsYearHash,
           rightsClass: normalized.rights_class ?? 'UNKNOWN',
           tags: normalized.tags ?? [],
+          activeEmbeddingVersionId: null,
           createdAt: now,
           updatedAt: now,
         });

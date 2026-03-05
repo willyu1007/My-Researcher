@@ -19,6 +19,7 @@ async function seedLiterature(repository: LiteratureRepository, literatureId: st
     titleAuthorsYearHash: 'hash-pipeline-unit',
     rightsClass: 'UNKNOWN',
     tags: [],
+    activeEmbeddingVersionId: null,
     createdAt: now,
     updatedAt: now,
   });

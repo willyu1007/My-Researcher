@@ -1,5 +1,8 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type {
+  LiteratureEmbeddingChunkRecord,
+  LiteratureEmbeddingTokenIndexRecord,
+  LiteratureEmbeddingVersionRecord,
   LiteraturePipelineArtifactRecord,
   LiteraturePipelineRunRecord,
   LiteraturePipelineRunStepRecord,
@@ -32,6 +35,7 @@ function toLiteratureRecord(row: {
   titleAuthorsYearHash: string | null;
   rightsClass: string;
   tags: string[];
+  activeEmbeddingVersionId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): LiteratureRecord {
@@ -48,6 +52,7 @@ function toLiteratureRecord(row: {
     titleAuthorsYearHash: row.titleAuthorsYearHash,
     rightsClass: row.rightsClass as LiteratureRecord['rightsClass'],
     tags: row.tags,
+    activeEmbeddingVersionId: row.activeEmbeddingVersionId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -231,6 +236,86 @@ function toPipelineArtifactRecord(row: {
   };
 }
 
+function toEmbeddingVersionRecord(row: {
+  id: string;
+  literatureId: string;
+  versionNo: number;
+  provider: string;
+  model: string;
+  dimension: number;
+  chunkCount: number;
+  vectorCount: number;
+  tokenCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureEmbeddingVersionRecord {
+  return {
+    id: row.id,
+    literatureId: row.literatureId,
+    versionNo: row.versionNo,
+    provider: row.provider,
+    model: row.model,
+    dimension: row.dimension,
+    chunkCount: row.chunkCount,
+    vectorCount: row.vectorCount,
+    tokenCount: row.tokenCount,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toEmbeddingChunkRecord(row: {
+  id: string;
+  embeddingVersionId: string;
+  literatureId: string;
+  chunkId: string;
+  chunkIndex: number;
+  text: string;
+  startOffset: number;
+  endOffset: number;
+  vector: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureEmbeddingChunkRecord {
+  const vectorSource = Array.isArray(row.vector) ? row.vector : [];
+  const vector = vectorSource
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  return {
+    id: row.id,
+    embeddingVersionId: row.embeddingVersionId,
+    literatureId: row.literatureId,
+    chunkId: row.chunkId,
+    chunkIndex: row.chunkIndex,
+    text: row.text,
+    startOffset: row.startOffset,
+    endOffset: row.endOffset,
+    vector,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toEmbeddingTokenIndexRecord(row: {
+  id: string;
+  embeddingVersionId: string;
+  literatureId: string;
+  token: string;
+  chunkIds: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureEmbeddingTokenIndexRecord {
+  return {
+    id: row.id,
+    embeddingVersionId: row.embeddingVersionId,
+    literatureId: row.literatureId,
+    token: row.token,
+    chunkIds: row.chunkIds,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export class PrismaLiteratureRepository implements LiteratureRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -265,6 +350,7 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
         titleAuthorsYearHash: record.titleAuthorsYearHash,
         rightsClass: record.rightsClass,
         tags: record.tags,
+        activeEmbeddingVersionId: record.activeEmbeddingVersionId,
         createdAt: new Date(record.createdAt),
         updatedAt: new Date(record.updatedAt),
       },
@@ -287,6 +373,7 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
         titleAuthorsYearHash: record.titleAuthorsYearHash,
         rightsClass: record.rightsClass,
         tags: record.tags,
+        activeEmbeddingVersionId: record.activeEmbeddingVersionId,
         updatedAt: new Date(record.updatedAt),
       },
     });
@@ -674,6 +761,153 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
       orderBy: { updatedAt: 'asc' },
     });
     return rows.map((row) => toPipelineArtifactRecord(row));
+  }
+
+  async createEmbeddingVersion(record: LiteratureEmbeddingVersionRecord): Promise<LiteratureEmbeddingVersionRecord> {
+    const created = await this.prisma.literatureEmbeddingVersion.create({
+      data: {
+        id: record.id,
+        literatureId: record.literatureId,
+        versionNo: record.versionNo,
+        provider: record.provider,
+        model: record.model,
+        dimension: record.dimension,
+        chunkCount: record.chunkCount,
+        vectorCount: record.vectorCount,
+        tokenCount: record.tokenCount,
+        createdAt: new Date(record.createdAt),
+        updatedAt: new Date(record.updatedAt),
+      },
+    });
+    return toEmbeddingVersionRecord(created);
+  }
+
+  async findEmbeddingVersionById(embeddingVersionId: string): Promise<LiteratureEmbeddingVersionRecord | null> {
+    const row = await this.prisma.literatureEmbeddingVersion.findUnique({
+      where: { id: embeddingVersionId },
+    });
+    return row ? toEmbeddingVersionRecord(row) : null;
+  }
+
+  async findLatestEmbeddingVersionByLiteratureId(literatureId: string): Promise<LiteratureEmbeddingVersionRecord | null> {
+    const row = await this.prisma.literatureEmbeddingVersion.findFirst({
+      where: { literatureId },
+      orderBy: { versionNo: 'desc' },
+    });
+    return row ? toEmbeddingVersionRecord(row) : null;
+  }
+
+  async listEmbeddingVersionsByLiteratureIds(literatureIds: string[]): Promise<LiteratureEmbeddingVersionRecord[]> {
+    if (literatureIds.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.literatureEmbeddingVersion.findMany({
+      where: {
+        literatureId: {
+          in: literatureIds,
+        },
+      },
+      orderBy: [
+        { literatureId: 'asc' },
+        { versionNo: 'asc' },
+      ],
+    });
+    return rows.map((row) => toEmbeddingVersionRecord(row));
+  }
+
+  async listActiveEmbeddingVersionsByLiteratureIds(literatureIds: string[]): Promise<LiteratureEmbeddingVersionRecord[]> {
+    if (literatureIds.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.literatureRecord.findMany({
+      where: {
+        id: {
+          in: literatureIds,
+        },
+        activeEmbeddingVersionId: {
+          not: null,
+        },
+      },
+      select: {
+        activeEmbeddingVersion: true,
+      },
+    });
+    return rows
+      .map((row) => row.activeEmbeddingVersion)
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .map((row) => toEmbeddingVersionRecord(row));
+  }
+
+  async createEmbeddingChunks(records: LiteratureEmbeddingChunkRecord[]): Promise<LiteratureEmbeddingChunkRecord[]> {
+    if (records.length === 0) {
+      return [];
+    }
+    await this.prisma.literatureEmbeddingChunk.createMany({
+      data: records.map((record) => ({
+        id: record.id,
+        embeddingVersionId: record.embeddingVersionId,
+        literatureId: record.literatureId,
+        chunkId: record.chunkId,
+        chunkIndex: record.chunkIndex,
+        text: record.text,
+        startOffset: record.startOffset,
+        endOffset: record.endOffset,
+        vector: record.vector as unknown as Prisma.InputJsonValue,
+        createdAt: new Date(record.createdAt),
+        updatedAt: new Date(record.updatedAt),
+      })),
+    });
+    return records;
+  }
+
+  async listEmbeddingChunksByEmbeddingVersionId(embeddingVersionId: string): Promise<LiteratureEmbeddingChunkRecord[]> {
+    const rows = await this.prisma.literatureEmbeddingChunk.findMany({
+      where: { embeddingVersionId },
+      orderBy: { chunkIndex: 'asc' },
+    });
+    return rows.map((row) => toEmbeddingChunkRecord(row));
+  }
+
+  async listEmbeddingChunksByEmbeddingVersionIds(embeddingVersionIds: string[]): Promise<LiteratureEmbeddingChunkRecord[]> {
+    if (embeddingVersionIds.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.literatureEmbeddingChunk.findMany({
+      where: {
+        embeddingVersionId: {
+          in: embeddingVersionIds,
+        },
+      },
+    });
+    return rows.map((row) => toEmbeddingChunkRecord(row));
+  }
+
+  async createEmbeddingTokenIndexes(records: LiteratureEmbeddingTokenIndexRecord[]): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
+    if (records.length === 0) {
+      return [];
+    }
+    await this.prisma.literatureEmbeddingTokenIndex.createMany({
+      data: records.map((record) => ({
+        id: record.id,
+        embeddingVersionId: record.embeddingVersionId,
+        literatureId: record.literatureId,
+        token: record.token,
+        chunkIds: record.chunkIds,
+        createdAt: new Date(record.createdAt),
+        updatedAt: new Date(record.updatedAt),
+      })),
+    });
+    return records;
+  }
+
+  async listEmbeddingTokenIndexesByEmbeddingVersionId(
+    embeddingVersionId: string,
+  ): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
+    const rows = await this.prisma.literatureEmbeddingTokenIndex.findMany({
+      where: { embeddingVersionId },
+      orderBy: { token: 'asc' },
+    });
+    return rows.map((row) => toEmbeddingTokenIndexRecord(row));
   }
 
   async createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord> {
