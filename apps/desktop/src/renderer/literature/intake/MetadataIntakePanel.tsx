@@ -1,10 +1,20 @@
-import { useEffect, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { formatTimestamp } from '../shared/formatters';
 import type { MetadataIntakeControllerOutput } from './useMetadataIntakeController';
+import type { MetadataIntakeTabKey, PipelineStageCode } from '../shared/types';
 
 type MetadataIntakePanelProps = {
   open: boolean;
   literatureId: string | null;
+  initialTab: MetadataIntakeTabKey;
+  sourceUrl: string | null;
+  doi: string | null;
+  arxivId: string | null;
+  onRunOverviewContentAction: (
+    literatureId: string,
+    stages: PipelineStageCode[],
+    actionLabel: string,
+  ) => Promise<void>;
   onClose: () => void;
   controller: MetadataIntakeControllerOutput;
 };
@@ -12,67 +22,216 @@ type MetadataIntakePanelProps = {
 export function MetadataIntakePanel({
   open,
   literatureId,
+  initialTab,
+  sourceUrl,
+  doi,
+  arxivId,
+  onRunOverviewContentAction,
   onClose,
   controller,
 }: MetadataIntakePanelProps) {
+  const [activeTab, setActiveTab] = useState<MetadataIntakeTabKey>(initialTab);
+
   useEffect(() => {
     if (!open) {
       return;
     }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [onClose, open]);
+    setActiveTab(initialTab);
+  }, [initialTab, open]);
 
   if (!open) {
     return null;
   }
 
   const title = controller.literatureTitle || literatureId || '未命名文献';
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    void controller.handleSave();
+  const keyContentText = controller.keyContentDigestInput.trim();
+  const abstractText = controller.abstractInput.trim();
+  const vectorizePreview = keyContentText.length > 0
+    ? keyContentText
+    : abstractText;
+  const isSaving = controller.status === 'saving';
+  const canInlineSave = activeTab === 'abstract'
+    ? controller.hasAbstractChanges
+    : activeTab === 'key-content'
+      ? controller.hasKeyContentChanges
+      : false;
+  const canInlineRevert = canInlineSave;
+  const handleInlineRevert = () => {
+    if (activeTab === 'abstract') {
+      controller.handleRevertAbstractInput();
+      return;
+    }
+    if (activeTab === 'key-content') {
+      controller.handleRevertKeyContentDigestInput();
+    }
   };
 
+  const autoProcessConfig: {
+    actionLabel: string;
+    requestedStages: PipelineStageCode[];
+  } = activeTab === 'abstract'
+    ? {
+        actionLabel: '提取摘要',
+        requestedStages: ['ABSTRACT_READY'],
+      }
+    : activeTab === 'key-content'
+      ? {
+          actionLabel: '预处理全文',
+          requestedStages: ['FULLTEXT_PREPROCESSED'],
+        }
+      : {
+          actionLabel: '向量化',
+          requestedStages: ['CHUNKED', 'EMBEDDED', 'INDEXED'],
+        };
+
+  const handleAutoProcess = () => {
+    if (!literatureId || isSaving) {
+      return;
+    }
+    void onRunOverviewContentAction(
+      literatureId,
+      autoProcessConfig.requestedStages,
+      autoProcessConfig.actionLabel,
+    );
+  };
+
+  const handleCancel = () => {
+    if (isSaving) {
+      return;
+    }
+    if (controller.hasChanges) {
+      const confirmed = window.confirm('当前有未保存修改，确认取消并退出吗？');
+      if (!confirmed) {
+        return;
+      }
+    }
+    onClose();
+  };
+
+  const handleConfirm = () => {
+    if (isSaving) {
+      return;
+    }
+    if (controller.canSave) {
+      void controller.handleSave();
+      return;
+    }
+    onClose();
+  };
+
+  const sourceLinkLabel = sourceUrl ? '原文地址' : '原文地址：--';
+  const identifierText = [doi ? `DOI: ${doi}` : null, arxivId ? `arXiv: ${arxivId}` : null]
+    .filter((value): value is string => value !== null)
+    .join('  |  ');
+
   return (
-    <div className="metadata-intake-backdrop" role="presentation" onClick={onClose}>
+    <div className="metadata-intake-backdrop" role="presentation">
       <aside
         className="metadata-intake-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="metadata-intake-title"
-        onClick={(event) => event.stopPropagation()}
       >
         <header className="metadata-intake-header">
           <div className="metadata-intake-title-wrap">
-            <h3 id="metadata-intake-title">录入内容</h3>
-            <p data-ui="text" data-variant="caption" data-tone="muted" title={title}>
-              {title}
-            </p>
-            <p data-ui="text" data-variant="caption" data-tone="muted">
-              最近更新：{controller.updatedAt ? formatTimestamp(controller.updatedAt) : '--'}
-            </p>
+            <h3 id="metadata-intake-title" title={title}>{title}</h3>
+            <div className="metadata-intake-meta-row">
+              <span data-ui="text" data-variant="caption" data-tone="muted">
+                最近更新：{controller.updatedAt ? formatTimestamp(controller.updatedAt) : '--'}
+              </span>
+              {sourceUrl ? (
+                <a
+                  className="metadata-intake-source-link"
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {sourceLinkLabel}
+                </a>
+              ) : (
+                <span data-ui="text" data-variant="caption" data-tone="muted">{sourceLinkLabel}</span>
+              )}
+            </div>
+            {identifierText ? (
+              <p data-ui="text" data-variant="caption" data-tone="muted">{identifierText}</p>
+            ) : null}
           </div>
-          <button
-            type="button"
-            className="metadata-intake-close"
-            aria-label="关闭录入面板"
-            onClick={onClose}
-          >
-            ×
-          </button>
         </header>
 
-        <form className="metadata-intake-body" onSubmit={handleSubmit}>
+        <div className="metadata-intake-body">
+          <div className="metadata-intake-tabs-bar">
+            <nav className="metadata-intake-tabs" role="tablist" aria-label="录入内容标签页">
+              <button
+                id="metadata-intake-tab-abstract"
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'abstract'}
+                aria-controls="metadata-intake-panel-abstract"
+                className={`metadata-intake-tab${activeTab === 'abstract' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('abstract')}
+              >
+                内容摘要
+              </button>
+              <button
+                id="metadata-intake-tab-key-content"
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'key-content'}
+                aria-controls="metadata-intake-panel-key-content"
+                className={`metadata-intake-tab${activeTab === 'key-content' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('key-content')}
+              >
+                重点内容
+              </button>
+              <button
+                id="metadata-intake-tab-vectorize"
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'vectorize'}
+                aria-controls="metadata-intake-panel-vectorize"
+                className={`metadata-intake-tab${activeTab === 'vectorize' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('vectorize')}
+              >
+                向量化
+              </button>
+            </nav>
+            <div className="metadata-intake-tab-actions">
+              <button
+                data-ui="button"
+                data-variant="ghost"
+                data-size="sm"
+                type="button"
+                className="metadata-intake-auto-action"
+                onClick={handleAutoProcess}
+                disabled={!literatureId || isSaving}
+              >
+                自动处理
+              </button>
+              <button
+                data-ui="button"
+                data-variant="ghost"
+                data-size="sm"
+                type="button"
+                className="metadata-intake-inline-revert"
+                onClick={handleInlineRevert}
+                disabled={isSaving || !canInlineRevert}
+              >
+                撤销
+              </button>
+              <button
+                data-ui="button"
+                data-variant="ghost"
+                data-size="sm"
+                type="button"
+                className="metadata-intake-inline-save"
+                onClick={() => void controller.handleSaveInPlace()}
+                disabled={isSaving || !canInlineSave}
+              >
+                {isSaving ? '保存中...' : '保存'}
+              </button>
+            </div>
+          </div>
+
           {controller.status === 'loading' ? (
             <p data-ui="text" data-variant="caption" data-tone="muted">正在加载文献录入内容...</p>
           ) : null}
@@ -82,29 +241,58 @@ export function MetadataIntakePanel({
             </p>
           ) : null}
 
-          <label data-ui="field" className="metadata-intake-field">
-            <span data-ui="text" data-variant="label" data-tone="secondary">摘要（Abstract）</span>
-            <textarea
-              data-ui="textarea"
-              rows={8}
-              value={controller.abstractInput}
-              onChange={(event) => controller.handleAbstractInputChange(event.target.value)}
-              placeholder="可手动录入摘要，留空将保存为空。"
-              disabled={controller.status === 'loading' || controller.status === 'saving'}
-            />
-          </label>
+          {activeTab === 'abstract' ? (
+            <section
+              id="metadata-intake-panel-abstract"
+              className="metadata-intake-tab-panel"
+              role="tabpanel"
+              aria-labelledby="metadata-intake-tab-abstract"
+            >
+              <textarea
+                data-ui="textarea"
+                rows={6}
+                value={controller.abstractInput}
+                onChange={(event) => controller.handleAbstractInputChange(event.target.value)}
+                placeholder="可手动录入摘要，留空将保存为空。"
+                disabled={controller.status === 'loading' || controller.status === 'saving'}
+              />
+            </section>
+          ) : null}
 
-          <label data-ui="field" className="metadata-intake-field">
-            <span data-ui="text" data-variant="label" data-tone="secondary">重点内容摘要（Key Content Digest）</span>
-            <textarea
-              data-ui="textarea"
-              rows={10}
-              value={controller.keyContentDigestInput}
-              onChange={(event) => controller.handleKeyContentDigestInputChange(event.target.value)}
-              placeholder="可手动录入重点内容，支持多行。"
-              disabled={controller.status === 'loading' || controller.status === 'saving'}
-            />
-          </label>
+          {activeTab === 'key-content' ? (
+            <section
+              id="metadata-intake-panel-key-content"
+              className="metadata-intake-tab-panel"
+              role="tabpanel"
+              aria-labelledby="metadata-intake-tab-key-content"
+            >
+              <textarea
+                data-ui="textarea"
+                rows={6}
+                value={controller.keyContentDigestInput}
+                onChange={(event) => controller.handleKeyContentDigestInputChange(event.target.value)}
+                placeholder="可手动录入重点内容，支持多行。"
+                disabled={controller.status === 'loading' || controller.status === 'saving'}
+              />
+            </section>
+          ) : null}
+
+          {activeTab === 'vectorize' ? (
+            <section
+              id="metadata-intake-panel-vectorize"
+              className="metadata-intake-tab-panel"
+              role="tabpanel"
+              aria-labelledby="metadata-intake-tab-vectorize"
+            >
+              <textarea
+                data-ui="textarea"
+                rows={6}
+                value={vectorizePreview}
+                readOnly
+                placeholder="暂无可用于向量化的内容。"
+              />
+            </section>
+          ) : null}
 
           <footer className="metadata-intake-footer">
             <button
@@ -112,18 +300,8 @@ export function MetadataIntakePanel({
               data-variant="ghost"
               data-size="sm"
               type="button"
-              onClick={() => void controller.handleReload()}
-              disabled={controller.status === 'loading' || controller.status === 'saving' || !literatureId}
-            >
-              重新加载
-            </button>
-            <button
-              data-ui="button"
-              data-variant="ghost"
-              data-size="sm"
-              type="button"
-              onClick={onClose}
-              disabled={controller.status === 'saving'}
+              onClick={handleCancel}
+              disabled={isSaving}
             >
               取消
             </button>
@@ -131,13 +309,14 @@ export function MetadataIntakePanel({
               data-ui="button"
               data-variant="primary"
               data-size="sm"
-              type="submit"
-              disabled={!controller.canSave}
+              type="button"
+              onClick={handleConfirm}
+              disabled={isSaving}
             >
-              {controller.status === 'saving' ? '保存中...' : controller.hasChanges ? '保存并关闭' : '已保存'}
+              {isSaving ? '处理中...' : '确定'}
             </button>
           </footer>
-        </form>
+        </div>
       </aside>
     </div>
   );

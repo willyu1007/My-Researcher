@@ -68,6 +68,12 @@ export type QuerySortPreset = `${QuerySort}|${SortDirection}`;
 export type LiteratureOverviewStatus = 'automation_ready' | 'citable' | 'not_citable' | 'excluded';
 export type OverviewContentStatus = 'not_ready' | 'abstract_ready' | 'key_content_ready';
 export type OverviewScopeFilterInput = 'all' | LiteratureOverviewStatus;
+export type MetadataIntakeTabKey = 'abstract' | 'key-content' | 'vectorize';
+export type MetadataIntakeOpenContext = {
+  source_url: string | null;
+  doi: string | null;
+  arxiv_id: string | null;
+};
 export type PipelineStageCode =
   | 'CITATION_NORMALIZED'
   | 'ABSTRACT_READY'

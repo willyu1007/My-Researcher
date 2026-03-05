@@ -112,6 +112,8 @@ import type {
   LiteratureTabKey,
   ManualImportSubTabKey,
   ManualUploadFileItem,
+  MetadataIntakeOpenContext,
+  MetadataIntakeTabKey,
   OverviewScopeFilterInput,
   PanelState,
   PaperLiteratureItem,
@@ -129,6 +131,12 @@ import type {
 } from './literature/shared/types';
 type AppProps = {
   initialThemeMode: ThemeMode;
+};
+
+const emptyMetadataIntakeContext: MetadataIntakeOpenContext = {
+  source_url: null,
+  doi: null,
+  arxiv_id: null,
 };
 
 export function App({ initialThemeMode }: AppProps) {
@@ -266,6 +274,8 @@ export function App({ initialThemeMode }: AppProps) {
   const [overviewPageIndex, setOverviewPageIndex] = useState<number>(1);
   const overviewTagPickerRef = useRef<HTMLDivElement | null>(null);
   const [metadataIntakeLiteratureId, setMetadataIntakeLiteratureId] = useState<string | null>(null);
+  const [metadataIntakeTab, setMetadataIntakeTab] = useState<MetadataIntakeTabKey>('abstract');
+  const [metadataIntakeContext, setMetadataIntakeContext] = useState<MetadataIntakeOpenContext>(emptyMetadataIntakeContext);
 
   const [reviewersInput, setReviewersInput] = useState<string>('reviewer-1');
   const [decision, setDecision] = useState<ReviewDecision>('hold');
@@ -938,6 +948,16 @@ export function App({ initialThemeMode }: AppProps) {
     setZoteroLinkResult,
   });
 
+  const handleOpenMetadataIntakePanel = useCallback((
+    literatureId: string,
+    tab: MetadataIntakeTabKey = 'abstract',
+    context?: MetadataIntakeOpenContext,
+  ) => {
+    setMetadataIntakeLiteratureId(literatureId);
+    setMetadataIntakeTab(tab);
+    setMetadataIntakeContext(context ?? emptyMetadataIntakeContext);
+  }, []);
+
   const {
     handleScopeStatusChange,
     handleSyncPaperFromTopic,
@@ -982,11 +1002,13 @@ export function App({ initialThemeMode }: AppProps) {
     overviewTagOptions,
     topFeedback,
     handleImportFromZotero,
-    openMetadataIntakePanel: setMetadataIntakeLiteratureId,
+    openMetadataIntakePanel: handleOpenMetadataIntakePanel,
   });
 
   const handleCloseMetadataIntakePanel = useCallback(() => {
     setMetadataIntakeLiteratureId(null);
+    setMetadataIntakeTab('abstract');
+    setMetadataIntakeContext(emptyMetadataIntakeContext);
   }, []);
 
   const metadataIntakeController = useMetadataIntakeController({
@@ -1435,6 +1457,11 @@ export function App({ initialThemeMode }: AppProps) {
           <MetadataIntakePanel
             open={metadataIntakeLiteratureId !== null}
             literatureId={metadataIntakeLiteratureId}
+            initialTab={metadataIntakeTab}
+            sourceUrl={metadataIntakeContext.source_url}
+            doi={metadataIntakeContext.doi}
+            arxivId={metadataIntakeContext.arxiv_id}
+            onRunOverviewContentAction={handleRunOverviewContentAction}
             onClose={handleCloseMetadataIntakePanel}
             controller={metadataIntakeController}
           />

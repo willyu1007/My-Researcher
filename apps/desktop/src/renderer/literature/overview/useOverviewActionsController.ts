@@ -1,7 +1,13 @@
 import { requestGovernance } from '../shared/api';
 import { overviewYearDefaultEnd, overviewYearDefaultStart } from '../shared/constants';
 import { asRecord, parseQuerySortPreset, parseYearFilterInput } from '../shared/normalizers';
-import type { CitationStatus, PipelineStageCode, ScopeStatus } from '../shared/types';
+import type {
+  CitationStatus,
+  MetadataIntakeOpenContext,
+  MetadataIntakeTabKey,
+  PipelineStageCode,
+  ScopeStatus,
+} from '../shared/types';
 
 export type OverviewActionsControllerInput = Record<string, any>;
 
@@ -20,7 +26,11 @@ export type OverviewActionsControllerOutput = {
     requestedStages: PipelineStageCode[],
     actionLabel: string,
   ) => Promise<void>;
-  handleOpenMetadataIntake: (literatureId: string) => void;
+  handleOpenMetadataIntake: (
+    literatureId: string,
+    tab?: MetadataIntakeTabKey,
+    context?: MetadataIntakeOpenContext,
+  ) => void;
 };
 
 export function useOverviewActionsController(
@@ -270,8 +280,12 @@ export function useOverviewActionsController(
     }
   };
 
-  const handleOpenMetadataIntake = (literatureId: string) => {
-    openMetadataIntakePanel(literatureId);
+  const handleOpenMetadataIntake = (
+    literatureId: string,
+    tab: MetadataIntakeTabKey = 'abstract',
+    context?: MetadataIntakeOpenContext,
+  ) => {
+    openMetadataIntakePanel(literatureId, tab, context);
   };
 
   return {

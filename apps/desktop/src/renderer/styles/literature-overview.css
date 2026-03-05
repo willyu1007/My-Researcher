@@ -359,6 +359,29 @@
     gap: 2px;
   }
 
+  .literature-overview-status-text {
+    font-weight: 500;
+  }
+
+  .literature-overview-status-text.is-automation_ready,
+  .literature-overview-content-text.is-key_content_ready {
+    color: color-mix(in srgb, var(--ui-color-success, #16a34a) 46%, var(--ui-color-text_secondary) 54%);
+  }
+
+  .literature-overview-status-text.is-citable,
+  .literature-overview-content-text.is-abstract_ready {
+    color: color-mix(in srgb, var(--ui-color-primary) 58%, var(--ui-color-text_secondary) 42%);
+  }
+
+  .literature-overview-status-text.is-not_citable,
+  .literature-overview-content-text.is-not_ready {
+    color: color-mix(in srgb, #b7791f 48%, var(--ui-color-text_secondary) 52%);
+  }
+
+  .literature-overview-status-text.is-excluded {
+    color: color-mix(in srgb, var(--ui-color-danger, #dc2626) 54%, var(--ui-color-text_secondary) 46%);
+  }
+
   .literature-overview-tag-list {
     display: grid;
     grid-template-columns: repeat(2, max-content);
@@ -426,6 +449,22 @@
     color: var(--ui-color-primary);
   }
 
+  .literature-overview-action-link.is-danger {
+    color: color-mix(in srgb, var(--ui-color-danger, #dc2626) 58%, var(--ui-color-text_secondary) 42%);
+  }
+
+  .literature-overview-action-link.is-danger:hover {
+    color: color-mix(in srgb, var(--ui-color-danger, #dc2626) 66%, var(--ui-color-text_secondary) 34%);
+  }
+
+  .literature-overview-action-link.is-success {
+    color: color-mix(in srgb, var(--ui-color-success, #16a34a) 56%, var(--ui-color-text_secondary) 44%);
+  }
+
+  .literature-overview-action-link.is-success:hover {
+    color: color-mix(in srgb, var(--ui-color-success, #16a34a) 64%, var(--ui-color-text_secondary) 36%);
+  }
+
   .literature-overview-action-link:disabled {
     color: color-mix(in srgb, var(--ui-color-text_secondary) 72%, var(--ui-color-text_muted) 28%);
     cursor: not-allowed;
@@ -454,19 +493,20 @@
     inset: 0;
     z-index: 26;
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: center;
     background: color-mix(in srgb, #0f172a 14%, transparent 86%);
     padding: 12px;
   }
 
   .metadata-intake-panel {
-    width: min(560px, calc(100vw - 24px));
-    height: calc(100vh - 24px);
+    width: min(720px, calc(100vw - 24px));
+    height: min(760px, calc(100vh - 32px));
     background: var(--ui-color-surface);
     border: 1px solid color-mix(in srgb, var(--ui-color-border) 70%, transparent 30%);
     border-radius: var(--ui-radius-lg);
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
   }
 
@@ -474,15 +514,12 @@
     min-height: 52px;
     padding: 10px 14px;
     border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 64%, transparent 36%);
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 8px;
+    display: block;
   }
 
   .metadata-intake-title-wrap {
     display: grid;
-    gap: 2px;
+    gap: 8px;
     min-width: 0;
   }
 
@@ -492,6 +529,10 @@
     font-size: 16px;
     line-height: 1.25;
     font-weight: 700;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .metadata-intake-title-wrap p {
@@ -502,53 +543,114 @@
     white-space: nowrap;
   }
 
-  .metadata-intake-close {
-    border: 0;
-    background: transparent;
-    color: var(--ui-color-text_muted);
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    font-size: 20px;
-    line-height: 1;
-    cursor: pointer;
+  .metadata-intake-meta-row {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
+    gap: 12px;
+    min-width: 0;
   }
 
-  .metadata-intake-close:hover {
-    color: var(--ui-color-text_secondary);
-    background: color-mix(in srgb, var(--ui-color-surface_elevated) 64%, transparent 36%);
+  .metadata-intake-source-link {
+    color: color-mix(in srgb, var(--ui-color-primary) 76%, var(--ui-color-text_secondary) 24%);
+    text-decoration: none;
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .metadata-intake-source-link:hover {
+    text-decoration: underline;
   }
 
   .metadata-intake-body {
     padding: 14px;
-    display: grid;
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+    flex: 1 1 auto;
     overflow: auto;
   }
 
-  .metadata-intake-field {
-    display: grid;
-    gap: 6px;
-    min-width: 0;
+  .metadata-intake-tabs-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 
-  .metadata-intake-field [data-ui='textarea'] {
+  .metadata-intake-tabs {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    gap: 18px;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 0 2px;
+  }
+
+  .metadata-intake-tab {
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--ui-color-text_secondary);
+    font-size: 13px;
+    line-height: 1.25;
+    font-weight: 400;
+    padding: 0 0 7px;
+    cursor: pointer;
+  }
+
+  .metadata-intake-tab:hover {
+    color: var(--ui-color-primary);
+  }
+
+  .metadata-intake-tab.is-active {
+    color: var(--ui-color-primary);
+    border-bottom-color: color-mix(in srgb, var(--ui-color-primary) 44%, transparent 56%);
+    font-weight: 500;
+  }
+
+  .metadata-intake-tab:focus-visible {
+    outline: none;
+  }
+
+  .metadata-intake-tab-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .metadata-intake-auto-action[data-ui='button'][data-size='sm'],
+  .metadata-intake-inline-revert[data-ui='button'][data-size='sm'],
+  .metadata-intake-inline-save[data-ui='button'][data-size='sm'] {
+    min-height: 26px;
+    padding: 3px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .metadata-intake-tab-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .metadata-intake-tab-panel [data-ui='textarea'] {
     width: 100%;
     min-width: 0;
     resize: vertical;
-    min-height: 120px;
+    min-height: 240px;
+    flex: 1 1 auto;
   }
 
   .metadata-intake-footer {
-    position: sticky;
-    bottom: 0;
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+    margin-top: auto;
     padding-top: 10px;
     background: color-mix(in srgb, var(--ui-color-surface) 90%, transparent 10%);
     border-top: 1px solid color-mix(in srgb, var(--ui-color-border) 58%, transparent 42%);

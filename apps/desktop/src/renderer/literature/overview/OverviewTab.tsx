@@ -1,9 +1,10 @@
 import type { RefObject } from 'react';
 import type {
   LiteratureOverviewItem,
+  MetadataIntakeOpenContext,
+  MetadataIntakeTabKey,
   OverviewScopeFilterInput,
   PipelineStageCode,
-  PipelineStageStatus,
   QuerySortPreset,
   ScopeStatus,
 } from '../shared/types';
@@ -17,26 +18,12 @@ import {
   resolveOverviewPublicationLabel,
 } from './overviewStatus';
 
-function formatPipelineStageStatusLabel(status: PipelineStageStatus): string {
-  if (status === 'SUCCEEDED') {
-    return '完成';
-  }
-  if (status === 'RUNNING') {
-    return '执行中';
-  }
-  if (status === 'PENDING') {
-    return '排队中';
-  }
-  if (status === 'BLOCKED') {
-    return '阻塞';
-  }
-  if (status === 'FAILED') {
-    return '失败';
-  }
-  if (status === 'SKIPPED') {
-    return '跳过';
-  }
-  return '未开始';
+function resolveOverviewStatusClassName(status: LiteratureOverviewItem['overview_status']): string {
+  return `literature-overview-status-text is-${status}`;
+}
+
+function resolveOverviewContentClassName(contentStatus: 'not_ready' | 'abstract_ready' | 'key_content_ready'): string {
+  return `literature-overview-content-text is-${contentStatus}`;
 }
 
 type OverviewPanelState = {
@@ -87,7 +74,7 @@ type OverviewTabProps = {
     stages: PipelineStageCode[],
     actionLabel: string,
   ) => Promise<void>;
-  onOpenMetadataIntake: (literatureId: string) => void;
+  onOpenMetadataIntake: (literatureId: string, tab?: MetadataIntakeTabKey, context?: MetadataIntakeOpenContext) => void;
   overviewSummaryStats: OverviewSummaryStats;
   overviewPageIndex: number;
   overviewTotalPages: number;
@@ -273,7 +260,7 @@ export function OverviewTab({
             <tr>
               <th className="overview-col-title">标题</th>
               <th className="overview-col-importance">重要程度 / 来源链接</th>
-              <th className="overview-col-publication">发表情况 / 引用数量</th>
+              <th className="overview-col-publication">发表 / 引用量</th>
               <th className="overview-col-authors">作者 / 年份</th>
               <th className="overview-col-status">状态 / 内容</th>
               <th className="overview-col-tags">标签</th>
@@ -302,6 +289,9 @@ export function OverviewTab({
                 const extractAbstractAction = item.pipeline_actions.extract_abstract;
                 const preprocessAction = item.pipeline_actions.preprocess_fulltext;
                 const vectorizeAction = item.pipeline_actions.vectorize;
+                const isExcluded = overviewStatus === 'excluded';
+                const scopeActionLabel = isExcluded ? '恢复' : '排除';
+                const nextScopeStatus: ScopeStatus = isExcluded ? 'in_scope' : 'excluded';
 
                 return (
                   <tr key={item.literature_id}>
@@ -346,16 +336,21 @@ export function OverviewTab({
                     </td>
                     <td>
                       <div className="literature-overview-main">
-                        <p data-ui="text" data-variant="caption" data-tone="primary">
+                        <p
+                          data-ui="text"
+                          data-variant="caption"
+                          data-tone="primary"
+                          className={resolveOverviewStatusClassName(overviewStatus)}
+                        >
                           {formatLiteratureOverviewStatus(overviewStatus)}
                         </p>
-                        <p data-ui="text" data-variant="caption" data-tone="muted">
+                        <p
+                          data-ui="text"
+                          data-variant="caption"
+                          data-tone="muted"
+                          className={resolveOverviewContentClassName(contentStatus)}
+                        >
                           {formatOverviewContentStatus(contentStatus)}
-                        </p>
-                        <p data-ui="text" data-variant="caption" data-tone="muted">
-                          摘要:{formatPipelineStageStatusLabel(item.pipeline_stage_status.ABSTRACT_READY)}
-                          {' '}| 预处理:{formatPipelineStageStatusLabel(item.pipeline_stage_status.FULLTEXT_PREPROCESSED)}
-                          {' '}| 向量:{formatPipelineStageStatusLabel(item.pipeline_stage_status.INDEXED)}
                         </p>
                       </div>
                     </td>
@@ -377,43 +372,61 @@ export function OverviewTab({
                         <div className="literature-overview-action-row">
                           <button
                             type="button"
-                            className="literature-overview-action-link"
-                            onClick={() => void onScopeStatusChange(item.literature_id, 'excluded')}
+                            className={`literature-overview-action-link ${isExcluded ? 'is-success' : 'is-danger'}`}
+                            onClick={() => void onScopeStatusChange(item.literature_id, nextScopeStatus)}
                           >
-                            排除
+                            {scopeActionLabel}
                           </button>
                           <button
                             type="button"
                             className="literature-overview-action-link"
-                            onClick={() => onOpenMetadataIntake(item.literature_id)}
+                            onClick={() => onOpenMetadataIntake(item.literature_id, 'abstract', {
+                              source_url: item.source_url,
+                              doi: item.doi,
+                              arxiv_id: item.arxiv_id,
+                            })}
                           >
                             录入内容
-                          </button>
-                          <button
-                            type="button"
-                            className="literature-overview-action-link"
-                            disabled={!extractAbstractAction.enabled}
-                            title={extractAbstractAction.reason_message ?? undefined}
-                            onClick={() => void onRunOverviewContentAction(
-                              item.literature_id,
-                              extractAbstractAction.requested_stages,
-                              '提取摘要',
-                            )}
-                          >
-                            提取摘要
                           </button>
                         </div>
                         <div className="literature-overview-action-row">
                           <button
                             type="button"
                             className="literature-overview-action-link"
+                            disabled={!extractAbstractAction.enabled}
+                            title={extractAbstractAction.reason_message ?? undefined}
+                            onClick={() => {
+                              onOpenMetadataIntake(item.literature_id, 'abstract', {
+                                source_url: item.source_url,
+                                doi: item.doi,
+                                arxiv_id: item.arxiv_id,
+                              });
+                              void onRunOverviewContentAction(
+                                item.literature_id,
+                                extractAbstractAction.requested_stages,
+                                '提取摘要',
+                              );
+                            }}
+                          >
+                            提取摘要
+                          </button>
+                          <button
+                            type="button"
+                            className="literature-overview-action-link"
                             disabled={!preprocessAction.enabled}
                             title={preprocessAction.reason_message ?? undefined}
-                            onClick={() => void onRunOverviewContentAction(
-                              item.literature_id,
-                              preprocessAction.requested_stages,
-                              '预处理全文',
-                            )}
+                            onClick={() => {
+                              onOpenMetadataIntake(item.literature_id, 'key-content', {
+                                source_url: item.source_url,
+                                doi: item.doi,
+                                arxiv_id: item.arxiv_id,
+                              });
+                              void onRunOverviewContentAction(
+                                item.literature_id,
+                                preprocessAction.requested_stages,
+                                '预处理全文',
+                              );
+                            }}
                           >
                             预处理
                           </button>
@@ -422,30 +435,22 @@ export function OverviewTab({
                             className="literature-overview-action-link"
                             disabled={!vectorizeAction.enabled}
                             title={vectorizeAction.reason_message ?? undefined}
-                            onClick={() => void onRunOverviewContentAction(
-                              item.literature_id,
-                              vectorizeAction.requested_stages,
-                              '向量化',
-                            )}
+                            onClick={() => {
+                              onOpenMetadataIntake(item.literature_id, 'vectorize', {
+                                source_url: item.source_url,
+                                doi: item.doi,
+                                arxiv_id: item.arxiv_id,
+                              });
+                              void onRunOverviewContentAction(
+                                item.literature_id,
+                                vectorizeAction.requested_stages,
+                                '向量化',
+                              );
+                            }}
                           >
                             向量化
                           </button>
                         </div>
-                        {!extractAbstractAction.enabled && extractAbstractAction.reason_message ? (
-                          <p data-ui="text" data-variant="caption" data-tone="muted">
-                            提取摘要：{extractAbstractAction.reason_message}
-                          </p>
-                        ) : null}
-                        {!preprocessAction.enabled && preprocessAction.reason_message ? (
-                          <p data-ui="text" data-variant="caption" data-tone="muted">
-                            预处理：{preprocessAction.reason_message}
-                          </p>
-                        ) : null}
-                        {!vectorizeAction.enabled && vectorizeAction.reason_message ? (
-                          <p data-ui="text" data-variant="caption" data-tone="muted">
-                            向量化：{vectorizeAction.reason_message}
-                          </p>
-                        ) : null}
                       </div>
                     </td>
                   </tr>

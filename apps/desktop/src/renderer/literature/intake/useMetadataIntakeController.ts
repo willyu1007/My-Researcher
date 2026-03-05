@@ -21,10 +21,15 @@ export type MetadataIntakeControllerOutput = {
   abstractInput: string;
   keyContentDigestInput: string;
   hasChanges: boolean;
+  hasAbstractChanges: boolean;
+  hasKeyContentChanges: boolean;
   canSave: boolean;
   handleAbstractInputChange: (value: string) => void;
   handleKeyContentDigestInputChange: (value: string) => void;
+  handleRevertAbstractInput: () => void;
+  handleRevertKeyContentDigestInput: () => void;
   handleReload: () => Promise<void>;
+  handleSaveInPlace: () => Promise<void>;
   handleSave: () => Promise<void>;
 };
 
@@ -117,6 +122,20 @@ export function useMetadataIntakeController(
     return baseline.abstract !== abstractInput || baseline.keyContentDigest !== keyContentDigestInput;
   }, [abstractInput, baseline, keyContentDigestInput]);
 
+  const hasAbstractChanges = useMemo(() => {
+    if (!baseline) {
+      return false;
+    }
+    return baseline.abstract !== abstractInput;
+  }, [abstractInput, baseline]);
+
+  const hasKeyContentChanges = useMemo(() => {
+    if (!baseline) {
+      return false;
+    }
+    return baseline.keyContentDigest !== keyContentDigestInput;
+  }, [baseline, keyContentDigestInput]);
+
   const canSave = Boolean(literatureId)
     && hasChanges
     && status !== 'loading'
@@ -126,7 +145,21 @@ export function useMetadataIntakeController(
     await loadMetadata();
   }, [loadMetadata]);
 
-  const handleSave = useCallback(async () => {
+  const handleRevertAbstractInput = useCallback(() => {
+    if (!baseline) {
+      return;
+    }
+    setAbstractInput(baseline.abstract);
+  }, [baseline]);
+
+  const handleRevertKeyContentDigestInput = useCallback(() => {
+    if (!baseline) {
+      return;
+    }
+    setKeyContentDigestInput(baseline.keyContentDigest);
+  }, [baseline]);
+
+  const persistMetadata = useCallback(async (closeOnSuccess: boolean) => {
     if (!literatureId || !canSave) {
       return;
     }
@@ -146,6 +179,7 @@ export function useMetadataIntakeController(
       const normalized = normalizeLiteratureMetadataPayload(payload);
       const normalizedTitle = normalized?.title ?? literatureTitle;
       setLiteratureTitle(normalizedTitle);
+      setUpdatedAt(normalized?.updated_at ?? updatedAt);
       setBaseline({
         abstract: normalizePatchText(abstractInput) ?? '',
         keyContentDigest: normalizePatchText(keyContentDigestInput) ?? '',
@@ -156,9 +190,13 @@ export function useMetadataIntakeController(
       pushLiteratureFeedback({
         slot: 'overview',
         level: 'success',
-        message: `已保存《${normalizedTitle}》录入内容。`,
+        message: closeOnSuccess
+          ? `已保存《${normalizedTitle}》录入内容。`
+          : `已保存《${normalizedTitle}》录入内容（未关闭）。`,
       });
-      onClose();
+      if (closeOnSuccess) {
+        onClose();
+      }
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : '保存文献元数据失败。';
       setStatus('error');
@@ -180,7 +218,16 @@ export function useMetadataIntakeController(
     paperId,
     pushLiteratureFeedback,
     topicId,
+    updatedAt,
   ]);
+
+  const handleSave = useCallback(async () => {
+    await persistMetadata(true);
+  }, [persistMetadata]);
+
+  const handleSaveInPlace = useCallback(async () => {
+    await persistMetadata(false);
+  }, [persistMetadata]);
 
   return {
     status,
@@ -190,10 +237,15 @@ export function useMetadataIntakeController(
     abstractInput,
     keyContentDigestInput,
     hasChanges,
+    hasAbstractChanges,
+    hasKeyContentChanges,
     canSave,
     handleAbstractInputChange: setAbstractInput,
     handleKeyContentDigestInputChange: setKeyContentDigestInput,
+    handleRevertAbstractInput,
+    handleRevertKeyContentDigestInput,
     handleReload,
+    handleSaveInPlace,
     handleSave,
   };
 }
