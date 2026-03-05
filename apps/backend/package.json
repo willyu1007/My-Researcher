@@ -12,7 +12,8 @@
     "prisma:format": "prisma format --schema ../../prisma/schema.prisma",
     "prisma:validate": "prisma validate --schema ../../prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema ../../prisma/schema.prisma",
-    "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts"
+    "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts",
+    "pipeline:backfill": "node scripts/backfill-literature-pipeline.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
