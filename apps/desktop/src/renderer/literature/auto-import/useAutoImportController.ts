@@ -99,14 +99,12 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setTopicFormModalOpen,
     setAutoImportSubTab,
     setRuleEditingId,
-    setRuleFormName,
     setRuleFormMaxResultsInput,
     setRuleFormLookbackInput,
     setRuleFormMinCompletenessInput,
     setRuleFormFrequency,
     setRuleFormWeekday,
     setRuleFormHourInput,
-    setRuleFormMinuteInput,
     setRuleFormSortMode,
     setRuleFormParseAndIngest,
     setRuleSourceCrossref,
@@ -133,9 +131,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     topicProfilesStatus,
     rulesStatus,
     runsStatus,
-    ruleFormName,
     ruleFormHourInput,
-    ruleFormMinuteInput,
     ruleFormMaxResultsInput,
     ruleFormLookbackInput,
     ruleFormMinCompletenessInput,
@@ -266,14 +262,12 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
 
   const resetRuleForm = useCallback(() => {
     setRuleEditingId(null);
-    setRuleFormName('');
     setRuleFormMaxResultsInput('20');
     setRuleFormLookbackInput('30');
     setRuleFormMinCompletenessInput('70');
     setRuleFormFrequency('DAILY');
     setRuleFormWeekday('MON');
     setRuleFormHourInput('9');
-    setRuleFormMinuteInput('0');
     setRuleFormSortMode('llm_score');
     setRuleFormParseAndIngest(false);
     setRuleSourceCrossref(true);
@@ -285,8 +279,6 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setRuleFormLookbackInput,
     setRuleFormMaxResultsInput,
     setRuleFormMinCompletenessInput,
-    setRuleFormMinuteInput,
-    setRuleFormName,
     setRuleFormParseAndIngest,
     setRuleFormSortMode,
     setRuleFormWeekday,
@@ -705,14 +697,12 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     const sourceConfig = (asRecordFromApp ?? asRecord)(rule.sources.find((source: any) => source.enabled)?.config) ?? {};
     const sortModeRaw = (toTextFromApp ?? toText)(sourceConfig.sort_mode);
     setRuleEditingId(rule.rule_id);
-    setRuleFormName(rule.name);
     setRuleFormMaxResultsInput(String(rule.query_spec.max_results_per_source));
     setRuleFormLookbackInput(String(rule.time_spec.lookback_days));
     setRuleFormMinCompletenessInput(normalizeQualityPresetValue(rule.quality_spec.min_quality_score));
     setRuleFormFrequency(primarySchedule?.frequency ?? 'DAILY');
     setRuleFormWeekday(normalizeWeekdayToken(primarySchedule?.days_of_week[0]));
     setRuleFormHourInput(String(primarySchedule?.hour ?? 9));
-    setRuleFormMinuteInput('0');
     setRuleFormSortMode(sortModeRaw === 'hybrid_score' ? 'hybrid_score' : 'llm_score');
     setRuleFormParseAndIngest(sourceConfig.parse_and_ingest === true);
     setRuleSourceCrossref(rule.sources.some((source: any) => source.source === 'CROSSREF' && source.enabled));
@@ -725,8 +715,6 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setRuleFormLookbackInput,
     setRuleFormMaxResultsInput,
     setRuleFormMinCompletenessInput,
-    setRuleFormMinuteInput,
-    setRuleFormName,
     setRuleFormParseAndIngest,
     setRuleFormSortMode,
     setRuleFormWeekday,
@@ -739,7 +727,6 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     const existingRuleName = ruleEditingId
       ? (((toTextFromApp ?? toText)(autoPullRuleById.get(ruleEditingId)?.name)?.trim()) ?? '')
       : '';
-    const draftRuleName = ruleFormName.trim();
     const fallbackRuleName = (() => {
       const topicName = topicFormName.trim();
       if (topicName) {
@@ -753,7 +740,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
       const minute = String(now.getMinutes()).padStart(2, '0');
       return `自动拉取规则 ${year}-${month}-${day} ${hour}:${minute}`;
     })();
-    const nameText = draftRuleName || existingRuleName || fallbackRuleName;
+    const nameText = existingRuleName || fallbackRuleName;
 
     const sources: Array<{
       source: 'CROSSREF' | 'ARXIV';
@@ -782,8 +769,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     }
 
     const hour = Number.parseInt(ruleFormHourInput.trim(), 10);
-    const minute = Number.parseInt(ruleFormMinuteInput.trim(), 10);
-    if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    if (!Number.isFinite(hour)) {
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'warning',
@@ -821,7 +807,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
           frequency: ruleFormFrequency,
           days_of_week: ruleFormFrequency === 'WEEKLY' ? [ruleFormWeekday] : [],
           hour,
-          minute,
+          minute: 0,
           timezone: scheduleTimezone,
           active: true,
         },
@@ -874,8 +860,6 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     ruleFormLookbackInput,
     ruleFormMaxResultsInput,
     ruleFormMinCompletenessInput,
-    ruleFormMinuteInput,
-    ruleFormName,
     ruleFormParseAndIngest,
     ruleFormSortMode,
     ruleFormWeekday,

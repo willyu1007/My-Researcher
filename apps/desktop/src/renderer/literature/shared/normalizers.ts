@@ -365,12 +365,6 @@ export function normalizeWeekdayToken(value: string | undefined): AutoPullWeekda
   return matched?.value ?? 'MON';
 }
 
-export function normalizeScheduleHourValue(hourInput: string): string {
-  const hour = Number.parseInt(hourInput.trim(), 10);
-  const normalizedHour = Number.isFinite(hour) ? Math.max(0, Math.min(23, hour)) : 9;
-  return String(normalizedHour);
-}
-
 export function normalizeQualityPresetValue(input: number): string {
   if (!Number.isFinite(input)) {
     return '70';

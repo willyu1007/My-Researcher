@@ -46,10 +46,10 @@ export function AutoImportTab(props: AutoImportTabProps) {
     loadAutoPullRunDetail,
     resolveRunSortTimestamp,
     ruleFormFrequency,
+    ruleFormHourInput,
     ruleFormLookbackInput,
     ruleFormMaxResultsInput,
     ruleFormMinCompletenessInput,
-    ruleFormName,
     ruleFormParseAndIngest,
     ruleFormSortMode,
     ruleFormWeekday,
@@ -63,7 +63,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
     runsPageIndex,
     runsPageItems,
     runsTotalPages,
-    scheduleHourValue,
     selectedRunDetail,
     selectedRunDurationLabel,
     selectedRunPulledAtLabel,
@@ -73,8 +72,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
     setRuleFormLookbackInput,
     setRuleFormMaxResultsInput,
     setRuleFormMinCompletenessInput,
-    setRuleFormMinuteInput,
-    setRuleFormName,
     setRuleFormParseAndIngest,
     setRuleFormSortMode,
     setRuleFormWeekday,
@@ -117,6 +114,10 @@ export function AutoImportTab(props: AutoImportTabProps) {
     updateHelpTooltipAlignment,
   } = props;
   const activeTopicRules = topicScopedRules.filter((rule: any) => rule.status === 'ACTIVE');
+  const normalizedScheduleHourValue = (() => {
+    const candidate = typeof ruleFormHourInput === 'string' ? ruleFormHourInput.trim() : '';
+    return autoPullHourOptions.some((option: any) => option.value === candidate) ? candidate : '9';
+  })();
 
   const formatRuleScheduleLabel = (rule: any): string => {
     const schedule = rule.schedules?.[0];
@@ -146,16 +147,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
   const renderRuleInlineEditor = () => (
     <section className="topic-rule-inline-editor">
       <div className="topic-rule-row-primary">
-        <label data-ui="field" className="topic-rule-name-field">
-          <span data-slot="label">规则名称</span>
-          <input
-            data-ui="input"
-            data-size="sm"
-            value={ruleFormName}
-            onChange={(event) => setRuleFormName(event.target.value)}
-            placeholder="例如 每日增量拉取"
-          />
-        </label>
         <div data-ui="field" className="topic-rule-plan-field">
           <span data-slot="label">调度计划</span>
           <div className="topic-rule-plan-box">
@@ -184,10 +175,9 @@ export function AutoImportTab(props: AutoImportTabProps) {
                 data-ui="select"
                 data-size="sm"
                 aria-label="按整点执行时间"
-                value={scheduleHourValue}
+                value={normalizedScheduleHourValue}
                 onChange={(event) => {
                   setRuleFormHourInput(event.target.value);
-                  setRuleFormMinuteInput('0');
                 }}
               >
                 {autoPullHourOptions.map((option: any) => (

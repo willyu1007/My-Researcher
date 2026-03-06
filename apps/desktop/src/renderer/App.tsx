@@ -63,7 +63,6 @@ import {
   normalizeLiteratureOverviewPayload,
   normalizeMetricPayload,
   normalizeReleasePayload,
-  normalizeScheduleHourValue,
   normalizeTimelinePayload,
   normalizeTopicScopePayload,
   normalizePaperLiteraturePayload,
@@ -205,19 +204,16 @@ export function App({ initialThemeMode }: AppProps) {
   const [rulesStatus, setRulesStatus] = useState<UiOperationStatus>('idle');
   const [rulesError, setRulesError] = useState<string | null>(null);
   const [ruleEditingId, setRuleEditingId] = useState<string | null>(null);
-  const [ruleFormName, setRuleFormName] = useState<string>('');
   const [ruleFormMaxResultsInput, setRuleFormMaxResultsInput] = useState<string>('20');
   const [ruleFormLookbackInput, setRuleFormLookbackInput] = useState<string>('30');
   const [ruleFormMinCompletenessInput, setRuleFormMinCompletenessInput] = useState<string>('70');
   const [ruleFormFrequency, setRuleFormFrequency] = useState<AutoPullFrequency>('DAILY');
   const [ruleFormWeekday, setRuleFormWeekday] = useState<AutoPullWeekday>('MON');
   const [ruleFormHourInput, setRuleFormHourInput] = useState<string>('9');
-  const [ruleFormMinuteInput, setRuleFormMinuteInput] = useState<string>('0');
   const [ruleFormSortMode, setRuleFormSortMode] = useState<AutoPullSortMode>('llm_score');
   const [ruleFormParseAndIngest, setRuleFormParseAndIngest] = useState<boolean>(false);
   const [ruleSourceCrossref, setRuleSourceCrossref] = useState<boolean>(true);
   const [ruleSourceArxiv, setRuleSourceArxiv] = useState<boolean>(true);
-  const scheduleHourValue = normalizeScheduleHourValue(ruleFormHourInput);
 
   const [autoPullRuns, setAutoPullRuns] = useState<AutoPullRun[]>([]);
   const [runsStatus, setRunsStatus] = useState<UiOperationStatus>('idle');
@@ -835,14 +831,12 @@ export function App({ initialThemeMode }: AppProps) {
     setTopicFormModalOpen,
     setAutoImportSubTab,
     setRuleEditingId,
-    setRuleFormName,
     setRuleFormMaxResultsInput,
     setRuleFormLookbackInput,
     setRuleFormMinCompletenessInput,
     setRuleFormFrequency,
     setRuleFormWeekday,
     setRuleFormHourInput,
-    setRuleFormMinuteInput,
     setRuleFormSortMode,
     setRuleFormParseAndIngest,
     setRuleSourceCrossref,
@@ -869,9 +863,7 @@ export function App({ initialThemeMode }: AppProps) {
     topicProfilesStatus,
     rulesStatus,
     runsStatus,
-    ruleFormName,
     ruleFormHourInput,
-    ruleFormMinuteInput,
     ruleFormMaxResultsInput,
     ruleFormLookbackInput,
     ruleFormMinCompletenessInput,
@@ -1332,7 +1324,6 @@ export function App({ initialThemeMode }: AppProps) {
                   ruleFormLookbackInput={ruleFormLookbackInput}
                   ruleFormMaxResultsInput={ruleFormMaxResultsInput}
                   ruleFormMinCompletenessInput={ruleFormMinCompletenessInput}
-                  ruleFormName={ruleFormName}
                   ruleFormParseAndIngest={ruleFormParseAndIngest}
                   ruleFormSortMode={ruleFormSortMode}
                   ruleFormWeekday={ruleFormWeekday}
@@ -1346,7 +1337,6 @@ export function App({ initialThemeMode }: AppProps) {
                   runsPageIndex={runsPageIndex}
                   runsPageItems={runsPageItems}
                   runsTotalPages={runsTotalPages}
-                  scheduleHourValue={scheduleHourValue}
                   selectedRunDetail={selectedRunDetail}
                   selectedRunDurationLabel={selectedRunDurationLabel}
                   selectedRunPulledAtLabel={selectedRunPulledAtLabel}
@@ -1356,8 +1346,6 @@ export function App({ initialThemeMode }: AppProps) {
                   setRuleFormLookbackInput={setRuleFormLookbackInput}
                   setRuleFormMaxResultsInput={setRuleFormMaxResultsInput}
                   setRuleFormMinCompletenessInput={setRuleFormMinCompletenessInput}
-                  setRuleFormMinuteInput={setRuleFormMinuteInput}
-                  setRuleFormName={setRuleFormName}
                   setRuleFormParseAndIngest={setRuleFormParseAndIngest}
                   setRuleFormSortMode={setRuleFormSortMode}
                   setRuleFormWeekday={setRuleFormWeekday}
