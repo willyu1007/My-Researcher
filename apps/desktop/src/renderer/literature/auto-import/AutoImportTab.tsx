@@ -28,18 +28,19 @@ export function AutoImportTab(props: AutoImportTabProps) {
     handleAddTopicExcludeKeyword,
     handleAddTopicIncludeKeyword,
     handleCloseTopicModal,
+    handleDeleteRule,
     handleEditRule,
     handleEditTopicProfile,
     handleOpenCreateTopicProfile,
     handleRemoveTopicExcludeKeyword,
     handleRemoveTopicIncludeKeyword,
+    handleResetRuleComposer,
     handleResetTopicRuleComposer,
     handleRetryRun,
-    handleRunRuleFullRefresh,
+    handleSetTopicRuleBinding,
     handleSubmitRule,
     handleSubmitTopicProfile,
     handleToggleTopicProfileActive,
-    handleToggleTopicRuleSelection,
     handleToggleTopicVenueSelection,
     latestRunByRuleId,
     loadAutoPullRunDetail,
@@ -115,6 +116,253 @@ export function AutoImportTab(props: AutoImportTabProps) {
     topicYearUpperBound,
     updateHelpTooltipAlignment,
   } = props;
+  const activeTopicRules = topicScopedRules.filter((rule: any) => rule.status === 'ACTIVE');
+
+  const formatRuleScheduleLabel = (rule: any): string => {
+    const schedule = rule.schedules?.[0];
+    if (!schedule) {
+      return '--';
+    }
+    const hour = typeof schedule.hour === 'number' ? schedule.hour : 0;
+    const minute = typeof schedule.minute === 'number' ? schedule.minute : 0;
+    const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    if (schedule.frequency === 'WEEKLY') {
+      const weekday = typeof schedule.days_of_week?.[0] === 'string' ? schedule.days_of_week[0] : '--';
+      return `每周 ${weekday} ${time}`;
+    }
+    return `每日 ${time}`;
+  };
+
+  const formatRuleSourcesLabel = (rule: any): string => {
+    const sources = Array.isArray(rule.sources)
+      ? rule.sources
+        .filter((source: any) => source?.enabled)
+        .map((source: any) => source?.source)
+        .filter((source: unknown): source is string => typeof source === 'string' && source.length > 0)
+      : [];
+    return sources.length > 0 ? sources.join(' / ') : '--';
+  };
+
+  const renderRuleInlineEditor = () => (
+    <section className="topic-rule-inline-editor">
+      <div className="topic-rule-row-primary">
+        <label data-ui="field" className="topic-rule-name-field">
+          <span data-slot="label">规则名称</span>
+          <input
+            data-ui="input"
+            data-size="sm"
+            value={ruleFormName}
+            onChange={(event) => setRuleFormName(event.target.value)}
+            placeholder="例如 每日增量拉取"
+          />
+        </label>
+        <div data-ui="field" className="topic-rule-plan-field">
+          <span data-slot="label">调度计划</span>
+          <div className="topic-rule-plan-box">
+            <div className="topic-rule-plan-item">
+              <div className="rule-frequency-toggle" role="group" aria-label="调度频率">
+                <button
+                  type="button"
+                  className={`rule-frequency-toggle-button${ruleFormFrequency === 'DAILY' ? ' is-active' : ''}`}
+                  onClick={() => setRuleFormFrequency('DAILY')}
+                  aria-pressed={ruleFormFrequency === 'DAILY'}
+                >
+                  按日
+                </button>
+                <button
+                  type="button"
+                  className={`rule-frequency-toggle-button${ruleFormFrequency === 'WEEKLY' ? ' is-active' : ''}`}
+                  onClick={() => setRuleFormFrequency('WEEKLY')}
+                  aria-pressed={ruleFormFrequency === 'WEEKLY'}
+                >
+                  按周
+                </button>
+              </div>
+            </div>
+            <label className="topic-rule-plan-item">
+              <select
+                data-ui="select"
+                data-size="sm"
+                aria-label="按整点执行时间"
+                value={scheduleHourValue}
+                onChange={(event) => {
+                  setRuleFormHourInput(event.target.value);
+                  setRuleFormMinuteInput('0');
+                }}
+              >
+                {autoPullHourOptions.map((option: any) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="topic-rule-plan-item">
+              <select
+                data-ui="select"
+                data-size="sm"
+                aria-label="按周执行星期"
+                value={ruleFormWeekday}
+                onChange={(event) => setRuleFormWeekday(event.target.value as AutoPullWeekday)}
+                disabled={ruleFormFrequency !== 'WEEKLY'}
+              >
+                {autoPullWeekdayOptions.map((option: any) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+        <div data-ui="field" className="topic-rule-source-field">
+          <span data-slot="label">来源</span>
+          <div className="topic-rule-source-box">
+            <label className={`topic-rule-source-option${ruleSourceCrossref ? ' is-active' : ''}`}>
+              <input type="checkbox" checked={ruleSourceCrossref} onChange={(event) => setRuleSourceCrossref(event.target.checked)} />
+              <span>CROSSREF</span>
+            </label>
+            <label className={`topic-rule-source-option${ruleSourceArxiv ? ' is-active' : ''}`}>
+              <input type="checkbox" checked={ruleSourceArxiv} onChange={(event) => setRuleSourceArxiv(event.target.checked)} />
+              <span>ARXIV</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div className="topic-rule-row-secondary">
+        <label data-ui="field">
+          <span data-slot="label" className="field-label-with-help">
+            质量门槛
+            <span
+              className="field-label-help"
+              data-help={autoPullQualityHint}
+              aria-label="质量门槛说明"
+              tabIndex={0}
+              onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+              onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+            >
+              ?
+            </span>
+          </span>
+          <select
+            data-ui="select"
+            data-size="sm"
+            value={ruleFormMinCompletenessInput}
+            onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
+          >
+            {autoPullQualityPresetOptions.map((option: any) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <label data-ui="field">
+          <span data-slot="label" className="field-label-with-help">
+            滑动窗口（天）
+            <span
+              className="field-label-help"
+              data-help={autoPullLookbackHint}
+              aria-label="滑动窗口说明"
+              tabIndex={0}
+              onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+              onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+            >
+              ?
+            </span>
+          </span>
+          <input
+            data-ui="input"
+            data-size="sm"
+            value={ruleFormLookbackInput}
+            onChange={(event) => setRuleFormLookbackInput(event.target.value)}
+          />
+        </label>
+        <label data-ui="field">
+          <span data-slot="label" className="field-label-with-help">
+            每次拉取上限
+            <span
+              className="field-label-help"
+              data-help={autoPullLimitHint}
+              aria-label="每次拉取上限说明"
+              tabIndex={0}
+              onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+              onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+            >
+              ?
+            </span>
+          </span>
+          <input
+            data-ui="input"
+            data-size="sm"
+            value={ruleFormMaxResultsInput}
+            onChange={(event) => setRuleFormMaxResultsInput(event.target.value)}
+          />
+        </label>
+        <div data-ui="field" className="topic-rule-toggle-field">
+          <span data-slot="label" className="field-label-with-help">
+            排序规则
+            <span
+              className="field-label-help"
+              data-help={autoPullSortHint}
+              aria-label="排序规则说明"
+              tabIndex={0}
+              onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+              onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+            >
+              ?
+            </span>
+          </span>
+          <div className="rule-option-toggle" role="group" aria-label="排序规则">
+            <button
+              type="button"
+              className={`rule-option-toggle-button${ruleFormSortMode === 'llm_score' ? ' is-active' : ''}`}
+              onClick={() => setRuleFormSortMode('llm_score')}
+              aria-pressed={ruleFormSortMode === 'llm_score'}
+            >
+              大模型打分
+            </button>
+            <button
+              type="button"
+              className={`rule-option-toggle-button${ruleFormSortMode === 'hybrid_score' ? ' is-active' : ''}`}
+              onClick={() => setRuleFormSortMode('hybrid_score')}
+              aria-pressed={ruleFormSortMode === 'hybrid_score'}
+            >
+              综合评分
+            </button>
+          </div>
+        </div>
+        <div data-ui="field" className="topic-rule-toggle-field">
+          <span data-slot="label" className="field-label-with-help">
+            解析内容并入库
+            <span
+              className="field-label-help"
+              data-help={autoPullParseHint}
+              aria-label="解析内容并入库说明"
+              tabIndex={0}
+              onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+              onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
+            >
+              ?
+            </span>
+          </span>
+          <div className="rule-option-toggle" role="group" aria-label="解析内容并入库">
+            <button
+              type="button"
+              className={`rule-option-toggle-button${!ruleFormParseAndIngest ? ' is-active' : ''}`}
+              onClick={() => setRuleFormParseAndIngest(false)}
+              aria-pressed={!ruleFormParseAndIngest}
+            >
+              关闭
+            </button>
+            <button
+              type="button"
+              className={`rule-option-toggle-button${ruleFormParseAndIngest ? ' is-active' : ''}`}
+              onClick={() => setRuleFormParseAndIngest(true)}
+              aria-pressed={ruleFormParseAndIngest}
+            >
+              开启
+            </button>
+          </div>
+        </div>
+      </div>
+      {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
+    </section>
+  );
 
   return (
     <section className="literature-tab-panel" data-autopull-status={props.autoPullStatusDigest}>
@@ -534,263 +782,26 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                       </div>
                                     </div>
                                     <div className="topic-rule-binding-card">
-                                      {topicScopedRules.length === 0 ? null : (
-                                        <div className="topic-rule-selector-list">
+                                      <label data-ui="field" className="topic-rule-binding-select-field">
+                                        <span data-slot="label">生效规则</span>
+                                        <select
+                                          data-ui="select"
+                                          data-size="sm"
+                                          value={topicFormRuleIds[0] ?? ''}
+                                          onChange={(event) => handleSetTopicRuleBinding(event.target.value)}
+                                        >
+                                          <option value="">未绑定</option>
                                           {topicScopedRules.map((rule: any) => (
-                                            <div key={rule.rule_id} className="topic-rule-selector-item">
-                                              <label className="auto-pull-source-toggle">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={topicFormRuleIds.includes(rule.rule_id)}
-                                                  onChange={() => handleToggleTopicRuleSelection(rule.rule_id)}
-                                                />
-                                                {rule.name}
-                                              </label>
-                                              <div data-ui="toolbar" data-gap="2">
-                                                <button
-                                                  data-ui="button"
-                                                  data-variant="ghost"
-                                                  data-size="sm"
-                                                  type="button"
-                                                  onClick={() => {
-                                                    handleEditRule(rule);
-                                                  }}
-                                                >
-                                                  编辑
-                                                </button>
-                                                <button
-                                                  data-ui="button"
-                                                  data-variant="secondary"
-                                                  data-size="sm"
-                                                  type="button"
-                                                  onClick={() => void handleRunRuleFullRefresh(rule)}
-                                                >
-                                                  全量重抓
-                                                </button>
-                                              </div>
-                                            </div>
+                                            <option key={rule.rule_id} value={rule.rule_id}>
+                                              {rule.name}{rule.status !== 'ACTIVE' ? '（已暂停）' : ''}
+                                            </option>
                                           ))}
-                                        </div>
-                                      )}
-
-                                      <section className="topic-rule-inline-editor">
-                                        <div className="topic-rule-row-primary">
-                                          <label data-ui="field" className="topic-rule-name-field">
-                                            <span data-slot="label">规则名称</span>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={ruleFormName}
-                                              onChange={(event) => setRuleFormName(event.target.value)}
-                                              placeholder="例如 每日增量拉取"
-                                            />
-                                          </label>
-                                          <div data-ui="field" className="topic-rule-plan-field">
-                                            <span data-slot="label">调度计划</span>
-                                            <div className="topic-rule-plan-box">
-                                              <div className="topic-rule-plan-item">
-                                                <div className="rule-frequency-toggle" role="group" aria-label="调度频率">
-                                                  <button
-                                                    type="button"
-                                                    className={`rule-frequency-toggle-button${ruleFormFrequency === 'DAILY' ? ' is-active' : ''}`}
-                                                    onClick={() => setRuleFormFrequency('DAILY')}
-                                                    aria-pressed={ruleFormFrequency === 'DAILY'}
-                                                  >
-                                                    按日
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    className={`rule-frequency-toggle-button${ruleFormFrequency === 'WEEKLY' ? ' is-active' : ''}`}
-                                                    onClick={() => setRuleFormFrequency('WEEKLY')}
-                                                    aria-pressed={ruleFormFrequency === 'WEEKLY'}
-                                                  >
-                                                    按周
-                                                  </button>
-                                                </div>
-                                              </div>
-                                              <label className="topic-rule-plan-item">
-                                                <select
-                                                  data-ui="select"
-                                                  data-size="sm"
-                                                  aria-label="按整点执行时间"
-                                                  value={scheduleHourValue}
-                                                  onChange={(event) => {
-                                                    setRuleFormHourInput(event.target.value);
-                                                    setRuleFormMinuteInput('0');
-                                                  }}
-                                                >
-                                                  {autoPullHourOptions.map((option: any) => (
-                                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                                  ))}
-                                                </select>
-                                              </label>
-                                              <label className="topic-rule-plan-item">
-                                                <select
-                                                  data-ui="select"
-                                                  data-size="sm"
-                                                  aria-label="按周执行星期"
-                                                  value={ruleFormWeekday}
-                                                  onChange={(event) => setRuleFormWeekday(event.target.value as AutoPullWeekday)}
-                                                  disabled={ruleFormFrequency !== 'WEEKLY'}
-                                                >
-                                                  {autoPullWeekdayOptions.map((option: any) => (
-                                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                                  ))}
-                                                </select>
-                                              </label>
-                                            </div>
-                                          </div>
-                                          <div data-ui="field" className="topic-rule-source-field">
-                                            <span data-slot="label">来源</span>
-                                            <div className="topic-rule-source-box">
-                                              <label className={`topic-rule-source-option${ruleSourceCrossref ? ' is-active' : ''}`}>
-                                                <input type="checkbox" checked={ruleSourceCrossref} onChange={(event) => setRuleSourceCrossref(event.target.checked)} />
-                                                <span>CROSSREF</span>
-                                              </label>
-                                              <label className={`topic-rule-source-option${ruleSourceArxiv ? ' is-active' : ''}`}>
-                                                <input type="checkbox" checked={ruleSourceArxiv} onChange={(event) => setRuleSourceArxiv(event.target.checked)} />
-                                                <span>ARXIV</span>
-                                              </label>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="topic-rule-row-secondary">
-                                          <label data-ui="field">
-                                            <span data-slot="label" className="field-label-with-help">
-                                              质量门槛
-                                              <span
-                                                className="field-label-help"
-                                                data-help={autoPullQualityHint}
-                                                aria-label="质量门槛说明"
-                                                tabIndex={0}
-                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                              >
-                                                ?
-                                              </span>
-                                            </span>
-                                            <select
-                                              data-ui="select"
-                                              data-size="sm"
-                                              value={ruleFormMinCompletenessInput}
-                                              onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
-                                            >
-                                              {autoPullQualityPresetOptions.map((option: any) => (
-                                                <option key={option.value} value={option.value}>{option.label}</option>
-                                              ))}
-                                            </select>
-                                          </label>
-                                          <label data-ui="field">
-                                            <span data-slot="label" className="field-label-with-help">
-                                              滑动窗口（天）
-                                              <span
-                                                className="field-label-help"
-                                                data-help={autoPullLookbackHint}
-                                                aria-label="滑动窗口说明"
-                                                tabIndex={0}
-                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                              >
-                                                ?
-                                              </span>
-                                            </span>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={ruleFormLookbackInput}
-                                              onChange={(event) => setRuleFormLookbackInput(event.target.value)}
-                                            />
-                                          </label>
-                                          <label data-ui="field">
-                                            <span data-slot="label" className="field-label-with-help">
-                                              每次拉取上限
-                                              <span
-                                                className="field-label-help"
-                                                data-help={autoPullLimitHint}
-                                                aria-label="每次拉取上限说明"
-                                                tabIndex={0}
-                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                              >
-                                                ?
-                                              </span>
-                                            </span>
-                                            <input
-                                              data-ui="input"
-                                              data-size="sm"
-                                              value={ruleFormMaxResultsInput}
-                                              onChange={(event) => setRuleFormMaxResultsInput(event.target.value)}
-                                            />
-                                          </label>
-                                          <div data-ui="field" className="topic-rule-toggle-field">
-                                            <span data-slot="label" className="field-label-with-help">
-                                              排序规则
-                                              <span
-                                                className="field-label-help"
-                                                data-help={autoPullSortHint}
-                                                aria-label="排序规则说明"
-                                                tabIndex={0}
-                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                              >
-                                                ?
-                                              </span>
-                                            </span>
-                                            <div className="rule-option-toggle" role="group" aria-label="排序规则">
-                                              <button
-                                                type="button"
-                                                className={`rule-option-toggle-button${ruleFormSortMode === 'llm_score' ? ' is-active' : ''}`}
-                                                onClick={() => setRuleFormSortMode('llm_score')}
-                                                aria-pressed={ruleFormSortMode === 'llm_score'}
-                                              >
-                                                大模型打分
-                                              </button>
-                                              <button
-                                                type="button"
-                                                className={`rule-option-toggle-button${ruleFormSortMode === 'hybrid_score' ? ' is-active' : ''}`}
-                                                onClick={() => setRuleFormSortMode('hybrid_score')}
-                                                aria-pressed={ruleFormSortMode === 'hybrid_score'}
-                                              >
-                                                综合评分
-                                              </button>
-                                            </div>
-                                          </div>
-                                          <div data-ui="field" className="topic-rule-toggle-field">
-                                            <span data-slot="label" className="field-label-with-help">
-                                              解析内容并入库
-                                              <span
-                                                className="field-label-help"
-                                                data-help={autoPullParseHint}
-                                                aria-label="解析内容并入库说明"
-                                                tabIndex={0}
-                                                onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                                onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                                              >
-                                                ?
-                                              </span>
-                                            </span>
-                                            <div className="rule-option-toggle" role="group" aria-label="解析内容并入库">
-                                              <button
-                                                type="button"
-                                                className={`rule-option-toggle-button${!ruleFormParseAndIngest ? ' is-active' : ''}`}
-                                                onClick={() => setRuleFormParseAndIngest(false)}
-                                                aria-pressed={!ruleFormParseAndIngest}
-                                              >
-                                                关闭
-                                              </button>
-                                              <button
-                                                type="button"
-                                                className={`rule-option-toggle-button${ruleFormParseAndIngest ? ' is-active' : ''}`}
-                                                onClick={() => setRuleFormParseAndIngest(true)}
-                                                aria-pressed={ruleFormParseAndIngest}
-                                              >
-                                                开启
-                                              </button>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
-                                      </section>
+                                        </select>
+                                      </label>
+                                      <p data-ui="text" data-variant="caption" data-tone="muted">
+                                        每个主题最多绑定 1 条规则。规则详情与编辑请在“规则中心”处理。
+                                      </p>
+                                      {renderRuleInlineEditor()}
                                     </div>
                                   </div>
                               </section>
@@ -812,6 +823,114 @@ export function AutoImportTab(props: AutoImportTabProps) {
                             </section>
                           </div>
                         ) : null}
+                      </section>
+                    ) : null}
+                    {autoImportSubTab === 'rule-center' ? (
+                      <section className="literature-section-block">
+                        <div data-ui="toolbar" data-gap="2" data-wrap="wrap" className="rule-center-toolbar">
+                          <button
+                            data-ui="button"
+                            data-variant="primary"
+                            data-size="sm"
+                            type="button"
+                            onClick={handleResetRuleComposer}
+                          >
+                            新建规则
+                          </button>
+                        </div>
+                        <p data-ui="text" data-variant="caption" data-tone="muted" className="rule-center-description">
+                          规则中心仅用于维护规则配置；规则绑定在“设置主题”中维护，每个主题最多绑定 1 条规则。
+                        </p>
+                        {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
+                        <div className="rule-center-table-wrap">
+                          {activeTopicRules.length === 0 ? (
+                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无启用中的 TOPIC 规则。</p>
+                          ) : (
+                            <table className="rule-center-table">
+                              <thead>
+                                <tr>
+                                  <th>规则名称</th>
+                                  <th>调度</th>
+                                  <th>来源</th>
+                                  <th>操作</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {activeTopicRules.map((rule: any) => {
+                                  return (
+                                    <tr key={rule.rule_id}>
+                                      <td>
+                                        <div className="rule-center-rule-name">
+                                          <span>{rule.name}</span>
+                                        </div>
+                                      </td>
+                                      <td>{formatRuleScheduleLabel(rule)}</td>
+                                      <td>{formatRuleSourcesLabel(rule)}</td>
+                                      <td>
+                                        <div data-ui="toolbar" data-gap="2">
+                                          <button
+                                            data-ui="button"
+                                            data-variant="ghost"
+                                            data-size="sm"
+                                            type="button"
+                                            onClick={() => handleEditRule(rule)}
+                                          >
+                                            编辑
+                                          </button>
+                                          <button
+                                            data-ui="button"
+                                            data-variant="ghost"
+                                            data-size="sm"
+                                            type="button"
+                                            onClick={() => {
+                                              const confirmed = window.confirm(`确认移除规则「${rule.name}」吗？`);
+                                              if (!confirmed) {
+                                                return;
+                                              }
+                                              void handleDeleteRule(rule);
+                                            }}
+                                          >
+                                            移除规则
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+
+                        <section className="topic-rule-binding-column rule-center-editor-block">
+                          <div className="topic-rule-binding-header-row">
+                            <h4 className="topic-modal-section-title">规则编辑器</h4>
+                            <div className="topic-rule-header-actions" data-ui="toolbar" data-gap="1">
+                              <button
+                                data-ui="button"
+                                data-variant="ghost"
+                                data-size="sm"
+                                type="button"
+                                className="topic-rule-header-action"
+                                onClick={handleResetRuleComposer}
+                              >
+                                重置
+                              </button>
+                              <button
+                                data-ui="button"
+                                data-variant="primary"
+                                data-size="sm"
+                                type="button"
+                                onClick={() => void handleSubmitRule()}
+                              >
+                                保存规则
+                              </button>
+                            </div>
+                          </div>
+                          <div className="topic-rule-binding-card">
+                            {renderRuleInlineEditor()}
+                          </div>
+                        </section>
                       </section>
                     ) : null}
                     {autoImportSubTab === 'runs-alerts' ? (

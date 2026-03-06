@@ -411,6 +411,13 @@ export class AutoPullService {
         continue;
       }
 
+      if (rule.scope === 'TOPIC') {
+        const topicIds = await this.repository.listRuleTopicIds(rule.id);
+        if (topicIds.length === 0) {
+          continue;
+        }
+      }
+
       await this.enqueueRuleRun(rule.id, 'SCHEDULE');
     }
   }
@@ -427,6 +434,13 @@ export class AutoPullService {
     const rule = bundle.rule;
     if (!rule) {
       throw new AppError(404, 'NOT_FOUND', `Rule ${ruleId} not found.`);
+    }
+    if (rule.scope === 'TOPIC' && bundle.topicIds.length === 0) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `Rule ${ruleId} is not bound to any topic. Bind a topic before running.`,
+      );
     }
 
     const now = new Date().toISOString();

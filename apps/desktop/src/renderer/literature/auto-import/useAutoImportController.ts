@@ -49,7 +49,7 @@ export type AutoImportControllerOutput = {
   handleOpenCreateTopicProfile: () => void;
   handleCloseTopicModal: () => void;
   handleEditTopicProfile: (profile: any) => void;
-  handleToggleTopicRuleSelection: (ruleId: string) => void;
+  handleSetTopicRuleBinding: (ruleId: string) => void;
   handleAddTopicIncludeKeyword: () => void;
   handleRemoveTopicIncludeKeyword: (value: string) => void;
   handleAddTopicExcludeKeyword: () => void;
@@ -59,9 +59,10 @@ export type AutoImportControllerOutput = {
   handleSubmitTopicProfile: () => Promise<void>;
   handleToggleTopicProfileActive: (profile: any) => Promise<void>;
   handleResetTopicRuleComposer: () => void;
+  handleResetRuleComposer: () => void;
   handleEditRule: (rule: any) => void;
   handleSubmitRule: (options?: { bindToTopicDraft?: boolean }) => Promise<void>;
-  handleRunRuleFullRefresh: (rule: any) => Promise<void>;
+  handleDeleteRule: (rule: any) => Promise<void>;
   handleRetryRun: (runId: string) => Promise<void>;
 };
 
@@ -504,8 +505,9 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setTopicVenuePickerOpen,
   ]);
 
-  const handleToggleTopicRuleSelection = useCallback((ruleId: string) => {
-    setTopicFormRuleIds((current: string[]) => (current[0] === ruleId ? [] : [ruleId]));
+  const handleSetTopicRuleBinding = useCallback((ruleId: string) => {
+    const normalizedRuleId = ruleId.trim();
+    setTopicFormRuleIds(normalizedRuleId ? [normalizedRuleId] : []);
   }, [setTopicFormRuleIds]);
 
   const handleAddTopicIncludeKeyword = useCallback(() => {
@@ -694,6 +696,10 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     resetRuleForm();
     setRuleFormName(topicFormName.trim() ? `${topicFormName.trim()} 自动拉取` : '');
   }, [resetRuleForm, setRuleFormName, topicFormName]);
+
+  const handleResetRuleComposer = useCallback(() => {
+    resetRuleForm();
+  }, [resetRuleForm]);
 
   const handleEditRule = useCallback((rule: any) => {
     const primarySchedule = rule.schedules[0] ?? null;
@@ -894,31 +900,44 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     topicFormName,
   ]);
 
-  const handleRunRuleFullRefresh = useCallback(async (rule: any) => {
+  const handleDeleteRule = useCallback(async (rule: any) => {
+    const ruleId = typeof rule?.rule_id === 'string' ? rule.rule_id.trim() : '';
+    if (!ruleId) {
+      return;
+    }
+
     try {
       await requestGovernance({
-        method: 'POST',
-        path: `/auto-pull/rules/${encodeURIComponent(rule.rule_id)}/runs`,
-        body: {
-          trigger_type: 'MANUAL',
-          full_refresh: true,
-        },
+        method: 'DELETE',
+        path: `/auto-pull/rules/${encodeURIComponent(ruleId)}`,
       });
+      if (ruleEditingId === ruleId) {
+        resetRuleForm();
+      }
+      await loadAutoPullRules();
       await loadAutoPullRuns();
+      await loadTopicProfiles();
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'success',
-        message: `已触发全量重抓：${rule.name}`,
+        message: `已移除规则：${rule.name}`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : '触发全量重抓失败。';
+      const message = error instanceof Error ? error.message : '移除规则失败。';
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'error',
-        message: `触发全量重抓失败：${message}`,
+        message: `移除规则失败：${message}`,
       });
     }
-  }, [loadAutoPullRuns, pushLiteratureFeedback]);
+  }, [
+    loadAutoPullRules,
+    loadAutoPullRuns,
+    loadTopicProfiles,
+    pushLiteratureFeedback,
+    resetRuleForm,
+    ruleEditingId,
+  ]);
 
   const handleRetryRun = useCallback(async (runId: string) => {
     try {
@@ -968,7 +987,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     handleOpenCreateTopicProfile,
     handleCloseTopicModal,
     handleEditTopicProfile,
-    handleToggleTopicRuleSelection,
+    handleSetTopicRuleBinding,
     handleAddTopicIncludeKeyword,
     handleRemoveTopicIncludeKeyword,
     handleAddTopicExcludeKeyword,
@@ -978,9 +997,10 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     handleSubmitTopicProfile,
     handleToggleTopicProfileActive,
     handleResetTopicRuleComposer,
+    handleResetRuleComposer,
     handleEditRule,
     handleSubmitRule,
-    handleRunRuleFullRefresh,
+    handleDeleteRule,
     handleRetryRun,
   };
 }

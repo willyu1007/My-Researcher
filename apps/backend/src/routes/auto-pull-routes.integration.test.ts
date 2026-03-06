@@ -532,3 +532,78 @@ test('topic profile rejects binding multiple rules', async () => {
     await app.close();
   }
 });
+
+test('topic-scoped rule run is rejected when no topic binding exists', async () => {
+  const app = buildApp();
+  try {
+    const createGlobalRes = await app.inject({
+      method: 'POST',
+      url: '/auto-pull/rules',
+      payload: {
+        scope: 'GLOBAL',
+        name: 'Global Baseline For Topic Run Guard',
+        status: 'ACTIVE',
+        sources: [
+          {
+            source: 'CROSSREF',
+            enabled: true,
+            priority: 1,
+          },
+        ],
+        schedules: [
+          {
+            frequency: 'DAILY',
+            hour: 9,
+            minute: 0,
+            timezone: 'UTC',
+            active: true,
+          },
+        ],
+      },
+    });
+    assert.equal(createGlobalRes.statusCode, 201);
+
+    const createTopicRuleRes = await app.inject({
+      method: 'POST',
+      url: '/auto-pull/rules',
+      payload: {
+        scope: 'TOPIC',
+        name: 'Unbound Topic Rule',
+        topic_ids: [],
+        sources: [
+          {
+            source: 'ARXIV',
+            enabled: true,
+            priority: 1,
+          },
+        ],
+        schedules: [
+          {
+            frequency: 'DAILY',
+            hour: 10,
+            minute: 0,
+            timezone: 'UTC',
+            active: true,
+          },
+        ],
+      },
+    });
+    assert.equal(createTopicRuleRes.statusCode, 201);
+    const topicRuleId = createTopicRuleRes.json().rule_id as string;
+
+    const triggerRunRes = await app.inject({
+      method: 'POST',
+      url: `/auto-pull/rules/${topicRuleId}/runs`,
+      payload: {
+        trigger_type: 'MANUAL',
+      },
+    });
+    assert.equal(triggerRunRes.statusCode, 400);
+    assert.equal(
+      String(triggerRunRes.json().error?.message).includes('not bound to any topic'),
+      true,
+    );
+  } finally {
+    await app.close();
+  }
+});

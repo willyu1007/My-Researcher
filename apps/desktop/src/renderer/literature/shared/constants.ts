@@ -34,6 +34,7 @@ export const literatureTabs: Array<{ key: LiteratureTabKey; label: string }> = [
 ];
 export const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string }> = [
   { key: 'topic-settings', label: '设置主题' },
+  { key: 'rule-center', label: '规则中心' },
   { key: 'runs-alerts', label: '执行详情' },
 ];
 export const manualImportSubTabs: Array<{ key: ManualImportSubTabKey; label: string }> = [
@@ -76,7 +77,7 @@ export const autoPullSortHint = [
 ].join('\n');
 export const autoPullLookbackHint = [
   '仅影响后续增量抓取窗口（最近 N 天）。',
-  '首次抓取或“全量重抓”会走主题时段全量。',
+  '首次抓取会走主题时段全量。',
 ].join('\n');
 export const autoPullRunStatusLabels: Record<AutoPullRunStatus, string> = {
   PENDING: '待执行',

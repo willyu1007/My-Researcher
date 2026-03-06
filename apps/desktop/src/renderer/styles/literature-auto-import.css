@@ -472,6 +472,16 @@
     min-width: 0;
   }
 
+  .topic-rule-binding-select-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .topic-rule-binding-select-field [data-ui='select'][data-size='sm'] {
+    min-height: 34px;
+  }
+
   .topic-rule-selector-list {
     max-height: 180px;
     overflow-y: auto;
@@ -743,6 +753,76 @@
 
   .topic-list-active-toggle input {
     margin: 0;
+  }
+
+  .rule-center-toolbar {
+    justify-content: flex-start;
+  }
+
+  .rule-center-description {
+    margin: 0;
+  }
+
+  .rule-center-table-wrap {
+    border: 1px solid color-mix(in srgb, var(--ui-color-border) 66%, transparent 34%);
+    border-radius: 12px;
+    overflow: auto;
+  }
+
+  .rule-center-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .rule-center-table th,
+  .rule-center-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 60%, transparent 40%);
+    text-align: left;
+    vertical-align: top;
+    font-size: 12px;
+    color: var(--ui-color-text_secondary);
+  }
+
+  .rule-center-table th {
+    font-weight: 600;
+    color: var(--ui-color-text_muted);
+    background: color-mix(in srgb, var(--ui-color-surface_elevated) 62%, transparent 38%);
+  }
+
+  .rule-center-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .rule-center-rule-name {
+    display: grid;
+    gap: 3px;
+  }
+
+  .rule-center-rule-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .rule-center-rule-status.is-active {
+    color: color-mix(in srgb, var(--ui-color-primary) 72%, var(--ui-color-text_secondary) 28%);
+    background: color-mix(in srgb, var(--ui-color-primary) 14%, transparent 86%);
+  }
+
+  .rule-center-rule-status.is-paused {
+    color: var(--ui-color-text_muted);
+    background: color-mix(in srgb, var(--ui-color-border) 48%, transparent 52%);
+  }
+
+  .rule-center-editor-block {
+    margin-top: 2px;
   }
 
   .rule-schedule-field {

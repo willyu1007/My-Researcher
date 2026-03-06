@@ -788,7 +788,7 @@ export function App({ initialThemeMode }: AppProps) {
     handleOpenCreateTopicProfile,
     handleCloseTopicModal,
     handleEditTopicProfile,
-    handleToggleTopicRuleSelection,
+    handleSetTopicRuleBinding,
     handleAddTopicIncludeKeyword,
     handleRemoveTopicIncludeKeyword,
     handleAddTopicExcludeKeyword,
@@ -798,9 +798,10 @@ export function App({ initialThemeMode }: AppProps) {
     handleSubmitTopicProfile,
     handleToggleTopicProfileActive,
     handleResetTopicRuleComposer,
+    handleResetRuleComposer,
     handleEditRule,
     handleSubmitRule,
-    handleRunRuleFullRefresh,
+    handleDeleteRule,
     handleRetryRun,
   } = useAutoImportController({
     runsFilterStatus,
@@ -1311,18 +1312,19 @@ export function App({ initialThemeMode }: AppProps) {
                   handleAddTopicIncludeKeyword={handleAddTopicIncludeKeyword}
                   handleCloseTopicModal={handleCloseTopicModal}
                   handleEditRule={handleEditRule}
+                  handleDeleteRule={handleDeleteRule}
                   handleEditTopicProfile={handleEditTopicProfile}
                   handleOpenCreateTopicProfile={handleOpenCreateTopicProfile}
                   handleRemoveTopicExcludeKeyword={handleRemoveTopicExcludeKeyword}
                   handleRemoveTopicIncludeKeyword={handleRemoveTopicIncludeKeyword}
                   handleResetTopicRuleComposer={handleResetTopicRuleComposer}
                   handleRetryRun={handleRetryRun}
-                  handleRunRuleFullRefresh={handleRunRuleFullRefresh}
                   handleSubmitRule={handleSubmitRule}
                   handleSubmitTopicProfile={handleSubmitTopicProfile}
                   handleToggleTopicProfileActive={handleToggleTopicProfileActive}
-                  handleToggleTopicRuleSelection={handleToggleTopicRuleSelection}
+                  handleSetTopicRuleBinding={handleSetTopicRuleBinding}
                   handleToggleTopicVenueSelection={handleToggleTopicVenueSelection}
+                  handleResetRuleComposer={handleResetRuleComposer}
                   latestRunByRuleId={latestRunByRuleId}
                   loadAutoPullRunDetail={loadAutoPullRunDetail}
                   resolveRunSortTimestamp={resolveRunSortTimestamp}

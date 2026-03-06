@@ -417,6 +417,35 @@ test('topic rule can be created without bound topics', async () => {
   assert.deepEqual(topicRule.topic_ids, []);
 });
 
+test('topic rule cannot run when no topic binding exists', async () => {
+  const { service } = buildService();
+  await service.createRule({
+    scope: 'GLOBAL',
+    name: 'baseline-global-active-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  const topicRule = await service.createRule({
+    scope: 'TOPIC',
+    topic_ids: [],
+    name: 'topic-rule-without-binding',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  await assert.rejects(
+    async () => service.triggerRuleRun(topicRule.rule_id, { trigger_type: 'MANUAL' }),
+    (error: unknown) => {
+      if (!(error instanceof Error)) {
+        return false;
+      }
+      return error.message.includes('not bound to any topic');
+    },
+  );
+});
+
 test('cannot pause or delete last active global rule', async () => {
   const { service } = buildService();
   const onlyGlobal = await service.createRule({

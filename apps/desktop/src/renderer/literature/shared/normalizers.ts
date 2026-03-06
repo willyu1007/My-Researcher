@@ -335,7 +335,7 @@ export function computeZoteroPreviewResult(
 }
 
 export function isAutoImportSubTabKey(value: string): value is AutoImportSubTabKey {
-  return value === 'topic-settings' || value === 'runs-alerts';
+  return value === 'topic-settings' || value === 'rule-center' || value === 'runs-alerts';
 }
 
 export function isManualImportSubTabKey(value: string): value is ManualImportSubTabKey {

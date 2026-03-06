@@ -50,7 +50,7 @@ export type CitationStatus = 'seeded' | 'selected' | 'used' | 'cited' | 'dropped
 export type ScopeStatus = 'in_scope' | 'excluded';
 export type LiteratureProvider = 'crossref' | 'arxiv' | 'manual' | 'web' | 'zotero';
 export type LiteratureTabKey = 'auto-import' | 'manual-import' | 'overview';
-export type AutoImportSubTabKey = 'topic-settings' | 'runs-alerts';
+export type AutoImportSubTabKey = 'topic-settings' | 'rule-center' | 'runs-alerts';
 export type ManualImportSubTabKey = 'file-review' | 'zotero-sync';
 export type ManualUploadFileStatus = 'processing' | 'parsed' | 'empty' | 'failed' | 'accepted' | 'duplicate';
 export type AppMode = 'standard' | 'dev';
@@ -327,7 +327,7 @@ export type LiteratureMetadataRecord = {
 };
 
 export type GovernanceRequest = {
-  method: 'GET' | 'POST' | 'PATCH';
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   body?: unknown;
 };
