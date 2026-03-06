@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import type { AutoPullRunStatus, AutoPullWeekday } from '../shared/types';
 
 type AutoImportTabProps = {
@@ -8,6 +9,8 @@ export function AutoImportTab(props: AutoImportTabProps) {
   if (!props.active) {
     return null;
   }
+
+  const [isTopicRulePreviewOpen, setIsTopicRulePreviewOpen] = useState(false);
 
   const {
     applyTopicYearPreset,
@@ -114,6 +117,23 @@ export function AutoImportTab(props: AutoImportTabProps) {
     updateHelpTooltipAlignment,
   } = props;
   const activeTopicRules = topicScopedRules.filter((rule: any) => rule.status === 'ACTIVE');
+  const weekdayLabelByValue = useMemo(
+    () => new Map<string, string>(autoPullWeekdayOptions.map((option: any) => [option.value, option.label])),
+    [autoPullWeekdayOptions],
+  );
+  const qualityPresetLabelByValue = useMemo(
+    () => new Map<string, string>(autoPullQualityPresetOptions.map((option: any) => [option.value, option.label])),
+    [autoPullQualityPresetOptions],
+  );
+  const selectedTopicRuleId = topicFormRuleIds[0] ?? '';
+  const selectedTopicRule = selectedTopicRuleId ? autoPullRuleById.get(selectedTopicRuleId) ?? null : null;
+
+  useEffect(() => {
+    if (!topicFormModalOpen || !selectedTopicRuleId) {
+      setIsTopicRulePreviewOpen(false);
+    }
+  }, [selectedTopicRuleId, topicFormModalOpen]);
+
   const normalizedScheduleHourValue = (() => {
     const candidate = typeof ruleFormHourInput === 'string' ? ruleFormHourInput.trim() : '';
     return autoPullHourOptions.some((option: any) => option.value === candidate) ? candidate : '9';
@@ -128,7 +148,8 @@ export function AutoImportTab(props: AutoImportTabProps) {
     const minute = typeof schedule.minute === 'number' ? schedule.minute : 0;
     const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
     if (schedule.frequency === 'WEEKLY') {
-      const weekday = typeof schedule.days_of_week?.[0] === 'string' ? schedule.days_of_week[0] : '--';
+      const weekdayToken = typeof schedule.days_of_week?.[0] === 'string' ? schedule.days_of_week[0] : '--';
+      const weekday = weekdayLabelByValue.get(weekdayToken) ?? weekdayToken;
       return `每周 ${weekday} ${time}`;
     }
     return `每日 ${time}`;
@@ -142,6 +163,28 @@ export function AutoImportTab(props: AutoImportTabProps) {
         .filter((source: unknown): source is string => typeof source === 'string' && source.length > 0)
       : [];
     return sources.length > 0 ? sources.join(' / ') : '--';
+  };
+
+  const formatRuleQualityLabel = (rule: any): string => {
+    const scoreValue = String(rule.quality_spec?.min_quality_score ?? 70);
+    return qualityPresetLabelByValue.get(scoreValue) ?? scoreValue;
+  };
+
+  const getRuleSourceConfig = (rule: any): Record<string, unknown> => {
+    const activeSource = Array.isArray(rule.sources)
+      ? rule.sources.find((source: any) => source?.enabled)
+      : null;
+    return asRecord(activeSource?.config) ?? {};
+  };
+
+  const formatRuleSortModeLabel = (rule: any): string => {
+    const sourceConfig = getRuleSourceConfig(rule);
+    return sourceConfig.sort_mode === 'hybrid_score' ? '综合评分' : '大模型打分';
+  };
+
+  const formatRuleParseAndIngestLabel = (rule: any): string => {
+    const sourceConfig = getRuleSourceConfig(rule);
+    return sourceConfig.parse_and_ingest === true ? '开启' : '关闭';
   };
 
   const renderRuleInlineEditor = () => (
@@ -744,17 +787,29 @@ export function AutoImportTab(props: AutoImportTabProps) {
 
                               <section className="topic-modal-section">
                                 <div className="topic-rule-binding-column">
-                                    <div className="topic-rule-binding-header-row">
-                                      <h4 className="topic-modal-section-title">规则绑定</h4>
-                                    </div>
-                                    <div className="topic-rule-binding-card">
-                                      <label data-ui="field" className="topic-rule-binding-select-field">
-                                        <span data-slot="label">生效规则</span>
+                                  <div className="topic-rule-binding-header-row">
+                                    <h4 className="topic-modal-section-title">规则绑定</h4>
+                                    <button
+                                      data-ui="button"
+                                      data-variant="ghost"
+                                      data-size="sm"
+                                      type="button"
+                                      onClick={handleOpenRuleCenter}
+                                    >
+                                      前往规则中心
+                                    </button>
+                                  </div>
+                                  <div className="topic-rule-binding-panel">
+                                    <div data-ui="field" className="topic-rule-binding-select-field">
+                                      <div className="topic-rule-binding-control-row">
                                         <select
                                           data-ui="select"
                                           data-size="sm"
-                                          value={topicFormRuleIds[0] ?? ''}
-                                          onChange={(event) => handleSetTopicRuleBinding(event.target.value)}
+                                          aria-label="选择规则"
+                                          value={selectedTopicRuleId}
+                                          onChange={(event) => {
+                                            handleSetTopicRuleBinding(event.target.value);
+                                          }}
                                         >
                                           <option value="">未绑定</option>
                                           {topicScopedRules.map((rule: any) => (
@@ -763,23 +818,56 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                             </option>
                                           ))}
                                         </select>
-                                      </label>
-                                      <p data-ui="text" data-variant="caption" data-tone="muted">
-                                        每个主题最多绑定 1 条规则。规则详情与编辑请在“规则中心”处理。
-                                      </p>
-                                      <div data-ui="toolbar" data-gap="2">
                                         <button
                                           data-ui="button"
                                           data-variant="ghost"
                                           data-size="sm"
                                           type="button"
-                                          onClick={handleOpenRuleCenter}
+                                          className="topic-rule-preview-toggle"
+                                          onClick={() => setIsTopicRulePreviewOpen((current) => !current)}
+                                          disabled={!selectedTopicRule}
+                                          aria-expanded={isTopicRulePreviewOpen}
                                         >
-                                          前往规则中心
+                                          {isTopicRulePreviewOpen ? '收起预览' : '预览'}
                                         </button>
                                       </div>
                                     </div>
+                                    {isTopicRulePreviewOpen && selectedTopicRule ? (
+                                      <div className="topic-rule-preview-panel">
+                                        <dl className="topic-rule-preview-grid">
+                                          <div className="topic-rule-preview-item">
+                                            <dt>调度计划</dt>
+                                            <dd>{formatRuleScheduleLabel(selectedTopicRule)}</dd>
+                                          </div>
+                                          <div className="topic-rule-preview-item">
+                                            <dt>来源</dt>
+                                            <dd>{formatRuleSourcesLabel(selectedTopicRule)}</dd>
+                                          </div>
+                                          <div className="topic-rule-preview-item">
+                                            <dt>质量门槛</dt>
+                                            <dd>{formatRuleQualityLabel(selectedTopicRule)}</dd>
+                                          </div>
+                                          <div className="topic-rule-preview-item">
+                                            <dt>滑动窗口</dt>
+                                            <dd>{String(selectedTopicRule.time_spec?.lookback_days ?? 30)} 天</dd>
+                                          </div>
+                                          <div className="topic-rule-preview-item">
+                                            <dt>每次拉取上限</dt>
+                                            <dd>{String(selectedTopicRule.query_spec?.max_results_per_source ?? 20)} 篇 / 来源</dd>
+                                          </div>
+                                          <div className="topic-rule-preview-item">
+                                            <dt>排序规则</dt>
+                                            <dd>{formatRuleSortModeLabel(selectedTopicRule)}</dd>
+                                          </div>
+                                          <div className="topic-rule-preview-item">
+                                            <dt>解析内容并入库</dt>
+                                            <dd>{formatRuleParseAndIngestLabel(selectedTopicRule)}</dd>
+                                          </div>
+                                        </dl>
+                                      </div>
+                                    ) : null}
                                   </div>
+                                </div>
                               </section>
 
                               <footer className="topic-modal-footer">
