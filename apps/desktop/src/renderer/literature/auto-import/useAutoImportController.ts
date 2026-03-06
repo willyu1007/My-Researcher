@@ -61,7 +61,7 @@ export type AutoImportControllerOutput = {
   handleToggleTopicProfileActive: (profile: any) => Promise<void>;
   handleResetRuleComposer: () => void;
   handleEditRule: (rule: any) => void;
-  handleSubmitRule: () => Promise<void>;
+  handleSubmitRule: (options?: { resetOnSuccess?: boolean; notifyOnSuccess?: boolean }) => Promise<boolean>;
   handleDeleteRule: (rule: any) => Promise<void>;
   handleRetryRun: (runId: string) => Promise<void>;
 };
@@ -723,7 +723,9 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     toTextFromApp,
   ]);
 
-  const handleSubmitRule = useCallback(async () => {
+  const handleSubmitRule = useCallback(async (options?: { resetOnSuccess?: boolean; notifyOnSuccess?: boolean }) => {
+    const resetOnSuccess = options?.resetOnSuccess ?? true;
+    const notifyOnSuccess = options?.notifyOnSuccess ?? true;
     const existingRuleName = ruleEditingId
       ? (((toTextFromApp ?? toText)(autoPullRuleById.get(ruleEditingId)?.name)?.trim()) ?? '')
       : '';
@@ -765,7 +767,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
         level: 'warning',
         message: '至少启用一个数据源。',
       });
-      return;
+      return false;
     }
 
     const hour = Number.parseInt(ruleFormHourInput.trim(), 10);
@@ -775,7 +777,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
         level: 'warning',
         message: '调度时间无效。',
       });
-      return;
+      return false;
     }
 
     const maxResults = Number.parseInt(ruleFormMaxResultsInput.trim(), 10);
@@ -830,14 +832,19 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
         });
       }
 
-      resetRuleForm();
+      if (resetOnSuccess) {
+        resetRuleForm();
+      }
       await loadAutoPullRules();
       await loadAutoPullRuns();
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'success',
-        message: ruleEditingId ? '规则已更新。' : '规则已创建。',
-      });
+      if (notifyOnSuccess) {
+        pushLiteratureFeedback({
+          slot: 'auto-import',
+          level: 'success',
+          message: ruleEditingId ? '规则已更新。' : '规则已创建。',
+        });
+      }
+      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : '保存规则失败。';
       setRulesStatus('error');
@@ -847,6 +854,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
         level: 'error',
         message: `保存规则失败：${message}`,
       });
+      return false;
     }
   }, [
     autoPullRuleById,
