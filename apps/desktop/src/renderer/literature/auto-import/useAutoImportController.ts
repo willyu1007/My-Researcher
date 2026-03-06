@@ -48,6 +48,7 @@ export type AutoImportControllerOutput = {
   loadAutoPullRunDetail: (runId: string) => Promise<void>;
   handleOpenCreateTopicProfile: () => void;
   handleCloseTopicModal: () => void;
+  handleOpenRuleCenter: () => void;
   handleEditTopicProfile: (profile: any) => void;
   handleSetTopicRuleBinding: (ruleId: string) => void;
   handleAddTopicIncludeKeyword: () => void;
@@ -58,10 +59,9 @@ export type AutoImportControllerOutput = {
   applyTopicYearPreset: (preset: 'recent-5' | 'recent-10' | 'all') => void;
   handleSubmitTopicProfile: () => Promise<void>;
   handleToggleTopicProfileActive: (profile: any) => Promise<void>;
-  handleResetTopicRuleComposer: () => void;
   handleResetRuleComposer: () => void;
   handleEditRule: (rule: any) => void;
-  handleSubmitRule: (options?: { bindToTopicDraft?: boolean }) => Promise<void>;
+  handleSubmitRule: () => Promise<void>;
   handleDeleteRule: (rule: any) => Promise<void>;
   handleRetryRun: (runId: string) => Promise<void>;
 };
@@ -465,6 +465,12 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     resetTopicForm();
   }, [resetTopicForm, setTopicFormModalOpen, setTopicVenuePickerOpen]);
 
+  const handleOpenRuleCenter = useCallback(() => {
+    setTopicFormModalOpen(false);
+    setTopicVenuePickerOpen(false);
+    setAutoImportSubTab('rule-center');
+  }, [setAutoImportSubTab, setTopicFormModalOpen, setTopicVenuePickerOpen]);
+
   const handleEditTopicProfile = useCallback((profile: any) => {
     setTopicEditingId(profile.topic_id);
     setTopicFormTopicId(profile.topic_id);
@@ -481,13 +487,11 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setTopicFormYearEnd(profile.default_max_year ?? topicYearMaxBound);
     setTopicFormRuleIds(profile.rule_ids.slice(0, 1));
     resetRuleForm();
-    setRuleFormName(`${profile.name} 自动拉取`);
     setTopicFormModalOpen(true);
     setAutoImportSubTab('topic-settings');
   }, [
     resetRuleForm,
     setAutoImportSubTab,
-    setRuleFormName,
     setTopicEditingId,
     setTopicFormExcludeDraft,
     setTopicFormExcludeKeywords,
@@ -692,11 +696,6 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     }
   }, [loadTopicProfiles, pushLiteratureFeedback]);
 
-  const handleResetTopicRuleComposer = useCallback(() => {
-    resetRuleForm();
-    setRuleFormName(topicFormName.trim() ? `${topicFormName.trim()} 自动拉取` : '');
-  }, [resetRuleForm, setRuleFormName, topicFormName]);
-
   const handleResetRuleComposer = useCallback(() => {
     resetRuleForm();
   }, [resetRuleForm]);
@@ -736,16 +735,25 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     toTextFromApp,
   ]);
 
-  const handleSubmitRule = useCallback(async (options?: { bindToTopicDraft?: boolean }) => {
-    const nameText = ruleFormName.trim();
-    if (!nameText) {
-      pushLiteratureFeedback({
-        slot: 'auto-import',
-        level: 'warning',
-        message: '规则名称不能为空。',
-      });
-      return;
-    }
+  const handleSubmitRule = useCallback(async () => {
+    const existingRuleName = ruleEditingId
+      ? (((toTextFromApp ?? toText)(autoPullRuleById.get(ruleEditingId)?.name)?.trim()) ?? '')
+      : '';
+    const draftRuleName = ruleFormName.trim();
+    const fallbackRuleName = (() => {
+      const topicName = topicFormName.trim();
+      if (topicName) {
+        return `${topicName} 自动拉取规则`;
+      }
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hour = String(now.getHours()).padStart(2, '0');
+      const minute = String(now.getMinutes()).padStart(2, '0');
+      return `自动拉取规则 ${year}-${month}-${day} ${hour}:${minute}`;
+    })();
+    const nameText = draftRuleName || existingRuleName || fallbackRuleName;
 
     const sources: Array<{
       source: 'CROSSREF' | 'ARXIV';
@@ -822,7 +830,6 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
 
     setRulesStatus('saving');
     try {
-      let resolvedRuleId: string | null = ruleEditingId;
       if (ruleEditingId) {
         await requestGovernance({
           method: 'PATCH',
@@ -830,38 +837,20 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
           body: payload,
         });
       } else {
-        const createPayload = await requestGovernance({
+        await requestGovernance({
           method: 'POST',
           path: '/auto-pull/rules',
           body: payload,
         });
-        const createRoot = (asRecordFromApp ?? asRecord)(createPayload);
-        const createdRuleId = ((toTextFromApp ?? toText)(createRoot?.rule_id)?.trim() ?? '');
-        if (createdRuleId) {
-          resolvedRuleId = createdRuleId;
-        }
       }
 
-      if (options?.bindToTopicDraft && resolvedRuleId) {
-        setTopicFormRuleIds([resolvedRuleId]);
-      }
       resetRuleForm();
-      if (options?.bindToTopicDraft) {
-        setRuleFormName(topicFormName.trim() ? `${topicFormName.trim()} 自动拉取` : '');
-      }
       await loadAutoPullRules();
       await loadAutoPullRuns();
       pushLiteratureFeedback({
         slot: 'auto-import',
         level: 'success',
-        message:
-          options?.bindToTopicDraft
-            ? ruleEditingId
-              ? '规则已更新并保留在当前主题绑定中。'
-              : '规则已创建并加入当前主题绑定。'
-            : ruleEditingId
-              ? '规则已更新。'
-              : '规则已创建。',
+        message: ruleEditingId ? '规则已更新。' : '规则已创建。',
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : '保存规则失败。';
@@ -874,7 +863,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
       });
     }
   }, [
-    asRecordFromApp,
+    autoPullRuleById,
     loadAutoPullRules,
     loadAutoPullRuns,
     pushLiteratureFeedback,
@@ -892,10 +881,8 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     ruleFormWeekday,
     ruleSourceArxiv,
     ruleSourceCrossref,
-    setRuleFormName,
     setRulesError,
     setRulesStatus,
-    setTopicFormRuleIds,
     toTextFromApp,
     topicFormName,
   ]);
@@ -986,6 +973,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     loadAutoPullRunDetail,
     handleOpenCreateTopicProfile,
     handleCloseTopicModal,
+    handleOpenRuleCenter,
     handleEditTopicProfile,
     handleSetTopicRuleBinding,
     handleAddTopicIncludeKeyword,
@@ -996,7 +984,6 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     applyTopicYearPreset,
     handleSubmitTopicProfile,
     handleToggleTopicProfileActive,
-    handleResetTopicRuleComposer,
     handleResetRuleComposer,
     handleEditRule,
     handleSubmitRule,

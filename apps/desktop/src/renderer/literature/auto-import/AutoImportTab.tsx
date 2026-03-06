@@ -31,11 +31,11 @@ export function AutoImportTab(props: AutoImportTabProps) {
     handleDeleteRule,
     handleEditRule,
     handleEditTopicProfile,
+    handleOpenRuleCenter,
     handleOpenCreateTopicProfile,
     handleRemoveTopicExcludeKeyword,
     handleRemoveTopicIncludeKeyword,
     handleResetRuleComposer,
-    handleResetTopicRuleComposer,
     handleRetryRun,
     handleSetTopicRuleBinding,
     handleSubmitRule,
@@ -756,30 +756,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                 <div className="topic-rule-binding-column">
                                     <div className="topic-rule-binding-header-row">
                                       <h4 className="topic-modal-section-title">规则绑定</h4>
-                                      <div className="topic-rule-header-actions" data-ui="toolbar" data-gap="1">
-                                        <button
-                                          data-ui="button"
-                                          data-variant="ghost"
-                                          data-size="sm"
-                                          type="button"
-                                          className="topic-rule-header-action"
-                                          onClick={() => void handleSubmitRule({
-                                            bindToTopicDraft: true,
-                                          })}
-                                        >
-                                          保存
-                                        </button>
-                                        <button
-                                          data-ui="button"
-                                          data-variant="ghost"
-                                          data-size="sm"
-                                          type="button"
-                                          className="topic-rule-header-action"
-                                          onClick={handleResetTopicRuleComposer}
-                                        >
-                                          重置
-                                        </button>
-                                      </div>
                                     </div>
                                     <div className="topic-rule-binding-card">
                                       <label data-ui="field" className="topic-rule-binding-select-field">
@@ -801,7 +777,17 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                       <p data-ui="text" data-variant="caption" data-tone="muted">
                                         每个主题最多绑定 1 条规则。规则详情与编辑请在“规则中心”处理。
                                       </p>
-                                      {renderRuleInlineEditor()}
+                                      <div data-ui="toolbar" data-gap="2">
+                                        <button
+                                          data-ui="button"
+                                          data-variant="ghost"
+                                          data-size="sm"
+                                          type="button"
+                                          onClick={handleOpenRuleCenter}
+                                        >
+                                          前往规则中心
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
                               </section>

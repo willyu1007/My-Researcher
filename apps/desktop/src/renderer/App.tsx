@@ -797,7 +797,7 @@ export function App({ initialThemeMode }: AppProps) {
     applyTopicYearPreset,
     handleSubmitTopicProfile,
     handleToggleTopicProfileActive,
-    handleResetTopicRuleComposer,
+    handleOpenRuleCenter,
     handleResetRuleComposer,
     handleEditRule,
     handleSubmitRule,
@@ -1317,7 +1317,7 @@ export function App({ initialThemeMode }: AppProps) {
                   handleOpenCreateTopicProfile={handleOpenCreateTopicProfile}
                   handleRemoveTopicExcludeKeyword={handleRemoveTopicExcludeKeyword}
                   handleRemoveTopicIncludeKeyword={handleRemoveTopicIncludeKeyword}
-                  handleResetTopicRuleComposer={handleResetTopicRuleComposer}
+                  handleOpenRuleCenter={handleOpenRuleCenter}
                   handleRetryRun={handleRetryRun}
                   handleSubmitRule={handleSubmitRule}
                   handleSubmitTopicProfile={handleSubmitTopicProfile}
