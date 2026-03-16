@@ -12,6 +12,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
   }
 
   const [isTopicRulePreviewOpen, setIsTopicRulePreviewOpen] = useState(false);
+  const [activeTopicListRulePreviewTopicId, setActiveTopicListRulePreviewTopicId] = useState<string | null>(null);
   const [activeRuleEditor, setActiveRuleEditor] = useState<{
     ruleId: string | null;
     mode: 'schedule' | 'source' | 'advanced';
@@ -20,6 +21,8 @@ export function AutoImportTab(props: AutoImportTabProps) {
   const [activeQuickEditorAnchor, setActiveQuickEditorAnchor] = useState<HTMLElement | null>(null);
   const [activeQuickEditorPosition, setActiveQuickEditorPosition] = useState<{ top: number; left: number } | null>(null);
   const inlineAdvancedSaveTimeoutRef = useRef<number | null>(null);
+  const scheduleFormatterCacheRef = useRef<Map<string, Intl.DateTimeFormat>>(new Map());
+  const inlineAdvancedAutosaveDebounceMs = 280;
 
   const {
     applyTopicYearPreset,
@@ -94,6 +97,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
     setTopicFormExcludeDraft,
     setTopicFormIncludeDraft,
     setTopicFormName,
+    setTopicFormInitialPullPending,
     setTopicFormVenueSelections,
     setTopicFormYearEnd,
     setTopicFormYearStart,
@@ -106,6 +110,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
     topicFormIncludeKeywords,
     topicFormModalOpen,
     topicFormName,
+    topicFormInitialPullPending,
     topicFormRuleIds,
     topicFormTopicId,
     topicFormVenueSelections,
@@ -142,6 +147,20 @@ export function AutoImportTab(props: AutoImportTabProps) {
       setIsTopicRulePreviewOpen(false);
     }
   }, [selectedTopicRuleId, topicFormModalOpen]);
+
+  useEffect(() => {
+    if (autoImportSubTab !== 'topic-settings') {
+      setActiveTopicListRulePreviewTopicId(null);
+      return;
+    }
+    if (!activeTopicListRulePreviewTopicId) {
+      return;
+    }
+    const exists = topicProfiles.some((profile: any) => profile.topic_id === activeTopicListRulePreviewTopicId);
+    if (!exists) {
+      setActiveTopicListRulePreviewTopicId(null);
+    }
+  }, [activeTopicListRulePreviewTopicId, autoImportSubTab, topicProfiles]);
 
   useEffect(() => {
     if (autoImportSubTab !== 'rule-center') {
@@ -204,6 +223,162 @@ export function AutoImportTab(props: AutoImportTabProps) {
       return `每周 ${weekday} ${time}`;
     }
     return `每日 ${time}`;
+  };
+
+  const resolveScheduleTimezone = (schedule: any): string => {
+    if (typeof schedule?.timezone === 'string' && schedule.timezone.trim().length > 0) {
+      return schedule.timezone.trim();
+    }
+    return 'UTC';
+  };
+
+  const getScheduleFormatter = (timezone: string): Intl.DateTimeFormat => {
+    const normalizedTimezone = timezone.trim().length > 0 ? timezone.trim() : 'UTC';
+    const cached = scheduleFormatterCacheRef.current.get(normalizedTimezone);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: normalizedTimezone,
+        month: '2-digit',
+        day: '2-digit',
+        weekday: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      scheduleFormatterCacheRef.current.set(normalizedTimezone, formatter);
+      return formatter;
+    } catch {
+      const fallback = scheduleFormatterCacheRef.current.get('UTC');
+      if (fallback) {
+        return fallback;
+      }
+      const fallbackFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'UTC',
+        month: '2-digit',
+        day: '2-digit',
+        weekday: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      scheduleFormatterCacheRef.current.set('UTC', fallbackFormatter);
+      return fallbackFormatter;
+    }
+  };
+
+  const toScheduleLocalParts = (
+    value: Date,
+    timezone: string,
+  ): { month: number; day: number; hour: number; minute: number; dayOfWeek: string } | null => {
+    try {
+      const formatter = getScheduleFormatter(timezone);
+      const parts = formatter.formatToParts(value);
+      const monthPart = parts.find((part) => part.type === 'month')?.value;
+      const dayPart = parts.find((part) => part.type === 'day')?.value;
+      const hourPart = parts.find((part) => part.type === 'hour')?.value;
+      const minutePart = parts.find((part) => part.type === 'minute')?.value;
+      const weekdayPart = parts.find((part) => part.type === 'weekday')?.value;
+      if (!monthPart || !dayPart || !hourPart || !minutePart || !weekdayPart) {
+        return null;
+      }
+
+      return {
+        month: Number.parseInt(monthPart, 10),
+        day: Number.parseInt(dayPart, 10),
+        hour: Number.parseInt(hourPart, 10),
+        minute: Number.parseInt(minutePart, 10),
+        dayOfWeek: weekdayPart.toUpperCase(),
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const findNextActivation = (schedule: any, now: Date): Date | null => {
+    const timezone = resolveScheduleTimezone(schedule);
+    const scheduleHour = Number.isInteger(schedule?.hour) ? schedule.hour : Number.NaN;
+    const scheduleMinute = Number.isInteger(schedule?.minute) ? schedule.minute : Number.NaN;
+    if (!Number.isFinite(scheduleHour) || !Number.isFinite(scheduleMinute)) {
+      return null;
+    }
+
+    const weeklyDays = schedule.frequency === 'WEEKLY'
+      ? (
+        Array.isArray(schedule.days_of_week)
+          ? (schedule.days_of_week as unknown[])
+            .filter((item: unknown): item is string => typeof item === 'string')
+            .map((item: string) => item.toUpperCase())
+          : []
+      )
+      : null;
+    if (weeklyDays && weeklyDays.length === 0) {
+      return null;
+    }
+
+    const firstCandidate = new Date(now.getTime());
+    firstCandidate.setSeconds(0, 0);
+    firstCandidate.setMinutes(firstCandidate.getMinutes() + 1);
+    const minuteDelta = (scheduleMinute - firstCandidate.getMinutes() + 60) % 60;
+    firstCandidate.setMinutes(firstCandidate.getMinutes() + minuteDelta);
+
+    const maxHours = 14 * 24;
+    for (let offset = 0; offset <= maxHours; offset += 1) {
+      const candidate = new Date(firstCandidate.getTime() + offset * 3_600_000);
+      const local = toScheduleLocalParts(candidate, timezone);
+      if (!local) {
+        continue;
+      }
+      if (local.hour !== scheduleHour || local.minute !== scheduleMinute) {
+        continue;
+      }
+      if (weeklyDays && !weeklyDays.includes(local.dayOfWeek)) {
+        continue;
+      }
+      return candidate;
+    }
+    return null;
+  };
+
+  const formatNextActivationLabel = (rule: any): string => {
+    if (rule.status !== 'ACTIVE') {
+      return '已暂停';
+    }
+
+    const schedules = Array.isArray(rule.schedules)
+      ? rule.schedules.filter((schedule: any) => schedule?.active !== false)
+      : [];
+    if (schedules.length === 0) {
+      return '--';
+    }
+
+    const now = new Date();
+    let bestDate: Date | null = null;
+    let bestTimezone = 'UTC';
+
+    for (const schedule of schedules) {
+      const next = findNextActivation(schedule, now);
+      if (!next) {
+        continue;
+      }
+      if (!bestDate || next.getTime() < bestDate.getTime()) {
+        bestDate = next;
+        bestTimezone = resolveScheduleTimezone(schedule);
+      }
+    }
+
+    if (!bestDate) {
+      return '--';
+    }
+
+    const local = toScheduleLocalParts(bestDate, bestTimezone);
+    if (!local) {
+      return '--';
+    }
+    return `${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')} ${String(local.hour).padStart(2, '0')}:${String(local.minute).padStart(2, '0')}`;
   };
 
   const formatRuleSourcesLabel = (rule: any): string => {
@@ -310,7 +485,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
     inlineAdvancedSaveTimeoutRef.current = window.setTimeout(() => {
       inlineAdvancedSaveTimeoutRef.current = null;
       void handleSaveInlineAdvancedEditor();
-    }, 0);
+    }, inlineAdvancedAutosaveDebounceMs);
   };
 
   const renderRuleScheduleFieldGroup = () => (
@@ -675,6 +850,9 @@ export function AutoImportTab(props: AutoImportTabProps) {
               type="button"
               className={`rule-option-toggle-button${ruleFormSortMode === 'llm_score' ? ' is-active' : ''}`}
               onClick={() => {
+                if (ruleFormSortMode === 'llm_score') {
+                  return;
+                }
                 setRuleFormSortMode('llm_score');
                 queueInlineAdvancedSave();
               }}
@@ -686,6 +864,9 @@ export function AutoImportTab(props: AutoImportTabProps) {
               type="button"
               className={`rule-option-toggle-button${ruleFormSortMode === 'hybrid_score' ? ' is-active' : ''}`}
               onClick={() => {
+                if (ruleFormSortMode === 'hybrid_score') {
+                  return;
+                }
                 setRuleFormSortMode('hybrid_score');
                 queueInlineAdvancedSave();
               }}
@@ -714,6 +895,9 @@ export function AutoImportTab(props: AutoImportTabProps) {
               type="button"
               className={`rule-option-toggle-button${!ruleFormParseAndIngest ? ' is-active' : ''}`}
               onClick={() => {
+                if (!ruleFormParseAndIngest) {
+                  return;
+                }
                 setRuleFormParseAndIngest(false);
                 queueInlineAdvancedSave();
               }}
@@ -725,6 +909,9 @@ export function AutoImportTab(props: AutoImportTabProps) {
               type="button"
               className={`rule-option-toggle-button${ruleFormParseAndIngest ? ' is-active' : ''}`}
               onClick={() => {
+                if (ruleFormParseAndIngest) {
+                  return;
+                }
                 setRuleFormParseAndIngest(true);
                 queueInlineAdvancedSave();
               }}
@@ -737,6 +924,39 @@ export function AutoImportTab(props: AutoImportTabProps) {
       </div>
       {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
     </section>
+  );
+
+  const renderRulePreviewPanel = (rule: any) => (
+    <dl className="topic-rule-preview-grid">
+      <div className="topic-rule-preview-item">
+        <dt>调度计划</dt>
+        <dd>{formatRuleScheduleLabel(rule)}</dd>
+      </div>
+      <div className="topic-rule-preview-item">
+        <dt>来源</dt>
+        <dd>{formatRuleSourcesLabel(rule)}</dd>
+      </div>
+      <div className="topic-rule-preview-item">
+        <dt>质量门槛</dt>
+        <dd>{formatRuleQualityLabel(rule)}</dd>
+      </div>
+      <div className="topic-rule-preview-item">
+        <dt>滑动窗口</dt>
+        <dd>{String(rule.time_spec?.lookback_days ?? 30)} 天</dd>
+      </div>
+      <div className="topic-rule-preview-item">
+        <dt>每次拉取上限</dt>
+        <dd>{String(rule.query_spec?.max_results_per_source ?? 20)} 篇 / 来源</dd>
+      </div>
+      <div className="topic-rule-preview-item">
+        <dt>排序规则</dt>
+        <dd>{formatRuleSortModeLabel(rule)}</dd>
+      </div>
+      <div className="topic-rule-preview-item">
+        <dt>解析内容并入库</dt>
+        <dd>{formatRuleParseAndIngestLabel(rule)}</dd>
+      </div>
+    </dl>
   );
 
   const renderFloatingRuleQuickEditor = () => {
@@ -908,65 +1128,89 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                   const effectiveRuleId = profile.rule_ids[0] ?? null;
                                   const effectiveRule = effectiveRuleId ? autoPullRuleById.get(effectiveRuleId) ?? null : null;
                                   const latestRun = effectiveRuleId ? (latestRunByRuleId.get(effectiveRuleId) ?? null) : null;
+                                  const hasActiveEffectiveRule = effectiveRule?.status === 'ACTIVE';
+                                  const isRulePreviewOpen =
+                                    hasActiveEffectiveRule && activeTopicListRulePreviewTopicId === profile.topic_id;
 
                                   return (
-                                    <tr key={profile.topic_id}>
-                                      <td className="topic-col-name">
-                                        <div className="topic-settings-name">
-                                          <button
-                                            type="button"
-                                            className="topic-settings-name-trigger"
-                                            onClick={() => handleEditTopicProfile(profile)}
-                                          >
-                                            {profile.name}
-                                          </button>
-                                          {!profile.is_active ? <span className="topic-settings-muted-tag">已关闭</span> : null}
-                                        </div>
-                                      </td>
-                                      <td className="topic-col-range">
-                                        <div className="topic-settings-range" title={rangeTooltip}>
-                                          <span>{yearStart} - {yearEnd}</span>
-                                          <span>{venuePreview}</span>
-                                        </div>
-                                      </td>
-                                      <td className="topic-col-filter">
-                                        <div className="topic-settings-filter" title={filterTooltip}>
-                                          <span>包含：{includePreview}</span>
-                                          <span>排除：{excludePreview}</span>
-                                        </div>
-                                      </td>
-                                      <td className="topic-col-run">
-                                        <div className="topic-settings-run-record">
-                                          <span>{latestRun ? formatTimestamp(resolveRunSortTimestamp(latestRun)) : '--'}</span>
-                                          <span className={`topic-settings-run-status${latestRun ? ` is-${latestRun.status.toLowerCase()}` : ''}`}>
-                                            {latestRun ? autoPullRunStatusLabels[latestRun.status] : '未执行'}
-                                          </span>
-                                        </div>
-                                      </td>
-                                      <td className="topic-col-rule">
-                                        <div className="topic-settings-rule-text">
-                                          {effectiveRule?.status !== 'ACTIVE' ? (
-                                            <span className="topic-settings-muted-text">--</span>
-                                          ) : (
-                                            <span>
-                                              {effectiveRule.name}
+                                    <Fragment key={profile.topic_id}>
+                                      <tr>
+                                        <td className="topic-col-name">
+                                          <div className="topic-settings-name">
+                                            <button
+                                              type="button"
+                                              className="topic-settings-name-trigger"
+                                              onClick={() => handleEditTopicProfile(profile)}
+                                            >
+                                              {profile.name}
+                                            </button>
+                                            {profile.initial_pull_pending ? <span className="topic-settings-initial-tag">首次全量</span> : null}
+                                            {!profile.is_active ? <span className="topic-settings-muted-tag">已关闭</span> : null}
+                                          </div>
+                                        </td>
+                                        <td className="topic-col-range">
+                                          <div className="topic-settings-range" title={rangeTooltip}>
+                                            <span>{yearStart} - {yearEnd}</span>
+                                            <span>{venuePreview}</span>
+                                          </div>
+                                        </td>
+                                        <td className="topic-col-filter">
+                                          <div className="topic-settings-filter" title={filterTooltip}>
+                                            <span>包含：{includePreview}</span>
+                                            <span>排除：{excludePreview}</span>
+                                          </div>
+                                        </td>
+                                        <td className="topic-col-run">
+                                          <div className="topic-settings-run-record">
+                                            <span>{latestRun ? formatTimestamp(resolveRunSortTimestamp(latestRun)) : '--'}</span>
+                                            <span className={`topic-settings-run-status${latestRun ? ` is-${latestRun.status.toLowerCase()}` : ''}`}>
+                                              {latestRun ? autoPullRunStatusLabels[latestRun.status] : '未执行'}
                                             </span>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="topic-col-actions">
-                                        <div className="topic-settings-options">
-                                          <label className="topic-list-active-toggle">
-                                            <input
-                                              type="checkbox"
-                                              checked={profile.is_active}
-                                              onChange={() => void handleToggleTopicProfileActive(profile)}
-                                            />
-                                            <span>参与检索</span>
-                                          </label>
-                                        </div>
-                                      </td>
-                                    </tr>
+                                          </div>
+                                        </td>
+                                        <td className="topic-col-rule">
+                                          <div className="topic-settings-rule-text">
+                                            {!hasActiveEffectiveRule ? (
+                                              <span className="topic-settings-muted-text">--</span>
+                                            ) : (
+                                              <button
+                                                type="button"
+                                                className={`topic-settings-rule-trigger${isRulePreviewOpen ? ' is-open' : ''}`}
+                                                onClick={() => {
+                                                  setActiveTopicListRulePreviewTopicId((current) =>
+                                                    current === profile.topic_id ? null : profile.topic_id,
+                                                  );
+                                                }}
+                                                aria-expanded={isRulePreviewOpen}
+                                              >
+                                                {effectiveRule.name}
+                                              </button>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td className="topic-col-actions">
+                                          <div className="topic-settings-options">
+                                            <label className="topic-list-active-toggle">
+                                              <input
+                                                type="checkbox"
+                                                checked={profile.is_active}
+                                                onChange={() => void handleToggleTopicProfileActive(profile)}
+                                              />
+                                              <span>参与检索</span>
+                                            </label>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                      {isRulePreviewOpen && effectiveRule ? (
+                                        <tr className="topic-settings-rule-preview-row">
+                                          <td colSpan={6}>
+                                            <div className="topic-rule-preview-panel topic-settings-rule-preview-panel">
+                                              {renderRulePreviewPanel(effectiveRule)}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ) : null}
+                                    </Fragment>
                                   );
                                 })}
                               </tbody>
@@ -1032,7 +1276,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                       readOnly
                                     />
                                   </label>
-
                                   <label data-ui="field">
                                     <span data-slot="label">包含词</span>
                                     <div className="topic-token-editor">
@@ -1295,38 +1538,48 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                         </button>
                                       </div>
                                     </div>
+                                    <div data-ui="field" className="topic-modal-toggle-field">
+                                      <div className="topic-modal-initial-row">
+                                        <label
+                                          className="topic-modal-checkbox"
+                                          title="开启后，下次命中规则时按全量范围拉取；该次运行成功后会自动关闭。"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={topicFormInitialPullPending}
+                                            title="开启后，下次命中规则时按全量范围拉取；该次运行成功后会自动关闭。"
+                                            onChange={(event) => {
+                                              setTopicFormInitialPullPending(event.target.checked);
+                                            }}
+                                          />
+                                          <span title="开启后，下次命中规则时按全量范围拉取；该次运行成功后会自动关闭。">
+                                            首次全量拉取
+                                          </span>
+                                        </label>
+                                        <div className="topic-modal-initial-meta">
+                                          <span
+                                            className={`topic-modal-initial-status${topicFormInitialPullPending ? ' is-pending' : ' is-closed'}`}
+                                          >
+                                            {topicFormInitialPullPending ? '状态：待首次成功' : '状态：已关闭'}
+                                          </span>
+                                          <button
+                                            data-ui="button"
+                                            data-variant="ghost"
+                                            data-size="sm"
+                                            type="button"
+                                            title="重置后会恢复为待首次成功，下一次执行将重新全量拉取。"
+                                            onClick={() => {
+                                              setTopicFormInitialPullPending(true);
+                                            }}
+                                          >
+                                            重置
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
                                     {isTopicRulePreviewOpen && selectedTopicRule ? (
                                       <div className="topic-rule-preview-panel">
-                                        <dl className="topic-rule-preview-grid">
-                                          <div className="topic-rule-preview-item">
-                                            <dt>调度计划</dt>
-                                            <dd>{formatRuleScheduleLabel(selectedTopicRule)}</dd>
-                                          </div>
-                                          <div className="topic-rule-preview-item">
-                                            <dt>来源</dt>
-                                            <dd>{formatRuleSourcesLabel(selectedTopicRule)}</dd>
-                                          </div>
-                                          <div className="topic-rule-preview-item">
-                                            <dt>质量门槛</dt>
-                                            <dd>{formatRuleQualityLabel(selectedTopicRule)}</dd>
-                                          </div>
-                                          <div className="topic-rule-preview-item">
-                                            <dt>滑动窗口</dt>
-                                            <dd>{String(selectedTopicRule.time_spec?.lookback_days ?? 30)} 天</dd>
-                                          </div>
-                                          <div className="topic-rule-preview-item">
-                                            <dt>每次拉取上限</dt>
-                                            <dd>{String(selectedTopicRule.query_spec?.max_results_per_source ?? 20)} 篇 / 来源</dd>
-                                          </div>
-                                          <div className="topic-rule-preview-item">
-                                            <dt>排序规则</dt>
-                                            <dd>{formatRuleSortModeLabel(selectedTopicRule)}</dd>
-                                          </div>
-                                          <div className="topic-rule-preview-item">
-                                            <dt>解析内容并入库</dt>
-                                            <dd>{formatRuleParseAndIngestLabel(selectedTopicRule)}</dd>
-                                          </div>
-                                        </dl>
+                                        {renderRulePreviewPanel(selectedTopicRule)}
                                       </div>
                                     ) : null}
                                   </div>
@@ -1365,9 +1618,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
                             新建规则
                           </button>
                         </div>
-                        <p data-ui="text" data-variant="caption" data-tone="muted" className="rule-center-description">
-                          规则中心仅用于维护规则配置；规则绑定在“设置主题”中维护，每个主题最多绑定 1 条规则。
-                        </p>
                         {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
                         <div className="rule-center-table-wrap">
                           {activeTopicRules.length === 0 ? (
@@ -1378,6 +1628,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                 <tr>
                                   <th>规则名称</th>
                                   <th>调度</th>
+                                  <th>下次激活时间</th>
                                   <th>来源</th>
                                   <th>操作</th>
                                 </tr>
@@ -1414,6 +1665,9 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                               </svg>
                                             </button>
                                           </div>
+                                        </td>
+                                        <td>
+                                          <span className="rule-center-next-activation">{formatNextActivationLabel(rule)}</span>
                                         </td>
                                         <td>
                                           <div className={`rule-center-editable-cell${isSourceEditorOpen ? ' is-open' : ''}`}>
@@ -1462,7 +1716,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
                                       </tr>
                                       {isAdvancedEditorOpen ? (
                                         <tr className="rule-center-inline-editor-row">
-                                          <td colSpan={4}>
+                                          <td colSpan={5}>
                                             <section className="rule-center-inline-editor-panel">
                                               {renderCompactAdvancedEditor()}
                                             </section>

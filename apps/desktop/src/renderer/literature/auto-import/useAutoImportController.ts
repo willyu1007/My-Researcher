@@ -86,6 +86,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setTopicFormTopicId,
     setTopicFormName,
     setTopicFormIsActive,
+    setTopicFormInitialPullPending,
     setTopicFormIncludeKeywords,
     setTopicFormIncludeDraft,
     setTopicFormExcludeKeywords,
@@ -122,6 +123,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     topicFormTopicId,
     topicFormRuleIds,
     topicFormIsActive,
+    topicFormInitialPullPending,
     topicFormIncludeKeywords,
     topicFormExcludeKeywords,
     topicFormVenueSelections,
@@ -291,6 +293,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setTopicFormTopicId('');
     setTopicFormName('');
     setTopicFormIsActive(true);
+    setTopicFormInitialPullPending(true);
     setTopicFormIncludeKeywords([]);
     setTopicFormIncludeDraft('');
     setTopicFormExcludeKeywords([]);
@@ -310,6 +313,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setTopicFormIncludeDraft,
     setTopicFormIncludeKeywords,
     setTopicFormIsActive,
+    setTopicFormInitialPullPending,
     setTopicFormLookbackInput,
     setTopicFormName,
     setTopicFormRuleIds,
@@ -468,6 +472,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setTopicFormTopicId(profile.topic_id);
     setTopicFormName(profile.name);
     setTopicFormIsActive(profile.is_active);
+    setTopicFormInitialPullPending(profile.initial_pull_pending === true);
     setTopicFormIncludeKeywords(profile.include_keywords);
     setTopicFormIncludeDraft('');
     setTopicFormExcludeKeywords(profile.exclude_keywords);
@@ -490,6 +495,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     setTopicFormIncludeDraft,
     setTopicFormIncludeKeywords,
     setTopicFormIsActive,
+    setTopicFormInitialPullPending,
     setTopicFormLookbackInput,
     setTopicFormModalOpen,
     setTopicFormName,
@@ -586,6 +592,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
       topic_id: topicIdText,
       name: nameText,
       is_active: topicFormIsActive,
+      initial_pull_pending: topicFormInitialPullPending,
       include_keywords: topicFormIncludeKeywords,
       exclude_keywords: topicFormExcludeKeywords,
       venue_filters: topicFormVenueSelections,
@@ -604,6 +611,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
           body: {
             name: body.name,
             is_active: body.is_active,
+            initial_pull_pending: body.initial_pull_pending,
             include_keywords: body.include_keywords,
             exclude_keywords: body.exclude_keywords,
             venue_filters: body.venue_filters,
@@ -653,6 +661,7 @@ export function useAutoImportController(input: AutoImportControllerInput): AutoI
     topicFormExcludeKeywords,
     topicFormIncludeKeywords,
     topicFormIsActive,
+    topicFormInitialPullPending,
     topicFormLookbackInput,
     topicFormName,
     topicFormRuleIds,

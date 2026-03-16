@@ -145,6 +145,7 @@ export type AutoPullTopicProfile = {
   topic_id: string;
   name: string;
   is_active: boolean;
+  initial_pull_pending: boolean;
   include_keywords: string[];
   exclude_keywords: string[];
   venue_filters: string[];

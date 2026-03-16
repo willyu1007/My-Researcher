@@ -8,12 +8,13 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 12 (planned: 1, in-progress: 1, blocked: 0, done: 0, archived: 10)
+- Tasks: 13 (planned: 2, in-progress: 1, blocked: 0, done: 0, archived: 10)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-013 topic-initial-pull-and-rule-preview | planned | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
 | T-012 app-tsx-layout-split | planned | F-000 | dev-docs/active/app-tsx-layout-split |
 | T-011 literature-management-flow | in-progress | F-000 | dev-docs/active/literature-management-flow |
 | T-002 paper-assistant-core-modules | archived | F-000 | dev-docs/archive/paper-assistant-core-modules |

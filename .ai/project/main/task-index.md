@@ -22,4 +22,5 @@ Project: `main`
 | T-010 governance-event-delivery-observability-ops-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-observability-ops-v1 |
 | T-011 literature-management-flow | in-progress | F-000 | dev-docs/active/literature-management-flow |
 | T-012 app-tsx-layout-split | planned | F-000 | dev-docs/active/app-tsx-layout-split |
+| T-013 topic-initial-pull-and-rule-preview | planned | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
 <!-- AUTO-GENERATED:END task-index -->

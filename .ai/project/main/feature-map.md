@@ -16,6 +16,7 @@ Project: `main`
 | T-002 paper-assistant-core-modules | archived | dev-docs/archive/paper-assistant-core-modules |
 | T-011 literature-management-flow | in-progress | dev-docs/active/literature-management-flow |
 | T-012 app-tsx-layout-split | planned | dev-docs/active/app-tsx-layout-split |
+| T-013 topic-initial-pull-and-rule-preview | planned | dev-docs/active/topic-initial-pull-and-rule-preview |
 
 ### F-001 Research Lifecycle Governance Core
 

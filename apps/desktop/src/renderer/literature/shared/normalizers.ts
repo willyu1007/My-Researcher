@@ -551,6 +551,7 @@ export function normalizeTopicProfilePayload(payload: unknown): AutoPullTopicPro
         topic_id: topicId,
         name,
         is_active: row.is_active !== false,
+        initial_pull_pending: row.initial_pull_pending === true,
         include_keywords: Array.isArray(row.include_keywords)
           ? row.include_keywords.filter((value): value is string => typeof value === 'string')
           : [],

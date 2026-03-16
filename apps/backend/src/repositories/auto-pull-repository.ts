@@ -13,6 +13,7 @@ export type TopicProfileRecord = {
   id: string;
   name: string;
   isActive: boolean;
+  initialPullPending: boolean;
   includeKeywords: string[];
   excludeKeywords: string[];
   venueFilters: string[];

@@ -187,6 +187,7 @@ export function App({ initialThemeMode }: AppProps) {
   const [topicFormTopicId, setTopicFormTopicId] = useState<string>('');
   const [topicFormName, setTopicFormName] = useState<string>('');
   const [topicFormIsActive, setTopicFormIsActive] = useState<boolean>(true);
+  const [topicFormInitialPullPending, setTopicFormInitialPullPending] = useState<boolean>(true);
   const [topicFormIncludeKeywords, setTopicFormIncludeKeywords] = useState<string[]>([]);
   const [topicFormIncludeDraft, setTopicFormIncludeDraft] = useState<string>('');
   const [topicFormExcludeKeywords, setTopicFormExcludeKeywords] = useState<string[]>([]);
@@ -818,6 +819,7 @@ export function App({ initialThemeMode }: AppProps) {
     setTopicFormTopicId,
     setTopicFormName,
     setTopicFormIsActive,
+    setTopicFormInitialPullPending,
     setTopicFormIncludeKeywords,
     setTopicFormIncludeDraft,
     setTopicFormExcludeKeywords,
@@ -854,6 +856,7 @@ export function App({ initialThemeMode }: AppProps) {
     topicFormTopicId,
     topicFormRuleIds,
     topicFormIsActive,
+    topicFormInitialPullPending,
     topicFormIncludeKeywords,
     topicFormExcludeKeywords,
     topicFormVenueSelections,
@@ -1355,6 +1358,7 @@ export function App({ initialThemeMode }: AppProps) {
                   setRunsPageIndex={setRunsPageIndex}
                   setTopicFormExcludeDraft={setTopicFormExcludeDraft}
                   setTopicFormIncludeDraft={setTopicFormIncludeDraft}
+                  setTopicFormInitialPullPending={setTopicFormInitialPullPending}
                   setTopicFormName={setTopicFormName}
                   setTopicFormVenueSelections={setTopicFormVenueSelections}
                   setTopicFormYearEnd={setTopicFormYearEnd}
@@ -1370,6 +1374,7 @@ export function App({ initialThemeMode }: AppProps) {
                   topicFormName={topicFormName}
                   topicFormRuleIds={topicFormRuleIds}
                   topicFormTopicId={topicFormTopicId}
+                  topicFormInitialPullPending={topicFormInitialPullPending}
                   topicFormVenueSelections={topicFormVenueSelections}
                   topicFormYearEnd={topicFormYearEnd}
                   topicFormYearStart={topicFormYearStart}

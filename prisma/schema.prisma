@@ -281,6 +281,7 @@ model TopicProfile {
   id                  String               @id
   name                String
   isActive            Boolean              @default(true)
+  initialPullPending  Boolean              @default(false)
   includeKeywords     String[]             @default([])
   excludeKeywords     String[]             @default([])
   venueFilters        String[]             @default([])

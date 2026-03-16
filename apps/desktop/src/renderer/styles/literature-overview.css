@@ -145,6 +145,15 @@
     padding: 1px 6px;
   }
 
+  .topic-settings-initial-tag {
+    font-size: 11px;
+    line-height: 1.2;
+    color: color-mix(in srgb, var(--ui-color-primary) 82%, var(--ui-color-text_secondary) 18%);
+    border: 1px solid color-mix(in srgb, var(--ui-color-primary) 40%, transparent 60%);
+    border-radius: 999px;
+    padding: 1px 6px;
+  }
+
   .topic-settings-range {
     display: grid;
     gap: 2px;
@@ -177,6 +186,49 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .topic-settings-rule-trigger {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: color-mix(in srgb, var(--ui-color-primary) 86%, var(--ui-color-text_secondary) 14%);
+    cursor: pointer;
+    text-align: left;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topic-settings-rule-trigger:hover {
+    text-decoration: underline;
+  }
+
+  .topic-settings-rule-trigger:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--ui-color-primary) 42%, transparent 58%);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .topic-settings-rule-trigger.is-open {
+    color: var(--ui-color-text_secondary);
+  }
+
+  .topic-settings-rule-preview-row > td {
+    padding: 8px 4px 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 62%, transparent 38%);
+    background: transparent;
+  }
+
+  .topic-settings-rule-preview-row:hover > td {
+    background: transparent;
+  }
+
+  .topic-settings-rule-preview-panel {
+    margin: 0;
   }
 
   .topic-settings-muted-text {

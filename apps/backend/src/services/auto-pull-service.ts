@@ -6,6 +6,7 @@ import {
   type AutoPullFrequency,
   type AutoPullRuleDTO,
   type AutoPullRunDTO,
+  type AutoPullScope,
   type AutoPullSource,
   type AutoPullSuggestionDTO,
   type CreateAutoPullRuleRequest,
@@ -98,6 +99,7 @@ type TopicExecutionContext = {
   topicId: string | null;
   querySpec: AutoPullQuerySpec;
   timeSpec: AutoPullTimeSpec;
+  initialPullPending: boolean;
 };
 
 type SourceTimeWindowMode = 'bootstrap_full_range' | 'incremental_lookback';
@@ -142,6 +144,7 @@ export class AutoPullService {
       id: topicId,
       name: topicName,
       isActive: request.is_active ?? true,
+      initialPullPending: request.initial_pull_pending ?? true,
       includeKeywords: this.normalizeKeywords(request.include_keywords),
       excludeKeywords: this.normalizeKeywords(request.exclude_keywords),
       venueFilters: this.normalizeKeywords(request.venue_filters),
@@ -181,6 +184,7 @@ export class AutoPullService {
     const updated = await this.repository.updateTopicProfile(normalizedTopicId, {
       ...(request.name !== undefined ? { name: request.name.trim() } : {}),
       ...(request.is_active !== undefined ? { isActive: request.is_active } : {}),
+      ...(request.initial_pull_pending !== undefined ? { initialPullPending: request.initial_pull_pending } : {}),
       ...(request.include_keywords !== undefined
         ? { includeKeywords: this.normalizeKeywords(request.include_keywords) }
         : {}),
@@ -616,32 +620,43 @@ export class AutoPullService {
 
       const sourceResults: SourceExecutionResult[] = [];
       const seenRunDedupKeys = new Set<string>();
-      const sourcePlans: Array<{ source: AutoPullRuleSourceRecord; timeWindowMode: SourceTimeWindowMode }> = [];
+      const sourcePlans: Array<{ source: AutoPullRuleSourceRecord; defaultTimeWindowMode: SourceTimeWindowMode }> = [];
       for (const source of enabledSources) {
         if (fullRefresh) {
           await this.repository.clearCursor(rule.id, source.source);
         }
-        const existingCursor = fullRefresh
-          ? null
-          : await this.repository.findCursor(rule.id, source.source);
-        const timeWindowMode: SourceTimeWindowMode = existingCursor
-          ? 'incremental_lookback'
-          : 'bootstrap_full_range';
-        sourcePlans.push({ source, timeWindowMode });
+        let defaultTimeWindowMode: SourceTimeWindowMode = 'incremental_lookback';
+        if (rule.scope === 'GLOBAL') {
+          const existingCursor = fullRefresh
+            ? null
+            : await this.repository.findCursor(rule.id, source.source);
+          defaultTimeWindowMode = existingCursor
+            ? 'incremental_lookback'
+            : 'bootstrap_full_range';
+        }
+        sourcePlans.push({ source, defaultTimeWindowMode });
       }
-      const isInitialPull = sourcePlans.every((plan) => plan.timeWindowMode === 'bootstrap_full_range');
+      const isInitialPull = rule.scope === 'TOPIC'
+        ? topicContexts.some((context) => context.initialPullPending)
+        : sourcePlans.every((plan) => plan.defaultTimeWindowMode === 'bootstrap_full_range');
       const effectivePullLimit = this.resolveEffectivePullLimit(rule.querySpec.maxResultsPerSource, isInitialPull);
 
       for (const plan of sourcePlans) {
         const scopedResults: SourceExecutionResult[] = [];
         for (const context of topicContexts) {
+          const timeWindowMode = this.resolveTimeWindowModeForContext(
+            rule.scope,
+            context,
+            plan.defaultTimeWindowMode,
+            fullRefresh,
+          );
           scopedResults.push(
             await this.executeSource(
               rule,
               plan.source,
               runId,
               context,
-              plan.timeWindowMode,
+              timeWindowMode,
               seenRunDedupKeys,
               effectivePullLimit,
             ),
@@ -653,7 +668,6 @@ export class AutoPullService {
             scopedResults,
             topicContexts.map((context) => context.topicId),
             skippedTopicIds,
-            plan.timeWindowMode,
           ),
         );
       }
@@ -810,6 +824,20 @@ export class AutoPullService {
         errorMessage: terminalErrorMessage,
         updatedAt: finishedAt,
       });
+
+      if (status === 'SUCCESS' && rule.scope === 'TOPIC') {
+        const topicIdsToFinalizeInitialPull = [...new Set(
+          topicContexts
+            .filter((context) => context.initialPullPending && context.topicId)
+            .map((context) => context.topicId as string),
+        )];
+        for (const topicId of topicIdsToFinalizeInitialPull) {
+          await this.repository.updateTopicProfile(topicId, {
+            initialPullPending: false,
+            updatedAt: finishedAt,
+          });
+        }
+      }
 
       const attempts: AutoPullRunSourceAttemptRecord[] = sourceResults.map((item) => ({
         id: crypto.randomUUID(),
@@ -1694,6 +1722,7 @@ export class AutoPullService {
       topic_id: record.id,
       name: record.name,
       is_active: record.isActive,
+      initial_pull_pending: record.initialPullPending,
       include_keywords: record.includeKeywords,
       exclude_keywords: record.excludeKeywords,
       venue_filters: record.venueFilters,
@@ -1886,6 +1915,7 @@ export class AutoPullService {
         topicId: null,
         querySpec: rule.querySpec,
         timeSpec: rule.timeSpec,
+        initialPullPending: false,
       }];
     }
 
@@ -1895,7 +1925,23 @@ export class AutoPullService {
         topicId: topic.id,
         querySpec: this.mergeQuerySpecForTopic(rule.querySpec, topic),
         timeSpec: this.mergeTimeSpecForTopic(rule.timeSpec, topic),
+        initialPullPending: topic.initialPullPending,
       }));
+  }
+
+  private resolveTimeWindowModeForContext(
+    scope: AutoPullScope,
+    context: TopicExecutionContext,
+    fallbackMode: SourceTimeWindowMode,
+    fullRefresh: boolean,
+  ): SourceTimeWindowMode {
+    if (fullRefresh) {
+      return 'bootstrap_full_range';
+    }
+    if (scope === 'TOPIC') {
+      return context.initialPullPending ? 'bootstrap_full_range' : 'incremental_lookback';
+    }
+    return fallbackMode;
   }
 
   private mergeQuerySpecForTopic(
@@ -1931,7 +1977,6 @@ export class AutoPullService {
     results: SourceExecutionResult[],
     activeTopicIds: Array<string | null>,
     skippedTopicIds: string[],
-    timeWindowMode: SourceTimeWindowMode,
   ): SourceExecutionResult {
     const fetchedItems = results.flatMap((item) => item.fetchedItems);
     const eligibleCandidates = results.flatMap((item) => item.eligibleCandidates);
@@ -1977,6 +2022,16 @@ export class AutoPullService {
     const llmScoreAvg = scoredCount > 0 ? Number((llmScoreWeightedSum / scoredCount).toFixed(2)) : null;
     const rankingMode = this.readMetaText(results, 'ranking_mode') ?? 'llm_score';
     const threshold = this.readMetaFloatFromResults(results, 'threshold');
+    const mergedTimeWindowModes = [...new Set(
+      results
+        .map((item) => this.readString(item.meta?.time_window_mode))
+        .filter((value): value is string => Boolean(value)),
+    )];
+    const mergedTimeWindowMode = mergedTimeWindowModes.length === 0
+      ? 'incremental_lookback'
+      : mergedTimeWindowModes.length === 1
+        ? mergedTimeWindowModes[0]
+        : 'mixed';
     const hasFailure = results.some((item) => item.attemptStatus === 'FAILED');
     const hasPartial = results.some((item) => item.attemptStatus === 'PARTIAL');
     const attemptStatus: AutoPullRunSourceAttemptRecord['status'] = hasFailure
@@ -2001,7 +2056,7 @@ export class AutoPullService {
       meta: {
         topic_ids: activeTopicIds.filter((value): value is string => typeof value === 'string'),
         skipped_topic_ids: skippedTopicIds,
-        time_window_mode: timeWindowMode,
+        time_window_mode: mergedTimeWindowMode,
         ranking_mode: rankingMode,
         ...(threshold !== null ? { threshold } : {}),
         fetched_count: fetchedItems.length,

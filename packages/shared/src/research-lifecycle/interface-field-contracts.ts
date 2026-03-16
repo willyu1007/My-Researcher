@@ -342,6 +342,7 @@ export interface TopicProfileDTO {
   topic_id: string;
   name: string;
   is_active: boolean;
+  initial_pull_pending: boolean;
   include_keywords: string[];
   exclude_keywords: string[];
   venue_filters: string[];
@@ -357,6 +358,7 @@ export interface CreateTopicProfileRequest {
   topic_id: string;
   name: string;
   is_active?: boolean;
+  initial_pull_pending?: boolean;
   include_keywords?: string[];
   exclude_keywords?: string[];
   venue_filters?: string[];
@@ -369,6 +371,7 @@ export interface CreateTopicProfileRequest {
 export interface UpdateTopicProfileRequest {
   name?: string;
   is_active?: boolean;
+  initial_pull_pending?: boolean;
   include_keywords?: string[];
   exclude_keywords?: string[];
   venue_filters?: string[];
@@ -1308,6 +1311,7 @@ export const createTopicProfileRequestSchema = {
     topic_id: { type: 'string', minLength: 1 },
     name: { type: 'string', minLength: 1 },
     is_active: { type: 'boolean', default: true },
+    initial_pull_pending: { type: 'boolean', default: true },
     include_keywords: {
       type: 'array',
       items: { type: 'string', minLength: 1 },
@@ -1342,6 +1346,7 @@ export const updateTopicProfileRequestSchema = {
   properties: {
     name: { type: 'string', minLength: 1 },
     is_active: { type: 'boolean' },
+    initial_pull_pending: { type: 'boolean' },
     include_keywords: {
       type: 'array',
       items: { type: 'string', minLength: 1 },

@@ -210,6 +210,71 @@ test('topic rule creation requires existing topic profile', async () => {
   );
 });
 
+test('topic profile defaults initial_pull_pending to true when omitted', async () => {
+  const { service } = buildService();
+  const topic = await service.createTopicProfile({
+    topic_id: 'TOPIC-AUTO-INITIAL-DEFAULT',
+    name: 'Initial Default Topic',
+  });
+  assert.equal(topic.initial_pull_pending, true);
+});
+
+test('topic initial_pull_pending flips to false after first successful run', async () => {
+  const { service } = buildService();
+  await service.createRule({
+    scope: 'GLOBAL',
+    name: 'baseline-global-active-rule',
+    status: 'ACTIVE',
+    sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+    schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+  });
+
+  await service.createTopicProfile({
+    topic_id: 'TOPIC-AUTO-INITIAL-FLIP',
+    name: 'Initial Flip Topic',
+  });
+
+  await withEnv({
+    AUTO_PULL_LLM_SCORER_URL: 'https://mock-llm.local/score',
+    AUTO_PULL_LLM_SCORER_MODEL: 'mock-quality-model',
+  }, async () => {
+    await withMockedFetch((async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input);
+      if (url.startsWith('https://api.crossref.org/works')) {
+        return new Response(JSON.stringify(crossrefPayload([
+          buildCrossrefItem({
+            title: 'Topic Initial Pull Candidate',
+            doi: '10.1000/topic-initial-pull-candidate',
+            year: 2025,
+          }),
+        ])), { status: 200 });
+      }
+      if (url === 'https://mock-llm.local/score') {
+        return new Response(JSON.stringify({ quality_score: 90 }), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    }) as typeof fetch, async () => {
+      const topicRule = await service.createRule({
+        scope: 'TOPIC',
+        topic_id: 'TOPIC-AUTO-INITIAL-FLIP',
+        name: 'topic-initial-flag-rule',
+        quality_spec: { min_quality_score: 70 },
+        sources: [{ source: 'CROSSREF', enabled: true, priority: 1 }],
+        schedules: [{ frequency: 'DAILY', hour: 9, minute: 0, timezone: 'UTC' }],
+      });
+
+      const queued = await service.triggerRuleRun(topicRule.rule_id, { trigger_type: 'MANUAL' });
+      const run = await waitForTerminalRun(service, queued.run_id);
+      assert.equal(run.status, 'SUCCESS');
+      assert.equal(run.source_attempts?.[0]?.meta?.time_window_mode, 'bootstrap_full_range');
+
+      const profiles = await service.listTopicProfiles();
+      const updated = profiles.find((item) => item.topic_id === 'TOPIC-AUTO-INITIAL-FLIP');
+      assert.equal(updated?.initial_pull_pending, false);
+    });
+  });
+});
+
 test('scheduled tick only runs due rules', async () => {
   const { service } = buildService();
 

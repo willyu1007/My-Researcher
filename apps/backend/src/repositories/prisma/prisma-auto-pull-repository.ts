@@ -21,6 +21,7 @@ function toTopicProfileRecord(row: {
   id: string;
   name: string;
   isActive: boolean;
+  initialPullPending: boolean;
   includeKeywords: string[];
   excludeKeywords: string[];
   venueFilters: string[];
@@ -34,6 +35,7 @@ function toTopicProfileRecord(row: {
     id: row.id,
     name: row.name,
     isActive: row.isActive,
+    initialPullPending: row.initialPullPending,
     includeKeywords: row.includeKeywords,
     excludeKeywords: row.excludeKeywords,
     venueFilters: row.venueFilters,
@@ -252,6 +254,7 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
         id: record.id,
         name: record.name,
         isActive: record.isActive,
+        initialPullPending: record.initialPullPending,
         includeKeywords: record.includeKeywords,
         excludeKeywords: record.excludeKeywords,
         venueFilters: record.venueFilters,
@@ -286,6 +289,7 @@ export class PrismaAutoPullRepository implements AutoPullRepository {
       data: {
         ...(patch.name !== undefined ? { name: patch.name } : {}),
         ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
+        ...(patch.initialPullPending !== undefined ? { initialPullPending: patch.initialPullPending } : {}),
         ...(patch.includeKeywords !== undefined ? { includeKeywords: patch.includeKeywords } : {}),
         ...(patch.excludeKeywords !== undefined ? { excludeKeywords: patch.excludeKeywords } : {}),
         ...(patch.venueFilters !== undefined ? { venueFilters: patch.venueFilters } : {}),
