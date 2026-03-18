@@ -28,6 +28,7 @@ Project: `main`
 | T-008 governance-event-delivery-mechanism-v1 | archived | dev-docs/archive/governance-event-delivery-mechanism-v1 |
 | T-009 governance-event-delivery-backend-implementation-v1 | archived | dev-docs/archive/governance-event-delivery-backend-implementation-v1 |
 | T-010 governance-event-delivery-observability-ops-v1 | archived | dev-docs/archive/governance-event-delivery-observability-ops-v1 |
+| T-014 automated-topic-management | planned | dev-docs/active/automated-topic-management |
 
 ### F-002 Desktop Frontend Foundation
 

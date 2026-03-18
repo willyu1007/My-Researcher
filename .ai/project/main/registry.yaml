@@ -75,6 +75,11 @@ requirements:
     status: planned
     description: "Define delivery telemetry, alerting policy, replay approval flow, and incident runbook for governance event delivery."
     feature_id: F-001
+  - id: R-009
+    title: "Automated topic management decision layer baseline"
+    status: planned
+    description: "Define and stage the topic-to-paper decision layer with reviewer-aligned need/question/value/promotion artifacts and MVP implementation boundaries."
+    feature_id: F-001
 
 tasks:
   - id: T-001
@@ -184,3 +189,12 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/topic-initial-pull-and-rule-preview
     updated: 2026-03-07
+  - id: T-014
+    slug: automated-topic-management
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-009
+    dev_docs_path: dev-docs/active/automated-topic-management
+    updated: 2026-03-17
