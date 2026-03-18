@@ -12,21 +12,19 @@
   - `topic settings` 负责检索配置
   - topic decision layer 负责 `need/question/value/promotion`
   - `paper-project` 负责执行态论文生命周期
-- Step 3: 在 `02-architecture.md` 中定义 MVP 核心对象：
-  - `EvidenceMap-core`
-  - `ValidatedNeed`
-  - `TopicQuestion`
-  - `TopicValueAssessment`
-  - `TopicPackage`
-  - `TopicPromotionDecision`
+- Step 3: 在 `02-architecture.md` 中定义 MVP 核心对象，并内嵌 LLM 自审契约与对象对应：
+  - `EvidenceMap-core`、`ValidatedNeed`、`TopicQuestion`、`TopicValueAssessment`、`TopicPackage`、`TopicPromotionDecision`
+  - common envelope 必填字段及 EvidenceReview / NeedReview / ValueAssessment 三份 template 关键字段（见 02-architecture「LLM 自审契约与对象对应」）
+  - 对象与三份 template 的字段级对应表及 artifact landing strategy（Phase 1 存 EvidenceReview 于 LiteraturePipelineArtifact.payload，NeedReview/ValueAssessment 为 topic-level artifact；Phase 2 可晋升为一类表）
 - Step 4: 明确 MVP 收敛策略：
   - 先打通 `EvidenceMap-core -> ValidatedNeed -> TopicQuestion -> TopicValueAssessment -> Promotion`
   - 将 `EvidenceMap` 图谱增强、多角色评审、portfolio 管理后置
-- Step 5: 产出实现拆分方向：
-  - backend contract/persistence slice
-  - frontend workspace slice
-  - docs/context artifact slice
-  - verification slice
+- Step 5: 产出实现拆分方向（见 02-architecture「后端契约与实现基线」）：
+  - Shared contracts（topic-management-contracts.ts）-> 导出并更新 research-lifecycle index
+  - In-memory repository -> 再 Prisma repository
+  - Service invariants（hard-gate 强制、promotion 约束）
+  - Routes + controller（Fastify 注册，schema 来自 shared）
+  - Happy-path 测试 -> 完整测试矩阵（见 04-verification）
 - Step 6: 更新 `.ai/project/main/registry.yaml`，新增 requirement 与 task 映射。
 - Step 7: 执行治理命令并把结果记录到 `04-verification.md`：
   - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
@@ -44,8 +42,10 @@
   - `05-pitfalls.md`
 - Phase 2:
   - 对象边界、状态流转、promotion 约束
+  - 对象与 EvidenceReview / NeedReview / ValueAssessment 的字段级对应表及 common envelope 要求（已写入 02-architecture，无外部路径引用）
 - Phase 3:
   - 后续实现任务拆分建议
+  - 推荐实现顺序：1) Shared contracts 2) In-memory repository 3) Service invariants 4) Routes + controller 5) Happy-path 测试 6) Prisma repository 7) SQL-to-Prisma 对账
 - Phase 4:
   - Enhancement backlog 与验证路线
 

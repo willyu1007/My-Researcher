@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-03-05T09:13:36.885Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `3096bab11625...`)
+> Auto-generated at 2026-03-18T03:49:15.289Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `9ab4dac14637...`)
 
-Total endpoints: **37**
+Total endpoints: **48**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -44,3 +44,14 @@ Total endpoints: **37**
 | GET | /auto-pull/runs/{runId} | Get auto-pull run detail. | none | runId | run_id, rule_id, trigger_type, status, started_at, finished_at, summary, error_code, error_message, created_at, updated_at, source_attempts, suggestions | 404, 500 |
 | GET | /auto-pull/alerts | List auto-pull alerts by filters. | none | — | items | 500 |
 | POST | /auto-pull/alerts/{alertId}/ack | Acknowledge an alert. | none | alertId | alert_id, rule_id, run_id, source, level, code, message, detail, ack_at, created_at | 404, 500 |
+| GET | /topics/{topicId}/research-record | Get the research record attached to a topic profile. | none | topicId | id, topic_id, lifecycle_status, created_by, created_at, updated_at, current_question_id, current_package_id, current_decision_id, summary | 404 |
+| POST | /topics/{topicId}/research-record | Create a research record for a topic profile. | none | created_by | id, topic_id, lifecycle_status, created_by, created_at, updated_at, current_question_id, current_package_id, current_decision_id, summary | — |
+| GET | /topics/{topicId}/need-reviews | List need reviews for a topic. | none | topicId | items | — |
+| POST | /topics/{topicId}/need-reviews | Persist a validated-need review for a topic. | none | version_no, status, evidence_review_refs, literature_ids, unmet_need, need_category, why_unmet, falsification_check, importance_assessment, measurability, resource_constraint_check, verdict, confidence, judgement_summary, recommendation, created_by | id, topic_id, version_no, verdict, confidence, judgement_summary, recommendation, created_at, status, unmet_need, who_needs_it, scenario, boundary, need_category | — |
+| GET | /topics/{topicId}/questions | List question versions for a topic. | none | topicId | items | — |
+| POST | /topics/{topicId}/questions | Create or revise a topic question version. | none | version_no, status, main_question, research_slice, contribution_hypothesis, created_by | id, topic_id, version_no, status, main_question, research_slice, contribution_hypothesis, created_at, sub_questions, strongest_claim_if_success, fallback_claim_if_success | — |
+| GET | /topics/{topicId}/value-assessments | List value assessments for a topic. | none | topicId | items | — |
+| POST | /topics/{topicId}/value-assessments | Create a value assessment for a topic question. | none | question_id, version_no, status, evidence_basis, hard_gates, scored_dimensions, risk_penalty, reviewer_objections, scenario_analysis, verdict, confidence, judgement_summary, recommendation, created_by | id, topic_id, question_id, version_no, status, verdict, confidence, judgement_summary, created_at, total_score | — |
+| POST | /topics/{topicId}/packages | Build a topic package from a question and value assessment. | none | question_id, source_value_assessment_id, title_candidates, research_background, expected_contributions, candidate_methods, evaluation_plan, risk_register, core_literature_ids, created_by | id, topic_id, question_id, source_value_assessment_id, created_at | — |
+| POST | /topics/{topicId}/promotion-decisions | Create a promotion decision for topic to paper-project transition. | none | question_id, source_value_assessment_id, verdict, decision_reason, selected_literature_ids, selected_evidence_refs, decided_by | id, topic_id, question_id, status, verdict, decided_at, topic_package_id, source_value_assessment_id, decision_reason, selected_literature_ids, target_paper_title, target_research_direction, created_paper_id | — |
+| POST | /topics/{topicId}/promote-to-paper-project | Promote a topic into a paper project using an approved decision. | none | promotion_decision_id, created_by | paper_id, topic_id, promotion_decision_id, created_at | 409, 422 |

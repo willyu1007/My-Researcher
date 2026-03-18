@@ -439,3 +439,193 @@ model AutoPullSuggestion {
   @@index([runId])
   @@index([topicId, suggestedScope])
 }
+
+// ---------------------------------------------------------------------------
+// Topic management (automated-topic-management). topic_id is logical FK to
+// topic identity (TopicProfile.id or external id). See 03-implementation-notes.
+// ---------------------------------------------------------------------------
+enum TopicResearchRecordType {
+  evidence_review
+  need_review
+  question
+  value_assessment
+  topic_package
+  promotion_decision
+}
+
+enum TopicResearchRecordStatus {
+  draft
+  completed
+  superseded
+  archived
+}
+
+enum TopicValueVerdict {
+  promote
+  refine
+  park
+  drop
+}
+
+enum TopicPromotionDecisionType {
+  promote
+  hold
+  reject
+  loopback
+}
+
+enum TopicContributionHypothesis {
+  method
+  benchmark
+  analysis
+  resource
+  system
+}
+
+model TopicResearchRecord {
+  id                  String                   @id
+  topicId             String
+  recordType          TopicResearchRecordType
+  recordStatus        TopicResearchRecordStatus @default(draft)
+  versionNo           Int                       @default(1)
+  parentRecordId      String?
+  supersededByRecordId String?
+  sourceRecordIds     Json                      @default("[]")
+  lineage             Json                      @default("{}")
+  summary             String
+  confidence          Decimal                   @db.Decimal(4, 3)
+  blockingIssues      Json                      @default("[]")
+  missingInformation  Json                      @default("[]")
+  nextActions         Json                      @default("[]")
+  evidenceRefs        Json                      @default("[]")
+  payload             Json
+  createdBy           String                    @default("hybrid")
+  createdAt           DateTime                  @db.Timestamptz(6)
+  updatedAt           DateTime                  @db.Timestamptz(6)
+  deletedAt           DateTime?                  @db.Timestamptz(6)
+  parent              TopicResearchRecord?      @relation("TopicResearchRecordParent", fields: [parentRecordId], references: [id], onDelete: SetNull)
+  children            TopicResearchRecord[]     @relation("TopicResearchRecordParent")
+  supersededBy        TopicResearchRecord?      @relation("TopicResearchRecordSuperseded", fields: [supersededByRecordId], references: [id], onDelete: SetNull)
+  supersedes          TopicResearchRecord[]     @relation("TopicResearchRecordSuperseded")
+  topicQuestions      TopicQuestion[]
+  topicNeedReviews    TopicNeedReview[]
+  topicValueAssessments TopicValueAssessment[]
+  topicPackages       TopicPackage[]
+
+  @@index([topicId, recordType, recordStatus])
+  @@index([topicId, updatedAt(sort: Desc)])
+}
+
+model TopicQuestion {
+  id                      String                @id
+  topicId                 String
+  researchRecordId        String                @unique
+  mainQuestion            String
+  subQuestions            Json                  @default("[]")
+  researchSlice           String
+  contributionHypothesis  TopicContributionHypothesis
+  sourceNeedReviewIds     Json                  @default("[]")
+  sourceEvidenceReviewIds Json                  @default("[]")
+  createdAt               DateTime              @db.Timestamptz(6)
+  updatedAt               DateTime              @db.Timestamptz(6)
+  researchRecord         TopicResearchRecord   @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  valueAssessments        TopicValueAssessment[]
+  packages                TopicPackage[]
+  promotionDecisions      TopicPromotionDecision[]
+
+  @@index([topicId, updatedAt(sort: Desc)])
+}
+
+model TopicNeedReview {
+  id                  String                @id
+  topicId             String
+  researchRecordId    String                @unique
+  needStatement       String
+  whoNeedsIt          String
+  scenario            String
+  boundary            String?
+  unmetNeedCategory   String
+  falsificationVerdict String
+  significanceScore   Int
+  measurabilityScore Int
+  feasibilitySignal   String
+  validatedNeed      Boolean
+  evidenceReviewRefs  Json                  @default("[]")
+  literatureIds       Json                  @default("[]")
+  createdAt           DateTime              @db.Timestamptz(6)
+  updatedAt           DateTime              @db.Timestamptz(6)
+  researchRecord     TopicResearchRecord   @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+
+  @@index([topicId, updatedAt(sort: Desc)])
+  @@index([topicId, validatedNeed])
+}
+
+model TopicValueAssessment {
+  id                     String                @id
+  topicId                String
+  questionId             String
+  researchRecordId       String                @unique
+  strongestClaimIfSuccess String
+  fallbackClaimIfSuccess String?
+  hardGates              Json
+  scoredDimensions       Json
+  riskPenalty            Json
+  reviewerObjections    Json                  @default("[]")
+  ceilingCase            String
+  baseCase               String
+  floorCase              String
+  verdict                TopicValueVerdict
+  totalScore             Decimal               @db.Decimal(5, 2)
+  createdAt              DateTime              @db.Timestamptz(6)
+  updatedAt              DateTime              @db.Timestamptz(6)
+  researchRecord         TopicResearchRecord   @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  question               TopicQuestion         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  packages               TopicPackage[]
+  promotionDecisions     TopicPromotionDecision[]
+
+  @@index([topicId, updatedAt(sort: Desc)])
+  @@index([questionId, updatedAt(sort: Desc)])
+}
+
+model TopicPackage {
+  id                          String                @id
+  topicId                     String
+  questionId                  String
+  valueAssessmentId           String
+  researchRecordId            String                @unique
+  titleCandidates             Json                  @default("[]")
+  researchBackground          String
+  contributionSummary         String
+  candidateMethods            Json                  @default("[]")
+  evaluationPlan              String
+  keyRisks                    Json                  @default("[]")
+  selectedLiteratureEvidenceIds Json               @default("[]")
+  createdAt                   DateTime              @db.Timestamptz(6)
+  updatedAt                   DateTime              @db.Timestamptz(6)
+  researchRecord              TopicResearchRecord   @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  question                    TopicQuestion         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  valueAssessment             TopicValueAssessment  @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
+  promotionDecisions          TopicPromotionDecision[]
+
+  @@index([topicId, updatedAt(sort: Desc)])
+}
+
+model TopicPromotionDecision {
+  id                  String                     @id
+  topicId             String
+  questionId          String
+  valueAssessmentId  String
+  packageId           String?
+  decision            TopicPromotionDecisionType
+  reasonSummary       String
+  targetPaperTitle    String?
+  promotedPaperId     String?
+  loopbackTarget      String?
+  createdBy           String
+  createdAt           DateTime                   @db.Timestamptz(6)
+  question            TopicQuestion             @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  valueAssessment     TopicValueAssessment      @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
+  package             TopicPackage?             @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  @@index([topicId, createdAt(sort: Desc)])
+}

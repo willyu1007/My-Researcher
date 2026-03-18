@@ -6,6 +6,12 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --loader ts-node/esm src/research-lifecycle/topic-management-contracts.schema.test.ts"
+  },
+  "devDependencies": {
+    "fastify": "^4.29.1",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.7.2"
   }
 }

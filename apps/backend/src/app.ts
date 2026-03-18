@@ -10,17 +10,28 @@ import { getPrismaClient } from './repositories/prisma/prisma-client.js';
 import { PrismaAutoPullRepository } from './repositories/prisma/prisma-auto-pull-repository.js';
 import { PrismaLiteratureRepository } from './repositories/prisma/prisma-literature-repository.js';
 import { PrismaResearchLifecycleRepository } from './repositories/prisma/prisma-research-lifecycle-repository.js';
+import {
+  InMemoryTopicManagementRepository,
+  PrismaTopicManagementRepository,
+} from './repositories/topic-management.repository.js';
 import { registerAutoPullRoutes } from './routes/auto-pull-routes.js';
 import { registerLiteratureRoutes } from './routes/literature-routes.js';
 import { registerResearchLifecycleRoutes } from './routes/research-lifecycle-routes.js';
+import { registerTopicManagementRoutes } from './routes/topic-management.js';
 import { registerTopicSettingsRoutes } from './routes/topic-settings-routes.js';
 import type { AutoPullRepository } from './repositories/auto-pull-repository.js';
 import type { LiteratureRepository } from './repositories/literature-repository.js';
 import type { ResearchLifecycleRepository } from './repositories/research-lifecycle-repository.js';
+import type { TopicManagementRepository } from './repositories/topic-management.repository.js';
 import { AutoPullScheduler } from './services/auto-pull-scheduler.js';
 import { AutoPullService } from './services/auto-pull-service.js';
 import { LiteratureService } from './services/literature-service.js';
 import { ResearchLifecycleService } from './services/research-lifecycle-service.js';
+import {
+  TopicManagementService,
+  type PaperProjectGateway,
+} from './services/topic-management.service.js';
+import { TopicManagementController } from './controllers/topic-management.controller.js';
 import { FileGovernanceDeliveryAuditStore } from './services/event-delivery/governance-delivery-audit-store.js';
 import { FileGovernanceDeliveryOutboxStore } from './services/event-delivery/governance-delivery-outbox-store.js';
 import { InProcessGovernanceEventDeliveryAdapter } from './services/event-delivery/governance-event-delivery-adapter.js';
@@ -34,6 +45,7 @@ export function buildApp(): FastifyInstance {
   const repository = createRepository();
   const literatureRepository = createLiteratureRepository();
   const autoPullRepository = createAutoPullRepository();
+  const topicManagementRepository = createTopicManagementRepository();
   const auditStore = new FileGovernanceDeliveryAuditStore({
     filePath: process.env.GOVERNANCE_DELIVERY_AUDIT_LOG_PATH,
   });
@@ -43,6 +55,11 @@ export function buildApp(): FastifyInstance {
     deliveryAuditStore: auditStore,
   });
   const researchLifecycleController = new ResearchLifecycleController(researchLifecycleService);
+  const paperProjectGateway: PaperProjectGateway = {
+    createPaperProject: (input) => researchLifecycleService.createPaperProject(input),
+  };
+  const topicManagementService = new TopicManagementService(topicManagementRepository, paperProjectGateway);
+  const topicManagementController = new TopicManagementController(topicManagementService);
   const literatureService = new LiteratureService(literatureRepository, repository);
   const literatureController = new LiteratureController(literatureService);
   const autoPullService = new AutoPullService(autoPullRepository, literatureService);
@@ -80,6 +97,7 @@ export function buildApp(): FastifyInstance {
 
   app.register(async (instance) => {
     await registerResearchLifecycleRoutes(instance, researchLifecycleController);
+    await registerTopicManagementRoutes(instance, topicManagementController);
     await registerLiteratureRoutes(instance, literatureController);
     await registerTopicSettingsRoutes(instance, topicSettingsController);
     await registerAutoPullRoutes(instance, autoPullController);
@@ -121,6 +139,19 @@ function createAutoPullRepository(): AutoPullRepository {
   }
 
   return new InMemoryAutoPullRepository();
+}
+
+function createTopicManagementRepository(): TopicManagementRepository {
+  const strategy = process.env.TOPIC_REPOSITORY
+    ?? process.env.RESEARCH_LIFECYCLE_REPOSITORY
+    ?? 'memory';
+
+  if (strategy === 'prisma') {
+    const prisma = getPrismaClient();
+    return new PrismaTopicManagementRepository(prisma as unknown as { [key: string]: unknown });
+  }
+
+  return new InMemoryTopicManagementRepository();
 }
 
 function createAutoPullScheduler(service: AutoPullService): AutoPullScheduler | null {

@@ -90,6 +90,156 @@
   - venue-aware template
   - contribution-type-aware template
 - MVP 先支持 global default template，保留向 venue-aware 扩展的接口。
+- **Common envelope（所有 LLM 自审产出必含）**：`schema_version`；`template_name`；`review_id`；`topic_id`；`target_type`（枚举：literature | need | question | value_assessment）；`target_id`；`review_goal`；`review_status`（draft | completed | needs_human_review | superseded）；`reviewer_role`（extractor | skeptic | comparator | gatekeeper | packager | human）；`input_refs`（至少一项，每项含 `ref_type`、`ref_id`，ref_type 含 topic_profile、literature、literature_artifact、evidence_review、need_review、question、value_assessment、paper_project、snapshot、external_doc）；`judgement_summary`；`confidence`（0–1）；`missing_information`（数组）；`blocking_issues`（数组）；`recommendation`（accept | refine | reject | park | escalate | monitor）；`next_actions`（数组，每项含 `action`、`owner`（llm | human | system | retriever | reviewer）、`priority`（p0–p3））；`created_by`；`created_at`。任一评分或 gate 决策须带 reason，并尽量带 evidence_refs。
+
+## LLM 自审契约与对象对应（内嵌）
+
+以下为三类 LLM 自审产物的契约要点及与 MVP 对象的对应，实现时以本节为准、不依赖外部 schema 文件。
+
+### 三类 template 与节点对应
+| 自审节点 | template_name | target_type | 对应 MVP 对象 / 产出 |
+|----------|---------------|-------------|------------------------|
+| Evidence extraction review | evidence_review | literature | EvidenceMap-core 的 EvidenceUnit；下游产出 need_candidates、comparison_targets、related_solution_cluster |
+| Need falsification review | need_review | need | ValidatedNeed 的输入与成立判定；review_judgement.validated_need、falsification_check.verdict；下游 research_slice_candidates、contribution_hypotheses |
+| Value assessment review | value_assessment | value_assessment | TopicValueAssessment 的持久化形态；hard_gates、scored_dimensions、decision、reviewer_objections、scenario_analysis |
+
+### EvidenceReview（evidence_review）关键字段
+- 除 common envelope 外必含：`literature_id`；`bibliographic_snapshot`（title，可选 authors/year/venue/doi_or_arxiv）；`relevance_assessment`（relevance_score 1–5、relevance_reason、scope_action: include | exclude | monitor）；`problem_extraction`（target_problem、problem_context，可选 facts/inferences/evidence_refs）；`solution_extraction`（claimed_solution，可选 method_family、key_mechanism、facts、inferences、evidence_refs）；`evidence_extraction`（main_claims 数组，每项 claim + claim_type: empirical | theoretical | engineering | benchmark | survey；evaluation_summary 可选 datasets/baselines/metrics/headline_results）；`limitation_extraction`（stated_limitations、implicit_limitations、assumptions 数组）；`reuse_potential`（reusable_assets 数组：dataset | benchmark | code | protocol | taxonomy | analysis_frame | none，reusable_for_topic）；`review_judgement`（contribution_value: high | medium | low | unclear，novelty_signal，trustworthiness_signal，可选 rationale/evidence_refs）；`downstream_outputs`（need_candidates、comparison_targets、related_solution_cluster）。单篇文献的结构化抽取（EvidenceUnit）在实现时与此形态一致，便于存入 LiteraturePipelineArtifact.payload。
+
+### NeedReview（need_review）关键字段
+- 除 common envelope 外必含：`need_id`；`input_basis`（evidence_review_ids、literature_ids 数组，可选 compared_solution_clusters）；`need_statement`（unmet_need、who_needs_it、scenario、boundary）；`need_type`（category: performance | cost | robustness | interpretability | usability | scalability | data_efficiency | evaluation_gap | resource_gap | safety | compliance；severity: critical | high | medium | low；breadth: broad | moderate | niche）；`why_unmet`（current_solutions 数组，每项 solution_cluster、what_it_solves、what_it_fails_to_solve；insufficiency_summary）；`falsification_check`（solved_under_other_terms、merely_incremental、blocked_by_wrong_assumption、duplicated_existing_direction 布尔；verdict: validated | weak | pseudo_gap | unclear）；`importance_assessment`（significance_score 1–5、significance_reason、stakeholders、why_now）；`measurability`（observable_success_criteria、candidate_metrics、candidate_eval_path、measurability_score 1–5）；`resource_and_constraint_check`（likely_data_requirement/likely_compute_requirement: none | low | medium | high | unknown；ethics_or_access_constraints；feasibility_signal: strong | moderate | weak | unknown）；`review_judgement`（validated_need 布尔，可选 rationale/evidence_refs）；`downstream_outputs`（research_slice_candidates、contribution_hypotheses: method | benchmark | analysis | resource | system，blocked_reasons）。ValidatedNeed 的成立条件与 review_judgement.validated_need 及 falsification_check.verdict 一致。
+
+### ValueAssessment（value_assessment）关键字段
+- 除 common envelope 外必含：`assessment_id`；`question_snapshot`（main_question、sub_questions、research_slice、contribution_hypothesis: method | benchmark | analysis | resource | system）；`claim_design`（strongest_claim_if_success、fallback_claim_if_success、claim_scope: narrow | moderate | broad、claim_fragility: low | medium | high）；`evidence_basis`（validated_need_ids、core_literature_ids、comparison_targets）；`hard_gates`（significance、originality、answerability、feasibility、venue_fit 各为 pass 布尔 + reason，可选 evidence_refs）；`scored_dimensions`（significance、originality、claim_strength、answerability、venue_fit、strategic_leverage 各为 score 1–5 + reason + confidence，可选 evidence_refs）；`risk_penalty`（data_risk/compute_risk/baseline_risk/execution_risk/ethics_risk: low | medium | high | unknown；penalty_summary）；`reviewer_objections`（top_1、top_2、top_3 字符串）；`scenario_analysis`（ceiling_case、base_case、floor_case）；`decision`（verdict: promote | refine | park | drop；total_score 0–100；confidence；可选 judgement_summary、promotion_target: paper_project | topic_backlog | none）；`required_refinements` 数组。TopicValueAssessment 持久化形态与此对齐；任一评分或 gate 须带 reason，并尽量带 evidence_refs。
+
+### Artifact landing strategy
+- **Phase 1**：EvidenceReview 存于 LiteraturePipelineArtifact.payload；NeedReview、ValueAssessment 存为 topic-level artifact（不要求独立表）。
+- **Phase 2（后置）**：可晋升为一类表 TopicEvidenceReview / TopicNeedReview / TopicValueAssessment；本任务包阶段仅在文档中记录该策略，不落代码。
+
+## 后端契约与实现基线（内嵌）
+
+以下为后端契约要点，实现时以本节为准、不依赖外部文件。
+
+### 设计目标
+- **Traceability**：每个判断必须能回溯到文献或前置 artifact。
+- **Separation of concerns**：topic settings、evidence extraction、need validation、question formation、value judgement 不得混入同一对象。
+- **Gateability**：value assessment 输出必须能驱动 topic -> paper-project promotion。
+- **Human override support**：每阶段支持人工审阅与修正。
+- **Versionability**：review 与 assessment 须历史保留，不得原地覆盖。
+- **Robustness under partial evidence**：显式追踪 uncertainty、missing_information、blocking_issues。
+
+### 领域对象图
+```
+TopicProfile
+ ├─ TopicLiteratureScope[]
+ ├─ TopicEvidenceReview[]
+ ├─ TopicNeedReview[]
+ ├─ TopicQuestion[]
+ ├─ TopicValueAssessment[]
+ ├─ TopicPackage[]
+ └─ TopicPromotionDecision[]
+
+LiteratureRecord
+ ├─ LiteraturePipelineArtifact[]
+ └─ TopicEvidenceReview[]
+
+TopicQuestion
+ └─ TopicValueAssessment[]
+
+TopicValueAssessment
+ └─ TopicPromotionDecision
+
+PaperProject
+ └─ created from TopicPromotionDecision
+```
+
+### 推荐 Prisma 枚举（canonical values）
+- `reviewStatus`: draft | completed | needs_human_review | superseded | archived
+- `recommendation`: accept | refine | reject | park | escalate
+- `valueVerdict`: promote | refine | park | drop
+- `questionStatus`: draft | candidate | shortlisted | assessed | packaged | promoted | archived
+- `promotionStatus`: pending | approved | rejected | superseded
+- `artifactSourceType`: abstract | key_content | fulltext_chunk | metadata | manual_note | prior_artifact
+- `contributionHypothesis`: method | benchmark | analysis | resource | system
+- `needVerdict`: validated | weak | pseudo_gap | unclear
+
+### 共享 JSON 块（v1 复用）
+- inputRefs、evidenceRefs、facts、inferences、scores、missingInformation、blockingIssues、nextActions
+
+### Prisma 模型草案（二选一）
+- **方案 A（TopicResearchRecord 包装）**：TopicResearchRecord 1:1 TopicProfile，含 lifecycleStatus、currentQuestionId、currentPackageId；TopicQuestion、TopicNeedReview、TopicValueAssessment、TopicPackage、TopicPromotionDecision 通过 topicResearchRecordId 关联。
+- **方案 B（直接 topicId）**：各表直接含 topicId 外键至 TopicProfile；TopicQuestion 含 sourceNeedIds；TopicValueAssessment 含 questionId；TopicPackage 含 questionId、sourceValueAssessmentId；TopicPromotionDecision 含 questionId、assessmentId、packageId。
+- 共同核心表：TopicNeedReview（evidenceReviewRefs、literatureIds、unmetNeed、needCategory、whyUnmet、falsificationCheck、verdict、confidence）；TopicQuestion（mainQuestion、subQuestions、researchSlice、contributionHypothesis、inputNeedReviewIds、inputEvidenceReviewIds）；TopicValueAssessment（evidenceBasis、hardGates、scoredDimensions、riskPenalty、verdict）；TopicPackage（titleCandidates、researchBackground、candidateMethods、evaluationPlan、coreLiteratureIds）；TopicPromotionDecision（verdict、decisionReason、selectedLiteratureIds、targetPaperTitle、createdPaperId）。
+
+### OpenAPI 端点（topic-research tag）
+| 方法 | 路径 | 操作 |
+|------|------|------|
+| GET/POST | /topics/{topicId}/research-record | getTopicResearchRecord / createTopicResearchRecord |
+| POST/GET | /topics/{topicId}/need-reviews | createNeedReview / listNeedReviews |
+| POST/GET | /topics/{topicId}/questions | createTopicQuestion / listTopicQuestions |
+| POST/GET | /topics/{topicId}/value-assessments | createValueAssessment / listValueAssessments |
+| POST | /topics/{topicId}/packages | createTopicPackage |
+| POST | /topics/{topicId}/promotion-decisions | createTopicPromotionDecision |
+| POST | /topics/{topicId}/promote-to-paper-project | promoteTopicToPaperProject |
+
+### 关键请求契约
+- **CreateNeedReviewRequest**：必填 version_no, status, evidence_review_refs, literature_ids（非空）, unmet_need, need_category, why_unmet, falsification_check, importance_assessment, measurability, resource_constraint_check, verdict, confidence, judgement_summary, recommendation, created_by。
+- **CreateTopicQuestionRequest**：必填 version_no, status, main_question, research_slice, contribution_hypothesis, created_by；至少提供 input_need_review_ids 或 input_evidence_review_ids 之一。
+- **CreateValueAssessmentRequest**：必填 question_id, version_no, status, evidence_basis, hard_gates, scored_dimensions, risk_penalty, reviewer_objections, scenario_analysis, verdict, confidence, judgement_summary, recommendation, created_by。
+- **CreateTopicPromotionDecisionRequest**：verdict=promote 时需 target_paper_title；verdict=loopback 时需 loopback_target。
+- **PromoteTopicToPaperProjectRequest**：必填 promotion_decision_id, created_by；需已批准的 promotion decision。
+
+### Topic 生命周期状态
+```
+topic_seeded -> evidence_collecting -> evidence_reviewed -> need_reviewing -> needs_validated
+  -> question_forming -> question_shortlisted -> value_assessing -> value_assessed
+  -> packaging -> packaged -> promotion_pending -> promoted_to_paper
+```
+
+### 回退/拒绝转换
+- need_reviewing -> evidence_reviewed（falsification 失败或证据不足）
+- question_shortlisted -> needs_validated（问题表述弱）
+- value_assessed -> question_shortlisted（verdict=refine）
+- value_assessed -> needs_validated（根本问题在 need 定义）
+- 任意状态 -> archived（用户放弃 topic）
+
+### Artifact 生命周期规则
+- **EvidenceReview**：created -> completed -> superseded；或 completed -> needs_human_review。保留历史版本；每 (topicId, literatureId) 仅一个标记为 current。
+- **NeedReview**：draft -> completed -> validated | pseudo_gap | weak | unclear。仅 validatedNeed=true 可默认作为 question 创建种子。
+- **TopicQuestion**：draft -> candidate -> shortlisted -> assessed -> packaged -> promoted。shortlisted 需至少一个 validated need、evidence refs、contribution hypothesis；assessed 需至少一个 completed value assessment；promoted 需 approved promotion decision。
+- **TopicValueAssessment**：draft -> completed -> superseded；或 completed -> needs_human_review。仅 latest completed 用于 promotion 校验；refine 非终态；drop 阻塞 promotion 除非人工 override。
+- **TopicPackage**：building -> ready -> superseded。package 为合成 artifact，非判断权威；权威仍在 validated needs、questions、value assessments。
+
+### Promotion gate 规则（必须全部满足）
+1. 至少一个 validated need review 存在。
+2. Topic question 存在且为 shortlisted 或 assessed。
+3. 该 question 存在 completed value assessment。
+4. 所有 hard gates 通过：significance、originality、answerability、feasibility、venue_fit。
+5. 无未解决的 blocking issues。
+6. Evidence refs 非空且可解析。
+7. Topic package 存在或可推导最小 paper seed。
+
+### 人工 override 策略
+- 可 override：failed score threshold、refine verdict、missing package。
+- 不可静默 override；override 须持久化于 TopicPromotionDecision.decisionPayload 并带 reasons。
+
+### 稳健性建议
+- 不单独存储纯自由文本；每个 review 须含 structured blocks、evidence_refs、judgement_summary、confidence、next_actions。
+- evidence ref 须可解析，推荐形状：literature_id、source_type、span_ref、note。
+- 区分 facts 与 inferences，不得混入同一字段。
+- 保留版本历史；避免破坏性更新。
+- 允许不完整但可用的对象，记录 missingInfo、blockingIssues、confidence。
+- TopicPackage 不得成为前序阶段的权威来源；权威在 evidence、need、question、value assessment。
+
+### 建议实现顺序
+- **Phase 1（最小可行）**：TopicQuestion、TopicPromotionDecision；EvidenceReview 存 LiteraturePipelineArtifact；NeedReview/ValueAssessment 存 topic-level artifact 或 JSON 表；promotion verify/commit 端点。
+- **Phase 2（稳定研究对象）**：TopicEvidenceReview、TopicNeedReview、TopicValueAssessment 一类表；browsing/ranking APIs。
+- **Phase 3（运营成熟）**：package builder、cross-topic ranking、reviewer-objection analytics、provenance dashboards。
+
+### 集成锚点（与当前 repo 对齐）
+- Shared：topic-management-contracts.ts 导出；research-lifecycle index 更新。
+- Backend：routes、controller、service、repository；app.ts 注册路由；repository factory 支持 memory|prisma。
+- EvidenceReview v1：LiteraturePipelineArtifact.payload，stageCode=evidence_review，artifactType=llm_review。
 
 ## Deferred object set
 - 多角色评审编排（sponsor / skeptic / comparator / gatekeeper）

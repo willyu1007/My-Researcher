@@ -22,6 +22,7 @@
 | Existing API baseline | `docs/context/api/openapi.yaml` | 当前 topic / literature / paper-project 接口边界 | high | 用于识别现有缺口 |
 | Existing active task | `dev-docs/active/topic-initial-pull-and-rule-preview/00-overview.md` | 区分 topic settings 改造与选题决策层 | medium | 避免与现有任务混 scope |
 | Existing implementation baseline | `apps/backend/src/services/research-lifecycle-service.ts` | 明确当前 `createPaperProject` 输入边界 | medium | 用于后续 promotion 映射 |
+| LLM 自审契约 | EvidenceReview / NeedReview / ValueAssessment 及 common envelope（字段与枚举见 02-architecture） | 三类自审产物形态、EvidenceMap-core/ValidatedNeed/TopicValueAssessment 对应、落地策略 | high | 契约内容已内嵌于 02-architecture，不依赖外部 schema 路径 |
 | Model inference | N/A | 任务拆分、风险排序、MVP 收敛 | lowest | 仅用于填补未决项 |
 
 ## Non-goals
@@ -39,6 +40,7 @@
 - Q4: 该模块在产品 IA 上是否独立成“选题工作台”，还是挂在“方向池”下的二级工作区？
 - Q5: `TopicPackage` 与 `PaperProject` 的字段同步边界是否需要冻结策略？
 - Q6: LLM 自审模板在 MVP 是统一默认模板，还是按 venue / contribution type 分层配置？
+- Q7: 契约 SSOT 的正式存放位置（若将 JSON Schema 迁入 repo：docs/context 子目录 vs 独立包）及与 API/DB 的引用方式。
 
 ### Assumptions (if unanswered)
 - A1: 首版按“文档与契约先行”推进，后续实现任务再拆分执行。 (risk: low)
@@ -172,11 +174,12 @@ sequenceDiagram
   - 查看并确认 `assessment` 结果
   - 从一个或多个 `TopicPackage` 中选择是否晋升
 - 需要模板化的 LLM 自审节点：
-  - evidence extraction review
+  - evidence extraction review（产出形态：evidence_review template，对应 EvidenceMap-core EvidenceUnit）
   - improvement vs solved cross-check
-  - candidate need falsification review
+  - candidate need falsification review（产出形态：need_review template，对应 ValidatedNeed）
   - question/package consistency review
-  - value assessment review
+  - value assessment review（产出形态：value_assessment template，对应 TopicValueAssessment）
+- 上述三份 template 的字段与 common envelope 已内嵌于 02-architecture，实现时以该文档为准。
 - 模板要求：
   - 需绑定 evidence refs
   - 需输出 objections / confidence / next action
@@ -223,8 +226,8 @@ sequenceDiagram
    - Deliverable: 完整任务包、roadmap、registry 映射
    - Acceptance criteria: 文档结构完整，目标/边界/MVP 路线一致，治理索引可查询
 2. **Phase 2**: Domain model and contract finalization
-   - Deliverable: `EvidenceMap-core / ValidatedNeed / TopicQuestion / TopicValueAssessment / TopicPackage / PromotionDecision` 的正式边界与字段草案
-   - Acceptance criteria: 每个对象有清晰职责、与现有 topic/paper 契约的映射明确
+   - Deliverable: `EvidenceMap-core / ValidatedNeed / TopicQuestion / TopicValueAssessment / TopicPackage / PromotionDecision` 的正式边界与字段草案；LLM 自审模板的正式形态以 EvidenceReview / NeedReview / ValueAssessment 及 common envelope 为契约基线，对象与三份 template 的字段级对应表已写入 02-architecture（内嵌、无外部路径引用）。
+   - Acceptance criteria: 每个对象有清晰职责、与现有 topic/paper 契约的映射明确；02-architecture 中已写出对象与 LLM 自审契约的对应关系及 artifact landing strategy。
 3. **Phase 3**: MVP implementation plan
    - Deliverable: 后端、前端、数据、验证的分阶段执行方案
    - Acceptance criteria: 可拆成可执行的实现任务，不混淆 discovery/MVP/enhancement
@@ -268,11 +271,13 @@ sequenceDiagram
 
 ### Phase 2 - Domain and contract alignment
 - Objective:
-  - 基于设计稿，把 `EvidenceMap-core`、中间对象、状态流转、promotion 规则与现有 paper lifecycle 映射清楚。
+  - 基于设计稿，把 `EvidenceMap-core`、中间对象、状态流转、promotion 规则与现有 paper lifecycle 映射清楚；将 LLM 自审契约（common envelope + EvidenceReview / NeedReview / ValueAssessment）内嵌于 02-architecture，并写出对象与契约的字段级对应及 artifact landing strategy。
 - Deliverables:
   - `EvidenceMap-core` 最小字段与回路合同
   - Evidence outputs 分层定义：improvement / solved / candidate need / validated need
-  - LLM 自审节点与 review template 边界
+  - LLM 自审节点与 review template 边界；common envelope 必填字段及三份 template 关键字段（见 02-architecture 内嵌小节）
+  - 对象与 EvidenceReview/NeedReview/ValueAssessment 的字段级对应表（见 02-architecture）
+  - Artifact landing strategy：Phase 1 存 EvidenceReview 于 LiteraturePipelineArtifact.payload，NeedReview/ValueAssessment 为 topic-level artifact；Phase 2 可晋升为一类表（见 02-architecture）
   - 对象职责表
   - `TopicPackage` 的内容结构与生成顺序
   - promotion payload 设计方向
@@ -280,6 +285,7 @@ sequenceDiagram
 - Verification:
   - 每个对象都能回答“为什么存在、由谁写、被谁消费”
   - `EvidenceMap-core` 能支撑 improvement list、solved list、validated needs 的闭环
+  - LLM 自审产物的字段要求与 02-architecture 内嵌的 common envelope + 三份 template 一致
   - `TopicPackage` 能支撑后续 research framework 与写作引用
   - 大多数节点无需用户逐步确认，流程仍能自动推进
   - 流程存在 evidence refresh -> need recheck -> question/value reassess 的闭环
@@ -291,12 +297,13 @@ sequenceDiagram
 - Objective:
   - 把执行工作拆成独立实现任务，而不是在一个大任务里混做。
 - Deliverables:
-  - backend task slice
+  - backend task slice（shared contracts、repository、service、controller、routes；见 02-architecture 后端契约与实现基线、03-implementation-notes integration notes）
   - frontend task slice
   - docs/context task slice
-  - verification strategy
+  - verification strategy（测试矩阵与清单见 04-verification）
 - Verification:
   - 每个实现任务都有独立输入、输出、验收
+  - 测试执行顺序：shared schema test -> repository test -> service test -> routes test
 - Rollback:
   - 若拆分过细导致治理成本过高，回收为单个 MVP 实现任务
 
