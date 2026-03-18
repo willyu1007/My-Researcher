@@ -23,9 +23,11 @@ export interface TopicManagementRepository {
   createValueAssessment(topicId: string, questionId: string, input: CreateTopicValueAssessmentRequest): Promise<TopicValueAssessmentDTO>;
   getValueAssessment(topicId: string, recordId: string): Promise<TopicValueAssessmentDTO | null>;
   getLatestValueAssessmentByQuestion(topicId: string, questionId: string): Promise<TopicValueAssessmentDTO | null>;
+  listValueAssessments(topicId: string, questionId: string): Promise<TopicValueAssessmentDTO[]>;
 
   createTopicPackage(topicId: string, questionId: string, valueAssessmentId: string, input: CreateTopicPackageRequest): Promise<TopicPackageDTO>;
   getTopicPackage(topicId: string, recordId: string): Promise<TopicPackageDTO | null>;
+  listTopicPackages(topicId: string, valueAssessmentId: string): Promise<TopicPackageDTO[]>;
 
   createPromotionDecision(topicId: string, input: CreateTopicPromotionDecisionRequest & { promotedPaperId?: string }): Promise<TopicPromotionDecisionDTO>;
 }
@@ -35,7 +37,7 @@ function nowIso(): string {
 }
 
 function makeId(prefix: string): string {
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefix}_${crypto.randomUUID()}`;
 }
 
 export class InMemoryTopicManagementRepository implements TopicManagementRepository {
@@ -157,6 +159,12 @@ export class InMemoryTopicManagementRepository implements TopicManagementReposit
     return all[0] ?? null;
   }
 
+  async listValueAssessments(topicId: string, questionId: string): Promise<TopicValueAssessmentDTO[]> {
+    return [...this.valueAssessments.values()]
+      .filter((x) => x.topic_id === topicId && x.question_id === questionId)
+      .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+  }
+
   async createTopicPackage(topicId: string, questionId: string, valueAssessmentId: string, input: CreateTopicPackageRequest): Promise<TopicPackageDTO> {
     const timestamp = nowIso();
     const dto: TopicPackageDTO = {
@@ -182,6 +190,12 @@ export class InMemoryTopicManagementRepository implements TopicManagementReposit
   async getTopicPackage(topicId: string, recordId: string): Promise<TopicPackageDTO | null> {
     const dto = this.packages.get(recordId) ?? null;
     return dto?.topic_id === topicId ? dto : null;
+  }
+
+  async listTopicPackages(topicId: string, valueAssessmentId: string): Promise<TopicPackageDTO[]> {
+    return [...this.packages.values()]
+      .filter((x) => x.topic_id === topicId && x.value_assessment_id === valueAssessmentId)
+      .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
   }
 
   async createPromotionDecision(topicId: string, input: CreateTopicPromotionDecisionRequest & { promotedPaperId?: string }): Promise<TopicPromotionDecisionDTO> {
@@ -236,11 +250,17 @@ export class PrismaTopicManagementRepository implements TopicManagementRepositor
   async getLatestValueAssessmentByQuestion(_topicId: string, _questionId: string): Promise<TopicValueAssessmentDTO | null> {
     throw new Error('TODO: implement Prisma persistence for getLatestValueAssessmentByQuestion');
   }
+  async listValueAssessments(_topicId: string, _questionId: string): Promise<TopicValueAssessmentDTO[]> {
+    throw new Error('TODO: implement Prisma persistence for listValueAssessments');
+  }
   async createTopicPackage(_topicId: string, _questionId: string, _valueAssessmentId: string, _input: CreateTopicPackageRequest): Promise<TopicPackageDTO> {
     throw new Error('TODO: implement Prisma persistence for createTopicPackage');
   }
   async getTopicPackage(_topicId: string, _recordId: string): Promise<TopicPackageDTO | null> {
     throw new Error('TODO: implement Prisma persistence for getTopicPackage');
+  }
+  async listTopicPackages(_topicId: string, _valueAssessmentId: string): Promise<TopicPackageDTO[]> {
+    throw new Error('TODO: implement Prisma persistence for listTopicPackages');
   }
   async createPromotionDecision(_topicId: string, _input: CreateTopicPromotionDecisionRequest & { promotedPaperId?: string }): Promise<TopicPromotionDecisionDTO> {
     throw new Error('TODO: implement Prisma persistence for createPromotionDecision');

@@ -32,6 +32,7 @@
 - **数据模型**：采用 unified record 设计（topic_research_records、topic_questions 等表），见 `prisma/schema.prisma` 与 migration `20260318120000_topic_management_v1`。
 - **topic_id FK**：`topic_id` 采用逻辑外键，未建 FK 到 TopicProfile；migration 注释中已说明，决策记录于本段。
 - **Promotion 流程**：先实现单端点 `POST /topics/:topicId/promote-to-paper-project`，通过 `PaperProjectGateway` 调用现有 `createPaperProject`；未拆 verify/commit 两步。
+- **Promotion 原子性风险**：当前实现先调用 `createPaperProject` 再写入 `createPromotionDecision`。若第二步失败会导致“已立项但无 promotion 记录”。引入 Prisma 时须用事务或“先写 decision 再创建 paper、失败时回滚/标记”保证一致；InMemory 场景下可接受。
 
 ## Open follow-ups
 - 与用户继续讨论并确认 MVP 边界和命名：

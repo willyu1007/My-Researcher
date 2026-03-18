@@ -72,6 +72,10 @@ export class TopicManagementService {
     return this.repository.listQuestions(topicId);
   }
 
+  async listValueAssessments(topicId: string, questionId: string) {
+    return this.repository.listValueAssessments(topicId, questionId);
+  }
+
   async createValueAssessment(topicId: string, questionId: string, input: CreateTopicValueAssessmentRequest) {
     assertVerdictMatchesHardGates(input);
     return this.repository.createValueAssessment(topicId, questionId, input);
@@ -83,6 +87,10 @@ export class TopicManagementService {
       throw new TopicManagementInvariantError('TopicPackage must reference an existing ValueAssessment for the same question.');
     }
     return this.repository.createTopicPackage(topicId, questionId, valueAssessmentId, input);
+  }
+
+  async listTopicPackages(topicId: string, valueAssessmentId: string) {
+    return this.repository.listTopicPackages(topicId, valueAssessmentId);
   }
 
   async createPromotionDecision(topicId: string, input: CreateTopicPromotionDecisionRequest) {

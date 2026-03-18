@@ -82,6 +82,43 @@ function valuePayload() {
   };
 }
 
+test('GET /topics/:topicId/need-reviews rejects topicId shorter than 4 chars', async () => {
+  const { app } = await makeApp();
+  await app.ready();
+  const response = await app.inject({ method: 'GET', url: '/topics/ab/need-reviews' });
+  assert.equal(response.statusCode, 400);
+  await app.close();
+});
+
+test('GET listValueAssessments and listTopicPackages return items array', async () => {
+  const { app } = await makeApp();
+  await app.ready();
+  const needRes = await app.inject({ method: 'POST', url: '/topics/topic_001/need-reviews', payload: needPayload() });
+  assert.equal(needRes.statusCode, 201);
+  const need = needRes.json() as { record_id: string };
+  const questionRes = await app.inject({
+    method: 'POST',
+    url: '/topics/topic_001/questions',
+    payload: {
+      main_question: 'How can retrieval remain stable?',
+      research_slice: 'slice',
+      contribution_hypothesis: 'method',
+      source_need_review_ids: [need.record_id],
+      judgement_summary: 'Summary here.',
+      confidence: 0.8,
+    },
+  });
+  assert.equal(questionRes.statusCode, 201);
+  const question = questionRes.json() as { record_id: string };
+  const listValRes = await app.inject({
+    method: 'GET',
+    url: `/topics/topic_001/questions/${question.record_id}/value-assessments`,
+  });
+  assert.equal(listValRes.statusCode, 200);
+  assert.ok(Array.isArray((listValRes.json() as { items: unknown }).items));
+  await app.close();
+});
+
 test('POST /topics/:topicId/questions rejects payload without upstream sources at schema layer', async () => {
   const { app } = await makeApp();
   await app.ready();

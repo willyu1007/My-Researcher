@@ -13,6 +13,12 @@ function handleError(reply: FastifyReply, error: unknown) {
   if (error instanceof TopicManagementInvariantError) {
     return reply.status(400).send({ error: error.name, message: error.message });
   }
+  const req = (reply as { request?: { log?: { error: (err: unknown, msg?: string) => void } } }).request;
+  if (req?.log?.error) {
+    req.log.error(error, 'topic management error');
+  } else {
+    console.error('[topic-management]', error);
+  }
   return reply.status(500).send({ error: 'InternalServerError', message: 'Unexpected topic management failure.' });
 }
 
@@ -61,6 +67,18 @@ export class TopicManagementController {
     }
   };
 
+  listValueAssessments = async (
+    request: FastifyRequest<{ Params: { topicId: string; questionId: string } }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.service.listValueAssessments(request.params.topicId, request.params.questionId);
+      return reply.send({ items: result });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   createValueAssessment = async (
     request: FastifyRequest<{ Params: { topicId: string; questionId: string }; Body: CreateTopicValueAssessmentRequest }>,
     reply: FastifyReply,
@@ -92,6 +110,18 @@ export class TopicManagementController {
         request.body,
       );
       return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  listTopicPackages = async (
+    request: FastifyRequest<{ Params: { topicId: string; questionId: string; valueAssessmentId: string } }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.service.listTopicPackages(request.params.topicId, request.params.valueAssessmentId);
+      return reply.send({ items: result });
     } catch (error) {
       return handleError(reply, error);
     }

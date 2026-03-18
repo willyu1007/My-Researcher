@@ -269,6 +269,33 @@ const boundedConfidence = { type: 'number', minimum: 0, maximum: 1 };
 const boundedScore = { type: 'number', minimum: 1, maximum: 5 };
 const nonEmptyStringArray = { type: 'array', items: { type: 'string', minLength: 1 } };
 
+export const paramsTopicIdSchema = {
+  params: {
+    type: 'object',
+    required: ['topicId'],
+    additionalProperties: false,
+    properties: { topicId: stringId },
+  },
+} as const;
+
+export const paramsTopicIdQuestionIdSchema = {
+  params: {
+    type: 'object',
+    required: ['topicId', 'questionId'],
+    additionalProperties: false,
+    properties: { topicId: stringId, questionId: stringId },
+  },
+} as const;
+
+export const paramsTopicIdQuestionIdValueAssessmentIdSchema = {
+  params: {
+    type: 'object',
+    required: ['topicId', 'questionId', 'valueAssessmentId'],
+    additionalProperties: false,
+    properties: { topicId: stringId, questionId: stringId, valueAssessmentId: stringId },
+  },
+} as const;
+
 export const evidenceRefSchema = {
   type: 'object',
   additionalProperties: false,
@@ -348,8 +375,8 @@ export const createTopicQuestionRequestSchema = {
       sub_questions: nonEmptyStringArray,
       research_slice: { type: 'string', minLength: 5 },
       contribution_hypothesis: { enum: [...CONTRIBUTION_HYPOTHESES] },
-      source_need_review_ids: nonEmptyStringArray,
-      source_evidence_review_ids: nonEmptyStringArray,
+      source_need_review_ids: { type: 'array', items: stringId, minItems: 1 },
+      source_evidence_review_ids: { type: 'array', items: stringId, minItems: 1 },
       judgement_summary: { type: 'string', minLength: 10 },
       confidence: boundedConfidence,
     },

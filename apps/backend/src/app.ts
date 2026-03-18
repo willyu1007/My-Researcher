@@ -10,10 +10,7 @@ import { getPrismaClient } from './repositories/prisma/prisma-client.js';
 import { PrismaAutoPullRepository } from './repositories/prisma/prisma-auto-pull-repository.js';
 import { PrismaLiteratureRepository } from './repositories/prisma/prisma-literature-repository.js';
 import { PrismaResearchLifecycleRepository } from './repositories/prisma/prisma-research-lifecycle-repository.js';
-import {
-  InMemoryTopicManagementRepository,
-  PrismaTopicManagementRepository,
-} from './repositories/topic-management.repository.js';
+import { InMemoryTopicManagementRepository } from './repositories/topic-management.repository.js';
 import { registerAutoPullRoutes } from './routes/auto-pull-routes.js';
 import { registerLiteratureRoutes } from './routes/literature-routes.js';
 import { registerResearchLifecycleRoutes } from './routes/research-lifecycle-routes.js';
@@ -147,8 +144,10 @@ function createTopicManagementRepository(): TopicManagementRepository {
     ?? 'memory';
 
   if (strategy === 'prisma') {
-    const prisma = getPrismaClient();
-    return new PrismaTopicManagementRepository(prisma as unknown as { [key: string]: unknown });
+    console.warn(
+      '[topic-management] PrismaTopicManagementRepository is not implemented; falling back to InMemory. Set TOPIC_REPOSITORY=memory to silence.',
+    );
+    return new InMemoryTopicManagementRepository();
   }
 
   return new InMemoryTopicManagementRepository();
