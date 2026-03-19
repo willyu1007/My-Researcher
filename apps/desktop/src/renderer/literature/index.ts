@@ -4,6 +4,7 @@ export * from './shared/normalizers';
 export * from './shared/formatters';
 export * from './shared/api';
 export * from './overview/overviewStatus';
+export * from './LiteratureWorkspace';
 export * from './auto-import/AutoImportTab';
 export * from './auto-import/useAutoImportController';
 export * from './manual-import/ManualImportTab';

@@ -1,10 +1,18 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AutoPullRunStatus, AutoPullWeekday } from '../shared/types';
-
-type AutoImportTabProps = {
-  active: boolean;
-} & Record<string, any>;
+import type {
+  AutoPullRule,
+  AutoPullRuleScheduleItem,
+  AutoPullWeekday,
+} from '../shared/types';
+import { AutoImportRuleCenterView } from './views/AutoImportRuleCenterView';
+import { AutoImportRunsAlertsView } from './views/AutoImportRunsAlertsView';
+import { AutoImportTopicSettingsView } from './views/AutoImportTopicSettingsView';
+import type {
+  AutoImportSelectOption,
+  AutoImportRuleEditorState,
+  AutoImportTabProps,
+} from './types';
 
 export function AutoImportTab(props: AutoImportTabProps) {
   if (!props.active) {
@@ -13,11 +21,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
 
   const [isTopicRulePreviewOpen, setIsTopicRulePreviewOpen] = useState(false);
   const [activeTopicListRulePreviewTopicId, setActiveTopicListRulePreviewTopicId] = useState<string | null>(null);
-  const [activeRuleEditor, setActiveRuleEditor] = useState<{
-    ruleId: string | null;
-    mode: 'schedule' | 'source' | 'advanced';
-    name: string;
-  } | null>(null);
+  const [activeRuleEditor, setActiveRuleEditor] = useState<AutoImportRuleEditorState | null>(null);
   const [activeQuickEditorAnchor, setActiveQuickEditorAnchor] = useState<HTMLElement | null>(null);
   const [activeQuickEditorPosition, setActiveQuickEditorPosition] = useState<{ top: number; left: number } | null>(null);
   const inlineAdvancedSaveTimeoutRef = useRef<number | null>(null);
@@ -25,41 +29,23 @@ export function AutoImportTab(props: AutoImportTabProps) {
   const inlineAdvancedAutosaveDebounceMs = 280;
 
   const {
-    applyTopicYearPreset,
-    asRecord,
-    autoImportSubTab,
-    autoPullHourOptions,
-    autoPullLimitHint,
-    autoPullLookbackHint,
-    autoPullParseHint,
-    autoPullQualityHint,
-    autoPullQualityPresetOptions,
+    controller,
+    navigation,
+    ruleForm,
+    shared,
+    topicForm,
+  } = props;
+  const {
     autoPullRuleById,
-    autoPullRunStatusLabels,
-    autoPullRuns,
-    autoPullSortHint,
-    autoPullWeekdayOptions,
-    formatTimestamp,
-    handleAddTopicExcludeKeyword,
-    handleAddTopicIncludeKeyword,
-    handleCloseTopicModal,
-    handleDeleteRule,
+    topicScopedRules,
     handleEditRule,
-    handleEditTopicProfile,
-    handleOpenRuleCenter,
-    handleOpenCreateTopicProfile,
-    handleRemoveTopicExcludeKeyword,
-    handleRemoveTopicIncludeKeyword,
     handleResetRuleComposer,
-    handleRetryRun,
-    handleSetTopicRuleBinding,
     handleSubmitRule,
-    handleSubmitTopicProfile,
-    handleToggleTopicProfileActive,
-    handleToggleTopicVenueSelection,
-    latestRunByRuleId,
-    loadAutoPullRunDetail,
-    resolveRunSortTimestamp,
+  } = controller;
+  const {
+    activeSubTab: autoImportSubTab,
+  } = navigation;
+  const {
     ruleFormFrequency,
     ruleFormHourInput,
     ruleFormLookbackInput,
@@ -71,17 +57,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
     ruleSourceArxiv,
     ruleSourceCrossref,
     rulesError,
-    runDetailError,
-    runDetailLoading,
-    runsError,
-    runsFilterStatus,
-    runsPageIndex,
-    runsPageItems,
-    runsTotalPages,
-    selectedRunDetail,
-    selectedRunDurationLabel,
-    selectedRunPulledAtLabel,
-    selectedRunTopicLabel,
     setRuleFormFrequency,
     setRuleFormHourInput,
     setRuleFormLookbackInput,
@@ -92,51 +67,32 @@ export function AutoImportTab(props: AutoImportTabProps) {
     setRuleFormWeekday,
     setRuleSourceArxiv,
     setRuleSourceCrossref,
-    setRunsFilterStatus,
-    setRunsPageIndex,
-    setTopicFormExcludeDraft,
-    setTopicFormIncludeDraft,
-    setTopicFormName,
-    setTopicFormInitialPullPending,
-    setTopicFormVenueSelections,
-    setTopicFormYearEnd,
-    setTopicFormYearStart,
-    setTopicVenuePickerOpen,
-    topicAutoIdPreview,
-    topicEditingId,
-    topicFormExcludeDraft,
-    topicFormExcludeKeywords,
-    topicFormIncludeDraft,
-    topicFormIncludeKeywords,
-    topicFormModalOpen,
-    topicFormName,
-    topicFormInitialPullPending,
-    topicFormRuleIds,
-    topicFormTopicId,
-    topicFormVenueSelections,
-    topicFormYearEnd,
-    topicFormYearStart,
-    topicProfiles,
-    topicProfilesError,
-    topicScopedRules,
-    topicSettingsSummaryStats,
-    topicVenueOptions,
-    topicVenuePickerOpen,
-    topicVenueSelectionLabel,
-    topicYearLowerBound,
-    topicYearMaxBound,
-    topicYearMinBound,
-    topicYearRangeTrackStyle,
-    topicYearUpperBound,
+  } = ruleForm;
+  const {
+    asRecord,
+    autoPullHourOptions,
+    autoPullLimitHint,
+    autoPullLookbackHint,
+    autoPullParseHint,
+    autoPullQualityHint,
+    autoPullQualityPresetOptions,
+    autoPullSortHint,
+    autoPullStatusDigest,
+    autoPullWeekdayOptions,
     updateHelpTooltipAlignment,
-  } = props;
-  const activeTopicRules = topicScopedRules.filter((rule: any) => rule.status === 'ACTIVE');
+  } = shared;
+  const {
+    topicFormModalOpen,
+    topicFormRuleIds,
+    topicProfiles,
+  } = topicForm;
+  const activeTopicRules = topicScopedRules.filter((rule) => rule.status === 'ACTIVE');
   const weekdayLabelByValue = useMemo(
-    () => new Map<string, string>(autoPullWeekdayOptions.map((option: any) => [option.value, option.label])),
+    () => new Map<string, string>(autoPullWeekdayOptions.map((option) => [option.value, option.label])),
     [autoPullWeekdayOptions],
   );
   const qualityPresetLabelByValue = useMemo(
-    () => new Map<string, string>(autoPullQualityPresetOptions.map((option: any) => [option.value, option.label])),
+    () => new Map<string, string>(autoPullQualityPresetOptions.map((option) => [option.value, option.label])),
     [autoPullQualityPresetOptions],
   );
   const selectedTopicRuleId = topicFormRuleIds[0] ?? '';
@@ -156,7 +112,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
     if (!activeTopicListRulePreviewTopicId) {
       return;
     }
-    const exists = topicProfiles.some((profile: any) => profile.topic_id === activeTopicListRulePreviewTopicId);
+    const exists = topicProfiles.some((profile) => profile.topic_id === activeTopicListRulePreviewTopicId);
     if (!exists) {
       setActiveTopicListRulePreviewTopicId(null);
     }
@@ -206,10 +162,22 @@ export function AutoImportTab(props: AutoImportTabProps) {
 
   const normalizedScheduleHourValue = (() => {
     const candidate = typeof ruleFormHourInput === 'string' ? ruleFormHourInput.trim() : '';
-    return autoPullHourOptions.some((option: any) => option.value === candidate) ? candidate : '9';
+    return autoPullHourOptions.some((option) => option.value === candidate) ? candidate : '9';
   })();
 
-  const formatRuleScheduleLabel = (rule: any): string => {
+  const toWeekdayValue = (value: string): AutoPullWeekday => (
+    autoPullWeekdayOptions.find((option) => option.value === value)?.value ?? 'MON'
+  );
+
+  const renderSelectOption = (option: AutoImportSelectOption) => (
+    <option key={option.value} value={option.value}>{option.label}</option>
+  );
+
+  const renderWeekdayOption = (option: AutoImportSelectOption<AutoPullWeekday>) => (
+    <option key={option.value} value={option.value}>{option.label}</option>
+  );
+
+  const formatRuleScheduleLabel = (rule: AutoPullRule): string => {
     const schedule = rule.schedules?.[0];
     if (!schedule) {
       return '--';
@@ -225,7 +193,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
     return `每日 ${time}`;
   };
 
-  const resolveScheduleTimezone = (schedule: any): string => {
+  const resolveScheduleTimezone = (schedule: AutoPullRuleScheduleItem | null | undefined): string => {
     if (typeof schedule?.timezone === 'string' && schedule.timezone.trim().length > 0) {
       return schedule.timezone.trim();
     }
@@ -298,7 +266,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
     }
   };
 
-  const findNextActivation = (schedule: any, now: Date): Date | null => {
+  const findNextActivation = (schedule: AutoPullRuleScheduleItem, now: Date): Date | null => {
     const timezone = resolveScheduleTimezone(schedule);
     const scheduleHour = Number.isInteger(schedule?.hour) ? schedule.hour : Number.NaN;
     const scheduleMinute = Number.isInteger(schedule?.minute) ? schedule.minute : Number.NaN;
@@ -307,13 +275,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
     }
 
     const weeklyDays = schedule.frequency === 'WEEKLY'
-      ? (
-        Array.isArray(schedule.days_of_week)
-          ? (schedule.days_of_week as unknown[])
-            .filter((item: unknown): item is string => typeof item === 'string')
-            .map((item: string) => item.toUpperCase())
-          : []
-      )
+      ? schedule.days_of_week.map((item) => item.toUpperCase())
       : null;
     if (weeklyDays && weeklyDays.length === 0) {
       return null;
@@ -343,14 +305,12 @@ export function AutoImportTab(props: AutoImportTabProps) {
     return null;
   };
 
-  const formatNextActivationLabel = (rule: any): string => {
+  const formatNextActivationLabel = (rule: AutoPullRule): string => {
     if (rule.status !== 'ACTIVE') {
       return '已暂停';
     }
 
-    const schedules = Array.isArray(rule.schedules)
-      ? rule.schedules.filter((schedule: any) => schedule?.active !== false)
-      : [];
+    const schedules = rule.schedules.filter((schedule) => schedule.active !== false);
     if (schedules.length === 0) {
       return '--';
     }
@@ -381,34 +341,29 @@ export function AutoImportTab(props: AutoImportTabProps) {
     return `${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')} ${String(local.hour).padStart(2, '0')}:${String(local.minute).padStart(2, '0')}`;
   };
 
-  const formatRuleSourcesLabel = (rule: any): string => {
-    const sources = Array.isArray(rule.sources)
-      ? rule.sources
-        .filter((source: any) => source?.enabled)
-        .map((source: any) => source?.source)
-        .filter((source: unknown): source is string => typeof source === 'string' && source.length > 0)
-      : [];
+  const formatRuleSourcesLabel = (rule: AutoPullRule): string => {
+    const sources = rule.sources
+      .filter((source) => source.enabled)
+      .map((source) => source.source);
     return sources.length > 0 ? sources.join(' / ') : '--';
   };
 
-  const formatRuleQualityLabel = (rule: any): string => {
+  const formatRuleQualityLabel = (rule: AutoPullRule): string => {
     const scoreValue = String(rule.quality_spec?.min_quality_score ?? 70);
     return qualityPresetLabelByValue.get(scoreValue) ?? scoreValue;
   };
 
-  const getRuleSourceConfig = (rule: any): Record<string, unknown> => {
-    const activeSource = Array.isArray(rule.sources)
-      ? rule.sources.find((source: any) => source?.enabled)
-      : null;
+  const getRuleSourceConfig = (rule: AutoPullRule): Record<string, unknown> => {
+    const activeSource = rule.sources.find((source) => source.enabled) ?? null;
     return asRecord(activeSource?.config) ?? {};
   };
 
-  const formatRuleSortModeLabel = (rule: any): string => {
+  const formatRuleSortModeLabel = (rule: AutoPullRule): string => {
     const sourceConfig = getRuleSourceConfig(rule);
     return sourceConfig.sort_mode === 'hybrid_score' ? '综合评分' : '大模型打分';
   };
 
-  const formatRuleParseAndIngestLabel = (rule: any): string => {
+  const formatRuleParseAndIngestLabel = (rule: AutoPullRule): string => {
     const sourceConfig = getRuleSourceConfig(rule);
     return sourceConfig.parse_and_ingest === true ? '开启' : '关闭';
   };
@@ -425,7 +380,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
   };
 
   const handleOpenExistingRuleEditor = (
-    rule: any,
+    rule: AutoPullRule,
     mode: 'schedule' | 'source' | 'advanced',
     anchor?: HTMLElement | null,
   ) => {
@@ -527,11 +482,9 @@ export function AutoImportTab(props: AutoImportTabProps) {
                   data-size="sm"
                   aria-label="按周执行星期"
                   value={ruleFormWeekday}
-                  onChange={(event) => setRuleFormWeekday(event.target.value as AutoPullWeekday)}
+                  onChange={(event) => setRuleFormWeekday(toWeekdayValue(event.target.value))}
                 >
-                  {autoPullWeekdayOptions.map((option: any) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
+                  {autoPullWeekdayOptions.map(renderWeekdayOption)}
                 </select>
               </label>
             ) : null}
@@ -546,9 +499,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
                   setRuleFormHourInput(event.target.value);
                 }}
               >
-                {autoPullHourOptions.map((option: any) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
+                {autoPullHourOptions.map(renderSelectOption)}
               </select>
             </label>
           </div>
@@ -610,9 +561,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
                 value={ruleFormMinCompletenessInput}
                 onChange={(event) => setRuleFormMinCompletenessInput(event.target.value)}
               >
-                {autoPullQualityPresetOptions.map((option: any) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
+                {autoPullQualityPresetOptions.map(renderSelectOption)}
               </select>
             </label>
           </div>
@@ -764,9 +713,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
               queueInlineAdvancedSave();
             }}
           >
-            {autoPullQualityPresetOptions.map((option: any) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
+            {autoPullQualityPresetOptions.map(renderSelectOption)}
           </select>
         </label>
         <label data-ui="field" className="rule-center-advanced-field">
@@ -926,7 +873,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
     </section>
   );
 
-  const renderRulePreviewPanel = (rule: any) => (
+  const renderRulePreviewPanel = (rule: AutoPullRule) => (
     <dl className="topic-rule-preview-grid">
       <div className="topic-rule-preview-item">
         <dt>调度计划</dt>
@@ -1009,11 +956,9 @@ export function AutoImportTab(props: AutoImportTabProps) {
                     data-size="sm"
                     aria-label="按周执行星期"
                     value={ruleFormWeekday}
-                    onChange={(event) => setRuleFormWeekday(event.target.value as AutoPullWeekday)}
+                    onChange={(event) => setRuleFormWeekday(toWeekdayValue(event.target.value))}
                   >
-                    {autoPullWeekdayOptions.map((option: any) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
+                    {autoPullWeekdayOptions.map(renderWeekdayOption)}
                   </select>
                 </label>
               ) : null}
@@ -1028,9 +973,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
                     setRuleFormHourInput(event.target.value);
                   }}
                 >
-                  {autoPullHourOptions.map((option: any) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
+                  {autoPullHourOptions.map(renderSelectOption)}
                 </select>
               </label>
             </div>
@@ -1080,852 +1023,52 @@ export function AutoImportTab(props: AutoImportTabProps) {
     );
   };
 
+  const renderNewRuleEditor = () => renderRuleInlineEditor({ showPrimarySettings: true });
+
   return (
-    <section className="literature-tab-panel" data-autopull-status={props.autoPullStatusDigest}>
-                    {autoImportSubTab === 'topic-settings' ? (
-                      <section className="literature-section-block">
-                        <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
-                          <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleOpenCreateTopicProfile}>
-                            新增主题
-                          </button>
-                        </div>
-                        {topicProfilesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{topicProfilesError}</p> : null}
-                        <div className="topic-settings-table-wrap">
-                          {topicProfiles.length === 0 ? (
-                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无主题设置。</p>
-                          ) : (
-                            <table className="topic-settings-table">
-                              <thead>
-                                <tr>
-                                  <th className="topic-col-name">名称</th>
-                                  <th className="topic-col-range">检索范围</th>
-                                  <th className="topic-col-filter">筛选</th>
-                                  <th className="topic-col-run">运行记录</th>
-                                  <th className="topic-col-rule">生效规则</th>
-                                  <th className="topic-col-actions">选项</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {topicProfiles.map((profile: any) => {
-                                  const yearStart = profile.default_min_year ?? topicYearMinBound;
-                                  const yearEnd = profile.default_max_year ?? topicYearMaxBound;
-                                  const venuePreview = profile.venue_filters.length === 0
-                                    ? '不限会议与期刊'
-                                    : `${profile.venue_filters.slice(0, 3).join('、')}${profile.venue_filters.length > 3 ? '...' : ''}`;
-                                  const venueFull = profile.venue_filters.length === 0
-                                    ? '不限会议与期刊'
-                                    : profile.venue_filters.join('、');
-                                  const rangeTooltip = `发布年份：${yearStart} - ${yearEnd}\n期刊范围：${venueFull}`;
-                                  const includePreview = profile.include_keywords.length === 0
-                                    ? '--'
-                                    : `${profile.include_keywords.slice(0, 3).join('、')}${profile.include_keywords.length > 3 ? '...' : ''}`;
-                                  const includeFull = profile.include_keywords.length === 0 ? '--' : profile.include_keywords.join('、');
-                                  const excludePreview = profile.exclude_keywords.length === 0
-                                    ? '--'
-                                    : `${profile.exclude_keywords.slice(0, 3).join('、')}${profile.exclude_keywords.length > 3 ? '...' : ''}`;
-                                  const excludeFull = profile.exclude_keywords.length === 0 ? '--' : profile.exclude_keywords.join('、');
-                                  const filterTooltip = `包含：${includeFull}\n排除：${excludeFull}`;
-                                  const effectiveRuleId = profile.rule_ids[0] ?? null;
-                                  const effectiveRule = effectiveRuleId ? autoPullRuleById.get(effectiveRuleId) ?? null : null;
-                                  const latestRun = effectiveRuleId ? (latestRunByRuleId.get(effectiveRuleId) ?? null) : null;
-                                  const hasActiveEffectiveRule = effectiveRule?.status === 'ACTIVE';
-                                  const isRulePreviewOpen =
-                                    hasActiveEffectiveRule && activeTopicListRulePreviewTopicId === profile.topic_id;
-
-                                  return (
-                                    <Fragment key={profile.topic_id}>
-                                      <tr>
-                                        <td className="topic-col-name">
-                                          <div className="topic-settings-name">
-                                            <button
-                                              type="button"
-                                              className="topic-settings-name-trigger"
-                                              onClick={() => handleEditTopicProfile(profile)}
-                                            >
-                                              {profile.name}
-                                            </button>
-                                            {profile.initial_pull_pending ? <span className="topic-settings-initial-tag">首次全量</span> : null}
-                                            {!profile.is_active ? <span className="topic-settings-muted-tag">已关闭</span> : null}
-                                          </div>
-                                        </td>
-                                        <td className="topic-col-range">
-                                          <div className="topic-settings-range" title={rangeTooltip}>
-                                            <span>{yearStart} - {yearEnd}</span>
-                                            <span>{venuePreview}</span>
-                                          </div>
-                                        </td>
-                                        <td className="topic-col-filter">
-                                          <div className="topic-settings-filter" title={filterTooltip}>
-                                            <span>包含：{includePreview}</span>
-                                            <span>排除：{excludePreview}</span>
-                                          </div>
-                                        </td>
-                                        <td className="topic-col-run">
-                                          <div className="topic-settings-run-record">
-                                            <span>{latestRun ? formatTimestamp(resolveRunSortTimestamp(latestRun)) : '--'}</span>
-                                            <span className={`topic-settings-run-status${latestRun ? ` is-${latestRun.status.toLowerCase()}` : ''}`}>
-                                              {latestRun ? autoPullRunStatusLabels[latestRun.status] : '未执行'}
-                                            </span>
-                                          </div>
-                                        </td>
-                                        <td className="topic-col-rule">
-                                          <div className="topic-settings-rule-text">
-                                            {!hasActiveEffectiveRule ? (
-                                              <span className="topic-settings-muted-text">--</span>
-                                            ) : (
-                                              <button
-                                                type="button"
-                                                className={`topic-settings-rule-trigger${isRulePreviewOpen ? ' is-open' : ''}`}
-                                                onClick={() => {
-                                                  setActiveTopicListRulePreviewTopicId((current) =>
-                                                    current === profile.topic_id ? null : profile.topic_id,
-                                                  );
-                                                }}
-                                                aria-expanded={isRulePreviewOpen}
-                                              >
-                                                {effectiveRule.name}
-                                              </button>
-                                            )}
-                                          </div>
-                                        </td>
-                                        <td className="topic-col-actions">
-                                          <div className="topic-settings-options">
-                                            <label className="topic-list-active-toggle">
-                                              <input
-                                                type="checkbox"
-                                                checked={profile.is_active}
-                                                onChange={() => void handleToggleTopicProfileActive(profile)}
-                                              />
-                                              <span>参与检索</span>
-                                            </label>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                      {isRulePreviewOpen && effectiveRule ? (
-                                        <tr className="topic-settings-rule-preview-row">
-                                          <td colSpan={6}>
-                                            <div className="topic-rule-preview-panel topic-settings-rule-preview-panel">
-                                              {renderRulePreviewPanel(effectiveRule)}
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      ) : null}
-                                    </Fragment>
-                                  );
-                                })}
-                              </tbody>
-                              <tfoot>
-                                <tr className="topic-settings-table-summary-row">
-                                  <td colSpan={6}>
-                                    <div className="topic-settings-table-summary">
-                                      <span data-ui="text" data-variant="caption" data-tone="muted">
-                                        总主题 <strong>{topicSettingsSummaryStats.totalCount}</strong>
-                                      </span>
-                                      <span data-ui="text" data-variant="caption" data-tone="muted">
-                                        参与检索 <strong>{topicSettingsSummaryStats.activeCount}</strong>
-                                      </span>
-                                    </div>
-                                  </td>
-                                </tr>
-                              </tfoot>
-                            </table>
-                          )}
-                        </div>
-                        {topicFormModalOpen ? (
-                          <div className="topic-profile-modal-backdrop" role="presentation">
-                            <section
-                              className="topic-profile-modal"
-                              role="dialog"
-                              aria-modal="true"
-                              aria-label="主题基础信息"
-                            >
-                              <header className="topic-modal-header">
-                                <h3>主题基础信息</h3>
-                                <button
-                                  type="button"
-                                  className="topic-modal-close"
-                                  onClick={handleCloseTopicModal}
-                                  aria-label="关闭主题弹窗"
-                                >
-                                  ×
-                                </button>
-                              </header>
-
-                              <section className="topic-modal-section">
-                                <div className="topic-modal-grid">
-                                  <label data-ui="field">
-                                    <span data-slot="label">
-                                      主题名称 <span className="topic-required-mark">*</span>
-                                    </span>
-                                    <input
-                                      data-ui="input"
-                                      data-size="sm"
-                                      value={topicFormName}
-                                      onChange={(event) => setTopicFormName(event.target.value)}
-                                      placeholder="输入主题名称"
-                                    />
-                                  </label>
-                                  <label data-ui="field">
-                                    <span data-slot="label">主题标识</span>
-                                    <input
-                                      data-ui="input"
-                                      data-size="sm"
-                                      className="topic-id-readonly-input"
-                                      value={topicEditingId ? topicFormTopicId : topicAutoIdPreview}
-                                      placeholder="将根据主题名称自动生成"
-                                      readOnly
-                                    />
-                                  </label>
-                                  <label data-ui="field">
-                                    <span data-slot="label">包含词</span>
-                                    <div className="topic-token-editor">
-                                      <div className="topic-token-editor-input">
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={topicFormIncludeDraft}
-                                          onChange={(event) => setTopicFormIncludeDraft(event.target.value)}
-                                          onKeyDown={(event) => {
-                                            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                                              event.preventDefault();
-                                              handleAddTopicIncludeKeyword();
-                                            }
-                                          }}
-                                          placeholder="输入后按 Enter 添加"
-                                        />
-                                      </div>
-                                      <div className="topic-token-list">
-                                        {topicFormIncludeKeywords.map((keyword: any) => (
-                                          <span key={`include-${keyword}`} className="topic-token-chip">
-                                            <span>{keyword}</span>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleRemoveTopicIncludeKeyword(keyword)}
-                                              aria-label={`移除包含词 ${keyword}`}
-                                            >
-                                              ×
-                                            </button>
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </label>
-
-                                  <label data-ui="field">
-                                    <span data-slot="label">排除词</span>
-                                    <div className="topic-token-editor">
-                                      <div className="topic-token-editor-input">
-                                        <input
-                                          data-ui="input"
-                                          data-size="sm"
-                                          value={topicFormExcludeDraft}
-                                          onChange={(event) => setTopicFormExcludeDraft(event.target.value)}
-                                          onKeyDown={(event) => {
-                                            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                                              event.preventDefault();
-                                              handleAddTopicExcludeKeyword();
-                                            }
-                                          }}
-                                          placeholder="输入后按 Enter 添加"
-                                        />
-                                      </div>
-                                      <div className="topic-token-list">
-                                        {topicFormExcludeKeywords.map((keyword: any) => (
-                                          <span key={`exclude-${keyword}`} className="topic-token-chip">
-                                            <span>{keyword}</span>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleRemoveTopicExcludeKeyword(keyword)}
-                                              aria-label={`移除排除词 ${keyword}`}
-                                            >
-                                              ×
-                                            </button>
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </label>
-
-                                  <div data-ui="field" className="topic-venue-picker">
-                                    <span data-slot="label">会议与期刊</span>
-                                    <button
-                                      type="button"
-                                      className={`topic-venue-picker-trigger${topicVenuePickerOpen ? ' is-open' : ''}`}
-                                      onClick={() => setTopicVenuePickerOpen((current: any) => !current)}
-                                      aria-expanded={topicVenuePickerOpen}
-                                    >
-                                      <span>{topicVenueSelectionLabel}</span>
-                                      <span aria-hidden="true">{topicVenuePickerOpen ? '▲' : '▼'}</span>
-                                    </button>
-                                    {topicVenuePickerOpen ? (
-                                      <div className="topic-venue-picker-panel">
-                                        <div className="topic-venue-picker-actions">
-                                          <button
-                                            data-ui="button"
-                                            data-variant="ghost"
-                                            data-size="sm"
-                                            type="button"
-                                            onClick={() => setTopicFormVenueSelections([])}
-                                          >
-                                            清空选择
-                                          </button>
-                                        </div>
-                                        <div className="topic-venue-picker-list">
-                                          {topicVenueOptions.map((option: any) => (
-                                            <label key={option} className="topic-venue-picker-item">
-                                              <input
-                                                type="checkbox"
-                                                checked={topicFormVenueSelections.includes(option)}
-                                                onChange={() => handleToggleTopicVenueSelection(option)}
-                                              />
-                                              <span>{option}</span>
-                                            </label>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    ) : null}
-                                  </div>
-
-                                  <div data-ui="field" className="topic-year-field">
-                                    <div className="topic-year-header">
-                                      <span data-slot="label">年份范围</span>
-                                      <div className="topic-year-shortcuts">
-                                        <button
-                                          data-ui="button"
-                                          data-variant="ghost"
-                                          data-size="sm"
-                                          type="button"
-                                          onClick={() => applyTopicYearPreset('recent-5')}
-                                        >
-                                          近5年
-                                        </button>
-                                        <button
-                                          data-ui="button"
-                                          data-variant="ghost"
-                                          data-size="sm"
-                                          type="button"
-                                          onClick={() => applyTopicYearPreset('recent-10')}
-                                        >
-                                          近10年
-                                        </button>
-                                        <button
-                                          data-ui="button"
-                                          data-variant="ghost"
-                                          data-size="sm"
-                                          type="button"
-                                          onClick={() => applyTopicYearPreset('all')}
-                                        >
-                                          全部
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <div className="topic-year-range-main">
-                                      <input
-                                        className="topic-year-bound-input"
-                                        type="number"
-                                        min={topicYearMinBound}
-                                        max={topicYearMaxBound}
-                                        value={topicYearLowerBound}
-                                        onChange={(event) => {
-                                          const value = Number.parseInt(event.target.value, 10);
-                                          if (!Number.isFinite(value)) {
-                                            return;
-                                          }
-                                          const clamped = Math.max(topicYearMinBound, Math.min(value, topicFormYearEnd));
-                                          setTopicFormYearStart(clamped);
-                                        }}
-                                      />
-                                      <div
-                                        className="topic-year-range-sliders"
-                                        role="group"
-                                        aria-label="年份范围滑动选择"
-                                        style={topicYearRangeTrackStyle}
-                                      >
-                                        <input
-                                          type="range"
-                                          min={topicYearMinBound}
-                                          max={topicYearMaxBound}
-                                          value={topicFormYearStart}
-                                          className="topic-year-slider topic-year-slider-start"
-                                          onChange={(event) => {
-                                            const value = Number.parseInt(event.target.value, 10);
-                                            if (!Number.isFinite(value)) {
-                                              return;
-                                            }
-                                            setTopicFormYearStart(Math.min(value, topicFormYearEnd));
-                                          }}
-                                        />
-                                        <input
-                                          type="range"
-                                          min={topicYearMinBound}
-                                          max={topicYearMaxBound}
-                                          value={topicFormYearEnd}
-                                          className="topic-year-slider topic-year-slider-end"
-                                          onChange={(event) => {
-                                            const value = Number.parseInt(event.target.value, 10);
-                                            if (!Number.isFinite(value)) {
-                                              return;
-                                            }
-                                            setTopicFormYearEnd(Math.max(value, topicFormYearStart));
-                                          }}
-                                        />
-                                      </div>
-                                      <input
-                                        className="topic-year-bound-input"
-                                        type="number"
-                                        min={topicYearMinBound}
-                                        max={topicYearMaxBound}
-                                        value={topicYearUpperBound}
-                                        onChange={(event) => {
-                                          const value = Number.parseInt(event.target.value, 10);
-                                          if (!Number.isFinite(value)) {
-                                            return;
-                                          }
-                                          const clamped = Math.min(topicYearMaxBound, Math.max(value, topicFormYearStart));
-                                          setTopicFormYearEnd(clamped);
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-
-                              </section>
-
-                              <section className="topic-modal-section">
-                                <div className="topic-rule-binding-column">
-                                  <div className="topic-rule-binding-header-row">
-                                    <h4 className="topic-modal-section-title">规则绑定</h4>
-                                    <button
-                                      data-ui="button"
-                                      data-variant="ghost"
-                                      data-size="sm"
-                                      type="button"
-                                      onClick={handleOpenRuleCenter}
-                                    >
-                                      前往规则中心
-                                    </button>
-                                  </div>
-                                  <div className="topic-rule-binding-panel">
-                                    <div data-ui="field" className="topic-rule-binding-select-field">
-                                      <div className="topic-rule-binding-control-row">
-                                        <select
-                                          data-ui="select"
-                                          data-size="sm"
-                                          aria-label="选择规则"
-                                          value={selectedTopicRuleId}
-                                          onChange={(event) => {
-                                            handleSetTopicRuleBinding(event.target.value);
-                                          }}
-                                        >
-                                          <option value="">未绑定</option>
-                                          {topicScopedRules.map((rule: any) => (
-                                            <option key={rule.rule_id} value={rule.rule_id}>
-                                              {rule.name}{rule.status !== 'ACTIVE' ? '（已暂停）' : ''}
-                                            </option>
-                                          ))}
-                                        </select>
-                                        <button
-                                          data-ui="button"
-                                          data-variant="ghost"
-                                          data-size="sm"
-                                          type="button"
-                                          className="topic-rule-preview-toggle"
-                                          onClick={() => setIsTopicRulePreviewOpen((current) => !current)}
-                                          disabled={!selectedTopicRule}
-                                          aria-expanded={isTopicRulePreviewOpen}
-                                        >
-                                          {isTopicRulePreviewOpen ? '收起预览' : '预览'}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <div data-ui="field" className="topic-modal-toggle-field">
-                                      <div className="topic-modal-initial-row">
-                                        <label
-                                          className="topic-modal-checkbox"
-                                          title="开启后，下次命中规则时按全量范围拉取；该次运行成功后会自动关闭。"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={topicFormInitialPullPending}
-                                            title="开启后，下次命中规则时按全量范围拉取；该次运行成功后会自动关闭。"
-                                            onChange={(event) => {
-                                              setTopicFormInitialPullPending(event.target.checked);
-                                            }}
-                                          />
-                                          <span title="开启后，下次命中规则时按全量范围拉取；该次运行成功后会自动关闭。">
-                                            首次全量拉取
-                                          </span>
-                                        </label>
-                                        <div className="topic-modal-initial-meta">
-                                          <span
-                                            className={`topic-modal-initial-status${topicFormInitialPullPending ? ' is-pending' : ' is-closed'}`}
-                                          >
-                                            {topicFormInitialPullPending ? '状态：待首次成功' : '状态：已关闭'}
-                                          </span>
-                                          <button
-                                            data-ui="button"
-                                            data-variant="ghost"
-                                            data-size="sm"
-                                            type="button"
-                                            title="重置后会恢复为待首次成功，下一次执行将重新全量拉取。"
-                                            onClick={() => {
-                                              setTopicFormInitialPullPending(true);
-                                            }}
-                                          >
-                                            重置
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    {isTopicRulePreviewOpen && selectedTopicRule ? (
-                                      <div className="topic-rule-preview-panel">
-                                        {renderRulePreviewPanel(selectedTopicRule)}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </section>
-
-                              <footer className="topic-modal-footer">
-                                <button
-                                  data-ui="button"
-                                  data-variant="ghost"
-                                  data-size="sm"
-                                  type="button"
-                                  onClick={handleCloseTopicModal}
-                                >
-                                  取消
-                                </button>
-                                <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={handleSubmitTopicProfile}>
-                                  {topicEditingId ? '更新主题' : '创建主题'}
-                                </button>
-                              </footer>
-                            </section>
-                          </div>
-                        ) : null}
-                      </section>
-                    ) : null}
-                    {autoImportSubTab === 'rule-center' ? (
-                      <section className="literature-section-block">
-                        <div data-ui="toolbar" data-gap="2" data-wrap="wrap" className="rule-center-toolbar">
-                          <button
-                            data-ui="button"
-                            data-variant="primary"
-                            data-size="sm"
-                            type="button"
-                            onClick={handleOpenNewRuleEditor}
-                          >
-                            新建规则
-                          </button>
-                        </div>
-                        {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
-                        <div className="rule-center-table-wrap">
-                          {activeTopicRules.length === 0 ? (
-                            <p data-ui="text" data-variant="caption" data-tone="muted">暂无启用中的 TOPIC 规则。</p>
-                          ) : (
-                            <table className="rule-center-table">
-                              <thead>
-                                <tr>
-                                  <th>规则名称</th>
-                                  <th>调度</th>
-                                  <th>下次激活时间</th>
-                                  <th>来源</th>
-                                  <th>操作</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {activeTopicRules.map((rule: any) => {
-                                  const isScheduleEditorOpen =
-                                    !!activeRuleEditor && activeRuleEditor.ruleId === rule.rule_id && activeRuleEditor.mode === 'schedule';
-                                  const isSourceEditorOpen =
-                                    !!activeRuleEditor && activeRuleEditor.ruleId === rule.rule_id && activeRuleEditor.mode === 'source';
-                                  const isAdvancedEditorOpen =
-                                    !!activeRuleEditor && activeRuleEditor.ruleId === rule.rule_id && activeRuleEditor.mode === 'advanced';
-
-                                  return (
-                                    <Fragment key={rule.rule_id}>
-                                      <tr>
-                                        <td>
-                                          <div className="rule-center-rule-name">
-                                            <span>{rule.name}</span>
-                                          </div>
-                                        </td>
-                                        <td>
-                                          <div className={`rule-center-editable-cell${isScheduleEditorOpen ? ' is-open' : ''}`}>
-                                            <span className="rule-center-editable-value">{formatRuleScheduleLabel(rule)}</span>
-                                            <button
-                                              className={`rule-center-edit-icon${isScheduleEditorOpen ? ' is-active' : ''}`}
-                                              type="button"
-                                              aria-label={isScheduleEditorOpen ? '收起调度编辑' : '编辑调度'}
-                                              aria-pressed={isScheduleEditorOpen}
-                                              onClick={(event) => handleOpenExistingRuleEditor(rule, 'schedule', event.currentTarget)}
-                                            >
-                                              <svg viewBox="0 0 16 16" aria-hidden="true">
-                                                <path d="M11.8 1.8a1.5 1.5 0 0 1 2.1 2.1l-7 7-.1.1-3 1a.5.5 0 0 1-.6-.6l1-3 .1-.1zM10.4 3.2 5 8.6l-.6 1.7 1.7-.6 5.4-5.4z" />
-                                              </svg>
-                                            </button>
-                                          </div>
-                                        </td>
-                                        <td>
-                                          <span className="rule-center-next-activation">{formatNextActivationLabel(rule)}</span>
-                                        </td>
-                                        <td>
-                                          <div className={`rule-center-editable-cell${isSourceEditorOpen ? ' is-open' : ''}`}>
-                                            <span className="rule-center-editable-value">{formatRuleSourcesLabel(rule)}</span>
-                                            <button
-                                              className={`rule-center-edit-icon${isSourceEditorOpen ? ' is-active' : ''}`}
-                                              type="button"
-                                              aria-label={isSourceEditorOpen ? '收起来源编辑' : '编辑来源'}
-                                              aria-pressed={isSourceEditorOpen}
-                                              onClick={(event) => handleOpenExistingRuleEditor(rule, 'source', event.currentTarget)}
-                                            >
-                                              <svg viewBox="0 0 16 16" aria-hidden="true">
-                                                <path d="M11.8 1.8a1.5 1.5 0 0 1 2.1 2.1l-7 7-.1.1-3 1a.5.5 0 0 1-.6-.6l1-3 .1-.1zM10.4 3.2 5 8.6l-.6 1.7 1.7-.6 5.4-5.4z" />
-                                              </svg>
-                                            </button>
-                                          </div>
-                                        </td>
-                                        <td>
-                                          <div data-ui="toolbar" data-gap="2" className="rule-center-actions">
-                                            <button
-                                              data-ui="button"
-                                              data-variant="ghost"
-                                              data-size="sm"
-                                              type="button"
-                                              onClick={() => handleOpenExistingRuleEditor(rule, 'advanced')}
-                                            >
-                                              高级设置
-                                            </button>
-                                            <button
-                                              data-ui="button"
-                                              data-variant="ghost"
-                                              data-size="sm"
-                                              type="button"
-                                              onClick={() => {
-                                                const confirmed = window.confirm(`确认移除规则「${rule.name}」吗？`);
-                                                if (!confirmed) {
-                                                  return;
-                                                }
-                                                void handleDeleteRule(rule);
-                                              }}
-                                            >
-                                              移除规则
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                      {isAdvancedEditorOpen ? (
-                                        <tr className="rule-center-inline-editor-row">
-                                          <td colSpan={5}>
-                                            <section className="rule-center-inline-editor-panel">
-                                              {renderCompactAdvancedEditor()}
-                                            </section>
-                                          </td>
-                                        </tr>
-                                      ) : null}
-                                    </Fragment>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
-                        {renderFloatingRuleQuickEditor()}
-
-                        {activeRuleEditor?.mode === 'advanced' && activeRuleEditor.ruleId === null ? (
-                          <section className="topic-rule-binding-column rule-center-editor-block">
-                            <div className="topic-rule-binding-header-row">
-                              <h4 className="topic-modal-section-title">
-                                {activeRuleEditor.ruleId ? '高级设置' : '新建规则'}
-                              </h4>
-                              <div className="topic-rule-header-actions" data-ui="toolbar" data-gap="1">
-                                <button
-                                  data-ui="button"
-                                  data-variant="ghost"
-                                  data-size="sm"
-                                  type="button"
-                                  className="topic-rule-header-action"
-                                  onClick={handleCloseActiveRuleEditor}
-                                >
-                                  取消
-                                </button>
-                                <button
-                                  data-ui="button"
-                                  data-variant="primary"
-                                  data-size="sm"
-                                  type="button"
-                                  onClick={() => void handleSaveActiveRuleEditor()}
-                                >
-                                  {activeRuleEditor.ruleId ? '保存设置' : '保存规则'}
-                                </button>
-                              </div>
-                            </div>
-                            <p data-ui="text" data-variant="caption" data-tone="muted" className="rule-center-editor-description">
-                              {activeRuleEditor.name}
-                            </p>
-                            <div className="topic-rule-binding-card">
-                              {renderRuleInlineEditor({ showPrimarySettings: activeRuleEditor.ruleId === null })}
-                            </div>
-                          </section>
-                        ) : null}
-                      </section>
-                    ) : null}
-                    {autoImportSubTab === 'runs-alerts' ? (
-                      <section className="literature-section-block">
-                        <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
-                          <label data-ui="field" className="literature-filter-year is-prefixed" aria-label="执行状态筛选">
-                            <select
-                              data-ui="select"
-                              data-size="sm"
-                              value={runsFilterStatus}
-                              onChange={(event) => {
-                                setRunsFilterStatus(event.target.value as '' | AutoPullRunStatus | 'EXCEPTION');
-                                setRunsPageIndex(1);
-                              }}
-                            >
-                              <option value="">全部</option>
-                              <option value="EXCEPTION">异常（FAILED / PARTIAL）</option>
-                              <option value="PENDING">PENDING</option>
-                              <option value="RUNNING">RUNNING</option>
-                              <option value="PARTIAL">PARTIAL</option>
-                              <option value="SUCCESS">SUCCESS</option>
-                              <option value="FAILED">FAILED</option>
-                              <option value="SKIPPED">SKIPPED</option>
-                            </select>
-                          </label>
-                        </div>
-                        {runsError ? <p data-ui="text" data-variant="caption" data-tone="danger">{runsError}</p> : null}
-                        <div className="auto-pull-runs-layout">
-                          <section className="auto-pull-runs-pane auto-pull-runs-list-pane">
-                            <div className="literature-list auto-pull-runs-list">
-                              {autoPullRuns.length === 0 ? (
-                                <p data-ui="text" data-variant="caption" data-tone="muted" className="auto-pull-runs-empty">
-                                  暂无运行记录。
-                                </p>
-                              ) : (
-                                runsPageItems.map((run: any) => (
-                                  <div
-                                    key={run.run_id}
-                                    className={`literature-list-item auto-pull-run-item${selectedRunDetail?.run_id === run.run_id ? ' is-selected' : ''}`}
-                                  >
-                                    <div>
-                                      <p data-ui="text" data-variant="body" data-tone="primary">
-                                        {run.run_id} · {run.status} · 录入：{String(run.summary.imported_count ?? 0)} · 失败：{String(run.summary.failed_count ?? 0)}
-                                      </p>
-                                    </div>
-                                    <div data-ui="toolbar" data-gap="2">
-                                      <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void loadAutoPullRunDetail(run.run_id)}>
-                                        详情
-                                      </button>
-                                      <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void handleRetryRun(run.run_id)}>
-                                        重试失败源
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                            {autoPullRuns.length > 0 ? (
-                              <div className="auto-pull-runs-pagination">
-                                <button
-                                  data-ui="button"
-                                  data-variant="ghost"
-                                  data-size="sm"
-                                  type="button"
-                                  onClick={() => setRunsPageIndex((current: any) => Math.max(1, current - 1))}
-                                  disabled={runsPageIndex <= 1}
-                                >
-                                  上一页
-                                </button>
-                                <span data-ui="text" data-variant="caption" data-tone="muted">
-                                  第 <strong>{runsPageIndex}</strong> / {runsTotalPages} 页
-                                </span>
-                                <button
-                                  data-ui="button"
-                                  data-variant="ghost"
-                                  data-size="sm"
-                                  type="button"
-                                  onClick={() => setRunsPageIndex((current: any) => Math.min(runsTotalPages, current + 1))}
-                                  disabled={runsPageIndex >= runsTotalPages}
-                                >
-                                  下一页
-                                </button>
-                              </div>
-                            ) : null}
-                          </section>
-
-                          <section className="auto-pull-runs-pane auto-pull-runs-detail-pane">
-                            {runDetailLoading ? (
-                              <p data-ui="text" data-variant="caption" data-tone="muted">加载运行详情中...</p>
-                            ) : null}
-                            {runDetailError ? (
-                              <p data-ui="text" data-variant="caption" data-tone="danger">{runDetailError}</p>
-                            ) : null}
-                            {selectedRunDetail ? (
-                              <div className="auto-pull-run-detail">
-                                <p data-ui="text" data-variant="caption" data-tone="muted">
-                                  运行详情：{selectedRunDetail.run_id} · {selectedRunDetail.status}
-                                </p>
-                                <div className="auto-pull-run-detail-meta">
-                                  <p data-ui="text" data-variant="caption" data-tone="muted">
-                                    录入：{String(selectedRunDetail.summary.imported_count ?? 0)} · 失败：{String(selectedRunDetail.summary.failed_count ?? 0)}
-                                  </p>
-                                  <p data-ui="text" data-variant="caption" data-tone="muted">主题名称：{selectedRunTopicLabel}</p>
-                                  <p data-ui="text" data-variant="caption" data-tone="muted">拉取时间：{selectedRunPulledAtLabel}</p>
-                                  <p data-ui="text" data-variant="caption" data-tone="muted">持续时间：{selectedRunDurationLabel}</p>
-                                </div>
-                                <div className="literature-list auto-pull-runs-detail-list">
-                                  {(selectedRunDetail.source_attempts ?? []).map((attempt: any) => {
-                                    const meta = asRecord(attempt.meta) ?? {};
-                                    const incompleteRejectedCount =
-                                      typeof meta.incomplete_rejected_count === 'number' ? meta.incomplete_rejected_count : 0;
-                                    const duplicateSkippedCount =
-                                      typeof meta.duplicate_skipped_count === 'number' ? meta.duplicate_skipped_count : 0;
-                                    const belowThresholdCount =
-                                      typeof meta.below_threshold_count === 'number' ? meta.below_threshold_count : 0;
-                                    const eligibleCount =
-                                      typeof meta.eligible_count === 'number' ? meta.eligible_count : 0;
-                                    const importedNewCount =
-                                      typeof meta.imported_new_count === 'number' ? meta.imported_new_count : 0;
-                                    const importedExistingCount =
-                                      typeof meta.imported_existing_count === 'number' ? meta.imported_existing_count : 0;
-                                    const llmScoreAvg =
-                                      typeof meta.llm_score_avg === 'number' ? meta.llm_score_avg : null;
-
-                                    return (
-                                      <div key={`${selectedRunDetail.run_id}-${attempt.source}`} className="literature-list-item auto-pull-run-attempt-item">
-                                        <div>
-                                          <p data-ui="text" data-variant="body" data-tone="primary">
-                                            {attempt.source} · {attempt.status}
-                                          </p>
-                                          <p data-ui="text" data-variant="caption" data-tone="muted">
-                                            fetched:{attempt.fetched_count} / imported:{attempt.imported_count} / failed:{attempt.failed_count}
-                                          </p>
-                                          <p data-ui="text" data-variant="caption" data-tone="muted">
-                                            不完整:{incompleteRejectedCount} / 去重跳过:{duplicateSkippedCount} / 低于门槛:{belowThresholdCount} / 可导入:{eligibleCount}
-                                          </p>
-                                          <p data-ui="text" data-variant="caption" data-tone="muted">
-                                            新增:{importedNewCount} / 命中既有:{importedExistingCount}
-                                            {llmScoreAvg !== null ? ` / 平均质量分:${llmScoreAvg}` : ''}
-                                          </p>
-                                        </div>
-                                        {attempt.error_message ? (
-                                          <p data-ui="text" data-variant="caption" data-tone="danger">{attempt.error_message}</p>
-                                        ) : null}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : (
-                              <p data-ui="text" data-variant="caption" data-tone="muted" className="auto-pull-runs-empty">
-                                请选择一条 Run 查看详情。
-                              </p>
-                            )}
-                          </section>
-                        </div>
-                      </section>
-                    ) : null}
+    <section className="literature-tab-panel" data-autopull-status={autoPullStatusDigest}>
+      <AutoImportTopicSettingsView
+        visible={autoImportSubTab === 'topic-settings'}
+        controller={controller}
+        topicForm={topicForm}
+        shared={{
+          autoPullRunStatusLabels: shared.autoPullRunStatusLabels,
+          formatTimestamp: shared.formatTimestamp,
+          resolveRunSortTimestamp: shared.resolveRunSortTimestamp,
+          topicYearMaxBound: shared.topicYearMaxBound,
+          topicYearMinBound: shared.topicYearMinBound,
+        }}
+        isTopicRulePreviewOpen={isTopicRulePreviewOpen}
+        setIsTopicRulePreviewOpen={setIsTopicRulePreviewOpen}
+        activeTopicListRulePreviewTopicId={activeTopicListRulePreviewTopicId}
+        setActiveTopicListRulePreviewTopicId={setActiveTopicListRulePreviewTopicId}
+        selectedTopicRuleId={selectedTopicRuleId}
+        selectedTopicRule={selectedTopicRule}
+        renderRulePreviewPanel={renderRulePreviewPanel}
+      />
+      <AutoImportRuleCenterView
+        visible={autoImportSubTab === 'rule-center'}
+        controller={controller}
+        ruleForm={ruleForm}
+        activeTopicRules={activeTopicRules}
+        activeRuleEditor={activeRuleEditor}
+        handleOpenNewRuleEditor={handleOpenNewRuleEditor}
+        handleOpenExistingRuleEditor={handleOpenExistingRuleEditor}
+        handleCloseActiveRuleEditor={handleCloseActiveRuleEditor}
+        handleSaveActiveRuleEditor={handleSaveActiveRuleEditor}
+        renderCompactAdvancedEditor={renderCompactAdvancedEditor}
+        renderNewRuleEditor={renderNewRuleEditor}
+        renderFloatingRuleQuickEditor={renderFloatingRuleQuickEditor}
+        formatRuleScheduleLabel={formatRuleScheduleLabel}
+        formatNextActivationLabel={formatNextActivationLabel}
+        formatRuleSourcesLabel={formatRuleSourcesLabel}
+      />
+      <AutoImportRunsAlertsView
+        visible={autoImportSubTab === 'runs-alerts'}
+        controller={controller}
+        runs={props.runs}
+        asRecord={asRecord}
+      />
     </section>
   );
 }

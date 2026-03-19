@@ -1,8 +1,6 @@
 import { Fragment } from 'react';
-
-type ManualImportTabProps = {
-  active: boolean;
-} & Record<string, any>;
+import type { ManualDraftRow } from '../manual-import-types';
+import type { ManualImportTabProps } from './types';
 
 export function ManualImportTab(props: ManualImportTabProps) {
   if (!props.active) {
@@ -10,8 +8,21 @@ export function ManualImportTab(props: ManualImportTabProps) {
   }
 
   const {
+    controller,
+    navigation,
+    shared,
+    upload,
+    zotero,
+  } = props;
+  const {
     formatManualUploadFileStatusLabel,
     getManualFieldErrorText,
+    isManualUploadLlmSupported,
+    manualUploadFormatHint,
+    mapManualValidationErrors,
+    updateHelpTooltipAlignment,
+  } = shared;
+  const {
     handleCopyManualCellValue,
     handleImportFromZotero,
     handleLoadZoteroToReview,
@@ -26,29 +37,31 @@ export function ManualImportTab(props: ManualImportTabProps) {
     handleToggleManualRowInclude,
     handleToggleManualRowPanel,
     hasManualSession,
-    isManualUploadLlmSupported,
-    manualDropActive,
-    manualImportSubTab,
-    manualOpenRowId,
-    manualOpenRowPanel,
     manualRowStats,
-    manualShowErrorOnly,
-    manualShowImportableOnly,
-    manualUploadError,
-    manualUploadFiles,
-    manualUploadFormatHint,
-    manualUploadLoading,
-    manualUploadStatus,
     manualValidationByRowId,
     manualVisibleRows,
-    mapManualValidationErrors,
+  } = controller;
+  const {
+    activeSubTab: manualImportSubTab,
+    manualDropActive,
+    manualOpenRowId,
+    manualOpenRowPanel,
+    manualShowErrorOnly,
+    manualShowImportableOnly,
     setManualDropActive,
     setManualShowErrorOnly,
     setManualShowImportableOnly,
+  } = navigation;
+  const {
+    manualUploadError,
+    manualUploadFiles,
+    manualUploadLoading,
+    manualUploadStatus,
+  } = upload;
+  const {
     setZoteroApiKey,
     setZoteroLibraryId,
     setZoteroLibraryType,
-    updateHelpTooltipAlignment,
     zoteroAction,
     zoteroApiKey,
     zoteroError,
@@ -57,7 +70,7 @@ export function ManualImportTab(props: ManualImportTabProps) {
     zoteroLinkResult,
     zoteroLoading,
     zoteroStatus,
-  } = props;
+  } = zotero;
 
   return (
                   <section className="literature-tab-panel manual-import-panel">
@@ -131,7 +144,7 @@ export function ManualImportTab(props: ManualImportTabProps) {
                                         <td colSpan={4}>暂无上传文件。</td>
                                       </tr>
                                     ) : (
-                                      manualUploadFiles.map((fileItem: any) => {
+                                      manualUploadFiles.map((fileItem) => {
                                         const canRunLlmActions = isManualUploadLlmSupported(fileItem.fileName)
                                           && fileItem.status !== 'duplicate'
                                           && fileItem.status !== 'processing';
@@ -405,7 +418,7 @@ export function ManualImportTab(props: ManualImportTabProps) {
                                 </td>
                               </tr>
                             ) : (
-                            manualVisibleRows.map((row: any) => {
+                            manualVisibleRows.map((row: ManualDraftRow) => {
                                 const validation = manualValidationByRowId.get(row.id);
                                 const isRowValid = Boolean(validation?.is_valid);
                                 const isRowOpened = manualOpenRowId === row.id;

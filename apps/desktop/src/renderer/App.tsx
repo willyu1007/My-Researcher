@@ -1,5 +1,4 @@
 import {
-  type FormEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -30,9 +29,7 @@ import {
   autoPullWeekdayOptions,
   citationStatusOptions,
   coreNavItems,
-  emptyArtifactBundle,
   emptyLiteratureOverviewData,
-  emptyMetric,
   emptyZoteroLinkResult,
   initialModule,
   literatureSubTabsByTab,
@@ -59,11 +56,7 @@ import {
   isOverviewExcluded,
   isPaperNotFoundMessage,
   mapManualValidationErrors,
-  normalizeArtifactPayload,
   normalizeLiteratureOverviewPayload,
-  normalizeMetricPayload,
-  normalizeReleasePayload,
-  normalizeTimelinePayload,
   normalizeTopicScopePayload,
   normalizePaperLiteraturePayload,
   projectOverviewItems,
@@ -84,14 +77,12 @@ import { Sidebar } from './shell/components/Sidebar';
 import { GovernancePanel } from './shell/components/GovernancePanel';
 import { useDashboardMetrics } from './shell/useDashboardMetrics';
 import { useShellHandlers } from './shell/useShellHandlers';
+import { useGovernancePanelController } from './shell/useGovernancePanelController';
 import { PaperModule } from './modules/PaperModule';
 import { WritingModule } from './modules/WritingModule';
-import { OverviewTab } from './literature/overview/OverviewTab';
-import { AutoImportTab } from './literature/auto-import/AutoImportTab';
-import { ManualImportTab } from './literature/manual-import/ManualImportTab';
+import { LiteratureWorkspace } from './literature/LiteratureWorkspace';
 import { useOverviewController } from './literature/overview/useOverviewController';
 import { useOverviewActionsController } from './literature/overview/useOverviewActionsController';
-import { MetadataIntakePanel } from './literature/intake/MetadataIntakePanel';
 import { useMetadataIntakeController } from './literature/intake/useMetadataIntakeController';
 import { useAutoImportController } from './literature/auto-import/useAutoImportController';
 import { useManualImportController } from './literature/manual-import/useManualImportController';
@@ -118,15 +109,11 @@ import type {
   PaperLiteratureItem,
   QuerySort,
   QuerySortPreset,
-  ReviewDecision,
-  RuntimeMetric,
   SortDirection,
-  TimelineEvent,
   TopicScopeItem,
   UiOperationStatus,
   ZoteroAction,
   ZoteroLinkResult,
-  ArtifactBundle,
 } from './literature/shared/types';
 type AppProps = {
   initialThemeMode: ThemeMode;
@@ -155,22 +142,6 @@ export function App({ initialThemeMode }: AppProps) {
   const [paperIdInput, setPaperIdInput] = useState<string>('');
   const [paperId, setPaperId] = useState<string>('');
   const [refreshTick, setRefreshTick] = useState<number>(0);
-
-  const [timelinePanel, setTimelinePanel] = useState<PanelState<TimelineEvent[]>>({
-    status: 'idle',
-    data: [],
-    error: null,
-  });
-  const [metricsPanel, setMetricsPanel] = useState<PanelState<RuntimeMetric>>({
-    status: 'idle',
-    data: emptyMetric,
-    error: null,
-  });
-  const [artifactPanel, setArtifactPanel] = useState<PanelState<ArtifactBundle>>({
-    status: 'idle',
-    data: emptyArtifactBundle,
-    error: null,
-  });
   const [topicIdInput, setTopicIdInput] = useState<string>('TOPIC-001');
   const [topicId, setTopicId] = useState<string>('TOPIC-001');
   const [topicScopeItems, setTopicScopeItems] = useState<TopicScopeItem[]>([]);
@@ -273,14 +244,6 @@ export function App({ initialThemeMode }: AppProps) {
   const [metadataIntakeLiteratureId, setMetadataIntakeLiteratureId] = useState<string | null>(null);
   const [metadataIntakeTab, setMetadataIntakeTab] = useState<MetadataIntakeTabKey>('abstract');
   const [metadataIntakeContext, setMetadataIntakeContext] = useState<MetadataIntakeOpenContext>(emptyMetadataIntakeContext);
-
-  const [reviewersInput, setReviewersInput] = useState<string>('reviewer-1');
-  const [decision, setDecision] = useState<ReviewDecision>('hold');
-  const [riskFlagsInput, setRiskFlagsInput] = useState<string>('policy-check');
-  const [labelPolicy, setLabelPolicy] = useState<string>('ai-generated-required');
-  const [reviewComment, setReviewComment] = useState<string>('');
-  const [reviewSubmitState, setReviewSubmitState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
-  const [reviewSubmitMessage, setReviewSubmitMessage] = useState<string>('');
 
   useEffect(() => {
     let unmounted = false;
@@ -395,73 +358,6 @@ export function App({ initialThemeMode }: AppProps) {
       window.clearTimeout(timer);
     };
   }, [topFeedback]);
-
-  const loadGovernancePanels = useCallback(async (targetPaperId: string) => {
-    const normalizedPaperId = targetPaperId.trim();
-
-    if (!normalizedPaperId) {
-      setTimelinePanel({ status: 'error', data: [], error: 'Paper ID 不能为空。' });
-      setMetricsPanel({ status: 'error', data: emptyMetric, error: 'Paper ID 不能为空。' });
-      setArtifactPanel({ status: 'error', data: emptyArtifactBundle, error: 'Paper ID 不能为空。' });
-      return;
-    }
-
-    const encodedId = encodeURIComponent(normalizedPaperId);
-
-    setTimelinePanel({ status: 'loading', data: [], error: null });
-    setMetricsPanel({ status: 'loading', data: emptyMetric, error: null });
-    setArtifactPanel({ status: 'loading', data: emptyArtifactBundle, error: null });
-
-    const [timelineResult, metricsResult, artifactResult] = await Promise.allSettled([
-      requestGovernance({ method: 'GET', path: `/paper-projects/${encodedId}/timeline` }),
-      requestGovernance({ method: 'GET', path: `/paper-projects/${encodedId}/resource-metrics` }),
-      requestGovernance({ method: 'GET', path: `/paper-projects/${encodedId}/artifact-bundle` }),
-    ]);
-
-    if (timelineResult.status === 'fulfilled') {
-      const normalized = normalizeTimelinePayload(timelineResult.value);
-      setTimelinePanel({
-        status: normalized.length > 0 ? 'ready' : 'empty',
-        data: normalized,
-        error: null,
-      });
-    } else {
-      setTimelinePanel({ status: 'error', data: [], error: timelineResult.reason instanceof Error ? timelineResult.reason.message : String(timelineResult.reason) });
-    }
-
-    if (metricsResult.status === 'fulfilled') {
-      const normalized = normalizeMetricPayload(metricsResult.value);
-      if (normalized) {
-        setMetricsPanel({ status: 'ready', data: normalized, error: null });
-      } else {
-        setMetricsPanel({ status: 'empty', data: emptyMetric, error: null });
-      }
-    } else {
-      setMetricsPanel({ status: 'error', data: emptyMetric, error: metricsResult.reason instanceof Error ? metricsResult.reason.message : String(metricsResult.reason) });
-    }
-
-    if (artifactResult.status === 'fulfilled') {
-      const normalized = normalizeArtifactPayload(artifactResult.value);
-      if (normalized) {
-        setArtifactPanel({ status: 'ready', data: normalized, error: null });
-      } else {
-        setArtifactPanel({ status: 'empty', data: emptyArtifactBundle, error: null });
-      }
-    } else {
-      setArtifactPanel({ status: 'error', data: emptyArtifactBundle, error: artifactResult.reason instanceof Error ? artifactResult.reason.message : String(artifactResult.reason) });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!governanceEnabled) {
-      setTimelinePanel({ status: 'idle', data: [], error: null });
-      setMetricsPanel({ status: 'idle', data: emptyMetric, error: null });
-      setArtifactPanel({ status: 'idle', data: emptyArtifactBundle, error: null });
-      return;
-    }
-
-    void loadGovernancePanels(paperId);
-  }, [governanceEnabled, loadGovernancePanels, paperId, refreshTick]);
 
   const loadTopicScope = useCallback(async (targetTopicId: string) => {
     const normalizedTopicId = targetTopicId.trim();
@@ -761,46 +657,7 @@ export function App({ initialThemeMode }: AppProps) {
     };
   }, [overviewTagPickerOpen]);
 
-  const {
-    topicScopedRules,
-    topicSettingsSummaryStats,
-    autoPullRuleById,
-    latestRunByRuleId,
-    runsTotalPages,
-    runsPageItems,
-    selectedRunTopicLabel,
-    selectedRunPulledAtLabel,
-    selectedRunDurationLabel,
-    topicVenueOptions,
-    topicAutoIdPreview,
-    topicYearLowerBound,
-    topicYearUpperBound,
-    topicYearRangeTrackStyle,
-    topicVenueSelectionLabel,
-    autoPullStatusDigest,
-    loadTopicProfiles,
-    loadAutoPullRules,
-    loadAutoPullRuns,
-    loadAutoPullRunDetail,
-    handleOpenCreateTopicProfile,
-    handleCloseTopicModal,
-    handleEditTopicProfile,
-    handleSetTopicRuleBinding,
-    handleAddTopicIncludeKeyword,
-    handleRemoveTopicIncludeKeyword,
-    handleAddTopicExcludeKeyword,
-    handleRemoveTopicExcludeKeyword,
-    handleToggleTopicVenueSelection,
-    applyTopicYearPreset,
-    handleSubmitTopicProfile,
-    handleToggleTopicProfileActive,
-    handleOpenRuleCenter,
-    handleResetRuleComposer,
-    handleEditRule,
-    handleSubmitRule,
-    handleDeleteRule,
-    handleRetryRun,
-  } = useAutoImportController({
+  const autoImportController = useAutoImportController({
     runsFilterStatus,
     pushLiteratureFeedback,
     setTopicProfilesStatus,
@@ -882,27 +739,7 @@ export function App({ initialThemeMode }: AppProps) {
     toText,
   });
 
-  const {
-    manualValidationByRowId,
-    manualVisibleRows,
-    manualRowStats,
-    hasManualSession,
-    handleManualUploadFileLlmAction,
-    handleManualUpload,
-    handleManualUploadDrop,
-    handleInjectManualImportTestData,
-    handleClearInjectedManualImportData,
-    handleRemoveManualUploadFile,
-    handleManualDraftFieldChange,
-    handleToggleManualRowInclude,
-    handleRemoveManualRow,
-    handleToggleManualRowPanel,
-    handleCopyManualCellValue,
-    handleSubmitManualReviewedRows,
-    handleTestZoteroConnection,
-    handleLoadZoteroToReview,
-    handleImportFromZotero,
-  } = useManualImportController({
+  const manualImportController = useManualImportController({
     manualImportSession,
     setManualImportSession,
     manualUploadFiles,
@@ -929,9 +766,9 @@ export function App({ initialThemeMode }: AppProps) {
     setPaperIdInput,
     loadTopicScope,
     loadLiteratureOverview,
-    loadTopicProfiles,
-    loadAutoPullRules,
-    loadAutoPullRuns,
+    loadTopicProfiles: autoImportController.loadTopicProfiles,
+    loadAutoPullRules: autoImportController.loadAutoPullRules,
+    loadAutoPullRuns: autoImportController.loadAutoPullRuns,
     zoteroLibraryId,
     zoteroLibraryType,
     zoteroApiKey,
@@ -997,7 +834,7 @@ export function App({ initialThemeMode }: AppProps) {
     setQuerySortPresetInput,
     overviewTagOptions,
     topFeedback,
-    handleImportFromZotero,
+    handleImportFromZotero: manualImportController.handleImportFromZotero,
     openMetadataIntakePanel: handleOpenMetadataIntakePanel,
   });
 
@@ -1041,15 +878,15 @@ export function App({ initialThemeMode }: AppProps) {
     if (activeModule !== '文献管理' || activeLiteratureTab !== 'auto-import') {
       return;
     }
-    void loadTopicProfiles();
-    void loadAutoPullRules();
-    void loadAutoPullRuns();
+    void autoImportController.loadTopicProfiles();
+    void autoImportController.loadAutoPullRules();
+    void autoImportController.loadAutoPullRuns();
   }, [
     activeLiteratureTab,
     activeModule,
-    loadAutoPullRules,
-    loadAutoPullRuns,
-    loadTopicProfiles,
+    autoImportController.loadAutoPullRules,
+    autoImportController.loadAutoPullRuns,
+    autoImportController.loadTopicProfiles,
   ]);
 
   useEffect(() => {
@@ -1062,13 +899,13 @@ export function App({ initialThemeMode }: AppProps) {
     if (selectedRunDetail && autoPullRuns.some((run) => run.run_id === selectedRunDetail.run_id)) {
       return;
     }
-    void loadAutoPullRunDetail(autoPullRuns[0].run_id);
+    void autoImportController.loadAutoPullRunDetail(autoPullRuns[0].run_id);
   }, [
     activeLiteratureTab,
     activeModule,
     autoImportSubTab,
     autoPullRuns,
-    loadAutoPullRunDetail,
+    autoImportController.loadAutoPullRunDetail,
     selectedRunDetail,
   ]);
 
@@ -1085,6 +922,13 @@ export function App({ initialThemeMode }: AppProps) {
   }, [activeLiteratureTab, activeModule]);
 
   const isDevMode = appMode === 'dev';
+  const governancePanelController = useGovernancePanelController({
+    governanceEnabled,
+    paperId,
+    refreshTick,
+    setActionHint,
+    setRefreshTick,
+  });
   const { metricCards, releaseQueue } = useDashboardMetrics({
     activeModule,
     autoPullRules,
@@ -1094,7 +938,7 @@ export function App({ initialThemeMode }: AppProps) {
     paperId,
     topicId,
     topicScopeItems,
-    timelineEvents: timelinePanel.data,
+    timelineEvents: governancePanelController.timelinePanel.data,
   });
   const {
     handleModuleSelect,
@@ -1114,77 +958,14 @@ export function App({ initialThemeMode }: AppProps) {
     setGovernanceEnabled,
     paperIdInput,
     setPaperId,
-    setReviewSubmitState,
-    setReviewSubmitMessage,
+    setReviewSubmitState: governancePanelController.setReviewSubmitState,
+    setReviewSubmitMessage: governancePanelController.setReviewSubmitMessage,
     loadPaperLiterature,
     loadLiteratureOverview,
     topicId,
     setRefreshTick,
     tryGetSnapshotId,
   });
-
-  const handleSubmitReleaseReview = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const normalizedPaperId = paperId.trim();
-    if (!normalizedPaperId) {
-      setReviewSubmitState('error');
-      setReviewSubmitMessage('Paper ID 不能为空。');
-      return;
-    }
-
-    const reviewers = reviewersInput
-      .split(',')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-
-    if (reviewers.length === 0) {
-      setReviewSubmitState('error');
-      setReviewSubmitMessage('至少提供一个 reviewer。');
-      return;
-    }
-
-    const riskFlags = riskFlagsInput
-      .split(',')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-
-    setReviewSubmitState('submitting');
-    setReviewSubmitMessage('正在提交 release review...');
-
-    try {
-      const response = await requestGovernance({
-        method: 'POST',
-        path: `/paper-projects/${encodeURIComponent(normalizedPaperId)}/release-gate/review`,
-        body: {
-          reviewers,
-          decision,
-          risk_flags: riskFlags,
-          label_policy: labelPolicy,
-          comment: reviewComment.trim() || undefined,
-        },
-      });
-
-      const normalized = normalizeReleasePayload(response);
-      if (!normalized) {
-        throw new Error('release-review response invalid.');
-      }
-
-      setReviewSubmitState('success');
-      setReviewSubmitMessage(
-        `已提交 ${normalized.gate_result.review_id}（audit: ${normalized.gate_result.audit_ref}）。`,
-      );
-      setActionHint(
-        `release-review ${normalized.gate_result.review_id} 提交完成，decision=${decision}。`,
-      );
-      setRefreshTick((value) => value + 1);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'release-review 提交失败。';
-      setReviewSubmitState('error');
-      setReviewSubmitMessage(message);
-      setActionHint(`release-review 提交失败：${message}`);
-    }
-  };
 
   const overviewController = useOverviewController({
     activeLiteratureTab,
@@ -1229,6 +1010,176 @@ export function App({ initialThemeMode }: AppProps) {
     isMacDesktop ? ' is-macos-chrome' : '',
     isSidebarCollapsed ? ' is-sidebar-collapsed' : ' is-sidebar-expanded',
   ].join('');
+  const autoImportTabProps = {
+    active: activeLiteratureTab === 'auto-import',
+    navigation: {
+      activeSubTab: autoImportSubTab,
+    },
+    controller: autoImportController,
+    topicForm: {
+      topicProfiles,
+      topicProfilesError,
+      topicFormModalOpen,
+      topicEditingId,
+      topicFormTopicId,
+      topicFormName,
+      setTopicFormName,
+      topicFormInitialPullPending,
+      setTopicFormInitialPullPending,
+      topicFormIncludeDraft,
+      setTopicFormIncludeDraft,
+      topicFormIncludeKeywords,
+      topicFormExcludeDraft,
+      setTopicFormExcludeDraft,
+      topicFormExcludeKeywords,
+      topicFormVenueSelections,
+      setTopicFormVenueSelections,
+      topicVenuePickerOpen,
+      setTopicVenuePickerOpen,
+      topicFormYearStart,
+      setTopicFormYearStart,
+      topicFormYearEnd,
+      setTopicFormYearEnd,
+      topicFormRuleIds,
+    },
+    ruleForm: {
+      ruleFormFrequency,
+      setRuleFormFrequency,
+      ruleFormHourInput,
+      setRuleFormHourInput,
+      ruleFormLookbackInput,
+      setRuleFormLookbackInput,
+      ruleFormMaxResultsInput,
+      setRuleFormMaxResultsInput,
+      ruleFormMinCompletenessInput,
+      setRuleFormMinCompletenessInput,
+      ruleFormParseAndIngest,
+      setRuleFormParseAndIngest,
+      ruleFormSortMode,
+      setRuleFormSortMode,
+      ruleFormWeekday,
+      setRuleFormWeekday,
+      ruleSourceArxiv,
+      setRuleSourceArxiv,
+      ruleSourceCrossref,
+      setRuleSourceCrossref,
+      rulesError,
+    },
+    runs: {
+      runsFilterStatus,
+      setRunsFilterStatus,
+      runsPageIndex,
+      setRunsPageIndex,
+      autoPullRuns,
+      runsError,
+      runDetailError,
+      runDetailLoading,
+      selectedRunDetail,
+    },
+    shared: {
+      autoPullStatusDigest: autoImportController.autoPullStatusDigest,
+      asRecord,
+      autoPullHourOptions,
+      autoPullLimitHint,
+      autoPullLookbackHint,
+      autoPullParseHint,
+      autoPullQualityHint,
+      autoPullQualityPresetOptions,
+      autoPullRunStatusLabels,
+      autoPullSortHint,
+      autoPullWeekdayOptions,
+      formatTimestamp,
+      resolveRunSortTimestamp,
+      topicYearMinBound,
+      topicYearMaxBound,
+      updateHelpTooltipAlignment,
+    },
+  };
+  const manualImportTabProps = {
+    active: activeLiteratureTab === 'manual-import',
+    navigation: {
+      activeSubTab: manualImportSubTab,
+      manualDropActive,
+      setManualDropActive,
+      manualShowImportableOnly,
+      setManualShowImportableOnly,
+      manualShowErrorOnly,
+      setManualShowErrorOnly,
+      manualOpenRowId,
+      manualOpenRowPanel,
+    },
+    controller: manualImportController,
+    upload: {
+      manualUploadStatus,
+      manualUploadLoading,
+      manualUploadError,
+      manualUploadFiles,
+    },
+    zotero: {
+      zoteroLibraryType,
+      setZoteroLibraryType,
+      zoteroLibraryId,
+      setZoteroLibraryId,
+      zoteroApiKey,
+      setZoteroApiKey,
+      zoteroStatus,
+      zoteroLoading,
+      zoteroAction,
+      zoteroLinkResult,
+      zoteroError,
+    },
+    shared: {
+      manualUploadFormatHint,
+      updateHelpTooltipAlignment,
+      isManualUploadLlmSupported,
+      formatManualUploadFileStatusLabel,
+      mapManualValidationErrors,
+      getManualFieldErrorText,
+    },
+  };
+  const metadataIntakePanelProps = {
+    open: metadataIntakeLiteratureId !== null,
+    literatureId: metadataIntakeLiteratureId,
+    initialTab: metadataIntakeTab,
+    sourceUrl: metadataIntakeContext.source_url,
+    doi: metadataIntakeContext.doi,
+    arxivId: metadataIntakeContext.arxiv_id,
+    onRunOverviewContentAction: handleRunOverviewContentAction,
+    onClose: handleCloseMetadataIntakePanel,
+    controller: metadataIntakeController,
+  };
+  const governancePanelProps = {
+    visible: governanceEnabled,
+    paperId,
+    paperIdInput,
+    onPaperIdInputChange: setPaperIdInput,
+    onApplyPaperId: handleApplyPaperId,
+    onRefreshPanels: handleRefreshPanels,
+    apiBaseUrl: defaultApiBaseUrl,
+    onToggleGovernance: handleToggleGovernance,
+    timelinePanel: governancePanelController.timelinePanel,
+    metricsPanel: governancePanelController.metricsPanel,
+    artifactPanel: governancePanelController.artifactPanel,
+    onEvidenceTrace: handleEvidenceTrace,
+    formatTimestamp,
+    tryGetSnapshotId,
+    formatNumber,
+    formatCurrency,
+    releaseQueue,
+    reviewersInput: governancePanelController.reviewersInput,
+    onReviewersInputChange: governancePanelController.setReviewersInput,
+    decision: governancePanelController.decision,
+    onDecisionChange: governancePanelController.setDecision,
+    labelPolicy: governancePanelController.labelPolicy,
+    onLabelPolicyChange: governancePanelController.setLabelPolicy,
+    riskFlagsInput: governancePanelController.riskFlagsInput,
+    onRiskFlagsInputChange: governancePanelController.setRiskFlagsInput,
+    reviewComment: governancePanelController.reviewComment,
+    onReviewCommentChange: governancePanelController.setReviewComment,
+    reviewSubmitState: governancePanelController.reviewSubmitState,
+    reviewSubmitMessage: governancePanelController.reviewSubmitMessage,
+    onSubmitReleaseReview: governancePanelController.handleSubmitReleaseReview,
+  };
 
   return (
     <div data-ui="page" className={shellClassName}>
@@ -1265,8 +1216,8 @@ export function App({ initialThemeMode }: AppProps) {
           onLiteratureAutoParseDocumentsChange={setLiteratureAutoParseDocuments}
           literatureAutoExtractAbstracts={literatureAutoExtractAbstracts}
           onLiteratureAutoExtractAbstractsChange={setLiteratureAutoExtractAbstracts}
-          onInjectManualImportTestData={handleInjectManualImportTestData}
-          onClearInjectedManualImportData={handleClearInjectedManualImportData}
+          onInjectManualImportTestData={manualImportController.handleInjectManualImportTestData}
+          onClearInjectedManualImportData={manualImportController.handleClearInjectedManualImportData}
           onToggleSettingsPanel={() => setSettingsPanelOpen((current) => !current)}
         />
 
@@ -1283,183 +1234,13 @@ export function App({ initialThemeMode }: AppProps) {
           )}
 
           {activeModule === '文献管理' ? (
-            <section className="module-dashboard literature-workspace">
-              <div data-ui="stack" data-direction="col" data-gap="3">
-                <AutoImportTab
-                  active={activeLiteratureTab === 'auto-import'}
-                  autoPullStatusDigest={autoPullStatusDigest}
-                  applyTopicYearPreset={applyTopicYearPreset}
-                  asRecord={asRecord}
-                  autoImportSubTab={autoImportSubTab}
-                  autoPullHourOptions={autoPullHourOptions}
-                  autoPullLimitHint={autoPullLimitHint}
-                  autoPullLookbackHint={autoPullLookbackHint}
-                  autoPullParseHint={autoPullParseHint}
-                  autoPullQualityHint={autoPullQualityHint}
-                  autoPullQualityPresetOptions={autoPullQualityPresetOptions}
-                  autoPullRuleById={autoPullRuleById}
-                  autoPullRunStatusLabels={autoPullRunStatusLabels}
-                  autoPullRuns={autoPullRuns}
-                  autoPullSortHint={autoPullSortHint}
-                  autoPullWeekdayOptions={autoPullWeekdayOptions}
-                  formatTimestamp={formatTimestamp}
-                  handleAddTopicExcludeKeyword={handleAddTopicExcludeKeyword}
-                  handleAddTopicIncludeKeyword={handleAddTopicIncludeKeyword}
-                  handleCloseTopicModal={handleCloseTopicModal}
-                  handleEditRule={handleEditRule}
-                  handleDeleteRule={handleDeleteRule}
-                  handleEditTopicProfile={handleEditTopicProfile}
-                  handleOpenCreateTopicProfile={handleOpenCreateTopicProfile}
-                  handleRemoveTopicExcludeKeyword={handleRemoveTopicExcludeKeyword}
-                  handleRemoveTopicIncludeKeyword={handleRemoveTopicIncludeKeyword}
-                  handleOpenRuleCenter={handleOpenRuleCenter}
-                  handleRetryRun={handleRetryRun}
-                  handleSubmitRule={handleSubmitRule}
-                  handleSubmitTopicProfile={handleSubmitTopicProfile}
-                  handleToggleTopicProfileActive={handleToggleTopicProfileActive}
-                  handleSetTopicRuleBinding={handleSetTopicRuleBinding}
-                  handleToggleTopicVenueSelection={handleToggleTopicVenueSelection}
-                  handleResetRuleComposer={handleResetRuleComposer}
-                  latestRunByRuleId={latestRunByRuleId}
-                  loadAutoPullRunDetail={loadAutoPullRunDetail}
-                  resolveRunSortTimestamp={resolveRunSortTimestamp}
-                  ruleFormFrequency={ruleFormFrequency}
-                  ruleFormLookbackInput={ruleFormLookbackInput}
-                  ruleFormMaxResultsInput={ruleFormMaxResultsInput}
-                  ruleFormMinCompletenessInput={ruleFormMinCompletenessInput}
-                  ruleFormParseAndIngest={ruleFormParseAndIngest}
-                  ruleFormSortMode={ruleFormSortMode}
-                  ruleFormWeekday={ruleFormWeekday}
-                  ruleSourceArxiv={ruleSourceArxiv}
-                  ruleSourceCrossref={ruleSourceCrossref}
-                  rulesError={rulesError}
-                  runDetailError={runDetailError}
-                  runDetailLoading={runDetailLoading}
-                  runsError={runsError}
-                  runsFilterStatus={runsFilterStatus}
-                  runsPageIndex={runsPageIndex}
-                  runsPageItems={runsPageItems}
-                  runsTotalPages={runsTotalPages}
-                  selectedRunDetail={selectedRunDetail}
-                  selectedRunDurationLabel={selectedRunDurationLabel}
-                  selectedRunPulledAtLabel={selectedRunPulledAtLabel}
-                  selectedRunTopicLabel={selectedRunTopicLabel}
-                  setRuleFormFrequency={setRuleFormFrequency}
-                  setRuleFormHourInput={setRuleFormHourInput}
-                  setRuleFormLookbackInput={setRuleFormLookbackInput}
-                  setRuleFormMaxResultsInput={setRuleFormMaxResultsInput}
-                  setRuleFormMinCompletenessInput={setRuleFormMinCompletenessInput}
-                  setRuleFormParseAndIngest={setRuleFormParseAndIngest}
-                  setRuleFormSortMode={setRuleFormSortMode}
-                  setRuleFormWeekday={setRuleFormWeekday}
-                  setRuleSourceArxiv={setRuleSourceArxiv}
-                  setRuleSourceCrossref={setRuleSourceCrossref}
-                  setRunsFilterStatus={setRunsFilterStatus}
-                  setRunsPageIndex={setRunsPageIndex}
-                  setTopicFormExcludeDraft={setTopicFormExcludeDraft}
-                  setTopicFormIncludeDraft={setTopicFormIncludeDraft}
-                  setTopicFormInitialPullPending={setTopicFormInitialPullPending}
-                  setTopicFormName={setTopicFormName}
-                  setTopicFormVenueSelections={setTopicFormVenueSelections}
-                  setTopicFormYearEnd={setTopicFormYearEnd}
-                  setTopicFormYearStart={setTopicFormYearStart}
-                  setTopicVenuePickerOpen={setTopicVenuePickerOpen}
-                  topicAutoIdPreview={topicAutoIdPreview}
-                  topicEditingId={topicEditingId}
-                  topicFormExcludeDraft={topicFormExcludeDraft}
-                  topicFormExcludeKeywords={topicFormExcludeKeywords}
-                  topicFormIncludeDraft={topicFormIncludeDraft}
-                  topicFormIncludeKeywords={topicFormIncludeKeywords}
-                  topicFormModalOpen={topicFormModalOpen}
-                  topicFormName={topicFormName}
-                  topicFormRuleIds={topicFormRuleIds}
-                  topicFormTopicId={topicFormTopicId}
-                  topicFormInitialPullPending={topicFormInitialPullPending}
-                  topicFormVenueSelections={topicFormVenueSelections}
-                  topicFormYearEnd={topicFormYearEnd}
-                  topicFormYearStart={topicFormYearStart}
-                  topicProfiles={topicProfiles}
-                  topicProfilesError={topicProfilesError}
-                  topicScopedRules={topicScopedRules}
-                  topicSettingsSummaryStats={topicSettingsSummaryStats}
-                  topicVenueOptions={topicVenueOptions}
-                  topicVenuePickerOpen={topicVenuePickerOpen}
-                  topicVenueSelectionLabel={topicVenueSelectionLabel}
-                  topicYearLowerBound={topicYearLowerBound}
-                  topicYearMaxBound={topicYearMaxBound}
-                  topicYearMinBound={topicYearMinBound}
-                  topicYearRangeTrackStyle={topicYearRangeTrackStyle}
-                  topicYearUpperBound={topicYearUpperBound}
-                  updateHelpTooltipAlignment={updateHelpTooltipAlignment}
-                />
-
-                <ManualImportTab
-                  active={activeLiteratureTab === 'manual-import'}
-                  manualImportSubTab={manualImportSubTab}
-                  manualUploadStatus={manualUploadStatus}
-                  manualDropActive={manualDropActive}
-                  setManualDropActive={setManualDropActive}
-                  handleManualUploadDrop={handleManualUploadDrop}
-                  handleManualUpload={handleManualUpload}
-                  manualUploadLoading={manualUploadLoading}
-                  manualUploadFormatHint={manualUploadFormatHint}
-                  updateHelpTooltipAlignment={updateHelpTooltipAlignment}
-                  manualUploadFiles={manualUploadFiles}
-                  isManualUploadLlmSupported={isManualUploadLlmSupported}
-                  formatManualUploadFileStatusLabel={formatManualUploadFileStatusLabel}
-                  handleManualUploadFileLlmAction={handleManualUploadFileLlmAction}
-                  handleRemoveManualUploadFile={handleRemoveManualUploadFile}
-                  manualUploadError={manualUploadError}
-                  zoteroLibraryType={zoteroLibraryType}
-                  setZoteroLibraryType={setZoteroLibraryType}
-                  zoteroLibraryId={zoteroLibraryId}
-                  setZoteroLibraryId={setZoteroLibraryId}
-                  zoteroApiKey={zoteroApiKey}
-                  setZoteroApiKey={setZoteroApiKey}
-                  zoteroStatus={zoteroStatus}
-                  handleTestZoteroConnection={handleTestZoteroConnection}
-                  zoteroLoading={zoteroLoading}
-                  zoteroAction={zoteroAction}
-                  zoteroLinkResult={zoteroLinkResult}
-                  zoteroError={zoteroError}
-                  handleLoadZoteroToReview={handleLoadZoteroToReview}
-                  handleImportFromZotero={handleImportFromZotero}
-                  manualShowImportableOnly={manualShowImportableOnly}
-                  setManualShowImportableOnly={setManualShowImportableOnly}
-                  setManualShowErrorOnly={setManualShowErrorOnly}
-                  hasManualSession={hasManualSession}
-                  manualShowErrorOnly={manualShowErrorOnly}
-                  manualRowStats={manualRowStats}
-                  handleSubmitManualReviewedRows={handleSubmitManualReviewedRows}
-                  manualVisibleRows={manualVisibleRows}
-                  manualValidationByRowId={manualValidationByRowId}
-                  manualOpenRowId={manualOpenRowId}
-                  manualOpenRowPanel={manualOpenRowPanel}
-                  mapManualValidationErrors={mapManualValidationErrors}
-                  getManualFieldErrorText={getManualFieldErrorText}
-                  handleToggleManualRowInclude={handleToggleManualRowInclude}
-                  handleManualDraftFieldChange={handleManualDraftFieldChange}
-                  handleCopyManualCellValue={handleCopyManualCellValue}
-                  handleToggleManualRowPanel={handleToggleManualRowPanel}
-                  handleRemoveManualRow={handleRemoveManualRow}
-                />
-
-                <OverviewTab {...overviewController} />
-              </div>
-            </section>
+            <LiteratureWorkspace
+              autoImportTabProps={autoImportTabProps}
+              manualImportTabProps={manualImportTabProps}
+              overviewTabProps={overviewController}
+              metadataIntakePanelProps={metadataIntakePanelProps}
+            />
           ) : null}
-
-          <MetadataIntakePanel
-            open={metadataIntakeLiteratureId !== null}
-            literatureId={metadataIntakeLiteratureId}
-            initialTab={metadataIntakeTab}
-            sourceUrl={metadataIntakeContext.source_url}
-            doi={metadataIntakeContext.doi}
-            arxivId={metadataIntakeContext.arxiv_id}
-            onRunOverviewContentAction={handleRunOverviewContentAction}
-            onClose={handleCloseMetadataIntakePanel}
-            controller={metadataIntakeController}
-          />
 
           {activeModule === '论文管理' ? (
             <PaperModule
@@ -1480,38 +1261,7 @@ export function App({ initialThemeMode }: AppProps) {
             <WritingModule paperLiteratureItems={paperLiteratureItems} />
           ) : null}
 
-          <GovernancePanel
-            visible={governanceEnabled}
-            paperId={paperId}
-            paperIdInput={paperIdInput}
-            onPaperIdInputChange={setPaperIdInput}
-            onApplyPaperId={handleApplyPaperId}
-            onRefreshPanels={handleRefreshPanels}
-            apiBaseUrl={defaultApiBaseUrl}
-            onToggleGovernance={handleToggleGovernance}
-            timelinePanel={timelinePanel}
-            metricsPanel={metricsPanel}
-            artifactPanel={artifactPanel}
-            onEvidenceTrace={handleEvidenceTrace}
-            formatTimestamp={formatTimestamp}
-            tryGetSnapshotId={tryGetSnapshotId}
-            formatNumber={formatNumber}
-            formatCurrency={formatCurrency}
-            releaseQueue={releaseQueue}
-            reviewersInput={reviewersInput}
-            onReviewersInputChange={setReviewersInput}
-            decision={decision}
-            onDecisionChange={setDecision}
-            labelPolicy={labelPolicy}
-            onLabelPolicyChange={setLabelPolicy}
-            riskFlagsInput={riskFlagsInput}
-            onRiskFlagsInputChange={setRiskFlagsInput}
-            reviewComment={reviewComment}
-            onReviewCommentChange={setReviewComment}
-            reviewSubmitState={reviewSubmitState}
-            reviewSubmitMessage={reviewSubmitMessage}
-            onSubmitReleaseReview={handleSubmitReleaseReview}
-          />
+          <GovernancePanel {...governancePanelProps} />
 
           {topFeedback ? (
             <section className={`literature-bottom-alert is-${topFeedback.level}`} role="status" aria-live="polite">
