@@ -34,87 +34,41 @@ import type {
   AutoPullTimeSpec,
   TopicProfileRecord,
 } from '../repositories/auto-pull-repository.js';
+import { AUTOPULL_ALERT_CODES } from './auto-pull/auto-pull-alert-codes.js';
+import {
+  buildAutoPullRuleDTO,
+  toAutoPullAlertDTO,
+  toAutoPullRunDTO,
+  toAutoPullSuggestionDTO,
+  toTopicProfileDTO,
+} from './auto-pull/auto-pull-dto.js';
+import {
+  readAutoPullRankingMode,
+  scoreAutoPullRankedCandidates,
+} from './auto-pull/auto-pull-ranking.js';
+import {
+  assignRuleToTopics,
+  buildTopicExecutionContexts,
+  ensureAtLeastOneActiveGlobalRule,
+  ensureTopicSingleRuleBinding,
+  loadTopicProfilesOrThrow,
+  normalizeTopicIdsFromPayload,
+  resolveNextRuleTopicIds,
+  resolveTimeWindowModeForContext,
+  resolveTopicRuleIds,
+} from './auto-pull/auto-pull-topic-context.js';
+import type {
+  AutoPullRankingMode,
+  EligibleCandidate,
+  FetchedCandidate,
+  PublicationStatusSignal,
+  RankedCandidate,
+  RuleBundle,
+  SourceExecutionResult,
+  SourceTimeWindowMode,
+  TopicExecutionContext,
+} from './auto-pull/auto-pull-types.js';
 import { LiteratureService } from './literature-service.js';
-
-type AutoPullRankingMode = 'llm_score' | 'hybrid_score';
-type PublicationStatusSignal = 'published' | 'accepted' | 'preprint' | 'unknown';
-
-type CandidateRankingSignals = {
-  publicationStatus: PublicationStatusSignal;
-  publicationYear: number | null;
-  citationCount: number | null;
-};
-
-type FetchedCandidate = {
-  item: LiteratureImportItem;
-  rankingSignals: CandidateRankingSignals;
-};
-
-type RankedCandidate = {
-  candidate: FetchedCandidate;
-  qualityScore: number;
-  rankingScore: number;
-  rankingMode: AutoPullRankingMode;
-};
-
-type EligibleCandidate = {
-  source: AutoPullSource;
-  topicId: string | null;
-  candidate: FetchedCandidate;
-  qualityScore: number;
-  rankingScore: number;
-  rankingMode: AutoPullRankingMode;
-  suggestedScope: TopicScopeStatus;
-  scopeReason: string;
-};
-
-type SourceExecutionResult = {
-  source: AutoPullSource;
-  fetchedItems: LiteratureImportItem[];
-  eligibleCandidates: EligibleCandidate[];
-  importedCount: number;
-  failedCount: number;
-  errorCode: string | null;
-  errorMessage: string | null;
-  attemptStatus: AutoPullRunSourceAttemptRecord['status'];
-  suggestions: Array<{
-    literatureId: string;
-    topicId: string | null;
-    suggestedScope: TopicScopeStatus;
-    reason: string;
-    score: number;
-  }>;
-  meta?: Record<string, unknown>;
-};
-
-type RuleBundle = {
-  rule: AutoPullRuleRecord;
-  topicIds: string[];
-  topics: TopicProfileRecord[];
-  sources: AutoPullRuleSourceRecord[];
-  schedules: AutoPullRuleScheduleRecord[];
-};
-
-type TopicExecutionContext = {
-  topicId: string | null;
-  querySpec: AutoPullQuerySpec;
-  timeSpec: AutoPullTimeSpec;
-  initialPullPending: boolean;
-};
-
-type SourceTimeWindowMode = 'bootstrap_full_range' | 'incremental_lookback';
-
-const AUTOPULL_ALERT_CODES = {
-  NO_SOURCE_CONFIG: 'NO_SOURCE_CONFIG',
-  NO_ACTIVE_TOPIC: 'NO_ACTIVE_TOPIC',
-  SOURCE_UNREACHABLE: 'SOURCE_UNREACHABLE',
-  SOURCE_AUTH_ERROR: 'SOURCE_AUTH_ERROR',
-  SOURCE_RATE_LIMIT: 'SOURCE_RATE_LIMIT',
-  PARSE_FAILED: 'PARSE_FAILED',
-  IMPORT_FAILED: 'IMPORT_FAILED',
-  QUALITY_SCORE_UNAVAILABLE: 'QUALITY_SCORE_UNAVAILABLE',
-  RUN_SKIPPED_SINGLE_FLIGHT: 'RUN_SKIPPED_SINGLE_FLIGHT',
-} as const;
 
 export class AutoPullService {
   private readonly runJobs = new Map<string, Promise<void>>();
@@ -1411,148 +1365,11 @@ export class AutoPullService {
     candidates: FetchedCandidate[],
     rankingMode: AutoPullRankingMode,
   ): Promise<RankedCandidate[]> {
-    if (candidates.length === 0) {
-      return [];
-    }
-    const scorerConfig = this.resolveQualityScorerConfig();
-    const scored: RankedCandidate[] = [];
-    for (const candidate of candidates) {
-      const qualityScore = await this.scoreQualityCandidate(candidate, scorerConfig);
-      const rankingScore = this.computeRankingScore(candidate, qualityScore, rankingMode);
-      scored.push({
-        candidate,
-        qualityScore,
-        rankingScore,
-        rankingMode,
-      });
-    }
-    return scored;
-  }
-
-  private computeRankingScore(
-    candidate: FetchedCandidate,
-    qualityScore: number,
-    rankingMode: AutoPullRankingMode,
-  ): number {
-    if (rankingMode === 'llm_score') {
-      return qualityScore;
-    }
-    const freshness = this.computeFreshnessScore(candidate.rankingSignals.publicationYear);
-    const publicationStatus = this.computePublicationStatusScore(candidate.rankingSignals.publicationStatus);
-    const citation = this.computeCitationScore(candidate.rankingSignals.citationCount);
-    const weighted = (qualityScore * 0.70) + (freshness * 0.15) + (publicationStatus * 0.10) + (citation * 0.05);
-    return Math.round(Math.max(0, Math.min(100, weighted)));
-  }
-
-  private computeFreshnessScore(publicationYear: number | null): number {
-    if (!publicationYear || !Number.isFinite(publicationYear)) {
-      return 0;
-    }
-    const age = Math.max(0, new Date().getUTCFullYear() - publicationYear);
-    return Math.max(0, Math.round(100 - (age * 5)));
-  }
-
-  private computePublicationStatusScore(status: PublicationStatusSignal): number {
-    if (status === 'published') {
-      return 100;
-    }
-    if (status === 'accepted') {
-      return 80;
-    }
-    if (status === 'preprint') {
-      return 50;
-    }
-    return 0;
-  }
-
-  private computeCitationScore(citationCount: number | null): number {
-    if (!citationCount || citationCount <= 0) {
-      return 0;
-    }
-    const normalized = Math.log10(citationCount + 1) / Math.log10(501);
-    return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
-  }
-
-  private resolveQualityScorerConfig(): {
-    endpoint: string;
-    apiKey: string | null;
-    model: string;
-  } {
-    const endpoint = (process.env.AUTO_PULL_LLM_SCORER_URL ?? '').trim();
-    if (!endpoint) {
-      throw new AppError(
-        500,
-        'INTERNAL_ERROR',
-        `${AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE}: scorer endpoint is not configured.`,
-      );
-    }
-    const apiKey = (process.env.AUTO_PULL_LLM_SCORER_API_KEY ?? '').trim() || null;
-    const model = (process.env.AUTO_PULL_LLM_SCORER_MODEL ?? 'quality-score-v1').trim() || 'quality-score-v1';
-    return { endpoint, apiKey, model };
-  }
-
-  private async scoreQualityCandidate(
-    candidate: FetchedCandidate,
-    config: { endpoint: string; apiKey: string | null; model: string },
-  ): Promise<number> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-    if (config.apiKey) {
-      headers.Authorization = `Bearer ${config.apiKey}`;
-    }
-    const response = await fetch(config.endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: config.model,
-        input: {
-          title: candidate.item.title,
-          abstract: candidate.item.abstract ?? null,
-          authors: candidate.item.authors ?? [],
-          year: candidate.item.year ?? null,
-          doi: candidate.item.doi ?? null,
-          arxiv_id: candidate.item.arxiv_id ?? null,
-          source_url: candidate.item.source_url,
-          provider: candidate.item.provider,
-        },
-      }),
-    });
-    if (!response.ok) {
-      throw new AppError(
-        500,
-        'INTERNAL_ERROR',
-        `${AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE}: scorer request failed with status ${response.status}.`,
-      );
-    }
-    const payload = (await response.json()) as Record<string, unknown>;
-    const score = this.readQualityScore(payload);
-    if (score === null) {
-      throw new AppError(
-        500,
-        'INTERNAL_ERROR',
-        `${AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE}: scorer response missing score.`,
-      );
-    }
-    return score;
-  }
-
-  private readQualityScore(payload: Record<string, unknown>): number | null {
-    const directScore = this.readNonNegativeNumber(payload.quality_score);
-    if (directScore !== null) {
-      return Math.round(Math.max(0, Math.min(100, directScore)));
-    }
-    const fallbackScore = this.readNonNegativeNumber(payload.score);
-    if (fallbackScore !== null) {
-      return Math.round(Math.max(0, Math.min(100, fallbackScore)));
-    }
-    return null;
+    return scoreAutoPullRankedCandidates(candidates, rankingMode);
   }
 
   private readRankingMode(config: Record<string, unknown>): AutoPullRankingMode {
-    const mode = this.readString(config.sort_mode);
-    return mode === 'hybrid_score' ? 'hybrid_score' : 'llm_score';
+    return readAutoPullRankingMode(config);
   }
 
   private isHttpUrl(value?: string): boolean {
@@ -1676,63 +1493,11 @@ export class AutoPullService {
   }
 
   private buildRuleDTO(bundle: RuleBundle): AutoPullRuleDTO {
-    return {
-      rule_id: bundle.rule.id,
-      scope: bundle.rule.scope,
-      topic_id: bundle.topicIds[0] ?? null,
-      topic_ids: bundle.topicIds,
-      name: bundle.rule.name,
-      status: bundle.rule.status,
-      query_spec: {
-        include_keywords: bundle.rule.querySpec.includeKeywords,
-        exclude_keywords: bundle.rule.querySpec.excludeKeywords,
-        authors: bundle.rule.querySpec.authors,
-        venues: bundle.rule.querySpec.venues,
-        max_results_per_source: bundle.rule.querySpec.maxResultsPerSource,
-      },
-      time_spec: {
-        lookback_days: bundle.rule.timeSpec.lookbackDays,
-        min_year: bundle.rule.timeSpec.minYear,
-        max_year: bundle.rule.timeSpec.maxYear,
-      },
-      quality_spec: {
-        min_quality_score: bundle.rule.qualitySpec.minQualityScore,
-      },
-      sources: bundle.sources.map((source) => ({
-        source: source.source,
-        enabled: source.enabled,
-        priority: source.priority,
-        config: source.config,
-      })),
-      schedules: bundle.schedules.map((schedule) => ({
-        frequency: schedule.frequency,
-        days_of_week: schedule.daysOfWeek,
-        hour: schedule.hour,
-        minute: schedule.minute,
-        timezone: schedule.timezone,
-        active: schedule.active,
-      })),
-      created_at: bundle.rule.createdAt,
-      updated_at: bundle.rule.updatedAt,
-    };
+    return buildAutoPullRuleDTO(bundle);
   }
 
   private toTopicProfileDTO(record: TopicProfileRecord, ruleIds: string[]): TopicProfileDTO {
-    return {
-      topic_id: record.id,
-      name: record.name,
-      is_active: record.isActive,
-      initial_pull_pending: record.initialPullPending,
-      include_keywords: record.includeKeywords,
-      exclude_keywords: record.excludeKeywords,
-      venue_filters: record.venueFilters,
-      default_lookback_days: record.defaultLookbackDays,
-      default_min_year: record.defaultMinYear,
-      default_max_year: record.defaultMaxYear,
-      rule_ids: ruleIds,
-      created_at: record.createdAt,
-      updated_at: record.updatedAt,
-    };
+    return toTopicProfileDTO(record, ruleIds);
   }
 
   private toRunDTO(
@@ -1740,74 +1505,22 @@ export class AutoPullService {
     attempts?: AutoPullRunSourceAttemptRecord[],
     suggestions?: AutoPullSuggestionDTO[],
   ): AutoPullRunDTO {
-    return {
-      run_id: run.id,
-      rule_id: run.ruleId,
-      trigger_type: run.triggerType,
-      status: run.status,
-      started_at: run.startedAt,
-      finished_at: run.finishedAt,
-      summary: run.summary,
-      error_code: run.errorCode,
-      error_message: run.errorMessage,
-      created_at: run.createdAt,
-      updated_at: run.updatedAt,
-      ...(attempts
-        ? {
-          source_attempts: attempts.map((attempt) => ({
-            source: attempt.source,
-            status: attempt.status,
-            fetched_count: attempt.fetchedCount,
-            imported_count: attempt.importedCount,
-            failed_count: attempt.failedCount,
-            error_code: attempt.errorCode,
-            error_message: attempt.errorMessage,
-            started_at: attempt.startedAt,
-            finished_at: attempt.finishedAt,
-            meta: attempt.meta,
-          })),
-        }
-        : {}),
-      ...(suggestions ? { suggestions } : {}),
-    };
+    return toAutoPullRunDTO(run, attempts, suggestions);
   }
 
   private toSuggestionDTO(record: AutoPullSuggestionRecord): AutoPullSuggestionDTO {
-    return {
-      suggestion_id: record.id,
-      literature_id: record.literatureId,
-      topic_id: record.topicId,
-      suggested_scope: record.suggestedScope,
-      reason: record.reason,
-      score: record.score,
-      created_at: record.createdAt,
-    };
+    return toAutoPullSuggestionDTO(record);
   }
 
   private toAlertDTO(record: AutoPullAlertRecord): AutoPullAlertDTO {
-    return {
-      alert_id: record.id,
-      rule_id: record.ruleId,
-      run_id: record.runId,
-      source: record.source,
-      level: record.level,
-      code: record.code,
-      message: record.message,
-      detail: record.detail,
-      ack_at: record.ackAt,
-      created_at: record.createdAt,
-    };
+    return toAutoPullAlertDTO(record);
   }
 
   private normalizeTopicIdsFromPayload(
     topicIds?: string[] | null,
     topicId?: string | null,
   ): string[] {
-    const values = [
-      ...(topicIds ?? []),
-      ...(topicId ? [topicId] : []),
-    ];
-    return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
+    return normalizeTopicIdsFromPayload(topicIds, topicId);
   }
 
   private async ensureAtLeastOneActiveGlobalRule(input: {
@@ -1817,28 +1530,7 @@ export class AutoPullService {
     nextScope: AutoPullRuleRecord['scope'] | null;
     nextStatus: AutoPullRuleRecord['status'] | null;
   }): Promise<void> {
-    const activeGlobalRules = await this.repository.listRules({
-      scope: 'GLOBAL',
-      status: 'ACTIVE',
-    });
-    const activeGlobalRuleIds = new Set(activeGlobalRules.map((rule) => rule.id));
-
-    const currentRuleIsActiveGlobal = input.ruleId !== undefined
-      && input.currentScope === 'GLOBAL'
-      && input.currentStatus === 'ACTIVE'
-      && activeGlobalRuleIds.has(input.ruleId);
-    const nextRuleIsActiveGlobal = input.nextScope === 'GLOBAL' && input.nextStatus === 'ACTIVE';
-
-    const remainingCount = activeGlobalRuleIds.size
-      - (currentRuleIsActiveGlobal ? 1 : 0)
-      + (nextRuleIsActiveGlobal ? 1 : 0);
-    if (remainingCount < 1) {
-      throw new AppError(
-        400,
-        'INVALID_PAYLOAD',
-        'At least one ACTIVE GLOBAL rule is required.',
-      );
-    }
+    return ensureAtLeastOneActiveGlobalRule(this.repository, input);
   }
 
   private resolveNextRuleTopicIds(
@@ -1846,87 +1538,30 @@ export class AutoPullService {
     existingTopicIds: string[],
     nextScope: AutoPullRuleRecord['scope'],
   ): string[] {
-    if (request.scope === 'GLOBAL' && request.topic_ids === undefined && request.topic_id === undefined) {
-      return [];
-    }
-    if (request.topic_ids !== undefined) {
-      return this.normalizeTopicIdsFromPayload(request.topic_ids, request.topic_id);
-    }
-    if (request.topic_id !== undefined) {
-      return this.normalizeTopicIdsFromPayload(undefined, request.topic_id);
-    }
-    if (nextScope === 'GLOBAL') {
-      return [];
-    }
-    return existingTopicIds;
+    return resolveNextRuleTopicIds(request, existingTopicIds, nextScope);
   }
 
   private async loadTopicProfilesOrThrow(topicIds: string[]): Promise<TopicProfileRecord[]> {
-    const normalizedTopicIds = [...new Set(topicIds)];
-    const profiles = await Promise.all(
-      normalizedTopicIds.map(async (topicId) => {
-        const profile = await this.repository.findTopicProfileById(topicId);
-        if (!profile) {
-          throw new AppError(404, 'NOT_FOUND', `Topic profile ${topicId} not found.`);
-        }
-        return profile;
-      }),
-    );
-    return profiles;
+    return loadTopicProfilesOrThrow(this.repository, topicIds);
   }
 
   private async resolveTopicRuleIds(ruleIds: string[]): Promise<string[]> {
-    const normalizedRuleIds = [...new Set(ruleIds.map((value) => value.trim()).filter((value) => value.length > 0))];
-    await Promise.all(
-      normalizedRuleIds.map(async (ruleId) => {
-        const rule = await this.repository.findRuleById(ruleId);
-        if (!rule) {
-          throw new AppError(404, 'NOT_FOUND', `Rule ${ruleId} not found.`);
-        }
-        if (rule.scope !== 'TOPIC') {
-          throw new AppError(400, 'INVALID_PAYLOAD', `Rule ${ruleId} is not a TOPIC rule.`);
-        }
-      }),
-    );
-    return normalizedRuleIds;
+    return resolveTopicRuleIds(this.repository, ruleIds);
   }
 
   private ensureTopicSingleRuleBinding(ruleIds: string[]): void {
-    const normalizedRuleIds = [...new Set(ruleIds.map((value) => value.trim()).filter((value) => value.length > 0))];
-    if (normalizedRuleIds.length > 1) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Each topic can bind at most one TOPIC rule.');
-    }
+    return ensureTopicSingleRuleBinding(ruleIds);
   }
 
   private async assignRuleToTopics(ruleId: string, topicIds: string[]): Promise<void> {
-    const normalizedTopicIds = [...new Set(topicIds.map((value) => value.trim()).filter((value) => value.length > 0))];
-    await this.repository.replaceRuleTopics(ruleId, normalizedTopicIds);
-    for (const topicId of normalizedTopicIds) {
-      await this.repository.replaceTopicRules(topicId, [ruleId]);
-    }
+    return assignRuleToTopics(this.repository, ruleId, topicIds);
   }
 
   private buildTopicExecutionContexts(
     rule: AutoPullRuleRecord,
     topics: TopicProfileRecord[],
   ): TopicExecutionContext[] {
-    if (rule.scope === 'GLOBAL') {
-      return [{
-        topicId: null,
-        querySpec: rule.querySpec,
-        timeSpec: rule.timeSpec,
-        initialPullPending: false,
-      }];
-    }
-
-    return topics
-      .filter((topic) => topic.isActive)
-      .map((topic) => ({
-        topicId: topic.id,
-        querySpec: this.mergeQuerySpecForTopic(rule.querySpec, topic),
-        timeSpec: this.mergeTimeSpecForTopic(rule.timeSpec, topic),
-        initialPullPending: topic.initialPullPending,
-      }));
+    return buildTopicExecutionContexts(rule, topics);
   }
 
   private resolveTimeWindowModeForContext(
@@ -1935,41 +1570,7 @@ export class AutoPullService {
     fallbackMode: SourceTimeWindowMode,
     fullRefresh: boolean,
   ): SourceTimeWindowMode {
-    if (fullRefresh) {
-      return 'bootstrap_full_range';
-    }
-    if (scope === 'TOPIC') {
-      return context.initialPullPending ? 'bootstrap_full_range' : 'incremental_lookback';
-    }
-    return fallbackMode;
-  }
-
-  private mergeQuerySpecForTopic(
-    baseQuerySpec: AutoPullQuerySpec,
-    topic: TopicProfileRecord,
-  ): AutoPullQuerySpec {
-    return {
-      includeKeywords: baseQuerySpec.includeKeywords.length > 0
-        ? baseQuerySpec.includeKeywords
-        : topic.includeKeywords,
-      excludeKeywords: baseQuerySpec.excludeKeywords.length > 0
-        ? baseQuerySpec.excludeKeywords
-        : topic.excludeKeywords,
-      authors: baseQuerySpec.authors,
-      venues: baseQuerySpec.venues.length > 0 ? baseQuerySpec.venues : topic.venueFilters,
-      maxResultsPerSource: baseQuerySpec.maxResultsPerSource,
-    };
-  }
-
-  private mergeTimeSpecForTopic(
-    baseTimeSpec: AutoPullTimeSpec,
-    topic: TopicProfileRecord,
-  ): AutoPullTimeSpec {
-    return {
-      lookbackDays: baseTimeSpec.lookbackDays || topic.defaultLookbackDays,
-      minYear: baseTimeSpec.minYear ?? topic.defaultMinYear,
-      maxYear: baseTimeSpec.maxYear ?? topic.defaultMaxYear,
-    };
+    return resolveTimeWindowModeForContext(scope, context, fallbackMode, fullRefresh);
   }
 
   private aggregateSourceResults(
