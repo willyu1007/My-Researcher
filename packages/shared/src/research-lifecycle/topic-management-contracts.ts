@@ -87,7 +87,7 @@ export interface CreateNeedReviewRequest {
   who_needs_it: string;
   scenario: string;
   boundary?: string;
-  evidence_review_refs: ReviewRef[];
+  evidence_review_refs?: ReviewRef[];
   literature_ids: string[];
   unmet_need_category: NeedReviewDTO['unmet_need_category'];
   falsification_verdict: NeedReviewDTO['falsification_verdict'];
@@ -326,7 +326,6 @@ export const createNeedReviewRequestSchema = {
       'need_statement',
       'who_needs_it',
       'scenario',
-      'evidence_review_refs',
       'literature_ids',
       'unmet_need_category',
       'falsification_verdict',

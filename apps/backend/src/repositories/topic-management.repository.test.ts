@@ -19,7 +19,6 @@ function makeNeedInput(): CreateNeedReviewRequest {
     need_statement: 'Existing methods degrade sharply under long-context retrieval settings.',
     who_needs_it: 'RAG researchers',
     scenario: 'Long-context retrieval and answer synthesis for CS literature tasks.',
-    evidence_review_refs: [{ record_id: 'er_001', record_type: 'evidence_review' }],
     literature_ids: ['lit_001'],
     unmet_need_category: 'robustness',
     falsification_verdict: 'validated',
@@ -90,7 +89,7 @@ function makePackageInput(): CreateTopicPackageRequest {
     contribution_summary: 'A robust retrieval approach plus targeted evaluation.',
     candidate_methods: ['adaptive retrieval', 'context compression'],
     evaluation_plan: 'Compare against strong retrieval baselines on long-context literature QA.',
-    selected_literature_evidence_ids: ['evidence_001'],
+    selected_literature_evidence_ids: ['lit_001'],
   };
 }
 
@@ -134,5 +133,6 @@ test('in-memory repository stores and retrieves value assessments and topic pack
 
   assert.ok(fetchedValue);
   assert.ok(fetchedPackage);
-  assert.deepEqual(fetchedPackage?.selected_literature_evidence_ids, ['evidence_001']);
+  assert.deepEqual(fetchedPackage?.selected_literature_evidence_ids, ['lit_001']);
+  assert.equal((await repo.listTopicPackages('topic_A', question.record_id, value.record_id)).length, 1);
 });

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import {
+  createNeedReviewRequestSchema,
   createTopicPromotionDecisionRequestSchema,
   createTopicQuestionRequestSchema,
 } from './topic-management-contracts.js';
@@ -16,6 +17,33 @@ test('validate with trivial schema', async () => {
   app.post('/v', { schema: { body: { type: 'object', required: ['x'], properties: { x: { type: 'string' } } } } }, async () => ({ ok: true }));
   await app.ready();
   const res = await app.inject({ method: 'POST', url: '/v', payload: { x: 'ok' } });
+  await app.close();
+  assert.equal(res.statusCode, 200);
+});
+
+test('need review schema accepts payload without evidence_review_refs', async () => {
+  const app = Fastify();
+  app.post('/v', { schema: createNeedReviewRequestSchema }, async () => ({ ok: true }));
+  await app.ready();
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      need_statement: 'Existing methods degrade sharply under long-context retrieval settings.',
+      who_needs_it: 'RAG researchers',
+      scenario: 'Long-context retrieval and answer synthesis for CS literature tasks.',
+      literature_ids: ['lit_001'],
+      unmet_need_category: 'robustness',
+      falsification_verdict: 'validated',
+      significance_score: 4,
+      measurability_score: 4,
+      feasibility_signal: 'medium',
+      validated_need: true,
+      judgement_summary: 'The need is measurable and not already fully solved.',
+      confidence: 0.82,
+      evidence_refs: [{ literature_id: 'lit_001', source_type: 'abstract' }],
+    },
+  });
   await app.close();
   assert.equal(res.statusCode, 200);
 });

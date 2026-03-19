@@ -1250,77 +1250,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /topics/{topicId}/research-record:
-    get:
-      operationId: getTopicResearchRecord
-      summary: Get the research record attached to a topic profile.
-      tags: [topic-research]
-      parameters:
-        - name: topicId
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 1
-      responses:
-        '200':
-          description: Topic research record found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TopicResearchRecordResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    post:
-      operationId: createTopicResearchRecord
-      summary: Create a research record for a topic profile.
-      tags: [topic-research]
-      parameters:
-        - name: topicId
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 1
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTopicResearchRecordRequest'
-      responses:
-        '201':
-          description: Topic research record created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TopicResearchRecordResponse'
-
   /topics/{topicId}/need-reviews:
-    post:
-      operationId: createNeedReview
-      summary: Persist a validated-need review for a topic.
-      tags: [topic-research]
-      parameters:
-        - name: topicId
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 1
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateNeedReviewRequest'
-      responses:
-        '201':
-          description: Need review created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NeedReviewResponse'
     get:
       operationId: listNeedReviews
       summary: List need reviews for a topic.
@@ -1331,7 +1261,7 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 1
+            minLength: 4
       responses:
         '200':
           description: Need review list.
@@ -1345,11 +1275,11 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/NeedReviewResponse'
-
-  /topics/{topicId}/questions:
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
-      operationId: createTopicQuestion
-      summary: Create or revise a topic question version.
+      operationId: createNeedReview
+      summary: Persist a validated-need review for a topic.
       tags: [topic-research]
       parameters:
         - name: topicId
@@ -1357,20 +1287,44 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 1
+            minLength: 4
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTopicQuestionRequest'
+              $ref: '#/components/schemas/CreateNeedReviewRequest'
+            example:
+              need_statement: Existing methods degrade sharply under long-context retrieval settings.
+              who_needs_it: RAG researchers
+              scenario: Long-context retrieval and answer synthesis for CS literature tasks.
+              literature_ids: [lit_001]
+              unmet_need_category: robustness
+              falsification_verdict: validated
+              significance_score: 4
+              measurability_score: 4
+              feasibility_signal: medium
+              validated_need: true
+              judgement_summary: The need is measurable and not already fully solved.
+              confidence: 0.82
+              evidence_refs:
+                - literature_id: lit_001
+                  source_type: abstract
       responses:
         '201':
-          description: Topic question created.
+          description: Need review created.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TopicQuestionResponse'
+                $ref: '#/components/schemas/NeedReviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /topics/{topicId}/questions:
     get:
       operationId: listTopicQuestions
       summary: List question versions for a topic.
@@ -1381,7 +1335,7 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 1
+            minLength: 4
       responses:
         '200':
           description: Topic question list.
@@ -1395,11 +1349,11 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/TopicQuestionResponse'
-
-  /topics/{topicId}/value-assessments:
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
-      operationId: createValueAssessment
-      summary: Create a value assessment for a topic question.
+      operationId: createTopicQuestion
+      summary: Create or revise a topic question version.
       tags: [topic-research]
       parameters:
         - name: topicId
@@ -1407,23 +1361,38 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 1
+            minLength: 4
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateValueAssessmentRequest'
+              $ref: '#/components/schemas/CreateTopicQuestionRequest'
+            example:
+              main_question: How can retrieval remain stable under long-context literature reasoning?
+              research_slice: robust long-context retrieval
+              contribution_hypothesis: method
+              source_need_review_ids: [need_001]
+              judgement_summary: Question derived from validated robustness need.
+              confidence: 0.81
       responses:
         '201':
-          description: Value assessment created.
+          description: Topic question created.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ValueAssessmentResponse'
+                $ref: '#/components/schemas/TopicQuestionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /topics/{topicId}/questions/{questionId}/value-assessments:
     get:
       operationId: listValueAssessments
-      summary: List value assessments for a topic.
+      summary: List value assessments for a topic question.
       tags: [topic-research]
       parameters:
         - name: topicId
@@ -1431,7 +1400,13 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 1
+            minLength: 4
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
       responses:
         '200':
           description: Value assessment list.
@@ -1445,8 +1420,122 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/ValueAssessmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createValueAssessment
+      summary: Create a value assessment for a topic question.
+      tags: [topic-research]
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateValueAssessmentRequest'
+            example:
+              strongest_claim_if_success: The method improves long-context retrieval robustness under realistic baselines.
+              hard_gates:
+                significance: { pass: true, reason: Passes current threshold. }
+                originality: { pass: true, reason: Passes current threshold. }
+                answerability: { pass: true, reason: Passes current threshold. }
+                feasibility: { pass: true, reason: Passes current threshold. }
+                venue_fit: { pass: true, reason: Passes current threshold. }
+              scored_dimensions:
+                significance: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
+                originality: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
+                claim_strength: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
+                answerability: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
+                venue_fit: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
+                strategic_leverage: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
+              risk_penalty:
+                data_risk: 1
+                compute_risk: 1
+                baseline_risk: 2
+                execution_risk: 2
+                ethics_risk: 0
+                penalty_summary: Manageable implementation risk.
+              ceiling_case: Strong workshop or findings paper.
+              base_case: Useful empirical paper.
+              floor_case: Internal benchmark asset.
+              verdict: promote
+              total_score: 82
+              judgement_summary: Value is sufficient for promotion if package aligns.
+              confidence: 0.78
+              evidence_refs:
+                - literature_id: lit_001
+                  source_type: abstract
+      responses:
+        '201':
+          description: Value assessment created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValueAssessmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
-  /topics/{topicId}/packages:
+  /topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-packages:
+    get:
+      operationId: listTopicPackages
+      summary: List topic packages for a question and value assessment pair.
+      tags: [topic-research]
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+        - name: valueAssessmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Topic package list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TopicPackageResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-package:
     post:
       operationId: createTopicPackage
       summary: Build a topic package from a question and value assessment.
@@ -1457,13 +1546,36 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 1
+            minLength: 4
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+        - name: valueAssessmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateTopicPackageRequest'
+            example:
+              title_candidates:
+                - Robust Long-Context Retrieval for Literature Reasoning
+              research_background: Prior work does not adequately stabilize retrieval under long-context reasoning workflows.
+              contribution_summary: A robust retrieval approach plus targeted evaluation.
+              candidate_methods:
+                - adaptive retrieval
+                - context compression
+              evaluation_plan: Compare against strong retrieval baselines on long-context literature QA.
+              selected_literature_evidence_ids:
+                - lit_001
       responses:
         '201':
           description: Topic package created.
@@ -1471,6 +1583,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TopicPackageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /topics/{topicId}/promotion-decisions:
     post:
@@ -1483,13 +1601,21 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 1
+            minLength: 4
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateTopicPromotionDecisionRequest'
+            example:
+              question_id: question_001
+              value_assessment_id: value_001
+              package_id: package_001
+              decision: promote
+              reason_summary: Value and package both clear the v1 promotion gate.
+              target_paper_title: Robust Long-Context Retrieval for Literature Reasoning
+              created_by: hybrid
       responses:
         '201':
           description: Promotion decision created.
@@ -1497,11 +1623,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TopicPromotionDecisionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /topics/{topicId}/promote-to-paper-project:
     post:
       operationId: promoteTopicToPaperProject
-      summary: Promote a topic into a paper project using an approved decision.
+      summary: Promote a topic into a paper project using aligned question, value, and package ids.
       tags: [topic-research]
       parameters:
         - name: topicId
@@ -1509,13 +1645,19 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 1
+            minLength: 4
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/PromoteTopicToPaperProjectRequest'
+            example:
+              question_id: question_001
+              value_assessment_id: value_001
+              package_id: package_001
+              title: Robust Long-Context Retrieval for Literature Reasoning
+              created_by: hybrid
       responses:
         '201':
           description: Topic promoted and paper project created.
@@ -1523,6 +1665,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PromoteTopicToPaperProjectResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
@@ -3939,317 +4085,788 @@ components:
           format: date-time
       additionalProperties: false
 
-    ReviewStatus:
+    TopicResearchRecordStatus:
       type: string
-      enum: [draft, completed, needs_human_review, superseded]
+      enum: [draft, completed, superseded, archived]
 
-    PromotionVerdict:
+    TopicValueVerdict:
       type: string
       enum: [promote, refine, park, drop]
 
-    TopicResearchRecordResponse:
-      type: object
-      required: [id, topic_id, lifecycle_status, created_by, created_at, updated_at]
-      properties:
-        id: { type: string }
-        topic_id: { type: string }
-        lifecycle_status:
-          type: string
-          enum: [seed, evidence_ready, need_ready, question_ready, value_assessed, packaged, promoted, parked, dropped]
-        current_question_id: { type: string, nullable: true }
-        current_package_id: { type: string, nullable: true }
-        current_decision_id: { type: string, nullable: true }
-        summary: { type: string, nullable: true }
-        created_by: { type: string }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
+    TopicPromotionDecisionType:
+      type: string
+      enum: [promote, hold, reject, loopback]
 
-    CreateTopicResearchRecordRequest:
+    TopicContributionHypothesis:
+      type: string
+      enum: [method, benchmark, analysis, resource, system]
+
+    TopicReviewRef:
       type: object
-      required: [created_by]
+      required: [record_id, record_type]
+      additionalProperties: false
       properties:
-        created_by: { type: string, minLength: 1 }
-        summary: { type: string }
+        record_id:
+          type: string
+          minLength: 4
+        record_type:
+          type: string
+          enum: [evidence_review, need_review, question, value_assessment, topic_package, promotion_decision]
+
+    TopicEvidenceRef:
+      type: object
+      required: [literature_id, source_type]
+      additionalProperties: false
+      properties:
+        literature_id:
+          type: string
+          minLength: 4
+        source_type:
+          type: string
+          enum: [abstract, key_content, fulltext_chunk, metadata, artifact]
+        span_ref:
+          type: string
+        note:
+          type: string
+
+    TopicHardGateCheck:
+      type: object
+      required: [pass, reason]
+      additionalProperties: false
+      properties:
+        pass:
+          type: boolean
+        reason:
+          type: string
+          minLength: 5
+        evidence_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicEvidenceRef'
+
+    TopicScoredDimension:
+      type: object
+      required: [score, reason, confidence]
+      additionalProperties: false
+      properties:
+        score:
+          type: number
+          minimum: 1
+          maximum: 5
+        reason:
+          type: string
+          minLength: 5
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        evidence_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicEvidenceRef'
+
+    TopicValueAssessmentHardGates:
+      type: object
+      required: [significance, originality, answerability, feasibility, venue_fit]
+      additionalProperties: false
+      properties:
+        significance:
+          $ref: '#/components/schemas/TopicHardGateCheck'
+        originality:
+          $ref: '#/components/schemas/TopicHardGateCheck'
+        answerability:
+          $ref: '#/components/schemas/TopicHardGateCheck'
+        feasibility:
+          $ref: '#/components/schemas/TopicHardGateCheck'
+        venue_fit:
+          $ref: '#/components/schemas/TopicHardGateCheck'
+
+    TopicValueAssessmentScoredDimensions:
+      type: object
+      required: [significance, originality, claim_strength, answerability, venue_fit, strategic_leverage]
+      additionalProperties: false
+      properties:
+        significance:
+          $ref: '#/components/schemas/TopicScoredDimension'
+        originality:
+          $ref: '#/components/schemas/TopicScoredDimension'
+        claim_strength:
+          $ref: '#/components/schemas/TopicScoredDimension'
+        answerability:
+          $ref: '#/components/schemas/TopicScoredDimension'
+        venue_fit:
+          $ref: '#/components/schemas/TopicScoredDimension'
+        strategic_leverage:
+          $ref: '#/components/schemas/TopicScoredDimension'
+
+    TopicValueAssessmentRiskPenalty:
+      type: object
+      required: [data_risk, compute_risk, baseline_risk, execution_risk, ethics_risk, penalty_summary]
+      additionalProperties: false
+      properties:
+        data_risk:
+          type: number
+          minimum: 0
+          maximum: 5
+        compute_risk:
+          type: number
+          minimum: 0
+          maximum: 5
+        baseline_risk:
+          type: number
+          minimum: 0
+          maximum: 5
+        execution_risk:
+          type: number
+          minimum: 0
+          maximum: 5
+        ethics_risk:
+          type: number
+          minimum: 0
+          maximum: 5
+        penalty_summary:
+          type: string
+          minLength: 5
 
     NeedReviewResponse:
       type: object
-      required: [id, topic_id, version_no, verdict, confidence, judgement_summary, recommendation, created_at]
+      required:
+        - record_id
+        - topic_id
+        - record_status
+        - need_statement
+        - who_needs_it
+        - scenario
+        - evidence_review_refs
+        - literature_ids
+        - unmet_need_category
+        - falsification_verdict
+        - significance_score
+        - measurability_score
+        - feasibility_signal
+        - validated_need
+        - judgement_summary
+        - confidence
+        - next_actions
+        - evidence_refs
+        - created_at
+        - updated_at
+      additionalProperties: false
       properties:
-        id: { type: string }
+        record_id: { type: string }
         topic_id: { type: string }
-        version_no: { type: integer, minimum: 1 }
-        status: { $ref: '#/components/schemas/ReviewStatus' }
-        unmet_need: { type: string }
-        who_needs_it: { type: string, nullable: true }
-        scenario: { type: string, nullable: true }
-        boundary: { type: string, nullable: true }
-        need_category: { type: string }
-        verdict:
+        record_status:
+          $ref: '#/components/schemas/TopicResearchRecordStatus'
+        need_statement:
+          type: string
+        who_needs_it:
+          type: string
+        scenario:
+          type: string
+        boundary:
+          type: string
+        evidence_review_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicReviewRef'
+        literature_ids:
+          type: array
+          items:
+            type: string
+        unmet_need_category:
+          type: string
+          enum: [performance, cost, robustness, interpretability, usability, scalability, data_efficiency, evaluation_gap, resource_gap]
+        falsification_verdict:
           type: string
           enum: [validated, weak, pseudo_gap, unclear]
-        confidence: { type: number, minimum: 0, maximum: 1 }
-        judgement_summary: { type: string }
-        recommendation:
+        significance_score:
+          type: number
+          minimum: 1
+          maximum: 5
+        measurability_score:
+          type: number
+          minimum: 1
+          maximum: 5
+        feasibility_signal:
           type: string
-          enum: [accept, refine, reject, park, escalate]
-        created_at: { type: string, format: date-time }
+          enum: [high, medium, low, unknown]
+        validated_need:
+          type: boolean
+        judgement_summary:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        next_actions:
+          type: array
+          items:
+            type: string
+        evidence_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicEvidenceRef'
+        missing_information:
+          type: array
+          items:
+            type: string
+        blocking_issues:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     CreateNeedReviewRequest:
       type: object
+      additionalProperties: false
       required:
-        - version_no
-        - status
-        - evidence_review_refs
+        - need_statement
+        - who_needs_it
+        - scenario
         - literature_ids
-        - unmet_need
-        - need_category
-        - why_unmet
-        - falsification_check
-        - importance_assessment
-        - measurability
-        - resource_constraint_check
-        - verdict
-        - confidence
+        - unmet_need_category
+        - falsification_verdict
+        - significance_score
+        - measurability_score
+        - feasibility_signal
+        - validated_need
         - judgement_summary
-        - recommendation
-        - created_by
+        - confidence
+        - evidence_refs
       properties:
-        version_no: { type: integer, minimum: 1 }
-        status: { $ref: '#/components/schemas/ReviewStatus' }
-        evidence_review_refs: { type: object, additionalProperties: true }
+        record_status:
+          $ref: '#/components/schemas/TopicResearchRecordStatus'
+        need_statement:
+          type: string
+          minLength: 10
+        who_needs_it:
+          type: string
+          minLength: 2
+        scenario:
+          type: string
+          minLength: 5
+        boundary:
+          type: string
+        evidence_review_refs:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TopicReviewRef'
         literature_ids:
           type: array
-          items: { type: string }
-        compared_solution_clusters:
-          type: array
-          items: { type: string }
-        unmet_need: { type: string, minLength: 1 }
-        who_needs_it: { type: string }
-        scenario: { type: string }
-        boundary: { type: string }
-        need_category: { type: string, minLength: 1 }
-        severity: { type: string }
-        breadth: { type: string }
-        why_unmet: { type: object, additionalProperties: true }
-        falsification_check: { type: object, additionalProperties: true }
-        importance_assessment: { type: object, additionalProperties: true }
-        measurability: { type: object, additionalProperties: true }
-        resource_constraint_check: { type: object, additionalProperties: true }
-        verdict:
+          minItems: 1
+          items:
+            type: string
+            minLength: 4
+        unmet_need_category:
+          type: string
+          enum: [performance, cost, robustness, interpretability, usability, scalability, data_efficiency, evaluation_gap, resource_gap]
+        falsification_verdict:
           type: string
           enum: [validated, weak, pseudo_gap, unclear]
-        confidence: { type: number, minimum: 0, maximum: 1 }
-        judgement_summary: { type: string, minLength: 1 }
-        recommendation:
+        significance_score:
+          type: number
+          minimum: 1
+          maximum: 5
+        measurability_score:
+          type: number
+          minimum: 1
+          maximum: 5
+        feasibility_signal:
           type: string
-          enum: [accept, refine, reject, park, escalate]
-        missing_information: { type: object, additionalProperties: true }
-        blocking_issues: { type: object, additionalProperties: true }
-        next_actions: { type: object, additionalProperties: true }
-        created_by: { type: string, minLength: 1 }
+          enum: [high, medium, low, unknown]
+        validated_need:
+          type: boolean
+        judgement_summary:
+          type: string
+          minLength: 10
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        next_actions:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        evidence_refs:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TopicEvidenceRef'
+        missing_information:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        blocking_issues:
+          type: array
+          items:
+            type: string
+            minLength: 1
 
     TopicQuestionResponse:
       type: object
-      required: [id, topic_id, version_no, status, main_question, research_slice, contribution_hypothesis, created_at]
+      required:
+        - record_id
+        - topic_id
+        - record_status
+        - main_question
+        - sub_questions
+        - research_slice
+        - contribution_hypothesis
+        - source_need_review_ids
+        - source_evidence_review_ids
+        - judgement_summary
+        - confidence
+        - created_at
+        - updated_at
+      additionalProperties: false
       properties:
-        id: { type: string }
+        record_id: { type: string }
         topic_id: { type: string }
-        version_no: { type: integer }
-        status: { $ref: '#/components/schemas/ReviewStatus' }
-        main_question: { type: string }
+        record_status:
+          $ref: '#/components/schemas/TopicResearchRecordStatus'
+        main_question:
+          type: string
         sub_questions:
           type: array
-          items: { type: string }
-        research_slice: { type: string }
-        contribution_hypothesis: { type: string }
-        strongest_claim_if_success: { type: string, nullable: true }
-        fallback_claim_if_success: { type: string, nullable: true }
-        created_at: { type: string, format: date-time }
+          items:
+            type: string
+        research_slice:
+          type: string
+        contribution_hypothesis:
+          $ref: '#/components/schemas/TopicContributionHypothesis'
+        source_need_review_ids:
+          type: array
+          items:
+            type: string
+        source_evidence_review_ids:
+          type: array
+          items:
+            type: string
+        judgement_summary:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     CreateTopicQuestionRequest:
       type: object
-      required:
-        - version_no
-        - status
-        - main_question
-        - research_slice
-        - contribution_hypothesis
-        - created_by
+      additionalProperties: false
+      required: [main_question, research_slice, contribution_hypothesis, judgement_summary, confidence]
       properties:
-        version_no: { type: integer, minimum: 1 }
-        status: { $ref: '#/components/schemas/ReviewStatus' }
-        main_question: { type: string, minLength: 1 }
+        record_status:
+          $ref: '#/components/schemas/TopicResearchRecordStatus'
+        main_question:
+          type: string
+          minLength: 10
         sub_questions:
           type: array
-          items: { type: string }
-        research_slice: { type: string, minLength: 1 }
-        contribution_hypothesis: { type: string, minLength: 1 }
-        strongest_claim_if_success: { type: string }
-        fallback_claim_if_success: { type: string }
-        claim_scope: { type: string }
-        claim_fragility: { type: string }
-        input_need_review_ids:
+          items:
+            type: string
+            minLength: 1
+        research_slice:
+          type: string
+          minLength: 5
+        contribution_hypothesis:
+          $ref: '#/components/schemas/TopicContributionHypothesis'
+        source_need_review_ids:
           type: array
-          items: { type: string }
-        input_evidence_review_ids:
+          minItems: 1
+          items:
+            type: string
+            minLength: 4
+        source_evidence_review_ids:
           type: array
-          items: { type: string }
-        created_by: { type: string, minLength: 1 }
+          minItems: 1
+          items:
+            type: string
+            minLength: 4
+        judgement_summary:
+          type: string
+          minLength: 10
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+      allOf:
+        - anyOf:
+            - required: [source_need_review_ids]
+            - required: [source_evidence_review_ids]
 
     ValueAssessmentResponse:
       type: object
-      required: [id, topic_id, question_id, version_no, status, verdict, confidence, judgement_summary, created_at]
-      properties:
-        id: { type: string }
-        topic_id: { type: string }
-        question_id: { type: string }
-        version_no: { type: integer }
-        status: { $ref: '#/components/schemas/ReviewStatus' }
-        total_score: { type: number, nullable: true }
-        verdict: { $ref: '#/components/schemas/PromotionVerdict' }
-        confidence: { type: number, minimum: 0, maximum: 1 }
-        judgement_summary: { type: string }
-        created_at: { type: string, format: date-time }
-
-    CreateValueAssessmentRequest:
-      type: object
       required:
+        - record_id
+        - topic_id
         - question_id
-        - version_no
-        - status
-        - evidence_basis
+        - record_status
+        - strongest_claim_if_success
         - hard_gates
         - scored_dimensions
         - risk_penalty
         - reviewer_objections
-        - scenario_analysis
+        - ceiling_case
+        - base_case
+        - floor_case
         - verdict
-        - confidence
+        - total_score
         - judgement_summary
-        - recommendation
-        - created_by
+        - confidence
+        - required_refinements
+        - next_actions
+        - evidence_refs
+        - created_at
+        - updated_at
+      additionalProperties: false
       properties:
-        question_id: { type: string, minLength: 1 }
-        version_no: { type: integer, minimum: 1 }
-        status: { $ref: '#/components/schemas/ReviewStatus' }
-        evidence_basis: { type: object, additionalProperties: true }
-        hard_gates: { type: object, additionalProperties: true }
-        scored_dimensions: { type: object, additionalProperties: true }
-        risk_penalty: { type: object, additionalProperties: true }
-        reviewer_objections: { type: object, additionalProperties: true }
-        scenario_analysis: { type: object, additionalProperties: true }
-        total_score: { type: number }
-        verdict: { $ref: '#/components/schemas/PromotionVerdict' }
-        confidence: { type: number, minimum: 0, maximum: 1 }
-        judgement_summary: { type: string, minLength: 1 }
-        recommendation:
+        record_id: { type: string }
+        topic_id: { type: string }
+        question_id: { type: string }
+        record_status:
+          $ref: '#/components/schemas/TopicResearchRecordStatus'
+        strongest_claim_if_success:
           type: string
-          enum: [accept, refine, reject, park, escalate]
-        required_refinements: { type: object, additionalProperties: true }
-        missing_information: { type: object, additionalProperties: true }
-        blocking_issues: { type: object, additionalProperties: true }
-        next_actions: { type: object, additionalProperties: true }
-        created_by: { type: string, minLength: 1 }
+        fallback_claim_if_success:
+          type: string
+        hard_gates:
+          $ref: '#/components/schemas/TopicValueAssessmentHardGates'
+        scored_dimensions:
+          $ref: '#/components/schemas/TopicValueAssessmentScoredDimensions'
+        risk_penalty:
+          $ref: '#/components/schemas/TopicValueAssessmentRiskPenalty'
+        reviewer_objections:
+          type: array
+          items:
+            type: string
+        ceiling_case:
+          type: string
+        base_case:
+          type: string
+        floor_case:
+          type: string
+        verdict:
+          $ref: '#/components/schemas/TopicValueVerdict'
+        total_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        judgement_summary:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        required_refinements:
+          type: array
+          items:
+            type: string
+        next_actions:
+          type: array
+          items:
+            type: string
+        evidence_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicEvidenceRef'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateValueAssessmentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - strongest_claim_if_success
+        - hard_gates
+        - scored_dimensions
+        - risk_penalty
+        - ceiling_case
+        - base_case
+        - floor_case
+        - verdict
+        - total_score
+        - judgement_summary
+        - confidence
+        - evidence_refs
+      properties:
+        record_status:
+          $ref: '#/components/schemas/TopicResearchRecordStatus'
+        strongest_claim_if_success:
+          type: string
+          minLength: 10
+        fallback_claim_if_success:
+          type: string
+        hard_gates:
+          $ref: '#/components/schemas/TopicValueAssessmentHardGates'
+        scored_dimensions:
+          $ref: '#/components/schemas/TopicValueAssessmentScoredDimensions'
+        risk_penalty:
+          $ref: '#/components/schemas/TopicValueAssessmentRiskPenalty'
+        reviewer_objections:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        ceiling_case:
+          type: string
+          minLength: 5
+        base_case:
+          type: string
+          minLength: 5
+        floor_case:
+          type: string
+          minLength: 5
+        verdict:
+          $ref: '#/components/schemas/TopicValueVerdict'
+        total_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        judgement_summary:
+          type: string
+          minLength: 10
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        required_refinements:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        next_actions:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        evidence_refs:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TopicEvidenceRef'
 
     TopicPackageResponse:
       type: object
-      required: [id, topic_id, question_id, source_value_assessment_id, created_at]
+      required:
+        - record_id
+        - topic_id
+        - question_id
+        - value_assessment_id
+        - record_status
+        - title_candidates
+        - research_background
+        - contribution_summary
+        - candidate_methods
+        - evaluation_plan
+        - key_risks
+        - selected_literature_evidence_ids
+        - created_at
+        - updated_at
+      additionalProperties: false
       properties:
-        id: { type: string }
+        record_id: { type: string }
         topic_id: { type: string }
         question_id: { type: string }
-        source_value_assessment_id: { type: string }
-        created_at: { type: string, format: date-time }
+        value_assessment_id: { type: string }
+        record_status:
+          $ref: '#/components/schemas/TopicResearchRecordStatus'
+        title_candidates:
+          type: array
+          items:
+            type: string
+        research_background:
+          type: string
+        contribution_summary:
+          type: string
+        candidate_methods:
+          type: array
+          items:
+            type: string
+        evaluation_plan:
+          type: string
+        key_risks:
+          type: array
+          items:
+            type: string
+        selected_literature_evidence_ids:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     CreateTopicPackageRequest:
       type: object
+      additionalProperties: false
       required:
-        - question_id
-        - source_value_assessment_id
         - title_candidates
         - research_background
-        - expected_contributions
+        - contribution_summary
         - candidate_methods
         - evaluation_plan
-        - risk_register
-        - core_literature_ids
-        - created_by
+        - selected_literature_evidence_ids
       properties:
-        question_id: { type: string, minLength: 1 }
-        source_need_review_ids:
+        record_status:
+          $ref: '#/components/schemas/TopicResearchRecordStatus'
+        title_candidates:
           type: array
-          items: { type: string }
-        source_value_assessment_id: { type: string, minLength: 1 }
-        title_candidates: { type: object, additionalProperties: true }
-        research_background: { type: object, additionalProperties: true }
-        expected_contributions: { type: object, additionalProperties: true }
-        candidate_methods: { type: object, additionalProperties: true }
-        evaluation_plan: { type: object, additionalProperties: true }
-        risk_register: { type: object, additionalProperties: true }
-        core_literature_ids:
+          minItems: 1
+          items:
+            type: string
+            minLength: 5
+        research_background:
+          type: string
+          minLength: 20
+        contribution_summary:
+          type: string
+          minLength: 10
+        candidate_methods:
           type: array
-          items: { type: string }
-        export_payload: { type: object, additionalProperties: true }
-        created_by: { type: string, minLength: 1 }
+          minItems: 1
+          items:
+            type: string
+            minLength: 3
+        evaluation_plan:
+          type: string
+          minLength: 10
+        key_risks:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        selected_literature_evidence_ids:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 4
 
     TopicPromotionDecisionResponse:
       type: object
-      required: [id, topic_id, question_id, verdict, status, decided_at]
+      required:
+        - decision_id
+        - topic_id
+        - question_id
+        - value_assessment_id
+        - decision
+        - reason_summary
+        - created_by
+        - created_at
+      additionalProperties: false
       properties:
-        id: { type: string }
+        decision_id: { type: string }
         topic_id: { type: string }
         question_id: { type: string }
-        topic_package_id: { type: string, nullable: true }
-        source_value_assessment_id: { type: string }
-        status:
+        value_assessment_id: { type: string }
+        package_id: { type: string }
+        decision:
+          $ref: '#/components/schemas/TopicPromotionDecisionType'
+        reason_summary:
           type: string
-          enum: [pending, approved, rejected, superseded]
-        verdict: { $ref: '#/components/schemas/PromotionVerdict' }
-        decision_reason: { type: string }
-        selected_literature_ids:
-          type: array
-          items: { type: string }
-        target_paper_title: { type: string, nullable: true }
-        target_research_direction: { type: string, nullable: true }
-        created_paper_id: { type: string, nullable: true }
-        decided_at: { type: string, format: date-time }
+        target_paper_title:
+          type: string
+        promoted_paper_id:
+          type: string
+        loopback_target:
+          type: string
+          enum: [need_review, question, value_assessment, topic_package]
+        created_by:
+          type: string
+          enum: [llm, human, hybrid]
+        created_at:
+          type: string
+          format: date-time
 
     CreateTopicPromotionDecisionRequest:
       type: object
-      required:
-        - question_id
-        - source_value_assessment_id
-        - verdict
-        - decision_reason
-        - selected_literature_ids
-        - selected_evidence_refs
-        - decided_by
+      additionalProperties: false
+      required: [question_id, value_assessment_id, decision, reason_summary, created_by]
       properties:
-        question_id: { type: string, minLength: 1 }
-        topic_package_id: { type: string }
-        source_value_assessment_id: { type: string, minLength: 1 }
-        verdict: { $ref: '#/components/schemas/PromotionVerdict' }
-        decision_reason: { type: string, minLength: 1 }
-        selected_literature_ids:
-          type: array
-          items: { type: string }
-        selected_evidence_refs: { type: object, additionalProperties: true }
-        target_paper_title: { type: string }
-        target_research_direction: { type: string }
-        decided_by: { type: string, minLength: 1 }
+        question_id:
+          type: string
+          minLength: 4
+        value_assessment_id:
+          type: string
+          minLength: 4
+        package_id:
+          type: string
+          minLength: 4
+        decision:
+          $ref: '#/components/schemas/TopicPromotionDecisionType'
+        reason_summary:
+          type: string
+          minLength: 10
+        target_paper_title:
+          type: string
+          minLength: 5
+        loopback_target:
+          type: string
+          enum: [need_review, question, value_assessment, topic_package]
+        created_by:
+          type: string
+          enum: [llm, human, hybrid]
+      allOf:
+        - if:
+            properties:
+              decision:
+                const: promote
+          then:
+            required: [package_id, target_paper_title]
+        - if:
+            properties:
+              decision:
+                const: loopback
+          then:
+            required: [loopback_target]
 
     PromoteTopicToPaperProjectRequest:
       type: object
-      required: [promotion_decision_id, created_by]
+      additionalProperties: false
+      required: [question_id, value_assessment_id, package_id, title, created_by]
       properties:
-        promotion_decision_id: { type: string, minLength: 1 }
-        created_by: { type: string, minLength: 1 }
+        question_id:
+          type: string
+          minLength: 4
+        value_assessment_id:
+          type: string
+          minLength: 4
+        package_id:
+          type: string
+          minLength: 4
+        title:
+          type: string
+          minLength: 5
+        research_direction:
+          type: string
+        created_by:
+          type: string
+          enum: [human, hybrid]
 
     PromoteTopicToPaperProjectResponse:
       type: object
-      required: [paper_id, topic_id, promotion_decision_id, created_at]
+      required: [paper_id, decision_id]
+      additionalProperties: false
       properties:
         paper_id: { type: string }
-        topic_id: { type: string }
-        promotion_decision_id: { type: string }
-        created_at: { type: string, format: date-time }
+        decision_id: { type: string }

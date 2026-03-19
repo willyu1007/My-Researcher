@@ -37,6 +37,27 @@ export class InMemoryResearchLifecycleRepository implements ResearchLifecycleRep
     return record;
   }
 
+  async deletePaperProject(paperId: string): Promise<void> {
+    this.papers.delete(paperId);
+
+    for (const [nodeId, node] of this.nodes.entries()) {
+      if (node.paperId === paperId) {
+        this.nodes.delete(nodeId);
+      }
+    }
+
+    for (const [snapshotId, snapshot] of this.snapshots.entries()) {
+      if (snapshot.paperId === paperId) {
+        this.snapshots.delete(snapshotId);
+      }
+    }
+
+    this.timelineEvents.delete(paperId);
+    this.artifactBundles.delete(paperId);
+    this.releaseReviews.delete(paperId);
+    this.runtimeMetrics.delete(paperId);
+  }
+
   async findPaperById(paperId: string): Promise<PaperProjectRecord | null> {
     return this.papers.get(paperId) ?? null;
   }

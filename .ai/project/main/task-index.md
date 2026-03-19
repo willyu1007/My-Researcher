@@ -23,5 +23,5 @@ Project: `main`
 | T-011 literature-management-flow | in-progress | F-000 | dev-docs/active/literature-management-flow |
 | T-012 app-tsx-layout-split | planned | F-000 | dev-docs/active/app-tsx-layout-split |
 | T-013 topic-initial-pull-and-rule-preview | planned | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
-| T-014 automated-topic-management | planned | F-001 | dev-docs/active/automated-topic-management |
+| T-014 automated-topic-management | in-progress | F-001 | dev-docs/active/automated-topic-management |
 <!-- AUTO-GENERATED:END task-index -->

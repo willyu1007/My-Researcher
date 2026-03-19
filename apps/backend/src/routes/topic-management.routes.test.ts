@@ -4,20 +4,73 @@ import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 
 import { TopicManagementController } from '../controllers/topic-management.controller.js';
+import { InMemoryAutoPullRepository } from '../repositories/in-memory-auto-pull-repository.js';
+import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
 import { InMemoryTopicManagementRepository } from '../repositories/topic-management.repository.js';
 import { registerTopicManagementRoutes } from './topic-management.js';
 import { TopicManagementService } from '../services/topic-management.service.js';
 
 async function makeApp() {
   const repository = new InMemoryTopicManagementRepository();
+  const topicProfiles = new InMemoryAutoPullRepository();
+  const literatureRepository = new InMemoryLiteratureRepository();
   const paperCalls: unknown[] = [];
   const paperProjects = {
     async createPaperProject(input: unknown) {
       paperCalls.push(input);
       return { paper_id: 'paper_001' };
     },
+    async deletePaperProject() {},
   };
-  const service = new TopicManagementService(repository, paperProjects);
+  await topicProfiles.createTopicProfile({
+    id: 'topic_001',
+    name: 'Topic 001',
+    isActive: true,
+    initialPullPending: false,
+    includeKeywords: ['retrieval'],
+    excludeKeywords: [],
+    venueFilters: [],
+    defaultLookbackDays: 30,
+    defaultMinYear: 2021,
+    defaultMaxYear: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  await topicProfiles.createTopicProfile({
+    id: 'topic_002',
+    name: 'Topic 002',
+    isActive: true,
+    initialPullPending: false,
+    includeKeywords: ['agents'],
+    excludeKeywords: [],
+    venueFilters: [],
+    defaultLookbackDays: 30,
+    defaultMinYear: 2021,
+    defaultMaxYear: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  await literatureRepository.createLiterature({
+    id: 'lit_001',
+    title: 'Seed literature',
+    abstractText: 'Seed abstract',
+    keyContentDigest: null,
+    authors: ['Author A'],
+    year: 2024,
+    doiNormalized: '10.1000/seed',
+    arxivId: null,
+    normalizedTitle: 'seed literature',
+    titleAuthorsYearHash: null,
+    rightsClass: 'OA',
+    tags: [],
+    activeEmbeddingVersionId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  const service = new TopicManagementService(repository, paperProjects, {
+    findTopicProfileById: (topicId) => topicProfiles.findTopicProfileById(topicId),
+    findLiteratureById: (literatureId) => literatureRepository.findLiteratureById(literatureId),
+  });
   const controller = new TopicManagementController(service);
   const app = Fastify();
   await registerTopicManagementRoutes(app, controller);
@@ -29,7 +82,6 @@ function needPayload() {
     need_statement: 'Existing methods degrade sharply under long-context retrieval settings.',
     who_needs_it: 'RAG researchers',
     scenario: 'Long-context retrieval and answer synthesis for CS literature tasks.',
-    evidence_review_refs: [{ record_id: 'er_001', record_type: 'evidence_review' }],
     literature_ids: ['lit_001'],
     unmet_need_category: 'robustness',
     falsification_verdict: 'validated',
@@ -203,7 +255,7 @@ test('full HTTP flow can promote a topic to paper project', async () => {
       contribution_summary: 'A robust retrieval approach plus targeted evaluation.',
       candidate_methods: ['adaptive retrieval', 'context compression'],
       evaluation_plan: 'Compare against strong retrieval baselines on long-context literature QA.',
-      selected_literature_evidence_ids: ['evidence_001'],
+      selected_literature_evidence_ids: ['lit_001'],
     },
   });
   assert.equal(packageRes.statusCode, 201);
@@ -230,7 +282,7 @@ test('full HTTP flow can promote a topic to paper project', async () => {
   await app.close();
 });
 
-test('service invariant failures are surfaced as 400 responses', async () => {
+test('service invariant failures are surfaced as 404/409/422 responses', async () => {
   const { app } = await makeApp();
   await app.ready();
 
@@ -271,11 +323,72 @@ test('service invariant failures are surfaced as 400 responses', async () => {
       contribution_summary: 'A robust retrieval approach plus targeted evaluation.',
       candidate_methods: ['adaptive retrieval', 'context compression'],
       evaluation_plan: 'Compare against strong retrieval baselines on long-context literature QA.',
-      selected_literature_evidence_ids: ['evidence_001'],
+      selected_literature_evidence_ids: ['lit_001'],
     },
   });
-  assert.equal(packageRes.statusCode, 400);
-  assert.match(packageRes.body, /same question/i);
+  assert.equal(packageRes.statusCode, 404);
+  assert.match(packageRes.body, /TopicQuestion/i);
+
+  const missingEvidencePackageRes = await app.inject({
+    method: 'POST',
+    url: `/topics/topic_001/questions/${question.record_id}/value-assessments/${value.record_id}/topic-package`,
+    payload: {
+      title_candidates: ['Robust Long-Context Retrieval for Literature Reasoning'],
+      research_background: 'Prior work does not adequately stabilize retrieval under long-context reasoning workflows.',
+      contribution_summary: 'A robust retrieval approach plus targeted evaluation.',
+      candidate_methods: ['adaptive retrieval', 'context compression'],
+      evaluation_plan: 'Compare against strong retrieval baselines on long-context literature QA.',
+      selected_literature_evidence_ids: ['lit_missing'],
+    },
+  });
+  assert.equal(missingEvidencePackageRes.statusCode, 404);
+  assert.match(missingEvidencePackageRes.body, /Literature records not found/i);
+
+  const archivedQuestionRes = await app.inject({
+    method: 'POST',
+    url: '/topics/topic_001/questions',
+    payload: {
+      main_question: 'Should not be reused once archived',
+      research_slice: 'archived question',
+      contribution_hypothesis: 'method',
+      source_need_review_ids: [need.record_id],
+      judgement_summary: 'Archived question summary.',
+      confidence: 0.81,
+      record_status: 'archived',
+    },
+  });
+  assert.equal(archivedQuestionRes.statusCode, 201);
+  const archivedQuestion = archivedQuestionRes.json() as { record_id: string };
+
+  const archivedValueRes = await app.inject({
+    method: 'POST',
+    url: `/topics/topic_001/questions/${archivedQuestion.record_id}/value-assessments`,
+    payload: valuePayload(),
+  });
+  assert.equal(archivedValueRes.statusCode, 409);
+  assert.match(archivedValueRes.body, /TopicQuestion/i);
+
+  const evidenceOnlyQuestionRes = await app.inject({
+    method: 'POST',
+    url: '/topics/topic_001/questions',
+    payload: {
+      main_question: 'How can literature evidence bridge be used today?',
+      research_slice: 'evidence bridge',
+      contribution_hypothesis: 'analysis',
+      source_evidence_review_ids: ['evidence_review_001'],
+      judgement_summary: 'Should fail until evidence bridge lands.',
+      confidence: 0.8,
+    },
+  });
+  assert.equal(evidenceOnlyQuestionRes.statusCode, 422);
+  assert.match(evidenceOnlyQuestionRes.body, /evidence bridge/i);
+
+  const missingTopicRes = await app.inject({
+    method: 'GET',
+    url: '/topics/topic_missing/need-reviews',
+  });
+  assert.equal(missingTopicRes.statusCode, 404);
+  assert.match(missingTopicRes.body, /Topic profile/i);
 
   await app.close();
 });

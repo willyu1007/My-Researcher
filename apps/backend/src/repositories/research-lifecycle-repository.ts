@@ -82,6 +82,7 @@ export interface ResearchLifecycleRepository {
   countSnapshots(): Promise<number>;
 
   createPaperProject(record: PaperProjectRecord): Promise<PaperProjectRecord>;
+  deletePaperProject(paperId: string): Promise<void>;
   findPaperById(paperId: string): Promise<PaperProjectRecord | null>;
   updatePaperPointers(
     paperId: string,

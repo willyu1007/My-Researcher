@@ -27,7 +27,7 @@ export interface TopicManagementRepository {
 
   createTopicPackage(topicId: string, questionId: string, valueAssessmentId: string, input: CreateTopicPackageRequest): Promise<TopicPackageDTO>;
   getTopicPackage(topicId: string, recordId: string): Promise<TopicPackageDTO | null>;
-  listTopicPackages(topicId: string, valueAssessmentId: string): Promise<TopicPackageDTO[]>;
+  listTopicPackages(topicId: string, questionId: string, valueAssessmentId: string): Promise<TopicPackageDTO[]>;
 
   createPromotionDecision(topicId: string, input: CreateTopicPromotionDecisionRequest & { promotedPaperId?: string }): Promise<TopicPromotionDecisionDTO>;
 }
@@ -57,7 +57,7 @@ export class InMemoryTopicManagementRepository implements TopicManagementReposit
       who_needs_it: input.who_needs_it,
       scenario: input.scenario,
       boundary: input.boundary,
-      evidence_review_refs: input.evidence_review_refs,
+      evidence_review_refs: input.evidence_review_refs ?? [],
       literature_ids: input.literature_ids,
       unmet_need_category: input.unmet_need_category,
       falsification_verdict: input.falsification_verdict,
@@ -192,9 +192,9 @@ export class InMemoryTopicManagementRepository implements TopicManagementReposit
     return dto?.topic_id === topicId ? dto : null;
   }
 
-  async listTopicPackages(topicId: string, valueAssessmentId: string): Promise<TopicPackageDTO[]> {
+  async listTopicPackages(topicId: string, questionId: string, valueAssessmentId: string): Promise<TopicPackageDTO[]> {
     return [...this.packages.values()]
-      .filter((x) => x.topic_id === topicId && x.value_assessment_id === valueAssessmentId)
+      .filter((x) => x.topic_id === topicId && x.question_id === questionId && x.value_assessment_id === valueAssessmentId)
       .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
   }
 
@@ -215,54 +215,5 @@ export class InMemoryTopicManagementRepository implements TopicManagementReposit
     };
     this.decisions.set(dto.decision_id, dto);
     return dto;
-  }
-}
-
-export class PrismaTopicManagementRepository implements TopicManagementRepository {
-  constructor(private readonly _prisma: { [key: string]: unknown }) {
-    void this._prisma; // reserved for future Prisma implementation
-  }
-
-  async createNeedReview(_topicId: string, _input: CreateNeedReviewRequest): Promise<NeedReviewDTO> {
-    throw new Error('TODO: implement Prisma persistence for createNeedReview');
-  }
-  async getNeedReview(_topicId: string, _recordId: string): Promise<NeedReviewDTO | null> {
-    throw new Error('TODO: implement Prisma persistence for getNeedReview');
-  }
-  async listNeedReviews(_topicId: string): Promise<NeedReviewDTO[]> {
-    throw new Error('TODO: implement Prisma persistence for listNeedReviews');
-  }
-  async createQuestion(_topicId: string, _input: CreateTopicQuestionRequest): Promise<TopicQuestionDTO> {
-    throw new Error('TODO: implement Prisma persistence for createQuestion');
-  }
-  async getQuestion(_topicId: string, _recordId: string): Promise<TopicQuestionDTO | null> {
-    throw new Error('TODO: implement Prisma persistence for getQuestion');
-  }
-  async listQuestions(_topicId: string): Promise<TopicQuestionDTO[]> {
-    throw new Error('TODO: implement Prisma persistence for listQuestions');
-  }
-  async createValueAssessment(_topicId: string, _questionId: string, _input: CreateTopicValueAssessmentRequest): Promise<TopicValueAssessmentDTO> {
-    throw new Error('TODO: implement Prisma persistence for createValueAssessment');
-  }
-  async getValueAssessment(_topicId: string, _recordId: string): Promise<TopicValueAssessmentDTO | null> {
-    throw new Error('TODO: implement Prisma persistence for getValueAssessment');
-  }
-  async getLatestValueAssessmentByQuestion(_topicId: string, _questionId: string): Promise<TopicValueAssessmentDTO | null> {
-    throw new Error('TODO: implement Prisma persistence for getLatestValueAssessmentByQuestion');
-  }
-  async listValueAssessments(_topicId: string, _questionId: string): Promise<TopicValueAssessmentDTO[]> {
-    throw new Error('TODO: implement Prisma persistence for listValueAssessments');
-  }
-  async createTopicPackage(_topicId: string, _questionId: string, _valueAssessmentId: string, _input: CreateTopicPackageRequest): Promise<TopicPackageDTO> {
-    throw new Error('TODO: implement Prisma persistence for createTopicPackage');
-  }
-  async getTopicPackage(_topicId: string, _recordId: string): Promise<TopicPackageDTO | null> {
-    throw new Error('TODO: implement Prisma persistence for getTopicPackage');
-  }
-  async listTopicPackages(_topicId: string, _valueAssessmentId: string): Promise<TopicPackageDTO[]> {
-    throw new Error('TODO: implement Prisma persistence for listTopicPackages');
-  }
-  async createPromotionDecision(_topicId: string, _input: CreateTopicPromotionDecisionRequest & { promotedPaperId?: string }): Promise<TopicPromotionDecisionDTO> {
-    throw new Error('TODO: implement Prisma persistence for createPromotionDecision');
   }
 }

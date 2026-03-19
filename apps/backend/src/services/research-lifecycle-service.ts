@@ -124,6 +124,14 @@ export class ResearchLifecycleService {
     };
   }
 
+  async deletePaperProject(paperId: string): Promise<void> {
+    const paper = await this.repository.findPaperById(paperId);
+    if (!paper) {
+      return;
+    }
+    await this.repository.deletePaperProject(paperId);
+  }
+
   async commitVersionSpine(input: VersionSpineCommitRequest): Promise<VersionSpineCommitResponse> {
     await this.assertPaperExists(input.lineage_meta.paper_id);
 

@@ -191,10 +191,10 @@ tasks:
     updated: 2026-03-07
   - id: T-014
     slug: automated-topic-management
-    status: planned
+    status: in-progress
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
     dev_docs_path: dev-docs/active/automated-topic-management
-    updated: 2026-03-17
+    updated: 2026-03-19

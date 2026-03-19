@@ -7,11 +7,18 @@ import type {
   CreateTopicValueAssessmentRequest,
   PromoteTopicToPaperProjectRequest,
 } from '@paper-engineering-assistant/shared';
-import { TopicManagementInvariantError, TopicManagementService } from '../services/topic-management.service.js';
+import { AppError } from '../errors/app-error.js';
+import { TopicManagementService } from '../services/topic-management.service.js';
 
 function handleError(reply: FastifyReply, error: unknown) {
-  if (error instanceof TopicManagementInvariantError) {
-    return reply.status(400).send({ error: error.name, message: error.message });
+  if (error instanceof AppError) {
+    return reply.status(error.statusCode).send({
+      error: {
+        code: error.errorCode,
+        message: error.message,
+        details: error.details,
+      },
+    });
   }
   const req = (reply as { request?: { log?: { error: (err: unknown, msg?: string) => void } } }).request;
   if (req?.log?.error) {
@@ -19,7 +26,12 @@ function handleError(reply: FastifyReply, error: unknown) {
   } else {
     console.error('[topic-management]', error);
   }
-  return reply.status(500).send({ error: 'InternalServerError', message: 'Unexpected topic management failure.' });
+  return reply.status(500).send({
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: 'Unexpected topic management failure.',
+    },
+  });
 }
 
 export class TopicManagementController {
@@ -120,7 +132,11 @@ export class TopicManagementController {
     reply: FastifyReply,
   ) => {
     try {
-      const result = await this.service.listTopicPackages(request.params.topicId, request.params.valueAssessmentId);
+      const result = await this.service.listTopicPackages(
+        request.params.topicId,
+        request.params.questionId,
+        request.params.valueAssessmentId,
+      );
       return reply.send({ items: result });
     } catch (error) {
       return handleError(reply, error);

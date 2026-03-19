@@ -1,17 +1,17 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-18T03:49:15.289Z",
+  "generatedAt": "2026-03-19T02:09:58.792Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "9ab4dac146372c8e071c71f4d27cb88c942d6f6363b12e54ed96920cf8dcf7c2",
+  "sourceChecksumSha256": "527cd032dc40f5e4180a30c39e380be5f0dae7acfb7fc9d04de07b721e5d0687",
   "stats": {
-    "totalEndpoints": 48,
+    "totalEndpoints": 47,
     "byTag": {
       "health": 1,
       "research-lifecycle": 8,
       "literature": 15,
       "topic-settings": 3,
       "auto-pull": 10,
-      "topic-research": 11
+      "topic-research": 10
     }
   },
   "endpoints": [
@@ -1389,83 +1389,6 @@
     },
     {
       "method": "GET",
-      "path": "/topics/{topicId}/research-record",
-      "operationId": "getTopicResearchRecord",
-      "summary": "Get the research record attached to a topic profile.",
-      "tag": "topic-research",
-      "auth": "none",
-      "input": {
-        "params": [
-          "topicId"
-        ],
-        "query": [],
-        "body": null
-      },
-      "output": {
-        "successStatus": 200,
-        "coreFields": [
-          "id",
-          "topic_id",
-          "lifecycle_status",
-          "created_by",
-          "created_at",
-          "updated_at",
-          "current_question_id",
-          "current_package_id",
-          "current_decision_id",
-          "summary"
-        ]
-      },
-      "errors": [
-        404
-      ],
-      "example": {
-        "curl": "curl -X GET '/topics/{topicId}/research-record'"
-      }
-    },
-    {
-      "method": "POST",
-      "path": "/topics/{topicId}/research-record",
-      "operationId": "createTopicResearchRecord",
-      "summary": "Create a research record for a topic profile.",
-      "tag": "topic-research",
-      "auth": "none",
-      "input": {
-        "params": [
-          "topicId"
-        ],
-        "query": [],
-        "body": {
-          "required": [
-            "created_by"
-          ],
-          "optional": [
-            "summary"
-          ]
-        }
-      },
-      "output": {
-        "successStatus": 201,
-        "coreFields": [
-          "id",
-          "topic_id",
-          "lifecycle_status",
-          "created_by",
-          "created_at",
-          "updated_at",
-          "current_question_id",
-          "current_package_id",
-          "current_decision_id",
-          "summary"
-        ]
-      },
-      "errors": [],
-      "example": {
-        "curl": "curl -X POST '/topics/{topicId}/research-record' -H 'Content-Type: application/json' -d '{\"created_by\":\"<created_by>\"}'"
-      }
-    },
-    {
-      "method": "GET",
       "path": "/topics/{topicId}/need-reviews",
       "operationId": "listNeedReviews",
       "summary": "List need reviews for a topic.",
@@ -1484,7 +1407,9 @@
           "items"
         ]
       },
-      "errors": [],
+      "errors": [
+        404
+      ],
       "example": {
         "curl": "curl -X GET '/topics/{topicId}/need-reviews'"
       }
@@ -1503,58 +1428,65 @@
         "query": [],
         "body": {
           "required": [
-            "version_no",
-            "status",
-            "evidence_review_refs",
-            "literature_ids",
-            "unmet_need",
-            "need_category",
-            "why_unmet",
-            "falsification_check",
-            "importance_assessment",
-            "measurability",
-            "resource_constraint_check",
-            "verdict",
-            "confidence",
-            "judgement_summary",
-            "recommendation",
-            "created_by"
-          ],
-          "optional": [
-            "compared_solution_clusters",
+            "need_statement",
             "who_needs_it",
             "scenario",
+            "literature_ids",
+            "unmet_need_category",
+            "falsification_verdict",
+            "significance_score",
+            "measurability_score",
+            "feasibility_signal",
+            "validated_need",
+            "judgement_summary",
+            "confidence",
+            "evidence_refs"
+          ],
+          "optional": [
+            "record_status",
             "boundary",
-            "severity",
-            "breadth",
+            "evidence_review_refs",
+            "next_actions",
             "missing_information",
-            "blocking_issues",
-            "next_actions"
+            "blocking_issues"
           ]
         }
       },
       "output": {
         "successStatus": 201,
         "coreFields": [
-          "id",
+          "record_id",
           "topic_id",
-          "version_no",
-          "verdict",
-          "confidence",
-          "judgement_summary",
-          "recommendation",
-          "created_at",
-          "status",
-          "unmet_need",
+          "record_status",
+          "need_statement",
           "who_needs_it",
           "scenario",
+          "evidence_review_refs",
+          "literature_ids",
+          "unmet_need_category",
+          "falsification_verdict",
+          "significance_score",
+          "measurability_score",
+          "feasibility_signal",
+          "validated_need",
+          "judgement_summary",
+          "confidence",
+          "next_actions",
+          "evidence_refs",
+          "created_at",
+          "updated_at",
           "boundary",
-          "need_category"
+          "missing_information",
+          "blocking_issues"
         ]
       },
-      "errors": [],
+      "errors": [
+        400,
+        404,
+        422
+      ],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/need-reviews' -H 'Content-Type: application/json' -d '{\"version_no\":\"<version_no>\",\"status\":\"<status>\",\"evidence_review_refs\":\"<evidence_review_refs>\",\"literature_ids\":\"<literature_ids>\",\"unmet_need\":\"<unmet_need>\",\"need_category\":\"<need_category>\",\"why_unmet\":\"<why_unmet>\",\"falsification_check\":\"<falsification_check>\",\"importance_assessment\":\"<importance_assessment>\",\"measurability\":\"<measurability>\",\"resource_constraint_check\":\"<resource_constraint_check>\",\"verdict\":\"<verdict>\",\"confidence\":\"<confidence>\",\"judgement_summary\":\"<judgement_summary>\",\"recommendation\":\"<recommendation>\",\"created_by\":\"<created_by>\"}'"
+        "curl": "curl -X POST '/topics/{topicId}/need-reviews' -H 'Content-Type: application/json' -d '{\"need_statement\":\"<need_statement>\",\"who_needs_it\":\"<who_needs_it>\",\"scenario\":\"<scenario>\",\"literature_ids\":\"<literature_ids>\",\"unmet_need_category\":\"<unmet_need_category>\",\"falsification_verdict\":\"<falsification_verdict>\",\"significance_score\":\"<significance_score>\",\"measurability_score\":\"<measurability_score>\",\"feasibility_signal\":\"<feasibility_signal>\",\"validated_need\":\"<validated_need>\",\"judgement_summary\":\"<judgement_summary>\",\"confidence\":\"<confidence>\",\"evidence_refs\":\"<evidence_refs>\"}'"
       }
     },
     {
@@ -1577,7 +1509,9 @@
           "items"
         ]
       },
-      "errors": [],
+      "errors": [
+        404
+      ],
       "example": {
         "curl": "curl -X GET '/topics/{topicId}/questions'"
       }
@@ -1595,56 +1529,48 @@
         ],
         "query": [],
         "body": {
-          "required": [
-            "version_no",
-            "status",
-            "main_question",
-            "research_slice",
-            "contribution_hypothesis",
-            "created_by"
-          ],
-          "optional": [
-            "sub_questions",
-            "strongest_claim_if_success",
-            "fallback_claim_if_success",
-            "claim_scope",
-            "claim_fragility",
-            "input_need_review_ids",
-            "input_evidence_review_ids"
-          ]
+          "required": [],
+          "optional": []
         }
       },
       "output": {
         "successStatus": 201,
         "coreFields": [
-          "id",
+          "record_id",
           "topic_id",
-          "version_no",
-          "status",
+          "record_status",
           "main_question",
+          "sub_questions",
           "research_slice",
           "contribution_hypothesis",
+          "source_need_review_ids",
+          "source_evidence_review_ids",
+          "judgement_summary",
+          "confidence",
           "created_at",
-          "sub_questions",
-          "strongest_claim_if_success",
-          "fallback_claim_if_success"
+          "updated_at"
         ]
       },
-      "errors": [],
+      "errors": [
+        400,
+        404,
+        422
+      ],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/questions' -H 'Content-Type: application/json' -d '{\"version_no\":\"<version_no>\",\"status\":\"<status>\",\"main_question\":\"<main_question>\",\"research_slice\":\"<research_slice>\",\"contribution_hypothesis\":\"<contribution_hypothesis>\",\"created_by\":\"<created_by>\"}'"
+        "curl": "curl -X POST '/topics/{topicId}/questions'"
       }
     },
     {
       "method": "GET",
-      "path": "/topics/{topicId}/value-assessments",
+      "path": "/topics/{topicId}/questions/{questionId}/value-assessments",
       "operationId": "listValueAssessments",
-      "summary": "List value assessments for a topic.",
+      "summary": "List value assessments for a topic question.",
       "tag": "topic-research",
       "auth": "none",
       "input": {
         "params": [
-          "topicId"
+          "topicId",
+          "questionId"
         ],
         "query": [],
         "body": null
@@ -1655,45 +1581,46 @@
           "items"
         ]
       },
-      "errors": [],
+      "errors": [
+        404
+      ],
       "example": {
-        "curl": "curl -X GET '/topics/{topicId}/value-assessments'"
+        "curl": "curl -X GET '/topics/{topicId}/questions/{questionId}/value-assessments'"
       }
     },
     {
       "method": "POST",
-      "path": "/topics/{topicId}/value-assessments",
+      "path": "/topics/{topicId}/questions/{questionId}/value-assessments",
       "operationId": "createValueAssessment",
       "summary": "Create a value assessment for a topic question.",
       "tag": "topic-research",
       "auth": "none",
       "input": {
         "params": [
-          "topicId"
+          "topicId",
+          "questionId"
         ],
         "query": [],
         "body": {
           "required": [
-            "question_id",
-            "version_no",
-            "status",
-            "evidence_basis",
+            "strongest_claim_if_success",
             "hard_gates",
             "scored_dimensions",
             "risk_penalty",
-            "reviewer_objections",
-            "scenario_analysis",
+            "ceiling_case",
+            "base_case",
+            "floor_case",
             "verdict",
-            "confidence",
+            "total_score",
             "judgement_summary",
-            "recommendation",
-            "created_by"
+            "confidence",
+            "evidence_refs"
           ],
           "optional": [
-            "total_score",
+            "record_status",
+            "fallback_claim_if_success",
+            "reviewer_objections",
             "required_refinements",
-            "missing_information",
-            "blocking_issues",
             "next_actions"
           ]
         }
@@ -1701,67 +1628,125 @@
       "output": {
         "successStatus": 201,
         "coreFields": [
-          "id",
+          "record_id",
           "topic_id",
           "question_id",
-          "version_no",
-          "status",
+          "record_status",
+          "strongest_claim_if_success",
+          "hard_gates",
+          "scored_dimensions",
+          "risk_penalty",
+          "reviewer_objections",
+          "ceiling_case",
+          "base_case",
+          "floor_case",
           "verdict",
-          "confidence",
+          "total_score",
           "judgement_summary",
+          "confidence",
+          "required_refinements",
+          "next_actions",
+          "evidence_refs",
           "created_at",
-          "total_score"
+          "updated_at",
+          "fallback_claim_if_success"
         ]
       },
-      "errors": [],
+      "errors": [
+        400,
+        404,
+        409,
+        422
+      ],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/value-assessments' -H 'Content-Type: application/json' -d '{\"question_id\":\"<question_id>\",\"version_no\":\"<version_no>\",\"status\":\"<status>\",\"evidence_basis\":\"<evidence_basis>\",\"hard_gates\":\"<hard_gates>\",\"scored_dimensions\":\"<scored_dimensions>\",\"risk_penalty\":\"<risk_penalty>\",\"reviewer_objections\":\"<reviewer_objections>\",\"scenario_analysis\":\"<scenario_analysis>\",\"verdict\":\"<verdict>\",\"confidence\":\"<confidence>\",\"judgement_summary\":\"<judgement_summary>\",\"recommendation\":\"<recommendation>\",\"created_by\":\"<created_by>\"}'"
+        "curl": "curl -X POST '/topics/{topicId}/questions/{questionId}/value-assessments' -H 'Content-Type: application/json' -d '{\"strongest_claim_if_success\":\"<strongest_claim_if_success>\",\"hard_gates\":\"<hard_gates>\",\"scored_dimensions\":\"<scored_dimensions>\",\"risk_penalty\":\"<risk_penalty>\",\"ceiling_case\":\"<ceiling_case>\",\"base_case\":\"<base_case>\",\"floor_case\":\"<floor_case>\",\"verdict\":\"<verdict>\",\"total_score\":\"<total_score>\",\"judgement_summary\":\"<judgement_summary>\",\"confidence\":\"<confidence>\",\"evidence_refs\":\"<evidence_refs>\"}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-packages",
+      "operationId": "listTopicPackages",
+      "summary": "List topic packages for a question and value assessment pair.",
+      "tag": "topic-research",
+      "auth": "none",
+      "input": {
+        "params": [
+          "topicId",
+          "questionId",
+          "valueAssessmentId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "items"
+        ]
+      },
+      "errors": [
+        404,
+        409
+      ],
+      "example": {
+        "curl": "curl -X GET '/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-packages'"
       }
     },
     {
       "method": "POST",
-      "path": "/topics/{topicId}/packages",
+      "path": "/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-package",
       "operationId": "createTopicPackage",
       "summary": "Build a topic package from a question and value assessment.",
       "tag": "topic-research",
       "auth": "none",
       "input": {
         "params": [
-          "topicId"
+          "topicId",
+          "questionId",
+          "valueAssessmentId"
         ],
         "query": [],
         "body": {
           "required": [
-            "question_id",
-            "source_value_assessment_id",
             "title_candidates",
             "research_background",
-            "expected_contributions",
+            "contribution_summary",
             "candidate_methods",
             "evaluation_plan",
-            "risk_register",
-            "core_literature_ids",
-            "created_by"
+            "selected_literature_evidence_ids"
           ],
           "optional": [
-            "source_need_review_ids",
-            "export_payload"
+            "record_status",
+            "key_risks"
           ]
         }
       },
       "output": {
         "successStatus": 201,
         "coreFields": [
-          "id",
+          "record_id",
           "topic_id",
           "question_id",
-          "source_value_assessment_id",
-          "created_at"
+          "value_assessment_id",
+          "record_status",
+          "title_candidates",
+          "research_background",
+          "contribution_summary",
+          "candidate_methods",
+          "evaluation_plan",
+          "key_risks",
+          "selected_literature_evidence_ids",
+          "created_at",
+          "updated_at"
         ]
       },
-      "errors": [],
+      "errors": [
+        400,
+        404,
+        409
+      ],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/packages' -H 'Content-Type: application/json' -d '{\"question_id\":\"<question_id>\",\"source_value_assessment_id\":\"<source_value_assessment_id>\",\"title_candidates\":\"<title_candidates>\",\"research_background\":\"<research_background>\",\"expected_contributions\":\"<expected_contributions>\",\"candidate_methods\":\"<candidate_methods>\",\"evaluation_plan\":\"<evaluation_plan>\",\"risk_register\":\"<risk_register>\",\"core_literature_ids\":\"<core_literature_ids>\",\"created_by\":\"<created_by>\"}'"
+        "curl": "curl -X POST '/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-package' -H 'Content-Type: application/json' -d '{\"title_candidates\":\"<title_candidates>\",\"research_background\":\"<research_background>\",\"contribution_summary\":\"<contribution_summary>\",\"candidate_methods\":\"<candidate_methods>\",\"evaluation_plan\":\"<evaluation_plan>\",\"selected_literature_evidence_ids\":\"<selected_literature_evidence_ids>\"}'"
       }
     },
     {
@@ -1777,50 +1762,43 @@
         ],
         "query": [],
         "body": {
-          "required": [
-            "question_id",
-            "source_value_assessment_id",
-            "verdict",
-            "decision_reason",
-            "selected_literature_ids",
-            "selected_evidence_refs",
-            "decided_by"
-          ],
-          "optional": [
-            "topic_package_id",
-            "target_paper_title",
-            "target_research_direction"
-          ]
+          "required": [],
+          "optional": []
         }
       },
       "output": {
         "successStatus": 201,
         "coreFields": [
-          "id",
+          "decision_id",
           "topic_id",
           "question_id",
-          "status",
-          "verdict",
-          "decided_at",
-          "topic_package_id",
-          "source_value_assessment_id",
-          "decision_reason",
-          "selected_literature_ids",
+          "value_assessment_id",
+          "decision",
+          "reason_summary",
+          "created_by",
+          "created_at",
+          "package_id",
           "target_paper_title",
-          "target_research_direction",
-          "created_paper_id"
+          "promoted_paper_id",
+          "loopback_target"
         ]
       },
-      "errors": [],
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500
+      ],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/promotion-decisions' -H 'Content-Type: application/json' -d '{\"question_id\":\"<question_id>\",\"source_value_assessment_id\":\"<source_value_assessment_id>\",\"verdict\":\"<verdict>\",\"decision_reason\":\"<decision_reason>\",\"selected_literature_ids\":\"<selected_literature_ids>\",\"selected_evidence_refs\":\"<selected_evidence_refs>\",\"decided_by\":\"<decided_by>\"}'"
+        "curl": "curl -X POST '/topics/{topicId}/promotion-decisions'"
       }
     },
     {
       "method": "POST",
       "path": "/topics/{topicId}/promote-to-paper-project",
       "operationId": "promoteTopicToPaperProject",
-      "summary": "Promote a topic into a paper project using an approved decision.",
+      "summary": "Promote a topic into a paper project using aligned question, value, and package ids.",
       "tag": "topic-research",
       "auth": "none",
       "input": {
@@ -1830,27 +1808,32 @@
         "query": [],
         "body": {
           "required": [
-            "promotion_decision_id",
+            "question_id",
+            "value_assessment_id",
+            "package_id",
+            "title",
             "created_by"
           ],
-          "optional": []
+          "optional": [
+            "research_direction"
+          ]
         }
       },
       "output": {
         "successStatus": 201,
         "coreFields": [
           "paper_id",
-          "topic_id",
-          "promotion_decision_id",
-          "created_at"
+          "decision_id"
         ]
       },
       "errors": [
+        400,
+        404,
         409,
         422
       ],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/promote-to-paper-project' -H 'Content-Type: application/json' -d '{\"promotion_decision_id\":\"<promotion_decision_id>\",\"created_by\":\"<created_by>\"}'"
+        "curl": "curl -X POST '/topics/{topicId}/promote-to-paper-project' -H 'Content-Type: application/json' -d '{\"question_id\":\"<question_id>\",\"value_assessment_id\":\"<value_assessment_id>\",\"package_id\":\"<package_id>\",\"title\":\"<title>\",\"created_by\":\"<created_by>\"}'"
       }
     }
   ]

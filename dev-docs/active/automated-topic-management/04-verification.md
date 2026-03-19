@@ -1,6 +1,21 @@
 # 04 Verification
 
 ## Automated checks
+- [pass] `pnpm --filter @paper-engineering-assistant/backend run prisma:generate`
+  - Result:
+    - Prisma client regenerated successfully after topic-management schema landing.
+    - `buildApp()` 导入恢复可用，memory-mode integration test 不再被 Prisma type drift 卡住。
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/app.topic-management-config.test.ts src/repositories/topic-management.repository.test.ts src/services/topic-management.service.test.ts src/routes/topic-management.routes.test.ts src/routes/topic-management.routes.integration.test.ts src/routes/topic-management.contract-drift.test.ts`
+  - Result:
+    - `26` tests passed.
+    - 覆盖 store config 级联 / mixed-store fail-fast、in-memory repository、service invariants、promotion 补偿回滚、HTTP route validation / error mapping / happy path、buildApp 全链路与 contract drift。
+- [pass] `pnpm --filter @paper-engineering-assistant/backend run typecheck`
+  - Result:
+    - backend TypeScript compile passed after app wiring、service rollback、Prisma repository interface changes.
+- [pass] `node .ai/scripts/ctl-api-index.mjs generate --touch`
+  - Result:
+    - 重建 `docs/context/api/API-INDEX.md` 与 `docs/context/api/api-index.json`
+    - 端点总数更新为 `47`
 - [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
   - Result:
     - `[ok] Sync complete.`
@@ -16,6 +31,11 @@
       - `topic-initial-pull-and-rule-preview`: missing `## Status` / `- State: <status>` in `00-overview.md`
   - Note:
     - warnings are pre-existing and not caused by `T-014`
+- [warn] `pnpm --filter @paper-engineering-assistant/shared test`
+  - Result:
+    - 当前 workspace 下 `packages/shared` 缺失本地 `node_modules`，`ts-node` loader 无法解析，命令在测试启动前失败。
+  - Note:
+    - 本批次 shared 契约变更已被 backend route/service 测试间接覆盖；后续若要单独跑 shared test，需要先修复该包的本地测试环境。
 
 ## Manual checks
 - [pass] 任务包完整性检查
@@ -65,29 +85,37 @@
 
 | Layer | Scenario | Type | Expected Result | Risk Covered |
 |-------|----------|------|-----------------|--------------|
+| Shared schema | NeedReview payload 缺少 `evidence_review_refs` | Positive | schema accepts payload | v1 evidence bridge defer policy |
 | Shared schema | Question payload 缺少 source 数组 | Negative | 4xx validation failure | orphan question records |
 | Shared schema | Promotion decision promote 无 package/title | Negative | 4xx validation failure | invalid irreversible promote |
 | Shared schema | Loopback decision 无 target | Negative | 4xx validation failure | ambiguous recovery path |
 | Repository | Need reviews 按 topic 隔离 | Positive | list 仅返回匹配 topic 记录 | cross-topic data bleed |
 | Repository | Promotion decision 存储 promoted paper id | Positive | DTO 持久化 promoted_paper_id | broken audit trail |
+| Service | Need review 引用缺失 literature | Negative | 404 not found | non-evidence-based need |
 | Service | Question 无上游 sources | Negative | invariant error | unsupported derivation |
-| Service | Need review 无 literature ids | Negative | invariant error | non-evidence-based need |
+| Service | Question 引用 archived / cross-topic 上游 | Negative | 404/409 invariant error | invalid lineage reuse |
 | Service | Value verdict promote 且 hard gate 失败 | Negative | invariant error | unsafe promotion signal |
 | Service | Topic package 绑定错误 question/value assessment | Negative | invariant error | broken alignment |
 | Service | Promotion decision promote 且 gates 失败 | Negative | invariant error | paper from weak topic |
 | Service | Promote-to-paper-project 空 evidence ids | Negative | invariant error | empty initial context |
+| Service | Topic package / promotion 引用不存在 literature ids | Negative | 404 not found | fake evidence ids entering paper context |
 | Service | Promote-to-paper-project 成功 | Positive | paper project 创建且 decision 持久化 | happy path broken |
+| Service | Promote-to-paper-project decision 持久化失败 | Negative | created paper rolled back | orphan paper project |
+| Service | Promote-to-paper-project rollback 自身失败 | Negative | 500 with rollback context | silent partial failure |
 | Route | Invalid question body | Negative | 400 from schema validation | contract drift |
 | Route | Invalid promotion decision body | Negative | 400 from schema validation | malformed control |
-| Route | Service invariant failure | Negative | 400 with invariant message | domain errors hidden as 500 |
+| Route | Service invariant failure | Negative | 404/409/422 with machine-friendly code | domain errors hidden as 500 |
 | Route | Unexpected service failure | Negative | 500 | unhandled runtime faults |
 | Route | Full promotion flow via HTTP | Positive | 201 with paper_id and decision_id | route/controller wiring |
+| Contract | canonical path drift | Negative | test fails when route/OpenAPI diverge | docs/context drift |
+| App wiring | `TOPIC_REPOSITORY=prisma` 级联解析 | Positive | dependent stores resolve to prisma | mixed persistence false 404 / split writes |
+| App wiring | Prisma topic-management mixed store mismatch | Negative | build fails fast | split-brain persistence |
 
 ## 测试清单（内嵌）
 
 ### 1. Shared contract / schema 层
 - CreateNeedReviewRequest 拒绝空 literature_ids
-- CreateNeedReviewRequest 拒绝缺失 evidence_review_refs
+- CreateNeedReviewRequest 允许缺失 evidence_review_refs
 - CreateTopicQuestionRequest 至少需要 source_need_review_ids 或 source_evidence_review_ids 之一
 - CreateTopicValueAssessmentRequest 需要全部 hard_gates
 - CreateTopicPromotionDecisionRequest verdict=promote 需要 package_id 和 target_paper_title
@@ -104,22 +132,31 @@
 ### 3. Service invariants
 - Question 创建无上游 sources 失败
 - Need review 创建无至少一个 literature_id 失败
+- Need review 创建引用不存在 literature 失败
+- Question 创建引用跨 topic / 不存在的 NeedReview 失败
+- Question 创建引用 source_evidence_review_ids（bridge 未实现）失败
 - Value assessment 任一 hard gate 失败不得标记 promote
+- Archived question 不允许进入 value assessment
 - Topic package 需要 value assessment 属于同一 question
+- Topic package 需要 selected literature evidence ids 全部可解析到 literature record
 - Promotion decision promote 需要 package id 和 target paper title
 - Promotion decision promote 失败若 value assessment 有 failed hard gate
 - Promotion decision loopback 需要 loopback target
 - Promote-to-paper-project 失败若 package/value assessment/question 未对齐
 - Promote-to-paper-project 失败若 selected literature evidence ids 为空
+- Promote-to-paper-project 失败若 selected literature evidence ids 在 promotion 时已失效
 - Promote-to-paper-project 将 selected literature evidence ids 传入 initial_context
+- Promote-to-paper-project 若 decision 持久化失败则回滚 paper project
+- Promote-to-paper-project 若回滚自身失败则返回 500 并带上下文
 
 ### 4. HTTP / Fastify route 层
 - Valid need review 返回 201
 - Invalid question payload 在 service 调用前验证失败
 - Invalid promotion decision payload 在 service 调用前验证失败
 - 成功 route-level promotion 返回 201 且含 paper_id
-- Service invariant failures 以 400 返回
+- Service invariant failures 以 404/409/422 返回
 - Unexpected service errors 以 500 返回
+- Contract drift test 要求 nested route path 与 OpenAPI 同步
 
 ### 5. End-to-end topic promotion flow
 - Create need review -> create question from need review -> create passing value assessment -> create topic package -> promote to paper project
@@ -129,13 +166,13 @@
 
 | 顺序 | 命令 | 结果 |
 |------|------|------|
-| 1 | `cd packages/shared && pnpm test`（或 `node --test --loader ts-node/esm src/research-lifecycle/topic-management-contracts.schema.test.ts`） | 6 pass |
-| 2 | `cd apps/backend && node --test --loader ts-node/esm src/repositories/topic-management.repository.test.ts` | 3 pass |
-| 3 | `cd apps/backend && node --test --loader ts-node/esm src/services/topic-management.service.test.ts` | 6 pass |
-| 4 | `cd apps/backend && node --test --loader ts-node/esm src/routes/topic-management.routes.test.ts` | 4 pass |
+| 1 | `pnpm --filter @paper-engineering-assistant/backend run prisma:generate` | pass |
+| 2 | `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/app.topic-management-config.test.ts src/repositories/topic-management.repository.test.ts src/services/topic-management.service.test.ts src/routes/topic-management.routes.test.ts src/routes/topic-management.routes.integration.test.ts src/routes/topic-management.contract-drift.test.ts` | 26 pass |
+| 3 | `pnpm --filter @paper-engineering-assistant/backend run typecheck` | pass |
+| 4 | `node .ai/scripts/ctl-api-index.mjs generate --touch` | pass |
 
 - **E2E promotion flow**：由 `topic-management.routes.test.ts` 中用例「full HTTP flow can promote a topic to paper project」覆盖（need review → question → value assessment → package → promote-to-paper-project），断言 paper_id、decision_id、literature_evidence_ids 经 gateway 传递）。
-- **Schema 测试位置**：schema 测试置于 `packages/shared/src/research-lifecycle/topic-management-contracts.schema.test.ts`，避免 backend 中 node --test + ts-node 下多 async 函数导致的加载异常；shared 包已增加 devDependencies：fastify、ts-node、typescript。
+- **Schema 测试位置**：schema 测试仍在 `packages/shared/src/research-lifecycle/topic-management-contracts.schema.test.ts`；但当前未能在本 workspace 成功执行，阻塞点是 `packages/shared` 本地测试环境缺失 `node_modules/ts-node` 解析。
 
 ### 7. 后置但重要
 - Prisma repository 集成测试

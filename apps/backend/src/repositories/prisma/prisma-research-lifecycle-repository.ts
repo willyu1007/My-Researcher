@@ -136,6 +136,16 @@ export class PrismaResearchLifecycleRepository implements ResearchLifecycleRepos
     return toPaperRecord(created);
   }
 
+  async deletePaperProject(paperId: string): Promise<void> {
+    await this.prisma.paperProject.delete({
+      where: { id: paperId },
+    });
+    this.timelineEvents.delete(paperId);
+    this.artifactBundles.delete(paperId);
+    this.releaseReviews.delete(paperId);
+    this.runtimeMetrics.delete(paperId);
+  }
+
   async findPaperById(paperId: string): Promise<PaperProjectRecord | null> {
     const found = await this.prisma.paperProject.findUnique({
       where: { id: paperId },

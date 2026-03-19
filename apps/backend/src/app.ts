@@ -11,6 +11,7 @@ import { PrismaAutoPullRepository } from './repositories/prisma/prisma-auto-pull
 import { PrismaLiteratureRepository } from './repositories/prisma/prisma-literature-repository.js';
 import { PrismaResearchLifecycleRepository } from './repositories/prisma/prisma-research-lifecycle-repository.js';
 import { InMemoryTopicManagementRepository } from './repositories/topic-management.repository.js';
+import { PrismaTopicManagementRepository } from './repositories/prisma/prisma-topic-management-repository.js';
 import { registerAutoPullRoutes } from './routes/auto-pull-routes.js';
 import { registerLiteratureRoutes } from './routes/literature-routes.js';
 import { registerResearchLifecycleRoutes } from './routes/research-lifecycle-routes.js';
@@ -34,15 +35,52 @@ import { FileGovernanceDeliveryOutboxStore } from './services/event-delivery/gov
 import { InProcessGovernanceEventDeliveryAdapter } from './services/event-delivery/governance-event-delivery-adapter.js';
 import { DurableOutboxGovernanceEventDeliveryAdapter } from './services/event-delivery/governance-event-delivery-outbox-adapter.js';
 
+type RepositoryStrategy = 'memory' | 'prisma';
+
+export function resolveTopicManagementStoreConfig(): {
+  researchLifecycleStrategy: RepositoryStrategy;
+  literatureStrategy: RepositoryStrategy;
+  autoPullStrategy: RepositoryStrategy;
+  topicStrategy: RepositoryStrategy;
+} {
+  const topicStrategy = resolveRepositoryStrategy(
+    process.env.TOPIC_REPOSITORY,
+    process.env.RESEARCH_LIFECYCLE_REPOSITORY,
+  );
+  const researchLifecycleStrategy = resolveRepositoryStrategy(
+    process.env.RESEARCH_LIFECYCLE_REPOSITORY,
+    process.env.TOPIC_REPOSITORY,
+  );
+  const literatureStrategy = resolveRepositoryStrategy(
+    process.env.RESEARCH_LIFECYCLE_REPOSITORY,
+    process.env.TOPIC_REPOSITORY,
+  );
+  const autoPullStrategy = resolveRepositoryStrategy(
+    process.env.AUTO_PULL_REPOSITORY,
+    process.env.TOPIC_REPOSITORY,
+    process.env.RESEARCH_LIFECYCLE_REPOSITORY,
+  );
+
+  return {
+    researchLifecycleStrategy,
+    literatureStrategy,
+    autoPullStrategy,
+    topicStrategy,
+  };
+}
+
 export function buildApp(): FastifyInstance {
   const app = Fastify({
     logger: false,
   });
 
-  const repository = createRepository();
-  const literatureRepository = createLiteratureRepository();
-  const autoPullRepository = createAutoPullRepository();
-  const topicManagementRepository = createTopicManagementRepository();
+  const storeConfig = resolveTopicManagementStoreConfig();
+  assertTopicManagementStoreCompatibility(storeConfig);
+
+  const repository = createRepository(storeConfig.researchLifecycleStrategy);
+  const literatureRepository = createLiteratureRepository(storeConfig.literatureStrategy);
+  const autoPullRepository = createAutoPullRepository(storeConfig.autoPullStrategy);
+  const topicManagementRepository = createTopicManagementRepository(storeConfig.topicStrategy);
   const auditStore = new FileGovernanceDeliveryAuditStore({
     filePath: process.env.GOVERNANCE_DELIVERY_AUDIT_LOG_PATH,
   });
@@ -54,8 +92,12 @@ export function buildApp(): FastifyInstance {
   const researchLifecycleController = new ResearchLifecycleController(researchLifecycleService);
   const paperProjectGateway: PaperProjectGateway = {
     createPaperProject: (input) => researchLifecycleService.createPaperProject(input),
+    deletePaperProject: (paperId) => researchLifecycleService.deletePaperProject(paperId),
   };
-  const topicManagementService = new TopicManagementService(topicManagementRepository, paperProjectGateway);
+  const topicManagementService = new TopicManagementService(topicManagementRepository, paperProjectGateway, {
+    findTopicProfileById: (topicId) => autoPullRepository.findTopicProfileById(topicId),
+    findLiteratureById: (literatureId) => literatureRepository.findLiteratureById(literatureId),
+  });
   const topicManagementController = new TopicManagementController(topicManagementService);
   const literatureService = new LiteratureService(literatureRepository, repository);
   const literatureController = new LiteratureController(literatureService);
@@ -103,9 +145,7 @@ export function buildApp(): FastifyInstance {
   return app;
 }
 
-function createRepository(): ResearchLifecycleRepository {
-  const strategy = process.env.RESEARCH_LIFECYCLE_REPOSITORY ?? 'memory';
-
+function createRepository(strategy: RepositoryStrategy): ResearchLifecycleRepository {
   if (strategy === 'prisma') {
     const prisma = getPrismaClient();
     return new PrismaResearchLifecycleRepository(prisma);
@@ -114,9 +154,7 @@ function createRepository(): ResearchLifecycleRepository {
   return new InMemoryResearchLifecycleRepository();
 }
 
-function createLiteratureRepository(): LiteratureRepository {
-  const strategy = process.env.RESEARCH_LIFECYCLE_REPOSITORY ?? 'memory';
-
+function createLiteratureRepository(strategy: RepositoryStrategy): LiteratureRepository {
   if (strategy === 'prisma') {
     const prisma = getPrismaClient();
     return new PrismaLiteratureRepository(prisma);
@@ -125,11 +163,7 @@ function createLiteratureRepository(): LiteratureRepository {
   return new InMemoryLiteratureRepository();
 }
 
-function createAutoPullRepository(): AutoPullRepository {
-  const strategy = process.env.AUTO_PULL_REPOSITORY
-    ?? process.env.RESEARCH_LIFECYCLE_REPOSITORY
-    ?? 'memory';
-
+function createAutoPullRepository(strategy: RepositoryStrategy): AutoPullRepository {
   if (strategy === 'prisma') {
     const prisma = getPrismaClient();
     return new PrismaAutoPullRepository(prisma);
@@ -138,16 +172,10 @@ function createAutoPullRepository(): AutoPullRepository {
   return new InMemoryAutoPullRepository();
 }
 
-function createTopicManagementRepository(): TopicManagementRepository {
-  const strategy = process.env.TOPIC_REPOSITORY
-    ?? process.env.RESEARCH_LIFECYCLE_REPOSITORY
-    ?? 'memory';
-
+function createTopicManagementRepository(strategy: RepositoryStrategy): TopicManagementRepository {
   if (strategy === 'prisma') {
-    console.warn(
-      '[topic-management] PrismaTopicManagementRepository is not implemented; falling back to InMemory. Set TOPIC_REPOSITORY=memory to silence.',
-    );
-    return new InMemoryTopicManagementRepository();
+    const prisma = getPrismaClient();
+    return new PrismaTopicManagementRepository(prisma);
   }
 
   return new InMemoryTopicManagementRepository();
@@ -176,4 +204,39 @@ function createDeliveryAdapter():
     return new DurableOutboxGovernanceEventDeliveryAdapter(outboxStore);
   }
   return new InProcessGovernanceEventDeliveryAdapter();
+}
+
+function resolveRepositoryStrategy(...candidates: Array<string | undefined>): RepositoryStrategy {
+  const raw = candidates.find((candidate) => candidate !== undefined);
+  if (!raw) {
+    return 'memory';
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'memory' || normalized === 'prisma') {
+    return normalized;
+  }
+
+  throw new Error(`Unsupported repository strategy "${raw}". Expected "memory" or "prisma".`);
+}
+
+function assertTopicManagementStoreCompatibility(config: {
+  researchLifecycleStrategy: RepositoryStrategy;
+  literatureStrategy: RepositoryStrategy;
+  autoPullStrategy: RepositoryStrategy;
+  topicStrategy: RepositoryStrategy;
+}) {
+  if (config.topicStrategy !== 'prisma') {
+    return;
+  }
+
+  if (
+    config.topicStrategy !== config.researchLifecycleStrategy
+    || config.topicStrategy !== config.literatureStrategy
+    || config.topicStrategy !== config.autoPullStrategy
+  ) {
+    throw new Error(
+      'When topic management uses Prisma, TOPIC_REPOSITORY, RESEARCH_LIFECYCLE_REPOSITORY, and AUTO_PULL_REPOSITORY must resolve to the same strategy.',
+    );
+  }
 }
