@@ -1,0 +1,184 @@
+  .desktop-shell {
+    --sidebar-width-expanded: 228px;
+    --sidebar-width-collapsed: 0px;
+    --left-region-width: var(--sidebar-width-expanded);
+    --left-region-bg: color-mix(in srgb, var(--ui-color-surface_elevated) 28%, transparent 72%);
+    --left-region-bg-elevated: color-mix(in srgb, var(--ui-color-surface) 34%, transparent 66%);
+    --left-region-backdrop: saturate(140%) blur(22px);
+    --left-nav-text: var(--ui-color-text_secondary);
+    --left-nav-hover-bg: color-mix(in srgb, var(--ui-color-surface) 64%, transparent 36%);
+    --left-nav-hover-text: var(--ui-color-primary);
+    --left-nav-active-bg: color-mix(in srgb, var(--ui-color-surface) 82%, transparent 18%);
+    --left-nav-active-text: var(--ui-color-primary);
+    --right-region-bg: var(--ui-color-bg);
+    --right-region-bg-elevated: var(--ui-color-surface_elevated);
+    --region-divider-color: var(--ui-color-border);
+    --left-nav-zone-divider: color-mix(in srgb, var(--region-divider-color) 76%, transparent 24%);
+    --split-corner-radius: 18px;
+    --topbar-left-control-width: 30px;
+
+    position: relative;
+    isolation: isolate;
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    background: var(--right-region-bg);
+  }
+
+  :root[data-theme="morethan.dark"] .desktop-shell {
+    --left-region-bg: color-mix(in srgb, var(--ui-color-bg) 78%, transparent 22%);
+    --left-region-bg-elevated: color-mix(in srgb, var(--ui-color-surface) 82%, transparent 18%);
+    --left-region-backdrop: saturate(112%) blur(20px);
+    --left-nav-text: color-mix(in srgb, var(--ui-color-text_primary) 92%, var(--ui-color-text_secondary) 8%);
+    --left-nav-hover-bg: color-mix(in srgb, var(--ui-color-surface) 90%, transparent 10%);
+    --left-nav-hover-text: var(--ui-color-primary_hover);
+    --left-nav-active-bg: color-mix(in srgb, var(--ui-color-surface_elevated) 90%, transparent 10%);
+    --left-nav-active-text: var(--ui-color-primary);
+  }
+
+  :root[data-theme="morethan.light"] .desktop-shell {
+    --left-region-bg: color-mix(in srgb, #d6e3f3 92%, transparent 8%);
+    --left-region-bg-elevated: color-mix(in srgb, #dfe9f7 94%, transparent 6%);
+    --left-region-backdrop: none;
+    --left-nav-text: var(--ui-color-primary);
+    --left-nav-hover-bg: color-mix(in srgb, #ffffff 34%, var(--left-region-bg) 66%);
+    --left-nav-hover-text: var(--ui-color-primary);
+    --left-nav-active-bg: color-mix(in srgb, #ffffff 42%, var(--left-region-bg) 58%);
+    --left-nav-active-text: var(--ui-color-primary);
+    --right-region-bg: #f3f5f8;
+    --region-divider-color: #cfd7e2;
+    --left-nav-zone-divider: color-mix(in srgb, var(--ui-color-primary) 28%, var(--left-region-bg) 72%);
+  }
+
+  .desktop-shell.is-sidebar-expanded {
+    --left-region-width: var(--sidebar-width-expanded);
+  }
+
+  .desktop-shell.is-sidebar-collapsed {
+    --left-region-width: var(--sidebar-width-collapsed);
+  }
+
+  .desktop-shell::before {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition:
+      width 180ms ease,
+      opacity 140ms ease;
+  }
+
+  .desktop-shell::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition:
+      left 180ms ease,
+      opacity 140ms ease;
+  }
+
+  .desktop-shell::before {
+    inset: 0 auto 0 0;
+    width: var(--left-region-width);
+    background: var(--left-region-bg);
+  }
+
+  .desktop-shell.is-macos-chrome::before {
+    opacity: 1;
+    border-top-right-radius: var(--split-corner-radius);
+    border-bottom-right-radius: var(--split-corner-radius);
+    -webkit-backdrop-filter: var(--left-region-backdrop);
+    backdrop-filter: var(--left-region-backdrop);
+  }
+
+  .desktop-shell.is-macos-chrome::after {
+    opacity: 1;
+    left: calc(var(--left-region-width) - var(--split-corner-radius));
+    top: 0;
+    bottom: 0;
+    width: var(--split-corner-radius);
+    background:
+      radial-gradient(
+          circle at 0 100%,
+          transparent calc(var(--split-corner-radius) - 0.6px),
+          var(--right-region-bg) calc(var(--split-corner-radius) + 0.6px)
+        )
+        top / 100% var(--split-corner-radius) no-repeat,
+      radial-gradient(
+          circle at 0 0,
+          transparent calc(var(--split-corner-radius) - 0.6px),
+          var(--right-region-bg) calc(var(--split-corner-radius) + 0.6px)
+        )
+        bottom / 100% var(--split-corner-radius) no-repeat;
+  }
+  .topbar,
+  .shell-main {
+    position: relative;
+    z-index: 2;
+  }
+  .shell-main {
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    grid-template-columns: var(--left-region-width) minmax(0, 1fr);
+    overflow: hidden;
+    transition: grid-template-columns 180ms ease;
+  }
+
+  .shell-main.is-sidebar-collapsed {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+
+  .sidebar-pane,
+  .workspace-pane {
+    min-height: 0;
+  }
+
+  .sidebar-pane {
+    padding: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--left-region-bg);
+    border-right: 0;
+  }
+
+  .desktop-shell.is-macos-chrome {
+    background: transparent;
+  }
+
+  .desktop-shell.is-macos-chrome .sidebar-pane {
+    background: transparent;
+    border-right: 0;
+  }
+
+  .desktop-shell.is-macos-chrome .workspace-pane {
+    border-left: 0;
+    /* Keep the right workspace region opaque to prevent vibrancy bleed-through. */
+    background: var(--right-region-bg);
+  }
+
+  .desktop-shell.is-macos-chrome .shell-main.is-sidebar-collapsed .workspace-pane {
+    border-left: 0;
+  }
+
+  .shell-main.is-sidebar-collapsed .sidebar-pane {
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    border-right: 0;
+    pointer-events: none;
+  }
+  .workspace-pane {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: auto;
+    gap: var(--ui-space-4);
+    padding: var(--ui-space-5);
+    background: var(--right-region-bg);
+  }
+

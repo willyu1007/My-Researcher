@@ -1,0 +1,16 @@
+  @media (max-width: 1100px) {
+    .manual-upload-card,
+    .manual-zotero-card {
+      padding: var(--ui-space-3);
+      min-height: 240px;
+    }
+
+    .manual-upload-dropzone {
+      min-height: 160px;
+      padding: var(--ui-space-3);
+    }
+
+    .manual-upload-dropzone-title {
+      font-size: 17px;
+    }
+  }

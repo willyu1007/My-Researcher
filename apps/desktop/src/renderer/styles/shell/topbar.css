@@ -1,0 +1,405 @@
+  .topbar {
+    position: relative;
+    height: 46px;
+    padding: 0 14px;
+    background: var(--ui-color-surface_elevated);
+    border-bottom: 1px solid var(--ui-color-border);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .topbar-region {
+    position: absolute;
+    pointer-events: none;
+    display: none;
+    z-index: 0;
+  }
+
+  .topbar-inner {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .topbar-left {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .topbar-center {
+    min-width: 0;
+    display: flex;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-left: 0;
+    scrollbar-width: none;
+  }
+
+  .topbar-center::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar-literature-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: max-content;
+    padding-right: 4px;
+  }
+
+  .topbar-tab-cluster {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 0;
+  }
+
+  .topbar-tab-button {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--ui-color-text_secondary);
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.2;
+    min-height: 28px;
+    padding: 5px 10px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 120ms ease;
+  }
+
+  .topbar-tab-button:hover {
+    color: var(--ui-color-primary);
+  }
+
+  .topbar-tab-button.is-active {
+    color: var(--ui-color-primary);
+    font-weight: 700;
+  }
+
+  :root[data-theme='morethan.light'] .topbar-tab-button {
+    color: color-mix(in srgb, var(--ui-color-text_secondary) 52%, var(--ui-color-text_muted) 48%);
+  }
+
+  :root[data-theme='morethan.light'] .topbar-tab-button:hover {
+    color: var(--ui-color-text_secondary);
+  }
+
+  :root[data-theme='morethan.light'] .topbar-tab-button.is-active {
+    color: var(--ui-color-primary_active);
+  }
+
+  .topbar-inline-subtabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    padding-left: 1px;
+    transform: translateY(1px);
+  }
+
+  .topbar-subtab-button {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: color-mix(in srgb, var(--ui-color-text_muted) 92%, var(--ui-color-text_secondary) 8%);
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.2;
+    min-height: 26px;
+    padding: 4px 4px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 120ms ease;
+  }
+
+  .topbar-subtab-button:hover {
+    color: color-mix(in srgb, var(--ui-color-text_muted) 72%, var(--ui-color-text_secondary) 28%);
+  }
+
+  .topbar-subtab-button.is-active {
+    color: color-mix(in srgb, var(--ui-color-primary) 64%, var(--ui-color-text_secondary) 36%);
+    font-weight: 600;
+  }
+
+  .topbar-right {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0;
+  }
+
+  .topbar-sidebar-toggle {
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--ui-color-text_secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+  }
+
+  .topbar-sidebar-toggle svg {
+    width: 21px;
+    height: 21px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.65;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .topbar-sidebar-toggle:hover {
+    color: var(--ui-color-primary);
+    background: transparent;
+  }
+
+  .topbar-sidebar-toggle:focus-visible {
+    outline: 2px solid var(--ui-color-focus_ring);
+    outline-offset: 2px;
+  }
+
+  .topbar-search {
+    width: 34px;
+    max-width: min(360px, 44vw);
+    height: 30px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    padding: 0;
+    min-width: 0;
+    overflow: hidden;
+    transform-origin: right center;
+    transition:
+      width 200ms ease,
+      padding 160ms ease,
+      border-color 120ms ease,
+      background-color 120ms ease;
+    margin-right: 4px;
+  }
+
+  .topbar-search:focus-within,
+  .topbar-search.has-value {
+    width: min(320px, 38vw);
+    justify-content: flex-start;
+    padding: 0 10px;
+    border-color: var(--ui-color-primary);
+    background: var(--ui-color-surface);
+  }
+
+  .topbar-search-icon {
+    color: var(--ui-color-text_secondary);
+    width: 19px;
+    height: 19px;
+    line-height: 1;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .topbar-search-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .topbar-search input {
+    width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ui-color-text_primary);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.2;
+    opacity: 0;
+    pointer-events: none;
+    outline: none;
+    transition: opacity 120ms ease;
+  }
+
+  .topbar-search:focus-within input,
+  .topbar-search.has-value input {
+    width: 100%;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .topbar-search input::placeholder {
+    color: color-mix(in srgb, var(--ui-color-text_muted) 74%, transparent 26%);
+  }
+
+  .topbar-theme-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    border: 1px solid var(--ui-color-border);
+    border-radius: 11px;
+    background: var(--ui-color-surface);
+    padding: 2px;
+  }
+
+  .topbar-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--ui-color-border);
+    flex: 0 0 auto;
+    margin-right: 12px;
+  }
+
+  .topbar-theme-switch-item {
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--ui-color-text_secondary);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.2;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .topbar-theme-switch-item:hover {
+    background: var(--ui-color-border_subtle);
+    color: var(--ui-color-text_primary);
+  }
+
+  .topbar-theme-switch-item.is-active {
+    background: var(--ui-color-primary);
+    color: var(--ui-color-on_primary);
+    font-weight: 600;
+  }
+
+  .topbar-theme-switch-item:focus-visible {
+    outline: 2px solid var(--ui-color-focus_ring);
+    outline-offset: 1px;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar {
+    -webkit-app-region: drag;
+    height: 42px;
+    border-bottom: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .desktop-shell.is-macos-chrome {
+    --topbar-left-control-width: 118px;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-left {
+    padding-left: 88px;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-literature-tabs {
+    margin-left: max(0px, calc(var(--left-region-width) - var(--topbar-left-control-width) + 6px));
+    transform: translateY(1.5px);
+  }
+
+  .desktop-shell.is-macos-chrome.is-sidebar-collapsed .topbar-literature-tabs {
+    margin-left: 0;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-sidebar-toggle {
+    transform: translateY(1.5px);
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-right {
+    transform: translateY(1.5px);
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-region {
+    top: 0;
+    bottom: 0;
+    display: block;
+    transition: width 180ms ease;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-region-left {
+    left: 0;
+    width: var(--left-region-width);
+    background: transparent;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-region-right {
+    left: var(--left-region-width);
+    right: 0;
+    /* Keep right side opaque and aligned with workspace background in all themes. */
+    background: var(--right-region-bg);
+    transition: left 180ms ease;
+  }
+
+  .desktop-shell.is-macos-chrome.is-sidebar-collapsed .topbar-region-left {
+    width: 0;
+  }
+
+  .desktop-shell.is-macos-chrome.is-sidebar-collapsed .topbar-region-right {
+    left: 0;
+  }
+
+  .desktop-shell.is-macos-chrome.is-sidebar-collapsed::after {
+    opacity: 0;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-sidebar-toggle,
+  .desktop-shell.is-macos-chrome .topbar-literature-tabs,
+  .desktop-shell.is-macos-chrome .topbar-literature-tabs *,
+  .desktop-shell.is-macos-chrome .topbar-tab-button,
+  .desktop-shell.is-macos-chrome .topbar-search,
+  .desktop-shell.is-macos-chrome .topbar-search *,
+  .desktop-shell.is-macos-chrome .topbar-theme-switch,
+  .desktop-shell.is-macos-chrome .topbar-theme-switch *,
+  .desktop-shell.is-macos-chrome .topbar-divider {
+    -webkit-app-region: no-drag;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-search {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-search:focus-within,
+  .desktop-shell.is-macos-chrome .topbar-search.has-value {
+    background: var(--ui-color-surface);
+    border-color: var(--ui-color-primary);
+  }
+
+  .desktop-shell.is-macos-chrome .topbar-theme-switch {
+    background: var(--ui-color-surface);
+  }
+
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    display: block;
+    flex: 0 0 auto;
+  }
+
+  .topbar-logo {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+  }
