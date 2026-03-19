@@ -10,8 +10,8 @@
 - 不新增行为能力或重做业务规则。
 
 ## Status
-- State: planned
-- Next step: 在开始实施前确认 `T-011` / `T-013` 对目标 backend 文件的最新修改已吸收，并冻结一版 backend 绿色基线。
+- State: done
+- Next step: `T-016` 已收口；若继续按 roadmap 推进，进入 `T-019 shared-contract-decomposition-wave4`，或在 review 发现回归时回到本包做定向修复。
 
 ## Scope
 - `apps/backend/src/services/auto-pull-service.ts`
@@ -34,9 +34,8 @@
   - 若实施中需要 shared contract 大拆，必须回退到 Wave 4，而不是在本包扩 scope。
 
 ## Acceptance criteria
-- [ ] `AutoPullService` 已收敛为 facade + 明确子职责模块。
-- [ ] `LiteratureFlowService` 已收敛为 facade + coordinator/executor 边界。
-- [ ] `PrismaLiteratureRepository` 已收敛为 facade + 分区持久化模块。
-- [ ] Prisma 依赖没有泄露到 repository 之外的 business layer。
-- [ ] backend/shared 验证矩阵通过，且 REST/DB 语义保持不变。
-
+- [x] `AutoPullService` 已收敛为 facade + 明确子职责模块。
+- [x] `LiteratureFlowService` 已收敛为 facade + coordinator/executor 边界。
+- [x] `PrismaLiteratureRepository` 已收敛为 facade + 分区持久化模块。
+- [x] Prisma 依赖没有泄露到 repository 之外的 business layer。
+- [x] backend/shared 验证矩阵通过，且 REST/DB 语义保持不变。

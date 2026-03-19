@@ -25,8 +25,8 @@ Project: `main`
 | T-013 topic-initial-pull-and-rule-preview | in-progress | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
 | T-014 automated-topic-management | in-progress | F-001 | dev-docs/active/automated-topic-management |
 | T-015 maintainability-file-split-governance | done | F-000 | dev-docs/active/maintainability-file-split-governance |
-| T-016 backend-service-boundary-split-wave3 | planned | F-000 | dev-docs/active/backend-service-boundary-split-wave3 |
+| T-016 backend-service-boundary-split-wave3 | done | F-000 | dev-docs/active/backend-service-boundary-split-wave3 |
 | T-017 frontend-normalizers-and-css-split-wave2 | done | F-000 | dev-docs/active/frontend-normalizers-and-css-split-wave2 |
 | T-018 literature-container-controller-split-wave1 | done | F-000 | dev-docs/active/literature-container-controller-split-wave1 |
-| T-019 shared-contract-decomposition-wave4 | planned | F-000 | dev-docs/active/shared-contract-decomposition-wave4 |
+| T-019 shared-contract-decomposition-wave4 | done | F-000 | dev-docs/active/shared-contract-decomposition-wave4 |
 <!-- AUTO-GENERATED:END task-index -->

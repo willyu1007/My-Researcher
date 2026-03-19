@@ -8,7 +8,7 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 19 (planned: 2, in-progress: 3, blocked: 0, done: 4, archived: 10)
+- Tasks: 19 (planned: 0, in-progress: 3, blocked: 0, done: 6, archived: 10)
 
 ## Recent tasks
 
@@ -18,10 +18,10 @@ Project: `main`
 | T-013 topic-initial-pull-and-rule-preview | in-progress | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
 | T-014 automated-topic-management | in-progress | F-001 | dev-docs/active/automated-topic-management |
 | T-015 maintainability-file-split-governance | done | F-000 | dev-docs/active/maintainability-file-split-governance |
-| T-016 backend-service-boundary-split-wave3 | planned | F-000 | dev-docs/active/backend-service-boundary-split-wave3 |
+| T-016 backend-service-boundary-split-wave3 | done | F-000 | dev-docs/active/backend-service-boundary-split-wave3 |
 | T-017 frontend-normalizers-and-css-split-wave2 | done | F-000 | dev-docs/active/frontend-normalizers-and-css-split-wave2 |
 | T-018 literature-container-controller-split-wave1 | done | F-000 | dev-docs/active/literature-container-controller-split-wave1 |
-| T-019 shared-contract-decomposition-wave4 | planned | F-000 | dev-docs/active/shared-contract-decomposition-wave4 |
+| T-019 shared-contract-decomposition-wave4 | done | F-000 | dev-docs/active/shared-contract-decomposition-wave4 |
 | T-011 literature-management-flow | in-progress | F-000 | dev-docs/active/literature-management-flow |
 | T-002 paper-assistant-core-modules | archived | F-000 | dev-docs/archive/paper-assistant-core-modules |
 | T-003 llm-research-lifecycle-governance-v1 | archived | F-001 | dev-docs/archive/llm-research-lifecycle-governance-v1 |

@@ -24,7 +24,30 @@
 - [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
   - Result:
     - lint passed
-    - 仅保留历史 warning：`T-012` 与 `T-013` 的 `00-overview.md` 状态格式问题
+    - 无 warning
+- [pass] `pnpm --filter @paper-engineering-assistant/shared test`
+  - Result:
+    - `7` tests passed / `0` failed
+    - shared schema baseline 在拆分前为绿色
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop typecheck`
+  - Result:
+    - desktop renderer/main `tsc --noEmit` 通过
+    - shared contract consumers 在拆分前为绿色
+- [pass] `pnpm --filter @paper-engineering-assistant/shared typecheck`
+  - Result:
+    - compat aggregator 与新 domain contract files 同时存在时，shared `tsc --noEmit` 通过
+- [pass] `pnpm --filter @paper-engineering-assistant/shared test`
+  - Result:
+    - `9` tests passed / `0` failed
+    - shared schema smoke 在拆分后仍为绿色
+    - compat barrel export surface 与关键 helper/schema reachability 已加入 shared 回归
+- [pass] `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - Result:
+    - backend consumers 通过旧 barrel 路径继续编译
+    - 初次 consumer audit 发现的 `Zotero*` / `UpdatePaperLiteratureLinkResponse` shape 漏项已修复
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop typecheck`
+  - Result:
+    - desktop consumers 通过旧 barrel 路径继续编译
 
 ## Evidence to capture during implementation
 - contract slice 列表与 barrel 关系

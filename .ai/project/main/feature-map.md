@@ -18,10 +18,10 @@ Project: `main`
 | T-012 app-tsx-layout-split | done | dev-docs/active/app-tsx-layout-split |
 | T-013 topic-initial-pull-and-rule-preview | in-progress | dev-docs/active/topic-initial-pull-and-rule-preview |
 | T-015 maintainability-file-split-governance | done | dev-docs/active/maintainability-file-split-governance |
-| T-016 backend-service-boundary-split-wave3 | planned | dev-docs/active/backend-service-boundary-split-wave3 |
+| T-016 backend-service-boundary-split-wave3 | done | dev-docs/active/backend-service-boundary-split-wave3 |
 | T-017 frontend-normalizers-and-css-split-wave2 | done | dev-docs/active/frontend-normalizers-and-css-split-wave2 |
 | T-018 literature-container-controller-split-wave1 | done | dev-docs/active/literature-container-controller-split-wave1 |
-| T-019 shared-contract-decomposition-wave4 | planned | dev-docs/active/shared-contract-decomposition-wave4 |
+| T-019 shared-contract-decomposition-wave4 | done | dev-docs/active/shared-contract-decomposition-wave4 |
 
 ### F-001 Research Lifecycle Governance Core
 

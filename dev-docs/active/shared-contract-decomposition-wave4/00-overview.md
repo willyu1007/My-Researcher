@@ -10,8 +10,8 @@
 - 不改 REST/DB 语义。
 
 ## Status
-- State: planned
-- Next step: 在开始实施前完成 consumer audit，并确认 `T-011` 的最新 shared contract 基线已吸收。
+- State: done
+- Next step: `T-019` 已收口；shared compat aggregator 保留原路径兼容。若后续要清理 compat 层或推动 consumer 迁移，需要单独立项。
 
 ## Scope
 - `packages/shared/src/research-lifecycle/interface-field-contracts.ts`
@@ -32,8 +32,7 @@
   - 若拆分需要 consumer 一次性大迁移，则说明合同不够保守，需要回到兼容层方案。
 
 ## Acceptance criteria
-- [ ] `interface-field-contracts.ts` 已拆为多个 bounded-context 合同文件。
-- [ ] `research-lifecycle/index.ts` 与顶层 shared barrel 继续兼容导出。
-- [ ] backend/desktop consumers 无需一次性大迁移即可继续工作。
-- [ ] shared/backend/desktop 验证矩阵全通过。
-
+- [x] `interface-field-contracts.ts` 已拆为多个 bounded-context 合同文件。
+- [x] `research-lifecycle/index.ts` 与顶层 shared barrel 继续兼容导出。
+- [x] backend/desktop consumers 无需一次性大迁移即可继续工作。
+- [x] shared/backend/desktop 验证矩阵全通过。

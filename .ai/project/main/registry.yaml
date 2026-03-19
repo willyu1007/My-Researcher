@@ -207,7 +207,7 @@ tasks:
     updated: 2026-03-19
   - id: T-016
     slug: backend-service-boundary-split-wave3
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/backend-service-boundary-split-wave3
@@ -228,7 +228,7 @@ tasks:
     updated: 2026-03-19
   - id: T-019
     slug: shared-contract-decomposition-wave4
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/shared-contract-decomposition-wave4
