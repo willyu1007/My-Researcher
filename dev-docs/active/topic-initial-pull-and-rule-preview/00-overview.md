@@ -10,7 +10,8 @@
 - No change to rule contract semantics beyond topic-level initial pull signal.
 
 ## Status
-- in_progress
+- State: in-progress
+- Next step: 基于现有 topic initial pull 与 effective rule preview 产物，继续收口剩余实现与验证记录；当前仅修复治理状态格式，不改该任务 scope。
 
 ## Scope
 - Backend: auto-pull topic DTO/repository/service + run execution decision.

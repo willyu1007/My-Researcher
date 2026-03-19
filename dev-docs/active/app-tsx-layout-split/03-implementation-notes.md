@@ -8,4 +8,13 @@
 - Extracted shell and dashboard derivations:
   - `shell/useShellHandlers.ts` (module/nav/governance toolbar actions)
   - `shell/useDashboardMetrics.ts` (metric cards + release queue)
-- `App.tsx` reduced to orchestration layer and reached line target: 1494 lines.
+- Extracted governance panel controller to `shell/useGovernancePanelController.ts`:
+  - timeline / metrics / artifact loading moved out of `App.tsx`
+  - release review form state and submit handler moved out of `App.tsx`
+  - `GovernancePanel` props in `App.tsx` collapsed to a single grouped object
+- `App.tsx` reduced further to 1397 lines after governance controller extraction.
+- Extracted literature module composition to `literature/LiteratureWorkspace.tsx`:
+  - `AutoImportTab` / `ManualImportTab` / `OverviewTab` / `MetadataIntakePanel` rendering branch moved out of `App.tsx`
+  - `literature/index.ts` now exports `LiteratureWorkspace`
+  - `App.tsx` keeps grouped tab props and module switching, but no longer expands the full literature module tree inline
+- `App.tsx` reduced to 1388 lines after literature workspace extraction.

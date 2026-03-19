@@ -2,5 +2,5 @@ version: 1
 task_id: T-013
 project: main
 slug: topic-initial-pull-and-rule-preview
-status: planned
-updated: "2026-03-07"
+status: in-progress
+updated: "2026-03-19"

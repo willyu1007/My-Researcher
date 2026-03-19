@@ -177,18 +177,18 @@ tasks:
     updated: 2026-02-26
   - id: T-012
     slug: app-tsx-layout-split
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/app-tsx-layout-split
-    updated: 2026-03-04
+    updated: 2026-03-19
   - id: T-013
     slug: topic-initial-pull-and-rule-preview
-    status: planned
+    status: in-progress
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/topic-initial-pull-and-rule-preview
-    updated: 2026-03-07
+    updated: 2026-03-19
   - id: T-014
     slug: automated-topic-management
     status: in-progress
@@ -197,4 +197,39 @@ tasks:
     requirement_ids:
       - R-009
     dev_docs_path: dev-docs/active/automated-topic-management
+    updated: 2026-03-19
+  - id: T-015
+    slug: maintainability-file-split-governance
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/maintainability-file-split-governance
+    updated: 2026-03-19
+  - id: T-016
+    slug: backend-service-boundary-split-wave3
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/backend-service-boundary-split-wave3
+    updated: 2026-03-19
+  - id: T-017
+    slug: frontend-normalizers-and-css-split-wave2
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/frontend-normalizers-and-css-split-wave2
+    updated: 2026-03-19
+  - id: T-018
+    slug: literature-container-controller-split-wave1
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-container-controller-split-wave1
+    updated: 2026-03-19
+  - id: T-019
+    slug: shared-contract-decomposition-wave4
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/shared-contract-decomposition-wave4
     updated: 2026-03-19

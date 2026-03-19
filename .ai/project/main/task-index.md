@@ -21,7 +21,12 @@ Project: `main`
 | T-009 governance-event-delivery-backend-implementation-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-backend-implementation-v1 |
 | T-010 governance-event-delivery-observability-ops-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-observability-ops-v1 |
 | T-011 literature-management-flow | in-progress | F-000 | dev-docs/active/literature-management-flow |
-| T-012 app-tsx-layout-split | planned | F-000 | dev-docs/active/app-tsx-layout-split |
-| T-013 topic-initial-pull-and-rule-preview | planned | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
+| T-012 app-tsx-layout-split | done | F-000 | dev-docs/active/app-tsx-layout-split |
+| T-013 topic-initial-pull-and-rule-preview | in-progress | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
 | T-014 automated-topic-management | in-progress | F-001 | dev-docs/active/automated-topic-management |
+| T-015 maintainability-file-split-governance | done | F-000 | dev-docs/active/maintainability-file-split-governance |
+| T-016 backend-service-boundary-split-wave3 | planned | F-000 | dev-docs/active/backend-service-boundary-split-wave3 |
+| T-017 frontend-normalizers-and-css-split-wave2 | planned | F-000 | dev-docs/active/frontend-normalizers-and-css-split-wave2 |
+| T-018 literature-container-controller-split-wave1 | done | F-000 | dev-docs/active/literature-container-controller-split-wave1 |
+| T-019 shared-contract-decomposition-wave4 | planned | F-000 | dev-docs/active/shared-contract-decomposition-wave4 |
 <!-- AUTO-GENERATED:END task-index -->
