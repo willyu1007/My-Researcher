@@ -10,8 +10,8 @@
 - 不改 backend/shared contract。
 
 ## Status
-- State: planned
-- Next step: 在开始实施前冻结当前 CSS import order 和 `normalizers.ts` 调用面，并确认 `T-011` 的最新 normalizer 变更已被吸收。
+- State: done
+- Next step: 将 backend service/repository 边界拆分切换到 `T-016 backend-service-boundary-split-wave3`，并保持 Wave 2 的兼容 barrel / CSS 聚合边界不被回流。
 
 ## Scope
 - `apps/desktop/src/renderer/literature/shared/normalizers.ts`
@@ -31,9 +31,8 @@
   - 若 `T-012` 或 Wave 1B 仍在大改样式入口，本包不得提前启动。
 
 ## Acceptance criteria
-- [ ] `normalizers.ts` 已按 domain 拆分，并保留兼容导出层。
-- [ ] `shell.css` 已收敛为 shell/governance 基础样式，不再混装 feature 语义。
-- [ ] auto/manual import 样式已分解为更清晰的聚合入口与子模块。
-- [ ] selector、class、`data-ui` 语义和 import order 保持兼容。
-- [ ] desktop `typecheck/build/smoke:e2e` 全通过。
-
+- [x] `normalizers.ts` 已按 domain 拆分，并保留兼容导出层。
+- [x] `shell.css` 已收敛为 shell/governance 基础样式，不再混装 feature 语义。
+- [x] auto/manual import 样式已分解为更清晰的聚合入口与子模块。
+- [x] selector、class、`data-ui` 语义和 import order 保持兼容。
+- [x] desktop `typecheck/build/smoke:e2e` 全通过。

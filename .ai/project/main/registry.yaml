@@ -214,7 +214,7 @@ tasks:
     updated: 2026-03-19
   - id: T-017
     slug: frontend-normalizers-and-css-split-wave2
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/frontend-normalizers-and-css-split-wave2
