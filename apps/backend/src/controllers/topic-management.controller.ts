@@ -6,7 +6,7 @@ import type {
   CreateTopicQuestionRequest,
   CreateTopicValueAssessmentRequest,
   PromoteTopicToPaperProjectRequest,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
 import { AppError } from '../errors/app-error.js';
 import { TopicManagementService } from '../services/topic-management.service.js';
 

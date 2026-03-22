@@ -3,7 +3,7 @@ import type {
   PaperCitationStatus,
   RightsClass,
   TopicScopeStatus,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 
 export type LiteratureRecord = {
   id: string;

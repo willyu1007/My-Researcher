@@ -1,7 +1,7 @@
 import type {
   AutoPullScope,
   UpdateAutoPullRuleRequest,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import { AppError } from '../../errors/app-error.js';
 import type {
   AutoPullQuerySpec,

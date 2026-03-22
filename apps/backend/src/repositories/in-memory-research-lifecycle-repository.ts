@@ -9,7 +9,7 @@ import type {
 import type {
   ArtifactBundle,
   PaperRuntimeMetric,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-project-contracts';
 
 export class InMemoryResearchLifecycleRepository implements ResearchLifecycleRepository {
   private readonly papers = new Map<string, PaperProjectRecord>();

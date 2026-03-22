@@ -1,11 +1,15 @@
+import type {
+  AnalysisContract,
+  CreatedByMode,
+  ValueJudgementPayload,
+} from '@paper-engineering-assistant/shared/research-lifecycle/research-lifecycle-core-contracts';
 import {
   isReleaseTag,
   isSnapshotId,
   isVersionId,
-  type AnalysisContract,
+  validateNoM6OverrideContext,
   type CreatePaperProjectRequest,
   type CreatePaperProjectResponse,
-  type CreatedByMode,
   type GetPaperArtifactBundleResponse,
   type GetPaperResourceMetricsResponse,
   type GetPaperTimelineResponse,
@@ -14,13 +18,11 @@ import {
   type ReleaseReviewPayload,
   type StageGateVerifyRequest,
   type StageGateVerifyResponse,
-  type ValueJudgementPayload,
   type VersionSpineCommitRequest,
   type VersionSpineCommitResponse,
   type WritingPackageBuildRequest,
   type WritingPackageBuildResponse,
-  validateNoM6OverrideContext,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-project-contracts';
 import { AppError } from '../errors/app-error.js';
 import type {
   PaperProjectRecord,

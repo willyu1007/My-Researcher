@@ -5,6 +5,15 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./research-lifecycle": "./src/research-lifecycle/index.ts",
+    "./research-lifecycle/research-lifecycle-core-contracts": "./src/research-lifecycle/research-lifecycle-core-contracts.ts",
+    "./research-lifecycle/paper-project-contracts": "./src/research-lifecycle/paper-project-contracts.ts",
+    "./research-lifecycle/literature-contracts": "./src/research-lifecycle/literature-contracts.ts",
+    "./research-lifecycle/auto-pull-contracts": "./src/research-lifecycle/auto-pull-contracts.ts",
+    "./research-lifecycle/topic-management-contracts": "./src/research-lifecycle/topic-management-contracts.ts"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test --loader ts-node/esm src/research-lifecycle/topic-management-contracts.schema.test.ts"

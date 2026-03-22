@@ -8,12 +8,13 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 19 (planned: 0, in-progress: 3, blocked: 0, done: 6, archived: 10)
+- Tasks: 20 (planned: 0, in-progress: 3, blocked: 0, done: 7, archived: 10)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-020 shared-contract-compat-cleanup-and-consumer-migration | done | F-000 | dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration |
 | T-012 app-tsx-layout-split | done | F-000 | dev-docs/active/app-tsx-layout-split |
 | T-013 topic-initial-pull-and-rule-preview | in-progress | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
 | T-014 automated-topic-management | in-progress | F-001 | dev-docs/active/automated-topic-management |

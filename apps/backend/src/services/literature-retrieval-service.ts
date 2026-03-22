@@ -3,7 +3,7 @@ import type {
   LiteratureRetrieveHit,
   LiteratureRetrieveRequest,
   LiteratureRetrieveResponse,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import { AppError } from '../errors/app-error.js';
 import type {
   LiteratureEmbeddingChunkRecord,

@@ -1,4 +1,7 @@
-import type { OverviewStatus, TopicScopeStatus } from '@paper-engineering-assistant/shared';
+import type {
+  OverviewStatus,
+  TopicScopeStatus,
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 
 export type OverviewStatusResolverInput = {
   topicScopeStatus: TopicScopeStatus | null;

@@ -1,4 +1,9 @@
 import crypto from 'node:crypto';
+import type {
+  LiteratureImportItem,
+  TopicScopeStatus,
+  ZoteroLibraryType,
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import {
   AUTO_PULL_SOURCES,
   type AcknowledgeAlertRequest,
@@ -12,14 +17,11 @@ import {
   type CreateAutoPullRuleRequest,
   type CreateAutoPullRunRequest,
   type CreateTopicProfileRequest,
-  type LiteratureImportItem,
   type RetryFailedSourcesRequest,
   type TopicProfileDTO,
-  type TopicScopeStatus,
   type UpdateAutoPullRuleRequest,
   type UpdateTopicProfileRequest,
-  type ZoteroLibraryType,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import { AppError } from '../errors/app-error.js';
 import type {
   AutoPullAlertRecord,

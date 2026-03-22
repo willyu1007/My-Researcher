@@ -4,7 +4,7 @@ import type {
   AutoPullRunStatus,
   AutoPullScope,
   AutoPullSource,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import type {
   AutoPullAlertRecord,
   AutoPullCursorRecord,

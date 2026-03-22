@@ -3,7 +3,7 @@ import {
   updateTopicProfileRequestSchema,
   type CreateTopicProfileRequest,
   type UpdateTopicProfileRequest,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import type { FastifyInstance } from 'fastify';
 import { TopicSettingsController } from '../controllers/topic-settings-controller.js';
 

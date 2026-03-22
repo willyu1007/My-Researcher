@@ -10,7 +10,7 @@ import type {
 import type {
   ArtifactBundle,
   PaperRuntimeMetric,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-project-contracts';
 
 function toPaperRecord(row: {
   id: string;

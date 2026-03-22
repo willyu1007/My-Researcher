@@ -1,3 +1,4 @@
+import type { TopicScopeStatus } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import type {
   AutoPullAlertLevel,
   AutoPullFrequency,
@@ -6,8 +7,7 @@ import type {
   AutoPullScope,
   AutoPullSource,
   AutoPullTriggerType,
-  TopicScopeStatus,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 
 export type TopicProfileRecord = {
   id: string;

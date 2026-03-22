@@ -9,7 +9,7 @@ import {
   paramsTopicIdQuestionIdValueAssessmentIdSchema,
   paramsTopicIdSchema,
   promoteTopicToPaperProjectRequestSchema,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
 import { TopicManagementController } from '../controllers/topic-management.controller.js';
 
 function withParamsTopicId<T extends { body?: unknown }>(schema: T) {

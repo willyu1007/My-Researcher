@@ -9,7 +9,7 @@ import type {
   TopicPromotionDecisionDTO,
   TopicQuestionDTO,
   TopicValueAssessmentDTO,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
 
 export interface TopicManagementRepository {
   createNeedReview(topicId: string, input: CreateNeedReviewRequest): Promise<NeedReviewDTO>;

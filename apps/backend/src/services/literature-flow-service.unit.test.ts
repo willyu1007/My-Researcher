@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { RightsClass } from '@paper-engineering-assistant/shared';
+import type { RightsClass } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
 import type { LiteratureRepository } from '../repositories/literature-repository.js';
 import { LiteratureFlowService, PIPELINE_STAGE_CODES } from './literature-flow-service.js';

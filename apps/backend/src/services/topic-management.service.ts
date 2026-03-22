@@ -9,7 +9,7 @@ import type {
   TopicPackageDTO,
   TopicQuestionDTO,
   TopicValueAssessmentDTO,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
 import { AppError } from '../errors/app-error.js';
 import type { TopicManagementRepository } from '../repositories/topic-management.repository.js';
 

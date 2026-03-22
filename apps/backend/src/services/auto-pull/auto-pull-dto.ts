@@ -4,7 +4,7 @@ import type {
   AutoPullRunDTO,
   AutoPullSuggestionDTO,
   TopicProfileDTO,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import type {
   AutoPullAlertRecord,
   AutoPullRunRecord,

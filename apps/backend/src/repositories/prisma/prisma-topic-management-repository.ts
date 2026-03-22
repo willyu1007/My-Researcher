@@ -14,7 +14,7 @@ import type {
   TopicPromotionDecisionDTO,
   TopicQuestionDTO,
   TopicValueAssessmentDTO,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
 import type { TopicManagementRepository } from '../topic-management.repository.js';
 
 type ResearchRecordRow = {

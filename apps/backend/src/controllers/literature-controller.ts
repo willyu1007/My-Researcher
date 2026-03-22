@@ -24,7 +24,7 @@ import type {
   ZoteroImportResponse,
   ZoteroPreviewRequest,
   ZoteroPreviewResponse,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError } from '../errors/app-error.js';
 import { LiteratureService } from '../services/literature-service.js';

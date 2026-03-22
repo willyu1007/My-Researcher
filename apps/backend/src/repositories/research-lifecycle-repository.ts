@@ -1,13 +1,15 @@
 import type {
-  ArtifactBundle,
   AnalysisContract,
   CreatedByMode,
   ModuleId,
+  ValueJudgementPayload,
+} from '@paper-engineering-assistant/shared/research-lifecycle/research-lifecycle-core-contracts';
+import type {
+  ArtifactBundle,
   PaperRuntimeMetric,
   ReleaseReviewDecision,
   TimelineSeverity,
-  ValueJudgementPayload,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-project-contracts';
 
 export type PaperProjectRecord = {
   id: string;

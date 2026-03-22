@@ -16,7 +16,7 @@ import {
   type CreateAutoPullRunRequest,
   type RetryFailedSourcesRequest,
   type UpdateAutoPullRuleRequest,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import type { FastifyInstance } from 'fastify';
 import { AutoPullController } from '../controllers/auto-pull-controller.js';
 

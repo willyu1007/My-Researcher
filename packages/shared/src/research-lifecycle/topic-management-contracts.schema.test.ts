@@ -7,21 +7,26 @@ import {
   createTopicQuestionRequestSchema,
 } from './topic-management-contracts.js';
 import * as autoPullContracts from './auto-pull-contracts.js';
-import * as compatibilityBarrel from './interface-field-contracts.js';
 import * as literatureContracts from './literature-contracts.js';
 import * as paperProjectContracts from './paper-project-contracts.js';
+import * as researchLifecycleContracts from './index.js';
 import * as researchLifecycleCoreContracts from './research-lifecycle-core-contracts.js';
+import * as topicManagementContracts from './topic-management-contracts.js';
 import type {
-  CreateAutoPullRunRequest,
-  LiteraturePipelineRunDTO,
-  PaperLiteratureLinkView,
   ReleaseGateReviewResponse,
   StageGateVerifyRequest,
-  TopicProfileDTO,
+} from './paper-project-contracts.js';
+import type {
+  LiteraturePipelineRunDTO,
+  PaperLiteratureLinkView,
   UpdatePaperLiteratureLinkResponse,
-} from './interface-field-contracts.js';
+} from './literature-contracts.js';
+import type {
+  CreateAutoPullRunRequest,
+  TopicProfileDTO,
+} from './auto-pull-contracts.js';
 
-const compatTypeSmoke:
+const directModuleTypeSmoke:
   | [
       StageGateVerifyRequest,
       ReleaseGateReviewResponse,
@@ -33,7 +38,7 @@ const compatTypeSmoke:
     ]
   | null = null;
 
-void compatTypeSmoke;
+void directModuleTypeSmoke;
 
 test('topic management schema loads', () => {
   assert.ok(createTopicQuestionRequestSchema);
@@ -154,22 +159,23 @@ test('promotion decision schema accepts valid promote payload', async () => {
   assert.equal(res.statusCode, 200);
 });
 
-test('interface-field-contracts barrel re-exports the runtime value surface of split modules', () => {
+test('research-lifecycle barrel re-exports the runtime value surface of split modules', () => {
   const expectedKeys = new Set([
     ...Object.keys(researchLifecycleCoreContracts),
     ...Object.keys(paperProjectContracts),
     ...Object.keys(literatureContracts),
     ...Object.keys(autoPullContracts),
+    ...Object.keys(topicManagementContracts),
   ]);
 
-  assert.deepEqual(Object.keys(compatibilityBarrel).sort(), [...expectedKeys].sort());
+  assert.deepEqual(Object.keys(researchLifecycleContracts).sort(), [...expectedKeys].sort());
 });
 
-test('interface-field-contracts barrel keeps key contract helpers and schemas reachable', () => {
-  assert.equal([...compatibilityBarrel.AUTO_PULL_SOURCES].includes('ZOTERO'), true);
-  assert.equal([...compatibilityBarrel.LITERATURE_PIPELINE_STAGE_CODES].includes('INDEXED'), true);
+test('research-lifecycle barrel keeps key contract helpers and schemas reachable', () => {
+  assert.equal([...researchLifecycleContracts.AUTO_PULL_SOURCES].includes('ZOTERO'), true);
+  assert.equal([...researchLifecycleContracts.LITERATURE_PIPELINE_STAGE_CODES].includes('INDEXED'), true);
   assert.equal(
-    compatibilityBarrel.validateNoM6OverrideContext({
+    researchLifecycleContracts.validateNoM6OverrideContext({
       candidate_node_ids: ['node-1'],
       config_version: 'cfg-1',
       reviewer_mode: 'hybrid',
@@ -181,7 +187,8 @@ test('interface-field-contracts barrel keeps key contract helpers and schemas re
     }).ok,
     true,
   );
-  assert.ok(compatibilityBarrel.createPaperProjectRequestSchema);
-  assert.ok(compatibilityBarrel.literatureImportRequestSchema);
-  assert.ok(compatibilityBarrel.createAutoPullRuleRequestSchema);
+  assert.ok(researchLifecycleContracts.createPaperProjectRequestSchema);
+  assert.ok(researchLifecycleContracts.literatureImportRequestSchema);
+  assert.ok(researchLifecycleContracts.createAutoPullRuleRequestSchema);
+  assert.ok(researchLifecycleContracts.createTopicQuestionRequestSchema);
 });

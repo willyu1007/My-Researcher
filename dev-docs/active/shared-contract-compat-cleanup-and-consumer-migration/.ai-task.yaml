@@ -1,0 +1,6 @@
+version: 1
+task_id: T-020
+project: main
+slug: shared-contract-compat-cleanup-and-consumer-migration
+status: done
+updated: "2026-03-22"

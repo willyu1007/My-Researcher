@@ -3,7 +3,7 @@ import type {
   AutoPullAlertLevel,
   AutoPullRunStatus,
   AutoPullSource,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import type {
   AutoPullAlertRecord,
   AutoPullCursorRecord,

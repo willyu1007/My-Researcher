@@ -4,7 +4,7 @@ import type {
   StageGateVerifyRequest,
   VersionSpineCommitRequest,
   WritingPackageBuildRequest,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-project-contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError } from '../errors/app-error.js';
 import { ResearchLifecycleService } from '../services/research-lifecycle-service.js';

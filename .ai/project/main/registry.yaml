@@ -233,3 +233,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/shared-contract-decomposition-wave4
     updated: 2026-03-19
+  - id: T-020
+    slug: shared-contract-compat-cleanup-and-consumer-migration
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration
+    updated: 2026-03-22

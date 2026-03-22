@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@paper-engineering-assistant/shared';
+import type { ErrorCode } from '@paper-engineering-assistant/shared/research-lifecycle/research-lifecycle-core-contracts';
 
 export type AppErrorCode = ErrorCode | 'INTERNAL_ERROR';
 

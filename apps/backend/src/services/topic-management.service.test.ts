@@ -9,7 +9,7 @@ import type {
   CreateTopicPackageRequest,
   CreateTopicQuestionRequest,
   CreateTopicValueAssessmentRequest,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
 
 function makeEvidenceRef() {
   return [{ literature_id: 'lit_001', source_type: 'abstract' as const, note: 'seed evidence' }];

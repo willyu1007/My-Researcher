@@ -1,15 +1,15 @@
 import {
   createPaperProjectRequestSchema,
-  type CreatePaperProjectRequest,
-  type ReleaseReviewPayload,
   releaseReviewRequestSchema,
-  type StageGateVerifyRequest,
-  type VersionSpineCommitRequest,
-  type WritingPackageBuildRequest,
   stageGateVerifyRequestSchema,
   versionSpineCommitRequestSchema,
   writingPackageBuildRequestSchema,
-} from '@paper-engineering-assistant/shared';
+  type CreatePaperProjectRequest,
+  type ReleaseReviewPayload,
+  type StageGateVerifyRequest,
+  type VersionSpineCommitRequest,
+  type WritingPackageBuildRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-project-contracts';
 import type { FastifyInstance } from 'fastify';
 import { ResearchLifecycleController } from '../controllers/research-lifecycle-controller.js';
 

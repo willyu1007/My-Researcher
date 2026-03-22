@@ -1,8 +1,8 @@
 import type {
-  AutoPullSource,
   LiteratureImportItem,
   TopicScopeStatus,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
+import type { AutoPullSource } from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import type {
   AutoPullQuerySpec,
   AutoPullRuleRecord,

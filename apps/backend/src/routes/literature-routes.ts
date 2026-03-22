@@ -20,7 +20,7 @@ import {
   type UpsertTopicLiteratureScopeRequest,
   type ZoteroImportRequest,
   type ZoteroPreviewRequest,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import type { FastifyInstance } from 'fastify';
 import { LiteratureController } from '../controllers/literature-controller.js';
 

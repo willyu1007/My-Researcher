@@ -2,7 +2,7 @@ import type {
   CreateTopicProfileRequest,
   TopicProfileDTO,
   UpdateTopicProfileRequest,
-} from '@paper-engineering-assistant/shared';
+} from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError } from '../errors/app-error.js';
 import { AutoPullService } from '../services/auto-pull-service.js';

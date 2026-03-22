@@ -22,6 +22,7 @@ Project: `main`
 | T-017 frontend-normalizers-and-css-split-wave2 | done | dev-docs/active/frontend-normalizers-and-css-split-wave2 |
 | T-018 literature-container-controller-split-wave1 | done | dev-docs/active/literature-container-controller-split-wave1 |
 | T-019 shared-contract-decomposition-wave4 | done | dev-docs/active/shared-contract-decomposition-wave4 |
+| T-020 shared-contract-compat-cleanup-and-consumer-migration | done | dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration |
 
 ### F-001 Research Lifecycle Governance Core
 
