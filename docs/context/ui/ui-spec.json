@@ -1,6 +1,6 @@
 {
   "ui_spec_version": "1.0.0",
-  "generated_at_utc": "2026-03-01T14:23:53Z",
+  "generated_at_utc": "2026-03-23T00:00:00Z",
   "alignment_mode": "dual-track-current-first",
   "effective_profile": {
     "id": "desktop-hybrid-v1",
@@ -29,8 +29,8 @@
       "governance_panels": "VITE_ENABLE_GOVERNANCE_PANELS"
     },
     "known_realities": [
-      "Feature CSS currently includes visual properties in @layer feature.",
-      "Inline style is used for CSS variable injection in limited locations."
+      "Desktop runtime currently combines ui/styles token-contract CSS with a legacy compatibility layer aggregated through apps/desktop/src/renderer/app-layout.css.",
+      "apps/desktop/src/renderer/styles/** remains a runtime dependency for pre-existing shell, literature, and paper-writing surfaces, but it is now frozen as a compatibility-only layer owned by T-022."
     ]
   },
   "target_profile": {
@@ -112,53 +112,28 @@
   "known_deviations": [
     {
       "id": "D-001",
-      "title": "Feature CSS visual-token drift in desktop renderer stylesheet",
+      "title": "Legacy desktop feature CSS remains a compatibility-only runtime layer",
       "severity": "high",
-      "effective_scope": "apps/desktop renderer visual layer",
+      "effective_scope": "apps/desktop renderer legacy surfaces",
       "evidence": [
-        "apps/desktop/src/renderer/app-layout.css"
+        "apps/desktop/src/renderer/app-layout.css",
+        "apps/desktop/src/renderer/styles/README.md"
       ],
-      "impact": "Current desktop UI remains executable, but policy-level feature_css_audit expectations are not met.",
-      "follow_up_entrypoint": "Future UI convergence task should migrate visual literals and visual properties into token/contract layers.",
+      "impact": "Current desktop UI remains executable, but pre-data-ui surfaces still depend on a frozen compatibility layer that sits outside the target token/contract path.",
+      "follow_up_entrypoint": "Continue the retirement plan in T-022 by migrating legacy interface clusters off app-layout.css and deleting their feature CSS imports.",
       "status": "accepted-current-state"
     },
     {
       "id": "D-002",
-      "title": "Inline style usage for topic year range CSS variables",
+      "title": "UI governance excludes legacy desktop styles as a temporary containment measure",
       "severity": "medium",
-      "effective_scope": "topic rule editor range track",
+      "effective_scope": "ui-governance-gate coverage policy",
       "evidence": [
-        "apps/desktop/src/renderer/App.tsx"
+        "ui/config/governance.json"
       ],
-      "impact": "Violates strict no-inline-style governance rule but is currently used for dynamic range rendering.",
-      "follow_up_entrypoint": "Replace with class-based CSS variable strategy or approve a narrow exception with expiry.",
+      "impact": "The gate is green for current renderer code, but legacy CSS is still out of scan scope until retirement waves complete.",
+      "follow_up_entrypoint": "Retain the exclusion only until T-022 migration waves remove the dependency on apps/desktop/src/renderer/styles.",
       "status": "accepted-current-state"
-    },
-    {
-      "id": "D-003",
-      "title": "UI governance scan root does not include monorepo desktop renderer path",
-      "severity": "high",
-      "effective_scope": "ui-governance-gate code audit coverage",
-      "evidence": [
-        "ui/config/governance.json",
-        ".ai/.tmp/ui/20260301T140320Z-89775/ui-gate-report.json"
-      ],
-      "impact": "Gate reports can pass/fail approval checks without scanning actual desktop renderer files.",
-      "follow_up_entrypoint": "Extend include_roots for monorepo desktop paths in a dedicated governance convergence task.",
-      "status": "accepted-current-state"
-    },
-    {
-      "id": "D-004",
-      "title": "UI spec approval fingerprint mismatch",
-      "severity": "high",
-      "effective_scope": "ui-governance-gate approval stage",
-      "evidence": [
-        ".ai/.tmp/ui/20260301T140326Z-89813/ui-gate-report.json",
-        ".ai/.tmp/ui/20260301T140326Z-89813/approval.request.json"
-      ],
-      "impact": "Spec-change approval must be refreshed before expecting green governance gate.",
-      "follow_up_entrypoint": "Run approval flow in a separate governance/ops step; this document task does not approve or alter gate policy.",
-      "status": "recorded-not-remediated"
     }
   ],
   "notes": {

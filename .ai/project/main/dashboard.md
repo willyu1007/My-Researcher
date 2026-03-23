@@ -8,12 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 20 (planned: 0, in-progress: 3, blocked: 0, done: 7, archived: 10)
+- Tasks: 22 (planned: 0, in-progress: 5, blocked: 0, done: 7, archived: 10)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-021 topic-management-workbench-ui | in-progress | F-001 | dev-docs/active/topic-management-workbench-ui |
+| T-022 desktop-legacy-css-retirement | in-progress | F-002 | dev-docs/active/desktop-legacy-css-retirement |
 | T-020 shared-contract-compat-cleanup-and-consumer-migration | done | F-000 | dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration |
 | T-012 app-tsx-layout-split | done | F-000 | dev-docs/active/app-tsx-layout-split |
 | T-013 topic-initial-pull-and-rule-preview | in-progress | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
@@ -32,6 +34,4 @@ Project: `main`
 | T-007 governance-read-api-and-release-review-gate | archived | F-001 | dev-docs/archive/governance-read-api-and-release-review-gate |
 | T-008 governance-event-delivery-mechanism-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-mechanism-v1 |
 | T-009 governance-event-delivery-backend-implementation-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-backend-implementation-v1 |
-| T-010 governance-event-delivery-observability-ops-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-observability-ops-v1 |
-| T-001 unify-ci-verify-entrypoint | archived | F-000 | dev-docs/archive/unify-ci-verify-entrypoint |
 <!-- AUTO-GENERATED:END dashboard -->

@@ -1,0 +1,9 @@
+{
+  "approval_version": 1,
+  "approval_type": "exception",
+  "approved_at_utc": "2026-03-22T23:15:10Z",
+  "approved_by": "codex",
+  "fingerprint": "ab15a86a0e3ec3f17349199442d3524aab457a84f03d496479d5564f8ea71cd4",
+  "expires_at_utc": "2026-09-30T00:00:00Z",
+  "notes": "Governance policy changed (may relax enforcement). Approve exception to proceed (expiry recommended)."
+}

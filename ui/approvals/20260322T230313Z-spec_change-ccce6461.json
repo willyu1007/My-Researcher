@@ -1,0 +1,8 @@
+{
+  "approval_version": 1,
+  "approval_type": "spec_change",
+  "approved_at_utc": "2026-03-22T23:03:13Z",
+  "approved_by": "codex",
+  "fingerprint": "bd17be4afc5409dde70dff047ddf8825729c30c6771ad79bd6bc6232a4e7ab4d",
+  "notes": "Refresh UI spec approval baseline after T-021 title-card workbench rollout and current repo UI SSOT state."
+}

@@ -80,6 +80,11 @@ requirements:
     status: planned
     description: "Define and stage the topic-to-paper decision layer with reviewer-aligned need/question/value/promotion artifacts and MVP implementation boundaries."
     feature_id: F-001
+  - id: R-010
+    title: "Desktop legacy CSS retirement and governance freeze"
+    status: in-progress
+    description: "Freeze the desktop renderer legacy CSS layer as compatibility-only, govern its retirement waves, and prevent new feature work from extending it."
+    feature_id: F-002
 
 tasks:
   - id: T-001
@@ -240,3 +245,21 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration
     updated: 2026-03-22
+  - id: T-021
+    slug: topic-management-workbench-ui
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-009
+    dev_docs_path: dev-docs/active/topic-management-workbench-ui
+    updated: 2026-03-23
+  - id: T-022
+    slug: desktop-legacy-css-retirement
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-002
+    requirement_ids:
+      - R-010
+    dev_docs_path: dev-docs/active/desktop-legacy-css-retirement
+    updated: 2026-03-23

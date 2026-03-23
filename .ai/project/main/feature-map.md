@@ -35,6 +35,7 @@ Project: `main`
 | T-009 governance-event-delivery-backend-implementation-v1 | archived | dev-docs/archive/governance-event-delivery-backend-implementation-v1 |
 | T-010 governance-event-delivery-observability-ops-v1 | archived | dev-docs/archive/governance-event-delivery-observability-ops-v1 |
 | T-014 automated-topic-management | in-progress | dev-docs/active/automated-topic-management |
+| T-021 topic-management-workbench-ui | in-progress | dev-docs/active/topic-management-workbench-ui |
 
 ### F-002 Desktop Frontend Foundation
 
@@ -42,4 +43,5 @@ Project: `main`
 | --- | --- | --- |
 | T-004 desktop-app-electron-ui-v1 | archived | dev-docs/archive/desktop-app-electron-ui-v1 |
 | T-006 desktop-governance-observability-panels | archived | dev-docs/archive/desktop-governance-observability-panels |
+| T-022 desktop-legacy-css-retirement | in-progress | dev-docs/active/desktop-legacy-css-retirement |
 <!-- AUTO-GENERATED:END feature-map -->

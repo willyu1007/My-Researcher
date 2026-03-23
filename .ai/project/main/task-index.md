@@ -30,4 +30,6 @@ Project: `main`
 | T-018 literature-container-controller-split-wave1 | done | F-000 | dev-docs/active/literature-container-controller-split-wave1 |
 | T-019 shared-contract-decomposition-wave4 | done | F-000 | dev-docs/active/shared-contract-decomposition-wave4 |
 | T-020 shared-contract-compat-cleanup-and-consumer-migration | done | F-000 | dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration |
+| T-021 topic-management-workbench-ui | in-progress | F-001 | dev-docs/active/topic-management-workbench-ui |
+| T-022 desktop-legacy-css-retirement | in-progress | F-002 | dev-docs/active/desktop-legacy-css-retirement |
 <!-- AUTO-GENERATED:END task-index -->

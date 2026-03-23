@@ -59,6 +59,14 @@ paper-engineering-assistant - Local-first desktop assistant for CS paper enginee
   - If the task is trivial (<30 min), provide an in-chat plan (do NOT write under `dev-docs/`).
   - If the task needs context preservation (multi-session, handoff) or qualifies as complex, follow `dev-docs/AGENTS.md` and use dev-docs workflows.
 
+## Desktop UI Freeze (MUST)
+
+- `apps/desktop/src/renderer/styles/**` is a frozen legacy compatibility layer.
+- New features and new modules MUST NOT add dependencies on `apps/desktop/src/renderer/styles/**`.
+- `apps/desktop/src/renderer/app-layout.css` remains the only allowed legacy CSS aggregation entry until retirement work removes it.
+- Only `T-022 desktop-legacy-css-retirement` and its explicit follow-on migration tasks may modify the legacy CSS layer.
+- New desktop UI work MUST use the `data-ui` + token/contract path, with Tailwind restricted to `B1-layout-only`.
+
 ## Workspace Safety (MUST)
 
 - NEVER create/copy/clone this repository into any subdirectory of itself (no nested repo copies).
