@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, type ReactNode } from 'react';
 import type { AutoPullRule } from '../../shared/types';
 import type {
   AutoImportControllerOutput,
@@ -36,13 +36,29 @@ export function AutoImportTopicSettingsView({
   topicForm,
   visible,
 }: AutoImportTopicSettingsViewProps) {
+  const topicYearRangeTrackRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const element = topicYearRangeTrackRef.current;
+    if (!element) {
+      return;
+    }
+    const styleEntries = Object.entries(controller.topicYearRangeTrackStyle);
+    styleEntries.forEach(([propertyName, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      element.style.setProperty(propertyName, String(value));
+    });
+  }, [controller.topicYearRangeTrackStyle]);
+
   if (!visible) {
     return null;
   }
 
   return (
     <section className="literature-section-block">
-      <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+      <div data-ui="toolbar" data-wrap="wrap">
         <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={controller.handleOpenCreateTopicProfile}>
           新增主题
         </button>
@@ -394,10 +410,10 @@ export function AutoImportTopicSettingsView({
                       }}
                     />
                     <div
+                      ref={topicYearRangeTrackRef}
                       className="topic-year-range-sliders"
                       role="group"
                       aria-label="年份范围滑动选择"
-                      style={controller.topicYearRangeTrackStyle}
                     >
                       <input
                         type="range"

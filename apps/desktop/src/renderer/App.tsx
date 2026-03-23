@@ -39,6 +39,8 @@ import {
   overviewYearDefaultStart,
   querySortPresetOptions,
   themeModeOptions,
+  titleCardSubTabsByTab,
+  titleCardTabs,
   topicPresetVenueOptions,
   topicYearMaxBound,
   topicYearMinBound,
@@ -75,10 +77,10 @@ import { defaultApiBaseUrl, requestGovernance } from './literature/shared/api';
 import { Topbar } from './shell/components/Topbar';
 import { Sidebar } from './shell/components/Sidebar';
 import { GovernancePanel } from './shell/components/GovernancePanel';
-import { useDashboardMetrics } from './shell/useDashboardMetrics';
 import { useShellHandlers } from './shell/useShellHandlers';
 import { useGovernancePanelController } from './shell/useGovernancePanelController';
 import { PaperModule } from './modules/PaperModule';
+import { TitleCardManagementModule } from './modules/TitleCardManagementModule';
 import { WritingModule } from './modules/WritingModule';
 import { LiteratureWorkspace } from './literature/LiteratureWorkspace';
 import { useOverviewController } from './literature/overview/useOverviewController';
@@ -110,6 +112,8 @@ import type {
   QuerySort,
   QuerySortPreset,
   SortDirection,
+  TitleCardPrimaryTabKey,
+  TitleCardSubTabState,
   TopicScopeItem,
   UiOperationStatus,
   ZoteroAction,
@@ -123,6 +127,16 @@ const emptyMetadataIntakeContext: MetadataIntakeOpenContext = {
   source_url: null,
   doi: null,
   arxiv_id: null,
+};
+
+const initialTitleCardSubTabs: TitleCardSubTabState = {
+  overview: null,
+  evidence: 'candidates',
+  need: 'list',
+  'research-question': 'list',
+  value: 'list',
+  package: 'list',
+  promotion: 'decision',
 };
 
 export function App({ initialThemeMode }: AppProps) {
@@ -144,7 +158,7 @@ export function App({ initialThemeMode }: AppProps) {
   const [refreshTick, setRefreshTick] = useState<number>(0);
   const [topicIdInput, setTopicIdInput] = useState<string>('TOPIC-001');
   const [topicId, setTopicId] = useState<string>('TOPIC-001');
-  const [topicScopeItems, setTopicScopeItems] = useState<TopicScopeItem[]>([]);
+  const [, setTopicScopeItems] = useState<TopicScopeItem[]>([]);
   const [topicScopeLoading, setTopicScopeLoading] = useState<boolean>(false);
   const [topicScopeError, setTopicScopeError] = useState<string | null>(null);
   const [paperLiteratureItems, setPaperLiteratureItems] = useState<PaperLiteratureItem[]>([]);
@@ -152,6 +166,8 @@ export function App({ initialThemeMode }: AppProps) {
   const [paperLiteratureError, setPaperLiteratureError] = useState<string | null>(null);
   const [activeLiteratureTab, setActiveLiteratureTab] = useState<LiteratureTabKey>('auto-import');
   const [autoImportSubTab, setAutoImportSubTab] = useState<AutoImportSubTabKey>('topic-settings');
+  const [activeTitleCardTab, setActiveTitleCardTab] = useState<TitleCardPrimaryTabKey>('overview');
+  const [titleCardSubTabs, setTitleCardSubTabs] = useState<TitleCardSubTabState>(initialTitleCardSubTabs);
   const [topicProfiles, setTopicProfiles] = useState<AutoPullTopicProfile[]>([]);
   const [topicProfilesStatus, setTopicProfilesStatus] = useState<UiOperationStatus>('idle');
   const [topicProfilesError, setTopicProfilesError] = useState<string | null>(null);
@@ -929,17 +945,19 @@ export function App({ initialThemeMode }: AppProps) {
     setActionHint,
     setRefreshTick,
   });
-  const { metricCards, releaseQueue } = useDashboardMetrics({
-    activeModule,
-    autoPullRules,
-    autoPullRuns,
-    overviewTotalLiteratures: overviewPanel.data.summary.total_literatures,
-    paperLiteratureItems,
-    paperId,
-    topicId,
-    topicScopeItems,
-    timelineEvents: governancePanelController.timelinePanel.data,
-  });
+  const releaseQueue = useMemo(
+    () =>
+      governancePanelController.timelinePanel.data
+        .filter(
+          (event) =>
+            event.event_type === 'research.node.status.changed'
+            || event.event_type === 'research.release.reviewed',
+        )
+        .slice(-6)
+        .reverse(),
+    [governancePanelController.timelinePanel.data],
+  );
+  const activeTitleCardSubTab = titleCardSubTabs[activeTitleCardTab];
   const {
     handleModuleSelect,
     handleToggleSidebar,
@@ -966,6 +984,32 @@ export function App({ initialThemeMode }: AppProps) {
     setRefreshTick,
     tryGetSnapshotId,
   });
+  const handleSelectTitleCardTab = useCallback((tab: TitleCardPrimaryTabKey) => {
+    setActiveTitleCardTab(tab);
+  }, []);
+  const handleSelectTitleCardSubTab = useCallback((tab: TitleCardPrimaryTabKey, subTab: string) => {
+    setActiveTitleCardTab(tab);
+    setTitleCardSubTabs((current) => {
+      switch (tab) {
+        case 'overview':
+          return current;
+        case 'evidence':
+          return { ...current, evidence: subTab as TitleCardSubTabState['evidence'] };
+        case 'need':
+          return { ...current, need: subTab as TitleCardSubTabState['need'] };
+        case 'research-question':
+          return { ...current, 'research-question': subTab as TitleCardSubTabState['research-question'] };
+        case 'value':
+          return { ...current, value: subTab as TitleCardSubTabState['value'] };
+        case 'package':
+          return { ...current, package: subTab as TitleCardSubTabState['package'] };
+        case 'promotion':
+          return { ...current, promotion: subTab as TitleCardSubTabState['promotion'] };
+        default:
+          return current;
+      }
+    });
+  }, []);
 
   const overviewController = useOverviewController({
     activeLiteratureTab,
@@ -1005,11 +1049,6 @@ export function App({ initialThemeMode }: AppProps) {
     onOverviewPageIndexChange: setOverviewPageIndex,
   });
 
-  const shellClassName = [
-    'desktop-shell',
-    isMacDesktop ? ' is-macos-chrome' : '',
-    isSidebarCollapsed ? ' is-sidebar-collapsed' : ' is-sidebar-expanded',
-  ].join('');
   const autoImportTabProps = {
     active: activeLiteratureTab === 'auto-import',
     navigation: {
@@ -1182,7 +1221,18 @@ export function App({ initialThemeMode }: AppProps) {
   };
 
   return (
-    <div data-ui="page" className={shellClassName}>
+    <div
+      data-ui="page"
+      className={
+        isMacDesktop
+          ? (isSidebarCollapsed
+              ? 'desktop-shell is-macos-chrome is-sidebar-collapsed'
+              : 'desktop-shell is-macos-chrome is-sidebar-expanded')
+          : (isSidebarCollapsed
+              ? 'desktop-shell is-sidebar-collapsed'
+              : 'desktop-shell is-sidebar-expanded')
+      }
+    >
       <Topbar
         activeModule={activeModule}
         isSidebarCollapsed={isSidebarCollapsed}
@@ -1194,6 +1244,12 @@ export function App({ initialThemeMode }: AppProps) {
         literatureSubTabsByTab={literatureSubTabsByTab}
         onSelectLiteratureTab={setActiveLiteratureTab}
         onSelectLiteratureSubTab={handleSelectLiteratureSubTab}
+        activeTitleCardTab={activeTitleCardTab}
+        activeTitleCardSubTab={activeTitleCardSubTab}
+        titleCardTabs={titleCardTabs}
+        titleCardSubTabsByTab={titleCardSubTabsByTab}
+        onSelectTitleCardTab={handleSelectTitleCardTab}
+        onSelectTitleCardSubTab={handleSelectTitleCardSubTab}
         toolbarSearchInput={toolbarSearchInput}
         onToolbarSearchInputChange={setToolbarSearchInput}
         themeModeOptions={themeModeOptions}
@@ -1222,17 +1278,6 @@ export function App({ initialThemeMode }: AppProps) {
         />
 
         <main className="workspace-pane">
-          {activeModule === '文献管理' ? null : (
-            <section data-ui="grid" data-cols="4" data-gap="3" className="metrics-grid">
-              {metricCards.map((card) => (
-                <article key={`${activeModule}-${card.label}`} className="dashboard-metric">
-                  <p data-ui="text" data-variant="label" data-tone="muted">{card.label}</p>
-                  <p data-ui="text" data-variant="h3" data-tone="primary">{card.value}</p>
-                </article>
-              ))}
-            </section>
-          )}
-
           {activeModule === '文献管理' ? (
             <LiteratureWorkspace
               autoImportTabProps={autoImportTabProps}
@@ -1257,6 +1302,15 @@ export function App({ initialThemeMode }: AppProps) {
             />
           ) : null}
 
+          {activeModule === '选题管理' ? (
+            <TitleCardManagementModule
+              activePrimaryTab={activeTitleCardTab}
+              activeSecondaryTab={activeTitleCardSubTab}
+              onSelectPrimaryTab={handleSelectTitleCardTab}
+              onSelectSecondaryTab={handleSelectTitleCardSubTab}
+            />
+          ) : null}
+
           {activeModule === '写作中心' ? (
             <WritingModule paperLiteratureItems={paperLiteratureItems} />
           ) : null}
@@ -1265,14 +1319,15 @@ export function App({ initialThemeMode }: AppProps) {
 
           {topFeedback ? (
             <section className={`literature-bottom-alert is-${topFeedback.level}`} role="status" aria-live="polite">
-              <p
-                data-ui="text"
-                data-variant="caption"
-                data-tone={topFeedback.level === 'error' ? 'danger' : 'primary'}
-                title={topFeedback.message}
-              >
-                {topFeedback.message}
-              </p>
+              {topFeedback.level === 'error' ? (
+                <p data-ui="text" data-variant="caption" data-tone="danger" title={topFeedback.message}>
+                  {topFeedback.message}
+                </p>
+              ) : (
+                <p data-ui="text" data-variant="caption" data-tone="primary" title={topFeedback.message}>
+                  {topFeedback.message}
+                </p>
+              )}
               {topFeedback.recoveryAction ? (
                 <button
                   className="literature-bottom-alert-link"

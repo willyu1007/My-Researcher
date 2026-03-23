@@ -46,17 +46,6 @@
       padding: var(--ui-space-4);
     }
 
-    .metrics-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--ui-space-2);
-    }
-
-    .dashboard-metric {
-      border-right: 0;
-      padding: 0;
-      border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 56%, transparent 44%);
-    }
-
     .governance-panels {
       grid-template-columns: repeat(1, minmax(0, 1fr));
     }

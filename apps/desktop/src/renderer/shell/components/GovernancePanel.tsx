@@ -297,9 +297,15 @@ export function GovernancePanel({
               </label>
 
               <div data-ui="toolbar" data-align="between" data-wrap="wrap">
-                <p data-ui="text" data-variant="caption" data-tone={reviewSubmitState === 'error' ? 'danger' : 'muted'}>
-                  {reviewSubmitMessage || '提交后会返回 review_id 与 audit_ref。'}
-                </p>
+                {reviewSubmitState === 'error' ? (
+                  <p data-ui="text" data-variant="caption" data-tone="danger">
+                    {reviewSubmitMessage || '提交后会返回 review_id 与 audit_ref。'}
+                  </p>
+                ) : (
+                  <p data-ui="text" data-variant="caption" data-tone="muted">
+                    {reviewSubmitMessage || '提交后会返回 review_id 与 audit_ref。'}
+                  </p>
+                )}
                 <button
                   data-ui="button"
                   data-variant="primary"

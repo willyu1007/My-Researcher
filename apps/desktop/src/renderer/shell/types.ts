@@ -4,6 +4,7 @@ import type {
   AutoImportSubTabKey,
   LiteratureTabKey,
   ManualImportSubTabKey,
+  TitleCardPrimaryTabKey,
 } from '../literature/shared/types';
 
 export type TopbarProps = {
@@ -17,6 +18,12 @@ export type TopbarProps = {
   literatureSubTabsByTab: Partial<Record<LiteratureTabKey, Array<{ key: string; label: string }>>>;
   onSelectLiteratureTab: (tab: LiteratureTabKey) => void;
   onSelectLiteratureSubTab: (tab: LiteratureTabKey, subTab: string) => void;
+  activeTitleCardTab: TitleCardPrimaryTabKey;
+  activeTitleCardSubTab: string | null;
+  titleCardTabs: Array<{ key: TitleCardPrimaryTabKey; label: string }>;
+  titleCardSubTabsByTab: Partial<Record<TitleCardPrimaryTabKey, Array<{ key: string; label: string }>>>;
+  onSelectTitleCardTab: (tab: TitleCardPrimaryTabKey) => void;
+  onSelectTitleCardSubTab: (tab: TitleCardPrimaryTabKey, subTab: string) => void;
   toolbarSearchInput: string;
   onToolbarSearchInputChange: (value: string) => void;
   themeModeOptions: Array<{ value: ThemeMode; label: string }>;

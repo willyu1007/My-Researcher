@@ -26,7 +26,7 @@ export function AutoImportRunsAlertsView({
 
   return (
     <section className="literature-section-block">
-      <div data-ui="toolbar" data-wrap="wrap" data-gap="2" className="literature-filter-toolbar">
+      <div data-ui="toolbar" data-wrap="wrap" className="literature-filter-toolbar">
         <label data-ui="field" className="literature-filter-year is-prefixed" aria-label="执行状态筛选">
           <select
             data-ui="select"
@@ -67,7 +67,7 @@ export function AutoImportRunsAlertsView({
                       {run.run_id} · {run.status} · 录入：{String(run.summary.imported_count ?? 0)} · 失败：{String(run.summary.failed_count ?? 0)}
                     </p>
                   </div>
-                  <div data-ui="toolbar" data-gap="2">
+                  <div data-ui="stack" data-direction="row" data-gap="2">
                     <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={() => void controller.loadAutoPullRunDetail(run.run_id)}>
                       详情
                     </button>

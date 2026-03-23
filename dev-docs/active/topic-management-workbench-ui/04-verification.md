@@ -1,0 +1,133 @@
+# 04 Verification
+
+## Executed checks
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result:
+    - `[ok] Sync complete.`
+    - regenerated:
+      - `.ai/project/main/dashboard.md`
+      - `.ai/project/main/feature-map.md`
+      - `.ai/project/main/task-index.md`
+- [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result:
+    - `[ok] Lint passed.`
+- [pass] `rg -n "T-021|topic-management-workbench-ui" .ai/project/main/registry.yaml .ai/project/main/dashboard.md .ai/project/main/feature-map.md .ai/project/main/task-index.md`
+  - Result:
+    - `T-021` 已出现在 registry 和全部 derived views 中。
+- [pass] `find dev-docs/active/topic-management-workbench-ui -maxdepth 1 -type f | sort`
+  - Result:
+    - 任务包已包含 `.ai-task.yaml`、`roadmap.md`、`00~05` 共 8 个预期文件。
+
+## Required checks for implementation phase
+- [pass] `pnpm --filter @paper-engineering-assistant/shared test`
+  - Result:
+    - `title-card management schemas load`
+    - `title-card create schema accepts working_title and brief`
+    - research-question / promotion-decision schema guards pass
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/repositories/topic-management.repository.test.ts src/services/topic-management.service.test.ts src/routes/topic-management.routes.test.ts src/routes/topic-management.routes.integration.test.ts src/routes/topic-management.contract-drift.test.ts`
+  - Result:
+    - 17 tests pass
+    - 覆盖 in-memory repository、service gate、route schema、OpenAPI drift、buildApp full flow
+- [pass] `pnpm --filter @paper-engineering-assistant/backend run typecheck`
+  - Result:
+    - backend compile passes after `title-card` API、Prisma repository、TitleCard schema/migration switch
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop run typecheck`
+  - Result:
+    - desktop compile passes after `TitleCardManagementModule` 接入 `App.tsx`
+- [pass] `node .ai/scripts/ctl-api-index.mjs generate --touch`
+  - Result:
+    - regenerated `docs/context/api/api-index.json`
+    - regenerated `docs/context/api/API-INDEX.md`
+- [pass] `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - Result:
+    - refreshed `docs/context/db/schema.json`
+- [pass] `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --repo-root . --run-id t021-ui-gate-green-2 --evidence-root .ai/.tmp/ui --mode full`
+  - Result:
+    - gate now scans `apps/desktop/src/renderer` while excluding legacy `apps/desktop/src/renderer/styles` via approved exception
+    - approvals status is `spec_status=OK`, `exception_status=OK`
+    - report shows `Errors: 0`, `Warnings: 0`
+- [pass] `node .ai/tests/run.mjs --suite ui`
+  - Result:
+    - `ui-system-bootstrap`, `ui-governance-gate`, `ui-governance-gate-approval-order`, `ui-style-intake-from-image` all pass
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/repositories/topic-management.repository.test.ts src/services/topic-management.service.test.ts`
+  - Result:
+    - repository / service targeted tests pass after evidence-basket timestamp persistence, promotion-decision transaction wrapping, and research-record payload id fixes
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/routes/topic-management.routes.test.ts src/routes/topic-management.routes.integration.test.ts`
+  - Result:
+    - route schema and end-to-end title-card flow tests pass after repository internals changed
+- [blocked-by-env] `pnpm exec prisma validate --schema prisma/schema.prisma`
+  - Result:
+    - failed with `P1012 Environment variable not found: DATABASE_URL`
+    - Prisma schema still generated successfully through backend `pretypecheck`, so TS compile and repository wiring were verified
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop run typecheck`
+  - Result:
+    - desktop compile passes after moving topic-management workflow navigation to `Topbar`
+    - `App.tsx` no longer renders the shared metrics strip
+- [pass] `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --repo-root . --run-id t021-titlecard-topbar-tabs --evidence-root .ai/.tmp/ui --mode full`
+  - Result:
+    - report path: `.ai/.tmp/ui/t021-titlecard-topbar-tabs/ui-gate-report.md`
+    - `Errors: 0`, `Warnings: 0`
+    - `spec_status=OK`, `exception_status=OK`
+- [pass] `node .ai/tests/run.mjs --suite ui`
+  - Result:
+    - `ui-system-bootstrap`, `ui-governance-gate`, `ui-governance-gate-approval-order`, `ui-style-intake-from-image` all pass
+- [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result:
+    - `[ok] Lint passed.`
+- [pass] `rg -n "metrics-grid|dashboard-metric" apps/desktop/src/renderer/App.tsx apps/desktop/src/renderer/modules/TitleCardManagementModule.tsx`
+  - Result:
+    - no matches
+    - shared top metrics strip has been removed from the renderer entry/module surface
+- [pass] `rg -n "topbar-inline-subtabs|activeTitleCardTab|titleCardTabs|titleCardSubTabsByTab" apps/desktop/src/renderer/App.tsx apps/desktop/src/renderer/shell/components/Topbar.tsx apps/desktop/src/renderer/literature/shared/constants.ts`
+  - Result:
+    - verified title-card topbar primary/secondary tab wiring now lives in `App.tsx`, `Topbar.tsx`, and shared tab constants
+- [pass] `rg -n "onSelectTopbarTab|useDashboardMetrics|metricCards|DashboardMetricCard|topicScopeItems" apps/desktop/src/renderer -g '*.{ts,tsx}'`
+  - Result:
+    - no matches
+    - implicit overview navigation shim, dead metrics helper, and stale dashboard-metric state are gone
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop run typecheck`
+  - Result:
+    - compile still passes after review-driven cleanup of navigation props and shell helper removal
+- [pass] `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --repo-root . --run-id t021-titlecard-topbar-tabs-review-fix --evidence-root .ai/.tmp/ui --mode full`
+  - Result:
+    - report path: `.ai/.tmp/ui/t021-titlecard-topbar-tabs-review-fix/ui-gate-report.md`
+    - `Errors: 0`, `Warnings: 0`
+    - `spec_status=OK`, `exception_status=OK`
+- [pass] `node .ai/tests/run.mjs --suite ui`
+  - Result:
+    - UI suite still passes after review cleanup
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop run typecheck`
+  - Result:
+    - compile still passes after removing the obsolete shell metrics selectors tied to the deleted top strip
+- [pass] `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --repo-root . --run-id t021-cleanup-final --evidence-root .ai/.tmp/ui --mode full`
+  - Result:
+    - final cleanup run remains green after dead selector removal
+    - `Errors: 0`, `Warnings: 0`
+    - `spec_status=OK`, `exception_status=OK`
+- [pass] `node .ai/tests/run.mjs --suite ui`
+  - Result:
+    - UI suite still passes after the final cleanup pass
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result:
+    - project hub derived views remain in sync after the final cleanup pass
+- [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result:
+    - `[ok] Lint passed.`
+
+## Manual acceptance scenarios
+- [todo] 入口页可创建并进入 `title-card`。
+- [todo] 单题目页面可从全库候选集中选入证据并维护 evidence basket。
+- [todo] Need -> Research Question -> Value -> Package -> Promotion 闭环可在桌面端完成。
+- [todo] Promotion 成功后得到 `paper_id` 并展示成功反馈。
+- [todo] `422 / 404 / 409` 约束在 UI 中有明确错误提示。
+- [todo] 旧 `topic-management` 数据迁移后可在题目卡入口页看到并继续编辑。
+- [todo] 顶栏一级/二级 tab 在“选题管理”中可稳定切换，且无活动题目卡时 workflow 节点展示空态引导。
+
+## Notes
+- 本轮已新增 Prisma migration: `prisma/migrations/20260323153000_title_cards_root_and_promotion_updates/migration.sql`，但未对真实数据库执行 apply；如需验证 legacy data backfill，需在具备 `DATABASE_URL` 的环境执行迁移后补跑手工场景。
+- UI governance approval baseline 已刷新：
+  - `ui/approvals/20260322T230313Z-spec_change-ccce6461.json`
+  - `ui/approvals/20260322T230313Z-exception-15b0ccba.json`
+  - `ui/approvals/20260322T231510Z-exception-504bed5b.json`
+- 本轮 `.ai/.tmp/ui/*` 临时 UI evidence 目录已在本地清理，不作为仓库产物保留。
+- 本文件保留未执行的手工场景，避免把“自动化已通过”误写成“桌面端已人工验收”。

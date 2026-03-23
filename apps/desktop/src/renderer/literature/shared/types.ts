@@ -52,6 +52,26 @@ export type LiteratureProvider = 'crossref' | 'arxiv' | 'manual' | 'web' | 'zote
 export type LiteratureTabKey = 'auto-import' | 'manual-import' | 'overview';
 export type AutoImportSubTabKey = 'topic-settings' | 'rule-center' | 'runs-alerts';
 export type ManualImportSubTabKey = 'file-review' | 'zotero-sync';
+export type TitleCardPrimaryTabKey =
+  | 'overview'
+  | 'evidence'
+  | 'need'
+  | 'research-question'
+  | 'value'
+  | 'package'
+  | 'promotion';
+export type TitleCardEvidenceSubTabKey = 'candidates' | 'basket' | 'inspector';
+export type TitleCardEditorSubTabKey = 'list' | 'editor';
+export type TitleCardPromotionSubTabKey = 'decision' | 'promotion';
+export type TitleCardSubTabState = {
+  overview: null;
+  evidence: TitleCardEvidenceSubTabKey;
+  need: TitleCardEditorSubTabKey;
+  'research-question': TitleCardEditorSubTabKey;
+  value: TitleCardEditorSubTabKey;
+  package: TitleCardEditorSubTabKey;
+  promotion: TitleCardPromotionSubTabKey;
+};
 export type ManualUploadFileStatus = 'processing' | 'parsed' | 'empty' | 'failed' | 'accepted' | 'duplicate';
 export type AppMode = 'standard' | 'dev';
 export type AutoPullScope = 'GLOBAL' | 'TOPIC';

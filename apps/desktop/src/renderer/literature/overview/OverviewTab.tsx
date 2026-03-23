@@ -18,12 +18,55 @@ import {
   resolveOverviewPublicationLabel,
 } from './overviewStatus';
 
-function resolveOverviewStatusClassName(status: LiteratureOverviewItem['overview_status']): string {
-  return `literature-overview-status-text is-${status}`;
+function renderOverviewStatus(status: LiteratureOverviewItem['overview_status']) {
+  if (status === 'excluded') {
+    return (
+      <p data-ui="text" data-variant="caption" data-tone="danger" className="literature-overview-status-text is-excluded">
+        {formatLiteratureOverviewStatus(status)}
+      </p>
+    );
+  }
+  if (status === 'not_citable') {
+    return (
+      <p data-ui="text" data-variant="caption" data-tone="muted" className="literature-overview-status-text is-not_citable">
+        {formatLiteratureOverviewStatus(status)}
+      </p>
+    );
+  }
+  if (status === 'citable') {
+    return (
+      <p data-ui="text" data-variant="caption" data-tone="primary" className="literature-overview-status-text is-citable">
+        {formatLiteratureOverviewStatus(status)}
+      </p>
+    );
+  }
+  return (
+    <p data-ui="text" data-variant="caption" data-tone="primary" className="literature-overview-status-text is-automation_ready">
+      {formatLiteratureOverviewStatus(status)}
+    </p>
+  );
 }
 
-function resolveOverviewContentClassName(contentStatus: 'not_ready' | 'abstract_ready' | 'key_content_ready'): string {
-  return `literature-overview-content-text is-${contentStatus}`;
+function renderOverviewContentStatus(contentStatus: 'not_ready' | 'abstract_ready' | 'key_content_ready') {
+  if (contentStatus === 'not_ready') {
+    return (
+      <p data-ui="text" data-variant="caption" data-tone="muted" className="literature-overview-content-text is-not_ready">
+        {formatOverviewContentStatus(contentStatus)}
+      </p>
+    );
+  }
+  if (contentStatus === 'abstract_ready') {
+    return (
+      <p data-ui="text" data-variant="caption" data-tone="primary" className="literature-overview-content-text is-abstract_ready">
+        {formatOverviewContentStatus(contentStatus)}
+      </p>
+    );
+  }
+  return (
+    <p data-ui="text" data-variant="caption" data-tone="primary" className="literature-overview-content-text is-key_content_ready">
+      {formatOverviewContentStatus(contentStatus)}
+    </p>
+  );
 }
 
 type OverviewPanelState = {
@@ -336,22 +379,8 @@ export function OverviewTab({
                     </td>
                     <td>
                       <div className="literature-overview-main">
-                        <p
-                          data-ui="text"
-                          data-variant="caption"
-                          data-tone="primary"
-                          className={resolveOverviewStatusClassName(overviewStatus)}
-                        >
-                          {formatLiteratureOverviewStatus(overviewStatus)}
-                        </p>
-                        <p
-                          data-ui="text"
-                          data-variant="caption"
-                          data-tone="muted"
-                          className={resolveOverviewContentClassName(contentStatus)}
-                        >
-                          {formatOverviewContentStatus(contentStatus)}
-                        </p>
+                        {renderOverviewStatus(overviewStatus)}
+                        {renderOverviewContentStatus(contentStatus)}
                       </div>
                     </td>
                     <td>

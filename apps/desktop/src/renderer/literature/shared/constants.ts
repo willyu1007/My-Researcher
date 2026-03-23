@@ -13,6 +13,7 @@ import type {
   ManualImportSubTabKey,
   QuerySortPreset,
   RuntimeMetric,
+  TitleCardPrimaryTabKey,
   ZoteroLinkResult,
 } from './types';
 
@@ -31,6 +32,15 @@ export const literatureTabs: Array<{ key: LiteratureTabKey; label: string }> = [
   { key: 'auto-import', label: '自动导入' },
   { key: 'manual-import', label: '手动导入' },
   { key: 'overview', label: '文献综览' },
+];
+export const titleCardTabs: Array<{ key: TitleCardPrimaryTabKey; label: string }> = [
+  { key: 'overview', label: '总揽' },
+  { key: 'evidence', label: 'Evidence' },
+  { key: 'need', label: 'Need' },
+  { key: 'research-question', label: 'Research Question' },
+  { key: 'value', label: 'Value' },
+  { key: 'package', label: 'Package' },
+  { key: 'promotion', label: 'Promotion' },
 ];
 export const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string }> = [
   { key: 'topic-settings', label: '设置主题' },
@@ -281,6 +291,33 @@ export const overviewYearDefaultEnd = 2100;
 export const literatureSubTabsByTab: Partial<Record<LiteratureTabKey, Array<{ key: string; label: string }>>> = {
   'auto-import': autoImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
   'manual-import': manualImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
+};
+export const titleCardSubTabsByTab: Partial<Record<TitleCardPrimaryTabKey, Array<{ key: string; label: string }>>> = {
+  evidence: [
+    { key: 'candidates', label: '候选证据' },
+    { key: 'basket', label: '证据篮' },
+    { key: 'inspector', label: '检查器' },
+  ],
+  need: [
+    { key: 'list', label: '列表' },
+    { key: 'editor', label: '表单/检查器' },
+  ],
+  'research-question': [
+    { key: 'list', label: '列表' },
+    { key: 'editor', label: '表单/检查器' },
+  ],
+  value: [
+    { key: 'list', label: '列表' },
+    { key: 'editor', label: '表单/检查器' },
+  ],
+  package: [
+    { key: 'list', label: '列表' },
+    { key: 'editor', label: '表单/检查器' },
+  ],
+  promotion: [
+    { key: 'decision', label: '决策' },
+    { key: 'promotion', label: '晋升' },
+  ],
 };
 export const querySortPresetOptions: Array<{ value: QuerySortPreset; label: string }> = [
   { value: 'importance|desc', label: '重要度评分倒序' },

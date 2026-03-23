@@ -11,6 +11,12 @@ export function Topbar({
   literatureSubTabsByTab,
   onSelectLiteratureTab,
   onSelectLiteratureSubTab,
+  activeTitleCardTab,
+  activeTitleCardSubTab,
+  titleCardTabs,
+  titleCardSubTabsByTab,
+  onSelectTitleCardTab,
+  onSelectTitleCardSubTab,
   toolbarSearchInput,
   onToolbarSearchInputChange,
   themeModeOptions,
@@ -78,6 +84,49 @@ export function Topbar({
                               className={`topbar-subtab-button${isSubTabActive ? ' is-active' : ''}`}
                               aria-pressed={isSubTabActive}
                               onClick={() => onSelectLiteratureSubTab(tab.key, subTab.key)}
+                            >
+                              {subTab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          {activeModule === '选题管理' ? (
+            <div className="topbar-literature-tabs" role="tablist" aria-label="选题管理标签页">
+              {titleCardTabs.map((tab) => {
+                const subTabs = titleCardSubTabsByTab[tab.key] ?? [];
+                const shouldShowSubTabs = activeTitleCardTab === tab.key && subTabs.length > 0;
+                return (
+                  <div
+                    key={tab.key}
+                    className={`topbar-tab-cluster${activeTitleCardTab === tab.key ? ' is-active' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      className={`topbar-tab-button${activeTitleCardTab === tab.key ? ' is-active' : ''}`}
+                      aria-selected={activeTitleCardTab === tab.key}
+                      onClick={() => onSelectTitleCardTab(tab.key)}
+                    >
+                      {tab.label}
+                    </button>
+                    {shouldShowSubTabs ? (
+                      <div className="topbar-inline-subtabs" role="group" aria-label={`${tab.label} 子标签`}>
+                        {subTabs.map((subTab) => {
+                          const isSubTabActive =
+                            activeTitleCardTab === tab.key && activeTitleCardSubTab === subTab.key;
+                          return (
+                            <button
+                              key={`${tab.key}-${subTab.key}`}
+                              type="button"
+                              className={`topbar-subtab-button${isSubTabActive ? ' is-active' : ''}`}
+                              aria-pressed={isSubTabActive}
+                              onClick={() => onSelectTitleCardSubTab(tab.key, subTab.key)}
                             >
                               {subTab.label}
                             </button>

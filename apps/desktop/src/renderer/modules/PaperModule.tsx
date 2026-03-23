@@ -30,7 +30,7 @@ export function PaperModule({
       <div data-ui="stack" data-direction="col" data-gap="3">
         <div data-ui="toolbar" data-align="between" data-wrap="wrap">
           <p data-ui="text" data-variant="h3" data-tone="primary">论文管理文献集合</p>
-          <div data-ui="toolbar" data-gap="2" data-wrap="wrap">
+          <div data-ui="stack" data-direction="row" data-gap="2" data-wrap="wrap" data-align="center">
             <span data-ui="badge" data-variant="subtle" data-tone="neutral">Paper: {paperId}</span>
             <span data-ui="badge" data-variant="subtle" data-tone="neutral">Topic: {topicId}</span>
           </div>

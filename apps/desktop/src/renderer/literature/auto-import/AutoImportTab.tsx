@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   AutoPullRule,
@@ -24,6 +24,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
   const [activeRuleEditor, setActiveRuleEditor] = useState<AutoImportRuleEditorState | null>(null);
   const [activeQuickEditorAnchor, setActiveQuickEditorAnchor] = useState<HTMLElement | null>(null);
   const [activeQuickEditorPosition, setActiveQuickEditorPosition] = useState<{ top: number; left: number } | null>(null);
+  const activeQuickEditorPopoverRef = useRef<HTMLDivElement | null>(null);
   const inlineAdvancedSaveTimeoutRef = useRef<number | null>(null);
   const scheduleFormatterCacheRef = useRef<Map<string, Intl.DateTimeFormat>>(new Map());
   const inlineAdvancedAutosaveDebounceMs = 280;
@@ -117,6 +118,15 @@ export function AutoImportTab(props: AutoImportTabProps) {
       setActiveTopicListRulePreviewTopicId(null);
     }
   }, [activeTopicListRulePreviewTopicId, autoImportSubTab, topicProfiles]);
+
+  useLayoutEffect(() => {
+    const element = activeQuickEditorPopoverRef.current;
+    if (!element || !activeQuickEditorPosition) {
+      return;
+    }
+    element.style.top = `${activeQuickEditorPosition.top}px`;
+    element.style.left = `${activeQuickEditorPosition.left}px`;
+  }, [activeQuickEditorPosition, activeRuleEditor]);
 
   useEffect(() => {
     if (autoImportSubTab !== 'rule-center') {
@@ -919,10 +929,10 @@ export function AutoImportTab(props: AutoImportTabProps) {
     if (activeRuleEditor.mode === 'schedule') {
       return createPortal(
         <div
+          ref={activeQuickEditorPopoverRef}
           className="rule-center-cell-popover rule-center-cell-popover-schedule"
           role="dialog"
           aria-label="编辑调度"
-          style={{ top: `${activeQuickEditorPosition.top}px`, left: `${activeQuickEditorPosition.left}px` }}
         >
           <div className="rule-center-cell-popover-body">
             <div className="rule-frequency-toggle" role="group" aria-label="调度频率">
@@ -978,7 +988,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
               </label>
             </div>
           </div>
-          <div data-ui="toolbar" data-gap="2" className="rule-center-cell-popover-actions">
+          <div data-ui="stack" data-direction="row" data-gap="2" className="rule-center-cell-popover-actions">
             <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleCloseActiveRuleEditor}>
               取消
             </button>
@@ -993,10 +1003,10 @@ export function AutoImportTab(props: AutoImportTabProps) {
 
     return createPortal(
       <div
+        ref={activeQuickEditorPopoverRef}
         className="rule-center-cell-popover rule-center-cell-popover-source"
         role="dialog"
         aria-label="编辑来源"
-        style={{ top: `${activeQuickEditorPosition.top}px`, left: `${activeQuickEditorPosition.left}px` }}
       >
         <div className="rule-center-cell-popover-body">
           <div className="rule-center-source-options">
@@ -1010,7 +1020,7 @@ export function AutoImportTab(props: AutoImportTabProps) {
             </label>
           </div>
         </div>
-        <div data-ui="toolbar" data-gap="2" className="rule-center-cell-popover-actions">
+        <div data-ui="stack" data-direction="row" data-gap="2" className="rule-center-cell-popover-actions">
           <button data-ui="button" data-variant="ghost" data-size="sm" type="button" onClick={handleCloseActiveRuleEditor}>
             取消
           </button>

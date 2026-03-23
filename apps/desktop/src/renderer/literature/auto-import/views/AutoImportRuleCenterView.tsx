@@ -52,7 +52,7 @@ export function AutoImportRuleCenterView({
 
   return (
     <section className="literature-section-block">
-      <div data-ui="toolbar" data-gap="2" data-wrap="wrap" className="rule-center-toolbar">
+      <div data-ui="toolbar" data-wrap="wrap" className="rule-center-toolbar">
         <button
           data-ui="button"
           data-variant="primary"
@@ -131,7 +131,7 @@ export function AutoImportRuleCenterView({
                         </div>
                       </td>
                       <td>
-                        <div data-ui="toolbar" data-gap="2" className="rule-center-actions">
+                        <div data-ui="stack" data-direction="row" data-gap="2" className="rule-center-actions">
                           <button
                             data-ui="button"
                             data-variant="ghost"
@@ -183,7 +183,7 @@ export function AutoImportRuleCenterView({
             <h4 className="topic-modal-section-title">
               {activeRuleEditor.ruleId ? '高级设置' : '新建规则'}
             </h4>
-            <div className="topic-rule-header-actions" data-ui="toolbar" data-gap="1">
+            <div className="topic-rule-header-actions" data-ui="stack" data-direction="row" data-gap="1">
               <button
                 data-ui="button"
                 data-variant="ghost"
