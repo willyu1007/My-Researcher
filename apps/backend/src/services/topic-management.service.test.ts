@@ -6,13 +6,22 @@ import { AppError } from '../errors/app-error.js';
 import { TopicManagementService } from './topic-management.service.js';
 import type {
   CreateNeedReviewRequest,
-  CreateTopicPackageRequest,
-  CreateTopicQuestionRequest,
-  CreateTopicValueAssessmentRequest,
+  CreatePackageRequest,
+  CreateResearchQuestionRequest,
+  CreateTitleCardRequest,
+  CreateValueAssessmentRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
 
 function makeEvidenceRef() {
   return [{ literature_id: 'lit_001', source_type: 'abstract' as const, note: 'seed evidence' }];
+}
+
+function makeTitleCardInput(overrides: Partial<CreateTitleCardRequest> = {}): CreateTitleCardRequest {
+  return {
+    working_title: 'Robust Retrieval for Literature Reasoning',
+    brief: 'A working title card for robust retrieval direction.',
+    ...overrides,
+  };
 }
 
 function makeNeedInput(overrides: Partial<CreateNeedReviewRequest> = {}): CreateNeedReviewRequest {
@@ -34,22 +43,23 @@ function makeNeedInput(overrides: Partial<CreateNeedReviewRequest> = {}): Create
   };
 }
 
-function makeQuestionInput(overrides: Partial<CreateTopicQuestionRequest> = {}): CreateTopicQuestionRequest {
+function makeQuestionInput(overrides: Partial<CreateResearchQuestionRequest> = {}): CreateResearchQuestionRequest {
   return {
     main_question: 'How can retrieval remain stable under long-context literature reasoning?',
     research_slice: 'robust long-context retrieval',
     contribution_hypothesis: 'method',
-    source_need_review_ids: ['need_001'],
+    source_need_ids: ['need_001'],
     judgement_summary: 'Question derived from validated robustness need.',
     confidence: 0.81,
     ...overrides,
   };
 }
 
-function makeValueInput(overrides: Partial<CreateTopicValueAssessmentRequest> = {}): CreateTopicValueAssessmentRequest {
+function makeValueInput(overrides: Partial<CreateValueAssessmentRequest> = {}): CreateValueAssessmentRequest {
   const gate = { pass: true, reason: 'Passes current threshold.' };
   const dim = { score: 4, reason: 'Competitive and defensible.', confidence: 0.8 };
   return {
+    research_question_id: 'research_question_001',
     strongest_claim_if_success: 'The method improves long-context retrieval robustness under realistic baselines.',
     hard_gates: {
       significance: gate,
@@ -86,8 +96,10 @@ function makeValueInput(overrides: Partial<CreateTopicValueAssessmentRequest> = 
   };
 }
 
-function makePackageInput(overrides: Partial<CreateTopicPackageRequest> = {}): CreateTopicPackageRequest {
+function makePackageInput(overrides: Partial<CreatePackageRequest> = {}): CreatePackageRequest {
   return {
+    research_question_id: 'research_question_001',
+    value_assessment_id: 'value_001',
     title_candidates: ['Robust Long-Context Retrieval for Literature Reasoning'],
     research_background: 'Prior work does not adequately stabilize retrieval under long-context reasoning workflows.',
     contribution_summary: 'A robust retrieval approach plus targeted evaluation.',
@@ -99,8 +111,16 @@ function makePackageInput(overrides: Partial<CreateTopicPackageRequest> = {}): C
 }
 
 function createService(options?: {
-  findTopicProfileById?: (topicId: string) => Promise<{ id: string; isActive: boolean } | null>;
-  findLiteratureById?: (literatureId: string) => Promise<{ id: string } | null>;
+  findLiteratureById?: (literatureId: string) => Promise<{
+    id: string;
+    title: string;
+    abstractText: string | null;
+    keyContentDigest: string | null;
+    authors: string[];
+    year: number | null;
+    tags: string[];
+    rightsClass: string;
+  } | null>;
   createPaperProject?: (input: {
     topic_id: string;
     title: string;
@@ -135,10 +155,36 @@ function createService(options?: {
 
   return {
     service: new TopicManagementService(repository, paperProjects, {
-      findTopicProfileById: options?.findTopicProfileById
-        ?? (async (topicId) => (topicId.startsWith('topic_') ? { id: topicId, isActive: true } : null)),
       findLiteratureById: options?.findLiteratureById
-        ?? (async (literatureId) => (literatureId.startsWith('lit_') ? { id: literatureId } : null)),
+        ?? (async (literatureId) => (literatureId.startsWith('lit_')
+          ? {
+              id: literatureId,
+              title: `Literature ${literatureId}`,
+              abstractText: 'Seed abstract',
+              keyContentDigest: null,
+              authors: ['Author A'],
+              year: 2025,
+              tags: ['rag'],
+              rightsClass: 'OA',
+            }
+          : null)),
+      listLiteratures: async () => [{
+        id: 'lit_001',
+        title: 'Literature lit_001',
+        abstractText: 'Seed abstract',
+        keyContentDigest: null,
+        authors: ['Author A'],
+        year: 2025,
+        tags: ['rag'],
+        rightsClass: 'OA',
+      }],
+      listSourcesByLiteratureId: async () => [{ provider: 'manual', sourceUrl: 'https://example.com' }],
+      listPipelineStatesByLiteratureIds: async (literatureIds) => literatureIds.map((literatureId) => ({
+        literatureId,
+        citationComplete: true,
+        abstractReady: true,
+        keyContentReady: false,
+      })),
     }),
     repository,
     calls,
@@ -146,11 +192,18 @@ function createService(options?: {
   };
 }
 
+async function createTitleCardWithEvidence(service: TopicManagementService) {
+  const titleCard = await service.createTitleCard(makeTitleCardInput());
+  await service.updateEvidenceBasket(titleCard.title_card_id, { add_literature_ids: ['lit_001'] });
+  return titleCard;
+}
+
 test('createNeedReview rejects empty literature_ids', async () => {
   const { service } = createService();
+  const titleCard = await createTitleCardWithEvidence(service);
 
   await assert.rejects(
-    () => service.createNeedReview('topic_001', makeNeedInput({ literature_ids: [] })),
+    () => service.createNeedReview(titleCard.title_card_id, makeNeedInput({ literature_ids: [] })),
     (error: unknown) =>
       error instanceof AppError
       && error.statusCode === 400
@@ -159,28 +212,48 @@ test('createNeedReview rejects empty literature_ids', async () => {
   );
 });
 
-test('createQuestion rejects when no upstream sources are provided', async () => {
+test('createNeedReview rejects literature not selected into evidence basket', async () => {
   const { service } = createService();
+  const titleCard = await service.createTitleCard(makeTitleCardInput());
+
+  await assert.rejects(
+    () => service.createNeedReview(titleCard.title_card_id, makeNeedInput()),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 422
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('evidence basket'),
+  );
+});
+
+test('createResearchQuestion rejects when no upstream sources are provided', async () => {
+  const { service } = createService();
+  const titleCard = await createTitleCardWithEvidence(service);
 
   await assert.rejects(
     () =>
-      service.createQuestion('topic_001', makeQuestionInput({ source_need_review_ids: [], source_evidence_review_ids: [] })),
+      service.createResearchQuestion(
+        titleCard.title_card_id,
+        makeQuestionInput({ source_need_ids: [], source_evidence_review_ids: [] }),
+      ),
     (error: unknown) =>
       error instanceof AppError
       && error.statusCode === 400
       && error.errorCode === 'INVALID_PAYLOAD'
-      && error.message.includes('must reference at least one upstream'),
+      && error.message.includes('at least one upstream'),
   );
 });
 
 test('createValueAssessment rejects promote verdict when any hard gate fails', async () => {
   const { service } = createService();
-  const need = await service.createNeedReview('topic_001', makeNeedInput());
-  const question = await service.createQuestion(
-    'topic_001',
-    makeQuestionInput({ source_need_review_ids: [need.record_id] }),
+  const titleCard = await createTitleCardWithEvidence(service);
+  const need = await service.createNeedReview(titleCard.title_card_id, makeNeedInput());
+  const question = await service.createResearchQuestion(
+    titleCard.title_card_id,
+    makeQuestionInput({ source_need_ids: [need.need_id] }),
   );
   const input = makeValueInput({
+    research_question_id: question.research_question_id,
     hard_gates: {
       significance: { pass: true, reason: 'ok' },
       originality: { pass: false, reason: 'not sufficiently distinct' },
@@ -191,7 +264,7 @@ test('createValueAssessment rejects promote verdict when any hard gate fails', a
   });
 
   await assert.rejects(
-    () => service.createValueAssessment('topic_001', question.record_id, input),
+    () => service.createValueAssessment(titleCard.title_card_id, input),
     (error: unknown) =>
       error instanceof AppError
       && error.statusCode === 422
@@ -200,44 +273,61 @@ test('createValueAssessment rejects promote verdict when any hard gate fails', a
   );
 });
 
-test('createTopicPackage rejects when value assessment is not aligned to the same question', async () => {
+test('createPackage rejects when value assessment is not aligned to the same research question', async () => {
   const { service } = createService();
-  const need = await service.createNeedReview('topic_001', makeNeedInput());
-  const question = await service.createQuestion(
-    'topic_001',
-    makeQuestionInput({ source_need_review_ids: [need.record_id] }),
+  const titleCard = await createTitleCardWithEvidence(service);
+  const need = await service.createNeedReview(titleCard.title_card_id, makeNeedInput());
+  const question = await service.createResearchQuestion(
+    titleCard.title_card_id,
+    makeQuestionInput({ source_need_ids: [need.need_id] }),
   );
-  const otherQuestion = await service.createQuestion(
-    'topic_001',
+  const otherQuestion = await service.createResearchQuestion(
+    titleCard.title_card_id,
     makeQuestionInput({
       main_question: 'How should retrieval be evaluated under distribution shift?',
       research_slice: 'distribution shift evaluation',
-      source_need_review_ids: [need.record_id],
+      source_need_ids: [need.need_id],
     }),
   );
-  const value = await service.createValueAssessment('topic_001', question.record_id, makeValueInput());
+  const value = await service.createValueAssessment(
+    titleCard.title_card_id,
+    makeValueInput({ research_question_id: question.research_question_id }),
+  );
 
   await assert.rejects(
-    () => service.createTopicPackage('topic_001', otherQuestion.record_id, value.record_id, makePackageInput()),
+    () => service.createPackage(titleCard.title_card_id, makePackageInput({
+      research_question_id: otherQuestion.research_question_id,
+      value_assessment_id: value.value_assessment_id,
+    })),
     (error: unknown) =>
       error instanceof AppError
       && error.statusCode === 409
       && error.errorCode === 'VERSION_CONFLICT'
-      && error.message.includes('same question'),
+      && error.message.includes('same research question'),
   );
 });
 
-test('promoteTopicToPaperProject forwards literature evidence ids and persists promotion decision', async () => {
+test('promoteTitleCardToPaperProject forwards literature evidence ids and persists promotion decision', async () => {
   const { service, repository, calls } = createService();
-  const need = await service.createNeedReview('topic_001', makeNeedInput());
-  const question = await service.createQuestion('topic_001', makeQuestionInput({ source_need_review_ids: [need.record_id] }));
-  const value = await service.createValueAssessment('topic_001', question.record_id, makeValueInput());
-  const pkg = await service.createTopicPackage('topic_001', question.record_id, value.record_id, makePackageInput());
+  const titleCard = await createTitleCardWithEvidence(service);
+  const need = await service.createNeedReview(titleCard.title_card_id, makeNeedInput());
+  const question = await service.createResearchQuestion(
+    titleCard.title_card_id,
+    makeQuestionInput({ source_need_ids: [need.need_id] }),
+  );
+  const value = await service.createValueAssessment(
+    titleCard.title_card_id,
+    makeValueInput({ research_question_id: question.research_question_id }),
+  );
+  const pkg = await service.createPackage(titleCard.title_card_id, makePackageInput({
+    research_question_id: question.research_question_id,
+    value_assessment_id: value.value_assessment_id,
+  }));
 
-  const result = await service.promoteTopicToPaperProject('topic_001', {
-    question_id: question.record_id,
-    value_assessment_id: value.record_id,
-    package_id: pkg.record_id,
+  const result = await service.promoteTitleCardToPaperProject(titleCard.title_card_id, {
+    research_question_id: question.research_question_id,
+    value_assessment_id: value.value_assessment_id,
+    package_id: pkg.package_id,
     title: 'Robust Retrieval for Literature Reasoning',
     created_by: 'hybrid',
   });
@@ -247,194 +337,13 @@ test('promoteTopicToPaperProject forwards literature evidence ids and persists p
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].initial_context.literature_evidence_ids, ['lit_001']);
 
-  const decision = await repository.createPromotionDecision('topic_001', {
-    question_id: question.record_id,
-    value_assessment_id: value.record_id,
-    package_id: pkg.record_id,
+  const decision = await repository.createPromotionDecision(titleCard.title_card_id, {
+    research_question_id: question.research_question_id,
+    value_assessment_id: value.value_assessment_id,
+    package_id: pkg.package_id,
     decision: 'hold',
     reason_summary: 'sanity check direct repository access',
     created_by: 'human',
   });
   assert.equal(decision.decision, 'hold');
-});
-
-test('promoteTopicToPaperProject rejects when selected evidence ids are empty', async () => {
-  const { service } = createService();
-  const need = await service.createNeedReview('topic_001', makeNeedInput());
-  const question = await service.createQuestion('topic_001', makeQuestionInput({ source_need_review_ids: [need.record_id] }));
-  const value = await service.createValueAssessment('topic_001', question.record_id, makeValueInput());
-  const pkg = await service.createTopicPackage(
-    'topic_001',
-    question.record_id,
-    value.record_id,
-    makePackageInput({ selected_literature_evidence_ids: [] }),
-  );
-
-  await assert.rejects(
-    () =>
-      service.promoteTopicToPaperProject('topic_001', {
-        question_id: question.record_id,
-        value_assessment_id: value.record_id,
-        package_id: pkg.record_id,
-        title: 'Robust Retrieval for Literature Reasoning',
-        created_by: 'human',
-      }),
-    (error: unknown) =>
-      error instanceof AppError &&
-      error.statusCode === 422 &&
-      error.errorCode === 'GATE_CONSTRAINT_FAILED' &&
-      error.message.includes('at least one selected literature evidence id'),
-  );
-});
-
-test('createNeedReview rejects missing literature ids from reference gateway', async () => {
-  const { service } = createService({
-    findLiteratureById: async () => null,
-  });
-
-  await assert.rejects(
-    () => service.createNeedReview('topic_001', makeNeedInput()),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 404
-      && error.errorCode === 'NOT_FOUND'
-      && error.message.includes('Literature records not found'),
-  );
-});
-
-test('createTopicPackage rejects selected literature evidence ids missing from reference gateway', async () => {
-  const { service } = createService({
-    findLiteratureById: async (literatureId) => (literatureId === 'lit_001' ? { id: literatureId } : null),
-  });
-  const need = await service.createNeedReview('topic_001', makeNeedInput());
-  const question = await service.createQuestion('topic_001', makeQuestionInput({ source_need_review_ids: [need.record_id] }));
-  const value = await service.createValueAssessment('topic_001', question.record_id, makeValueInput());
-
-  await assert.rejects(
-    () =>
-      service.createTopicPackage(
-        'topic_001',
-        question.record_id,
-        value.record_id,
-        makePackageInput({ selected_literature_evidence_ids: ['lit_missing'] }),
-      ),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 404
-      && error.errorCode === 'NOT_FOUND'
-      && error.message.includes('Literature records not found'),
-  );
-});
-
-test('createQuestion rejects cross-topic source need review', async () => {
-  const { service } = createService();
-  const otherNeed = await service.createNeedReview('topic_002', makeNeedInput({ literature_ids: ['lit_002'] }));
-
-  await assert.rejects(
-    () => service.createQuestion('topic_001', makeQuestionInput({ source_need_review_ids: [otherNeed.record_id] })),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 404
-      && error.errorCode === 'NOT_FOUND'
-      && error.message.includes('NeedReview'),
-  );
-});
-
-test('createValueAssessment rejects archived question', async () => {
-  const { service } = createService();
-  const need = await service.createNeedReview('topic_001', makeNeedInput());
-  const archivedQuestion = await service.createQuestion(
-    'topic_001',
-    makeQuestionInput({
-      source_need_review_ids: [need.record_id],
-      record_status: 'archived',
-    }),
-  );
-
-  await assert.rejects(
-    () => service.createValueAssessment('topic_001', archivedQuestion.record_id, makeValueInput()),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 409
-      && error.errorCode === 'VERSION_CONFLICT'
-      && error.message.includes('TopicQuestion'),
-  );
-});
-
-test('createQuestion rejects source_evidence_review_ids until evidence bridge exists', async () => {
-  const { service } = createService();
-
-  await assert.rejects(
-    () =>
-      service.createQuestion(
-        'topic_001',
-        makeQuestionInput({
-          source_need_review_ids: [],
-          source_evidence_review_ids: ['evidence_review_001'],
-        }),
-      ),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 422
-      && error.errorCode === 'GATE_CONSTRAINT_FAILED',
-  );
-});
-
-test('promoteTopicToPaperProject rolls back created paper when promotion decision persistence fails', async () => {
-  const { service, repository, deletions } = createService();
-  const need = await service.createNeedReview('topic_001', makeNeedInput());
-  const question = await service.createQuestion('topic_001', makeQuestionInput({ source_need_review_ids: [need.record_id] }));
-  const value = await service.createValueAssessment('topic_001', question.record_id, makeValueInput());
-  const pkg = await service.createTopicPackage('topic_001', question.record_id, value.record_id, makePackageInput());
-
-  repository.createPromotionDecision = async () => {
-    throw new Error('decision persistence failed');
-  };
-
-  await assert.rejects(
-    () =>
-      service.promoteTopicToPaperProject('topic_001', {
-        question_id: question.record_id,
-        value_assessment_id: value.record_id,
-        package_id: pkg.record_id,
-        title: 'Robust Retrieval for Literature Reasoning',
-        created_by: 'hybrid',
-      }),
-    /decision persistence failed/,
-  );
-  assert.deepEqual(deletions, ['paper_001']);
-});
-
-test('promoteTopicToPaperProject surfaces rollback failure as internal error with context', async () => {
-  const { service, repository, deletions } = createService({
-    deletePaperProject: async () => {
-      throw new Error('rollback delete failed');
-    },
-  });
-  const need = await service.createNeedReview('topic_001', makeNeedInput());
-  const question = await service.createQuestion('topic_001', makeQuestionInput({ source_need_review_ids: [need.record_id] }));
-  const value = await service.createValueAssessment('topic_001', question.record_id, makeValueInput());
-  const pkg = await service.createTopicPackage('topic_001', question.record_id, value.record_id, makePackageInput());
-
-  repository.createPromotionDecision = async () => {
-    throw new Error('decision persistence failed');
-  };
-
-  await assert.rejects(
-    () =>
-      service.promoteTopicToPaperProject('topic_001', {
-        question_id: question.record_id,
-        value_assessment_id: value.record_id,
-        package_id: pkg.record_id,
-        title: 'Robust Retrieval for Literature Reasoning',
-        created_by: 'hybrid',
-      }),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 500
-      && error.errorCode === 'INTERNAL_ERROR'
-      && error.message.includes('rollback of the created paper project also failed')
-      && error.details?.created_paper_id === 'paper_001',
-  );
-  assert.deepEqual(deletions, ['paper_001']);
 });

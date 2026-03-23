@@ -81,6 +81,13 @@ export class PrismaLiteratureCoreStore {
     return row ? toLiteratureRecord(row) : null;
   }
 
+  async listLiteratures(): Promise<LiteratureRecord[]> {
+    const rows = await this.prisma.literatureRecord.findMany({
+      orderBy: { updatedAt: 'desc' },
+    });
+    return rows.map((row) => toLiteratureRecord(row));
+  }
+
   async findLiteratureByDoi(doiNormalized: string): Promise<LiteratureRecord | null> {
     const row = await this.prisma.literatureRecord.findUnique({
       where: { doiNormalized },

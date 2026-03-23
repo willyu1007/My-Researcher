@@ -1,17 +1,17 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-19T02:09:58.792Z",
+  "generatedAt": "2026-03-22T22:59:52.927Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "527cd032dc40f5e4180a30c39e380be5f0dae7acfb7fc9d04de07b721e5d0687",
+  "sourceChecksumSha256": "183bf544a2de4d6f3989a4113aba4b5689d0e5304dfc05736c6cd5642134221d",
   "stats": {
-    "totalEndpoints": 47,
+    "totalEndpoints": 65,
     "byTag": {
       "health": 1,
       "research-lifecycle": 8,
       "literature": 15,
       "topic-settings": 3,
       "auto-pull": 10,
-      "topic-research": 10
+      "title-card-management": 28
     }
   },
   "endpoints": [
@@ -1389,290 +1389,405 @@
     },
     {
       "method": "GET",
-      "path": "/topics/{topicId}/need-reviews",
+      "path": "/title-cards",
+      "operationId": "listTitleCards",
+      "summary": "List title cards and workbench summary.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/title-cards",
+      "operationId": "createTitleCard",
+      "summary": "Create a title card root object.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X POST '/title-cards'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}",
+      "operationId": "getTitleCard",
+      "summary": "Get a single title card workbench summary.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards/{titleCardId}'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/title-cards/{titleCardId}",
+      "operationId": "updateTitleCard",
+      "summary": "Patch the current title card record.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X PATCH '/title-cards/{titleCardId}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}/evidence-basket",
+      "operationId": "getTitleCardEvidenceBasket",
+      "summary": "Get the persisted evidence basket for a title card.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards/{titleCardId}/evidence-basket'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/title-cards/{titleCardId}/evidence-basket",
+      "operationId": "updateTitleCardEvidenceBasket",
+      "summary": "Add or remove literature ids from the title-card evidence basket.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X PATCH '/title-cards/{titleCardId}/evidence-basket'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}/evidence-candidates",
+      "operationId": "listTitleCardEvidenceCandidates",
+      "summary": "Browse global evidence candidates for a title card.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards/{titleCardId}/evidence-candidates'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}/needs",
       "operationId": "listNeedReviews",
-      "summary": "List need reviews for a topic.",
-      "tag": "topic-research",
+      "summary": "List need reviews for a title card.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId"
+          "titleCardId"
         ],
         "query": [],
         "body": null
       },
       "output": {
         "successStatus": 200,
-        "coreFields": [
-          "items"
-        ]
+        "coreFields": []
       },
-      "errors": [
-        404
-      ],
+      "errors": [],
       "example": {
-        "curl": "curl -X GET '/topics/{topicId}/need-reviews'"
+        "curl": "curl -X GET '/title-cards/{titleCardId}/needs'"
       }
     },
     {
       "method": "POST",
-      "path": "/topics/{topicId}/need-reviews",
+      "path": "/title-cards/{titleCardId}/needs",
       "operationId": "createNeedReview",
-      "summary": "Persist a validated-need review for a topic.",
-      "tag": "topic-research",
+      "summary": "Persist a need review for a title card.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId"
+          "titleCardId"
         ],
         "query": [],
-        "body": {
-          "required": [
-            "need_statement",
-            "who_needs_it",
-            "scenario",
-            "literature_ids",
-            "unmet_need_category",
-            "falsification_verdict",
-            "significance_score",
-            "measurability_score",
-            "feasibility_signal",
-            "validated_need",
-            "judgement_summary",
-            "confidence",
-            "evidence_refs"
-          ],
-          "optional": [
-            "record_status",
-            "boundary",
-            "evidence_review_refs",
-            "next_actions",
-            "missing_information",
-            "blocking_issues"
-          ]
-        }
+        "body": null
       },
       "output": {
         "successStatus": 201,
-        "coreFields": [
-          "record_id",
-          "topic_id",
-          "record_status",
-          "need_statement",
-          "who_needs_it",
-          "scenario",
-          "evidence_review_refs",
-          "literature_ids",
-          "unmet_need_category",
-          "falsification_verdict",
-          "significance_score",
-          "measurability_score",
-          "feasibility_signal",
-          "validated_need",
-          "judgement_summary",
-          "confidence",
-          "next_actions",
-          "evidence_refs",
-          "created_at",
-          "updated_at",
-          "boundary",
-          "missing_information",
-          "blocking_issues"
-        ]
+        "coreFields": []
       },
-      "errors": [
-        400,
-        404,
-        422
-      ],
+      "errors": [],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/need-reviews' -H 'Content-Type: application/json' -d '{\"need_statement\":\"<need_statement>\",\"who_needs_it\":\"<who_needs_it>\",\"scenario\":\"<scenario>\",\"literature_ids\":\"<literature_ids>\",\"unmet_need_category\":\"<unmet_need_category>\",\"falsification_verdict\":\"<falsification_verdict>\",\"significance_score\":\"<significance_score>\",\"measurability_score\":\"<measurability_score>\",\"feasibility_signal\":\"<feasibility_signal>\",\"validated_need\":\"<validated_need>\",\"judgement_summary\":\"<judgement_summary>\",\"confidence\":\"<confidence>\",\"evidence_refs\":\"<evidence_refs>\"}'"
+        "curl": "curl -X POST '/title-cards/{titleCardId}/needs'"
       }
     },
     {
       "method": "GET",
-      "path": "/topics/{topicId}/questions",
-      "operationId": "listTopicQuestions",
-      "summary": "List question versions for a topic.",
-      "tag": "topic-research",
+      "path": "/title-cards/{titleCardId}/needs/{needId}",
+      "operationId": "getNeedReview",
+      "summary": "Get a single need review.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId"
+          "titleCardId",
+          "needId"
         ],
         "query": [],
         "body": null
       },
       "output": {
         "successStatus": 200,
-        "coreFields": [
-          "items"
-        ]
+        "coreFields": []
       },
-      "errors": [
-        404
-      ],
+      "errors": [],
       "example": {
-        "curl": "curl -X GET '/topics/{topicId}/questions'"
+        "curl": "curl -X GET '/title-cards/{titleCardId}/needs/{needId}'"
       }
     },
     {
-      "method": "POST",
-      "path": "/topics/{topicId}/questions",
-      "operationId": "createTopicQuestion",
-      "summary": "Create or revise a topic question version.",
-      "tag": "topic-research",
+      "method": "PATCH",
+      "path": "/title-cards/{titleCardId}/needs/{needId}",
+      "operationId": "updateNeedReview",
+      "summary": "Patch the current need review.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId"
+          "titleCardId",
+          "needId"
         ],
         "query": [],
-        "body": {
-          "required": [],
-          "optional": []
-        }
+        "body": null
       },
       "output": {
-        "successStatus": 201,
-        "coreFields": [
-          "record_id",
-          "topic_id",
-          "record_status",
-          "main_question",
-          "sub_questions",
-          "research_slice",
-          "contribution_hypothesis",
-          "source_need_review_ids",
-          "source_evidence_review_ids",
-          "judgement_summary",
-          "confidence",
-          "created_at",
-          "updated_at"
-        ]
+        "successStatus": 200,
+        "coreFields": []
       },
-      "errors": [
-        400,
-        404,
-        422
-      ],
+      "errors": [],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/questions'"
+        "curl": "curl -X PATCH '/title-cards/{titleCardId}/needs/{needId}'"
       }
     },
     {
       "method": "GET",
-      "path": "/topics/{topicId}/questions/{questionId}/value-assessments",
+      "path": "/title-cards/{titleCardId}/research-questions",
+      "operationId": "listResearchQuestions",
+      "summary": "List research questions for a title card.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards/{titleCardId}/research-questions'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/title-cards/{titleCardId}/research-questions",
+      "operationId": "createResearchQuestion",
+      "summary": "Create a research question for a title card.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X POST '/title-cards/{titleCardId}/research-questions'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}/research-questions/{researchQuestionId}",
+      "operationId": "getResearchQuestion",
+      "summary": "Get a research question detail.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId",
+          "researchQuestionId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards/{titleCardId}/research-questions/{researchQuestionId}'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/title-cards/{titleCardId}/research-questions/{researchQuestionId}",
+      "operationId": "updateResearchQuestion",
+      "summary": "Patch the current research question.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId",
+          "researchQuestionId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X PATCH '/title-cards/{titleCardId}/research-questions/{researchQuestionId}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}/value-assessments",
       "operationId": "listValueAssessments",
-      "summary": "List value assessments for a topic question.",
-      "tag": "topic-research",
+      "summary": "List value assessments for a title card.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId",
-          "questionId"
+          "titleCardId"
         ],
         "query": [],
         "body": null
       },
       "output": {
         "successStatus": 200,
-        "coreFields": [
-          "items"
-        ]
+        "coreFields": []
       },
-      "errors": [
-        404
-      ],
+      "errors": [],
       "example": {
-        "curl": "curl -X GET '/topics/{topicId}/questions/{questionId}/value-assessments'"
+        "curl": "curl -X GET '/title-cards/{titleCardId}/value-assessments'"
       }
     },
     {
       "method": "POST",
-      "path": "/topics/{topicId}/questions/{questionId}/value-assessments",
+      "path": "/title-cards/{titleCardId}/value-assessments",
       "operationId": "createValueAssessment",
-      "summary": "Create a value assessment for a topic question.",
-      "tag": "topic-research",
+      "summary": "Create a value assessment for a title card.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId",
-          "questionId"
+          "titleCardId"
         ],
         "query": [],
-        "body": {
-          "required": [
-            "strongest_claim_if_success",
-            "hard_gates",
-            "scored_dimensions",
-            "risk_penalty",
-            "ceiling_case",
-            "base_case",
-            "floor_case",
-            "verdict",
-            "total_score",
-            "judgement_summary",
-            "confidence",
-            "evidence_refs"
-          ],
-          "optional": [
-            "record_status",
-            "fallback_claim_if_success",
-            "reviewer_objections",
-            "required_refinements",
-            "next_actions"
-          ]
-        }
+        "body": null
       },
       "output": {
         "successStatus": 201,
-        "coreFields": [
-          "record_id",
-          "topic_id",
-          "question_id",
-          "record_status",
-          "strongest_claim_if_success",
-          "hard_gates",
-          "scored_dimensions",
-          "risk_penalty",
-          "reviewer_objections",
-          "ceiling_case",
-          "base_case",
-          "floor_case",
-          "verdict",
-          "total_score",
-          "judgement_summary",
-          "confidence",
-          "required_refinements",
-          "next_actions",
-          "evidence_refs",
-          "created_at",
-          "updated_at",
-          "fallback_claim_if_success"
-        ]
+        "coreFields": []
       },
-      "errors": [
-        400,
-        404,
-        409,
-        422
-      ],
+      "errors": [],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/questions/{questionId}/value-assessments' -H 'Content-Type: application/json' -d '{\"strongest_claim_if_success\":\"<strongest_claim_if_success>\",\"hard_gates\":\"<hard_gates>\",\"scored_dimensions\":\"<scored_dimensions>\",\"risk_penalty\":\"<risk_penalty>\",\"ceiling_case\":\"<ceiling_case>\",\"base_case\":\"<base_case>\",\"floor_case\":\"<floor_case>\",\"verdict\":\"<verdict>\",\"total_score\":\"<total_score>\",\"judgement_summary\":\"<judgement_summary>\",\"confidence\":\"<confidence>\",\"evidence_refs\":\"<evidence_refs>\"}'"
+        "curl": "curl -X POST '/title-cards/{titleCardId}/value-assessments'"
       }
     },
     {
       "method": "GET",
-      "path": "/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-packages",
-      "operationId": "listTopicPackages",
-      "summary": "List topic packages for a question and value assessment pair.",
-      "tag": "topic-research",
+      "path": "/title-cards/{titleCardId}/value-assessments/{valueAssessmentId}",
+      "operationId": "getValueAssessment",
+      "summary": "Get a value assessment detail.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId",
-          "questionId",
+          "titleCardId",
           "valueAssessmentId"
         ],
         "query": [],
@@ -1680,151 +1795,242 @@
       },
       "output": {
         "successStatus": 200,
-        "coreFields": [
-          "items"
-        ]
+        "coreFields": []
       },
-      "errors": [
-        404,
-        409
-      ],
+      "errors": [],
       "example": {
-        "curl": "curl -X GET '/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-packages'"
+        "curl": "curl -X GET '/title-cards/{titleCardId}/value-assessments/{valueAssessmentId}'"
       }
     },
     {
-      "method": "POST",
-      "path": "/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-package",
-      "operationId": "createTopicPackage",
-      "summary": "Build a topic package from a question and value assessment.",
-      "tag": "topic-research",
+      "method": "PATCH",
+      "path": "/title-cards/{titleCardId}/value-assessments/{valueAssessmentId}",
+      "operationId": "updateValueAssessment",
+      "summary": "Patch the current value assessment.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId",
-          "questionId",
+          "titleCardId",
           "valueAssessmentId"
         ],
         "query": [],
-        "body": {
-          "required": [
-            "title_candidates",
-            "research_background",
-            "contribution_summary",
-            "candidate_methods",
-            "evaluation_plan",
-            "selected_literature_evidence_ids"
-          ],
-          "optional": [
-            "record_status",
-            "key_risks"
-          ]
-        }
+        "body": null
       },
       "output": {
-        "successStatus": 201,
-        "coreFields": [
-          "record_id",
-          "topic_id",
-          "question_id",
-          "value_assessment_id",
-          "record_status",
-          "title_candidates",
-          "research_background",
-          "contribution_summary",
-          "candidate_methods",
-          "evaluation_plan",
-          "key_risks",
-          "selected_literature_evidence_ids",
-          "created_at",
-          "updated_at"
-        ]
+        "successStatus": 200,
+        "coreFields": []
       },
-      "errors": [
-        400,
-        404,
-        409
-      ],
+      "errors": [],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-package' -H 'Content-Type: application/json' -d '{\"title_candidates\":\"<title_candidates>\",\"research_background\":\"<research_background>\",\"contribution_summary\":\"<contribution_summary>\",\"candidate_methods\":\"<candidate_methods>\",\"evaluation_plan\":\"<evaluation_plan>\",\"selected_literature_evidence_ids\":\"<selected_literature_evidence_ids>\"}'"
+        "curl": "curl -X PATCH '/title-cards/{titleCardId}/value-assessments/{valueAssessmentId}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}/packages",
+      "operationId": "listPackages",
+      "summary": "List packages for a title card.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards/{titleCardId}/packages'"
       }
     },
     {
       "method": "POST",
-      "path": "/topics/{topicId}/promotion-decisions",
-      "operationId": "createTopicPromotionDecision",
-      "summary": "Create a promotion decision for topic to paper-project transition.",
-      "tag": "topic-research",
+      "path": "/title-cards/{titleCardId}/packages",
+      "operationId": "createPackage",
+      "summary": "Create a package for a title card.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId"
+          "titleCardId"
         ],
         "query": [],
-        "body": {
-          "required": [],
-          "optional": []
-        }
+        "body": null
       },
       "output": {
         "successStatus": 201,
-        "coreFields": [
-          "decision_id",
-          "topic_id",
-          "question_id",
-          "value_assessment_id",
-          "decision",
-          "reason_summary",
-          "created_by",
-          "created_at",
-          "package_id",
-          "target_paper_title",
-          "promoted_paper_id",
-          "loopback_target"
-        ]
+        "coreFields": []
       },
-      "errors": [
-        400,
-        404,
-        409,
-        422,
-        500
-      ],
+      "errors": [],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/promotion-decisions'"
+        "curl": "curl -X POST '/title-cards/{titleCardId}/packages'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}/packages/{packageId}",
+      "operationId": "getPackage",
+      "summary": "Get a package detail.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId",
+          "packageId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards/{titleCardId}/packages/{packageId}'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/title-cards/{titleCardId}/packages/{packageId}",
+      "operationId": "updatePackage",
+      "summary": "Patch the current package.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId",
+          "packageId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X PATCH '/title-cards/{titleCardId}/packages/{packageId}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}/promotion-decisions",
+      "operationId": "listPromotionDecisions",
+      "summary": "List promotion decisions for a title card.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards/{titleCardId}/promotion-decisions'"
       }
     },
     {
       "method": "POST",
-      "path": "/topics/{topicId}/promote-to-paper-project",
-      "operationId": "promoteTopicToPaperProject",
-      "summary": "Promote a topic into a paper project using aligned question, value, and package ids.",
-      "tag": "topic-research",
+      "path": "/title-cards/{titleCardId}/promotion-decisions",
+      "operationId": "createPromotionDecision",
+      "summary": "Create a promotion decision for a title card.",
+      "tag": "title-card-management",
       "auth": "none",
       "input": {
         "params": [
-          "topicId"
+          "titleCardId"
         ],
         "query": [],
-        "body": {
-          "required": [
-            "question_id",
-            "value_assessment_id",
-            "package_id",
-            "title",
-            "created_by"
-          ],
-          "optional": [
-            "research_direction"
-          ]
-        }
+        "body": null
       },
       "output": {
         "successStatus": 201,
-        "coreFields": [
-          "paper_id",
-          "decision_id"
-        ]
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X POST '/title-cards/{titleCardId}/promotion-decisions'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/title-cards/{titleCardId}/promotion-decisions/{decisionId}",
+      "operationId": "getPromotionDecision",
+      "summary": "Get a promotion decision detail.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId",
+          "decisionId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X GET '/title-cards/{titleCardId}/promotion-decisions/{decisionId}'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/title-cards/{titleCardId}/promotion-decisions/{decisionId}",
+      "operationId": "updatePromotionDecision",
+      "summary": "Patch the current promotion decision.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId",
+          "decisionId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [],
+      "example": {
+        "curl": "curl -X PATCH '/title-cards/{titleCardId}/promotion-decisions/{decisionId}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/title-cards/{titleCardId}/promote-to-paper-project",
+      "operationId": "promoteTitleCardToPaperProject",
+      "summary": "Promote a title card into a paper project using aligned question, value, and package ids.",
+      "tag": "title-card-management",
+      "auth": "none",
+      "input": {
+        "params": [
+          "titleCardId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": []
       },
       "errors": [
         400,
@@ -1833,7 +2039,7 @@
         422
       ],
       "example": {
-        "curl": "curl -X POST '/topics/{topicId}/promote-to-paper-project' -H 'Content-Type: application/json' -d '{\"question_id\":\"<question_id>\",\"value_assessment_id\":\"<value_assessment_id>\",\"package_id\":\"<package_id>\",\"title\":\"<title>\",\"created_by\":\"<created_by>\"}'"
+        "curl": "curl -X POST '/title-cards/{titleCardId}/promote-to-paper-project'"
       }
     }
   ]

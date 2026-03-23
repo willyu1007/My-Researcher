@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import {
   createNeedReviewRequestSchema,
-  createTopicPromotionDecisionRequestSchema,
-  createTopicQuestionRequestSchema,
+  createPromotionDecisionRequestSchema,
+  createResearchQuestionRequestSchema,
+  createTitleCardRequestSchema,
 } from './topic-management-contracts.js';
 import * as autoPullContracts from './auto-pull-contracts.js';
 import * as literatureContracts from './literature-contracts.js';
@@ -40,9 +41,10 @@ const directModuleTypeSmoke:
 
 void directModuleTypeSmoke;
 
-test('topic management schema loads', () => {
-  assert.ok(createTopicQuestionRequestSchema);
-  assert.ok(createTopicPromotionDecisionRequestSchema);
+test('title-card management schemas load', () => {
+  assert.ok(createTitleCardRequestSchema);
+  assert.ok(createResearchQuestionRequestSchema);
+  assert.ok(createPromotionDecisionRequestSchema);
 });
 
 test('validate with trivial schema', async () => {
@@ -50,6 +52,22 @@ test('validate with trivial schema', async () => {
   app.post('/v', { schema: { body: { type: 'object', required: ['x'], properties: { x: { type: 'string' } } } } }, async () => ({ ok: true }));
   await app.ready();
   const res = await app.inject({ method: 'POST', url: '/v', payload: { x: 'ok' } });
+  await app.close();
+  assert.equal(res.statusCode, 200);
+});
+
+test('title-card create schema accepts working_title and brief', async () => {
+  const app = Fastify();
+  app.post('/v', { schema: createTitleCardRequestSchema }, async () => ({ ok: true }));
+  await app.ready();
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      working_title: 'Robust Retrieval for Literature Reasoning',
+      brief: 'A working title card for robust retrieval direction.',
+    },
+  });
   await app.close();
   assert.equal(res.statusCode, 200);
 });
@@ -81,9 +99,9 @@ test('need review schema accepts payload without evidence_review_refs', async ()
   assert.equal(res.statusCode, 200);
 });
 
-test('question schema requires at least one upstream source array', async () => {
+test('research question schema requires at least one upstream source array', async () => {
   const app = Fastify();
-  app.post('/v', { schema: createTopicQuestionRequestSchema }, async () => ({ ok: true }));
+  app.post('/v', { schema: createResearchQuestionRequestSchema }, async () => ({ ok: true }));
   await app.ready();
   const res = await app.inject({
     method: 'POST',
@@ -102,13 +120,13 @@ test('question schema requires at least one upstream source array', async () => 
 
 test('promotion decision schema requires package_id and target_paper_title for promote verdict', async () => {
   const app = Fastify();
-  app.post('/v', { schema: createTopicPromotionDecisionRequestSchema }, async () => ({ ok: true }));
+  app.post('/v', { schema: createPromotionDecisionRequestSchema }, async () => ({ ok: true }));
   await app.ready();
   const res = await app.inject({
     method: 'POST',
     url: '/v',
     payload: {
-      question_id: 'question_001',
+      research_question_id: 'research_question_001',
       value_assessment_id: 'value_001',
       decision: 'promote',
       reason_summary: 'All gates pass.',
@@ -121,13 +139,13 @@ test('promotion decision schema requires package_id and target_paper_title for p
 
 test('promotion decision schema requires loopback_target for loopback verdict', async () => {
   const app = Fastify();
-  app.post('/v', { schema: createTopicPromotionDecisionRequestSchema }, async () => ({ ok: true }));
+  app.post('/v', { schema: createPromotionDecisionRequestSchema }, async () => ({ ok: true }));
   await app.ready();
   const res = await app.inject({
     method: 'POST',
     url: '/v',
     payload: {
-      question_id: 'question_001',
+      research_question_id: 'research_question_001',
       value_assessment_id: 'value_001',
       decision: 'loopback',
       reason_summary: 'Need more evidence.',
@@ -140,13 +158,13 @@ test('promotion decision schema requires loopback_target for loopback verdict', 
 
 test('promotion decision schema accepts valid promote payload', async () => {
   const app = Fastify();
-  app.post('/v', { schema: createTopicPromotionDecisionRequestSchema }, async () => ({ ok: true }));
+  app.post('/v', { schema: createPromotionDecisionRequestSchema }, async () => ({ ok: true }));
   await app.ready();
   const res = await app.inject({
     method: 'POST',
     url: '/v',
     payload: {
-      question_id: 'question_001',
+      research_question_id: 'research_question_001',
       value_assessment_id: 'value_001',
       package_id: 'package_001',
       decision: 'promote',
@@ -190,5 +208,5 @@ test('research-lifecycle barrel keeps key contract helpers and schemas reachable
   assert.ok(researchLifecycleContracts.createPaperProjectRequestSchema);
   assert.ok(researchLifecycleContracts.literatureImportRequestSchema);
   assert.ok(researchLifecycleContracts.createAutoPullRuleRequestSchema);
-  assert.ok(researchLifecycleContracts.createTopicQuestionRequestSchema);
+  assert.ok(researchLifecycleContracts.createResearchQuestionRequestSchema);
 });

@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-03-19T02:09:58.792Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `527cd032dc40...`)
+> Auto-generated at 2026-03-22T22:59:52.927Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `183bf544a2de...`)
 
-Total endpoints: **47**
+Total endpoints: **65**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -44,13 +44,31 @@ Total endpoints: **47**
 | GET | /auto-pull/runs/{runId} | Get auto-pull run detail. | none | runId | run_id, rule_id, trigger_type, status, started_at, finished_at, summary, error_code, error_message, created_at, updated_at, source_attempts, suggestions | 404, 500 |
 | GET | /auto-pull/alerts | List auto-pull alerts by filters. | none | — | items | 500 |
 | POST | /auto-pull/alerts/{alertId}/ack | Acknowledge an alert. | none | alertId | alert_id, rule_id, run_id, source, level, code, message, detail, ack_at, created_at | 404, 500 |
-| GET | /topics/{topicId}/need-reviews | List need reviews for a topic. | none | topicId | items | 404 |
-| POST | /topics/{topicId}/need-reviews | Persist a validated-need review for a topic. | none | need_statement, who_needs_it, scenario, literature_ids, unmet_need_category, falsification_verdict, significance_score, measurability_score, feasibility_signal, validated_need, judgement_summary, confidence, evidence_refs | record_id, topic_id, record_status, need_statement, who_needs_it, scenario, evidence_review_refs, literature_ids, unmet_need_category, falsification_verdict, significance_score, measurability_score, feasibility_signal, validated_need, judgement_summary, confidence, next_actions, evidence_refs, created_at, updated_at, boundary, missing_information, blocking_issues | 400, 404, 422 |
-| GET | /topics/{topicId}/questions | List question versions for a topic. | none | topicId | items | 404 |
-| POST | /topics/{topicId}/questions | Create or revise a topic question version. | none | topicId | record_id, topic_id, record_status, main_question, sub_questions, research_slice, contribution_hypothesis, source_need_review_ids, source_evidence_review_ids, judgement_summary, confidence, created_at, updated_at | 400, 404, 422 |
-| GET | /topics/{topicId}/questions/{questionId}/value-assessments | List value assessments for a topic question. | none | topicId, questionId | items | 404 |
-| POST | /topics/{topicId}/questions/{questionId}/value-assessments | Create a value assessment for a topic question. | none | strongest_claim_if_success, hard_gates, scored_dimensions, risk_penalty, ceiling_case, base_case, floor_case, verdict, total_score, judgement_summary, confidence, evidence_refs | record_id, topic_id, question_id, record_status, strongest_claim_if_success, hard_gates, scored_dimensions, risk_penalty, reviewer_objections, ceiling_case, base_case, floor_case, verdict, total_score, judgement_summary, confidence, required_refinements, next_actions, evidence_refs, created_at, updated_at, fallback_claim_if_success | 400, 404, 409, 422 |
-| GET | /topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-packages | List topic packages for a question and value assessment pair. | none | topicId, questionId, valueAssessmentId | items | 404, 409 |
-| POST | /topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-package | Build a topic package from a question and value assessment. | none | title_candidates, research_background, contribution_summary, candidate_methods, evaluation_plan, selected_literature_evidence_ids | record_id, topic_id, question_id, value_assessment_id, record_status, title_candidates, research_background, contribution_summary, candidate_methods, evaluation_plan, key_risks, selected_literature_evidence_ids, created_at, updated_at | 400, 404, 409 |
-| POST | /topics/{topicId}/promotion-decisions | Create a promotion decision for topic to paper-project transition. | none | topicId | decision_id, topic_id, question_id, value_assessment_id, decision, reason_summary, created_by, created_at, package_id, target_paper_title, promoted_paper_id, loopback_target | 400, 404, 409, 422, 500 |
-| POST | /topics/{topicId}/promote-to-paper-project | Promote a topic into a paper project using aligned question, value, and package ids. | none | question_id, value_assessment_id, package_id, title, created_by | paper_id, decision_id | 400, 404, 409, 422 |
+| GET | /title-cards | List title cards and workbench summary. | none | — | — | — |
+| POST | /title-cards | Create a title card root object. | none | — | — | — |
+| GET | /title-cards/{titleCardId} | Get a single title card workbench summary. | none | titleCardId | — | — |
+| PATCH | /title-cards/{titleCardId} | Patch the current title card record. | none | titleCardId | — | — |
+| GET | /title-cards/{titleCardId}/evidence-basket | Get the persisted evidence basket for a title card. | none | titleCardId | — | — |
+| PATCH | /title-cards/{titleCardId}/evidence-basket | Add or remove literature ids from the title-card evidence basket. | none | titleCardId | — | — |
+| GET | /title-cards/{titleCardId}/evidence-candidates | Browse global evidence candidates for a title card. | none | titleCardId | — | — |
+| GET | /title-cards/{titleCardId}/needs | List need reviews for a title card. | none | titleCardId | — | — |
+| POST | /title-cards/{titleCardId}/needs | Persist a need review for a title card. | none | titleCardId | — | — |
+| GET | /title-cards/{titleCardId}/needs/{needId} | Get a single need review. | none | titleCardId, needId | — | — |
+| PATCH | /title-cards/{titleCardId}/needs/{needId} | Patch the current need review. | none | titleCardId, needId | — | — |
+| GET | /title-cards/{titleCardId}/research-questions | List research questions for a title card. | none | titleCardId | — | — |
+| POST | /title-cards/{titleCardId}/research-questions | Create a research question for a title card. | none | titleCardId | — | — |
+| GET | /title-cards/{titleCardId}/research-questions/{researchQuestionId} | Get a research question detail. | none | titleCardId, researchQuestionId | — | — |
+| PATCH | /title-cards/{titleCardId}/research-questions/{researchQuestionId} | Patch the current research question. | none | titleCardId, researchQuestionId | — | — |
+| GET | /title-cards/{titleCardId}/value-assessments | List value assessments for a title card. | none | titleCardId | — | — |
+| POST | /title-cards/{titleCardId}/value-assessments | Create a value assessment for a title card. | none | titleCardId | — | — |
+| GET | /title-cards/{titleCardId}/value-assessments/{valueAssessmentId} | Get a value assessment detail. | none | titleCardId, valueAssessmentId | — | — |
+| PATCH | /title-cards/{titleCardId}/value-assessments/{valueAssessmentId} | Patch the current value assessment. | none | titleCardId, valueAssessmentId | — | — |
+| GET | /title-cards/{titleCardId}/packages | List packages for a title card. | none | titleCardId | — | — |
+| POST | /title-cards/{titleCardId}/packages | Create a package for a title card. | none | titleCardId | — | — |
+| GET | /title-cards/{titleCardId}/packages/{packageId} | Get a package detail. | none | titleCardId, packageId | — | — |
+| PATCH | /title-cards/{titleCardId}/packages/{packageId} | Patch the current package. | none | titleCardId, packageId | — | — |
+| GET | /title-cards/{titleCardId}/promotion-decisions | List promotion decisions for a title card. | none | titleCardId | — | — |
+| POST | /title-cards/{titleCardId}/promotion-decisions | Create a promotion decision for a title card. | none | titleCardId | — | — |
+| GET | /title-cards/{titleCardId}/promotion-decisions/{decisionId} | Get a promotion decision detail. | none | titleCardId, decisionId | — | — |
+| PATCH | /title-cards/{titleCardId}/promotion-decisions/{decisionId} | Patch the current promotion decision. | none | titleCardId, decisionId | — | — |
+| POST | /title-cards/{titleCardId}/promote-to-paper-project | Promote a title card into a paper project using aligned question, value, and package ids. | none | titleCardId | — | 400, 404, 409, 422 |

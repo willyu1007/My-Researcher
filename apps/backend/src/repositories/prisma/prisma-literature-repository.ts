@@ -57,6 +57,10 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
     return this.coreStore.findLiteratureById(literatureId);
   }
 
+  async listLiteratures(): Promise<LiteratureRecord[]> {
+    return this.coreStore.listLiteratures();
+  }
+
   async findLiteratureByDoi(doiNormalized: string): Promise<LiteratureRecord | null> {
     return this.coreStore.findLiteratureByDoi(doiNormalized);
   }

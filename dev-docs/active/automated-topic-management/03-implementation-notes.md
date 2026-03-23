@@ -44,6 +44,8 @@
 - **契约漂移治理**：新增 contract drift test，要求 route source 与 `docs/context/api/openapi.yaml` 的 canonical topic-management paths 同步；并用 `ctl-api-index` 重建 `API-INDEX.md` / `api-index.json`。
 
 ## Open follow-ups
+- 桌面端 workbench UI 已从本任务拆分为独立复杂任务 `T-021 topic-management-workbench-ui`；本任务继续作为 topic-management backend v1 与依赖基线，不再承接详细 UI 验收。
+- 自 `2026-03-23` 起，`T-021` 进一步改写为 `retrieval-topics + title-cards` 语义切换任务；`T-014` 保留旧 `topicId` 根模型作为迁移来源和后端基线，不再继续扩展公开产品语义。
 - 实现桌面端 phase 2：独立 `TopicManagementModule`，先做最薄工作台（topic 选择、need/question/value/package/promotion 列表与创建动作、当前状态摘要）。
 - 在 literature 侧实现 evidence bridge：提供可解析的 evidence-review 载荷与读取接口，再把其 id 正式桥接到 `evidence_review_refs` / `source_evidence_review_ids`。
 - 继续细化 `TopicPackage -> createPaperProject` 的结构化 payload 映射，优先考虑 `main_question`、`contribution_hypothesis`、`value_assessment_summary`、`top_reviewer_objections` 的落点。

@@ -9,14 +9,14 @@ datasource db {
 }
 
 model PaperProject {
-  id                   String      @id
+  id                   String                @id
   topicId              String
   title                String
   researchDirection    String
   status               String
   paperActiveSpFull    String?
   paperActiveSpPartial String?
-  createdAt            DateTime    @db.Timestamptz(6)
+  createdAt            DateTime              @db.Timestamptz(6)
   nodes                StageNode[]
   snapshots            Snapshot[]
   literatureLinks      PaperLiteratureLink[]
@@ -63,33 +63,34 @@ model Snapshot {
 }
 
 model LiteratureRecord {
-  id                   String                @id
-  title                String
-  abstractText         String?
-  keyContentDigest     String?
-  authors              String[]              @default([])
-  year                 Int?
-  doiNormalized        String?               @unique
-  arxivId              String?               @unique
-  normalizedTitle      String
-  titleAuthorsYearHash String?               @unique
-  rightsClass          String
-  tags                 String[]              @default([])
+  id                       String                          @id
+  title                    String
+  abstractText             String?
+  keyContentDigest         String?
+  authors                  String[]                        @default([])
+  year                     Int?
+  doiNormalized            String?                         @unique
+  arxivId                  String?                         @unique
+  normalizedTitle          String
+  titleAuthorsYearHash     String?                         @unique
+  rightsClass              String
+  tags                     String[]                        @default([])
   activeEmbeddingVersionId String?
-  createdAt            DateTime              @db.Timestamptz(6)
-  updatedAt            DateTime              @db.Timestamptz(6)
-  sources              LiteratureSource[]
-  topicScopes          TopicLiteratureScope[]
-  paperLinks           PaperLiteratureLink[]
-  pipelineState        LiteraturePipelineState?
-  pipelineStageStates  LiteraturePipelineStageState[]
-  pipelineRuns         LiteraturePipelineRun[]
-  pipelineArtifacts    LiteraturePipelineArtifact[]
-  activeEmbeddingVersion LiteratureEmbeddingVersion? @relation("ActiveEmbeddingVersion", fields: [activeEmbeddingVersionId], references: [id], onDelete: SetNull)
-  embeddingVersions    LiteratureEmbeddingVersion[] @relation("LiteratureEmbeddingVersionOwner")
-  embeddingChunks      LiteratureEmbeddingChunk[]
-  embeddingTokenIndexes LiteratureEmbeddingTokenIndex[]
-  autoPullSuggestions  AutoPullSuggestion[]
+  createdAt                DateTime                        @db.Timestamptz(6)
+  updatedAt                DateTime                        @db.Timestamptz(6)
+  sources                  LiteratureSource[]
+  topicScopes              TopicLiteratureScope[]
+  paperLinks               PaperLiteratureLink[]
+  pipelineState            LiteraturePipelineState?
+  pipelineStageStates      LiteraturePipelineStageState[]
+  pipelineRuns             LiteraturePipelineRun[]
+  pipelineArtifacts        LiteraturePipelineArtifact[]
+  activeEmbeddingVersion   LiteratureEmbeddingVersion?     @relation("ActiveEmbeddingVersion", fields: [activeEmbeddingVersionId], references: [id], onDelete: SetNull)
+  embeddingVersions        LiteratureEmbeddingVersion[]    @relation("LiteratureEmbeddingVersionOwner")
+  embeddingChunks          LiteratureEmbeddingChunk[]
+  embeddingTokenIndexes    LiteratureEmbeddingTokenIndex[]
+  autoPullSuggestions      AutoPullSuggestion[]
+  titleCardSelections      TitleCardEvidenceSelection[]
 
   @@index([normalizedTitle])
   @@index([activeEmbeddingVersionId])
@@ -152,20 +153,20 @@ model LiteraturePipelineState {
 }
 
 model LiteraturePipelineRun {
-  id             String                     @id
-  literatureId   String
-  triggerSource  String
-  status         String
-  requestedStages String[]                 @default([])
-  errorCode      String?
-  errorMessage   String?
-  createdAt      DateTime                  @db.Timestamptz(6)
-  startedAt      DateTime?                 @db.Timestamptz(6)
-  finishedAt     DateTime?                 @db.Timestamptz(6)
-  updatedAt      DateTime                  @db.Timestamptz(6)
-  literature     LiteratureRecord          @relation(fields: [literatureId], references: [id], onDelete: Cascade)
-  steps          LiteraturePipelineRunStep[]
-  stageStates    LiteraturePipelineStageState[]
+  id              String                         @id
+  literatureId    String
+  triggerSource   String
+  status          String
+  requestedStages String[]                       @default([])
+  errorCode       String?
+  errorMessage    String?
+  createdAt       DateTime                       @db.Timestamptz(6)
+  startedAt       DateTime?                      @db.Timestamptz(6)
+  finishedAt      DateTime?                      @db.Timestamptz(6)
+  updatedAt       DateTime                       @db.Timestamptz(6)
+  literature      LiteratureRecord               @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  steps           LiteraturePipelineRunStep[]
+  stageStates     LiteraturePipelineStageState[]
 
   @@index([literatureId, createdAt])
   @@index([literatureId, status])
@@ -173,15 +174,15 @@ model LiteraturePipelineRun {
 }
 
 model LiteraturePipelineStageState {
-  id            String                @id
-  literatureId  String
-  stageCode     String
-  status        String
-  lastRunId     String?
-  detail        Json
-  updatedAt     DateTime              @db.Timestamptz(6)
-  literature    LiteratureRecord      @relation(fields: [literatureId], references: [id], onDelete: Cascade)
-  lastRun       LiteraturePipelineRun? @relation(fields: [lastRunId], references: [id], onDelete: SetNull)
+  id           String                 @id
+  literatureId String
+  stageCode    String
+  status       String
+  lastRunId    String?
+  detail       Json
+  updatedAt    DateTime               @db.Timestamptz(6)
+  literature   LiteratureRecord       @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  lastRun      LiteraturePipelineRun? @relation(fields: [lastRunId], references: [id], onDelete: SetNull)
 
   @@unique([literatureId, stageCode])
   @@index([stageCode, status])
@@ -189,7 +190,7 @@ model LiteraturePipelineStageState {
 }
 
 model LiteraturePipelineRunStep {
-  id           String               @id
+  id           String                @id
   runId        String
   stageCode    String
   status       String
@@ -197,8 +198,8 @@ model LiteraturePipelineRunStep {
   outputRef    Json
   errorCode    String?
   errorMessage String?
-  startedAt    DateTime?            @db.Timestamptz(6)
-  finishedAt   DateTime?            @db.Timestamptz(6)
+  startedAt    DateTime?             @db.Timestamptz(6)
+  finishedAt   DateTime?             @db.Timestamptz(6)
   run          LiteraturePipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([runId])
@@ -222,7 +223,7 @@ model LiteraturePipelineArtifact {
 }
 
 model LiteratureEmbeddingVersion {
-  id           String                     @id
+  id           String                          @id
   literatureId String
   versionNo    Int
   provider     String
@@ -231,10 +232,10 @@ model LiteratureEmbeddingVersion {
   chunkCount   Int
   vectorCount  Int
   tokenCount   Int
-  createdAt    DateTime                   @db.Timestamptz(6)
-  updatedAt    DateTime                   @db.Timestamptz(6)
-  literature   LiteratureRecord           @relation("LiteratureEmbeddingVersionOwner", fields: [literatureId], references: [id], onDelete: Cascade)
-  activeFor    LiteratureRecord[]         @relation("ActiveEmbeddingVersion")
+  createdAt    DateTime                        @db.Timestamptz(6)
+  updatedAt    DateTime                        @db.Timestamptz(6)
+  literature   LiteratureRecord                @relation("LiteratureEmbeddingVersionOwner", fields: [literatureId], references: [id], onDelete: Cascade)
+  activeFor    LiteratureRecord[]              @relation("ActiveEmbeddingVersion")
   chunks       LiteratureEmbeddingChunk[]
   tokenIndexes LiteratureEmbeddingTokenIndex[]
 
@@ -244,7 +245,7 @@ model LiteratureEmbeddingVersion {
 }
 
 model LiteratureEmbeddingChunk {
-  id                 String                    @id
+  id                 String                     @id
   embeddingVersionId String
   literatureId       String
   chunkId            String
@@ -253,10 +254,10 @@ model LiteratureEmbeddingChunk {
   startOffset        Int
   endOffset          Int
   vector             Json
-  createdAt          DateTime                  @db.Timestamptz(6)
-  updatedAt          DateTime                  @db.Timestamptz(6)
+  createdAt          DateTime                   @db.Timestamptz(6)
+  updatedAt          DateTime                   @db.Timestamptz(6)
   embeddingVersion   LiteratureEmbeddingVersion @relation(fields: [embeddingVersionId], references: [id], onDelete: Cascade)
-  literature         LiteratureRecord          @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  literature         LiteratureRecord           @relation(fields: [literatureId], references: [id], onDelete: Cascade)
 
   @@unique([embeddingVersionId, chunkId])
   @@index([embeddingVersionId, chunkIndex])
@@ -264,15 +265,15 @@ model LiteratureEmbeddingChunk {
 }
 
 model LiteratureEmbeddingTokenIndex {
-  id                 String                    @id
+  id                 String                     @id
   embeddingVersionId String
   literatureId       String
   token              String
-  chunkIds           String[]                  @default([])
-  createdAt          DateTime                  @db.Timestamptz(6)
-  updatedAt          DateTime                  @db.Timestamptz(6)
+  chunkIds           String[]                   @default([])
+  createdAt          DateTime                   @db.Timestamptz(6)
+  updatedAt          DateTime                   @db.Timestamptz(6)
   embeddingVersion   LiteratureEmbeddingVersion @relation(fields: [embeddingVersionId], references: [id], onDelete: Cascade)
-  literature         LiteratureRecord          @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  literature         LiteratureRecord           @relation(fields: [literatureId], references: [id], onDelete: Cascade)
 
   @@unique([embeddingVersionId, token])
   @@index([literatureId, token])
@@ -296,15 +297,15 @@ model TopicProfile {
 }
 
 model AutoPullRule {
-  id          String               @id
+  id          String                 @id
   scope       String
   name        String
   status      String
   querySpec   Json
   timeSpec    Json
   qualitySpec Json
-  createdAt   DateTime             @db.Timestamptz(6)
-  updatedAt   DateTime             @db.Timestamptz(6)
+  createdAt   DateTime               @db.Timestamptz(6)
+  updatedAt   DateTime               @db.Timestamptz(6)
   topics      AutoPullRuleTopic[]
   sources     AutoPullRuleSource[]
   schedules   AutoPullRuleSchedule[]
@@ -356,21 +357,21 @@ model AutoPullRuleSchedule {
 }
 
 model AutoPullRun {
-  id            String                     @id
-  ruleId        String
-  triggerType   String
-  status        String
-  startedAt     DateTime?                 @db.Timestamptz(6)
-  finishedAt    DateTime?                 @db.Timestamptz(6)
-  summary       Json
-  errorCode     String?
-  errorMessage  String?
-  createdAt     DateTime                  @db.Timestamptz(6)
-  updatedAt     DateTime                  @db.Timestamptz(6)
-  rule          AutoPullRule              @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  id             String                     @id
+  ruleId         String
+  triggerType    String
+  status         String
+  startedAt      DateTime?                  @db.Timestamptz(6)
+  finishedAt     DateTime?                  @db.Timestamptz(6)
+  summary        Json
+  errorCode      String?
+  errorMessage   String?
+  createdAt      DateTime                   @db.Timestamptz(6)
+  updatedAt      DateTime                   @db.Timestamptz(6)
+  rule           AutoPullRule               @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   sourceAttempts AutoPullRunSourceAttempt[]
-  alerts        AutoPullAlert[]
-  suggestions   AutoPullSuggestion[]
+  alerts         AutoPullAlert[]
+  suggestions    AutoPullSuggestion[]
 
   @@index([ruleId, status])
   @@index([createdAt])
@@ -406,18 +407,18 @@ model AutoPullCursor {
 }
 
 model AutoPullAlert {
-  id         String       @id
-  ruleId     String
-  runId      String?
-  source     String?
-  level      String
-  code       String
-  message    String
-  detail     Json
-  ackAt      DateTime?    @db.Timestamptz(6)
-  createdAt  DateTime     @db.Timestamptz(6)
-  rule       AutoPullRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  run        AutoPullRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+  id        String       @id
+  ruleId    String
+  runId     String?
+  source    String?
+  level     String
+  code      String
+  message   String
+  detail    Json
+  ackAt     DateTime?    @db.Timestamptz(6)
+  createdAt DateTime     @db.Timestamptz(6)
+  rule      AutoPullRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  run       AutoPullRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
 
   @@index([ruleId, createdAt])
   @@index([level, ackAt])
@@ -453,6 +454,13 @@ enum TopicResearchRecordType {
   promotion_decision
 }
 
+enum TitleCardStatus {
+  draft
+  active
+  promoted
+  parked
+}
+
 enum TopicResearchRecordStatus {
   draft
   completed
@@ -483,52 +491,78 @@ enum TopicContributionHypothesis {
 }
 
 model TopicResearchRecord {
-  id                  String                   @id
-  topicId             String
-  recordType          TopicResearchRecordType
-  recordStatus        TopicResearchRecordStatus @default(draft)
-  versionNo           Int                       @default(1)
-  parentRecordId      String?
-  supersededByRecordId String?
-  sourceRecordIds     Json                      @default("[]")
-  lineage             Json                      @default("{}")
-  summary             String
-  confidence          Decimal                   @db.Decimal(4, 3)
-  blockingIssues      Json                      @default("[]")
-  missingInformation  Json                      @default("[]")
-  nextActions         Json                      @default("[]")
-  evidenceRefs        Json                      @default("[]")
-  payload             Json
-  createdBy           String                    @default("hybrid")
-  createdAt           DateTime                  @db.Timestamptz(6)
-  updatedAt           DateTime                  @db.Timestamptz(6)
-  deletedAt           DateTime?                  @db.Timestamptz(6)
-  parent              TopicResearchRecord?      @relation("TopicResearchRecordParent", fields: [parentRecordId], references: [id], onDelete: SetNull)
-  children            TopicResearchRecord[]     @relation("TopicResearchRecordParent")
-  supersededBy        TopicResearchRecord?      @relation("TopicResearchRecordSuperseded", fields: [supersededByRecordId], references: [id], onDelete: SetNull)
-  supersedes          TopicResearchRecord[]     @relation("TopicResearchRecordSuperseded")
-  topicQuestions      TopicQuestion[]
-  topicNeedReviews    TopicNeedReview[]
+  id                    String                    @id
+  topicId               String
+  recordType            TopicResearchRecordType
+  recordStatus          TopicResearchRecordStatus @default(draft)
+  versionNo             Int                       @default(1)
+  parentRecordId        String?
+  supersededByRecordId  String?
+  sourceRecordIds       Json                      @default("[]")
+  lineage               Json                      @default("{}")
+  summary               String
+  confidence            Decimal                   @db.Decimal(4, 3)
+  blockingIssues        Json                      @default("[]")
+  missingInformation    Json                      @default("[]")
+  nextActions           Json                      @default("[]")
+  evidenceRefs          Json                      @default("[]")
+  payload               Json
+  createdBy             String                    @default("hybrid")
+  createdAt             DateTime                  @db.Timestamptz(6)
+  updatedAt             DateTime                  @db.Timestamptz(6)
+  deletedAt             DateTime?                 @db.Timestamptz(6)
+  parent                TopicResearchRecord?      @relation("TopicResearchRecordParent", fields: [parentRecordId], references: [id], onDelete: SetNull)
+  children              TopicResearchRecord[]     @relation("TopicResearchRecordParent")
+  supersededBy          TopicResearchRecord?      @relation("TopicResearchRecordSuperseded", fields: [supersededByRecordId], references: [id], onDelete: SetNull)
+  supersedes            TopicResearchRecord[]     @relation("TopicResearchRecordSuperseded")
+  topicQuestions        TopicQuestion[]
+  topicNeedReviews      TopicNeedReview[]
   topicValueAssessments TopicValueAssessment[]
-  topicPackages       TopicPackage[]
+  topicPackages         TopicPackage[]
 
   @@index([topicId, recordType, recordStatus])
   @@index([topicId, updatedAt(sort: Desc)])
 }
 
+model TitleCard {
+  id              String                       @id
+  workingTitle    String
+  brief           String
+  status          TitleCardStatus              @default(draft)
+  basketUpdatedAt DateTime                     @db.Timestamptz(6)
+  createdAt       DateTime                     @db.Timestamptz(6)
+  updatedAt       DateTime                     @db.Timestamptz(6)
+  evidenceBasket  TitleCardEvidenceSelection[]
+
+  @@index([status, updatedAt(sort: Desc)])
+  @@index([updatedAt(sort: Desc)])
+}
+
+model TitleCardEvidenceSelection {
+  titleCardId  String
+  literatureId String
+  selectedAt   DateTime         @db.Timestamptz(6)
+  titleCard    TitleCard        @relation(fields: [titleCardId], references: [id], onDelete: Cascade)
+  literature   LiteratureRecord @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@id([titleCardId, literatureId])
+  @@index([literatureId])
+  @@index([titleCardId, selectedAt(sort: Desc)])
+}
+
 model TopicQuestion {
-  id                      String                @id
+  id                      String                      @id
   topicId                 String
-  researchRecordId        String                @unique
+  researchRecordId        String                      @unique
   mainQuestion            String
-  subQuestions            Json                  @default("[]")
+  subQuestions            Json                        @default("[]")
   researchSlice           String
   contributionHypothesis  TopicContributionHypothesis
-  sourceNeedReviewIds     Json                  @default("[]")
-  sourceEvidenceReviewIds Json                  @default("[]")
-  createdAt               DateTime              @db.Timestamptz(6)
-  updatedAt               DateTime              @db.Timestamptz(6)
-  researchRecord         TopicResearchRecord   @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  sourceNeedReviewIds     Json                        @default("[]")
+  sourceEvidenceReviewIds Json                        @default("[]")
+  createdAt               DateTime                    @db.Timestamptz(6)
+  updatedAt               DateTime                    @db.Timestamptz(6)
+  researchRecord          TopicResearchRecord         @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
   valueAssessments        TopicValueAssessment[]
   packages                TopicPackage[]
   promotionDecisions      TopicPromotionDecision[]
@@ -537,95 +571,96 @@ model TopicQuestion {
 }
 
 model TopicNeedReview {
-  id                  String                @id
-  topicId             String
-  researchRecordId    String                @unique
-  needStatement       String
-  whoNeedsIt          String
-  scenario            String
-  boundary            String?
-  unmetNeedCategory   String
+  id                   String              @id
+  topicId              String
+  researchRecordId     String              @unique
+  needStatement        String
+  whoNeedsIt           String
+  scenario             String
+  boundary             String?
+  unmetNeedCategory    String
   falsificationVerdict String
-  significanceScore   Int
-  measurabilityScore Int
-  feasibilitySignal   String
-  validatedNeed      Boolean
-  evidenceReviewRefs  Json                  @default("[]")
-  literatureIds       Json                  @default("[]")
-  createdAt           DateTime              @db.Timestamptz(6)
-  updatedAt           DateTime              @db.Timestamptz(6)
-  researchRecord     TopicResearchRecord   @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  significanceScore    Int
+  measurabilityScore   Int
+  feasibilitySignal    String
+  validatedNeed        Boolean
+  evidenceReviewRefs   Json                @default("[]")
+  literatureIds        Json                @default("[]")
+  createdAt            DateTime            @db.Timestamptz(6)
+  updatedAt            DateTime            @db.Timestamptz(6)
+  researchRecord       TopicResearchRecord @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
 
   @@index([topicId, updatedAt(sort: Desc)])
   @@index([topicId, validatedNeed])
 }
 
 model TopicValueAssessment {
-  id                     String                @id
-  topicId                String
-  questionId             String
-  researchRecordId       String                @unique
+  id                      String                   @id
+  topicId                 String
+  questionId              String
+  researchRecordId        String                   @unique
   strongestClaimIfSuccess String
-  fallbackClaimIfSuccess String?
-  hardGates              Json
-  scoredDimensions       Json
-  riskPenalty            Json
-  reviewerObjections    Json                  @default("[]")
-  ceilingCase            String
-  baseCase               String
-  floorCase              String
-  verdict                TopicValueVerdict
-  totalScore             Decimal               @db.Decimal(5, 2)
-  createdAt              DateTime              @db.Timestamptz(6)
-  updatedAt              DateTime              @db.Timestamptz(6)
-  researchRecord         TopicResearchRecord   @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
-  question               TopicQuestion         @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  packages               TopicPackage[]
-  promotionDecisions     TopicPromotionDecision[]
+  fallbackClaimIfSuccess  String?
+  hardGates               Json
+  scoredDimensions        Json
+  riskPenalty             Json
+  reviewerObjections      Json                     @default("[]")
+  ceilingCase             String
+  baseCase                String
+  floorCase               String
+  verdict                 TopicValueVerdict
+  totalScore              Decimal                  @db.Decimal(5, 2)
+  createdAt               DateTime                 @db.Timestamptz(6)
+  updatedAt               DateTime                 @db.Timestamptz(6)
+  researchRecord          TopicResearchRecord      @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  question                TopicQuestion            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  packages                TopicPackage[]
+  promotionDecisions      TopicPromotionDecision[]
 
   @@index([topicId, updatedAt(sort: Desc)])
   @@index([questionId, updatedAt(sort: Desc)])
 }
 
 model TopicPackage {
-  id                          String                @id
-  topicId                     String
-  questionId                  String
-  valueAssessmentId           String
-  researchRecordId            String                @unique
-  titleCandidates             Json                  @default("[]")
-  researchBackground          String
-  contributionSummary         String
-  candidateMethods            Json                  @default("[]")
-  evaluationPlan              String
-  keyRisks                    Json                  @default("[]")
-  selectedLiteratureEvidenceIds Json               @default("[]")
-  createdAt                   DateTime              @db.Timestamptz(6)
-  updatedAt                   DateTime              @db.Timestamptz(6)
-  researchRecord              TopicResearchRecord   @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
-  question                    TopicQuestion         @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  valueAssessment             TopicValueAssessment  @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
-  promotionDecisions          TopicPromotionDecision[]
+  id                            String                   @id
+  topicId                       String
+  questionId                    String
+  valueAssessmentId             String
+  researchRecordId              String                   @unique
+  titleCandidates               Json                     @default("[]")
+  researchBackground            String
+  contributionSummary           String
+  candidateMethods              Json                     @default("[]")
+  evaluationPlan                String
+  keyRisks                      Json                     @default("[]")
+  selectedLiteratureEvidenceIds Json                     @default("[]")
+  createdAt                     DateTime                 @db.Timestamptz(6)
+  updatedAt                     DateTime                 @db.Timestamptz(6)
+  researchRecord                TopicResearchRecord      @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  question                      TopicQuestion            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  valueAssessment               TopicValueAssessment     @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
+  promotionDecisions            TopicPromotionDecision[]
 
   @@index([topicId, updatedAt(sort: Desc)])
 }
 
 model TopicPromotionDecision {
-  id                  String                     @id
-  topicId             String
-  questionId          String
-  valueAssessmentId  String
-  packageId           String?
-  decision            TopicPromotionDecisionType
-  reasonSummary       String
-  targetPaperTitle    String?
-  promotedPaperId     String?
-  loopbackTarget      String?
-  createdBy           String
-  createdAt           DateTime                   @db.Timestamptz(6)
-  question            TopicQuestion             @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  valueAssessment     TopicValueAssessment      @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
-  package             TopicPackage?             @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  id                String                     @id
+  topicId           String
+  questionId        String
+  valueAssessmentId String
+  packageId         String?
+  decision          TopicPromotionDecisionType
+  reasonSummary     String
+  targetPaperTitle  String?
+  promotedPaperId   String?
+  loopbackTarget    String?
+  createdBy         String
+  createdAt         DateTime                   @db.Timestamptz(6)
+  updatedAt         DateTime                   @db.Timestamptz(6)
+  question          TopicQuestion              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  valueAssessment   TopicValueAssessment       @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
+  package           TopicPackage?              @relation(fields: [packageId], references: [id], onDelete: SetNull)
 
   @@index([topicId, createdAt(sort: Desc)])
 }

@@ -8,32 +8,48 @@ const routePath = path.join(repoRoot, 'apps/backend/src/routes/topic-management.
 const openapiPath = path.join(repoRoot, 'docs/context/api/openapi.yaml');
 
 const canonicalRoutePaths = [
-  '/topics/:topicId/need-reviews',
-  '/topics/:topicId/questions',
-  '/topics/:topicId/questions/:questionId/value-assessments',
-  '/topics/:topicId/questions/:questionId/value-assessments/:valueAssessmentId/topic-packages',
-  '/topics/:topicId/questions/:questionId/value-assessments/:valueAssessmentId/topic-package',
-  '/topics/:topicId/promotion-decisions',
-  '/topics/:topicId/promote-to-paper-project',
+  '/title-cards',
+  '/title-cards/:titleCardId',
+  '/title-cards/:titleCardId/evidence-basket',
+  '/title-cards/:titleCardId/evidence-candidates',
+  '/title-cards/:titleCardId/needs',
+  '/title-cards/:titleCardId/needs/:needId',
+  '/title-cards/:titleCardId/research-questions',
+  '/title-cards/:titleCardId/research-questions/:researchQuestionId',
+  '/title-cards/:titleCardId/value-assessments',
+  '/title-cards/:titleCardId/value-assessments/:valueAssessmentId',
+  '/title-cards/:titleCardId/packages',
+  '/title-cards/:titleCardId/packages/:packageId',
+  '/title-cards/:titleCardId/promotion-decisions',
+  '/title-cards/:titleCardId/promotion-decisions/:decisionId',
+  '/title-cards/:titleCardId/promote-to-paper-project',
 ];
 
 const canonicalOpenApiPaths = [
-  '/topics/{topicId}/need-reviews:',
-  '/topics/{topicId}/questions:',
-  '/topics/{topicId}/questions/{questionId}/value-assessments:',
-  '/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-packages:',
-  '/topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-package:',
-  '/topics/{topicId}/promotion-decisions:',
-  '/topics/{topicId}/promote-to-paper-project:',
+  '/title-cards:',
+  '/title-cards/{titleCardId}:',
+  '/title-cards/{titleCardId}/evidence-basket:',
+  '/title-cards/{titleCardId}/evidence-candidates:',
+  '/title-cards/{titleCardId}/needs:',
+  '/title-cards/{titleCardId}/needs/{needId}:',
+  '/title-cards/{titleCardId}/research-questions:',
+  '/title-cards/{titleCardId}/research-questions/{researchQuestionId}:',
+  '/title-cards/{titleCardId}/value-assessments:',
+  '/title-cards/{titleCardId}/value-assessments/{valueAssessmentId}:',
+  '/title-cards/{titleCardId}/packages:',
+  '/title-cards/{titleCardId}/packages/{packageId}:',
+  '/title-cards/{titleCardId}/promotion-decisions:',
+  '/title-cards/{titleCardId}/promotion-decisions/{decisionId}:',
+  '/title-cards/{titleCardId}/promote-to-paper-project:',
 ];
 
 const deprecatedOpenApiPaths = [
-  '/topics/{topicId}/research-record:',
-  '/topics/{topicId}/value-assessments:',
-  '/topics/{topicId}/packages:',
+  '/topics/{topicId}/need-reviews:',
+  '/topics/{topicId}/questions:',
+  '/topics/{topicId}/promotion-decisions:',
 ];
 
-test('topic-management canonical paths stay aligned between routes and OpenAPI', () => {
+test('title-card management canonical paths stay aligned between routes and OpenAPI', () => {
   const routeSource = fs.readFileSync(routePath, 'utf8');
   const openapiSource = fs.readFileSync(openapiPath, 'utf8');
 

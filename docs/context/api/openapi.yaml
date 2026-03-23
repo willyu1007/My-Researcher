@@ -1250,13 +1250,105 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /topics/{topicId}/need-reviews:
+  /title-cards:
+    get:
+      operationId: listTitleCards
+      summary: List title cards and workbench summary.
+      tags: [title-card-management]
+      responses:
+        '200':
+          description: Title card list.
+    post:
+      operationId: createTitleCard
+      summary: Create a title card root object.
+      tags: [title-card-management]
+      responses:
+        '201':
+          description: Title card created.
+
+  /title-cards/{titleCardId}:
+    get:
+      operationId: getTitleCard
+      summary: Get a single title card workbench summary.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Title card detail.
+    patch:
+      operationId: updateTitleCard
+      summary: Patch the current title card record.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Title card updated.
+
+  /title-cards/{titleCardId}/evidence-basket:
+    get:
+      operationId: getTitleCardEvidenceBasket
+      summary: Get the persisted evidence basket for a title card.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Evidence basket detail.
+    patch:
+      operationId: updateTitleCardEvidenceBasket
+      summary: Add or remove literature ids from the title-card evidence basket.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Evidence basket updated.
+
+  /title-cards/{titleCardId}/evidence-candidates:
+    get:
+      operationId: listTitleCardEvidenceCandidates
+      summary: Browse global evidence candidates for a title card.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Evidence candidate list.
+
+  /title-cards/{titleCardId}/needs:
     get:
       operationId: listNeedReviews
-      summary: List need reviews for a topic.
-      tags: [topic-research]
+      summary: List need reviews for a title card.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
+        - name: titleCardId
           in: path
           required: true
           schema:
@@ -1265,72 +1357,34 @@ paths:
       responses:
         '200':
           description: Need review list.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/NeedReviewResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
     post:
       operationId: createNeedReview
-      summary: Persist a validated-need review for a topic.
-      tags: [topic-research]
+      summary: Persist a need review for a title card.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
+        - name: titleCardId
           in: path
           required: true
           schema:
             type: string
             minLength: 4
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateNeedReviewRequest'
-            example:
-              need_statement: Existing methods degrade sharply under long-context retrieval settings.
-              who_needs_it: RAG researchers
-              scenario: Long-context retrieval and answer synthesis for CS literature tasks.
-              literature_ids: [lit_001]
-              unmet_need_category: robustness
-              falsification_verdict: validated
-              significance_score: 4
-              measurability_score: 4
-              feasibility_signal: medium
-              validated_need: true
-              judgement_summary: The need is measurable and not already fully solved.
-              confidence: 0.82
-              evidence_refs:
-                - literature_id: lit_001
-                  source_type: abstract
       responses:
         '201':
           description: Need review created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NeedReviewResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
 
-  /topics/{topicId}/questions:
+  /title-cards/{titleCardId}/needs/{needId}:
     get:
-      operationId: listTopicQuestions
-      summary: List question versions for a topic.
-      tags: [topic-research]
+      operationId: getNeedReview
+      summary: Get a single need review.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+        - name: needId
           in: path
           required: true
           schema:
@@ -1338,70 +1392,107 @@ paths:
             minLength: 4
       responses:
         '200':
-          description: Topic question list.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/TopicQuestionResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    post:
-      operationId: createTopicQuestion
-      summary: Create or revise a topic question version.
-      tags: [topic-research]
+          description: Need review detail.
+    patch:
+      operationId: updateNeedReview
+      summary: Patch the current need review.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
+        - name: titleCardId
           in: path
           required: true
           schema:
             type: string
             minLength: 4
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTopicQuestionRequest'
-            example:
-              main_question: How can retrieval remain stable under long-context literature reasoning?
-              research_slice: robust long-context retrieval
-              contribution_hypothesis: method
-              source_need_review_ids: [need_001]
-              judgement_summary: Question derived from validated robustness need.
-              confidence: 0.81
+        - name: needId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Need review updated.
+
+  /title-cards/{titleCardId}/research-questions:
+    get:
+      operationId: listResearchQuestions
+      summary: List research questions for a title card.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Research question list.
+    post:
+      operationId: createResearchQuestion
+      summary: Create a research question for a title card.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
       responses:
         '201':
-          description: Topic question created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TopicQuestionResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
+          description: Research question created.
 
-  /topics/{topicId}/questions/{questionId}/value-assessments:
+  /title-cards/{titleCardId}/research-questions/{researchQuestionId}:
     get:
-      operationId: listValueAssessments
-      summary: List value assessments for a topic question.
-      tags: [topic-research]
+      operationId: getResearchQuestion
+      summary: Get a research question detail.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
+        - name: titleCardId
           in: path
           required: true
           schema:
             type: string
             minLength: 4
-        - name: questionId
+        - name: researchQuestionId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Research question detail.
+    patch:
+      operationId: updateResearchQuestion
+      summary: Patch the current research question.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+        - name: researchQuestionId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Research question updated.
+
+  /title-cards/{titleCardId}/value-assessments:
+    get:
+      operationId: listValueAssessments
+      summary: List value assessments for a title card.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
           in: path
           required: true
           schema:
@@ -1410,102 +1501,28 @@ paths:
       responses:
         '200':
           description: Value assessment list.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/ValueAssessmentResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
     post:
       operationId: createValueAssessment
-      summary: Create a value assessment for a topic question.
-      tags: [topic-research]
+      summary: Create a value assessment for a title card.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
+        - name: titleCardId
           in: path
           required: true
           schema:
             type: string
             minLength: 4
-        - name: questionId
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 4
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateValueAssessmentRequest'
-            example:
-              strongest_claim_if_success: The method improves long-context retrieval robustness under realistic baselines.
-              hard_gates:
-                significance: { pass: true, reason: Passes current threshold. }
-                originality: { pass: true, reason: Passes current threshold. }
-                answerability: { pass: true, reason: Passes current threshold. }
-                feasibility: { pass: true, reason: Passes current threshold. }
-                venue_fit: { pass: true, reason: Passes current threshold. }
-              scored_dimensions:
-                significance: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
-                originality: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
-                claim_strength: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
-                answerability: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
-                venue_fit: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
-                strategic_leverage: { score: 4, reason: Competitive and defensible., confidence: 0.8 }
-              risk_penalty:
-                data_risk: 1
-                compute_risk: 1
-                baseline_risk: 2
-                execution_risk: 2
-                ethics_risk: 0
-                penalty_summary: Manageable implementation risk.
-              ceiling_case: Strong workshop or findings paper.
-              base_case: Useful empirical paper.
-              floor_case: Internal benchmark asset.
-              verdict: promote
-              total_score: 82
-              judgement_summary: Value is sufficient for promotion if package aligns.
-              confidence: 0.78
-              evidence_refs:
-                - literature_id: lit_001
-                  source_type: abstract
       responses:
         '201':
           description: Value assessment created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ValueAssessmentResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
 
-  /topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-packages:
+  /title-cards/{titleCardId}/value-assessments/{valueAssessmentId}:
     get:
-      operationId: listTopicPackages
-      summary: List topic packages for a question and value assessment pair.
-      tags: [topic-research]
+      operationId: getValueAssessment
+      summary: Get a value assessment detail.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 4
-        - name: questionId
+        - name: titleCardId
           in: path
           required: true
           schema:
@@ -1519,35 +1536,13 @@ paths:
             minLength: 4
       responses:
         '200':
-          description: Topic package list.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/TopicPackageResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-
-  /topics/{topicId}/questions/{questionId}/value-assessments/{valueAssessmentId}/topic-package:
-    post:
-      operationId: createTopicPackage
-      summary: Build a topic package from a question and value assessment.
-      tags: [topic-research]
+          description: Value assessment detail.
+    patch:
+      operationId: updateValueAssessment
+      summary: Patch the current value assessment.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 4
-        - name: questionId
+        - name: titleCardId
           in: path
           required: true
           schema:
@@ -1559,112 +1554,169 @@ paths:
           schema:
             type: string
             minLength: 4
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTopicPackageRequest'
-            example:
-              title_candidates:
-                - Robust Long-Context Retrieval for Literature Reasoning
-              research_background: Prior work does not adequately stabilize retrieval under long-context reasoning workflows.
-              contribution_summary: A robust retrieval approach plus targeted evaluation.
-              candidate_methods:
-                - adaptive retrieval
-                - context compression
-              evaluation_plan: Compare against strong retrieval baselines on long-context literature QA.
-              selected_literature_evidence_ids:
-                - lit_001
       responses:
-        '201':
-          description: Topic package created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TopicPackageResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
+        '200':
+          description: Value assessment updated.
 
-  /topics/{topicId}/promotion-decisions:
-    post:
-      operationId: createTopicPromotionDecision
-      summary: Create a promotion decision for topic to paper-project transition.
-      tags: [topic-research]
+  /title-cards/{titleCardId}/packages:
+    get:
+      operationId: listPackages
+      summary: List packages for a title card.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
+        - name: titleCardId
           in: path
           required: true
           schema:
             type: string
             minLength: 4
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTopicPromotionDecisionRequest'
-            example:
-              question_id: question_001
-              value_assessment_id: value_001
-              package_id: package_001
-              decision: promote
-              reason_summary: Value and package both clear the v1 promotion gate.
-              target_paper_title: Robust Long-Context Retrieval for Literature Reasoning
-              created_by: hybrid
+      responses:
+        '200':
+          description: Package list.
+    post:
+      operationId: createPackage
+      summary: Create a package for a title card.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '201':
+          description: Package created.
+
+  /title-cards/{titleCardId}/packages/{packageId}:
+    get:
+      operationId: getPackage
+      summary: Get a package detail.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+        - name: packageId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Package detail.
+    patch:
+      operationId: updatePackage
+      summary: Patch the current package.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+        - name: packageId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Package updated.
+
+  /title-cards/{titleCardId}/promotion-decisions:
+    get:
+      operationId: listPromotionDecisions
+      summary: List promotion decisions for a title card.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Promotion decision list.
+    post:
+      operationId: createPromotionDecision
+      summary: Create a promotion decision for a title card.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
       responses:
         '201':
           description: Promotion decision created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TopicPromotionDecisionResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
 
-  /topics/{topicId}/promote-to-paper-project:
-    post:
-      operationId: promoteTopicToPaperProject
-      summary: Promote a topic into a paper project using aligned question, value, and package ids.
-      tags: [topic-research]
+  /title-cards/{titleCardId}/promotion-decisions/{decisionId}:
+    get:
+      operationId: getPromotionDecision
+      summary: Get a promotion decision detail.
+      tags: [title-card-management]
       parameters:
-        - name: topicId
+        - name: titleCardId
           in: path
           required: true
           schema:
             type: string
             minLength: 4
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PromoteTopicToPaperProjectRequest'
-            example:
-              question_id: question_001
-              value_assessment_id: value_001
-              package_id: package_001
-              title: Robust Long-Context Retrieval for Literature Reasoning
-              created_by: hybrid
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Promotion decision detail.
+    patch:
+      operationId: updatePromotionDecision
+      summary: Patch the current promotion decision.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: Promotion decision updated.
+
+  /title-cards/{titleCardId}/promote-to-paper-project:
+    post:
+      operationId: promoteTitleCardToPaperProject
+      summary: Promote a title card into a paper project using aligned question, value, and package ids.
+      tags: [title-card-management]
+      parameters:
+        - name: titleCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
       responses:
         '201':
-          description: Topic promoted and paper project created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PromoteTopicToPaperProjectResponse'
+          description: Title card promoted and paper project created.
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':

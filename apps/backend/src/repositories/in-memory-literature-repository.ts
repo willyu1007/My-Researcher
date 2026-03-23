@@ -79,6 +79,10 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
     return this.literatures.get(literatureId) ?? null;
   }
 
+  async listLiteratures(): Promise<LiteratureRecord[]> {
+    return [...this.literatures.values()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
   async findLiteratureByDoi(doiNormalized: string): Promise<LiteratureRecord | null> {
     const id = this.doiIndex.get(doiNormalized);
     return id ? (this.literatures.get(id) ?? null) : null;

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-03-18T03:55:21.143Z",
+  "updatedAt": "2026-03-22T22:59:52.997Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -15,6 +15,15 @@
     "schemas": []
   },
   "enums": [
+    {
+      "name": "TitleCardStatus",
+      "values": [
+        "draft",
+        "active",
+        "promoted",
+        "parked"
+      ]
+    },
     {
       "name": "TopicContributionHypothesis",
       "values": [
@@ -2846,6 +2855,15 @@
           "references": []
         },
         {
+          "field": "titleCardSelections",
+          "to": "TitleCardEvidenceSelection",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
           "field": "topicScopes",
           "to": "TopicLiteratureScope",
           "optional": false,
@@ -3629,6 +3647,216 @@
           "type": "index",
           "fields": [
             "paperId"
+          ],
+          "name": null,
+          "map": null
+        }
+      ]
+    },
+    {
+      "name": "TitleCard",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "basketUpdatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "brief",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "TitleCardStatus",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "draft",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "workingTitle",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "evidenceBasket",
+          "to": "TitleCardEvidenceSelection",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "status",
+            "updatedAt"
+          ],
+          "name": null,
+          "map": null
+        },
+        {
+          "type": "index",
+          "fields": [
+            "updatedAt"
+          ],
+          "name": null,
+          "map": null
+        }
+      ]
+    },
+    {
+      "name": "TitleCardEvidenceSelection",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "literatureId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "selectedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "titleCardId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "literature",
+          "to": "LiteratureRecord",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "literatureId"
+          ],
+          "references": [
+            "id"
+          ]
+        },
+        {
+          "field": "titleCard",
+          "to": "TitleCard",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "titleCardId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "literatureId"
+          ],
+          "name": null,
+          "map": null
+        },
+        {
+          "type": "index",
+          "fields": [
+            "titleCardId",
+            "selectedAt"
+          ],
+          "name": null,
+          "map": null
+        },
+        {
+          "type": "primary",
+          "fields": [
+            "titleCardId",
+            "literatureId"
           ],
           "name": null,
           "map": null
@@ -4486,6 +4714,17 @@
           "list": false,
           "dbName": null,
           "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
           "default": null,
           "primaryKey": false,
           "unique": false

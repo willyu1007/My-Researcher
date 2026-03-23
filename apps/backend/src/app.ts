@@ -95,8 +95,10 @@ export function buildApp(): FastifyInstance {
     deletePaperProject: (paperId) => researchLifecycleService.deletePaperProject(paperId),
   };
   const topicManagementService = new TopicManagementService(topicManagementRepository, paperProjectGateway, {
-    findTopicProfileById: (topicId) => autoPullRepository.findTopicProfileById(topicId),
     findLiteratureById: (literatureId) => literatureRepository.findLiteratureById(literatureId),
+    listLiteratures: () => literatureRepository.listLiteratures(),
+    listSourcesByLiteratureId: (literatureId) => literatureRepository.listSourcesByLiteratureId(literatureId),
+    listPipelineStatesByLiteratureIds: (literatureIds) => literatureRepository.listPipelineStatesByLiteratureIds(literatureIds),
   });
   const topicManagementController = new TopicManagementController(topicManagementService);
   const literatureService = new LiteratureService(literatureRepository, repository);

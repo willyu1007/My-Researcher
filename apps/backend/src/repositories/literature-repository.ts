@@ -197,6 +197,7 @@ export interface LiteratureRepository {
   createLiterature(record: LiteratureRecord): Promise<LiteratureRecord>;
   updateLiterature(record: LiteratureRecord): Promise<LiteratureRecord>;
   findLiteratureById(literatureId: string): Promise<LiteratureRecord | null>;
+  listLiteratures(): Promise<LiteratureRecord[]>;
   findLiteratureByDoi(doiNormalized: string): Promise<LiteratureRecord | null>;
   findLiteratureByArxivId(arxivId: string): Promise<LiteratureRecord | null>;
   findLiteratureByTitleAuthorsYearHash(hash: string): Promise<LiteratureRecord | null>;
