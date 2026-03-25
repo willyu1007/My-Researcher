@@ -2,7 +2,7 @@
 
 ## Status
 - State: in-progress
-- Next step: 在具备 `DATABASE_URL` 的环境执行 Prisma migration/apply，补跑 legacy data backfill，并完成这轮顶栏 tab 的手工验收。
+- Next step: 当前仓库内的 compat 文件、旧测试命名与主链内部命名已完成收口；剩余待闭环项仅为具备真实 `DATABASE_URL` 的 Prisma migration/apply 与 legacy backfill 验证，以及交互式桌面端手工验收。若后续仍要继续清理更深层语义遗留，再单独评估 Prisma 物理命名迁移波次。
 
 ## Goal
 - 交付一个桌面端、独立模块化的“选题题目管理工作台”。
@@ -28,9 +28,10 @@
 - 本任务已完成 shared contract、OpenAPI/API-INDEX、backend routes/controller/service/repository、desktop module 与 project docs 的公开语义切换，公开对象统一为 `retrieval-topics + title-cards`。
 - 桌面端现在已有独立 `TitleCardManagementModule`，并已接入“选题管理”主模块入口。
 - 当前实施将把选题工作流 tab 从模块内容区内迁移到 `Topbar`，对齐文献管理的顶栏导航模式。
-- `source_evidence_review_ids` 已不再被 schema 层直接拒绝；service 以题目卡 evidence basket 作为最小 bridge 约束面。
+- `source_literature_evidence_ids` 现已作为公开 canonical 字段落地；其语义明确为“题目卡 evidence basket 中已选中的 literature evidence ids”。
 - UI governance gate 已覆盖 `apps/desktop/src/renderer`，并已通过 time-bounded exception 将历史 feature CSS 目录排除出 scan root；当前 gate 已绿，新增模块与现存 TSX 入口违规都已收口。
 - 非文献管理模块共用的顶部 metrics strip 将被移除，避免选题/论文/写作模块继续占用无意义的顶部视觉。
+- 当前剩余的主要工程债务已收敛到 Prisma 物理命名与真实环境验证前置条件，而不是公开契约、compat wrapper 或 workbench 主链模块化缺口。
 
 ## High-level acceptance criteria
 - [x] 新任务包完整创建并注册到 project hub。

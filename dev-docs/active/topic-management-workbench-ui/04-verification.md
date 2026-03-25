@@ -21,10 +21,43 @@
 ## Required checks for implementation phase
 - [pass] `pnpm --filter @paper-engineering-assistant/shared test`
   - Result:
+    - new semantic entry `title-card-management-contracts.schema.test.ts` resolves correctly
+    - 10 tests pass
+- [pass] `pnpm --filter @paper-engineering-assistant/backend run typecheck`
+  - Result:
+    - backend compile passes after semantic entrypoint rename and service helper extraction
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/repositories/title-card-management.repository.test.ts src/services/title-card-management.service.test.ts src/routes/title-card-management.routes.test.ts src/routes/title-card-management.routes.integration.test.ts src/routes/title-card-management.contract-drift.test.ts`
+  - Result:
+    - 17 tests pass
+    - route/service/repository behavior remains green after new `title-card-management` entrypoints landed
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop run typecheck`
+  - Result:
+    - renderer/main compile passes after splitting `TitleCardManagementModule` into controller + overview/workflow views
+- [pass] `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --repo-root . --run-id t021-semantic-refactor --evidence-root .ai/.tmp/ui --mode full`
+  - Result:
+    - gate completes successfully after renderer module split
+- [pass] `node .ai/tests/run.mjs --suite ui`
+  - Result:
+    - UI suite passes (`ui-system-bootstrap`, `ui-governance-gate`, `ui-governance-gate-approval-order`, `ui-style-intake-from-image`)
+- [pass] `node .ai/scripts/ctl-api-index.mjs generate --touch`
+  - Result:
+    - regenerated `docs/context/api/api-index.json`
+    - regenerated `docs/context/api/API-INDEX.md`
+- [pass] `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict`
+  - Result:
+    - context layer verification passed after title-card OpenAPI component schema cleanup
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result:
+    - project hub derived views remain in sync after refactor wave
+- [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result:
+    - `[ok] Lint passed.`
+- [pass] `pnpm --filter @paper-engineering-assistant/shared test`
+  - Result:
     - `title-card management schemas load`
     - `title-card create schema accepts working_title and brief`
     - research-question / promotion-decision schema guards pass
-- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/repositories/topic-management.repository.test.ts src/services/topic-management.service.test.ts src/routes/topic-management.routes.test.ts src/routes/topic-management.routes.integration.test.ts src/routes/topic-management.contract-drift.test.ts`
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/repositories/title-card-management.repository.test.ts src/services/title-card-management.service.test.ts src/routes/title-card-management.routes.test.ts src/routes/title-card-management.routes.integration.test.ts src/routes/title-card-management.contract-drift.test.ts`
   - Result:
     - 17 tests pass
     - 覆盖 in-memory repository、service gate、route schema、OpenAPI drift、buildApp full flow
@@ -49,7 +82,7 @@
 - [pass] `node .ai/tests/run.mjs --suite ui`
   - Result:
     - `ui-system-bootstrap`, `ui-governance-gate`, `ui-governance-gate-approval-order`, `ui-style-intake-from-image` all pass
-- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/repositories/topic-management.repository.test.ts src/services/topic-management.service.test.ts`
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/repositories/title-card-management.repository.test.ts src/services/title-card-management.service.test.ts`
   - Result:
     - repository / service targeted tests pass after evidence-basket timestamp persistence, promotion-decision transaction wrapping, and research-record payload id fixes
 - [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/routes/topic-management.routes.test.ts src/routes/topic-management.routes.integration.test.ts`
@@ -114,7 +147,43 @@
   - Result:
     - `[ok] Lint passed.`
 
+## Review-fix verification wave (2026-03-25)
+- [pass] `pnpm --filter @paper-engineering-assistant/shared test`
+  - Result:
+    - 11 tests pass
+    - `ResearchQuestion` schema now accepts canonical `source_literature_evidence_ids` and rejects legacy field name
+- [pass] `pnpm --filter @paper-engineering-assistant/backend run typecheck`
+  - Result:
+    - backend compile passes after Prisma normalizer helper and research-question field rename
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/repositories/prisma/title-card-management-normalizers.test.ts src/repositories/title-card-management.repository.test.ts src/services/title-card-management.service.test.ts src/routes/title-card-management.routes.test.ts src/routes/title-card-management.routes.integration.test.ts src/routes/title-card-management.contract-drift.test.ts`
+  - Result:
+    - 21 tests pass
+    - covers legacy enum normalization, canonical literature-evidence semantics, route/openapi drift, repository/service flow
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop run typecheck`
+  - Result:
+    - desktop compile passes after `source_literature_evidence_ids` rename in workbench types/forms/views
+- [pass] `node .ai/scripts/ctl-api-index.mjs generate --touch`
+  - Result:
+    - regenerated `docs/context/api/api-index.json`
+    - regenerated `docs/context/api/API-INDEX.md`
+- [pass] `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict`
+  - Result:
+    - context verification passed after OpenAPI component schema corrections
+- [pass] `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --repo-root . --run-id t021-review-fixes --evidence-root .ai/.tmp/ui --mode full`
+  - Result:
+    - gate completes successfully after desktop workbench semantic field rename
+- [pass] `node .ai/tests/run.mjs --suite ui`
+  - Result:
+    - UI suite passes (`ui-system-bootstrap`, `ui-governance-gate`, `ui-governance-gate-approval-order`, `ui-style-intake-from-image`)
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result:
+    - `[ok] Sync complete.`
+- [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result:
+    - `[ok] Lint passed.`
+
 ## Manual acceptance scenarios
+- 当前 shell 未配置 `DATABASE_URL`，且本轮环境不具备交互式桌面人工操作能力；以下场景保留为外部前置条件完成后的手工验收清单。
 - [todo] 入口页可创建并进入 `title-card`。
 - [todo] 单题目页面可从全库候选集中选入证据并维护 evidence basket。
 - [todo] Need -> Research Question -> Value -> Package -> Promotion 闭环可在桌面端完成。
@@ -131,3 +200,29 @@
   - `ui/approvals/20260322T231510Z-exception-504bed5b.json`
 - 本轮 `.ai/.tmp/ui/*` 临时 UI evidence 目录已在本地清理，不作为仓库产物保留。
 - 本文件保留未执行的手工场景，避免把“自动化已通过”误写成“桌面端已人工验收”。
+
+## Cleanup verification wave (2026-03-25)
+- [blocked-by-env] `printenv DATABASE_URL`
+  - Result:
+    - 当前 shell 未设置 `DATABASE_URL`
+    - 因此无法在本机执行真实 Prisma `validate / migrate deploy / legacy backfill` 验证
+- [pass] `pnpm --filter @paper-engineering-assistant/shared test`
+  - Result:
+    - canonical `title-card-management-contracts.schema.test.ts` 直接运行成功
+    - shared package 已不再依赖 `topic-management-contracts` compat 文件
+- [pass] `pnpm --filter @paper-engineering-assistant/backend run typecheck`
+  - Result:
+    - `app.ts` 内部命名收口与 compat wrapper 删除后仍可通过编译
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/app.title-card-management-config.test.ts src/repositories/prisma/title-card-management-normalizers.test.ts src/repositories/title-card-management.repository.test.ts src/services/title-card-management.service.test.ts src/routes/title-card-management.routes.test.ts src/routes/title-card-management.routes.integration.test.ts src/routes/title-card-management.contract-drift.test.ts`
+  - Result:
+    - canonical backend verification 矩阵在新文件名下全部通过，共 `23` 个测试通过
+    - compat wrapper 删除后 buildApp wiring、route/openapi drift、service/repository flow 仍保持绿色
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop run typecheck`
+  - Result:
+    - desktop compile 继续通过，未受 backend/shared cleanup 影响
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result:
+    - `[ok] Sync complete.`
+- [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result:
+    - `[ok] Lint passed.`

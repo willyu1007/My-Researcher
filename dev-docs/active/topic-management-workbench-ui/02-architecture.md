@@ -93,7 +93,7 @@
   - evidence
     - 读取全库 evidence candidates
     - 维护题目卡 evidence basket
-    - 允许 `source_evidence_review_ids` 进入 create/update
+    - 允许 `source_literature_evidence_ids` 进入 create/update
 
 ## Title-card root model
 - `TitleCard` 是新的根实体，最小字段固定为：

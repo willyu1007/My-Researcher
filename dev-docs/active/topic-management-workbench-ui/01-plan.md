@@ -6,7 +6,8 @@
 3. 数据迁移与 evidence basket / candidates
 4. 桌面端入口页与单题目流程工作台
 5. UI governance 覆盖修复与 promotion 闭环
-6. 综合验证、handoff 与收尾
+6. 语义漂移收口与 backend/desktop 模块化
+7. 综合验证、handoff 与收尾
 
 ## Detailed steps
 - Phase 1:
@@ -44,6 +45,18 @@
   - 更新 OpenAPI / API index / context docs，使公开文档与代码语义一致。
   - 若实现过程中发现合约能力不足，必须走 approval gate，不得静默扩展 token/contract。
 - Phase 6:
+  - 盘点 shared/backend/desktop/prisma 中仍残留的旧 `topic-management` / `Topic*` / `topicId` 命名，并划分：
+    - 必须立即收口的内部实现命名
+    - 允许通过 Prisma `@@map` / 迁移注释继续保留的底层物理命名
+  - backend 侧按“结构重排优先、行为不变”拆分：
+    - route/controller/service/repository 入口对齐 `title-card`
+    - 将 service 内部 hydration / validation / evidence / promotion 流程拆到独立 helpers
+    - 将 Prisma repository 拆为 root / evidence / review-record / promotion 等子模块
+  - desktop 侧按“控制器 + 分视图”拆分：
+    - 从 `TitleCardManagementModule` 抽离 overview / evidence / need / question / value / package / promotion 子视图
+    - 抽离共用类型、表单默认值、JSON/list helper、API loaders
+  - 保持 shared contract 与公开 API path 不变，除非发现真实漂移缺口。
+- Phase 7:
   - 执行 governance sync/lint。
   - 执行 shared/backend/desktop typecheck 和测试。
   - 执行 `ui_gate.py run --mode full` 与 `node .ai/tests/run.mjs --suite ui`。
@@ -61,6 +74,8 @@
 - Phase 5:
   - 真实覆盖 desktop renderer 的 UI governance gate
 - Phase 6:
+  - 内部语义收口后的 backend/desktop/prisma 结构
+- Phase 7:
   - 自动化验证记录与 handoff 说明
 
 ## Risks & mitigations
@@ -74,6 +89,10 @@
   - Mitigation: 将 scan root 修复列为同任务内强制项。
 - Risk: evidence bridge 与 UI 同时推进造成范围爆炸。
   - Mitigation: bridge 只做 `title-card` 首版所需的读取和可写入桥接，不扩展为完整 literature artifact 台。
+- Risk: 直接把 Prisma 物理表/列一起重命名，会把当前重构升级为高风险 DB 迁移。
+  - Mitigation: 优先收敛代码层和 Prisma model 层语义；若需要保留底层旧表名，则使用 `@@map`/`@map` 隔离物理命名，避免无谓的数据库 churn。
+- Risk: 在单次提交里同时做“语义重命名 + 文件拆分 + 行为改动”，会提高回归成本。
+  - Mitigation: 本波次默认以 no-behavior-change 的结构性重构为主；若发现真实行为缺口，单独记录并在后续步骤处理。
 
 ## Step-level acceptance criteria
 - 每一 phase 都必须明确：
