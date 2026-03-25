@@ -14,6 +14,16 @@ const preloadCandidates = [
 const preloadPath = preloadCandidates.find((candidate) => fs.existsSync(candidate)) ?? preloadCandidates[0];
 const backendBaseUrl = process.env.DESKTOP_BACKEND_BASE_URL ?? 'http://127.0.0.1:3000';
 const allowedGovernanceMethods = new Set(['GET', 'POST', 'PATCH', 'DELETE']);
+const allowedGovernancePathPrefixes = [
+  '/paper-projects/',
+  '/literature/',
+  '/topics/',
+  '/auto-pull/',
+  '/title-cards/',
+] as const;
+const allowedGovernanceExactPaths = new Set([
+  '/title-cards',
+]);
 const isMacOS = process.platform === 'darwin';
 let mainWindow: BrowserWindow | null = null;
 
@@ -95,12 +105,10 @@ function createWindow(): BrowserWindow {
 }
 
 function normalizeGovernancePath(input: string): string {
-  if (
-    !input.startsWith('/paper-projects/') &&
-    !input.startsWith('/literature/') &&
-    !input.startsWith('/topics/') &&
-    !input.startsWith('/auto-pull/')
-  ) {
+  const isAllowedPrefix = allowedGovernancePathPrefixes.some((prefix) => input.startsWith(prefix));
+  const isAllowedExactPath = allowedGovernanceExactPaths.has(input);
+
+  if (!isAllowedPrefix && !isAllowedExactPath) {
     throw new Error('Unsupported governance path.');
   }
 

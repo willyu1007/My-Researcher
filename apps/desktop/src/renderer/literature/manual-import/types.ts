@@ -65,6 +65,7 @@ export type ManualImportControllerInput = {
   setZoteroLoading: StateSetter<boolean>;
   setZoteroAction: StateSetter<ZoteroAction>;
   setZoteroLinkResult: StateSetter<ZoteroLinkResult>;
+  notifyWorkbenchRefresh: () => void;
 };
 
 export type ManualImportControllerOutput = {

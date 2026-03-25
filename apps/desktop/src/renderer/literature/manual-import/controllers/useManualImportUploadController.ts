@@ -30,6 +30,7 @@ import type {
   ManualImportControllerOutput,
 } from '../types';
 import { applyManualImportSessionRows } from './manualImportSession';
+import { injectTitleCardDemoData } from './titleCardDemoInjection';
 
 type ManualImportUploadOutput = Pick<
   ManualImportControllerOutput,
@@ -69,6 +70,7 @@ export function useManualImportUploadController(input: ManualImportControllerInp
     setTopicIdInput,
     topicId,
     topicIdInput,
+    notifyWorkbenchRefresh,
   } = input;
 
   const sessionMutators = {
@@ -587,6 +589,8 @@ export function useManualImportUploadController(input: ManualImportControllerInp
     let seedScopedCount = 0;
     let seedImportError: string | null = null;
     let seedScopeError: string | null = null;
+    let titleCardSeedError: string | null = null;
+    let titleCardSeedResult: Awaited<ReturnType<typeof injectTitleCardDemoData>> | null = null;
 
     if (validSeedItems.length > 0) {
       try {
@@ -640,6 +644,15 @@ export function useManualImportUploadController(input: ManualImportControllerInp
       }
     }
 
+    try {
+      titleCardSeedResult = await injectTitleCardDemoData();
+      if (titleCardSeedResult.errors.length > 0) {
+        titleCardSeedError = titleCardSeedResult.errors.slice(0, 2).join('；');
+      }
+    } catch (error) {
+      titleCardSeedError = error instanceof Error ? error.message : '题目卡测试数据注入失败。';
+    }
+
     const topicSyncResult = await upsertDevTopicProfiles();
     const ruleSyncResult = await upsertDevAutoPullRules();
     const topicRuleBindingResult = await bindDevRulesToTopics(ruleSyncResult.ruleIdByName);
@@ -647,6 +660,7 @@ export function useManualImportUploadController(input: ManualImportControllerInp
     await loadTopicProfiles();
     await loadAutoPullRules();
     await loadAutoPullRuns();
+    notifyWorkbenchRefresh();
     pushLiteratureFeedback({
       slot: 'auto-import',
       level:
@@ -657,9 +671,24 @@ export function useManualImportUploadController(input: ManualImportControllerInp
         || seedImportFailedCount > 0
         || seedImportError !== null
         || seedScopeError !== null
+        || titleCardSeedError !== null
           ? 'warning'
           : 'success',
-      message: `DEV 注入完成：手动入库 新增 ${seedImportNewCount}/去重 ${seedImportDedupCount}/失败 ${seedImportFailedCount}；写入选题范围 ${seedScopedCount}${seedImportError ? `（入库异常：${seedImportError}）` : ''}${seedScopeError ? `（范围异常：${seedScopeError}）` : ''}；主题 新增 ${topicSyncResult.created}/更新 ${topicSyncResult.updated}/失败 ${topicSyncResult.failed}；规则 新增 ${ruleSyncResult.created}/更新 ${ruleSyncResult.updated}/失败 ${ruleSyncResult.failed}；主题绑定 成功 ${topicRuleBindingResult.updated}/失败 ${topicRuleBindingResult.failed}；运行触发 成功 ${runTriggerResult.triggered}/失败 ${runTriggerResult.failed}。`,
+      message:
+        `DEV 注入完成：手动入库 新增 ${seedImportNewCount}/去重 ${seedImportDedupCount}/失败 ${seedImportFailedCount}` +
+        `；写入选题范围 ${seedScopedCount}` +
+        `${seedImportError ? `（入库异常：${seedImportError}）` : ''}` +
+        `${seedScopeError ? `（范围异常：${seedScopeError}）` : ''}` +
+        `；题目卡 demo 文献 新增 ${titleCardSeedResult?.literatureCreated ?? 0}/复用 ${titleCardSeedResult?.literatureReused ?? 0}/失败 ${titleCardSeedResult?.literatureFailed ?? 0}` +
+        `；题目卡 新建 ${titleCardSeedResult?.titleCardsCreated ?? 0}/复用 ${titleCardSeedResult?.titleCardsReused ?? 0}/失败 ${titleCardSeedResult?.titleCardsFailed ?? 0}` +
+        `；证据补链 ${titleCardSeedResult?.evidenceLinksAdded ?? 0}` +
+        `；流程记录新建 ${titleCardSeedResult?.workflowRecordsCreated ?? 0}` +
+        `；晋升 新触发 ${titleCardSeedResult?.promotionsTriggered ?? 0}/已存在 ${titleCardSeedResult?.promotionsSkipped ?? 0}` +
+        `${titleCardSeedError ? `（题目卡异常：${titleCardSeedError}）` : ''}` +
+        `；主题 新增 ${topicSyncResult.created}/更新 ${topicSyncResult.updated}/失败 ${topicSyncResult.failed}` +
+        `；规则 新增 ${ruleSyncResult.created}/更新 ${ruleSyncResult.updated}/失败 ${ruleSyncResult.failed}` +
+        `；主题绑定 成功 ${topicRuleBindingResult.updated}/失败 ${topicRuleBindingResult.failed}` +
+        `；运行触发 成功 ${runTriggerResult.triggered}/失败 ${runTriggerResult.failed}。`,
     });
   };
 

@@ -4,12 +4,13 @@ import type { TitleCardManagementModuleProps } from './title-card-management/typ
 import { useTitleCardManagementController } from './title-card-management/useTitleCardManagementController';
 
 export function TitleCardManagementModule({
+  refreshToken,
   activePrimaryTab,
   activeSecondaryTab,
   onSelectPrimaryTab,
   onSelectSecondaryTab,
 }: TitleCardManagementModuleProps) {
-  const controller = useTitleCardManagementController();
+  const controller = useTitleCardManagementController(refreshToken);
 
   return (
     <section className="module-dashboard">

@@ -52,3 +52,25 @@ test('buildApp rejects mixed store strategies for title-card management dependen
     resetStoreEnv(snapshot);
   }
 });
+
+test('buildApp does not auto-seed title-card demo data by default', async () => {
+  const app = buildApp();
+  try {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/title-cards',
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json() as {
+      items: unknown[];
+      summary: {
+        total_title_cards: number;
+      };
+    };
+    assert.equal(body.items.length, 0);
+    assert.equal(body.summary.total_title_cards, 0);
+  } finally {
+    await app.close();
+  }
+});

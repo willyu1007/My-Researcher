@@ -35,12 +35,12 @@ export const literatureTabs: Array<{ key: LiteratureTabKey; label: string }> = [
 ];
 export const titleCardTabs: Array<{ key: TitleCardPrimaryTabKey; label: string }> = [
   { key: 'overview', label: '总揽' },
-  { key: 'evidence', label: 'Evidence' },
-  { key: 'need', label: 'Need' },
-  { key: 'research-question', label: 'Research Question' },
-  { key: 'value', label: 'Value' },
-  { key: 'package', label: 'Package' },
-  { key: 'promotion', label: 'Promotion' },
+  { key: 'evidence', label: '证据' },
+  { key: 'need', label: '需求' },
+  { key: 'research-question', label: '研究问题' },
+  { key: 'value', label: '价值' },
+  { key: 'package', label: '方案' },
+  { key: 'promotion', label: '晋升' },
 ];
 export const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string }> = [
   { key: 'topic-settings', label: '设置主题' },

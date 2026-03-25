@@ -11,6 +11,27 @@
 - [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
   - Result:
     - `[ok] Lint passed.`
+
+## Demo seed verification wave (2026-03-26)
+- [pass] `pnpm --filter @paper-engineering-assistant/backend run typecheck`
+  - Result:
+    - backend compile passes after removing title-card auto-seed bootstrap and restoring `buildApp()` to a clean default baseline
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop run typecheck`
+  - Result:
+    - desktop compile passes after moving title-card demo injection into the left-bottom “注入测试数据” button controller
+    - title-card demo orchestration split and workbench refresh token wiring compile cleanly
+    - Electron main-process governance whitelist now accepts `/title-cards` requests from the desktop bridge
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/app.title-card-management-config.test.ts src/routes/title-card-management.routes.integration.test.ts`
+  - Result:
+    - `buildApp()` 默认 title-card 列表为空，不再存在隐式 demo 数据泄漏
+    - canonical title-card route full flow 仍保持绿色，未受入口收口影响
+    - `4` tests pass
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result:
+    - `[ok] Sync complete.`
+- [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result:
+    - `[ok] Lint passed.`
 - [pass] `rg -n "T-021|topic-management-workbench-ui" .ai/project/main/registry.yaml .ai/project/main/dashboard.md .ai/project/main/feature-map.md .ai/project/main/task-index.md`
   - Result:
     - `T-021` 已出现在 registry 和全部 derived views 中。

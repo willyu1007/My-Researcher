@@ -27,7 +27,7 @@ import {
   workflowQuickLinks,
 } from './utils';
 
-export function useTitleCardManagementController(): TitleCardManagementController {
+export function useTitleCardManagementController(refreshToken: number): TitleCardManagementController {
   const [titleCards, setTitleCards] = useState<TitleCardSummary[]>([]);
   const [listSummary, setListSummary] = useState<TitleCardListPayload['summary'] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -177,8 +177,8 @@ export function useTitleCardManagementController(): TitleCardManagementControlle
   }
 
   useEffect(() => {
-    void loadTitleCards();
-  }, []);
+    void reloadWorkbench();
+  }, [refreshToken]);
 
   useEffect(() => {
     if (!activeTitleCardId) {

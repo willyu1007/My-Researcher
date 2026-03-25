@@ -100,3 +100,18 @@
   - `packages/shared/src/research-lifecycle/topic-management-contracts.ts`
 - backend/shared 测试文件已全部迁到 `title-card-*` canonical 命名，避免当前验证层继续透出旧 bounded-context 术语。
 - `app.ts` 内部 store config 命名已从 `resolveTopicManagementStoreConfig/topicStrategy` 收敛到 `resolveTitleCardManagementStoreConfig/titleCardStrategy`；`TOPIC_REPOSITORY` 仍作为兼容环境变量保留，不在本轮扩大为 env contract 变更。
+
+## UIUX demo seed wave
+- 2026-03-26 将选题管理 demo 数据并入 desktop 左下角既有“注入测试数据”按钮，不再保留 backend-only 的自动 seed 入口。
+- 新增 `literature/manual-import/controllers/titleCardDemoInjection.ts`，点击按钮时通过公开 REST 路由创建三张题目卡：
+  - Evidence 早期探索态
+  - Need/Question/Value/Package/Promotion Decision 回环态
+  - 完整 promote-to-paper-project 晋升完成态
+- 为避免单文件继续膨胀，title-card demo 注入已拆成：
+  - `titleCardDemoFixtures.ts`：样例语义与 payload fixture
+  - `titleCardDemoApi.ts`：REST 读写包装
+  - `titleCardDemoInjection.ts`：幂等 orchestration
+- 同批补了独立 literature corpus、source provider 和 rights 差异，使 Evidence 候选列表在 UI 中具备更真实的 provider / rights 分布。
+- backend `buildApp()` / `server.ts` 已删除 title-card demo auto-seed 逻辑与专用测试入口，避免出现“左下角按钮 + 开发启动自动灌数”两套注入链路并行的语义漂移。
+- desktop 侧补了共享 refresh token 通知，左下角按钮注入完成后会主动刷新 `TitleCardManagementModule`，避免用户停留在“选题管理”时看不到刚注入的数据。
+- Electron 主进程 `desktop:governance-request` 白名单已补入 `/title-cards`，否则 renderer 通过 desktop bridge 访问题目卡路由时会被误判为 unsupported path。

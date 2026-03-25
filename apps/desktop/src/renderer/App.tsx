@@ -795,6 +795,7 @@ export function App({ initialThemeMode }: AppProps) {
     setZoteroLoading,
     setZoteroAction,
     setZoteroLinkResult,
+    notifyWorkbenchRefresh: () => setRefreshTick((value) => value + 1),
   });
 
   const handleOpenMetadataIntakePanel = useCallback((
@@ -1304,6 +1305,7 @@ export function App({ initialThemeMode }: AppProps) {
 
           {activeModule === '选题管理' ? (
             <TitleCardManagementModule
+              refreshToken={refreshTick}
               activePrimaryTab={activeTitleCardTab}
               activeSecondaryTab={activeTitleCardSubTab}
               onSelectPrimaryTab={handleSelectTitleCardTab}

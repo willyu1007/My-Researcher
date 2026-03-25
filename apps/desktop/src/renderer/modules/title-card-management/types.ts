@@ -240,6 +240,7 @@ export type WorkflowQuickLink = {
 };
 
 export type TitleCardManagementModuleProps = {
+  refreshToken: number;
   activePrimaryTab: TitleCardPrimaryTabKey;
   activeSecondaryTab: string | null;
   onSelectPrimaryTab: (tab: TitleCardPrimaryTabKey) => void;
