@@ -10,26 +10,26 @@ import { getPrismaClient } from './repositories/prisma/prisma-client.js';
 import { PrismaAutoPullRepository } from './repositories/prisma/prisma-auto-pull-repository.js';
 import { PrismaLiteratureRepository } from './repositories/prisma/prisma-literature-repository.js';
 import { PrismaResearchLifecycleRepository } from './repositories/prisma/prisma-research-lifecycle-repository.js';
-import { InMemoryTopicManagementRepository } from './repositories/topic-management.repository.js';
-import { PrismaTopicManagementRepository } from './repositories/prisma/prisma-topic-management-repository.js';
+import { InMemoryTitleCardManagementRepository } from './repositories/title-card-management.repository.js';
+import { PrismaTitleCardManagementRepository } from './repositories/prisma/prisma-title-card-management-repository.js';
 import { registerAutoPullRoutes } from './routes/auto-pull-routes.js';
 import { registerLiteratureRoutes } from './routes/literature-routes.js';
 import { registerResearchLifecycleRoutes } from './routes/research-lifecycle-routes.js';
-import { registerTopicManagementRoutes } from './routes/topic-management.js';
+import { registerTitleCardManagementRoutes } from './routes/title-card-management.js';
 import { registerTopicSettingsRoutes } from './routes/topic-settings-routes.js';
 import type { AutoPullRepository } from './repositories/auto-pull-repository.js';
 import type { LiteratureRepository } from './repositories/literature-repository.js';
 import type { ResearchLifecycleRepository } from './repositories/research-lifecycle-repository.js';
-import type { TopicManagementRepository } from './repositories/topic-management.repository.js';
+import type { TitleCardManagementRepository } from './repositories/title-card-management.repository.js';
 import { AutoPullScheduler } from './services/auto-pull-scheduler.js';
 import { AutoPullService } from './services/auto-pull-service.js';
 import { LiteratureService } from './services/literature-service.js';
 import { ResearchLifecycleService } from './services/research-lifecycle-service.js';
 import {
-  TopicManagementService,
+  TitleCardManagementService,
   type PaperProjectGateway,
-} from './services/topic-management.service.js';
-import { TopicManagementController } from './controllers/topic-management.controller.js';
+} from './services/title-card-management.service.js';
+import { TitleCardManagementController } from './controllers/title-card-management.controller.js';
 import { FileGovernanceDeliveryAuditStore } from './services/event-delivery/governance-delivery-audit-store.js';
 import { FileGovernanceDeliveryOutboxStore } from './services/event-delivery/governance-delivery-outbox-store.js';
 import { InProcessGovernanceEventDeliveryAdapter } from './services/event-delivery/governance-event-delivery-adapter.js';
@@ -37,13 +37,14 @@ import { DurableOutboxGovernanceEventDeliveryAdapter } from './services/event-de
 
 type RepositoryStrategy = 'memory' | 'prisma';
 
-export function resolveTopicManagementStoreConfig(): {
+export function resolveTitleCardManagementStoreConfig(): {
   researchLifecycleStrategy: RepositoryStrategy;
   literatureStrategy: RepositoryStrategy;
   autoPullStrategy: RepositoryStrategy;
-  topicStrategy: RepositoryStrategy;
+  titleCardStrategy: RepositoryStrategy;
 } {
-  const topicStrategy = resolveRepositoryStrategy(
+  // `TOPIC_REPOSITORY` remains the compatibility env key for the title-card store.
+  const titleCardStrategy = resolveRepositoryStrategy(
     process.env.TOPIC_REPOSITORY,
     process.env.RESEARCH_LIFECYCLE_REPOSITORY,
   );
@@ -65,7 +66,7 @@ export function resolveTopicManagementStoreConfig(): {
     researchLifecycleStrategy,
     literatureStrategy,
     autoPullStrategy,
-    topicStrategy,
+    titleCardStrategy,
   };
 }
 
@@ -74,13 +75,13 @@ export function buildApp(): FastifyInstance {
     logger: false,
   });
 
-  const storeConfig = resolveTopicManagementStoreConfig();
-  assertTopicManagementStoreCompatibility(storeConfig);
+  const storeConfig = resolveTitleCardManagementStoreConfig();
+  assertTitleCardManagementStoreCompatibility(storeConfig);
 
   const repository = createRepository(storeConfig.researchLifecycleStrategy);
   const literatureRepository = createLiteratureRepository(storeConfig.literatureStrategy);
   const autoPullRepository = createAutoPullRepository(storeConfig.autoPullStrategy);
-  const topicManagementRepository = createTopicManagementRepository(storeConfig.topicStrategy);
+  const titleCardManagementRepository = createTitleCardManagementRepository(storeConfig.titleCardStrategy);
   const auditStore = new FileGovernanceDeliveryAuditStore({
     filePath: process.env.GOVERNANCE_DELIVERY_AUDIT_LOG_PATH,
   });
@@ -94,13 +95,13 @@ export function buildApp(): FastifyInstance {
     createPaperProject: (input) => researchLifecycleService.createPaperProject(input),
     deletePaperProject: (paperId) => researchLifecycleService.deletePaperProject(paperId),
   };
-  const topicManagementService = new TopicManagementService(topicManagementRepository, paperProjectGateway, {
+  const titleCardManagementService = new TitleCardManagementService(titleCardManagementRepository, paperProjectGateway, {
     findLiteratureById: (literatureId) => literatureRepository.findLiteratureById(literatureId),
     listLiteratures: () => literatureRepository.listLiteratures(),
     listSourcesByLiteratureId: (literatureId) => literatureRepository.listSourcesByLiteratureId(literatureId),
     listPipelineStatesByLiteratureIds: (literatureIds) => literatureRepository.listPipelineStatesByLiteratureIds(literatureIds),
   });
-  const topicManagementController = new TopicManagementController(topicManagementService);
+  const titleCardManagementController = new TitleCardManagementController(titleCardManagementService);
   const literatureService = new LiteratureService(literatureRepository, repository);
   const literatureController = new LiteratureController(literatureService);
   const autoPullService = new AutoPullService(autoPullRepository, literatureService);
@@ -138,7 +139,7 @@ export function buildApp(): FastifyInstance {
 
   app.register(async (instance) => {
     await registerResearchLifecycleRoutes(instance, researchLifecycleController);
-    await registerTopicManagementRoutes(instance, topicManagementController);
+    await registerTitleCardManagementRoutes(instance, titleCardManagementController);
     await registerLiteratureRoutes(instance, literatureController);
     await registerTopicSettingsRoutes(instance, topicSettingsController);
     await registerAutoPullRoutes(instance, autoPullController);
@@ -174,13 +175,13 @@ function createAutoPullRepository(strategy: RepositoryStrategy): AutoPullReposit
   return new InMemoryAutoPullRepository();
 }
 
-function createTopicManagementRepository(strategy: RepositoryStrategy): TopicManagementRepository {
+function createTitleCardManagementRepository(strategy: RepositoryStrategy): TitleCardManagementRepository {
   if (strategy === 'prisma') {
     const prisma = getPrismaClient();
-    return new PrismaTopicManagementRepository(prisma);
+    return new PrismaTitleCardManagementRepository(prisma);
   }
 
-  return new InMemoryTopicManagementRepository();
+  return new InMemoryTitleCardManagementRepository();
 }
 
 function createAutoPullScheduler(service: AutoPullService): AutoPullScheduler | null {
@@ -222,23 +223,23 @@ function resolveRepositoryStrategy(...candidates: Array<string | undefined>): Re
   throw new Error(`Unsupported repository strategy "${raw}". Expected "memory" or "prisma".`);
 }
 
-function assertTopicManagementStoreCompatibility(config: {
+function assertTitleCardManagementStoreCompatibility(config: {
   researchLifecycleStrategy: RepositoryStrategy;
   literatureStrategy: RepositoryStrategy;
   autoPullStrategy: RepositoryStrategy;
-  topicStrategy: RepositoryStrategy;
+  titleCardStrategy: RepositoryStrategy;
 }) {
-  if (config.topicStrategy !== 'prisma') {
+  if (config.titleCardStrategy !== 'prisma') {
     return;
   }
 
   if (
-    config.topicStrategy !== config.researchLifecycleStrategy
-    || config.topicStrategy !== config.literatureStrategy
-    || config.topicStrategy !== config.autoPullStrategy
+    config.titleCardStrategy !== config.researchLifecycleStrategy
+    || config.titleCardStrategy !== config.literatureStrategy
+    || config.titleCardStrategy !== config.autoPullStrategy
   ) {
     throw new Error(
-      'When topic management uses Prisma, TOPIC_REPOSITORY, RESEARCH_LIFECYCLE_REPOSITORY, and AUTO_PULL_REPOSITORY must resolve to the same strategy.',
+      'When title-card management uses Prisma, TOPIC_REPOSITORY, RESEARCH_LIFECYCLE_REPOSITORY, and AUTO_PULL_REPOSITORY must resolve to the same strategy.',
     );
   }
 }

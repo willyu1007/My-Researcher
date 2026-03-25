@@ -15,9 +15,9 @@ import type {
   UpdateTitleCardEvidenceBasketRequest,
   UpdateTitleCardRequest,
   UpdateValueAssessmentRequest,
-} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
+} from '@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts';
 import { AppError } from '../errors/app-error.js';
-import { TopicManagementService } from '../services/topic-management.service.js';
+import { TitleCardManagementService } from '../services/title-card-management.service.js';
 
 function handleError(reply: FastifyReply, error: unknown) {
   if (error instanceof AppError) {
@@ -43,8 +43,8 @@ function handleError(reply: FastifyReply, error: unknown) {
   });
 }
 
-export class TopicManagementController {
-  constructor(private readonly service: TopicManagementService) {}
+export class TitleCardManagementController {
+  constructor(private readonly service: TitleCardManagementService) {}
 
   listTitleCards = async (_request: FastifyRequest, reply: FastifyReply) => {
     try {

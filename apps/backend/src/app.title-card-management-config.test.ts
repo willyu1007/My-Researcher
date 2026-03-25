@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildApp, resolveTopicManagementStoreConfig } from './app.js';
+import { buildApp, resolveTitleCardManagementStoreConfig } from './app.js';
 
 const STORE_ENV_KEYS = [
   'TOPIC_REPOSITORY',
@@ -19,15 +19,15 @@ function resetStoreEnv(snapshot: Record<string, string | undefined>) {
   }
 }
 
-test('resolveTopicManagementStoreConfig cascades TOPIC_REPOSITORY to dependent stores', () => {
+test('resolveTitleCardManagementStoreConfig cascades TOPIC_REPOSITORY to dependent stores', () => {
   const snapshot = Object.fromEntries(STORE_ENV_KEYS.map((key) => [key, process.env[key]]));
   try {
     process.env.TOPIC_REPOSITORY = 'prisma';
     delete process.env.RESEARCH_LIFECYCLE_REPOSITORY;
     delete process.env.AUTO_PULL_REPOSITORY;
 
-    assert.deepEqual(resolveTopicManagementStoreConfig(), {
-      topicStrategy: 'prisma',
+    assert.deepEqual(resolveTitleCardManagementStoreConfig(), {
+      titleCardStrategy: 'prisma',
       researchLifecycleStrategy: 'prisma',
       literatureStrategy: 'prisma',
       autoPullStrategy: 'prisma',
@@ -37,7 +37,7 @@ test('resolveTopicManagementStoreConfig cascades TOPIC_REPOSITORY to dependent s
   }
 });
 
-test('buildApp rejects mixed store strategies for topic-management dependencies', () => {
+test('buildApp rejects mixed store strategies for title-card management dependencies', () => {
   const snapshot = Object.fromEntries(STORE_ENV_KEYS.map((key) => [key, process.env[key]]));
   try {
     process.env.TOPIC_REPOSITORY = 'prisma';

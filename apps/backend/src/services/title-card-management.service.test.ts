@@ -1,16 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { InMemoryTopicManagementRepository } from '../repositories/topic-management.repository.js';
+import { InMemoryTitleCardManagementRepository } from '../repositories/title-card-management.repository.js';
 import { AppError } from '../errors/app-error.js';
-import { TopicManagementService } from './topic-management.service.js';
+import { TitleCardManagementService } from './title-card-management.service.js';
 import type {
   CreateNeedReviewRequest,
   CreatePackageRequest,
   CreateResearchQuestionRequest,
   CreateTitleCardRequest,
   CreateValueAssessmentRequest,
-} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
+} from '@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts';
 
 function makeEvidenceRef() {
   return [{ literature_id: 'lit_001', source_type: 'abstract' as const, note: 'seed evidence' }];
@@ -130,7 +130,7 @@ function createService(options?: {
   }) => Promise<{ paper_id: string }>;
   deletePaperProject?: (paperId: string) => Promise<void>;
 }) {
-  const repository = new InMemoryTopicManagementRepository();
+  const repository = new InMemoryTitleCardManagementRepository();
   const calls: Array<{ topic_id: string; title: string; initial_context: { literature_evidence_ids: string[] } }> = [];
   const deletions: string[] = [];
   const paperProjects = {
@@ -154,7 +154,7 @@ function createService(options?: {
   };
 
   return {
-    service: new TopicManagementService(repository, paperProjects, {
+    service: new TitleCardManagementService(repository, paperProjects, {
       findLiteratureById: options?.findLiteratureById
         ?? (async (literatureId) => (literatureId.startsWith('lit_')
           ? {
@@ -192,7 +192,7 @@ function createService(options?: {
   };
 }
 
-async function createTitleCardWithEvidence(service: TopicManagementService) {
+async function createTitleCardWithEvidence(service: TitleCardManagementService) {
   const titleCard = await service.createTitleCard(makeTitleCardInput());
   await service.updateEvidenceBasket(titleCard.title_card_id, { add_literature_ids: ['lit_001'] });
   return titleCard;
@@ -234,7 +234,7 @@ test('createResearchQuestion rejects when no upstream sources are provided', asy
     () =>
       service.createResearchQuestion(
         titleCard.title_card_id,
-        makeQuestionInput({ source_need_ids: [], source_evidence_review_ids: [] }),
+        makeQuestionInput({ source_need_ids: [], source_literature_evidence_ids: [] }),
       ),
     (error: unknown) =>
       error instanceof AppError
@@ -242,6 +242,22 @@ test('createResearchQuestion rejects when no upstream sources are provided', asy
       && error.errorCode === 'INVALID_PAYLOAD'
       && error.message.includes('at least one upstream'),
   );
+});
+
+test('createResearchQuestion accepts selected literature evidence ids as canonical upstream evidence sources', async () => {
+  const { service } = createService();
+  const titleCard = await createTitleCardWithEvidence(service);
+
+  const question = await service.createResearchQuestion(
+    titleCard.title_card_id,
+    makeQuestionInput({
+      source_need_ids: [],
+      source_literature_evidence_ids: ['lit_001'],
+    }),
+  );
+
+  assert.deepEqual(question.source_literature_evidence_ids, ['lit_001']);
+  assert.deepEqual(question.source_need_ids, []);
 });
 
 test('createValueAssessment rejects promote verdict when any hard gate fails', async () => {

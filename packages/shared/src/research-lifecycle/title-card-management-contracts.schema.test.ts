@@ -6,13 +6,13 @@ import {
   createPromotionDecisionRequestSchema,
   createResearchQuestionRequestSchema,
   createTitleCardRequestSchema,
-} from './topic-management-contracts.js';
+} from './title-card-management-contracts.js';
 import * as autoPullContracts from './auto-pull-contracts.js';
 import * as literatureContracts from './literature-contracts.js';
 import * as paperProjectContracts from './paper-project-contracts.js';
 import * as researchLifecycleContracts from './index.js';
 import * as researchLifecycleCoreContracts from './research-lifecycle-core-contracts.js';
-import * as topicManagementContracts from './topic-management-contracts.js';
+import * as titleCardManagementContracts from './title-card-management-contracts.js';
 import type {
   ReleaseGateReviewResponse,
   StageGateVerifyRequest,
@@ -118,6 +118,42 @@ test('research question schema requires at least one upstream source array', asy
   assert.equal(res.statusCode, 400);
 });
 
+test('research question schema accepts canonical literature evidence ids and rejects legacy field name', async () => {
+  const app = Fastify();
+  app.post('/v', { schema: createResearchQuestionRequestSchema }, async () => ({ ok: true }));
+  await app.ready();
+
+  const canonicalRes = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      main_question: 'How can retrieval remain stable under long-context literature reasoning?',
+      research_slice: 'robust long-context retrieval',
+      contribution_hypothesis: 'method',
+      source_literature_evidence_ids: ['lit_001'],
+      judgement_summary: 'Question grounded in selected literature evidence.',
+      confidence: 0.81,
+    },
+  });
+
+  const legacyRes = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      main_question: 'How can retrieval remain stable under long-context literature reasoning?',
+      research_slice: 'robust long-context retrieval',
+      contribution_hypothesis: 'method',
+      source_evidence_review_ids: ['lit_001'],
+      judgement_summary: 'Question grounded in selected literature evidence.',
+      confidence: 0.81,
+    },
+  });
+
+  await app.close();
+  assert.equal(canonicalRes.statusCode, 200);
+  assert.equal(legacyRes.statusCode, 400);
+});
+
 test('promotion decision schema requires package_id and target_paper_title for promote verdict', async () => {
   const app = Fastify();
   app.post('/v', { schema: createPromotionDecisionRequestSchema }, async () => ({ ok: true }));
@@ -183,7 +219,7 @@ test('research-lifecycle barrel re-exports the runtime value surface of split mo
     ...Object.keys(paperProjectContracts),
     ...Object.keys(literatureContracts),
     ...Object.keys(autoPullContracts),
-    ...Object.keys(topicManagementContracts),
+    ...Object.keys(titleCardManagementContracts),
   ]);
 
   assert.deepEqual(Object.keys(researchLifecycleContracts).sort(), [...expectedKeys].sort());

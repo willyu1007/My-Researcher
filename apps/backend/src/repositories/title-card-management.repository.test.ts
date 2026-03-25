@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { InMemoryTopicManagementRepository } from './topic-management.repository.js';
+import { InMemoryTitleCardManagementRepository } from './title-card-management.repository.js';
 import type {
   CreateNeedReviewRequest,
   CreatePackageRequest,
@@ -9,7 +9,7 @@ import type {
   CreateResearchQuestionRequest,
   CreateTitleCardRequest,
   CreateValueAssessmentRequest,
-} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
+} from '@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts';
 
 function makeEvidenceRef() {
   return [{ literature_id: 'lit_001', source_type: 'abstract' as const, note: 'seed evidence' }];
@@ -105,7 +105,7 @@ function makePackageInput(): CreatePackageRequest {
 }
 
 test('in-memory repository stores title cards and evidence basket separately', async () => {
-  const repo = new InMemoryTopicManagementRepository();
+  const repo = new InMemoryTitleCardManagementRepository();
 
   const card = await repo.createTitleCard(makeTitleCardInput());
   await repo.updateEvidenceBasket(card.title_card_id, { add_literature_ids: ['lit_001'] });
@@ -120,7 +120,7 @@ test('in-memory repository stores title cards and evidence basket separately', a
 });
 
 test('in-memory repository stores promotion decisions with promoted paper id', async () => {
-  const repo = new InMemoryTopicManagementRepository();
+  const repo = new InMemoryTitleCardManagementRepository();
   const card = await repo.createTitleCard(makeTitleCardInput());
 
   const decision = await repo.createPromotionDecision(card.title_card_id, {
@@ -139,7 +139,7 @@ test('in-memory repository stores promotion decisions with promoted paper id', a
 });
 
 test('in-memory repository stores and retrieves value assessments and packages under title card', async () => {
-  const repo = new InMemoryTopicManagementRepository();
+  const repo = new InMemoryTitleCardManagementRepository();
   const card = await repo.createTitleCard(makeTitleCardInput());
   const question = await repo.createResearchQuestion(card.title_card_id, makeQuestionInput());
   const value = await repo.createValueAssessment(card.title_card_id, {
@@ -162,7 +162,7 @@ test('in-memory repository stores and retrieves value assessments and packages u
 });
 
 test('in-memory repository isolates need reviews by title card', async () => {
-  const repo = new InMemoryTopicManagementRepository();
+  const repo = new InMemoryTitleCardManagementRepository();
   const cardA = await repo.createTitleCard({ working_title: 'A', brief: 'a' });
   const cardB = await repo.createTitleCard({ working_title: 'B', brief: 'b' });
 

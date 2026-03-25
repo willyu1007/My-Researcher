@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 
 import Fastify from 'fastify';
 
-import { TopicManagementController } from '../controllers/topic-management.controller.js';
+import { TitleCardManagementController } from '../controllers/title-card-management.controller.js';
 import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
-import { InMemoryTopicManagementRepository } from '../repositories/topic-management.repository.js';
-import { registerTopicManagementRoutes } from './topic-management.js';
-import { TopicManagementService } from '../services/topic-management.service.js';
+import { InMemoryTitleCardManagementRepository } from '../repositories/title-card-management.repository.js';
+import { registerTitleCardManagementRoutes } from './title-card-management.js';
+import { TitleCardManagementService } from '../services/title-card-management.service.js';
 
 async function makeApp() {
-  const repository = new InMemoryTopicManagementRepository();
+  const repository = new InMemoryTitleCardManagementRepository();
   const literatureRepository = new InMemoryLiteratureRepository();
   const paperCalls: unknown[] = [];
   const paperProjects = {
@@ -37,15 +37,15 @@ async function makeApp() {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
-  const service = new TopicManagementService(repository, paperProjects, {
+  const service = new TitleCardManagementService(repository, paperProjects, {
     findLiteratureById: (literatureId) => literatureRepository.findLiteratureById(literatureId),
     listLiteratures: () => literatureRepository.listLiteratures(),
     listSourcesByLiteratureId: (literatureId) => literatureRepository.listSourcesByLiteratureId(literatureId),
     listPipelineStatesByLiteratureIds: (literatureIds) => literatureRepository.listPipelineStatesByLiteratureIds(literatureIds),
   });
-  const controller = new TopicManagementController(service);
+  const controller = new TitleCardManagementController(service);
   const app = Fastify();
-  await registerTopicManagementRoutes(app, controller);
+  await registerTitleCardManagementRoutes(app, controller);
   return { app, repository, paperCalls, service };
 }
 

@@ -20,7 +20,7 @@ import type {
   UpdateTitleCardRequest,
   UpdateValueAssessmentRequest,
   ValueAssessmentDTO,
-} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
+} from '@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts';
 
 export type StoredTitleCard = Pick<
   TitleCardDTO,
@@ -35,7 +35,7 @@ export type StoredEvidenceBasket = {
   updated_at: string;
 };
 
-export interface TopicManagementRepository {
+export interface TitleCardManagementRepository {
   listTitleCards(): Promise<StoredTitleCard[]>;
   createTitleCard(input: CreateTitleCardRequest): Promise<StoredTitleCard>;
   getTitleCard(titleCardId: string): Promise<StoredTitleCard | null>;
@@ -103,7 +103,7 @@ function mergeStringArray(current: string[], add: string[] = [], remove: string[
   return [...next];
 }
 
-export class InMemoryTopicManagementRepository implements TopicManagementRepository {
+export class InMemoryTitleCardManagementRepository implements TitleCardManagementRepository {
   private readonly titleCards = new Map<string, StoredTitleCard>();
   private readonly evidenceBaskets = new Map<string, StoredEvidenceBasket>();
   private readonly needReviews = new Map<string, NeedReviewDTO>();
@@ -271,7 +271,7 @@ export class InMemoryTopicManagementRepository implements TopicManagementReposit
       research_slice: input.research_slice,
       contribution_hypothesis: input.contribution_hypothesis,
       source_need_ids: input.source_need_ids ?? [],
-      source_evidence_review_ids: input.source_evidence_review_ids ?? [],
+      source_literature_evidence_ids: input.source_literature_evidence_ids ?? [],
       judgement_summary: input.judgement_summary,
       confidence: input.confidence,
       created_at: timestamp,
@@ -306,7 +306,7 @@ export class InMemoryTopicManagementRepository implements TopicManagementReposit
       ...input,
       sub_questions: input.sub_questions ?? current.sub_questions,
       source_need_ids: input.source_need_ids ?? current.source_need_ids,
-      source_evidence_review_ids: input.source_evidence_review_ids ?? current.source_evidence_review_ids,
+      source_literature_evidence_ids: input.source_literature_evidence_ids ?? current.source_literature_evidence_ids,
       updated_at: nowIso(),
     };
     this.researchQuestions.set(researchQuestionId, next);

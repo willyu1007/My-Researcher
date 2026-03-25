@@ -21,8 +21,8 @@ import {
   updateTitleCardEvidenceBasketRequestSchema,
   updateTitleCardRequestSchema,
   updateValueAssessmentRequestSchema,
-} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
-import { TopicManagementController } from '../controllers/topic-management.controller.js';
+} from '@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts';
+import { TitleCardManagementController } from '../controllers/title-card-management.controller.js';
 
 function withTitleCardParams<T extends { body?: unknown; querystring?: unknown }>(schema: T) {
   return { ...schema, params: paramsTitleCardIdSchema.params };
@@ -48,9 +48,9 @@ function withDecisionParams<T extends { body?: unknown }>(schema: T) {
   return { ...schema, params: paramsTitleCardIdDecisionIdSchema.params };
 }
 
-export async function registerTopicManagementRoutes(
+export async function registerTitleCardManagementRoutes(
   fastify: FastifyInstance,
-  controller: TopicManagementController,
+  controller: TitleCardManagementController,
 ): Promise<void> {
   fastify.get('/title-cards', controller.listTitleCards);
   fastify.post('/title-cards', { schema: createTitleCardRequestSchema }, controller.createTitleCard);

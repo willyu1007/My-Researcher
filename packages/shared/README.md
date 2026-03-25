@@ -15,7 +15,7 @@ Shared TypeScript contracts and utilities.
   - `@paper-engineering-assistant/shared/research-lifecycle/paper-project-contracts`
   - `@paper-engineering-assistant/shared/research-lifecycle/literature-contracts`
   - `@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts`
-  - `@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts`
+  - `@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts`
 
 ## Migration rule
 

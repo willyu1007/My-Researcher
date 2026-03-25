@@ -13,7 +13,6 @@ import type {
   PackageDTO,
   PromotionDecisionDTO,
   ResearchQuestionDTO,
-  ReviewRef,
   TitleCardStatus,
   UpdateNeedReviewRequest,
   UpdatePackageRequest,
@@ -23,13 +22,17 @@ import type {
   UpdateTitleCardRequest,
   UpdateValueAssessmentRequest,
   ValueAssessmentDTO,
-} from '@paper-engineering-assistant/shared/research-lifecycle/topic-management-contracts';
+} from '@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts';
 import type {
   StoredEvidenceBasket,
   StoredEvidenceBasketItem,
   StoredTitleCard,
-  TopicManagementRepository,
-} from '../topic-management.repository.js';
+  TitleCardManagementRepository,
+} from '../title-card-management.repository.js';
+import {
+  normalizePromotionDecisionLoopbackTarget,
+  normalizeReviewRefs,
+} from './title-card-management-normalizers.js';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -212,7 +215,7 @@ function toNeedReviewDTO(row: NeedReviewRow): NeedReviewDTO {
     who_needs_it: row.whoNeedsIt,
     scenario: row.scenario,
     boundary: row.boundary ?? undefined,
-    evidence_review_refs: asObjectArray<ReviewRef>(row.evidenceReviewRefs),
+    evidence_review_refs: normalizeReviewRefs(row.evidenceReviewRefs),
     literature_ids: asStringArray(row.literatureIds),
     unmet_need_category: row.unmetNeedCategory as NeedReviewDTO['unmet_need_category'],
     falsification_verdict: row.falsificationVerdict as NeedReviewDTO['falsification_verdict'],
@@ -241,7 +244,7 @@ function toQuestionDTO(row: QuestionRow): ResearchQuestionDTO {
     research_slice: row.researchSlice,
     contribution_hypothesis: row.contributionHypothesis as ResearchQuestionDTO['contribution_hypothesis'],
     source_need_ids: asStringArray(row.sourceNeedReviewIds),
-    source_evidence_review_ids: asStringArray(row.sourceEvidenceReviewIds),
+    source_literature_evidence_ids: asStringArray(row.sourceEvidenceReviewIds),
     judgement_summary: row.researchRecord.summary,
     confidence: numberFromDecimal(row.researchRecord.confidence),
     created_at: row.createdAt.toISOString(),
@@ -309,7 +312,7 @@ function toPromotionDecisionDTO(row: PromotionDecisionRow): PromotionDecisionDTO
     reason_summary: row.reasonSummary,
     target_paper_title: row.targetPaperTitle ?? undefined,
     promoted_paper_id: row.promotedPaperId ?? undefined,
-    loopback_target: row.loopbackTarget as PromotionDecisionDTO['loopback_target'],
+    loopback_target: normalizePromotionDecisionLoopbackTarget(row.loopbackTarget),
     created_by: row.createdBy as PromotionDecisionDTO['created_by'],
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
@@ -414,7 +417,7 @@ function questionPayloadFromDTO(dto: ResearchQuestionDTO): Record<string, unknow
     research_slice: dto.research_slice,
     contribution_hypothesis: dto.contribution_hypothesis,
     source_need_ids: dto.source_need_ids,
-    source_evidence_review_ids: dto.source_evidence_review_ids,
+    source_literature_evidence_ids: dto.source_literature_evidence_ids,
     judgement_summary: dto.judgement_summary,
     confidence: dto.confidence,
   };
@@ -458,7 +461,7 @@ function packagePayloadFromDTO(dto: PackageDTO): Record<string, unknown> {
   };
 }
 
-export class PrismaTopicManagementRepository implements TopicManagementRepository {
+export class PrismaTitleCardManagementRepository implements TitleCardManagementRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async listTitleCards(): Promise<StoredTitleCard[]> {
@@ -761,7 +764,7 @@ export class PrismaTopicManagementRepository implements TopicManagementRepositor
           recordStatus: input.record_status ?? 'completed',
           sourceRecordIds: [
             ...(input.source_need_ids ?? []),
-            ...(input.source_evidence_review_ids ?? []),
+            ...(input.source_literature_evidence_ids ?? []),
           ],
           summary: input.judgement_summary,
           confidence: input.confidence,
@@ -774,7 +777,7 @@ export class PrismaTopicManagementRepository implements TopicManagementRepositor
             research_slice: input.research_slice,
             contribution_hypothesis: input.contribution_hypothesis,
             source_need_ids: input.source_need_ids ?? [],
-            source_evidence_review_ids: input.source_evidence_review_ids ?? [],
+            source_literature_evidence_ids: input.source_literature_evidence_ids ?? [],
             judgement_summary: input.judgement_summary,
             confidence: input.confidence,
             created_at: now.toISOString(),
@@ -795,7 +798,8 @@ export class PrismaTopicManagementRepository implements TopicManagementRepositor
           researchSlice: input.research_slice,
           contributionHypothesis: input.contribution_hypothesis,
           sourceNeedReviewIds: toJsonValue(input.source_need_ids ?? []),
-          sourceEvidenceReviewIds: toJsonValue(input.source_evidence_review_ids ?? []),
+          // Physical column keeps its legacy name until the Prisma naming migration wave.
+          sourceEvidenceReviewIds: toJsonValue(input.source_literature_evidence_ids ?? []),
           createdAt: now,
           updatedAt: now,
         },
@@ -849,7 +853,7 @@ export class PrismaTopicManagementRepository implements TopicManagementRepositor
       ...input,
       sub_questions: input.sub_questions ?? current.sub_questions,
       source_need_ids: input.source_need_ids ?? current.source_need_ids,
-      source_evidence_review_ids: input.source_evidence_review_ids ?? current.source_evidence_review_ids,
+      source_literature_evidence_ids: input.source_literature_evidence_ids ?? current.source_literature_evidence_ids,
       updated_at: new Date().toISOString(),
     };
 
@@ -859,7 +863,7 @@ export class PrismaTopicManagementRepository implements TopicManagementRepositor
         where: { id: currentRow.researchRecordId },
         data: buildResearchRecordUpdate({
           recordStatus: next.record_status,
-          sourceRecordIds: [...next.source_need_ids, ...next.source_evidence_review_ids],
+          sourceRecordIds: [...next.source_need_ids, ...next.source_literature_evidence_ids],
           summary: next.judgement_summary,
           confidence: next.confidence,
           payload: questionPayloadFromDTO(next),
@@ -875,7 +879,7 @@ export class PrismaTopicManagementRepository implements TopicManagementRepositor
           researchSlice: next.research_slice,
           contributionHypothesis: next.contribution_hypothesis,
           sourceNeedReviewIds: toJsonValue(next.source_need_ids),
-          sourceEvidenceReviewIds: toJsonValue(next.source_evidence_review_ids),
+          sourceEvidenceReviewIds: toJsonValue(next.source_literature_evidence_ids),
           updatedAt: now,
         },
         include: { researchRecord: true },

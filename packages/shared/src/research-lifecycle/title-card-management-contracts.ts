@@ -207,7 +207,7 @@ export interface ResearchQuestionDTO {
   research_slice: string;
   contribution_hypothesis: ContributionHypothesis;
   source_need_ids: string[];
-  source_evidence_review_ids: string[];
+  source_literature_evidence_ids: string[];
   judgement_summary: string;
   confidence: number;
   created_at: string;
@@ -221,7 +221,7 @@ export interface CreateResearchQuestionRequest {
   research_slice: string;
   contribution_hypothesis: ContributionHypothesis;
   source_need_ids?: string[];
-  source_evidence_review_ids?: string[];
+  source_literature_evidence_ids?: string[];
   judgement_summary: string;
   confidence: number;
 }
@@ -474,7 +474,7 @@ const researchQuestionMutableFields = {
   research_slice: { type: 'string', minLength: 1 },
   contribution_hypothesis: { enum: [...CONTRIBUTION_HYPOTHESES] },
   source_need_ids: nonEmptyStringArray,
-  source_evidence_review_ids: nonEmptyStringArray,
+  source_literature_evidence_ids: nonEmptyStringArray,
   judgement_summary: { type: 'string', minLength: 1 },
   confidence: boundedConfidence,
 } as const;
@@ -696,7 +696,7 @@ export const updateNeedReviewRequestSchema = {
 
 export const createResearchQuestionRequestSchema = {
   body: withAtLeastOneOf(
-    ['source_need_ids', 'source_evidence_review_ids'],
+    ['source_need_ids', 'source_literature_evidence_ids'],
     {
       type: 'object',
       additionalProperties: false,

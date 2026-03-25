@@ -4145,7 +4145,7 @@ components:
       type: string
       enum: [promote, refine, park, drop]
 
-    TopicPromotionDecisionType:
+    PromotionDecisionType:
       type: string
       enum: [promote, hold, reject, loopback]
 
@@ -4163,7 +4163,7 @@ components:
           minLength: 4
         record_type:
           type: string
-          enum: [evidence_review, need_review, question, value_assessment, topic_package, promotion_decision]
+          enum: [evidence_review, need_review, research_question, value_assessment, package, promotion_decision]
 
     TopicEvidenceRef:
       type: object
@@ -4217,7 +4217,7 @@ components:
           items:
             $ref: '#/components/schemas/TopicEvidenceRef'
 
-    TopicValueAssessmentHardGates:
+    ValueAssessmentHardGates:
       type: object
       required: [significance, originality, answerability, feasibility, venue_fit]
       additionalProperties: false
@@ -4233,7 +4233,7 @@ components:
         venue_fit:
           $ref: '#/components/schemas/TopicHardGateCheck'
 
-    TopicValueAssessmentScoredDimensions:
+    ValueAssessmentScoredDimensions:
       type: object
       required: [significance, originality, claim_strength, answerability, venue_fit, strategic_leverage]
       additionalProperties: false
@@ -4251,7 +4251,7 @@ components:
         strategic_leverage:
           $ref: '#/components/schemas/TopicScoredDimension'
 
-    TopicValueAssessmentRiskPenalty:
+    ValueAssessmentRiskPenalty:
       type: object
       required: [data_risk, compute_risk, baseline_risk, execution_risk, ethics_risk, penalty_summary]
       additionalProperties: false
@@ -4283,8 +4283,8 @@ components:
     NeedReviewResponse:
       type: object
       required:
-        - record_id
-        - topic_id
+        - need_id
+        - title_card_id
         - record_status
         - need_statement
         - who_needs_it
@@ -4305,8 +4305,8 @@ components:
         - updated_at
       additionalProperties: false
       properties:
-        record_id: { type: string }
-        topic_id: { type: string }
+        need_id: { type: string }
+        title_card_id: { type: string }
         record_status:
           $ref: '#/components/schemas/TopicResearchRecordStatus'
         need_statement:
@@ -4462,26 +4462,26 @@ components:
             type: string
             minLength: 1
 
-    TopicQuestionResponse:
+    ResearchQuestionResponse:
       type: object
       required:
-        - record_id
-        - topic_id
+        - research_question_id
+        - title_card_id
         - record_status
         - main_question
         - sub_questions
         - research_slice
         - contribution_hypothesis
-        - source_need_review_ids
-        - source_evidence_review_ids
+        - source_need_ids
+        - source_literature_evidence_ids
         - judgement_summary
         - confidence
         - created_at
         - updated_at
       additionalProperties: false
       properties:
-        record_id: { type: string }
-        topic_id: { type: string }
+        research_question_id: { type: string }
+        title_card_id: { type: string }
         record_status:
           $ref: '#/components/schemas/TopicResearchRecordStatus'
         main_question:
@@ -4494,11 +4494,11 @@ components:
           type: string
         contribution_hypothesis:
           $ref: '#/components/schemas/TopicContributionHypothesis'
-        source_need_review_ids:
+        source_need_ids:
           type: array
           items:
             type: string
-        source_evidence_review_ids:
+        source_literature_evidence_ids:
           type: array
           items:
             type: string
@@ -4515,7 +4515,7 @@ components:
           type: string
           format: date-time
 
-    CreateTopicQuestionRequest:
+    CreateResearchQuestionRequest:
       type: object
       additionalProperties: false
       required: [main_question, research_slice, contribution_hypothesis, judgement_summary, confidence]
@@ -4535,13 +4535,13 @@ components:
           minLength: 5
         contribution_hypothesis:
           $ref: '#/components/schemas/TopicContributionHypothesis'
-        source_need_review_ids:
+        source_need_ids:
           type: array
           minItems: 1
           items:
             type: string
             minLength: 4
-        source_evidence_review_ids:
+        source_literature_evidence_ids:
           type: array
           minItems: 1
           items:
@@ -4556,15 +4556,15 @@ components:
           maximum: 1
       allOf:
         - anyOf:
-            - required: [source_need_review_ids]
-            - required: [source_evidence_review_ids]
+            - required: [source_need_ids]
+            - required: [source_literature_evidence_ids]
 
     ValueAssessmentResponse:
       type: object
       required:
-        - record_id
-        - topic_id
-        - question_id
+        - value_assessment_id
+        - title_card_id
+        - research_question_id
         - record_status
         - strongest_claim_if_success
         - hard_gates
@@ -4585,9 +4585,9 @@ components:
         - updated_at
       additionalProperties: false
       properties:
-        record_id: { type: string }
-        topic_id: { type: string }
-        question_id: { type: string }
+        value_assessment_id: { type: string }
+        title_card_id: { type: string }
+        research_question_id: { type: string }
         record_status:
           $ref: '#/components/schemas/TopicResearchRecordStatus'
         strongest_claim_if_success:
@@ -4595,11 +4595,11 @@ components:
         fallback_claim_if_success:
           type: string
         hard_gates:
-          $ref: '#/components/schemas/TopicValueAssessmentHardGates'
+          $ref: '#/components/schemas/ValueAssessmentHardGates'
         scored_dimensions:
-          $ref: '#/components/schemas/TopicValueAssessmentScoredDimensions'
+          $ref: '#/components/schemas/ValueAssessmentScoredDimensions'
         risk_penalty:
-          $ref: '#/components/schemas/TopicValueAssessmentRiskPenalty'
+          $ref: '#/components/schemas/ValueAssessmentRiskPenalty'
         reviewer_objections:
           type: array
           items:
@@ -4645,6 +4645,7 @@ components:
       type: object
       additionalProperties: false
       required:
+        - research_question_id
         - strongest_claim_if_success
         - hard_gates
         - scored_dimensions
@@ -4658,6 +4659,9 @@ components:
         - confidence
         - evidence_refs
       properties:
+        research_question_id:
+          type: string
+          minLength: 4
         record_status:
           $ref: '#/components/schemas/TopicResearchRecordStatus'
         strongest_claim_if_success:
@@ -4666,11 +4670,11 @@ components:
         fallback_claim_if_success:
           type: string
         hard_gates:
-          $ref: '#/components/schemas/TopicValueAssessmentHardGates'
+          $ref: '#/components/schemas/ValueAssessmentHardGates'
         scored_dimensions:
-          $ref: '#/components/schemas/TopicValueAssessmentScoredDimensions'
+          $ref: '#/components/schemas/ValueAssessmentScoredDimensions'
         risk_penalty:
-          $ref: '#/components/schemas/TopicValueAssessmentRiskPenalty'
+          $ref: '#/components/schemas/ValueAssessmentRiskPenalty'
         reviewer_objections:
           type: array
           items:
@@ -4714,12 +4718,12 @@ components:
           items:
             $ref: '#/components/schemas/TopicEvidenceRef'
 
-    TopicPackageResponse:
+    TitleCardPackageResponse:
       type: object
       required:
-        - record_id
-        - topic_id
-        - question_id
+        - package_id
+        - title_card_id
+        - research_question_id
         - value_assessment_id
         - record_status
         - title_candidates
@@ -4733,9 +4737,9 @@ components:
         - updated_at
       additionalProperties: false
       properties:
-        record_id: { type: string }
-        topic_id: { type: string }
-        question_id: { type: string }
+        package_id: { type: string }
+        title_card_id: { type: string }
+        research_question_id: { type: string }
         value_assessment_id: { type: string }
         record_status:
           $ref: '#/components/schemas/TopicResearchRecordStatus'
@@ -4768,10 +4772,12 @@ components:
           type: string
           format: date-time
 
-    CreateTopicPackageRequest:
+    CreatePackageRequest:
       type: object
       additionalProperties: false
       required:
+        - research_question_id
+        - value_assessment_id
         - title_candidates
         - research_background
         - contribution_summary
@@ -4779,6 +4785,12 @@ components:
         - evaluation_plan
         - selected_literature_evidence_ids
       properties:
+        research_question_id:
+          type: string
+          minLength: 4
+        value_assessment_id:
+          type: string
+          minLength: 4
         record_status:
           $ref: '#/components/schemas/TopicResearchRecordStatus'
         title_candidates:
@@ -4814,26 +4826,27 @@ components:
             type: string
             minLength: 4
 
-    TopicPromotionDecisionResponse:
+    PromotionDecisionResponse:
       type: object
       required:
         - decision_id
-        - topic_id
-        - question_id
+        - title_card_id
+        - research_question_id
         - value_assessment_id
         - decision
         - reason_summary
         - created_by
         - created_at
+        - updated_at
       additionalProperties: false
       properties:
         decision_id: { type: string }
-        topic_id: { type: string }
-        question_id: { type: string }
+        title_card_id: { type: string }
+        research_question_id: { type: string }
         value_assessment_id: { type: string }
         package_id: { type: string }
         decision:
-          $ref: '#/components/schemas/TopicPromotionDecisionType'
+          $ref: '#/components/schemas/PromotionDecisionType'
         reason_summary:
           type: string
         target_paper_title:
@@ -4842,20 +4855,23 @@ components:
           type: string
         loopback_target:
           type: string
-          enum: [need_review, question, value_assessment, topic_package]
+          enum: [need_review, research_question, value_assessment, package]
         created_by:
           type: string
           enum: [llm, human, hybrid]
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
-    CreateTopicPromotionDecisionRequest:
+    CreatePromotionDecisionRequest:
       type: object
       additionalProperties: false
-      required: [question_id, value_assessment_id, decision, reason_summary, created_by]
+      required: [research_question_id, value_assessment_id, decision, reason_summary, created_by]
       properties:
-        question_id:
+        research_question_id:
           type: string
           minLength: 4
         value_assessment_id:
@@ -4865,7 +4881,7 @@ components:
           type: string
           minLength: 4
         decision:
-          $ref: '#/components/schemas/TopicPromotionDecisionType'
+          $ref: '#/components/schemas/PromotionDecisionType'
         reason_summary:
           type: string
           minLength: 10
@@ -4874,7 +4890,7 @@ components:
           minLength: 5
         loopback_target:
           type: string
-          enum: [need_review, question, value_assessment, topic_package]
+          enum: [need_review, research_question, value_assessment, package]
         created_by:
           type: string
           enum: [llm, human, hybrid]
@@ -4892,12 +4908,12 @@ components:
           then:
             required: [loopback_target]
 
-    PromoteTopicToPaperProjectRequest:
+    PromoteTitleCardToPaperProjectRequest:
       type: object
       additionalProperties: false
-      required: [question_id, value_assessment_id, package_id, title, created_by]
+      required: [research_question_id, value_assessment_id, package_id, title, created_by]
       properties:
-        question_id:
+        research_question_id:
           type: string
           minLength: 4
         value_assessment_id:
@@ -4915,7 +4931,7 @@ components:
           type: string
           enum: [human, hybrid]
 
-    PromoteTopicToPaperProjectResponse:
+    PromoteTitleCardToPaperProjectResponse:
       type: object
       required: [paper_id, decision_id]
       additionalProperties: false
