@@ -36,6 +36,12 @@ Project: `main`
 | T-010 governance-event-delivery-observability-ops-v1 | archived | dev-docs/archive/governance-event-delivery-observability-ops-v1 |
 | T-014 automated-topic-management | in-progress | dev-docs/active/automated-topic-management |
 | T-021 topic-management-workbench-ui | in-progress | dev-docs/active/topic-management-workbench-ui |
+| T-023 research-argument-control-plane-v1 | in-progress | dev-docs/active/research-argument-control-plane-v1 |
+| T-024 research-argument-contracts-and-ssot | done | dev-docs/active/research-argument-contracts-and-ssot |
+| T-025 research-argument-graph-and-state-v1 | in-progress | dev-docs/active/research-argument-graph-and-state-v1 |
+| T-026 research-argument-titlecard-paper-bridge | planned | dev-docs/active/research-argument-titlecard-paper-bridge |
+| T-027 research-argument-control-plane-ui-v1 | planned | dev-docs/active/research-argument-control-plane-ui-v1 |
+| T-028 research-argument-planner-critic-v15 | planned | dev-docs/active/research-argument-planner-critic-v15 |
 
 ### F-002 Desktop Frontend Foundation
 

@@ -8,7 +8,7 @@
   "scripts": {
     "pretypecheck": "pnpm run prisma:generate",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test --loader ts-node/esm src/**/*.test.ts",
+    "test": "node scripts/run-node-tests.mjs",
     "prisma:format": "prisma format --schema ../../prisma/schema.prisma",
     "prisma:validate": "prisma validate --schema ../../prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema ../../prisma/schema.prisma",

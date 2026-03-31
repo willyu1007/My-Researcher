@@ -664,3 +664,138 @@ model TopicPromotionDecision {
 
   @@index([topicId, createdAt(sort: Desc)])
 }
+
+model ResearchArgumentWorkspace {
+  id                    String                          @id
+  titleCardId           String
+  workspaceStatus       String
+  activeBranchId        String?
+  currentStage          String
+  sourceTraceRefs       Json                            @default("[]")
+  reportPointers        Json                            @default("[]")
+  paperId               String?
+  syncEligibility       String
+  authorizationMetadata Json?
+  gitWeakMappingRefs    Json                            @default("[]")
+  auditRef              String?
+  createdAt             DateTime                        @db.Timestamptz(6)
+  updatedAt             DateTime                        @db.Timestamptz(6)
+  branches              ResearchArgumentBranch[]
+  graphObjects          ResearchArgumentGraphObject[]
+  stateSnapshots        ResearchArgumentStateSnapshot[]
+  decisionRecords       ResearchArgumentDecisionRecord[]
+  lessonRecords         ResearchArgumentLessonRecord[]
+  reportProjections     ResearchArgumentReportProjection[]
+
+  @@index([titleCardId])
+  @@index([workspaceStatus, updatedAt(sort: Desc)])
+}
+
+model ResearchArgumentBranch {
+  id                String                          @id
+  workspaceId       String
+  branchName        String
+  branchStatus      String
+  parentBranchId    String?
+  hypothesisSummary String?
+  branchReason      String?
+  decisionRefs      Json                            @default("[]")
+  createdAt         DateTime                        @db.Timestamptz(6)
+  updatedAt         DateTime                        @db.Timestamptz(6)
+  workspace         ResearchArgumentWorkspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  graphObjects      ResearchArgumentGraphObject[]
+  stateSnapshots    ResearchArgumentStateSnapshot[]
+  decisionRecords   ResearchArgumentDecisionRecord[]
+  lessonRecords     ResearchArgumentLessonRecord[]
+  reportProjections ResearchArgumentReportProjection[]
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([workspaceId, branchStatus])
+}
+
+model ResearchArgumentGraphObject {
+  objectId    String
+  workspaceId String
+  branchId    String
+  objectKind  String
+  payload     Json
+  createdAt   DateTime                  @db.Timestamptz(6)
+  updatedAt   DateTime                  @db.Timestamptz(6)
+  workspace   ResearchArgumentWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  branch      ResearchArgumentBranch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, branchId, objectId])
+  @@index([workspaceId, branchId, objectKind])
+  @@index([branchId, updatedAt(sort: Desc)])
+}
+
+model ResearchArgumentStateSnapshot {
+  id          String                    @id
+  workspaceId String
+  branchId    String
+  stage       String
+  dimensions  Json
+  globalFlags Json
+  derived     Json
+  version     Int
+  createdAt   DateTime                  @db.Timestamptz(6)
+  updatedAt   DateTime                  @db.Timestamptz(6)
+  workspace   ResearchArgumentWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  branch      ResearchArgumentBranch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, branchId, updatedAt(sort: Desc)])
+}
+
+model ResearchArgumentDecisionRecord {
+  id               String                    @id
+  workspaceId      String
+  branchId         String
+  action           String
+  reason           String
+  actor            String
+  humanConfirmed   Boolean
+  confirmationNote String?
+  linkedObjectIds  Json                      @default("[]")
+  auditRef         String?
+  createdAt        DateTime                  @db.Timestamptz(6)
+  workspace        ResearchArgumentWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  branch           ResearchArgumentBranch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, branchId, createdAt(sort: Desc)])
+}
+
+model ResearchArgumentLessonRecord {
+  id                String                    @id
+  workspaceId       String
+  branchId          String
+  lessonType        String
+  summary           String
+  originDecisionId  String?
+  originRunIds      Json                      @default("[]")
+  applicabilityTags Json                      @default("[]")
+  reliability       Float?
+  createdAt         DateTime                  @db.Timestamptz(6)
+  updatedAt         DateTime                  @db.Timestamptz(6)
+  workspace         ResearchArgumentWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  branch            ResearchArgumentBranch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, branchId, updatedAt(sort: Desc)])
+}
+
+model ResearchArgumentReportProjection {
+  id              String                    @id
+  workspaceId     String
+  branchId        String
+  reportKind      String
+  summary         String
+  objectPointers  Json                      @default("[]")
+  sourceTraceRefs Json                      @default("[]")
+  reportPointers  Json                      @default("[]")
+  createdAt       DateTime                  @db.Timestamptz(6)
+  updatedAt       DateTime                  @db.Timestamptz(6)
+  workspace       ResearchArgumentWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  branch          ResearchArgumentBranch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, branchId, reportKind])
+  @@index([workspaceId, updatedAt(sort: Desc)])
+}

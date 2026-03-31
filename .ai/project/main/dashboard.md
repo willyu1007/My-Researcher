@@ -8,12 +8,18 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 22 (planned: 0, in-progress: 5, blocked: 0, done: 7, archived: 10)
+- Tasks: 28 (planned: 3, in-progress: 7, blocked: 0, done: 8, archived: 10)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-023 research-argument-control-plane-v1 | in-progress | F-001 | dev-docs/active/research-argument-control-plane-v1 |
+| T-024 research-argument-contracts-and-ssot | done | F-001 | dev-docs/active/research-argument-contracts-and-ssot |
+| T-025 research-argument-graph-and-state-v1 | in-progress | F-001 | dev-docs/active/research-argument-graph-and-state-v1 |
+| T-026 research-argument-titlecard-paper-bridge | planned | F-001 | dev-docs/active/research-argument-titlecard-paper-bridge |
+| T-027 research-argument-control-plane-ui-v1 | planned | F-001 | dev-docs/active/research-argument-control-plane-ui-v1 |
+| T-028 research-argument-planner-critic-v15 | planned | F-001 | dev-docs/active/research-argument-planner-critic-v15 |
 | T-021 topic-management-workbench-ui | in-progress | F-001 | dev-docs/active/topic-management-workbench-ui |
 | T-022 desktop-legacy-css-retirement | in-progress | F-002 | dev-docs/active/desktop-legacy-css-retirement |
 | T-020 shared-contract-compat-cleanup-and-consumer-migration | done | F-000 | dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration |
@@ -28,10 +34,4 @@ Project: `main`
 | T-011 literature-management-flow | in-progress | F-000 | dev-docs/active/literature-management-flow |
 | T-002 paper-assistant-core-modules | archived | F-000 | dev-docs/archive/paper-assistant-core-modules |
 | T-003 llm-research-lifecycle-governance-v1 | archived | F-001 | dev-docs/archive/llm-research-lifecycle-governance-v1 |
-| T-004 desktop-app-electron-ui-v1 | archived | F-002 | dev-docs/archive/desktop-app-electron-ui-v1 |
-| T-005 analemma-borrowing-governance-v1 | archived | F-001 | dev-docs/archive/analemma-borrowing-governance-v1 |
-| T-006 desktop-governance-observability-panels | archived | F-002 | dev-docs/archive/desktop-governance-observability-panels |
-| T-007 governance-read-api-and-release-review-gate | archived | F-001 | dev-docs/archive/governance-read-api-and-release-review-gate |
-| T-008 governance-event-delivery-mechanism-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-mechanism-v1 |
-| T-009 governance-event-delivery-backend-implementation-v1 | archived | F-001 | dev-docs/archive/governance-event-delivery-backend-implementation-v1 |
 <!-- AUTO-GENERATED:END dashboard -->

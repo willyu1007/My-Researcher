@@ -32,4 +32,10 @@ Project: `main`
 | T-020 shared-contract-compat-cleanup-and-consumer-migration | done | F-000 | dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration |
 | T-021 topic-management-workbench-ui | in-progress | F-001 | dev-docs/active/topic-management-workbench-ui |
 | T-022 desktop-legacy-css-retirement | in-progress | F-002 | dev-docs/active/desktop-legacy-css-retirement |
+| T-023 research-argument-control-plane-v1 | in-progress | F-001 | dev-docs/active/research-argument-control-plane-v1 |
+| T-024 research-argument-contracts-and-ssot | done | F-001 | dev-docs/active/research-argument-contracts-and-ssot |
+| T-025 research-argument-graph-and-state-v1 | in-progress | F-001 | dev-docs/active/research-argument-graph-and-state-v1 |
+| T-026 research-argument-titlecard-paper-bridge | planned | F-001 | dev-docs/active/research-argument-titlecard-paper-bridge |
+| T-027 research-argument-control-plane-ui-v1 | planned | F-001 | dev-docs/active/research-argument-control-plane-ui-v1 |
+| T-028 research-argument-planner-critic-v15 | planned | F-001 | dev-docs/active/research-argument-planner-critic-v15 |
 <!-- AUTO-GENERATED:END task-index -->

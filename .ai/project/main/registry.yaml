@@ -85,6 +85,11 @@ requirements:
     status: in-progress
     description: "Freeze the desktop renderer legacy CSS layer as compatibility-only, govern its retirement waves, and prevent new feature work from extending it."
     feature_id: F-002
+  - id: R-011
+    title: "Research argument control plane baseline"
+    status: in-progress
+    description: "Define and stage the pre-writing research-argument workspace, readiness state, bridge flow, control plane, and phased planner/critic enhancement between title-cards and paper-projects."
+    feature_id: F-001
 
 tasks:
   - id: T-001
@@ -263,3 +268,57 @@ tasks:
       - R-010
     dev_docs_path: dev-docs/active/desktop-legacy-css-retirement
     updated: 2026-03-23
+  - id: T-023
+    slug: research-argument-control-plane-v1
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-011
+    dev_docs_path: dev-docs/active/research-argument-control-plane-v1
+    updated: 2026-03-31
+  - id: T-024
+    slug: research-argument-contracts-and-ssot
+    status: done
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-011
+    dev_docs_path: dev-docs/active/research-argument-contracts-and-ssot
+    updated: 2026-03-31
+  - id: T-025
+    slug: research-argument-graph-and-state-v1
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-011
+    dev_docs_path: dev-docs/active/research-argument-graph-and-state-v1
+    updated: 2026-03-31
+  - id: T-026
+    slug: research-argument-titlecard-paper-bridge
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-011
+    dev_docs_path: dev-docs/active/research-argument-titlecard-paper-bridge
+    updated: 2026-03-31
+  - id: T-027
+    slug: research-argument-control-plane-ui-v1
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-011
+    dev_docs_path: dev-docs/active/research-argument-control-plane-ui-v1
+    updated: 2026-03-31
+  - id: T-028
+    slug: research-argument-planner-critic-v15
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-011
+    dev_docs_path: dev-docs/active/research-argument-planner-critic-v15
+    updated: 2026-03-31
