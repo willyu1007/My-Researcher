@@ -41,7 +41,7 @@ This file exists to prevent repeating mistakes within this task.
 - Prevention (how to avoid repeating it):
   - 含 workspace 局部依赖的执行命令，统一通过 `pnpm --filter` 或切换到对应 workspace 目录运行。
 - References (paths/commands/log keywords):
-  - `dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/db/20260222-203336-prisma-smoke/02-backend-test-prisma.log`
+  - Archived Prisma smoke verification summary for run `20260222-203336-prisma-smoke` in `04-verification.md`
 
 ### 2026-02-22 - Prisma smoke 脚本参数与清理命令冲突（已解决）
 - Symptom:
@@ -63,7 +63,7 @@ This file exists to prevent repeating mistakes within this task.
   - 对 Prisma CLI 参数组合先以最小命令在本地验证，再固化到 CI 脚本。
 - References (paths/commands/log keywords):
   - `ci/scripts/prisma-smoke.mjs`
-  - `dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/ci-local-runs/prisma-smoke/20260222-131721/04-drop-schema.log`
+  - Archived local Prisma smoke run `20260222-131721` summarized in `04-verification.md`
 
 ### 2026-02-22 - 历史归档任务路径缺失导致 governance warning（已解决）
 - Symptom:

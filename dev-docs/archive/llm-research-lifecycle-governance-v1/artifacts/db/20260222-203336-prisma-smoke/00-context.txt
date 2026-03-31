@@ -1,3 +1,0 @@
-run_id=20260222-203336-prisma-smoke
-schema=smoke_20260222_203336_prisma_smoke
-database_url=postgresql://yurui@localhost:5432/postgres?schema=smoke_20260222_203336_prisma_smoke

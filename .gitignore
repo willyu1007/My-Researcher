@@ -30,3 +30,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Volatile verification artifacts
+dev-docs/**/artifacts/**/*.log
+dev-docs/**/artifacts/**/00-context.json
+dev-docs/**/artifacts/**/00-context.txt
+dev-docs/**/artifacts/**/90-summary.json

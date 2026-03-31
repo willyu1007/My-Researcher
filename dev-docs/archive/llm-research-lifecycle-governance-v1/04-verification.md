@@ -1,5 +1,7 @@
 # 04 Verification
 
+Raw machine-generated Prisma smoke artifacts were pruned from git during the 2026-03 repository cleanup. This file remains the retained verification summary.
+
 ## Automated checks
 - [pass] `pnpm --filter @paper-engineering-assistant/backend typecheck`
   - Result: pass（治理后端类型检查通过）。
@@ -101,9 +103,9 @@
 - [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (final)
   - Result: governance 通过（仅历史 `T-001` warning）。
 - [pass] `DATABASE_URL='postgresql://yurui@localhost:5432/postgres?schema=public' pnpm exec prisma migrate deploy --schema prisma/schema.prisma`
-  - Result: migration `20260222120000_init_research_lifecycle` 已在目标开发库应用完成（证据目录：`dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/db/20260222-203141-db-apply/`）。
+  - Result: migration `20260222120000_init_research_lifecycle` 已在目标开发库应用完成（证据目录：`dev-docs/archive/llm-research-lifecycle-governance-v1/artifacts/db/20260222-203141-db-apply/`）。
 - [pass] `DATABASE_URL='postgresql://yurui@localhost:5432/postgres?schema=smoke_20260222_203336_prisma_smoke' RESEARCH_LIFECYCLE_REPOSITORY=prisma pnpm --filter @paper-engineering-assistant/backend test`
-  - Result: Prisma 仓储模式下 backend 测试 8/8 通过（证据目录：`dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/db/20260222-203336-prisma-smoke/`）。
+  - Result: Prisma 仓储模式下 backend 测试 8/8 通过；验证摘要保留在本文档中，原始 Prisma smoke artifacts 已在 2026-03 仓库清理中从 git 移除。
 - [pass] `psql 'postgresql://yurui@localhost:5432/postgres' -c 'DROP SCHEMA IF EXISTS \"smoke_20260222_203336_prisma_smoke\" CASCADE;'`
   - Result: 临时 smoke schema 已清理，避免污染长期开发数据。
 - [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (after prisma smoke evidence sync)
@@ -128,7 +130,7 @@
 - [pass] `pnpm ci:prisma-smoke -- --base-url postgresql://yurui@localhost:5432/postgres` (final)
   - Result: Prisma smoke 脚本全流程通过（generate/migrate/backend test/drop schema）。
 - [pass] `pnpm ci:prisma-smoke -- --base-url postgresql://yurui@localhost:5432/postgres --artifacts-dir dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/ci` (evidence run)
-  - Result: 生成可归档证据目录：`dev-docs/active/llm-research-lifecycle-governance-v1/artifacts/ci/20260222-131946/`。
+  - Result: 生成了 CI smoke 证据目录；原始 CI smoke artifacts 已在 2026-03 仓库清理中从 git 移除，仅保留本文档的验证摘要。
 - [pass] `pnpm --filter @paper-engineering-assistant/shared typecheck && pnpm --filter @paper-engineering-assistant/backend typecheck && pnpm --filter @paper-engineering-assistant/backend test` (after CI workflow update)
   - Result: 与 CI `backend-checks` 对齐的三项命令全部通过。
 - [pass-with-warning] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main` (after CI+docs update)

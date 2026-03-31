@@ -1,9 +1,0 @@
-# Drop smoke schema
-$ pnpm exec prisma db execute --stdin --url postgresql://yurui@localhost:5432/postgres --schema prisma/schema.prisma
-[start] 2026-02-22T13:17:24.970Z
-
-Error: --url and --schema cannot be used at the same time. Only 1 must be provided.
-See `prisma db execute -h`
-
-[end] 2026-02-22T13:17:25.358Z
-[exit] 1
