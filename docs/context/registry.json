@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-03-25T03:58:47.069Z",
+  "updatedAt": "2026-03-31T10:46:50.765Z",
   "artifacts": [
     {
       "id": "api-openapi",
@@ -47,8 +47,8 @@
         "glossary",
         "llm"
       ],
-      "checksumSha256": "07d59947d997b423f0b59737109b548b620d57e5e683d2e60f118b5d30e4e2be",
-      "lastUpdated": "2026-02-21T05:41:41.377Z",
+      "checksumSha256": "0e3bbbdfaa33b37d9af5020ed5dd09e6d17fd184151be0aaf28fc298edfc699f",
+      "lastUpdated": "2026-03-31T08:43:16.538Z",
       "source": {
         "kind": "manual",
         "notes": "Edit via ctl-context add-term/remove-term; then run ctl-context touch."
@@ -80,8 +80,8 @@
       "tags": [
         "db"
       ],
-      "checksumSha256": "eee51d7d62f01dda73d3165976a53cd29d45ddbef16565e628733de40fa6880c",
-      "lastUpdated": "2026-03-22T22:59:53.030Z",
+      "checksumSha256": "7a39881f7947a3219695638922cb728e3e0564f4dbf470289c026cabacc5cc50",
+      "lastUpdated": "2026-03-31T10:46:50.757Z",
       "source": {
         "kind": "command",
         "command": "node .ai/scripts/ctl-db-ssot.mjs sync-to-context",
@@ -137,6 +137,79 @@
       ],
       "checksumSha256": "58329ba5f22f95319a509f910d4ff243168d76f8aa3c8ca5e095be8d4b47f29a",
       "lastUpdated": "2026-03-25T03:29:23.711Z",
+      "source": {
+        "kind": "command",
+        "command": "ctl-context add-artifact",
+        "cwd": "."
+      }
+    },
+    {
+      "id": "research-argument-framework",
+      "type": "markdown",
+      "path": "docs/project/architecture/research-argument-framework.md",
+      "mode": "contract",
+      "tags": [
+        "architecture",
+        "llm",
+        "research-argument"
+      ],
+      "checksumSha256": "8655d811f65cd277de86a6a3a49c6a98d1211ea6eaf51a90c5c001584a6f3b92",
+      "lastUpdated": "2026-03-31T08:43:16.189Z",
+      "source": {
+        "kind": "command",
+        "command": "ctl-context add-artifact",
+        "cwd": "."
+      }
+    },
+    {
+      "id": "research-argument-data-schema",
+      "type": "markdown",
+      "path": "docs/project/architecture/research-argument-data-schema.md",
+      "mode": "contract",
+      "tags": [
+        "architecture",
+        "llm",
+        "research-argument"
+      ],
+      "checksumSha256": "e6c1e6ff13bcc9900da08b4c79acdabf9de9742a2154472514e653f2168c8845",
+      "lastUpdated": "2026-03-31T08:43:16.258Z",
+      "source": {
+        "kind": "command",
+        "command": "ctl-context add-artifact",
+        "cwd": "."
+      }
+    },
+    {
+      "id": "research-argument-planner-spec",
+      "type": "markdown",
+      "path": "docs/project/architecture/research-argument-planner-spec.md",
+      "mode": "contract",
+      "tags": [
+        "architecture",
+        "llm",
+        "research-argument"
+      ],
+      "checksumSha256": "d60918b97d873ffad70863d5352bccae2ed6254dfdbf806ee478ab674a4acf6a",
+      "lastUpdated": "2026-03-31T09:27:36.116Z",
+      "source": {
+        "kind": "command",
+        "command": "ctl-context add-artifact",
+        "cwd": "."
+      }
+    },
+    {
+      "id": "research-argument-control-plane-ui",
+      "type": "markdown",
+      "path": "docs/project/product/research-argument-control-plane-ui.md",
+      "mode": "contract",
+      "tags": [
+        "product",
+        "ui",
+        "llm",
+        "research-argument"
+      ],
+      "checksumSha256": "21591c2e1ac1c1b60f51db51875e0a26d3af4d4f2698ca0a2e17404f4e6a1c18",
+      "lastUpdated": "2026-03-31T09:27:36.120Z",
       "source": {
         "kind": "command",
         "command": "ctl-context add-artifact",

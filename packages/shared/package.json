@@ -12,7 +12,8 @@
     "./research-lifecycle/paper-project-contracts": "./src/research-lifecycle/paper-project-contracts.ts",
     "./research-lifecycle/literature-contracts": "./src/research-lifecycle/literature-contracts.ts",
     "./research-lifecycle/auto-pull-contracts": "./src/research-lifecycle/auto-pull-contracts.ts",
-    "./research-lifecycle/title-card-management-contracts": "./src/research-lifecycle/title-card-management-contracts.ts"
+    "./research-lifecycle/title-card-management-contracts": "./src/research-lifecycle/title-card-management-contracts.ts",
+    "./research-lifecycle/research-argument-contracts": "./src/research-lifecycle/research-argument-contracts.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",

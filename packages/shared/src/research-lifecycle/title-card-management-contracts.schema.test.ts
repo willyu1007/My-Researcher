@@ -10,6 +10,7 @@ import {
 import * as autoPullContracts from './auto-pull-contracts.js';
 import * as literatureContracts from './literature-contracts.js';
 import * as paperProjectContracts from './paper-project-contracts.js';
+import * as researchArgumentContracts from './research-argument-contracts.js';
 import * as researchLifecycleContracts from './index.js';
 import * as researchLifecycleCoreContracts from './research-lifecycle-core-contracts.js';
 import * as titleCardManagementContracts from './title-card-management-contracts.js';
@@ -26,6 +27,11 @@ import type {
   CreateAutoPullRunRequest,
   TopicProfileDTO,
 } from './auto-pull-contracts.js';
+import type {
+  ReadinessVerifyRequest,
+  SubmissionRiskReport,
+  WritingEntryPacket,
+} from './research-argument-contracts.js';
 
 const directModuleTypeSmoke:
   | [
@@ -36,6 +42,9 @@ const directModuleTypeSmoke:
       CreateAutoPullRunRequest,
       TopicProfileDTO,
       LiteraturePipelineRunDTO,
+      ReadinessVerifyRequest,
+      WritingEntryPacket,
+      SubmissionRiskReport,
     ]
   | null = null;
 
@@ -45,6 +54,15 @@ test('title-card management schemas load', () => {
   assert.ok(createTitleCardRequestSchema);
   assert.ok(createResearchQuestionRequestSchema);
   assert.ok(createPromotionDecisionRequestSchema);
+});
+
+test('research-argument bridge schemas load', () => {
+  assert.ok(researchArgumentContracts.seedWorkspaceFromTitleCardRequestSchema);
+  assert.ok(researchArgumentContracts.readinessVerifyRequestSchema);
+  assert.ok(researchArgumentContracts.decisionActionRequestSchema);
+  assert.ok(researchArgumentContracts.promoteToPaperProjectRequestSchema);
+  assert.ok(researchArgumentContracts.writingEntryPacketSchema);
+  assert.ok(researchArgumentContracts.submissionRiskReportSchema);
 });
 
 test('validate with trivial schema', async () => {
@@ -70,6 +88,322 @@ test('title-card create schema accepts working_title and brief', async () => {
   });
   await app.close();
   assert.equal(res.statusCode, 200);
+});
+
+test('research-argument readiness verify schema accepts canonical workspace_id', async () => {
+  const app = Fastify();
+  app.post(
+    '/v',
+    { schema: { body: researchArgumentContracts.readinessVerifyRequestSchema } },
+    async () => ({ ok: true }),
+  );
+  await app.ready();
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      workspace_id: 'raw_001',
+      branch_id: 'branch_001',
+      requested_by: 'human',
+    },
+  });
+  await app.close();
+  assert.equal(res.statusCode, 200);
+});
+
+test('research-argument readiness verify schema rejects legacy project_id', async () => {
+  const app = Fastify();
+  app.post(
+    '/v',
+    { schema: { body: researchArgumentContracts.readinessVerifyRequestSchema } },
+    async () => ({ ok: true }),
+  );
+  await app.ready();
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      project_id: 'raw_001',
+      branch_id: 'branch_001',
+      requested_by: 'human',
+    },
+  });
+  await app.close();
+  assert.equal(res.statusCode, 400);
+});
+
+test('writing entry packet schema accepts canonical payload', async () => {
+  const app = Fastify();
+  app.post(
+    '/v',
+    { schema: { body: researchArgumentContracts.writingEntryPacketSchema } },
+    async () => ({ ok: true }),
+  );
+  await app.ready();
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      packet_id: 'packet_001',
+      workspace_id: 'raw_001',
+      branch_id: 'branch_001',
+      title_card_id: 'title_card_001',
+      claim_summary: [
+        {
+          claim_id: 'claim_001',
+          claim_text: 'The method improves retrieval robustness.',
+          claim_strength: 'moderate',
+          evidence_requirement_ids: ['er_001'],
+          boundary_ids: ['boundary_001'],
+        },
+      ],
+      evidence_summary: {
+        evidence_item_ids: ['evidence_001'],
+        mandatory_requirement_ids: ['er_001'],
+        missing_requirement_ids: [],
+      },
+      baseline_protocol_repro_summary: {
+        baseline_set_ids: ['baseline_001'],
+        protocol_ids: ['protocol_001'],
+        repro_item_ids: ['repro_001'],
+        run_ids: ['run_001'],
+        artifact_ids: ['artifact_001'],
+      },
+      source_trace_refs: [
+        {
+          source_kind: 'title_card',
+          source_id: 'title_card_001',
+        },
+      ],
+      object_pointers: [
+        {
+          pointer_kind: 'claim',
+          object_id: 'claim_001',
+        },
+      ],
+      report_pointers: [
+        {
+          report_kind: 'writing_entry',
+          report_id: 'packet_001',
+        },
+      ],
+      audit_ref: 'AUD-PACKET-001',
+      created_at: '2026-03-31T00:00:00.000Z',
+    },
+  });
+  await app.close();
+  assert.equal(res.statusCode, 200);
+});
+
+test('writing entry packet schema rejects unsupported claim_strength', async () => {
+  const app = Fastify();
+  app.post(
+    '/v',
+    { schema: { body: researchArgumentContracts.writingEntryPacketSchema } },
+    async () => ({ ok: true }),
+  );
+  await app.ready();
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      packet_id: 'packet_001',
+      workspace_id: 'raw_001',
+      branch_id: 'branch_001',
+      title_card_id: 'title_card_001',
+      claim_summary: [
+        {
+          claim_id: 'claim_001',
+          claim_text: 'The method improves retrieval robustness.',
+          claim_strength: 'unsupported_strength',
+          evidence_requirement_ids: ['er_001'],
+          boundary_ids: ['boundary_001'],
+        },
+      ],
+      evidence_summary: {
+        evidence_item_ids: ['evidence_001'],
+        mandatory_requirement_ids: ['er_001'],
+        missing_requirement_ids: [],
+      },
+      baseline_protocol_repro_summary: {
+        baseline_set_ids: ['baseline_001'],
+        protocol_ids: ['protocol_001'],
+        repro_item_ids: ['repro_001'],
+        run_ids: ['run_001'],
+        artifact_ids: ['artifact_001'],
+      },
+      source_trace_refs: [
+        {
+          source_kind: 'title_card',
+          source_id: 'title_card_001',
+        },
+      ],
+      object_pointers: [
+        {
+          pointer_kind: 'claim',
+          object_id: 'claim_001',
+        },
+      ],
+      report_pointers: [
+        {
+          report_kind: 'writing_entry',
+          report_id: 'packet_001',
+        },
+      ],
+      audit_ref: 'AUD-PACKET-001',
+      created_at: '2026-03-31T00:00:00.000Z',
+    },
+  });
+  await app.close();
+  assert.equal(res.statusCode, 400);
+});
+
+test('submission risk report schema accepts canonical payload', async () => {
+  const app = Fastify();
+  app.post(
+    '/v',
+    { schema: { body: researchArgumentContracts.submissionRiskReportSchema } },
+    async () => ({ ok: true }),
+  );
+  await app.ready();
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      report_id: 'risk_001',
+      workspace_id: 'raw_001',
+      branch_id: 'branch_001',
+      dimension_summary: [
+        {
+          dimension_name: 'EvaluationSoundness',
+          level: 'Partial',
+          score: 62,
+          confidence: 0.8,
+        },
+      ],
+      blockers: [
+        {
+          blocker_id: 'blocker_001',
+          severity: 'high',
+          summary: 'Strong baseline missing.',
+        },
+      ],
+      missing_items: ['strong baseline'],
+      findings: [
+        {
+          finding_id: 'finding_001',
+          finding_group: 'evaluation_fairness',
+          severity: 'high',
+          detail: 'Strong baseline comparison is missing.',
+          pointers: [
+            {
+              pointer_kind: 'baseline_set',
+              object_id: 'baseline_001',
+            },
+          ],
+        },
+      ],
+      report_pointers: [
+        {
+          report_kind: 'submission_risk',
+          report_id: 'risk_001',
+        },
+      ],
+      audit_ref: 'AUD-RISK-001',
+      created_at: '2026-03-31T00:00:00.000Z',
+    },
+  });
+  await app.close();
+  assert.equal(res.statusCode, 200);
+});
+
+test('submission risk report schema rejects missing grouped risk vocabulary', async () => {
+  const app = Fastify();
+  app.post(
+    '/v',
+    { schema: { body: researchArgumentContracts.submissionRiskReportSchema } },
+    async () => ({ ok: true }),
+  );
+  await app.ready();
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      report_id: 'risk_001',
+      workspace_id: 'raw_001',
+      branch_id: 'branch_001',
+      dimension_summary: [
+        {
+          dimension_name: 'EvaluationSoundness',
+          level: 'Partial',
+          score: 62,
+          confidence: 0.8,
+        },
+      ],
+      blockers: [
+        {
+          blocker_id: 'blocker_001',
+          severity: 'high',
+          summary: 'Strong baseline missing.',
+        },
+      ],
+      missing_items: ['strong baseline'],
+      findings: [
+        {
+          finding_id: 'finding_001',
+          severity: 'high',
+          detail: 'Strong baseline comparison is missing.',
+          pointers: [
+            {
+              pointer_kind: 'baseline_set',
+              object_id: 'baseline_001',
+            },
+          ],
+        },
+      ],
+      report_pointers: [
+        {
+          report_kind: 'submission_risk',
+          report_id: 'risk_001',
+        },
+      ],
+      audit_ref: 'AUD-RISK-001',
+      created_at: '2026-03-31T00:00:00.000Z',
+    },
+  });
+  await app.close();
+  assert.equal(res.statusCode, 400);
+});
+
+test('promote to paper-project response schema rejects mismatched sidecar report kinds', async () => {
+  const app = Fastify();
+  app.post(
+    '/v',
+    { schema: { body: researchArgumentContracts.promoteToPaperProjectResponseSchema } },
+    async () => ({ ok: true }),
+  );
+  await app.ready();
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v',
+    payload: {
+      paper_id: 'paper_001',
+      workspace_id: 'raw_001',
+      branch_id: 'branch_001',
+      packet_ref: {
+        report_kind: 'coverage',
+        report_id: 'packet_001',
+      },
+      report_ref: {
+        report_kind: 'decision_timeline',
+        report_id: 'risk_001',
+      },
+      audit_ref: 'AUD-PROMOTE-001',
+      promoted_at: '2026-03-31T00:00:00.000Z',
+    },
+  });
+  await app.close();
+  assert.equal(res.statusCode, 400);
 });
 
 test('need review schema accepts payload without evidence_review_refs', async () => {
@@ -220,6 +554,7 @@ test('research-lifecycle barrel re-exports the runtime value surface of split mo
     ...Object.keys(literatureContracts),
     ...Object.keys(autoPullContracts),
     ...Object.keys(titleCardManagementContracts),
+    ...Object.keys(researchArgumentContracts),
   ]);
 
   assert.deepEqual(Object.keys(researchLifecycleContracts).sort(), [...expectedKeys].sort());
@@ -245,4 +580,7 @@ test('research-lifecycle barrel keeps key contract helpers and schemas reachable
   assert.ok(researchLifecycleContracts.literatureImportRequestSchema);
   assert.ok(researchLifecycleContracts.createAutoPullRuleRequestSchema);
   assert.ok(researchLifecycleContracts.createResearchQuestionRequestSchema);
+  assert.ok(researchLifecycleContracts.readinessVerifyRequestSchema);
+  assert.ok(researchLifecycleContracts.writingEntryPacketSchema);
+  assert.ok(researchLifecycleContracts.submissionRiskReportSchema);
 });

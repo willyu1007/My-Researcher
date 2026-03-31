@@ -42,6 +42,14 @@
 - 把评测设计提升到公平对标、统计稳健与可复现可审计的基线水平。
 - 缩短从初稿到投稿前可交付状态的迭代周期。
 
+## Canonical Research Argument References
+- The formal SSOT for the pre-writing research-argument layer lives in:
+  - `docs/project/architecture/research-argument-framework.md`
+  - `docs/project/architecture/research-argument-data-schema.md`
+  - `docs/project/architecture/research-argument-planner-spec.md`
+  - `docs/project/product/research-argument-control-plane-ui.md`
+- `research-varify/` remains an intake directory only and is not the long-term SSOT for runtime, context, or shared contracts.
+
 ## Non-goals (OUT)
 - 自动替代研究工作本身。
 - 用堆砌文本替代证据建设。

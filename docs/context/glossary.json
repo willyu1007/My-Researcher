@@ -1,5 +1,223 @@
 {
   "version": 1,
   "updatedAt": "2025-01-01T00:00:00Z",
-  "terms": []
+  "terms": [
+    {
+      "term": "Research Argument Control Plane",
+      "definition": "位于 title-card 与 paper-project 之间的 pre-writing 中间层，用结构化对象图、readiness、decision 与 handoff artifact 管理研究论证收敛。",
+      "scope": "research-argument",
+      "aliases": [
+        "research-argument",
+        "研究论证控制面"
+      ],
+      "see_also": [
+        "ResearchArgumentWorkspace",
+        "AbstractState",
+        "WritingEntryPacket"
+      ]
+    },
+    {
+      "term": "ResearchArgumentWorkspace",
+      "definition": "research-argument 域的公开根对象，承载一个 title-card 对应的 pre-writing 论证空间及其当前 active branch、readiness 和 handoff refs。",
+      "scope": "research-argument",
+      "aliases": [
+        "workspace"
+      ],
+      "see_also": [
+        "Research Branch",
+        "AbstractState"
+      ]
+    },
+    {
+      "term": "ResearchBranch",
+      "definition": "workspace 内的一条研究语义分支，表示某个 formulation、执行路线或论证路线，不等同于 Git branch。",
+      "scope": "research-argument",
+      "aliases": [
+        "Research Branch",
+        "branch"
+      ],
+      "see_also": [
+        "ResearchArgumentWorkspace",
+        "DecisionRecord"
+      ]
+    },
+    {
+      "term": "ArgumentObjectGraph",
+      "definition": "保存真实研究状态的结构化对象与关系图，是抽象 readiness 视图背后的 source-of-truth 语义层。",
+      "scope": "research-argument",
+      "aliases": [
+        "argument graph",
+        "论证对象图"
+      ],
+      "see_also": [
+        "AbstractState",
+        "EvidenceRequirement",
+        "EvidenceItem"
+      ]
+    },
+    {
+      "term": "AbstractState",
+      "definition": "面向 reviewer-facing readiness 的 9 维抽象状态快照，用于表达当前离 WorthContinuing 或 ReadyForWritingEntry 还有多远。",
+      "scope": "research-argument",
+      "aliases": [
+        "readiness state",
+        "抽象状态"
+      ],
+      "see_also": [
+        "WorthContinuing",
+        "ReadyForWritingEntry"
+      ]
+    },
+    {
+      "term": "WorthContinuing",
+      "definition": "Stage 1 readiness 结论，表示该研究方向已经具备继续投入的基本价值、新颖性和可行性门槛。",
+      "scope": "research-argument",
+      "aliases": [
+        "stage-1 pass"
+      ],
+      "see_also": [
+        "AbstractState",
+        "ReadyForWritingEntry"
+      ]
+    },
+    {
+      "term": "ReadyForWritingEntry",
+      "definition": "Stage 2 readiness 结论，表示 claim、evidence、protocol、boundary 与 reproducibility 已达到进入 downstream writing lane 的最低门槛。",
+      "scope": "research-argument",
+      "aliases": [
+        "writing-entry ready"
+      ],
+      "see_also": [
+        "AbstractState",
+        "WritingEntryPacket",
+        "SubmissionRiskReport"
+      ]
+    },
+    {
+      "term": "EvidenceRequirement",
+      "definition": "让某个 claim 成立所必须满足的证据要求，例如 main result、ablation、robustness 或 reproduction。",
+      "scope": "research-argument",
+      "aliases": [
+        "证据要求"
+      ],
+      "see_also": [
+        "EvidenceItem",
+        "Claim"
+      ]
+    },
+    {
+      "term": "EvidenceItem",
+      "definition": "已经收集到的证据项，可以来自 run、analysis、literature、manual input 或 artifact，并带有 support/weakens/refutes 等方向。",
+      "scope": "research-argument",
+      "aliases": [
+        "证据项"
+      ],
+      "see_also": [
+        "EvidenceRequirement",
+        "ArgumentObjectGraph"
+      ]
+    },
+    {
+      "term": "BaselineSet",
+      "definition": "一组对照对象及其选择理由、公平性风险与覆盖说明，是 EvaluationSoundness 的核心输入之一。",
+      "scope": "research-argument",
+      "aliases": [
+        "baseline set",
+        "对照集合"
+      ],
+      "see_also": [
+        "Protocol",
+        "SubmissionRiskReport"
+      ]
+    },
+    {
+      "term": "Boundary",
+      "definition": "对范围、限制、失效条件与 threat-to-validity 的结构化表示，用于约束 claim 并暴露风险。",
+      "scope": "research-argument",
+      "aliases": [
+        "边界条目"
+      ],
+      "see_also": [
+        "SubmissionRiskReport",
+        "DecisionRecord"
+      ]
+    },
+    {
+      "term": "DecisionRecord",
+      "definition": "research-argument 域内的结构性决策记录，涵盖 continue、pivot、kill、archive、reopen、advance 等动作及其审计信息。",
+      "scope": "research-argument",
+      "aliases": [
+        "decision",
+        "决策记录"
+      ],
+      "see_also": [
+        "LessonRecord",
+        "ResearchBranch"
+      ]
+    },
+    {
+      "term": "LessonRecord",
+      "definition": "从决策、失败或成功模式中沉淀出的结构化经验条目，用于后续 critique、planner 或人工回顾。",
+      "scope": "research-argument",
+      "aliases": [
+        "lesson",
+        "经验记录"
+      ],
+      "see_also": [
+        "DecisionRecord",
+        "CriticHub"
+      ]
+    },
+    {
+      "term": "WritingEntryPacket",
+      "definition": "research-argument 生成的写作交接 sidecar artifact，摘要化携带 claim/evidence/baseline/protocol/repro 与 traceability refs，供 downstream writing lane 消费。",
+      "scope": "research-argument",
+      "aliases": [
+        "writing packet",
+        "写作交接包"
+      ],
+      "see_also": [
+        "ReadyForWritingEntry",
+        "SubmissionRiskReport"
+      ]
+    },
+    {
+      "term": "SubmissionRiskReport",
+      "definition": "按维度和风险项组织的 pre-writing reviewer-style 风险报告，包含 severity、detail、pointers、blockers 与 missing items。",
+      "scope": "research-argument",
+      "aliases": [
+        "risk report",
+        "投稿风险报告"
+      ],
+      "see_also": [
+        "WritingEntryPacket",
+        "RuleEngine",
+        "CriticHub"
+      ]
+    },
+    {
+      "term": "CriticHub",
+      "definition": "多视角 reviewer-style critique 聚合层，负责生成非权威的 critique finding，并与 RuleEngine 共同支撑风险与建议输出。",
+      "scope": "research-argument",
+      "aliases": [
+        "critic hub"
+      ],
+      "see_also": [
+        "RuleEngine",
+        "SubmissionRiskReport"
+      ]
+    },
+    {
+      "term": "RuleEngine",
+      "definition": "research-argument 域中的确定性规则检查层，输出必须能映射到 severity、detail 和 pointers。",
+      "scope": "research-argument",
+      "aliases": [
+        "rule engine"
+      ],
+      "see_also": [
+        "CriticHub",
+        "SubmissionRiskReport"
+      ]
+    }
+  ]
 }
