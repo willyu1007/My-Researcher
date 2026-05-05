@@ -14,3 +14,7 @@
 - 10,000-literature dry-run completes without provider calls.
 - Interrupted jobs resume from checkpoints.
 - Cleanup preserves active retrieval.
+
+## Completion
+- Completed on 2026-05-05.
+- Evidence is recorded in `03-implementation-notes.md` and `04-verification.md`.

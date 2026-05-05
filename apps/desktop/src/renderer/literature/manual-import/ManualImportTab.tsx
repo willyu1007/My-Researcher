@@ -17,7 +17,6 @@ export function ManualImportTab(props: ManualImportTabProps) {
   const {
     formatManualUploadFileStatusLabel,
     getManualFieldErrorText,
-    isManualUploadLlmSupported,
     manualUploadFormatHint,
     mapManualValidationErrors,
     updateHelpTooltipAlignment,
@@ -29,7 +28,6 @@ export function ManualImportTab(props: ManualImportTabProps) {
     handleManualDraftFieldChange,
     handleManualUpload,
     handleManualUploadDrop,
-    handleManualUploadFileLlmAction,
     handleRemoveManualRow,
     handleRemoveManualUploadFile,
     handleSubmitManualReviewedRows,
@@ -144,54 +142,31 @@ export function ManualImportTab(props: ManualImportTabProps) {
                                         <td colSpan={4}>暂无上传文件。</td>
                                       </tr>
                                     ) : (
-                                      manualUploadFiles.map((fileItem) => {
-                                        const canRunLlmActions = isManualUploadLlmSupported(fileItem.fileName)
-                                          && fileItem.status !== 'duplicate'
-                                          && fileItem.status !== 'processing';
-                                        return (
-                                          <tr key={fileItem.id}>
-                                            <td title={fileItem.fileName}>{fileItem.fileName}</td>
-                                            <td>{fileItem.format}</td>
-                                            <td>
-                                              <span
-                                                className={`manual-upload-file-status is-${fileItem.status}`}
+                                      manualUploadFiles.map((fileItem) => (
+                                        <tr key={fileItem.id}>
+                                          <td title={fileItem.fileName}>{fileItem.fileName}</td>
+                                          <td>{fileItem.format}</td>
+                                          <td>
+                                            <span
+                                              className={`manual-upload-file-status is-${fileItem.status}`}
+                                            >
+                                              {formatManualUploadFileStatusLabel(fileItem)}
+                                            </span>
+                                          </td>
+                                          <td>
+                                            <div className="manual-upload-file-actions">
+                                              <button
+                                                className="manual-upload-file-action is-danger"
+                                                type="button"
+                                                onClick={() => handleRemoveManualUploadFile(fileItem.id)}
+                                                disabled={fileItem.status === 'processing'}
                                               >
-                                                {formatManualUploadFileStatusLabel(fileItem)}
-                                              </span>
-                                            </td>
-                                            <td>
-                                              <div className="manual-upload-file-actions">
-                                                {canRunLlmActions ? (
-                                                  <>
-                                                    <button
-                                                      className="manual-upload-file-action"
-                                                      type="button"
-                                                      onClick={() => void handleManualUploadFileLlmAction(fileItem.id, 'parse')}
-                                                    >
-                                                      解析
-                                                    </button>
-                                                    <button
-                                                      className="manual-upload-file-action"
-                                                      type="button"
-                                                      onClick={() => void handleManualUploadFileLlmAction(fileItem.id, 'abstract')}
-                                                    >
-                                                      提取摘要
-                                                    </button>
-                                                  </>
-                                                ) : null}
-                                                <button
-                                                  className="manual-upload-file-action is-danger"
-                                                  type="button"
-                                                  onClick={() => handleRemoveManualUploadFile(fileItem.id)}
-                                                  disabled={fileItem.status === 'processing'}
-                                                >
-                                                  移除
-                                                </button>
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        );
-                                      })
+                                                移除
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))
                                     )}
                                   </tbody>
                                 </table>

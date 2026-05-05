@@ -1,11 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
+import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 import { LiteratureRetrievalService } from './literature-retrieval-service.js';
 
 async function seedLocalLiterature(
   repository: InMemoryLiteratureRepository,
-  input: { literatureId: string; title: string; chunkText: string; versionId: string; chunkType?: string },
+  input: {
+    literatureId: string;
+    title: string;
+    chunkText: string;
+    versionId: string;
+    chunkType?: string;
+    profileId?: 'default' | 'economy';
+    model?: string;
+    dimension?: number;
+    vector?: number[];
+  },
 ): Promise<void> {
   const now = new Date().toISOString();
   await repository.createLiterature({
@@ -31,10 +42,10 @@ async function seedLocalLiterature(
     literatureId: input.literatureId,
     versionNo: 1,
     status: 'INDEXED',
-    profileId: 'default',
+    profileId: input.profileId ?? 'default',
     provider: 'openai',
-    model: 'text-embedding-3-large',
-    dimension: 3,
+    model: input.model ?? 'text-embedding-3-large',
+    dimension: input.dimension ?? 3,
     chunkCount: 1,
     vectorCount: 1,
     tokenCount: 0,
@@ -62,7 +73,7 @@ async function seedLocalLiterature(
       sourceRefs: [{ ref_type: 'paragraph', ref_id: 'para-1' }],
       metadata: { origin_stage: 'FULLTEXT_PREPROCESSED' },
       contentChecksum: 'content-checksum',
-      vector: [0.1, 0.2, 0.3],
+      vector: input.vector ?? [0.1, 0.2, 0.3],
       createdAt: now,
       updatedAt: now,
     },
@@ -178,6 +189,72 @@ test('retrieve skips OpenAI profile when API key is not configured', async () =>
   assert.equal(response.meta.profiles_used.length, 0);
   assert.equal(response.meta.skipped_profiles.length, 1);
   assert.equal(response.meta.skipped_profiles[0]?.provider, 'openai');
+});
+
+test('retrieve uses only the configured active embedding profile when active versions are mixed', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  await seedLocalLiterature(repository, {
+    literatureId: 'LIT-RET-LARGE',
+    title: 'Large Profile Candidate',
+    versionId: 'EV-RET-LARGE',
+    chunkText: 'large profile semantic comparison evidence',
+    profileId: 'default',
+    model: 'text-embedding-3-large',
+    dimension: 3,
+    vector: [0.1, 0.2, 0.3],
+  });
+  await seedLocalLiterature(repository, {
+    literatureId: 'LIT-RET-SMALL',
+    title: 'Small Profile Candidate',
+    versionId: 'EV-RET-SMALL',
+    chunkText: 'small profile should not be mixed into large retrieval',
+    profileId: 'economy',
+    model: 'text-embedding-3-small',
+    dimension: 3,
+    vector: [0.9, 0.1, 0.1],
+  });
+  const settingsService = {
+    resolveActiveEmbeddingProfile: async () => ({
+      profileId: 'default',
+      provider: 'openai',
+      model: 'text-embedding-3-large',
+      dimensions: 3,
+    }),
+    resolveOpenAIEmbeddingConfig: async (profileId: 'default' | 'economy') => ({
+      apiKey: 'sk-test',
+      profileId,
+      model: profileId === 'default' ? 'text-embedding-3-large' : 'text-embedding-3-small',
+      dimensions: 3,
+    }),
+  } as LiteratureContentProcessingSettingsService;
+  const previousFetch = globalThis.fetch;
+  let embeddingCallCount = 0;
+  globalThis.fetch = (async () => {
+    embeddingCallCount += 1;
+    return new Response(JSON.stringify({
+      data: [{ embedding: [0.1, 0.2, 0.3] }],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }) as typeof fetch;
+
+  try {
+    const service = new LiteratureRetrievalService(repository, settingsService);
+    const response = await service.retrieve({
+      query: 'semantic comparison',
+      top_k: 10,
+    });
+
+    assert.equal(embeddingCallCount, 1);
+    assert.deepEqual(response.items.map((item) => item.literature_id), ['LIT-RET-LARGE']);
+    assert.equal(response.meta.profiles_used.length, 1);
+    assert.equal(response.meta.profiles_used[0]?.model, 'text-embedding-3-large');
+    assert.equal(response.meta.skipped_profiles.length, 1);
+    assert.equal(response.meta.skipped_profiles[0]?.model, 'text-embedding-3-small');
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 });
 
 test('retrieve applies explicit profile and returns stale provenance warnings', async () => {

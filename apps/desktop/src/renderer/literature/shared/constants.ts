@@ -7,6 +7,7 @@ import type {
   AutoPullScope,
   AutoPullWeekday,
   CitationStatus,
+  ContentProcessingSubTabKey,
   LiteratureOverviewData,
   LiteratureOverviewSummary,
   LiteratureTabKey,
@@ -32,6 +33,7 @@ export const literatureTabs: Array<{ key: LiteratureTabKey; label: string }> = [
   { key: 'auto-import', label: '自动导入' },
   { key: 'manual-import', label: '手动导入' },
   { key: 'overview', label: '文献综览' },
+  { key: 'content-processing', label: '内容处理' },
 ];
 export const titleCardTabs: Array<{ key: TitleCardPrimaryTabKey; label: string }> = [
   { key: 'overview', label: '总揽' },
@@ -50,6 +52,10 @@ export const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string 
 export const manualImportSubTabs: Array<{ key: ManualImportSubTabKey; label: string }> = [
   { key: 'file-review', label: '本地文件' },
   { key: 'zotero-sync', label: 'Zotero' },
+];
+export const contentProcessingSubTabs: Array<{ key: ContentProcessingSubTabKey; label: string }> = [
+  { key: 'operations', label: '操作' },
+  { key: 'settings', label: '设置' },
 ];
 export const autoPullWeekdayOptions: Array<{ value: AutoPullWeekday; label: string }> = [
   { value: 'MON', label: '周一' },
@@ -103,10 +109,6 @@ export const autoPullLimitHint = [
   '后续拉取：按配置上限执行',
   '自动去重：先做全局去重',
   '取数方式：按当前排序规则选取 Top K 入库',
-].join('\n');
-export const autoPullParseHint = [
-  '开启：在摘要自动提取之外，系统会对排序后的文献做 LLM 结构化解析，预处理价值、观点、方法、图片等信息，便于进入后续自动流程。',
-  '关闭：仅保留基础信息与摘要，文献仍可引用；如需进入后续流程，可后续手动注入或手动触发 LLM 整理。',
 ].join('\n');
 export const helpTooltipMaxWidthPx = 300;
 export const helpTooltipViewportPaddingPx = 12;
@@ -291,6 +293,7 @@ export const overviewYearDefaultEnd = 2100;
 export const literatureSubTabsByTab: Partial<Record<LiteratureTabKey, Array<{ key: string; label: string }>>> = {
   'auto-import': autoImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
   'manual-import': manualImportSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
+  'content-processing': contentProcessingSubTabs.map((tab) => ({ key: tab.key, label: tab.label })),
 };
 export const titleCardSubTabsByTab: Partial<Record<TitleCardPrimaryTabKey, Array<{ key: string; label: string }>>> = {
   evidence: [

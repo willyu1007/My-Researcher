@@ -4,6 +4,10 @@
 - State: in-progress
 - Next step: 历史 Pipeline V2.1 记录已被 `T-030` 系列拆分任务 supersede；embedding 映射回填窗口关闭，批量回填统一转入 `T-037 literature-backfill-operations-workbench`。
 
+## Supersession Notice
+- 本任务包保留为历史执行记录；其中出现的 `POST /literature/import`、`/literature/:literatureId/pipeline*`、`pipeline_state` 等旧命名不得作为当前实现或契约依据。
+- 当前有效边界以 `dev-docs/active/literature-collection-content-processing-boundary/` 和 `dev-docs/active/literature-content-processing-closure-fixes/` 为准：文献收集只写 collection/source/dedup/topic scope，内容提取、向量化、索引必须通过显式 content-processing run 触发。
+
 ## Goal
 - 在既有自动拉取体系基础上，完成文献 pipeline 从 V1 骨架到 V2 完整可运行版本的升级，确保 API/DB/前端语义与文档契约一致，并为后续能力（回填、检索增强、向量能力扩展）提供稳定底座。
 

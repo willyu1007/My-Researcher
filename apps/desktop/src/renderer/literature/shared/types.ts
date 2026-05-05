@@ -49,9 +49,10 @@ export type ReleaseGateResponse = {
 export type CitationStatus = 'seeded' | 'selected' | 'used' | 'cited' | 'dropped';
 export type ScopeStatus = 'in_scope' | 'excluded';
 export type LiteratureProvider = 'crossref' | 'arxiv' | 'manual' | 'web' | 'zotero';
-export type LiteratureTabKey = 'auto-import' | 'manual-import' | 'overview';
+export type LiteratureTabKey = 'auto-import' | 'manual-import' | 'overview' | 'content-processing';
 export type AutoImportSubTabKey = 'topic-settings' | 'rule-center' | 'runs-alerts';
 export type ManualImportSubTabKey = 'file-review' | 'zotero-sync';
+export type ContentProcessingSubTabKey = 'operations' | 'settings';
 export type TitleCardPrimaryTabKey =
   | 'overview'
   | 'evidence'
@@ -88,7 +89,7 @@ export type QuerySortPreset = `${QuerySort}|${SortDirection}`;
 export type LiteratureOverviewStatus = 'automation_ready' | 'citable' | 'not_citable' | 'excluded';
 export type OverviewContentStatus = 'not_ready' | 'abstract_ready' | 'key_content_ready' | 'indexed';
 export type OverviewScopeFilterInput = 'all' | LiteratureOverviewStatus;
-export type MetadataIntakeTabKey = 'abstract' | 'key-content' | 'vectorize';
+export type MetadataIntakeTabKey = 'abstract' | 'key-content' | 'retrieval-ready';
 export type MetadataIntakeOpenContext = {
   source_url: string | null;
   doi: string | null;
@@ -143,6 +144,126 @@ export type PipelineActionSet = {
   view_reason: PipelineActionAvailability;
 };
 
+export type ContentProcessingBatchJobStatus =
+  | 'PLANNED'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'PAUSED'
+  | 'CANCELING'
+  | 'CANCELED'
+  | 'SUCCEEDED'
+  | 'PARTIAL'
+  | 'FAILED';
+export type ContentProcessingBatchItemStatus =
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'SUCCEEDED'
+  | 'PARTIAL'
+  | 'BLOCKED'
+  | 'FAILED'
+  | 'SKIPPED'
+  | 'CANCELED';
+export type LiteratureRightsClass = 'OA' | 'USER_AUTH' | 'RESTRICTED' | 'UNKNOWN';
+export type BackfillStageFilters = {
+  missing: boolean;
+  stale: boolean;
+  failed: boolean;
+};
+export type BackfillWorkset = {
+  topic_id?: string;
+  paper_id?: string;
+  literature_ids?: string[];
+  rights_classes?: LiteratureRightsClass[];
+  stage_filters?: BackfillStageFilters;
+  updated_at_from?: string;
+  updated_at_to?: string;
+};
+export type BackfillOptions = {
+  max_parallel_literature_runs: number;
+  extraction_concurrency: number;
+  embedding_concurrency: number;
+  provider_call_budget: number | null;
+};
+export type BackfillEstimate = {
+  dry_run_id: string;
+  generated_at: string;
+  target_stage: PipelineStageCode;
+  workset: BackfillWorkset;
+  options: BackfillOptions;
+  total_literatures: number;
+  selected_count: number;
+  planned_item_count: number;
+  skipped_ready_count: number;
+  blocked_count: number;
+  stage_counts: Record<PipelineStageCode, number>;
+  rights_class_counts: Array<{ rights_class: LiteratureRightsClass; count: number }>;
+  estimated_provider_calls: {
+    extraction_calls: number;
+    embedding_calls: number;
+  };
+  estimated_storage_bytes: number;
+  blockers: Array<{
+    literature_id: string;
+    title: string;
+    reason_code: string;
+    reason_message: string;
+    retryable: boolean;
+  }>;
+};
+export type BackfillJobItem = {
+  item_id: string;
+  job_id: string;
+  literature_id: string;
+  title: string | null;
+  status: ContentProcessingBatchItemStatus;
+  requested_stages: PipelineStageCode[];
+  next_stage_index: number;
+  content_processing_run_id: string | null;
+  attempt_count: number;
+  error_code: string | null;
+  error_message: string | null;
+  blocker_code: string | null;
+  retryable: boolean;
+  updated_at: string;
+};
+export type BackfillJob = {
+  job_id: string;
+  status: ContentProcessingBatchJobStatus;
+  target_stage: PipelineStageCode;
+  workset: BackfillWorkset;
+  options: BackfillOptions;
+  dry_run_estimate: BackfillEstimate | null;
+  totals: {
+    total: number;
+    queued: number;
+    running: number;
+    succeeded: number;
+    partial: number;
+    blocked: number;
+    failed: number;
+    skipped: number;
+    canceled: number;
+  };
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  paused_at: string | null;
+  canceled_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+  items?: BackfillJobItem[];
+};
+export type CleanupDryRunResult = {
+  generated_at: string;
+  retention_days: number;
+  candidate_count: number;
+  protected_active_version_count: number;
+  protected_raw_asset_count: number;
+  estimated_chunks_to_remove: number;
+  estimated_token_indexes_to_remove: number;
+};
+
 export type LiteratureContentProcessingProviderId = 'openai';
 export type LiteratureEmbeddingProfileId = 'default' | 'economy';
 export type LiteratureExtractionProfileId = 'default' | 'high_accuracy';
@@ -162,6 +283,26 @@ export type LiteratureExtractionProfile = {
   provider: LiteratureContentProcessingProviderId;
   model: string;
 };
+export type LiteratureContentProcessingStorageRoots = {
+  raw_files: string | null;
+  normalized_text: string | null;
+  artifacts_cache: string | null;
+  indexes: string | null;
+  exports: string | null;
+};
+export type LiteratureFulltextParserSettings = {
+  grobid: {
+    endpoint_url: string;
+  };
+};
+export type LiteratureFulltextParserHealth = {
+  provider: 'grobid';
+  endpoint_url: string;
+  status: 'ready' | 'unavailable';
+  checked_at: string;
+  version: string | null;
+  details: Record<string, unknown>;
+};
 export type LiteratureContentProcessingSettings = {
   providers: LiteratureContentProcessingProviderSettings[];
   embedding: {
@@ -172,13 +313,9 @@ export type LiteratureContentProcessingSettings = {
     active_profile_id: LiteratureExtractionProfileId;
     profiles: LiteratureExtractionProfile[];
   };
-  storage_roots: {
-    raw_files: string | null;
-    normalized_text: string | null;
-    artifacts_cache: string | null;
-    indexes: string | null;
-    exports: string | null;
-  };
+  storage_roots: LiteratureContentProcessingStorageRoots;
+  effective_storage_roots: LiteratureContentProcessingStorageRoots;
+  fulltext_parser: LiteratureFulltextParserSettings;
   updated_at: string;
 };
 

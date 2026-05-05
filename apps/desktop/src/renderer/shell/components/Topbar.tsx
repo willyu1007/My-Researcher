@@ -7,6 +7,7 @@ export function Topbar({
   activeLiteratureTab,
   autoImportSubTab,
   manualImportSubTab,
+  contentProcessingSubTab,
   literatureTabs,
   literatureSubTabsByTab,
   onSelectLiteratureTab,
@@ -56,7 +57,9 @@ export function Topbar({
                     ? autoImportSubTab
                     : tab.key === 'manual-import'
                       ? manualImportSubTab
-                      : null;
+                      : tab.key === 'content-processing'
+                        ? contentProcessingSubTab
+                        : null;
                 const shouldShowSubTabs = activeLiteratureTab === tab.key && subTabs.length > 0;
                 return (
                   <div

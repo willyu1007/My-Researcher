@@ -2,6 +2,9 @@ import type {
   LiteratureAbstractProfileRecord,
   LiteratureCitationProfileRecord,
   LiteratureContentAssetRecord,
+  LiteratureContentProcessingBatchItemRecord,
+  LiteratureContentProcessingBatchItemStatus,
+  LiteratureContentProcessingBatchJobRecord,
   LiteratureEmbeddingChunkRecord,
   LiteratureEmbeddingTokenIndexRecord,
   LiteratureEmbeddingVersionRecord,
@@ -65,6 +68,9 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
   private readonly embeddingChunkIdsByVersion = new Map<string, string[]>();
   private readonly embeddingTokenIndexes = new Map<string, LiteratureEmbeddingTokenIndexRecord>();
   private readonly embeddingTokenIndexIdsByVersion = new Map<string, string[]>();
+  private readonly contentProcessingBatchJobs = new Map<string, LiteratureContentProcessingBatchJobRecord>();
+  private readonly contentProcessingBatchItems = new Map<string, LiteratureContentProcessingBatchItemRecord>();
+  private readonly contentProcessingBatchItemIdsByJob = new Map<string, string[]>();
 
   async countLiteratures(): Promise<number> {
     return this.literatures.size;
@@ -466,6 +472,7 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
       const next: LiteraturePipelineArtifactRecord = {
         ...existing,
         payload: record.payload,
+        payloadPath: record.payloadPath,
         checksum: record.checksum,
         updatedAt: record.updatedAt,
       };
@@ -618,6 +625,103 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
       .map((id) => this.embeddingTokenIndexes.get(id))
       .filter((record): record is LiteratureEmbeddingTokenIndexRecord => record !== undefined)
       .sort((left, right) => left.token.localeCompare(right.token));
+  }
+
+  async createContentProcessingBatchJob(
+    record: LiteratureContentProcessingBatchJobRecord,
+    items: LiteratureContentProcessingBatchItemRecord[],
+  ): Promise<LiteratureContentProcessingBatchJobRecord> {
+    this.contentProcessingBatchJobs.set(record.id, record);
+    this.contentProcessingBatchItemIdsByJob.set(record.id, []);
+    for (const item of items) {
+      this.contentProcessingBatchItems.set(item.id, item);
+      const ids = this.contentProcessingBatchItemIdsByJob.get(item.jobId) ?? [];
+      this.contentProcessingBatchItemIdsByJob.set(item.jobId, [...ids, item.id]);
+    }
+    return record;
+  }
+
+  async findContentProcessingBatchJobById(
+    jobId: string,
+  ): Promise<LiteratureContentProcessingBatchJobRecord | null> {
+    return this.contentProcessingBatchJobs.get(jobId) ?? null;
+  }
+
+  async listContentProcessingBatchJobs(limit?: number): Promise<LiteratureContentProcessingBatchJobRecord[]> {
+    const sorted = [...this.contentProcessingBatchJobs.values()]
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    if (typeof limit === 'number' && limit > 0) {
+      return sorted.slice(0, limit);
+    }
+    return sorted;
+  }
+
+  async updateContentProcessingBatchJob(
+    jobId: string,
+    patch: Partial<Omit<LiteratureContentProcessingBatchJobRecord, 'id' | 'createdAt'>>,
+  ): Promise<LiteratureContentProcessingBatchJobRecord> {
+    const existing = this.contentProcessingBatchJobs.get(jobId);
+    if (!existing) {
+      throw new Error(`Content-processing batch job ${jobId} not found.`);
+    }
+    const next = {
+      ...existing,
+      ...patch,
+    };
+    this.contentProcessingBatchJobs.set(jobId, next);
+    return next;
+  }
+
+  async deleteContentProcessingBatchJob(jobId: string): Promise<void> {
+    const itemIds = this.contentProcessingBatchItemIdsByJob.get(jobId) ?? [];
+    for (const itemId of itemIds) {
+      this.contentProcessingBatchItems.delete(itemId);
+    }
+    this.contentProcessingBatchItemIdsByJob.delete(jobId);
+    this.contentProcessingBatchJobs.delete(jobId);
+  }
+
+  async listContentProcessingBatchItemsByJobId(jobId: string): Promise<LiteratureContentProcessingBatchItemRecord[]> {
+    const ids = this.contentProcessingBatchItemIdsByJob.get(jobId) ?? [];
+    return ids
+      .map((id) => this.contentProcessingBatchItems.get(id))
+      .filter((record): record is LiteratureContentProcessingBatchItemRecord => record !== undefined)
+      .sort((left, right) => {
+        if (left.createdAt !== right.createdAt) {
+          return left.createdAt.localeCompare(right.createdAt);
+        }
+        return left.id.localeCompare(right.id);
+      });
+  }
+
+  async listContentProcessingBatchItemsByJobIdAndStatuses(
+    jobId: string,
+    statuses: LiteratureContentProcessingBatchItemStatus[],
+    limit?: number,
+  ): Promise<LiteratureContentProcessingBatchItemRecord[]> {
+    const statusSet = new Set(statuses);
+    const sorted = (await this.listContentProcessingBatchItemsByJobId(jobId))
+      .filter((item) => statusSet.has(item.status));
+    if (typeof limit === 'number' && limit > 0) {
+      return sorted.slice(0, limit);
+    }
+    return sorted;
+  }
+
+  async updateContentProcessingBatchItem(
+    itemId: string,
+    patch: Partial<Omit<LiteratureContentProcessingBatchItemRecord, 'id' | 'jobId' | 'literatureId' | 'createdAt'>>,
+  ): Promise<LiteratureContentProcessingBatchItemRecord> {
+    const existing = this.contentProcessingBatchItems.get(itemId);
+    if (!existing) {
+      throw new Error(`Content-processing batch item ${itemId} not found.`);
+    }
+    const next = {
+      ...existing,
+      ...patch,
+    };
+    this.contentProcessingBatchItems.set(itemId, next);
+    return next;
   }
 
   async createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord> {

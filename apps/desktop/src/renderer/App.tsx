@@ -21,7 +21,6 @@ import {
   autoPullHourOptions,
   autoPullLimitHint,
   autoPullLookbackHint,
-  autoPullParseHint,
   autoPullQualityHint,
   autoPullQualityPresetOptions,
   autoPullRunStatusLabels,
@@ -52,7 +51,6 @@ import {
   detectMacDesktopFromNavigator,
   formatManualUploadFileStatusLabel,
   getManualFieldErrorText,
-  isManualUploadLlmSupported,
   isOverviewAutomationReady,
   isOverviewCitable,
   isOverviewExcluded,
@@ -98,6 +96,7 @@ import type {
   AutoPullSortMode,
   AutoPullTopicProfile,
   AutoPullWeekday,
+  ContentProcessingSubTabKey,
   InlineFeedbackModel,
   LiteratureOverviewData,
   LiteratureOverviewItem,
@@ -146,6 +145,7 @@ export function App({ initialThemeMode }: AppProps) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(initialThemeMode);
   const [appMode, setAppMode] = useState<AppMode>(() => readStoredAppMode());
   const [settingsPanelOpen, setSettingsPanelOpen] = useState<boolean>(false);
+  const [contentProcessingSubTab, setContentProcessingSubTab] = useState<ContentProcessingSubTabKey>('operations');
   const settingsPanelRef = useRef<HTMLDivElement | null>(null);
   const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => readSystemPrefersDark());
   const [toolbarSearchInput, setToolbarSearchInput] = useState<string>('');
@@ -199,7 +199,6 @@ export function App({ initialThemeMode }: AppProps) {
   const [ruleFormWeekday, setRuleFormWeekday] = useState<AutoPullWeekday>('MON');
   const [ruleFormHourInput, setRuleFormHourInput] = useState<string>('9');
   const [ruleFormSortMode, setRuleFormSortMode] = useState<AutoPullSortMode>('llm_score');
-  const [ruleFormParseAndIngest, setRuleFormParseAndIngest] = useState<boolean>(false);
   const [ruleSourceCrossref, setRuleSourceCrossref] = useState<boolean>(true);
   const [ruleSourceArxiv, setRuleSourceArxiv] = useState<boolean>(true);
 
@@ -217,8 +216,6 @@ export function App({ initialThemeMode }: AppProps) {
   const [manualUploadLoading, setManualUploadLoading] = useState<boolean>(false);
   const [manualUploadStatus, setManualUploadStatus] = useState<UiOperationStatus>('idle');
   const [manualUploadError, setManualUploadError] = useState<string | null>(null);
-  const [literatureAutoParseDocuments, setLiteratureAutoParseDocuments] = useState<boolean>(false);
-  const [literatureAutoExtractAbstracts, setLiteratureAutoExtractAbstracts] = useState<boolean>(false);
   const [manualUploadFiles, setManualUploadFiles] = useState<ManualUploadFileItem[]>([]);
   const [manualImportSession, setManualImportSession] = useState<ManualImportSession | null>(null);
   const [manualImportSubTab, setManualImportSubTab] = useState<ManualImportSubTabKey>('file-review');
@@ -713,7 +710,6 @@ export function App({ initialThemeMode }: AppProps) {
     setRuleFormWeekday,
     setRuleFormHourInput,
     setRuleFormSortMode,
-    setRuleFormParseAndIngest,
     setRuleSourceCrossref,
     setRuleSourceArxiv,
     autoPullRules,
@@ -746,7 +742,6 @@ export function App({ initialThemeMode }: AppProps) {
     ruleFormFrequency,
     ruleFormWeekday,
     ruleFormSortMode,
-    ruleFormParseAndIngest,
     ruleSourceCrossref,
     ruleSourceArxiv,
     ruleEditingId,
@@ -770,8 +765,6 @@ export function App({ initialThemeMode }: AppProps) {
     setManualUploadError,
     setManualUploadLoading,
     setManualDropActive,
-    literatureAutoParseDocuments,
-    literatureAutoExtractAbstracts,
     pushLiteratureFeedback,
     topicIdInput,
     topicId,
@@ -974,6 +967,7 @@ export function App({ initialThemeMode }: AppProps) {
     setActiveLiteratureTab,
     setAutoImportSubTab,
     setManualImportSubTab,
+    setContentProcessingSubTab,
     setGovernanceEnabled,
     paperIdInput,
     setPaperId,
@@ -1093,8 +1087,6 @@ export function App({ initialThemeMode }: AppProps) {
       setRuleFormMaxResultsInput,
       ruleFormMinCompletenessInput,
       setRuleFormMinCompletenessInput,
-      ruleFormParseAndIngest,
-      setRuleFormParseAndIngest,
       ruleFormSortMode,
       setRuleFormSortMode,
       ruleFormWeekday,
@@ -1122,7 +1114,6 @@ export function App({ initialThemeMode }: AppProps) {
       autoPullHourOptions,
       autoPullLimitHint,
       autoPullLookbackHint,
-      autoPullParseHint,
       autoPullQualityHint,
       autoPullQualityPresetOptions,
       autoPullRunStatusLabels,
@@ -1171,7 +1162,6 @@ export function App({ initialThemeMode }: AppProps) {
     shared: {
       manualUploadFormatHint,
       updateHelpTooltipAlignment,
-      isManualUploadLlmSupported,
       formatManualUploadFileStatusLabel,
       mapManualValidationErrors,
       getManualFieldErrorText,
@@ -1241,6 +1231,7 @@ export function App({ initialThemeMode }: AppProps) {
         activeLiteratureTab={activeLiteratureTab}
         autoImportSubTab={autoImportSubTab}
         manualImportSubTab={manualImportSubTab}
+        contentProcessingSubTab={contentProcessingSubTab}
         literatureTabs={literatureTabs}
         literatureSubTabsByTab={literatureSubTabsByTab}
         onSelectLiteratureTab={setActiveLiteratureTab}
@@ -1269,10 +1260,6 @@ export function App({ initialThemeMode }: AppProps) {
           settingsPanelRef={settingsPanelRef}
           isDevMode={isDevMode}
           onToggleAppMode={() => setAppMode((current) => (current === 'dev' ? 'standard' : 'dev'))}
-          literatureAutoParseDocuments={literatureAutoParseDocuments}
-          onLiteratureAutoParseDocumentsChange={setLiteratureAutoParseDocuments}
-          literatureAutoExtractAbstracts={literatureAutoExtractAbstracts}
-          onLiteratureAutoExtractAbstractsChange={setLiteratureAutoExtractAbstracts}
           onInjectManualImportTestData={manualImportController.handleInjectManualImportTestData}
           onClearInjectedManualImportData={manualImportController.handleClearInjectedManualImportData}
           onToggleSettingsPanel={() => setSettingsPanelOpen((current) => !current)}
@@ -1281,6 +1268,8 @@ export function App({ initialThemeMode }: AppProps) {
         <main className="workspace-pane">
           {activeModule === '文献管理' ? (
             <LiteratureWorkspace
+              activeLiteratureTab={activeLiteratureTab}
+              contentProcessingSubTab={contentProcessingSubTab}
               autoImportTabProps={autoImportTabProps}
               manualImportTabProps={manualImportTabProps}
               overviewTabProps={overviewController}

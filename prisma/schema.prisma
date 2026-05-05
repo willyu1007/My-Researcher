@@ -63,38 +63,39 @@ model Snapshot {
 }
 
 model LiteratureRecord {
-  id                       String                          @id
-  title                    String
-  abstractText             String?
-  keyContentDigest         String?
-  authors                  String[]                        @default([])
-  year                     Int?
-  doiNormalized            String?                         @unique
-  arxivId                  String?                         @unique
-  normalizedTitle          String
-  titleAuthorsYearHash     String?                         @unique
-  rightsClass              String
-  tags                     String[]                        @default([])
-  activeEmbeddingVersionId String?
-  createdAt                DateTime                        @db.Timestamptz(6)
-  updatedAt                DateTime                        @db.Timestamptz(6)
-  sources                  LiteratureSource[]
-  citationProfile          LiteratureCitationProfile?
-  abstractProfile          LiteratureAbstractProfile?
-  contentAssets            LiteratureContentAsset[]
-  fulltextDocuments        LiteratureFulltextDocument[]
-  topicScopes              TopicLiteratureScope[]
-  paperLinks               PaperLiteratureLink[]
-  pipelineState            LiteraturePipelineState?
-  pipelineStageStates      LiteraturePipelineStageState[]
-  pipelineRuns             LiteraturePipelineRun[]
-  pipelineArtifacts        LiteraturePipelineArtifact[]
-  activeEmbeddingVersion   LiteratureEmbeddingVersion?     @relation("ActiveEmbeddingVersion", fields: [activeEmbeddingVersionId], references: [id], onDelete: SetNull)
-  embeddingVersions        LiteratureEmbeddingVersion[]    @relation("LiteratureEmbeddingVersionOwner")
-  embeddingChunks          LiteratureEmbeddingChunk[]
-  embeddingTokenIndexes    LiteratureEmbeddingTokenIndex[]
-  autoPullSuggestions      AutoPullSuggestion[]
-  titleCardSelections      TitleCardEvidenceSelection[]
+  id                          String                                 @id
+  title                       String
+  abstractText                String?
+  keyContentDigest            String?
+  authors                     String[]                               @default([])
+  year                        Int?
+  doiNormalized               String?                                @unique
+  arxivId                     String?                                @unique
+  normalizedTitle             String
+  titleAuthorsYearHash        String?                                @unique
+  rightsClass                 String
+  tags                        String[]                               @default([])
+  activeEmbeddingVersionId    String?
+  createdAt                   DateTime                               @db.Timestamptz(6)
+  updatedAt                   DateTime                               @db.Timestamptz(6)
+  sources                     LiteratureSource[]
+  citationProfile             LiteratureCitationProfile?
+  abstractProfile             LiteratureAbstractProfile?
+  contentAssets               LiteratureContentAsset[]
+  fulltextDocuments           LiteratureFulltextDocument[]
+  topicScopes                 TopicLiteratureScope[]
+  paperLinks                  PaperLiteratureLink[]
+  pipelineState               LiteraturePipelineState?
+  pipelineStageStates         LiteraturePipelineStageState[]
+  pipelineRuns                LiteraturePipelineRun[]
+  pipelineArtifacts           LiteraturePipelineArtifact[]
+  activeEmbeddingVersion      LiteratureEmbeddingVersion?            @relation("ActiveEmbeddingVersion", fields: [activeEmbeddingVersionId], references: [id], onDelete: SetNull)
+  embeddingVersions           LiteratureEmbeddingVersion[]           @relation("LiteratureEmbeddingVersionOwner")
+  embeddingChunks             LiteratureEmbeddingChunk[]
+  embeddingTokenIndexes       LiteratureEmbeddingTokenIndex[]
+  contentProcessingBatchItems LiteratureContentProcessingBatchItem[]
+  autoPullSuggestions         AutoPullSuggestion[]
+  titleCardSelections         TitleCardEvidenceSelection[]
 
   @@index([normalizedTitle])
   @@index([activeEmbeddingVersionId])
@@ -184,10 +185,13 @@ model LiteratureFulltextDocument {
   id                     String                        @id
   literatureId           String
   sourceAssetId          String                        @unique
-  normalizedText         String
+  normalizedText         String?
+  normalizedTextPath     String?
   normalizedTextChecksum String
   parserName             String
   parserVersion          String
+  parserArtifactPath     String?
+  parserArtifactMimeType String?
   status                 String
   diagnostics            Json                          @default("[]")
   createdAt              DateTime                      @db.Timestamptz(6)
@@ -365,6 +369,7 @@ model LiteraturePipelineArtifact {
   stageCode    String
   artifactType String
   payload      Json
+  payloadPath  String?
   checksum     String?
   createdAt    DateTime         @db.Timestamptz(6)
   updatedAt    DateTime         @db.Timestamptz(6)
@@ -444,6 +449,55 @@ model LiteratureEmbeddingTokenIndex {
 
   @@unique([embeddingVersionId, token])
   @@index([literatureId, token])
+}
+
+model LiteratureContentProcessingBatchJob {
+  id             String                                 @id
+  status         String
+  targetStage    String
+  workset        Json                                   @default("{}")
+  options        Json                                   @default("{}")
+  dryRunEstimate Json                                   @default("{}")
+  totals         Json                                   @default("{}")
+  errorCode      String?
+  errorMessage   String?
+  createdAt      DateTime                               @db.Timestamptz(6)
+  startedAt      DateTime?                              @db.Timestamptz(6)
+  pausedAt       DateTime?                              @db.Timestamptz(6)
+  canceledAt     DateTime?                              @db.Timestamptz(6)
+  finishedAt     DateTime?                              @db.Timestamptz(6)
+  updatedAt      DateTime                               @db.Timestamptz(6)
+  items          LiteratureContentProcessingBatchItem[]
+
+  @@index([status, createdAt])
+  @@index([updatedAt])
+}
+
+model LiteratureContentProcessingBatchItem {
+  id              String                              @id
+  jobId           String
+  literatureId    String
+  status          String
+  requestedStages String[]                            @default([])
+  nextStageIndex  Int                                 @default(0)
+  pipelineRunId   String?
+  attemptCount    Int                                 @default(0)
+  errorCode       String?
+  errorMessage    String?
+  blockerCode     String?
+  retryable       Boolean                             @default(true)
+  checkpoint      Json                                @default("{}")
+  createdAt       DateTime                            @db.Timestamptz(6)
+  startedAt       DateTime?                           @db.Timestamptz(6)
+  finishedAt      DateTime?                           @db.Timestamptz(6)
+  updatedAt       DateTime                            @db.Timestamptz(6)
+  job             LiteratureContentProcessingBatchJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  literature      LiteratureRecord                    @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, status])
+  @@index([literatureId, status])
+  @@index([pipelineRunId])
+  @@index([updatedAt])
 }
 
 model ApplicationSetting {

@@ -68,7 +68,10 @@ async function seedSourceBundle(repository: LiteratureRepository, literatureId: 
       literatureId,
       sourceAssetId: `${literatureId}-asset`,
       normalizedText: paragraphText,
+      normalizedTextPath: null,
       normalizedTextChecksum: sha256(paragraphText),
+      parserArtifactPath: null,
+      parserArtifactMimeType: null,
       parserName: 'unit-test',
       parserVersion: '1',
       status: 'READY',
@@ -134,7 +137,7 @@ function createSettingsService(): LiteratureContentProcessingSettingsService {
   return {
     resolveOpenAIExtractionConfig: async () => ({
       apiKey: 'sk-test',
-      model: 'gpt-5-mini',
+      model: 'gpt-5.4-mini',
       profileId: 'default',
     }),
   } as LiteratureContentProcessingSettingsService;
@@ -148,6 +151,25 @@ function mockResponses(payload: unknown): () => void {
   })) as typeof fetch;
   return () => {
     globalThis.fetch = previousFetch;
+  };
+}
+
+function mockResponseSequence(payloads: unknown[]): { restore: () => void; getCallCount: () => number } {
+  const previousFetch = globalThis.fetch;
+  let callCount = 0;
+  globalThis.fetch = (async () => {
+    const payload = payloads[Math.min(callCount, payloads.length - 1)];
+    callCount += 1;
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }) as typeof fetch;
+  return {
+    restore: () => {
+      globalThis.fetch = previousFetch;
+    },
+    getCallCount: () => callCount,
   };
 }
 
@@ -216,6 +238,7 @@ test('key-content extraction returns READY dossier with resolved source refs and
         ],
       },
     },
+    payloadPath: null,
     checksum: 'existing',
     createdAt: now,
     updatedAt: now,
@@ -237,6 +260,59 @@ test('key-content extraction returns READY dossier with resolved source refs and
     assert.equal(result.payload.categories.limitations.some((item) => item.id === 'user-limit-1' && item.provenance === 'user_edited'), true);
   } finally {
     restoreFetch();
+  }
+});
+
+test('key-content extraction consolidates duplicate section claims at paper level', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const literatureId = 'KEY-CONSOLIDATE-1';
+  await seedLiterature(repository, literatureId);
+  await seedSourceBundle(repository, literatureId);
+  const literature = await repository.findLiteratureById(literatureId);
+  assert.ok(literature);
+  const extractionPayload = buildOutputPayload();
+  extractionPayload.categories.contributions.push({
+    id: 'contrib-duplicate',
+    type: 'contribution',
+    statement: 'It contributes a staged dossier pipeline.',
+    details: 'Duplicate section wording.',
+    source_refs: [{ ref_type: 'paragraph', ref_id: 'para-0001' }],
+    confidence: 0.82,
+    evidence_strength: 'medium',
+    notes: null,
+  });
+  const consolidationPayload = buildOutputPayload();
+  consolidationPayload.categories.contributions = [{
+    id: 'contrib-canonical',
+    type: 'contribution',
+    statement: 'It contributes a staged dossier pipeline with stable provenance.',
+    details: 'Canonical paper-level contribution.',
+    source_refs: [{ ref_type: 'paragraph', ref_id: 'para-0001' }],
+    confidence: 0.93,
+    evidence_strength: 'high',
+    notes: null,
+  }];
+  const fetchMock = mockResponseSequence([
+    { output_text: JSON.stringify(extractionPayload) },
+    { output_text: JSON.stringify(consolidationPayload) },
+  ]);
+
+  try {
+    const result = await new LiteratureKeyContentExtractionService(repository, createSettingsService()).extract(literature);
+
+    assert.equal(result.ready, true);
+    assert.equal(fetchMock.getCallCount(), 2);
+    assert.equal(result.payload.categories.contributions.length, 1);
+    assert.equal(
+      result.payload.categories.contributions[0]?.statement,
+      'It contributes a staged dossier pipeline with stable provenance.',
+    );
+    assert.equal(
+      result.payload.quality_report.extraction_diagnostics.some((item) => item.code === 'KEY_CONTENT_PAPER_LEVEL_CONSOLIDATED'),
+      true,
+    );
+  } finally {
+    fetchMock.restore();
   }
 });
 

@@ -45,7 +45,7 @@ export function MetadataIntakePanel({
 
   const title = controller.literatureTitle || literatureId || '未命名文献';
   const abstractText = controller.abstractInput.trim();
-  const vectorizePreview = abstractText;
+  const retrievalReadyPreview = abstractText;
   const isSaving = controller.status === 'saving';
   const canInlineSave = activeTab === 'abstract'
     ? controller.hasAbstractChanges
@@ -181,15 +181,15 @@ export function MetadataIntakePanel({
                 展示短摘要
               </button>
               <button
-                id="metadata-intake-tab-vectorize"
+                id="metadata-intake-tab-retrieval-ready"
                 type="button"
                 role="tab"
-                aria-selected={activeTab === 'vectorize'}
-                aria-controls="metadata-intake-panel-vectorize"
-                className={`metadata-intake-tab${activeTab === 'vectorize' ? ' is-active' : ''}`}
-                onClick={() => setActiveTab('vectorize')}
+                aria-selected={activeTab === 'retrieval-ready'}
+                aria-controls="metadata-intake-panel-retrieval-ready"
+                className={`metadata-intake-tab${activeTab === 'retrieval-ready' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('retrieval-ready')}
               >
-                向量化
+                检索准备
               </button>
             </nav>
             <div className="metadata-intake-tab-actions">
@@ -274,19 +274,19 @@ export function MetadataIntakePanel({
             </section>
           ) : null}
 
-          {activeTab === 'vectorize' ? (
+          {activeTab === 'retrieval-ready' ? (
             <section
-              id="metadata-intake-panel-vectorize"
+              id="metadata-intake-panel-retrieval-ready"
               className="metadata-intake-tab-panel"
               role="tabpanel"
-              aria-labelledby="metadata-intake-tab-vectorize"
+              aria-labelledby="metadata-intake-tab-retrieval-ready"
             >
               <textarea
                 data-ui="textarea"
                 rows={6}
-                value={vectorizePreview}
+                value={retrievalReadyPreview}
                 readOnly
-                placeholder="暂无可用于向量化的内容。"
+                placeholder="暂无可用于检索准备的内容。"
               />
             </section>
           ) : null}

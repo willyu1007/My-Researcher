@@ -1,4 +1,8 @@
-import { isAutoImportSubTabKey, isManualImportSubTabKey } from '../literature/shared/normalizers';
+import {
+  isAutoImportSubTabKey,
+  isContentProcessingSubTabKey,
+  isManualImportSubTabKey,
+} from '../literature/shared/normalizers';
 import type { LiteratureTabKey, TimelineEvent } from '../literature/shared/types';
 
 export type ShellHandlersInput = Record<string, any>;
@@ -21,6 +25,7 @@ export function useShellHandlers(input: ShellHandlersInput): ShellHandlersOutput
     setActiveLiteratureTab,
     setAutoImportSubTab,
     setManualImportSubTab,
+    setContentProcessingSubTab,
     setGovernanceEnabled,
     paperIdInput,
     setPaperId,
@@ -50,6 +55,10 @@ export function useShellHandlers(input: ShellHandlersInput): ShellHandlersOutput
     }
     if (tabKey === 'manual-import' && isManualImportSubTabKey(subTabKey)) {
       setManualImportSubTab(subTabKey);
+      return;
+    }
+    if (tabKey === 'content-processing' && isContentProcessingSubTabKey(subTabKey)) {
+      setContentProcessingSubTab(subTabKey);
     }
   };
 

@@ -67,6 +67,7 @@ test('pipeline and paper-link mappers preserve nullable fields and normalize jso
     stageCode: 'INDEXED',
     artifactType: 'LOCAL_INDEX',
     payload: ['unexpected-array'],
+    payloadPath: null,
     checksum: 'abc123',
     createdAt: new Date('2026-03-19T04:00:00.000Z'),
     updatedAt: new Date('2026-03-19T05:00:00.000Z'),

@@ -80,6 +80,22 @@ function buildMockDossierPayload() {
   };
 }
 
+async function waitForBackfillJob(app: ReturnType<typeof buildApp>, jobId: string) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/literature/content-processing/backfill/jobs/${encodeURIComponent(jobId)}`,
+    });
+    assert.equal(res.statusCode, 200);
+    const job = res.json().job;
+    if (job.status === 'SUCCEEDED' || job.status === 'PARTIAL' || job.status === 'FAILED' || job.status === 'CANCELED') {
+      return job;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Timed out waiting for backfill job ${jobId}.`);
+}
+
 test('GET /health returns ok', async () => {
   const app = buildApp();
 
@@ -103,7 +119,9 @@ test('literature content-processing settings routes redact provider API keys', a
   assert.equal(initialBody.providers[0]?.provider, 'openai');
   assert.equal(initialBody.providers[0]?.api_key_set, false);
   assert.equal(initialBody.embedding.profiles[0]?.model, 'text-embedding-3-large');
-  assert.equal(initialBody.extraction.profiles[0]?.model, 'gpt-5-mini');
+  assert.equal(initialBody.extraction.profiles[0]?.model, 'gpt-5.4-mini');
+  assert.equal(initialBody.fulltext_parser.grobid.endpoint_url, 'http://localhost:8070');
+  assert.equal(typeof initialBody.effective_storage_roots.normalized_text, 'string');
 
   const patchRes = await app.inject({
     method: 'PATCH',
@@ -123,6 +141,11 @@ test('literature content-processing settings routes redact provider API keys', a
         indexes: '/tmp/literature/indexes',
         exports: '/tmp/literature/exports',
       },
+      fulltext_parser: {
+        grobid: {
+          endpoint_url: 'http://grobid.test',
+        },
+      },
     },
   });
   assert.equal(patchRes.statusCode, 200);
@@ -133,6 +156,8 @@ test('literature content-processing settings routes redact provider API keys', a
   assert.equal(patchBody.embedding.active_profile_id, 'economy');
   assert.equal(patchBody.extraction.active_profile_id, 'high_accuracy');
   assert.equal(patchBody.storage_roots.indexes, '/tmp/literature/indexes');
+  assert.equal(patchBody.effective_storage_roots.indexes, '/tmp/literature/indexes');
+  assert.equal(patchBody.fulltext_parser.grobid.endpoint_url, 'http://grobid.test');
 
   const getRes = await app.inject({
     method: 'GET',
@@ -141,6 +166,123 @@ test('literature content-processing settings routes redact provider API keys', a
   assert.equal(getRes.statusCode, 200);
   assert.equal(getRes.body.includes('sk-route-secret'), false);
   assert.equal(getRes.json().providers[0]?.api_key_set, true);
+
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+    const url = String(input);
+    if (url.endsWith('/api/health')) {
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/api/version')) {
+      return new Response('0.8.0', { status: 200, headers: { 'Content-Type': 'text/plain' } });
+    }
+    return new Response('{}', { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    const healthRes = await app.inject({
+      method: 'GET',
+      url: '/settings/literature-content-processing/fulltext-parser/health',
+    });
+    assert.equal(healthRes.statusCode, 200);
+    assert.equal(healthRes.json().provider, 'grobid');
+    assert.equal(healthRes.json().status, 'ready');
+    assert.equal(healthRes.json().endpoint_url, 'http://grobid.test');
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+
+  await app.close();
+});
+
+test('literature backfill operations routes dry-run create job and cleanup without old fan-out path', async () => {
+  const app = buildApp();
+
+  const importRes = await app.inject({
+    method: 'POST',
+    url: '/literature/collections/import',
+    payload: {
+      items: [{
+        provider: 'manual',
+        external_id: 'backfill-route-1',
+        title: 'Backfill Route Paper',
+        abstract: 'Trusted backfill abstract.',
+        authors: ['Route Author'],
+        year: 2026,
+        source_url: 'https://example.com/backfill-route-1',
+        rights_class: 'OA',
+      }],
+    },
+  });
+  assert.equal(importRes.statusCode, 200);
+  const literatureId = importRes.json().results[0]?.literature_id;
+  assert.equal(typeof literatureId, 'string');
+
+  const dryRunRes = await app.inject({
+    method: 'POST',
+    url: '/literature/content-processing/backfill/dry-runs',
+    payload: {
+      target_stage: 'ABSTRACT_READY',
+      workset: {
+        literature_ids: [literatureId],
+        stage_filters: {
+          missing: true,
+          stale: true,
+          failed: true,
+        },
+      },
+    },
+  });
+  assert.equal(dryRunRes.statusCode, 200);
+  const dryRunBody = dryRunRes.json();
+  assert.equal(dryRunBody.estimate.planned_item_count, 1);
+  assert.deepEqual(dryRunBody.estimate.plan_items[0]?.requested_stages, ['CITATION_NORMALIZED', 'ABSTRACT_READY']);
+
+  const createJobRes = await app.inject({
+    method: 'POST',
+    url: '/literature/content-processing/backfill/jobs',
+    payload: {
+      target_stage: 'ABSTRACT_READY',
+      workset: {
+        literature_ids: [literatureId],
+      },
+    },
+  });
+  assert.equal(createJobRes.statusCode, 201);
+  const jobId = createJobRes.json().job.job_id;
+  assert.equal(typeof jobId, 'string');
+
+  const job = await waitForBackfillJob(app, jobId);
+  assert.equal(job.status, 'SUCCEEDED');
+  assert.equal(job.items[0]?.status, 'SUCCEEDED');
+
+  const deleteJobRes = await app.inject({
+    method: 'DELETE',
+    url: `/literature/content-processing/backfill/jobs/${encodeURIComponent(jobId)}`,
+  });
+  assert.equal(deleteJobRes.statusCode, 204);
+
+  const deletedJobRes = await app.inject({
+    method: 'GET',
+    url: `/literature/content-processing/backfill/jobs/${encodeURIComponent(jobId)}`,
+  });
+  assert.equal(deletedJobRes.statusCode, 404);
+
+  const cleanupRes = await app.inject({
+    method: 'POST',
+    url: '/literature/content-processing/cleanup/dry-runs',
+    payload: {
+      literature_ids: [literatureId],
+      retention_days: 0,
+    },
+  });
+  assert.equal(cleanupRes.statusCode, 200);
+  const cleanupBody = cleanupRes.json();
+  assert.equal(cleanupBody.protected_raw_asset_count, 0);
+  assert.equal(cleanupBody.candidate_count, 0);
 
   await app.close();
 });

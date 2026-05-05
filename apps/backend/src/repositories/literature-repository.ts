@@ -55,6 +55,27 @@ export type LiteraturePipelineTriggerSource =
 
 export type LiteraturePipelineDedupStatus = 'unique' | 'duplicate' | 'unknown';
 
+export type LiteratureContentProcessingBatchJobStatus =
+  | 'PLANNED'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'PAUSED'
+  | 'CANCELING'
+  | 'CANCELED'
+  | 'SUCCEEDED'
+  | 'PARTIAL'
+  | 'FAILED';
+
+export type LiteratureContentProcessingBatchItemStatus =
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'SUCCEEDED'
+  | 'PARTIAL'
+  | 'BLOCKED'
+  | 'FAILED'
+  | 'SKIPPED'
+  | 'CANCELED';
+
 export type LiteraturePipelineStateRecord = {
   id: string;
   literatureId: string;
@@ -115,6 +136,7 @@ export type LiteraturePipelineArtifactRecord = {
   stageCode: LiteraturePipelineStageCode;
   artifactType: LiteraturePipelineArtifactType;
   payload: Record<string, unknown>;
+  payloadPath: string | null;
   checksum: string | null;
   createdAt: string;
   updatedAt: string;
@@ -167,6 +189,44 @@ export type LiteratureEmbeddingTokenIndexRecord = {
   token: string;
   chunkIds: string[];
   createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureContentProcessingBatchJobRecord = {
+  id: string;
+  status: LiteratureContentProcessingBatchJobStatus;
+  targetStage: LiteraturePipelineStageCode;
+  workset: Record<string, unknown>;
+  options: Record<string, unknown>;
+  dryRunEstimate: Record<string, unknown>;
+  totals: Record<string, unknown>;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  pausedAt: string | null;
+  canceledAt: string | null;
+  finishedAt: string | null;
+  updatedAt: string;
+};
+
+export type LiteratureContentProcessingBatchItemRecord = {
+  id: string;
+  jobId: string;
+  literatureId: string;
+  status: LiteratureContentProcessingBatchItemStatus;
+  requestedStages: LiteraturePipelineStageCode[];
+  nextStageIndex: number;
+  pipelineRunId: string | null;
+  attemptCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  blockerCode: string | null;
+  retryable: boolean;
+  checkpoint: Record<string, unknown>;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
   updatedAt: string;
 };
 
@@ -234,10 +294,13 @@ export type LiteratureFulltextDocumentRecord = {
   id: string;
   literatureId: string;
   sourceAssetId: string;
-  normalizedText: string;
+  normalizedText: string | null;
+  normalizedTextPath: string | null;
   normalizedTextChecksum: string;
   parserName: string;
   parserVersion: string;
+  parserArtifactPath: string | null;
+  parserArtifactMimeType: string | null;
   status: 'READY' | 'PARTIAL_READY' | 'BLOCKED' | 'FAILED';
   diagnostics: Record<string, unknown>[];
   createdAt: string;
@@ -420,6 +483,28 @@ export interface LiteratureRepository {
     records: LiteratureEmbeddingTokenIndexRecord[],
   ): Promise<LiteratureEmbeddingTokenIndexRecord[]>;
   listEmbeddingTokenIndexesByEmbeddingVersionId(embeddingVersionId: string): Promise<LiteratureEmbeddingTokenIndexRecord[]>;
+
+  createContentProcessingBatchJob(
+    record: LiteratureContentProcessingBatchJobRecord,
+    items: LiteratureContentProcessingBatchItemRecord[],
+  ): Promise<LiteratureContentProcessingBatchJobRecord>;
+  findContentProcessingBatchJobById(jobId: string): Promise<LiteratureContentProcessingBatchJobRecord | null>;
+  listContentProcessingBatchJobs(limit?: number): Promise<LiteratureContentProcessingBatchJobRecord[]>;
+  updateContentProcessingBatchJob(
+    jobId: string,
+    patch: Partial<Omit<LiteratureContentProcessingBatchJobRecord, 'id' | 'createdAt'>>,
+  ): Promise<LiteratureContentProcessingBatchJobRecord>;
+  deleteContentProcessingBatchJob(jobId: string): Promise<void>;
+  listContentProcessingBatchItemsByJobId(jobId: string): Promise<LiteratureContentProcessingBatchItemRecord[]>;
+  listContentProcessingBatchItemsByJobIdAndStatuses(
+    jobId: string,
+    statuses: LiteratureContentProcessingBatchItemStatus[],
+    limit?: number,
+  ): Promise<LiteratureContentProcessingBatchItemRecord[]>;
+  updateContentProcessingBatchItem(
+    itemId: string,
+    patch: Partial<Omit<LiteratureContentProcessingBatchItemRecord, 'id' | 'jobId' | 'literatureId' | 'createdAt'>>,
+  ): Promise<LiteratureContentProcessingBatchItemRecord>;
 
   createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord>;
   findPipelineRunById(runId: string): Promise<LiteraturePipelineRunRecord | null>;

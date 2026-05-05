@@ -86,6 +86,7 @@
 - Settings scope is split into `T-032`: provider/API-key entry point, model/embedding options, and local storage roots.
 - Test and acceptance baselines must be completed inside each child package before implementation.
 - Cutover policy: directly replace the old placeholder implementation and remove semantic drift; do not keep old/new dual tracks.
+- Completion status: all child packages listed above have landed and final cutover verification is recorded in `T-038`.
 
 ## Implementation Readiness Review
 - A coverage review has been recorded in `06-implementation-readiness-review.md`.

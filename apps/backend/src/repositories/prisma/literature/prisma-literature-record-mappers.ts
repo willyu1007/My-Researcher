@@ -2,6 +2,8 @@ import type {
   LiteratureAbstractProfileRecord,
   LiteratureCitationProfileRecord,
   LiteratureContentAssetRecord,
+  LiteratureContentProcessingBatchItemRecord,
+  LiteratureContentProcessingBatchJobRecord,
   LiteratureEmbeddingChunkRecord,
   LiteratureEmbeddingTokenIndexRecord,
   LiteratureEmbeddingVersionRecord,
@@ -196,10 +198,13 @@ export function toFulltextDocumentRecord(row: {
   id: string;
   literatureId: string;
   sourceAssetId: string;
-  normalizedText: string;
+  normalizedText: string | null;
+  normalizedTextPath: string | null;
   normalizedTextChecksum: string;
   parserName: string;
   parserVersion: string;
+  parserArtifactPath: string | null;
+  parserArtifactMimeType: string | null;
   status: string;
   diagnostics: unknown;
   createdAt: Date;
@@ -210,9 +215,12 @@ export function toFulltextDocumentRecord(row: {
     literatureId: row.literatureId,
     sourceAssetId: row.sourceAssetId,
     normalizedText: row.normalizedText,
+    normalizedTextPath: row.normalizedTextPath,
     normalizedTextChecksum: row.normalizedTextChecksum,
     parserName: row.parserName,
     parserVersion: row.parserVersion,
+    parserArtifactPath: row.parserArtifactPath,
+    parserArtifactMimeType: row.parserArtifactMimeType,
     status: row.status as LiteratureFulltextDocumentRecord['status'],
     diagnostics: asRecordArray(row.diagnostics),
     createdAt: row.createdAt.toISOString(),
@@ -458,6 +466,7 @@ export function toPipelineArtifactRecord(row: {
   stageCode: string;
   artifactType: string;
   payload: unknown;
+  payloadPath: string | null;
   checksum: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -468,6 +477,7 @@ export function toPipelineArtifactRecord(row: {
     stageCode: row.stageCode as LiteraturePipelineArtifactRecord['stageCode'],
     artifactType: row.artifactType as LiteraturePipelineArtifactRecord['artifactType'],
     payload: asRecord(row.payload),
+    payloadPath: row.payloadPath,
     checksum: row.checksum,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -580,6 +590,82 @@ export function toEmbeddingTokenIndexRecord(row: {
     token: row.token,
     chunkIds: row.chunkIds,
     createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toContentProcessingBatchJobRecord(row: {
+  id: string;
+  status: string;
+  targetStage: string;
+  workset: unknown;
+  options: unknown;
+  dryRunEstimate: unknown;
+  totals: unknown;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+  startedAt: Date | null;
+  pausedAt: Date | null;
+  canceledAt: Date | null;
+  finishedAt: Date | null;
+  updatedAt: Date;
+}): LiteratureContentProcessingBatchJobRecord {
+  return {
+    id: row.id,
+    status: row.status as LiteratureContentProcessingBatchJobRecord['status'],
+    targetStage: row.targetStage as LiteratureContentProcessingBatchJobRecord['targetStage'],
+    workset: asRecord(row.workset),
+    options: asRecord(row.options),
+    dryRunEstimate: asRecord(row.dryRunEstimate),
+    totals: asRecord(row.totals),
+    errorCode: row.errorCode,
+    errorMessage: row.errorMessage,
+    createdAt: row.createdAt.toISOString(),
+    startedAt: row.startedAt?.toISOString() ?? null,
+    pausedAt: row.pausedAt?.toISOString() ?? null,
+    canceledAt: row.canceledAt?.toISOString() ?? null,
+    finishedAt: row.finishedAt?.toISOString() ?? null,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toContentProcessingBatchItemRecord(row: {
+  id: string;
+  jobId: string;
+  literatureId: string;
+  status: string;
+  requestedStages: string[];
+  nextStageIndex: number;
+  pipelineRunId: string | null;
+  attemptCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  blockerCode: string | null;
+  retryable: boolean;
+  checkpoint: unknown;
+  createdAt: Date;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+  updatedAt: Date;
+}): LiteratureContentProcessingBatchItemRecord {
+  return {
+    id: row.id,
+    jobId: row.jobId,
+    literatureId: row.literatureId,
+    status: row.status as LiteratureContentProcessingBatchItemRecord['status'],
+    requestedStages: row.requestedStages as LiteratureContentProcessingBatchItemRecord['requestedStages'],
+    nextStageIndex: row.nextStageIndex,
+    pipelineRunId: row.pipelineRunId,
+    attemptCount: row.attemptCount,
+    errorCode: row.errorCode,
+    errorMessage: row.errorMessage,
+    blockerCode: row.blockerCode,
+    retryable: row.retryable,
+    checkpoint: asRecord(row.checkpoint),
+    createdAt: row.createdAt.toISOString(),
+    startedAt: row.startedAt?.toISOString() ?? null,
+    finishedAt: row.finishedAt?.toISOString() ?? null,
     updatedAt: row.updatedAt.toISOString(),
   };
 }

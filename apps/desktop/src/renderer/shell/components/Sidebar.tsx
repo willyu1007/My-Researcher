@@ -10,10 +10,6 @@ export function Sidebar({
   settingsPanelRef,
   isDevMode,
   onToggleAppMode,
-  literatureAutoParseDocuments,
-  onLiteratureAutoParseDocumentsChange,
-  literatureAutoExtractAbstracts,
-  onLiteratureAutoExtractAbstractsChange,
   onInjectManualImportTestData,
   onClearInjectedManualImportData,
   onToggleSettingsPanel,
@@ -70,26 +66,6 @@ export function Sidebar({
                     </span>
                   </button>
                 </div>
-                <div className="sidebar-settings-divider" aria-hidden="true" />
-                <section className="sidebar-settings-group" aria-label="文献管理设置">
-                  <p className="sidebar-settings-group-title">文献管理</p>
-                  <label className="sidebar-settings-check">
-                    <input
-                      type="checkbox"
-                      checked={literatureAutoParseDocuments}
-                      onChange={(event) => onLiteratureAutoParseDocumentsChange(event.target.checked)}
-                    />
-                    <span>自动解析文档</span>
-                  </label>
-                  <label className="sidebar-settings-check">
-                    <input
-                      type="checkbox"
-                      checked={literatureAutoExtractAbstracts}
-                      onChange={(event) => onLiteratureAutoExtractAbstractsChange(event.target.checked)}
-                    />
-                    <span>自动提取摘要</span>
-                  </label>
-                </section>
                 <div className="sidebar-settings-divider" aria-hidden="true" />
                 <button
                   type="button"

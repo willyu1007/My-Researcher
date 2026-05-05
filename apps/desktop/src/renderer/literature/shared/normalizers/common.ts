@@ -6,6 +6,7 @@ import type {
   AppMode,
   AutoImportSubTabKey,
   AutoPullWeekday,
+  ContentProcessingSubTabKey,
   LiteratureProvider,
   ManualImportSubTabKey,
   QuerySort,
@@ -95,6 +96,10 @@ export function isAutoImportSubTabKey(value: string): value is AutoImportSubTabK
 
 export function isManualImportSubTabKey(value: string): value is ManualImportSubTabKey {
   return value === 'file-review' || value === 'zotero-sync';
+}
+
+export function isContentProcessingSubTabKey(value: string): value is ContentProcessingSubTabKey {
+  return value === 'operations' || value === 'settings';
 }
 
 export function normalizeLiteratureProvider(value: unknown): LiteratureProvider {

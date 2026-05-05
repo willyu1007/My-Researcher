@@ -3,6 +3,9 @@ import type {
   LiteratureAbstractProfileRecord,
   LiteratureCitationProfileRecord,
   LiteratureContentAssetRecord,
+  LiteratureContentProcessingBatchItemRecord,
+  LiteratureContentProcessingBatchItemStatus,
+  LiteratureContentProcessingBatchJobRecord,
   LiteratureEmbeddingChunkRecord,
   LiteratureEmbeddingTokenIndexRecord,
   LiteratureEmbeddingVersionRecord,
@@ -22,6 +25,7 @@ import type {
   PaperLiteratureLinkRecord,
   TopicLiteratureScopeRecord,
 } from '../literature-repository.js';
+import { PrismaLiteratureBatchStore } from './literature/prisma-literature-batch-store.js';
 import { PrismaLiteratureCoreStore } from './literature/prisma-literature-core-store.js';
 import { PrismaLiteratureContentStore } from './literature/prisma-literature-content-store.js';
 import { PrismaLiteratureEmbeddingStore } from './literature/prisma-literature-embedding-store.js';
@@ -32,12 +36,14 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
   private readonly contentStore: PrismaLiteratureContentStore;
   private readonly pipelineStore: PrismaLiteraturePipelineStore;
   private readonly embeddingStore: PrismaLiteratureEmbeddingStore;
+  private readonly batchStore: PrismaLiteratureBatchStore;
 
   constructor(prisma: PrismaClient) {
     this.coreStore = new PrismaLiteratureCoreStore(prisma);
     this.contentStore = new PrismaLiteratureContentStore(prisma);
     this.pipelineStore = new PrismaLiteraturePipelineStore(prisma);
     this.embeddingStore = new PrismaLiteratureEmbeddingStore(prisma);
+    this.batchStore = new PrismaLiteratureBatchStore(prisma);
   }
 
   async countLiteratures(): Promise<number> {
@@ -293,6 +299,53 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
     embeddingVersionId: string,
   ): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
     return this.embeddingStore.listEmbeddingTokenIndexesByEmbeddingVersionId(embeddingVersionId);
+  }
+
+  async createContentProcessingBatchJob(
+    record: LiteratureContentProcessingBatchJobRecord,
+    items: LiteratureContentProcessingBatchItemRecord[],
+  ): Promise<LiteratureContentProcessingBatchJobRecord> {
+    return this.batchStore.createContentProcessingBatchJob(record, items);
+  }
+
+  async findContentProcessingBatchJobById(
+    jobId: string,
+  ): Promise<LiteratureContentProcessingBatchJobRecord | null> {
+    return this.batchStore.findContentProcessingBatchJobById(jobId);
+  }
+
+  async listContentProcessingBatchJobs(limit?: number): Promise<LiteratureContentProcessingBatchJobRecord[]> {
+    return this.batchStore.listContentProcessingBatchJobs(limit);
+  }
+
+  async updateContentProcessingBatchJob(
+    jobId: string,
+    patch: Partial<Omit<LiteratureContentProcessingBatchJobRecord, 'id' | 'createdAt'>>,
+  ): Promise<LiteratureContentProcessingBatchJobRecord> {
+    return this.batchStore.updateContentProcessingBatchJob(jobId, patch);
+  }
+
+  async deleteContentProcessingBatchJob(jobId: string): Promise<void> {
+    return this.batchStore.deleteContentProcessingBatchJob(jobId);
+  }
+
+  async listContentProcessingBatchItemsByJobId(jobId: string): Promise<LiteratureContentProcessingBatchItemRecord[]> {
+    return this.batchStore.listContentProcessingBatchItemsByJobId(jobId);
+  }
+
+  async listContentProcessingBatchItemsByJobIdAndStatuses(
+    jobId: string,
+    statuses: LiteratureContentProcessingBatchItemStatus[],
+    limit?: number,
+  ): Promise<LiteratureContentProcessingBatchItemRecord[]> {
+    return this.batchStore.listContentProcessingBatchItemsByJobIdAndStatuses(jobId, statuses, limit);
+  }
+
+  async updateContentProcessingBatchItem(
+    itemId: string,
+    patch: Partial<Omit<LiteratureContentProcessingBatchItemRecord, 'id' | 'jobId' | 'literatureId' | 'createdAt'>>,
+  ): Promise<LiteratureContentProcessingBatchItemRecord> {
+    return this.batchStore.updateContentProcessingBatchItem(itemId, patch);
   }
 
   async createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord> {

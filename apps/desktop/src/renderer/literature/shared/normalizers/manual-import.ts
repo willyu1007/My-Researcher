@@ -280,18 +280,6 @@ export function isManualUploadParseSupported(fileName: string): boolean {
   );
 }
 
-export function isManualUploadLlmSupported(fileName: string): boolean {
-  const lower = fileName.toLowerCase();
-  return (
-    lower.endsWith('.pdf')
-    || lower.endsWith('.tex')
-    || lower.endsWith('.ltx')
-    || lower.endsWith('.bbl')
-    || lower.endsWith('.aux')
-    || lower.endsWith('.ris')
-  );
-}
-
 export function buildManualUploadDuplicateKey(value: string): string | null {
   const normalized = normalizeManualDedupToken(
     value.replace(/\.(json|csv|bib|bibtex|txt|pdf|tex|ltx|bbl|aux|ris)$/i, ''),

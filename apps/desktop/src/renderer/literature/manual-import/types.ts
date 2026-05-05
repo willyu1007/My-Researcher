@@ -40,8 +40,6 @@ export type ManualImportControllerInput = {
   setManualUploadError: StateSetter<string | null>;
   setManualUploadLoading: StateSetter<boolean>;
   setManualDropActive: StateSetter<boolean>;
-  literatureAutoParseDocuments: boolean;
-  literatureAutoExtractAbstracts: boolean;
   pushLiteratureFeedback: (feedback: InlineFeedbackModel) => void;
   topicIdInput: string;
   topicId: string;
@@ -81,7 +79,6 @@ export type ManualImportControllerOutput = {
     selectedInvalidCount: number;
   };
   hasManualSession: boolean;
-  handleManualUploadFileLlmAction: (fileId: string, action: 'parse' | 'abstract') => Promise<void>;
   handleManualUpload: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleManualUploadDrop: (event: DragEvent<HTMLLabelElement>) => Promise<void>;
   handleInjectManualImportTestData: () => Promise<void>;
@@ -146,7 +143,6 @@ export type ManualImportZoteroProps = {
 export type ManualImportSharedProps = {
   manualUploadFormatHint: string;
   updateHelpTooltipAlignment: (target: HTMLElement) => void;
-  isManualUploadLlmSupported: (fileName: string) => boolean;
   formatManualUploadFileStatusLabel: (file: ManualUploadFileItem) => string;
   mapManualValidationErrors: (validation?: ManualRowValidation) => ManualFieldErrorMap;
   getManualFieldErrorText: (map: ManualFieldErrorMap, key: ManualFieldErrorKey) => string;

@@ -1,9 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: planned
+- State: done
 - Parent: `T-030 literature-content-processing-landing-roadmap`
-- Next step: define batch job contract, dry-run planner, and operational workbench scope.
+- Next step: none; final cutover verification is recorded in `T-038`.
 
 ## Goal
 - Add safe historical/bulk content-processing operations for large literature sets.
@@ -23,7 +23,7 @@
 - Operations workbench UI/API.
 
 ## Acceptance Criteria
-- Backfill can estimate before execution.
-- Backfill is checkpointed and resumable.
-- Retry behavior distinguishes retryable and non-retryable failures.
-- Cleanup never deletes active version or raw source files.
+- [x] Backfill can estimate before execution.
+- [x] Backfill is checkpointed and resumable.
+- [x] Retry behavior distinguishes retryable and non-retryable failures.
+- [x] Cleanup never deletes active version or raw source files.

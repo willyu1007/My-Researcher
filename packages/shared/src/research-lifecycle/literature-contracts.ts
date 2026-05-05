@@ -51,6 +51,31 @@ export const LITERATURE_CONTENT_PROCESSING_TRIGGER_SOURCES = [
 ] as const;
 export type LiteratureContentProcessingTriggerSource = (typeof LITERATURE_CONTENT_PROCESSING_TRIGGER_SOURCES)[number];
 
+export const LITERATURE_CONTENT_PROCESSING_BATCH_JOB_STATUSES = [
+  'PLANNED',
+  'QUEUED',
+  'RUNNING',
+  'PAUSED',
+  'CANCELING',
+  'CANCELED',
+  'SUCCEEDED',
+  'PARTIAL',
+  'FAILED',
+] as const;
+export type LiteratureContentProcessingBatchJobStatus = (typeof LITERATURE_CONTENT_PROCESSING_BATCH_JOB_STATUSES)[number];
+
+export const LITERATURE_CONTENT_PROCESSING_BATCH_ITEM_STATUSES = [
+  'QUEUED',
+  'RUNNING',
+  'SUCCEEDED',
+  'PARTIAL',
+  'BLOCKED',
+  'FAILED',
+  'SKIPPED',
+  'CANCELED',
+] as const;
+export type LiteratureContentProcessingBatchItemStatus = (typeof LITERATURE_CONTENT_PROCESSING_BATCH_ITEM_STATUSES)[number];
+
 export const LITERATURE_CONTENT_PROCESSING_DEDUP_STATUSES = ['unique', 'duplicate', 'unknown'] as const;
 export type LiteratureContentProcessingDedupStatus = (typeof LITERATURE_CONTENT_PROCESSING_DEDUP_STATUSES)[number];
 
@@ -215,12 +240,29 @@ export interface LiteratureContentProcessingStorageRootsDTO {
   exports: string | null;
 }
 
+export interface LiteratureFulltextParserSettingsDTO {
+  grobid: {
+    endpoint_url: string;
+  };
+}
+
 export interface LiteratureContentProcessingSettingsDTO {
   providers: LiteratureContentProcessingProviderSettingsDTO[];
   embedding: LiteratureContentProcessingEmbeddingSettingsDTO;
   extraction: LiteratureContentProcessingExtractionSettingsDTO;
   storage_roots: LiteratureContentProcessingStorageRootsDTO;
+  effective_storage_roots: LiteratureContentProcessingStorageRootsDTO;
+  fulltext_parser: LiteratureFulltextParserSettingsDTO;
   updated_at: string;
+}
+
+export interface LiteratureFulltextParserHealthDTO {
+  provider: 'grobid';
+  endpoint_url: string;
+  status: 'ready' | 'unavailable';
+  checked_at: string;
+  version: string | null;
+  details: Record<string, unknown>;
 }
 
 export interface UpdateLiteratureContentProcessingSettingsRequest {
@@ -246,6 +288,7 @@ export interface UpdateLiteratureContentProcessingSettingsRequest {
     }>;
   };
   storage_roots?: Partial<LiteratureContentProcessingStorageRootsDTO>;
+  fulltext_parser?: Partial<LiteratureFulltextParserSettingsDTO>;
 }
 
 export interface LiteratureCollectionImportItem {
@@ -468,6 +511,178 @@ export interface ListLiteratureContentProcessingRunsResponse {
 
 export interface ListLiteratureContentProcessingRunsQuery {
   limit?: number;
+}
+
+export interface LiteratureContentProcessingBackfillStageFilters {
+  missing?: boolean;
+  stale?: boolean;
+  failed?: boolean;
+}
+
+export interface LiteratureContentProcessingBackfillWorkset {
+  topic_id?: string;
+  paper_id?: string;
+  literature_ids?: string[];
+  rights_classes?: RightsClass[];
+  stage_filters?: LiteratureContentProcessingBackfillStageFilters;
+  updated_at_from?: string;
+  updated_at_to?: string;
+}
+
+export interface LiteratureContentProcessingBackfillOptions {
+  max_parallel_literature_runs?: number;
+  extraction_concurrency?: number;
+  embedding_concurrency?: number;
+  provider_call_budget?: number;
+}
+
+export interface LiteratureContentProcessingBackfillDryRunRequest {
+  workset?: LiteratureContentProcessingBackfillWorkset;
+  target_stage?: LiteratureContentProcessingStageCode;
+  options?: LiteratureContentProcessingBackfillOptions;
+}
+
+export type LiteratureContentProcessingBackfillCreateJobRequest = LiteratureContentProcessingBackfillDryRunRequest;
+
+export interface LiteratureContentProcessingBackfillBlockerDTO {
+  literature_id: string;
+  title: string;
+  reason_code: string;
+  reason_message: string;
+  retryable: boolean;
+}
+
+export interface LiteratureContentProcessingBackfillPlanItemDTO {
+  literature_id: string;
+  title: string;
+  rights_class: RightsClass;
+  requested_stages: LiteratureContentProcessingStageCode[];
+  blocked: boolean;
+  blocker_code: string | null;
+  retryable: boolean;
+}
+
+export interface LiteratureContentProcessingBackfillDryRunEstimateDTO {
+  dry_run_id: string;
+  generated_at: string;
+  target_stage: LiteratureContentProcessingStageCode;
+  workset: LiteratureContentProcessingBackfillWorkset;
+  options: Required<Pick<LiteratureContentProcessingBackfillOptions, 'max_parallel_literature_runs' | 'extraction_concurrency' | 'embedding_concurrency'>> & {
+    provider_call_budget: number | null;
+  };
+  total_literatures: number;
+  selected_count: number;
+  planned_item_count: number;
+  skipped_ready_count: number;
+  blocked_count: number;
+  stage_counts: Record<LiteratureContentProcessingStageCode, number>;
+  rights_class_counts: Array<{ rights_class: RightsClass; count: number }>;
+  estimated_provider_calls: {
+    extraction_calls: number;
+    embedding_calls: number;
+  };
+  estimated_storage_bytes: number;
+  blockers: LiteratureContentProcessingBackfillBlockerDTO[];
+  plan_items: LiteratureContentProcessingBackfillPlanItemDTO[];
+}
+
+export interface LiteratureContentProcessingBackfillDryRunResponse {
+  estimate: LiteratureContentProcessingBackfillDryRunEstimateDTO;
+}
+
+export interface LiteratureContentProcessingBatchItemDTO {
+  item_id: string;
+  job_id: string;
+  literature_id: string;
+  title: string | null;
+  status: LiteratureContentProcessingBatchItemStatus;
+  requested_stages: LiteratureContentProcessingStageCode[];
+  next_stage_index: number;
+  content_processing_run_id: string | null;
+  attempt_count: number;
+  error_code: string | null;
+  error_message: string | null;
+  blocker_code: string | null;
+  retryable: boolean;
+  checkpoint: Record<string, unknown>;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+}
+
+export interface LiteratureContentProcessingBatchJobDTO {
+  job_id: string;
+  status: LiteratureContentProcessingBatchJobStatus;
+  target_stage: LiteratureContentProcessingStageCode;
+  workset: LiteratureContentProcessingBackfillWorkset;
+  options: Required<Pick<LiteratureContentProcessingBackfillOptions, 'max_parallel_literature_runs' | 'extraction_concurrency' | 'embedding_concurrency'>> & {
+    provider_call_budget: number | null;
+  };
+  dry_run_estimate: LiteratureContentProcessingBackfillDryRunEstimateDTO;
+  totals: {
+    total: number;
+    queued: number;
+    running: number;
+    succeeded: number;
+    partial: number;
+    blocked: number;
+    failed: number;
+    skipped: number;
+    canceled: number;
+  };
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  paused_at: string | null;
+  canceled_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+  items?: LiteratureContentProcessingBatchItemDTO[];
+}
+
+export interface CreateLiteratureContentProcessingBackfillJobResponse {
+  job: LiteratureContentProcessingBatchJobDTO;
+}
+
+export interface LiteratureContentProcessingBackfillJobResponse {
+  job: LiteratureContentProcessingBatchJobDTO;
+}
+
+export interface ListLiteratureContentProcessingBackfillJobsQuery {
+  limit?: number;
+}
+
+export interface ListLiteratureContentProcessingBackfillJobsResponse {
+  items: LiteratureContentProcessingBatchJobDTO[];
+}
+
+export interface LiteratureContentProcessingCleanupDryRunRequest {
+  literature_ids?: string[];
+  retention_days?: number;
+}
+
+export interface LiteratureContentProcessingCleanupCandidateDTO {
+  embedding_version_id: string;
+  literature_id: string;
+  version_no: number;
+  status: string;
+  chunk_count: number;
+  token_index_count: number;
+  created_at: string;
+  protected_reason: string | null;
+}
+
+export interface LiteratureContentProcessingCleanupDryRunResponse {
+  generated_at: string;
+  retention_days: number;
+  candidate_count: number;
+  protected_active_version_count: number;
+  protected_raw_asset_count: number;
+  estimated_chunks_to_remove: number;
+  estimated_token_indexes_to_remove: number;
+  candidates: LiteratureContentProcessingCleanupCandidateDTO[];
 }
 
 export interface LiteratureOverviewItem {
@@ -766,6 +981,20 @@ const literatureExtractionProfileSchema = {
   additionalProperties: false,
 } as const;
 
+const literatureFulltextParserSettingsSchema = {
+  type: 'object',
+  properties: {
+    grobid: {
+      type: 'object',
+      properties: {
+        endpoint_url: { type: 'string', minLength: 1 },
+      },
+      additionalProperties: false,
+    },
+  },
+  additionalProperties: false,
+} as const;
+
 export const updateLiteratureContentProcessingSettingsRequestSchema = {
   type: 'object',
   properties: {
@@ -816,6 +1045,7 @@ export const updateLiteratureContentProcessingSettingsRequestSchema = {
       },
       additionalProperties: false,
     },
+    fulltext_parser: literatureFulltextParserSettingsSchema,
   },
   additionalProperties: false,
   anyOf: [
@@ -823,6 +1053,7 @@ export const updateLiteratureContentProcessingSettingsRequestSchema = {
     { required: ['embedding'] },
     { required: ['extraction'] },
     { required: ['storage_roots'] },
+    { required: ['fulltext_parser'] },
   ],
 } as const;
 
@@ -843,6 +1074,86 @@ export const createLiteratureContentProcessingRunRequestSchema = {
       minItems: 1,
       uniqueItems: true,
     },
+  },
+  additionalProperties: false,
+} as const;
+
+const literatureBackfillStageFiltersSchema = {
+  type: 'object',
+  properties: {
+    missing: { type: 'boolean' },
+    stale: { type: 'boolean' },
+    failed: { type: 'boolean' },
+  },
+  additionalProperties: false,
+} as const;
+
+const literatureBackfillWorksetSchema = {
+  type: 'object',
+  properties: {
+    topic_id: { type: 'string', minLength: 1 },
+    paper_id: { type: 'string', minLength: 1 },
+    literature_ids: {
+      type: 'array',
+      minItems: 1,
+      uniqueItems: true,
+      items: { type: 'string', minLength: 1 },
+    },
+    rights_classes: {
+      type: 'array',
+      minItems: 1,
+      uniqueItems: true,
+      items: { type: 'string', enum: RIGHTS_CLASSES },
+    },
+    stage_filters: literatureBackfillStageFiltersSchema,
+    updated_at_from: { type: 'string', minLength: 1, format: 'date-time' },
+    updated_at_to: { type: 'string', minLength: 1, format: 'date-time' },
+  },
+  additionalProperties: false,
+} as const;
+
+const literatureBackfillOptionsSchema = {
+  type: 'object',
+  properties: {
+    max_parallel_literature_runs: { type: 'integer', minimum: 1, maximum: 4, default: 1 },
+    extraction_concurrency: { type: 'integer', minimum: 1, maximum: 4, default: 1 },
+    embedding_concurrency: { type: 'integer', minimum: 1, maximum: 4, default: 1 },
+    provider_call_budget: { type: 'integer', minimum: 1 },
+  },
+  additionalProperties: false,
+} as const;
+
+export const literatureContentProcessingBackfillDryRunRequestSchema = {
+  type: 'object',
+  properties: {
+    workset: literatureBackfillWorksetSchema,
+    target_stage: { type: 'string', enum: LITERATURE_CONTENT_PROCESSING_STAGE_CODES, default: 'INDEXED' },
+    options: literatureBackfillOptionsSchema,
+  },
+  additionalProperties: false,
+} as const;
+
+export const literatureContentProcessingBackfillCreateJobRequestSchema =
+  literatureContentProcessingBackfillDryRunRequestSchema;
+
+export const listLiteratureContentProcessingBackfillJobsQuerySchema = {
+  type: 'object',
+  properties: {
+    limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+  },
+  additionalProperties: false,
+} as const;
+
+export const literatureContentProcessingCleanupDryRunRequestSchema = {
+  type: 'object',
+  properties: {
+    literature_ids: {
+      type: 'array',
+      minItems: 1,
+      uniqueItems: true,
+      items: { type: 'string', minLength: 1 },
+    },
+    retention_days: { type: 'integer', minimum: 0, maximum: 3650, default: 30 },
   },
   additionalProperties: false,
 } as const;

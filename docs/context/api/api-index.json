@@ -1,15 +1,15 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-05T02:12:08.510Z",
+  "generatedAt": "2026-05-05T15:36:47.503Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "1a2766ce934382a0f77e5c7f3313604848ea94e65a37faf0627d5d21870fee5f",
+  "sourceChecksumSha256": "0d7ff106dae90740bbc845e89bda2fc4fb939b1410b7aa8c09d5d170ce1c61b4",
   "stats": {
-    "totalEndpoints": 69,
+    "totalEndpoints": 80,
     "byTag": {
       "health": 1,
       "research-lifecycle": 8,
-      "literature": 17,
-      "settings": 2,
+      "literature": 27,
+      "settings": 3,
       "topic-settings": 3,
       "auto-pull": 10,
       "title-card-management": 28
@@ -943,6 +943,309 @@
       }
     },
     {
+      "method": "POST",
+      "path": "/literature/content-processing/backfill/dry-runs",
+      "operationId": "createLiteratureContentProcessingBackfillDryRun",
+      "summary": "Plan a durable content-processing backfill without provider calls or writes.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "workset",
+            "target_stage",
+            "options"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "estimate"
+        ]
+      },
+      "errors": [
+        400,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/content-processing/backfill/dry-runs'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/literature/content-processing/backfill/jobs",
+      "operationId": "listLiteratureContentProcessingBackfillJobs",
+      "summary": "List recent durable content-processing backfill jobs.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [
+          "limit"
+        ],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "items"
+        ]
+      },
+      "errors": [
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/literature/content-processing/backfill/jobs'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/content-processing/backfill/jobs",
+      "operationId": "createLiteratureContentProcessingBackfillJob",
+      "summary": "Create a durable content-processing backfill job.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "workset",
+            "target_stage",
+            "options"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": [
+          "job"
+        ]
+      },
+      "errors": [
+        400,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/content-processing/backfill/jobs'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/literature/content-processing/backfill/jobs/{jobId}",
+      "operationId": "getLiteratureContentProcessingBackfillJob",
+      "summary": "Get a durable content-processing backfill job with item checkpoints.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "jobId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "job"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/literature/content-processing/backfill/jobs/{jobId}'"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/literature/content-processing/backfill/jobs/{jobId}",
+      "operationId": "deleteLiteratureContentProcessingBackfillJob",
+      "summary": "Delete a non-active durable content-processing backfill job and its item checkpoints.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "jobId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 204,
+        "coreFields": []
+      },
+      "errors": [
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X DELETE '/literature/content-processing/backfill/jobs/{jobId}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/content-processing/backfill/jobs/{jobId}/pause",
+      "operationId": "pauseLiteratureContentProcessingBackfillJob",
+      "summary": "Pause a durable content-processing backfill job after in-flight stages settle.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "jobId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "job"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/content-processing/backfill/jobs/{jobId}/pause'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/content-processing/backfill/jobs/{jobId}/resume",
+      "operationId": "resumeLiteratureContentProcessingBackfillJob",
+      "summary": "Resume a paused durable content-processing backfill job.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "jobId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "job"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/content-processing/backfill/jobs/{jobId}/resume'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/content-processing/backfill/jobs/{jobId}/cancel",
+      "operationId": "cancelLiteratureContentProcessingBackfillJob",
+      "summary": "Cancel a durable content-processing backfill job and stop scheduling new stages.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "jobId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "job"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/content-processing/backfill/jobs/{jobId}/cancel'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/content-processing/backfill/jobs/{jobId}/retry-failed",
+      "operationId": "retryFailedLiteratureContentProcessingBackfillJob",
+      "summary": "Requeue retryable failed items in a durable content-processing backfill job.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "jobId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "job"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/content-processing/backfill/jobs/{jobId}/retry-failed'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/content-processing/cleanup/dry-runs",
+      "operationId": "createLiteratureContentProcessingCleanupDryRun",
+      "summary": "Plan cleanup candidates for non-active content-processing indexes without deleting data.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "literature_ids",
+            "retention_days"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "generated_at",
+          "retention_days",
+          "candidate_count",
+          "protected_active_version_count",
+          "protected_raw_asset_count",
+          "estimated_chunks_to_remove",
+          "estimated_token_indexes_to_remove",
+          "candidates"
+        ]
+      },
+      "errors": [
+        400,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/content-processing/cleanup/dry-runs'"
+      }
+    },
+    {
       "method": "GET",
       "path": "/settings/literature-content-processing",
       "operationId": "getLiteratureContentProcessingSettings",
@@ -961,6 +1264,8 @@
           "embedding",
           "extraction",
           "storage_roots",
+          "effective_storage_roots",
+          "fulltext_parser",
           "updated_at"
         ]
       },
@@ -987,7 +1292,8 @@
             "providers",
             "embedding",
             "extraction",
-            "storage_roots"
+            "storage_roots",
+            "fulltext_parser"
           ]
         }
       },
@@ -998,6 +1304,8 @@
           "embedding",
           "extraction",
           "storage_roots",
+          "effective_storage_roots",
+          "fulltext_parser",
           "updated_at"
         ]
       },
@@ -1007,6 +1315,36 @@
       ],
       "example": {
         "curl": "curl -X PATCH '/settings/literature-content-processing'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/settings/literature-content-processing/fulltext-parser/health",
+      "operationId": "getLiteratureContentProcessingFulltextParserHealth",
+      "summary": "Check the configured GROBID fulltext parser health for literature content processing.",
+      "tag": "settings",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "provider",
+          "endpoint_url",
+          "status",
+          "checked_at",
+          "version",
+          "details"
+        ]
+      },
+      "errors": [
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/settings/literature-content-processing/fulltext-parser/health'"
       }
     },
     {

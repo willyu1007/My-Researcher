@@ -14,7 +14,6 @@ import {
   asRecord,
   buildManualUploadDuplicateKey,
   detectManualUploadFileFormat,
-  isManualUploadLlmSupported,
   isManualUploadParseSupported,
   normalizeAutoPullRulePayload,
   resolveSystemTimezone,
@@ -34,7 +33,6 @@ import { injectTitleCardDemoData } from './titleCardDemoInjection';
 
 type ManualImportUploadOutput = Pick<
   ManualImportControllerOutput,
-  | 'handleManualUploadFileLlmAction'
   | 'handleManualUpload'
   | 'handleManualUploadDrop'
   | 'handleInjectManualImportTestData'
@@ -44,8 +42,6 @@ type ManualImportUploadOutput = Pick<
 
 export function useManualImportUploadController(input: ManualImportControllerInput): ManualImportUploadOutput {
   const {
-    literatureAutoExtractAbstracts,
-    literatureAutoParseDocuments,
     loadAutoPullRules,
     loadAutoPullRuns,
     loadLiteratureOverview,
@@ -84,44 +80,6 @@ export function useManualImportUploadController(input: ManualImportControllerInp
     setManualUploadError,
     pushLiteratureFeedback,
   } as const;
-
-  const invokeManualUploadLlmReserved = async (
-    action: 'parse' | 'abstract',
-    fileName: string,
-  ): Promise<void> => {
-    void action;
-    void fileName;
-    await Promise.resolve();
-  };
-
-  const pushManualUploadLlmFeedback = (
-    action: 'parse' | 'abstract',
-    fileName: string,
-    trigger: 'manual' | 'auto',
-  ) => {
-    const actionLabel = action === 'parse' ? '解析' : '提取摘要';
-    pushLiteratureFeedback({
-      slot: 'manual-import',
-      level: 'info',
-      message:
-        trigger === 'auto'
-          ? `已按设置触发「${actionLabel}」：${fileName}（LLM 接口预留）。`
-          : `已触发「${actionLabel}」：${fileName}（LLM 接口预留）。`,
-    });
-  };
-
-  const handleManualUploadFileLlmAction = async (
-    fileId: string,
-    action: 'parse' | 'abstract',
-  ) => {
-    const fileItem = manualUploadFiles.find((item) => item.id === fileId);
-    if (!fileItem || fileItem.status === 'duplicate' || !isManualUploadLlmSupported(fileItem.fileName)) {
-      return;
-    }
-
-    await invokeManualUploadLlmReserved(action, fileItem.fileName);
-    pushManualUploadLlmFeedback(action, fileItem.fileName, 'manual');
-  };
 
   const importManualFilesIntoSession = async (files: File[]) => {
     setManualUploadLoading(true);
@@ -167,25 +125,6 @@ export function useManualImportUploadController(input: ManualImportControllerInp
       let failedFiles = 0;
       let acceptedPendingFiles = 0;
       let duplicateFiles = 0;
-      const acceptedPendingFileNames: string[] = [];
-
-      const triggerAutoLlmActions = () => {
-        if (acceptedPendingFileNames.length === 0) {
-          return;
-        }
-        if (literatureAutoParseDocuments) {
-          for (const fileName of acceptedPendingFileNames) {
-            void invokeManualUploadLlmReserved('parse', fileName);
-            pushManualUploadLlmFeedback('parse', fileName, 'auto');
-          }
-        }
-        if (literatureAutoExtractAbstracts) {
-          for (const fileName of acceptedPendingFileNames) {
-            void invokeManualUploadLlmReserved('abstract', fileName);
-            pushManualUploadLlmFeedback('abstract', fileName, 'auto');
-          }
-        }
-      };
 
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index];
@@ -213,7 +152,6 @@ export function useManualImportUploadController(input: ManualImportControllerInp
             seenBatchUnsupportedKeys.add(duplicateKey);
           }
           acceptedPendingFiles += 1;
-          acceptedPendingFileNames.push(file.name);
           updateBatchFile(batchItem.id, {
             status: 'accepted',
             rowCount: 0,
@@ -250,7 +188,6 @@ export function useManualImportUploadController(input: ManualImportControllerInp
         if (acceptedPendingFiles > 0 || duplicateFiles > 0) {
           setManualUploadStatus('ready');
           setManualUploadError(null);
-          triggerAutoLlmActions();
           pushLiteratureFeedback({
             slot: 'manual-import',
             level: duplicateFiles > 0 ? 'warning' : 'info',
@@ -277,7 +214,6 @@ export function useManualImportUploadController(input: ManualImportControllerInp
         rows: parsedRows,
         source: 'upload',
       });
-      triggerAutoLlmActions();
       if (emptyFiles > 0 || failedFiles > 0 || acceptedPendingFiles > 0 || duplicateFiles > 0) {
         pushLiteratureFeedback({
           slot: 'manual-import',
@@ -733,7 +669,6 @@ export function useManualImportUploadController(input: ManualImportControllerInp
   };
 
   return {
-    handleManualUploadFileLlmAction,
     handleManualUpload,
     handleManualUploadDrop,
     handleInjectManualImportTestData,

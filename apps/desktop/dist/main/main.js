@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,11 +16,13 @@ const allowedGovernanceMethods = new Set(['GET', 'POST', 'PATCH', 'DELETE']);
 const allowedGovernancePathPrefixes = [
     '/paper-projects/',
     '/literature/',
+    '/settings/literature-content-processing/',
     '/topics/',
     '/auto-pull/',
     '/title-cards/',
 ];
 const allowedGovernanceExactPaths = new Set([
+    '/settings/literature-content-processing',
     '/title-cards',
 ]);
 const isMacOS = process.platform === 'darwin';
@@ -98,6 +100,27 @@ ipcMain.handle('desktop:get-app-meta', () => ({
     appVersion: app.getVersion(),
     platform: process.platform,
 }));
+ipcMain.handle('desktop:select-directory', async (event, request) => {
+    const owner = BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
+    const defaultPath = typeof request?.defaultPath === 'string' && request.defaultPath.trim()
+        ? request.defaultPath.trim()
+        : undefined;
+    const title = typeof request?.title === 'string' && request.title.trim()
+        ? request.title.trim()
+        : '选择目录';
+    const options = {
+        title,
+        defaultPath,
+        properties: ['openDirectory', 'createDirectory'],
+    };
+    const result = owner
+        ? await dialog.showOpenDialog(owner, options)
+        : await dialog.showOpenDialog(options);
+    if (result.canceled) {
+        return null;
+    }
+    return result.filePaths[0] ?? null;
+});
 ipcMain.handle('desktop:governance-request', async (_event, request) => {
     const method = String(request.method ?? '').toUpperCase();
     const targetPath = normalizeGovernancePath(request.path);

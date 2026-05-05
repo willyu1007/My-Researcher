@@ -1,0 +1,12 @@
+version: 1
+task_id: T-040
+project: main
+slug: literature-content-processing-closure-fixes
+status: completed
+updated: "2026-05-05"
+keywords:
+  - literature
+  - content-processing
+  - closure
+  - grobid
+  - retrieval

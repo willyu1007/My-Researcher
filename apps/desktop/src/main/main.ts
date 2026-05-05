@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { OpenDialogOptions } from 'electron';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
@@ -17,11 +18,13 @@ const allowedGovernanceMethods = new Set(['GET', 'POST', 'PATCH', 'DELETE']);
 const allowedGovernancePathPrefixes = [
   '/paper-projects/',
   '/literature/',
+  '/settings/literature-content-processing/',
   '/topics/',
   '/auto-pull/',
   '/title-cards/',
 ] as const;
 const allowedGovernanceExactPaths = new Set([
+  '/settings/literature-content-processing',
   '/title-cards',
 ]);
 const isMacOS = process.platform === 'darwin';
@@ -37,6 +40,11 @@ type GovernanceBridgeResponse = {
   ok: boolean;
   status: number;
   payload: unknown;
+};
+
+type SelectDirectoryRequest = {
+  title?: string;
+  defaultPath?: string;
 };
 
 function focusAndCenterWindow(window: BrowserWindow) {
@@ -120,6 +128,29 @@ ipcMain.handle('desktop:get-app-meta', () => ({
   appVersion: app.getVersion(),
   platform: process.platform,
 }));
+
+ipcMain.handle('desktop:select-directory', async (event, request?: SelectDirectoryRequest): Promise<string | null> => {
+  const owner = BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
+  const defaultPath = typeof request?.defaultPath === 'string' && request.defaultPath.trim()
+    ? request.defaultPath.trim()
+    : undefined;
+  const title = typeof request?.title === 'string' && request.title.trim()
+    ? request.title.trim()
+    : '选择目录';
+  const options: OpenDialogOptions = {
+    title,
+    defaultPath,
+    properties: ['openDirectory', 'createDirectory'],
+  };
+  const result = owner
+    ? await dialog.showOpenDialog(owner, options)
+    : await dialog.showOpenDialog(options);
+
+  if (result.canceled) {
+    return null;
+  }
+  return result.filePaths[0] ?? null;
+});
 
 ipcMain.handle(
   'desktop:governance-request',

@@ -2,7 +2,7 @@ version: 1
 task_id: T-037
 project: main
 slug: literature-backfill-operations-workbench
-status: planned
+status: done
 updated: "2026-05-05"
 keywords:
   - literature

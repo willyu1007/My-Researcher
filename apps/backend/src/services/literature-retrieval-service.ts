@@ -1,5 +1,6 @@
 import type {
   LiteratureRetrieveHit,
+  LiteratureEmbeddingProfileId,
   LiteratureRetrieveProfileId,
   LiteratureRetrieveRequest,
   LiteratureRetrieveResponse,
@@ -10,9 +11,10 @@ import type {
   LiteratureEmbeddingVersionRecord,
   LiteratureRepository,
 } from '../repositories/literature-repository.js';
-import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
+import type { ActiveEmbeddingProfileConfig, LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 
 type RetrievalProfile = {
+  profileId: LiteratureEmbeddingProfileId;
   provider: string;
   model: string;
   dimension: number;
@@ -100,7 +102,12 @@ export class LiteratureRetrievalService {
     const topK = this.normalizeRange(request.top_k, 10, 1, 30);
     const evidencePerLiterature = this.normalizeRange(request.evidence_per_literature, 3, 1, 5);
 
-    const candidateVersions = await this.resolveCandidateVersions(request);
+    const activeEmbeddingProfile = await this.resolveActiveEmbeddingProfile();
+    const resolvedVersions = await this.resolveCandidateVersions(request);
+    const { compatibleVersions: candidateVersions, skippedProfiles } = this.filterVersionsByActiveProfile(
+      resolvedVersions,
+      activeEmbeddingProfile,
+    );
     if (candidateVersions.length === 0) {
       return {
         items: [],
@@ -110,7 +117,7 @@ export class LiteratureRetrievalService {
           degraded_mode: false,
           freshness_warnings: [],
           profiles_used: [],
-          skipped_profiles: [],
+          skipped_profiles: skippedProfiles,
         },
       };
     }
@@ -121,78 +128,73 @@ export class LiteratureRetrievalService {
     const staleWarnings = await this.resolveFreshnessWarnings(literatureIds, candidateVersions);
     const staleByVersionId = new Map(staleWarnings.map((warning) => [warning.embedding_version_id, warning]));
 
-    const profileBuckets = this.groupVersionsByProfile(candidateVersions);
-    const skippedProfiles: LiteratureRetrieveResponse['meta']['skipped_profiles'] = [];
     const profilesUsed: LiteratureRetrieveResponse['meta']['profiles_used'] = [];
     const scoredChunks: ScoredChunk[] = [];
     let degradedMode = false;
 
-    for (const bucket of profileBuckets.values()) {
-      let queryVector: number[] | null = null;
-      try {
-        queryVector = await this.embedQueryByProfile(query, bucket.profile);
-      } catch (error) {
-        degradedMode = true;
-        const reason = error instanceof Error ? error.message : 'embedding query failed';
-        skippedProfiles.push({
-          provider: bucket.profile.provider,
-          model: bucket.profile.model,
-          dimension: bucket.profile.dimension,
-          reason,
-        });
-      }
+    const retrievalProfile = this.toRetrievalProfile(activeEmbeddingProfile, candidateVersions);
+    let queryVector: number[] | null = null;
+    try {
+      queryVector = await this.embedQueryByProfile(query, retrievalProfile);
+    } catch (error) {
+      degradedMode = true;
+      skippedProfiles.push({
+        provider: retrievalProfile.provider,
+        model: retrievalProfile.model,
+        dimension: retrievalProfile.dimension,
+        reason: error instanceof Error ? error.message : 'embedding query failed',
+      });
+    }
 
-      const chunks = await this.repository.listEmbeddingChunksByEmbeddingVersionIds(
-        bucket.versions.map((version) => version.id),
-      );
-      if (chunks.length === 0) {
-        skippedProfiles.push({
-          provider: bucket.profile.provider,
-          model: bucket.profile.model,
-          dimension: bucket.profile.dimension,
-          reason: 'no chunks available for profile',
-        });
+    const chunks = await this.repository.listEmbeddingChunksByEmbeddingVersionIds(
+      candidateVersions.map((version) => version.id),
+    );
+    if (chunks.length === 0) {
+      skippedProfiles.push({
+        provider: retrievalProfile.provider,
+        model: retrievalProfile.model,
+        dimension: retrievalProfile.dimension,
+        reason: 'no chunks available for active embedding profile',
+      });
+    }
+
+    const versionById = new Map(candidateVersions.map((version) => [version.id, version]));
+    if (queryVector) {
+      profilesUsed.push({
+        provider: retrievalProfile.provider,
+        model: retrievalProfile.model,
+        dimension: retrievalProfile.dimension,
+        literature_count: candidateVersions.length,
+      });
+    }
+
+    for (const chunk of chunks) {
+      const version = versionById.get(chunk.embeddingVersionId);
+      if (!version) {
         continue;
       }
-
-      const versionById = new Map(bucket.versions.map((version) => [version.id, version]));
-      if (queryVector) {
-        profilesUsed.push({
-          provider: bucket.profile.provider,
-          model: bucket.profile.model,
-          dimension: bucket.profile.dimension,
-          literature_count: bucket.versions.length,
-        });
-      }
-
-      for (const chunk of chunks) {
-        const version = versionById.get(chunk.embeddingVersionId);
-        if (!version) {
-          continue;
-        }
-        const vectorScore = queryVector ? this.normalizedCosine(queryVector, chunk.vector) : 0;
-        const lexicalScore = this.lexicalScore(queryTokens, chunk.text);
-        const profileBoost = profileConfig.chunkBoosts[chunk.chunkType] ?? 0;
-        const metadataScore = this.metadataScore(queryTokens, chunk, profileBoost);
-        const hybridScore = this.toScore(
-          (vectorScore * profileConfig.vectorWeight)
-          + (lexicalScore * profileConfig.lexicalWeight)
-          + (metadataScore * profileConfig.metadataWeight),
-        );
-        const staleWarning = staleByVersionId.get(version.id);
-        scoredChunks.push({
-          literatureId: version.literatureId,
-          embeddingVersionId: version.id,
-          chunk,
-          hybridScore,
-          vectorScore,
-          lexicalScore,
-          metadataScore,
-          profileBoost,
-          isStale: Boolean(staleWarning),
-          warnings: staleWarning ? [staleWarning.reason_message] : [],
-        });
-      }
+      const vectorScore = queryVector ? this.normalizedCosine(queryVector, chunk.vector) : 0;
+      const lexicalScore = this.lexicalScore(queryTokens, chunk.text);
+      const profileBoost = profileConfig.chunkBoosts[chunk.chunkType] ?? 0;
+      const metadataScore = this.metadataScore(queryTokens, chunk, profileBoost);
+      const hybridScore = this.toScore(
+        (vectorScore * profileConfig.vectorWeight)
+        + (lexicalScore * profileConfig.lexicalWeight)
+        + (metadataScore * profileConfig.metadataWeight),
+      );
+      const staleWarning = staleByVersionId.get(version.id);
+      scoredChunks.push({
+        literatureId: version.literatureId,
+        embeddingVersionId: version.id,
+        chunk,
+        hybridScore,
+        vectorScore,
+        lexicalScore,
+        metadataScore,
+        profileBoost,
+        isStale: Boolean(staleWarning),
+        warnings: staleWarning ? [staleWarning.reason_message] : [],
+      });
     }
 
     const hits = this.buildHits(scoredChunks, literatureTitleById, evidencePerLiterature, profileId)
@@ -280,29 +282,63 @@ export class LiteratureRetrievalService {
     });
   }
 
-  private groupVersionsByProfile(versions: LiteratureEmbeddingVersionRecord[]): Map<string, {
-    profile: RetrievalProfile;
-    versions: LiteratureEmbeddingVersionRecord[];
-  }> {
-    const buckets = new Map<string, { profile: RetrievalProfile; versions: LiteratureEmbeddingVersionRecord[] }>();
+  private filterVersionsByActiveProfile(
+    versions: LiteratureEmbeddingVersionRecord[],
+    activeProfile: ActiveEmbeddingProfileConfig,
+  ): {
+    compatibleVersions: LiteratureEmbeddingVersionRecord[];
+    skippedProfiles: LiteratureRetrieveResponse['meta']['skipped_profiles'];
+  } {
+    const profileCandidates = versions.filter((version) =>
+      version.profileId === activeProfile.profileId
+      && version.provider === activeProfile.provider
+      && version.model === activeProfile.model,
+    );
+    const activeDimension = activeProfile.dimensions ?? profileCandidates[0]?.dimension ?? null;
+    const compatibleVersions = activeDimension === null
+      ? profileCandidates
+      : profileCandidates.filter((version) => version.dimension === activeDimension);
+    const skippedProfiles: LiteratureRetrieveResponse['meta']['skipped_profiles'] = [];
     for (const version of versions) {
-      const profile = {
+      if (compatibleVersions.some((item) => item.id === version.id)) {
+        continue;
+      }
+      skippedProfiles.push({
         provider: version.provider,
         model: version.model,
         dimension: version.dimension,
-      };
-      const key = `${profile.provider}::${profile.model}::${profile.dimension}`;
-      const existing = buckets.get(key);
-      if (existing) {
-        existing.versions.push(version);
-      } else {
-        buckets.set(key, {
-          profile,
-          versions: [version],
-        });
-      }
+        reason: version.profileId !== activeProfile.profileId
+          ? `inactive embedding profile ${version.profileId ?? 'unknown'}`
+          : version.model !== activeProfile.model
+            ? `inactive embedding model ${version.model}`
+            : `inactive embedding dimension ${version.dimension}`,
+      });
     }
-    return buckets;
+    return { compatibleVersions, skippedProfiles };
+  }
+
+  private async resolveActiveEmbeddingProfile(): Promise<ActiveEmbeddingProfileConfig> {
+    if (!this.settingsService) {
+      return {
+        profileId: 'default',
+        provider: 'openai',
+        model: 'text-embedding-3-large',
+        dimensions: null,
+      };
+    }
+    return this.settingsService.resolveActiveEmbeddingProfile();
+  }
+
+  private toRetrievalProfile(
+    activeProfile: ActiveEmbeddingProfileConfig,
+    versions: LiteratureEmbeddingVersionRecord[],
+  ): RetrievalProfile {
+    return {
+      profileId: activeProfile.profileId,
+      provider: activeProfile.provider,
+      model: activeProfile.model,
+      dimension: activeProfile.dimensions ?? versions[0]?.dimension ?? 0,
+    };
   }
 
   private async embedQueryByProfile(query: string, profile: RetrievalProfile): Promise<number[]> {
@@ -310,7 +346,7 @@ export class LiteratureRetrievalService {
       throw new Error(`unsupported embedding provider ${profile.provider}`);
     }
 
-    const config = await this.settingsService?.resolveOpenAIEmbeddingConfig();
+    const config = await this.settingsService?.resolveOpenAIEmbeddingConfig(profile.profileId);
     if (!config) {
       throw new Error('OpenAI embedding API key is not configured');
     }

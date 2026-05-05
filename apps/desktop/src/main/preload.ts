@@ -18,8 +18,15 @@ type GovernanceBridgeResponse = {
   payload: unknown;
 };
 
+type SelectDirectoryRequest = {
+  title?: string;
+  defaultPath?: string;
+};
+
 const desktopApi = {
   getAppMeta: (): Promise<DesktopMeta> => ipcRenderer.invoke('desktop:get-app-meta') as Promise<DesktopMeta>,
+  selectDirectory: (request?: SelectDirectoryRequest): Promise<string | null> =>
+    ipcRenderer.invoke('desktop:select-directory', request) as Promise<string | null>,
   requestGovernance: (
     request: GovernanceBridgeRequest,
   ): Promise<GovernanceBridgeResponse> =>

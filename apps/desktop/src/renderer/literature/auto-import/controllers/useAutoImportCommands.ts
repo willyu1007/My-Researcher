@@ -58,7 +58,6 @@ export function useAutoImportCommands(
     ruleFormLookbackInput,
     ruleFormMaxResultsInput,
     ruleFormMinCompletenessInput,
-    ruleFormParseAndIngest,
     ruleFormSortMode,
     ruleFormWeekday,
     ruleSourceArxiv,
@@ -70,7 +69,6 @@ export function useAutoImportCommands(
     setRuleFormLookbackInput,
     setRuleFormMaxResultsInput,
     setRuleFormMinCompletenessInput,
-    setRuleFormParseAndIngest,
     setRuleFormSortMode,
     setRuleFormWeekday,
     setRuleSourceArxiv,
@@ -130,7 +128,6 @@ export function useAutoImportCommands(
     setRuleFormWeekday('MON');
     setRuleFormHourInput('9');
     setRuleFormSortMode('llm_score');
-    setRuleFormParseAndIngest(false);
     setRuleSourceCrossref(true);
     setRuleSourceArxiv(true);
   }, [
@@ -140,7 +137,6 @@ export function useAutoImportCommands(
     setRuleFormLookbackInput,
     setRuleFormMaxResultsInput,
     setRuleFormMinCompletenessInput,
-    setRuleFormParseAndIngest,
     setRuleFormSortMode,
     setRuleFormWeekday,
     setRuleSourceArxiv,
@@ -445,7 +441,6 @@ export function useAutoImportCommands(
     setRuleFormWeekday(normalizeWeekdayToken(primarySchedule?.days_of_week[0]));
     setRuleFormHourInput(String(primarySchedule?.hour ?? 9));
     setRuleFormSortMode(sortModeRaw === 'hybrid_score' ? 'hybrid_score' : 'llm_score');
-    setRuleFormParseAndIngest(sourceConfig.parse_and_ingest === true);
     setRuleSourceCrossref(rule.sources.some((source) => source.source === 'CROSSREF' && source.enabled));
     setRuleSourceArxiv(rule.sources.some((source) => source.source === 'ARXIV' && source.enabled));
   }, [
@@ -456,7 +451,6 @@ export function useAutoImportCommands(
     setRuleFormLookbackInput,
     setRuleFormMaxResultsInput,
     setRuleFormMinCompletenessInput,
-    setRuleFormParseAndIngest,
     setRuleFormSortMode,
     setRuleFormWeekday,
     setRuleSourceArxiv,
@@ -493,7 +487,6 @@ export function useAutoImportCommands(
     }> = [];
     const ruleSourceConfig = {
       sort_mode: ruleFormSortMode,
-      parse_and_ingest: ruleFormParseAndIngest,
     } satisfies Record<string, unknown>;
     if (ruleSourceCrossref) {
       sources.push({ source: 'CROSSREF', enabled: true, priority: 10, config: ruleSourceConfig });
@@ -609,7 +602,6 @@ export function useAutoImportCommands(
     ruleFormLookbackInput,
     ruleFormMaxResultsInput,
     ruleFormMinCompletenessInput,
-    ruleFormParseAndIngest,
     ruleFormSortMode,
     ruleFormWeekday,
     ruleSourceArxiv,

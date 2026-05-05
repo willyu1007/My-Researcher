@@ -24,16 +24,17 @@ Project: `main`
 | T-019 shared-contract-decomposition-wave4 | done | dev-docs/active/shared-contract-decomposition-wave4 |
 | T-020 shared-contract-compat-cleanup-and-consumer-migration | done | dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration |
 | T-029 literature-collection-content-processing-boundary | done | dev-docs/active/literature-collection-content-processing-boundary |
-| T-030 literature-content-processing-landing-roadmap | planned | dev-docs/active/literature-content-processing-landing-roadmap |
+| T-030 literature-content-processing-landing-roadmap | done | dev-docs/active/literature-content-processing-landing-roadmap |
 | T-031 literature-content-processing-contracts-stage-state | done | dev-docs/active/literature-content-processing-contracts-stage-state |
 | T-032 literature-settings-provider-storage-roots | done | dev-docs/active/literature-settings-provider-storage-roots |
 | T-033 literature-content-assets-fulltext-preprocessing | done | dev-docs/active/literature-content-assets-fulltext-preprocessing |
 | T-034 literature-key-content-extraction-v1 | done | dev-docs/active/literature-key-content-extraction-v1 |
 | T-035 literature-chunk-embedding-index-pipeline | done | dev-docs/active/literature-chunk-embedding-index-pipeline |
 | T-036 literature-retrieve-stale-trigger-ui | done | dev-docs/active/literature-retrieve-stale-trigger-ui |
-| T-037 literature-backfill-operations-workbench | planned | dev-docs/active/literature-backfill-operations-workbench |
-| T-038 literature-content-processing-cutover-verification | planned | dev-docs/active/literature-content-processing-cutover-verification |
+| T-037 literature-backfill-operations-workbench | done | dev-docs/active/literature-backfill-operations-workbench |
+| T-038 literature-content-processing-cutover-verification | done | dev-docs/active/literature-content-processing-cutover-verification |
 | T-039 literature-citation-abstract-readiness | done | dev-docs/active/literature-citation-abstract-readiness |
+| T-040 literature-content-processing-closure-fixes | in-progress | dev-docs/active/literature-content-processing-closure-fixes |
 
 ### F-001 Research Lifecycle Governance Core
 

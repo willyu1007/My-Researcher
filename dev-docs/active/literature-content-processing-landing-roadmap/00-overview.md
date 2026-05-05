@@ -1,8 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: planned
-- Next step: 逐个细化子任务包，先确定执行计划与验收，再按需要进入 DB SSOT 变更。
+- State: done
+- Next step: none; child tasks `T-031` through `T-039` have landed and `T-038` recorded final cutover verification.
 
 ## Goal
 - 把文献内容处理从“已有阶段代码”推进到可实施的产品/工程方案。
@@ -41,9 +41,9 @@
 - Replace the old placeholder implementation directly; do not preserve a parallel old/new semantic path.
 
 ## Acceptance Criteria
-- Roadmap 与关键问题已对齐。
-- 形成可执行的后续实现子任务包。
-- 明确是否需要 DB migration；如需要，后续走 DB SSOT 流程。
-- 明确第一版最小可用内容处理链路。
-- 子任务包已登记到项目治理，并可逐个细化执行。
-- 实施就绪 review 已确认无遗漏，并记录逐阶段合同与进入下一步的 review 门禁。
+- [x] Roadmap 与关键问题已对齐。
+- [x] 形成可执行的后续实现子任务包。
+- [x] 明确是否需要 DB migration；如需要，后续走 DB SSOT 流程。
+- [x] 明确第一版最小可用内容处理链路。
+- [x] 子任务包已登记到项目治理，并可逐个细化执行。
+- [x] 实施就绪 review 已确认无遗漏，并记录逐阶段合同与进入下一步的 review 门禁。

@@ -132,13 +132,25 @@ export class LiteratureKeyContentExtractionService {
     const generatedAt = new Date().toISOString();
     const inputRefs = this.buildInputRefs(bundle, config);
     const diagnostics: Record<string, unknown>[] = [];
-    const categories = this.emptyCategories();
+    let categories = this.emptyCategories();
     for (const payload of extractedPayloads) {
       const normalized = this.normalizeCategories(payload.categories, bundle, diagnostics);
       for (const category of CATEGORY_KEYS) {
         categories[category].push(...normalized[category]);
       }
       diagnostics.push(...this.readDiagnostics(payload));
+    }
+
+    try {
+      categories = await this.consolidatePaperLevel(literature, bundle, categories, config, diagnostics);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'OpenAI paper-level key-content consolidation failed.';
+      return {
+        ready: false,
+        reasonCode: 'KEY_CONTENT_CONSOLIDATION_FAILED',
+        reasonMessage: message,
+        diagnostics: [{ code: 'KEY_CONTENT_CONSOLIDATION_FAILED', severity: 'blocker', message }],
+      };
     }
 
     this.mergeUserEditedItems(categories, existingArtifact);
@@ -275,6 +287,72 @@ export class LiteratureKeyContentExtractionService {
     return this.readStructuredPayload(payload);
   }
 
+  private async consolidatePaperLevel(
+    literature: LiteratureRecord,
+    bundle: ExtractionSourceBundle,
+    categories: CategoryMap,
+    config: OpenAIExtractionConfig,
+    diagnostics: Record<string, unknown>[],
+  ): Promise<CategoryMap> {
+    const inputItemCount = this.countCategoryItems(categories);
+    if (inputItemCount === 0) {
+      return categories;
+    }
+
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        input: [
+          {
+            role: 'system',
+            content: [
+              'Consolidate section-level CS paper dossier items into a paper-level semantic dossier.',
+              'Deduplicate equivalent claims, preserve distinct nuanced claims, reconcile conflicts explicitly, and keep source_refs for every evidence-bearing item.',
+              'Return JSON only through the provided schema.',
+            ].join(' '),
+          },
+          {
+            role: 'user',
+            content: this.buildConsolidationPrompt(literature, bundle, categories),
+          },
+        ],
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'literature_key_content_consolidation',
+            strict: true,
+            schema: this.openAIOutputSchema(),
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI key-content consolidation failed with status ${response.status}`);
+    }
+
+    const payload = await response.json() as Record<string, unknown>;
+    const structured = this.readStructuredPayload(payload);
+    const consolidationDiagnostics = this.readDiagnostics(structured);
+    diagnostics.push(...consolidationDiagnostics);
+    const consolidated = this.normalizeCategories(structured.categories, bundle, diagnostics);
+    if (this.countCategoryItems(consolidated) === 0) {
+      throw new Error('OpenAI key-content consolidation removed all category items.');
+    }
+    diagnostics.push({
+      code: 'KEY_CONTENT_PAPER_LEVEL_CONSOLIDATED',
+      severity: 'info',
+      message: `Consolidated ${inputItemCount} section-level items into ${this.countCategoryItems(consolidated)} paper-level items.`,
+    });
+    return consolidated;
+  }
+
   private buildSectionPrompt(
     literature: LiteratureRecord,
     bundle: ExtractionSourceBundle,
@@ -300,6 +378,34 @@ export class LiteratureKeyContentExtractionService {
       anchorSummary ? `Anchors:\n${anchorSummary}` : 'Anchors: none',
       'Section text:',
       unit.text,
+    ].join('\n\n');
+  }
+
+  private buildConsolidationPrompt(
+    literature: LiteratureRecord,
+    bundle: ExtractionSourceBundle,
+    categories: CategoryMap,
+  ): string {
+    const sourceInventory = [
+      ...bundle.sections.map((section) => `section:${section.sectionId}:${section.title}`),
+      ...bundle.paragraphs.map((paragraph) => `paragraph:${paragraph.paragraphId}:section=${paragraph.sectionId}`),
+      ...bundle.anchors.map((anchor) => `anchor:${anchor.anchorId}:type=${anchor.anchorType}:label=${anchor.label ?? ''}`),
+    ].slice(0, 120);
+    return [
+      `Title: ${literature.title}`,
+      `Authors: ${literature.authors.join(', ') || 'unknown'}`,
+      `Year: ${literature.year ?? 'unknown'}`,
+      `Abstract: ${bundle.abstractProfile?.abstractText ?? 'unavailable'}`,
+      `Document id: ${bundle.document.id}`,
+      'Valid source refs:',
+      sourceInventory.join('\n') || 'none',
+      'Section-level dossier categories to consolidate:',
+      stableStringify({ categories }),
+      'Consolidation rules:',
+      '- Merge semantically equivalent duplicate claims.',
+      '- Keep fine-grained distinctions when they matter for cross-paper comparison, methods, formulas, datasets, metrics, limitations, and evidence.',
+      '- If claims conflict, keep the canonical claim and add the conflict context in notes while preserving the conflicting source_refs.',
+      '- Do not create new claims without source_refs from the valid source inventory.',
     ].join('\n\n');
   }
 
@@ -655,6 +761,10 @@ export class LiteratureKeyContentExtractionService {
 
   private emptyCategories(): CategoryMap {
     return Object.fromEntries(CATEGORY_KEYS.map((category) => [category, []])) as unknown as CategoryMap;
+  }
+
+  private countCategoryItems(categories: CategoryMap): number {
+    return CATEGORY_KEYS.reduce((sum, category) => sum + categories[category].length, 0);
   }
 
   private readString(value: unknown): string | null {

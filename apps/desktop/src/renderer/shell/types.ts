@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import type { ThemeMode } from '../theme';
 import type {
   AutoImportSubTabKey,
+  ContentProcessingSubTabKey,
   LiteratureTabKey,
   ManualImportSubTabKey,
   TitleCardPrimaryTabKey,
@@ -14,6 +15,7 @@ export type TopbarProps = {
   activeLiteratureTab: LiteratureTabKey;
   autoImportSubTab: AutoImportSubTabKey;
   manualImportSubTab: ManualImportSubTabKey;
+  contentProcessingSubTab: ContentProcessingSubTabKey;
   literatureTabs: Array<{ key: LiteratureTabKey; label: string }>;
   literatureSubTabsByTab: Partial<Record<LiteratureTabKey, Array<{ key: string; label: string }>>>;
   onSelectLiteratureTab: (tab: LiteratureTabKey) => void;
@@ -41,10 +43,6 @@ export type SidebarProps = {
   settingsPanelRef: RefObject<HTMLDivElement>;
   isDevMode: boolean;
   onToggleAppMode: () => void;
-  literatureAutoParseDocuments: boolean;
-  onLiteratureAutoParseDocumentsChange: (value: boolean) => void;
-  literatureAutoExtractAbstracts: boolean;
-  onLiteratureAutoExtractAbstractsChange: (value: boolean) => void;
   onInjectManualImportTestData: () => Promise<void>;
   onClearInjectedManualImportData: () => Promise<void>;
   onToggleSettingsPanel: () => void;

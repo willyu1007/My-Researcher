@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import type {
   LiteratureOverviewItem,
+  LiteratureTabKey,
   MetadataIntakeOpenContext,
   MetadataIntakeTabKey,
   OverviewScopeFilterInput,
@@ -64,7 +65,7 @@ function renderOverviewContentStatus(contentStatus: 'not_ready' | 'abstract_read
   }
   if (contentStatus === 'indexed') {
     return (
-      <p data-ui="text" data-variant="caption" data-tone="success" className="literature-overview-content-text is-indexed">
+      <p data-ui="text" data-variant="caption" data-tone="primary" className="literature-overview-content-text is-indexed">
         {formatOverviewContentStatus(contentStatus)}
       </p>
     );
@@ -90,7 +91,7 @@ type OverviewSummaryStats = {
 };
 
 type OverviewTabProps = {
-  activeLiteratureTab: 'auto-import' | 'manual-import' | 'overview';
+  activeLiteratureTab: LiteratureTabKey;
   overviewKeywordInput: string;
   onOverviewKeywordInputChange: (value: string) => void;
   overviewYearStartInput: string;
@@ -395,7 +396,7 @@ export function OverviewTab({
                         {renderOverviewStatus(overviewStatus)}
                         {renderOverviewContentStatus(contentStatus)}
                         {staleStages.length > 0 ? (
-                          <p data-ui="text" data-variant="caption" data-tone="warning">
+                          <p data-ui="text" data-variant="caption" data-tone="danger">
                             过期：{staleStages.join(', ')}
                           </p>
                         ) : null}
@@ -463,7 +464,7 @@ export function OverviewTab({
                             disabled={!processToRetrievableAction.enabled}
                             title={processToRetrievableAction.reason_message ?? undefined}
                             onClick={() => {
-                              onOpenMetadataIntake(item.literature_id, 'vectorize', {
+                              onOpenMetadataIntake(item.literature_id, 'retrieval-ready', {
                                 source_url: item.source_url,
                                 doi: item.doi,
                                 arxiv_id: item.arxiv_id,
@@ -483,7 +484,7 @@ export function OverviewTab({
                             disabled={!rebuildIndexAction.enabled}
                             title={rebuildIndexAction.reason_message ?? undefined}
                             onClick={() => {
-                              onOpenMetadataIntake(item.literature_id, 'vectorize', {
+                              onOpenMetadataIntake(item.literature_id, 'retrieval-ready', {
                                 source_url: item.source_url,
                                 doi: item.doi,
                                 arxiv_id: item.arxiv_id,

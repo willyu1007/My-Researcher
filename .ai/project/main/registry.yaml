@@ -331,11 +331,11 @@ tasks:
     updated: 2026-05-04
   - id: T-030
     slug: literature-content-processing-landing-roadmap
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-content-processing-landing-roadmap
-    updated: 2026-05-04
+    updated: 2026-05-05
   - id: T-031
     slug: literature-content-processing-contracts-stage-state
     status: done
@@ -380,14 +380,14 @@ tasks:
     updated: 2026-05-05
   - id: T-037
     slug: literature-backfill-operations-workbench
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-backfill-operations-workbench
     updated: 2026-05-05
   - id: T-038
     slug: literature-content-processing-cutover-verification
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-content-processing-cutover-verification
@@ -398,4 +398,11 @@ tasks:
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-citation-abstract-readiness
+    updated: 2026-05-05
+  - id: T-040
+    slug: literature-content-processing-closure-fixes
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-content-processing-closure-fixes
     updated: 2026-05-05

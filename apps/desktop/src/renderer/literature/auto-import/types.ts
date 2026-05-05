@@ -70,7 +70,6 @@ export type AutoImportControllerInput = {
   setRuleFormWeekday: StateSetter<AutoPullWeekday>;
   setRuleFormHourInput: StateSetter<string>;
   setRuleFormSortMode: StateSetter<AutoPullSortMode>;
-  setRuleFormParseAndIngest: StateSetter<boolean>;
   setRuleSourceCrossref: StateSetter<boolean>;
   setRuleSourceArxiv: StateSetter<boolean>;
   autoPullRules: AutoPullRule[];
@@ -103,7 +102,6 @@ export type AutoImportControllerInput = {
   ruleFormFrequency: AutoPullFrequency;
   ruleFormWeekday: AutoPullWeekday;
   ruleFormSortMode: AutoPullSortMode;
-  ruleFormParseAndIngest: boolean;
   ruleSourceCrossref: boolean;
   ruleSourceArxiv: boolean;
   ruleEditingId: string | null;
@@ -195,8 +193,6 @@ export type AutoImportRuleFormProps = {
   setRuleFormMaxResultsInput: StateSetter<string>;
   ruleFormMinCompletenessInput: string;
   setRuleFormMinCompletenessInput: StateSetter<string>;
-  ruleFormParseAndIngest: boolean;
-  setRuleFormParseAndIngest: StateSetter<boolean>;
   ruleFormSortMode: AutoPullSortMode;
   setRuleFormSortMode: StateSetter<AutoPullSortMode>;
   ruleFormWeekday: AutoPullWeekday;
@@ -226,7 +222,6 @@ export type AutoImportSharedProps = {
   autoPullHourOptions: AutoImportSelectOption[];
   autoPullLimitHint: string;
   autoPullLookbackHint: string;
-  autoPullParseHint: string;
   autoPullQualityHint: string;
   autoPullQualityPresetOptions: AutoImportSelectOption[];
   autoPullRunStatusLabels: Record<AutoPullRunStatus, string>;

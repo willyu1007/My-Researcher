@@ -30,9 +30,10 @@
 - 2026-05-05: `T-034` implementation landed. `KEY_CONTENT_READY` now writes `KEY_CONTENT_DOSSIER` (`key_content.v1` / `paper_semantic_dossier.v1`) from OpenAI Structured Outputs, validates source refs against abstract/fulltext anchors, preserves `user_edited` entries, and keeps `keyContentDigest` as display-only.
 - 2026-05-05: `T-035` implementation landed. Added embedding lifecycle DB fields, flat classified chunks, OpenAI embedding-only normal path, inactive `READY` versions at `EMBEDDED`, and same-version activation at `INDEXED` after smoke checks.
 - 2026-05-05: `T-036` implementation landed. Retrieve profiles now support `general`, `topic_exploration`, `paper_management`, and `writing_evidence`; retrieval returns provenance, degraded-mode metadata, and stale freshness warnings; desktop overview surfaces stale reasons without auto-running processing.
+- 2026-05-05: `T-037` implementation landed. Added durable backfill job/item/checkpoint persistence, dry-run planning, backend built-in worker, pause/resume/cancel/retry controls, cleanup dry-run, OpenAPI/shared contracts, a thin CLI client, and a desktop operations panel.
+- 2026-05-05: `T-038` cutover verification completed. Old direct backfill fan-out was removed, OpenAPI/API index/context outputs were refreshed, full verification passed, and cutover search gates found no product-path dual-track semantics.
+- 2026-05-05: Final quality pass closed T-037/T-038 drift risks by enforcing stage slot options, preserving retry workset semantics, validating date selectors and empty stage filters, recovering interrupted backfill runs, removing desktop `vectorize` product naming, and cleaning generated build/tmp artifacts.
 
 ## Open Decisions
 - Larger-corpus tuning remains open: chunk token budget/overlap, local ANN parameters, rerank/diversity policy, and superseded version cleanup policy.
-- Batch queue engine, default concurrency, budget configuration, provider rate-limit handling, and cleanup retention windows.
-- UI/API shape for content-processing workbench and rerun recovery.
-- Final cutover acceptance, old-path search, and any remaining compatibility cleanup remain owned by `T-038`.
+- Future hardening remains open for production-scale provider rate-limit policy, cleanup delete execution after dry-run, and larger-corpus performance tuning. These are follow-on operations work, not blockers for the completed cutover.

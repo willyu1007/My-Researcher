@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { AppError } from '../../errors/app-error.js';
 import type {
+  LiteratureContentAssetRecord,
   LiteratureEmbeddingVersionRecord,
   LiteratureFulltextAnchorRecord,
   LiteratureFulltextDocumentRecord,
@@ -16,6 +17,8 @@ import type {
 import type { LiteratureContentProcessingSettingsService } from '../literature-content-processing-settings-service.js';
 import { sha256Text } from '../literature-content-processing-utils.js';
 import { LiteratureKeyContentExtractionService } from '../literature-key-content-extraction-service.js';
+import { LiteratureContentProcessingFileStore } from './literature-content-processing-file-store.js';
+import { LiteratureGrobidFulltextParser, type GrobidFulltextParseResult } from './literature-grobid-fulltext-parser.js';
 
 type ChunkRecord = {
   chunk_id: string;
@@ -74,6 +77,8 @@ type ParsedAnchor = Omit<LiteratureFulltextAnchorRecord, 'id' | 'documentId' | '
 
 export class LiteratureFlowArtifactRuntime {
   private readonly keyContentExtractionService: LiteratureKeyContentExtractionService;
+  private readonly fileStore: LiteratureContentProcessingFileStore;
+  private readonly grobidParser: LiteratureGrobidFulltextParser;
 
   constructor(
     private readonly repository: LiteratureRepository,
@@ -83,6 +88,8 @@ export class LiteratureFlowArtifactRuntime {
     },
   ) {
     this.keyContentExtractionService = new LiteratureKeyContentExtractionService(repository, options.settingsService);
+    this.fileStore = new LiteratureContentProcessingFileStore(options.settingsService);
+    this.grobidParser = new LiteratureGrobidFulltextParser(options.settingsService);
   }
 
   async ensureKeyContentReady(literature: LiteratureRecord): Promise<{
@@ -158,6 +165,53 @@ export class LiteratureFlowArtifactRuntime {
       };
     }
 
+    if (this.isPdfAsset(sourceAsset.mimeType, sourceAsset.localPath)) {
+      let parsed: GrobidFulltextParseResult;
+      try {
+        parsed = await this.grobidParser.parse(sourceAsset);
+      } catch {
+        await this.repository.upsertContentAsset({
+          ...sourceAsset,
+          status: 'missing',
+          updatedAt: new Date().toISOString(),
+        });
+        return {
+          ready: false,
+          reasonCode: 'FULLTEXT_SOURCE_MISSING',
+          reasonMessage: `Registered fulltext asset is not readable: ${sourceAsset.localPath}`,
+          diagnostics: [{
+            code: 'FULLTEXT_SOURCE_MISSING',
+            severity: 'blocker',
+            local_path: sourceAsset.localPath,
+          }],
+        };
+      }
+      if (!parsed.ready) {
+        await this.repository.upsertContentAsset({
+          ...sourceAsset,
+          status: parsed.reasonCode === 'FULLTEXT_PARSER_UNAVAILABLE' ? 'registered' : 'failed',
+          updatedAt: new Date().toISOString(),
+        });
+        return parsed;
+      }
+      return this.persistFulltextPreprocessingResult({
+        literature,
+        sourceAsset,
+        normalizedText: parsed.normalizedText,
+        parserName: parsed.parserName,
+        parserVersion: parsed.parserVersion,
+        sections: parsed.sections,
+        paragraphs: parsed.paragraphs,
+        anchors: parsed.anchors,
+        diagnostics: parsed.diagnostics,
+        parserArtifact: {
+          text: parsed.teiXml,
+          mimeType: 'application/xml',
+          extension: 'tei.xml',
+        },
+      });
+    }
+
     if (!this.isTextLikeAsset(sourceAsset.mimeType, sourceAsset.localPath)) {
       await this.repository.upsertContentAsset({
         ...sourceAsset,
@@ -216,41 +270,85 @@ export class LiteratureFlowArtifactRuntime {
       ? 'markdown-v1'
       : 'plain-text-v1';
     const parsed = this.parseNormalizedText(preprocessedText);
+    return this.persistFulltextPreprocessingResult({
+      literature,
+      sourceAsset,
+      normalizedText: preprocessedText,
+      parserName,
+      parserVersion: '1',
+      sections: parsed.sections,
+      paragraphs: parsed.paragraphs,
+      anchors: parsed.anchors,
+      diagnostics: parsed.diagnostics,
+      parserArtifact: null,
+    });
+  }
+
+  private async persistFulltextPreprocessingResult(input: {
+    literature: LiteratureRecord;
+    sourceAsset: LiteratureContentAssetRecord;
+    normalizedText: string;
+    parserName: string;
+    parserVersion: string;
+    sections: ParsedSection[];
+    paragraphs: ParsedParagraph[];
+    anchors: ParsedAnchor[];
+    diagnostics: Record<string, unknown>[];
+    parserArtifact: { text: string; mimeType: string; extension: string } | null;
+  }): Promise<FulltextPreprocessingResult> {
+    const { literature, sourceAsset, normalizedText, parserName, parserVersion } = input;
     const now = new Date().toISOString();
     const existingDocument = await this.repository.findFulltextDocumentBySourceAssetId(sourceAsset.id);
     const documentId = existingDocument?.id ?? crypto.randomUUID();
-    const normalizedTextChecksum = sha256Text(preprocessedText);
+    const normalizedTextChecksum = sha256Text(normalizedText);
+    const normalizedTextFile = await this.fileStore.writeTextArtifact({
+      root: 'normalized_text',
+      literatureId: literature.id,
+      fileName: `${sourceAsset.id}-${normalizedTextChecksum.slice(0, 12)}.normalized.txt`,
+      text: normalizedText,
+    });
+    const parserArtifactFile = input.parserArtifact
+      ? await this.fileStore.writeTextArtifact({
+          root: 'artifacts_cache',
+          literatureId: literature.id,
+          fileName: `${sourceAsset.id}-${normalizedTextChecksum.slice(0, 12)}.${input.parserArtifact.extension}`,
+          text: input.parserArtifact.text,
+        })
+      : null;
     const document: LiteratureFulltextDocumentRecord = {
       id: documentId,
       literatureId: literature.id,
       sourceAssetId: sourceAsset.id,
-      normalizedText: preprocessedText,
+      normalizedText: null,
+      normalizedTextPath: normalizedTextFile.path,
       normalizedTextChecksum,
       parserName,
-      parserVersion: '1',
+      parserVersion,
+      parserArtifactPath: parserArtifactFile?.path ?? null,
+      parserArtifactMimeType: input.parserArtifact?.mimeType ?? null,
       status: 'READY',
-      diagnostics: parsed.diagnostics,
+      diagnostics: input.diagnostics,
       createdAt: existingDocument?.createdAt ?? now,
       updatedAt: now,
     };
 
     const bundle = await this.repository.upsertFulltextExtractionBundle({
       document,
-      sections: parsed.sections.map((section) => ({
+      sections: input.sections.map((section) => ({
         ...section,
         id: crypto.randomUUID(),
         documentId,
         createdAt: now,
         updatedAt: now,
       })),
-      paragraphs: parsed.paragraphs.map((paragraph) => ({
+      paragraphs: input.paragraphs.map((paragraph) => ({
         ...paragraph,
         id: crypto.randomUUID(),
         documentId,
         createdAt: now,
         updatedAt: now,
       })),
-      anchors: parsed.anchors.map((anchor) => ({
+      anchors: input.anchors.map((anchor) => ({
         ...anchor,
         id: crypto.randomUUID(),
         documentId,
@@ -265,43 +363,67 @@ export class LiteratureFlowArtifactRuntime {
       updatedAt: now,
     });
 
+    const payload = {
+      normalized_text_ref: {
+        path: normalizedTextFile.path,
+        checksum: normalizedTextChecksum,
+        byte_size: normalizedTextFile.byteSize,
+      },
+      parser_artifact_ref: parserArtifactFile
+        ? {
+            path: parserArtifactFile.path,
+            checksum: parserArtifactFile.checksum,
+            mime_type: input.parserArtifact?.mimeType ?? null,
+            byte_size: parserArtifactFile.byteSize,
+          }
+        : null,
+      document_id: bundle.document.id,
+      source_asset_id: sourceAsset.id,
+      normalized_text_checksum: normalizedTextChecksum,
+      parser_name: parserName,
+      parser_version: parserVersion,
+      sections: bundle.sections.map((section) => ({
+        section_id: section.sectionId,
+        title: section.title,
+        level: section.level,
+        start_offset: section.startOffset,
+        end_offset: section.endOffset,
+        checksum: section.checksum,
+      })),
+      paragraphs: bundle.paragraphs.map((paragraph) => ({
+        paragraph_id: paragraph.paragraphId,
+        section_id: paragraph.sectionId,
+        text: paragraph.text,
+        start_offset: paragraph.startOffset,
+        end_offset: paragraph.endOffset,
+        page_number: paragraph.pageNumber,
+        checksum: paragraph.checksum,
+      })),
+      anchors: bundle.anchors.map((anchor) => ({
+        anchor_id: anchor.anchorId,
+        anchor_type: anchor.anchorType,
+        label: anchor.label,
+        text: anchor.text,
+        page_number: anchor.pageNumber,
+        bbox: anchor.bbox,
+        checksum: anchor.checksum,
+      })),
+      diagnostics: input.diagnostics,
+      generated_at: now,
+    };
+    const payloadFile = await this.fileStore.writeJsonArtifact({
+      root: 'artifacts_cache',
+      literatureId: literature.id,
+      fileName: `${sourceAsset.id}-${normalizedTextChecksum.slice(0, 12)}.preprocessed-manifest.json`,
+      payload,
+    });
+
     const artifact = await this.upsertPipelineArtifact({
       literatureId: literature.id,
       stageCode: 'FULLTEXT_PREPROCESSED',
       artifactType: 'PREPROCESSED_TEXT',
-      payload: {
-        text: preprocessedText,
-        document_id: bundle.document.id,
-        source_asset_id: sourceAsset.id,
-        normalized_text_checksum: normalizedTextChecksum,
-        parser_name: parserName,
-        parser_version: '1',
-        sections: bundle.sections.map((section) => ({
-          section_id: section.sectionId,
-          title: section.title,
-          level: section.level,
-          start_offset: section.startOffset,
-          end_offset: section.endOffset,
-          checksum: section.checksum,
-        })),
-        paragraphs: bundle.paragraphs.map((paragraph) => ({
-          paragraph_id: paragraph.paragraphId,
-          section_id: paragraph.sectionId,
-          text: paragraph.text,
-          start_offset: paragraph.startOffset,
-          end_offset: paragraph.endOffset,
-          checksum: paragraph.checksum,
-        })),
-        anchors: bundle.anchors.map((anchor) => ({
-          anchor_id: anchor.anchorId,
-          anchor_type: anchor.anchorType,
-          label: anchor.label,
-          text: anchor.text,
-          checksum: anchor.checksum,
-        })),
-        diagnostics: parsed.diagnostics,
-        generated_at: now,
-      },
+      payload,
+      payloadPath: payloadFile.path,
       checksum: normalizedTextChecksum,
     });
 
@@ -309,14 +431,14 @@ export class LiteratureFlowArtifactRuntime {
       ready: true,
       id: artifact.id,
       artifactType: artifact.artifactType,
-      textLength: preprocessedText.length,
+      textLength: normalizedText.length,
       documentId: bundle.document.id,
       sourceAssetId: sourceAsset.id,
       normalizedTextChecksum,
       sectionCount: bundle.sections.length,
       paragraphCount: bundle.paragraphs.length,
       anchorCount: bundle.anchors.length,
-      diagnostics: parsed.diagnostics,
+      diagnostics: input.diagnostics,
     };
   }
 
@@ -579,6 +701,7 @@ export class LiteratureFlowArtifactRuntime {
     stageCode: LiteraturePipelineArtifactRecord['stageCode'];
     artifactType: LiteraturePipelineArtifactRecord['artifactType'];
     payload: Record<string, unknown>;
+    payloadPath?: string | null;
     checksum: string;
   }): Promise<LiteraturePipelineArtifactRecord> {
     const existing = await this.repository.findPipelineArtifact(input.literatureId, input.stageCode, input.artifactType);
@@ -590,6 +713,7 @@ export class LiteratureFlowArtifactRuntime {
       stageCode: input.stageCode,
       artifactType: input.artifactType,
       payload: input.payload,
+      payloadPath: input.payloadPath ?? null,
       checksum: input.checksum,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
@@ -600,6 +724,12 @@ export class LiteratureFlowArtifactRuntime {
 
   private isTextLikeAsset(mimeType: string, localPath: string): boolean {
     return this.isPlainTextAsset(mimeType, localPath) || this.isMarkdownAsset(mimeType, localPath);
+  }
+
+  private isPdfAsset(mimeType: string, localPath: string): boolean {
+    const lowerMime = mimeType.toLowerCase();
+    const extension = path.extname(localPath).toLowerCase();
+    return lowerMime === 'application/pdf' || extension === '.pdf';
   }
 
   private isPlainTextAsset(mimeType: string, localPath: string): boolean {
@@ -924,8 +1054,20 @@ export class LiteratureFlowArtifactRuntime {
       }));
     }
 
-    const text = typeof preprocessed.payload.text === 'string' ? preprocessed.payload.text : '';
     const sections = Array.isArray(preprocessed.payload.sections) ? preprocessed.payload.sections : [];
+    const paragraphs = Array.isArray(preprocessed.payload.paragraphs) ? preprocessed.payload.paragraphs : [];
+    const paragraphTextBySection = new Map<string, string[]>();
+    for (const paragraph of paragraphs) {
+      const row = this.readRecord(paragraph);
+      if (!row) {
+        continue;
+      }
+      const sectionId = this.readString(row.section_id);
+      const text = this.readString(row.text);
+      if (sectionId && text) {
+        paragraphTextBySection.set(sectionId, [...(paragraphTextBySection.get(sectionId) ?? []), text]);
+      }
+    }
     for (const section of sections) {
       const row = this.readRecord(section);
       if (!row) {
@@ -933,11 +1075,11 @@ export class LiteratureFlowArtifactRuntime {
       }
       const startOffset = this.readNumber(row.start_offset, 0);
       const endOffset = this.readNumber(row.end_offset, startOffset);
-      const sectionText = text.slice(startOffset, endOffset).trim();
+      const sectionId = this.readString(row.section_id) ?? 'section';
+      const sectionText = (paragraphTextBySection.get(sectionId) ?? []).join('\n\n').trim();
       if (!sectionText) {
         continue;
       }
-      const sectionId = this.readString(row.section_id) ?? 'section';
       chunks.push(this.buildChunk({
         chunkType: 'fulltext_section',
         text: sectionText.slice(0, 4000),
@@ -959,7 +1101,6 @@ export class LiteratureFlowArtifactRuntime {
       }));
     }
 
-    const paragraphs = Array.isArray(preprocessed.payload.paragraphs) ? preprocessed.payload.paragraphs : [];
     for (const paragraph of paragraphs) {
       const row = this.readRecord(paragraph);
       if (!row) {

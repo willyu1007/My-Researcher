@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const CONTENT_PROCESSING_STAGE_CODES = [
+const STAGE_CODES = [
   'CITATION_NORMALIZED',
   'ABSTRACT_READY',
   'FULLTEXT_PREPROCESSED',
@@ -10,175 +8,177 @@ const CONTENT_PROCESSING_STAGE_CODES = [
   'INDEXED',
 ];
 
+const RIGHTS_CLASSES = ['OA', 'USER_AUTH', 'RESTRICTED', 'UNKNOWN'];
+
 function parseArgs(argv) {
   const args = {
     apply: false,
-    batchSize: 200,
-    concurrency: 4,
     baseUrl: process.env.BACKFILL_BASE_URL ?? 'http://127.0.0.1:3000',
+    targetStage: 'INDEXED',
+    topicId: null,
+    paperId: null,
+    literatureIds: [],
+    rightsClasses: [],
+    updatedAtFrom: null,
+    updatedAtTo: null,
+    maxParallelLiteratureRuns: 1,
+    extractionConcurrency: 1,
+    embeddingConcurrency: 1,
+    providerCallBudget: null,
   };
 
-  for (let i = 0; i < argv.length; i += 1) {
-    const token = argv[i];
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
     if (token === '--apply') {
       args.apply = true;
       continue;
     }
-    if (token === '--batch-size') {
-      args.batchSize = Number.parseInt(argv[i + 1] ?? '', 10) || args.batchSize;
-      i += 1;
-      continue;
-    }
-    if (token === '--concurrency') {
-      args.concurrency = Number.parseInt(argv[i + 1] ?? '', 10) || args.concurrency;
-      i += 1;
-      continue;
-    }
     if (token === '--base-url') {
-      args.baseUrl = String(argv[i + 1] ?? args.baseUrl);
-      i += 1;
+      args.baseUrl = String(argv[index + 1] ?? args.baseUrl);
+      index += 1;
       continue;
+    }
+    if (token === '--target-stage') {
+      args.targetStage = String(argv[index + 1] ?? args.targetStage);
+      index += 1;
+      continue;
+    }
+    if (token === '--topic-id') {
+      args.topicId = String(argv[index + 1] ?? '').trim() || null;
+      index += 1;
+      continue;
+    }
+    if (token === '--paper-id') {
+      args.paperId = String(argv[index + 1] ?? '').trim() || null;
+      index += 1;
+      continue;
+    }
+    if (token === '--literature-ids') {
+      args.literatureIds = splitList(argv[index + 1] ?? '');
+      index += 1;
+      continue;
+    }
+    if (token === '--rights-classes') {
+      args.rightsClasses = splitList(argv[index + 1] ?? '');
+      index += 1;
+      continue;
+    }
+    if (token === '--updated-at-from') {
+      args.updatedAtFrom = parseDateTimeArg(argv[index + 1], '--updated-at-from');
+      index += 1;
+      continue;
+    }
+    if (token === '--updated-at-to') {
+      args.updatedAtTo = parseDateTimeArg(argv[index + 1], '--updated-at-to');
+      index += 1;
+      continue;
+    }
+    if (token === '--max-parallel-literature-runs') {
+      args.maxParallelLiteratureRuns = parsePositiveInt(argv[index + 1], args.maxParallelLiteratureRuns);
+      index += 1;
+      continue;
+    }
+    if (token === '--extraction-concurrency') {
+      args.extractionConcurrency = parsePositiveInt(argv[index + 1], args.extractionConcurrency);
+      index += 1;
+      continue;
+    }
+    if (token === '--embedding-concurrency') {
+      args.embeddingConcurrency = parsePositiveInt(argv[index + 1], args.embeddingConcurrency);
+      index += 1;
+      continue;
+    }
+    if (token === '--provider-call-budget') {
+      args.providerCallBudget = parsePositiveInt(argv[index + 1], null);
+      index += 1;
     }
   }
 
-  args.batchSize = Math.max(1, args.batchSize);
-  args.concurrency = Math.max(1, args.concurrency);
+  if (!STAGE_CODES.includes(args.targetStage)) {
+    throw new Error(`Unsupported --target-stage ${args.targetStage}.`);
+  }
+  const invalidRightsClass = args.rightsClasses.find((value) => !RIGHTS_CLASSES.includes(value));
+  if (invalidRightsClass) {
+    throw new Error(`Unsupported --rights-classes value ${invalidRightsClass}.`);
+  }
+
   args.baseUrl = args.baseUrl.replace(/\/+$/, '');
   return args;
 }
 
-function chunk(items, size) {
-  const result = [];
-  for (let index = 0; index < items.length; index += size) {
-    result.push(items.slice(index, index + size));
+function splitList(value) {
+  return String(value)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseDateTimeArg(value, flagName) {
+  const input = String(value ?? '').trim();
+  if (!input) {
+    throw new Error(`${flagName} requires a date-time value.`);
   }
-  return result;
+  const timestamp = Date.parse(input);
+  if (Number.isNaN(timestamp)) {
+    throw new Error(`${flagName} must be a valid date-time value.`);
+  }
+  return new Date(timestamp).toISOString();
 }
 
-function buildMissingStages(stageStatusMap) {
-  return CONTENT_PROCESSING_STAGE_CODES.filter((stageCode) => stageStatusMap.get(stageCode) !== 'SUCCEEDED');
+function buildRequest(args) {
+  return {
+    target_stage: args.targetStage,
+    workset: {
+      ...(args.topicId ? { topic_id: args.topicId } : {}),
+      ...(args.paperId ? { paper_id: args.paperId } : {}),
+      ...(args.literatureIds.length > 0 ? { literature_ids: args.literatureIds } : {}),
+      ...(args.rightsClasses.length > 0 ? { rights_classes: args.rightsClasses } : {}),
+      ...(args.updatedAtFrom ? { updated_at_from: args.updatedAtFrom } : {}),
+      ...(args.updatedAtTo ? { updated_at_to: args.updatedAtTo } : {}),
+      stage_filters: {
+        missing: true,
+        stale: true,
+        failed: true,
+      },
+    },
+    options: {
+      max_parallel_literature_runs: args.maxParallelLiteratureRuns,
+      extraction_concurrency: args.extractionConcurrency,
+      embedding_concurrency: args.embeddingConcurrency,
+      ...(args.providerCallBudget ? { provider_call_budget: args.providerCallBudget } : {}),
+    },
+  };
 }
 
-async function enqueueRun(baseUrl, literatureId, requestedStages) {
-  const response = await fetch(`${baseUrl}/literature/${encodeURIComponent(literatureId)}/content-processing/runs`, {
+async function requestJson(baseUrl, path, body) {
+  const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ requested_stages: requestedStages }),
+    body: JSON.stringify(body),
   });
-
+  const payload = await response.json().catch(async () => ({ message: await response.text() }));
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`HTTP ${response.status}: ${body.slice(0, 500)}`);
+    throw new Error(`HTTP ${response.status}: ${JSON.stringify(payload).slice(0, 1000)}`);
   }
-
-  const payload = await response.json();
-  return payload?.run ?? null;
+  return payload;
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const prisma = new PrismaClient();
-
-  const startedAt = new Date().toISOString();
-  const summary = {
-    started_at: startedAt,
-    mode: args.apply ? 'apply' : 'dry-run',
-    total_literatures: 0,
-    skipped_no_missing_stage: 0,
-    planned_trigger_count: 0,
-    triggered_count: 0,
-    skipped_run_count: 0,
-    failed_count: 0,
-    failure_reasons: {},
-    options: {
-      batch_size: args.batchSize,
-      concurrency: args.concurrency,
-      base_url: args.baseUrl,
-    },
-  };
-
-  try {
-    const literatures = await prisma.literatureRecord.findMany({
-      select: { id: true },
-      orderBy: { id: 'asc' },
-    });
-    summary.total_literatures = literatures.length;
-
-    const stageRows = await prisma.literaturePipelineStageState.findMany({
-      select: {
-        literatureId: true,
-        stageCode: true,
-        status: true,
-      },
-    });
-
-    const stageStatusByLiterature = new Map();
-    for (const row of stageRows) {
-      const stageMap = stageStatusByLiterature.get(row.literatureId) ?? new Map();
-      stageMap.set(row.stageCode, row.status);
-      stageStatusByLiterature.set(row.literatureId, stageMap);
-    }
-
-    const tasks = [];
-    for (const literature of literatures) {
-      const stageStatusMap = stageStatusByLiterature.get(literature.id) ?? new Map();
-      const missingStages = buildMissingStages(stageStatusMap);
-      if (missingStages.length === 0) {
-        summary.skipped_no_missing_stage += 1;
-        continue;
-      }
-      summary.planned_trigger_count += 1;
-      tasks.push({
-        literatureId: literature.id,
-        missingStages,
-      });
-    }
-
-    if (!args.apply) {
-      summary.finished_at = new Date().toISOString();
-      console.log(JSON.stringify(summary, null, 2));
-      return;
-    }
-
-    const taskChunks = chunk(tasks, args.batchSize);
-
-    for (const taskChunk of taskChunks) {
-      let cursor = 0;
-      const workers = Array.from({ length: args.concurrency }, async () => {
-        while (cursor < taskChunk.length) {
-          const current = taskChunk[cursor];
-          cursor += 1;
-          if (!current) {
-            continue;
-          }
-
-          try {
-            const run = await enqueueRun(args.baseUrl, current.literatureId, current.missingStages);
-            const runStatus = typeof run?.status === 'string' ? run.status : null;
-            if (runStatus === 'SKIPPED') {
-              summary.skipped_run_count += 1;
-            } else {
-              summary.triggered_count += 1;
-            }
-          } catch (error) {
-            summary.failed_count += 1;
-            const reason = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
-            summary.failure_reasons[reason] = (summary.failure_reasons[reason] ?? 0) + 1;
-          }
-        }
-      });
-
-      await Promise.all(workers);
-    }
-
-    summary.finished_at = new Date().toISOString();
-    console.log(JSON.stringify(summary, null, 2));
-  } finally {
-    await prisma.$disconnect();
-  }
+  const body = buildRequest(args);
+  const path = args.apply
+    ? '/literature/content-processing/backfill/jobs'
+    : '/literature/content-processing/backfill/dry-runs';
+  const payload = await requestJson(args.baseUrl, path, body);
+  console.log(JSON.stringify(payload, null, 2));
 }
 
 main().catch((error) => {

@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-05-05T02:12:08.510Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `1a2766ce9343...`)
+> Auto-generated at 2026-05-05T15:36:47.503Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `0d7ff106dae9...`)
 
-Total endpoints: **69**
+Total endpoints: **80**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -33,8 +33,19 @@ Total endpoints: **69**
 | GET | /literature/{literatureId}/content-processing | Get content-processing aggregate state and stage states for a literature. | none | literatureId | literature_id, state, stage_states | 404, 500 |
 | GET | /literature/{literatureId}/content-processing/runs | List content-processing runs for one literature. | none | literatureId | literature_id, items | 404, 500 |
 | POST | /literature/{literatureId}/content-processing/runs | Trigger a content-processing run for one literature. | none | literatureId | run | 400, 404, 500 |
-| GET | /settings/literature-content-processing | Get redacted provider, extraction profile, embedding profile, and storage root settings for literature content processing. | none | — | providers, embedding, extraction, storage_roots, updated_at | 500 |
-| PATCH | /settings/literature-content-processing | Update provider API key, extraction profile, embedding profile, and storage root settings for literature content processing. | none | — | providers, embedding, extraction, storage_roots, updated_at | 400, 500 |
+| POST | /literature/content-processing/backfill/dry-runs | Plan a durable content-processing backfill without provider calls or writes. | none | — | estimate | 400, 500 |
+| GET | /literature/content-processing/backfill/jobs | List recent durable content-processing backfill jobs. | none | — | items | 500 |
+| POST | /literature/content-processing/backfill/jobs | Create a durable content-processing backfill job. | none | — | job | 400, 500 |
+| GET | /literature/content-processing/backfill/jobs/{jobId} | Get a durable content-processing backfill job with item checkpoints. | none | jobId | job | 404, 500 |
+| DELETE | /literature/content-processing/backfill/jobs/{jobId} | Delete a non-active durable content-processing backfill job and its item checkpoints. | none | jobId | — | 404, 409, 500 |
+| POST | /literature/content-processing/backfill/jobs/{jobId}/pause | Pause a durable content-processing backfill job after in-flight stages settle. | none | jobId | job | 400, 404, 500 |
+| POST | /literature/content-processing/backfill/jobs/{jobId}/resume | Resume a paused durable content-processing backfill job. | none | jobId | job | 400, 404, 500 |
+| POST | /literature/content-processing/backfill/jobs/{jobId}/cancel | Cancel a durable content-processing backfill job and stop scheduling new stages. | none | jobId | job | 400, 404, 500 |
+| POST | /literature/content-processing/backfill/jobs/{jobId}/retry-failed | Requeue retryable failed items in a durable content-processing backfill job. | none | jobId | job | 400, 404, 500 |
+| POST | /literature/content-processing/cleanup/dry-runs | Plan cleanup candidates for non-active content-processing indexes without deleting data. | none | — | generated_at, retention_days, candidate_count, protected_active_version_count, protected_raw_asset_count, estimated_chunks_to_remove, estimated_token_indexes_to_remove, candidates | 400, 500 |
+| GET | /settings/literature-content-processing | Get redacted provider, extraction profile, embedding profile, and storage root settings for literature content processing. | none | — | providers, embedding, extraction, storage_roots, effective_storage_roots, fulltext_parser, updated_at | 500 |
+| PATCH | /settings/literature-content-processing | Update provider API key, extraction profile, embedding profile, and storage root settings for literature content processing. | none | — | providers, embedding, extraction, storage_roots, effective_storage_roots, fulltext_parser, updated_at | 400, 500 |
+| GET | /settings/literature-content-processing/fulltext-parser/health | Check the configured GROBID fulltext parser health for literature content processing. | none | — | provider, endpoint_url, status, checked_at, version, details | 500 |
 | GET | /topics/settings | List topic profiles. | none | — | items | 500 |
 | POST | /topics/settings | Create a topic profile. | none | topic_id, name | topic_id, name, is_active, include_keywords, exclude_keywords, venue_filters, default_lookback_days, default_min_year, default_max_year, rule_ids, created_at, updated_at | 400, 409, 500 |
 | PATCH | /topics/settings/{topicId} | Update a topic profile. | none | topicId | topic_id, name, is_active, include_keywords, exclude_keywords, venue_filters, default_lookback_days, default_min_year, default_max_year, rule_ids, created_at, updated_at | 400, 404, 500 |

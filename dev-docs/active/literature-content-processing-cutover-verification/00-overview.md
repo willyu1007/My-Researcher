@@ -1,9 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: planned
+- State: done
 - Parent: `T-030 literature-content-processing-landing-roadmap`
-- Next step: define final cutover checklist after child implementation packages are sequenced.
+- Next step: none; collection -> explicit processing -> retrieval cutover has passed verification.
 
 ## Goal
 - Directly replace the old placeholder implementation and verify there is no semantic dual-track left behind.
@@ -21,7 +21,7 @@
 - Final handoff and archival criteria for parent/child tasks.
 
 ## Acceptance Criteria
-- Old placeholder paths are removed or explicitly dev/test-only.
-- No old stage order or hidden dual run path remains.
-- End-to-end collection -> explicit processing -> retrieval passes.
-- Verification commands and evidence are recorded.
+- [x] Old placeholder paths are removed or explicitly dev/test-only.
+- [x] No old stage order or hidden dual run path remains.
+- [x] End-to-end collection -> explicit processing -> retrieval passes.
+- [x] Verification commands and evidence are recorded.

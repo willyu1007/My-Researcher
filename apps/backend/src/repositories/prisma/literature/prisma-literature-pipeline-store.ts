@@ -153,6 +153,7 @@ export class PrismaLiteraturePipelineStore {
         where: { id: existing.id },
         data: {
           payload: record.payload as Prisma.InputJsonValue,
+          payloadPath: record.payloadPath,
           checksum: record.checksum,
           updatedAt: new Date(record.updatedAt),
         },
@@ -167,6 +168,7 @@ export class PrismaLiteraturePipelineStore {
         stageCode: record.stageCode,
         artifactType: record.artifactType,
         payload: record.payload as Prisma.InputJsonValue,
+        payloadPath: record.payloadPath,
         checksum: record.checksum,
         createdAt: new Date(record.createdAt),
         updatedAt: new Date(record.updatedAt),

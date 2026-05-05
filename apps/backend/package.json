@@ -16,8 +16,9 @@
     "content-processing:backfill": "node scripts/backfill-literature-content-processing.mjs"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
     "@paper-engineering-assistant/shared": "workspace:*",
+    "@prisma/client": "^5.22.0",
+    "fast-xml-parser": "^5.7.3",
     "fastify": "^4.29.1"
   },
   "devDependencies": {

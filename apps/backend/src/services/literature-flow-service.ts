@@ -8,6 +8,7 @@ import type {
   LiteratureContentProcessingStageCode,
   LiteratureContentProcessingStageStatus,
   LiteratureContentProcessingStageStatusMap,
+  LiteratureContentProcessingTriggerSource,
   LiteratureContentProcessingStateDTO,
   ListLiteratureContentProcessingRunsResponse,
   RightsClass,
@@ -53,7 +54,7 @@ const DEEP_PIPELINE_STAGES: LiteratureContentProcessingStageCode[] = [
 const PIPELINE_ACTION_REASON_MESSAGES: Record<LiteratureContentProcessingActionReasonCode, string> = {
   READY: '可以执行。',
   EXCLUDED_BY_SCOPE: '当前文献已被排除，不可执行该动作。',
-  RIGHTS_RESTRICTED: 'RESTRICTED 文献禁止全文预处理与向量化。',
+  RIGHTS_RESTRICTED: 'RESTRICTED 文献禁止全文预处理与嵌入/索引。',
   USER_AUTH_DISABLED: 'USER_AUTH 文献需开启全局开关后才可执行。',
   PREREQUISITE_NOT_READY: '前置阶段尚未就绪。',
   STAGE_ALREADY_READY: '目标阶段已完成。',
@@ -148,6 +149,7 @@ export class LiteratureFlowService {
   async triggerContentProcessingRun(
     literatureId: string,
     requestedStages?: LiteratureContentProcessingStageCode[],
+    triggerSource: LiteratureContentProcessingTriggerSource = 'CONTENT_PROCESSING_ACTION',
   ): Promise<LiteratureContentProcessingRunDTO> {
     await this.ensurePipelineScaffold(literatureId);
     const stages = requestedStages?.length
@@ -155,7 +157,7 @@ export class LiteratureFlowService {
       : [...DEFAULT_EXECUTABLE_STAGES];
     const run = await this.pipelineOrchestrator.enqueueRun({
       literatureId,
-      triggerSource: 'CONTENT_PROCESSING_ACTION',
+      triggerSource,
       requestedStages: stages,
     });
     return this.toPipelineRunDTO(run);

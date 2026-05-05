@@ -52,7 +52,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
     ruleFormLookbackInput,
     ruleFormMaxResultsInput,
     ruleFormMinCompletenessInput,
-    ruleFormParseAndIngest,
     ruleFormSortMode,
     ruleFormWeekday,
     ruleSourceArxiv,
@@ -63,7 +62,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
     setRuleFormLookbackInput,
     setRuleFormMaxResultsInput,
     setRuleFormMinCompletenessInput,
-    setRuleFormParseAndIngest,
     setRuleFormSortMode,
     setRuleFormWeekday,
     setRuleSourceArxiv,
@@ -74,7 +72,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
     autoPullHourOptions,
     autoPullLimitHint,
     autoPullLookbackHint,
-    autoPullParseHint,
     autoPullQualityHint,
     autoPullQualityPresetOptions,
     autoPullSortHint,
@@ -373,11 +370,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
     return sourceConfig.sort_mode === 'hybrid_score' ? '综合评分' : '大模型打分';
   };
 
-  const formatRuleParseAndIngestLabel = (rule: AutoPullRule): string => {
-    const sourceConfig = getRuleSourceConfig(rule);
-    return sourceConfig.parse_and_ingest === true ? '开启' : '关闭';
-  };
-
   const handleCloseActiveRuleEditor = () => {
     if (inlineAdvancedSaveTimeoutRef.current !== null) {
       window.clearTimeout(inlineAdvancedSaveTimeoutRef.current);
@@ -656,41 +648,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
               </div>
             </div>
           </div>
-          <div className="topic-rule-editor-card topic-rule-editor-card-wide">
-            <div data-ui="field" className="topic-rule-card-field topic-rule-toggle-field">
-              <span data-slot="label" className="field-label-with-help">
-                解析内容并入库
-                <span
-                  className="field-label-help"
-                  data-help={autoPullParseHint}
-                  aria-label="解析内容并入库说明"
-                  tabIndex={0}
-                  onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                  onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-                >
-                  ?
-                </span>
-              </span>
-              <div className="rule-option-toggle" role="group" aria-label="解析内容并入库">
-                <button
-                  type="button"
-                  className={`rule-option-toggle-button${!ruleFormParseAndIngest ? ' is-active' : ''}`}
-                  onClick={() => setRuleFormParseAndIngest(false)}
-                  aria-pressed={!ruleFormParseAndIngest}
-                >
-                  关闭
-                </button>
-                <button
-                  type="button"
-                  className={`rule-option-toggle-button${ruleFormParseAndIngest ? ' is-active' : ''}`}
-                  onClick={() => setRuleFormParseAndIngest(true)}
-                  aria-pressed={ruleFormParseAndIngest}
-                >
-                  开启
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
         {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
       </section>
@@ -833,51 +790,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
             </button>
           </div>
         </div>
-        <div data-ui="field" className="rule-center-advanced-field rule-center-advanced-field-wide">
-          <span data-slot="label" className="field-label-with-help">
-            解析内容并入库
-            <span
-              className="field-label-help"
-              data-help={autoPullParseHint}
-              aria-label="解析内容并入库说明"
-              tabIndex={0}
-              onMouseEnter={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-              onFocus={(event) => updateHelpTooltipAlignment(event.currentTarget)}
-            >
-              ?
-            </span>
-          </span>
-          <div className="rule-option-toggle rule-center-advanced-toggle" role="group" aria-label="解析内容并入库">
-            <button
-              type="button"
-              className={`rule-option-toggle-button${!ruleFormParseAndIngest ? ' is-active' : ''}`}
-              onClick={() => {
-                if (!ruleFormParseAndIngest) {
-                  return;
-                }
-                setRuleFormParseAndIngest(false);
-                queueInlineAdvancedSave();
-              }}
-              aria-pressed={!ruleFormParseAndIngest}
-            >
-              关闭
-            </button>
-            <button
-              type="button"
-              className={`rule-option-toggle-button${ruleFormParseAndIngest ? ' is-active' : ''}`}
-              onClick={() => {
-                if (ruleFormParseAndIngest) {
-                  return;
-                }
-                setRuleFormParseAndIngest(true);
-                queueInlineAdvancedSave();
-              }}
-              aria-pressed={ruleFormParseAndIngest}
-            >
-              开启
-            </button>
-          </div>
-        </div>
       </div>
       {rulesError ? <p data-ui="text" data-variant="caption" data-tone="danger">{rulesError}</p> : null}
     </section>
@@ -908,10 +820,6 @@ export function AutoImportTab(props: AutoImportTabProps) {
       <div className="topic-rule-preview-item">
         <dt>排序规则</dt>
         <dd>{formatRuleSortModeLabel(rule)}</dd>
-      </div>
-      <div className="topic-rule-preview-item">
-        <dt>解析内容并入库</dt>
-        <dd>{formatRuleParseAndIngestLabel(rule)}</dd>
       </div>
     </dl>
   );

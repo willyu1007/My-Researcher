@@ -106,16 +106,32 @@ async function waitForTerminalRun(repository: LiteratureRepository, runId: strin
   throw new Error(`Timed out waiting for run ${runId}.`);
 }
 
-function createMockSettingsService(): LiteratureContentProcessingSettingsService {
+function createMockSettingsService(
+  options: { grobidEndpointUrl?: string } = {},
+): LiteratureContentProcessingSettingsService {
+  const root = path.join(os.tmpdir(), `pea-lit-content-processing-${crypto.randomUUID()}`);
+  tempDirs.add(root);
   return {
+    resolveStorageRoot: async (key: string) => {
+      const directory = path.join(root, String(key));
+      await fs.mkdir(directory, { recursive: true });
+      return directory;
+    },
+    resolveGrobidEndpointUrl: async () => options.grobidEndpointUrl ?? 'http://localhost:8070',
     resolveOpenAIExtractionConfig: async () => ({
       apiKey: 'sk-test',
-      model: 'gpt-5-mini',
+      model: 'gpt-5.4-mini',
       profileId: 'default',
     }),
     resolveOpenAIEmbeddingConfig: async () => ({
       apiKey: 'sk-test',
       profileId: 'default',
+      model: 'text-embedding-3-large',
+      dimensions: 3,
+    }),
+    resolveActiveEmbeddingProfile: async () => ({
+      profileId: 'default',
+      provider: 'openai',
       model: 'text-embedding-3-large',
       dimensions: 3,
     }),
@@ -154,6 +170,40 @@ function mockOpenAIContentProcessing(): () => void {
   return () => {
     globalThis.fetch = previousFetch;
   };
+}
+
+function mockGrobidFulltext(response: { status: number; body?: string; throwError?: boolean }): () => void {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+    const url = String(input);
+    if (url.endsWith('/api/processFulltextDocument')) {
+      if (response.throwError) {
+        throw new Error('connect ECONNREFUSED');
+      }
+      return new Response(response.status === 204 ? null : response.body ?? '', {
+        status: response.status,
+        headers: { 'Content-Type': 'application/xml' },
+      });
+    }
+    return new Response('{}', { status: 404 });
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = previousFetch;
+  };
+}
+
+function buildGrobidTeiFixture(): string {
+  return [
+    '<TEI xmlns="http://www.tei-c.org/ns/1.0">',
+    '<text><body>',
+    '<div xml:id="section-0001" coords="1,10,20,500,40">',
+    '<head>Method</head>',
+    '<p xml:id="para-0001" coords="1,10,70,500,80">The PDF method preserves section paragraphs and layout anchors.</p>',
+    '<figure xml:id="figure-0001" coords="2,20,30,240,120"><label>Figure 1</label><figDesc>Processing architecture.</figDesc></figure>',
+    '</div>',
+    '</body></text>',
+    '</TEI>',
+  ].join('');
 }
 
 function buildMockDossierPayload() {
@@ -298,31 +348,117 @@ test('literature flow blocks KEY_CONTENT_READY when extraction provider is not c
   assert.equal(keyStage?.status, 'BLOCKED');
 });
 
-test('literature flow blocks unsupported PDF fulltext parser with diagnostics', async () => {
+test('literature flow blocks PDF preprocessing when GROBID is unavailable', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureFlowService(repository);
-  await seedLiterature(repository, 'LIT-FLOW-PDF-UNSUPPORTED', 'OA', {
-    abstractText: 'Trusted abstract for unsupported PDF parser.',
-    fulltextText: '%PDF-1.4 unsupported parser fixture',
+  const service = new LiteratureFlowService(repository, createMockSettingsService({
+    grobidEndpointUrl: 'http://grobid.test',
+  }));
+  const restoreFetch = mockGrobidFulltext({ status: 503, throwError: true });
+  await seedLiterature(repository, 'LIT-FLOW-PDF-UNAVAILABLE', 'OA', {
+    abstractText: 'Trusted abstract for unavailable PDF parser.',
+    fulltextText: '%PDF-1.4 unavailable parser fixture',
     fulltextExtension: '.pdf',
   });
 
-  const run = await service.triggerContentProcessingRun('LIT-FLOW-PDF-UNSUPPORTED', [
-    'ABSTRACT_READY',
-    'FULLTEXT_PREPROCESSED',
-  ]);
-  const terminal = await waitForTerminalRun(repository, run.run_id);
-  assert.equal(terminal.status, 'PARTIAL');
-  assert.equal(terminal.errorCode, 'FULLTEXT_PARSER_UNSUPPORTED');
+  try {
+    const run = await service.triggerContentProcessingRun('LIT-FLOW-PDF-UNAVAILABLE', [
+      'ABSTRACT_READY',
+      'FULLTEXT_PREPROCESSED',
+    ]);
+    const terminal = await waitForTerminalRun(repository, run.run_id);
+    assert.equal(terminal.status, 'PARTIAL');
+    assert.equal(terminal.errorCode, 'FULLTEXT_PARSER_UNAVAILABLE');
+  } finally {
+    restoreFetch();
+  }
 
-  const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-PDF-UNSUPPORTED');
+  const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-PDF-UNAVAILABLE');
   const fulltext = stageStates.find((item) => item.stageCode === 'FULLTEXT_PREPROCESSED');
   assert.equal(fulltext?.status, 'BLOCKED');
-  assert.equal(fulltext?.detail.reason_code, 'FULLTEXT_PARSER_UNSUPPORTED');
+  assert.equal(fulltext?.detail.reason_code, 'FULLTEXT_PARSER_UNAVAILABLE');
   assert.equal(Array.isArray(fulltext?.detail.diagnostics), true);
 
-  const assets = await repository.listContentAssetsByLiteratureId('LIT-FLOW-PDF-UNSUPPORTED');
-  assert.equal(assets[0]?.status, 'unsupported');
+  const assets = await repository.listContentAssetsByLiteratureId('LIT-FLOW-PDF-UNAVAILABLE');
+  assert.equal(assets[0]?.status, 'registered');
+});
+
+test('literature flow preprocesses PDF through GROBID and writes file-backed artifacts', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository, createMockSettingsService({
+    grobidEndpointUrl: 'http://grobid.test',
+  }));
+  const restoreFetch = mockGrobidFulltext({ status: 200, body: buildGrobidTeiFixture() });
+  await seedLiterature(repository, 'LIT-FLOW-PDF-GROBID', 'OA', {
+    abstractText: 'Trusted abstract for GROBID PDF parser.',
+    fulltextText: '%PDF-1.4 grobid parser fixture',
+    fulltextExtension: '.pdf',
+  });
+
+  try {
+    const run = await service.triggerContentProcessingRun('LIT-FLOW-PDF-GROBID', [
+      'ABSTRACT_READY',
+      'FULLTEXT_PREPROCESSED',
+    ]);
+    const terminal = await waitForTerminalRun(repository, run.run_id);
+    assert.equal(terminal.status, 'SUCCESS');
+  } finally {
+    restoreFetch();
+  }
+
+  const documents = await repository.listFulltextDocumentsByLiteratureId('LIT-FLOW-PDF-GROBID');
+  const document = documents[0];
+  assert.ok(document);
+  assert.equal(document.normalizedText, null);
+  assert.ok(document.normalizedTextPath);
+  assert.ok(document.parserArtifactPath);
+  assert.equal(document.parserArtifactMimeType, 'application/xml');
+  assert.match(await fs.readFile(document.normalizedTextPath, 'utf8'), /PDF method preserves/);
+  assert.match(await fs.readFile(document.parserArtifactPath, 'utf8'), /<TEI/);
+
+  const sections = await repository.listFulltextSectionsByDocumentId(document.id);
+  const paragraphs = await repository.listFulltextParagraphsByDocumentId(document.id);
+  const anchors = await repository.listFulltextAnchorsByDocumentId(document.id);
+  assert.equal(sections.length, 1);
+  assert.equal(paragraphs.length, 1);
+  assert.equal(anchors.some((anchor) => anchor.anchorType === 'figure' && anchor.bbox !== null), true);
+
+  const artifact = await repository.findPipelineArtifact(
+    'LIT-FLOW-PDF-GROBID',
+    'FULLTEXT_PREPROCESSED',
+    'PREPROCESSED_TEXT',
+  );
+  assert.ok(artifact?.payloadPath);
+  assert.match(await fs.readFile(artifact.payloadPath, 'utf8'), /normalized_text_ref/);
+});
+
+test('literature flow marks scanned PDFs as OCR required', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository, createMockSettingsService({
+    grobidEndpointUrl: 'http://grobid.test',
+  }));
+  const restoreFetch = mockGrobidFulltext({ status: 204 });
+  await seedLiterature(repository, 'LIT-FLOW-PDF-OCR', 'OA', {
+    abstractText: 'Trusted abstract for scanned PDF parser.',
+    fulltextText: '%PDF-1.4 scanned parser fixture',
+    fulltextExtension: '.pdf',
+  });
+
+  try {
+    const run = await service.triggerContentProcessingRun('LIT-FLOW-PDF-OCR', [
+      'ABSTRACT_READY',
+      'FULLTEXT_PREPROCESSED',
+    ]);
+    const terminal = await waitForTerminalRun(repository, run.run_id);
+    assert.equal(terminal.status, 'PARTIAL');
+    assert.equal(terminal.errorCode, 'FULLTEXT_OCR_REQUIRED');
+  } finally {
+    restoreFetch();
+  }
+
+  const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-PDF-OCR');
+  const fulltext = stageStates.find((item) => item.stageCode === 'FULLTEXT_PREPROCESSED');
+  assert.equal(fulltext?.status, 'BLOCKED');
+  assert.equal(fulltext?.detail.reason_code, 'FULLTEXT_OCR_REQUIRED');
 });
 
 test('literature flow blocks FULLTEXT_PREPROCESSED when no raw asset is registered', async () => {

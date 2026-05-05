@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { AutoPullController } from './controllers/auto-pull-controller.js';
+import { LiteratureBackfillController } from './controllers/literature-backfill-controller.js';
 import { LiteratureContentProcessingSettingsController } from './controllers/literature-content-processing-settings-controller.js';
 import { LiteratureController } from './controllers/literature-controller.js';
 import { TopicSettingsController } from './controllers/topic-settings-controller.js';
@@ -16,6 +17,7 @@ import { PrismaResearchLifecycleRepository } from './repositories/prisma/prisma-
 import { InMemoryTitleCardManagementRepository } from './repositories/title-card-management.repository.js';
 import { PrismaTitleCardManagementRepository } from './repositories/prisma/prisma-title-card-management-repository.js';
 import { registerAutoPullRoutes } from './routes/auto-pull-routes.js';
+import { registerLiteratureBackfillRoutes } from './routes/literature-backfill-routes.js';
 import { registerLiteratureContentProcessingSettingsRoutes } from './routes/literature-content-processing-settings-routes.js';
 import { registerLiteratureRoutes } from './routes/literature-routes.js';
 import { registerResearchLifecycleRoutes } from './routes/research-lifecycle-routes.js';
@@ -28,6 +30,8 @@ import type { ResearchLifecycleRepository } from './repositories/research-lifecy
 import type { TitleCardManagementRepository } from './repositories/title-card-management.repository.js';
 import { AutoPullScheduler } from './services/auto-pull-scheduler.js';
 import { AutoPullService } from './services/auto-pull-service.js';
+import { LiteratureBackfillService } from './services/literature-backfill-service.js';
+import { LiteratureFlowService } from './services/literature-flow-service.js';
 import { LiteratureService } from './services/literature-service.js';
 import { LiteratureContentProcessingSettingsService } from './services/literature-content-processing-settings-service.js';
 import { ResearchLifecycleService } from './services/research-lifecycle-service.js';
@@ -119,12 +123,22 @@ export function buildApp(): FastifyInstance {
   const literatureContentProcessingSettingsController = new LiteratureContentProcessingSettingsController(
     literatureContentProcessingSettingsService,
   );
+  const literatureFlowService = new LiteratureFlowService(
+    literatureRepository,
+    literatureContentProcessingSettingsService,
+  );
   const literatureService = new LiteratureService(
     literatureRepository,
     repository,
     literatureContentProcessingSettingsService,
+    literatureFlowService,
   );
   const literatureController = new LiteratureController(literatureService);
+  const literatureBackfillService = new LiteratureBackfillService(literatureRepository, literatureFlowService);
+  void literatureBackfillService.resumeRunnableJobs().catch((error) => {
+    app.log.error({ err: error }, 'Failed to resume literature content-processing backfill jobs.');
+  });
+  const literatureBackfillController = new LiteratureBackfillController(literatureBackfillService);
   const autoPullService = new AutoPullService(autoPullRepository, literatureService);
   const autoPullController = new AutoPullController(autoPullService);
   const topicSettingsController = new TopicSettingsController(autoPullService);
@@ -162,6 +176,7 @@ export function buildApp(): FastifyInstance {
     await registerResearchLifecycleRoutes(instance, researchLifecycleController);
     await registerTitleCardManagementRoutes(instance, titleCardManagementController);
     await registerLiteratureContentProcessingSettingsRoutes(instance, literatureContentProcessingSettingsController);
+    await registerLiteratureBackfillRoutes(instance, literatureBackfillController);
     await registerLiteratureRoutes(instance, literatureController);
     await registerTopicSettingsRoutes(instance, topicSettingsController);
     await registerAutoPullRoutes(instance, autoPullController);

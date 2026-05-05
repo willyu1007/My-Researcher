@@ -817,6 +817,245 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /literature/content-processing/backfill/dry-runs:
+    post:
+      operationId: createLiteratureContentProcessingBackfillDryRun
+      summary: Plan a durable content-processing backfill without provider calls or writes.
+      tags: [literature]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LiteratureContentProcessingBackfillDryRunRequest'
+      responses:
+        '200':
+          description: Backfill dry-run estimate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureContentProcessingBackfillDryRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/content-processing/backfill/jobs:
+    post:
+      operationId: createLiteratureContentProcessingBackfillJob
+      summary: Create a durable content-processing backfill job.
+      tags: [literature]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LiteratureContentProcessingBackfillCreateJobRequest'
+      responses:
+        '201':
+          description: Backfill job created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateLiteratureContentProcessingBackfillJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: listLiteratureContentProcessingBackfillJobs
+      summary: List recent durable content-processing backfill jobs.
+      tags: [literature]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Backfill job list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListLiteratureContentProcessingBackfillJobsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/content-processing/backfill/jobs/{jobId}:
+    get:
+      operationId: getLiteratureContentProcessingBackfillJob
+      summary: Get a durable content-processing backfill job with item checkpoints.
+      tags: [literature]
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Backfill job detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureContentProcessingBackfillJobResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteLiteratureContentProcessingBackfillJob
+      summary: Delete a non-active durable content-processing backfill job and its item checkpoints.
+      tags: [literature]
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '204':
+          description: Backfill job deleted.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/content-processing/backfill/jobs/{jobId}/pause:
+    post:
+      operationId: pauseLiteratureContentProcessingBackfillJob
+      summary: Pause a durable content-processing backfill job after in-flight stages settle.
+      tags: [literature]
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Backfill job paused.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureContentProcessingBackfillJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/content-processing/backfill/jobs/{jobId}/resume:
+    post:
+      operationId: resumeLiteratureContentProcessingBackfillJob
+      summary: Resume a paused durable content-processing backfill job.
+      tags: [literature]
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Backfill job resumed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureContentProcessingBackfillJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/content-processing/backfill/jobs/{jobId}/cancel:
+    post:
+      operationId: cancelLiteratureContentProcessingBackfillJob
+      summary: Cancel a durable content-processing backfill job and stop scheduling new stages.
+      tags: [literature]
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Backfill job cancellation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureContentProcessingBackfillJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/content-processing/backfill/jobs/{jobId}/retry-failed:
+    post:
+      operationId: retryFailedLiteratureContentProcessingBackfillJob
+      summary: Requeue retryable failed items in a durable content-processing backfill job.
+      tags: [literature]
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Retryable backfill items requeued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureContentProcessingBackfillJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /literature/content-processing/cleanup/dry-runs:
+    post:
+      operationId: createLiteratureContentProcessingCleanupDryRun
+      summary: Plan cleanup candidates for non-active content-processing indexes without deleting data.
+      tags: [literature]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LiteratureContentProcessingCleanupDryRunRequest'
+      responses:
+        '200':
+          description: Cleanup dry-run candidates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureContentProcessingCleanupDryRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /settings/literature-content-processing:
     get:
       operationId: getLiteratureContentProcessingSettings
@@ -850,6 +1089,21 @@ paths:
                 $ref: '#/components/schemas/LiteratureContentProcessingSettings'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /settings/literature-content-processing/fulltext-parser/health:
+    get:
+      operationId: getLiteratureContentProcessingFulltextParserHealth
+      summary: Check the configured GROBID fulltext parser health for literature content processing.
+      tags: [settings]
+      responses:
+        '200':
+          description: Fulltext parser health.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureFulltextParserHealth'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -2088,6 +2342,14 @@ components:
       type: string
       enum: [CONTENT_PROCESSING_ACTION, BACKFILL]
 
+    LiteratureContentProcessingBatchJobStatus:
+      type: string
+      enum: [PLANNED, QUEUED, RUNNING, PAUSED, CANCELING, CANCELED, SUCCEEDED, PARTIAL, FAILED]
+
+    LiteratureContentProcessingBatchItemStatus:
+      type: string
+      enum: [QUEUED, RUNNING, SUCCEEDED, PARTIAL, BLOCKED, FAILED, SKIPPED, CANCELED]
+
     LiteratureContentProcessingActionCode:
       type: string
       enum: [process_content, process_to_retrievable, rebuild_index, reextract, retry_failed, view_reason]
@@ -3014,6 +3276,9 @@ components:
 
     LiteratureExtractionProfile:
       type: object
+      description: >-
+        OpenAI extraction model profile. Built-in defaults are default -> gpt-5.4-mini
+        and high_accuracy -> gpt-5.5.
       required: [profile_id, provider, model]
       properties:
         profile_id:
@@ -3022,6 +3287,9 @@ components:
           $ref: '#/components/schemas/LiteratureContentProcessingProviderId'
         model:
           type: string
+          description: >-
+            OpenAI model id used for key-content extraction. Built-in defaults:
+            gpt-5.4-mini for default, gpt-5.5 for high_accuracy.
       additionalProperties: false
 
     LiteratureContentProcessingExtractionSettings:
@@ -3052,9 +3320,42 @@ components:
           type: [string, 'null']
       additionalProperties: false
 
+    LiteratureFulltextParserSettings:
+      type: object
+      required: [grobid]
+      properties:
+        grobid:
+          type: object
+          required: [endpoint_url]
+          properties:
+            endpoint_url:
+              type: string
+          additionalProperties: false
+      additionalProperties: false
+
+    LiteratureFulltextParserHealth:
+      type: object
+      required: [provider, endpoint_url, status, checked_at, version, details]
+      properties:
+        provider:
+          type: string
+          enum: [grobid]
+        endpoint_url:
+          type: string
+        status:
+          type: string
+          enum: [ready, unavailable]
+        checked_at:
+          type: string
+        version:
+          type: [string, 'null']
+        details:
+          type: object
+      additionalProperties: false
+
     LiteratureContentProcessingSettings:
       type: object
-      required: [providers, embedding, extraction, storage_roots, updated_at]
+      required: [providers, embedding, extraction, storage_roots, effective_storage_roots, fulltext_parser, updated_at]
       properties:
         providers:
           type: array
@@ -3066,6 +3367,10 @@ components:
           $ref: '#/components/schemas/LiteratureContentProcessingExtractionSettings'
         storage_roots:
           $ref: '#/components/schemas/LiteratureContentProcessingStorageRoots'
+        effective_storage_roots:
+          $ref: '#/components/schemas/LiteratureContentProcessingStorageRoots'
+        fulltext_parser:
+          $ref: '#/components/schemas/LiteratureFulltextParserSettings'
         updated_at:
           type: string
       additionalProperties: false
@@ -3117,6 +3422,16 @@ components:
               type: [string, 'null']
             exports:
               type: [string, 'null']
+          additionalProperties: false
+        fulltext_parser:
+          type: object
+          properties:
+            grobid:
+              type: object
+              properties:
+                endpoint_url:
+                  type: string
+              additionalProperties: false
           additionalProperties: false
       additionalProperties: false
       minProperties: 1
@@ -3302,6 +3617,551 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LiteratureContentProcessingRun'
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillStageFilters:
+      type: object
+      properties:
+        missing:
+          type: boolean
+        stale:
+          type: boolean
+        failed:
+          type: boolean
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillWorkset:
+      type: object
+      properties:
+        topic_id:
+          type: string
+          minLength: 1
+        paper_id:
+          type: string
+          minLength: 1
+        literature_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+        rights_classes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/RightsClass'
+        stage_filters:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillStageFilters'
+        updated_at_from:
+          type: string
+          format: date-time
+        updated_at_to:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillRequestOptions:
+      type: object
+      properties:
+        max_parallel_literature_runs:
+          type: integer
+          minimum: 1
+          maximum: 4
+          default: 1
+        extraction_concurrency:
+          type: integer
+          minimum: 1
+          maximum: 4
+          default: 1
+        embedding_concurrency:
+          type: integer
+          minimum: 1
+          maximum: 4
+          default: 1
+        provider_call_budget:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillEffectiveOptions:
+      type: object
+      required: [max_parallel_literature_runs, extraction_concurrency, embedding_concurrency, provider_call_budget]
+      properties:
+        max_parallel_literature_runs:
+          type: integer
+          minimum: 1
+          maximum: 4
+        extraction_concurrency:
+          type: integer
+          minimum: 1
+          maximum: 4
+        embedding_concurrency:
+          type: integer
+          minimum: 1
+          maximum: 4
+        provider_call_budget:
+          type: [integer, 'null']
+          minimum: 1
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillDryRunRequest:
+      type: object
+      properties:
+        workset:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillWorkset'
+        target_stage:
+          allOf:
+            - $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
+          default: INDEXED
+        options:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillRequestOptions'
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillCreateJobRequest:
+      allOf:
+        - $ref: '#/components/schemas/LiteratureContentProcessingBackfillDryRunRequest'
+
+    LiteratureContentProcessingBackfillBlocker:
+      type: object
+      required: [literature_id, title, reason_code, reason_message, retryable]
+      properties:
+        literature_id:
+          type: string
+        title:
+          type: string
+        reason_code:
+          type: string
+        reason_message:
+          type: string
+        retryable:
+          type: boolean
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillPlanItem:
+      type: object
+      required: [literature_id, title, rights_class, requested_stages, blocked, blocker_code, retryable]
+      properties:
+        literature_id:
+          type: string
+        title:
+          type: string
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+        requested_stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
+        blocked:
+          type: boolean
+        blocker_code:
+          type: [string, 'null']
+        retryable:
+          type: boolean
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillStageCounts:
+      type: object
+      required: [CITATION_NORMALIZED, ABSTRACT_READY, FULLTEXT_PREPROCESSED, KEY_CONTENT_READY, CHUNKED, EMBEDDED, INDEXED]
+      properties:
+        CITATION_NORMALIZED:
+          type: integer
+          minimum: 0
+        ABSTRACT_READY:
+          type: integer
+          minimum: 0
+        FULLTEXT_PREPROCESSED:
+          type: integer
+          minimum: 0
+        KEY_CONTENT_READY:
+          type: integer
+          minimum: 0
+        CHUNKED:
+          type: integer
+          minimum: 0
+        EMBEDDED:
+          type: integer
+          minimum: 0
+        INDEXED:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillRightsClassCount:
+      type: object
+      required: [rights_class, count]
+      properties:
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+        count:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillProviderCallEstimate:
+      type: object
+      required: [extraction_calls, embedding_calls]
+      properties:
+        extraction_calls:
+          type: integer
+          minimum: 0
+        embedding_calls:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillDryRunEstimate:
+      type: object
+      required:
+        - dry_run_id
+        - generated_at
+        - target_stage
+        - workset
+        - options
+        - total_literatures
+        - selected_count
+        - planned_item_count
+        - skipped_ready_count
+        - blocked_count
+        - stage_counts
+        - rights_class_counts
+        - estimated_provider_calls
+        - estimated_storage_bytes
+        - blockers
+        - plan_items
+      properties:
+        dry_run_id:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+        target_stage:
+          $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
+        workset:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillWorkset'
+        options:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillEffectiveOptions'
+        total_literatures:
+          type: integer
+          minimum: 0
+        selected_count:
+          type: integer
+          minimum: 0
+        planned_item_count:
+          type: integer
+          minimum: 0
+        skipped_ready_count:
+          type: integer
+          minimum: 0
+        blocked_count:
+          type: integer
+          minimum: 0
+        stage_counts:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillStageCounts'
+        rights_class_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentProcessingBackfillRightsClassCount'
+        estimated_provider_calls:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillProviderCallEstimate'
+        estimated_storage_bytes:
+          type: integer
+          minimum: 0
+        blockers:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentProcessingBackfillBlocker'
+        plan_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentProcessingBackfillPlanItem'
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillDryRunResponse:
+      type: object
+      required: [estimate]
+      properties:
+        estimate:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillDryRunEstimate'
+      additionalProperties: false
+
+    LiteratureContentProcessingBatchItem:
+      type: object
+      required:
+        - item_id
+        - job_id
+        - literature_id
+        - title
+        - status
+        - requested_stages
+        - next_stage_index
+        - content_processing_run_id
+        - attempt_count
+        - error_code
+        - error_message
+        - blocker_code
+        - retryable
+        - checkpoint
+        - created_at
+        - started_at
+        - finished_at
+        - updated_at
+      properties:
+        item_id:
+          type: string
+        job_id:
+          type: string
+        literature_id:
+          type: string
+        title:
+          type: [string, 'null']
+        status:
+          $ref: '#/components/schemas/LiteratureContentProcessingBatchItemStatus'
+        requested_stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
+        next_stage_index:
+          type: integer
+          minimum: 0
+        content_processing_run_id:
+          type: [string, 'null']
+        attempt_count:
+          type: integer
+          minimum: 0
+        error_code:
+          type: [string, 'null']
+        error_message:
+          type: [string, 'null']
+        blocker_code:
+          type: [string, 'null']
+        retryable:
+          type: boolean
+        checkpoint:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        finished_at:
+          type: [string, 'null']
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    LiteratureContentProcessingBatchJobTotals:
+      type: object
+      required: [total, queued, running, succeeded, partial, blocked, failed, skipped, canceled]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        queued:
+          type: integer
+          minimum: 0
+        running:
+          type: integer
+          minimum: 0
+        succeeded:
+          type: integer
+          minimum: 0
+        partial:
+          type: integer
+          minimum: 0
+        blocked:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0
+        skipped:
+          type: integer
+          minimum: 0
+        canceled:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    LiteratureContentProcessingBatchJob:
+      type: object
+      required:
+        - job_id
+        - status
+        - target_stage
+        - workset
+        - options
+        - dry_run_estimate
+        - totals
+        - error_code
+        - error_message
+        - created_at
+        - started_at
+        - paused_at
+        - canceled_at
+        - finished_at
+        - updated_at
+      properties:
+        job_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/LiteratureContentProcessingBatchJobStatus'
+        target_stage:
+          $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
+        workset:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillWorkset'
+        options:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillEffectiveOptions'
+        dry_run_estimate:
+          $ref: '#/components/schemas/LiteratureContentProcessingBackfillDryRunEstimate'
+        totals:
+          $ref: '#/components/schemas/LiteratureContentProcessingBatchJobTotals'
+        error_code:
+          type: [string, 'null']
+        error_message:
+          type: [string, 'null']
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        paused_at:
+          type: [string, 'null']
+          format: date-time
+        canceled_at:
+          type: [string, 'null']
+          format: date-time
+        finished_at:
+          type: [string, 'null']
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentProcessingBatchItem'
+      additionalProperties: false
+
+    CreateLiteratureContentProcessingBackfillJobResponse:
+      type: object
+      required: [job]
+      properties:
+        job:
+          $ref: '#/components/schemas/LiteratureContentProcessingBatchJob'
+      additionalProperties: false
+
+    LiteratureContentProcessingBackfillJobResponse:
+      type: object
+      required: [job]
+      properties:
+        job:
+          $ref: '#/components/schemas/LiteratureContentProcessingBatchJob'
+      additionalProperties: false
+
+    ListLiteratureContentProcessingBackfillJobsResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentProcessingBatchJob'
+      additionalProperties: false
+
+    LiteratureContentProcessingCleanupDryRunRequest:
+      type: object
+      properties:
+        literature_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+        retention_days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+          default: 30
+      additionalProperties: false
+
+    LiteratureContentProcessingCleanupCandidate:
+      type: object
+      required:
+        - embedding_version_id
+        - literature_id
+        - version_no
+        - status
+        - chunk_count
+        - token_index_count
+        - created_at
+        - protected_reason
+      properties:
+        embedding_version_id:
+          type: string
+        literature_id:
+          type: string
+        version_no:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+        chunk_count:
+          type: integer
+          minimum: 0
+        token_index_count:
+          type: integer
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+        protected_reason:
+          type: [string, 'null']
+      additionalProperties: false
+
+    LiteratureContentProcessingCleanupDryRunResponse:
+      type: object
+      required:
+        - generated_at
+        - retention_days
+        - candidate_count
+        - protected_active_version_count
+        - protected_raw_asset_count
+        - estimated_chunks_to_remove
+        - estimated_token_indexes_to_remove
+        - candidates
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        retention_days:
+          type: integer
+          minimum: 0
+        candidate_count:
+          type: integer
+          minimum: 0
+        protected_active_version_count:
+          type: integer
+          minimum: 0
+        protected_raw_asset_count:
+          type: integer
+          minimum: 0
+        estimated_chunks_to_remove:
+          type: integer
+          minimum: 0
+        estimated_token_indexes_to_remove:
+          type: integer
+          minimum: 0
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentProcessingCleanupCandidate'
       additionalProperties: false
 
     LiteratureOverviewProviderCount:

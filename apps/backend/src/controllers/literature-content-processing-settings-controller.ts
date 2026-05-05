@@ -1,4 +1,5 @@
 import type {
+  LiteratureFulltextParserHealthDTO,
   LiteratureContentProcessingSettingsDTO,
   UpdateLiteratureContentProcessingSettingsRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
@@ -13,6 +14,15 @@ export class LiteratureContentProcessingSettingsController {
     try {
       const result = await this.service.getSettings();
       reply.status(200).send(result satisfies LiteratureContentProcessingSettingsDTO);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async getFulltextParserHealth(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    try {
+      const result = await this.service.checkFulltextParserHealth();
+      reply.status(200).send(result satisfies LiteratureFulltextParserHealthDTO);
     } catch (error) {
       this.handleError(reply, error);
     }

@@ -92,6 +92,26 @@
   - Shared tests passed, `19` tests.
   - Backend full suite passed, `139` tests.
   - Desktop build passed.
+- `T-037` and `T-038` implementation verification completed.
+  - Durable backfill job/item/checkpoint models added through Prisma SSOT migration `20260505170000_add_literature_content_processing_batch_jobs`.
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`: passed; DB context regenerated.
+  - `node .ai/scripts/ctl-openapi-quality.mjs verify --source docs/context/api/openapi.yaml --strict`: passed.
+  - `node .ai/scripts/ctl-api-index.mjs generate --touch`: passed; API index regenerated with `78` endpoints.
+  - `node .ai/scripts/ctl-api-index.mjs verify`: passed.
+  - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict`: passed.
+  - `pnpm --filter @paper-engineering-assistant/shared typecheck`: passed.
+  - `pnpm --filter @paper-engineering-assistant/shared test`: passed, `19` tests.
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`: passed.
+  - `pnpm --filter @paper-engineering-assistant/backend test`: passed, `150` tests after post-review hardening.
+  - `pnpm --filter @paper-engineering-assistant/desktop typecheck`: passed.
+  - `pnpm --filter @paper-engineering-assistant/desktop build`: passed.
+  - `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --mode full --run-id t-037-content-processing-operations`: passed, `0` errors and `0` warnings.
+  - `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --mode full --run-id t-037-content-processing-operations-review`: passed.
+  - `python3 .ai/skills/features/ui/ui-governance-gate/scripts/ui_gate.py run --mode full --run-id t-037-content-processing-operations-review-2`: passed after operations panel selector cleanup.
+  - `node --check apps/backend/scripts/backfill-literature-content-processing.mjs`: passed.
+  - Cutover search gates found no old action/provider/hash placeholder path, no old stage order, and no direct Prisma/HTTP fan-out backfill script path.
+  - Post-review cutover search also found no product-path `vectorize`/`向量化` naming.
 
 ## Product Verification
-- Umbrella implementation has progressed through `T-031`, `T-032`, `T-039`, `T-033`, `T-034`, `T-035`, and `T-036`. Batch backfill/workbench remains owned by `T-037`; final end-to-end cutover and old-path removal remain owned by `T-038`.
+- Umbrella implementation is complete through `T-031`, `T-032`, `T-039`, `T-033`, `T-034`, `T-035`, `T-036`, `T-037`, and `T-038`.
+- Collection, content-processing, embedding/index activation, retrieval, stale UX, durable backfill, cleanup dry-run, and final cutover checks all have recorded automated verification.

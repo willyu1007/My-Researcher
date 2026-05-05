@@ -13,6 +13,10 @@ export async function registerLiteratureContentProcessingSettingsRoutes(
     controller.getSettings(request, reply),
   );
 
+  app.get('/settings/literature-content-processing/fulltext-parser/health', async (request, reply) =>
+    controller.getFulltextParserHealth(request, reply),
+  );
+
   app.patch<{ Body: UpdateLiteratureContentProcessingSettingsRequest }>(
     '/settings/literature-content-processing',
     {

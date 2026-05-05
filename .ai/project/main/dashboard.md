@@ -8,23 +8,24 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 39 (planned: 6, in-progress: 7, blocked: 0, done: 16, archived: 10)
+- Tasks: 40 (planned: 3, in-progress: 8, blocked: 0, done: 19, archived: 10)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-030 literature-content-processing-landing-roadmap | done | F-000 | dev-docs/active/literature-content-processing-landing-roadmap |
 | T-031 literature-content-processing-contracts-stage-state | done | F-000 | dev-docs/active/literature-content-processing-contracts-stage-state |
 | T-032 literature-settings-provider-storage-roots | done | F-000 | dev-docs/active/literature-settings-provider-storage-roots |
 | T-033 literature-content-assets-fulltext-preprocessing | done | F-000 | dev-docs/active/literature-content-assets-fulltext-preprocessing |
 | T-034 literature-key-content-extraction-v1 | done | F-000 | dev-docs/active/literature-key-content-extraction-v1 |
 | T-035 literature-chunk-embedding-index-pipeline | done | F-000 | dev-docs/active/literature-chunk-embedding-index-pipeline |
 | T-036 literature-retrieve-stale-trigger-ui | done | F-000 | dev-docs/active/literature-retrieve-stale-trigger-ui |
-| T-037 literature-backfill-operations-workbench | planned | F-000 | dev-docs/active/literature-backfill-operations-workbench |
-| T-038 literature-content-processing-cutover-verification | planned | F-000 | dev-docs/active/literature-content-processing-cutover-verification |
+| T-037 literature-backfill-operations-workbench | done | F-000 | dev-docs/active/literature-backfill-operations-workbench |
+| T-038 literature-content-processing-cutover-verification | done | F-000 | dev-docs/active/literature-content-processing-cutover-verification |
 | T-039 literature-citation-abstract-readiness | done | F-000 | dev-docs/active/literature-citation-abstract-readiness |
+| T-040 literature-content-processing-closure-fixes | in-progress | F-000 | dev-docs/active/literature-content-processing-closure-fixes |
 | T-029 literature-collection-content-processing-boundary | done | F-000 | dev-docs/active/literature-collection-content-processing-boundary |
-| T-030 literature-content-processing-landing-roadmap | planned | F-000 | dev-docs/active/literature-content-processing-landing-roadmap |
 | T-023 research-argument-control-plane-v1 | in-progress | F-001 | dev-docs/active/research-argument-control-plane-v1 |
 | T-024 research-argument-contracts-and-ssot | done | F-001 | dev-docs/active/research-argument-contracts-and-ssot |
 | T-025 research-argument-graph-and-state-v1 | in-progress | F-001 | dev-docs/active/research-argument-graph-and-state-v1 |
@@ -33,5 +34,4 @@ Project: `main`
 | T-028 research-argument-planner-critic-v15 | planned | F-001 | dev-docs/active/research-argument-planner-critic-v15 |
 | T-021 topic-management-workbench-ui | in-progress | F-001 | dev-docs/active/topic-management-workbench-ui |
 | T-022 desktop-legacy-css-retirement | in-progress | F-002 | dev-docs/active/desktop-legacy-css-retirement |
-| T-020 shared-contract-compat-cleanup-and-consumer-migration | done | F-000 | dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration |
 <!-- AUTO-GENERATED:END dashboard -->
