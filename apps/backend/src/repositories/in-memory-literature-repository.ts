@@ -1,7 +1,14 @@
 import type {
+  LiteratureAbstractProfileRecord,
+  LiteratureCitationProfileRecord,
+  LiteratureContentAssetRecord,
   LiteratureEmbeddingChunkRecord,
   LiteratureEmbeddingTokenIndexRecord,
   LiteratureEmbeddingVersionRecord,
+  LiteratureFulltextDocumentRecord,
+  LiteratureFulltextExtractionBundle,
+  LiteratureFulltextParagraphRecord,
+  LiteratureFulltextSectionRecord,
   LiteraturePipelineArtifactRecord,
   LiteratureRepository,
   LiteraturePipelineRunRecord,
@@ -10,6 +17,7 @@ import type {
   LiteraturePipelineStateRecord,
   LiteratureRecord,
   LiteratureSourceRecord,
+  LiteratureFulltextAnchorRecord,
   PaperLiteratureLinkRecord,
   TopicLiteratureScopeRecord,
 } from './literature-repository.js';
@@ -23,6 +31,17 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
   private readonly literatureSources = new Map<string, LiteratureSourceRecord>();
   private readonly sourceByProviderItem = new Map<string, string>();
   private readonly sourceIdsByLiterature = new Map<string, string[]>();
+  private readonly citationProfilesByLiterature = new Map<string, LiteratureCitationProfileRecord>();
+  private readonly abstractProfilesByLiterature = new Map<string, LiteratureAbstractProfileRecord>();
+  private readonly contentAssets = new Map<string, LiteratureContentAssetRecord>();
+  private readonly contentAssetByLiteraturePath = new Map<string, string>();
+  private readonly contentAssetIdsByLiterature = new Map<string, string[]>();
+  private readonly fulltextDocuments = new Map<string, LiteratureFulltextDocumentRecord>();
+  private readonly fulltextDocumentBySourceAsset = new Map<string, string>();
+  private readonly fulltextDocumentIdsByLiterature = new Map<string, string[]>();
+  private readonly fulltextSectionsByDocument = new Map<string, LiteratureFulltextSectionRecord[]>();
+  private readonly fulltextParagraphsByDocument = new Map<string, LiteratureFulltextParagraphRecord[]>();
+  private readonly fulltextAnchorsByDocument = new Map<string, LiteratureFulltextAnchorRecord[]>();
 
   private readonly topicScopes = new Map<string, TopicLiteratureScopeRecord>();
   private readonly topicScopeByTopic = new Map<string, string[]>();
@@ -138,6 +157,141 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
       .map((id) => this.literatureSources.get(id))
       .filter((row): row is LiteratureSourceRecord => row !== undefined)
       .sort((a, b) => a.fetchedAt.localeCompare(b.fetchedAt));
+  }
+
+  async upsertCitationProfile(
+    record: LiteratureCitationProfileRecord,
+  ): Promise<{ record: LiteratureCitationProfileRecord; created: boolean }> {
+    const existing = this.citationProfilesByLiterature.get(record.literatureId);
+    const next = existing
+      ? {
+          ...record,
+          id: existing.id,
+          createdAt: existing.createdAt,
+        }
+      : record;
+    this.citationProfilesByLiterature.set(record.literatureId, next);
+    return { record: next, created: !existing };
+  }
+
+  async findCitationProfileByLiteratureId(literatureId: string): Promise<LiteratureCitationProfileRecord | null> {
+    return this.citationProfilesByLiterature.get(literatureId) ?? null;
+  }
+
+  async upsertAbstractProfile(
+    record: LiteratureAbstractProfileRecord,
+  ): Promise<{ record: LiteratureAbstractProfileRecord; created: boolean }> {
+    const existing = this.abstractProfilesByLiterature.get(record.literatureId);
+    const next = existing
+      ? {
+          ...record,
+          id: existing.id,
+          createdAt: existing.createdAt,
+        }
+      : record;
+    this.abstractProfilesByLiterature.set(record.literatureId, next);
+    return { record: next, created: !existing };
+  }
+
+  async findAbstractProfileByLiteratureId(literatureId: string): Promise<LiteratureAbstractProfileRecord | null> {
+    return this.abstractProfilesByLiterature.get(literatureId) ?? null;
+  }
+
+  async upsertContentAsset(
+    record: LiteratureContentAssetRecord,
+  ): Promise<{ record: LiteratureContentAssetRecord; created: boolean }> {
+    const key = this.contentAssetPathKey(record.literatureId, record.localPath);
+    const existingId = this.contentAssetByLiteraturePath.get(key);
+    if (existingId) {
+      const existing = this.contentAssets.get(existingId);
+      if (!existing) {
+        throw new Error(`Content asset ${existingId} not found.`);
+      }
+      const next: LiteratureContentAssetRecord = {
+        ...record,
+        id: existing.id,
+        createdAt: existing.createdAt,
+      };
+      this.contentAssets.set(existing.id, next);
+      return { record: next, created: false };
+    }
+
+    this.contentAssets.set(record.id, record);
+    this.contentAssetByLiteraturePath.set(key, record.id);
+    const ids = this.contentAssetIdsByLiterature.get(record.literatureId) ?? [];
+    this.contentAssetIdsByLiterature.set(record.literatureId, [...ids, record.id]);
+    return { record, created: true };
+  }
+
+  async listContentAssetsByLiteratureId(literatureId: string): Promise<LiteratureContentAssetRecord[]> {
+    const ids = this.contentAssetIdsByLiterature.get(literatureId) ?? [];
+    return ids
+      .map((id) => this.contentAssets.get(id))
+      .filter((record): record is LiteratureContentAssetRecord => record !== undefined)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  async findContentAssetById(assetId: string): Promise<LiteratureContentAssetRecord | null> {
+    return this.contentAssets.get(assetId) ?? null;
+  }
+
+  async upsertFulltextExtractionBundle(
+    bundle: LiteratureFulltextExtractionBundle,
+  ): Promise<LiteratureFulltextExtractionBundle> {
+    const existingId = this.fulltextDocumentBySourceAsset.get(bundle.document.sourceAssetId);
+    const document = existingId
+      ? {
+          ...bundle.document,
+          id: existingId,
+          createdAt: this.fulltextDocuments.get(existingId)?.createdAt ?? bundle.document.createdAt,
+        }
+      : bundle.document;
+    this.fulltextDocuments.set(document.id, document);
+    this.fulltextDocumentBySourceAsset.set(document.sourceAssetId, document.id);
+
+    if (!existingId) {
+      const ids = this.fulltextDocumentIdsByLiterature.get(document.literatureId) ?? [];
+      this.fulltextDocumentIdsByLiterature.set(document.literatureId, [...ids, document.id]);
+    }
+
+    const sections = bundle.sections.map((section) => ({ ...section, documentId: document.id }));
+    const paragraphs = bundle.paragraphs.map((paragraph) => ({ ...paragraph, documentId: document.id }));
+    const anchors = bundle.anchors.map((anchor) => ({ ...anchor, documentId: document.id }));
+    this.fulltextSectionsByDocument.set(document.id, sections);
+    this.fulltextParagraphsByDocument.set(document.id, paragraphs);
+    this.fulltextAnchorsByDocument.set(document.id, anchors);
+    return { document, sections, paragraphs, anchors };
+  }
+
+  async findFulltextDocumentBySourceAssetId(sourceAssetId: string): Promise<LiteratureFulltextDocumentRecord | null> {
+    const documentId = this.fulltextDocumentBySourceAsset.get(sourceAssetId);
+    return documentId ? (this.fulltextDocuments.get(documentId) ?? null) : null;
+  }
+
+  async listFulltextDocumentsByLiteratureId(literatureId: string): Promise<LiteratureFulltextDocumentRecord[]> {
+    const ids = this.fulltextDocumentIdsByLiterature.get(literatureId) ?? [];
+    return ids
+      .map((id) => this.fulltextDocuments.get(id))
+      .filter((record): record is LiteratureFulltextDocumentRecord => record !== undefined)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  async listFulltextSectionsByDocumentId(documentId: string): Promise<LiteratureFulltextSectionRecord[]> {
+    return [...(this.fulltextSectionsByDocument.get(documentId) ?? [])].sort(
+      (left, right) => left.orderIndex - right.orderIndex,
+    );
+  }
+
+  async listFulltextParagraphsByDocumentId(documentId: string): Promise<LiteratureFulltextParagraphRecord[]> {
+    return [...(this.fulltextParagraphsByDocument.get(documentId) ?? [])].sort(
+      (left, right) => left.orderIndex - right.orderIndex,
+    );
+  }
+
+  async listFulltextAnchorsByDocumentId(documentId: string): Promise<LiteratureFulltextAnchorRecord[]> {
+    return [...(this.fulltextAnchorsByDocument.get(documentId) ?? [])].sort(
+      (left, right) => left.anchorId.localeCompare(right.anchorId),
+    );
   }
 
   async upsertTopicScope(
@@ -349,6 +503,22 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
     return record;
   }
 
+  async updateEmbeddingVersion(
+    embeddingVersionId: string,
+    patch: Partial<Omit<LiteratureEmbeddingVersionRecord, 'id' | 'literatureId' | 'versionNo' | 'createdAt'>>,
+  ): Promise<LiteratureEmbeddingVersionRecord> {
+    const existing = this.embeddingVersions.get(embeddingVersionId);
+    if (!existing) {
+      throw new Error(`Embedding version ${embeddingVersionId} not found.`);
+    }
+    const next = {
+      ...existing,
+      ...patch,
+    };
+    this.embeddingVersions.set(embeddingVersionId, next);
+    return next;
+  }
+
   async findEmbeddingVersionById(embeddingVersionId: string): Promise<LiteratureEmbeddingVersionRecord | null> {
     return this.embeddingVersions.get(embeddingVersionId) ?? null;
   }
@@ -422,7 +592,16 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
       .filter((record): record is LiteratureEmbeddingChunkRecord => record !== undefined);
   }
 
-  async createEmbeddingTokenIndexes(records: LiteratureEmbeddingTokenIndexRecord[]): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
+  async replaceEmbeddingTokenIndexes(
+    embeddingVersionId: string,
+    records: LiteratureEmbeddingTokenIndexRecord[],
+  ): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
+    const existingIds = this.embeddingTokenIndexIdsByVersion.get(embeddingVersionId) ?? [];
+    for (const id of existingIds) {
+      this.embeddingTokenIndexes.delete(id);
+    }
+    this.embeddingTokenIndexIdsByVersion.set(embeddingVersionId, []);
+
     for (const record of records) {
       this.embeddingTokenIndexes.set(record.id, record);
       const ids = this.embeddingTokenIndexIdsByVersion.get(record.embeddingVersionId) ?? [];
@@ -569,5 +748,9 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
     artifactType: string,
   ): string {
     return `${literatureId}::${stageCode}::${artifactType}`;
+  }
+
+  private contentAssetPathKey(literatureId: string, localPath: string): string {
+    return `${literatureId}::${localPath}`;
   }
 }

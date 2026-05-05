@@ -19,17 +19,54 @@ export class PrismaLiteratureEmbeddingStore {
         id: record.id,
         literatureId: record.literatureId,
         versionNo: record.versionNo,
+        status: record.status,
+        profileId: record.profileId,
         provider: record.provider,
         model: record.model,
         dimension: record.dimension,
         chunkCount: record.chunkCount,
         vectorCount: record.vectorCount,
         tokenCount: record.tokenCount,
+        inputChecksum: record.inputChecksum,
+        chunkArtifactChecksum: record.chunkArtifactChecksum,
+        embeddingArtifactChecksum: record.embeddingArtifactChecksum,
+        indexArtifactChecksum: record.indexArtifactChecksum,
+        indexedAt: record.indexedAt ? new Date(record.indexedAt) : null,
+        activatedAt: record.activatedAt ? new Date(record.activatedAt) : null,
         createdAt: new Date(record.createdAt),
         updatedAt: new Date(record.updatedAt),
       },
     });
     return toEmbeddingVersionRecord(created);
+  }
+
+  async updateEmbeddingVersion(
+    embeddingVersionId: string,
+    patch: Partial<Omit<LiteratureEmbeddingVersionRecord, 'id' | 'literatureId' | 'versionNo' | 'createdAt'>>,
+  ): Promise<LiteratureEmbeddingVersionRecord> {
+    const data: Prisma.LiteratureEmbeddingVersionUpdateInput = {
+      ...(patch.status !== undefined ? { status: patch.status } : {}),
+      ...(patch.profileId !== undefined ? { profileId: patch.profileId } : {}),
+      ...(patch.provider !== undefined ? { provider: patch.provider } : {}),
+      ...(patch.model !== undefined ? { model: patch.model } : {}),
+      ...(patch.dimension !== undefined ? { dimension: patch.dimension } : {}),
+      ...(patch.chunkCount !== undefined ? { chunkCount: patch.chunkCount } : {}),
+      ...(patch.vectorCount !== undefined ? { vectorCount: patch.vectorCount } : {}),
+      ...(patch.tokenCount !== undefined ? { tokenCount: patch.tokenCount } : {}),
+      ...(patch.inputChecksum !== undefined ? { inputChecksum: patch.inputChecksum } : {}),
+      ...(patch.chunkArtifactChecksum !== undefined ? { chunkArtifactChecksum: patch.chunkArtifactChecksum } : {}),
+      ...(patch.embeddingArtifactChecksum !== undefined ? { embeddingArtifactChecksum: patch.embeddingArtifactChecksum } : {}),
+      ...(patch.indexArtifactChecksum !== undefined ? { indexArtifactChecksum: patch.indexArtifactChecksum } : {}),
+      ...(patch.indexedAt !== undefined ? { indexedAt: patch.indexedAt ? new Date(patch.indexedAt) : null } : {}),
+      ...(patch.activatedAt !== undefined ? { activatedAt: patch.activatedAt ? new Date(patch.activatedAt) : null } : {}),
+      ...(patch.updatedAt !== undefined ? { updatedAt: new Date(patch.updatedAt) } : {}),
+    };
+
+    const updated = await this.prisma.literatureEmbeddingVersion.update({
+      where: { id: embeddingVersionId },
+      data,
+    });
+    return toEmbeddingVersionRecord(updated);
   }
 
   async findEmbeddingVersionById(embeddingVersionId: string): Promise<LiteratureEmbeddingVersionRecord | null> {
@@ -119,6 +156,10 @@ export class PrismaLiteratureEmbeddingStore {
         text: record.text,
         startOffset: record.startOffset,
         endOffset: record.endOffset,
+        chunkType: record.chunkType,
+        sourceRefs: record.sourceRefs as unknown as Prisma.InputJsonValue,
+        metadata: record.metadata as unknown as Prisma.InputJsonValue,
+        contentChecksum: record.contentChecksum,
         vector: record.vector as unknown as Prisma.InputJsonValue,
         createdAt: new Date(record.createdAt),
         updatedAt: new Date(record.updatedAt),
@@ -149,20 +190,28 @@ export class PrismaLiteratureEmbeddingStore {
     return rows.map((row) => toEmbeddingChunkRecord(row));
   }
 
-  async createEmbeddingTokenIndexes(records: LiteratureEmbeddingTokenIndexRecord[]): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
-    if (records.length === 0) {
-      return [];
-    }
-    await this.prisma.literatureEmbeddingTokenIndex.createMany({
-      data: records.map((record) => ({
-        id: record.id,
-        embeddingVersionId: record.embeddingVersionId,
-        literatureId: record.literatureId,
-        token: record.token,
-        chunkIds: record.chunkIds,
-        createdAt: new Date(record.createdAt),
-        updatedAt: new Date(record.updatedAt),
-      })),
+  async replaceEmbeddingTokenIndexes(
+    embeddingVersionId: string,
+    records: LiteratureEmbeddingTokenIndexRecord[],
+  ): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.literatureEmbeddingTokenIndex.deleteMany({
+        where: { embeddingVersionId },
+      });
+      if (records.length === 0) {
+        return;
+      }
+      await tx.literatureEmbeddingTokenIndex.createMany({
+        data: records.map((record) => ({
+          id: record.id,
+          embeddingVersionId: record.embeddingVersionId,
+          literatureId: record.literatureId,
+          token: record.token,
+          chunkIds: record.chunkIds,
+          createdAt: new Date(record.createdAt),
+          updatedAt: new Date(record.updatedAt),
+        })),
+      });
     });
     return records;
   }

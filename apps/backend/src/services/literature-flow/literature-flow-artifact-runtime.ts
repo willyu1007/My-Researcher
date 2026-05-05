@@ -1,20 +1,32 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { AppError } from '../../errors/app-error.js';
 import type {
   LiteratureEmbeddingVersionRecord,
+  LiteratureFulltextAnchorRecord,
+  LiteratureFulltextDocumentRecord,
+  LiteratureFulltextParagraphRecord,
+  LiteratureFulltextSectionRecord,
   LiteraturePipelineArtifactRecord,
   LiteraturePipelineStateRecord,
   LiteratureRecord,
   LiteratureRepository,
 } from '../../repositories/literature-repository.js';
 import type { LiteratureContentProcessingSettingsService } from '../literature-content-processing-settings-service.js';
+import { sha256Text } from '../literature-content-processing-utils.js';
+import { LiteratureKeyContentExtractionService } from '../literature-key-content-extraction-service.js';
 
 type ChunkRecord = {
   chunk_id: string;
   index: number;
+  chunk_type: string;
   text: string;
   start_offset: number;
   end_offset: number;
+  source_refs: Record<string, unknown>[];
+  metadata: Record<string, unknown>;
+  content_checksum: string;
 };
 
 type EmbeddingRecord = {
@@ -23,62 +35,288 @@ type EmbeddingRecord = {
   vector: number[];
 };
 
+type EmbeddingArtifactResult =
+  | {
+      ready: true;
+      artifact: LiteraturePipelineArtifactRecord;
+    }
+  | {
+      ready: false;
+      reasonCode: string;
+      reasonMessage: string;
+      diagnostics: Record<string, unknown>[];
+    };
+
+type FulltextPreprocessingResult =
+  | {
+      ready: true;
+      id: string;
+      artifactType: string;
+      textLength: number;
+      documentId: string;
+      sourceAssetId: string;
+      normalizedTextChecksum: string;
+      sectionCount: number;
+      paragraphCount: number;
+      anchorCount: number;
+      diagnostics: Record<string, unknown>[];
+    }
+  | {
+      ready: false;
+      reasonCode: string;
+      reasonMessage: string;
+      diagnostics: Record<string, unknown>[];
+    };
+
+type ParsedSection = Omit<LiteratureFulltextSectionRecord, 'id' | 'documentId' | 'createdAt' | 'updatedAt'>;
+type ParsedParagraph = Omit<LiteratureFulltextParagraphRecord, 'id' | 'documentId' | 'createdAt' | 'updatedAt'>;
+type ParsedAnchor = Omit<LiteratureFulltextAnchorRecord, 'id' | 'documentId' | 'createdAt' | 'updatedAt'>;
+
 export class LiteratureFlowArtifactRuntime {
+  private readonly keyContentExtractionService: LiteratureKeyContentExtractionService;
+
   constructor(
     private readonly repository: LiteratureRepository,
     private readonly options: {
       refreshPipelineState: (literatureId: string) => Promise<LiteraturePipelineStateRecord>;
       settingsService?: LiteratureContentProcessingSettingsService;
     },
-  ) {}
-
-  async ensureAbstractReady(literature: LiteratureRecord): Promise<{
-    abstractReady: boolean;
-    generated: false;
-    source: 'metadata' | null;
-  }> {
-    const existing = (literature.abstractText ?? '').trim();
-    if (existing.length > 0) {
-      await this.options.refreshPipelineState(literature.id);
-      return { abstractReady: true, generated: false, source: 'metadata' };
-    }
-
-    await this.options.refreshPipelineState(literature.id);
-    return { abstractReady: false, generated: false, source: null };
+  ) {
+    this.keyContentExtractionService = new LiteratureKeyContentExtractionService(repository, options.settingsService);
   }
 
   async ensureKeyContentReady(literature: LiteratureRecord): Promise<{
-    keyContentReady: boolean;
+    keyContentReady: true;
+    readinessStatus: 'READY' | 'PARTIAL_READY';
+    artifactId: string;
+    checksum: string;
+    displayDigest: string;
+    diagnostics: Record<string, unknown>[];
+    generated: true;
+    source: 'openai_structured_output';
+  } | {
+    keyContentReady: false;
+    reasonCode: string;
+    reasonMessage: string;
+    diagnostics: Record<string, unknown>[];
     generated: false;
-    source: 'metadata' | null;
+    source: null;
   }> {
-    const existing = (literature.keyContentDigest ?? '').trim();
-    if (existing.length > 0) {
+    const extraction = await this.keyContentExtractionService.extract(literature);
+    if (!extraction.ready) {
       await this.options.refreshPipelineState(literature.id);
-      return { keyContentReady: true, generated: false, source: 'metadata' };
+      return {
+        keyContentReady: false,
+        reasonCode: extraction.reasonCode,
+        reasonMessage: extraction.reasonMessage,
+        diagnostics: extraction.diagnostics,
+        generated: false,
+        source: null,
+      };
+    }
+
+    const artifact = await this.upsertPipelineArtifact({
+      literatureId: literature.id,
+      stageCode: 'KEY_CONTENT_READY',
+      artifactType: 'KEY_CONTENT_DOSSIER',
+      payload: extraction.payload as unknown as Record<string, unknown>,
+      checksum: extraction.checksum,
+    });
+
+    const existingDigest = (literature.keyContentDigest ?? '').trim();
+    if (!existingDigest && extraction.displayDigest.trim()) {
+      await this.repository.updateLiterature({
+        ...literature,
+        keyContentDigest: extraction.displayDigest.trim(),
+        updatedAt: new Date().toISOString(),
+      });
     }
 
     await this.options.refreshPipelineState(literature.id);
-    return { keyContentReady: false, generated: false, source: null };
+    return {
+      keyContentReady: true,
+      readinessStatus: extraction.readinessStatus,
+      artifactId: artifact.id,
+      checksum: extraction.checksum,
+      displayDigest: extraction.displayDigest,
+      diagnostics: extraction.diagnostics,
+      generated: true,
+      source: 'openai_structured_output',
+    };
   }
 
-  async ensureFulltextPreprocessed(literature: LiteratureRecord): Promise<{ id: string; artifactType: string; textLength: number }> {
-    const preprocessedText = this.buildPreprocessedText(literature);
+  async ensureFulltextPreprocessed(literature: LiteratureRecord): Promise<FulltextPreprocessingResult> {
+    const sourceAsset = (await this.repository.listContentAssetsByLiteratureId(literature.id))
+      .filter((asset) => asset.assetKind === 'raw_fulltext')
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+    if (!sourceAsset) {
+      return {
+        ready: false,
+        reasonCode: 'FULLTEXT_SOURCE_MISSING',
+        reasonMessage: 'A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.',
+        diagnostics: [{ code: 'FULLTEXT_SOURCE_MISSING', severity: 'blocker' }],
+      };
+    }
+
+    if (!this.isTextLikeAsset(sourceAsset.mimeType, sourceAsset.localPath)) {
+      await this.repository.upsertContentAsset({
+        ...sourceAsset,
+        status: 'unsupported',
+        updatedAt: new Date().toISOString(),
+      });
+      return {
+        ready: false,
+        reasonCode: 'FULLTEXT_PARSER_UNSUPPORTED',
+        reasonMessage: `No v1 fulltext parser is available for ${sourceAsset.mimeType}.`,
+        diagnostics: [{
+          code: 'FULLTEXT_PARSER_UNSUPPORTED',
+          severity: 'blocker',
+          mime_type: sourceAsset.mimeType,
+          local_path: sourceAsset.localPath,
+        }],
+      };
+    }
+
+    let rawText: string;
+    try {
+      rawText = await fs.readFile(sourceAsset.localPath, 'utf8');
+    } catch {
+      await this.repository.upsertContentAsset({
+        ...sourceAsset,
+        status: 'missing',
+        updatedAt: new Date().toISOString(),
+      });
+      return {
+        ready: false,
+        reasonCode: 'FULLTEXT_SOURCE_MISSING',
+        reasonMessage: `Registered fulltext asset is not readable: ${sourceAsset.localPath}`,
+        diagnostics: [{
+          code: 'FULLTEXT_SOURCE_MISSING',
+          severity: 'blocker',
+          local_path: sourceAsset.localPath,
+        }],
+      };
+    }
+
+    const preprocessedText = this.normalizeFulltext(rawText);
+    if (!preprocessedText) {
+      return {
+        ready: false,
+        reasonCode: 'FULLTEXT_EMPTY',
+        reasonMessage: 'Registered fulltext asset does not contain readable text.',
+        diagnostics: [{
+          code: 'FULLTEXT_EMPTY',
+          severity: 'blocker',
+          local_path: sourceAsset.localPath,
+        }],
+      };
+    }
+
+    const parserName = this.isMarkdownAsset(sourceAsset.mimeType, sourceAsset.localPath)
+      ? 'markdown-v1'
+      : 'plain-text-v1';
+    const parsed = this.parseNormalizedText(preprocessedText);
+    const now = new Date().toISOString();
+    const existingDocument = await this.repository.findFulltextDocumentBySourceAssetId(sourceAsset.id);
+    const documentId = existingDocument?.id ?? crypto.randomUUID();
+    const normalizedTextChecksum = sha256Text(preprocessedText);
+    const document: LiteratureFulltextDocumentRecord = {
+      id: documentId,
+      literatureId: literature.id,
+      sourceAssetId: sourceAsset.id,
+      normalizedText: preprocessedText,
+      normalizedTextChecksum,
+      parserName,
+      parserVersion: '1',
+      status: 'READY',
+      diagnostics: parsed.diagnostics,
+      createdAt: existingDocument?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    const bundle = await this.repository.upsertFulltextExtractionBundle({
+      document,
+      sections: parsed.sections.map((section) => ({
+        ...section,
+        id: crypto.randomUUID(),
+        documentId,
+        createdAt: now,
+        updatedAt: now,
+      })),
+      paragraphs: parsed.paragraphs.map((paragraph) => ({
+        ...paragraph,
+        id: crypto.randomUUID(),
+        documentId,
+        createdAt: now,
+        updatedAt: now,
+      })),
+      anchors: parsed.anchors.map((anchor) => ({
+        ...anchor,
+        id: crypto.randomUUID(),
+        documentId,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    });
+
+    await this.repository.upsertContentAsset({
+      ...sourceAsset,
+      status: 'ready',
+      updatedAt: now,
+    });
+
     const artifact = await this.upsertPipelineArtifact({
       literatureId: literature.id,
       stageCode: 'FULLTEXT_PREPROCESSED',
       artifactType: 'PREPROCESSED_TEXT',
       payload: {
         text: preprocessedText,
-        generated_at: new Date().toISOString(),
+        document_id: bundle.document.id,
+        source_asset_id: sourceAsset.id,
+        normalized_text_checksum: normalizedTextChecksum,
+        parser_name: parserName,
+        parser_version: '1',
+        sections: bundle.sections.map((section) => ({
+          section_id: section.sectionId,
+          title: section.title,
+          level: section.level,
+          start_offset: section.startOffset,
+          end_offset: section.endOffset,
+          checksum: section.checksum,
+        })),
+        paragraphs: bundle.paragraphs.map((paragraph) => ({
+          paragraph_id: paragraph.paragraphId,
+          section_id: paragraph.sectionId,
+          text: paragraph.text,
+          start_offset: paragraph.startOffset,
+          end_offset: paragraph.endOffset,
+          checksum: paragraph.checksum,
+        })),
+        anchors: bundle.anchors.map((anchor) => ({
+          anchor_id: anchor.anchorId,
+          anchor_type: anchor.anchorType,
+          label: anchor.label,
+          text: anchor.text,
+          checksum: anchor.checksum,
+        })),
+        diagnostics: parsed.diagnostics,
+        generated_at: now,
       },
-      checksum: this.sha256(preprocessedText),
+      checksum: normalizedTextChecksum,
     });
 
     return {
+      ready: true,
       id: artifact.id,
       artifactType: artifact.artifactType,
       textLength: preprocessedText.length,
+      documentId: bundle.document.id,
+      sourceAssetId: sourceAsset.id,
+      normalizedTextChecksum,
+      sectionCount: bundle.sections.length,
+      paragraphCount: bundle.paragraphs.length,
+      anchorCount: bundle.anchors.length,
+      diagnostics: parsed.diagnostics,
     };
   }
 
@@ -86,8 +324,7 @@ export class LiteratureFlowArtifactRuntime {
     literatureId: string,
     preprocessed: LiteraturePipelineArtifactRecord,
   ): Promise<LiteraturePipelineArtifactRecord> {
-    const text = typeof preprocessed.payload.text === 'string' ? preprocessed.payload.text : '';
-    const chunks = this.chunkText(text);
+    const chunks = await this.buildClassifiedChunks(literatureId, preprocessed);
 
     return this.upsertPipelineArtifact({
       literatureId,
@@ -95,8 +332,13 @@ export class LiteratureFlowArtifactRuntime {
       artifactType: 'CHUNKS',
       payload: {
         chunks,
-        chunk_size: 480,
-        overlap: 80,
+        chunking_profile: 'flat-classified-v1',
+        chunk_count: chunks.length,
+        source_artifacts: {
+          fulltext_artifact_id: preprocessed.id,
+          fulltext_checksum: preprocessed.checksum,
+          key_content_artifact_type: 'KEY_CONTENT_DOSSIER',
+        },
       },
       checksum: this.sha256(JSON.stringify(chunks)),
     });
@@ -105,22 +347,36 @@ export class LiteratureFlowArtifactRuntime {
   async ensureEmbedded(
     literatureId: string,
     chunkArtifact: LiteraturePipelineArtifactRecord,
-  ): Promise<LiteraturePipelineArtifactRecord> {
+  ): Promise<EmbeddingArtifactResult> {
     const chunks = this.readChunks(chunkArtifact);
-    const embedded = await this.embedChunks(chunks);
+    if (chunks.length === 0) {
+      return {
+        ready: false,
+        reasonCode: 'CHUNKS_EMPTY',
+        reasonMessage: 'CHUNKED artifact does not contain embeddable chunks.',
+        diagnostics: [{ code: 'CHUNKS_EMPTY', severity: 'blocker' }],
+      };
+    }
 
-    return this.upsertPipelineArtifact({
+    const embedded = await this.embedChunks(chunks);
+    if (!embedded.ready) {
+      return embedded;
+    }
+
+    const artifact = await this.upsertPipelineArtifact({
       literatureId,
       stageCode: 'EMBEDDED',
       artifactType: 'EMBEDDINGS',
       payload: {
         provider: embedded.provider,
+        profile_id: embedded.profileId,
         model: embedded.model,
         dimension: embedded.dimension,
         vectors: embedded.vectors,
       },
       checksum: this.sha256(JSON.stringify(embedded.vectors)),
     });
+    return { ready: true, artifact };
   }
 
   async ensureIndexed(
@@ -132,6 +388,9 @@ export class LiteratureFlowArtifactRuntime {
     const vectors = Array.isArray(embeddedArtifact.payload.vectors)
       ? embeddedArtifact.payload.vectors.length
       : 0;
+    if (chunks.length === 0 || vectors !== chunks.length) {
+      throw new Error(`Index smoke check failed: chunk/vector count mismatch (${chunks.length}/${vectors}).`);
+    }
 
     const tokenToChunkIds = new Map<string, string[]>();
     for (const chunk of chunks) {
@@ -145,6 +404,9 @@ export class LiteratureFlowArtifactRuntime {
     }
 
     const tokenIndexObject = Object.fromEntries(tokenToChunkIds.entries());
+    if (tokenToChunkIds.size === 0) {
+      throw new Error('Index smoke check failed: token index is empty.');
+    }
 
     return this.upsertPipelineArtifact({
       literatureId,
@@ -165,11 +427,8 @@ export class LiteratureFlowArtifactRuntime {
     literatureId: string;
     chunkArtifact: LiteraturePipelineArtifactRecord;
     embeddedArtifact: LiteraturePipelineArtifactRecord;
-    tokenToChunkIds?: Map<string, string[]>;
-    activate: boolean;
   }): Promise<LiteratureEmbeddingVersionRecord> {
-    const literature = await this.repository.findLiteratureById(input.literatureId);
-    if (!literature) {
+    if (!(await this.repository.findLiteratureById(input.literatureId))) {
       throw new AppError(404, 'NOT_FOUND', `Literature ${input.literatureId} not found.`);
     }
 
@@ -178,25 +437,35 @@ export class LiteratureFlowArtifactRuntime {
     const chunks = this.readChunks(input.chunkArtifact);
     const vectors = this.readEmbeddings(input.embeddedArtifact);
     const vectorByChunkId = new Map(vectors.map((vector) => [vector.chunk_id, vector.vector]));
-    const tokenEntries = [...(input.tokenToChunkIds?.entries() ?? [])];
     const provider = typeof input.embeddedArtifact.payload.provider === 'string'
       ? input.embeddedArtifact.payload.provider
-      : 'local';
+      : 'openai';
     const model = typeof input.embeddedArtifact.payload.model === 'string'
       ? input.embeddedArtifact.payload.model
-      : 'local-hash-embedding-v1';
+      : 'unknown';
+    const profileId = typeof input.embeddedArtifact.payload.profile_id === 'string'
+      ? input.embeddedArtifact.payload.profile_id
+      : null;
     const dimension = vectors[0]?.vector.length ?? 0;
 
     const version = await this.repository.createEmbeddingVersion({
       id: crypto.randomUUID(),
       literatureId: input.literatureId,
       versionNo: (latestVersion?.versionNo ?? 0) + 1,
+      status: 'READY',
+      profileId,
       provider,
       model,
       dimension,
       chunkCount: chunks.length,
       vectorCount: vectors.length,
-      tokenCount: tokenEntries.length,
+      tokenCount: 0,
+      inputChecksum: this.sha256(`${input.chunkArtifact.checksum ?? ''}:${input.embeddedArtifact.checksum ?? ''}`),
+      chunkArtifactChecksum: input.chunkArtifact.checksum,
+      embeddingArtifactChecksum: input.embeddedArtifact.checksum,
+      indexArtifactChecksum: null,
+      indexedAt: null,
+      activatedAt: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -210,12 +479,54 @@ export class LiteratureFlowArtifactRuntime {
       text: chunk.text,
       startOffset: chunk.start_offset,
       endOffset: chunk.end_offset,
+      chunkType: chunk.chunk_type,
+      sourceRefs: chunk.source_refs,
+      metadata: chunk.metadata,
+      contentChecksum: chunk.content_checksum,
       vector: vectorByChunkId.get(chunk.chunk_id) ?? [],
       createdAt: now,
       updatedAt: now,
     }));
     await this.repository.createEmbeddingChunks(embeddingChunks);
 
+    return version;
+  }
+
+  async activateLatestReadyEmbeddingVersion(input: {
+    literatureId: string;
+    chunkArtifact: LiteraturePipelineArtifactRecord;
+    embeddedArtifact: LiteraturePipelineArtifactRecord;
+    indexedArtifact: LiteraturePipelineArtifactRecord;
+  }): Promise<LiteratureEmbeddingVersionRecord> {
+    const literature = await this.repository.findLiteratureById(input.literatureId);
+    if (!literature) {
+      throw new AppError(404, 'NOT_FOUND', `Literature ${input.literatureId} not found.`);
+    }
+
+    const versions = await this.repository.listEmbeddingVersionsByLiteratureIds([input.literatureId]);
+    const matchesCurrentArtifacts = (item: LiteratureEmbeddingVersionRecord) =>
+      item.chunkArtifactChecksum === input.chunkArtifact.checksum
+      && item.embeddingArtifactChecksum === input.embeddedArtifact.checksum;
+    const readyVersion = versions
+      .filter((item) =>
+        item.status === 'READY'
+        && matchesCurrentArtifacts(item),
+      )
+      .sort((left, right) => right.versionNo - left.versionNo)[0];
+    const activeIndexedVersion = literature.activeEmbeddingVersionId
+      ? versions.find((item) =>
+          item.id === literature.activeEmbeddingVersionId
+          && item.status === 'INDEXED'
+          && matchesCurrentArtifacts(item),
+        )
+      : undefined;
+    const version = readyVersion ?? activeIndexedVersion;
+    if (!version) {
+      throw new Error('A READY or active INDEXED embedding version matching the current CHUNKED and EMBEDDED artifacts is required before INDEXED can activate.');
+    }
+
+    const tokenEntries = [...this.readTokenToChunkIds(input.indexedArtifact).entries()];
+    const now = new Date().toISOString();
     const tokenIndexes = tokenEntries.map(([token, chunkIds]) => ({
       id: crypto.randomUUID(),
       embeddingVersionId: version.id,
@@ -225,19 +536,24 @@ export class LiteratureFlowArtifactRuntime {
       createdAt: now,
       updatedAt: now,
     }));
-    if (tokenIndexes.length > 0) {
-      await this.repository.createEmbeddingTokenIndexes(tokenIndexes);
-    }
+    await this.repository.replaceEmbeddingTokenIndexes(version.id, tokenIndexes);
 
-    if (input.activate) {
-      await this.repository.updateLiterature({
-        ...literature,
-        activeEmbeddingVersionId: version.id,
-        updatedAt: now,
-      });
-    }
+    const updated = await this.repository.updateEmbeddingVersion(version.id, {
+      status: 'INDEXED',
+      tokenCount: tokenEntries.length,
+      indexArtifactChecksum: input.indexedArtifact.checksum,
+      indexedAt: now,
+      activatedAt: now,
+      updatedAt: now,
+    });
 
-    return version;
+    await this.repository.updateLiterature({
+      ...literature,
+      activeEmbeddingVersionId: version.id,
+      updatedAt: now,
+    });
+
+    return updated;
   }
 
   readTokenToChunkIds(indexedArtifact: LiteraturePipelineArtifactRecord): Map<string, string[]> {
@@ -282,52 +598,504 @@ export class LiteratureFlowArtifactRuntime {
     return upserted.record;
   }
 
-  private buildPreprocessedText(literature: LiteratureRecord): string {
-    const lines = [
-      `title: ${literature.title}`,
-      `authors: ${literature.authors.join(', ')}`,
-      `year: ${literature.year ?? 'unknown'}`,
-      `doi: ${literature.doiNormalized ?? 'n/a'}`,
-      `arxiv_id: ${literature.arxivId ?? 'n/a'}`,
-      `abstract: ${(literature.abstractText ?? '').trim()}`,
-      `key_content_digest: ${(literature.keyContentDigest ?? '').trim()}`,
-      `tags: ${literature.tags.join(', ')}`,
-    ];
-    return lines.join('\n').trim();
+  private isTextLikeAsset(mimeType: string, localPath: string): boolean {
+    return this.isPlainTextAsset(mimeType, localPath) || this.isMarkdownAsset(mimeType, localPath);
   }
 
-  private chunkText(text: string): ChunkRecord[] {
-    const normalized = text.replace(/\s+/g, ' ').trim();
-    if (!normalized) {
-      return [];
+  private isPlainTextAsset(mimeType: string, localPath: string): boolean {
+    const lowerMime = mimeType.toLowerCase();
+    const extension = path.extname(localPath).toLowerCase();
+    return lowerMime === 'text/plain' || extension === '.txt';
+  }
+
+  private isMarkdownAsset(mimeType: string, localPath: string): boolean {
+    const lowerMime = mimeType.toLowerCase();
+    const extension = path.extname(localPath).toLowerCase();
+    return lowerMime === 'text/markdown'
+      || lowerMime === 'text/x-markdown'
+      || extension === '.md'
+      || extension === '.markdown';
+  }
+
+  private normalizeFulltext(value: string): string {
+    return value
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  private parseNormalizedText(text: string): {
+    sections: ParsedSection[];
+    paragraphs: ParsedParagraph[];
+    anchors: ParsedAnchor[];
+    diagnostics: Record<string, unknown>[];
+  } {
+    const sections = this.extractSections(text);
+    const paragraphs = this.extractParagraphs(text, sections);
+    const anchors = this.extractMarkdownAnchors(text);
+    const diagnostics: Record<string, unknown>[] = [
+      {
+        code: 'VISUAL_EXTRACTION_NOT_AVAILABLE',
+        severity: 'info',
+        message: 'v1 text/markdown parser does not extract figures, tables, formulas, OCR, or layout boxes.',
+      },
+    ];
+    return {
+      sections,
+      paragraphs,
+      anchors,
+      diagnostics,
+    };
+  }
+
+  private extractSections(text: string): ParsedSection[] {
+    const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+    const headings = [...text.matchAll(headingRegex)]
+      .map((match) => ({
+        index: match.index ?? 0,
+        marker: match[1] ?? '#',
+        title: (match[2] ?? '').trim(),
+      }))
+      .filter((heading) => heading.title.length > 0);
+
+    if (headings.length === 0) {
+      return [{
+        sectionId: 'section-0001',
+        title: 'Full text',
+        level: 1,
+        orderIndex: 0,
+        startOffset: 0,
+        endOffset: text.length,
+        pageStart: null,
+        pageEnd: null,
+        checksum: sha256Text(text),
+      }];
     }
 
-    const chunkSize = 480;
-    const overlap = 80;
-    const chunks: ChunkRecord[] = [];
-    let start = 0;
-    let index = 0;
+    const sections: ParsedSection[] = [];
+    if (headings[0]!.index > 0 && text.slice(0, headings[0]!.index).trim().length > 0) {
+      sections.push({
+        sectionId: 'section-0001',
+        title: 'Front matter',
+        level: 1,
+        orderIndex: 0,
+        startOffset: 0,
+        endOffset: headings[0]!.index,
+        pageStart: null,
+        pageEnd: null,
+        checksum: sha256Text(text.slice(0, headings[0]!.index)),
+      });
+    }
 
-    while (start < normalized.length) {
-      const end = Math.min(normalized.length, start + chunkSize);
-      const slice = normalized.slice(start, end).trim();
-      if (slice.length > 0) {
-        chunks.push({
-          chunk_id: `chunk-${String(index + 1).padStart(4, '0')}`,
-          index,
-          text: slice,
-          start_offset: start,
-          end_offset: end,
+    for (const [headingIndex, heading] of headings.entries()) {
+      const startOffset = heading.index;
+      const endOffset = headings[headingIndex + 1]?.index ?? text.length;
+      const sectionIndex = sections.length;
+      sections.push({
+        sectionId: `section-${String(sectionIndex + 1).padStart(4, '0')}`,
+        title: heading.title,
+        level: heading.marker.length,
+        orderIndex: sectionIndex,
+        startOffset,
+        endOffset,
+        pageStart: null,
+        pageEnd: null,
+        checksum: sha256Text(text.slice(startOffset, endOffset)),
+      });
+    }
+
+    return sections;
+  }
+
+  private extractParagraphs(text: string, sections: ParsedSection[]): ParsedParagraph[] {
+    const paragraphs: ParsedParagraph[] = [];
+    for (const section of sections) {
+      const sectionStart = this.skipHeadingLine(text, section.startOffset, section.endOffset);
+      const spans = this.extractParagraphSpans(text, sectionStart, section.endOffset);
+      for (const span of spans) {
+        const paragraphIndex = paragraphs.length;
+        const paragraphText = text.slice(span.start, span.end);
+        paragraphs.push({
+          paragraphId: `para-${String(paragraphIndex + 1).padStart(4, '0')}`,
+          sectionId: section.sectionId,
+          orderIndex: paragraphIndex,
+          text: paragraphText,
+          startOffset: span.start,
+          endOffset: span.end,
+          pageNumber: null,
+          checksum: sha256Text(paragraphText),
+          confidence: 1,
         });
-        index += 1;
       }
-      if (end >= normalized.length) {
+    }
+    return paragraphs;
+  }
+
+  private skipHeadingLine(text: string, startOffset: number, endOffset: number): number {
+    const firstLineEnd = text.indexOf('\n', startOffset);
+    const lineEnd = firstLineEnd === -1 || firstLineEnd > endOffset ? endOffset : firstLineEnd;
+    const firstLine = text.slice(startOffset, lineEnd);
+    if (/^#{1,6}\s+/.test(firstLine)) {
+      return Math.min(endOffset, lineEnd + 1);
+    }
+    return startOffset;
+  }
+
+  private extractParagraphSpans(text: string, startOffset: number, endOffset: number): Array<{ start: number; end: number }> {
+    const spans: Array<{ start: number; end: number }> = [];
+    let cursor = startOffset;
+    const blankLineRegex = /\n\s*\n/g;
+
+    while (cursor < endOffset) {
+      while (cursor < endOffset && /\s/.test(text[cursor] ?? '')) {
+        cursor += 1;
+      }
+      if (cursor >= endOffset) {
         break;
       }
-      start = Math.max(0, end - overlap);
+
+      blankLineRegex.lastIndex = cursor;
+      const match = blankLineRegex.exec(text);
+      const blockEnd = match && match.index < endOffset ? match.index : endOffset;
+      let trimmedEnd = blockEnd;
+      while (trimmedEnd > cursor && /\s/.test(text[trimmedEnd - 1] ?? '')) {
+        trimmedEnd -= 1;
+      }
+      if (trimmedEnd > cursor) {
+        spans.push({ start: cursor, end: trimmedEnd });
+      }
+      cursor = match && match.index < endOffset ? match.index + match[0].length : endOffset;
     }
 
+    return spans;
+  }
+
+  private extractMarkdownAnchors(text: string): ParsedAnchor[] {
+    const candidates = [
+      ...this.extractMarkdownImageAnchors(text),
+      ...this.extractMarkdownFormulaAnchors(text),
+      ...this.extractMarkdownTableAnchors(text),
+    ].sort((left, right) => {
+      const leftStart = typeof left.metadata.start_offset === 'number' ? left.metadata.start_offset : 0;
+      const rightStart = typeof right.metadata.start_offset === 'number' ? right.metadata.start_offset : 0;
+      return leftStart - rightStart;
+    });
+
+    return candidates.map((anchor, index) => ({
+      ...anchor,
+      anchorId: `anchor-${String(index + 1).padStart(4, '0')}`,
+    }));
+  }
+
+  private extractMarkdownImageAnchors(text: string): ParsedAnchor[] {
+    const anchors: ParsedAnchor[] = [];
+    const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    for (const match of text.matchAll(imageRegex)) {
+      const startOffset = match.index ?? 0;
+      const raw = match[0] ?? '';
+      const label = (match[1] ?? '').trim() || null;
+      const target = (match[2] ?? '').trim();
+      anchors.push({
+        anchorId: '',
+        anchorType: 'figure',
+        label,
+        text: raw,
+        pageNumber: null,
+        bbox: null,
+        targetRefs: target ? [{ ref_type: 'markdown_target', target }] : [],
+        metadata: {
+          syntax: 'markdown_image',
+          start_offset: startOffset,
+          end_offset: startOffset + raw.length,
+        },
+        checksum: sha256Text(raw),
+      });
+    }
+    return anchors;
+  }
+
+  private extractMarkdownFormulaAnchors(text: string): ParsedAnchor[] {
+    const anchors: ParsedAnchor[] = [];
+    const formulaRegex = /\$\$([\s\S]+?)\$\$/g;
+    for (const match of text.matchAll(formulaRegex)) {
+      const startOffset = match.index ?? 0;
+      const raw = match[0] ?? '';
+      anchors.push({
+        anchorId: '',
+        anchorType: 'formula',
+        label: null,
+        text: (match[1] ?? '').trim() || raw,
+        pageNumber: null,
+        bbox: null,
+        targetRefs: [],
+        metadata: {
+          syntax: 'markdown_block_math',
+          start_offset: startOffset,
+          end_offset: startOffset + raw.length,
+        },
+        checksum: sha256Text(raw),
+      });
+    }
+    return anchors;
+  }
+
+  private extractMarkdownTableAnchors(text: string): ParsedAnchor[] {
+    const anchors: ParsedAnchor[] = [];
+    const lines = this.splitLinesWithOffsets(text);
+    let index = 0;
+
+    while (index < lines.length - 1) {
+      const header = lines[index]!;
+      const separator = lines[index + 1]!;
+      if (!header.text.includes('|') || !this.isMarkdownTableSeparator(separator.text)) {
+        index += 1;
+        continue;
+      }
+
+      let endIndex = index + 2;
+      while (endIndex < lines.length && lines[endIndex]!.text.includes('|') && lines[endIndex]!.text.trim().length > 0) {
+        endIndex += 1;
+      }
+
+      const startOffset = header.startOffset;
+      const endOffset = lines[endIndex - 1]!.endOffset;
+      const raw = text.slice(startOffset, endOffset);
+      anchors.push({
+        anchorId: '',
+        anchorType: 'table',
+        label: null,
+        text: raw,
+        pageNumber: null,
+        bbox: null,
+        targetRefs: [],
+        metadata: {
+          syntax: 'markdown_table',
+          start_offset: startOffset,
+          end_offset: endOffset,
+          row_count: endIndex - index - 1,
+        },
+        checksum: sha256Text(raw),
+      });
+      index = endIndex;
+    }
+
+    return anchors;
+  }
+
+  private splitLinesWithOffsets(text: string): Array<{ text: string; startOffset: number; endOffset: number }> {
+    const lines: Array<{ text: string; startOffset: number; endOffset: number }> = [];
+    let startOffset = 0;
+    for (const line of text.split('\n')) {
+      const endOffset = startOffset + line.length;
+      lines.push({ text: line, startOffset, endOffset });
+      startOffset = endOffset + 1;
+    }
+    return lines;
+  }
+
+  private isMarkdownTableSeparator(value: string): boolean {
+    const trimmed = value.trim();
+    return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(trimmed);
+  }
+
+  private async buildClassifiedChunks(
+    literatureId: string,
+    preprocessed: LiteraturePipelineArtifactRecord,
+  ): Promise<ChunkRecord[]> {
+    const chunks: Omit<ChunkRecord, 'index'>[] = [];
+    const abstractProfile = await this.repository.findAbstractProfileByLiteratureId(literatureId);
+    if (abstractProfile?.abstractText?.trim()) {
+      chunks.push(this.buildChunk({
+        chunkType: 'abstract',
+        text: abstractProfile.abstractText,
+        startOffset: 0,
+        endOffset: abstractProfile.abstractText.length,
+        sourceRefs: [{
+          ref_type: 'abstract',
+          ref_id: abstractProfile.id,
+          checksum: abstractProfile.checksum,
+        }],
+        metadata: {
+          origin_stage: 'ABSTRACT_READY',
+          abstract_source: abstractProfile.abstractSource,
+        },
+      }));
+    }
+
+    const text = typeof preprocessed.payload.text === 'string' ? preprocessed.payload.text : '';
+    const sections = Array.isArray(preprocessed.payload.sections) ? preprocessed.payload.sections : [];
+    for (const section of sections) {
+      const row = this.readRecord(section);
+      if (!row) {
+        continue;
+      }
+      const startOffset = this.readNumber(row.start_offset, 0);
+      const endOffset = this.readNumber(row.end_offset, startOffset);
+      const sectionText = text.slice(startOffset, endOffset).trim();
+      if (!sectionText) {
+        continue;
+      }
+      const sectionId = this.readString(row.section_id) ?? 'section';
+      chunks.push(this.buildChunk({
+        chunkType: 'fulltext_section',
+        text: sectionText.slice(0, 4000),
+        startOffset,
+        endOffset,
+        sourceRefs: [{
+          ref_type: 'section',
+          ref_id: sectionId,
+          section_id: sectionId,
+          checksum: this.readString(row.checksum),
+          start_offset: startOffset,
+          end_offset: endOffset,
+        }],
+        metadata: {
+          origin_stage: 'FULLTEXT_PREPROCESSED',
+          section_id: sectionId,
+          title: this.readString(row.title),
+        },
+      }));
+    }
+
+    const paragraphs = Array.isArray(preprocessed.payload.paragraphs) ? preprocessed.payload.paragraphs : [];
+    for (const paragraph of paragraphs) {
+      const row = this.readRecord(paragraph);
+      if (!row) {
+        continue;
+      }
+      const paragraphText = this.readString(row.text);
+      if (!paragraphText) {
+        continue;
+      }
+      const paragraphId = this.readString(row.paragraph_id) ?? 'paragraph';
+      const sectionId = this.readString(row.section_id) ?? null;
+      const startOffset = this.readNumber(row.start_offset, 0);
+      const endOffset = this.readNumber(row.end_offset, startOffset + paragraphText.length);
+      chunks.push(this.buildChunk({
+        chunkType: 'fulltext_paragraph',
+        text: paragraphText,
+        startOffset,
+        endOffset,
+        sourceRefs: [{
+          ref_type: 'paragraph',
+          ref_id: paragraphId,
+          paragraph_id: paragraphId,
+          section_id: sectionId,
+          checksum: this.readString(row.checksum),
+          start_offset: startOffset,
+          end_offset: endOffset,
+        }],
+        metadata: {
+          origin_stage: 'FULLTEXT_PREPROCESSED',
+          paragraph_id: paragraphId,
+          section_id: sectionId,
+        },
+      }));
+    }
+
+    const keyContent = await this.repository.findPipelineArtifact(literatureId, 'KEY_CONTENT_READY', 'KEY_CONTENT_DOSSIER');
+    if (keyContent) {
+      chunks.push(...this.buildDossierChunks(keyContent));
+    }
+
+    return this.dedupeAndIndexChunks(chunks);
+  }
+
+  private buildDossierChunks(artifact: LiteraturePipelineArtifactRecord): Omit<ChunkRecord, 'index'>[] {
+    const categories = this.readRecord(artifact.payload.categories);
+    if (!categories) {
+      return [];
+    }
+    const chunks: Omit<ChunkRecord, 'index'>[] = [];
+    for (const [category, rawItems] of Object.entries(categories)) {
+      if (!Array.isArray(rawItems)) {
+        continue;
+      }
+      for (const item of rawItems) {
+        const row = this.readRecord(item);
+        if (!row) {
+          continue;
+        }
+        const statement = this.readString(row.statement);
+        if (!statement) {
+          continue;
+        }
+        const details = this.readString(row.details) ?? '';
+        const text = [statement, details].filter((value) => value.trim().length > 0).join('\n');
+        const sourceRefs = Array.isArray(row.source_refs)
+          ? row.source_refs.filter((ref): ref is Record<string, unknown> => Boolean(ref) && typeof ref === 'object' && !Array.isArray(ref))
+          : [];
+        const chunkType = category === 'evidence_candidates' || category === 'claim_evidence_map'
+          ? 'evidence'
+          : category === 'figure_insights'
+            ? 'figure'
+            : category === 'table_insights'
+              ? 'table'
+              : 'semantic_dossier';
+        chunks.push(this.buildChunk({
+          chunkType,
+          text,
+          startOffset: 0,
+          endOffset: text.length,
+          sourceRefs,
+          metadata: {
+            origin_stage: 'KEY_CONTENT_READY',
+            artifact_id: artifact.id,
+            category,
+            item_id: this.readString(row.id),
+            evidence_strength: this.readString(row.evidence_strength),
+            confidence: typeof row.confidence === 'number' ? row.confidence : null,
+          },
+        }));
+      }
+    }
     return chunks;
+  }
+
+  private buildChunk(input: {
+    chunkType: string;
+    text: string;
+    startOffset: number;
+    endOffset: number;
+    sourceRefs: Record<string, unknown>[];
+    metadata: Record<string, unknown>;
+  }): Omit<ChunkRecord, 'index'> {
+    const normalized = input.text.replace(/\s+/g, ' ').trim();
+    const contentChecksum = sha256Text(normalized);
+    const refKey = JSON.stringify(input.sourceRefs);
+    return {
+      chunk_id: `${input.chunkType}-${sha256Text(`${input.chunkType}:${refKey}:${contentChecksum}`).slice(0, 16)}`,
+      chunk_type: input.chunkType,
+      text: normalized,
+      start_offset: input.startOffset,
+      end_offset: input.endOffset,
+      source_refs: input.sourceRefs,
+      metadata: input.metadata,
+      content_checksum: contentChecksum,
+    };
+  }
+
+  private dedupeAndIndexChunks(chunks: Array<Omit<ChunkRecord, 'index'>>): ChunkRecord[] {
+    const byId = new Map<string, Omit<ChunkRecord, 'index'>>();
+    for (const chunk of chunks) {
+      if (chunk.text.length === 0) {
+        continue;
+      }
+      byId.set(chunk.chunk_id, chunk);
+    }
+    return [...byId.values()]
+      .sort((left, right) => {
+        if (left.chunk_type !== right.chunk_type) {
+          return left.chunk_type.localeCompare(right.chunk_type);
+        }
+        return left.chunk_id.localeCompare(right.chunk_id);
+      })
+      .map((chunk, index) => ({
+        ...chunk,
+        index,
+      }));
   }
 
   private readChunks(chunkArtifact: LiteraturePipelineArtifactRecord): ChunkRecord[] {
@@ -347,12 +1115,22 @@ export class LiteratureFlowArtifactRuntime {
           return null;
         }
         const chunkId = typeof row.chunk_id === 'string' ? row.chunk_id : `chunk-${String(index + 1).padStart(4, '0')}`;
+        const sourceRefs = Array.isArray(row.source_refs)
+          ? row.source_refs.filter((ref): ref is Record<string, unknown> => Boolean(ref) && typeof ref === 'object' && !Array.isArray(ref))
+          : [];
+        const metadata = row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
+          ? row.metadata as Record<string, unknown>
+          : {};
         return {
           chunk_id: chunkId,
           index: typeof row.index === 'number' ? row.index : index,
+          chunk_type: typeof row.chunk_type === 'string' ? row.chunk_type : 'fulltext_paragraph',
           text,
           start_offset: typeof row.start_offset === 'number' ? row.start_offset : 0,
           end_offset: typeof row.end_offset === 'number' ? row.end_offset : text.length,
+          source_refs: sourceRefs,
+          metadata,
+          content_checksum: typeof row.content_checksum === 'string' ? row.content_checksum : sha256Text(text),
         } satisfies ChunkRecord;
       })
       .filter((row): row is ChunkRecord => row !== null);
@@ -384,37 +1162,36 @@ export class LiteratureFlowArtifactRuntime {
   }
 
   private async embedChunks(chunks: ChunkRecord[]): Promise<{
-    provider: 'openai' | 'local';
+    ready: true;
+    provider: 'openai';
+    profileId: string;
     model: string;
     dimension: number;
     vectors: EmbeddingRecord[];
+  } | {
+    ready: false;
+    reasonCode: string;
+    reasonMessage: string;
+    diagnostics: Record<string, unknown>[];
   }> {
     const openAIConfig = await this.options.settingsService?.resolveOpenAIEmbeddingConfig();
-    if (openAIConfig) {
-      try {
-        const openAIVectors = await this.embedChunksViaOpenAI(chunks, openAIConfig);
-        return {
-          provider: 'openai',
-          model: openAIConfig.model,
-          dimension: openAIVectors[0]?.vector.length ?? 0,
-          vectors: openAIVectors,
-        };
-      } catch {
-        // Fallback to local deterministic embeddings.
-      }
+    if (!openAIConfig) {
+      return {
+        ready: false,
+        reasonCode: 'EMBEDDING_PROVIDER_MISSING',
+        reasonMessage: 'OpenAI embedding settings are required before EMBEDDED can complete.',
+        diagnostics: [{ code: 'EMBEDDING_PROVIDER_MISSING', severity: 'blocker' }],
+      };
     }
 
-    const vectors = chunks.map((chunk) => ({
-      chunk_id: chunk.chunk_id,
-      index: chunk.index,
-      vector: this.buildLocalEmbeddingVector(chunk.text),
-    }));
-
+    const openAIVectors = await this.embedChunksViaOpenAI(chunks, openAIConfig);
     return {
-      provider: 'local',
-      model: 'local-hash-embedding-v1',
-      dimension: vectors[0]?.vector.length ?? 0,
-      vectors,
+      ready: true,
+      provider: 'openai',
+      profileId: openAIConfig.profileId,
+      model: openAIConfig.model,
+      dimension: openAIVectors[0]?.vector.length ?? 0,
+      vectors: openAIVectors,
     };
   }
 
@@ -481,21 +1258,25 @@ export class LiteratureFlowArtifactRuntime {
     }));
   }
 
-  private buildLocalEmbeddingVector(text: string): number[] {
-    const digest = crypto.createHash('sha256').update(text).digest();
-    const dimension = 16;
-    return Array.from({ length: dimension }, (_, index) => {
-      const byte = digest[index % digest.length] ?? 0;
-      const normalized = (byte / 255) * 2 - 1;
-      return Number(normalized.toFixed(6));
-    });
-  }
-
   private tokenize(text: string): string[] {
     return [...new Set(
       (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])
         .filter((token) => token.length > 1),
     )];
+  }
+
+  private readRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null;
+  }
+
+  private readString(value: unknown): string | null {
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  }
+
+  private readNumber(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
   }
 
   private sha256(text: string): string {

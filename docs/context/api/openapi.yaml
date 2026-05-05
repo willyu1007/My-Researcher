@@ -677,6 +677,60 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /literature/{literatureId}/content-assets:
+    post:
+      operationId: registerLiteratureContentAsset
+      summary: Register a local literature content asset reference.
+      tags: [literature]
+      parameters:
+        - name: literatureId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterLiteratureContentAssetRequest'
+      responses:
+        '200':
+          description: Registered literature content asset.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterLiteratureContentAssetResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: listLiteratureContentAssets
+      summary: List local content assets registered for one literature.
+      tags: [literature]
+      parameters:
+        - name: literatureId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Literature content asset list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListLiteratureContentAssetsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /literature/{literatureId}/content-processing:
     get:
       operationId: getLiteratureContentProcessing
@@ -766,7 +820,7 @@ paths:
   /settings/literature-content-processing:
     get:
       operationId: getLiteratureContentProcessingSettings
-      summary: Get redacted provider, embedding profile, and storage root settings for literature content processing.
+      summary: Get redacted provider, extraction profile, embedding profile, and storage root settings for literature content processing.
       tags: [settings]
       responses:
         '200':
@@ -779,7 +833,7 @@ paths:
           $ref: '#/components/responses/InternalError'
     patch:
       operationId: updateLiteratureContentProcessingSettings
-      summary: Update provider API key, embedding profile, and storage root settings for literature content processing.
+      summary: Update provider API key, extraction profile, embedding profile, and storage root settings for literature content processing.
       tags: [settings]
       requestBody:
         required: true
@@ -2049,6 +2103,18 @@ components:
         - STAGE_ALREADY_READY
         - RUN_IN_FLIGHT
 
+    LiteratureContentAssetKind:
+      type: string
+      enum: [raw_fulltext, normalized_text, derived_image, other]
+
+    LiteratureContentAssetSourceKind:
+      type: string
+      enum: [local_path]
+
+    LiteratureContentAssetStatus:
+      type: string
+      enum: [registered, missing, unsupported, ready, failed]
+
     AutoPullScope:
       type: string
       enum: [GLOBAL, TOPIC]
@@ -2900,6 +2966,14 @@ components:
       type: string
       enum: [default, economy]
 
+    LiteratureExtractionProfileId:
+      type: string
+      enum: [default, high_accuracy]
+
+    LiteratureRetrieveProfileId:
+      type: string
+      enum: [general, topic_exploration, paper_management, writing_evidence]
+
     LiteratureContentProcessingProviderSettings:
       type: object
       required: [provider, api_key_set, api_key_last_updated_at]
@@ -2938,6 +3012,30 @@ components:
             $ref: '#/components/schemas/LiteratureEmbeddingProfile'
       additionalProperties: false
 
+    LiteratureExtractionProfile:
+      type: object
+      required: [profile_id, provider, model]
+      properties:
+        profile_id:
+          $ref: '#/components/schemas/LiteratureExtractionProfileId'
+        provider:
+          $ref: '#/components/schemas/LiteratureContentProcessingProviderId'
+        model:
+          type: string
+      additionalProperties: false
+
+    LiteratureContentProcessingExtractionSettings:
+      type: object
+      required: [active_profile_id, profiles]
+      properties:
+        active_profile_id:
+          $ref: '#/components/schemas/LiteratureExtractionProfileId'
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureExtractionProfile'
+      additionalProperties: false
+
     LiteratureContentProcessingStorageRoots:
       type: object
       required: [raw_files, normalized_text, artifacts_cache, indexes, exports]
@@ -2956,7 +3054,7 @@ components:
 
     LiteratureContentProcessingSettings:
       type: object
-      required: [providers, embedding, storage_roots, updated_at]
+      required: [providers, embedding, extraction, storage_roots, updated_at]
       properties:
         providers:
           type: array
@@ -2964,6 +3062,8 @@ components:
             $ref: '#/components/schemas/LiteratureContentProcessingProviderSettings'
         embedding:
           $ref: '#/components/schemas/LiteratureContentProcessingEmbeddingSettings'
+        extraction:
+          $ref: '#/components/schemas/LiteratureContentProcessingExtractionSettings'
         storage_roots:
           $ref: '#/components/schemas/LiteratureContentProcessingStorageRoots'
         updated_at:
@@ -2993,6 +3093,16 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/LiteratureEmbeddingProfile'
+          additionalProperties: false
+        extraction:
+          type: object
+          properties:
+            active_profile_id:
+              $ref: '#/components/schemas/LiteratureExtractionProfileId'
+            profiles:
+              type: array
+              items:
+                $ref: '#/components/schemas/LiteratureExtractionProfile'
           additionalProperties: false
         storage_roots:
           type: object
@@ -3389,6 +3499,106 @@ components:
           format: date-time
       additionalProperties: false
 
+    RegisterLiteratureContentAssetRequest:
+      type: object
+      required:
+        - local_path
+      properties:
+        asset_kind:
+          $ref: '#/components/schemas/LiteratureContentAssetKind'
+        source_kind:
+          $ref: '#/components/schemas/LiteratureContentAssetSourceKind'
+        local_path:
+          type: string
+          minLength: 1
+        checksum:
+          type: string
+          minLength: 1
+        mime_type:
+          type: string
+          minLength: 1
+        byte_size:
+          type: integer
+          minimum: 0
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+        metadata:
+          type: object
+          additionalProperties: true
+      additionalProperties: false
+
+    LiteratureContentAsset:
+      type: object
+      required:
+        - asset_id
+        - literature_id
+        - asset_kind
+        - source_kind
+        - local_path
+        - checksum
+        - mime_type
+        - byte_size
+        - rights_class
+        - status
+        - metadata
+        - created_at
+        - updated_at
+      properties:
+        asset_id:
+          type: string
+        literature_id:
+          type: string
+        asset_kind:
+          $ref: '#/components/schemas/LiteratureContentAssetKind'
+        source_kind:
+          $ref: '#/components/schemas/LiteratureContentAssetSourceKind'
+        local_path:
+          type: string
+        checksum:
+          type: string
+        mime_type:
+          type: string
+        byte_size:
+          type: integer
+          minimum: 0
+        rights_class:
+          $ref: '#/components/schemas/RightsClass'
+        status:
+          $ref: '#/components/schemas/LiteratureContentAssetStatus'
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    RegisterLiteratureContentAssetResponse:
+      type: object
+      required:
+        - item
+      properties:
+        item:
+          $ref: '#/components/schemas/LiteratureContentAsset'
+      additionalProperties: false
+
+    ListLiteratureContentAssetsResponse:
+      type: object
+      required:
+        - literature_id
+        - items
+      properties:
+        literature_id:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentAsset'
+      additionalProperties: false
+
     LiteratureRetrieveRequest:
       type: object
       required: [query]
@@ -3396,6 +3606,10 @@ components:
         query:
           type: string
           minLength: 1
+        profile:
+          allOf:
+            - $ref: '#/components/schemas/LiteratureRetrieveProfileId'
+          default: general
         topic_id:
           type: string
           minLength: 1
@@ -3418,14 +3632,20 @@ components:
       type: object
       required:
         - chunk_id
+        - chunk_type
         - text
         - start_offset
         - end_offset
+        - source_refs
+        - metadata
         - hybrid_score
         - vector_score
         - lexical_score
+        - score_breakdown
       properties:
         chunk_id:
+          type: string
+        chunk_type:
           type: string
         text:
           type: string
@@ -3433,6 +3653,14 @@ components:
           type: integer
         end_offset:
           type: integer
+        source_refs:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
         hybrid_score:
           type: number
           minimum: 0
@@ -3445,6 +3673,19 @@ components:
           type: number
           minimum: 0
           maximum: 1
+        score_breakdown:
+          type: object
+          required: [vector, lexical, metadata, profile_boost]
+          properties:
+            vector:
+              type: number
+            lexical:
+              type: number
+            metadata:
+              type: number
+            profile_boost:
+              type: number
+          additionalProperties: false
       additionalProperties: false
 
     LiteratureRetrieveHit:
@@ -3453,6 +3694,9 @@ components:
         - literature_id
         - title
         - embedding_version_id
+        - retrieval_profile
+        - is_stale
+        - warnings
         - hybrid_score
         - vector_score
         - lexical_score
@@ -3464,6 +3708,14 @@ components:
           type: string
         embedding_version_id:
           type: string
+        retrieval_profile:
+          $ref: '#/components/schemas/LiteratureRetrieveProfileId'
+        is_stale:
+          type: boolean
+        warnings:
+          type: array
+          items:
+            type: string
         hybrid_score:
           type: number
           minimum: 0
@@ -3492,12 +3744,31 @@ components:
             $ref: '#/components/schemas/LiteratureRetrieveHit'
         meta:
           type: object
-          required: [query_tokens, profiles_used, skipped_profiles]
+          required: [profile, query_tokens, degraded_mode, freshness_warnings, profiles_used, skipped_profiles]
           properties:
+            profile:
+              $ref: '#/components/schemas/LiteratureRetrieveProfileId'
             query_tokens:
               type: array
               items:
                 type: string
+            degraded_mode:
+              type: boolean
+            freshness_warnings:
+              type: array
+              items:
+                type: object
+                required: [literature_id, embedding_version_id, reason_code, reason_message]
+                properties:
+                  literature_id:
+                    type: string
+                  embedding_version_id:
+                    type: string
+                  reason_code:
+                    type: string
+                  reason_message:
+                    type: string
+                additionalProperties: false
             profiles_used:
               type: array
               items:

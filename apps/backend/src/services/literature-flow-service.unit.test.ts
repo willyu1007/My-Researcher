@@ -1,9 +1,20 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import test, { after } from 'node:test';
 import type { RightsClass } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
 import type { LiteratureRepository } from '../repositories/literature-repository.js';
+import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 import { LiteratureFlowService, PIPELINE_STAGE_CODES } from './literature-flow-service.js';
+
+const tempDirs = new Set<string>();
+
+after(async () => {
+  await Promise.all([...tempDirs].map((dir) => fs.rm(dir, { recursive: true, force: true })));
+});
 
 async function seedLiterature(
   repository: LiteratureRepository,
@@ -12,6 +23,8 @@ async function seedLiterature(
   options: {
     abstractText?: string | null;
     keyContentDigest?: string | null;
+    fulltextText?: string;
+    fulltextExtension?: '.txt' | '.md' | '.pdf';
   } = {},
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -42,6 +55,40 @@ async function seedLiterature(
     rawPayload: {},
     fetchedAt: now,
   });
+
+  if (options.fulltextText !== undefined) {
+    await seedRawFulltextAsset(repository, literatureId, options.fulltextText, options.fulltextExtension ?? '.txt');
+  }
+}
+
+async function seedRawFulltextAsset(
+  repository: LiteratureRepository,
+  literatureId: string,
+  text: string,
+  extension: '.txt' | '.md' | '.pdf' = '.txt',
+): Promise<string> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pea-lit-fulltext-'));
+  tempDirs.add(dir);
+  const localPath = path.join(dir, `paper${extension}`);
+  await fs.writeFile(localPath, text, 'utf8');
+  const checksum = crypto.createHash('sha256').update(text).digest('hex');
+  const now = new Date().toISOString();
+  await repository.upsertContentAsset({
+    id: `${literatureId}-asset-${Date.now()}`,
+    literatureId,
+    assetKind: 'raw_fulltext',
+    sourceKind: 'local_path',
+    localPath,
+    checksum,
+    mimeType: extension === '.md' ? 'text/markdown' : extension === '.pdf' ? 'application/pdf' : 'text/plain',
+    byteSize: Buffer.byteLength(text),
+    rightsClass: 'OA',
+    status: 'registered',
+    metadata: {},
+    createdAt: now,
+    updatedAt: now,
+  });
+  return localPath;
 }
 
 async function waitForTerminalRun(repository: LiteratureRepository, runId: string) {
@@ -59,18 +106,109 @@ async function waitForTerminalRun(repository: LiteratureRepository, runId: strin
   throw new Error(`Timed out waiting for run ${runId}.`);
 }
 
+function createMockSettingsService(): LiteratureContentProcessingSettingsService {
+  return {
+    resolveOpenAIExtractionConfig: async () => ({
+      apiKey: 'sk-test',
+      model: 'gpt-5-mini',
+      profileId: 'default',
+    }),
+    resolveOpenAIEmbeddingConfig: async () => ({
+      apiKey: 'sk-test',
+      profileId: 'default',
+      model: 'text-embedding-3-large',
+      dimensions: 3,
+    }),
+  } as LiteratureContentProcessingSettingsService;
+}
+
+function mockOpenAIContentProcessing(): () => void {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const url = String(input);
+    const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+    if (url.endsWith('/v1/responses')) {
+      return new Response(JSON.stringify({
+        output_text: JSON.stringify(buildMockDossierPayload()),
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/v1/embeddings')) {
+      const rawInput = body.input;
+      const inputs = Array.isArray(rawInput) ? rawInput : [rawInput];
+      return new Response(JSON.stringify({
+        data: inputs.map((_item, index) => ({
+          index,
+          embedding: [0.1 + index / 100, 0.2, 0.3],
+        })),
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response('{}', { status: 404 });
+  }) as typeof fetch;
+
+  return () => {
+    globalThis.fetch = previousFetch;
+  };
+}
+
+function buildMockDossierPayload() {
+  const item = (id: string, type: string, statement: string) => ({
+    id,
+    type,
+    statement,
+    details: `${statement} details.`,
+    source_refs: [{ ref_type: 'paragraph', ref_id: 'para-0001' }],
+    confidence: 0.9,
+    evidence_strength: 'high',
+    notes: null,
+  });
+  return {
+    categories: {
+      research_problem: [item('rp-1', 'problem', 'The paper studies retrieval evidence workflows.')],
+      contributions: [item('contrib-1', 'contribution', 'The paper contributes a source-grounded pipeline.')],
+      method: [item('method-1', 'method', 'The method uses staged processing.')],
+      datasets_and_benchmarks: [],
+      experiments: [],
+      key_findings: [item('finding-1', 'finding', 'The pipeline preserves provenance.')],
+      limitations: [],
+      reproducibility: [item('repro-1', 'reproducibility', 'The fixture includes reproducible anchors.')],
+      related_work_positioning: [],
+      evidence_candidates: [item('evidence-1', 'evidence', 'Paragraph evidence supports the claim.')],
+      figure_insights: [],
+      table_insights: [],
+      claim_evidence_map: [item('claim-map-1', 'claim_evidence', 'The claim maps to paragraph evidence.')],
+      automation_signals: [item('signal-1', 'automation', 'Useful for retrieval automation.')],
+    },
+    quality_report: {
+      extraction_diagnostics: [],
+    },
+    display_digest: 'Source-grounded pipeline dossier.',
+  };
+}
+
 test('literature flow executes all seven stages and persists stage artifacts', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureFlowService(repository);
+  const service = new LiteratureFlowService(repository, createMockSettingsService());
+  const restoreFetch = mockOpenAIContentProcessing();
   await seedLiterature(repository, 'LIT-FLOW-1', 'OA', {
     abstractText: 'Trusted abstract for pipeline execution.',
     keyContentDigest: 'Trusted key content digest for pipeline execution.',
+    fulltextText: '# Abstract\n\nTrusted abstract for pipeline execution.\n\n# Method\n\nFulltext evidence for pipeline execution.',
   });
 
-  const run = await service.triggerContentProcessingRun('LIT-FLOW-1', [...PIPELINE_STAGE_CODES]);
+  try {
+    const run = await service.triggerContentProcessingRun('LIT-FLOW-1', [...PIPELINE_STAGE_CODES]);
 
-  const terminal = await waitForTerminalRun(repository, run.run_id);
-  assert.equal(terminal.status, 'SUCCESS');
+    const terminal = await waitForTerminalRun(repository, run.run_id);
+    assert.equal(terminal.status, 'SUCCESS');
+  } finally {
+    restoreFetch();
+  }
 
   const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-1');
   const statusMap = new Map(stageStates.map((item) => [item.stageCode, item.status]));
@@ -80,20 +218,21 @@ test('literature flow executes all seven stages and persists stage artifacts', a
 
   const artifacts = await repository.listPipelineArtifactsByLiteratureId('LIT-FLOW-1');
   const artifactTypes = artifacts.map((item) => item.artifactType).sort();
-  assert.deepEqual(artifactTypes, ['CHUNKS', 'EMBEDDINGS', 'LOCAL_INDEX', 'PREPROCESSED_TEXT']);
+  assert.deepEqual(artifactTypes, ['CHUNKS', 'EMBEDDINGS', 'KEY_CONTENT_DOSSIER', 'LOCAL_INDEX', 'PREPROCESSED_TEXT']);
 
   const versions = await repository.listEmbeddingVersionsByLiteratureIds(['LIT-FLOW-1']);
-  assert.equal(versions.length, 2);
+  assert.equal(versions.length, 1);
   assert.equal(versions[0]?.versionNo, 1);
-  assert.equal(versions[1]?.versionNo, 2);
+  assert.equal(versions[0]?.status, 'INDEXED');
 
   const literature = await repository.findLiteratureById('LIT-FLOW-1');
   assert.ok(literature);
-  assert.equal(literature.activeEmbeddingVersionId, versions[1]?.id ?? null);
+  assert.equal(literature.activeEmbeddingVersionId, versions[0]?.id ?? null);
 
-  const activeChunkRows = await repository.listEmbeddingChunksByEmbeddingVersionId(versions[1]!.id);
+  const activeChunkRows = await repository.listEmbeddingChunksByEmbeddingVersionId(versions[0]!.id);
   assert.equal(activeChunkRows.length > 0, true);
-  const activeTokenRows = await repository.listEmbeddingTokenIndexesByEmbeddingVersionId(versions[1]!.id);
+  assert.equal(activeChunkRows.some((row) => row.chunkType === 'evidence'), true);
+  const activeTokenRows = await repository.listEmbeddingTokenIndexesByEmbeddingVersionId(versions[0]!.id);
   assert.equal(activeTokenRows.length > 0, true);
 });
 
@@ -131,13 +270,16 @@ test('literature flow blocks ABSTRACT_READY when no trusted abstract source exis
   const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-NO-ABSTRACT');
   const abstractStage = stageStates.find((item) => item.stageCode === 'ABSTRACT_READY');
   assert.equal(abstractStage?.status, 'BLOCKED');
+  assert.equal(abstractStage?.detail.abstract_ready, false);
+  assert.deepEqual(abstractStage?.detail.reason_codes, ['MISSING_TRUSTED_ABSTRACT']);
 });
 
-test('literature flow blocks KEY_CONTENT_READY when no validated key content source exists', async () => {
+test('literature flow blocks KEY_CONTENT_READY when extraction provider is not configured', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureFlowService(repository);
   await seedLiterature(repository, 'LIT-FLOW-NO-KEY', 'OA', {
     abstractText: 'Trusted abstract for key-content prerequisite.',
+    fulltextText: 'Fulltext evidence for missing key-content gate.',
   });
 
   const run = await service.triggerContentProcessingRun('LIT-FLOW-NO-KEY', [
@@ -147,13 +289,61 @@ test('literature flow blocks KEY_CONTENT_READY when no validated key content sou
   ]);
   const terminal = await waitForTerminalRun(repository, run.run_id);
   assert.equal(terminal.status, 'PARTIAL');
-  assert.equal(terminal.errorCode, 'KEY_CONTENT_SOURCE_MISSING');
+  assert.equal(terminal.errorCode, 'KEY_CONTENT_PROVIDER_MISSING');
 
   const literature = await repository.findLiteratureById('LIT-FLOW-NO-KEY');
   assert.equal(literature?.keyContentDigest, null);
   const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-NO-KEY');
   const keyStage = stageStates.find((item) => item.stageCode === 'KEY_CONTENT_READY');
   assert.equal(keyStage?.status, 'BLOCKED');
+});
+
+test('literature flow blocks unsupported PDF fulltext parser with diagnostics', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository);
+  await seedLiterature(repository, 'LIT-FLOW-PDF-UNSUPPORTED', 'OA', {
+    abstractText: 'Trusted abstract for unsupported PDF parser.',
+    fulltextText: '%PDF-1.4 unsupported parser fixture',
+    fulltextExtension: '.pdf',
+  });
+
+  const run = await service.triggerContentProcessingRun('LIT-FLOW-PDF-UNSUPPORTED', [
+    'ABSTRACT_READY',
+    'FULLTEXT_PREPROCESSED',
+  ]);
+  const terminal = await waitForTerminalRun(repository, run.run_id);
+  assert.equal(terminal.status, 'PARTIAL');
+  assert.equal(terminal.errorCode, 'FULLTEXT_PARSER_UNSUPPORTED');
+
+  const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-PDF-UNSUPPORTED');
+  const fulltext = stageStates.find((item) => item.stageCode === 'FULLTEXT_PREPROCESSED');
+  assert.equal(fulltext?.status, 'BLOCKED');
+  assert.equal(fulltext?.detail.reason_code, 'FULLTEXT_PARSER_UNSUPPORTED');
+  assert.equal(Array.isArray(fulltext?.detail.diagnostics), true);
+
+  const assets = await repository.listContentAssetsByLiteratureId('LIT-FLOW-PDF-UNSUPPORTED');
+  assert.equal(assets[0]?.status, 'unsupported');
+});
+
+test('literature flow blocks FULLTEXT_PREPROCESSED when no raw asset is registered', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository);
+  await seedLiterature(repository, 'LIT-FLOW-NO-ASSET', 'OA', {
+    abstractText: 'Trusted abstract for missing asset gate.',
+  });
+
+  const run = await service.triggerContentProcessingRun('LIT-FLOW-NO-ASSET', [
+    'ABSTRACT_READY',
+    'FULLTEXT_PREPROCESSED',
+  ]);
+  const terminal = await waitForTerminalRun(repository, run.run_id);
+  assert.equal(terminal.status, 'PARTIAL');
+  assert.equal(terminal.errorCode, 'FULLTEXT_SOURCE_MISSING');
+
+  const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-NO-ASSET');
+  const fulltext = stageStates.find((item) => item.stageCode === 'FULLTEXT_PREPROCESSED');
+  assert.equal(fulltext?.status, 'BLOCKED');
+  assert.equal(fulltext?.detail.reason_code, 'FULLTEXT_SOURCE_MISSING');
 });
 
 test('literature flow treats STALE as artifact-present and exposes rerun actions', async () => {
@@ -223,6 +413,7 @@ test('literature flow rerun overwrites existing stage artifact instead of duplic
   const service = new LiteratureFlowService(repository);
   await seedLiterature(repository, 'LIT-FLOW-RERUN', 'OA', {
     abstractText: 'Trusted abstract for rerun artifact overwrite validation.',
+    fulltextText: 'Initial fulltext for rerun artifact overwrite validation.',
   });
 
   const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-RERUN', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED']);
@@ -238,9 +429,15 @@ test('literature flow rerun overwrites existing stage artifact instead of duplic
 
   const literature = await repository.findLiteratureById('LIT-FLOW-RERUN');
   assert.ok(literature);
-  await repository.updateLiterature({
-    ...literature,
-    keyContentDigest: 'Updated digest for rerun artifact overwrite validation.',
+  const assets = await repository.listContentAssetsByLiteratureId('LIT-FLOW-RERUN');
+  const asset = assets[0];
+  assert.ok(asset);
+  const updatedFulltext = 'Updated fulltext for rerun artifact overwrite validation.';
+  await fs.writeFile(asset.localPath, updatedFulltext, 'utf8');
+  await repository.upsertContentAsset({
+    ...asset,
+    checksum: crypto.createHash('sha256').update(updatedFulltext).digest('hex'),
+    byteSize: Buffer.byteLength(updatedFulltext),
     updatedAt: new Date().toISOString(),
   });
 
@@ -269,6 +466,7 @@ test('literature flow enforces USER_AUTH gate by global env switch', async () =>
   const service = new LiteratureFlowService(repository);
   await seedLiterature(repository, 'LIT-FLOW-USER-AUTH', 'USER_AUTH', {
     abstractText: 'Trusted abstract for user-auth rights gate.',
+    fulltextText: 'Fulltext evidence for user-auth rights gate.',
   });
 
   const previous = process.env.LITERATURE_USER_AUTH_CONTENT_PROCESSING_ENABLED;
@@ -295,76 +493,143 @@ test('literature flow enforces USER_AUTH gate by global env switch', async () =>
 
 test('literature flow creates new embedding versions on rerun and switches active version after INDEXED success', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureFlowService(repository);
+  const service = new LiteratureFlowService(repository, createMockSettingsService());
+  const restoreFetch = mockOpenAIContentProcessing();
   await seedLiterature(repository, 'LIT-FLOW-VERSIONING', 'OA', {
     abstractText: 'Trusted abstract for embedding versioning.',
     keyContentDigest: 'Trusted key content digest for embedding versioning.',
+    fulltextText: 'Fulltext evidence for embedding versioning.',
   });
 
-  const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-VERSIONING', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
-  const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
-  assert.equal(firstTerminal.status, 'SUCCESS');
+  try {
+    const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-VERSIONING', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
+    const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
+    assert.equal(firstTerminal.status, 'SUCCESS');
 
-  const literatureAfterFirst = await repository.findLiteratureById('LIT-FLOW-VERSIONING');
-  assert.ok(literatureAfterFirst?.activeEmbeddingVersionId);
-  const activeAfterFirst = literatureAfterFirst.activeEmbeddingVersionId!;
+    const literatureAfterFirst = await repository.findLiteratureById('LIT-FLOW-VERSIONING');
+    assert.ok(literatureAfterFirst?.activeEmbeddingVersionId);
+    const activeAfterFirst = literatureAfterFirst.activeEmbeddingVersionId!;
 
-  const literature = await repository.findLiteratureById('LIT-FLOW-VERSIONING');
-  assert.ok(literature);
-  await repository.updateLiterature({
-    ...literature,
-    keyContentDigest: 'Versioning test digest updated for rerun.',
-    updatedAt: new Date().toISOString(),
+    const literature = await repository.findLiteratureById('LIT-FLOW-VERSIONING');
+    assert.ok(literature);
+    await repository.updateLiterature({
+      ...literature,
+      keyContentDigest: 'Versioning test digest updated for rerun.',
+      updatedAt: new Date().toISOString(),
+    });
+
+    const secondRun = await service.triggerContentProcessingRun('LIT-FLOW-VERSIONING', ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
+    const secondTerminal = await waitForTerminalRun(repository, secondRun.run_id);
+    assert.equal(secondTerminal.status, 'SUCCESS');
+
+    const versions = await repository.listEmbeddingVersionsByLiteratureIds(['LIT-FLOW-VERSIONING']);
+    assert.equal(versions.length, 2);
+    assert.equal(versions[1]?.versionNo, 2);
+    assert.equal(versions.every((version) => version.status === 'INDEXED'), true);
+
+    const literatureAfterSecond = await repository.findLiteratureById('LIT-FLOW-VERSIONING');
+    assert.ok(literatureAfterSecond?.activeEmbeddingVersionId);
+    assert.notEqual(literatureAfterSecond?.activeEmbeddingVersionId, activeAfterFirst);
+
+    const oldVersion = await repository.findEmbeddingVersionById(activeAfterFirst);
+    assert.ok(oldVersion);
+  } finally {
+    restoreFetch();
+  }
+});
+
+test('literature flow rebuilds a stale index on the active indexed version without creating a legacy ready path', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository, createMockSettingsService());
+  const restoreFetch = mockOpenAIContentProcessing();
+  await seedLiterature(repository, 'LIT-FLOW-REBUILD-INDEX', 'OA', {
+    abstractText: 'Trusted abstract for index rebuild.',
+    keyContentDigest: 'Trusted key content digest for index rebuild.',
+    fulltextText: 'Fulltext evidence for index rebuild.',
   });
 
-  const secondRun = await service.triggerContentProcessingRun('LIT-FLOW-VERSIONING', ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
-  const secondTerminal = await waitForTerminalRun(repository, secondRun.run_id);
-  assert.equal(secondTerminal.status, 'SUCCESS');
+  try {
+    const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-REBUILD-INDEX', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
+    const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
+    assert.equal(firstTerminal.status, 'SUCCESS');
 
-  const versions = await repository.listEmbeddingVersionsByLiteratureIds(['LIT-FLOW-VERSIONING']);
-  assert.equal(versions.length, 4);
-  assert.equal(versions[3]?.versionNo, 4);
+    const literatureAfterFirst = await repository.findLiteratureById('LIT-FLOW-REBUILD-INDEX');
+    assert.ok(literatureAfterFirst?.activeEmbeddingVersionId);
+    const activeVersionId = literatureAfterFirst.activeEmbeddingVersionId;
+    const tokenRowsBefore = await repository.listEmbeddingTokenIndexesByEmbeddingVersionId(activeVersionId);
+    assert.equal(tokenRowsBefore.length > 0, true);
 
-  const literatureAfterSecond = await repository.findLiteratureById('LIT-FLOW-VERSIONING');
-  assert.ok(literatureAfterSecond?.activeEmbeddingVersionId);
-  assert.notEqual(literatureAfterSecond?.activeEmbeddingVersionId, activeAfterFirst);
+    const indexedStage = (await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-REBUILD-INDEX'))
+      .find((stage) => stage.stageCode === 'INDEXED');
+    assert.ok(indexedStage);
+    await repository.upsertPipelineStageState({
+      ...indexedStage,
+      status: 'STALE',
+      detail: {
+        ...indexedStage.detail,
+        reason_code: 'INDEX_PROFILE_CHANGED',
+        reason_message: 'Index profile changed.',
+      },
+      updatedAt: new Date().toISOString(),
+    });
 
-  const oldVersion = await repository.findEmbeddingVersionById(activeAfterFirst);
-  assert.ok(oldVersion);
+    const rebuildRun = await service.triggerContentProcessingRun('LIT-FLOW-REBUILD-INDEX', ['INDEXED']);
+    const rebuildTerminal = await waitForTerminalRun(repository, rebuildRun.run_id);
+    assert.equal(rebuildTerminal.status, 'SUCCESS');
+
+    const literatureAfterRebuild = await repository.findLiteratureById('LIT-FLOW-REBUILD-INDEX');
+    assert.equal(literatureAfterRebuild?.activeEmbeddingVersionId, activeVersionId);
+    const versions = await repository.listEmbeddingVersionsByLiteratureIds(['LIT-FLOW-REBUILD-INDEX']);
+    assert.equal(versions.length, 1);
+    assert.equal(versions[0]?.status, 'INDEXED');
+    const tokenRowsAfter = await repository.listEmbeddingTokenIndexesByEmbeddingVersionId(activeVersionId);
+    assert.equal(tokenRowsAfter.length, tokenRowsBefore.length);
+  } finally {
+    restoreFetch();
+  }
 });
 
 test('literature flow keeps active embedding version unchanged when INDEXED stage fails', async () => {
   class FailingTokenIndexRepository extends InMemoryLiteratureRepository {
     failTokenWrite = false;
 
-    override async createEmbeddingTokenIndexes(records: Parameters<InMemoryLiteratureRepository['createEmbeddingTokenIndexes']>[0]) {
+    override async replaceEmbeddingTokenIndexes(
+      embeddingVersionId: string,
+      records: Parameters<InMemoryLiteratureRepository['replaceEmbeddingTokenIndexes']>[1],
+    ) {
       if (this.failTokenWrite) {
         throw new Error('token-index write failed');
       }
-      return super.createEmbeddingTokenIndexes(records);
+      return super.replaceEmbeddingTokenIndexes(embeddingVersionId, records);
     }
   }
 
   const repository = new FailingTokenIndexRepository();
-  const service = new LiteratureFlowService(repository);
+  const service = new LiteratureFlowService(repository, createMockSettingsService());
+  const restoreFetch = mockOpenAIContentProcessing();
   await seedLiterature(repository, 'LIT-FLOW-ACTIVE-GUARD', 'OA', {
     abstractText: 'Trusted abstract for active version guard.',
     keyContentDigest: 'Trusted key content digest for active version guard.',
+    fulltextText: 'Fulltext evidence for active version guard.',
   });
 
-  const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-ACTIVE-GUARD', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
-  const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
-  assert.equal(firstTerminal.status, 'SUCCESS');
+  try {
+    const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-ACTIVE-GUARD', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
+    const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
+    assert.equal(firstTerminal.status, 'SUCCESS');
 
-  const literatureAfterFirst = await repository.findLiteratureById('LIT-FLOW-ACTIVE-GUARD');
-  assert.ok(literatureAfterFirst?.activeEmbeddingVersionId);
-  const activeVersionBeforeFailure = literatureAfterFirst.activeEmbeddingVersionId;
+    const literatureAfterFirst = await repository.findLiteratureById('LIT-FLOW-ACTIVE-GUARD');
+    assert.ok(literatureAfterFirst?.activeEmbeddingVersionId);
+    const activeVersionBeforeFailure = literatureAfterFirst.activeEmbeddingVersionId;
 
-  repository.failTokenWrite = true;
-  const failedRun = await service.triggerContentProcessingRun('LIT-FLOW-ACTIVE-GUARD', ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
-  const failedTerminal = await waitForTerminalRun(repository, failedRun.run_id);
-  assert.equal(failedTerminal.status, 'PARTIAL');
+    repository.failTokenWrite = true;
+    const failedRun = await service.triggerContentProcessingRun('LIT-FLOW-ACTIVE-GUARD', ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
+    const failedTerminal = await waitForTerminalRun(repository, failedRun.run_id);
+    assert.equal(failedTerminal.status, 'PARTIAL');
 
-  const literatureAfterFailure = await repository.findLiteratureById('LIT-FLOW-ACTIVE-GUARD');
-  assert.equal(literatureAfterFailure?.activeEmbeddingVersionId, activeVersionBeforeFailure);
+    const literatureAfterFailure = await repository.findLiteratureById('LIT-FLOW-ACTIVE-GUARD');
+    assert.equal(literatureAfterFailure?.activeEmbeddingVersionId, activeVersionBeforeFailure);
+  } finally {
+    restoreFetch();
+  }
 });

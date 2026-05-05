@@ -1,5 +1,8 @@
 import type {
   LiteratureProvider,
+  LiteratureContentAssetKind,
+  LiteratureContentAssetSourceKind,
+  LiteratureContentAssetStatus,
   PaperCitationStatus,
   RightsClass,
   TopicScopeStatus,
@@ -101,6 +104,7 @@ export type LiteraturePipelineRunStepRecord = {
 
 export type LiteraturePipelineArtifactType =
   | 'PREPROCESSED_TEXT'
+  | 'KEY_CONTENT_DOSSIER'
   | 'CHUNKS'
   | 'EMBEDDINGS'
   | 'LOCAL_INDEX';
@@ -120,12 +124,20 @@ export type LiteratureEmbeddingVersionRecord = {
   id: string;
   literatureId: string;
   versionNo: number;
+  status: string;
+  profileId: string | null;
   provider: string;
   model: string;
   dimension: number;
   chunkCount: number;
   vectorCount: number;
   tokenCount: number;
+  inputChecksum: string | null;
+  chunkArtifactChecksum: string | null;
+  embeddingArtifactChecksum: string | null;
+  indexArtifactChecksum: string | null;
+  indexedAt: string | null;
+  activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -139,6 +151,10 @@ export type LiteratureEmbeddingChunkRecord = {
   text: string;
   startOffset: number;
   endOffset: number;
+  chunkType: string;
+  sourceRefs: Record<string, unknown>[];
+  metadata: Record<string, unknown>;
+  contentChecksum: string | null;
   vector: number[];
   createdAt: string;
   updatedAt: string;
@@ -162,6 +178,125 @@ export type LiteratureSourceRecord = {
   sourceUrl: string;
   rawPayload: Record<string, unknown>;
   fetchedAt: string;
+};
+
+export type LiteratureCitationProfileRecord = {
+  id: string;
+  literatureId: string;
+  normalizedDoi: string | null;
+  normalizedArxivId: string | null;
+  normalizedTitle: string;
+  normalizedAuthors: string[];
+  parsedYear: number | null;
+  normalizedSourceUrl: string | null;
+  titleAuthorsYearHash: string | null;
+  citationComplete: boolean;
+  incompleteReasonCodes: string[];
+  sourceRefs: Record<string, unknown>[];
+  inputChecksum: string;
+  confidence: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureAbstractProfileRecord = {
+  id: string;
+  literatureId: string;
+  abstractText: string | null;
+  abstractSource: string | null;
+  sourceRef: Record<string, unknown>;
+  checksum: string | null;
+  language: string | null;
+  confidence: number;
+  reasonCodes: string[];
+  generated: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureContentAssetRecord = {
+  id: string;
+  literatureId: string;
+  assetKind: LiteratureContentAssetKind;
+  sourceKind: LiteratureContentAssetSourceKind;
+  localPath: string;
+  checksum: string;
+  mimeType: string;
+  byteSize: number;
+  rightsClass: RightsClass;
+  status: LiteratureContentAssetStatus;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureFulltextDocumentRecord = {
+  id: string;
+  literatureId: string;
+  sourceAssetId: string;
+  normalizedText: string;
+  normalizedTextChecksum: string;
+  parserName: string;
+  parserVersion: string;
+  status: 'READY' | 'PARTIAL_READY' | 'BLOCKED' | 'FAILED';
+  diagnostics: Record<string, unknown>[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureFulltextSectionRecord = {
+  id: string;
+  documentId: string;
+  sectionId: string;
+  title: string;
+  level: number;
+  orderIndex: number;
+  startOffset: number;
+  endOffset: number;
+  pageStart: number | null;
+  pageEnd: number | null;
+  checksum: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureFulltextParagraphRecord = {
+  id: string;
+  documentId: string;
+  paragraphId: string;
+  sectionId: string;
+  orderIndex: number;
+  text: string;
+  startOffset: number;
+  endOffset: number;
+  pageNumber: number | null;
+  checksum: string;
+  confidence: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureFulltextAnchorRecord = {
+  id: string;
+  documentId: string;
+  anchorId: string;
+  anchorType: string;
+  label: string | null;
+  text: string | null;
+  pageNumber: number | null;
+  bbox: Record<string, unknown> | null;
+  targetRefs: Record<string, unknown>[];
+  metadata: Record<string, unknown>;
+  checksum: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LiteratureFulltextExtractionBundle = {
+  document: LiteratureFulltextDocumentRecord;
+  sections: LiteratureFulltextSectionRecord[];
+  paragraphs: LiteratureFulltextParagraphRecord[];
+  anchors: LiteratureFulltextAnchorRecord[];
 };
 
 export type TopicLiteratureScopeRecord = {
@@ -205,6 +340,29 @@ export interface LiteratureRepository {
   ): Promise<{ record: LiteratureSourceRecord; created: boolean }>;
   listSourcesByLiteratureId(literatureId: string): Promise<LiteratureSourceRecord[]>;
 
+  upsertCitationProfile(
+    record: LiteratureCitationProfileRecord,
+  ): Promise<{ record: LiteratureCitationProfileRecord; created: boolean }>;
+  findCitationProfileByLiteratureId(literatureId: string): Promise<LiteratureCitationProfileRecord | null>;
+
+  upsertAbstractProfile(
+    record: LiteratureAbstractProfileRecord,
+  ): Promise<{ record: LiteratureAbstractProfileRecord; created: boolean }>;
+  findAbstractProfileByLiteratureId(literatureId: string): Promise<LiteratureAbstractProfileRecord | null>;
+
+  upsertContentAsset(
+    record: LiteratureContentAssetRecord,
+  ): Promise<{ record: LiteratureContentAssetRecord; created: boolean }>;
+  listContentAssetsByLiteratureId(literatureId: string): Promise<LiteratureContentAssetRecord[]>;
+  findContentAssetById(assetId: string): Promise<LiteratureContentAssetRecord | null>;
+
+  upsertFulltextExtractionBundle(bundle: LiteratureFulltextExtractionBundle): Promise<LiteratureFulltextExtractionBundle>;
+  findFulltextDocumentBySourceAssetId(sourceAssetId: string): Promise<LiteratureFulltextDocumentRecord | null>;
+  listFulltextDocumentsByLiteratureId(literatureId: string): Promise<LiteratureFulltextDocumentRecord[]>;
+  listFulltextSectionsByDocumentId(documentId: string): Promise<LiteratureFulltextSectionRecord[]>;
+  listFulltextParagraphsByDocumentId(documentId: string): Promise<LiteratureFulltextParagraphRecord[]>;
+  listFulltextAnchorsByDocumentId(documentId: string): Promise<LiteratureFulltextAnchorRecord[]>;
+
   upsertTopicScope(
     record: TopicLiteratureScopeRecord,
   ): Promise<{ record: TopicLiteratureScopeRecord; created: boolean }>;
@@ -243,6 +401,10 @@ export interface LiteratureRepository {
   listPipelineArtifactsByLiteratureId(literatureId: string): Promise<LiteraturePipelineArtifactRecord[]>;
 
   createEmbeddingVersion(record: LiteratureEmbeddingVersionRecord): Promise<LiteratureEmbeddingVersionRecord>;
+  updateEmbeddingVersion(
+    embeddingVersionId: string,
+    patch: Partial<Omit<LiteratureEmbeddingVersionRecord, 'id' | 'literatureId' | 'versionNo' | 'createdAt'>>,
+  ): Promise<LiteratureEmbeddingVersionRecord>;
   findEmbeddingVersionById(embeddingVersionId: string): Promise<LiteratureEmbeddingVersionRecord | null>;
   findLatestEmbeddingVersionByLiteratureId(literatureId: string): Promise<LiteratureEmbeddingVersionRecord | null>;
   listActiveEmbeddingVersions(): Promise<LiteratureEmbeddingVersionRecord[]>;
@@ -253,7 +415,10 @@ export interface LiteratureRepository {
   listEmbeddingChunksByEmbeddingVersionId(embeddingVersionId: string): Promise<LiteratureEmbeddingChunkRecord[]>;
   listEmbeddingChunksByEmbeddingVersionIds(embeddingVersionIds: string[]): Promise<LiteratureEmbeddingChunkRecord[]>;
 
-  createEmbeddingTokenIndexes(records: LiteratureEmbeddingTokenIndexRecord[]): Promise<LiteratureEmbeddingTokenIndexRecord[]>;
+  replaceEmbeddingTokenIndexes(
+    embeddingVersionId: string,
+    records: LiteratureEmbeddingTokenIndexRecord[],
+  ): Promise<LiteratureEmbeddingTokenIndexRecord[]>;
   listEmbeddingTokenIndexesByEmbeddingVersionId(embeddingVersionId: string): Promise<LiteratureEmbeddingTokenIndexRecord[]>;
 
   createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord>;

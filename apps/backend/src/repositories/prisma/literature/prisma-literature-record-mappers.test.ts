@@ -27,12 +27,19 @@ test('toEmbeddingChunkRecord coerces vectors to finite numbers and preserves off
     text: 'Chunk text',
     startOffset: 12,
     endOffset: 42,
+    chunkType: 'fulltext_paragraph',
+    sourceRefs: [{ ref_type: 'paragraph', ref_id: 'para-1' }],
+    metadata: { section_id: 'section-1' },
+    contentChecksum: 'checksum-1',
     vector: [1, '2.5', null, Number.NaN, Infinity, '-3'],
     createdAt: new Date('2026-03-19T00:00:00.000Z'),
     updatedAt: new Date('2026-03-19T01:00:00.000Z'),
   });
 
   assert.deepEqual(record.vector, [1, 2.5, 0, -3]);
+  assert.equal(record.chunkType, 'fulltext_paragraph');
+  assert.deepEqual(record.sourceRefs, [{ ref_type: 'paragraph', ref_id: 'para-1' }]);
+  assert.deepEqual(record.metadata, { section_id: 'section-1' });
   assert.equal(record.startOffset, 12);
   assert.equal(record.endOffset, 42);
   assert.equal(record.createdAt, '2026-03-19T00:00:00.000Z');

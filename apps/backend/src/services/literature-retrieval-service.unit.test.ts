@@ -1,21 +1,11 @@
 import assert from 'node:assert/strict';
-import crypto from 'node:crypto';
 import test from 'node:test';
 import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
 import { LiteratureRetrievalService } from './literature-retrieval-service.js';
 
-function buildLocalEmbeddingVector(text: string, dimension: number): number[] {
-  const digest = crypto.createHash('sha256').update(text).digest();
-  return Array.from({ length: dimension }, (_, index) => {
-    const byte = digest[index % digest.length] ?? 0;
-    const normalized = (byte / 255) * 2 - 1;
-    return Number(normalized.toFixed(6));
-  });
-}
-
 async function seedLocalLiterature(
   repository: InMemoryLiteratureRepository,
-  input: { literatureId: string; title: string; chunkText: string; versionId: string },
+  input: { literatureId: string; title: string; chunkText: string; versionId: string; chunkType?: string },
 ): Promise<void> {
   const now = new Date().toISOString();
   await repository.createLiterature({
@@ -40,12 +30,20 @@ async function seedLocalLiterature(
     id: input.versionId,
     literatureId: input.literatureId,
     versionNo: 1,
-    provider: 'local',
-    model: 'local-hash-embedding-v1',
-    dimension: 16,
+    status: 'INDEXED',
+    profileId: 'default',
+    provider: 'openai',
+    model: 'text-embedding-3-large',
+    dimension: 3,
     chunkCount: 1,
     vectorCount: 1,
     tokenCount: 0,
+    inputChecksum: 'input-checksum',
+    chunkArtifactChecksum: 'chunk-checksum',
+    embeddingArtifactChecksum: 'embedding-checksum',
+    indexArtifactChecksum: 'index-checksum',
+    indexedAt: now,
+    activatedAt: now,
     createdAt: now,
     updatedAt: now,
   });
@@ -60,7 +58,11 @@ async function seedLocalLiterature(
       text: input.chunkText,
       startOffset: 0,
       endOffset: input.chunkText.length,
-      vector: buildLocalEmbeddingVector(input.chunkText, 16),
+      chunkType: input.chunkType ?? 'fulltext_paragraph',
+      sourceRefs: [{ ref_type: 'paragraph', ref_id: 'para-1' }],
+      metadata: { origin_stage: 'FULLTEXT_PREPROCESSED' },
+      contentChecksum: 'content-checksum',
+      vector: [0.1, 0.2, 0.3],
       createdAt: now,
       updatedAt: now,
     },
@@ -95,8 +97,11 @@ test('retrieve ranks literature by hybrid score and returns chunk evidence', asy
   assert.equal(response.items[0]?.literature_id, 'LIT-RET-1');
   assert.equal(response.items[0]?.evidence_chunks.length, 1);
   assert.equal(response.meta.query_tokens.includes('retrieval'), true);
-  assert.equal(response.meta.profiles_used.length, 1);
-  assert.equal(response.meta.skipped_profiles.length, 0);
+  assert.equal(response.items[0]?.evidence_chunks[0]?.chunk_type, 'fulltext_paragraph');
+  assert.equal(response.meta.profile, 'general');
+  assert.equal(response.meta.degraded_mode, true);
+  assert.equal(response.meta.profiles_used.length, 0);
+  assert.equal(response.meta.skipped_profiles.length, 1);
 });
 
 test('retrieve skips OpenAI profile when API key is not configured', async () => {
@@ -126,12 +131,20 @@ test('retrieve skips OpenAI profile when API key is not configured', async () =>
     id: 'EV-RET-OPENAI',
     literatureId: 'LIT-RET-OPENAI',
     versionNo: 1,
+    status: 'INDEXED',
+    profileId: 'default',
     provider: 'openai',
     model: 'text-embedding-3-large',
     dimension: 3,
     chunkCount: 1,
     vectorCount: 1,
     tokenCount: 0,
+    inputChecksum: 'input-checksum',
+    chunkArtifactChecksum: 'chunk-checksum',
+    embeddingArtifactChecksum: 'embedding-checksum',
+    indexArtifactChecksum: 'index-checksum',
+    indexedAt: now,
+    activatedAt: now,
     createdAt: now,
     updatedAt: now,
   });
@@ -146,6 +159,10 @@ test('retrieve skips OpenAI profile when API key is not configured', async () =>
       text: 'openai profile chunk text',
       startOffset: 0,
       endOffset: 26,
+      chunkType: 'semantic_dossier',
+      sourceRefs: [{ ref_type: 'paragraph', ref_id: 'para-1' }],
+      metadata: { origin_stage: 'KEY_CONTENT_READY' },
+      contentChecksum: 'content-checksum',
       vector: [0.1, 0.2, 0.3],
       createdAt: now,
       updatedAt: now,
@@ -156,8 +173,50 @@ test('retrieve skips OpenAI profile when API key is not configured', async () =>
     query: 'openai embedding',
   });
 
-  assert.equal(response.items.length, 0);
+  assert.equal(response.items.length, 1);
+  assert.equal(response.meta.degraded_mode, true);
   assert.equal(response.meta.profiles_used.length, 0);
   assert.equal(response.meta.skipped_profiles.length, 1);
   assert.equal(response.meta.skipped_profiles[0]?.provider, 'openai');
+});
+
+test('retrieve applies explicit profile and returns stale provenance warnings', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureRetrievalService(repository);
+  const now = new Date().toISOString();
+
+  await seedLocalLiterature(repository, {
+    literatureId: 'LIT-RET-STALE',
+    title: 'Writing Evidence Candidate',
+    versionId: 'EV-RET-STALE',
+    chunkText: 'writing evidence claim paragraph with grounded provenance',
+    chunkType: 'evidence',
+  });
+  await repository.upsertPipelineStageState({
+    id: 'LIT-RET-STALE-indexed-state',
+    literatureId: 'LIT-RET-STALE',
+    stageCode: 'INDEXED',
+    status: 'STALE',
+    lastRunId: null,
+    detail: {
+      reason_code: 'PROFILE_CHANGED',
+      reason_message: 'Embedding profile changed after the active index was built.',
+    },
+    updatedAt: now,
+  });
+
+  const response = await service.retrieve({
+    query: 'writing evidence claim',
+    profile: 'writing_evidence',
+    top_k: 1,
+  });
+
+  assert.equal(response.meta.profile, 'writing_evidence');
+  assert.equal(response.meta.freshness_warnings.length, 1);
+  assert.equal(response.meta.freshness_warnings[0]?.reason_code, 'PROFILE_CHANGED');
+  assert.equal(response.items[0]?.retrieval_profile, 'writing_evidence');
+  assert.equal(response.items[0]?.is_stale, true);
+  assert.deepEqual(response.items[0]?.warnings, ['Embedding profile changed after the active index was built.']);
+  assert.equal(response.items[0]?.evidence_chunks[0]?.chunk_type, 'evidence');
+  assert.equal(response.items[0]?.evidence_chunks[0]?.score_breakdown.profile_boost, 0.16);
 });

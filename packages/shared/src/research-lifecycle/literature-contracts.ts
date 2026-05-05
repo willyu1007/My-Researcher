@@ -75,11 +75,108 @@ export const LITERATURE_CONTENT_PROCESSING_ACTION_REASON_CODES = [
 ] as const;
 export type LiteratureContentProcessingActionReasonCode = (typeof LITERATURE_CONTENT_PROCESSING_ACTION_REASON_CODES)[number];
 
+export const LITERATURE_CONTENT_ASSET_KINDS = [
+  'raw_fulltext',
+  'normalized_text',
+  'derived_image',
+  'other',
+] as const;
+export type LiteratureContentAssetKind = (typeof LITERATURE_CONTENT_ASSET_KINDS)[number];
+
+export const LITERATURE_CONTENT_ASSET_SOURCE_KINDS = ['local_path'] as const;
+export type LiteratureContentAssetSourceKind = (typeof LITERATURE_CONTENT_ASSET_SOURCE_KINDS)[number];
+
+export const LITERATURE_CONTENT_ASSET_STATUSES = [
+  'registered',
+  'missing',
+  'unsupported',
+  'ready',
+  'failed',
+] as const;
+export type LiteratureContentAssetStatus = (typeof LITERATURE_CONTENT_ASSET_STATUSES)[number];
+
 export const LITERATURE_CONTENT_PROCESSING_PROVIDER_IDS = ['openai'] as const;
 export type LiteratureContentProcessingProviderId = (typeof LITERATURE_CONTENT_PROCESSING_PROVIDER_IDS)[number];
 
 export const LITERATURE_EMBEDDING_PROFILE_IDS = ['default', 'economy'] as const;
 export type LiteratureEmbeddingProfileId = (typeof LITERATURE_EMBEDDING_PROFILE_IDS)[number];
+
+export const LITERATURE_EXTRACTION_PROFILE_IDS = ['default', 'high_accuracy'] as const;
+export type LiteratureExtractionProfileId = (typeof LITERATURE_EXTRACTION_PROFILE_IDS)[number];
+
+export const LITERATURE_RETRIEVE_PROFILE_IDS = [
+  'general',
+  'topic_exploration',
+  'paper_management',
+  'writing_evidence',
+] as const;
+export type LiteratureRetrieveProfileId = (typeof LITERATURE_RETRIEVE_PROFILE_IDS)[number];
+
+export const LITERATURE_KEY_CONTENT_READINESS_STATUSES = ['READY', 'PARTIAL_READY', 'FAILED'] as const;
+export type LiteratureKeyContentReadinessStatus = (typeof LITERATURE_KEY_CONTENT_READINESS_STATUSES)[number];
+
+export const LITERATURE_KEY_CONTENT_EVIDENCE_STRENGTHS = ['unknown', 'low', 'medium', 'high'] as const;
+export type LiteratureKeyContentEvidenceStrength = (typeof LITERATURE_KEY_CONTENT_EVIDENCE_STRENGTHS)[number];
+
+export const LITERATURE_KEY_CONTENT_SOURCE_REF_TYPES = ['abstract', 'section', 'paragraph', 'anchor', 'manual'] as const;
+export type LiteratureKeyContentSourceRefType = (typeof LITERATURE_KEY_CONTENT_SOURCE_REF_TYPES)[number];
+
+export interface LiteratureKeyContentSourceRef {
+  ref_type: LiteratureKeyContentSourceRefType;
+  ref_id: string;
+  document_id?: string;
+  section_id?: string;
+  paragraph_id?: string;
+  anchor_id?: string;
+  checksum?: string | null;
+  start_offset?: number | null;
+  end_offset?: number | null;
+}
+
+export interface LiteratureKeyContentItem {
+  id: string;
+  type: string;
+  statement: string;
+  details: string;
+  source_refs: LiteratureKeyContentSourceRef[];
+  confidence: number;
+  evidence_strength: LiteratureKeyContentEvidenceStrength;
+  notes: string | null;
+  provenance: 'model_generated' | 'user_edited';
+}
+
+export interface LiteratureKeyContentDossierPayload {
+  schema_version: 'key_content.v1';
+  extraction_profile: 'paper_semantic_dossier.v1';
+  readiness_status: LiteratureKeyContentReadinessStatus;
+  input_refs: Record<string, unknown>;
+  categories: {
+    research_problem: LiteratureKeyContentItem[];
+    contributions: LiteratureKeyContentItem[];
+    method: LiteratureKeyContentItem[];
+    datasets_and_benchmarks: LiteratureKeyContentItem[];
+    experiments: LiteratureKeyContentItem[];
+    key_findings: LiteratureKeyContentItem[];
+    limitations: LiteratureKeyContentItem[];
+    reproducibility: LiteratureKeyContentItem[];
+    related_work_positioning: LiteratureKeyContentItem[];
+    evidence_candidates: LiteratureKeyContentItem[];
+    figure_insights: LiteratureKeyContentItem[];
+    table_insights: LiteratureKeyContentItem[];
+    claim_evidence_map: LiteratureKeyContentItem[];
+    automation_signals: LiteratureKeyContentItem[];
+  };
+  quality_report: {
+    completeness_score: number;
+    confidence: number;
+    blockers: string[];
+    warnings: string[];
+    conflicts: string[];
+    extraction_diagnostics: Array<Record<string, unknown>>;
+  };
+  display_digest: string;
+  generated_at: string;
+}
 
 export interface LiteratureContentProcessingProviderSettingsDTO {
   provider: LiteratureContentProcessingProviderId;
@@ -99,6 +196,17 @@ export interface LiteratureContentProcessingEmbeddingSettingsDTO {
   profiles: LiteratureEmbeddingProfileDTO[];
 }
 
+export interface LiteratureExtractionProfileDTO {
+  profile_id: LiteratureExtractionProfileId;
+  provider: LiteratureContentProcessingProviderId;
+  model: string;
+}
+
+export interface LiteratureContentProcessingExtractionSettingsDTO {
+  active_profile_id: LiteratureExtractionProfileId;
+  profiles: LiteratureExtractionProfileDTO[];
+}
+
 export interface LiteratureContentProcessingStorageRootsDTO {
   raw_files: string | null;
   normalized_text: string | null;
@@ -110,6 +218,7 @@ export interface LiteratureContentProcessingStorageRootsDTO {
 export interface LiteratureContentProcessingSettingsDTO {
   providers: LiteratureContentProcessingProviderSettingsDTO[];
   embedding: LiteratureContentProcessingEmbeddingSettingsDTO;
+  extraction: LiteratureContentProcessingExtractionSettingsDTO;
   storage_roots: LiteratureContentProcessingStorageRootsDTO;
   updated_at: string;
 }
@@ -126,6 +235,14 @@ export interface UpdateLiteratureContentProcessingSettingsRequest {
       provider: LiteratureContentProcessingProviderId;
       model: string;
       dimensions?: number | null;
+    }>;
+  };
+  extraction?: {
+    active_profile_id?: LiteratureExtractionProfileId;
+    profiles?: Array<{
+      profile_id: LiteratureExtractionProfileId;
+      provider: LiteratureContentProcessingProviderId;
+      model: string;
     }>;
   };
   storage_roots?: Partial<LiteratureContentProcessingStorageRootsDTO>;
@@ -430,6 +547,42 @@ export interface UpdateLiteratureMetadataResponse {
   updated_at: string;
 }
 
+export interface RegisterLiteratureContentAssetRequest {
+  asset_kind?: LiteratureContentAssetKind;
+  source_kind?: LiteratureContentAssetSourceKind;
+  local_path: string;
+  checksum?: string;
+  mime_type?: string;
+  byte_size?: number;
+  rights_class?: RightsClass;
+  metadata?: Record<string, unknown>;
+}
+
+export interface LiteratureContentAssetDTO {
+  asset_id: string;
+  literature_id: string;
+  asset_kind: LiteratureContentAssetKind;
+  source_kind: LiteratureContentAssetSourceKind;
+  local_path: string;
+  checksum: string;
+  mime_type: string;
+  byte_size: number;
+  rights_class: RightsClass;
+  status: LiteratureContentAssetStatus;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegisterLiteratureContentAssetResponse {
+  item: LiteratureContentAssetDTO;
+}
+
+export interface ListLiteratureContentAssetsResponse {
+  literature_id: string;
+  items: LiteratureContentAssetDTO[];
+}
+
 export interface GetLiteratureMetadataResponse {
   literature_id: string;
   title: string;
@@ -440,6 +593,7 @@ export interface GetLiteratureMetadataResponse {
 
 export interface LiteratureRetrieveRequest {
   query: string;
+  profile?: LiteratureRetrieveProfileId;
   topic_id?: string;
   paper_id?: string;
   top_k?: number;
@@ -448,18 +602,30 @@ export interface LiteratureRetrieveRequest {
 
 export interface LiteratureRetrieveEvidenceChunk {
   chunk_id: string;
+  chunk_type: string;
   text: string;
   start_offset: number;
   end_offset: number;
+  source_refs: Array<Record<string, unknown>>;
+  metadata: Record<string, unknown>;
   hybrid_score: number;
   vector_score: number;
   lexical_score: number;
+  score_breakdown: {
+    vector: number;
+    lexical: number;
+    metadata: number;
+    profile_boost: number;
+  };
 }
 
 export interface LiteratureRetrieveHit {
   literature_id: string;
   title: string;
   embedding_version_id: string;
+  retrieval_profile: LiteratureRetrieveProfileId;
+  is_stale: boolean;
+  warnings: string[];
   hybrid_score: number;
   vector_score: number;
   lexical_score: number;
@@ -469,7 +635,15 @@ export interface LiteratureRetrieveHit {
 export interface LiteratureRetrieveResponse {
   items: LiteratureRetrieveHit[];
   meta: {
+    profile: LiteratureRetrieveProfileId;
     query_tokens: string[];
+    degraded_mode: boolean;
+    freshness_warnings: Array<{
+      literature_id: string;
+      embedding_version_id: string;
+      reason_code: string;
+      reason_message: string;
+    }>;
     profiles_used: Array<{
       provider: string;
       model: string;
@@ -560,6 +734,7 @@ export const literatureRetrieveRequestSchema = {
   required: ['query'],
   properties: {
     query: { type: 'string', minLength: 1 },
+    profile: { type: 'string', enum: LITERATURE_RETRIEVE_PROFILE_IDS, default: 'general' },
     topic_id: { type: 'string', minLength: 1 },
     paper_id: { type: 'string', minLength: 1 },
     top_k: { type: 'integer', minimum: 1, maximum: 30, default: 10 },
@@ -576,6 +751,17 @@ const literatureEmbeddingProfileSchema = {
     provider: { type: 'string', enum: LITERATURE_CONTENT_PROCESSING_PROVIDER_IDS },
     model: { type: 'string', minLength: 1 },
     dimensions: { anyOf: [{ type: 'integer', minimum: 1 }, { type: 'null' }] },
+  },
+  additionalProperties: false,
+} as const;
+
+const literatureExtractionProfileSchema = {
+  type: 'object',
+  required: ['profile_id', 'provider', 'model'],
+  properties: {
+    profile_id: { type: 'string', enum: LITERATURE_EXTRACTION_PROFILE_IDS },
+    provider: { type: 'string', enum: LITERATURE_CONTENT_PROCESSING_PROVIDER_IDS },
+    model: { type: 'string', minLength: 1 },
   },
   additionalProperties: false,
 } as const;
@@ -607,6 +793,18 @@ export const updateLiteratureContentProcessingSettingsRequestSchema = {
       },
       additionalProperties: false,
     },
+    extraction: {
+      type: 'object',
+      properties: {
+        active_profile_id: { type: 'string', enum: LITERATURE_EXTRACTION_PROFILE_IDS },
+        profiles: {
+          type: 'array',
+          minItems: 1,
+          items: literatureExtractionProfileSchema,
+        },
+      },
+      additionalProperties: false,
+    },
     storage_roots: {
       type: 'object',
       properties: {
@@ -623,6 +821,7 @@ export const updateLiteratureContentProcessingSettingsRequestSchema = {
   anyOf: [
     { required: ['providers'] },
     { required: ['embedding'] },
+    { required: ['extraction'] },
     { required: ['storage_roots'] },
   ],
 } as const;
@@ -719,4 +918,23 @@ export const updateLiteratureMetadataRequestSchema = {
     { required: ['rights_class'] },
     { required: ['tags'] },
   ],
+} as const;
+
+export const registerLiteratureContentAssetRequestSchema = {
+  type: 'object',
+  required: ['local_path'],
+  properties: {
+    asset_kind: { type: 'string', enum: LITERATURE_CONTENT_ASSET_KINDS, default: 'raw_fulltext' },
+    source_kind: { type: 'string', enum: LITERATURE_CONTENT_ASSET_SOURCE_KINDS, default: 'local_path' },
+    local_path: { type: 'string', minLength: 1 },
+    checksum: { type: 'string', minLength: 1 },
+    mime_type: { type: 'string', minLength: 1 },
+    byte_size: { type: 'integer', minimum: 0 },
+    rights_class: { type: 'string', enum: RIGHTS_CLASSES },
+    metadata: {
+      type: 'object',
+      additionalProperties: true,
+    },
+  },
+  additionalProperties: false,
 } as const;

@@ -1,8 +1,16 @@
 import type { PrismaClient } from '@prisma/client';
 import type {
+  LiteratureAbstractProfileRecord,
+  LiteratureCitationProfileRecord,
+  LiteratureContentAssetRecord,
   LiteratureEmbeddingChunkRecord,
   LiteratureEmbeddingTokenIndexRecord,
   LiteratureEmbeddingVersionRecord,
+  LiteratureFulltextDocumentRecord,
+  LiteratureFulltextExtractionBundle,
+  LiteratureFulltextAnchorRecord,
+  LiteratureFulltextParagraphRecord,
+  LiteratureFulltextSectionRecord,
   LiteraturePipelineArtifactRecord,
   LiteraturePipelineRunRecord,
   LiteraturePipelineRunStepRecord,
@@ -15,16 +23,19 @@ import type {
   TopicLiteratureScopeRecord,
 } from '../literature-repository.js';
 import { PrismaLiteratureCoreStore } from './literature/prisma-literature-core-store.js';
+import { PrismaLiteratureContentStore } from './literature/prisma-literature-content-store.js';
 import { PrismaLiteratureEmbeddingStore } from './literature/prisma-literature-embedding-store.js';
 import { PrismaLiteraturePipelineStore } from './literature/prisma-literature-pipeline-store.js';
 
 export class PrismaLiteratureRepository implements LiteratureRepository {
   private readonly coreStore: PrismaLiteratureCoreStore;
+  private readonly contentStore: PrismaLiteratureContentStore;
   private readonly pipelineStore: PrismaLiteraturePipelineStore;
   private readonly embeddingStore: PrismaLiteratureEmbeddingStore;
 
   constructor(prisma: PrismaClient) {
     this.coreStore = new PrismaLiteratureCoreStore(prisma);
+    this.contentStore = new PrismaLiteratureContentStore(prisma);
     this.pipelineStore = new PrismaLiteraturePipelineStore(prisma);
     this.embeddingStore = new PrismaLiteratureEmbeddingStore(prisma);
   }
@@ -85,6 +96,66 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
 
   async listSourcesByLiteratureId(literatureId: string): Promise<LiteratureSourceRecord[]> {
     return this.coreStore.listSourcesByLiteratureId(literatureId);
+  }
+
+  async upsertCitationProfile(
+    record: LiteratureCitationProfileRecord,
+  ): Promise<{ record: LiteratureCitationProfileRecord; created: boolean }> {
+    return this.contentStore.upsertCitationProfile(record);
+  }
+
+  async findCitationProfileByLiteratureId(literatureId: string): Promise<LiteratureCitationProfileRecord | null> {
+    return this.contentStore.findCitationProfileByLiteratureId(literatureId);
+  }
+
+  async upsertAbstractProfile(
+    record: LiteratureAbstractProfileRecord,
+  ): Promise<{ record: LiteratureAbstractProfileRecord; created: boolean }> {
+    return this.contentStore.upsertAbstractProfile(record);
+  }
+
+  async findAbstractProfileByLiteratureId(literatureId: string): Promise<LiteratureAbstractProfileRecord | null> {
+    return this.contentStore.findAbstractProfileByLiteratureId(literatureId);
+  }
+
+  async upsertContentAsset(
+    record: LiteratureContentAssetRecord,
+  ): Promise<{ record: LiteratureContentAssetRecord; created: boolean }> {
+    return this.contentStore.upsertContentAsset(record);
+  }
+
+  async listContentAssetsByLiteratureId(literatureId: string): Promise<LiteratureContentAssetRecord[]> {
+    return this.contentStore.listContentAssetsByLiteratureId(literatureId);
+  }
+
+  async findContentAssetById(assetId: string): Promise<LiteratureContentAssetRecord | null> {
+    return this.contentStore.findContentAssetById(assetId);
+  }
+
+  async upsertFulltextExtractionBundle(
+    bundle: LiteratureFulltextExtractionBundle,
+  ): Promise<LiteratureFulltextExtractionBundle> {
+    return this.contentStore.upsertFulltextExtractionBundle(bundle);
+  }
+
+  async findFulltextDocumentBySourceAssetId(sourceAssetId: string): Promise<LiteratureFulltextDocumentRecord | null> {
+    return this.contentStore.findFulltextDocumentBySourceAssetId(sourceAssetId);
+  }
+
+  async listFulltextDocumentsByLiteratureId(literatureId: string): Promise<LiteratureFulltextDocumentRecord[]> {
+    return this.contentStore.listFulltextDocumentsByLiteratureId(literatureId);
+  }
+
+  async listFulltextSectionsByDocumentId(documentId: string): Promise<LiteratureFulltextSectionRecord[]> {
+    return this.contentStore.listFulltextSectionsByDocumentId(documentId);
+  }
+
+  async listFulltextParagraphsByDocumentId(documentId: string): Promise<LiteratureFulltextParagraphRecord[]> {
+    return this.contentStore.listFulltextParagraphsByDocumentId(documentId);
+  }
+
+  async listFulltextAnchorsByDocumentId(documentId: string): Promise<LiteratureFulltextAnchorRecord[]> {
+    return this.contentStore.listFulltextAnchorsByDocumentId(documentId);
   }
 
   async upsertTopicScope(
@@ -168,6 +239,13 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
     return this.embeddingStore.createEmbeddingVersion(record);
   }
 
+  async updateEmbeddingVersion(
+    embeddingVersionId: string,
+    patch: Partial<Omit<LiteratureEmbeddingVersionRecord, 'id' | 'literatureId' | 'versionNo' | 'createdAt'>>,
+  ): Promise<LiteratureEmbeddingVersionRecord> {
+    return this.embeddingStore.updateEmbeddingVersion(embeddingVersionId, patch);
+  }
+
   async findEmbeddingVersionById(embeddingVersionId: string): Promise<LiteratureEmbeddingVersionRecord | null> {
     return this.embeddingStore.findEmbeddingVersionById(embeddingVersionId);
   }
@@ -204,10 +282,11 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
     return this.embeddingStore.listEmbeddingChunksByEmbeddingVersionIds(embeddingVersionIds);
   }
 
-  async createEmbeddingTokenIndexes(
+  async replaceEmbeddingTokenIndexes(
+    embeddingVersionId: string,
     records: LiteratureEmbeddingTokenIndexRecord[],
   ): Promise<LiteratureEmbeddingTokenIndexRecord[]> {
-    return this.embeddingStore.createEmbeddingTokenIndexes(records);
+    return this.embeddingStore.replaceEmbeddingTokenIndexes(embeddingVersionId, records);
   }
 
   async listEmbeddingTokenIndexesByEmbeddingVersionId(
