@@ -259,7 +259,7 @@ export function useOverviewActionsController(
     try {
       await requestGovernance({
         method: 'POST',
-        path: `/literature/${encodeURIComponent(literatureId)}/pipeline/runs`,
+        path: `/literature/${encodeURIComponent(literatureId)}/content-processing/runs`,
         body: {
           requested_stages: requestedStages,
         },

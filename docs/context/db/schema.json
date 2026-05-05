@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-03-31T10:46:50.666Z",
+  "updatedAt": "2026-05-05T00:05:13.322Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -16,16 +16,7 @@
   },
   "enums": [
     {
-      "name": "TitleCardStatus",
-      "values": [
-        "draft",
-        "active",
-        "promoted",
-        "parked"
-      ]
-    },
-    {
-      "name": "TopicContributionHypothesis",
+      "name": "TitleCardContributionHypothesis",
       "values": [
         "method",
         "benchmark",
@@ -35,7 +26,7 @@
       ]
     },
     {
-      "name": "TopicPromotionDecisionType",
+      "name": "TitleCardPromotionDecisionType",
       "values": [
         "promote",
         "hold",
@@ -44,7 +35,7 @@
       ]
     },
     {
-      "name": "TopicResearchRecordStatus",
+      "name": "TitleCardResearchRecordStatus",
       "values": [
         "draft",
         "completed",
@@ -53,18 +44,27 @@
       ]
     },
     {
-      "name": "TopicResearchRecordType",
+      "name": "TitleCardResearchRecordType",
       "values": [
         "evidence_review",
         "need_review",
-        "question",
+        "research_question",
         "value_assessment",
-        "topic_package",
+        "package",
         "promotion_decision"
       ]
     },
     {
-      "name": "TopicValueVerdict",
+      "name": "TitleCardStatus",
+      "values": [
+        "draft",
+        "active",
+        "promoted",
+        "parked"
+      ]
+    },
+    {
+      "name": "TitleCardValueVerdict",
       "values": [
         "promote",
         "refine",
@@ -74,6 +74,110 @@
     }
   ],
   "tables": [
+    {
+      "name": "ApplicationSetting",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "key",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "namespace",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "secretValue",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "value",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "namespace"
+          ],
+          "name": null,
+          "map": null
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "namespace",
+            "key"
+          ],
+          "name": null,
+          "map": null
+        }
+      ]
+    },
     {
       "name": "AutoPullAlert",
       "dbName": null,
@@ -3243,11 +3347,11 @@
           "unique": false
         },
         {
-          "name": "topicId",
+          "name": "titleCardId",
           "type": "String",
           "nullable": false,
           "list": false,
-          "dbName": null,
+          "dbName": "topicId",
           "dbType": null,
           "default": null,
           "primaryKey": false,
@@ -5099,126 +5203,8 @@
       ]
     },
     {
-      "name": "TopicLiteratureScope",
-      "dbName": null,
-      "schema": null,
-      "columns": [
-        {
-          "name": "createdAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "id",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": true,
-          "unique": false
-        },
-        {
-          "name": "literatureId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "reason",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "scopeStatus",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "topicId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "updatedAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        }
-      ],
-      "relations": [
-        {
-          "field": "literature",
-          "to": "LiteratureRecord",
-          "optional": false,
-          "list": false,
-          "relationName": null,
-          "fields": [
-            "literatureId"
-          ],
-          "references": [
-            "id"
-          ]
-        }
-      ],
-      "indexes": [
-        {
-          "type": "index",
-          "fields": [
-            "topicId"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "unique",
-          "fields": [
-            "topicId",
-            "literatureId"
-          ],
-          "name": null,
-          "map": null
-        }
-      ]
-    },
-    {
-      "name": "TopicNeedReview",
-      "dbName": null,
+      "name": "TitleCardNeedReview",
+      "dbName": "TopicNeedReview",
       "schema": null,
       "columns": [
         {
@@ -5354,11 +5340,11 @@
           "unique": false
         },
         {
-          "name": "topicId",
+          "name": "titleCardId",
           "type": "String",
           "nullable": false,
           "list": false,
-          "dbName": null,
+          "dbName": "topicId",
           "dbType": null,
           "default": null,
           "primaryKey": false,
@@ -5412,7 +5398,7 @@
       "relations": [
         {
           "field": "researchRecord",
-          "to": "TopicResearchRecord",
+          "to": "TitleCardResearchRecord",
           "optional": false,
           "list": false,
           "relationName": null,
@@ -5428,7 +5414,7 @@
         {
           "type": "index",
           "fields": [
-            "topicId",
+            "titleCardId",
             "updatedAt"
           ],
           "name": null,
@@ -5437,7 +5423,7 @@
         {
           "type": "index",
           "fields": [
-            "topicId",
+            "titleCardId",
             "validatedNeed"
           ],
           "name": null,
@@ -5446,8 +5432,8 @@
       ]
     },
     {
-      "name": "TopicPackage",
-      "dbName": null,
+      "name": "TitleCardPackage",
+      "dbName": "TopicPackage",
       "schema": null,
       "columns": [
         {
@@ -5517,7 +5503,7 @@
           "unique": false
         },
         {
-          "name": "questionId",
+          "name": "researchBackground",
           "type": "String",
           "nullable": false,
           "list": false,
@@ -5528,11 +5514,11 @@
           "unique": false
         },
         {
-          "name": "researchBackground",
+          "name": "researchQuestionId",
           "type": "String",
           "nullable": false,
           "list": false,
-          "dbName": null,
+          "dbName": "questionId",
           "dbType": null,
           "default": null,
           "primaryKey": false,
@@ -5572,11 +5558,11 @@
           "unique": false
         },
         {
-          "name": "topicId",
+          "name": "titleCardId",
           "type": "String",
           "nullable": false,
           "list": false,
-          "dbName": null,
+          "dbName": "topicId",
           "dbType": null,
           "default": null,
           "primaryKey": false,
@@ -5608,7 +5594,7 @@
       "relations": [
         {
           "field": "promotionDecisions",
-          "to": "TopicPromotionDecision",
+          "to": "TitleCardPromotionDecision",
           "optional": false,
           "list": true,
           "relationName": null,
@@ -5616,13 +5602,13 @@
           "references": []
         },
         {
-          "field": "question",
-          "to": "TopicQuestion",
+          "field": "researchQuestion",
+          "to": "TitleCardResearchQuestion",
           "optional": false,
           "list": false,
           "relationName": null,
           "fields": [
-            "questionId"
+            "researchQuestionId"
           ],
           "references": [
             "id"
@@ -5630,7 +5616,7 @@
         },
         {
           "field": "researchRecord",
-          "to": "TopicResearchRecord",
+          "to": "TitleCardResearchRecord",
           "optional": false,
           "list": false,
           "relationName": null,
@@ -5643,7 +5629,7 @@
         },
         {
           "field": "valueAssessment",
-          "to": "TopicValueAssessment",
+          "to": "TitleCardValueAssessment",
           "optional": false,
           "list": false,
           "relationName": null,
@@ -5659,8 +5645,877 @@
         {
           "type": "index",
           "fields": [
-            "topicId",
+            "titleCardId",
             "updatedAt"
+          ],
+          "name": null,
+          "map": null
+        }
+      ]
+    },
+    {
+      "name": "TitleCardPromotionDecision",
+      "dbName": "TopicPromotionDecision",
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdBy",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "decision",
+          "type": "TitleCardPromotionDecisionType",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "loopbackTarget",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "packageId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "promotedPaperId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "reasonSummary",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "researchQuestionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "questionId",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "targetPaperTitle",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "titleCardId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "topicId",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "valueAssessmentId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "package",
+          "to": "TitleCardPackage",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "packageId"
+          ],
+          "references": [
+            "id"
+          ]
+        },
+        {
+          "field": "researchQuestion",
+          "to": "TitleCardResearchQuestion",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "researchQuestionId"
+          ],
+          "references": [
+            "id"
+          ]
+        },
+        {
+          "field": "valueAssessment",
+          "to": "TitleCardValueAssessment",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "valueAssessmentId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "titleCardId",
+            "createdAt"
+          ],
+          "name": null,
+          "map": null
+        }
+      ]
+    },
+    {
+      "name": "TitleCardResearchQuestion",
+      "dbName": "TopicQuestion",
+      "schema": null,
+      "columns": [
+        {
+          "name": "contributionHypothesis",
+          "type": "TitleCardContributionHypothesis",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "mainQuestion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "researchRecordId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": true
+        },
+        {
+          "name": "researchSlice",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceLiteratureEvidenceIds",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "sourceEvidenceReviewIds",
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceNeedReviewIds",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "subQuestions",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "titleCardId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "topicId",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "packages",
+          "to": "TitleCardPackage",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "promotionDecisions",
+          "to": "TitleCardPromotionDecision",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "researchRecord",
+          "to": "TitleCardResearchRecord",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "researchRecordId"
+          ],
+          "references": [
+            "id"
+          ]
+        },
+        {
+          "field": "valueAssessments",
+          "to": "TitleCardValueAssessment",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "titleCardId",
+            "updatedAt"
+          ],
+          "name": null,
+          "map": null
+        }
+      ]
+    },
+    {
+      "name": "TitleCardResearchRecord",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "lineage",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "parentRecordId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "recordStatus",
+          "type": "TitleCardResearchRecordStatus",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "draft",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "recordType",
+          "type": "TitleCardResearchRecordType",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceRecordIds",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "supersededByRecordId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "titleCardId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "topicId",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "versionNo",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "1",
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": []
+    },
+    {
+      "name": "TitleCardValueAssessment",
+      "dbName": "TopicValueAssessment",
+      "schema": null,
+      "columns": [
+        {
+          "name": "baseCase",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "ceilingCase",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "fallbackClaimIfSuccess",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "floorCase",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "hardGates",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "researchQuestionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "questionId",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "researchRecordId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": true
+        },
+        {
+          "name": "reviewerObjections",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "riskPenalty",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "scoredDimensions",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "strongestClaimIfSuccess",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "titleCardId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "topicId",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "totalScore",
+          "type": "Decimal",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Decimal",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "verdict",
+          "type": "TitleCardValueVerdict",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "packages",
+          "to": "TitleCardPackage",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "promotionDecisions",
+          "to": "TitleCardPromotionDecision",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "researchQuestion",
+          "to": "TitleCardResearchQuestion",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "researchQuestionId"
+          ],
+          "references": [
+            "id"
+          ]
+        },
+        {
+          "field": "researchRecord",
+          "to": "TitleCardResearchRecord",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "researchRecordId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "researchQuestionId",
+            "updatedAt"
+          ],
+          "name": null,
+          "map": null
+        },
+        {
+          "type": "index",
+          "fields": [
+            "titleCardId",
+            "updatedAt"
+          ],
+          "name": null,
+          "map": null
+        }
+      ]
+    },
+    {
+      "name": "TopicLiteratureScope",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "literatureId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "reason",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "scopeStatus",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "topicId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "literature",
+          "to": "LiteratureRecord",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "literatureId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "topicId"
+          ],
+          "name": null,
+          "map": null
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "topicId",
+            "literatureId"
           ],
           "name": null,
           "map": null
@@ -5826,757 +6681,6 @@
         }
       ],
       "indexes": []
-    },
-    {
-      "name": "TopicPromotionDecision",
-      "dbName": null,
-      "schema": null,
-      "columns": [
-        {
-          "name": "createdAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "createdBy",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "decision",
-          "type": "TopicPromotionDecisionType",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "id",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": true,
-          "unique": false
-        },
-        {
-          "name": "loopbackTarget",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "packageId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "promotedPaperId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "questionId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "reasonSummary",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "targetPaperTitle",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "topicId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "updatedAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "valueAssessmentId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        }
-      ],
-      "relations": [
-        {
-          "field": "package",
-          "to": "TopicPackage",
-          "optional": true,
-          "list": false,
-          "relationName": null,
-          "fields": [
-            "packageId"
-          ],
-          "references": [
-            "id"
-          ]
-        },
-        {
-          "field": "question",
-          "to": "TopicQuestion",
-          "optional": false,
-          "list": false,
-          "relationName": null,
-          "fields": [
-            "questionId"
-          ],
-          "references": [
-            "id"
-          ]
-        },
-        {
-          "field": "valueAssessment",
-          "to": "TopicValueAssessment",
-          "optional": false,
-          "list": false,
-          "relationName": null,
-          "fields": [
-            "valueAssessmentId"
-          ],
-          "references": [
-            "id"
-          ]
-        }
-      ],
-      "indexes": [
-        {
-          "type": "index",
-          "fields": [
-            "topicId",
-            "createdAt"
-          ],
-          "name": null,
-          "map": null
-        }
-      ]
-    },
-    {
-      "name": "TopicQuestion",
-      "dbName": null,
-      "schema": null,
-      "columns": [
-        {
-          "name": "contributionHypothesis",
-          "type": "TopicContributionHypothesis",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "createdAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "id",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": true,
-          "unique": false
-        },
-        {
-          "name": "mainQuestion",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "researchRecordId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": true
-        },
-        {
-          "name": "researchSlice",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "sourceEvidenceReviewIds",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"[]\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "sourceNeedReviewIds",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"[]\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "subQuestions",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"[]\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "topicId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "updatedAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        }
-      ],
-      "relations": [
-        {
-          "field": "packages",
-          "to": "TopicPackage",
-          "optional": false,
-          "list": true,
-          "relationName": null,
-          "fields": [],
-          "references": []
-        },
-        {
-          "field": "promotionDecisions",
-          "to": "TopicPromotionDecision",
-          "optional": false,
-          "list": true,
-          "relationName": null,
-          "fields": [],
-          "references": []
-        },
-        {
-          "field": "researchRecord",
-          "to": "TopicResearchRecord",
-          "optional": false,
-          "list": false,
-          "relationName": null,
-          "fields": [
-            "researchRecordId"
-          ],
-          "references": [
-            "id"
-          ]
-        },
-        {
-          "field": "valueAssessments",
-          "to": "TopicValueAssessment",
-          "optional": false,
-          "list": true,
-          "relationName": null,
-          "fields": [],
-          "references": []
-        }
-      ],
-      "indexes": [
-        {
-          "type": "index",
-          "fields": [
-            "topicId",
-            "updatedAt"
-          ],
-          "name": null,
-          "map": null
-        }
-      ]
-    },
-    {
-      "name": "TopicResearchRecord",
-      "dbName": null,
-      "schema": null,
-      "columns": [
-        {
-          "name": "id",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": true,
-          "unique": false
-        },
-        {
-          "name": "lineage",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "parentRecordId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "recordStatus",
-          "type": "TopicResearchRecordStatus",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "draft",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "recordType",
-          "type": "TopicResearchRecordType",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "sourceRecordIds",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"[]\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "supersededByRecordId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "topicId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "versionNo",
-          "type": "Int",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "1",
-          "primaryKey": false,
-          "unique": false
-        }
-      ],
-      "relations": [],
-      "indexes": []
-    },
-    {
-      "name": "TopicValueAssessment",
-      "dbName": null,
-      "schema": null,
-      "columns": [
-        {
-          "name": "baseCase",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "ceilingCase",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "createdAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "fallbackClaimIfSuccess",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "floorCase",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "hardGates",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "id",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": true,
-          "unique": false
-        },
-        {
-          "name": "questionId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "researchRecordId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": true
-        },
-        {
-          "name": "reviewerObjections",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"[]\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "riskPenalty",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "scoredDimensions",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "strongestClaimIfSuccess",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "topicId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "totalScore",
-          "type": "Decimal",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Decimal",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "updatedAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "verdict",
-          "type": "TopicValueVerdict",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        }
-      ],
-      "relations": [
-        {
-          "field": "packages",
-          "to": "TopicPackage",
-          "optional": false,
-          "list": true,
-          "relationName": null,
-          "fields": [],
-          "references": []
-        },
-        {
-          "field": "promotionDecisions",
-          "to": "TopicPromotionDecision",
-          "optional": false,
-          "list": true,
-          "relationName": null,
-          "fields": [],
-          "references": []
-        },
-        {
-          "field": "question",
-          "to": "TopicQuestion",
-          "optional": false,
-          "list": false,
-          "relationName": null,
-          "fields": [
-            "questionId"
-          ],
-          "references": [
-            "id"
-          ]
-        },
-        {
-          "field": "researchRecord",
-          "to": "TopicResearchRecord",
-          "optional": false,
-          "list": false,
-          "relationName": null,
-          "fields": [
-            "researchRecordId"
-          ],
-          "references": [
-            "id"
-          ]
-        }
-      ],
-      "indexes": [
-        {
-          "type": "index",
-          "fields": [
-            "questionId",
-            "updatedAt"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "topicId",
-            "updatedAt"
-          ],
-          "name": null,
-          "map": null
-        }
-      ]
     }
   ],
   "notes": "Generated from Prisma schema.prisma (SSOT: repo-prisma)."

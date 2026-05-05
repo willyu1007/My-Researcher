@@ -19,52 +19,52 @@ export type PaperCitationStatus = (typeof PAPER_CITATION_STATUSES)[number];
 export const OVERVIEW_STATUSES = ['excluded', 'automation_ready', 'citable', 'not_citable'] as const;
 export type OverviewStatus = (typeof OVERVIEW_STATUSES)[number];
 
-export const LITERATURE_PIPELINE_STAGE_CODES = [
+export const LITERATURE_CONTENT_PROCESSING_STAGE_CODES = [
   'CITATION_NORMALIZED',
   'ABSTRACT_READY',
-  'KEY_CONTENT_READY',
   'FULLTEXT_PREPROCESSED',
+  'KEY_CONTENT_READY',
   'CHUNKED',
   'EMBEDDED',
   'INDEXED',
 ] as const;
-export type LiteraturePipelineStageCode = (typeof LITERATURE_PIPELINE_STAGE_CODES)[number];
+export type LiteratureContentProcessingStageCode = (typeof LITERATURE_CONTENT_PROCESSING_STAGE_CODES)[number];
 
-export const LITERATURE_PIPELINE_STAGE_STATUSES = [
+export const LITERATURE_CONTENT_PROCESSING_STAGE_STATUSES = [
   'NOT_STARTED',
   'PENDING',
   'RUNNING',
   'SUCCEEDED',
+  'STALE',
   'FAILED',
   'BLOCKED',
   'SKIPPED',
 ] as const;
-export type LiteraturePipelineStageStatus = (typeof LITERATURE_PIPELINE_STAGE_STATUSES)[number];
+export type LiteratureContentProcessingStageStatus = (typeof LITERATURE_CONTENT_PROCESSING_STAGE_STATUSES)[number];
 
-export const LITERATURE_PIPELINE_RUN_STATUSES = ['PENDING', 'RUNNING', 'PARTIAL', 'SUCCESS', 'FAILED', 'SKIPPED'] as const;
-export type LiteraturePipelineRunStatus = (typeof LITERATURE_PIPELINE_RUN_STATUSES)[number];
+export const LITERATURE_CONTENT_PROCESSING_RUN_STATUSES = ['PENDING', 'RUNNING', 'PARTIAL', 'SUCCESS', 'FAILED', 'SKIPPED'] as const;
+export type LiteratureContentProcessingRunStatus = (typeof LITERATURE_CONTENT_PROCESSING_RUN_STATUSES)[number];
 
-export const LITERATURE_PIPELINE_TRIGGER_SOURCES = [
-  'AUTO_PULL',
-  'MANUAL_IMPORT',
-  'ZOTERO_IMPORT',
-  'METADATA_PATCH',
-  'OVERVIEW_ACTION',
+export const LITERATURE_CONTENT_PROCESSING_TRIGGER_SOURCES = [
+  'CONTENT_PROCESSING_ACTION',
   'BACKFILL',
 ] as const;
-export type LiteraturePipelineTriggerSource = (typeof LITERATURE_PIPELINE_TRIGGER_SOURCES)[number];
+export type LiteratureContentProcessingTriggerSource = (typeof LITERATURE_CONTENT_PROCESSING_TRIGGER_SOURCES)[number];
 
-export const LITERATURE_PIPELINE_DEDUP_STATUSES = ['unique', 'duplicate', 'unknown'] as const;
-export type LiteraturePipelineDedupStatus = (typeof LITERATURE_PIPELINE_DEDUP_STATUSES)[number];
+export const LITERATURE_CONTENT_PROCESSING_DEDUP_STATUSES = ['unique', 'duplicate', 'unknown'] as const;
+export type LiteratureContentProcessingDedupStatus = (typeof LITERATURE_CONTENT_PROCESSING_DEDUP_STATUSES)[number];
 
-export const LITERATURE_PIPELINE_ACTION_CODES = [
-  'EXTRACT_ABSTRACT',
-  'PREPROCESS_FULLTEXT',
-  'VECTORIZE',
+export const LITERATURE_CONTENT_PROCESSING_ACTION_CODES = [
+  'process_content',
+  'process_to_retrievable',
+  'rebuild_index',
+  'reextract',
+  'retry_failed',
+  'view_reason',
 ] as const;
-export type LiteraturePipelineActionCode = (typeof LITERATURE_PIPELINE_ACTION_CODES)[number];
+export type LiteratureContentProcessingActionCode = (typeof LITERATURE_CONTENT_PROCESSING_ACTION_CODES)[number];
 
-export const LITERATURE_PIPELINE_ACTION_REASON_CODES = [
+export const LITERATURE_CONTENT_PROCESSING_ACTION_REASON_CODES = [
   'READY',
   'EXCLUDED_BY_SCOPE',
   'RIGHTS_RESTRICTED',
@@ -73,9 +73,65 @@ export const LITERATURE_PIPELINE_ACTION_REASON_CODES = [
   'STAGE_ALREADY_READY',
   'RUN_IN_FLIGHT',
 ] as const;
-export type LiteraturePipelineActionReasonCode = (typeof LITERATURE_PIPELINE_ACTION_REASON_CODES)[number];
+export type LiteratureContentProcessingActionReasonCode = (typeof LITERATURE_CONTENT_PROCESSING_ACTION_REASON_CODES)[number];
 
-export interface LiteratureImportItem {
+export const LITERATURE_CONTENT_PROCESSING_PROVIDER_IDS = ['openai'] as const;
+export type LiteratureContentProcessingProviderId = (typeof LITERATURE_CONTENT_PROCESSING_PROVIDER_IDS)[number];
+
+export const LITERATURE_EMBEDDING_PROFILE_IDS = ['default', 'economy'] as const;
+export type LiteratureEmbeddingProfileId = (typeof LITERATURE_EMBEDDING_PROFILE_IDS)[number];
+
+export interface LiteratureContentProcessingProviderSettingsDTO {
+  provider: LiteratureContentProcessingProviderId;
+  api_key_set: boolean;
+  api_key_last_updated_at: string | null;
+}
+
+export interface LiteratureEmbeddingProfileDTO {
+  profile_id: LiteratureEmbeddingProfileId;
+  provider: LiteratureContentProcessingProviderId;
+  model: string;
+  dimensions: number | null;
+}
+
+export interface LiteratureContentProcessingEmbeddingSettingsDTO {
+  active_profile_id: LiteratureEmbeddingProfileId;
+  profiles: LiteratureEmbeddingProfileDTO[];
+}
+
+export interface LiteratureContentProcessingStorageRootsDTO {
+  raw_files: string | null;
+  normalized_text: string | null;
+  artifacts_cache: string | null;
+  indexes: string | null;
+  exports: string | null;
+}
+
+export interface LiteratureContentProcessingSettingsDTO {
+  providers: LiteratureContentProcessingProviderSettingsDTO[];
+  embedding: LiteratureContentProcessingEmbeddingSettingsDTO;
+  storage_roots: LiteratureContentProcessingStorageRootsDTO;
+  updated_at: string;
+}
+
+export interface UpdateLiteratureContentProcessingSettingsRequest {
+  providers?: Array<{
+    provider: LiteratureContentProcessingProviderId;
+    api_key?: string | null;
+  }>;
+  embedding?: {
+    active_profile_id?: LiteratureEmbeddingProfileId;
+    profiles?: Array<{
+      profile_id: LiteratureEmbeddingProfileId;
+      provider: LiteratureContentProcessingProviderId;
+      model: string;
+      dimensions?: number | null;
+    }>;
+  };
+  storage_roots?: Partial<LiteratureContentProcessingStorageRootsDTO>;
+}
+
+export interface LiteratureCollectionImportItem {
   provider: LiteratureProvider;
   external_id: string;
   title: string;
@@ -89,11 +145,11 @@ export interface LiteratureImportItem {
   tags?: string[];
 }
 
-export interface LiteratureImportRequest {
-  items: LiteratureImportItem[];
+export interface LiteratureCollectionImportRequest {
+  items: LiteratureCollectionImportItem[];
 }
 
-export interface LiteratureImportResult {
+export interface LiteratureCollectionImportResult {
   literature_id: string;
   is_new: boolean;
   matched_by: DedupMatchType;
@@ -102,8 +158,8 @@ export interface LiteratureImportResult {
   source_url: string;
 }
 
-export interface LiteratureImportResponse {
-  results: LiteratureImportResult[];
+export interface LiteratureCollectionImportResponse {
+  results: LiteratureCollectionImportResult[];
 }
 
 export interface TopicLiteratureScopeAction {
@@ -197,17 +253,17 @@ export type ZoteroPreviewRequest = ZoteroImportRequest;
 
 export interface ZoteroPreviewResponse {
   fetched_count: number;
-  items: LiteratureImportItem[];
+  items: LiteratureCollectionImportItem[];
 }
 
 export interface ZoteroImportResponse {
   topic_id?: string;
   imported_count: number;
   scope_upserted_count: number;
-  results: LiteratureImportResult[];
+  results: LiteratureCollectionImportResult[];
 }
 
-export interface LiteraturePipelineStateDTO {
+export interface LiteratureContentProcessingStateDTO {
   literature_id: string;
   citation_complete: boolean;
   abstract_ready: boolean;
@@ -216,38 +272,41 @@ export interface LiteraturePipelineStateDTO {
   chunked: boolean;
   embedded: boolean;
   indexed: boolean;
-  dedup_status: LiteraturePipelineDedupStatus;
+  dedup_status: LiteratureContentProcessingDedupStatus;
   updated_at: string;
 }
 
-export type LiteraturePipelineStageStatusMap = Record<LiteraturePipelineStageCode, LiteraturePipelineStageStatus>;
+export type LiteratureContentProcessingStageStatusMap = Record<LiteratureContentProcessingStageCode, LiteratureContentProcessingStageStatus>;
 
-export interface LiteraturePipelineActionAvailability {
-  action_code: LiteraturePipelineActionCode;
+export interface LiteratureContentProcessingActionAvailability {
+  action_code: LiteratureContentProcessingActionCode;
   enabled: boolean;
-  reason_code: LiteraturePipelineActionReasonCode | null;
+  reason_code: LiteratureContentProcessingActionReasonCode | null;
   reason_message: string | null;
-  requested_stages: LiteraturePipelineStageCode[];
+  requested_stages: LiteratureContentProcessingStageCode[];
 }
 
-export interface LiteraturePipelineActionSet {
-  extract_abstract: LiteraturePipelineActionAvailability;
-  preprocess_fulltext: LiteraturePipelineActionAvailability;
-  vectorize: LiteraturePipelineActionAvailability;
+export interface LiteratureContentProcessingActionSet {
+  process_content: LiteratureContentProcessingActionAvailability;
+  process_to_retrievable: LiteratureContentProcessingActionAvailability;
+  rebuild_index: LiteratureContentProcessingActionAvailability;
+  reextract: LiteratureContentProcessingActionAvailability;
+  retry_failed: LiteratureContentProcessingActionAvailability;
+  view_reason: LiteratureContentProcessingActionAvailability;
 }
 
-export interface LiteraturePipelineStageStateDTO {
-  stage_code: LiteraturePipelineStageCode;
-  status: LiteraturePipelineStageStatus;
+export interface LiteratureContentProcessingStageStateDTO {
+  stage_code: LiteratureContentProcessingStageCode;
+  status: LiteratureContentProcessingStageStatus;
   last_run_id: string | null;
   detail: Record<string, unknown>;
   updated_at: string;
 }
 
-export interface LiteraturePipelineRunStepDTO {
+export interface LiteratureContentProcessingRunStepDTO {
   step_id: string;
-  stage_code: LiteraturePipelineStageCode;
-  status: LiteraturePipelineStageStatus;
+  stage_code: LiteratureContentProcessingStageCode;
+  status: LiteratureContentProcessingStageStatus;
   input_ref: Record<string, unknown>;
   output_ref: Record<string, unknown>;
   error_code: string | null;
@@ -256,41 +315,41 @@ export interface LiteraturePipelineRunStepDTO {
   finished_at: string | null;
 }
 
-export interface LiteraturePipelineRunDTO {
+export interface LiteratureContentProcessingRunDTO {
   run_id: string;
   literature_id: string;
-  trigger_source: LiteraturePipelineTriggerSource;
-  status: LiteraturePipelineRunStatus;
-  requested_stages: LiteraturePipelineStageCode[];
+  trigger_source: LiteratureContentProcessingTriggerSource;
+  status: LiteratureContentProcessingRunStatus;
+  requested_stages: LiteratureContentProcessingStageCode[];
   error_code: string | null;
   error_message: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
   updated_at: string;
-  steps?: LiteraturePipelineRunStepDTO[];
+  steps?: LiteratureContentProcessingRunStepDTO[];
 }
 
-export interface GetLiteraturePipelineResponse {
+export interface GetLiteratureContentProcessingResponse {
   literature_id: string;
-  state: LiteraturePipelineStateDTO;
-  stage_states: LiteraturePipelineStageStateDTO[];
+  state: LiteratureContentProcessingStateDTO;
+  stage_states: LiteratureContentProcessingStageStateDTO[];
 }
 
-export interface CreateLiteraturePipelineRunRequest {
-  requested_stages?: LiteraturePipelineStageCode[];
+export interface CreateLiteratureContentProcessingRunRequest {
+  requested_stages?: LiteratureContentProcessingStageCode[];
 }
 
-export interface CreateLiteraturePipelineRunResponse {
-  run: LiteraturePipelineRunDTO;
+export interface CreateLiteratureContentProcessingRunResponse {
+  run: LiteratureContentProcessingRunDTO;
 }
 
-export interface ListLiteraturePipelineRunsResponse {
+export interface ListLiteratureContentProcessingRunsResponse {
   literature_id: string;
-  items: LiteraturePipelineRunDTO[];
+  items: LiteratureContentProcessingRunDTO[];
 }
 
-export interface ListLiteraturePipelineRunsQuery {
+export interface ListLiteratureContentProcessingRunsQuery {
   limit?: number;
 }
 
@@ -309,7 +368,7 @@ export interface LiteratureOverviewItem {
   topic_scope_status?: TopicScopeStatus;
   citation_status?: PaperCitationStatus;
   overview_status: OverviewStatus;
-  pipeline_state: {
+  content_processing_state: {
     citation_complete: boolean;
     abstract_ready: boolean;
     key_content_ready: boolean;
@@ -318,8 +377,8 @@ export interface LiteratureOverviewItem {
     embedded: boolean;
     indexed: boolean;
   };
-  pipeline_stage_status: LiteraturePipelineStageStatusMap;
-  pipeline_actions: LiteraturePipelineActionSet;
+  content_processing_stage_status: LiteratureContentProcessingStageStatusMap;
+  content_processing_actions: LiteratureContentProcessingActionSet;
 }
 
 export interface LiteratureOverviewQuery {
@@ -426,7 +485,7 @@ export interface LiteratureRetrieveResponse {
   };
 }
 
-export const literatureImportRequestSchema = {
+export const literatureCollectionImportRequestSchema = {
   type: 'object',
   required: ['items'],
   properties: {
@@ -509,7 +568,66 @@ export const literatureRetrieveRequestSchema = {
   additionalProperties: false,
 } as const;
 
-export const listLiteraturePipelineRunsQuerySchema = {
+const literatureEmbeddingProfileSchema = {
+  type: 'object',
+  required: ['profile_id', 'provider', 'model'],
+  properties: {
+    profile_id: { type: 'string', enum: LITERATURE_EMBEDDING_PROFILE_IDS },
+    provider: { type: 'string', enum: LITERATURE_CONTENT_PROCESSING_PROVIDER_IDS },
+    model: { type: 'string', minLength: 1 },
+    dimensions: { anyOf: [{ type: 'integer', minimum: 1 }, { type: 'null' }] },
+  },
+  additionalProperties: false,
+} as const;
+
+export const updateLiteratureContentProcessingSettingsRequestSchema = {
+  type: 'object',
+  properties: {
+    providers: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['provider'],
+        properties: {
+          provider: { type: 'string', enum: LITERATURE_CONTENT_PROCESSING_PROVIDER_IDS },
+          api_key: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+        },
+        additionalProperties: false,
+      },
+    },
+    embedding: {
+      type: 'object',
+      properties: {
+        active_profile_id: { type: 'string', enum: LITERATURE_EMBEDDING_PROFILE_IDS },
+        profiles: {
+          type: 'array',
+          minItems: 1,
+          items: literatureEmbeddingProfileSchema,
+        },
+      },
+      additionalProperties: false,
+    },
+    storage_roots: {
+      type: 'object',
+      properties: {
+        raw_files: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+        normalized_text: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+        artifacts_cache: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+        indexes: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+        exports: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+      },
+      additionalProperties: false,
+    },
+  },
+  additionalProperties: false,
+  anyOf: [
+    { required: ['providers'] },
+    { required: ['embedding'] },
+    { required: ['storage_roots'] },
+  ],
+} as const;
+
+export const listLiteratureContentProcessingRunsQuerySchema = {
   type: 'object',
   properties: {
     limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
@@ -517,12 +635,12 @@ export const listLiteraturePipelineRunsQuerySchema = {
   additionalProperties: false,
 } as const;
 
-export const createLiteraturePipelineRunRequestSchema = {
+export const createLiteratureContentProcessingRunRequestSchema = {
   type: 'object',
   properties: {
     requested_stages: {
       type: 'array',
-      items: { type: 'string', enum: LITERATURE_PIPELINE_STAGE_CODES },
+      items: { type: 'string', enum: LITERATURE_CONTENT_PROCESSING_STAGE_CODES },
       minItems: 1,
       uniqueItems: true,
     },

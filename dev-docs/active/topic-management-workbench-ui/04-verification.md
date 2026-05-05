@@ -12,6 +12,47 @@
   - Result:
     - `[ok] Lint passed.`
 
+## Semantic isolation verification wave (2026-03-29)
+- [pass] `pnpm exec prisma format --schema prisma/schema.prisma`
+  - Result:
+    - Prisma schema formatting passes after switching title-card-related models/enums to canonical developer-facing names with `@map/@@map`.
+- [pass] `pnpm --filter @paper-engineering-assistant/backend run typecheck`
+  - Result:
+    - backend compile passes after cutting `paper-project` create input and store config off legacy `topic` naming
+    - generated Prisma client accepts the mapped `TitleCard*` model surface and `PaperProject.titleCardId`
+- [pass] `pnpm --filter @paper-engineering-assistant/shared test`
+  - Result:
+    - 11 tests pass
+    - shared contracts remain green after `CreatePaperProjectRequest` switched from `topic_id` to `title_card_id`
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/app.title-card-management-config.test.ts src/repositories/title-card-management.repository.test.ts src/repositories/prisma/title-card-management-normalizers.test.ts src/services/title-card-management.service.test.ts src/routes/title-card-management.routes.test.ts src/routes/title-card-management.routes.integration.test.ts src/routes/title-card-management.contract-drift.test.ts src/services/research-lifecycle-service.unit.test.ts src/routes/research-lifecycle-routes.integration.test.ts src/services/literature-service.unit.test.ts`
+  - Result:
+    - 43 tests pass
+    - covers title-card repository/service/routes, paper-project create flow, literature workflow integration, and config/env-key changes
+- [pass] `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/routes/research-lifecycle.contract-drift.test.ts`
+  - Result:
+    - `/paper-projects` route and OpenAPI now agree on `title_card_id` as the paper-project origin field
+    - the new drift test rejects regressions back to `topic_id`
+- [pass] `pnpm --filter @paper-engineering-assistant/desktop run typecheck`
+  - Result:
+    - desktop compile remains green after shared/backend contract updates
+- [pass] `node .ai/scripts/ctl-api-index.mjs generate --touch`
+  - Result:
+    - regenerated `docs/context/api/api-index.json`
+    - regenerated `docs/context/api/API-INDEX.md`
+- [pass] `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - Result:
+    - refreshed `docs/context/db/schema.json`
+    - context DB contract now exposes canonical Prisma developer-facing names for title-card child models and `PaperProject.titleCardId`
+- [pass] `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict`
+  - Result:
+    - context verification passed after OpenAPI + Prisma context refresh
+- [pass] `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result:
+    - `[ok] Sync complete.`
+- [pass] `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result:
+    - `[ok] Lint passed.`
+
 ## Demo seed verification wave (2026-03-26)
 - [pass] `pnpm --filter @paper-engineering-assistant/backend run typecheck`
   - Result:

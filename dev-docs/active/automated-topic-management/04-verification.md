@@ -108,7 +108,7 @@
 | Route | Unexpected service failure | Negative | 500 | unhandled runtime faults |
 | Route | Full promotion flow via HTTP | Positive | 201 with paper_id and decision_id | route/controller wiring |
 | Contract | canonical path drift | Negative | test fails when route/OpenAPI diverge | docs/context drift |
-| App wiring | `TOPIC_REPOSITORY=prisma` 级联解析 | Positive | dependent stores resolve to prisma | mixed persistence false 404 / split writes |
+| App wiring | `TITLE_CARD_REPOSITORY=prisma` 级联解析 | Positive | dependent stores resolve to prisma | mixed persistence false 404 / split writes |
 | App wiring | Prisma topic-management mixed store mismatch | Negative | build fails fast | split-brain persistence |
 
 ## 测试清单（内嵌）

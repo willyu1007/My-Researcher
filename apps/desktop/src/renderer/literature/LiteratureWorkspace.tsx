@@ -3,6 +3,7 @@ import { AutoImportTab } from './auto-import/AutoImportTab';
 import { ManualImportTab } from './manual-import/ManualImportTab';
 import { OverviewTab } from './overview/OverviewTab';
 import { MetadataIntakePanel } from './intake/MetadataIntakePanel';
+import { LiteratureContentProcessingSettingsPanel } from './settings/LiteratureContentProcessingSettingsPanel';
 
 type LiteratureWorkspaceProps = {
   autoImportTabProps: ComponentProps<typeof AutoImportTab>;
@@ -21,6 +22,7 @@ export function LiteratureWorkspace({
     <>
       <section className="module-dashboard literature-workspace">
         <div data-ui="stack" data-direction="col" data-gap="3">
+          <LiteratureContentProcessingSettingsPanel />
           <AutoImportTab {...autoImportTabProps} />
           <ManualImportTab {...manualImportTabProps} />
           <OverviewTab {...overviewTabProps} />

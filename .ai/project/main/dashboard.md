@@ -8,12 +8,23 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 28 (planned: 3, in-progress: 7, blocked: 0, done: 8, archived: 10)
+- Tasks: 39 (planned: 11, in-progress: 7, blocked: 0, done: 11, archived: 10)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-031 literature-content-processing-contracts-stage-state | done | F-000 | dev-docs/active/literature-content-processing-contracts-stage-state |
+| T-032 literature-settings-provider-storage-roots | done | F-000 | dev-docs/active/literature-settings-provider-storage-roots |
+| T-033 literature-content-assets-fulltext-preprocessing | planned | F-000 | dev-docs/active/literature-content-assets-fulltext-preprocessing |
+| T-034 literature-key-content-extraction-v1 | planned | F-000 | dev-docs/active/literature-key-content-extraction-v1 |
+| T-035 literature-chunk-embedding-index-pipeline | planned | F-000 | dev-docs/active/literature-chunk-embedding-index-pipeline |
+| T-036 literature-retrieve-stale-trigger-ui | planned | F-000 | dev-docs/active/literature-retrieve-stale-trigger-ui |
+| T-037 literature-backfill-operations-workbench | planned | F-000 | dev-docs/active/literature-backfill-operations-workbench |
+| T-038 literature-content-processing-cutover-verification | planned | F-000 | dev-docs/active/literature-content-processing-cutover-verification |
+| T-039 literature-citation-abstract-readiness | planned | F-000 | dev-docs/active/literature-citation-abstract-readiness |
+| T-029 literature-collection-content-processing-boundary | done | F-000 | dev-docs/active/literature-collection-content-processing-boundary |
+| T-030 literature-content-processing-landing-roadmap | planned | F-000 | dev-docs/active/literature-content-processing-landing-roadmap |
 | T-023 research-argument-control-plane-v1 | in-progress | F-001 | dev-docs/active/research-argument-control-plane-v1 |
 | T-024 research-argument-contracts-and-ssot | done | F-001 | dev-docs/active/research-argument-contracts-and-ssot |
 | T-025 research-argument-graph-and-state-v1 | in-progress | F-001 | dev-docs/active/research-argument-graph-and-state-v1 |
@@ -23,15 +34,4 @@ Project: `main`
 | T-021 topic-management-workbench-ui | in-progress | F-001 | dev-docs/active/topic-management-workbench-ui |
 | T-022 desktop-legacy-css-retirement | in-progress | F-002 | dev-docs/active/desktop-legacy-css-retirement |
 | T-020 shared-contract-compat-cleanup-and-consumer-migration | done | F-000 | dev-docs/active/shared-contract-compat-cleanup-and-consumer-migration |
-| T-012 app-tsx-layout-split | done | F-000 | dev-docs/active/app-tsx-layout-split |
-| T-013 topic-initial-pull-and-rule-preview | in-progress | F-000 | dev-docs/active/topic-initial-pull-and-rule-preview |
-| T-014 automated-topic-management | in-progress | F-001 | dev-docs/active/automated-topic-management |
-| T-015 maintainability-file-split-governance | done | F-000 | dev-docs/active/maintainability-file-split-governance |
-| T-016 backend-service-boundary-split-wave3 | done | F-000 | dev-docs/active/backend-service-boundary-split-wave3 |
-| T-017 frontend-normalizers-and-css-split-wave2 | done | F-000 | dev-docs/active/frontend-normalizers-and-css-split-wave2 |
-| T-018 literature-container-controller-split-wave1 | done | F-000 | dev-docs/active/literature-container-controller-split-wave1 |
-| T-019 shared-contract-decomposition-wave4 | done | F-000 | dev-docs/active/shared-contract-decomposition-wave4 |
-| T-011 literature-management-flow | in-progress | F-000 | dev-docs/active/literature-management-flow |
-| T-002 paper-assistant-core-modules | archived | F-000 | dev-docs/archive/paper-assistant-core-modules |
-| T-003 llm-research-lifecycle-governance-v1 | archived | F-001 | dev-docs/archive/llm-research-lifecycle-governance-v1 |
 <!-- AUTO-GENERATED:END dashboard -->

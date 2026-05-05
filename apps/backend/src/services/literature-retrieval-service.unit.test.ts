@@ -99,76 +99,65 @@ test('retrieve ranks literature by hybrid score and returns chunk evidence', asy
   assert.equal(response.meta.skipped_profiles.length, 0);
 });
 
-test('retrieve skips external profile when endpoint is not configured', async () => {
+test('retrieve skips OpenAI profile when API key is not configured', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureRetrievalService(repository);
   const now = new Date().toISOString();
 
-  const previousEndpoint = process.env.LITERATURE_PIPELINE_EMBEDDING_URL;
-  delete process.env.LITERATURE_PIPELINE_EMBEDDING_URL;
+  await repository.createLiterature({
+    id: 'LIT-RET-OPENAI',
+    title: 'OpenAI Embedding Candidate',
+    abstractText: null,
+    keyContentDigest: null,
+    authors: ['Tester'],
+    year: 2025,
+    doiNormalized: '10.1000/lit-ret-openai',
+    arxivId: null,
+    normalizedTitle: 'openai embedding candidate',
+    titleAuthorsYearHash: 'hash-lit-ret-openai',
+    rightsClass: 'OA',
+    tags: [],
+    activeEmbeddingVersionId: 'EV-RET-OPENAI',
+    createdAt: now,
+    updatedAt: now,
+  });
 
-  try {
-    await repository.createLiterature({
-      id: 'LIT-RET-EXT',
-      title: 'External Embedding Candidate',
-      abstractText: null,
-      keyContentDigest: null,
-      authors: ['Tester'],
-      year: 2025,
-      doiNormalized: '10.1000/lit-ret-ext',
-      arxivId: null,
-      normalizedTitle: 'external embedding candidate',
-      titleAuthorsYearHash: 'hash-lit-ret-ext',
-      rightsClass: 'OA',
-      tags: [],
-      activeEmbeddingVersionId: 'EV-RET-EXT',
+  await repository.createEmbeddingVersion({
+    id: 'EV-RET-OPENAI',
+    literatureId: 'LIT-RET-OPENAI',
+    versionNo: 1,
+    provider: 'openai',
+    model: 'text-embedding-3-large',
+    dimension: 3,
+    chunkCount: 1,
+    vectorCount: 1,
+    tokenCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await repository.createEmbeddingChunks([
+    {
+      id: 'EV-RET-OPENAI-chunk-1',
+      embeddingVersionId: 'EV-RET-OPENAI',
+      literatureId: 'LIT-RET-OPENAI',
+      chunkId: 'chunk-0001',
+      chunkIndex: 0,
+      text: 'openai profile chunk text',
+      startOffset: 0,
+      endOffset: 26,
+      vector: [0.1, 0.2, 0.3],
       createdAt: now,
       updatedAt: now,
-    });
+    },
+  ]);
 
-    await repository.createEmbeddingVersion({
-      id: 'EV-RET-EXT',
-      literatureId: 'LIT-RET-EXT',
-      versionNo: 1,
-      provider: 'external',
-      model: 'text-embedding-v1',
-      dimension: 3,
-      chunkCount: 1,
-      vectorCount: 1,
-      tokenCount: 0,
-      createdAt: now,
-      updatedAt: now,
-    });
+  const response = await service.retrieve({
+    query: 'openai embedding',
+  });
 
-    await repository.createEmbeddingChunks([
-      {
-        id: 'EV-RET-EXT-chunk-1',
-        embeddingVersionId: 'EV-RET-EXT',
-        literatureId: 'LIT-RET-EXT',
-        chunkId: 'chunk-0001',
-        chunkIndex: 0,
-        text: 'external profile chunk text',
-        startOffset: 0,
-        endOffset: 27,
-        vector: [0.1, 0.2, 0.3],
-        createdAt: now,
-        updatedAt: now,
-      },
-    ]);
-
-    const response = await service.retrieve({
-      query: 'external embedding',
-    });
-
-    assert.equal(response.items.length, 0);
-    assert.equal(response.meta.profiles_used.length, 0);
-    assert.equal(response.meta.skipped_profiles.length, 1);
-    assert.equal(response.meta.skipped_profiles[0]?.provider, 'external');
-  } finally {
-    if (previousEndpoint === undefined) {
-      delete process.env.LITERATURE_PIPELINE_EMBEDDING_URL;
-    } else {
-      process.env.LITERATURE_PIPELINE_EMBEDDING_URL = previousEndpoint;
-    }
-  }
+  assert.equal(response.items.length, 0);
+  assert.equal(response.meta.profiles_used.length, 0);
+  assert.equal(response.meta.skipped_profiles.length, 1);
+  assert.equal(response.meta.skipped_profiles[0]?.provider, 'openai');
 });

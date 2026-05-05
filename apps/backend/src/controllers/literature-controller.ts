@@ -1,17 +1,17 @@
 import type {
-  CreateLiteraturePipelineRunRequest,
-  CreateLiteraturePipelineRunResponse,
-  GetLiteraturePipelineResponse,
+  CreateLiteratureContentProcessingRunRequest,
+  CreateLiteratureContentProcessingRunResponse,
+  GetLiteratureContentProcessingResponse,
   GetLiteratureMetadataResponse,
   GetPaperLiteratureResponse,
-  LiteratureImportRequest,
-  LiteratureImportResponse,
+  LiteratureCollectionImportRequest,
+  LiteratureCollectionImportResponse,
   LiteratureOverviewQuery,
   LiteratureOverviewResponse,
   LiteratureRetrieveRequest,
   LiteratureRetrieveResponse,
-  ListLiteraturePipelineRunsQuery,
-  ListLiteraturePipelineRunsResponse,
+  ListLiteratureContentProcessingRunsQuery,
+  ListLiteratureContentProcessingRunsResponse,
   SyncPaperLiteratureFromTopicRequest,
   SyncPaperLiteratureFromTopicResponse,
   TopicLiteratureScopeResponse,
@@ -49,36 +49,36 @@ type LiteratureParams = {
 export class LiteratureController {
   constructor(private readonly service: LiteratureService) {}
 
-  async import(
-    request: FastifyRequest<{ Body: LiteratureImportRequest }>,
+  async collectionImport(
+    request: FastifyRequest<{ Body: LiteratureCollectionImportRequest }>,
     reply: FastifyReply,
   ): Promise<void> {
     try {
-      const result = await this.service.import(request.body);
-      reply.status(200).send(result satisfies LiteratureImportResponse);
+      const result = await this.service.collectionImport(request.body);
+      reply.status(200).send(result satisfies LiteratureCollectionImportResponse);
     } catch (error) {
       this.handleError(reply, error);
     }
   }
 
-  async zoteroImport(
+  async zoteroCollectionImport(
     request: FastifyRequest<{ Body: ZoteroImportRequest }>,
     reply: FastifyReply,
   ): Promise<void> {
     try {
-      const result = await this.service.zoteroImport(request.body);
+      const result = await this.service.zoteroCollectionImport(request.body);
       reply.status(200).send(result satisfies ZoteroImportResponse);
     } catch (error) {
       this.handleError(reply, error);
     }
   }
 
-  async zoteroPreview(
+  async zoteroCollectionPreview(
     request: FastifyRequest<{ Body: ZoteroPreviewRequest }>,
     reply: FastifyReply,
   ): Promise<void> {
     try {
-      const result = await this.service.zoteroPreview(request.body);
+      const result = await this.service.zoteroCollectionPreview(request.body);
       reply.status(200).send(result satisfies ZoteroPreviewResponse);
     } catch (error) {
       this.handleError(reply, error);
@@ -200,37 +200,37 @@ export class LiteratureController {
     }
   }
 
-  async getPipeline(
+  async getContentProcessing(
     request: FastifyRequest<{ Params: LiteratureParams }>,
     reply: FastifyReply,
   ): Promise<void> {
     try {
-      const result = await this.service.getPipeline(request.params.literatureId);
-      reply.status(200).send(result satisfies GetLiteraturePipelineResponse);
+      const result = await this.service.getContentProcessing(request.params.literatureId);
+      reply.status(200).send(result satisfies GetLiteratureContentProcessingResponse);
     } catch (error) {
       this.handleError(reply, error);
     }
   }
 
-  async createPipelineRun(
-    request: FastifyRequest<{ Params: LiteratureParams; Body: CreateLiteraturePipelineRunRequest }>,
+  async createContentProcessingRun(
+    request: FastifyRequest<{ Params: LiteratureParams; Body: CreateLiteratureContentProcessingRunRequest }>,
     reply: FastifyReply,
   ): Promise<void> {
     try {
-      const result = await this.service.createPipelineRun(request.params.literatureId, request.body);
-      reply.status(200).send(result satisfies CreateLiteraturePipelineRunResponse);
+      const result = await this.service.createContentProcessingRun(request.params.literatureId, request.body);
+      reply.status(200).send(result satisfies CreateLiteratureContentProcessingRunResponse);
     } catch (error) {
       this.handleError(reply, error);
     }
   }
 
-  async listPipelineRuns(
-    request: FastifyRequest<{ Params: LiteratureParams; Querystring: ListLiteraturePipelineRunsQuery }>,
+  async listContentProcessingRuns(
+    request: FastifyRequest<{ Params: LiteratureParams; Querystring: ListLiteratureContentProcessingRunsQuery }>,
     reply: FastifyReply,
   ): Promise<void> {
     try {
-      const result = await this.service.listPipelineRuns(request.params.literatureId, request.query);
-      reply.status(200).send(result satisfies ListLiteraturePipelineRunsResponse);
+      const result = await this.service.listContentProcessingRuns(request.params.literatureId, request.query);
+      reply.status(200).send(result satisfies ListLiteratureContentProcessingRunsResponse);
     } catch (error) {
       this.handleError(reply, error);
     }

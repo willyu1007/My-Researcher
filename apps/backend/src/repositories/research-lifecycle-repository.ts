@@ -13,7 +13,7 @@ import type {
 
 export type PaperProjectRecord = {
   id: string;
-  topicId: string;
+  titleCardId: string;
   title: string;
   researchDirection: string;
   status: 'active';

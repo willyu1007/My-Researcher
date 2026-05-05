@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 
-const PIPELINE_STAGE_CODES = [
+const CONTENT_PROCESSING_STAGE_CODES = [
   'CITATION_NORMALIZED',
   'ABSTRACT_READY',
-  'KEY_CONTENT_READY',
   'FULLTEXT_PREPROCESSED',
+  'KEY_CONTENT_READY',
   'CHUNKED',
   'EMBEDDED',
   'INDEXED',
@@ -56,11 +56,11 @@ function chunk(items, size) {
 }
 
 function buildMissingStages(stageStatusMap) {
-  return PIPELINE_STAGE_CODES.filter((stageCode) => stageStatusMap.get(stageCode) !== 'SUCCEEDED');
+  return CONTENT_PROCESSING_STAGE_CODES.filter((stageCode) => stageStatusMap.get(stageCode) !== 'SUCCEEDED');
 }
 
 async function enqueueRun(baseUrl, literatureId, requestedStages) {
-  const response = await fetch(`${baseUrl}/literature/${encodeURIComponent(literatureId)}/pipeline/runs`, {
+  const response = await fetch(`${baseUrl}/literature/${encodeURIComponent(literatureId)}/content-processing/runs`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

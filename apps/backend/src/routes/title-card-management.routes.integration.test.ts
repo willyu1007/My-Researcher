@@ -49,7 +49,7 @@ function valuePayload(researchQuestionId: string, literatureId: string) {
 async function createLiterature(app: ReturnType<typeof buildApp>, suffix: string) {
   const importRes = await app.inject({
     method: 'POST',
-    url: '/literature/import',
+    url: '/literature/collections/import',
     payload: {
       items: [
         {
@@ -183,7 +183,7 @@ test('title-card management full flow succeeds through buildApp wiring', async (
   }
 });
 
-if ((process.env.TOPIC_REPOSITORY ?? process.env.RESEARCH_LIFECYCLE_REPOSITORY) === 'prisma') {
+if ((process.env.TITLE_CARD_REPOSITORY ?? process.env.RESEARCH_LIFECYCLE_REPOSITORY) === 'prisma') {
   test('title-card root, basket, and child records persist across app rebuilds with Prisma', async () => {
     const suffix = uniqueId('title-prisma');
     const firstApp = buildApp();

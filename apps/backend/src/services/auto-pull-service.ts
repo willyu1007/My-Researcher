@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type {
-  LiteratureImportItem,
+  LiteratureCollectionImportItem,
   TopicScopeStatus,
   ZoteroLibraryType,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
@@ -913,7 +913,7 @@ export class AutoPullService {
           continue;
         }
 
-        const dedupMatchedBy = await this.literatureService.findImportDedupMatch(candidate.item);
+        const dedupMatchedBy = await this.literatureService.findCollectionDedupMatch(candidate.item);
         if (dedupMatchedBy !== 'none') {
           duplicateSkippedCount += 1;
           if (runDedupKey) {
@@ -1209,7 +1209,7 @@ export class AutoPullService {
     }
     const year = this.readCrossrefYear(record);
     const publicationStatus = this.resolveCrossrefPublicationStatus(record, year);
-    const item: LiteratureImportItem = {
+    const item: LiteratureCollectionImportItem = {
       provider: 'crossref',
       external_id: doi ?? fallbackId,
       title,
@@ -1244,7 +1244,7 @@ export class AutoPullService {
       .map((match) => this.decodeXmlText(match[1] ?? '').trim())
       .filter((item) => item.length > 0);
     const arxivId = this.extractArxivId(id);
-    const item: LiteratureImportItem = {
+    const item: LiteratureCollectionImportItem = {
       provider: 'arxiv',
       external_id: arxivId ?? id,
       title: this.decodeXmlText(title),
@@ -1307,7 +1307,7 @@ export class AutoPullService {
     const dateText = this.readString(data.date);
     const year = this.parseYear(dateText);
 
-    const item: LiteratureImportItem = {
+    const item: LiteratureCollectionImportItem = {
       provider: 'zotero',
       external_id: itemKey ?? doi ?? arxivId ?? sourceUrl,
       title: title.trim(),
@@ -1330,7 +1330,7 @@ export class AutoPullService {
     };
   }
 
-  private isReferenceReady(item: LiteratureImportItem): boolean {
+  private isReferenceReady(item: LiteratureCollectionImportItem): boolean {
     const hasTitle = item.title.trim().length > 0;
     const hasAuthors = (item.authors ?? []).length > 0;
     const hasValidYear = typeof item.year === 'number'
@@ -1342,7 +1342,7 @@ export class AutoPullService {
     return hasTitle && hasAuthors && hasValidYear && hasIdentifier && hasSourceUrl;
   }
 
-  private buildRunDedupFingerprint(item: LiteratureImportItem): string | null {
+  private buildRunDedupFingerprint(item: LiteratureCollectionImportItem): string | null {
     const doi = this.normalizeDoi(item.doi ?? undefined);
     if (doi) {
       return `doi:${doi}`;
@@ -1382,7 +1382,7 @@ export class AutoPullService {
   }
 
   private matchesTimeWindow(
-    item: LiteratureImportItem,
+    item: LiteratureCollectionImportItem,
     timeSpec: AutoPullTimeSpec,
     timeWindowMode: SourceTimeWindowMode,
   ): boolean {
@@ -1404,7 +1404,7 @@ export class AutoPullService {
     return year >= minYear && year <= maxYear;
   }
 
-  private matchesRuleSignals(item: LiteratureImportItem, querySpec: AutoPullQuerySpec): boolean {
+  private matchesRuleSignals(item: LiteratureCollectionImportItem, querySpec: AutoPullQuerySpec): boolean {
     const text = [
       item.title,
       item.abstract ?? '',
@@ -1470,8 +1470,9 @@ export class AutoPullService {
       if (!hourPart || !minutePart || !dayPart) {
         return null;
       }
+      const parsedHour = Number.parseInt(hourPart, 10);
       return {
-        hour: Number.parseInt(hourPart, 10),
+        hour: parsedHour === 24 ? 0 : parsedHour,
         minute: Number.parseInt(minutePart, 10),
         dayOfWeek: dayPart.toUpperCase(),
       };

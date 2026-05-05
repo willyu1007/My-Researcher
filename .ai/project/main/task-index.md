@@ -38,4 +38,15 @@ Project: `main`
 | T-026 research-argument-titlecard-paper-bridge | planned | F-001 | dev-docs/active/research-argument-titlecard-paper-bridge |
 | T-027 research-argument-control-plane-ui-v1 | planned | F-001 | dev-docs/active/research-argument-control-plane-ui-v1 |
 | T-028 research-argument-planner-critic-v15 | planned | F-001 | dev-docs/active/research-argument-planner-critic-v15 |
+| T-029 literature-collection-content-processing-boundary | done | F-000 | dev-docs/active/literature-collection-content-processing-boundary |
+| T-030 literature-content-processing-landing-roadmap | planned | F-000 | dev-docs/active/literature-content-processing-landing-roadmap |
+| T-031 literature-content-processing-contracts-stage-state | done | F-000 | dev-docs/active/literature-content-processing-contracts-stage-state |
+| T-032 literature-settings-provider-storage-roots | done | F-000 | dev-docs/active/literature-settings-provider-storage-roots |
+| T-033 literature-content-assets-fulltext-preprocessing | planned | F-000 | dev-docs/active/literature-content-assets-fulltext-preprocessing |
+| T-034 literature-key-content-extraction-v1 | planned | F-000 | dev-docs/active/literature-key-content-extraction-v1 |
+| T-035 literature-chunk-embedding-index-pipeline | planned | F-000 | dev-docs/active/literature-chunk-embedding-index-pipeline |
+| T-036 literature-retrieve-stale-trigger-ui | planned | F-000 | dev-docs/active/literature-retrieve-stale-trigger-ui |
+| T-037 literature-backfill-operations-workbench | planned | F-000 | dev-docs/active/literature-backfill-operations-workbench |
+| T-038 literature-content-processing-cutover-verification | planned | F-000 | dev-docs/active/literature-content-processing-cutover-verification |
+| T-039 literature-citation-abstract-readiness | planned | F-000 | dev-docs/active/literature-citation-abstract-readiness |
 <!-- AUTO-GENERATED:END task-index -->

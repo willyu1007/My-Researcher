@@ -1,21 +1,20 @@
 import crypto from 'node:crypto';
 import type {
-  CreateLiteraturePipelineRunRequest,
-  CreateLiteraturePipelineRunResponse,
+  CreateLiteratureContentProcessingRunRequest,
+  CreateLiteratureContentProcessingRunResponse,
   DedupMatchType,
-  GetLiteraturePipelineResponse,
+  GetLiteratureContentProcessingResponse,
   GetLiteratureMetadataResponse,
   GetPaperLiteratureResponse,
-  LiteratureImportItem,
-  LiteratureImportRequest,
-  LiteratureImportResponse,
+  LiteratureCollectionImportItem,
+  LiteratureCollectionImportRequest,
+  LiteratureCollectionImportResponse,
   LiteratureRetrieveRequest,
   LiteratureRetrieveResponse,
-  LiteraturePipelineTriggerSource,
   LiteratureOverviewQuery,
   LiteratureOverviewResponse,
-  ListLiteraturePipelineRunsQuery,
-  ListLiteraturePipelineRunsResponse,
+  ListLiteratureContentProcessingRunsQuery,
+  ListLiteratureContentProcessingRunsResponse,
   LiteratureProvider,
   PaperLiteratureLinkView,
   PaperCitationStatus,
@@ -42,6 +41,7 @@ import type {
 } from '../repositories/literature-repository.js';
 import type { ResearchLifecycleRepository } from '../repositories/research-lifecycle-repository.js';
 import { LiteratureFlowService } from './literature-flow-service.js';
+import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 import { LiteratureRetrievalService } from './literature-retrieval-service.js';
 
 type DedupCandidate = {
@@ -59,21 +59,25 @@ export class LiteratureService {
   constructor(
     private readonly literatureRepository: LiteratureRepository,
     private readonly researchRepository: ResearchLifecycleRepository,
-    private readonly literatureFlowService: LiteratureFlowService = new LiteratureFlowService(literatureRepository),
-    private readonly literatureRetrievalService: LiteratureRetrievalService = new LiteratureRetrievalService(literatureRepository),
-  ) {}
+    contentProcessingSettingsService?: LiteratureContentProcessingSettingsService,
+    literatureFlowService?: LiteratureFlowService,
+    literatureRetrievalService?: LiteratureRetrievalService,
+  ) {
+    this.literatureFlowService = literatureFlowService
+      ?? new LiteratureFlowService(literatureRepository, contentProcessingSettingsService);
+    this.literatureRetrievalService = literatureRetrievalService
+      ?? new LiteratureRetrievalService(literatureRepository, contentProcessingSettingsService);
+  }
 
-  async import(
-    request: LiteratureImportRequest,
-    options?: {
-      triggerSource?: LiteraturePipelineTriggerSource;
-    },
-  ): Promise<LiteratureImportResponse> {
+  private readonly literatureFlowService: LiteratureFlowService;
+  private readonly literatureRetrievalService: LiteratureRetrievalService;
+
+  async collectionImport(request: LiteratureCollectionImportRequest): Promise<LiteratureCollectionImportResponse> {
     if (request.items.length === 0) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Import items cannot be empty.');
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Collection import items cannot be empty.');
     }
 
-    const results: LiteratureImportResponse['results'] = [];
+    const results: LiteratureCollectionImportResponse['results'] = [];
 
     for (const item of request.items) {
       const now = new Date().toISOString();
@@ -131,9 +135,8 @@ export class LiteratureService {
         fetchedAt: now,
       });
 
-      await this.literatureFlowService.handleLiteratureUpserted({
+      await this.literatureFlowService.recordCollectionUpserted({
         literatureId: literatureRecord.id,
-        triggerSource: options?.triggerSource ?? 'MANUAL_IMPORT',
         dedupStatus: dedup.matchedBy === 'none' ? 'unique' : 'duplicate',
       });
 
@@ -150,19 +153,17 @@ export class LiteratureService {
     return { results };
   }
 
-  async importFromAutoPull(request: LiteratureImportRequest): Promise<LiteratureImportResponse> {
-    return this.import(request, {
-      triggerSource: 'AUTO_PULL',
-    });
+  async importFromAutoPull(request: LiteratureCollectionImportRequest): Promise<LiteratureCollectionImportResponse> {
+    return this.collectionImport(request);
   }
 
-  async findImportDedupMatch(item: LiteratureImportItem): Promise<DedupMatchType> {
+  async findCollectionDedupMatch(item: LiteratureCollectionImportItem): Promise<DedupMatchType> {
     const normalized = this.normalizeImportItem(item);
     const dedup = await this.findExisting(normalized);
     return dedup.matchedBy;
   }
 
-  async zoteroPreview(request: ZoteroPreviewRequest): Promise<ZoteroPreviewResponse> {
+  async zoteroCollectionPreview(request: ZoteroPreviewRequest): Promise<ZoteroPreviewResponse> {
     const items = await this.fetchZoteroImportItems(request);
     return {
       fetched_count: items.length,
@@ -171,14 +172,14 @@ export class LiteratureService {
   }
 
 
-  async zoteroImport(request: ZoteroImportRequest): Promise<ZoteroImportResponse> {
+  async zoteroCollectionImport(request: ZoteroImportRequest): Promise<ZoteroImportResponse> {
     const topicId = request.topic_id?.trim();
     const scopeStatus = request.scope_status ?? 'in_scope';
     const scopeReason = request.scope_reason?.trim() || undefined;
     const importItems = await this.fetchZoteroImportItems(request);
 
     const imported = importItems.length > 0
-      ? await this.import({ items: importItems }, { triggerSource: 'ZOTERO_IMPORT' })
+      ? await this.collectionImport({ items: importItems })
       : { results: [] };
     const importedIds = imported.results.map((row) => row.literature_id);
     let scopeUpsertedCount = 0;
@@ -202,7 +203,7 @@ export class LiteratureService {
     };
   }
 
-  private async fetchZoteroImportItems(request: ZoteroImportRequest): Promise<LiteratureImportItem[]> {
+  private async fetchZoteroImportItems(request: ZoteroImportRequest): Promise<LiteratureCollectionImportItem[]> {
     const limit = this.resolveZoteroLimit(request.limit);
     const query = request.query?.trim();
     const libraryId = request.library_id.trim();
@@ -247,7 +248,7 @@ export class LiteratureService {
           rightsClass,
         }),
       )
-      .filter((item): item is LiteratureImportItem => item !== null);
+      .filter((item): item is LiteratureCollectionImportItem => item !== null);
   }
 
   async getOverview(query: LiteratureOverviewQuery): Promise<LiteratureOverviewResponse> {
@@ -361,7 +362,7 @@ export class LiteratureService {
           abstractReady: normalizedPipelineState.abstract_ready,
           keyContentReady: normalizedPipelineState.key_content_ready,
         }),
-        pipeline_state: {
+        content_processing_state: {
           citation_complete: normalizedPipelineState.citation_complete,
           abstract_ready: normalizedPipelineState.abstract_ready,
           key_content_ready: normalizedPipelineState.key_content_ready,
@@ -370,8 +371,8 @@ export class LiteratureService {
           embedded: normalizedPipelineState.embedded,
           indexed: normalizedPipelineState.indexed,
         },
-        pipeline_stage_status: stageStatusMap,
-        pipeline_actions: pipelineActions,
+        content_processing_stage_status: stageStatusMap,
+        content_processing_actions: pipelineActions,
       });
     }
 
@@ -662,10 +663,7 @@ export class LiteratureService {
       updatedAt: now,
     });
 
-    await this.literatureFlowService.handleLiteratureUpserted({
-      literatureId: updated.id,
-      triggerSource: 'METADATA_PATCH',
-    });
+    await this.literatureFlowService.refreshContentProcessingState(updated.id);
 
     return {
       literature_id: updated.id,
@@ -701,26 +699,26 @@ export class LiteratureService {
     return this.literatureRetrievalService.retrieve(request);
   }
 
-  async getPipeline(literatureId: string): Promise<GetLiteraturePipelineResponse> {
-    return this.literatureFlowService.getPipeline(literatureId);
+  async getContentProcessing(literatureId: string): Promise<GetLiteratureContentProcessingResponse> {
+    return this.literatureFlowService.getContentProcessing(literatureId);
   }
 
-  async createPipelineRun(
+  async createContentProcessingRun(
     literatureId: string,
-    request: CreateLiteraturePipelineRunRequest,
-  ): Promise<CreateLiteraturePipelineRunResponse> {
-    const run = await this.literatureFlowService.triggerOverviewRun(
+    request: CreateLiteratureContentProcessingRunRequest,
+  ): Promise<CreateLiteratureContentProcessingRunResponse> {
+    const run = await this.literatureFlowService.triggerContentProcessingRun(
       literatureId,
       request.requested_stages,
     );
     return { run };
   }
 
-  async listPipelineRuns(
+  async listContentProcessingRuns(
     literatureId: string,
-    query: ListLiteraturePipelineRunsQuery,
-  ): Promise<ListLiteraturePipelineRunsResponse> {
-    return this.literatureFlowService.listPipelineRuns(literatureId, query.limit);
+    query: ListLiteratureContentProcessingRunsQuery,
+  ): Promise<ListLiteratureContentProcessingRunsResponse> {
+    return this.literatureFlowService.listContentProcessingRuns(literatureId, query.limit);
   }
 
   private mapZoteroEntryToImportItem(
@@ -731,7 +729,7 @@ export class LiteratureService {
       tags: string[];
       rightsClass: RightsClass;
     },
-  ): LiteratureImportItem | null {
+  ): LiteratureCollectionImportItem | null {
     const data = this.readRecord(entry.data);
     if (!data) {
       return null;
@@ -799,7 +797,7 @@ export class LiteratureService {
     });
   }
 
-  private async findExisting(item: LiteratureImportItem): Promise<MatchedDedup> {
+  private async findExisting(item: LiteratureCollectionImportItem): Promise<MatchedDedup> {
     const candidate = this.buildDedupCandidate(item);
     if (candidate.doiNormalized) {
       const row = await this.literatureRepository.findLiteratureByDoi(candidate.doiNormalized);
@@ -827,7 +825,7 @@ export class LiteratureService {
     return { matchedBy: 'none', literature: null };
   }
 
-  private buildDedupCandidate(item: LiteratureImportItem): DedupCandidate {
+  private buildDedupCandidate(item: LiteratureCollectionImportItem): DedupCandidate {
     return {
       doiNormalized: this.normalizeDoi(item.doi),
       arxivId: this.normalizeArxivId(item.arxiv_id),
@@ -835,7 +833,7 @@ export class LiteratureService {
     };
   }
 
-  private buildTitleAuthorsYearHash(item: LiteratureImportItem): string | null {
+  private buildTitleAuthorsYearHash(item: LiteratureCollectionImportItem): string | null {
     return this.buildTitleAuthorsYearHashFromFields(item.title, item.authors ?? [], item.year ?? null);
   }
 
@@ -857,7 +855,7 @@ export class LiteratureService {
     return crypto.createHash('sha1').update(raw).digest('hex');
   }
 
-  private normalizeImportItem(item: LiteratureImportItem): LiteratureImportItem {
+  private normalizeImportItem(item: LiteratureCollectionImportItem): LiteratureCollectionImportItem {
     return {
       provider: item.provider,
       external_id: item.external_id.trim(),

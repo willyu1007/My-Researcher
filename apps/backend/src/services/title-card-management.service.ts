@@ -398,7 +398,7 @@ export class TitleCardManagementService {
     let createdPaperId: string | null = null;
     try {
       const created = await this.paperProjects.createPaperProject({
-        topic_id: titleCardId,
+        title_card_id: titleCardId,
         title: input.title,
         research_direction: input.research_direction,
         created_by: input.created_by,

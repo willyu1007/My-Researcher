@@ -49,7 +49,7 @@ export type PromotionDecision = {
   reason_summary: string;
 };
 
-type LiteratureImportResult = {
+type LiteratureCollectionImportResult = {
   literature_id: string;
   is_new: boolean;
 };
@@ -60,9 +60,9 @@ export async function importDemoLiteratures(): Promise<{
   reused: number;
   failed: number;
 }> {
-  const payload = await requestGovernance<{ results: LiteratureImportResult[] }>({
+  const payload = await requestGovernance<{ results: LiteratureCollectionImportResult[] }>({
     method: 'POST',
-    path: '/literature/import',
+    path: '/literature/collections/import',
     body: {
       items: titleCardDemoLiteratures.map(({ seed_key: _seedKey, ...item }) => item),
     },

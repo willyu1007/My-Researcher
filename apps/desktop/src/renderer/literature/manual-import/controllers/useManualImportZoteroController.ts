@@ -71,7 +71,7 @@ export function useManualImportZoteroController(input: ManualImportControllerInp
   const requestZoteroPreview = async (libraryId: string) => {
     return requestGovernance({
       method: 'POST',
-      path: '/literature/zotero-preview',
+      path: '/literature/collections/zotero-preview',
       body: {
         library_type: zoteroLibraryType,
         library_id: libraryId,
@@ -203,7 +203,7 @@ export function useManualImportZoteroController(input: ManualImportControllerInp
     try {
       const payload = await requestGovernance({
         method: 'POST',
-        path: '/literature/zotero-import',
+        path: '/literature/collections/zotero-import',
         body: {
           library_type: zoteroLibraryType,
           library_id: context.libraryId,

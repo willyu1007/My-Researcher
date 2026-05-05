@@ -47,7 +47,7 @@ function renderOverviewStatus(status: LiteratureOverviewItem['overview_status'])
   );
 }
 
-function renderOverviewContentStatus(contentStatus: 'not_ready' | 'abstract_ready' | 'key_content_ready') {
+function renderOverviewContentStatus(contentStatus: 'not_ready' | 'abstract_ready' | 'key_content_ready' | 'indexed') {
   if (contentStatus === 'not_ready') {
     return (
       <p data-ui="text" data-variant="caption" data-tone="muted" className="literature-overview-content-text is-not_ready">
@@ -58,6 +58,13 @@ function renderOverviewContentStatus(contentStatus: 'not_ready' | 'abstract_read
   if (contentStatus === 'abstract_ready') {
     return (
       <p data-ui="text" data-variant="caption" data-tone="primary" className="literature-overview-content-text is-abstract_ready">
+        {formatOverviewContentStatus(contentStatus)}
+      </p>
+    );
+  }
+  if (contentStatus === 'indexed') {
+    return (
+      <p data-ui="text" data-variant="caption" data-tone="success" className="literature-overview-content-text is-indexed">
         {formatOverviewContentStatus(contentStatus)}
       </p>
     );
@@ -305,7 +312,7 @@ export function OverviewTab({
               <th className="overview-col-importance">重要程度 / 来源链接</th>
               <th className="overview-col-publication">发表 / 引用量</th>
               <th className="overview-col-authors">作者 / 年份</th>
-              <th className="overview-col-status">状态 / 内容</th>
+              <th className="overview-col-status">收集 / 内容处理</th>
               <th className="overview-col-tags">标签</th>
               <th className="overview-col-actions">操作</th>
             </tr>
@@ -329,9 +336,12 @@ export function OverviewTab({
                 const tagSlots = item.tags.length > 4
                   ? [...visibleTags.slice(0, 3), '...']
                   : visibleTags;
-                const extractAbstractAction = item.pipeline_actions.extract_abstract;
-                const preprocessAction = item.pipeline_actions.preprocess_fulltext;
-                const vectorizeAction = item.pipeline_actions.vectorize;
+                const processContentAction = item.content_processing_actions.process_content;
+                const processToRetrievableAction = item.content_processing_actions.process_to_retrievable;
+                const rebuildIndexAction = item.content_processing_actions.rebuild_index;
+                const reextractAction = item.content_processing_actions.reextract;
+                const retryFailedAction = item.content_processing_actions.retry_failed;
+                const viewReasonAction = item.content_processing_actions.view_reason;
                 const isExcluded = overviewStatus === 'excluded';
                 const scopeActionLabel = isExcluded ? '恢复' : '排除';
                 const nextScopeStatus: ScopeStatus = isExcluded ? 'in_scope' : 'excluded';
@@ -422,8 +432,8 @@ export function OverviewTab({
                           <button
                             type="button"
                             className="literature-overview-action-link"
-                            disabled={!extractAbstractAction.enabled}
-                            title={extractAbstractAction.reason_message ?? undefined}
+                            disabled={!processContentAction.enabled}
+                            title={processContentAction.reason_message ?? undefined}
                             onClick={() => {
                               onOpenMetadataIntake(item.literature_id, 'abstract', {
                                 source_url: item.source_url,
@@ -432,38 +442,18 @@ export function OverviewTab({
                               });
                               void onRunOverviewContentAction(
                                 item.literature_id,
-                                extractAbstractAction.requested_stages,
-                                '提取摘要',
+                                processContentAction.requested_stages,
+                                '处理内容',
                               );
                             }}
                           >
-                            提取摘要
+                            处理内容
                           </button>
                           <button
                             type="button"
                             className="literature-overview-action-link"
-                            disabled={!preprocessAction.enabled}
-                            title={preprocessAction.reason_message ?? undefined}
-                            onClick={() => {
-                              onOpenMetadataIntake(item.literature_id, 'key-content', {
-                                source_url: item.source_url,
-                                doi: item.doi,
-                                arxiv_id: item.arxiv_id,
-                              });
-                              void onRunOverviewContentAction(
-                                item.literature_id,
-                                preprocessAction.requested_stages,
-                                '预处理全文',
-                              );
-                            }}
-                          >
-                            预处理
-                          </button>
-                          <button
-                            type="button"
-                            className="literature-overview-action-link"
-                            disabled={!vectorizeAction.enabled}
-                            title={vectorizeAction.reason_message ?? undefined}
+                            disabled={!processToRetrievableAction.enabled}
+                            title={processToRetrievableAction.reason_message ?? undefined}
                             onClick={() => {
                               onOpenMetadataIntake(item.literature_id, 'vectorize', {
                                 source_url: item.source_url,
@@ -472,12 +462,78 @@ export function OverviewTab({
                               });
                               void onRunOverviewContentAction(
                                 item.literature_id,
-                                vectorizeAction.requested_stages,
-                                '向量化',
+                                processToRetrievableAction.requested_stages,
+                                '处理到可检索',
                               );
                             }}
                           >
-                            向量化
+                            可检索
+                          </button>
+                          <button
+                            type="button"
+                            className="literature-overview-action-link"
+                            disabled={!rebuildIndexAction.enabled}
+                            title={rebuildIndexAction.reason_message ?? undefined}
+                            onClick={() => {
+                              onOpenMetadataIntake(item.literature_id, 'vectorize', {
+                                source_url: item.source_url,
+                                doi: item.doi,
+                                arxiv_id: item.arxiv_id,
+                              });
+                              void onRunOverviewContentAction(
+                                item.literature_id,
+                                rebuildIndexAction.requested_stages,
+                                '重建索引',
+                              );
+                            }}
+                          >
+                            重建索引
+                          </button>
+                          <button
+                            type="button"
+                            className="literature-overview-action-link"
+                            disabled={!reextractAction.enabled}
+                            title={reextractAction.reason_message ?? undefined}
+                            onClick={() => {
+                              onOpenMetadataIntake(item.literature_id, 'key-content', {
+                                source_url: item.source_url,
+                                doi: item.doi,
+                                arxiv_id: item.arxiv_id,
+                              });
+                              void onRunOverviewContentAction(
+                                item.literature_id,
+                                reextractAction.requested_stages,
+                                '重新提取',
+                              );
+                            }}
+                          >
+                            重新提取
+                          </button>
+                          <button
+                            type="button"
+                            className="literature-overview-action-link"
+                            disabled={!retryFailedAction.enabled}
+                            title={retryFailedAction.reason_message ?? undefined}
+                            onClick={() => {
+                              void onRunOverviewContentAction(
+                                item.literature_id,
+                                retryFailedAction.requested_stages,
+                                '重试失败阶段',
+                              );
+                            }}
+                          >
+                            重试
+                          </button>
+                          <button
+                            type="button"
+                            className="literature-overview-action-link"
+                            disabled={!viewReasonAction.enabled}
+                            title={viewReasonAction.reason_message ?? undefined}
+                            onClick={() => {
+                              window.alert(viewReasonAction.reason_message ?? '暂无可查看原因。');
+                            }}
+                          >
+                            原因
                           </button>
                         </div>
                       </div>

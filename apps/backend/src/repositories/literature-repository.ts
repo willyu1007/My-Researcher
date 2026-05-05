@@ -28,8 +28,8 @@ export type LiteratureOverviewStatus = 'excluded' | 'automation_ready' | 'citabl
 export type LiteraturePipelineStageCode =
   | 'CITATION_NORMALIZED'
   | 'ABSTRACT_READY'
-  | 'KEY_CONTENT_READY'
   | 'FULLTEXT_PREPROCESSED'
+  | 'KEY_CONTENT_READY'
   | 'CHUNKED'
   | 'EMBEDDED'
   | 'INDEXED';
@@ -39,6 +39,7 @@ export type LiteraturePipelineStageStatus =
   | 'PENDING'
   | 'RUNNING'
   | 'SUCCEEDED'
+  | 'STALE'
   | 'FAILED'
   | 'BLOCKED'
   | 'SKIPPED';
@@ -46,11 +47,7 @@ export type LiteraturePipelineStageStatus =
 export type LiteraturePipelineRunStatus = 'PENDING' | 'RUNNING' | 'PARTIAL' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
 
 export type LiteraturePipelineTriggerSource =
-  | 'AUTO_PULL'
-  | 'MANUAL_IMPORT'
-  | 'ZOTERO_IMPORT'
-  | 'METADATA_PATCH'
-  | 'OVERVIEW_ACTION'
+  | 'CONTENT_PROCESSING_ACTION'
   | 'BACKFILL';
 
 export type LiteraturePipelineDedupStatus = 'unique' | 'duplicate' | 'unknown';

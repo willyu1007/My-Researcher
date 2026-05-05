@@ -596,7 +596,7 @@ export function useManualImportUploadController(input: ManualImportControllerInp
       try {
         const importPayload = await requestGovernance({
           method: 'POST',
-          path: '/literature/import',
+          path: '/literature/collections/import',
           body: {
             items: validSeedItems,
           },

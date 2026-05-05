@@ -76,11 +76,11 @@ export function MetadataIntakePanel({
       }
     : activeTab === 'key-content'
       ? {
-          actionLabel: '预处理全文',
-          requestedStages: ['FULLTEXT_PREPROCESSED'],
+          actionLabel: '处理内容',
+          requestedStages: ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY'],
         }
       : {
-          actionLabel: '向量化',
+          actionLabel: '处理到可检索',
           requestedStages: ['CHUNKED', 'EMBEDDED', 'INDEXED'],
         };
 

@@ -71,7 +71,7 @@ export function useManualImportSubmitController(
 
       const payload = await requestGovernance({
         method: 'POST',
-        path: '/literature/import',
+        path: '/literature/collections/import',
         body: {
           items: importItems,
         },

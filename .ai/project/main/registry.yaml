@@ -322,3 +322,80 @@ tasks:
       - R-011
     dev_docs_path: dev-docs/active/research-argument-planner-critic-v15
     updated: 2026-03-31
+  - id: T-029
+    slug: literature-collection-content-processing-boundary
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-collection-content-processing-boundary
+    updated: 2026-05-04
+  - id: T-030
+    slug: literature-content-processing-landing-roadmap
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-content-processing-landing-roadmap
+    updated: 2026-05-04
+  - id: T-031
+    slug: literature-content-processing-contracts-stage-state
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-content-processing-contracts-stage-state
+    updated: 2026-05-05
+  - id: T-032
+    slug: literature-settings-provider-storage-roots
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-settings-provider-storage-roots
+    updated: 2026-05-05
+  - id: T-033
+    slug: literature-content-assets-fulltext-preprocessing
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-content-assets-fulltext-preprocessing
+    updated: 2026-05-05
+  - id: T-034
+    slug: literature-key-content-extraction-v1
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-key-content-extraction-v1
+    updated: 2026-05-05
+  - id: T-035
+    slug: literature-chunk-embedding-index-pipeline
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-chunk-embedding-index-pipeline
+    updated: 2026-05-05
+  - id: T-036
+    slug: literature-retrieve-stale-trigger-ui
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-retrieve-stale-trigger-ui
+    updated: 2026-05-05
+  - id: T-037
+    slug: literature-backfill-operations-workbench
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-backfill-operations-workbench
+    updated: 2026-05-05
+  - id: T-038
+    slug: literature-content-processing-cutover-verification
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-content-processing-cutover-verification
+    updated: 2026-05-05
+  - id: T-039
+    slug: literature-citation-abstract-readiness
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-citation-abstract-readiness
+    updated: 2026-05-05

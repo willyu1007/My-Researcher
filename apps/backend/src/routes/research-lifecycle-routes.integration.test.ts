@@ -13,6 +13,55 @@ test('GET /health returns ok', async () => {
   await app.close();
 });
 
+test('literature content-processing settings routes redact provider API keys', async () => {
+  const app = buildApp();
+
+  const initialRes = await app.inject({
+    method: 'GET',
+    url: '/settings/literature-content-processing',
+  });
+  assert.equal(initialRes.statusCode, 200);
+  const initialBody = initialRes.json();
+  assert.equal(initialBody.providers[0]?.provider, 'openai');
+  assert.equal(initialBody.providers[0]?.api_key_set, false);
+  assert.equal(initialBody.embedding.profiles[0]?.model, 'text-embedding-3-large');
+
+  const patchRes = await app.inject({
+    method: 'PATCH',
+    url: '/settings/literature-content-processing',
+    payload: {
+      providers: [{ provider: 'openai', api_key: 'sk-route-secret' }],
+      embedding: {
+        active_profile_id: 'economy',
+      },
+      storage_roots: {
+        raw_files: '/tmp/literature/raw',
+        normalized_text: '/tmp/literature/normalized',
+        artifacts_cache: '/tmp/literature/artifacts',
+        indexes: '/tmp/literature/indexes',
+        exports: '/tmp/literature/exports',
+      },
+    },
+  });
+  assert.equal(patchRes.statusCode, 200);
+  const patchBodyText = patchRes.body;
+  assert.equal(patchBodyText.includes('sk-route-secret'), false);
+  const patchBody = patchRes.json();
+  assert.equal(patchBody.providers[0]?.api_key_set, true);
+  assert.equal(patchBody.embedding.active_profile_id, 'economy');
+  assert.equal(patchBody.storage_roots.indexes, '/tmp/literature/indexes');
+
+  const getRes = await app.inject({
+    method: 'GET',
+    url: '/settings/literature-content-processing',
+  });
+  assert.equal(getRes.statusCode, 200);
+  assert.equal(getRes.body.includes('sk-route-secret'), false);
+  assert.equal(getRes.json().providers[0]?.api_key_set, true);
+
+  await app.close();
+});
+
 test('POST /paper-projects succeeds with valid payload', async () => {
   const app = buildApp();
 
@@ -20,7 +69,7 @@ test('POST /paper-projects succeeds with valid payload', async () => {
     method: 'POST',
     url: '/paper-projects',
     payload: {
-      topic_id: 'TOPIC-INT-1',
+      title_card_id: 'title_card_int_1',
       title: 'Integration Paper',
       created_by: 'human',
       initial_context: {
@@ -44,7 +93,7 @@ test('POST /paper-projects returns INVALID_PAYLOAD when literature list is empty
     method: 'POST',
     url: '/paper-projects',
     payload: {
-      topic_id: 'TOPIC-INT-2',
+      title_card_id: 'title_card_int_2',
       title: 'Invalid Integration Paper',
       created_by: 'human',
       initial_context: {
@@ -67,7 +116,7 @@ test('gate verify happy path and no_m6 policy failure path', async () => {
     method: 'POST',
     url: '/paper-projects',
     payload: {
-      topic_id: 'TOPIC-INT-3',
+      title_card_id: 'title_card_int_3',
       title: 'Gate Integration Paper',
       created_by: 'human',
       initial_context: {
@@ -155,7 +204,7 @@ test('governance read endpoints and release review endpoint work together', asyn
     method: 'POST',
     url: '/paper-projects',
     payload: {
-      topic_id: 'TOPIC-INT-4',
+      title_card_id: 'title_card_int_4',
       title: 'Governance Integration Paper',
       created_by: 'human',
       initial_context: {
@@ -260,7 +309,7 @@ test('release review endpoint rejects invalid payload', async () => {
     method: 'POST',
     url: '/paper-projects',
     payload: {
-      topic_id: 'TOPIC-INT-5',
+      title_card_id: 'title_card_int_5',
       title: 'Review Validation Paper',
       created_by: 'human',
       initial_context: {
@@ -296,7 +345,7 @@ test('literature workflow routes support import, topic scope, paper link sync an
     method: 'POST',
     url: '/paper-projects',
     payload: {
-      topic_id: 'TOPIC-INT-LIT-1',
+      title_card_id: 'title_card_int_lit_1',
       title: 'Literature Workflow Paper',
       created_by: 'human',
       initial_context: {
@@ -310,7 +359,7 @@ test('literature workflow routes support import, topic scope, paper link sync an
 
   const importRes = await app.inject({
     method: 'POST',
-    url: '/literature/import',
+    url: '/literature/collections/import',
     payload: {
       items: [
         {
@@ -330,6 +379,15 @@ test('literature workflow routes support import, topic scope, paper link sync an
   const importBody = importRes.json();
   const literatureId = importBody.results[0]?.literature_id;
   assert.equal(typeof literatureId, 'string');
+
+  const removedImportRes = await app.inject({
+    method: 'POST',
+    url: '/literature/import',
+    payload: {
+      items: [],
+    },
+  });
+  assert.equal(removedImportRes.statusCode, 404);
 
   const scopeRes = await app.inject({
     method: 'POST',
@@ -398,10 +456,10 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(overviewBody.summary.total_literatures, 1);
   assert.equal(overviewBody.summary.cited_count, 1);
   assert.equal(typeof overviewBody.items[0]?.overview_status, 'string');
-  assert.equal(typeof overviewBody.items[0]?.pipeline_state?.citation_complete, 'boolean');
-  assert.equal(typeof overviewBody.items[0]?.pipeline_state?.fulltext_preprocessed, 'boolean');
-  assert.equal(typeof overviewBody.items[0]?.pipeline_stage_status?.ABSTRACT_READY, 'string');
-  assert.equal(typeof overviewBody.items[0]?.pipeline_actions?.extract_abstract?.enabled, 'boolean');
+  assert.equal(typeof overviewBody.items[0]?.content_processing_state?.citation_complete, 'boolean');
+  assert.equal(typeof overviewBody.items[0]?.content_processing_state?.fulltext_preprocessed, 'boolean');
+  assert.equal(typeof overviewBody.items[0]?.content_processing_stage_status?.ABSTRACT_READY, 'string');
+  assert.equal(typeof overviewBody.items[0]?.content_processing_actions?.process_content?.enabled, 'boolean');
 
   const metadataPatchRes = await app.inject({
     method: 'PATCH',
@@ -409,6 +467,8 @@ test('literature workflow routes support import, topic scope, paper link sync an
     payload: {
       rights_class: 'OA',
       tags: ['survey', 'baseline'],
+      abstract: 'Trusted route-test abstract for explicit content processing.',
+      key_content_digest: 'Trusted route-test key content for explicit content processing.',
     },
   });
   assert.equal(metadataPatchRes.statusCode, 200);
@@ -416,7 +476,7 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(metadataPatchBody.literature_id, literatureId);
   assert.deepEqual(metadataPatchBody.tags, ['survey', 'baseline']);
   assert.equal(metadataPatchBody.rights_class, 'OA');
-  assert.equal(typeof metadataPatchBody.key_content_digest, 'string');
+  assert.equal(metadataPatchBody.key_content_digest, 'Trusted route-test key content for explicit content processing.');
 
   const metadataGetRes = await app.inject({
     method: 'GET',
@@ -425,39 +485,79 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(metadataGetRes.statusCode, 200);
   const metadataGetBody = metadataGetRes.json();
   assert.equal(metadataGetBody.literature_id, literatureId);
-  assert.equal(typeof metadataGetBody.key_content_digest, 'string');
+  assert.equal(metadataGetBody.key_content_digest, 'Trusted route-test key content for explicit content processing.');
 
-  const pipelineRes = await app.inject({
+  const removedPipelineRes = await app.inject({
     method: 'GET',
     url: '/literature/' + literatureId + '/pipeline',
   });
-  assert.equal(pipelineRes.statusCode, 200);
-  const pipelineBody = pipelineRes.json();
-  assert.equal(pipelineBody.literature_id, literatureId);
-  assert.equal(typeof pipelineBody.state.citation_complete, 'boolean');
-  assert.equal(typeof pipelineBody.state.fulltext_preprocessed, 'boolean');
-  assert.equal(Array.isArray(pipelineBody.stage_states), true);
+  assert.equal(removedPipelineRes.statusCode, 404);
 
-  const triggerPipelineRunRes = await app.inject({
+  const contentProcessingRes = await app.inject({
+    method: 'GET',
+    url: '/literature/' + literatureId + '/content-processing',
+  });
+  assert.equal(contentProcessingRes.statusCode, 200);
+  const contentProcessingBody = contentProcessingRes.json();
+  assert.equal(contentProcessingBody.literature_id, literatureId);
+  assert.equal(typeof contentProcessingBody.state.citation_complete, 'boolean');
+  assert.equal(typeof contentProcessingBody.state.fulltext_preprocessed, 'boolean');
+  assert.equal(Array.isArray(contentProcessingBody.stage_states), true);
+
+  const initialContentProcessingRunsRes = await app.inject({
+    method: 'GET',
+    url: '/literature/' + literatureId + '/content-processing/runs?limit=5',
+  });
+  assert.equal(initialContentProcessingRunsRes.statusCode, 200);
+  assert.equal(initialContentProcessingRunsRes.json().items.length, 0);
+
+  const removedPipelineRunsRes = await app.inject({
     method: 'POST',
     url: '/literature/' + literatureId + '/pipeline/runs',
     payload: {
       requested_stages: ['ABSTRACT_READY'],
     },
   });
-  assert.equal(triggerPipelineRunRes.statusCode, 200);
-  const triggerPipelineRunBody = triggerPipelineRunRes.json();
-  assert.equal(triggerPipelineRunBody.run.literature_id, literatureId);
+  assert.equal(removedPipelineRunsRes.statusCode, 404);
 
-  const listPipelineRunsRes = await app.inject({
+  const triggerContentProcessingRunRes = await app.inject({
+    method: 'POST',
+    url: '/literature/' + literatureId + '/content-processing/runs',
+    payload: {
+      requested_stages: ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+    },
+  });
+  assert.equal(triggerContentProcessingRunRes.statusCode, 200);
+  const triggerContentProcessingRunBody = triggerContentProcessingRunRes.json();
+  assert.equal(triggerContentProcessingRunBody.run.literature_id, literatureId);
+
+  let listContentProcessingRunsBody: { literature_id: string; items: Array<{ status: string }> } | null = null;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const listContentProcessingRunsRes = await app.inject({
+      method: 'GET',
+      url: '/literature/' + literatureId + '/content-processing/runs?limit=5',
+    });
+    assert.equal(listContentProcessingRunsRes.statusCode, 200);
+    const parsedBody = listContentProcessingRunsRes.json() as { literature_id: string; items: Array<{ status: string }> };
+    listContentProcessingRunsBody = parsedBody;
+    if (parsedBody.items[0]?.status === 'SUCCESS') {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  if (!listContentProcessingRunsBody) {
+    throw new Error('Timed out waiting for content-processing run list.');
+  }
+  assert.equal(listContentProcessingRunsBody.literature_id, literatureId);
+  assert.equal(Array.isArray(listContentProcessingRunsBody.items), true);
+  assert.equal(listContentProcessingRunsBody.items.length >= 1, true);
+  assert.equal(listContentProcessingRunsBody.items[0]?.status, 'SUCCESS');
+
+  const removedPipelineRunsListRes = await app.inject({
     method: 'GET',
     url: '/literature/' + literatureId + '/pipeline/runs?limit=5',
   });
-  assert.equal(listPipelineRunsRes.statusCode, 200);
-  const listPipelineRunsBody = listPipelineRunsRes.json();
-  assert.equal(listPipelineRunsBody.literature_id, literatureId);
-  assert.equal(Array.isArray(listPipelineRunsBody.items), true);
-  assert.equal(listPipelineRunsBody.items.length >= 1, true);
+  assert.equal(removedPipelineRunsListRes.statusCode, 404);
 
   const retrieveRes = await app.inject({
     method: 'POST',
@@ -472,6 +572,7 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(retrieveRes.statusCode, 200);
   const retrieveBody = retrieveRes.json();
   assert.equal(Array.isArray(retrieveBody.items), true);
+  assert.equal(retrieveBody.items.length >= 1, true);
   assert.equal(Array.isArray(retrieveBody.meta.query_tokens), true);
 
   const removedWebImportRes = await app.inject({
@@ -494,7 +595,7 @@ test('literature workflow routes support import, topic scope, paper link sync an
 
   const invalidZoteroImportRes = await app.inject({
     method: 'POST',
-    url: '/literature/zotero-import',
+    url: '/literature/collections/zotero-import',
     payload: {
       library_type: 'users',
     },
@@ -503,12 +604,30 @@ test('literature workflow routes support import, topic scope, paper link sync an
 
   const invalidZoteroPreviewRes = await app.inject({
     method: 'POST',
-    url: '/literature/zotero-preview',
+    url: '/literature/collections/zotero-preview',
     payload: {
       library_type: 'users',
     },
   });
   assert.equal(invalidZoteroPreviewRes.statusCode, 400);
+
+  const removedZoteroImportRes = await app.inject({
+    method: 'POST',
+    url: '/literature/zotero-import',
+    payload: {
+      library_type: 'users',
+    },
+  });
+  assert.equal(removedZoteroImportRes.statusCode, 404);
+
+  const removedZoteroPreviewRes = await app.inject({
+    method: 'POST',
+    url: '/literature/zotero-preview',
+    payload: {
+      library_type: 'users',
+    },
+  });
+  assert.equal(removedZoteroPreviewRes.statusCode, 404);
 
   await app.close();
 });

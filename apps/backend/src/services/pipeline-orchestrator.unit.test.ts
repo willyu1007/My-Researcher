@@ -55,7 +55,7 @@ test('PipelineOrchestrator drives run from PENDING to SUCCESS with step records'
 
   const run = await orchestrator.enqueueRun({
     literatureId: 'LIT-PIPE-1',
-    triggerSource: 'MANUAL_IMPORT',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
     requestedStages: ['CITATION_NORMALIZED', 'ABSTRACT_READY'],
   });
 
@@ -92,7 +92,7 @@ test('PipelineOrchestrator marks run as PARTIAL when some stages fail', async ()
 
   const run = await orchestrator.enqueueRun({
     literatureId: 'LIT-PIPE-2',
-    triggerSource: 'MANUAL_IMPORT',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
     requestedStages: ['CITATION_NORMALIZED', 'ABSTRACT_READY'],
   });
 
@@ -125,13 +125,13 @@ test('PipelineOrchestrator marks run as FAILED when unhandled processing error o
 
   const run = await orchestrator.enqueueRun({
     literatureId: 'LIT-PIPE-3',
-    triggerSource: 'MANUAL_IMPORT',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
     requestedStages: ['CITATION_NORMALIZED'],
   });
 
   const terminal = await waitForTerminalRun(repository, run.id);
   assert.equal(terminal.status, 'FAILED');
-  assert.equal(terminal.errorCode, 'PIPELINE_RUN_PROCESSING_FAILED');
+  assert.equal(terminal.errorCode, 'CONTENT_PROCESSING_RUN_PROCESSING_FAILED');
   assert.equal(terminal.errorMessage?.includes('stage-state write failed'), true);
 });
 
@@ -151,18 +151,18 @@ test('PipelineOrchestrator skips new run when same literature already has in-fli
 
   const firstRun = await orchestrator.enqueueRun({
     literatureId: 'LIT-PIPE-4',
-    triggerSource: 'MANUAL_IMPORT',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
     requestedStages: ['CITATION_NORMALIZED'],
   });
 
   const secondRun = await orchestrator.enqueueRun({
     literatureId: 'LIT-PIPE-4',
-    triggerSource: 'OVERVIEW_ACTION',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
     requestedStages: ['ABSTRACT_READY'],
   });
 
   assert.equal(secondRun.status, 'SKIPPED');
-  assert.equal(secondRun.errorCode, 'PIPELINE_RUN_SKIPPED_SINGLE_FLIGHT');
+  assert.equal(secondRun.errorCode, 'CONTENT_PROCESSING_RUN_SKIPPED_SINGLE_FLIGHT');
 
   const firstTerminal = await waitForTerminalRun(repository, firstRun.id);
   assert.equal(firstTerminal.status, 'SUCCESS');

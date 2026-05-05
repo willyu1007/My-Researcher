@@ -99,7 +99,15 @@
   - `routes/topic-management.ts`
   - `packages/shared/src/research-lifecycle/topic-management-contracts.ts`
 - backend/shared 测试文件已全部迁到 `title-card-*` canonical 命名，避免当前验证层继续透出旧 bounded-context 术语。
-- `app.ts` 内部 store config 命名已从 `resolveTopicManagementStoreConfig/topicStrategy` 收敛到 `resolveTitleCardManagementStoreConfig/titleCardStrategy`；`TOPIC_REPOSITORY` 仍作为兼容环境变量保留，不在本轮扩大为 env contract 变更。
+- `app.ts` 内部 store config 命名已从 `resolveTopicManagementStoreConfig/topicStrategy` 收敛到 `resolveTitleCardManagementStoreConfig/titleCardStrategy`；本轮后 canonical 环境变量也已切到 `TITLE_CARD_REPOSITORY`，不再继续暴露 `TOPIC_REPOSITORY`。
+
+## Semantic isolation wave
+- 2026-03-29 继续向“选题管理的 title-card 与文献管理的 retrieval-topic 完全无关”推进，收口范围扩展到 title-card promotion 和 Prisma 开发语义：
+  - `paper-project` 创建契约与 `TitleCardManagementService -> PaperProjectGateway` 调用已从 `topic_id` 切到 `title_card_id`，避免题目卡在晋升边界继续伪装成 topic。
+  - `PaperProjectRecord` 与 Prisma `PaperProject` 开发字段已收口到 `titleCardId`，时间线 payload 也回写 `title_card_id`。
+  - `app.ts` 的 store selector 已切到 `TITLE_CARD_REPOSITORY`，并同步更新测试与 README。
+  - Prisma schema 已把 `TopicResearchRecord / TopicQuestion / TopicNeedReview / TopicValueAssessment / TopicPackage / TopicPromotionDecision` 暴露为 `TitleCard*` 语义模型，使用 `@map/@@map` 保留旧物理表/列，不引入新一轮数据库重建。
+  - 新增 `research-lifecycle.contract-drift.test.ts`，锁定 `/paper-projects` 的 origin 字段语义为 `title_card_id`，防止后续 OpenAPI/route 文档再漂回旧 topic 命名。
 
 ## UIUX demo seed wave
 - 2026-03-26 将选题管理 demo 数据并入 desktop 左下角既有“注入测试数据”按钮，不再保留 backend-only 的自动 seed 入口。

@@ -12,7 +12,7 @@ import {
 } from './research-lifecycle-core-contracts.js';
 
 export interface CreatePaperProjectRequest {
-  topic_id: string;
+  title_card_id: string;
   title: string;
   research_direction?: string;
   created_by: Exclude<CreatedByMode, 'llm'>;
@@ -296,9 +296,9 @@ export function validateNoM6OverrideContext(
 
 export const createPaperProjectRequestSchema = {
   type: 'object',
-  required: ['topic_id', 'title', 'created_by', 'initial_context'],
+  required: ['title_card_id', 'title', 'created_by', 'initial_context'],
   properties: {
-    topic_id: { type: 'string', minLength: 1 },
+    title_card_id: { type: 'string', minLength: 1 },
     title: { type: 'string', minLength: 1 },
     research_direction: { type: 'string', default: 'LLM' },
     created_by: { type: 'string', enum: ['human', 'hybrid'] },

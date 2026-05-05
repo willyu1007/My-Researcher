@@ -134,7 +134,7 @@ export function ManualImportTab(props: ManualImportTabProps) {
                                           </span>
                                         </span>
                                       </th>
-                                      <th>处理状态</th>
+                                      <th>收集状态</th>
                                       <th>操作</th>
                                     </tr>
                                   </thead>

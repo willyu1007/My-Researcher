@@ -30,8 +30,8 @@ function normalizePipelineStageStatusMap(
   return {
     CITATION_NORMALIZED: readPipelineStageStatus(root?.CITATION_NORMALIZED),
     ABSTRACT_READY: readPipelineStageStatus(root?.ABSTRACT_READY),
-    KEY_CONTENT_READY: readPipelineStageStatus(root?.KEY_CONTENT_READY),
     FULLTEXT_PREPROCESSED: readPipelineStageStatus(root?.FULLTEXT_PREPROCESSED),
+    KEY_CONTENT_READY: readPipelineStageStatus(root?.KEY_CONTENT_READY),
     CHUNKED: readPipelineStageStatus(root?.CHUNKED),
     EMBEDDED: readPipelineStageStatus(root?.EMBEDDED),
     INDEXED: readPipelineStageStatus(root?.INDEXED),
@@ -43,6 +43,7 @@ function readPipelineStageStatus(value: unknown): PipelineStageStatusMap['CITATI
     || value === 'PENDING'
     || value === 'RUNNING'
     || value === 'SUCCEEDED'
+    || value === 'STALE'
     || value === 'FAILED'
     || value === 'BLOCKED'
     || value === 'SKIPPED'
@@ -52,44 +53,73 @@ function readPipelineStageStatus(value: unknown): PipelineStageStatusMap['CITATI
 
 function normalizePipelineActions(root: Record<string, unknown> | null): PipelineActionSet {
   return {
-    extract_abstract: normalizePipelineActionItem(root?.extract_abstract, 'EXTRACT_ABSTRACT', ['ABSTRACT_READY']),
-    preprocess_fulltext: normalizePipelineActionItem(
-      root?.preprocess_fulltext,
-      'PREPROCESS_FULLTEXT',
-      ['FULLTEXT_PREPROCESSED'],
+    process_content: normalizePipelineActionItem(
+      root?.process_content,
+      'process_content',
+      ['CITATION_NORMALIZED', 'ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY'],
     ),
-    vectorize: normalizePipelineActionItem(root?.vectorize, 'VECTORIZE', ['CHUNKED', 'EMBEDDED', 'INDEXED']),
+    process_to_retrievable: normalizePipelineActionItem(
+      root?.process_to_retrievable,
+      'process_to_retrievable',
+      ['CITATION_NORMALIZED', 'ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+    ),
+    rebuild_index: normalizePipelineActionItem(root?.rebuild_index, 'rebuild_index', ['INDEXED']),
+    reextract: normalizePipelineActionItem(
+      root?.reextract,
+      'reextract',
+      ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY'],
+    ),
+    retry_failed: normalizePipelineActionItem(root?.retry_failed, 'retry_failed', []),
+    view_reason: normalizePipelineActionItem(root?.view_reason, 'view_reason', []),
   };
 }
 
 function normalizePipelineActionItem(
   value: unknown,
-  fallbackCode: PipelineActionSet['extract_abstract']['action_code'],
-  fallbackStages: PipelineActionSet['extract_abstract']['requested_stages'],
-): PipelineActionSet['extract_abstract'] {
+  fallbackCode: PipelineActionSet['process_content']['action_code'],
+  fallbackStages: PipelineActionSet['process_content']['requested_stages'],
+): PipelineActionSet['process_content'] {
   const row = asRecord(value);
+  if (!row) {
+    return {
+      action_code: fallbackCode,
+      enabled: false,
+      reason_code: 'PREREQUISITE_NOT_READY',
+      reason_message: null,
+      requested_stages: fallbackStages,
+    };
+  }
+
   const actionCode = toText(row?.action_code);
   const reasonCode = toText(row?.reason_code);
   const reasonMessage = toText(row?.reason_message) ?? null;
   const requestedStages = Array.isArray(row?.requested_stages)
     ? row.requested_stages
         .map((item) => toText(item))
-        .filter((item): item is PipelineActionSet['extract_abstract']['requested_stages'][number] =>
+        .filter((item): item is PipelineActionSet['process_content']['requested_stages'][number] =>
           item === 'CITATION_NORMALIZED'
           || item === 'ABSTRACT_READY'
-          || item === 'KEY_CONTENT_READY'
           || item === 'FULLTEXT_PREPROCESSED'
+          || item === 'KEY_CONTENT_READY'
           || item === 'CHUNKED'
           || item === 'EMBEDDED'
           || item === 'INDEXED')
     : fallbackStages;
 
+  const validActionCodes: PipelineActionSet['process_content']['action_code'][] = [
+    'process_content',
+    'process_to_retrievable',
+    'rebuild_index',
+    'reextract',
+    'retry_failed',
+    'view_reason',
+  ];
+
   return {
-    action_code:
-      actionCode === 'EXTRACT_ABSTRACT' || actionCode === 'PREPROCESS_FULLTEXT' || actionCode === 'VECTORIZE'
-        ? actionCode
-        : fallbackCode,
-    enabled: typeof row?.enabled === 'boolean' ? row.enabled : true,
+    action_code: validActionCodes.includes(actionCode as PipelineActionSet['process_content']['action_code'])
+      ? actionCode as PipelineActionSet['process_content']['action_code']
+      : fallbackCode,
+    enabled: typeof row?.enabled === 'boolean' ? row.enabled : false,
     reason_code:
       reasonCode === 'READY'
       || reasonCode === 'EXCLUDED_BY_SCOPE'
@@ -186,7 +216,7 @@ export function normalizeLiteratureOverviewPayload(payload: unknown): Literature
 
       const topicScopeStatus = toText(row.topic_scope_status);
       const citationStatus = toText(row.citation_status);
-      const pipelineStateRoot = asRecord(row.pipeline_state);
+      const pipelineStateRoot = asRecord(row.content_processing_state);
       const citationComplete = typeof pipelineStateRoot?.citation_complete === 'boolean'
         ? pipelineStateRoot.citation_complete
         : false;
@@ -208,8 +238,8 @@ export function normalizeLiteratureOverviewPayload(payload: unknown): Literature
       const indexed = typeof pipelineStateRoot?.indexed === 'boolean'
         ? pipelineStateRoot.indexed
         : false;
-      const pipelineStageStatus = normalizePipelineStageStatusMap(asRecord(row.pipeline_stage_status));
-      const pipelineActions = normalizePipelineActions(asRecord(row.pipeline_actions));
+      const pipelineStageStatus = normalizePipelineStageStatusMap(asRecord(row.content_processing_stage_status));
+      const pipelineActions = normalizePipelineActions(asRecord(row.content_processing_actions));
       const overviewStatusRaw = toText(row.overview_status);
       const overviewStatus = normalizeOverviewStatus(overviewStatusRaw)
         ?? deriveOverviewStatusFromSignals({
@@ -249,7 +279,7 @@ export function normalizeLiteratureOverviewPayload(payload: unknown): Literature
               : undefined,
         citation_status: normalizeCitationStatus(citationStatus),
         overview_status: overviewStatus,
-        pipeline_state: {
+        content_processing_state: {
           citation_complete: citationComplete,
           abstract_ready: abstractReady,
           key_content_ready: keyContentReady,
@@ -258,8 +288,8 @@ export function normalizeLiteratureOverviewPayload(payload: unknown): Literature
           embedded,
           indexed,
         },
-        pipeline_stage_status: pipelineStageStatus,
-        pipeline_actions: pipelineActions,
+        content_processing_stage_status: pipelineStageStatus,
+        content_processing_actions: pipelineActions,
       };
     })
     .filter((item): item is LiteratureOverviewItem => item !== null);
@@ -290,32 +320,38 @@ export function resolveLiteratureOverviewStatus(item: LiteratureOverviewItem): L
 
 export function formatLiteratureOverviewStatus(status: LiteratureOverviewStatus): string {
   if (status === 'automation_ready') {
-    return '自动化就绪';
+    return '已收集';
   }
   if (status === 'citable') {
-    return '可被引用';
+    return '已收集 / 可引用';
   }
   if (status === 'excluded') {
     return '已排除';
   }
-  return '不可引用';
+  return '已收集 / 不可引用';
 }
 
 export function formatOverviewContentStatus(status: OverviewContentStatus): string {
+  if (status === 'indexed') {
+    return '内容已处理 / 可检索';
+  }
   if (status === 'abstract_ready') {
-    return '摘要就绪';
+    return '摘要已处理';
   }
   if (status === 'key_content_ready') {
-    return '关键内容就绪';
+    return '关键内容已处理';
   }
-  return '未就绪';
+  return '内容未处理';
 }
 
 export function resolveOverviewContentStatus(item: LiteratureOverviewItem): OverviewContentStatus {
-  if (item.pipeline_state.key_content_ready) {
+  if (item.content_processing_state.indexed) {
+    return 'indexed';
+  }
+  if (item.content_processing_state.key_content_ready) {
     return 'key_content_ready';
   }
-  if (item.pipeline_state.abstract_ready) {
+  if (item.content_processing_state.abstract_ready) {
     return 'abstract_ready';
   }
   return 'not_ready';

@@ -92,7 +92,7 @@ export class ResearchLifecycleService {
 
     const paper = await this.repository.createPaperProject({
       id: paperId,
-      topicId: input.topic_id,
+      titleCardId: input.title_card_id,
       title: input.title,
       researchDirection: input.research_direction?.trim() || 'LLM',
       status: 'active',
@@ -113,7 +113,7 @@ export class ResearchLifecycleService {
       summary: 'Paper project created.',
       severity: 'info',
       payload: {
-        topic_id: paper.topicId,
+        title_card_id: paper.titleCardId,
       },
     });
 

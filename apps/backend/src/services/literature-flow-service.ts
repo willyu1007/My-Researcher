@@ -1,16 +1,15 @@
 import crypto from 'node:crypto';
 import type {
-  GetLiteraturePipelineResponse,
-  LiteraturePipelineActionReasonCode,
-  LiteraturePipelineActionSet,
-  LiteraturePipelineRunDTO,
-  LiteraturePipelineRunStepDTO,
-  LiteraturePipelineStageCode,
-  LiteraturePipelineStageStatus,
-  LiteraturePipelineStageStatusMap,
-  LiteraturePipelineStateDTO,
-  LiteraturePipelineTriggerSource,
-  ListLiteraturePipelineRunsResponse,
+  GetLiteratureContentProcessingResponse,
+  LiteratureContentProcessingActionReasonCode,
+  LiteratureContentProcessingActionSet,
+  LiteratureContentProcessingRunDTO,
+  LiteratureContentProcessingRunStepDTO,
+  LiteratureContentProcessingStageCode,
+  LiteratureContentProcessingStageStatus,
+  LiteratureContentProcessingStageStatusMap,
+  LiteratureContentProcessingStateDTO,
+  ListLiteratureContentProcessingRunsResponse,
   RightsClass,
   TopicScopeStatus,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
@@ -25,29 +24,31 @@ import type {
   LiteratureRepository,
 } from '../repositories/literature-repository.js';
 import { LiteratureFlowArtifactRuntime } from './literature-flow/literature-flow-artifact-runtime.js';
+import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 import { OverviewStatusResolver, type OverviewStatusResolverInput } from './overview-status-resolver.js';
 import { PipelineOrchestrator, type StageExecutionContext, type StageExecutionResult } from './pipeline-orchestrator.js';
 
-const PIPELINE_STAGE_CODES: LiteraturePipelineStageCode[] = [
+const PIPELINE_STAGE_CODES: LiteratureContentProcessingStageCode[] = [
   'CITATION_NORMALIZED',
   'ABSTRACT_READY',
+  'FULLTEXT_PREPROCESSED',
   'KEY_CONTENT_READY',
-  'FULLTEXT_PREPROCESSED',
   'CHUNKED',
   'EMBEDDED',
   'INDEXED',
 ];
 
-const DEFAULT_EXECUTABLE_STAGES: LiteraturePipelineStageCode[] = [...PIPELINE_STAGE_CODES];
+const DEFAULT_EXECUTABLE_STAGES: LiteratureContentProcessingStageCode[] = [...PIPELINE_STAGE_CODES];
 
-const DEEP_PIPELINE_STAGES: LiteraturePipelineStageCode[] = [
+const DEEP_PIPELINE_STAGES: LiteratureContentProcessingStageCode[] = [
   'FULLTEXT_PREPROCESSED',
+  'KEY_CONTENT_READY',
   'CHUNKED',
   'EMBEDDED',
   'INDEXED',
 ];
 
-const PIPELINE_ACTION_REASON_MESSAGES: Record<LiteraturePipelineActionReasonCode, string> = {
+const PIPELINE_ACTION_REASON_MESSAGES: Record<LiteratureContentProcessingActionReasonCode, string> = {
   READY: '可以执行。',
   EXCLUDED_BY_SCOPE: '当前文献已被排除，不可执行该动作。',
   RIGHTS_RESTRICTED: 'RESTRICTED 文献禁止全文预处理与向量化。',
@@ -77,9 +78,13 @@ export class LiteratureFlowService {
   private readonly pipelineOrchestrator: PipelineOrchestrator;
   private readonly artifactRuntime: LiteratureFlowArtifactRuntime;
 
-  constructor(private readonly repository: LiteratureRepository) {
+  constructor(
+    private readonly repository: LiteratureRepository,
+    settingsService?: LiteratureContentProcessingSettingsService,
+  ) {
     this.artifactRuntime = new LiteratureFlowArtifactRuntime(repository, {
       refreshPipelineState: async (literatureId) => this.refreshPipelineState(literatureId),
+      settingsService,
     });
     this.pipelineOrchestrator = new PipelineOrchestrator(repository, {
       executeStage: async (context) => this.executeStage(context),
@@ -89,37 +94,42 @@ export class LiteratureFlowService {
     });
   }
 
-  async handleLiteratureUpserted(input: {
+  async recordCollectionUpserted(input: {
     literatureId: string;
-    triggerSource: LiteraturePipelineTriggerSource;
     dedupStatus?: LiteraturePipelineDedupStatus;
-    requestedStages?: LiteraturePipelineStageCode[];
-  }): Promise<LiteraturePipelineRunDTO> {
-    await this.ensurePipelineScaffold(input.literatureId, input.dedupStatus ?? 'unique');
+  }): Promise<LiteratureContentProcessingStateDTO> {
+    const state = await this.refreshPipelineState(input.literatureId, input.dedupStatus ?? 'unknown');
+    const stageStates = await this.repository.listPipelineStageStatesByLiteratureId(input.literatureId);
+    return this.toPipelineStateDTO(state, stageStates);
+  }
+
+  async refreshContentProcessingState(literatureId: string): Promise<LiteratureContentProcessingStateDTO> {
+    const state = await this.refreshPipelineState(literatureId);
+    const stageStates = await this.repository.listPipelineStageStatesByLiteratureId(literatureId);
+    return this.toPipelineStateDTO(state, stageStates);
+  }
+
+  async triggerContentProcessingRun(
+    literatureId: string,
+    requestedStages?: LiteratureContentProcessingStageCode[],
+  ): Promise<LiteratureContentProcessingRunDTO> {
+    await this.ensurePipelineScaffold(literatureId);
+    const stages = requestedStages?.length
+      ? this.sortStageCodes([...new Set(requestedStages)])
+      : [...DEFAULT_EXECUTABLE_STAGES];
     const run = await this.pipelineOrchestrator.enqueueRun({
-      literatureId: input.literatureId,
-      triggerSource: input.triggerSource,
-      requestedStages: input.requestedStages ?? [...DEFAULT_EXECUTABLE_STAGES],
+      literatureId,
+      triggerSource: 'CONTENT_PROCESSING_ACTION',
+      requestedStages: stages,
     });
     return this.toPipelineRunDTO(run);
   }
 
-  async triggerOverviewRun(
-    literatureId: string,
-    requestedStages?: LiteraturePipelineStageCode[],
-  ): Promise<LiteraturePipelineRunDTO> {
-    return this.handleLiteratureUpserted({
-      literatureId,
-      triggerSource: 'OVERVIEW_ACTION',
-      requestedStages: requestedStages?.length ? requestedStages : [...DEFAULT_EXECUTABLE_STAGES],
-    });
-  }
-
-  async getPipeline(literatureId: string): Promise<GetLiteraturePipelineResponse> {
+  async getContentProcessing(literatureId: string): Promise<GetLiteratureContentProcessingResponse> {
     await this.ensurePipelineScaffold(literatureId);
     const state = await this.repository.findPipelineStateByLiteratureId(literatureId);
     if (!state) {
-      throw new AppError(500, 'INTERNAL_ERROR', `Pipeline state for ${literatureId} was not initialized.`);
+      throw new AppError(500, 'INTERNAL_ERROR', `Content processing state for ${literatureId} was not initialized.`);
     }
     const stageStates = await this.repository.listPipelineStageStatesByLiteratureId(literatureId);
 
@@ -136,7 +146,7 @@ export class LiteratureFlowService {
     };
   }
 
-  async listPipelineRuns(literatureId: string, limit?: number): Promise<ListLiteraturePipelineRunsResponse> {
+  async listContentProcessingRuns(literatureId: string, limit?: number): Promise<ListLiteratureContentProcessingRunsResponse> {
     await this.assertLiteratureExists(literatureId);
     const runs = await this.repository.listPipelineRunsByLiteratureId(literatureId, limit);
     return {
@@ -185,14 +195,14 @@ export class LiteratureFlowService {
   buildPipelineStateDTO(
     stateRecord: LiteraturePipelineStateRecord,
     stageStates: LiteraturePipelineStageStateRecord[],
-  ): LiteraturePipelineStateDTO {
+  ): LiteratureContentProcessingStateDTO {
     return this.toPipelineStateDTO(stateRecord, stageStates);
   }
 
-  buildStageStatusMap(stageStates: LiteraturePipelineStageStateRecord[]): LiteraturePipelineStageStatusMap {
+  buildStageStatusMap(stageStates: LiteraturePipelineStageStateRecord[]): LiteratureContentProcessingStageStatusMap {
     const map = Object.fromEntries(
-      PIPELINE_STAGE_CODES.map((stageCode) => [stageCode, 'NOT_STARTED' as LiteraturePipelineStageStatus]),
-    ) as LiteraturePipelineStageStatusMap;
+      PIPELINE_STAGE_CODES.map((stageCode) => [stageCode, 'NOT_STARTED' as LiteratureContentProcessingStageStatus]),
+    ) as LiteratureContentProcessingStageStatusMap;
 
     for (const stageState of stageStates) {
       map[stageState.stageCode] = stageState.status;
@@ -204,10 +214,10 @@ export class LiteratureFlowService {
   buildOverviewPipelineActions(input: {
     topicScopeStatus: TopicScopeStatus | null;
     rightsClass: RightsClass;
-    pipelineState: LiteraturePipelineStateDTO;
-    stageStatusMap: LiteraturePipelineStageStatusMap;
-  }): LiteraturePipelineActionSet {
-    const hasInFlight = (stageCodes: LiteraturePipelineStageCode[]) =>
+    pipelineState: LiteratureContentProcessingStateDTO;
+    stageStatusMap: LiteratureContentProcessingStageStatusMap;
+  }): LiteratureContentProcessingActionSet {
+    const hasInFlight = (stageCodes: LiteratureContentProcessingStageCode[]) =>
       stageCodes.some((stageCode) => {
         const status = input.stageStatusMap[stageCode];
         return status === 'PENDING' || status === 'RUNNING';
@@ -215,26 +225,34 @@ export class LiteratureFlowService {
 
     const resolveRightsGate = ():
       | { ok: true }
-      | { ok: false; reasonCode: Extract<LiteraturePipelineActionReasonCode, 'RIGHTS_RESTRICTED' | 'USER_AUTH_DISABLED'> } => {
+      | { ok: false; reasonCode: Extract<LiteratureContentProcessingActionReasonCode, 'RIGHTS_RESTRICTED' | 'USER_AUTH_DISABLED'> } => {
       if (input.rightsClass === 'RESTRICTED') {
         return { ok: false, reasonCode: 'RIGHTS_RESTRICTED' };
       }
-      if (input.rightsClass === 'USER_AUTH' && !this.isUserAuthPipelineEnabled()) {
+      if (input.rightsClass === 'USER_AUTH' && !this.isUserAuthContentProcessingEnabled()) {
         return { ok: false, reasonCode: 'USER_AUTH_DISABLED' };
       }
       return { ok: true };
     };
 
     const toAvailability = (
-      actionCode: LiteraturePipelineActionSet['extract_abstract']['action_code'],
-      requestedStages: LiteraturePipelineStageCode[],
+      actionCode: LiteratureContentProcessingActionSet['process_content']['action_code'],
+      requestedStages: LiteratureContentProcessingStageCode[],
       options: {
         requiresScope?: boolean;
         requiresRightsGate?: boolean;
         prerequisite?: boolean;
         alreadyReady?: boolean;
+        alwaysEnabled?: boolean;
       },
     ) => {
+      if (options.alwaysEnabled) {
+        return {
+          ...this.buildActionAvailability(actionCode, requestedStages, 'READY'),
+          reason_message: '存在失败、阻塞或过期阶段，可查看阶段原因。',
+        };
+      }
+
       if (options.requiresScope !== false && input.topicScopeStatus === 'excluded') {
         return this.buildActionAvailability(actionCode, requestedStages, 'EXCLUDED_BY_SCOPE');
       }
@@ -250,30 +268,62 @@ export class LiteratureFlowService {
         }
       }
 
-      if (options.prerequisite === false) {
-        return this.buildActionAvailability(actionCode, requestedStages, 'PREREQUISITE_NOT_READY');
-      }
-
       if (options.alreadyReady) {
         return this.buildActionAvailability(actionCode, requestedStages, 'STAGE_ALREADY_READY');
+      }
+
+      if (options.prerequisite === false) {
+        return this.buildActionAvailability(actionCode, requestedStages, 'PREREQUISITE_NOT_READY');
       }
 
       return this.buildActionAvailability(actionCode, requestedStages, 'READY');
     };
 
+    const processContentStages: LiteratureContentProcessingStageCode[] = [
+      'CITATION_NORMALIZED',
+      'ABSTRACT_READY',
+      'FULLTEXT_PREPROCESSED',
+      'KEY_CONTENT_READY',
+    ];
+    const processToRetrievableStages: LiteratureContentProcessingStageCode[] = [...PIPELINE_STAGE_CODES];
+    const failedOrStaleStages = PIPELINE_STAGE_CODES.filter((stageCode) => {
+      const status = input.stageStatusMap[stageCode];
+      return status === 'FAILED' || status === 'BLOCKED' || status === 'STALE';
+    });
+    const hasReasonToView = PIPELINE_STAGE_CODES.some((stageCode) => {
+      const status = input.stageStatusMap[stageCode];
+      return status === 'FAILED' || status === 'BLOCKED' || status === 'STALE' || status === 'SKIPPED';
+    });
+    const allStagesSucceeded = (stageCodes: LiteratureContentProcessingStageCode[]) =>
+      stageCodes.every((stageCode) => input.stageStatusMap[stageCode] === 'SUCCEEDED');
+
     return {
-      extract_abstract: toAvailability('EXTRACT_ABSTRACT', ['ABSTRACT_READY'], {
-        alreadyReady: input.pipelineState.abstract_ready,
+      process_content: toAvailability('process_content', processContentStages, {
+        requiresRightsGate: true,
+        alreadyReady: allStagesSucceeded(processContentStages),
       }),
-      preprocess_fulltext: toAvailability('PREPROCESS_FULLTEXT', ['FULLTEXT_PREPROCESSED'], {
+      process_to_retrievable: toAvailability('process_to_retrievable', processToRetrievableStages, {
+        requiresRightsGate: true,
+        alreadyReady: allStagesSucceeded(processToRetrievableStages),
+      }),
+      rebuild_index: toAvailability('rebuild_index', ['INDEXED'], {
+        prerequisite: input.pipelineState.embedded,
+        alreadyReady: allStagesSucceeded(['INDEXED']),
+      }),
+      reextract: toAvailability('reextract', ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY'], {
         requiresRightsGate: true,
         prerequisite: input.pipelineState.abstract_ready,
-        alreadyReady: input.pipelineState.fulltext_preprocessed,
+        alreadyReady: false,
       }),
-      vectorize: toAvailability('VECTORIZE', ['CHUNKED', 'EMBEDDED', 'INDEXED'], {
-        requiresRightsGate: true,
-        prerequisite: input.pipelineState.fulltext_preprocessed,
-        alreadyReady: input.pipelineState.chunked && input.pipelineState.embedded && input.pipelineState.indexed,
+      retry_failed: toAvailability('retry_failed', failedOrStaleStages, {
+        requiresRightsGate: failedOrStaleStages.some((stageCode) => DEEP_PIPELINE_STAGES.includes(stageCode)),
+        prerequisite: failedOrStaleStages.length > 0,
+        alreadyReady: failedOrStaleStages.length === 0,
+      }),
+      view_reason: toAvailability('view_reason', [], {
+        requiresScope: false,
+        alwaysEnabled: hasReasonToView,
+        alreadyReady: !hasReasonToView,
       }),
     };
   }
@@ -301,35 +351,25 @@ export class LiteratureFlowService {
 
     if (context.stageCode === 'ABSTRACT_READY') {
       const abstractResult = await this.artifactRuntime.ensureAbstractReady(literature);
-      return {
-        status: 'SUCCEEDED',
-        detail: {
-          stage_code: context.stageCode,
-          abstract_ready: abstractResult.abstractReady,
-          generated: abstractResult.generated,
-        },
-        outputRef: {
-          abstract_ready: abstractResult.abstractReady,
-          generated: abstractResult.generated,
-        },
-      };
-    }
-
-    if (context.stageCode === 'KEY_CONTENT_READY') {
-      if (!state.abstractReady) {
-        return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'ABSTRACT_READY stage is required first.');
+      if (!abstractResult.abstractReady) {
+        return this.blockedResult(
+          context.stageCode,
+          'ABSTRACT_SOURCE_MISSING',
+          'A trusted abstract source is required before ABSTRACT_READY can complete.',
+        );
       }
-      const digestResult = await this.artifactRuntime.ensureKeyContentReady(literature);
       return {
         status: 'SUCCEEDED',
         detail: {
           stage_code: context.stageCode,
-          key_content_ready: digestResult.keyContentReady,
-          generated: digestResult.generated,
+          abstract_ready: abstractResult.abstractReady,
+          generated: abstractResult.generated,
+          source: abstractResult.source,
         },
         outputRef: {
-          key_content_ready: digestResult.keyContentReady,
-          generated: digestResult.generated,
+          abstract_ready: abstractResult.abstractReady,
+          generated: abstractResult.generated,
+          source: abstractResult.source,
         },
       };
     }
@@ -356,6 +396,42 @@ export class LiteratureFlowService {
         outputRef: {
           artifact_id: preprocessed.id,
           artifact_type: preprocessed.artifactType,
+        },
+      };
+    }
+
+    if (context.stageCode === 'KEY_CONTENT_READY') {
+      if (!state.abstractReady) {
+        return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'ABSTRACT_READY stage is required first.');
+      }
+      const preprocessed = await this.repository.findPipelineArtifact(
+        context.literatureId,
+        'FULLTEXT_PREPROCESSED',
+        'PREPROCESSED_TEXT',
+      );
+      if (!preprocessed) {
+        return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'FULLTEXT_PREPROCESSED artifact is required first.');
+      }
+      const digestResult = await this.artifactRuntime.ensureKeyContentReady(literature);
+      if (!digestResult.keyContentReady) {
+        return this.blockedResult(
+          context.stageCode,
+          'KEY_CONTENT_SOURCE_MISSING',
+          'A user-entered or extracted key-content source is required before KEY_CONTENT_READY can complete.',
+        );
+      }
+      return {
+        status: 'SUCCEEDED',
+        detail: {
+          stage_code: context.stageCode,
+          key_content_ready: digestResult.keyContentReady,
+          generated: digestResult.generated,
+          source: digestResult.source,
+        },
+        outputRef: {
+          key_content_ready: digestResult.keyContentReady,
+          generated: digestResult.generated,
+          source: digestResult.source,
         },
       };
     }
@@ -532,17 +608,21 @@ export class LiteratureFlowService {
 
   private deriveExtendedSignals(
     baseState: LiteraturePipelineStateRecord,
-    stageStatusMap: LiteraturePipelineStageStatusMap,
+    stageStatusMap: LiteratureContentProcessingStageStatusMap,
   ): ExtendedPipelineSignalState {
     return {
       citationComplete: baseState.citationComplete,
       abstractReady: baseState.abstractReady,
       keyContentReady: baseState.keyContentReady,
-      fulltextPreprocessed: stageStatusMap.FULLTEXT_PREPROCESSED === 'SUCCEEDED',
-      chunked: stageStatusMap.CHUNKED === 'SUCCEEDED',
-      embedded: stageStatusMap.EMBEDDED === 'SUCCEEDED',
-      indexed: stageStatusMap.INDEXED === 'SUCCEEDED',
+      fulltextPreprocessed: this.isArtifactPresentStatus(stageStatusMap.FULLTEXT_PREPROCESSED),
+      chunked: this.isArtifactPresentStatus(stageStatusMap.CHUNKED),
+      embedded: this.isArtifactPresentStatus(stageStatusMap.EMBEDDED),
+      indexed: this.isArtifactPresentStatus(stageStatusMap.INDEXED),
     };
+  }
+
+  private isArtifactPresentStatus(status: LiteratureContentProcessingStageStatus): boolean {
+    return status === 'SUCCEEDED' || status === 'STALE';
   }
 
   private async assertLiteratureExists(literatureId: string): Promise<void> {
@@ -560,10 +640,18 @@ export class LiteratureFlowService {
     });
   }
 
+  private sortStageCodes(stageCodes: LiteratureContentProcessingStageCode[]): LiteratureContentProcessingStageCode[] {
+    return [...stageCodes].sort((left, right) => {
+      const leftOrder = PIPELINE_STAGE_ORDER.get(left) ?? 999;
+      const rightOrder = PIPELINE_STAGE_ORDER.get(right) ?? 999;
+      return leftOrder - rightOrder;
+    });
+  }
+
   private toPipelineStateDTO(
     record: LiteraturePipelineStateRecord,
     stageStates: LiteraturePipelineStageStateRecord[],
-  ): LiteraturePipelineStateDTO {
+  ): LiteratureContentProcessingStateDTO {
     const stageStatusMap = this.buildStageStatusMap(stageStates);
     const extended = this.deriveExtendedSignals(record, stageStatusMap);
 
@@ -581,7 +669,7 @@ export class LiteratureFlowService {
     };
   }
 
-  private toPipelineRunStepDTO(record: LiteraturePipelineRunStepRecord): LiteraturePipelineRunStepDTO {
+  private toPipelineRunStepDTO(record: LiteraturePipelineRunStepRecord): LiteratureContentProcessingRunStepDTO {
     return {
       step_id: record.id,
       stage_code: record.stageCode,
@@ -598,7 +686,7 @@ export class LiteratureFlowService {
   private toPipelineRunDTO(
     record: LiteraturePipelineRunRecord,
     steps?: LiteraturePipelineRunStepRecord[],
-  ): LiteraturePipelineRunDTO {
+  ): LiteratureContentProcessingRunDTO {
     return {
       run_id: record.id,
       literature_id: record.literatureId,
@@ -616,10 +704,10 @@ export class LiteratureFlowService {
   }
 
   private buildActionAvailability(
-    actionCode: LiteraturePipelineActionSet['extract_abstract']['action_code'],
-    requestedStages: LiteraturePipelineStageCode[],
-    reasonCode: LiteraturePipelineActionReasonCode,
-  ): LiteraturePipelineActionSet['extract_abstract'] {
+    actionCode: LiteratureContentProcessingActionSet['process_content']['action_code'],
+    requestedStages: LiteratureContentProcessingStageCode[],
+    reasonCode: LiteratureContentProcessingActionReasonCode,
+  ): LiteratureContentProcessingActionSet['process_content'] {
     return {
       action_code: actionCode,
       enabled: reasonCode === 'READY',
@@ -629,8 +717,8 @@ export class LiteratureFlowService {
     };
   }
 
-  private isUserAuthPipelineEnabled(): boolean {
-    const raw = (process.env.LITERATURE_USER_AUTH_PIPELINE_ENABLED ?? 'false').trim().toLowerCase();
+  private isUserAuthContentProcessingEnabled(): boolean {
+    const raw = (process.env.LITERATURE_USER_AUTH_CONTENT_PROCESSING_ENABLED ?? 'false').trim().toLowerCase();
     return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
   }
 
@@ -644,7 +732,7 @@ export class LiteratureFlowService {
         reasonMessage: PIPELINE_ACTION_REASON_MESSAGES.RIGHTS_RESTRICTED,
       };
     }
-    if (rightsClass === 'USER_AUTH' && !this.isUserAuthPipelineEnabled()) {
+    if (rightsClass === 'USER_AUTH' && !this.isUserAuthContentProcessingEnabled()) {
       return {
         ok: false,
         reasonCode: 'USER_AUTH_DISABLED',
@@ -669,7 +757,7 @@ export class LiteratureFlowService {
   }
 
   private blockedResult(
-    stageCode: LiteraturePipelineStageCode,
+    stageCode: LiteratureContentProcessingStageCode,
     reasonCode: string,
     reasonMessage: string,
   ): StageExecutionResult {

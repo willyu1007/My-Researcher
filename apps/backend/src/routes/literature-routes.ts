@@ -1,19 +1,19 @@
 import {
-  createLiteraturePipelineRunRequestSchema,
-  listLiteraturePipelineRunsQuerySchema,
+  createLiteratureContentProcessingRunRequestSchema,
+  listLiteratureContentProcessingRunsQuerySchema,
   literatureOverviewQuerySchema,
   literatureRetrieveRequestSchema,
-  literatureImportRequestSchema,
+  literatureCollectionImportRequestSchema,
   syncPaperLiteratureFromTopicRequestSchema,
   updateLiteratureMetadataRequestSchema,
   updatePaperLiteratureLinkRequestSchema,
   upsertTopicLiteratureScopeRequestSchema,
   zoteroImportRequestSchema,
   type LiteratureOverviewQuery,
-  type LiteratureImportRequest,
+  type LiteratureCollectionImportRequest,
   type LiteratureRetrieveRequest,
-  type ListLiteraturePipelineRunsQuery,
-  type CreateLiteraturePipelineRunRequest,
+  type ListLiteratureContentProcessingRunsQuery,
+  type CreateLiteratureContentProcessingRunRequest,
   type SyncPaperLiteratureFromTopicRequest,
   type UpdateLiteratureMetadataRequest,
   type UpdatePaperLiteratureLinkRequest,
@@ -65,34 +65,34 @@ export async function registerLiteratureRoutes(
   app: FastifyInstance,
   controller: LiteratureController,
 ): Promise<void> {
-  app.post<{ Body: LiteratureImportRequest }>(
-    '/literature/import',
+  app.post<{ Body: LiteratureCollectionImportRequest }>(
+    '/literature/collections/import',
     {
       schema: {
-        body: literatureImportRequestSchema,
+        body: literatureCollectionImportRequestSchema,
       },
     },
-    async (request, reply) => controller.import(request, reply),
+    async (request, reply) => controller.collectionImport(request, reply),
   );
 
   app.post<{ Body: ZoteroImportRequest }>(
-    '/literature/zotero-import',
+    '/literature/collections/zotero-import',
     {
       schema: {
         body: zoteroImportRequestSchema,
       },
     },
-    async (request, reply) => controller.zoteroImport(request, reply),
+    async (request, reply) => controller.zoteroCollectionImport(request, reply),
   );
 
   app.post<{ Body: ZoteroPreviewRequest }>(
-    '/literature/zotero-preview',
+    '/literature/collections/zotero-preview',
     {
       schema: {
         body: zoteroImportRequestSchema,
       },
     },
-    async (request, reply) => controller.zoteroPreview(request, reply),
+    async (request, reply) => controller.zoteroCollectionPreview(request, reply),
   );
 
   app.get<{ Querystring: LiteratureOverviewQuery }>(
@@ -190,34 +190,34 @@ export async function registerLiteratureRoutes(
   );
 
   app.get<{ Params: { literatureId: string } }>(
-    '/literature/:literatureId/pipeline',
+    '/literature/:literatureId/content-processing',
     {
       schema: {
         params: literatureParamsSchema,
       },
     },
-    async (request, reply) => controller.getPipeline(request, reply),
+    async (request, reply) => controller.getContentProcessing(request, reply),
   );
 
-  app.post<{ Params: { literatureId: string }; Body: CreateLiteraturePipelineRunRequest }>(
-    '/literature/:literatureId/pipeline/runs',
+  app.post<{ Params: { literatureId: string }; Body: CreateLiteratureContentProcessingRunRequest }>(
+    '/literature/:literatureId/content-processing/runs',
     {
       schema: {
         params: literatureParamsSchema,
-        body: createLiteraturePipelineRunRequestSchema,
+        body: createLiteratureContentProcessingRunRequestSchema,
       },
     },
-    async (request, reply) => controller.createPipelineRun(request, reply),
+    async (request, reply) => controller.createContentProcessingRun(request, reply),
   );
 
-  app.get<{ Params: { literatureId: string }; Querystring: ListLiteraturePipelineRunsQuery }>(
-    '/literature/:literatureId/pipeline/runs',
+  app.get<{ Params: { literatureId: string }; Querystring: ListLiteratureContentProcessingRunsQuery }>(
+    '/literature/:literatureId/content-processing/runs',
     {
       schema: {
         params: literatureParamsSchema,
-        querystring: listLiteraturePipelineRunsQuerySchema,
+        querystring: listLiteratureContentProcessingRunsQuerySchema,
       },
     },
-    async (request, reply) => controller.listPipelineRuns(request, reply),
+    async (request, reply) => controller.listContentProcessingRuns(request, reply),
   );
 }

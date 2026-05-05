@@ -14,7 +14,7 @@ import type {
 
 function toPaperRecord(row: {
   id: string;
-  topicId: string;
+  titleCardId: string;
   title: string;
   researchDirection: string;
   status: string;
@@ -24,7 +24,7 @@ function toPaperRecord(row: {
 }): PaperProjectRecord {
   return {
     id: row.id,
-    topicId: row.topicId,
+    titleCardId: row.titleCardId,
     title: row.title,
     researchDirection: row.researchDirection,
     status: row.status as PaperProjectRecord['status'],
@@ -123,7 +123,7 @@ export class PrismaResearchLifecycleRepository implements ResearchLifecycleRepos
     const created = await this.prisma.paperProject.create({
       data: {
         id: record.id,
-        topicId: record.topicId,
+        titleCardId: record.titleCardId,
         title: record.title,
         researchDirection: record.researchDirection,
         status: record.status,

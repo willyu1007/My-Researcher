@@ -19,7 +19,7 @@ import type {
   StageGateVerifyRequest,
 } from './paper-project-contracts.js';
 import type {
-  LiteraturePipelineRunDTO,
+  LiteratureContentProcessingRunDTO,
   PaperLiteratureLinkView,
   UpdatePaperLiteratureLinkResponse,
 } from './literature-contracts.js';
@@ -41,7 +41,7 @@ const directModuleTypeSmoke:
       UpdatePaperLiteratureLinkResponse,
       CreateAutoPullRunRequest,
       TopicProfileDTO,
-      LiteraturePipelineRunDTO,
+      LiteratureContentProcessingRunDTO,
       ReadinessVerifyRequest,
       WritingEntryPacket,
       SubmissionRiskReport,
@@ -562,7 +562,28 @@ test('research-lifecycle barrel re-exports the runtime value surface of split mo
 
 test('research-lifecycle barrel keeps key contract helpers and schemas reachable', () => {
   assert.equal([...researchLifecycleContracts.AUTO_PULL_SOURCES].includes('ZOTERO'), true);
-  assert.equal([...researchLifecycleContracts.LITERATURE_PIPELINE_STAGE_CODES].includes('INDEXED'), true);
+  assert.equal([...researchLifecycleContracts.LITERATURE_CONTENT_PROCESSING_STAGE_CODES].includes('INDEXED'), true);
+  assert.deepEqual([...researchLifecycleContracts.LITERATURE_CONTENT_PROCESSING_STAGE_CODES], [
+    'CITATION_NORMALIZED',
+    'ABSTRACT_READY',
+    'FULLTEXT_PREPROCESSED',
+    'KEY_CONTENT_READY',
+    'CHUNKED',
+    'EMBEDDED',
+    'INDEXED',
+  ]);
+  assert.equal([...researchLifecycleContracts.LITERATURE_CONTENT_PROCESSING_STAGE_STATUSES].includes('STALE'), true);
+  assert.deepEqual([...researchLifecycleContracts.LITERATURE_CONTENT_PROCESSING_ACTION_CODES], [
+    'process_content',
+    'process_to_retrievable',
+    'rebuild_index',
+    'reextract',
+    'retry_failed',
+    'view_reason',
+  ]);
+  assert.deepEqual([...researchLifecycleContracts.LITERATURE_CONTENT_PROCESSING_PROVIDER_IDS], ['openai']);
+  assert.deepEqual([...researchLifecycleContracts.LITERATURE_EMBEDDING_PROFILE_IDS], ['default', 'economy']);
+  assert.ok(researchLifecycleContracts.updateLiteratureContentProcessingSettingsRequestSchema);
   assert.equal(
     researchLifecycleContracts.validateNoM6OverrideContext({
       candidate_node_ids: ['node-1'],
@@ -577,7 +598,7 @@ test('research-lifecycle barrel keeps key contract helpers and schemas reachable
     true,
   );
   assert.ok(researchLifecycleContracts.createPaperProjectRequestSchema);
-  assert.ok(researchLifecycleContracts.literatureImportRequestSchema);
+  assert.ok(researchLifecycleContracts.literatureCollectionImportRequestSchema);
   assert.ok(researchLifecycleContracts.createAutoPullRuleRequestSchema);
   assert.ok(researchLifecycleContracts.createResearchQuestionRequestSchema);
   assert.ok(researchLifecycleContracts.readinessVerifyRequestSchema);

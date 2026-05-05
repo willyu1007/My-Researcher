@@ -7,6 +7,7 @@ import type {
   LiteratureRecord,
   LiteratureRepository,
 } from '../../repositories/literature-repository.js';
+import type { LiteratureContentProcessingSettingsService } from '../literature-content-processing-settings-service.js';
 
 type ChunkRecord = {
   chunk_id: string;
@@ -27,43 +28,38 @@ export class LiteratureFlowArtifactRuntime {
     private readonly repository: LiteratureRepository,
     private readonly options: {
       refreshPipelineState: (literatureId: string) => Promise<LiteraturePipelineStateRecord>;
+      settingsService?: LiteratureContentProcessingSettingsService;
     },
   ) {}
 
-  async ensureAbstractReady(literature: LiteratureRecord): Promise<{ abstractReady: boolean; generated: boolean }> {
+  async ensureAbstractReady(literature: LiteratureRecord): Promise<{
+    abstractReady: boolean;
+    generated: false;
+    source: 'metadata' | null;
+  }> {
     const existing = (literature.abstractText ?? '').trim();
     if (existing.length > 0) {
       await this.options.refreshPipelineState(literature.id);
-      return { abstractReady: true, generated: false };
+      return { abstractReady: true, generated: false, source: 'metadata' };
     }
 
-    const generatedAbstract = this.generateFallbackAbstract(literature);
-    const now = new Date().toISOString();
-    await this.repository.updateLiterature({
-      ...literature,
-      abstractText: generatedAbstract,
-      updatedAt: now,
-    });
     await this.options.refreshPipelineState(literature.id);
-    return { abstractReady: true, generated: true };
+    return { abstractReady: false, generated: false, source: null };
   }
 
-  async ensureKeyContentReady(literature: LiteratureRecord): Promise<{ keyContentReady: boolean; generated: boolean }> {
+  async ensureKeyContentReady(literature: LiteratureRecord): Promise<{
+    keyContentReady: boolean;
+    generated: false;
+    source: 'metadata' | null;
+  }> {
     const existing = (literature.keyContentDigest ?? '').trim();
     if (existing.length > 0) {
       await this.options.refreshPipelineState(literature.id);
-      return { keyContentReady: true, generated: false };
+      return { keyContentReady: true, generated: false, source: 'metadata' };
     }
 
-    const digest = this.generateFallbackKeyContentDigest(literature);
-    const now = new Date().toISOString();
-    await this.repository.updateLiterature({
-      ...literature,
-      keyContentDigest: digest,
-      updatedAt: now,
-    });
     await this.options.refreshPipelineState(literature.id);
-    return { keyContentReady: true, generated: true };
+    return { keyContentReady: false, generated: false, source: null };
   }
 
   async ensureFulltextPreprocessed(literature: LiteratureRecord): Promise<{ id: string; artifactType: string; textLength: number }> {
@@ -388,20 +384,20 @@ export class LiteratureFlowArtifactRuntime {
   }
 
   private async embedChunks(chunks: ChunkRecord[]): Promise<{
-    provider: 'external' | 'local';
+    provider: 'openai' | 'local';
     model: string;
     dimension: number;
     vectors: EmbeddingRecord[];
   }> {
-    const externalConfig = this.resolveExternalEmbeddingConfig();
-    if (externalConfig) {
+    const openAIConfig = await this.options.settingsService?.resolveOpenAIEmbeddingConfig();
+    if (openAIConfig) {
       try {
-        const externalVectors = await this.embedChunksViaExternalService(chunks, externalConfig);
+        const openAIVectors = await this.embedChunksViaOpenAI(chunks, openAIConfig);
         return {
-          provider: 'external',
-          model: externalConfig.model,
-          dimension: externalVectors[0]?.vector.length ?? 0,
-          vectors: externalVectors,
+          provider: 'openai',
+          model: openAIConfig.model,
+          dimension: openAIVectors[0]?.vector.length ?? 0,
+          vectors: openAIVectors,
         };
       } catch {
         // Fallback to local deterministic embeddings.
@@ -422,39 +418,33 @@ export class LiteratureFlowArtifactRuntime {
     };
   }
 
-  private resolveExternalEmbeddingConfig(): { endpoint: string; apiKey: string | null; model: string } | null {
-    const endpoint = (process.env.LITERATURE_PIPELINE_EMBEDDING_URL ?? '').trim();
-    if (!endpoint) {
-      return null;
-    }
-    const apiKey = (process.env.LITERATURE_PIPELINE_EMBEDDING_API_KEY ?? '').trim() || null;
-    const model = (process.env.LITERATURE_PIPELINE_EMBEDDING_MODEL ?? 'text-embedding-v1').trim() || 'text-embedding-v1';
-    return { endpoint, apiKey, model };
-  }
-
-  private async embedChunksViaExternalService(
+  private async embedChunksViaOpenAI(
     chunks: ChunkRecord[],
-    config: { endpoint: string; apiKey: string | null; model: string },
+    config: { apiKey: string; model: string; dimensions: number | null },
   ): Promise<EmbeddingRecord[]> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      Authorization: `Bearer ${config.apiKey}`,
     };
-    if (config.apiKey) {
-      headers.Authorization = `Bearer ${config.apiKey}`;
+
+    const body: Record<string, unknown> = {
+      model: config.model,
+      input: chunks.map((chunk) => chunk.text),
+      encoding_format: 'float',
+    };
+    if (config.dimensions !== null) {
+      body.dimensions = config.dimensions;
     }
 
-    const response = await fetch(config.endpoint, {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        model: config.model,
-        inputs: chunks.map((chunk) => chunk.text),
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
-      throw new Error(`External embedding request failed: ${response.status}`);
+      throw new Error(`OpenAI embedding request failed: ${response.status}`);
     }
 
     const payload = (await response.json()) as Record<string, unknown>;
@@ -481,7 +471,7 @@ export class LiteratureFlowArtifactRuntime {
     }
 
     if (rawVectors.length !== chunks.length || rawVectors.some((vector) => vector.length === 0)) {
-      throw new Error('External embedding response shape mismatch.');
+      throw new Error('OpenAI embedding response shape mismatch.');
     }
 
     return chunks.map((chunk, index) => ({
@@ -506,20 +496,6 @@ export class LiteratureFlowArtifactRuntime {
       (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])
         .filter((token) => token.length > 1),
     )];
-  }
-
-  private generateFallbackAbstract(literature: LiteratureRecord): string {
-    const authorSegment = literature.authors.length > 0 ? literature.authors.slice(0, 3).join(', ') : 'unknown authors';
-    const yearSegment = literature.year ?? 'unknown year';
-    return `Auto-generated abstract placeholder for "${literature.title}" (${yearSegment}) by ${authorSegment}.`;
-  }
-
-  private generateFallbackKeyContentDigest(literature: LiteratureRecord): string {
-    const abstractText = (literature.abstractText ?? '').replace(/\s+/g, ' ').trim();
-    if (!abstractText) {
-      return `Key content placeholder for ${literature.title}.`;
-    }
-    return abstractText.length <= 280 ? abstractText : `${abstractText.slice(0, 277)}...`;
   }
 
   private sha256(text: string): string {

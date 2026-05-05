@@ -1,0 +1,84 @@
+# 04 Verification
+
+## Documentation Checks
+- Task package created under `dev-docs/active/literature-content-processing-landing-roadmap/`.
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result: passed after assigning task id `T-030`; registry/dashboard/task index regenerated.
+- D4/D5 stage output contract added to `02-architecture.md`.
+  - `FULLTEXT_PREPROCESSED` outputs structural/source-aligned artifacts.
+  - `KEY_CONTENT_READY` outputs semantic dossier, visual/table insights, claim-evidence map, automation signals, and quality report.
+- D6 chunking decision added to `02-architecture.md`, `roadmap.md`, and `01-plan.md`.
+  - Abstract is represented as one independent `abstract` chunk.
+  - First implementation uses flat classified chunks with provenance instead of a physical hierarchy.
+  - Executor clarified as backend deterministic chunking service/TypeScript chunker, not normal LLM boundary selection.
+  - Remaining open details are token budget, overlap, chunking profile version, and embedding profile.
+- D7/D8 embedding, indexing, and retrieve decisions added to `02-architecture.md`, `roadmap.md`, and `01-plan.md`.
+  - OpenAI Embeddings API is the provider; local DB/vector/index pipeline remains the SSOT.
+  - Default profile is `text-embedding-3-large`; `text-embedding-3-small` is economy mode.
+  - `EMBEDDED` writes a `READY` version but does not activate it.
+  - `INDEXED` activates after local index build and smoke retrieval pass.
+  - Retrieve uses the active profile for query embedding, avoids simultaneous small/large active spaces, and can degrade to keyword/BM25.
+- D9 key content extraction contract added to `02-architecture.md`, `roadmap.md`, and `01-plan.md`.
+  - `KEY_CONTENT_READY` uses a versioned semantic dossier schema.
+  - Ready/partial/failed outcomes stay in stage status and artifact diagnostics, without adding stage codes.
+  - Human edits use field-level provenance and override policy.
+  - LLM extraction uses section-level extraction followed by paper-level consolidation.
+- D10 retrieve profile contract added to `02-architecture.md`, `roadmap.md`, and `01-plan.md`.
+  - Retrieval uses one unified index foundation plus scenario-specific profiles.
+  - First profiles are `general`, `topic_exploration`, `paper_management`, and `writing_evidence`.
+  - Ranking weights and rerank policy remain adjustable for later product-specific tuning.
+- D11 trigger and stale propagation contract added to `02-architecture.md`, `roadmap.md`, and `01-plan.md`.
+  - Content-processing after collection is explicit-trigger only.
+  - Stale propagation updates state/action availability without enqueueing runs.
+  - Existing active indexes remain readable while stale, with UI freshness warnings.
+- D11 state representation updated.
+  - `STALE` is documented as a first-class stage status.
+  - Stage detail stores stale reason codes and recommendations, not the primary stale state.
+- D12 backfill and operations contract added to `02-architecture.md`, `roadmap.md`, and `01-plan.md`.
+  - Bulk backfill reuses the explicit content-processing chain.
+  - Backfill supports dry-run planning, durable jobs, bounded concurrency, budgets, checkpointed retries, and safe cleanup.
+  - Bulk operations belong in a content-processing workbench/operations panel.
+- Implementation split created under `dev-docs/active/`.
+  - `T-031` through `T-038` child packages created.
+  - `T-030` updated as umbrella package.
+  - Child packages include planned verification baselines.
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result: passed; registry/dashboard/feature-map/task-index regenerated with child packages.
+- `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result: passed.
+  - Warning: existing `T-029` done task has no acceptance-criteria checkboxes; unrelated to this split.
+- Implementation readiness review completed.
+  - Added `06-implementation-readiness-review.md`.
+  - Found and closed early-stage ownership gap by creating `T-039 literature-citation-abstract-readiness`.
+  - Recorded requirement coverage matrix, flow contract review, critical gates, and DB boundary checkpoints.
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result: passed; registry/dashboard/feature-map/task-index regenerated with `T-039`.
+- `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result: passed.
+  - Warning: existing `T-029` done task has no acceptance-criteria checkboxes; unrelated to this review.
+- `T-031` implementation verification completed.
+  - Shared/backend/desktop typechecks passed.
+  - Desktop build passed.
+  - OpenAPI/API index/context verification passed.
+  - Targeted literature route/service tests passed.
+  - Full backend suite passed after post-review cleanup.
+- `T-032` implementation verification completed.
+  - Prisma migration `20260505083000_add_application_setting` added.
+  - Prisma format/validate/generate passed with a dummy local PostgreSQL URL.
+  - DB context regenerated through DB SSOT.
+  - Settings redaction/preserve/replace/clear tests passed in targeted backend test run.
+  - Desktop literature settings panel typechecks and builds.
+- Post-review verification completed.
+  - `pnpm --filter @paper-engineering-assistant/shared test`: passed, `19` tests.
+  - `pnpm --filter @paper-engineering-assistant/backend test`: passed, `127` tests.
+  - Search gates for old action codes, old embedding env vars, placeholder abstract/key content generation, and old stage order returned no product-path matches.
+  - Old `/pipeline` route references remain only in backend 404 negative tests.
+  - `apps/desktop/dist/renderer` build artifacts were cleaned after desktop build verification.
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result: passed after marking `T-031` and `T-032` done; registry/dashboard/feature-map/task-index regenerated.
+- `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result: passed.
+  - Warning: existing `T-029` done task has no acceptance-criteria checkboxes; unrelated.
+
+## Product Verification
+- Umbrella implementation has started through child tasks. `T-031` and `T-032` are implemented and verified against targeted acceptance checks; end-to-end cutover remains owned by `T-038`.

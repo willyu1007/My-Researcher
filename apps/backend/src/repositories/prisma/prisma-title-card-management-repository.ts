@@ -52,7 +52,7 @@ type ResearchRecordRow = {
 
 type NeedReviewRow = {
   id: string;
-  topicId: string;
+  titleCardId: string;
   researchRecordId: string;
   needStatement: string;
   whoNeedsIt: string;
@@ -73,14 +73,14 @@ type NeedReviewRow = {
 
 type QuestionRow = {
   id: string;
-  topicId: string;
+  titleCardId: string;
   researchRecordId: string;
   mainQuestion: string;
   subQuestions: Prisma.JsonValue;
   researchSlice: string;
   contributionHypothesis: string;
   sourceNeedReviewIds: Prisma.JsonValue;
-  sourceEvidenceReviewIds: Prisma.JsonValue;
+  sourceLiteratureEvidenceIds: Prisma.JsonValue;
   createdAt: Date;
   updatedAt: Date;
   researchRecord: ResearchRecordRow;
@@ -88,8 +88,8 @@ type QuestionRow = {
 
 type ValueAssessmentRow = {
   id: string;
-  topicId: string;
-  questionId: string;
+  titleCardId: string;
+  researchQuestionId: string;
   researchRecordId: string;
   strongestClaimIfSuccess: string;
   fallbackClaimIfSuccess: string | null;
@@ -109,8 +109,8 @@ type ValueAssessmentRow = {
 
 type PackageRow = {
   id: string;
-  topicId: string;
-  questionId: string;
+  titleCardId: string;
+  researchQuestionId: string;
   valueAssessmentId: string;
   researchRecordId: string;
   titleCandidates: Prisma.JsonValue;
@@ -127,8 +127,8 @@ type PackageRow = {
 
 type PromotionDecisionRow = {
   id: string;
-  topicId: string;
-  questionId: string;
+  titleCardId: string;
+  researchQuestionId: string;
   valueAssessmentId: string;
   packageId: string | null;
   decision: string;
@@ -209,7 +209,7 @@ function toStoredEvidenceBasket(row: {
 function toNeedReviewDTO(row: NeedReviewRow): NeedReviewDTO {
   return {
     need_id: row.id,
-    title_card_id: row.topicId,
+    title_card_id: row.titleCardId,
     record_status: row.researchRecord.recordStatus as NeedReviewDTO['record_status'],
     need_statement: row.needStatement,
     who_needs_it: row.whoNeedsIt,
@@ -237,14 +237,14 @@ function toNeedReviewDTO(row: NeedReviewRow): NeedReviewDTO {
 function toQuestionDTO(row: QuestionRow): ResearchQuestionDTO {
   return {
     research_question_id: row.id,
-    title_card_id: row.topicId,
+    title_card_id: row.titleCardId,
     record_status: row.researchRecord.recordStatus as ResearchQuestionDTO['record_status'],
     main_question: row.mainQuestion,
     sub_questions: asStringArray(row.subQuestions),
     research_slice: row.researchSlice,
     contribution_hypothesis: row.contributionHypothesis as ResearchQuestionDTO['contribution_hypothesis'],
     source_need_ids: asStringArray(row.sourceNeedReviewIds),
-    source_literature_evidence_ids: asStringArray(row.sourceEvidenceReviewIds),
+    source_literature_evidence_ids: asStringArray(row.sourceLiteratureEvidenceIds),
     judgement_summary: row.researchRecord.summary,
     confidence: numberFromDecimal(row.researchRecord.confidence),
     created_at: row.createdAt.toISOString(),
@@ -256,8 +256,8 @@ function toValueAssessmentDTO(row: ValueAssessmentRow): ValueAssessmentDTO {
   const payload = asRecord(row.researchRecord.payload);
   return {
     value_assessment_id: row.id,
-    title_card_id: row.topicId,
-    research_question_id: row.questionId,
+    title_card_id: row.titleCardId,
+    research_question_id: row.researchQuestionId,
     record_status: row.researchRecord.recordStatus as ValueAssessmentDTO['record_status'],
     strongest_claim_if_success: row.strongestClaimIfSuccess,
     fallback_claim_if_success: row.fallbackClaimIfSuccess ?? undefined,
@@ -285,8 +285,8 @@ function toValueAssessmentDTO(row: ValueAssessmentRow): ValueAssessmentDTO {
 function toPackageDTO(row: PackageRow): PackageDTO {
   return {
     package_id: row.id,
-    title_card_id: row.topicId,
-    research_question_id: row.questionId,
+    title_card_id: row.titleCardId,
+    research_question_id: row.researchQuestionId,
     value_assessment_id: row.valueAssessmentId,
     record_status: row.researchRecord.recordStatus as PackageDTO['record_status'],
     title_candidates: asStringArray(row.titleCandidates),
@@ -304,8 +304,8 @@ function toPackageDTO(row: PackageRow): PackageDTO {
 function toPromotionDecisionDTO(row: PromotionDecisionRow): PromotionDecisionDTO {
   return {
     decision_id: row.id,
-    title_card_id: row.topicId,
-    research_question_id: row.questionId,
+    title_card_id: row.titleCardId,
+    research_question_id: row.researchQuestionId,
     value_assessment_id: row.valueAssessmentId,
     package_id: row.packageId ?? undefined,
     decision: row.decision as PromotionDecisionDTO['decision'],
@@ -322,7 +322,7 @@ function toPromotionDecisionDTO(row: PromotionDecisionRow): PromotionDecisionDTO
 function createResearchRecordInput(input: {
   id: string;
   titleCardId: string;
-  recordType: 'need_review' | 'question' | 'value_assessment' | 'topic_package';
+  recordType: 'need_review' | 'research_question' | 'value_assessment' | 'package';
   recordStatus: NeedReviewDTO['record_status'];
   sourceRecordIds?: string[];
   summary: string;
@@ -334,10 +334,10 @@ function createResearchRecordInput(input: {
   payload: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
-}): Prisma.TopicResearchRecordUncheckedCreateInput {
+}): Prisma.TitleCardResearchRecordUncheckedCreateInput {
   return {
     id: input.id,
-    topicId: input.titleCardId,
+    titleCardId: input.titleCardId,
     recordType: input.recordType,
     recordStatus: input.recordStatus,
     versionNo: 1,
@@ -370,7 +370,7 @@ function buildResearchRecordUpdate(input: {
   blockingIssues?: string[];
   payload: Record<string, unknown>;
   updatedAt: Date;
-}): Prisma.TopicResearchRecordUncheckedUpdateInput {
+}): Prisma.TitleCardResearchRecordUncheckedUpdateInput {
   return {
     recordStatus: input.recordStatus,
     sourceRecordIds: toJsonValue(input.sourceRecordIds ?? []),
@@ -586,7 +586,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
     return this.prisma.$transaction(async (tx) => {
       const needId = makeId('need');
       const researchRecordId = makeId('topic_record');
-      await tx.topicResearchRecord.create({
+      await tx.titleCardResearchRecord.create({
         data: createResearchRecordInput({
           id: researchRecordId,
           titleCardId,
@@ -631,10 +631,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
         }),
       });
 
-      const created = await tx.topicNeedReview.create({
+      const created = await tx.titleCardNeedReview.create({
         data: {
           id: needId,
-          topicId: titleCardId,
+          titleCardId: titleCardId,
           researchRecordId,
           needStatement: input.need_statement,
           whoNeedsIt: input.who_needs_it,
@@ -660,10 +660,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async getNeedReview(titleCardId: string, needId: string): Promise<NeedReviewDTO | null> {
-    const row = await this.prisma.topicNeedReview.findFirst({
+    const row = await this.prisma.titleCardNeedReview.findFirst({
       where: {
         id: needId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
       include: { researchRecord: true },
     });
@@ -671,8 +671,8 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async listNeedReviews(titleCardId: string): Promise<NeedReviewDTO[]> {
-    const rows = await this.prisma.topicNeedReview.findMany({
-      where: { topicId: titleCardId },
+    const rows = await this.prisma.titleCardNeedReview.findMany({
+      where: { titleCardId: titleCardId },
       orderBy: { updatedAt: 'desc' },
       include: { researchRecord: true },
     });
@@ -684,10 +684,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
     needId: string,
     input: UpdateNeedReviewRequest,
   ): Promise<NeedReviewDTO | null> {
-    const currentRow = await this.prisma.topicNeedReview.findFirst({
+    const currentRow = await this.prisma.titleCardNeedReview.findFirst({
       where: {
         id: needId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
       include: { researchRecord: true },
     });
@@ -710,7 +710,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
 
     const now = new Date(next.updated_at);
     return this.prisma.$transaction(async (tx) => {
-      await tx.topicResearchRecord.update({
+      await tx.titleCardResearchRecord.update({
         where: { id: currentRow.researchRecordId },
         data: buildResearchRecordUpdate({
           recordStatus: next.record_status,
@@ -726,7 +726,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
         }),
       });
 
-      const updated = await tx.topicNeedReview.update({
+      const updated = await tx.titleCardNeedReview.update({
         where: { id: needId },
         data: {
           needStatement: next.need_statement,
@@ -756,11 +756,11 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
     return this.prisma.$transaction(async (tx) => {
       const researchQuestionId = makeId('research_question');
       const researchRecordId = makeId('topic_record');
-      await tx.topicResearchRecord.create({
+      await tx.titleCardResearchRecord.create({
         data: createResearchRecordInput({
           id: researchRecordId,
           titleCardId,
-          recordType: 'question',
+          recordType: 'research_question',
           recordStatus: input.record_status ?? 'completed',
           sourceRecordIds: [
             ...(input.source_need_ids ?? []),
@@ -788,10 +788,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
         }),
       });
 
-      const created = await tx.topicQuestion.create({
+      const created = await tx.titleCardResearchQuestion.create({
         data: {
           id: researchQuestionId,
-          topicId: titleCardId,
+          titleCardId: titleCardId,
           researchRecordId,
           mainQuestion: input.main_question,
           subQuestions: toJsonValue(input.sub_questions ?? []),
@@ -799,7 +799,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
           contributionHypothesis: input.contribution_hypothesis,
           sourceNeedReviewIds: toJsonValue(input.source_need_ids ?? []),
           // Physical column keeps its legacy name until the Prisma naming migration wave.
-          sourceEvidenceReviewIds: toJsonValue(input.source_literature_evidence_ids ?? []),
+          sourceLiteratureEvidenceIds: toJsonValue(input.source_literature_evidence_ids ?? []),
           createdAt: now,
           updatedAt: now,
         },
@@ -812,10 +812,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async getResearchQuestion(titleCardId: string, researchQuestionId: string): Promise<ResearchQuestionDTO | null> {
-    const row = await this.prisma.topicQuestion.findFirst({
+    const row = await this.prisma.titleCardResearchQuestion.findFirst({
       where: {
         id: researchQuestionId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
       include: { researchRecord: true },
     });
@@ -823,8 +823,8 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async listResearchQuestions(titleCardId: string): Promise<ResearchQuestionDTO[]> {
-    const rows = await this.prisma.topicQuestion.findMany({
-      where: { topicId: titleCardId },
+    const rows = await this.prisma.titleCardResearchQuestion.findMany({
+      where: { titleCardId: titleCardId },
       orderBy: { updatedAt: 'desc' },
       include: { researchRecord: true },
     });
@@ -836,10 +836,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
     researchQuestionId: string,
     input: UpdateResearchQuestionRequest,
   ): Promise<ResearchQuestionDTO | null> {
-    const currentRow = await this.prisma.topicQuestion.findFirst({
+    const currentRow = await this.prisma.titleCardResearchQuestion.findFirst({
       where: {
         id: researchQuestionId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
       include: { researchRecord: true },
     });
@@ -859,7 +859,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
 
     const now = new Date(next.updated_at);
     return this.prisma.$transaction(async (tx) => {
-      await tx.topicResearchRecord.update({
+      await tx.titleCardResearchRecord.update({
         where: { id: currentRow.researchRecordId },
         data: buildResearchRecordUpdate({
           recordStatus: next.record_status,
@@ -871,7 +871,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
         }),
       });
 
-      const updated = await tx.topicQuestion.update({
+      const updated = await tx.titleCardResearchQuestion.update({
         where: { id: researchQuestionId },
         data: {
           mainQuestion: next.main_question,
@@ -879,7 +879,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
           researchSlice: next.research_slice,
           contributionHypothesis: next.contribution_hypothesis,
           sourceNeedReviewIds: toJsonValue(next.source_need_ids),
-          sourceEvidenceReviewIds: toJsonValue(next.source_literature_evidence_ids),
+          sourceLiteratureEvidenceIds: toJsonValue(next.source_literature_evidence_ids),
           updatedAt: now,
         },
         include: { researchRecord: true },
@@ -898,7 +898,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
     return this.prisma.$transaction(async (tx) => {
       const valueAssessmentId = makeId('value_assessment');
       const researchRecordId = makeId('topic_record');
-      await tx.topicResearchRecord.create({
+      await tx.titleCardResearchRecord.create({
         data: createResearchRecordInput({
           id: researchRecordId,
           titleCardId,
@@ -938,11 +938,11 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
         }),
       });
 
-      const created = await tx.topicValueAssessment.create({
+      const created = await tx.titleCardValueAssessment.create({
         data: {
           id: valueAssessmentId,
-          topicId: titleCardId,
-          questionId: input.research_question_id,
+          titleCardId: titleCardId,
+          researchQuestionId: input.research_question_id,
           researchRecordId,
           strongestClaimIfSuccess: input.strongest_claim_if_success,
           fallbackClaimIfSuccess: input.fallback_claim_if_success ?? null,
@@ -967,10 +967,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async getValueAssessment(titleCardId: string, valueAssessmentId: string): Promise<ValueAssessmentDTO | null> {
-    const row = await this.prisma.topicValueAssessment.findFirst({
+    const row = await this.prisma.titleCardValueAssessment.findFirst({
       where: {
         id: valueAssessmentId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
       include: { researchRecord: true },
     });
@@ -978,8 +978,8 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async listValueAssessments(titleCardId: string): Promise<ValueAssessmentDTO[]> {
-    const rows = await this.prisma.topicValueAssessment.findMany({
-      where: { topicId: titleCardId },
+    const rows = await this.prisma.titleCardValueAssessment.findMany({
+      where: { titleCardId: titleCardId },
       orderBy: { updatedAt: 'desc' },
       include: { researchRecord: true },
     });
@@ -991,10 +991,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
     valueAssessmentId: string,
     input: UpdateValueAssessmentRequest,
   ): Promise<ValueAssessmentDTO | null> {
-    const currentRow = await this.prisma.topicValueAssessment.findFirst({
+    const currentRow = await this.prisma.titleCardValueAssessment.findFirst({
       where: {
         id: valueAssessmentId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
       include: { researchRecord: true },
     });
@@ -1019,7 +1019,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
 
     const now = new Date(next.updated_at);
     return this.prisma.$transaction(async (tx) => {
-      await tx.topicResearchRecord.update({
+      await tx.titleCardResearchRecord.update({
         where: { id: currentRow.researchRecordId },
         data: buildResearchRecordUpdate({
           recordStatus: next.record_status,
@@ -1033,10 +1033,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
         }),
       });
 
-      const updated = await tx.topicValueAssessment.update({
+      const updated = await tx.titleCardValueAssessment.update({
         where: { id: valueAssessmentId },
         data: {
-          questionId: next.research_question_id,
+          researchQuestionId: next.research_question_id,
           strongestClaimIfSuccess: next.strongest_claim_if_success,
           fallbackClaimIfSuccess: next.fallback_claim_if_success ?? null,
           hardGates: toJsonValue(next.hard_gates),
@@ -1063,11 +1063,11 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
     return this.prisma.$transaction(async (tx) => {
       const packageId = makeId('package');
       const researchRecordId = makeId('topic_record');
-      await tx.topicResearchRecord.create({
+      await tx.titleCardResearchRecord.create({
         data: createResearchRecordInput({
           id: researchRecordId,
           titleCardId,
-          recordType: 'topic_package',
+          recordType: 'package',
           recordStatus: input.record_status ?? 'completed',
           sourceRecordIds: [input.research_question_id, input.value_assessment_id],
           summary: input.contribution_summary,
@@ -1093,11 +1093,11 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
         }),
       });
 
-      const created = await tx.topicPackage.create({
+      const created = await tx.titleCardPackage.create({
         data: {
           id: packageId,
-          topicId: titleCardId,
-          questionId: input.research_question_id,
+          titleCardId: titleCardId,
+          researchQuestionId: input.research_question_id,
           valueAssessmentId: input.value_assessment_id,
           researchRecordId,
           titleCandidates: toJsonValue(input.title_candidates),
@@ -1119,10 +1119,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async getPackage(titleCardId: string, packageId: string): Promise<PackageDTO | null> {
-    const row = await this.prisma.topicPackage.findFirst({
+    const row = await this.prisma.titleCardPackage.findFirst({
       where: {
         id: packageId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
       include: { researchRecord: true },
     });
@@ -1130,8 +1130,8 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async listPackages(titleCardId: string): Promise<PackageDTO[]> {
-    const rows = await this.prisma.topicPackage.findMany({
-      where: { topicId: titleCardId },
+    const rows = await this.prisma.titleCardPackage.findMany({
+      where: { titleCardId: titleCardId },
       orderBy: { updatedAt: 'desc' },
       include: { researchRecord: true },
     });
@@ -1139,10 +1139,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async updatePackage(titleCardId: string, packageId: string, input: UpdatePackageRequest): Promise<PackageDTO | null> {
-    const currentRow = await this.prisma.topicPackage.findFirst({
+    const currentRow = await this.prisma.titleCardPackage.findFirst({
       where: {
         id: packageId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
       include: { researchRecord: true },
     });
@@ -1165,7 +1165,7 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
 
     const now = new Date(next.updated_at);
     return this.prisma.$transaction(async (tx) => {
-      await tx.topicResearchRecord.update({
+      await tx.titleCardResearchRecord.update({
         where: { id: currentRow.researchRecordId },
         data: buildResearchRecordUpdate({
           recordStatus: next.record_status,
@@ -1177,10 +1177,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
         }),
       });
 
-      const updated = await tx.topicPackage.update({
+      const updated = await tx.titleCardPackage.update({
         where: { id: packageId },
         data: {
-          questionId: next.research_question_id,
+          researchQuestionId: next.research_question_id,
           valueAssessmentId: next.value_assessment_id,
           titleCandidates: toJsonValue(next.title_candidates),
           researchBackground: next.research_background,
@@ -1205,11 +1205,11 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   ): Promise<PromotionDecisionDTO> {
     const now = new Date();
     return this.prisma.$transaction(async (tx) => {
-      const created = await tx.topicPromotionDecision.create({
+      const created = await tx.titleCardPromotionDecision.create({
         data: {
           id: makeId('decision'),
-          topicId: titleCardId,
-          questionId: input.research_question_id,
+          titleCardId: titleCardId,
+          researchQuestionId: input.research_question_id,
           valueAssessmentId: input.value_assessment_id,
           packageId: input.package_id ?? null,
           decision: input.decision,
@@ -1228,18 +1228,18 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
   }
 
   async getPromotionDecision(titleCardId: string, decisionId: string): Promise<PromotionDecisionDTO | null> {
-    const row = await this.prisma.topicPromotionDecision.findFirst({
+    const row = await this.prisma.titleCardPromotionDecision.findFirst({
       where: {
         id: decisionId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
     });
     return row ? toPromotionDecisionDTO(row) : null;
   }
 
   async listPromotionDecisions(titleCardId: string): Promise<PromotionDecisionDTO[]> {
-    const rows = await this.prisma.topicPromotionDecision.findMany({
-      where: { topicId: titleCardId },
+    const rows = await this.prisma.titleCardPromotionDecision.findMany({
+      where: { titleCardId: titleCardId },
       orderBy: { updatedAt: 'desc' },
     });
     return rows.map((row) => toPromotionDecisionDTO(row));
@@ -1250,10 +1250,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
     decisionId: string,
     input: UpdatePromotionDecisionRequest,
   ): Promise<PromotionDecisionDTO | null> {
-    const currentRow = await this.prisma.topicPromotionDecision.findFirst({
+    const currentRow = await this.prisma.titleCardPromotionDecision.findFirst({
       where: {
         id: decisionId,
-        topicId: titleCardId,
+        titleCardId: titleCardId,
       },
     });
     if (!currentRow) {
@@ -1277,10 +1277,10 @@ export class PrismaTitleCardManagementRepository implements TitleCardManagementR
 
     const now = new Date(next.updated_at);
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.topicPromotionDecision.update({
+      const updated = await tx.titleCardPromotionDecision.update({
         where: { id: decisionId },
         data: {
-          questionId: next.research_question_id,
+          researchQuestionId: next.research_question_id,
           valueAssessmentId: next.value_assessment_id,
           packageId: next.package_id ?? null,
           decision: next.decision,

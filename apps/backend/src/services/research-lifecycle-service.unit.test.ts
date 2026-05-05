@@ -9,7 +9,7 @@ test('createPaperProject uses default LLM direction when omitted', async () => {
   const service = new ResearchLifecycleService(new InMemoryResearchLifecycleRepository());
 
   const result = await service.createPaperProject({
-    topic_id: 'TOPIC-UNIT-1',
+    title_card_id: 'title_card_unit_1',
     title: 'Unit Test Paper',
     created_by: 'human',
     initial_context: {
@@ -25,7 +25,7 @@ test('createPaperProject uses default LLM direction when omitted', async () => {
 test('commitVersionSpine rejects candidate node without value judgement', async () => {
   const service = new ResearchLifecycleService(new InMemoryResearchLifecycleRepository());
   const paper = await service.createPaperProject({
-    topic_id: 'TOPIC-UNIT-2',
+    title_card_id: 'title_card_unit_2',
     title: 'Unit Test Paper 2',
     created_by: 'human',
     initial_context: {
@@ -56,7 +56,7 @@ test('commitVersionSpine rejects candidate node without value judgement', async 
 test('verifyStageGate enforces no_m6 override policy', async () => {
   const service = new ResearchLifecycleService(new InMemoryResearchLifecycleRepository());
   const paper = await service.createPaperProject({
-    topic_id: 'TOPIC-UNIT-3',
+    title_card_id: 'title_card_unit_3',
     title: 'Unit Test Paper 3',
     created_by: 'human',
     initial_context: {
@@ -104,7 +104,7 @@ test('verifyStageGate enforces no_m6 override policy', async () => {
 test('verifyStageGate creates partial snapshot and updates partial pointer', async () => {
   const service = new ResearchLifecycleService(new InMemoryResearchLifecycleRepository());
   const paper = await service.createPaperProject({
-    topic_id: 'TOPIC-UNIT-4',
+    title_card_id: 'title_card_unit_4',
     title: 'Unit Test Paper 4',
     created_by: 'human',
     initial_context: {
@@ -158,7 +158,7 @@ test('verifyStageGate creates partial snapshot and updates partial pointer', asy
 test('getResourceMetrics returns derived runtime metrics', async () => {
   const service = new ResearchLifecycleService(new InMemoryResearchLifecycleRepository());
   const paper = await service.createPaperProject({
-    topic_id: 'TOPIC-UNIT-5',
+    title_card_id: 'title_card_unit_5',
     title: 'Metrics Paper',
     created_by: 'human',
     initial_context: {
@@ -191,7 +191,7 @@ test('getResourceMetrics returns derived runtime metrics', async () => {
 test('reviewReleaseGate writes audit result and updates artifact bundle', async () => {
   const service = new ResearchLifecycleService(new InMemoryResearchLifecycleRepository());
   const paper = await service.createPaperProject({
-    topic_id: 'TOPIC-UNIT-6',
+    title_card_id: 'title_card_unit_6',
     title: 'Release Review Paper',
     created_by: 'human',
     initial_context: {
@@ -248,7 +248,7 @@ test('delivery failure is persisted into audit store', async () => {
 
   await assert.rejects(
     service.createPaperProject({
-      topic_id: 'TOPIC-UNIT-7',
+      title_card_id: 'title_card_unit_7',
       title: 'Delivery Failure Audit',
       created_by: 'human',
       initial_context: {

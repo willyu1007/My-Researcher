@@ -278,7 +278,7 @@ test('topic initial_pull_pending flips to false after first successful run', asy
 test('scheduled tick only runs due rules', async () => {
   const { service } = buildService();
 
-  const now = new Date();
+  const now = new Date('2026-05-05T00:22:00.000Z');
   const hour = now.getUTCHours();
   const minute = now.getUTCMinutes();
 
@@ -576,7 +576,7 @@ test('quality pipeline skips existing duplicates before scoring', async () => {
   const { service, literatureService } = buildService();
   let scoreCallCount = 0;
 
-  await literatureService.import({
+  await literatureService.collectionImport({
     items: [{
       provider: 'manual',
       external_id: 'seed-existing',

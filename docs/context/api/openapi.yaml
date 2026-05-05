@@ -48,7 +48,7 @@ paths:
             schema:
               $ref: '#/components/schemas/CreatePaperProjectRequest'
             example:
-              topic_id: TOPIC-001
+              title_card_id: title_card_001
               title: Retrieval-Augmented Generation Evaluation
               research_direction: LLM
               created_by: human
@@ -294,9 +294,9 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /literature/import:
+  /literature/collections/import:
     post:
-      operationId: importLiterature
+      operationId: importLiteratureCollection
       summary: Import literature items into repository.
       tags: [literature]
       requestBody:
@@ -304,7 +304,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LiteratureImportRequest'
+              $ref: '#/components/schemas/LiteratureCollectionImportRequest'
             example:
               items:
                 - provider: manual
@@ -322,7 +322,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LiteratureImportResponse'
+                $ref: '#/components/schemas/LiteratureCollectionImportResponse'
               example:
                 results:
                   - literature_id: LIT-0001
@@ -338,9 +338,9 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /literature/zotero-import:
+  /literature/collections/zotero-import:
     post:
-      operationId: importLiteratureFromZotero
+      operationId: importLiteratureCollectionFromZotero
       summary: Import literature from Zotero library.
       tags: [literature]
       requestBody:
@@ -383,9 +383,9 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /literature/zotero-preview:
+  /literature/collections/zotero-preview:
     post:
-      operationId: previewLiteratureFromZotero
+      operationId: previewLiteratureCollectionFromZotero
       summary: Fetch Zotero literature candidates for manual review table.
       tags: [literature]
       requestBody:
@@ -677,10 +677,10 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /literature/{literatureId}/pipeline:
+  /literature/{literatureId}/content-processing:
     get:
-      operationId: getLiteraturePipeline
-      summary: Get pipeline aggregate state and stage states for a literature.
+      operationId: getLiteratureContentProcessing
+      summary: Get content-processing aggregate state and stage states for a literature.
       tags: [literature]
       parameters:
         - name: literatureId
@@ -691,20 +691,20 @@ paths:
             minLength: 1
       responses:
         '200':
-          description: Literature pipeline aggregate.
+          description: Literature content-processing aggregate.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetLiteraturePipelineResponse'
+                $ref: '#/components/schemas/GetLiteratureContentProcessingResponse'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /literature/{literatureId}/pipeline/runs:
+  /literature/{literatureId}/content-processing/runs:
     post:
-      operationId: createLiteraturePipelineRun
-      summary: Trigger a pipeline run for one literature.
+      operationId: createLiteratureContentProcessingRun
+      summary: Trigger a content-processing run for one literature.
       tags: [literature]
       parameters:
         - name: literatureId
@@ -718,14 +718,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateLiteraturePipelineRunRequest'
+              $ref: '#/components/schemas/CreateLiteratureContentProcessingRunRequest'
       responses:
         '200':
-          description: Pipeline run accepted.
+          description: Content-processing run accepted.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateLiteraturePipelineRunResponse'
+                $ref: '#/components/schemas/CreateLiteratureContentProcessingRunResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -733,8 +733,8 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
     get:
-      operationId: listLiteraturePipelineRuns
-      summary: List pipeline runs for one literature.
+      operationId: listLiteratureContentProcessingRuns
+      summary: List content-processing runs for one literature.
       tags: [literature]
       parameters:
         - name: literatureId
@@ -753,13 +753,49 @@ paths:
             default: 50
       responses:
         '200':
-          description: Pipeline run list.
+          description: Content-processing run list.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListLiteraturePipelineRunsResponse'
+                $ref: '#/components/schemas/ListLiteratureContentProcessingRunsResponse'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /settings/literature-content-processing:
+    get:
+      operationId: getLiteratureContentProcessingSettings
+      summary: Get redacted provider, embedding profile, and storage root settings for literature content processing.
+      tags: [settings]
+      responses:
+        '200':
+          description: Literature content-processing settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureContentProcessingSettings'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: updateLiteratureContentProcessingSettings
+      summary: Update provider API key, embedding profile, and storage root settings for literature content processing.
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLiteratureContentProcessingSettingsRequest'
+      responses:
+        '200':
+          description: Updated literature content-processing settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiteratureContentProcessingSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1971,38 +2007,38 @@ components:
       type: string
       enum: [excluded, automation_ready, citable, not_citable]
 
-    LiteraturePipelineDedupStatus:
+    LiteratureContentProcessingDedupStatus:
       type: string
       enum: [unique, duplicate, unknown]
 
-    LiteraturePipelineStageCode:
+    LiteratureContentProcessingStageCode:
       type: string
       enum:
         - CITATION_NORMALIZED
         - ABSTRACT_READY
-        - KEY_CONTENT_READY
         - FULLTEXT_PREPROCESSED
+        - KEY_CONTENT_READY
         - CHUNKED
         - EMBEDDED
         - INDEXED
 
-    LiteraturePipelineStageStatus:
+    LiteratureContentProcessingStageStatus:
       type: string
-      enum: [NOT_STARTED, PENDING, RUNNING, SUCCEEDED, FAILED, BLOCKED, SKIPPED]
+      enum: [NOT_STARTED, PENDING, RUNNING, SUCCEEDED, STALE, FAILED, BLOCKED, SKIPPED]
 
-    LiteraturePipelineRunStatus:
+    LiteratureContentProcessingRunStatus:
       type: string
       enum: [PENDING, RUNNING, PARTIAL, SUCCESS, FAILED, SKIPPED]
 
-    LiteraturePipelineTriggerSource:
+    LiteratureContentProcessingTriggerSource:
       type: string
-      enum: [AUTO_PULL, MANUAL_IMPORT, ZOTERO_IMPORT, METADATA_PATCH, OVERVIEW_ACTION, BACKFILL]
+      enum: [CONTENT_PROCESSING_ACTION, BACKFILL]
 
-    LiteraturePipelineActionCode:
+    LiteratureContentProcessingActionCode:
       type: string
-      enum: [EXTRACT_ABSTRACT, PREPROCESS_FULLTEXT, VECTORIZE]
+      enum: [process_content, process_to_retrievable, rebuild_index, reextract, retry_failed, view_reason]
 
-    LiteraturePipelineActionReasonCode:
+    LiteratureContentProcessingActionReasonCode:
       type: string
       enum:
         - READY
@@ -2043,9 +2079,9 @@ components:
 
     CreatePaperProjectRequest:
       type: object
-      required: [topic_id, title, created_by, initial_context]
+      required: [title_card_id, title, created_by, initial_context]
       properties:
-        topic_id:
+        title_card_id:
           type: string
           minLength: 1
         title:
@@ -2459,7 +2495,7 @@ components:
           $ref: '#/components/schemas/ReleaseGateReviewResult'
       additionalProperties: false
 
-    LiteratureImportItem:
+    LiteratureCollectionImportItem:
       type: object
       required: [provider, external_id, title, source_url]
       properties:
@@ -2498,7 +2534,7 @@ components:
             minLength: 1
       additionalProperties: false
 
-    LiteratureImportRequest:
+    LiteratureCollectionImportRequest:
       type: object
       required: [items]
       properties:
@@ -2506,10 +2542,10 @@ components:
           type: array
           minItems: 1
           items:
-            $ref: '#/components/schemas/LiteratureImportItem'
+            $ref: '#/components/schemas/LiteratureCollectionImportItem'
       additionalProperties: false
 
-    LiteratureImportResult:
+    LiteratureCollectionImportResult:
       type: object
       required: [literature_id, is_new, matched_by, title, source_provider, source_url]
       properties:
@@ -2527,14 +2563,14 @@ components:
           type: string
       additionalProperties: false
 
-    LiteratureImportResponse:
+    LiteratureCollectionImportResponse:
       type: object
       required: [results]
       properties:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/LiteratureImportResult'
+            $ref: '#/components/schemas/LiteratureCollectionImportResult'
       additionalProperties: false
 
     ZoteroImportRequest:
@@ -2584,7 +2620,7 @@ components:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/LiteratureImportResult'
+            $ref: '#/components/schemas/LiteratureCollectionImportResult'
       additionalProperties: false
 
     ZoteroPreviewResponse:
@@ -2596,7 +2632,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/LiteratureImportItem'
+            $ref: '#/components/schemas/LiteratureCollectionImportItem'
       additionalProperties: false
 
     TopicLiteratureScopeAction:
@@ -2791,67 +2827,191 @@ components:
           $ref: '#/components/schemas/PaperLiteratureLinkView'
       additionalProperties: false
 
-    LiteraturePipelineStageStatusMap:
+    LiteratureContentProcessingStageStatusMap:
       type: object
       required:
         - CITATION_NORMALIZED
         - ABSTRACT_READY
-        - KEY_CONTENT_READY
         - FULLTEXT_PREPROCESSED
+        - KEY_CONTENT_READY
         - CHUNKED
         - EMBEDDED
         - INDEXED
       properties:
         CITATION_NORMALIZED:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatus'
         ABSTRACT_READY:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
-        KEY_CONTENT_READY:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatus'
         FULLTEXT_PREPROCESSED:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatus'
+        KEY_CONTENT_READY:
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatus'
         CHUNKED:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatus'
         EMBEDDED:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatus'
         INDEXED:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatus'
       additionalProperties: false
 
-    LiteraturePipelineActionAvailability:
+    LiteratureContentProcessingActionAvailability:
       type: object
       required: [action_code, enabled, reason_code, reason_message, requested_stages]
       properties:
         action_code:
-          $ref: '#/components/schemas/LiteraturePipelineActionCode'
+          $ref: '#/components/schemas/LiteratureContentProcessingActionCode'
         enabled:
           type: boolean
         reason_code:
           anyOf:
-            - $ref: '#/components/schemas/LiteraturePipelineActionReasonCode'
+            - $ref: '#/components/schemas/LiteratureContentProcessingActionReasonCode'
             - type: 'null'
         reason_message:
           type: [string, 'null']
         requested_stages:
           type: array
-          minItems: 1
           items:
-            $ref: '#/components/schemas/LiteraturePipelineStageCode'
+            $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
       additionalProperties: false
 
-    LiteraturePipelineActionSet:
+    LiteratureContentProcessingActionSet:
       type: object
-      required: [extract_abstract, preprocess_fulltext, vectorize]
+      required: [process_content, process_to_retrievable, rebuild_index, reextract, retry_failed, view_reason]
       properties:
-        extract_abstract:
-          $ref: '#/components/schemas/LiteraturePipelineActionAvailability'
-        preprocess_fulltext:
-          $ref: '#/components/schemas/LiteraturePipelineActionAvailability'
-        vectorize:
-          $ref: '#/components/schemas/LiteraturePipelineActionAvailability'
+        process_content:
+          $ref: '#/components/schemas/LiteratureContentProcessingActionAvailability'
+        process_to_retrievable:
+          $ref: '#/components/schemas/LiteratureContentProcessingActionAvailability'
+        rebuild_index:
+          $ref: '#/components/schemas/LiteratureContentProcessingActionAvailability'
+        reextract:
+          $ref: '#/components/schemas/LiteratureContentProcessingActionAvailability'
+        retry_failed:
+          $ref: '#/components/schemas/LiteratureContentProcessingActionAvailability'
+        view_reason:
+          $ref: '#/components/schemas/LiteratureContentProcessingActionAvailability'
       additionalProperties: false
 
-    LiteraturePipelineState:
+    LiteratureContentProcessingProviderId:
+      type: string
+      enum: [openai]
+
+    LiteratureEmbeddingProfileId:
+      type: string
+      enum: [default, economy]
+
+    LiteratureContentProcessingProviderSettings:
+      type: object
+      required: [provider, api_key_set, api_key_last_updated_at]
+      properties:
+        provider:
+          $ref: '#/components/schemas/LiteratureContentProcessingProviderId'
+        api_key_set:
+          type: boolean
+        api_key_last_updated_at:
+          type: [string, 'null']
+      additionalProperties: false
+
+    LiteratureEmbeddingProfile:
+      type: object
+      required: [profile_id, provider, model, dimensions]
+      properties:
+        profile_id:
+          $ref: '#/components/schemas/LiteratureEmbeddingProfileId'
+        provider:
+          $ref: '#/components/schemas/LiteratureContentProcessingProviderId'
+        model:
+          type: string
+        dimensions:
+          type: [integer, 'null']
+      additionalProperties: false
+
+    LiteratureContentProcessingEmbeddingSettings:
+      type: object
+      required: [active_profile_id, profiles]
+      properties:
+        active_profile_id:
+          $ref: '#/components/schemas/LiteratureEmbeddingProfileId'
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureEmbeddingProfile'
+      additionalProperties: false
+
+    LiteratureContentProcessingStorageRoots:
+      type: object
+      required: [raw_files, normalized_text, artifacts_cache, indexes, exports]
+      properties:
+        raw_files:
+          type: [string, 'null']
+        normalized_text:
+          type: [string, 'null']
+        artifacts_cache:
+          type: [string, 'null']
+        indexes:
+          type: [string, 'null']
+        exports:
+          type: [string, 'null']
+      additionalProperties: false
+
+    LiteratureContentProcessingSettings:
+      type: object
+      required: [providers, embedding, storage_roots, updated_at]
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiteratureContentProcessingProviderSettings'
+        embedding:
+          $ref: '#/components/schemas/LiteratureContentProcessingEmbeddingSettings'
+        storage_roots:
+          $ref: '#/components/schemas/LiteratureContentProcessingStorageRoots'
+        updated_at:
+          type: string
+      additionalProperties: false
+
+    UpdateLiteratureContentProcessingSettingsRequest:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            type: object
+            required: [provider]
+            properties:
+              provider:
+                $ref: '#/components/schemas/LiteratureContentProcessingProviderId'
+              api_key:
+                type: [string, 'null']
+            additionalProperties: false
+        embedding:
+          type: object
+          properties:
+            active_profile_id:
+              $ref: '#/components/schemas/LiteratureEmbeddingProfileId'
+            profiles:
+              type: array
+              items:
+                $ref: '#/components/schemas/LiteratureEmbeddingProfile'
+          additionalProperties: false
+        storage_roots:
+          type: object
+          properties:
+            raw_files:
+              type: [string, 'null']
+            normalized_text:
+              type: [string, 'null']
+            artifacts_cache:
+              type: [string, 'null']
+            indexes:
+              type: [string, 'null']
+            exports:
+              type: [string, 'null']
+          additionalProperties: false
+      additionalProperties: false
+      minProperties: 1
+
+    LiteratureContentProcessingState:
       type: object
       required:
         - literature_id
@@ -2882,20 +3042,20 @@ components:
         indexed:
           type: boolean
         dedup_status:
-          $ref: '#/components/schemas/LiteraturePipelineDedupStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingDedupStatus'
         updated_at:
           type: string
           format: date-time
       additionalProperties: false
 
-    LiteraturePipelineStageState:
+    LiteratureContentProcessingStageState:
       type: object
       required: [stage_code, status, last_run_id, detail, updated_at]
       properties:
         stage_code:
-          $ref: '#/components/schemas/LiteraturePipelineStageCode'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
         status:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatus'
         last_run_id:
           type: [string, 'null']
         detail:
@@ -2905,7 +3065,7 @@ components:
           format: date-time
       additionalProperties: false
 
-    LiteraturePipelineRunStep:
+    LiteratureContentProcessingRunStep:
       type: object
       required:
         - step_id
@@ -2921,9 +3081,9 @@ components:
         step_id:
           type: string
         stage_code:
-          $ref: '#/components/schemas/LiteraturePipelineStageCode'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
         status:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatus'
         input_ref:
           type: object
         output_ref:
@@ -2940,7 +3100,7 @@ components:
           format: date-time
       additionalProperties: false
 
-    LiteraturePipelineRun:
+    LiteratureContentProcessingRun:
       type: object
       required:
         - run_id
@@ -2960,13 +3120,13 @@ components:
         literature_id:
           type: string
         trigger_source:
-          $ref: '#/components/schemas/LiteraturePipelineTriggerSource'
+          $ref: '#/components/schemas/LiteratureContentProcessingTriggerSource'
         status:
-          $ref: '#/components/schemas/LiteraturePipelineRunStatus'
+          $ref: '#/components/schemas/LiteratureContentProcessingRunStatus'
         requested_stages:
           type: array
           items:
-            $ref: '#/components/schemas/LiteraturePipelineStageCode'
+            $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
         error_code:
           type: [string, 'null']
         error_message:
@@ -2986,24 +3146,24 @@ components:
         steps:
           type: array
           items:
-            $ref: '#/components/schemas/LiteraturePipelineRunStep'
+            $ref: '#/components/schemas/LiteratureContentProcessingRunStep'
       additionalProperties: false
 
-    GetLiteraturePipelineResponse:
+    GetLiteratureContentProcessingResponse:
       type: object
       required: [literature_id, state, stage_states]
       properties:
         literature_id:
           type: string
         state:
-          $ref: '#/components/schemas/LiteraturePipelineState'
+          $ref: '#/components/schemas/LiteratureContentProcessingState'
         stage_states:
           type: array
           items:
-            $ref: '#/components/schemas/LiteraturePipelineStageState'
+            $ref: '#/components/schemas/LiteratureContentProcessingStageState'
       additionalProperties: false
 
-    CreateLiteraturePipelineRunRequest:
+    CreateLiteratureContentProcessingRunRequest:
       type: object
       properties:
         requested_stages:
@@ -3011,18 +3171,18 @@ components:
           minItems: 1
           uniqueItems: true
           items:
-            $ref: '#/components/schemas/LiteraturePipelineStageCode'
+            $ref: '#/components/schemas/LiteratureContentProcessingStageCode'
       additionalProperties: false
 
-    CreateLiteraturePipelineRunResponse:
+    CreateLiteratureContentProcessingRunResponse:
       type: object
       required: [run]
       properties:
         run:
-          $ref: '#/components/schemas/LiteraturePipelineRun'
+          $ref: '#/components/schemas/LiteratureContentProcessingRun'
       additionalProperties: false
 
-    ListLiteraturePipelineRunsResponse:
+    ListLiteratureContentProcessingRunsResponse:
       type: object
       required: [literature_id, items]
       properties:
@@ -3031,7 +3191,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/LiteraturePipelineRun'
+            $ref: '#/components/schemas/LiteratureContentProcessingRun'
       additionalProperties: false
 
     LiteratureOverviewProviderCount:
@@ -3121,9 +3281,9 @@ components:
         - source_url
         - source_updated_at
         - overview_status
-        - pipeline_state
-        - pipeline_stage_status
-        - pipeline_actions
+        - content_processing_state
+        - content_processing_stage_status
+        - content_processing_actions
       properties:
         literature_id:
           type: string
@@ -3159,7 +3319,7 @@ components:
           $ref: '#/components/schemas/PaperCitationStatus'
         overview_status:
           $ref: '#/components/schemas/OverviewStatus'
-        pipeline_state:
+        content_processing_state:
           type: object
           required:
             - citation_complete
@@ -3185,10 +3345,10 @@ components:
             indexed:
               type: boolean
           additionalProperties: false
-        pipeline_stage_status:
-          $ref: '#/components/schemas/LiteraturePipelineStageStatusMap'
-        pipeline_actions:
-          $ref: '#/components/schemas/LiteraturePipelineActionSet'
+        content_processing_stage_status:
+          $ref: '#/components/schemas/LiteratureContentProcessingStageStatusMap'
+        content_processing_actions:
+          $ref: '#/components/schemas/LiteratureContentProcessingActionSet'
       additionalProperties: false
 
     LiteratureOverviewResponse:

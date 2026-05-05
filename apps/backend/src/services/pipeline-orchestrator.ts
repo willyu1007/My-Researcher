@@ -54,8 +54,8 @@ export class PipelineOrchestrator {
         triggerSource: input.triggerSource,
         status: 'SKIPPED',
         requestedStages: [...input.requestedStages],
-        errorCode: 'PIPELINE_RUN_SKIPPED_SINGLE_FLIGHT',
-        errorMessage: 'Existing pipeline run is still in-flight.',
+        errorCode: 'CONTENT_PROCESSING_RUN_SKIPPED_SINGLE_FLIGHT',
+        errorMessage: 'Existing content-processing run is still in-flight.',
         createdAt: now,
         startedAt: now,
         finishedAt: now,
@@ -212,7 +212,7 @@ export class PipelineOrchestrator {
       terminalStatuses.push(result.status);
       if (!firstFailure && (result.status === 'FAILED' || result.status === 'BLOCKED')) {
         firstFailure = {
-          code: result.errorCode ?? 'PIPELINE_STAGE_FAILED',
+          code: result.errorCode ?? 'CONTENT_PROCESSING_STAGE_FAILED',
           message: result.errorMessage ?? `Stage ${stageCode} failed.`,
         };
       }
@@ -293,10 +293,10 @@ export class PipelineOrchestrator {
       }
 
       const finishedAt = new Date().toISOString();
-      const message = error instanceof Error ? error.message : 'Pipeline run processing failed.';
+      const message = error instanceof Error ? error.message : 'Content-processing run failed.';
       await this.repository.updatePipelineRun(runId, {
         status: 'FAILED',
-        errorCode: 'PIPELINE_RUN_PROCESSING_FAILED',
+        errorCode: 'CONTENT_PROCESSING_RUN_PROCESSING_FAILED',
         errorMessage: message,
         finishedAt,
         updatedAt: finishedAt,

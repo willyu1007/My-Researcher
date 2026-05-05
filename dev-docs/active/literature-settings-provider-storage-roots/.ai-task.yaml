@@ -1,0 +1,11 @@
+version: 1
+task_id: T-032
+project: main
+slug: literature-settings-provider-storage-roots
+status: done
+updated: "2026-05-05"
+keywords:
+  - literature
+  - settings
+  - provider
+  - storage

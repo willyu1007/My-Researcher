@@ -10,7 +10,7 @@ datasource db {
 
 model PaperProject {
   id                   String                @id
-  topicId              String
+  titleCardId          String                @map("topicId")
   title                String
   researchDirection    String
   status               String
@@ -279,6 +279,19 @@ model LiteratureEmbeddingTokenIndex {
   @@index([literatureId, token])
 }
 
+model ApplicationSetting {
+  id          String   @id
+  namespace   String
+  key         String
+  value       Json
+  secretValue String?
+  createdAt   DateTime @db.Timestamptz(6)
+  updatedAt   DateTime @db.Timestamptz(6)
+
+  @@unique([namespace, key])
+  @@index([namespace])
+}
+
 model TopicProfile {
   id                  String               @id
   name                String
@@ -442,16 +455,18 @@ model AutoPullSuggestion {
 }
 
 // ---------------------------------------------------------------------------
-// Topic management (automated-topic-management). topic_id is logical FK to
-// topic identity (TopicProfile.id or external id). See 03-implementation-notes.
+// Title-card management mapped onto legacy Topic* physical tables. The Prisma
+// client exposes title-card semantics while @map/@@map preserve DB compatibility.
 // ---------------------------------------------------------------------------
-enum TopicResearchRecordType {
+enum TitleCardResearchRecordType {
   evidence_review
   need_review
-  question
+  research_question  @map("question")
   value_assessment
-  topic_package
+  package            @map("topic_package")
   promotion_decision
+
+  @@map("TopicResearchRecordType")
 }
 
 enum TitleCardStatus {
@@ -461,67 +476,76 @@ enum TitleCardStatus {
   parked
 }
 
-enum TopicResearchRecordStatus {
+enum TitleCardResearchRecordStatus {
   draft
   completed
   superseded
   archived
+
+  @@map("TopicResearchRecordStatus")
 }
 
-enum TopicValueVerdict {
+enum TitleCardValueVerdict {
   promote
   refine
   park
   drop
+
+  @@map("TopicValueVerdict")
 }
 
-enum TopicPromotionDecisionType {
+enum TitleCardPromotionDecisionType {
   promote
   hold
   reject
   loopback
+
+  @@map("TopicPromotionDecisionType")
 }
 
-enum TopicContributionHypothesis {
+enum TitleCardContributionHypothesis {
   method
   benchmark
   analysis
   resource
   system
+
+  @@map("TopicContributionHypothesis")
 }
 
-model TopicResearchRecord {
-  id                    String                    @id
-  topicId               String
-  recordType            TopicResearchRecordType
-  recordStatus          TopicResearchRecordStatus @default(draft)
-  versionNo             Int                       @default(1)
-  parentRecordId        String?
-  supersededByRecordId  String?
-  sourceRecordIds       Json                      @default("[]")
-  lineage               Json                      @default("{}")
-  summary               String
-  confidence            Decimal                   @db.Decimal(4, 3)
-  blockingIssues        Json                      @default("[]")
-  missingInformation    Json                      @default("[]")
-  nextActions           Json                      @default("[]")
-  evidenceRefs          Json                      @default("[]")
-  payload               Json
-  createdBy             String                    @default("hybrid")
-  createdAt             DateTime                  @db.Timestamptz(6)
-  updatedAt             DateTime                  @db.Timestamptz(6)
-  deletedAt             DateTime?                 @db.Timestamptz(6)
-  parent                TopicResearchRecord?      @relation("TopicResearchRecordParent", fields: [parentRecordId], references: [id], onDelete: SetNull)
-  children              TopicResearchRecord[]     @relation("TopicResearchRecordParent")
-  supersededBy          TopicResearchRecord?      @relation("TopicResearchRecordSuperseded", fields: [supersededByRecordId], references: [id], onDelete: SetNull)
-  supersedes            TopicResearchRecord[]     @relation("TopicResearchRecordSuperseded")
-  topicQuestions        TopicQuestion[]
-  topicNeedReviews      TopicNeedReview[]
-  topicValueAssessments TopicValueAssessment[]
-  topicPackages         TopicPackage[]
+model TitleCardResearchRecord {
+  id                   String                        @id
+  titleCardId          String                        @map("topicId")
+  recordType           TitleCardResearchRecordType
+  recordStatus         TitleCardResearchRecordStatus @default(draft)
+  versionNo            Int                           @default(1)
+  parentRecordId       String?
+  supersededByRecordId String?
+  sourceRecordIds      Json                          @default("[]")
+  lineage              Json                          @default("{}")
+  summary              String
+  confidence           Decimal                       @db.Decimal(4, 3)
+  blockingIssues       Json                          @default("[]")
+  missingInformation   Json                          @default("[]")
+  nextActions          Json                          @default("[]")
+  evidenceRefs         Json                          @default("[]")
+  payload              Json
+  createdBy            String                        @default("hybrid")
+  createdAt            DateTime                      @db.Timestamptz(6)
+  updatedAt            DateTime                      @db.Timestamptz(6)
+  deletedAt            DateTime?                     @db.Timestamptz(6)
+  parent               TitleCardResearchRecord?      @relation("TitleCardResearchRecordParent", fields: [parentRecordId], references: [id], onDelete: SetNull)
+  children             TitleCardResearchRecord[]     @relation("TitleCardResearchRecordParent")
+  supersededBy         TitleCardResearchRecord?      @relation("TitleCardResearchRecordSuperseded", fields: [supersededByRecordId], references: [id], onDelete: SetNull)
+  supersedes           TitleCardResearchRecord[]     @relation("TitleCardResearchRecordSuperseded")
+  researchQuestions    TitleCardResearchQuestion[]
+  needReviews          TitleCardNeedReview[]
+  valueAssessments     TitleCardValueAssessment[]
+  packages             TitleCardPackage[]
 
-  @@index([topicId, recordType, recordStatus])
-  @@index([topicId, updatedAt(sort: Desc)])
+  @@index([titleCardId, recordType, recordStatus])
+  @@index([titleCardId, updatedAt(sort: Desc)])
+  @@map("TopicResearchRecord")
 }
 
 model TitleCard {
@@ -550,30 +574,31 @@ model TitleCardEvidenceSelection {
   @@index([titleCardId, selectedAt(sort: Desc)])
 }
 
-model TopicQuestion {
-  id                      String                      @id
-  topicId                 String
-  researchRecordId        String                      @unique
-  mainQuestion            String
-  subQuestions            Json                        @default("[]")
-  researchSlice           String
-  contributionHypothesis  TopicContributionHypothesis
-  sourceNeedReviewIds     Json                        @default("[]")
-  sourceEvidenceReviewIds Json                        @default("[]")
-  createdAt               DateTime                    @db.Timestamptz(6)
-  updatedAt               DateTime                    @db.Timestamptz(6)
-  researchRecord          TopicResearchRecord         @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
-  valueAssessments        TopicValueAssessment[]
-  packages                TopicPackage[]
-  promotionDecisions      TopicPromotionDecision[]
+model TitleCardResearchQuestion {
+  id                          String                          @id
+  titleCardId                 String                          @map("topicId")
+  researchRecordId            String                          @unique
+  mainQuestion                String
+  subQuestions                Json                            @default("[]")
+  researchSlice               String
+  contributionHypothesis      TitleCardContributionHypothesis
+  sourceNeedReviewIds         Json                            @default("[]")
+  sourceLiteratureEvidenceIds Json                            @default("[]") @map("sourceEvidenceReviewIds")
+  createdAt                   DateTime                        @db.Timestamptz(6)
+  updatedAt                   DateTime                        @db.Timestamptz(6)
+  researchRecord              TitleCardResearchRecord         @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  valueAssessments            TitleCardValueAssessment[]
+  packages                    TitleCardPackage[]
+  promotionDecisions          TitleCardPromotionDecision[]
 
-  @@index([topicId, updatedAt(sort: Desc)])
+  @@index([titleCardId, updatedAt(sort: Desc)])
+  @@map("TopicQuestion")
 }
 
-model TopicNeedReview {
-  id                   String              @id
-  topicId              String
-  researchRecordId     String              @unique
+model TitleCardNeedReview {
+  id                   String                  @id
+  titleCardId          String                  @map("topicId")
+  researchRecordId     String                  @unique
   needStatement        String
   whoNeedsIt           String
   scenario             String
@@ -584,102 +609,106 @@ model TopicNeedReview {
   measurabilityScore   Int
   feasibilitySignal    String
   validatedNeed        Boolean
-  evidenceReviewRefs   Json                @default("[]")
-  literatureIds        Json                @default("[]")
-  createdAt            DateTime            @db.Timestamptz(6)
-  updatedAt            DateTime            @db.Timestamptz(6)
-  researchRecord       TopicResearchRecord @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  evidenceReviewRefs   Json                    @default("[]")
+  literatureIds        Json                    @default("[]")
+  createdAt            DateTime                @db.Timestamptz(6)
+  updatedAt            DateTime                @db.Timestamptz(6)
+  researchRecord       TitleCardResearchRecord @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
 
-  @@index([topicId, updatedAt(sort: Desc)])
-  @@index([topicId, validatedNeed])
+  @@index([titleCardId, updatedAt(sort: Desc)])
+  @@index([titleCardId, validatedNeed])
+  @@map("TopicNeedReview")
 }
 
-model TopicValueAssessment {
-  id                      String                   @id
-  topicId                 String
-  questionId              String
-  researchRecordId        String                   @unique
+model TitleCardValueAssessment {
+  id                      String                       @id
+  titleCardId             String                       @map("topicId")
+  researchQuestionId      String                       @map("questionId")
+  researchRecordId        String                       @unique
   strongestClaimIfSuccess String
   fallbackClaimIfSuccess  String?
   hardGates               Json
   scoredDimensions        Json
   riskPenalty             Json
-  reviewerObjections      Json                     @default("[]")
+  reviewerObjections      Json                         @default("[]")
   ceilingCase             String
   baseCase                String
   floorCase               String
-  verdict                 TopicValueVerdict
-  totalScore              Decimal                  @db.Decimal(5, 2)
-  createdAt               DateTime                 @db.Timestamptz(6)
-  updatedAt               DateTime                 @db.Timestamptz(6)
-  researchRecord          TopicResearchRecord      @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
-  question                TopicQuestion            @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  packages                TopicPackage[]
-  promotionDecisions      TopicPromotionDecision[]
+  verdict                 TitleCardValueVerdict
+  totalScore              Decimal                      @db.Decimal(5, 2)
+  createdAt               DateTime                     @db.Timestamptz(6)
+  updatedAt               DateTime                     @db.Timestamptz(6)
+  researchRecord          TitleCardResearchRecord      @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  researchQuestion        TitleCardResearchQuestion    @relation(fields: [researchQuestionId], references: [id], onDelete: Cascade)
+  packages                TitleCardPackage[]
+  promotionDecisions      TitleCardPromotionDecision[]
 
-  @@index([topicId, updatedAt(sort: Desc)])
-  @@index([questionId, updatedAt(sort: Desc)])
+  @@index([titleCardId, updatedAt(sort: Desc)])
+  @@index([researchQuestionId, updatedAt(sort: Desc)])
+  @@map("TopicValueAssessment")
 }
 
-model TopicPackage {
-  id                            String                   @id
-  topicId                       String
-  questionId                    String
+model TitleCardPackage {
+  id                            String                       @id
+  titleCardId                   String                       @map("topicId")
+  researchQuestionId            String                       @map("questionId")
   valueAssessmentId             String
-  researchRecordId              String                   @unique
-  titleCandidates               Json                     @default("[]")
+  researchRecordId              String                       @unique
+  titleCandidates               Json                         @default("[]")
   researchBackground            String
   contributionSummary           String
-  candidateMethods              Json                     @default("[]")
+  candidateMethods              Json                         @default("[]")
   evaluationPlan                String
-  keyRisks                      Json                     @default("[]")
-  selectedLiteratureEvidenceIds Json                     @default("[]")
-  createdAt                     DateTime                 @db.Timestamptz(6)
-  updatedAt                     DateTime                 @db.Timestamptz(6)
-  researchRecord                TopicResearchRecord      @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
-  question                      TopicQuestion            @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  valueAssessment               TopicValueAssessment     @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
-  promotionDecisions            TopicPromotionDecision[]
+  keyRisks                      Json                         @default("[]")
+  selectedLiteratureEvidenceIds Json                         @default("[]")
+  createdAt                     DateTime                     @db.Timestamptz(6)
+  updatedAt                     DateTime                     @db.Timestamptz(6)
+  researchRecord                TitleCardResearchRecord      @relation(fields: [researchRecordId], references: [id], onDelete: Cascade)
+  researchQuestion              TitleCardResearchQuestion    @relation(fields: [researchQuestionId], references: [id], onDelete: Cascade)
+  valueAssessment               TitleCardValueAssessment     @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
+  promotionDecisions            TitleCardPromotionDecision[]
 
-  @@index([topicId, updatedAt(sort: Desc)])
+  @@index([titleCardId, updatedAt(sort: Desc)])
+  @@map("TopicPackage")
 }
 
-model TopicPromotionDecision {
-  id                String                     @id
-  topicId           String
-  questionId        String
-  valueAssessmentId String
-  packageId         String?
-  decision          TopicPromotionDecisionType
-  reasonSummary     String
-  targetPaperTitle  String?
-  promotedPaperId   String?
-  loopbackTarget    String?
-  createdBy         String
-  createdAt         DateTime                   @db.Timestamptz(6)
-  updatedAt         DateTime                   @db.Timestamptz(6)
-  question          TopicQuestion              @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  valueAssessment   TopicValueAssessment       @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
-  package           TopicPackage?              @relation(fields: [packageId], references: [id], onDelete: SetNull)
+model TitleCardPromotionDecision {
+  id                 String                         @id
+  titleCardId        String                         @map("topicId")
+  researchQuestionId String                         @map("questionId")
+  valueAssessmentId  String
+  packageId          String?
+  decision           TitleCardPromotionDecisionType
+  reasonSummary      String
+  targetPaperTitle   String?
+  promotedPaperId    String?
+  loopbackTarget     String?
+  createdBy          String
+  createdAt          DateTime                       @db.Timestamptz(6)
+  updatedAt          DateTime                       @db.Timestamptz(6)
+  researchQuestion   TitleCardResearchQuestion      @relation(fields: [researchQuestionId], references: [id], onDelete: Cascade)
+  valueAssessment    TitleCardValueAssessment       @relation(fields: [valueAssessmentId], references: [id], onDelete: Cascade)
+  package            TitleCardPackage?              @relation(fields: [packageId], references: [id], onDelete: SetNull)
 
-  @@index([topicId, createdAt(sort: Desc)])
+  @@index([titleCardId, createdAt(sort: Desc)])
+  @@map("TopicPromotionDecision")
 }
 
 model ResearchArgumentWorkspace {
-  id                    String                          @id
+  id                    String                             @id
   titleCardId           String
   workspaceStatus       String
   activeBranchId        String?
   currentStage          String
-  sourceTraceRefs       Json                            @default("[]")
-  reportPointers        Json                            @default("[]")
+  sourceTraceRefs       Json                               @default("[]")
+  reportPointers        Json                               @default("[]")
   paperId               String?
   syncEligibility       String
   authorizationMetadata Json?
-  gitWeakMappingRefs    Json                            @default("[]")
+  gitWeakMappingRefs    Json                               @default("[]")
   auditRef              String?
-  createdAt             DateTime                        @db.Timestamptz(6)
-  updatedAt             DateTime                        @db.Timestamptz(6)
+  createdAt             DateTime                           @db.Timestamptz(6)
+  updatedAt             DateTime                           @db.Timestamptz(6)
   branches              ResearchArgumentBranch[]
   graphObjects          ResearchArgumentGraphObject[]
   stateSnapshots        ResearchArgumentStateSnapshot[]
@@ -692,17 +721,17 @@ model ResearchArgumentWorkspace {
 }
 
 model ResearchArgumentBranch {
-  id                String                          @id
+  id                String                             @id
   workspaceId       String
   branchName        String
   branchStatus      String
   parentBranchId    String?
   hypothesisSummary String?
   branchReason      String?
-  decisionRefs      Json                            @default("[]")
-  createdAt         DateTime                        @db.Timestamptz(6)
-  updatedAt         DateTime                        @db.Timestamptz(6)
-  workspace         ResearchArgumentWorkspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  decisionRefs      Json                               @default("[]")
+  createdAt         DateTime                           @db.Timestamptz(6)
+  updatedAt         DateTime                           @db.Timestamptz(6)
+  workspace         ResearchArgumentWorkspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   graphObjects      ResearchArgumentGraphObject[]
   stateSnapshots    ResearchArgumentStateSnapshot[]
   decisionRecords   ResearchArgumentDecisionRecord[]

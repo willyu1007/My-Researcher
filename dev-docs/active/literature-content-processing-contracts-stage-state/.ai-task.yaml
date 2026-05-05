@@ -1,0 +1,11 @@
+version: 1
+task_id: T-031
+project: main
+slug: literature-content-processing-contracts-stage-state
+status: done
+updated: "2026-05-05"
+keywords:
+  - literature
+  - content-processing
+  - contracts
+  - stale

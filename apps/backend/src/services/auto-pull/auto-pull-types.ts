@@ -1,5 +1,5 @@
 import type {
-  LiteratureImportItem,
+  LiteratureCollectionImportItem,
   TopicScopeStatus,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import type { AutoPullSource } from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
@@ -23,7 +23,7 @@ export type CandidateRankingSignals = {
 };
 
 export type FetchedCandidate = {
-  item: LiteratureImportItem;
+  item: LiteratureCollectionImportItem;
   rankingSignals: CandidateRankingSignals;
 };
 
@@ -47,7 +47,7 @@ export type EligibleCandidate = {
 
 export type SourceExecutionResult = {
   source: AutoPullSource;
-  fetchedItems: LiteratureImportItem[];
+  fetchedItems: LiteratureCollectionImportItem[];
   eligibleCandidates: EligibleCandidate[];
   importedCount: number;
   failedCount: number;

@@ -86,7 +86,7 @@ export type QuerySort = 'importance' | 'updated_at' | 'published_at' | 'title_in
 export type SortDirection = 'asc' | 'desc';
 export type QuerySortPreset = `${QuerySort}|${SortDirection}`;
 export type LiteratureOverviewStatus = 'automation_ready' | 'citable' | 'not_citable' | 'excluded';
-export type OverviewContentStatus = 'not_ready' | 'abstract_ready' | 'key_content_ready';
+export type OverviewContentStatus = 'not_ready' | 'abstract_ready' | 'key_content_ready' | 'indexed';
 export type OverviewScopeFilterInput = 'all' | LiteratureOverviewStatus;
 export type MetadataIntakeTabKey = 'abstract' | 'key-content' | 'vectorize';
 export type MetadataIntakeOpenContext = {
@@ -97,8 +97,8 @@ export type MetadataIntakeOpenContext = {
 export type PipelineStageCode =
   | 'CITATION_NORMALIZED'
   | 'ABSTRACT_READY'
-  | 'KEY_CONTENT_READY'
   | 'FULLTEXT_PREPROCESSED'
+  | 'KEY_CONTENT_READY'
   | 'CHUNKED'
   | 'EMBEDDED'
   | 'INDEXED';
@@ -107,10 +107,17 @@ export type PipelineStageStatus =
   | 'PENDING'
   | 'RUNNING'
   | 'SUCCEEDED'
+  | 'STALE'
   | 'FAILED'
   | 'BLOCKED'
   | 'SKIPPED';
-export type PipelineActionCode = 'EXTRACT_ABSTRACT' | 'PREPROCESS_FULLTEXT' | 'VECTORIZE';
+export type PipelineActionCode =
+  | 'process_content'
+  | 'process_to_retrievable'
+  | 'rebuild_index'
+  | 'reextract'
+  | 'retry_failed'
+  | 'view_reason';
 export type PipelineActionReasonCode =
   | 'READY'
   | 'EXCLUDED_BY_SCOPE'
@@ -128,9 +135,41 @@ export type PipelineActionAvailability = {
   requested_stages: PipelineStageCode[];
 };
 export type PipelineActionSet = {
-  extract_abstract: PipelineActionAvailability;
-  preprocess_fulltext: PipelineActionAvailability;
-  vectorize: PipelineActionAvailability;
+  process_content: PipelineActionAvailability;
+  process_to_retrievable: PipelineActionAvailability;
+  rebuild_index: PipelineActionAvailability;
+  reextract: PipelineActionAvailability;
+  retry_failed: PipelineActionAvailability;
+  view_reason: PipelineActionAvailability;
+};
+
+export type LiteratureContentProcessingProviderId = 'openai';
+export type LiteratureEmbeddingProfileId = 'default' | 'economy';
+export type LiteratureContentProcessingProviderSettings = {
+  provider: LiteratureContentProcessingProviderId;
+  api_key_set: boolean;
+  api_key_last_updated_at: string | null;
+};
+export type LiteratureEmbeddingProfile = {
+  profile_id: LiteratureEmbeddingProfileId;
+  provider: LiteratureContentProcessingProviderId;
+  model: string;
+  dimensions: number | null;
+};
+export type LiteratureContentProcessingSettings = {
+  providers: LiteratureContentProcessingProviderSettings[];
+  embedding: {
+    active_profile_id: LiteratureEmbeddingProfileId;
+    profiles: LiteratureEmbeddingProfile[];
+  };
+  storage_roots: {
+    raw_files: string | null;
+    normalized_text: string | null;
+    artifacts_cache: string | null;
+    indexes: string | null;
+    exports: string | null;
+  };
+  updated_at: string;
 };
 
 export type ManualUploadFileItem = {
@@ -319,7 +358,7 @@ export type LiteratureOverviewItem = {
   topic_scope_status?: ScopeStatus;
   citation_status?: CitationStatus;
   overview_status: LiteratureOverviewStatus;
-  pipeline_state: {
+  content_processing_state: {
     citation_complete: boolean;
     abstract_ready: boolean;
     key_content_ready: boolean;
@@ -328,8 +367,8 @@ export type LiteratureOverviewItem = {
     embedded: boolean;
     indexed: boolean;
   };
-  pipeline_stage_status: PipelineStageStatusMap;
-  pipeline_actions: PipelineActionSet;
+  content_processing_stage_status: PipelineStageStatusMap;
+  content_processing_actions: PipelineActionSet;
 };
 
 export type LiteratureOverviewData = {

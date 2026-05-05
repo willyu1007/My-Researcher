@@ -9,13 +9,17 @@ async function seedLiterature(
   repository: LiteratureRepository,
   literatureId: string,
   rightsClass: RightsClass,
+  options: {
+    abstractText?: string | null;
+    keyContentDigest?: string | null;
+  } = {},
 ): Promise<void> {
   const now = new Date().toISOString();
   await repository.createLiterature({
     id: literatureId,
     title: `Pipeline ${literatureId}`,
-    abstractText: null,
-    keyContentDigest: null,
+    abstractText: options.abstractText ?? null,
+    keyContentDigest: options.keyContentDigest ?? null,
     authors: ['Ada Lovelace'],
     year: 2025,
     doiNormalized: `10.1000/${literatureId.toLowerCase()}`,
@@ -58,13 +62,12 @@ async function waitForTerminalRun(repository: LiteratureRepository, runId: strin
 test('literature flow executes all seven stages and persists stage artifacts', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureFlowService(repository);
-  await seedLiterature(repository, 'LIT-FLOW-1', 'OA');
-
-  const run = await service.handleLiteratureUpserted({
-    literatureId: 'LIT-FLOW-1',
-    triggerSource: 'MANUAL_IMPORT',
-    requestedStages: [...PIPELINE_STAGE_CODES],
+  await seedLiterature(repository, 'LIT-FLOW-1', 'OA', {
+    abstractText: 'Trusted abstract for pipeline execution.',
+    keyContentDigest: 'Trusted key content digest for pipeline execution.',
   });
+
+  const run = await service.triggerContentProcessingRun('LIT-FLOW-1', [...PIPELINE_STAGE_CODES]);
 
   const terminal = await waitForTerminalRun(repository, run.run_id);
   assert.equal(terminal.status, 'SUCCESS');
@@ -97,13 +100,12 @@ test('literature flow executes all seven stages and persists stage artifacts', a
 test('literature flow blocks deep stages for RESTRICTED rights class', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureFlowService(repository);
-  await seedLiterature(repository, 'LIT-FLOW-RESTRICTED', 'RESTRICTED');
-
-  const run = await service.handleLiteratureUpserted({
-    literatureId: 'LIT-FLOW-RESTRICTED',
-    triggerSource: 'OVERVIEW_ACTION',
-    requestedStages: [...PIPELINE_STAGE_CODES],
+  await seedLiterature(repository, 'LIT-FLOW-RESTRICTED', 'RESTRICTED', {
+    abstractText: 'Trusted abstract for restricted rights gate.',
+    keyContentDigest: 'Trusted key content digest for restricted rights gate.',
   });
+
+  const run = await service.triggerContentProcessingRun('LIT-FLOW-RESTRICTED', [...PIPELINE_STAGE_CODES]);
 
   const terminal = await waitForTerminalRun(repository, run.run_id);
   assert.equal(terminal.status, 'PARTIAL');
@@ -114,16 +116,116 @@ test('literature flow blocks deep stages for RESTRICTED rights class', async () 
   assert.equal(fulltext?.status, 'BLOCKED');
 });
 
+test('literature flow blocks ABSTRACT_READY when no trusted abstract source exists', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository);
+  await seedLiterature(repository, 'LIT-FLOW-NO-ABSTRACT', 'OA');
+
+  const run = await service.triggerContentProcessingRun('LIT-FLOW-NO-ABSTRACT', ['ABSTRACT_READY']);
+  const terminal = await waitForTerminalRun(repository, run.run_id);
+  assert.equal(terminal.status, 'FAILED');
+  assert.equal(terminal.errorCode, 'ABSTRACT_SOURCE_MISSING');
+
+  const literature = await repository.findLiteratureById('LIT-FLOW-NO-ABSTRACT');
+  assert.equal(literature?.abstractText, null);
+  const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-NO-ABSTRACT');
+  const abstractStage = stageStates.find((item) => item.stageCode === 'ABSTRACT_READY');
+  assert.equal(abstractStage?.status, 'BLOCKED');
+});
+
+test('literature flow blocks KEY_CONTENT_READY when no validated key content source exists', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository);
+  await seedLiterature(repository, 'LIT-FLOW-NO-KEY', 'OA', {
+    abstractText: 'Trusted abstract for key-content prerequisite.',
+  });
+
+  const run = await service.triggerContentProcessingRun('LIT-FLOW-NO-KEY', [
+    'ABSTRACT_READY',
+    'FULLTEXT_PREPROCESSED',
+    'KEY_CONTENT_READY',
+  ]);
+  const terminal = await waitForTerminalRun(repository, run.run_id);
+  assert.equal(terminal.status, 'PARTIAL');
+  assert.equal(terminal.errorCode, 'KEY_CONTENT_SOURCE_MISSING');
+
+  const literature = await repository.findLiteratureById('LIT-FLOW-NO-KEY');
+  assert.equal(literature?.keyContentDigest, null);
+  const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-NO-KEY');
+  const keyStage = stageStates.find((item) => item.stageCode === 'KEY_CONTENT_READY');
+  assert.equal(keyStage?.status, 'BLOCKED');
+});
+
+test('literature flow treats STALE as artifact-present and exposes rerun actions', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository);
+  await seedLiterature(repository, 'LIT-FLOW-STALE', 'OA');
+  const now = new Date().toISOString();
+  await repository.upsertPipelineState({
+    id: 'state-stale',
+    literatureId: 'LIT-FLOW-STALE',
+    citationComplete: true,
+    abstractReady: true,
+    keyContentReady: true,
+    dedupStatus: 'unique',
+    updatedAt: now,
+  });
+  await repository.upsertPipelineStageState({
+    id: 'stage-fulltext-stale',
+    literatureId: 'LIT-FLOW-STALE',
+    stageCode: 'FULLTEXT_PREPROCESSED',
+    status: 'STALE',
+    lastRunId: null,
+    detail: { reason_code: 'INPUT_STALE' },
+    updatedAt: now,
+  });
+  await repository.upsertPipelineStageState({
+    id: 'stage-embedded-stale',
+    literatureId: 'LIT-FLOW-STALE',
+    stageCode: 'EMBEDDED',
+    status: 'SUCCEEDED',
+    lastRunId: null,
+    detail: {},
+    updatedAt: now,
+  });
+  await repository.upsertPipelineStageState({
+    id: 'stage-indexed-stale',
+    literatureId: 'LIT-FLOW-STALE',
+    stageCode: 'INDEXED',
+    status: 'STALE',
+    lastRunId: null,
+    detail: { reason_code: 'UPSTREAM_STALE' },
+    updatedAt: now,
+  });
+
+  const state = await repository.findPipelineStateByLiteratureId('LIT-FLOW-STALE');
+  assert.ok(state);
+  const stageStates = await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-STALE');
+  const dto = service.buildPipelineStateDTO(state, stageStates);
+  const statusMap = service.buildStageStatusMap(stageStates);
+  const actions = service.buildOverviewPipelineActions({
+    topicScopeStatus: 'in_scope',
+    rightsClass: 'OA',
+    pipelineState: dto,
+    stageStatusMap: statusMap,
+  });
+
+  assert.equal(dto.fulltext_preprocessed, true);
+  assert.equal(dto.indexed, true);
+  assert.equal(actions.process_content.enabled, true);
+  assert.equal(actions.rebuild_index.enabled, true);
+  assert.deepEqual(actions.retry_failed.requested_stages, ['FULLTEXT_PREPROCESSED', 'INDEXED']);
+  assert.equal(actions.view_reason.enabled, true);
+});
+
 test('literature flow rerun overwrites existing stage artifact instead of duplicating it', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureFlowService(repository);
-  await seedLiterature(repository, 'LIT-FLOW-RERUN', 'OA');
-
-  const firstRun = await service.handleLiteratureUpserted({
-    literatureId: 'LIT-FLOW-RERUN',
-    triggerSource: 'OVERVIEW_ACTION',
-    requestedStages: ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED'],
+  await seedLiterature(repository, 'LIT-FLOW-RERUN', 'OA', {
+    abstractText: 'Trusted abstract for rerun artifact overwrite validation.',
   });
+
+  const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-RERUN', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED']);
   const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
   assert.equal(firstTerminal.status, 'SUCCESS');
 
@@ -142,11 +244,7 @@ test('literature flow rerun overwrites existing stage artifact instead of duplic
     updatedAt: new Date().toISOString(),
   });
 
-  const secondRun = await service.handleLiteratureUpserted({
-    literatureId: 'LIT-FLOW-RERUN',
-    triggerSource: 'OVERVIEW_ACTION',
-    requestedStages: ['FULLTEXT_PREPROCESSED'],
-  });
+  const secondRun = await service.triggerContentProcessingRun('LIT-FLOW-RERUN', ['FULLTEXT_PREPROCESSED']);
   const secondTerminal = await waitForTerminalRun(repository, secondRun.run_id);
   assert.equal(secondTerminal.status, 'SUCCESS');
 
@@ -169,34 +267,28 @@ test('literature flow rerun overwrites existing stage artifact instead of duplic
 test('literature flow enforces USER_AUTH gate by global env switch', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureFlowService(repository);
-  await seedLiterature(repository, 'LIT-FLOW-USER-AUTH', 'USER_AUTH');
+  await seedLiterature(repository, 'LIT-FLOW-USER-AUTH', 'USER_AUTH', {
+    abstractText: 'Trusted abstract for user-auth rights gate.',
+  });
 
-  const previous = process.env.LITERATURE_USER_AUTH_PIPELINE_ENABLED;
-  process.env.LITERATURE_USER_AUTH_PIPELINE_ENABLED = 'false';
+  const previous = process.env.LITERATURE_USER_AUTH_CONTENT_PROCESSING_ENABLED;
+  process.env.LITERATURE_USER_AUTH_CONTENT_PROCESSING_ENABLED = 'false';
 
   try {
-    const blockedRun = await service.handleLiteratureUpserted({
-      literatureId: 'LIT-FLOW-USER-AUTH',
-      triggerSource: 'OVERVIEW_ACTION',
-      requestedStages: ['FULLTEXT_PREPROCESSED'],
-    });
+    const blockedRun = await service.triggerContentProcessingRun('LIT-FLOW-USER-AUTH', ['FULLTEXT_PREPROCESSED']);
     const blockedTerminal = await waitForTerminalRun(repository, blockedRun.run_id);
     assert.equal(blockedTerminal.status, 'FAILED');
     assert.equal(blockedTerminal.errorCode, 'USER_AUTH_DISABLED');
 
-    process.env.LITERATURE_USER_AUTH_PIPELINE_ENABLED = 'true';
-    const allowedRun = await service.handleLiteratureUpserted({
-      literatureId: 'LIT-FLOW-USER-AUTH',
-      triggerSource: 'OVERVIEW_ACTION',
-      requestedStages: ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED'],
-    });
+    process.env.LITERATURE_USER_AUTH_CONTENT_PROCESSING_ENABLED = 'true';
+    const allowedRun = await service.triggerContentProcessingRun('LIT-FLOW-USER-AUTH', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED']);
     const allowedTerminal = await waitForTerminalRun(repository, allowedRun.run_id);
     assert.equal(allowedTerminal.status, 'SUCCESS');
   } finally {
     if (previous === undefined) {
-      delete process.env.LITERATURE_USER_AUTH_PIPELINE_ENABLED;
+      delete process.env.LITERATURE_USER_AUTH_CONTENT_PROCESSING_ENABLED;
     } else {
-      process.env.LITERATURE_USER_AUTH_PIPELINE_ENABLED = previous;
+      process.env.LITERATURE_USER_AUTH_CONTENT_PROCESSING_ENABLED = previous;
     }
   }
 });
@@ -204,13 +296,12 @@ test('literature flow enforces USER_AUTH gate by global env switch', async () =>
 test('literature flow creates new embedding versions on rerun and switches active version after INDEXED success', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureFlowService(repository);
-  await seedLiterature(repository, 'LIT-FLOW-VERSIONING', 'OA');
-
-  const firstRun = await service.handleLiteratureUpserted({
-    literatureId: 'LIT-FLOW-VERSIONING',
-    triggerSource: 'OVERVIEW_ACTION',
-    requestedStages: ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+  await seedLiterature(repository, 'LIT-FLOW-VERSIONING', 'OA', {
+    abstractText: 'Trusted abstract for embedding versioning.',
+    keyContentDigest: 'Trusted key content digest for embedding versioning.',
   });
+
+  const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-VERSIONING', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
   const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
   assert.equal(firstTerminal.status, 'SUCCESS');
 
@@ -226,11 +317,7 @@ test('literature flow creates new embedding versions on rerun and switches activ
     updatedAt: new Date().toISOString(),
   });
 
-  const secondRun = await service.handleLiteratureUpserted({
-    literatureId: 'LIT-FLOW-VERSIONING',
-    triggerSource: 'OVERVIEW_ACTION',
-    requestedStages: ['FULLTEXT_PREPROCESSED', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
-  });
+  const secondRun = await service.triggerContentProcessingRun('LIT-FLOW-VERSIONING', ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
   const secondTerminal = await waitForTerminalRun(repository, secondRun.run_id);
   assert.equal(secondTerminal.status, 'SUCCESS');
 
@@ -260,13 +347,12 @@ test('literature flow keeps active embedding version unchanged when INDEXED stag
 
   const repository = new FailingTokenIndexRepository();
   const service = new LiteratureFlowService(repository);
-  await seedLiterature(repository, 'LIT-FLOW-ACTIVE-GUARD', 'OA');
-
-  const firstRun = await service.handleLiteratureUpserted({
-    literatureId: 'LIT-FLOW-ACTIVE-GUARD',
-    triggerSource: 'OVERVIEW_ACTION',
-    requestedStages: ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+  await seedLiterature(repository, 'LIT-FLOW-ACTIVE-GUARD', 'OA', {
+    abstractText: 'Trusted abstract for active version guard.',
+    keyContentDigest: 'Trusted key content digest for active version guard.',
   });
+
+  const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-ACTIVE-GUARD', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
   const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
   assert.equal(firstTerminal.status, 'SUCCESS');
 
@@ -275,11 +361,7 @@ test('literature flow keeps active embedding version unchanged when INDEXED stag
   const activeVersionBeforeFailure = literatureAfterFirst.activeEmbeddingVersionId;
 
   repository.failTokenWrite = true;
-  const failedRun = await service.handleLiteratureUpserted({
-    literatureId: 'LIT-FLOW-ACTIVE-GUARD',
-    triggerSource: 'OVERVIEW_ACTION',
-    requestedStages: ['FULLTEXT_PREPROCESSED', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
-  });
+  const failedRun = await service.triggerContentProcessingRun('LIT-FLOW-ACTIVE-GUARD', ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
   const failedTerminal = await waitForTerminalRun(repository, failedRun.run_id);
   assert.equal(failedTerminal.status, 'PARTIAL');
 

@@ -2,7 +2,7 @@
 
 ## Status
 - State: in-progress
-- Next step: 当前仓库内的 compat 文件、旧测试命名与主链内部命名已完成收口；剩余待闭环项仅为具备真实 `DATABASE_URL` 的 Prisma migration/apply 与 legacy backfill 验证，以及交互式桌面端手工验收。若后续仍要继续清理更深层语义遗留，再单独评估 Prisma 物理命名迁移波次。
+- Next step: 公开 API、paper-project 创建契约、store env key 与 Prisma 开发语义已进一步收口到 `title-card`；剩余待闭环项仅为具备真实 `DATABASE_URL` 的 Prisma migration/apply 与 legacy backfill 验证，以及交互式桌面端手工验收。底层旧 `Topic*` 物理表/列仍通过 Prisma `@map/@@map` 保留兼容，不再向业务代码扩散。
 
 ## Goal
 - 交付一个桌面端、独立模块化的“选题题目管理工作台”。

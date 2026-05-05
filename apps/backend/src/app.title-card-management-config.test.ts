@@ -3,9 +3,10 @@ import test from 'node:test';
 import { buildApp, resolveTitleCardManagementStoreConfig } from './app.js';
 
 const STORE_ENV_KEYS = [
-  'TOPIC_REPOSITORY',
+  'TITLE_CARD_REPOSITORY',
   'RESEARCH_LIFECYCLE_REPOSITORY',
   'AUTO_PULL_REPOSITORY',
+  'APPLICATION_SETTINGS_REPOSITORY',
 ] as const;
 
 function resetStoreEnv(snapshot: Record<string, string | undefined>) {
@@ -19,18 +20,20 @@ function resetStoreEnv(snapshot: Record<string, string | undefined>) {
   }
 }
 
-test('resolveTitleCardManagementStoreConfig cascades TOPIC_REPOSITORY to dependent stores', () => {
+test('resolveTitleCardManagementStoreConfig cascades TITLE_CARD_REPOSITORY to dependent stores', () => {
   const snapshot = Object.fromEntries(STORE_ENV_KEYS.map((key) => [key, process.env[key]]));
   try {
-    process.env.TOPIC_REPOSITORY = 'prisma';
+    process.env.TITLE_CARD_REPOSITORY = 'prisma';
     delete process.env.RESEARCH_LIFECYCLE_REPOSITORY;
     delete process.env.AUTO_PULL_REPOSITORY;
+    delete process.env.APPLICATION_SETTINGS_REPOSITORY;
 
     assert.deepEqual(resolveTitleCardManagementStoreConfig(), {
       titleCardStrategy: 'prisma',
       researchLifecycleStrategy: 'prisma',
       literatureStrategy: 'prisma',
       autoPullStrategy: 'prisma',
+      applicationSettingsStrategy: 'prisma',
     });
   } finally {
     resetStoreEnv(snapshot);
@@ -40,13 +43,30 @@ test('resolveTitleCardManagementStoreConfig cascades TOPIC_REPOSITORY to depende
 test('buildApp rejects mixed store strategies for title-card management dependencies', () => {
   const snapshot = Object.fromEntries(STORE_ENV_KEYS.map((key) => [key, process.env[key]]));
   try {
-    process.env.TOPIC_REPOSITORY = 'prisma';
+    process.env.TITLE_CARD_REPOSITORY = 'prisma';
     process.env.AUTO_PULL_REPOSITORY = 'memory';
     delete process.env.RESEARCH_LIFECYCLE_REPOSITORY;
 
     assert.throws(
       () => buildApp(),
       /same strategy/i,
+    );
+  } finally {
+    resetStoreEnv(snapshot);
+  }
+});
+
+test('buildApp rejects mixed application settings strategy when title-card management uses Prisma', () => {
+  const snapshot = Object.fromEntries(STORE_ENV_KEYS.map((key) => [key, process.env[key]]));
+  try {
+    process.env.TITLE_CARD_REPOSITORY = 'prisma';
+    process.env.APPLICATION_SETTINGS_REPOSITORY = 'memory';
+    delete process.env.RESEARCH_LIFECYCLE_REPOSITORY;
+    delete process.env.AUTO_PULL_REPOSITORY;
+
+    assert.throws(
+      () => buildApp(),
+      /APPLICATION_SETTINGS_REPOSITORY/,
     );
   } finally {
     resetStoreEnv(snapshot);

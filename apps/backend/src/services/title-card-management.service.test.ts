@@ -122,7 +122,7 @@ function createService(options?: {
     rightsClass: string;
   } | null>;
   createPaperProject?: (input: {
-    topic_id: string;
+    title_card_id: string;
     title: string;
     research_direction?: string;
     created_by: 'human' | 'hybrid';
@@ -131,11 +131,11 @@ function createService(options?: {
   deletePaperProject?: (paperId: string) => Promise<void>;
 }) {
   const repository = new InMemoryTitleCardManagementRepository();
-  const calls: Array<{ topic_id: string; title: string; initial_context: { literature_evidence_ids: string[] } }> = [];
+  const calls: Array<{ title_card_id: string; title: string; initial_context: { literature_evidence_ids: string[] } }> = [];
   const deletions: string[] = [];
   const paperProjects = {
     async createPaperProject(input: {
-      topic_id: string;
+      title_card_id: string;
       title: string;
       research_direction?: string;
       created_by: 'human' | 'hybrid';
@@ -144,7 +144,11 @@ function createService(options?: {
       if (options?.createPaperProject) {
         return options.createPaperProject(input);
       }
-      calls.push({ topic_id: input.topic_id, title: input.title, initial_context: input.initial_context });
+      calls.push({
+        title_card_id: input.title_card_id,
+        title: input.title,
+        initial_context: input.initial_context,
+      });
       return { paper_id: 'paper_001' };
     },
     async deletePaperProject(paperId: string) {

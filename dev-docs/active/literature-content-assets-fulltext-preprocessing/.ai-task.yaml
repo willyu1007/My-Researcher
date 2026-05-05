@@ -1,0 +1,11 @@
+version: 1
+task_id: T-033
+project: main
+slug: literature-content-assets-fulltext-preprocessing
+status: planned
+updated: "2026-05-05"
+keywords:
+  - literature
+  - fulltext
+  - preprocessing
+  - artifacts

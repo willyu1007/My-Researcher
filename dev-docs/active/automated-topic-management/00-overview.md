@@ -17,7 +17,7 @@
 ## Context
 - `automated_topic_notes.md` 已形成明确设计主线：`TopicSeed -> EvidenceMap -> ValidatedNeed -> ResearchSlice -> TopicQuestion -> TopicValueAssessment -> TopicPackage`。
 - 当前仓库已具备 `topic settings`、`literature scope`、`auto-pull`、`paper-project` 等外围能力；本批次已补齐选题决策中间层的 shared contract、backend route/controller/service/repository、Prisma schema/migration 与 HTTP 测试主链。
-- `topic-management` 现状已不再是纯文档阶段：后端原型已落地，但此前仍存在三处缺口：`TOPIC_REPOSITORY=prisma` 未真正接通、OpenAPI/API-INDEX 仍描述旧平铺路径、桌面端仅有“选题管理”导航入口而无工作台内容。
+- `topic-management` 现状已不再是纯文档阶段：后端原型已落地，但此前仍存在三处缺口：title-card persistence strategy 未真正接通、OpenAPI/API-INDEX 仍描述旧平铺路径、桌面端仅有“选题管理”导航入口而无工作台内容。
 - 现有 `topic-initial-pull-and-rule-preview` 任务聚焦 topic 检索配置与 rule preview，不覆盖本模块的 question/value/promotion 语义；该语义在 `T-021` 中进一步切换为 `retrieval-topics + title-cards`。
 - 产品 requirements 明确项目不替代研究选题与学术判断，因此本模块必须保持 human-in-the-loop。
 - 本任务包采纳 **EvidenceReview / NeedReview / ValueAssessment** 及 **common envelope** 作为 LLM 自审产物的契约基线；v1 进一步收敛为“EvidenceReview 先走 literature-side bridge，NeedReview 以 `literature_ids + evidence_refs` 为权威输入”，避免在 topic side 过早复制第二套证据真相层。
@@ -29,7 +29,7 @@
 - [x] `02-architecture.md` 明确 `topic settings`、选题决策层、`paper-project` 三者边界。
 - [x] `02-architecture.md` 已内嵌 LLM 自审契约（common envelope + 三份 template 关键字段）及与 EvidenceMap-core / ValidatedNeed / TopicValueAssessment 的对应关系。
 - [x] 新任务已注册到项目治理索引并可通过 `sync/lint` 校验。
-- [x] `TOPIC_REPOSITORY=prisma` 已有真实仓储实现，不再 fallback 到 memory。
+- [x] `TITLE_CARD_REPOSITORY=prisma` 已有真实仓储实现，不再 fallback 到 memory。
 - [x] topic-management canonical write paths 以 nested routes 为准，OpenAPI/API-INDEX 已同步。
 - [x] service/controller 错误语义已切换到 `AppError`，topic/profile/literature/cross-record 引用约束返回 `400 / 404 / 409 / 422`。
 - [x] `CreateNeedReviewRequest` 已允许缺省 `evidence_review_refs`，并用测试覆盖 v1 契约。

@@ -21,4 +21,6 @@ Fastify backend for research lifecycle governance.
 - Test command: `pnpm --filter @paper-engineering-assistant/backend test`
 - Repository strategy:
   - default: `RESEARCH_LIFECYCLE_REPOSITORY=memory`
+  - title-card override: `TITLE_CARD_REPOSITORY=memory|prisma`
+  - application settings override: `APPLICATION_SETTINGS_REPOSITORY=memory|prisma`
   - Postgres/Prisma: `RESEARCH_LIFECYCLE_REPOSITORY=prisma` (requires `DATABASE_URL` and applied migrations)

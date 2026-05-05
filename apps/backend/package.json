@@ -13,8 +13,8 @@
     "prisma:validate": "prisma validate --schema ../../prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema ../../prisma/schema.prisma",
     "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts",
-    "pipeline:backfill": "node scripts/backfill-literature-pipeline.mjs",
-    "pipeline:backfill-embedding-mapping": "node scripts/backfill-embedding-version-mapping.mjs"
+    "content-processing:backfill": "node scripts/backfill-literature-content-processing.mjs",
+    "content-processing:backfill-embedding-mapping": "node scripts/backfill-embedding-version-mapping.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

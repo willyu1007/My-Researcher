@@ -2,7 +2,7 @@ import type { ValueAssessmentDTO } from '@paper-engineering-assistant/shared/res
 
 export interface PaperProjectGateway {
   createPaperProject(input: {
-    topic_id: string;
+    title_card_id: string;
     title: string;
     research_direction?: string;
     created_by: 'human' | 'hybrid';

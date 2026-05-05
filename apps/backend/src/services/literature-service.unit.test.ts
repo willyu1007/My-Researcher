@@ -6,12 +6,13 @@ import { LiteratureService } from './literature-service.js';
 import { ResearchLifecycleService } from './research-lifecycle-service.js';
 
 test('import deduplicates by DOI across providers', async () => {
+  const repository = new InMemoryLiteratureRepository();
   const literatureService = new LiteratureService(
-    new InMemoryLiteratureRepository(),
+    repository,
     new InMemoryResearchLifecycleRepository(),
   );
 
-  const first = await literatureService.import({
+  const first = await literatureService.collectionImport({
     items: [
       {
         provider: 'crossref',
@@ -25,7 +26,7 @@ test('import deduplicates by DOI across providers', async () => {
     ],
   });
 
-  const second = await literatureService.import({
+  const second = await literatureService.collectionImport({
     items: [
       {
         provider: 'arxiv',
@@ -46,6 +47,58 @@ test('import deduplicates by DOI across providers', async () => {
   assert.equal(second.results[0]?.is_new, false);
   assert.equal(second.results[0]?.matched_by, 'doi');
   assert.equal(second.results[0]?.literature_id, first.results[0]?.literature_id);
+
+  const literatureId = first.results[0]?.literature_id;
+  assert.ok(literatureId);
+  const runs = await repository.listPipelineRunsByLiteratureId(literatureId);
+  assert.equal(runs.length, 0);
+});
+
+test('zotero collection import does not enqueue content-processing runs', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const literatureService = new LiteratureService(
+    repository,
+    new InMemoryResearchLifecycleRepository(),
+  );
+  const previousFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => ({
+    ok: true,
+    json: async () => [
+      {
+        key: 'ZOTERO-UNIT-1',
+        data: {
+          title: 'Zotero Collection Boundary Paper',
+          creators: [{ firstName: 'Ada', lastName: 'Lovelace' }],
+          date: '2026',
+          DOI: '10.1000/zotero-boundary',
+          url: 'https://example.com/zotero-boundary',
+          abstractNote: 'Collected abstract.',
+          tags: [{ tag: 'zotero' }],
+        },
+      },
+    ],
+  }) as unknown as Response) as typeof fetch;
+
+  try {
+    const imported = await literatureService.zoteroCollectionImport({
+      library_type: 'users',
+      library_id: '123456',
+      topic_id: 'TOPIC-ZOTERO-BOUNDARY',
+      scope_status: 'in_scope',
+      tags: ['seed'],
+    });
+
+    assert.equal(imported.imported_count, 1);
+    assert.equal(imported.scope_upserted_count, 1);
+    const literatureId = imported.results[0]?.literature_id;
+    assert.ok(literatureId);
+
+    const runs = await repository.listPipelineRunsByLiteratureId(literatureId);
+    assert.equal(runs.length, 0);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 });
 
 test('topic scope can sync into paper literature links', async () => {
@@ -54,7 +107,7 @@ test('topic scope can sync into paper literature links', async () => {
   const lifecycleService = new ResearchLifecycleService(researchRepository);
 
   const paper = await lifecycleService.createPaperProject({
-    topic_id: 'TOPIC-LIT-UNIT-1',
+    title_card_id: 'title_card_lit_unit_1',
     title: 'Literature Link Paper',
     created_by: 'human',
     initial_context: {
@@ -62,7 +115,7 @@ test('topic scope can sync into paper literature links', async () => {
     },
   });
 
-  const imported = await literatureService.import({
+  const imported = await literatureService.collectionImport({
     items: [
       {
         provider: 'crossref',
@@ -107,7 +160,7 @@ test('paper literature link status can be updated', async () => {
   const lifecycleService = new ResearchLifecycleService(researchRepository);
 
   const paper = await lifecycleService.createPaperProject({
-    topic_id: 'TOPIC-LIT-UNIT-2',
+    title_card_id: 'title_card_lit_unit_2',
     title: 'Citation Status Paper',
     created_by: 'human',
     initial_context: {
@@ -115,7 +168,7 @@ test('paper literature link status can be updated', async () => {
     },
   });
 
-  const imported = await literatureService.import({
+  const imported = await literatureService.collectionImport({
     items: [
       {
         provider: 'arxiv',
@@ -158,7 +211,7 @@ test('literature overview includes summary and metadata updates', async () => {
   const lifecycleService = new ResearchLifecycleService(researchRepository);
 
   const paper = await lifecycleService.createPaperProject({
-    topic_id: 'TOPIC-LIT-UNIT-OVERVIEW',
+    title_card_id: 'title_card_lit_unit_overview',
     title: 'Overview Paper',
     created_by: 'human',
     initial_context: {
@@ -166,7 +219,7 @@ test('literature overview includes summary and metadata updates', async () => {
     },
   });
 
-  const imported = await literatureService.import({
+  const imported = await literatureService.collectionImport({
     items: [
       {
         provider: 'manual',
@@ -236,6 +289,8 @@ test('literature overview includes summary and metadata updates', async () => {
   assert.deepEqual(firstItem.tags, ['dataset', 'benchmark']);
   assert.equal(firstItem.rights_class, 'OA');
   assert.equal(firstItem.citation_status, 'cited');
+  assert.equal(firstItem.content_processing_state.abstract_ready, true);
+  assert.equal(firstItem.content_processing_state.indexed, false);
 });
 
 test('metadata update rejects duplicate dedup keys', async () => {
@@ -244,7 +299,7 @@ test('metadata update rejects duplicate dedup keys', async () => {
     new InMemoryResearchLifecycleRepository(),
   );
 
-  const imported = await literatureService.import({
+  const imported = await literatureService.collectionImport({
     items: [
       {
         provider: 'manual',

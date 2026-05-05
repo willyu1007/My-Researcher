@@ -10,6 +10,7 @@ import type {
   LiteratureEmbeddingVersionRecord,
   LiteratureRepository,
 } from '../repositories/literature-repository.js';
+import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 
 type RetrievalProfile = {
   provider: string;
@@ -27,7 +28,10 @@ type ScoredChunk = {
 };
 
 export class LiteratureRetrievalService {
-  constructor(private readonly repository: LiteratureRepository) {}
+  constructor(
+    private readonly repository: LiteratureRepository,
+    private readonly settingsService?: LiteratureContentProcessingSettingsService,
+  ) {}
 
   async retrieve(request: LiteratureRetrieveRequest): Promise<LiteratureRetrieveResponse> {
     const query = request.query.trim();
@@ -202,49 +206,49 @@ export class LiteratureRetrievalService {
       return this.buildLocalEmbeddingVector(query, dimension);
     }
 
-    const config = this.resolveExternalEmbeddingConfig();
+    if (profile.provider !== 'openai') {
+      throw new Error(`unsupported embedding provider ${profile.provider}`);
+    }
+
+    const config = await this.settingsService?.resolveOpenAIEmbeddingConfig();
     if (!config) {
-      throw new Error('external embedding endpoint is not configured');
+      throw new Error('OpenAI embedding API key is not configured');
     }
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      Authorization: `Bearer ${config.apiKey}`,
     };
-    if (config.apiKey) {
-      headers.Authorization = `Bearer ${config.apiKey}`;
+
+    const body: Record<string, unknown> = {
+      model: profile.model,
+      input: query,
+      encoding_format: 'float',
+    };
+    const requestedDimensions = profile.dimension > 0 ? profile.dimension : config.dimensions;
+    if (requestedDimensions !== null) {
+      body.dimensions = requestedDimensions;
     }
 
-    const response = await fetch(config.endpoint, {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        model: profile.model,
-        inputs: [query],
-      }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
-      throw new Error(`external embedding request failed with status ${response.status}`);
+      throw new Error(`OpenAI embedding request failed with status ${response.status}`);
     }
 
     const payload = (await response.json()) as Record<string, unknown>;
     const vector = this.readSingleEmbeddingVector(payload);
     if (vector.length === 0) {
-      throw new Error('external embedding response does not include usable vector');
+      throw new Error('OpenAI embedding response does not include usable vector');
     }
     if (profile.dimension > 0 && vector.length !== profile.dimension) {
       throw new Error(`vector dimension mismatch: expected ${profile.dimension}, got ${vector.length}`);
     }
     return vector;
-  }
-
-  private resolveExternalEmbeddingConfig(): { endpoint: string; apiKey: string | null } | null {
-    const endpoint = (process.env.LITERATURE_PIPELINE_EMBEDDING_URL ?? '').trim();
-    if (!endpoint) {
-      return null;
-    }
-    const apiKey = (process.env.LITERATURE_PIPELINE_EMBEDDING_API_KEY ?? '').trim() || null;
-    return { endpoint, apiKey };
   }
 
   private readSingleEmbeddingVector(payload: Record<string, unknown>): number[] {

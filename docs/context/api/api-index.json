@@ -1,14 +1,15 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-25T03:58:47.013Z",
+  "generatedAt": "2026-05-05T00:05:16.523Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "8563d0355ac8707ca4713d540db6ab279669d3369ab32fb7778a5955934df85e",
+  "sourceChecksumSha256": "194d5b2bfb92a8d3f800845fb9243928c91a0dcbf60ae2edc655df36dfa02928",
   "stats": {
-    "totalEndpoints": 65,
+    "totalEndpoints": 67,
     "byTag": {
       "health": 1,
       "research-lifecycle": 8,
       "literature": 15,
+      "settings": 2,
       "topic-settings": 3,
       "auto-pull": 10,
       "title-card-management": 28
@@ -50,7 +51,7 @@
         "query": [],
         "body": {
           "required": [
-            "topic_id",
+            "title_card_id",
             "title",
             "created_by",
             "initial_context"
@@ -76,7 +77,7 @@
         500
       ],
       "example": {
-        "curl": "curl -X POST '/paper-projects' -H 'Content-Type: application/json' -d '{\"topic_id\":\"<topic_id>\",\"title\":\"<title>\",\"created_by\":\"<created_by>\",\"initial_context\":\"<initial_context>\"}'"
+        "curl": "curl -X POST '/paper-projects' -H 'Content-Type: application/json' -d '{\"title_card_id\":\"<title_card_id>\",\"title\":\"<title>\",\"created_by\":\"<created_by>\",\"initial_context\":\"<initial_context>\"}'"
       }
     },
     {
@@ -337,8 +338,8 @@
     },
     {
       "method": "POST",
-      "path": "/literature/import",
-      "operationId": "importLiterature",
+      "path": "/literature/collections/import",
+      "operationId": "importLiteratureCollection",
       "summary": "Import literature items into repository.",
       "tag": "literature",
       "auth": "none",
@@ -364,13 +365,13 @@
         500
       ],
       "example": {
-        "curl": "curl -X POST '/literature/import' -H 'Content-Type: application/json' -d '{\"items\":\"<items>\"}'"
+        "curl": "curl -X POST '/literature/collections/import' -H 'Content-Type: application/json' -d '{\"items\":\"<items>\"}'"
       }
     },
     {
       "method": "POST",
-      "path": "/literature/zotero-import",
-      "operationId": "importLiteratureFromZotero",
+      "path": "/literature/collections/zotero-import",
+      "operationId": "importLiteratureCollectionFromZotero",
       "summary": "Import literature from Zotero library.",
       "tag": "literature",
       "auth": "none",
@@ -409,13 +410,13 @@
         502
       ],
       "example": {
-        "curl": "curl -X POST '/literature/zotero-import' -H 'Content-Type: application/json' -d '{\"library_type\":\"<library_type>\",\"library_id\":\"<library_id>\"}'"
+        "curl": "curl -X POST '/literature/collections/zotero-import' -H 'Content-Type: application/json' -d '{\"library_type\":\"<library_type>\",\"library_id\":\"<library_id>\"}'"
       }
     },
     {
       "method": "POST",
-      "path": "/literature/zotero-preview",
-      "operationId": "previewLiteratureFromZotero",
+      "path": "/literature/collections/zotero-preview",
+      "operationId": "previewLiteratureCollectionFromZotero",
       "summary": "Fetch Zotero literature candidates for manual review table.",
       "tag": "literature",
       "auth": "none",
@@ -452,7 +453,7 @@
         502
       ],
       "example": {
-        "curl": "curl -X POST '/literature/zotero-preview' -H 'Content-Type: application/json' -d '{\"library_type\":\"<library_type>\",\"library_id\":\"<library_id>\"}'"
+        "curl": "curl -X POST '/literature/collections/zotero-preview' -H 'Content-Type: application/json' -d '{\"library_type\":\"<library_type>\",\"library_id\":\"<library_id>\"}'"
       }
     },
     {
@@ -776,9 +777,9 @@
     },
     {
       "method": "GET",
-      "path": "/literature/{literatureId}/pipeline",
-      "operationId": "getLiteraturePipeline",
-      "summary": "Get pipeline aggregate state and stage states for a literature.",
+      "path": "/literature/{literatureId}/content-processing",
+      "operationId": "getLiteratureContentProcessing",
+      "summary": "Get content-processing aggregate state and stage states for a literature.",
       "tag": "literature",
       "auth": "none",
       "input": {
@@ -801,14 +802,14 @@
         500
       ],
       "example": {
-        "curl": "curl -X GET '/literature/{literatureId}/pipeline'"
+        "curl": "curl -X GET '/literature/{literatureId}/content-processing'"
       }
     },
     {
       "method": "GET",
-      "path": "/literature/{literatureId}/pipeline/runs",
-      "operationId": "listLiteraturePipelineRuns",
-      "summary": "List pipeline runs for one literature.",
+      "path": "/literature/{literatureId}/content-processing/runs",
+      "operationId": "listLiteratureContentProcessingRuns",
+      "summary": "List content-processing runs for one literature.",
       "tag": "literature",
       "auth": "none",
       "input": {
@@ -832,14 +833,14 @@
         500
       ],
       "example": {
-        "curl": "curl -X GET '/literature/{literatureId}/pipeline/runs'"
+        "curl": "curl -X GET '/literature/{literatureId}/content-processing/runs'"
       }
     },
     {
       "method": "POST",
-      "path": "/literature/{literatureId}/pipeline/runs",
-      "operationId": "createLiteraturePipelineRun",
-      "summary": "Trigger a pipeline run for one literature.",
+      "path": "/literature/{literatureId}/content-processing/runs",
+      "operationId": "createLiteratureContentProcessingRun",
+      "summary": "Trigger a content-processing run for one literature.",
       "tag": "literature",
       "auth": "none",
       "input": {
@@ -866,7 +867,71 @@
         500
       ],
       "example": {
-        "curl": "curl -X POST '/literature/{literatureId}/pipeline/runs'"
+        "curl": "curl -X POST '/literature/{literatureId}/content-processing/runs'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/settings/literature-content-processing",
+      "operationId": "getLiteratureContentProcessingSettings",
+      "summary": "Get redacted provider, embedding profile, and storage root settings for literature content processing.",
+      "tag": "settings",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "providers",
+          "embedding",
+          "storage_roots",
+          "updated_at"
+        ]
+      },
+      "errors": [
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/settings/literature-content-processing'"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/settings/literature-content-processing",
+      "operationId": "updateLiteratureContentProcessingSettings",
+      "summary": "Update provider API key, embedding profile, and storage root settings for literature content processing.",
+      "tag": "settings",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": [
+            "providers",
+            "embedding",
+            "storage_roots"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "providers",
+          "embedding",
+          "storage_roots",
+          "updated_at"
+        ]
+      },
+      "errors": [
+        400,
+        500
+      ],
+      "example": {
+        "curl": "curl -X PATCH '/settings/literature-content-processing'"
       }
     },
     {
