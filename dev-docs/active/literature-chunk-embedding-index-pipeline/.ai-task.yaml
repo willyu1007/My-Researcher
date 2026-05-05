@@ -2,7 +2,7 @@ version: 1
 task_id: T-035
 project: main
 slug: literature-chunk-embedding-index-pipeline
-status: planned
+status: done
 updated: "2026-05-05"
 keywords:
   - literature

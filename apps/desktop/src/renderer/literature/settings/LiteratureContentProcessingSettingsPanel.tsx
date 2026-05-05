@@ -4,6 +4,7 @@ import { asRecord, toText } from '../shared/normalizers';
 import type {
   LiteratureContentProcessingSettings,
   LiteratureEmbeddingProfileId,
+  LiteratureExtractionProfileId,
   UiOperationStatus,
 } from '../shared/types';
 
@@ -40,12 +41,15 @@ function emptyStorageRootForm(): StorageRootForm {
 function normalizeSettings(payload: unknown): LiteratureContentProcessingSettings | null {
   const root = asRecord(payload);
   const embedding = asRecord(root?.embedding);
+  const extraction = asRecord(root?.extraction);
   const storageRoots = asRecord(root?.storage_roots);
   const providersRaw = Array.isArray(root?.providers) ? root.providers : [];
   const profilesRaw = Array.isArray(embedding?.profiles) ? embedding.profiles : [];
+  const extractionProfilesRaw = Array.isArray(extraction?.profiles) ? extraction.profiles : [];
   const activeProfileId = toText(embedding?.active_profile_id);
+  const activeExtractionProfileId = toText(extraction?.active_profile_id);
 
-  if (!root || !embedding || !storageRoots) {
+  if (!root || !embedding || !extraction || !storageRoots) {
     return null;
   }
 
@@ -70,6 +74,17 @@ function normalizeSettings(payload: unknown): LiteratureContentProcessingSetting
           dimensions: typeof item.dimensions === 'number' ? item.dimensions : null,
         })),
     },
+    extraction: {
+      active_profile_id: activeExtractionProfileId === 'high_accuracy' ? 'high_accuracy' : 'default',
+      profiles: extractionProfilesRaw
+        .map((item) => asRecord(item))
+        .filter((item): item is Record<string, unknown> => item !== null)
+        .map((item) => ({
+          profile_id: toText(item.profile_id) === 'high_accuracy' ? 'high_accuracy' : 'default',
+          provider: 'openai',
+          model: toText(item.model) ?? '',
+        })),
+    },
     storage_roots: {
       raw_files: toText(storageRoots.raw_files) ?? null,
       normalized_text: toText(storageRoots.normalized_text) ?? null,
@@ -87,6 +102,7 @@ export function LiteratureContentProcessingSettingsPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState<string>('');
   const [activeProfileId, setActiveProfileId] = useState<LiteratureEmbeddingProfileId>('default');
+  const [activeExtractionProfileId, setActiveExtractionProfileId] = useState<LiteratureExtractionProfileId>('default');
   const [storageRootForm, setStorageRootForm] = useState<StorageRootForm>(() => emptyStorageRootForm());
 
   const loadSettings = async () => {
@@ -103,6 +119,7 @@ export function LiteratureContentProcessingSettingsPanel() {
       }
       setSettings(normalized);
       setActiveProfileId(normalized.embedding.active_profile_id);
+      setActiveExtractionProfileId(normalized.extraction.active_profile_id);
       setStorageRootForm({
         raw_files: normalized.storage_roots.raw_files ?? '',
         normalized_text: normalized.storage_roots.normalized_text ?? '',
@@ -145,6 +162,9 @@ export function LiteratureContentProcessingSettingsPanel() {
           embedding: {
             active_profile_id: activeProfileId,
           },
+          extraction: {
+            active_profile_id: activeExtractionProfileId,
+          },
           storage_roots: storageRoots,
         },
       });
@@ -186,7 +206,7 @@ export function LiteratureContentProcessingSettingsPanel() {
           </button>
         </div>
 
-        <div data-ui="grid" data-columns="3" data-gap="2">
+        <div data-ui="grid" data-columns="4" data-gap="2">
           <label data-ui="field">
             <span data-ui="label">OpenAI API key</span>
             <input
@@ -206,6 +226,17 @@ export function LiteratureContentProcessingSettingsPanel() {
             >
               <option value="default">large</option>
               <option value="economy">small</option>
+            </select>
+          </label>
+          <label data-ui="field">
+            <span data-ui="label">Extraction profile</span>
+            <select
+              data-ui="select"
+              value={activeExtractionProfileId}
+              onChange={(event) => setActiveExtractionProfileId(event.target.value === 'high_accuracy' ? 'high_accuracy' : 'default')}
+            >
+              <option value="default">gpt-5-mini</option>
+              <option value="high_accuracy">gpt-5.2</option>
             </select>
           </label>
           <div data-ui="cluster" data-align="end" data-gap="2">

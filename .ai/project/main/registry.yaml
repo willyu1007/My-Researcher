@@ -352,28 +352,28 @@ tasks:
     updated: 2026-05-05
   - id: T-033
     slug: literature-content-assets-fulltext-preprocessing
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-content-assets-fulltext-preprocessing
     updated: 2026-05-05
   - id: T-034
     slug: literature-key-content-extraction-v1
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-key-content-extraction-v1
     updated: 2026-05-05
   - id: T-035
     slug: literature-chunk-embedding-index-pipeline
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-chunk-embedding-index-pipeline
     updated: 2026-05-05
   - id: T-036
     slug: literature-retrieve-stale-trigger-ui
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-retrieve-stale-trigger-ui
@@ -394,7 +394,7 @@ tasks:
     updated: 2026-05-05
   - id: T-039
     slug: literature-citation-abstract-readiness
-    status: planned
+    status: done
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-citation-abstract-readiness

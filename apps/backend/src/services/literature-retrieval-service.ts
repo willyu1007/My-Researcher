@@ -1,6 +1,6 @@
-import crypto from 'node:crypto';
 import type {
   LiteratureRetrieveHit,
+  LiteratureRetrieveProfileId,
   LiteratureRetrieveRequest,
   LiteratureRetrieveResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
@@ -18,6 +18,13 @@ type RetrievalProfile = {
   dimension: number;
 };
 
+type RetrievalProfileConfig = {
+  vectorWeight: number;
+  lexicalWeight: number;
+  metadataWeight: number;
+  chunkBoosts: Record<string, number>;
+};
+
 type ScoredChunk = {
   literatureId: string;
   embeddingVersionId: string;
@@ -25,6 +32,54 @@ type ScoredChunk = {
   hybridScore: number;
   vectorScore: number;
   lexicalScore: number;
+  metadataScore: number;
+  profileBoost: number;
+  isStale: boolean;
+  warnings: string[];
+};
+
+const RETRIEVAL_PROFILE_CONFIGS: Record<LiteratureRetrieveProfileId, RetrievalProfileConfig> = {
+  general: {
+    vectorWeight: 0.6,
+    lexicalWeight: 0.3,
+    metadataWeight: 0.1,
+    chunkBoosts: {
+      abstract: 0.06,
+      semantic_dossier: 0.05,
+      evidence: 0.04,
+    },
+  },
+  topic_exploration: {
+    vectorWeight: 0.55,
+    lexicalWeight: 0.25,
+    metadataWeight: 0.2,
+    chunkBoosts: {
+      semantic_dossier: 0.12,
+      abstract: 0.08,
+      evidence: 0.06,
+    },
+  },
+  paper_management: {
+    vectorWeight: 0.45,
+    lexicalWeight: 0.4,
+    metadataWeight: 0.15,
+    chunkBoosts: {
+      abstract: 0.1,
+      fulltext_section: 0.08,
+      fulltext_paragraph: 0.05,
+    },
+  },
+  writing_evidence: {
+    vectorWeight: 0.55,
+    lexicalWeight: 0.25,
+    metadataWeight: 0.2,
+    chunkBoosts: {
+      evidence: 0.16,
+      fulltext_paragraph: 0.1,
+      figure: 0.08,
+      table: 0.08,
+    },
+  },
 };
 
 export class LiteratureRetrievalService {
@@ -40,6 +95,8 @@ export class LiteratureRetrievalService {
     }
 
     const queryTokens = this.tokenize(query);
+    const profileId = this.normalizeProfile(request.profile);
+    const profileConfig = RETRIEVAL_PROFILE_CONFIGS[profileId];
     const topK = this.normalizeRange(request.top_k, 10, 1, 30);
     const evidencePerLiterature = this.normalizeRange(request.evidence_per_literature, 3, 1, 5);
 
@@ -48,7 +105,10 @@ export class LiteratureRetrievalService {
       return {
         items: [],
         meta: {
+          profile: profileId,
           query_tokens: queryTokens,
+          degraded_mode: false,
+          freshness_warnings: [],
           profiles_used: [],
           skipped_profiles: [],
         },
@@ -58,17 +118,21 @@ export class LiteratureRetrievalService {
     const literatureIds = [...new Set(candidateVersions.map((version) => version.literatureId))];
     const literatures = await this.repository.listLiteraturesByIds(literatureIds);
     const literatureTitleById = new Map(literatures.map((item) => [item.id, item.title]));
+    const staleWarnings = await this.resolveFreshnessWarnings(literatureIds, candidateVersions);
+    const staleByVersionId = new Map(staleWarnings.map((warning) => [warning.embedding_version_id, warning]));
 
     const profileBuckets = this.groupVersionsByProfile(candidateVersions);
     const skippedProfiles: LiteratureRetrieveResponse['meta']['skipped_profiles'] = [];
     const profilesUsed: LiteratureRetrieveResponse['meta']['profiles_used'] = [];
     const scoredChunks: ScoredChunk[] = [];
+    let degradedMode = false;
 
     for (const bucket of profileBuckets.values()) {
-      let queryVector: number[];
+      let queryVector: number[] | null = null;
       try {
         queryVector = await this.embedQueryByProfile(query, bucket.profile);
       } catch (error) {
+        degradedMode = true;
         const reason = error instanceof Error ? error.message : 'embedding query failed';
         skippedProfiles.push({
           provider: bucket.profile.provider,
@@ -76,7 +140,6 @@ export class LiteratureRetrievalService {
           dimension: bucket.profile.dimension,
           reason,
         });
-        continue;
       }
 
       const chunks = await this.repository.listEmbeddingChunksByEmbeddingVersionIds(
@@ -93,21 +156,30 @@ export class LiteratureRetrievalService {
       }
 
       const versionById = new Map(bucket.versions.map((version) => [version.id, version]));
-      profilesUsed.push({
-        provider: bucket.profile.provider,
-        model: bucket.profile.model,
-        dimension: bucket.profile.dimension,
-        literature_count: bucket.versions.length,
-      });
+      if (queryVector) {
+        profilesUsed.push({
+          provider: bucket.profile.provider,
+          model: bucket.profile.model,
+          dimension: bucket.profile.dimension,
+          literature_count: bucket.versions.length,
+        });
+      }
 
       for (const chunk of chunks) {
         const version = versionById.get(chunk.embeddingVersionId);
         if (!version) {
           continue;
         }
-        const vectorScore = this.normalizedCosine(queryVector, chunk.vector);
+        const vectorScore = queryVector ? this.normalizedCosine(queryVector, chunk.vector) : 0;
         const lexicalScore = this.lexicalScore(queryTokens, chunk.text);
-        const hybridScore = this.toScore((vectorScore * 0.7) + (lexicalScore * 0.3));
+        const profileBoost = profileConfig.chunkBoosts[chunk.chunkType] ?? 0;
+        const metadataScore = this.metadataScore(queryTokens, chunk, profileBoost);
+        const hybridScore = this.toScore(
+          (vectorScore * profileConfig.vectorWeight)
+          + (lexicalScore * profileConfig.lexicalWeight)
+          + (metadataScore * profileConfig.metadataWeight),
+        );
+        const staleWarning = staleByVersionId.get(version.id);
         scoredChunks.push({
           literatureId: version.literatureId,
           embeddingVersionId: version.id,
@@ -115,11 +187,15 @@ export class LiteratureRetrievalService {
           hybridScore,
           vectorScore,
           lexicalScore,
+          metadataScore,
+          profileBoost,
+          isStale: Boolean(staleWarning),
+          warnings: staleWarning ? [staleWarning.reason_message] : [],
         });
       }
     }
 
-    const hits = this.buildHits(scoredChunks, literatureTitleById, evidencePerLiterature)
+    const hits = this.buildHits(scoredChunks, literatureTitleById, evidencePerLiterature, profileId)
       .sort((left, right) => {
         if (right.hybrid_score !== left.hybrid_score) {
           return right.hybrid_score - left.hybrid_score;
@@ -131,7 +207,10 @@ export class LiteratureRetrievalService {
     return {
       items: hits,
       meta: {
+        profile: profileId,
         query_tokens: queryTokens,
+        degraded_mode: degradedMode,
+        freshness_warnings: staleWarnings,
         profiles_used: profilesUsed,
         skipped_profiles: skippedProfiles,
       },
@@ -175,6 +254,32 @@ export class LiteratureRetrievalService {
     return this.repository.listActiveEmbeddingVersionsByLiteratureIds(finalIds);
   }
 
+  private async resolveFreshnessWarnings(
+    literatureIds: string[],
+    versions: LiteratureEmbeddingVersionRecord[],
+  ): Promise<LiteratureRetrieveResponse['meta']['freshness_warnings']> {
+    const stageStates = await this.repository.listPipelineStageStatesByLiteratureIds(literatureIds);
+    const indexedStateByLiterature = new Map(
+      stageStates
+        .filter((stage) => stage.stageCode === 'INDEXED')
+        .map((stage) => [stage.literatureId, stage]),
+    );
+    return versions.flatMap((version) => {
+      const stage = indexedStateByLiterature.get(version.literatureId);
+      if (stage?.status !== 'STALE') {
+        return [];
+      }
+      return [{
+        literature_id: version.literatureId,
+        embedding_version_id: version.id,
+        reason_code: typeof stage.detail.reason_code === 'string' ? stage.detail.reason_code : 'INDEX_STALE',
+        reason_message: typeof stage.detail.reason_message === 'string'
+          ? stage.detail.reason_message
+          : 'Active index is stale and may not reflect latest content.',
+      }];
+    });
+  }
+
   private groupVersionsByProfile(versions: LiteratureEmbeddingVersionRecord[]): Map<string, {
     profile: RetrievalProfile;
     versions: LiteratureEmbeddingVersionRecord[];
@@ -201,11 +306,6 @@ export class LiteratureRetrievalService {
   }
 
   private async embedQueryByProfile(query: string, profile: RetrievalProfile): Promise<number[]> {
-    if (profile.provider === 'local') {
-      const dimension = profile.dimension > 0 ? profile.dimension : 16;
-      return this.buildLocalEmbeddingVector(query, dimension);
-    }
-
     if (profile.provider !== 'openai') {
       throw new Error(`unsupported embedding provider ${profile.provider}`);
     }
@@ -277,6 +377,7 @@ export class LiteratureRetrievalService {
     scoredChunks: ScoredChunk[],
     literatureTitleById: Map<string, string>,
     evidencePerLiterature: number,
+    profileId: LiteratureRetrieveProfileId,
   ): LiteratureRetrieveHit[] {
     const byLiterature = new Map<string, ScoredChunk[]>();
     for (const chunk of scoredChunks) {
@@ -303,17 +404,29 @@ export class LiteratureRetrievalService {
         literature_id: literatureId,
         title: literatureTitleById.get(literatureId) ?? `Literature ${literatureId}`,
         embedding_version_id: best.embeddingVersionId,
+        retrieval_profile: profileId,
+        is_stale: evidenceRows.some((row) => row.isStale),
+        warnings: [...new Set(evidenceRows.flatMap((row) => row.warnings))],
         hybrid_score: best.hybridScore,
         vector_score: best.vectorScore,
         lexical_score: best.lexicalScore,
         evidence_chunks: evidenceRows.map((row) => ({
           chunk_id: row.chunk.chunkId,
+          chunk_type: row.chunk.chunkType,
           text: row.chunk.text,
           start_offset: row.chunk.startOffset,
           end_offset: row.chunk.endOffset,
+          source_refs: row.chunk.sourceRefs,
+          metadata: row.chunk.metadata,
           hybrid_score: row.hybridScore,
           vector_score: row.vectorScore,
           lexical_score: row.lexicalScore,
+          score_breakdown: {
+            vector: row.vectorScore,
+            lexical: row.lexicalScore,
+            metadata: row.metadataScore,
+            profile_boost: row.profileBoost,
+          },
         })),
       });
     }
@@ -331,6 +444,20 @@ export class LiteratureRetrievalService {
     }
     const matchedCount = queryTokens.filter((token) => tokenSet.has(token)).length;
     return this.toScore(matchedCount / queryTokens.length);
+  }
+
+  private metadataScore(
+    queryTokens: string[],
+    chunk: LiteratureEmbeddingChunkRecord,
+    profileBoost: number,
+  ): number {
+    const metadataText = JSON.stringify({
+      chunk_type: chunk.chunkType,
+      metadata: chunk.metadata,
+      source_refs: chunk.sourceRefs,
+    });
+    const lexical = this.lexicalScore(queryTokens, metadataText);
+    return this.toScore(Math.min(1, profileBoost + lexical));
   }
 
   private normalizedCosine(left: number[], right: number[]): number {
@@ -365,20 +492,15 @@ export class LiteratureRetrievalService {
     )];
   }
 
-  private buildLocalEmbeddingVector(text: string, dimension: number): number[] {
-    const digest = crypto.createHash('sha256').update(text).digest();
-    return Array.from({ length: dimension }, (_, index) => {
-      const byte = digest[index % digest.length] ?? 0;
-      const normalized = (byte / 255) * 2 - 1;
-      return Number(normalized.toFixed(6));
-    });
-  }
-
   private normalizeRange(value: number | undefined, fallback: number, min: number, max: number): number {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return fallback;
     }
     return Math.max(min, Math.min(max, Math.trunc(value)));
+  }
+
+  private normalizeProfile(value: LiteratureRetrieveProfileId | undefined): LiteratureRetrieveProfileId {
+    return value && value in RETRIEVAL_PROFILE_CONFIGS ? value : 'general';
   }
 
   private toScore(value: number): number {

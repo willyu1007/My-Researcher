@@ -79,6 +79,10 @@ model LiteratureRecord {
   createdAt                DateTime                        @db.Timestamptz(6)
   updatedAt                DateTime                        @db.Timestamptz(6)
   sources                  LiteratureSource[]
+  citationProfile          LiteratureCitationProfile?
+  abstractProfile          LiteratureAbstractProfile?
+  contentAssets            LiteratureContentAsset[]
+  fulltextDocuments        LiteratureFulltextDocument[]
   topicScopes              TopicLiteratureScope[]
   paperLinks               PaperLiteratureLink[]
   pipelineState            LiteraturePipelineState?
@@ -108,6 +112,155 @@ model LiteratureSource {
 
   @@unique([provider, sourceItemId])
   @@index([literatureId])
+}
+
+model LiteratureCitationProfile {
+  id                    String           @id
+  literatureId          String           @unique
+  normalizedDoi         String?
+  normalizedArxivId     String?
+  normalizedTitle       String
+  normalizedAuthors     String[]         @default([])
+  parsedYear            Int?
+  normalizedSourceUrl   String?
+  titleAuthorsYearHash  String?
+  citationComplete      Boolean          @default(false)
+  incompleteReasonCodes String[]         @default([])
+  sourceRefs            Json             @default("[]")
+  inputChecksum         String
+  confidence            Float            @default(0)
+  createdAt             DateTime         @db.Timestamptz(6)
+  updatedAt             DateTime         @db.Timestamptz(6)
+  literature            LiteratureRecord @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@index([citationComplete])
+  @@index([normalizedDoi])
+  @@index([normalizedArxivId])
+  @@index([titleAuthorsYearHash])
+}
+
+model LiteratureAbstractProfile {
+  id             String           @id
+  literatureId   String           @unique
+  abstractText   String?
+  abstractSource String?
+  sourceRef      Json             @default("{}")
+  checksum       String?
+  language       String?
+  confidence     Float            @default(0)
+  reasonCodes    String[]         @default([])
+  generated      Boolean          @default(false)
+  createdAt      DateTime         @db.Timestamptz(6)
+  updatedAt      DateTime         @db.Timestamptz(6)
+  literature     LiteratureRecord @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+
+  @@index([abstractSource])
+  @@index([generated])
+}
+
+model LiteratureContentAsset {
+  id               String                      @id
+  literatureId     String
+  assetKind        String
+  sourceKind       String
+  localPath        String
+  checksum         String
+  mimeType         String
+  byteSize         Int
+  rightsClass      String
+  status           String
+  metadata         Json                        @default("{}")
+  createdAt        DateTime                    @db.Timestamptz(6)
+  updatedAt        DateTime                    @db.Timestamptz(6)
+  literature       LiteratureRecord            @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  fulltextDocument LiteratureFulltextDocument?
+
+  @@unique([literatureId, localPath])
+  @@index([literatureId, assetKind, status])
+  @@index([checksum])
+}
+
+model LiteratureFulltextDocument {
+  id                     String                        @id
+  literatureId           String
+  sourceAssetId          String                        @unique
+  normalizedText         String
+  normalizedTextChecksum String
+  parserName             String
+  parserVersion          String
+  status                 String
+  diagnostics            Json                          @default("[]")
+  createdAt              DateTime                      @db.Timestamptz(6)
+  updatedAt              DateTime                      @db.Timestamptz(6)
+  literature             LiteratureRecord              @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  sourceAsset            LiteratureContentAsset        @relation(fields: [sourceAssetId], references: [id], onDelete: Cascade)
+  sections               LiteratureFulltextSection[]
+  paragraphs             LiteratureFulltextParagraph[]
+  anchors                LiteratureFulltextAnchor[]
+
+  @@index([literatureId, status])
+  @@index([normalizedTextChecksum])
+}
+
+model LiteratureFulltextSection {
+  id          String                     @id
+  documentId  String
+  sectionId   String
+  title       String
+  level       Int
+  orderIndex  Int
+  startOffset Int
+  endOffset   Int
+  pageStart   Int?
+  pageEnd     Int?
+  checksum    String
+  createdAt   DateTime                   @db.Timestamptz(6)
+  updatedAt   DateTime                   @db.Timestamptz(6)
+  document    LiteratureFulltextDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, sectionId])
+  @@index([documentId, orderIndex])
+}
+
+model LiteratureFulltextParagraph {
+  id          String                     @id
+  documentId  String
+  paragraphId String
+  sectionId   String
+  orderIndex  Int
+  text        String
+  startOffset Int
+  endOffset   Int
+  pageNumber  Int?
+  checksum    String
+  confidence  Float                      @default(1)
+  createdAt   DateTime                   @db.Timestamptz(6)
+  updatedAt   DateTime                   @db.Timestamptz(6)
+  document    LiteratureFulltextDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, paragraphId])
+  @@index([documentId, orderIndex])
+  @@index([documentId, sectionId])
+}
+
+model LiteratureFulltextAnchor {
+  id         String                     @id
+  documentId String
+  anchorId   String
+  anchorType String
+  label      String?
+  text       String?
+  pageNumber Int?
+  bbox       Json?
+  targetRefs Json                       @default("[]")
+  metadata   Json                       @default("{}")
+  checksum   String?
+  createdAt  DateTime                   @db.Timestamptz(6)
+  updatedAt  DateTime                   @db.Timestamptz(6)
+  document   LiteratureFulltextDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, anchorId])
+  @@index([documentId, anchorType])
 }
 
 model TopicLiteratureScope {
@@ -223,24 +376,33 @@ model LiteraturePipelineArtifact {
 }
 
 model LiteratureEmbeddingVersion {
-  id           String                          @id
-  literatureId String
-  versionNo    Int
-  provider     String
-  model        String
-  dimension    Int
-  chunkCount   Int
-  vectorCount  Int
-  tokenCount   Int
-  createdAt    DateTime                        @db.Timestamptz(6)
-  updatedAt    DateTime                        @db.Timestamptz(6)
-  literature   LiteratureRecord                @relation("LiteratureEmbeddingVersionOwner", fields: [literatureId], references: [id], onDelete: Cascade)
-  activeFor    LiteratureRecord[]              @relation("ActiveEmbeddingVersion")
-  chunks       LiteratureEmbeddingChunk[]
-  tokenIndexes LiteratureEmbeddingTokenIndex[]
+  id                        String                          @id
+  literatureId              String
+  versionNo                 Int
+  status                    String                          @default("READY")
+  profileId                 String?
+  provider                  String
+  model                     String
+  dimension                 Int
+  chunkCount                Int
+  vectorCount               Int
+  tokenCount                Int
+  inputChecksum             String?
+  chunkArtifactChecksum     String?
+  embeddingArtifactChecksum String?
+  indexArtifactChecksum     String?
+  indexedAt                 DateTime?                       @db.Timestamptz(6)
+  activatedAt               DateTime?                       @db.Timestamptz(6)
+  createdAt                 DateTime                        @db.Timestamptz(6)
+  updatedAt                 DateTime                        @db.Timestamptz(6)
+  literature                LiteratureRecord                @relation("LiteratureEmbeddingVersionOwner", fields: [literatureId], references: [id], onDelete: Cascade)
+  activeFor                 LiteratureRecord[]              @relation("ActiveEmbeddingVersion")
+  chunks                    LiteratureEmbeddingChunk[]
+  tokenIndexes              LiteratureEmbeddingTokenIndex[]
 
   @@unique([literatureId, versionNo])
   @@index([literatureId, createdAt])
+  @@index([literatureId, status])
   @@index([provider, model, dimension])
 }
 
@@ -253,6 +415,10 @@ model LiteratureEmbeddingChunk {
   text               String
   startOffset        Int
   endOffset          Int
+  chunkType          String                     @default("fulltext_paragraph")
+  sourceRefs         Json                       @default("[]")
+  metadata           Json                       @default("{}")
+  contentChecksum    String?
   vector             Json
   createdAt          DateTime                   @db.Timestamptz(6)
   updatedAt          DateTime                   @db.Timestamptz(6)
@@ -262,6 +428,7 @@ model LiteratureEmbeddingChunk {
   @@unique([embeddingVersionId, chunkId])
   @@index([embeddingVersionId, chunkIndex])
   @@index([literatureId, chunkId])
+  @@index([literatureId, chunkType])
 }
 
 model LiteratureEmbeddingTokenIndex {

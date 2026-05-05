@@ -44,11 +44,8 @@ export function MetadataIntakePanel({
   }
 
   const title = controller.literatureTitle || literatureId || '未命名文献';
-  const keyContentText = controller.keyContentDigestInput.trim();
   const abstractText = controller.abstractInput.trim();
-  const vectorizePreview = keyContentText.length > 0
-    ? keyContentText
-    : abstractText;
+  const vectorizePreview = abstractText;
   const isSaving = controller.status === 'saving';
   const canInlineSave = activeTab === 'abstract'
     ? controller.hasAbstractChanges
@@ -181,7 +178,7 @@ export function MetadataIntakePanel({
                 className={`metadata-intake-tab${activeTab === 'key-content' ? ' is-active' : ''}`}
                 onClick={() => setActiveTab('key-content')}
               >
-                重点内容
+                展示短摘要
               </button>
               <button
                 id="metadata-intake-tab-vectorize"
@@ -271,7 +268,7 @@ export function MetadataIntakePanel({
                 rows={6}
                 value={controller.keyContentDigestInput}
                 onChange={(event) => controller.handleKeyContentDigestInputChange(event.target.value)}
-                placeholder="可手动录入重点内容，支持多行。"
+                placeholder="用于列表展示的短摘要，可留空。"
                 disabled={controller.status === 'loading' || controller.status === 'saving'}
               />
             </section>

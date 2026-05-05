@@ -1,7 +1,14 @@
 import type {
+  LiteratureAbstractProfileRecord,
+  LiteratureCitationProfileRecord,
+  LiteratureContentAssetRecord,
   LiteratureEmbeddingChunkRecord,
   LiteratureEmbeddingTokenIndexRecord,
   LiteratureEmbeddingVersionRecord,
+  LiteratureFulltextAnchorRecord,
+  LiteratureFulltextDocumentRecord,
+  LiteratureFulltextParagraphRecord,
+  LiteratureFulltextSectionRecord,
   LiteraturePipelineArtifactRecord,
   LiteraturePipelineRunRecord,
   LiteraturePipelineRunStepRecord,
@@ -18,6 +25,15 @@ export function asRecord(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return {};
+}
+
+function asRecordArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => (item && typeof item === 'object' && !Array.isArray(item) ? item as Record<string, unknown> : null))
+    .filter((item): item is Record<string, unknown> => item !== null);
 }
 
 export function toLiteratureRecord(row: {
@@ -73,6 +89,230 @@ export function toSourceRecord(row: {
     sourceUrl: row.sourceUrl,
     rawPayload: asRecord(row.rawPayload),
     fetchedAt: row.fetchedAt.toISOString(),
+  };
+}
+
+export function toCitationProfileRecord(row: {
+  id: string;
+  literatureId: string;
+  normalizedDoi: string | null;
+  normalizedArxivId: string | null;
+  normalizedTitle: string;
+  normalizedAuthors: string[];
+  parsedYear: number | null;
+  normalizedSourceUrl: string | null;
+  titleAuthorsYearHash: string | null;
+  citationComplete: boolean;
+  incompleteReasonCodes: string[];
+  sourceRefs: unknown;
+  inputChecksum: string;
+  confidence: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureCitationProfileRecord {
+  return {
+    id: row.id,
+    literatureId: row.literatureId,
+    normalizedDoi: row.normalizedDoi,
+    normalizedArxivId: row.normalizedArxivId,
+    normalizedTitle: row.normalizedTitle,
+    normalizedAuthors: row.normalizedAuthors,
+    parsedYear: row.parsedYear,
+    normalizedSourceUrl: row.normalizedSourceUrl,
+    titleAuthorsYearHash: row.titleAuthorsYearHash,
+    citationComplete: row.citationComplete,
+    incompleteReasonCodes: row.incompleteReasonCodes,
+    sourceRefs: asRecordArray(row.sourceRefs),
+    inputChecksum: row.inputChecksum,
+    confidence: row.confidence,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toAbstractProfileRecord(row: {
+  id: string;
+  literatureId: string;
+  abstractText: string | null;
+  abstractSource: string | null;
+  sourceRef: unknown;
+  checksum: string | null;
+  language: string | null;
+  confidence: number;
+  reasonCodes: string[];
+  generated: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureAbstractProfileRecord {
+  return {
+    id: row.id,
+    literatureId: row.literatureId,
+    abstractText: row.abstractText,
+    abstractSource: row.abstractSource,
+    sourceRef: asRecord(row.sourceRef),
+    checksum: row.checksum,
+    language: row.language,
+    confidence: row.confidence,
+    reasonCodes: row.reasonCodes,
+    generated: row.generated,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toContentAssetRecord(row: {
+  id: string;
+  literatureId: string;
+  assetKind: string;
+  sourceKind: string;
+  localPath: string;
+  checksum: string;
+  mimeType: string;
+  byteSize: number;
+  rightsClass: string;
+  status: string;
+  metadata: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureContentAssetRecord {
+  return {
+    id: row.id,
+    literatureId: row.literatureId,
+    assetKind: row.assetKind as LiteratureContentAssetRecord['assetKind'],
+    sourceKind: row.sourceKind as LiteratureContentAssetRecord['sourceKind'],
+    localPath: row.localPath,
+    checksum: row.checksum,
+    mimeType: row.mimeType,
+    byteSize: row.byteSize,
+    rightsClass: row.rightsClass as LiteratureContentAssetRecord['rightsClass'],
+    status: row.status as LiteratureContentAssetRecord['status'],
+    metadata: asRecord(row.metadata),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toFulltextDocumentRecord(row: {
+  id: string;
+  literatureId: string;
+  sourceAssetId: string;
+  normalizedText: string;
+  normalizedTextChecksum: string;
+  parserName: string;
+  parserVersion: string;
+  status: string;
+  diagnostics: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureFulltextDocumentRecord {
+  return {
+    id: row.id,
+    literatureId: row.literatureId,
+    sourceAssetId: row.sourceAssetId,
+    normalizedText: row.normalizedText,
+    normalizedTextChecksum: row.normalizedTextChecksum,
+    parserName: row.parserName,
+    parserVersion: row.parserVersion,
+    status: row.status as LiteratureFulltextDocumentRecord['status'],
+    diagnostics: asRecordArray(row.diagnostics),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toFulltextSectionRecord(row: {
+  id: string;
+  documentId: string;
+  sectionId: string;
+  title: string;
+  level: number;
+  orderIndex: number;
+  startOffset: number;
+  endOffset: number;
+  pageStart: number | null;
+  pageEnd: number | null;
+  checksum: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureFulltextSectionRecord {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    sectionId: row.sectionId,
+    title: row.title,
+    level: row.level,
+    orderIndex: row.orderIndex,
+    startOffset: row.startOffset,
+    endOffset: row.endOffset,
+    pageStart: row.pageStart,
+    pageEnd: row.pageEnd,
+    checksum: row.checksum,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toFulltextParagraphRecord(row: {
+  id: string;
+  documentId: string;
+  paragraphId: string;
+  sectionId: string;
+  orderIndex: number;
+  text: string;
+  startOffset: number;
+  endOffset: number;
+  pageNumber: number | null;
+  checksum: string;
+  confidence: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureFulltextParagraphRecord {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    paragraphId: row.paragraphId,
+    sectionId: row.sectionId,
+    orderIndex: row.orderIndex,
+    text: row.text,
+    startOffset: row.startOffset,
+    endOffset: row.endOffset,
+    pageNumber: row.pageNumber,
+    checksum: row.checksum,
+    confidence: row.confidence,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toFulltextAnchorRecord(row: {
+  id: string;
+  documentId: string;
+  anchorId: string;
+  anchorType: string;
+  label: string | null;
+  text: string | null;
+  pageNumber: number | null;
+  bbox: unknown;
+  targetRefs: unknown;
+  metadata: unknown;
+  checksum: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): LiteratureFulltextAnchorRecord {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    anchorId: row.anchorId,
+    anchorType: row.anchorType,
+    label: row.label,
+    text: row.text,
+    pageNumber: row.pageNumber,
+    bbox: row.bbox === null ? null : asRecord(row.bbox),
+    targetRefs: asRecordArray(row.targetRefs),
+    metadata: asRecord(row.metadata),
+    checksum: row.checksum,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
@@ -238,12 +478,20 @@ export function toEmbeddingVersionRecord(row: {
   id: string;
   literatureId: string;
   versionNo: number;
+  status: string;
+  profileId: string | null;
   provider: string;
   model: string;
   dimension: number;
   chunkCount: number;
   vectorCount: number;
   tokenCount: number;
+  inputChecksum: string | null;
+  chunkArtifactChecksum: string | null;
+  embeddingArtifactChecksum: string | null;
+  indexArtifactChecksum: string | null;
+  indexedAt: Date | null;
+  activatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): LiteratureEmbeddingVersionRecord {
@@ -251,12 +499,20 @@ export function toEmbeddingVersionRecord(row: {
     id: row.id,
     literatureId: row.literatureId,
     versionNo: row.versionNo,
+    status: row.status,
+    profileId: row.profileId,
     provider: row.provider,
     model: row.model,
     dimension: row.dimension,
     chunkCount: row.chunkCount,
     vectorCount: row.vectorCount,
     tokenCount: row.tokenCount,
+    inputChecksum: row.inputChecksum,
+    chunkArtifactChecksum: row.chunkArtifactChecksum,
+    embeddingArtifactChecksum: row.embeddingArtifactChecksum,
+    indexArtifactChecksum: row.indexArtifactChecksum,
+    indexedAt: row.indexedAt?.toISOString() ?? null,
+    activatedAt: row.activatedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -271,6 +527,10 @@ export function toEmbeddingChunkRecord(row: {
   text: string;
   startOffset: number;
   endOffset: number;
+  chunkType: string;
+  sourceRefs: unknown;
+  metadata: unknown;
+  contentChecksum: string | null;
   vector: unknown;
   createdAt: Date;
   updatedAt: Date;
@@ -288,6 +548,16 @@ export function toEmbeddingChunkRecord(row: {
     text: row.text,
     startOffset: row.startOffset,
     endOffset: row.endOffset,
+    chunkType: row.chunkType,
+    sourceRefs: Array.isArray(row.sourceRefs)
+      ? row.sourceRefs.filter((item): item is Record<string, unknown> =>
+          Boolean(item) && typeof item === 'object' && !Array.isArray(item),
+        )
+      : [],
+    metadata: row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
+      ? row.metadata as Record<string, unknown>
+      : {},
+    contentChecksum: row.contentChecksum,
     vector,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-05-05T00:05:16.523Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `194d5b2bfb92...`)
+> Auto-generated at 2026-05-05T02:12:08.510Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `1a2766ce9343...`)
 
-Total endpoints: **67**
+Total endpoints: **69**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -28,11 +28,13 @@ Total endpoints: **67**
 | PATCH | /paper-projects/{id}/literature-links/{linkId} | Update citation status or note of a paper literature link. | none | id, linkId | paper_id, item | 400, 404, 500 |
 | GET | /literature/{literatureId}/metadata | Get editable metadata fields of one literature. | none | literatureId | literature_id, title, abstract, key_content_digest, updated_at | 404, 500 |
 | PATCH | /literature/{literatureId}/metadata | Update literature metadata fields. | none | literatureId | literature_id, title, abstract, key_content_digest, authors, year, doi, arxiv_id, rights_class, tags, updated_at | 400, 404, 409, 500 |
+| GET | /literature/{literatureId}/content-assets | List local content assets registered for one literature. | none | literatureId | literature_id, items | 404, 500 |
+| POST | /literature/{literatureId}/content-assets | Register a local literature content asset reference. | none | local_path | item | 400, 404, 500 |
 | GET | /literature/{literatureId}/content-processing | Get content-processing aggregate state and stage states for a literature. | none | literatureId | literature_id, state, stage_states | 404, 500 |
 | GET | /literature/{literatureId}/content-processing/runs | List content-processing runs for one literature. | none | literatureId | literature_id, items | 404, 500 |
 | POST | /literature/{literatureId}/content-processing/runs | Trigger a content-processing run for one literature. | none | literatureId | run | 400, 404, 500 |
-| GET | /settings/literature-content-processing | Get redacted provider, embedding profile, and storage root settings for literature content processing. | none | — | providers, embedding, storage_roots, updated_at | 500 |
-| PATCH | /settings/literature-content-processing | Update provider API key, embedding profile, and storage root settings for literature content processing. | none | — | providers, embedding, storage_roots, updated_at | 400, 500 |
+| GET | /settings/literature-content-processing | Get redacted provider, extraction profile, embedding profile, and storage root settings for literature content processing. | none | — | providers, embedding, extraction, storage_roots, updated_at | 500 |
+| PATCH | /settings/literature-content-processing | Update provider API key, extraction profile, embedding profile, and storage root settings for literature content processing. | none | — | providers, embedding, extraction, storage_roots, updated_at | 400, 500 |
 | GET | /topics/settings | List topic profiles. | none | — | items | 500 |
 | POST | /topics/settings | Create a topic profile. | none | topic_id, name | topic_id, name, is_active, include_keywords, exclude_keywords, venue_filters, default_lookback_days, default_min_year, default_max_year, rule_ids, created_at, updated_at | 400, 409, 500 |
 | PATCH | /topics/settings/{topicId} | Update a topic profile. | none | topicId | topic_id, name, is_active, include_keywords, exclude_keywords, venue_filters, default_lookback_days, default_min_year, default_max_year, rule_ids, created_at, updated_at | 400, 404, 500 |

@@ -1,9 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: planned
+- State: done
 - Parent: `T-030 literature-content-processing-landing-roadmap`
-- Next step: inventory existing citation/abstract extraction behavior and decide whether provenance fields need DB SSOT changes.
+- Next step: hand off fulltext-derived abstract consumption and downstream source refs to `T-033`/`T-034`.
 
 ## Goal
 - Make `CITATION_NORMALIZED` and `ABSTRACT_READY` implementation-ready as the trusted early content-processing stages.
@@ -24,8 +24,8 @@
 - Tests and fixtures for normalized citation and abstract readiness.
 
 ## Acceptance Criteria
-- `CITATION_NORMALIZED` is produced by deterministic backend/script logic and records normalized identity outputs.
-- `ABSTRACT_READY` stores a trustworthy abstract payload with provenance and source references.
-- Generated summaries, if present, are marked as generated and are not used as original abstract evidence by default.
-- Citation or abstract edits refresh state/action availability and stale downstream stages without auto-enqueueing a run.
-- Downstream stages can consume citation and abstract artifacts through stable contracts.
+- [x] `CITATION_NORMALIZED` is produced by deterministic backend/script logic and records normalized identity outputs.
+- [x] `ABSTRACT_READY` stores a trustworthy abstract payload with provenance and source references.
+- [x] Generated summaries, if present, are marked as generated and are not used as original abstract evidence by default.
+- [x] Citation or abstract edits refresh state/action availability and stale downstream stages without auto-enqueueing a run.
+- [x] Downstream stages can consume citation and abstract artifacts through stable contracts.

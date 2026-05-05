@@ -42,11 +42,11 @@ Project: `main`
 | T-030 literature-content-processing-landing-roadmap | planned | F-000 | dev-docs/active/literature-content-processing-landing-roadmap |
 | T-031 literature-content-processing-contracts-stage-state | done | F-000 | dev-docs/active/literature-content-processing-contracts-stage-state |
 | T-032 literature-settings-provider-storage-roots | done | F-000 | dev-docs/active/literature-settings-provider-storage-roots |
-| T-033 literature-content-assets-fulltext-preprocessing | planned | F-000 | dev-docs/active/literature-content-assets-fulltext-preprocessing |
-| T-034 literature-key-content-extraction-v1 | planned | F-000 | dev-docs/active/literature-key-content-extraction-v1 |
-| T-035 literature-chunk-embedding-index-pipeline | planned | F-000 | dev-docs/active/literature-chunk-embedding-index-pipeline |
-| T-036 literature-retrieve-stale-trigger-ui | planned | F-000 | dev-docs/active/literature-retrieve-stale-trigger-ui |
+| T-033 literature-content-assets-fulltext-preprocessing | done | F-000 | dev-docs/active/literature-content-assets-fulltext-preprocessing |
+| T-034 literature-key-content-extraction-v1 | done | F-000 | dev-docs/active/literature-key-content-extraction-v1 |
+| T-035 literature-chunk-embedding-index-pipeline | done | F-000 | dev-docs/active/literature-chunk-embedding-index-pipeline |
+| T-036 literature-retrieve-stale-trigger-ui | done | F-000 | dev-docs/active/literature-retrieve-stale-trigger-ui |
 | T-037 literature-backfill-operations-workbench | planned | F-000 | dev-docs/active/literature-backfill-operations-workbench |
 | T-038 literature-content-processing-cutover-verification | planned | F-000 | dev-docs/active/literature-content-processing-cutover-verification |
-| T-039 literature-citation-abstract-readiness | planned | F-000 | dev-docs/active/literature-citation-abstract-readiness |
+| T-039 literature-citation-abstract-readiness | done | F-000 | dev-docs/active/literature-citation-abstract-readiness |
 <!-- AUTO-GENERATED:END task-index -->

@@ -24,10 +24,15 @@
 - 2026-05-05: `T-032` implementation landed. Added DB-backed `ApplicationSetting`, redacted literature content-processing settings API, desktop settings panel, OpenAI embedding profiles, storage roots, and settings-based embedding/retrieval provider access.
 - 2026-05-05: Post-implementation quality review closed drift risks: removed product-path placeholder abstract/key-content generation, tightened stale/action completion semantics, disabled desktop action fallbacks on malformed payloads, fixed content-processing backfill stage order, and removed local desktop build artifacts from the worktree.
 - 2026-05-05: Fixed an unrelated but surfaced backend scheduler test failure by normalizing `Intl.DateTimeFormat` hour `24` to `0` for UTC-midnight schedule checks.
+- 2026-05-05: `T-039` implementation landed. Citation and abstract readiness now use normalized DB profiles, deterministic citation normalization, trusted abstract provenance, checksums, confidence, reason codes, and metadata stale propagation without auto-runs.
+- 2026-05-05: `T-033` implementation landed. Added explicit content asset registration/listing, normalized fulltext tables, text/Markdown fulltext preprocessing, source-aligned sections/paragraphs/offsets/checksums, and clear missing/unsupported parser diagnostics.
+- 2026-05-05: T-039/T-033 quality pass closed dual-track risks by requiring profile-backed stage readiness for citation/abstract booleans, removing the unused abstract artifact runtime path, dropping the unimplemented non-local asset source contract, validating readable asset checksums/byte sizes, adding Markdown anchors, and cleaning test temp artifacts.
+- 2026-05-05: `T-034` implementation landed. `KEY_CONTENT_READY` now writes `KEY_CONTENT_DOSSIER` (`key_content.v1` / `paper_semantic_dossier.v1`) from OpenAI Structured Outputs, validates source refs against abstract/fulltext anchors, preserves `user_edited` entries, and keeps `keyContentDigest` as display-only.
+- 2026-05-05: `T-035` implementation landed. Added embedding lifecycle DB fields, flat classified chunks, OpenAI embedding-only normal path, inactive `READY` versions at `EMBEDDED`, and same-version activation at `INDEXED` after smoke checks.
+- 2026-05-05: `T-036` implementation landed. Retrieve profiles now support `general`, `topic_exploration`, `paper_management`, and `writing_evidence`; retrieval returns provenance, degraded-mode metadata, and stale freshness warnings; desktop overview surfaces stale reasons without auto-running processing.
 
 ## Open Decisions
-- Exact JSON schema field types and validation implementation for `key_content.v1`.
-- Chunk token budget, overlap, local vector index engine, ANN parameters, retrieve profile weights/rerank policy, and superseded version cleanup policy.
+- Larger-corpus tuning remains open: chunk token budget/overlap, local ANN parameters, rerank/diversity policy, and superseded version cleanup policy.
 - Batch queue engine, default concurrency, budget configuration, provider rate-limit handling, and cleanup retention windows.
 - UI/API shape for content-processing workbench and rerun recovery.
-- Detailed implementation decisions inside each child package, including DB SSOT scope and final acceptance commands.
+- Final cutover acceptance, old-path search, and any remaining compatibility cleanup remain owned by `T-038`.

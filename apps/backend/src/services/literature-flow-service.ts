@@ -25,6 +25,8 @@ import type {
 } from '../repositories/literature-repository.js';
 import { LiteratureFlowArtifactRuntime } from './literature-flow/literature-flow-artifact-runtime.js';
 import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
+import { LiteratureAbstractReadinessService } from './literature-abstract-readiness-service.js';
+import { LiteratureCitationNormalizationService } from './literature-citation-normalization-service.js';
 import { OverviewStatusResolver, type OverviewStatusResolverInput } from './overview-status-resolver.js';
 import { PipelineOrchestrator, type StageExecutionContext, type StageExecutionResult } from './pipeline-orchestrator.js';
 
@@ -77,11 +79,15 @@ export class LiteratureFlowService {
   private readonly overviewStatusResolver = new OverviewStatusResolver();
   private readonly pipelineOrchestrator: PipelineOrchestrator;
   private readonly artifactRuntime: LiteratureFlowArtifactRuntime;
+  private readonly citationNormalizationService: LiteratureCitationNormalizationService;
+  private readonly abstractReadinessService: LiteratureAbstractReadinessService;
 
   constructor(
     private readonly repository: LiteratureRepository,
     settingsService?: LiteratureContentProcessingSettingsService,
   ) {
+    this.citationNormalizationService = new LiteratureCitationNormalizationService(repository);
+    this.abstractReadinessService = new LiteratureAbstractReadinessService(repository);
     this.artifactRuntime = new LiteratureFlowArtifactRuntime(repository, {
       refreshPipelineState: async (literatureId) => this.refreshPipelineState(literatureId),
       settingsService,
@@ -107,6 +113,36 @@ export class LiteratureFlowService {
     const state = await this.refreshPipelineState(literatureId);
     const stageStates = await this.repository.listPipelineStageStatesByLiteratureId(literatureId);
     return this.toPipelineStateDTO(state, stageStates);
+  }
+
+  async markStagesStale(input: {
+    literatureId: string;
+    stages: LiteratureContentProcessingStageCode[];
+    reasonCode: string;
+    reasonMessage: string;
+  }): Promise<void> {
+    await this.ensurePipelineScaffold(input.literatureId);
+    const uniqueStages = this.sortStageCodes([...new Set(input.stages)]);
+    const existingStages = await this.repository.listPipelineStageStatesByLiteratureId(input.literatureId);
+    const stageByCode = new Map(existingStages.map((stage) => [stage.stageCode, stage]));
+    const now = new Date().toISOString();
+    for (const stageCode of uniqueStages) {
+      const existing = stageByCode.get(stageCode);
+      if (!existing || (existing.status !== 'SUCCEEDED' && existing.status !== 'STALE')) {
+        continue;
+      }
+      await this.repository.upsertPipelineStageState({
+        ...existing,
+        status: 'STALE',
+        detail: {
+          ...existing.detail,
+          reason_code: input.reasonCode,
+          reason_message: input.reasonMessage,
+          stale_at: now,
+        },
+        updatedAt: now,
+      });
+    }
   }
 
   async triggerContentProcessingRun(
@@ -337,40 +373,71 @@ export class LiteratureFlowService {
     const state = await this.refreshPipelineState(context.literatureId);
 
     if (context.stageCode === 'CITATION_NORMALIZED') {
+      const sources = await this.repository.listSourcesByLiteratureId(context.literatureId);
+      const profile = await this.citationNormalizationService.normalizeAndPersist(literature, sources);
+      await this.refreshPipelineState(context.literatureId);
+      const profileRef = {
+        citation_profile_id: profile.id,
+        normalized_doi: profile.normalizedDoi,
+        normalized_arxiv_id: profile.normalizedArxivId,
+        normalized_title: profile.normalizedTitle,
+        normalized_authors: profile.normalizedAuthors,
+        parsed_year: profile.parsedYear,
+        normalized_source_url: profile.normalizedSourceUrl,
+        title_authors_year_hash: profile.titleAuthorsYearHash,
+        citation_complete: profile.citationComplete,
+        incomplete_reason_codes: profile.incompleteReasonCodes,
+        source_refs: profile.sourceRefs,
+        input_checksum: profile.inputChecksum,
+        confidence: profile.confidence,
+      };
       return {
         status: 'SUCCEEDED',
         detail: {
           stage_code: context.stageCode,
-          citation_complete: state.citationComplete,
+          ...profileRef,
         },
-        outputRef: {
-          citation_complete: state.citationComplete,
-        },
+        outputRef: profileRef,
       };
     }
 
     if (context.stageCode === 'ABSTRACT_READY') {
-      const abstractResult = await this.artifactRuntime.ensureAbstractReady(literature);
-      if (!abstractResult.abstractReady) {
-        return this.blockedResult(
-          context.stageCode,
-          'ABSTRACT_SOURCE_MISSING',
-          'A trusted abstract source is required before ABSTRACT_READY can complete.',
-        );
+      const sources = await this.repository.listSourcesByLiteratureId(context.literatureId);
+      const profile = await this.abstractReadinessService.resolveAndPersist(literature, sources);
+      await this.refreshPipelineState(context.literatureId);
+      const profileRef = {
+        abstract_profile_id: profile.id,
+        abstract_ready: this.abstractReadinessService.isReady(profile),
+        generated: profile.generated,
+        source: profile.abstractSource,
+        source_ref: profile.sourceRef,
+        checksum: profile.checksum,
+        language: profile.language,
+        confidence: profile.confidence,
+        reason_codes: profile.reasonCodes,
+      };
+      if (!this.abstractReadinessService.isReady(profile)) {
+        const reasonMessage = 'A trusted abstract source is required before ABSTRACT_READY can complete.';
+        return {
+          status: 'BLOCKED',
+          detail: {
+            stage_code: context.stageCode,
+            reason_code: 'ABSTRACT_SOURCE_MISSING',
+            reason_message: reasonMessage,
+            ...profileRef,
+          },
+          outputRef: profileRef,
+          errorCode: 'ABSTRACT_SOURCE_MISSING',
+          errorMessage: reasonMessage,
+        };
       }
       return {
         status: 'SUCCEEDED',
         detail: {
           stage_code: context.stageCode,
-          abstract_ready: abstractResult.abstractReady,
-          generated: abstractResult.generated,
-          source: abstractResult.source,
+          ...profileRef,
         },
-        outputRef: {
-          abstract_ready: abstractResult.abstractReady,
-          generated: abstractResult.generated,
-          source: abstractResult.source,
-        },
+        outputRef: profileRef,
       };
     }
 
@@ -382,27 +449,48 @@ export class LiteratureFlowService {
     }
 
     if (context.stageCode === 'FULLTEXT_PREPROCESSED') {
-      if (!state.abstractReady) {
+      if (!state.abstractReady || !(await this.isStageUsable(context.literatureId, 'ABSTRACT_READY'))) {
         return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'ABSTRACT_READY stage is required first.');
       }
       const preprocessed = await this.artifactRuntime.ensureFulltextPreprocessed(literature);
+      if (!preprocessed.ready) {
+        return this.blockedResult(
+          context.stageCode,
+          preprocessed.reasonCode,
+          preprocessed.reasonMessage,
+          preprocessed.diagnostics,
+        );
+      }
       return {
         status: 'SUCCEEDED',
         detail: {
           stage_code: context.stageCode,
           artifact_type: preprocessed.artifactType,
           text_length: preprocessed.textLength,
+          document_id: preprocessed.documentId,
+          source_asset_id: preprocessed.sourceAssetId,
+          normalized_text_checksum: preprocessed.normalizedTextChecksum,
+          section_count: preprocessed.sectionCount,
+          paragraph_count: preprocessed.paragraphCount,
+          anchor_count: preprocessed.anchorCount,
+          diagnostics: preprocessed.diagnostics,
         },
         outputRef: {
           artifact_id: preprocessed.id,
           artifact_type: preprocessed.artifactType,
+          document_id: preprocessed.documentId,
+          source_asset_id: preprocessed.sourceAssetId,
+          normalized_text_checksum: preprocessed.normalizedTextChecksum,
         },
       };
     }
 
     if (context.stageCode === 'KEY_CONTENT_READY') {
-      if (!state.abstractReady) {
+      if (!state.abstractReady || !(await this.isStageUsable(context.literatureId, 'ABSTRACT_READY'))) {
         return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'ABSTRACT_READY stage is required first.');
+      }
+      if (!(await this.isStageUsable(context.literatureId, 'FULLTEXT_PREPROCESSED'))) {
+        return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'FULLTEXT_PREPROCESSED stage is required first.');
       }
       const preprocessed = await this.repository.findPipelineArtifact(
         context.literatureId,
@@ -416,8 +504,9 @@ export class LiteratureFlowService {
       if (!digestResult.keyContentReady) {
         return this.blockedResult(
           context.stageCode,
-          'KEY_CONTENT_SOURCE_MISSING',
-          'A user-entered or extracted key-content source is required before KEY_CONTENT_READY can complete.',
+          digestResult.reasonCode,
+          digestResult.reasonMessage,
+          digestResult.diagnostics,
         );
       }
       return {
@@ -425,11 +514,19 @@ export class LiteratureFlowService {
         detail: {
           stage_code: context.stageCode,
           key_content_ready: digestResult.keyContentReady,
+          readiness_status: digestResult.readinessStatus,
+          artifact_id: digestResult.artifactId,
+          checksum: digestResult.checksum,
           generated: digestResult.generated,
           source: digestResult.source,
+          diagnostics: digestResult.diagnostics,
         },
         outputRef: {
+          artifact_id: digestResult.artifactId,
+          artifact_type: 'KEY_CONTENT_DOSSIER',
           key_content_ready: digestResult.keyContentReady,
+          readiness_status: digestResult.readinessStatus,
+          checksum: digestResult.checksum,
           generated: digestResult.generated,
           source: digestResult.source,
         },
@@ -437,6 +534,9 @@ export class LiteratureFlowService {
     }
 
     if (context.stageCode === 'CHUNKED') {
+      if (!(await this.isStageUsable(context.literatureId, 'KEY_CONTENT_READY'))) {
+        return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'KEY_CONTENT_READY stage is required first.');
+      }
       const preprocessed = await this.repository.findPipelineArtifact(
         context.literatureId,
         'FULLTEXT_PREPROCESSED',
@@ -463,40 +563,55 @@ export class LiteratureFlowService {
     }
 
     if (context.stageCode === 'EMBEDDED') {
+      if (!(await this.isStageUsable(context.literatureId, 'CHUNKED'))) {
+        return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'CHUNKED stage is required first.');
+      }
       const chunkArtifact = await this.repository.findPipelineArtifact(context.literatureId, 'CHUNKED', 'CHUNKS');
       if (!chunkArtifact) {
         return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'CHUNKED artifact is required first.');
       }
       const embedded = await this.artifactRuntime.ensureEmbedded(context.literatureId, chunkArtifact);
-      const vectorCount = Array.isArray(embedded.payload.vectors)
-        ? embedded.payload.vectors.length
+      if (!embedded.ready) {
+        return this.blockedResult(
+          context.stageCode,
+          embedded.reasonCode,
+          embedded.reasonMessage,
+          embedded.diagnostics,
+        );
+      }
+      const vectorCount = Array.isArray(embedded.artifact.payload.vectors)
+        ? embedded.artifact.payload.vectors.length
         : 0;
       const embeddingVersion = await this.artifactRuntime.persistEmbeddingVersionSnapshot({
         literatureId: context.literatureId,
         chunkArtifact,
-        embeddedArtifact: embedded,
-        activate: false,
+        embeddedArtifact: embedded.artifact,
       });
       return {
         status: 'SUCCEEDED',
         detail: {
           stage_code: context.stageCode,
-          embedding_provider: embedded.payload.provider,
+          embedding_provider: embedded.artifact.payload.provider,
           vector_count: vectorCount,
           embedding_version_id: embeddingVersion.id,
+          embedding_version_status: embeddingVersion.status,
           activated: false,
         },
         outputRef: {
-          artifact_id: embedded.id,
+          artifact_id: embedded.artifact.id,
           vector_count: vectorCount,
-          embedding_provider: embedded.payload.provider,
+          embedding_provider: embedded.artifact.payload.provider,
           embedding_version_id: embeddingVersion.id,
+          embedding_version_status: embeddingVersion.status,
           activated: false,
         },
       };
     }
 
     if (context.stageCode === 'INDEXED') {
+      if (!(await this.isStageUsable(context.literatureId, 'EMBEDDED'))) {
+        return this.blockedResult(context.stageCode, 'PREREQUISITE_NOT_READY', 'EMBEDDED stage is required first.');
+      }
       const embedded = await this.repository.findPipelineArtifact(context.literatureId, 'EMBEDDED', 'EMBEDDINGS');
       const chunked = await this.repository.findPipelineArtifact(context.literatureId, 'CHUNKED', 'CHUNKS');
       if (!embedded || !chunked) {
@@ -504,12 +619,11 @@ export class LiteratureFlowService {
       }
       const indexed = await this.artifactRuntime.ensureIndexed(context.literatureId, chunked, embedded);
       const tokenCount = typeof indexed.payload.token_count === 'number' ? indexed.payload.token_count : 0;
-      const embeddingVersion = await this.artifactRuntime.persistEmbeddingVersionSnapshot({
+      const embeddingVersion = await this.artifactRuntime.activateLatestReadyEmbeddingVersion({
         literatureId: context.literatureId,
         chunkArtifact: chunked,
         embeddedArtifact: embedded,
-        tokenToChunkIds: this.artifactRuntime.readTokenToChunkIds(indexed),
-        activate: true,
+        indexedArtifact: indexed,
       });
       return {
         status: 'SUCCEEDED',
@@ -572,8 +686,19 @@ export class LiteratureFlowService {
       throw new AppError(404, 'NOT_FOUND', `Literature ${literatureId} not found.`);
     }
 
-    const sources = await this.repository.listSourcesByLiteratureId(literatureId);
-    const signals = this.deriveSignals(literature, sources.map((source) => source.sourceUrl));
+    const [sources, citationProfile, abstractProfile, stageStates, keyContentArtifact] = await Promise.all([
+      this.repository.listSourcesByLiteratureId(literatureId),
+      this.repository.findCitationProfileByLiteratureId(literatureId),
+      this.repository.findAbstractProfileByLiteratureId(literatureId),
+      this.repository.listPipelineStageStatesByLiteratureId(literatureId),
+      this.repository.findPipelineArtifact(literatureId, 'KEY_CONTENT_READY', 'KEY_CONTENT_DOSSIER'),
+    ]);
+    const keyContentStageStatus = stageStates.find((stage) => stage.stageCode === 'KEY_CONTENT_READY')?.status ?? 'NOT_STARTED';
+    const keyContentReady = Boolean(keyContentArtifact && this.isArtifactPresentStatus(keyContentStageStatus));
+    const signals = this.deriveSignals(literature, sources.map((source) => source.sourceUrl), {
+      citationComplete: citationProfile?.citationComplete ?? false,
+      abstractReady: abstractProfile ? this.abstractReadinessService.isReady(abstractProfile) : false,
+    });
     const existing = await this.repository.findPipelineStateByLiteratureId(literatureId);
     const now = new Date().toISOString();
 
@@ -582,7 +707,7 @@ export class LiteratureFlowService {
       literatureId,
       citationComplete: signals.citationComplete,
       abstractReady: signals.abstractReady,
-      keyContentReady: signals.keyContentReady,
+      keyContentReady,
       dedupStatus: dedupStatusOverride ?? existing?.dedupStatus ?? 'unknown',
       updatedAt: now,
     });
@@ -590,7 +715,11 @@ export class LiteratureFlowService {
     return upserted.record;
   }
 
-  private deriveSignals(literature: LiteratureRecord, sourceUrls: string[]): PipelineSignalState {
+  private deriveSignals(
+    literature: LiteratureRecord,
+    sourceUrls: string[],
+    profileOverrides: { citationComplete?: boolean; abstractReady?: boolean } = {},
+  ): PipelineSignalState {
     const hasAuthors = literature.authors.some((author) => author.trim().length > 0);
     const hasYear = typeof literature.year === 'number' && Number.isFinite(literature.year);
     const hasLocator = Boolean(
@@ -600,9 +729,9 @@ export class LiteratureFlowService {
     );
 
     return {
-      citationComplete: hasAuthors && hasYear && hasLocator,
-      abstractReady: Boolean((literature.abstractText ?? '').trim()),
-      keyContentReady: Boolean((literature.keyContentDigest ?? '').trim()),
+      citationComplete: profileOverrides.citationComplete ?? (hasAuthors && hasYear && hasLocator),
+      abstractReady: profileOverrides.abstractReady ?? Boolean((literature.abstractText ?? '').trim()),
+      keyContentReady: false,
     };
   }
 
@@ -611,9 +740,9 @@ export class LiteratureFlowService {
     stageStatusMap: LiteratureContentProcessingStageStatusMap,
   ): ExtendedPipelineSignalState {
     return {
-      citationComplete: baseState.citationComplete,
-      abstractReady: baseState.abstractReady,
-      keyContentReady: baseState.keyContentReady,
+      citationComplete: baseState.citationComplete && this.isArtifactPresentStatus(stageStatusMap.CITATION_NORMALIZED),
+      abstractReady: baseState.abstractReady && this.isArtifactPresentStatus(stageStatusMap.ABSTRACT_READY),
+      keyContentReady: baseState.keyContentReady && this.isArtifactPresentStatus(stageStatusMap.KEY_CONTENT_READY),
       fulltextPreprocessed: this.isArtifactPresentStatus(stageStatusMap.FULLTEXT_PREPROCESSED),
       chunked: this.isArtifactPresentStatus(stageStatusMap.CHUNKED),
       embedded: this.isArtifactPresentStatus(stageStatusMap.EMBEDDED),
@@ -623,6 +752,15 @@ export class LiteratureFlowService {
 
   private isArtifactPresentStatus(status: LiteratureContentProcessingStageStatus): boolean {
     return status === 'SUCCEEDED' || status === 'STALE';
+  }
+
+  private async isStageUsable(
+    literatureId: string,
+    stageCode: LiteratureContentProcessingStageCode,
+  ): Promise<boolean> {
+    const stageStates = await this.repository.listPipelineStageStatesByLiteratureId(literatureId);
+    const status = stageStates.find((stage) => stage.stageCode === stageCode)?.status ?? 'NOT_STARTED';
+    return this.isArtifactPresentStatus(status);
   }
 
   private async assertLiteratureExists(literatureId: string): Promise<void> {
@@ -760,6 +898,7 @@ export class LiteratureFlowService {
     stageCode: LiteratureContentProcessingStageCode,
     reasonCode: string,
     reasonMessage: string,
+    diagnostics: Record<string, unknown>[] = [],
   ): StageExecutionResult {
     return {
       status: 'BLOCKED',
@@ -767,6 +906,7 @@ export class LiteratureFlowService {
         stage_code: stageCode,
         reason_code: reasonCode,
         reason_message: reasonMessage,
+        ...(diagnostics.length > 0 ? { diagnostics } : {}),
       },
       inputRef: {},
       outputRef: {},

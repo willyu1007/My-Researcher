@@ -1287,10 +1287,9 @@
   - Commit D `3b9fe34`:
     - 前端新增 `Metadata Intake Panel`（独立侧栏录入）。
     - Overview 每行新增“录入内容”触发按钮，面板负责 GET/PATCH metadata、成功后关闭并刷新 overview。
-  - Commit E（本次）:
-    - 新增 `apps/backend/scripts/backfill-embedding-version-mapping.mjs`（默认 dry-run，支持 `--apply --batch-size --concurrency`）。
-    - `apps/backend/package.json` 新增 `pipeline:backfill-embedding-mapping` 脚本。
-    - dev-docs 与 verification 记录补齐。
+  - Commit E（已由 `T-035` supersede）:
+    - 旧 `apps/backend/scripts/backfill-embedding-version-mapping.mjs` 只服务早期 embedding 版本映射，已在 `T-035` 移除，避免继续暴露 local-hash/兼容映射路径。
+    - 批量回填后续统一由 `T-037 literature-backfill-operations-workbench` 复用显式 content-processing stage/run/version 语义。
 - Impact scope:
   - `prisma/schema.prisma`
   - `prisma/migrations/20260305190000_add_embedding_version_mapping/migration.sql`
@@ -1302,7 +1301,6 @@
   - `apps/backend/src/services/literature-service.ts`
   - `apps/backend/src/controllers/literature-controller.ts`
   - `apps/backend/src/routes/literature-routes.ts`
-  - `apps/backend/scripts/backfill-embedding-version-mapping.mjs`
   - `apps/backend/package.json`
   - `apps/desktop/src/renderer/literature/intake/MetadataIntakePanel.tsx`
   - `apps/desktop/src/renderer/literature/intake/useMetadataIntakeController.ts`

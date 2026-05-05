@@ -1,6 +1,84 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import test, { after } from 'node:test';
 import { buildApp } from '../app.js';
+
+const tempDirs = new Set<string>();
+
+after(async () => {
+  await Promise.all([...tempDirs].map((dir) => fs.rm(dir, { recursive: true, force: true })));
+});
+
+function mockOpenAIContentProcessing(): () => void {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const url = String(input);
+    const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+    if (url.endsWith('/v1/responses')) {
+      return new Response(JSON.stringify({
+        output_text: JSON.stringify(buildMockDossierPayload()),
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/v1/embeddings')) {
+      const rawInput = body.input;
+      const inputs = Array.isArray(rawInput) ? rawInput : [rawInput];
+      return new Response(JSON.stringify({
+        data: inputs.map((_item, index) => ({
+          index,
+          embedding: [0.1 + index / 100, 0.2, 0.3],
+        })),
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response('{}', { status: 404 });
+  }) as typeof fetch;
+
+  return () => {
+    globalThis.fetch = previousFetch;
+  };
+}
+
+function buildMockDossierPayload() {
+  const item = (id: string, type: string, statement: string) => ({
+    id,
+    type,
+    statement,
+    details: `${statement} details.`,
+    source_refs: [{ ref_type: 'paragraph', ref_id: 'para-0001' }],
+    confidence: 0.9,
+    evidence_strength: 'high',
+    notes: null,
+  });
+  return {
+    categories: {
+      research_problem: [item('rp-1', 'problem', 'The paper studies workflow evidence.')],
+      contributions: [item('contrib-1', 'contribution', 'The paper contributes route-level processing.')],
+      method: [item('method-1', 'method', 'The method uses explicit content processing.')],
+      datasets_and_benchmarks: [],
+      experiments: [],
+      key_findings: [item('finding-1', 'finding', 'The workflow preserves provenance.')],
+      limitations: [],
+      reproducibility: [],
+      related_work_positioning: [],
+      evidence_candidates: [item('evidence-1', 'evidence', 'Route-level fulltext evidence supports retrieval.')],
+      figure_insights: [],
+      table_insights: [],
+      claim_evidence_map: [item('claim-map-1', 'claim_evidence', 'Claims map to paragraph evidence.')],
+      automation_signals: [item('signal-1', 'automation', 'Useful for retrieval smoke tests.')],
+    },
+    quality_report: {
+      extraction_diagnostics: [],
+    },
+    display_digest: 'Route-level source-grounded dossier.',
+  };
+}
 
 test('GET /health returns ok', async () => {
   const app = buildApp();
@@ -25,6 +103,7 @@ test('literature content-processing settings routes redact provider API keys', a
   assert.equal(initialBody.providers[0]?.provider, 'openai');
   assert.equal(initialBody.providers[0]?.api_key_set, false);
   assert.equal(initialBody.embedding.profiles[0]?.model, 'text-embedding-3-large');
+  assert.equal(initialBody.extraction.profiles[0]?.model, 'gpt-5-mini');
 
   const patchRes = await app.inject({
     method: 'PATCH',
@@ -33,6 +112,9 @@ test('literature content-processing settings routes redact provider API keys', a
       providers: [{ provider: 'openai', api_key: 'sk-route-secret' }],
       embedding: {
         active_profile_id: 'economy',
+      },
+      extraction: {
+        active_profile_id: 'high_accuracy',
       },
       storage_roots: {
         raw_files: '/tmp/literature/raw',
@@ -49,6 +131,7 @@ test('literature content-processing settings routes redact provider API keys', a
   const patchBody = patchRes.json();
   assert.equal(patchBody.providers[0]?.api_key_set, true);
   assert.equal(patchBody.embedding.active_profile_id, 'economy');
+  assert.equal(patchBody.extraction.active_profile_id, 'high_accuracy');
   assert.equal(patchBody.storage_roots.indexes, '/tmp/literature/indexes');
 
   const getRes = await app.inject({
@@ -340,8 +423,18 @@ test('release review endpoint rejects invalid payload', async () => {
 
 test('literature workflow routes support import, topic scope, paper link sync and citation update', async () => {
   const app = buildApp();
+  const restoreFetch = mockOpenAIContentProcessing();
 
-  const createRes = await app.inject({
+  await app.inject({
+    method: 'PATCH',
+    url: '/settings/literature-content-processing',
+    payload: {
+      providers: [{ provider: 'openai', api_key: 'sk-route-content-processing' }],
+    },
+  });
+
+  try {
+    const createRes = await app.inject({
     method: 'POST',
     url: '/paper-projects',
     payload: {
@@ -487,6 +580,34 @@ test('literature workflow routes support import, topic scope, paper link sync an
   assert.equal(metadataGetBody.literature_id, literatureId);
   assert.equal(metadataGetBody.key_content_digest, 'Trusted route-test key content for explicit content processing.');
 
+  const fulltextDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pea-route-fulltext-'));
+  tempDirs.add(fulltextDir);
+  const fulltextPath = path.join(fulltextDir, 'workflow-paper-a.md');
+  await fs.writeFile(
+    fulltextPath,
+    '# Abstract\n\nTrusted route-test abstract for explicit content processing.\n\n# Evidence\n\nRoute-level fulltext evidence.',
+    'utf8',
+  );
+  const registerAssetRes = await app.inject({
+    method: 'POST',
+    url: '/literature/' + literatureId + '/content-assets',
+    payload: {
+      local_path: fulltextPath,
+      mime_type: 'text/markdown',
+    },
+  });
+  assert.equal(registerAssetRes.statusCode, 200);
+  const registerAssetBody = registerAssetRes.json();
+  assert.equal(registerAssetBody.item.literature_id, literatureId);
+  assert.equal(registerAssetBody.item.status, 'registered');
+
+  const listAssetsRes = await app.inject({
+    method: 'GET',
+    url: '/literature/' + literatureId + '/content-assets',
+  });
+  assert.equal(listAssetsRes.statusCode, 200);
+  assert.equal(listAssetsRes.json().items.length, 1);
+
   const removedPipelineRes = await app.inject({
     method: 'GET',
     url: '/literature/' + literatureId + '/pipeline',
@@ -524,7 +645,7 @@ test('literature workflow routes support import, topic scope, paper link sync an
     method: 'POST',
     url: '/literature/' + literatureId + '/content-processing/runs',
     payload: {
-      requested_stages: ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+      requested_stages: ['CITATION_NORMALIZED', 'ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
     },
   });
   assert.equal(triggerContentProcessingRunRes.statusCode, 200);
@@ -629,5 +750,8 @@ test('literature workflow routes support import, topic scope, paper link sync an
   });
   assert.equal(removedZoteroPreviewRes.statusCode, 404);
 
-  await app.close();
+  } finally {
+    restoreFetch();
+    await app.close();
+  }
 });

@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type {
   CreateLiteratureContentProcessingRunRequest,
   CreateLiteratureContentProcessingRunResponse,
@@ -15,9 +17,13 @@ import type {
   LiteratureOverviewResponse,
   ListLiteratureContentProcessingRunsQuery,
   ListLiteratureContentProcessingRunsResponse,
+  ListLiteratureContentAssetsResponse,
   LiteratureProvider,
+  LiteratureContentAssetDTO,
   PaperLiteratureLinkView,
   PaperCitationStatus,
+  RegisterLiteratureContentAssetRequest,
+  RegisterLiteratureContentAssetResponse,
   RightsClass,
   SyncPaperLiteratureFromTopicRequest,
   SyncPaperLiteratureFromTopicResponse,
@@ -38,6 +44,7 @@ import type {
   LiteraturePipelineStageStateRecord,
   LiteratureRecord,
   LiteratureRepository,
+  LiteratureContentAssetRecord,
 } from '../repositories/literature-repository.js';
 import type { ResearchLifecycleRepository } from '../repositories/research-lifecycle-repository.js';
 import { LiteratureFlowService } from './literature-flow-service.js';
@@ -88,20 +95,31 @@ export class LiteratureService {
       let isNew = false;
 
       if (dedup.literature) {
+        const previous = dedup.literature;
+        const nextAuthors = previous.authors.length > 0 ? previous.authors : normalized.authors ?? [];
+        const nextYear = previous.year ?? normalized.year ?? null;
+        const nextDoi = previous.doiNormalized ?? this.normalizeDoi(normalized.doi);
+        const nextArxivId = previous.arxivId ?? this.normalizeArxivId(normalized.arxiv_id);
+        const nextAbstract = previous.abstractText || normalized.abstract || null;
+        const abstractChanged = previous.abstractText !== nextAbstract;
         literatureRecord = {
-          ...dedup.literature,
-          title: dedup.literature.title || normalized.title,
-          abstractText: dedup.literature.abstractText || normalized.abstract || null,
-          keyContentDigest: dedup.literature.keyContentDigest,
-          authors: dedup.literature.authors.length > 0 ? dedup.literature.authors : normalized.authors ?? [],
-          year: dedup.literature.year ?? normalized.year ?? null,
-          doiNormalized: dedup.literature.doiNormalized ?? this.normalizeDoi(normalized.doi),
-          arxivId: dedup.literature.arxivId ?? this.normalizeArxivId(normalized.arxiv_id),
-          rightsClass: this.resolveRightsClass(dedup.literature.rightsClass, normalized.rights_class),
-          tags: this.mergeTags(dedup.literature.tags, normalized.tags ?? []),
+          ...previous,
+          title: previous.title || normalized.title,
+          abstractText: nextAbstract,
+          keyContentDigest: previous.keyContentDigest,
+          authors: nextAuthors,
+          year: nextYear,
+          doiNormalized: nextDoi,
+          arxivId: nextArxivId,
+          rightsClass: this.resolveRightsClass(previous.rightsClass, normalized.rights_class),
+          tags: this.mergeTags(previous.tags, normalized.tags ?? []),
           updatedAt: now,
         };
         literatureRecord = await this.literatureRepository.updateLiterature(literatureRecord);
+        await this.markCollectionImportStale(literatureRecord.id, {
+          citationChanged: true,
+          abstractChanged,
+        });
       } else {
         isNew = true;
         const literatureId = await this.nextLiteratureId();
@@ -639,6 +657,12 @@ export class LiteratureService {
         ? null
         : request.key_content_digest.trim() || null;
     const nextHash = this.buildTitleAuthorsYearHashFromFields(nextTitle, nextAuthors, nextYear);
+    const citationChanged = nextTitle !== existing.title
+      || !this.stringArraysEqual(nextAuthors, existing.authors)
+      || nextYear !== existing.year
+      || nextDoi !== existing.doiNormalized
+      || nextArxivId !== existing.arxivId;
+    const abstractChanged = nextAbstract !== existing.abstractText;
 
     await this.assertDedupUniqueness(literatureId, {
       doiNormalized: nextDoi,
@@ -664,7 +688,22 @@ export class LiteratureService {
     });
 
     await this.literatureFlowService.refreshContentProcessingState(updated.id);
-
+    if (citationChanged) {
+      await this.literatureFlowService.markStagesStale({
+        literatureId: updated.id,
+        stages: ['CITATION_NORMALIZED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+        reasonCode: 'CITATION_METADATA_CHANGED',
+        reasonMessage: 'Citation identity metadata changed.',
+      });
+    }
+    if (abstractChanged) {
+      await this.literatureFlowService.markStagesStale({
+        literatureId: updated.id,
+        stages: ['ABSTRACT_READY', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+        reasonCode: 'ABSTRACT_CHANGED',
+        reasonMessage: 'Abstract text changed.',
+      });
+    }
     return {
       literature_id: updated.id,
       title: updated.title,
@@ -692,6 +731,74 @@ export class LiteratureService {
       abstract: literature.abstractText,
       key_content_digest: literature.keyContentDigest,
       updated_at: literature.updatedAt,
+    };
+  }
+
+  async registerContentAsset(
+    literatureId: string,
+    request: RegisterLiteratureContentAssetRequest,
+  ): Promise<RegisterLiteratureContentAssetResponse> {
+    const literature = await this.literatureRepository.findLiteratureById(literatureId);
+    if (!literature) {
+      throw new AppError(404, 'NOT_FOUND', `Literature ${literatureId} not found.`);
+    }
+
+    const requestedLocalPath = request.local_path.trim();
+    if (!requestedLocalPath) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'local_path must not be empty.');
+    }
+    if (!path.isAbsolute(requestedLocalPath)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'local_path must be an absolute filesystem path.');
+    }
+    const localPath = path.resolve(requestedLocalPath);
+
+    const sourceKind = request.source_kind ?? 'local_path';
+    if (sourceKind !== 'local_path') {
+      throw new AppError(400, 'INVALID_PAYLOAD', `Unsupported content asset source_kind ${sourceKind}.`);
+    }
+
+    const detected = await this.inspectLocalAsset(localPath, {
+      checksum: request.checksum,
+      byteSize: request.byte_size,
+    });
+    const now = new Date().toISOString();
+    const asset = await this.literatureRepository.upsertContentAsset({
+      id: crypto.randomUUID(),
+      literatureId,
+      assetKind: request.asset_kind ?? 'raw_fulltext',
+      sourceKind,
+      localPath,
+      checksum: detected.checksum,
+      mimeType: request.mime_type?.trim() || this.inferMimeType(localPath),
+      byteSize: detected.byteSize,
+      rightsClass: request.rights_class ?? literature.rightsClass,
+      status: detected.readable ? 'registered' : 'missing',
+      metadata: request.metadata ?? {},
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    if (asset.record.assetKind === 'raw_fulltext') {
+      await this.literatureFlowService.markStagesStale({
+        literatureId,
+        stages: ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+        reasonCode: 'RAW_FULLTEXT_ASSET_CHANGED',
+        reasonMessage: 'A raw fulltext asset was registered or updated.',
+      });
+    }
+
+    return { item: this.toContentAssetDTO(asset.record) };
+  }
+
+  async listContentAssets(literatureId: string): Promise<ListLiteratureContentAssetsResponse> {
+    const literature = await this.literatureRepository.findLiteratureById(literatureId);
+    if (!literature) {
+      throw new AppError(404, 'NOT_FOUND', `Literature ${literatureId} not found.`);
+    }
+    const assets = await this.literatureRepository.listContentAssetsByLiteratureId(literatureId);
+    return {
+      literature_id: literatureId,
+      items: assets.map((asset) => this.toContentAssetDTO(asset)),
     };
   }
 
@@ -943,6 +1050,35 @@ export class LiteratureService {
     return this.normalizeTags([...existing, ...incoming]);
   }
 
+  private stringArraysEqual(left: string[], right: string[]): boolean {
+    if (left.length !== right.length) {
+      return false;
+    }
+    return left.every((value, index) => value === right[index]);
+  }
+
+  private async markCollectionImportStale(
+    literatureId: string,
+    input: { citationChanged: boolean; abstractChanged: boolean },
+  ): Promise<void> {
+    if (input.citationChanged) {
+      await this.literatureFlowService.markStagesStale({
+        literatureId,
+        stages: ['CITATION_NORMALIZED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+        reasonCode: 'COLLECTION_CITATION_SOURCE_CHANGED',
+        reasonMessage: 'Collection import updated citation identity or source metadata.',
+      });
+    }
+    if (input.abstractChanged) {
+      await this.literatureFlowService.markStagesStale({
+        literatureId,
+        stages: ['ABSTRACT_READY', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
+        reasonCode: 'COLLECTION_ABSTRACT_SOURCE_CHANGED',
+        reasonMessage: 'Collection import updated trusted abstract metadata.',
+      });
+    }
+  }
+
   private async assertDedupUniqueness(
     literatureId: string,
     keys: DedupCandidate,
@@ -983,6 +1119,86 @@ export class LiteratureService {
       return incoming;
     }
     return current;
+  }
+
+  private async inspectLocalAsset(
+    localPath: string,
+    provided: { checksum?: string; byteSize?: number },
+  ): Promise<{ checksum: string; byteSize: number; readable: boolean }> {
+    const providedChecksum = provided.checksum?.trim();
+    const providedByteSize = typeof provided.byteSize === 'number' && Number.isFinite(provided.byteSize)
+      ? Math.max(0, Math.trunc(provided.byteSize))
+      : undefined;
+    try {
+      const stat = await fs.stat(localPath);
+      if (!stat.isFile()) {
+        throw new Error('Path is not a file.');
+      }
+      const buffer = await fs.readFile(localPath);
+      const actualChecksum = crypto.createHash('sha256').update(buffer).digest('hex');
+      if (providedChecksum && providedChecksum !== actualChecksum) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'checksum does not match the readable local_path content.');
+      }
+      if (providedByteSize !== undefined && providedByteSize !== stat.size) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'byte_size does not match the readable local_path content.');
+      }
+      return {
+        checksum: actualChecksum,
+        byteSize: stat.size,
+        readable: true,
+      };
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      if (!providedChecksum || providedByteSize === undefined) {
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          'local_path must be readable unless checksum and byte_size are provided.',
+        );
+      }
+      return {
+        checksum: providedChecksum,
+        byteSize: providedByteSize,
+        readable: false,
+      };
+    }
+  }
+
+  private inferMimeType(localPath: string): string {
+    const extension = path.extname(localPath).toLowerCase();
+    if (extension === '.md' || extension === '.markdown') {
+      return 'text/markdown';
+    }
+    if (extension === '.txt') {
+      return 'text/plain';
+    }
+    if (extension === '.pdf') {
+      return 'application/pdf';
+    }
+    if (extension === '.html' || extension === '.htm') {
+      return 'text/html';
+    }
+    return 'application/octet-stream';
+  }
+
+  private toContentAssetDTO(record: LiteratureContentAssetRecord): LiteratureContentAssetDTO {
+    return {
+      asset_id: record.id,
+      literature_id: record.literatureId,
+      asset_kind: record.assetKind,
+      source_kind: record.sourceKind,
+      local_path: record.localPath,
+      checksum: record.checksum,
+      mime_type: record.mimeType,
+      byte_size: record.byteSize,
+      rights_class: record.rightsClass,
+      status: record.status,
+      metadata: record.metadata,
+      created_at: record.createdAt,
+      updated_at: record.updatedAt,
+    };
   }
 
   private readString(value: unknown): string | undefined {

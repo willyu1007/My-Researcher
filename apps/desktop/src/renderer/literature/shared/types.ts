@@ -145,6 +145,7 @@ export type PipelineActionSet = {
 
 export type LiteratureContentProcessingProviderId = 'openai';
 export type LiteratureEmbeddingProfileId = 'default' | 'economy';
+export type LiteratureExtractionProfileId = 'default' | 'high_accuracy';
 export type LiteratureContentProcessingProviderSettings = {
   provider: LiteratureContentProcessingProviderId;
   api_key_set: boolean;
@@ -156,11 +157,20 @@ export type LiteratureEmbeddingProfile = {
   model: string;
   dimensions: number | null;
 };
+export type LiteratureExtractionProfile = {
+  profile_id: LiteratureExtractionProfileId;
+  provider: LiteratureContentProcessingProviderId;
+  model: string;
+};
 export type LiteratureContentProcessingSettings = {
   providers: LiteratureContentProcessingProviderSettings[];
   embedding: {
     active_profile_id: LiteratureEmbeddingProfileId;
     profiles: LiteratureEmbeddingProfile[];
+  };
+  extraction: {
+    active_profile_id: LiteratureExtractionProfileId;
+    profiles: LiteratureExtractionProfile[];
   };
   storage_roots: {
     raw_files: string | null;

@@ -12,6 +12,7 @@ import type {
   LiteratureRetrieveResponse,
   ListLiteratureContentProcessingRunsQuery,
   ListLiteratureContentProcessingRunsResponse,
+  ListLiteratureContentAssetsResponse,
   SyncPaperLiteratureFromTopicRequest,
   SyncPaperLiteratureFromTopicResponse,
   TopicLiteratureScopeResponse,
@@ -20,6 +21,8 @@ import type {
   UpdatePaperLiteratureLinkRequest,
   UpdatePaperLiteratureLinkResponse,
   UpsertTopicLiteratureScopeRequest,
+  RegisterLiteratureContentAssetRequest,
+  RegisterLiteratureContentAssetResponse,
   ZoteroImportRequest,
   ZoteroImportResponse,
   ZoteroPreviewRequest,
@@ -183,6 +186,30 @@ export class LiteratureController {
     try {
       const result = await this.service.getLiteratureMetadata(request.params.literatureId);
       reply.status(200).send(result satisfies GetLiteratureMetadataResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async registerContentAsset(
+    request: FastifyRequest<{ Params: LiteratureParams; Body: RegisterLiteratureContentAssetRequest }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.registerContentAsset(request.params.literatureId, request.body);
+      reply.status(200).send(result satisfies RegisterLiteratureContentAssetResponse);
+    } catch (error) {
+      this.handleError(reply, error);
+    }
+  }
+
+  async listContentAssets(
+    request: FastifyRequest<{ Params: LiteratureParams }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const result = await this.service.listContentAssets(request.params.literatureId);
+      reply.status(200).send(result satisfies ListLiteratureContentAssetsResponse);
     } catch (error) {
       this.handleError(reply, error);
     }

@@ -342,6 +342,9 @@ export function OverviewTab({
                 const reextractAction = item.content_processing_actions.reextract;
                 const retryFailedAction = item.content_processing_actions.retry_failed;
                 const viewReasonAction = item.content_processing_actions.view_reason;
+                const staleStages = Object.entries(item.content_processing_stage_status)
+                  .filter(([, status]) => status === 'STALE')
+                  .map(([stageCode]) => stageCode);
                 const isExcluded = overviewStatus === 'excluded';
                 const scopeActionLabel = isExcluded ? '恢复' : '排除';
                 const nextScopeStatus: ScopeStatus = isExcluded ? 'in_scope' : 'excluded';
@@ -391,6 +394,11 @@ export function OverviewTab({
                       <div className="literature-overview-main">
                         {renderOverviewStatus(overviewStatus)}
                         {renderOverviewContentStatus(contentStatus)}
+                        {staleStages.length > 0 ? (
+                          <p data-ui="text" data-variant="caption" data-tone="warning">
+                            过期：{staleStages.join(', ')}
+                          </p>
+                        ) : null}
                       </div>
                     </td>
                     <td>

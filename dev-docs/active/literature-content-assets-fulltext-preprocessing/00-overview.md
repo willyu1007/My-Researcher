@@ -1,9 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: planned
+- State: done
 - Parent: `T-030 literature-content-processing-landing-roadmap`
-- Next step: inventory existing artifact tables/runtime and decide the asset metadata DB boundary.
+- Next step: hand off source-aligned anchors to `T-034` and chunking/index consumers to `T-035`.
 
 ## Goal
 - Replace placeholder fulltext preprocessing with local asset-backed, source-aligned fulltext artifacts.
@@ -21,7 +21,7 @@
 - Parser/OCR diagnostics and partial readiness.
 
 ## Acceptance Criteria
-- `FULLTEXT_PREPROCESSED` outputs durable source-aligned artifacts.
-- Figure/table/formula assets and relationships are represented.
-- Parser/OCR failures produce diagnostics and do not silently mark clean success.
-- Downstream stages can cite stable anchors.
+- [x] `FULLTEXT_PREPROCESSED` outputs durable source-aligned artifacts.
+- [x] Figure/table/formula assets and relationships are represented.
+- [x] Parser/OCR failures produce diagnostics and do not silently mark clean success.
+- [x] Downstream stages can cite stable anchors.

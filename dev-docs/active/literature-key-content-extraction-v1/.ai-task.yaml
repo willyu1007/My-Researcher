@@ -2,7 +2,7 @@ version: 1
 task_id: T-034
 project: main
 slug: literature-key-content-extraction-v1
-status: planned
+status: done
 updated: "2026-05-05"
 keywords:
   - literature

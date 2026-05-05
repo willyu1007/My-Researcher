@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-05T00:05:16.523Z",
+  "generatedAt": "2026-05-05T02:12:08.510Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "194d5b2bfb92a8d3f800845fb9243928c91a0dcbf60ae2edc655df36dfa02928",
+  "sourceChecksumSha256": "1a2766ce934382a0f77e5c7f3313604848ea94e65a37faf0627d5d21870fee5f",
   "stats": {
-    "totalEndpoints": 67,
+    "totalEndpoints": 69,
     "byTag": {
       "health": 1,
       "research-lifecycle": 8,
-      "literature": 15,
+      "literature": 17,
       "settings": 2,
       "topic-settings": 3,
       "auto-pull": 10,
@@ -501,6 +501,7 @@
             "query"
           ],
           "optional": [
+            "profile",
             "topic_id",
             "paper_id",
             "top_k",
@@ -777,6 +778,77 @@
     },
     {
       "method": "GET",
+      "path": "/literature/{literatureId}/content-assets",
+      "operationId": "listLiteratureContentAssets",
+      "summary": "List local content assets registered for one literature.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "literatureId"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "literature_id",
+          "items"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/literature/{literatureId}/content-assets'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/literature/{literatureId}/content-assets",
+      "operationId": "registerLiteratureContentAsset",
+      "summary": "Register a local literature content asset reference.",
+      "tag": "literature",
+      "auth": "none",
+      "input": {
+        "params": [
+          "literatureId"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "local_path"
+          ],
+          "optional": [
+            "asset_kind",
+            "source_kind",
+            "checksum",
+            "mime_type",
+            "byte_size",
+            "rights_class",
+            "metadata"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "item"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/literature/{literatureId}/content-assets' -H 'Content-Type: application/json' -d '{\"local_path\":\"<local_path>\"}'"
+      }
+    },
+    {
+      "method": "GET",
       "path": "/literature/{literatureId}/content-processing",
       "operationId": "getLiteratureContentProcessing",
       "summary": "Get content-processing aggregate state and stage states for a literature.",
@@ -874,7 +946,7 @@
       "method": "GET",
       "path": "/settings/literature-content-processing",
       "operationId": "getLiteratureContentProcessingSettings",
-      "summary": "Get redacted provider, embedding profile, and storage root settings for literature content processing.",
+      "summary": "Get redacted provider, extraction profile, embedding profile, and storage root settings for literature content processing.",
       "tag": "settings",
       "auth": "none",
       "input": {
@@ -887,6 +959,7 @@
         "coreFields": [
           "providers",
           "embedding",
+          "extraction",
           "storage_roots",
           "updated_at"
         ]
@@ -902,7 +975,7 @@
       "method": "PATCH",
       "path": "/settings/literature-content-processing",
       "operationId": "updateLiteratureContentProcessingSettings",
-      "summary": "Update provider API key, embedding profile, and storage root settings for literature content processing.",
+      "summary": "Update provider API key, extraction profile, embedding profile, and storage root settings for literature content processing.",
       "tag": "settings",
       "auth": "none",
       "input": {
@@ -913,6 +986,7 @@
           "optional": [
             "providers",
             "embedding",
+            "extraction",
             "storage_roots"
           ]
         }
@@ -922,6 +996,7 @@
         "coreFields": [
           "providers",
           "embedding",
+          "extraction",
           "storage_roots",
           "updated_at"
         ]

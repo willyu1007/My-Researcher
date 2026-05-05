@@ -2,7 +2,7 @@ version: 1
 task_id: T-036
 project: main
 slug: literature-retrieve-stale-trigger-ui
-status: planned
+status: done
 updated: "2026-05-05"
 keywords:
   - literature

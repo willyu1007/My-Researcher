@@ -1,9 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: planned
+- State: done
 - Parent: `T-030 literature-content-processing-landing-roadmap`
-- Next step: detail retrieve API/profile contract and overview/workbench trigger UX.
+- Next step: move batch/workbench operations to `T-037` and final old-path cutover checks to `T-038`.
 
 ## Goal
 - Implement scenario-based retrieval profiles and explicit content-processing trigger/stale UX.
@@ -22,7 +22,7 @@
 - Detail panel/workbench entry for complex controls.
 
 ## Acceptance Criteria
-- Retrieve supports `general`, `topic_exploration`, `paper_management`, and `writing_evidence`.
-- Stale state is visible and actionable.
-- Overview can trigger single-literature processing without auto-runs.
-- Retrieval warns when active index is stale.
+- [x] Retrieve supports `general`, `topic_exploration`, `paper_management`, and `writing_evidence`.
+- [x] Stale state is visible and actionable.
+- [x] Overview can trigger single-literature processing without auto-runs.
+- [x] Retrieval warns when active index is stale.

@@ -48,7 +48,7 @@
    - 定义手动录入、自动提取、LLM 提取之间的覆盖/合并规则。
 4. M3 Chunking and Vectorization Contract
    - 定义 chunk 策略、embedding profile、版本化写入、active pointer 切换、重跑幂等。
-   - 定义 external embedding 配置和本地 fallback 的产品边界。
+   - 定义 external embedding 配置边界；正常内容处理路径不保留本地 hash embedding fallback。
 5. M4 Processing UX and API Contract
    - 设计显式处理入口、动作状态、进度反馈、失败恢复和批量处理入口。
    - 确认 overview 是否足够，还是需要独立 content-processing workbench。
@@ -60,7 +60,7 @@
 - 第一版必须支持 PDF 解析吗，还是先从 abstract/key-content/manual text 开始？
 - “关键内容”应是单字段 digest，还是结构化 extraction object？
 - 是否需要保留每次提取/向量化的历史版本，还是只保留 active version 加最近一次 run？
-- 向量检索第一版以本地 hash embedding 为 fallback 是否可接受，还是必须接外部 embedding provider？
+- 向量化主路径是否允许本地 hash embedding fallback？已决策：不允许；缺 OpenAI provider/model/key 时 `EMBEDDED` 阶段 `BLOCKED`，retrieve 仅可带 degraded reason 降级 lexical/token。
 - 检索返回的 evidence 是否必须包含页码/章节/段落定位？
 - metadata 更新是否应该标记下游 stage stale，而不是只刷新 ready 状态？
 - 用户是否需要批量选择多篇文献后统一触发内容处理？
@@ -126,7 +126,7 @@
   - `CHUNKED` 由后端 deterministic chunking service 执行，核心是脚本/确定性规则主导的 TypeScript chunker。
   - 该阶段只生成可检索、可向量化、可回溯的 chunk，不做新的论文级语义理解，也不在正常链路中调用 LLM 决定边界。
   - 第一版采用扁平 chunk 加丰富分类 metadata，不做 parent/child/section/sentence 物理层级树。
-  - 基础 chunk types：`abstract`、`source_text`、`semantic_dossier`、`evidence`、`visual_table`。
+  - 基础 chunk types：`abstract`、`fulltext_section`、`fulltext_paragraph`、`semantic_dossier`、`evidence`、`figure`、`table`。
   - 精细化消费通过 `semantic_category`、`evidence_role`、`source_scope`、`origin_stage` 和 provenance filter 实现。
   - `chunk_id` 必须稳定，由 literature id、source checksum、chunking profile version、chunk type 和来源/语义锚点派生，不能依赖 run id 或时间戳。
 - D7 `EMBEDDED` local pipeline with OpenAI provider:
@@ -135,7 +135,7 @@
   - 不使用 OpenAI Vector Store 作为主链路；它可作为后续 cloud mirror 或 Responses `file_search` 集成。
   - 默认 profile 调整为 `openai/text-embedding-3-large`，经济模式为 `openai/text-embedding-3-small`，代码侧保留 provider/model/dimensions 参数。
   - 第一版不同时维护 small 和 large 两套 active 检索空间，跨文档比较必须使用同一个 active embedding profile。
-  - `EMBEDDED` 开始时创建 `embedding_version: IN_PROGRESS`，全部 chunk embeddings 成功写入后标记 `READY`，但不激活 active pointer。
+  - `EMBEDDED` 成功后创建 `embedding_version: READY`，并持久化 per-chunk vectors；该阶段不激活 active pointer。
 - D8 `INDEXED` and retrieve:
   - `INDEXED` 构建本地 vector index、token/BM25 index 和 metadata filter index。
   - 只有 `INDEXED` 成功且最小 retrieval smoke check 通过后，才事务性激活 `active_embedding_version_id`。
