@@ -70,7 +70,7 @@
   - Desktop literature settings panel typechecks and builds.
 - Post-review verification completed.
   - `pnpm --filter @paper-engineering-assistant/shared test`: passed, `19` tests.
-  - `pnpm --filter @paper-engineering-assistant/backend test`: passed, `127` tests.
+  - `pnpm --filter @paper-engineering-assistant/backend test`: passed; latest full run after `T-034`-`T-036` quality review is `139` tests.
   - Search gates for old action codes, old embedding env vars, placeholder abstract/key content generation, and old stage order returned no product-path matches.
   - Old `/pipeline` route references remain only in backend 404 negative tests.
   - `apps/desktop/dist/renderer` build artifacts were cleaned after desktop build verification.
@@ -79,6 +79,19 @@
 - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
   - Result: passed.
   - Warning: existing `T-029` done task has no acceptance-criteria checkboxes; unrelated.
+- `T-034` through `T-036` implementation verification completed.
+  - `KEY_CONTENT_READY` now uses a `KEY_CONTENT_DOSSIER` artifact with source-ref validation and `user_edited` preservation.
+  - Chunk/embedding/index lifecycle uses DB-backed version fields and activates only after `INDEXED` smoke checks.
+  - Retrieve returns profile/provenance/stale/degraded metadata and desktop overview shows stale reasons.
+  - Prisma format/validate/generate passed with a dummy local PostgreSQL URL.
+  - DB context regenerated through DB SSOT.
+  - OpenAPI quality check passed.
+  - API index regenerated and verified.
+  - Context strict verify passed.
+  - Shared/backend/desktop typechecks passed.
+  - Shared tests passed, `19` tests.
+  - Backend full suite passed, `139` tests.
+  - Desktop build passed.
 
 ## Product Verification
-- Umbrella implementation has started through child tasks. `T-031` and `T-032` are implemented and verified against targeted acceptance checks; end-to-end cutover remains owned by `T-038`.
+- Umbrella implementation has progressed through `T-031`, `T-032`, `T-039`, `T-033`, `T-034`, `T-035`, and `T-036`. Batch backfill/workbench remains owned by `T-037`; final end-to-end cutover and old-path removal remain owned by `T-038`.

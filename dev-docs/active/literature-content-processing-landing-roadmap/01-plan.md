@@ -21,13 +21,14 @@
 
 ## Phase D - Vectorization Decision
 - 定义 chunking、embedding profile、版本化、active pointer、重跑幂等、失败恢复。
-- 定义本地 fallback 与外部 provider 的配置边界。
+- 定义外部 embedding provider 配置边界；正常路径不保留本地 hash embedding fallback。
 - `CHUNKED` 应消费 `KEY_CONTENT_READY` 产出的语义档案和 `FULLTEXT_PREPROCESSED` 标准化文本，而不是只消费摘要或元数据。
 - 已对齐 chunking 方向：摘要作为独立 `abstract` 单 chunk；正文、语义档案、证据、图表分别以扁平 chunk type 表达。
 - 第一版不做物理层级 chunk tree；精细化消费通过分类 metadata、source scope 和 provenance filters 完成。
 - 已对齐 embedding 方向：主链路使用本地完整管线，OpenAI Embeddings API 只作为 provider。
 - 默认 embedding profile 为 `openai/text-embedding-3-large`；`openai/text-embedding-3-small` 作为经济模式。
 - `EMBEDDED` 写入新的 `embedding_version` 并在完成后标记 `READY`；`INDEXED` 成功后才激活 active pointer。
+- OpenAI embedding 配置缺失时 `EMBEDDED` 必须 `BLOCKED`；retrieve 可显式降级为 lexical/token retrieval，但不得生成假向量。
 - retrieve 查询时使用 active embedding profile 生成 query vector，不同时执行 small/large 双空间查询。
 - 已对齐 retrieve 底座：统一底层索引 + 场景化 retrieve profile，先支持 `general`、`topic_exploration`、`paper_management`、`writing_evidence`。
 - profile 先作为可调契约，排序权重和 rerank policy 后续按选题、论文管理、写作实际需求迭代。

@@ -272,10 +272,12 @@ flowchart LR
   - Fine-grained downstream consumption should rely on classification metadata and provenance filters.
 - Required chunk types:
   - `abstract`: one high-density abstract chunk from `ABSTRACT_READY`.
-  - `source_text`: original paper text spans from `FULLTEXT_PREPROCESSED`.
+  - `fulltext_section`: section-level original paper text spans from `FULLTEXT_PREPROCESSED`.
+  - `fulltext_paragraph`: paragraph-level original paper text spans from `FULLTEXT_PREPROCESSED`.
   - `semantic_dossier`: categorized semantic extraction from `KEY_CONTENT_READY`.
   - `evidence`: claim/evidence units from `KEY_CONTENT_READY`.
-  - `visual_table`: figure/table/caption/OCR/insight units tied back to fulltext anchors.
+  - `figure`: figure/caption/OCR/insight units tied back to fulltext anchors.
+  - `table`: table/caption/OCR/insight units tied back to fulltext anchors.
 - Recommended classification metadata:
   - `semantic_category`: `research_problem`, `contribution`, `method`, `dataset`, `benchmark`, `experiment`, `finding`, `limitation`, `reproducibility`, `related_work`, `visual_evidence`.
   - `evidence_role`: `claim`, `support`, `metric`, `comparison`, `ablation`, `limitation`, `reproduction_signal`.
@@ -347,10 +349,9 @@ flowchart LR
     - 150 chunks/paper: small 9.22 GB, large 18.43 GB.
   - Real local storage should reserve roughly 2-4x raw vector size for chunk text, provenance, token index, vector index, version metadata, and DB/index overhead.
 - Version lifecycle:
-  - At `EMBEDDED` start, create a new `embedding_version` with status `IN_PROGRESS`.
+  - `EMBEDDED` creates a new inactive `embedding_version` with status `READY` only after all chunk vectors are persisted and validated.
   - Version metadata MUST include provider, model, dimensions, distance metric, chunking profile version, chunk set checksum, embedding profile version, and content-processing run id.
   - Per-chunk embeddings SHOULD be written with an idempotent key such as `embedding_version_id + chunk_id`.
-  - When all chunk embeddings are successfully persisted and validated, mark the version `READY`.
   - `EMBEDDED` MUST NOT update the active embedding pointer.
 
 ## Draft Stage Output Contract - D7
@@ -386,7 +387,7 @@ flowchart LR
   - Only `INDEXED` may activate an embedding version.
   - Activation happens after local index build succeeds and a minimum retrieval smoke check passes.
   - Active pointer update should be transactional from the product perspective: the old active version remains readable until the new version is fully indexed.
-  - When a new version is activated, previous active versions may be marked `SUPERSEDED` but should remain available for rollback until cleanup policy deletes them.
+  - First implementation keeps previous versions inactive but readable for diagnostics; do not introduce a `SUPERSEDED` lifecycle status unless a later cleanup task adds it explicitly.
 - Retrieve behavior:
   - Retrieve reads only active indexed versions by default.
   - Query-time vector retrieval MUST embed the user query using the same active embedding profile as the target index.
@@ -494,7 +495,7 @@ flowchart LR
 - State representation:
   - `STALE` should be added as a first-class stage status.
   - New code should not use `detail.stale = true` as the primary stale representation.
-  - A temporary read compatibility layer may normalize legacy `detail.stale = true` into `STALE` if such data exists.
+  - Do not add a `detail.stale = true` compatibility path in the T-030 implementation series; T-038 owns final old-path search and cleanup.
   - Stage status should distinguish `SUCCEEDED`, `PARTIAL_READY`, `STALE`, `BLOCKED`, and `FAILED`.
   - Stage detail should include `stale_reason_codes`, `stale_from_stage`, `stale_since`, `input_checksums`, `profile_versions`, `blocking_reason_codes`, and `recommended_actions` where available.
 - Retrieve behavior while stale:

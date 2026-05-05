@@ -310,5 +310,5 @@
   - `node .ai/scripts/ctl-api-index.mjs generate --touch` ✅（37 endpoints）
   - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context` ✅
   - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict` ✅
-- 2026-03-05: backfill script 语法校验 ✅
-  - `node --check apps/backend/scripts/backfill-embedding-version-mapping.mjs` ✅
+- 2026-05-05: 旧 embedding mapping backfill script 已由 `T-035` 移除。
+  - 原脚本依赖早期 embedding artifact 映射，并带有 local-hash 兼容默认值；批量回填后续由 `T-037` 统一实现。

@@ -2,7 +2,7 @@
 
 ## Status
 - State: in-progress
-- Next step: 用户验收“Pipeline V2.1 三项缺口修复（embedding 版本化映射 / 全局 retrieve / metadata intake 侧栏）”，并确认 embedding 映射回填窗口（`pipeline:backfill-embedding-mapping --apply`）。
+- Next step: 历史 Pipeline V2.1 记录已被 `T-030` 系列拆分任务 supersede；embedding 映射回填窗口关闭，批量回填统一转入 `T-037 literature-backfill-operations-workbench`。
 
 ## Goal
 - 在既有自动拉取体系基础上，完成文献 pipeline 从 V1 骨架到 V2 完整可运行版本的升级，确保 API/DB/前端语义与文档契约一致，并为后续能力（回填、检索增强、向量能力扩展）提供稳定底座。

@@ -1,9 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: planned
+- State: done
 - Parent: `T-030 literature-content-processing-landing-roadmap`
-- Next step: inventory existing chunk/hash embedding/index placeholder runtime and define the replacement cutover.
+- Next step: use active indexed versions from retrieve profiles and complete final legacy-path search in `T-038`.
 
 ## Goal
 - Replace placeholder chunking, local hash embeddings, and token-only index with the agreed deterministic chunking plus OpenAI embedding plus local index pipeline.
@@ -22,8 +22,8 @@
 - Active pointer activation only after `INDEXED`.
 
 ## Acceptance Criteria
-- Abstract is one `abstract` chunk.
-- Chunk ids are stable and provenance-rich.
-- `EMBEDDED` creates a ready version without activation.
-- `INDEXED` activates only after index build and smoke retrieval.
-- Old hash embedding path is removed as the normal implementation.
+- [x] Abstract is one `abstract` chunk.
+- [x] Chunk ids are stable and provenance-rich.
+- [x] `EMBEDDED` creates a ready version without activation.
+- [x] `INDEXED` activates only after index build and smoke retrieval.
+- [x] Old hash embedding path is removed as the normal implementation.
