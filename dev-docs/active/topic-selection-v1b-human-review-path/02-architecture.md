@@ -74,19 +74,17 @@ run-request 形状（实测样例：`apps/backend/src/routes/topic-selection-v1b
 - Out of scope / future RFC: a *distinct* human "approve the materialised question" REVIEW gate
   before N8 would be a NEW gate, not N7's existing `human_delegated`. Defer.
 
-### N2 record-research-constraint-profile — the real remaining human node ✅ (FOCUS)
-- N2 modes `['codex_assisted','human_delegated']`, `authority_kind: 'ResearchConstraintProfile'`.
-  Human path = the researcher **authors** the constraint profile (scope / budget / claim ceiling /
-  prohibited claims / non-goals) that constrains the whole pipeline. Genuine human INPUT (unlike
-  N5's pick or N7's trigger).
-- Shape TBC during impl (read the N2 handler + frozen-input payload type): the human-authored
-  accepted constraint-profile payload is likely **compact** (closer to N5's accepted-payload than
-  N7's handoff-replay). Lineage = N1 intake snapshot (its hash); confirm whether it's retrievable
-  from persisted state (like N4's hash) or carried in the bundle.
-- Surfaces (confirm during impl): `V1bConstraintProfileHumanService` + a human route under the
-  research-constraint-profile / v1b-input-bundle path + a new `ResearchConstraintProfileCard`
-  authoring form (no such card today) + e2e (N1 → route → admitted N2). Reuse the canonical hash
-  module (single source) for any authority/frozen-input hashes.
+### N2 record-research-constraint-profile — the real remaining human node ✅ (FOCUS, fully scoped 2026-06-03)
+- N2 modes `['codex_assisted','human_delegated']`, `authority_kind: 'ResearchConstraintProfile'`. Human path = the researcher AUTHORS the constraint profile (genuine human INPUT).
+- **Human-authored content** (`TopicSelectionV1bAcceptedConstraintProfilePayload`): target_community, target_venue_class?, intended_contribution_style?, method_constraints[], resource_constraints[], available_assets[], feasibility_budget{}, non_goals[], claim_ceiling, human_constraint_notes?, constraint_payload{}.
+- **N2 frozen-input** (`TopicSelectionV1bN2HarnessFrozenInputPayload`): accepted payload + its hash + `intake_snapshot_ref`/`_hash` + `v1a_bundle_ref`/`_hash` + `authority_input_provider:'human_delegated'` + `delegation_artifact_hash:null` + `previous_profile_*:null`.
+- **NO persistence gap** (unlike N4/N5): the N2 handler RE-DERIVES `intake_snapshot_hash` via `hashSnapshotAuthority(snapshot)` from the persisted snapshot (`findIntakeSnapshotById`), and `v1a_bundle_hash = hash(bundle)` from the bundle record. Service computes both from persisted state; supplies the accepted-payload hash (= shared `canonicalHash`).
+- **Single-source hash**: add `hashIntakeSnapshotAuthority` to the shared module (shape @ harness `hashSnapshotAuthority`: `{bundle_ref, evidence_map_freshness_status, source_refs_hash=hash(unique[refs]), trace_issue_codes, trace_status}`) + repoint the harness (consistent with the option-authority de-dup).
+- **Reads needed**: intake snapshot (by id) + v1a→v1b bundle (by id). The intake SERVICE has both (intake repo + `needValidationRepository.findV1aToV1bInputBundleById`); the v1b controller holds `researchSlice` which holds `intakeService`.
+- **WIRING DECISION (one open choice)**:
+  - **(A) delegation, NO app.ts (recommended)**: add public `findIntakeSnapshotById` + `findV1aToV1bInputBundleById` to the intake service; expose/delegate via research-slice service; N2 service consumes a read-port. Keeps clean separation from the parallel app.ts (+61 lines).
+  - (B) 1-line app.ts: pass `topicSelectionV1bIntakeService` (already in scope @ app.ts:480) to the v1b controller ctor — cleaner DI but touches the parallel-modified app.ts.
+- Surfaces: `V1bConstraintProfileHumanService` + route `POST /topic-selection/v1b/intake-snapshots/:intakeSnapshotId/constraint-profile/human` + NEW `ResearchConstraintProfileCard` authoring form + a new "constraint" sub-tab (before "slice") in `V1bStageView` + e2e (N1 → route → admitted N2).
 
 ### Sequencing note (revised)
 v1b human-review surfaces = **N5 (done) + N2 (focus)**. N4/N6/N7/N8 = model-or-mechanical → read-only;
