@@ -2645,6 +2645,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
             draft_hash: resolvedDraft.draftHash,
             intake_readiness_hash: readinessHash,
             n3_handoff_hash: payload.value.n3_handoff_hash,
+            // T-115 Phase 2: persist the N4->N5 handoff hash so a human-driven N5
+            // selection can reconstruct a valid frozen_input from persisted state
+            // (read by V1bSliceHumanSelectionService). Harness-internal N5 uses
+            // the in-memory handoff; this makes it retrievable by option-set id.
+            n4_handoff_hash: handoffHash,
             recommended_option_key: resolvedDraft.draft.recommended_option_key ?? null,
             semantic_artifact_ref: resolvedDraft.semanticArtifact.normalized_output_ref,
             warning_codes: validation.value.warnings.map((warning) => warning.code),

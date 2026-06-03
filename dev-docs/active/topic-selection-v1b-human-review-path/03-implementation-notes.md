@@ -38,6 +38,13 @@ N5 handler 读 `loaded.value.planRun`（constraint_profile_ref / readiness_asses
 - 1b：wrapper 产出的请求**自洽**——`accepted_selection_payload_hash`/`selected_option_hash`/`research_slice_option_set_hash` 正是 N5 re-derive 比对的三个值；且已核实 `n5CodexDelegationBlocker` 对 `human_delegated` 直接放行（`delegation_artifact_hash:null` 不被拦）。
 - 残留唯一未经真实 harness 跑通的是"N5 对完整 lineage 的 gate"——留待 Phase 2 e2e。
 
+## Phase 2 steps & status
+- [x] (2-①) N4 runner 持久化 `comparison_payload.n4_handoff_hash`（`runN4GenerateResearchSliceOptions`，将 outer-scope `handoffHash`@2547 写入 `writeAuthority` 闭包的 comparison_payload）。T-088 协调：动手前确认该 harness 文件**未被并行工作修改**（git status 干净），collision 风险低；仅 1 行加字段，非 `ln`/`invokeNode`。验证：backend typecheck 0 error；`topic-selection-v1b-routes.integration.test.ts` **6/6**（N1–N11 链 + legacy-404 + offline replay + Prisma smoke）。只加 `n4_handoff_hash`（service 只读它；handoff_ref 暂不需要）。
+- [ ] (2-②) per-node 人审路由 `/research-slice-option-sets/:id/human-selection` → `V1bSliceHumanSelectionService`（守卫 `blockWorkflowHarnessAutomationOnDirectWrite`）。
+- [ ] (2-③) `SliceOptionSetCard` 接 `/options` + 选定表单（api/v1b.ts client）。
+- [ ] (2-④) 完整 e2e：复用集成测试 N1→N4 链 → 经人审路由选 option → admitted + ResearchSlice。
+- [ ] (2-⑤) 复制到 N7（question contract）/ N2（constraint profile）。
+
 ## Open TODOs
-- [ ] (Phase 2) N4 runner 持久化 `n4_handoff_ref/hash`（与 T-088 协调）。
-- [ ] (Phase 2) harness service 改用共享哈希模块，完成 D1 consolidation。
+- [ ] (later) harness service 改用共享哈希模块，完成 D1 consolidation。
+- [ ] (later) 旧 option set（本次 commit 前创建的）无 `n4_handoff_hash`；service 会 409 提示，需重跑 N4 或迁移。
