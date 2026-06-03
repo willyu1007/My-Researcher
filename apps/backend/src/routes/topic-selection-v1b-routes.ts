@@ -20,6 +20,7 @@ import {
 import {
   TopicSelectionV1bController,
   type OfflineDatasetBody,
+  type SliceHumanSelectionBody,
   type WorkflowHarnessArtifactBody,
   type WorkflowHarnessRunBody,
 } from '../controllers/topic-selection-v1b-controller.js';
@@ -63,6 +64,29 @@ async function normalizeOptionalBody(request: FastifyRequest): Promise<void> {
 }
 
 const packageParams = paramsSchema({ topicPackageId: stringId });
+
+// T-115 Phase 2 — human-authority N5 select-research-slice. New semantic path
+// (NOT the removed legacy `.../selection-decisions` write routes, which stay 404):
+// goes THROUGH the harness via the controller, in human_delegated mode.
+const actorRefSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['actor_type'],
+  properties: { actor_type: actorType, actor_id: nullableStringId },
+} as const;
+
+const sliceHumanSelectionSchema = {
+  ...bodySchema(['selected_option_id', 'selection_rationale', 'actor'], {
+    selected_option_id: stringId,
+    selection_rationale: stringId,
+    actor: actorRefSchema,
+    confidence: nullableNumber,
+    decision_basis: recordPayload,
+    required_actions: stringArray,
+    accepted_risk_refs: { type: 'array', items: recordPayload },
+  }),
+  ...paramsSchema({ optionSetId: stringId }),
+};
 
 const offlineDatasetBody = bodySchema([], {
   workspace_id: nullableStringId,
@@ -200,6 +224,11 @@ export async function registerTopicSelectionV1bRoutes(
     '/topic-selection/v1b/research-slice-option-sets/:optionSetId/options',
     { schema: paramsSchema({ optionSetId: stringId }) },
     controller.listResearchSliceOptionsByOptionSet,
+  );
+  fastify.post<{ Body: SliceHumanSelectionBody; Params: { optionSetId: string } }>(
+    '/topic-selection/v1b/research-slice-option-sets/:optionSetId/human-selection',
+    { schema: sliceHumanSelectionSchema },
+    controller.selectResearchSliceHuman,
   );
   fastify.get(
     '/topic-selection/v1b/topic-question-candidate-sets/:candidateSetId/candidates',

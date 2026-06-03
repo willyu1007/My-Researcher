@@ -7,6 +7,11 @@ import { TopicSelectionV1bTopicPackageService } from '../services/topic-selectio
 import { TopicSelectionV1bTopicQuestionService } from '../services/topic-selection-v1b-topic-question-service.js';
 import { TopicSelectionV1bValueAssessmentService } from '../services/topic-selection-v1b-value-assessment-service.js';
 import { TopicSelectionV1bWorkflowHarnessService } from '../services/topic-selection-v1b-workflow-harness-service.js';
+import { V1bSliceHumanSelectionService } from '../services/topic-selection-v1b-slice-human-selection-service.js';
+import type {
+  TopicSelectionActorRef,
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
@@ -14,6 +19,16 @@ import type {
 type BodyRequest<T> = FastifyRequest<{ Body: T }>;
 type ParamsRequest<T> = FastifyRequest<{ Params: T }>;
 type BodyParamsRequest<TBody, TParams> = FastifyRequest<{ Body: TBody; Params: TParams }>;
+
+export type SliceHumanSelectionBody = {
+  selected_option_id: string;
+  selection_rationale: string;
+  actor: TopicSelectionActorRef;
+  confidence?: number | null;
+  decision_basis?: Record<string, unknown>;
+  required_actions?: string[];
+  accepted_risk_refs?: TopicSelectionFunctionalRef[];
+};
 
 export type OfflineDatasetBody = Parameters<TopicSelectionOfflineEvaluationReplayService['createDataset']>[0];
 export type WorkflowHarnessRunBody = TopicSelectionV1bWorkflowHarnessRunRequest;
@@ -67,6 +82,34 @@ export class TopicSelectionV1bController {
         throw new AppError(400, 'INVALID_PAYLOAD', 'Workflow harness body node_id must match the route nodeId.');
       }
       const result = await this.workflowHarness.invokeNode(request.body);
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  /**
+   * T-115 Phase 2 — human-authority N5 select-research-slice. Builds a
+   * `human_delegated` harness invocation from persisted state and runs it
+   * through the same harness path the native runner uses (no legacy direct
+   * write). Returns the harness run result (gate_status admitted/blocked).
+   */
+  selectResearchSliceHuman = async (
+    request: BodyParamsRequest<SliceHumanSelectionBody, { optionSetId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const service = new V1bSliceHumanSelectionService(this.workflowHarness, this.researchSlice);
+      const result = await service.selectSlice({
+        research_slice_option_set_id: request.params.optionSetId,
+        selected_option_id: request.body.selected_option_id,
+        selection_rationale: request.body.selection_rationale,
+        actor: request.body.actor,
+        confidence: request.body.confidence ?? null,
+        decision_basis: request.body.decision_basis,
+        required_actions: request.body.required_actions,
+        accepted_risk_refs: request.body.accepted_risk_refs,
+      });
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);

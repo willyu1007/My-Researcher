@@ -3,7 +3,12 @@
 > 每次验证运行记录命令 + 结果。
 
 ## Status
-- Phase 1a + 1b done；Phase 2-① done。1c full harness-admission e2e 仍在 Phase 2-④（见 03-notes）。
+- Phase 1a + 1b done；Phase 2 ① ② ④ done（人审路由 + e2e 全链通）。剩 ③ UI、⑤ N7/N2。
+
+### 2026-06-03 · Phase 2 ②+④ — human-selection route + e2e
+- 改动：research-slice service `findOptionSetById`；controller `selectResearchSliceHuman` + `SliceHumanSelectionBody`；routes `POST /research-slice-option-sets/:optionSetId/human-selection`；集成测试新增人审 N5 e2e。**无 app.ts 改动**。
+- `TS_NODE_PROJECT=apps/backend/tsconfig.json node --env-file=.env.local --test --loader ./apps/backend/node_modules/ts-node/esm.mjs apps/backend/src/routes/topic-selection-v1b-routes.integration.test.ts` → **7/7 pass**（含新 "human N5 selection (T-115) produces a ResearchSlice through the harness"：N1→N4 → 人审路由 → admitted + authority_ref + handoff_ref；非 human→400；legacy-404 / N1–N11 / offline replay / Prisma smoke 仍绿）。
+- 注：full-project backend `tsc` 在本环境 OOM(137)、0 type error；route→controller→service 图已由 ts-node 集成测试全类型检查覆盖。
 
 ### 2026-06-03 · Phase 2-① — N4 persists n4_handoff_hash
 - 改动：`topic-selection-v1b-workflow-harness-service.ts` `runN4GenerateResearchSliceOptions` 的 comparison_payload 增 `n4_handoff_hash: handoffHash`。

@@ -1730,6 +1730,17 @@ export class TopicSelectionV1bResearchSliceService {
   }
 
   /**
+   * T-115 — single ResearchSliceOptionSet by id. Lets the human N5 selection
+   * service read back the persisted N4 authority + handoff hashes from
+   * `comparison_payload` to assemble a valid harness frozen_input.
+   */
+  async findOptionSetById(
+    optionSetId: string,
+  ): Promise<TopicSelectionResearchSliceOptionSetRecord | null> {
+    return this.repository.findOptionSetById(optionSetId);
+  }
+
+  /**
    * T-087 Phase 3.2 read-only projection — list ResearchSliceOptions for an
    * OptionSet so the reviewer workbench's selection form can render a
    * proper picker instead of a free-text id field.

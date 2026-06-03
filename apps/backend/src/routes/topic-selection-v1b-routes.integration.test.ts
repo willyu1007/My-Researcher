@@ -2426,6 +2426,76 @@ test('topic-selection v1b workflow harness HTTP route drives N1-N11 without lega
   }
 });
 
+test('topic-selection v1b human N5 selection (T-115) produces a ResearchSlice through the harness', async () => {
+  const app = buildApp({
+    topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
+    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
+  });
+  try {
+    const suffix = uniqueId('v1b-human-n5');
+    // Drive N1 -> N4 only, leaving the option set ready_for_selection.
+    const bundleResult = await createV1bInputBundle(app, suffix);
+    const n1 = await invokeV1bHarnessNode(app, v1bHarnessN1Request(bundleResult.v1bInputBundle, suffix));
+    const acceptedProfile = acceptedConstraintProfilePayload();
+    const n2 = await invokeV1bHarnessNode(
+      app,
+      v1bHarnessN2Request(bundleResult.v1bInputBundle, n1, suffix, acceptedProfile),
+    );
+    const n3 = await invokeV1bHarnessNode(app, v1bHarnessN3Request(n1, n2, suffix));
+    const n4Input = v1bHarnessN4Request(n1, n2, n3, suffix);
+    const n4 = await invokeV1bHarnessNode(app, {
+      ...n4Input,
+      semantic_artifacts: [
+        await recordWorkflowHarnessSemanticArtifact(app, n4Input, {
+          slot_id: 'n4_research_slice_option_draft',
+          allowed_effect: 'model_draft_for_gate',
+          output_contract: 'ResearchSliceOptionSetDraft@v1',
+          profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent,
+        }, v1bHarnessN4Draft(bundleResult.v1bInputBundle) as unknown as Record<string, unknown>),
+      ],
+    });
+    assert.ok(n4.authority_ref, JSON.stringify(n4));
+    const optionSetId = n4.authority_ref.ref_id;
+    const option = await selectedV1bHarnessOption(app, n4);
+
+    // Human selects a slice through the T-115 human-authority route (human_delegated,
+    // routed THROUGH the harness — not a legacy direct write).
+    const res = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/research-slice-option-sets/${encodeURIComponent(optionSetId)}/human-selection`,
+      payload: {
+        selected_option_id: option.research_slice_option_id,
+        selection_rationale: 'Strongest bounded fit for the validated need.',
+        actor: { actor_type: 'human', actor_id: 'reviewer-1' },
+        confidence: 0.82,
+      },
+    });
+    assertStatus(res, 201);
+    const result = res.json() as WorkflowHarnessHttpResult;
+    assert.ok(
+      ['admitted', 'admitted_with_warnings'].includes(result.gate_status),
+      `expected admitted N5, got ${JSON.stringify(result)}`,
+    );
+    assert.ok(result.authority_ref, 'human N5 selection should emit an authority ref');
+    assert.ok(result.handoff_ref, 'human N5 selection should emit an N5->N6 handoff');
+    assert.equal(result.authority_ref?.title_card_id, bundleResult.v1bInputBundle.title_card_id);
+
+    // A non-human actor is rejected (400) by the service.
+    const botRes = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/research-slice-option-sets/${encodeURIComponent(optionSetId)}/human-selection`,
+      payload: {
+        selected_option_id: option.research_slice_option_id,
+        selection_rationale: 'bot tries',
+        actor: { actor_type: 'llm', actor_id: 'bot' },
+      },
+    });
+    assert.equal(botRes.statusCode, 400);
+  } finally {
+    await app.close();
+  }
+});
+
 test('topic-selection v1b offline replay HTTP routes calculate metrics and expose diffs', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),

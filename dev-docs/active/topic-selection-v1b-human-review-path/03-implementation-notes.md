@@ -40,9 +40,9 @@ N5 handler 读 `loaded.value.planRun`（constraint_profile_ref / readiness_asses
 
 ## Phase 2 steps & status
 - [x] (2-①) N4 runner 持久化 `comparison_payload.n4_handoff_hash`（`runN4GenerateResearchSliceOptions`，将 outer-scope `handoffHash`@2547 写入 `writeAuthority` 闭包的 comparison_payload）。T-088 协调：动手前确认该 harness 文件**未被并行工作修改**（git status 干净），collision 风险低；仅 1 行加字段，非 `ln`/`invokeNode`。验证：backend typecheck 0 error；`topic-selection-v1b-routes.integration.test.ts` **6/6**（N1–N11 链 + legacy-404 + offline replay + Prisma smoke）。只加 `n4_handoff_hash`（service 只读它；handoff_ref 暂不需要）。
-- [ ] (2-②) per-node 人审路由 `/research-slice-option-sets/:id/human-selection` → `V1bSliceHumanSelectionService`（守卫 `blockWorkflowHarnessAutomationOnDirectWrite`）。
+- [x] (2-②) per-node 人审路由 `POST /research-slice-option-sets/:optionSetId/human-selection`。**全程走 clean 文件、无 app.ts 改动**：在 research-slice **service** 加公开 `findOptionSetById`（委托 repo）；在 **controller** 用既有 `this.workflowHarness` + `this.researchSlice` 构造 `V1bSliceHumanSelectionService`（两者结构上满足 service 的 invoker/read-port），加 `selectResearchSliceHuman` handler + `SliceHumanSelectionBody`；在 **routes** 加路由 + body schema（新语义路径，不撞 legacy 404）。
 - [ ] (2-③) `SliceOptionSetCard` 接 `/options` + 选定表单（api/v1b.ts client）。
-- [ ] (2-④) 完整 e2e：复用集成测试 N1→N4 链 → 经人审路由选 option → admitted + ResearchSlice。
+- [x] (2-④) 完整 e2e（先于 ③ 做，验证后端全链）：集成测试新增 "human N5 selection (T-115) produces a ResearchSlice through the harness" —— 真实跑 N1→N4 → POST 人审路由 → `human_delegated` → admitted + authority_ref + N5→N6 handoff；非 human actor→400。**v1b 集成 7/7**（含 legacy-404 / N1–N11 / offline replay / Prisma smoke 全绿，非回归）。ts-node 全类型检查覆盖 route→controller→service 图（full-project tsc 因环境内存被 kill，非类型错误）。
 - [ ] (2-⑤) 复制到 N7（question contract）/ N2（constraint profile）。
 
 ## Open TODOs
