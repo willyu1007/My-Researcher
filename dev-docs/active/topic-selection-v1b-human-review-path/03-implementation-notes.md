@@ -1,0 +1,43 @@
+# 03 Implementation Notes
+
+> 每个 phase 完成后追加：改了什么、为什么、遗留 TODO。
+
+## Status
+- Pending Phase 1（尚未动代码）。本任务包先行落地评估与方案设计（00/01/02）。
+
+## Pre-implementation findings (carried from assessment, 2026-06-03)
+- v1b 单写入口 = `/workflow-harness/nodes/:nodeId/invocations` → `controller.ln` → `TopicSelectionV1bWorkflowHarnessService`。
+- 人审节点 = N2 / N5 / N7（`allowed_execution_modes` 含 `human_delegated`）。N8 model-like；N9/N10 deterministic `['none']`。
+- N5 lineage hash 可从持久化取：`comparison_payload.authority_hash`（option set 记录）+ N4 handoff artifact。canonical `hash()` 为可复用 service 方法。
+- 详见 `02-architecture.md`。
+
+## Decisions (2026-06-03)
+- D1 复用：抽 canonical 哈希为后端模块；D2 per-node 新语义路径；D3 先只做 Phase 1（service+单测，零 UI，尽量不改 harness `ln`）。
+
+## Phase 1 refined plan (post deep-spec, 2026-06-03)
+精确实现面（file:line 来自调研）：
+- harness 入口：`TopicSelectionV1bWorkflowHarnessService.invokeNode(req): Promise<RunResult>`（service ~L568）；构造器 deps：`controlPlane` + `{ idFactory?, now?, modelProfileRegistry?, runnerDependencies? }`（~L523）。
+- N5 handler **re-derive 校验**（caller 必须给对）：`accepted_selection_payload_hash`=`hash(accepted_payload)`（~L2686）、`research_slice_option_set_hash` 必须等于 option-set 记录 `comparison_payload.authority_hash`（~L2727）、`selected_option_hash`=`hashResearchSliceOptionAuthority(option)`（~L8850）。`n4_handoff_hash` 仅作 replay component，不 re-derive。
+- canonical 哈希：`hash(v)=sha256Text(stableStringify(v))`（`literature-content-processing-utils.ts`），`stableStringify` 排序 key → 哈希与字段顺序无关。`hashResearchSliceOptionAuthority` 形状见 service ~L12309；`ref` 形状 `{ref_type,ref_id,version_id:null,title_card_id}`（~L12634）。
+- 仓库 getters：`findOptionSetById`、`listOptionsByOptionSetId`（`topic-selection-v1b-research-slice.repository.ts`）。
+
+### ⚠️ Phase-0 blocker confirmed: `n4_handoff_hash` 未持久化在 option-set 上
+`comparison_payload` 存 `authority_hash / constraint_profile_hash / intake_readiness_hash / n3_handoff_hash`，**没有 `n4_handoff_hash` / `n4_handoff_ref`**（N4 runner ~L2642）。N4 handoff 落了 control-plane artifact，但无"按 option-set-id 反查"的干净 getter。
+- **Phase 2 prerequisite（需碰 harness N4 runner，与 T-088 协调）**：在 N4 runner 的 `comparison_payload` 增写 `n4_handoff_ref` + `n4_handoff_hash`（1 处小补丁，非 `ln`/`invokeNode`）。
+- **Phase 1 处理**：`V1bSliceHumanSelectionService` 从 `comparison_payload.n4_handoff_hash` 读取；Phase 1 集成测试在跑完 N1→N4 后，用 N4 result 的 `hashes.handoff_hash` 手动补写该字段（模拟 Phase 2 持久化），再经 wrapper 驱动 N5。
+
+## Phase 1 steps & status
+- [x] (1a) canonical 哈希模块 `topic-selection-v1b-harness-authority-hash.ts`（+ 6 单测，golden 锁定）。
+- [x] (1b) `V1bSliceHumanSelectionService.selectSlice(...)`：从持久化拼 `human_delegated` N5 run-request → `invokeNode`（service `topic-selection-v1b-slice-human-selection-service.ts` + 5 单测：自洽请求装配 + 4 负例）。backend typecheck exit 0 / 0 errors；两文件共 11/11 pass。
+- [~] (1c) **rescoped → Phase 2**：full harness-admission e2e（跑 N1→N4 → wrapper → 断言 admitted + ResearchSlice）。理由见下。
+
+### 关于 1c rescope（诚实记录）
+N5 handler 读 `loaded.value.planRun`（constraint_profile_ref / readiness_assessment_ref）+ option-set 的 lineage hashes，需要**完整 N4 输出结构**才能 admit。service 级手工 seed 易碎；真实 N1→N4 种子需移植集成测试约 500 行 builder。该 e2e 更适合放到 **Phase 2**：届时人审路由已建，可直接复用 `topic-selection-v1b-routes.integration.test.ts` 的 N1→N4 HTTP 链，在其后追加"经人审路由选 option → admitted"断言。
+当前置信度来源（已足够支撑 1b 落地）：
+- 1a：哈希与 harness 私有 `hashResearchSliceOptionAuthority`/`hash` **逐字段源码比对一致** + golden 锁定。
+- 1b：wrapper 产出的请求**自洽**——`accepted_selection_payload_hash`/`selected_option_hash`/`research_slice_option_set_hash` 正是 N5 re-derive 比对的三个值；且已核实 `n5CodexDelegationBlocker` 对 `human_delegated` 直接放行（`delegation_artifact_hash:null` 不被拦）。
+- 残留唯一未经真实 harness 跑通的是"N5 对完整 lineage 的 gate"——留待 Phase 2 e2e。
+
+## Open TODOs
+- [ ] (Phase 2) N4 runner 持久化 `n4_handoff_ref/hash`（与 T-088 协调）。
+- [ ] (Phase 2) harness service 改用共享哈希模块，完成 D1 consolidation。
