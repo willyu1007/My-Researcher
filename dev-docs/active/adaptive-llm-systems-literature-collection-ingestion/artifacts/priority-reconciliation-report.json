@@ -1,0 +1,1146 @@
+{
+  "generated_at": "2026-06-03T23:25:52.980Z",
+  "apply": true,
+  "decisions": [
+    {
+      "id": "LIT-0177",
+      "final_priority": "priority:p1",
+      "reason": "Classic retrieval-depth baseline; seed catalog classifies it as important support rather than direct frontier problem definition.",
+      "title": "Leveraging Passage Retrieval with Generative Models for Open Domain Question Answering",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b1-core-high-precision",
+        "bridge:core-theory",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "decision:context-packing",
+        "decision:top-k-selection",
+        "direction:rag-aware-allocation",
+        "metric:answer-quality",
+        "metric:citation-quality",
+        "metric:faithfulness",
+        "metric:recall-at-k",
+        "priority:p1",
+        "query:q-cor-02",
+        "query:q-cor-03",
+        "resource:chunk-size",
+        "resource:context-window",
+        "resource:retrieval-depth",
+        "resource:top-k",
+        "subcluster:context-budget",
+        "subcluster:retrieval-depth"
+      ]
+    },
+    {
+      "id": "LIT-0180",
+      "final_priority": "priority:p1",
+      "reason": "Corrective RAG is an important retrieval-gating baseline, but less direct than adaptive routing/control seeds.",
+      "title": "Corrective Retrieval Augmented Generation",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b1-core-high-precision",
+        "bridge:core-strategy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "decision:retrieve-or-not",
+        "direction:rag-aware-allocation",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p1",
+        "query:q-cor-01",
+        "resource:retrieval-depth",
+        "subcluster:retrieval-gating"
+      ]
+    },
+    {
+      "id": "LIT-0189",
+      "final_priority": "priority:p1",
+      "reason": "RAGPulse is primarily an experiment-foundation workload trace and serving substrate, not a direct policy contribution.",
+      "title": "RAGPulse: An Open-Source RAG Workload Trace to Optimize RAG Serving Systems",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b1-core-high-precision",
+        "bridge:core-system",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "decision:budget-allocate",
+        "direction:rag-aware-allocation",
+        "metric:p95-latency",
+        "metric:ttft",
+        "priority:p1",
+        "query:q-cor-04",
+        "resource:context-window",
+        "resource:decode",
+        "resource:prefill",
+        "subcluster:rag-serving-optimization"
+      ]
+    },
+    {
+      "id": "LIT-0196",
+      "final_priority": "priority:p1",
+      "reason": "Promoted from initial p2 because B2 uses it as an experiment-foundation benchmark/evaluation candidate.",
+      "title": "RAGBench: Explainable Benchmark for Retrieval-Augmented Generation Systems",
+      "previous_priority_tags": [
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": false,
+      "next_tags": [
+        "batch:b2-core-system-bridge",
+        "bridge:core-system",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "fit:experiment-foundation",
+        "metric:answer-quality",
+        "metric:faithfulness",
+        "metric:p95-latency",
+        "metric:ttft",
+        "priority:p1",
+        "query:q-cor-09",
+        "subcluster:rag-evaluation-quality",
+        "subcluster:rag-workload"
+      ]
+    },
+    {
+      "id": "LIT-0197",
+      "final_priority": "priority:p1",
+      "reason": "Promoted from initial p2 because B2 uses it as an experiment-foundation diagnostic/evaluation candidate.",
+      "title": "RAGChecker: A Fine-grained Framework for Diagnosing Retrieval-Augmented Generation",
+      "previous_priority_tags": [
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": false,
+      "next_tags": [
+        "batch:b2-core-system-bridge",
+        "bridge:core-system",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "fit:experiment-foundation",
+        "metric:answer-quality",
+        "metric:faithfulness",
+        "metric:p95-latency",
+        "metric:ttft",
+        "priority:p1",
+        "query:q-cor-09",
+        "subcluster:rag-evaluation-quality",
+        "subcluster:rag-workload"
+      ]
+    },
+    {
+      "id": "LIT-0204",
+      "final_priority": "priority:p1",
+      "reason": "RAGPerf is a benchmark/framework candidate for experiment-foundation; not a direct core policy paper.",
+      "title": "RAGPerf: An End-to-End Benchmarking Framework for Retrieval-Augmented Generation Systems",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b2-core-system-bridge",
+        "bridge:core-system",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "decision:budget-allocate",
+        "direction:rag-aware-allocation",
+        "fit:experiment-foundation",
+        "metric:answer-quality",
+        "metric:faithfulness",
+        "metric:p95-latency",
+        "metric:ttft",
+        "priority:p1",
+        "query:q-cor-04",
+        "query:q-cor-09",
+        "resource:context-window",
+        "resource:decode",
+        "resource:prefill",
+        "subcluster:rag-evaluation-quality",
+        "subcluster:rag-serving-optimization",
+        "subcluster:rag-workload"
+      ]
+    },
+    {
+      "id": "LIT-0226",
+      "final_priority": "priority:p1",
+      "reason": "Chain-of-thought is a classic reasoning baseline for test-time compute, not the focused adaptive budgeting contribution.",
+      "title": "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p1",
+        "query:q-str-01",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "subcluster:test-time-scaling"
+      ]
+    },
+    {
+      "id": "LIT-0227",
+      "final_priority": "priority:p1",
+      "reason": "Self-consistency is a classic sampling baseline and verifier-budget precursor, not the focused adaptive budgeting contribution.",
+      "title": "Self-Consistency Improves Chain of Thought Reasoning in Language Models",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p1",
+        "query:q-str-01",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0230",
+      "final_priority": "priority:p1",
+      "reason": "FrugalGPT is a model-routing/cascade baseline; important support but not the current central adaptive RAG allocation target.",
+      "title": "FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:model-route",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p1",
+        "query:q-str-03",
+        "resource:cost-budget",
+        "resource:model-choice",
+        "subcluster:cascade",
+        "subcluster:model-routing"
+      ]
+    },
+    {
+      "id": "LIT-0232",
+      "final_priority": "priority:p1",
+      "reason": "Verifier supervision seed for strategy support; important but not direct adaptive allocation system target.",
+      "title": "Let's Verify Step by Step",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p1",
+        "query:q-str-01",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0235",
+      "final_priority": "priority:p0",
+      "reason": "Repeated-sampling inference scaling directly informs test-time compute allocation.",
+      "title": "Large Language Monkeys: Scaling Inference Compute with Repeated Sampling",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p0"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p0",
+        "query:q-str-01",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0236",
+      "final_priority": "priority:p0",
+      "reason": "Core test-time compute scaling seed for adaptive compute allocation.",
+      "title": "Scaling LLM Test-Time Compute Optimally can be More Effective than Scaling Model Parameters",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p0"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p0",
+        "query:q-str-01",
+        "query:q-str-02",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0237",
+      "final_priority": "priority:p0",
+      "reason": "Direct compute-optimal solve/verify allocation seed.",
+      "title": "When To Solve, When To Verify: Compute-Optimal Problem Solving and Generative Verification for LLM Reasoning",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p0"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p0",
+        "query:q-str-01",
+        "query:q-str-02",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0239",
+      "final_priority": "priority:p0",
+      "reason": "Direct confidence/calibration seed for efficient test-time scaling.",
+      "title": "Thought calibration: Efficient and confident test-time scaling",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p0"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "bridge:strategy-theory",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "decision:model-route",
+        "decision:reason-continue-stop",
+        "decision:retrieve-or-not",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p0",
+        "query:q-str-02",
+        "query:q-str-04",
+        "query:q-str-05",
+        "resource:cost-budget",
+        "resource:reasoning-steps",
+        "subcluster:adaptive-compute",
+        "subcluster:confidence-gating",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:early-stopping"
+      ]
+    },
+    {
+      "id": "LIT-0240",
+      "final_priority": "priority:p2",
+      "reason": "Survey seed; useful for query terms and synthesis, but not an experiment card by default.",
+      "title": "Reasoning on a Budget: A Survey of Adaptive and Controllable Test-Time Compute in LLMs",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1",
+        "priority:p2"
+      ],
+      "next_priority_tags": [
+        "priority:p2"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "bridge:strategy-theory",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "decision:reason-continue-stop",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p2",
+        "query:q-str-02",
+        "query:q-str-05",
+        "query:q-str-08",
+        "resource:reasoning-steps",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:early-stopping"
+      ]
+    },
+    {
+      "id": "LIT-0241",
+      "final_priority": "priority:p1",
+      "reason": "Broad comparative test-time scaling seed; important support after core allocation papers.",
+      "title": "The Art of Scaling Test-Time Compute for Large Language Models",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p2"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p1",
+        "query:q-str-01",
+        "query:q-str-02",
+        "query:q-str-08",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:test-time-scaling"
+      ]
+    },
+    {
+      "id": "LIT-0243",
+      "final_priority": "priority:p2",
+      "reason": "Survey seed for routing/cascading; use for synthesis and query expansion rather than direct evidence activation.",
+      "title": "Dynamic Model Routing and Cascading for Efficient LLM Inference: A Survey",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p2"
+      ],
+      "next_priority_tags": [
+        "priority:p2"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:model-route",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p2",
+        "query:q-str-03",
+        "query:q-str-08",
+        "resource:cost-budget",
+        "resource:model-choice",
+        "subcluster:adaptive-compute",
+        "subcluster:cascade",
+        "subcluster:model-routing"
+      ]
+    },
+    {
+      "id": "LIT-0244",
+      "final_priority": "priority:p1",
+      "reason": "Overthinking limitation seed; useful contrast case but not direct allocation method.",
+      "title": "When More Thinking Hurts: Overthinking in LLM Test-Time Compute Scaling",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "bridge:strategy-theory",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "decision:reason-continue-stop",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p1",
+        "query:q-str-01",
+        "query:q-str-02",
+        "query:q-str-05",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:early-stopping",
+        "subcluster:test-time-scaling"
+      ]
+    }
+  ],
+  "updates": [
+    {
+      "id": "LIT-0177",
+      "final_priority": "priority:p1",
+      "reason": "Classic retrieval-depth baseline; seed catalog classifies it as important support rather than direct frontier problem definition.",
+      "title": "Leveraging Passage Retrieval with Generative Models for Open Domain Question Answering",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b1-core-high-precision",
+        "bridge:core-theory",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "decision:context-packing",
+        "decision:top-k-selection",
+        "direction:rag-aware-allocation",
+        "metric:answer-quality",
+        "metric:citation-quality",
+        "metric:faithfulness",
+        "metric:recall-at-k",
+        "priority:p1",
+        "query:q-cor-02",
+        "query:q-cor-03",
+        "resource:chunk-size",
+        "resource:context-window",
+        "resource:retrieval-depth",
+        "resource:top-k",
+        "subcluster:context-budget",
+        "subcluster:retrieval-depth"
+      ]
+    },
+    {
+      "id": "LIT-0180",
+      "final_priority": "priority:p1",
+      "reason": "Corrective RAG is an important retrieval-gating baseline, but less direct than adaptive routing/control seeds.",
+      "title": "Corrective Retrieval Augmented Generation",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b1-core-high-precision",
+        "bridge:core-strategy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "decision:retrieve-or-not",
+        "direction:rag-aware-allocation",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p1",
+        "query:q-cor-01",
+        "resource:retrieval-depth",
+        "subcluster:retrieval-gating"
+      ]
+    },
+    {
+      "id": "LIT-0189",
+      "final_priority": "priority:p1",
+      "reason": "RAGPulse is primarily an experiment-foundation workload trace and serving substrate, not a direct policy contribution.",
+      "title": "RAGPulse: An Open-Source RAG Workload Trace to Optimize RAG Serving Systems",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b1-core-high-precision",
+        "bridge:core-system",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "decision:budget-allocate",
+        "direction:rag-aware-allocation",
+        "metric:p95-latency",
+        "metric:ttft",
+        "priority:p1",
+        "query:q-cor-04",
+        "resource:context-window",
+        "resource:decode",
+        "resource:prefill",
+        "subcluster:rag-serving-optimization"
+      ]
+    },
+    {
+      "id": "LIT-0204",
+      "final_priority": "priority:p1",
+      "reason": "RAGPerf is a benchmark/framework candidate for experiment-foundation; not a direct core policy paper.",
+      "title": "RAGPerf: An End-to-End Benchmarking Framework for Retrieval-Augmented Generation Systems",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b2-core-system-bridge",
+        "bridge:core-system",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "decision:budget-allocate",
+        "direction:rag-aware-allocation",
+        "fit:experiment-foundation",
+        "metric:answer-quality",
+        "metric:faithfulness",
+        "metric:p95-latency",
+        "metric:ttft",
+        "priority:p1",
+        "query:q-cor-04",
+        "query:q-cor-09",
+        "resource:context-window",
+        "resource:decode",
+        "resource:prefill",
+        "subcluster:rag-evaluation-quality",
+        "subcluster:rag-serving-optimization",
+        "subcluster:rag-workload"
+      ]
+    },
+    {
+      "id": "LIT-0226",
+      "final_priority": "priority:p1",
+      "reason": "Chain-of-thought is a classic reasoning baseline for test-time compute, not the focused adaptive budgeting contribution.",
+      "title": "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p1",
+        "query:q-str-01",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "subcluster:test-time-scaling"
+      ]
+    },
+    {
+      "id": "LIT-0227",
+      "final_priority": "priority:p1",
+      "reason": "Self-consistency is a classic sampling baseline and verifier-budget precursor, not the focused adaptive budgeting contribution.",
+      "title": "Self-Consistency Improves Chain of Thought Reasoning in Language Models",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p1",
+        "query:q-str-01",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0230",
+      "final_priority": "priority:p1",
+      "reason": "FrugalGPT is a model-routing/cascade baseline; important support but not the current central adaptive RAG allocation target.",
+      "title": "FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance",
+      "previous_priority_tags": [
+        "priority:p0"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:model-route",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p1",
+        "query:q-str-03",
+        "resource:cost-budget",
+        "resource:model-choice",
+        "subcluster:cascade",
+        "subcluster:model-routing"
+      ]
+    },
+    {
+      "id": "LIT-0232",
+      "final_priority": "priority:p1",
+      "reason": "Verifier supervision seed for strategy support; important but not direct adaptive allocation system target.",
+      "title": "Let's Verify Step by Step",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p1",
+        "query:q-str-01",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0235",
+      "final_priority": "priority:p0",
+      "reason": "Repeated-sampling inference scaling directly informs test-time compute allocation.",
+      "title": "Large Language Monkeys: Scaling Inference Compute with Repeated Sampling",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p0"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p0",
+        "query:q-str-01",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0236",
+      "final_priority": "priority:p0",
+      "reason": "Core test-time compute scaling seed for adaptive compute allocation.",
+      "title": "Scaling LLM Test-Time Compute Optimally can be More Effective than Scaling Model Parameters",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p0"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p0",
+        "query:q-str-01",
+        "query:q-str-02",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0237",
+      "final_priority": "priority:p0",
+      "reason": "Direct compute-optimal solve/verify allocation seed.",
+      "title": "When To Solve, When To Verify: Compute-Optimal Problem Solving and Generative Verification for LLM Reasoning",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p0"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p0",
+        "query:q-str-01",
+        "query:q-str-02",
+        "query:q-str-06",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:verifier-passes",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:test-time-scaling",
+        "subcluster:verifier-budget"
+      ]
+    },
+    {
+      "id": "LIT-0239",
+      "final_priority": "priority:p0",
+      "reason": "Direct confidence/calibration seed for efficient test-time scaling.",
+      "title": "Thought calibration: Efficient and confident test-time scaling",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p0"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "bridge:strategy-theory",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "decision:model-route",
+        "decision:reason-continue-stop",
+        "decision:retrieve-or-not",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p0",
+        "query:q-str-02",
+        "query:q-str-04",
+        "query:q-str-05",
+        "resource:cost-budget",
+        "resource:reasoning-steps",
+        "subcluster:adaptive-compute",
+        "subcluster:confidence-gating",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:early-stopping"
+      ]
+    },
+    {
+      "id": "LIT-0240",
+      "final_priority": "priority:p2",
+      "reason": "Survey seed; useful for query terms and synthesis, but not an experiment card by default.",
+      "title": "Reasoning on a Budget: A Survey of Adaptive and Controllable Test-Time Compute in LLMs",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1",
+        "priority:p2"
+      ],
+      "next_priority_tags": [
+        "priority:p2"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "bridge:strategy-theory",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "decision:reason-continue-stop",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p2",
+        "query:q-str-02",
+        "query:q-str-05",
+        "query:q-str-08",
+        "resource:reasoning-steps",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:early-stopping"
+      ]
+    },
+    {
+      "id": "LIT-0241",
+      "final_priority": "priority:p1",
+      "reason": "Broad comparative test-time scaling seed; important support after core allocation papers.",
+      "title": "The Art of Scaling Test-Time Compute for Large Language Models",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p2"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "priority:p1",
+        "query:q-str-01",
+        "query:q-str-02",
+        "query:q-str-08",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:test-time-scaling"
+      ]
+    },
+    {
+      "id": "LIT-0243",
+      "final_priority": "priority:p2",
+      "reason": "Survey seed for routing/cascading; use for synthesis and query expansion rather than direct evidence activation.",
+      "title": "Dynamic Model Routing and Cascading for Efficient LLM Inference: A Survey",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p2"
+      ],
+      "next_priority_tags": [
+        "priority:p2"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:model-route",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p2",
+        "query:q-str-03",
+        "query:q-str-08",
+        "resource:cost-budget",
+        "resource:model-choice",
+        "subcluster:adaptive-compute",
+        "subcluster:cascade",
+        "subcluster:model-routing"
+      ]
+    },
+    {
+      "id": "LIT-0244",
+      "final_priority": "priority:p1",
+      "reason": "Overthinking limitation seed; useful contrast case but not direct allocation method.",
+      "title": "When More Thinking Hurts: Overthinking in LLM Test-Time Compute Scaling",
+      "previous_priority_tags": [
+        "priority:p0",
+        "priority:p1"
+      ],
+      "next_priority_tags": [
+        "priority:p1"
+      ],
+      "changed": true,
+      "next_tags": [
+        "batch:b4-strategy-policy",
+        "bridge:core-strategy",
+        "bridge:strategy-theory",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:strategy-support",
+        "decision:budget-allocate",
+        "decision:reason-continue-stop",
+        "direction:test-time-compute-budgeting",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "priority:p1",
+        "query:q-str-01",
+        "query:q-str-02",
+        "query:q-str-05",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "subcluster:adaptive-compute",
+        "subcluster:difficulty-aware-budget",
+        "subcluster:early-stopping",
+        "subcluster:test-time-scaling"
+      ]
+    }
+  ],
+  "counters": {
+    "before": {
+      "literature_count": 281,
+      "source_count": 285,
+      "pipeline_run_count": 0,
+      "content_asset_count": 0,
+      "content_processing_batch_job_count": 0,
+      "fulltext_acquisition_job_count": 0
+    },
+    "after": {
+      "literature_count": 281,
+      "source_count": 285,
+      "pipeline_run_count": 0,
+      "content_asset_count": 0,
+      "content_processing_batch_job_count": 0,
+      "fulltext_acquisition_job_count": 0
+    },
+    "deltas": {
+      "literature_count": 0,
+      "source_count": 0,
+      "pipeline_run_count": 0,
+      "content_asset_count": 0,
+      "content_processing_batch_job_count": 0,
+      "fulltext_acquisition_job_count": 0
+    }
+  }
+}

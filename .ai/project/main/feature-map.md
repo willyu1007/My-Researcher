@@ -40,6 +40,7 @@ Project: `main`
 | T-084 topic-selection-real-e2e-canary | done | dev-docs/active/topic-selection-real-e2e-canary |
 | T-085 topic-selection-real-e2e-scale-quality | done | dev-docs/active/topic-selection-real-e2e-scale-quality |
 | T-111 topic-selection-v1a-production-orchestration | done | dev-docs/active/topic-selection-v1a-production-orchestration |
+| T-116 adaptive-llm-systems-literature-collection-ingestion | done | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
 
 ### F-001 Research Lifecycle Governance Core
 

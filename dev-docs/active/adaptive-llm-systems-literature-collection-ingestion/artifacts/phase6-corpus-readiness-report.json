@@ -1,0 +1,98 @@
+{
+  "generated_at": "2026-06-03T23:27:45.112Z",
+  "decision": {
+    "state": "completed",
+    "readiness": "ready_as_research_seed_corpus",
+    "not_ready_for": [
+      "automatic evidence-active promotion",
+      "unreviewed 5000-record bulk expansion"
+    ],
+    "denominator": "B1-B6 current-round batch records"
+  },
+  "summary": {
+    "record_count": 89,
+    "all_literature_count": 281,
+    "judgment_ready_count": 77,
+    "theory_ready_count": 13,
+    "needs_judgment_count": 0,
+    "low_confidence_count": 0,
+    "no_abstract_count": 9,
+    "no_arxiv_count": 10,
+    "high_experiment_candidate_count": 15,
+    "multi_priority_count": 0
+  },
+  "distribution": {
+    "by_batch": {
+      "batch:b1-core-high-precision": 14,
+      "batch:b2-core-system-bridge": 12,
+      "batch:b3-system-substrate": 19,
+      "batch:b4-strategy-policy": 19,
+      "batch:b5-theory-mapping": 13,
+      "batch:b6-citation-expansion": 12
+    },
+    "by_collection": {
+      "collection:core": 34,
+      "collection:strategy-support": 21,
+      "collection:system-support": 21,
+      "collection:theory-support": 13
+    },
+    "by_direction": {
+      "direction:llm-serving-resource-allocation": 21,
+      "direction:rag-aware-allocation": 30,
+      "direction:test-time-compute-budgeting": 21
+    },
+    "by_effective_priority": {
+      "priority:p0": 24,
+      "priority:p1": 51,
+      "priority:p2": 2,
+      "priority:p3": 12
+    },
+    "by_year_band": {
+      "classic_pre_2023": 16,
+      "frontier_2025_2026": 33,
+      "transition_2023_2024": 40
+    },
+    "by_year": {
+      "1948": 1,
+      "1978": 1,
+      "1997": 1,
+      "1998": 2,
+      "1999": 1,
+      "2000": 1,
+      "2001": 1,
+      "2002": 1,
+      "2013": 1,
+      "2016": 1,
+      "2020": 1,
+      "2021": 1,
+      "2022": 3,
+      "2023": 15,
+      "2024": 25,
+      "2025": 19,
+      "2026": 14
+    }
+  },
+  "b6_stage": {
+    "seed_count": 12,
+    "staged_candidate_count": 807,
+    "import_candidate_count": 393,
+    "staged_review_count": 144,
+    "existing_candidate_count": 26,
+    "skipped_low_fit_count": 244,
+    "failure_count": 0
+  },
+  "follow_up_count": 7,
+  "safety_counters": {
+    "literature_count": 281,
+    "source_count": 285,
+    "pipeline_run_count": 0,
+    "content_asset_count": 0,
+    "content_processing_batch_job_count": 0,
+    "fulltext_acquisition_job_count": 0
+  },
+  "artifact_paths": {
+    "markdown": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/11-corpus-readiness-review.md",
+    "json": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness.json",
+    "report": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness-report.json"
+  }
+}

@@ -1063,3 +1063,10 @@ tasks:
       - R-013
     dev_docs_path: dev-docs/active/paper-implementation-legacy-authority-cleanup
     updated: 2026-06-01
+  - id: T-116
+    slug: adaptive-llm-systems-literature-collection-ingestion
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/adaptive-llm-systems-literature-collection-ingestion
+    updated: 2026-06-04

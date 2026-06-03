@@ -1,0 +1,68 @@
+{
+  "generated_at": "2026-06-03T15:28:24.700Z",
+  "apply": true,
+  "summary": {
+    "records_scanned": 89,
+    "judgment_card_count": 77,
+    "theory_inclusion_card_count": 13,
+    "judgment_cards_by_batch": {
+      "batch:b1-core-high-precision": 14,
+      "batch:b2-core-system-bridge": 12,
+      "batch:b3-system-substrate": 19,
+      "batch:b4-strategy-policy": 19,
+      "batch:b5-theory-mapping": 1,
+      "batch:b6-citation-expansion": 12
+    },
+    "theory_cards_by_priority": {
+      "p1": 1,
+      "p3": 12
+    },
+    "tag_updates": {
+      "planned_records": 89,
+      "applied_records": 89,
+      "judgment_card_ready_added": 77,
+      "theory_inclusion_card_ready_added": 13,
+      "needs_judgment_card_removed": 77
+    }
+  },
+  "counters": {
+    "before": {
+      "literature_count": 281,
+      "source_count": 285,
+      "pipeline_run_count": 0,
+      "content_asset_count": 0,
+      "content_processing_batch_job_count": 0,
+      "fulltext_acquisition_job_count": 0,
+      "needs_judgment_card_count": 77,
+      "judgment_card_ready_count": 0,
+      "theory_inclusion_card_ready_count": 0
+    },
+    "after": {
+      "literature_count": 281,
+      "source_count": 285,
+      "pipeline_run_count": 0,
+      "content_asset_count": 0,
+      "content_processing_batch_job_count": 0,
+      "fulltext_acquisition_job_count": 0,
+      "needs_judgment_card_count": 0,
+      "judgment_card_ready_count": 77,
+      "theory_inclusion_card_ready_count": 13
+    },
+    "deltas": {
+      "literature_count": 0,
+      "source_count": 0,
+      "pipeline_run_count": 0,
+      "content_asset_count": 0,
+      "content_processing_batch_job_count": 0,
+      "fulltext_acquisition_job_count": 0,
+      "needs_judgment_card_count": -77,
+      "judgment_card_ready_count": 77,
+      "theory_inclusion_card_ready_count": 13
+    }
+  },
+  "artifact_paths": {
+    "json": ".ai/.tmp/adaptive-llm-literature-phase5/phase5-judgment-cards.json",
+    "markdown": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/10-judgment-cards.md",
+    "report": ".ai/.tmp/adaptive-llm-literature-phase5/phase5-judgment-cards-report.json"
+  }
+}
