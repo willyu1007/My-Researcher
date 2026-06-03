@@ -208,6 +208,10 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import {
+  hashResearchSliceOptionAuthority as sharedHashResearchSliceOptionAuthority,
+  hashV1bFrozenInput,
+} from './topic-selection-v1b-harness-authority-hash.js';
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const ALLOWED_REQUEST_KEYS = new Set([
@@ -991,12 +995,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
     runtimeAdmissionHash: string | null,
   ): HashContext {
-    const computedFrozenInputHash = this.hash({
-      input_contract: input.frozen_input.input_contract,
-      payload: input.frozen_input.payload,
-      snapshot_kind: input.frozen_input.snapshot_kind,
-      source_refs: input.frozen_input.source_refs,
-    });
+    // Single source of truth (T-115): frozen-input envelope hash shape shared
+    // with V1bSliceHumanSelectionService via the harness-authority-hash module.
+    const computedFrozenInputHash = hashV1bFrozenInput(input.frozen_input);
     const declaredFrozenInputHash = input.frozen_input.frozen_input_hash?.trim() || null;
     if (declaredFrozenInputHash && declaredFrozenInputHash !== computedFrozenInputHash) {
       throw new AppError(409, 'VERSION_CONFLICT', 'frozen_input_hash does not match frozen_input payload.');
@@ -12312,31 +12313,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private hashResearchSliceOptionAuthority(option: TopicSelectionResearchSliceOptionRecord): string {
-    return this.hash({
-      claim_ceiling_alignment: option.claim_ceiling_alignment,
-      dependency_risks: option.dependency_risks,
-      evaluation_path: option.evaluation_path,
-      excluded_boundaries: option.excluded_boundaries,
-      expected_claim: option.expected_claim,
-      fallback_claim: option.fallback_claim,
-      hard_blockers: option.hard_blockers,
-      included_boundaries: option.included_boundaries,
-      main_risks: option.main_risks,
-      option_key: option.option_key,
-      option_ref: this.optionRef(option),
-      option_set_id: option.research_slice_option_set_id,
-      problem_space: option.problem_space,
-      risk_levels: {
-        baseline: option.baseline_risk,
-        execution: option.execution_risk,
-        scope: option.scope_risk,
-      },
-      slice_statement: option.slice_statement,
-      source_validated_need_refs: option.source_validated_need_refs,
-      status: option.status,
-      target_community: option.target_community,
-      target_setting: option.target_setting,
-    });
+    // Single source of truth (T-115): the option-authority hash shape lives in
+    // topic-selection-v1b-harness-authority-hash so the human N5 path
+    // (V1bSliceHumanSelectionService) and this harness re-derivation cannot drift.
+    return sharedHashResearchSliceOptionAuthority(option);
   }
 
   private hashN5DecisionAuthority(input: {

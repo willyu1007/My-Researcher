@@ -45,6 +45,11 @@ N5 handler 读 `loaded.value.planRun`（constraint_profile_ref / readiness_asses
 - [x] (2-④) 完整 e2e（先于 ③ 做，验证后端全链）：集成测试新增 "human N5 selection (T-115) produces a ResearchSlice through the harness" —— 真实跑 N1→N4 → POST 人审路由 → `human_delegated` → admitted + authority_ref + N5→N6 handoff；非 human actor→400。**v1b 集成 7/7**（含 legacy-404 / N1–N11 / offline replay / Prisma smoke 全绿，非回归）。ts-node 全类型检查覆盖 route→controller→service 图（full-project tsc 因环境内存被 kill，非类型错误）。
 - [ ] (2-⑤) 复制到 N7（question contract）/ N2（constraint profile）。
 
+## De-dup / single-source (2026-06-03) — no dual-track
+- [x] harness service 改用共享哈希模块，D1 consolidation 完成（消除双轨）：harness `private hashResearchSliceOptionAuthority` 委托 shared `sharedHashResearchSliceOptionAuthority`；`hashContext` 的 frozen-input 计算改用 shared `hashV1bFrozenInput`。两处重复的 **shape**（20 字段 option-authority + frozen-input envelope）现在单一来源 = `topic-selection-v1b-harness-authority-hash.ts`，harness + `V1bSliceHumanSelectionService` + 单测 golden 共用，杜绝漂移。
+  - `private hash`（`sha256Text(stableStringify)`）保留为 harness 通用 hasher：与 `canonicalHash` 同为**单源 primitives 的平凡组合**（两者都来自 `literature-content-processing-utils`），无 shape 可漂移，非技术债。
+  - 验证：hash 单测 6/6（golden 不变）+ v1b 集成 7/7（N5/N6 hash 校验 + frozen-input 409 全过 → 字节一致、非回归）。
+- 旧版/双轨核查：v1b legacy direct-write 路由（`…/selection-decisions` 等）**未复活**，仍 404（集成测试 1）。人审路由是**新语义路径、经 harness**，非第二条 runtime。v1a N8 是同一 service 方法（`confirmValidatedNeed`）的两个入口（HTTP-人 / in-process-harness），单源、非双轨。
+
 ## Open TODOs
-- [ ] (later) harness service 改用共享哈希模块，完成 D1 consolidation。
-- [ ] (later) 旧 option set（本次 commit 前创建的）无 `n4_handoff_hash`；service 会 409 提示，需重跑 N4 或迁移。
+- [ ] (later) 旧 option set（本次 commit 前创建的）无 `n4_handoff_hash`；service 会 409 提示，需重跑 N4 或迁移（数据迁移，非代码双轨）。
