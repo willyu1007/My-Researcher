@@ -59,21 +59,38 @@ run-request 形状（实测样例：`apps/backend/src/routes/topic-selection-v1b
 2. **D2 — 路由命名**（RESOLVED：per-node 新语义路径）：`/research-slice-option-sets/:id/human-selection`、`/topic-question-candidate-sets/:id/human-materialization` 等；不得撞被 404 钉死的 legacy 名。
 3. **D3 — 时机/范围**（RESOLVED：先只做 Phase 1）：本轮只做后端 `V1bSliceHumanSelectionService` + 单测把"人选 option → 合法 ResearchSlice"证伪；零 UI、尽量不抢改 harness `ln`。Phase 2+（路由/UI/N7/N2）证通后再决定。
 
-## Phase 2 ⑤ — N7 / N2 design (scoped 2026-06-03)
+## Phase 2 ⑤ — human-node scope CORRECTION + N2 (2026-06-03)
 
-### N7 materialize-topic-question-contract (human path)
-- N7 is `execution_kind: 'delegated'`, modes `['none','codex_assisted','human_delegated','mocked_llm']`. Human path = **materialize the question contract from the N6 candidate set** (the contract content comes from N6, NOT human-authored). Two input modes: `initial_from_n6` (target here) / `feedback_from_n8` (loopback).
-- N7 Initial frozen-input = **full `TopicSelectionV1bN6ToN7HandoffPayload` (11 fields)** + `input_mode:'initial_from_n6'` + `n6_handoff_hash`. So the human service must REPLAY the N6→N7 handoff, not build a compact payload like N5.
-- **No schema change needed**: unlike the option set (which had a `comparison_payload` JSON blob where N4 persists `n4_handoff_hash`), the candidate-set record has typed fields — but the **N6→N7 handoff ref is already persisted in the candidate set's `artifact_refs`** (harness `runN6GenerateTopicQuestionCandidates`, `prepared.handoffRef`). So the N7 service: load candidate set → find the N6→N7 handoff ref in `artifact_refs` (filter by ref_type) → `controlPlane.getArtifactRef` → use its payload as the handoff content → recompute `n6_handoff_hash = canonicalHash(handoff)` (shared module) → build frozen-input → `invokeNode`.
-- Open impl detail: confirm the handoff ref_type used to filter `artifact_refs` (read `buildHandoff` for `N6ToN7Handoff`). Slightly larger than N5 (handoff fetch + replay vs compact payload).
-- Surfaces: `V1bQuestionContractHumanService` + route `POST /topic-question-candidate-sets/:candidateSetId/human-materialization` + `QuestionCandidateSetCard` form (trigger + reviewer id + rationale; content is from N6) + e2e (N1→N6 then route → admitted N7).
+### N7 materialize-topic-question-contract — NOT a human-review node (revised)
+- Earlier scoped as a human slice purely because the contract lists `human_delegated` in N7's
+  `allowed_execution_modes`. **CORRECTION after reading the handler**: N7 carries **no human
+  decision**. `runN7MaterializeTopicQuestionContract` (harness ~L3262) picks the candidate itself
+  via `chooseN7Candidate(...)` (~L3317); the Initial frozen-input is just the N6→N7 handoff replay
+  + `input_mode` + `n6_handoff_hash` — zero human content. Direction was decided at N5 (human),
+  candidates generated at N6 (model); N7 only materialises the chosen candidate into a contract.
+  A "human N7" would be a content-free rubber-stamp → unnecessary surface / debt.
+- **Decision: N7 stays read-only / harness-owned.** Contract `human_delegated` *allowance* ≠ a
+  product *need* for review. (Earlier "no schema change / handoff-replay" design is moot — dropped.)
+- Out of scope / future RFC: a *distinct* human "approve the materialised question" REVIEW gate
+  before N8 would be a NEW gate, not N7's existing `human_delegated`. Defer.
 
-### N2 record-research-constraint-profile (human path)
-- N2 modes `['codex_assisted','human_delegated']`, `authority_kind: 'ResearchConstraintProfile'`. Human path = the reviewer AUTHORS/records the constraint profile (real human content, unlike N5/N7 which pick/materialize). Heaviest UI (structured profile form). Frozen-input carries the accepted constraint-profile payload (compact-ish, human-authored) — closer to N5's accepted-payload shape than N7's handoff-replay.
-- Surfaces: `V1bConstraintProfileHumanService` + route `POST /…/research-constraint-profiles/human` (TBD path) + a constraint-profile form + e2e.
+### N2 record-research-constraint-profile — the real remaining human node ✅ (FOCUS)
+- N2 modes `['codex_assisted','human_delegated']`, `authority_kind: 'ResearchConstraintProfile'`.
+  Human path = the researcher **authors** the constraint profile (scope / budget / claim ceiling /
+  prohibited claims / non-goals) that constrains the whole pipeline. Genuine human INPUT (unlike
+  N5's pick or N7's trigger).
+- Shape TBC during impl (read the N2 handler + frozen-input payload type): the human-authored
+  accepted constraint-profile payload is likely **compact** (closer to N5's accepted-payload than
+  N7's handoff-replay). Lineage = N1 intake snapshot (its hash); confirm whether it's retrievable
+  from persisted state (like N4's hash) or carried in the bundle.
+- Surfaces (confirm during impl): `V1bConstraintProfileHumanService` + a human route under the
+  research-constraint-profile / v1b-input-bundle path + a new `ResearchConstraintProfileCard`
+  authoring form (no such card today) + e2e (N1 → route → admitted N2). Reuse the canonical hash
+  module (single source) for any authority/frozen-input hashes.
 
-### Sequencing note
-N5 (done) is the reference; N7 reuses the canonical hash module + harness route pattern but adds handoff-artifact replay; N2 adds human-authored content. Each is a full slice (~N5 size). Recommend implementing one at a time with its own e2e.
+### Sequencing note (revised)
+v1b human-review surfaces = **N5 (done) + N2 (focus)**. N4/N6/N7/N8 = model-or-mechanical → read-only;
+N1/N3/N9/N10/N11 = auto/deterministic → read-only. ⑤ now = **N2 only** (N7 dropped).
 
 ## Key risks
 - 与 T-088 共改 harness service（`ln`）→ 对齐边界、人审逻辑尽量外置新 service。

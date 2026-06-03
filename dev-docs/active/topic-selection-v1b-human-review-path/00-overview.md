@@ -8,7 +8,7 @@
 - Decisions (2026-06-03): D1 复用 builder · D2 per-node 新语义路径 · D3 先只做 Phase 1（后端 service+单测，零 UI）。
 - Progress: **Phase 1a + 1b done**（canonical 哈希模块 + `V1bSliceHumanSelectionService`，11/11 单测、backend typecheck 0 error、UI gate 0/0）。1c 完整 harness-admission e2e 重定位到 Phase 2。
 - Progress: **N5 人审垂直切片端到端完成** — ✅① N4 持久化 handoff hash · ✅② 人审路由（无 app.ts 改动）· ✅③ `SliceOptionSetCard` 交互选定表单（desktop typecheck + UI gate 0/0）· ✅④ e2e（v1b 集成 7/7，人审 N5→ResearchSlice 真实跑通）。
-- Next step: **⑤** N7 / N2（设计已落 `02-architecture.md` §Phase 2 ⑤）。**关键发现**：N7 不是 N5 的快速复制——其 frozen-input 是完整 11 字段 N6→N7 handoff（contract 由 N6 物化、非人审撰写），需 handoff-replay；好消息是**无需 schema 改动**（N6→N7 handoff ref 已在候选集 `artifact_refs`，service 取 artifact + 重算 hash 即可）。N2 则是人审撰写约束档案（最重 UI）。各自约 N5 体量的完整切片，建议逐个实现。
+- Next step: **⑤ = N2 only**。N7 经核实**不需要人审**——`runN7MaterializeTopicQuestionContract` 用 `chooseN7Candidate` 算法选候选、Initial frozen-input 无人审决策内容，是机械物化；契约 `human_delegated` 允许位 ≠ 产品需要 → **N7 维持只读/harness-owned**。v1b 剩余唯一真人审节点是 **N2 record-research-constraint-profile**：研究者**撰写**约束档案（scope/预算/claim ceiling/non-goal），约束整条 pipeline。设计见 `02-architecture.md` §Phase 2 ⑤。
 
 ## Goal
 - 让 v1b 决策链中**真正需要人的节点**（N2 约束档案 / N5 选切片 / N7 题目契约物化）可在桌面工作台内由人审完成，且与 harness（codex/fixture/provider）运行时**兼容共存**——人审是 runtime 的一种 `human_delegated` 输入，走 harness、不绕 harness、产出同一 authority artifact。
