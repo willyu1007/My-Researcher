@@ -11,6 +11,13 @@
  */
 import { requestGovernance } from '../../../literature/shared/api';
 import type {
+  TopicSelectionActorRef,
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type {
+  TopicSelectionV1bWorkflowHarnessRunResult,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import type {
   TopicSelectionResearchSliceOptionRecord,
   TopicSelectionResearchSliceOptionSetRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-research-slice-contracts';
@@ -78,6 +85,35 @@ export async function listResearchSliceOptionsByOptionSet(
     path: `/topic-selection/v1b/research-slice-option-sets/${encodeURIComponent(optionSetId)}/options`,
   });
   return payload.items ?? [];
+}
+
+/**
+ * T-115 Phase 2 — human-authority N5 select-research-slice.
+ *
+ * POSTs a human selection that the backend turns into a `human_delegated`
+ * workflow-harness invocation (through the harness, not a legacy direct write).
+ * Returns the harness run result; `gate_status` is `admitted`/`admitted_with_warnings`
+ * on success or `blocked` with blockers when the gate rejects.
+ */
+export type SelectResearchSliceHumanRequest = {
+  selected_option_id: string;
+  selection_rationale: string;
+  actor: TopicSelectionActorRef;
+  confidence?: number | null;
+  decision_basis?: Record<string, unknown>;
+  required_actions?: string[];
+  accepted_risk_refs?: TopicSelectionFunctionalRef[];
+};
+
+export async function selectResearchSliceHuman(
+  optionSetId: string,
+  body: SelectResearchSliceHumanRequest,
+): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+  return requestGovernance<TopicSelectionV1bWorkflowHarnessRunResult>({
+    method: 'POST',
+    path: `/topic-selection/v1b/research-slice-option-sets/${encodeURIComponent(optionSetId)}/human-selection`,
+    body,
+  });
 }
 
 /**

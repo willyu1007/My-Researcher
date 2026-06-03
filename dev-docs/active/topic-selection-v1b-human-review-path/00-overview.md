@@ -7,7 +7,8 @@
 - Parent: `T-087` (topic-selection desktop workbench) · Depends on: `T-088` (workflow-runtime-foundation, in-progress)
 - Decisions (2026-06-03): D1 复用 builder · D2 per-node 新语义路径 · D3 先只做 Phase 1（后端 service+单测，零 UI）。
 - Progress: **Phase 1a + 1b done**（canonical 哈希模块 + `V1bSliceHumanSelectionService`，11/11 单测、backend typecheck 0 error、UI gate 0/0）。1c 完整 harness-admission e2e 重定位到 Phase 2。
-- Next step: **Phase 2** — ✅① N4 持久化 handoff hash · ✅② 人审路由 `/research-slice-option-sets/:id/human-selection`（无 app.ts 改动）· ✅④ e2e（v1b 集成 7/7，人审 N5→ResearchSlice 真实跑通）。→ **③** `SliceOptionSetCard` 接 `/options` + 选定表单（`api/v1b.ts` client）；⑤ 复制到 N7/N2。
+- Progress: **N5 人审垂直切片端到端完成** — ✅① N4 持久化 handoff hash · ✅② 人审路由（无 app.ts 改动）· ✅③ `SliceOptionSetCard` 交互选定表单（desktop typecheck + UI gate 0/0）· ✅④ e2e（v1b 集成 7/7，人审 N5→ResearchSlice 真实跑通）。
+- Next step: **⑤** 按同模式复制到 N7（materialize question contract）/ N2（constraint profile）。
 
 ## Goal
 - 让 v1b 决策链中**真正需要人的节点**（N2 约束档案 / N5 选切片 / N7 题目契约物化）可在桌面工作台内由人审完成，且与 harness（codex/fixture/provider）运行时**兼容共存**——人审是 runtime 的一种 `human_delegated` 输入，走 harness、不绕 harness、产出同一 authority artifact。

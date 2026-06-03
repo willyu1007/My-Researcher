@@ -1,11 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ReviewerCard, ReviewerCardEmpty } from './ReviewerCard';
 import type {
+  TopicSelectionResearchSliceOptionRecord,
   TopicSelectionResearchSliceOptionSetRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-research-slice-contracts';
+import {
+  listResearchSliceOptionsByOptionSet,
+  selectResearchSliceHuman,
+} from '../api/v1b';
 
 type SliceOptionSetCardProps = {
   sliceOptionSets: TopicSelectionResearchSliceOptionSetRecord[];
+  /** T-115 — reload v1b stage data after a human slice selection mutates state. */
+  onMutated?: () => void;
 };
 
 function statusTone(status: string): 'neutral' | 'info' | 'success' | 'warning' | 'danger' {
@@ -21,7 +28,7 @@ function statusTone(status: string): 'neutral' | 'info' | 'success' | 'warning' 
  * about which option is recommended/selected and whether human review is
  * required. Write actions are owned by the harness-native v1b path.
  */
-export function SliceOptionSetCard({ sliceOptionSets }: SliceOptionSetCardProps) {
+export function SliceOptionSetCard({ sliceOptionSets, onMutated }: SliceOptionSetCardProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     sliceOptionSets[0]?.research_slice_option_set_id ?? null,
   );
@@ -137,12 +144,178 @@ export function SliceOptionSetCard({ sliceOptionSets }: SliceOptionSetCardProps)
             <p data-ui="text" data-variant="caption" data-tone="primary">
               → 已选定 option：{active.selected_option_id}
             </p>
+          ) : active.status === 'ready_for_selection' ? (
+            <SliceSelectionForm optionSet={active} onMutated={onMutated} />
           ) : (
-            <ReviewerCardEmpty label="等待 v1b WorkflowHarness N5 选定 ResearchSlice。" />
+            <ReviewerCardEmpty label={`option set 状态 ${active.status}，暂不可人审选定（可由 harness/agent 路径推进）。`} />
           )}
         </div>
       }
       footer={`created_at=${active.created_at} · updated_at=${active.updated_at}`}
     />
+  );
+}
+
+type SliceSelectionFormProps = {
+  optionSet: TopicSelectionResearchSliceOptionSetRecord;
+  onMutated?: () => void;
+};
+
+/**
+ * T-115 — human N5 slice selection form. Lists the option set's options and
+ * POSTs a human selection that the backend runs through the harness in
+ * `human_delegated` mode (same ResearchSlice artifact as the codex/native path).
+ */
+function SliceSelectionForm({ optionSet, onMutated }: SliceSelectionFormProps) {
+  const optionSetId = optionSet.research_slice_option_set_id;
+  const [options, setOptions] = useState<TopicSelectionResearchSliceOptionRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedOptionId, setSelectedOptionId] = useState('');
+  const [rationale, setRationale] = useState('');
+  const [reviewerActorId, setReviewerActorId] = useState('reviewer');
+  const [confidence, setConfidence] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [blockedStatus, setBlockedStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    setLoadError(null);
+    void listResearchSliceOptionsByOptionSet(optionSetId)
+      .then((items) => {
+        if (!mounted) return;
+        setOptions(items);
+        setSelectedOptionId(optionSet.recommended_option_id ?? items[0]?.research_slice_option_id ?? '');
+      })
+      .catch((caught) => {
+        if (mounted) setLoadError(caught instanceof Error ? caught.message : '加载 options 失败。');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [optionSetId, optionSet.recommended_option_id]);
+
+  const canSubmit = selectedOptionId.trim() !== ''
+    && rationale.trim() !== ''
+    && reviewerActorId.trim() !== ''
+    && !submitting;
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    setBlockedStatus(null);
+    try {
+      const trimmedConfidence = confidence.trim();
+      const parsed = trimmedConfidence === '' ? null : Number(trimmedConfidence);
+      const result = await selectResearchSliceHuman(optionSetId, {
+        selected_option_id: selectedOptionId,
+        selection_rationale: rationale.trim(),
+        actor: { actor_type: 'human', actor_id: reviewerActorId.trim() },
+        confidence: parsed !== null && Number.isFinite(parsed) ? parsed : null,
+      });
+      if (result.gate_status === 'admitted' || result.gate_status === 'admitted_with_warnings') {
+        onMutated?.();
+      } else {
+        setBlockedStatus(result.gate_status);
+      }
+    } catch (caught) {
+      setSubmitError(caught instanceof Error ? caught.message : '提交 slice 选择失败。');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section data-ui="section" data-padding="sm">
+      <div data-ui="stack" data-direction="col" data-gap="2">
+        <p data-ui="text" data-variant="label" data-tone="primary">人审选定 ResearchSlice（N5）</p>
+        <p data-ui="text" data-variant="caption" data-tone="muted">
+          选定后经 harness 的 human_delegated 路径物化 ResearchSlice（与 agent 路径产出一致）。
+        </p>
+        {loading ? (
+          <p data-ui="text" data-variant="caption" data-tone="muted">加载 options…</p>
+        ) : loadError ? (
+          <p data-ui="text" data-variant="caption" data-tone="danger">{loadError}</p>
+        ) : options.length === 0 ? (
+          <ReviewerCardEmpty label="该 option set 暂无 options。" />
+        ) : (
+          <>
+            <div data-ui="stack" data-direction="col" data-gap="1">
+              <p data-ui="text" data-variant="caption" data-tone="muted">选项</p>
+              <select
+                data-ui="select"
+                data-size="md"
+                value={selectedOptionId}
+                onChange={(event) => setSelectedOptionId(event.target.value)}
+              >
+                {options.map((option) => (
+                  <option key={option.research_slice_option_id} value={option.research_slice_option_id}>
+                    {option.option_key} · {option.slice_statement.slice(0, 60)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div data-ui="stack" data-direction="col" data-gap="1">
+              <p data-ui="text" data-variant="caption" data-tone="muted">Reviewer actor_id（必填）</p>
+              <input
+                data-ui="input"
+                data-size="sm"
+                value={reviewerActorId}
+                onChange={(event) => setReviewerActorId(event.target.value)}
+                placeholder="reviewer-id"
+              />
+            </div>
+            <div data-ui="stack" data-direction="col" data-gap="1">
+              <p data-ui="text" data-variant="caption" data-tone="muted">选择理由（必填）</p>
+              <textarea
+                data-ui="textarea"
+                data-size="md"
+                rows={3}
+                value={rationale}
+                onChange={(event) => setRationale(event.target.value)}
+                placeholder="为什么选这个 slice：边界 / claim ceiling / 可行性 …"
+              />
+            </div>
+            <div data-ui="stack" data-direction="col" data-gap="1">
+              <p data-ui="text" data-variant="caption" data-tone="muted">Confidence（可选，0–1）</p>
+              <input
+                data-ui="input"
+                data-size="sm"
+                value={confidence}
+                onChange={(event) => setConfidence(event.target.value)}
+                placeholder="0.82"
+              />
+            </div>
+            {blockedStatus ? (
+              <div data-ui="alert" data-tone="warning">
+                <p data-ui="text" data-variant="caption" data-tone="primary">
+                  Gate 未放行（{blockedStatus}）。请检查上游证据/约束后重试，或在 trace 查看 blockers。
+                </p>
+              </div>
+            ) : null}
+            {submitError ? (
+              <p data-ui="text" data-variant="caption" data-tone="danger">{submitError}</p>
+            ) : null}
+            <div data-ui="stack" data-direction="row" data-gap="1" data-align="center">
+              <button
+                type="button"
+                data-ui="button"
+                data-variant="primary"
+                data-size="sm"
+                disabled={!canSubmit}
+                onClick={() => void handleSubmit()}
+              >
+                {submitting ? '提交中…' : '确认选定'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
   );
 }

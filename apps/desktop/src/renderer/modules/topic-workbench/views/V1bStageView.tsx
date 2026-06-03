@@ -20,9 +20,10 @@ const SUB_TABS = ['slice', 'question', 'value', 'package'] as const;
 /**
  * v1b stage view — composes 4 reviewer surfaces.
  *
- * This surface is read-only for v1b authorities. Writes are owned by the
- * v1b WorkflowHarness path so the desktop UI does not reintroduce direct
- * route orchestration.
+ * Question / Value / Package remain read-only (harness/agent-owned). N5 slice
+ * selection is human-actionable (T-115): the SliceOptionSetCard form posts a
+ * human selection that the backend runs THROUGH the harness in human_delegated
+ * mode, so the UI never reintroduces a legacy direct-write path.
  */
 export function V1bStageView({
   titleCardId,
@@ -76,7 +77,7 @@ export function V1bStageView({
         <div data-ui="stack" data-direction="row" data-gap="2" data-wrap="wrap" data-align="center">
           <span data-ui="badge" data-variant="subtle" data-tone="warning">验收口径</span>
           <span data-ui="text" data-variant="caption" data-tone="muted">
-            当前页展示 harness 写入的 v1b authority。快速本地 smoke 默认 1 轮；provider live 验收使用 N4/N6/N8 slot canary；近生产深测由 runtime stress 与 provider slot canary 组合完成。
+            当前页展示 v1b authority：N5 选片可人审（slice 标签，经 harness human_delegated），其余 harness/agent 写入。快速本地 smoke 默认 1 轮；provider live 验收使用 N4/N6/N8 slot canary；近生产深测由 runtime stress 与 provider slot canary 组合完成。
           </span>
         </div>
       </article>
@@ -84,6 +85,7 @@ export function V1bStageView({
       {activeSubTab === 'slice' ? (
         <SliceOptionSetCard
           sliceOptionSets={data.sliceOptionSets}
+          onMutated={() => void reload()}
         />
       ) : null}
       {activeSubTab === 'question' ? (
