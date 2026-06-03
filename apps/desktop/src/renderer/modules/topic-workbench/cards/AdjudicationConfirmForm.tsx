@@ -8,6 +8,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import {
   adjudicateNeed,
+  confirmValidatedNeed,
   listSupportPacketsByNeedCandidate,
   type AdjudicateNeedRequest,
   type AdjudicateNeedResponse,
@@ -154,6 +155,10 @@ export function AdjudicationConfirmForm({
   const [requiredActionsText, setRequiredActionsText] = useState('');
   const [gapCodesText, setGapCodesText] = useState('');
   const [humanRationale, setHumanRationale] = useState('');
+  const [reviewerActorId, setReviewerActorId] = useState('reviewer');
+  // Set once N7 (adjudicate) commits but N8 (human-confirm) still needs to run,
+  // so a retry only re-issues N8 instead of re-adjudicating a now-pending candidate.
+  const [pendingConfirmAdjudicationId, setPendingConfirmAdjudicationId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -176,6 +181,7 @@ export function AdjudicationConfirmForm({
     setRequiredActionsText('');
     setGapCodesText('');
     setHumanRationale('');
+    setPendingConfirmAdjudicationId(null);
     setSubmitError(null);
   }, [open, candidateId, initialDecision]);
 
@@ -234,10 +240,11 @@ export function AdjudicationConfirmForm({
     if (!supportPacketId.trim()) return false;
     if (!rationale.trim()) return false;
     if (requiresValidatePath) {
+      if (!reviewerActorId.trim()) return false;
       return Object.values(validateFieldErrors).every((error) => error === null);
     }
     return decisionPathErrors === null;
-  }, [requiresValidatePath, validateFieldErrors, decisionPathErrors, rationale, supportPacketId]);
+  }, [requiresValidatePath, validateFieldErrors, decisionPathErrors, rationale, supportPacketId, reviewerActorId]);
 
   const parseLines = (text: string): string[] =>
     text.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
@@ -247,48 +254,78 @@ export function AdjudicationConfirmForm({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const decisionPayload: Record<string, unknown> = {};
-      if (requiresValidatePath) {
-        decisionPayload.scope_confirmation = validateFields.scopeConfirmation.trim();
-        decisionPayload.support_summary = validateFields.supportSummary.trim();
-        decisionPayload.challenge_summary = validateFields.challengeSummary.trim();
-        decisionPayload.blocker_summary = validateFields.blockerSummary.trim();
-        decisionPayload.accepted_risk_summary = validateFields.acceptedRiskSummary.trim();
-        decisionPayload.downstream_effect = validateFields.downstreamEffect.trim();
-      }
-      if (decision === 'merge' && mergeTargetCandidateId.trim() && candidateTitleCardId) {
-        decisionPayload.merge_target_need_candidate_id = mergeTargetCandidateId.trim();
-      }
+      // Resume path: a previous attempt already committed N7 (adjudicate) but
+      // N8 (human-confirm) failed; only re-issue N8 against the recorded result.
+      let adjudicationResultId = pendingConfirmAdjudicationId;
 
-      const body: AdjudicateNeedRequest = {
-        support_packet_id: supportPacketId.trim(),
-        final_decision: decision,
-        rationale: rationale.trim(),
-        loopback_target: loopbackTarget,
-        required_actions: parseLines(requiredActionsText),
-        gap_codes: parseLines(gapCodesText),
-        decision_payload: decisionPayload,
-      };
-      if (humanRationale.trim()) {
-        body.human_rationale = humanRationale.trim();
-      }
-      if (decision === 'reject') {
-        body.rejected_reason = rejectedReason;
-      }
-      if (decision === 'request_searchplan_recheck') {
-        body.searchplan_recheck_reason = searchplanRecheckReason.trim();
-        body.searchplan_recheck_gap_codes = parseLines(gapCodesText);
-      }
-      if (decision === 'merge' && mergeTargetCandidateId.trim() && candidateTitleCardId) {
-        body.merge_target_need_candidate_ref = {
-          ref_type: 'need_candidate',
-          ref_id: mergeTargetCandidateId.trim(),
-          title_card_id: candidateTitleCardId,
+      if (!adjudicationResultId) {
+        const decisionPayload: Record<string, unknown> = {};
+        if (requiresValidatePath) {
+          decisionPayload.scope_confirmation = validateFields.scopeConfirmation.trim();
+          decisionPayload.support_summary = validateFields.supportSummary.trim();
+          decisionPayload.challenge_summary = validateFields.challengeSummary.trim();
+          decisionPayload.blocker_summary = validateFields.blockerSummary.trim();
+          decisionPayload.accepted_risk_summary = validateFields.acceptedRiskSummary.trim();
+          decisionPayload.downstream_effect = validateFields.downstreamEffect.trim();
+        }
+        if (decision === 'merge' && mergeTargetCandidateId.trim() && candidateTitleCardId) {
+          decisionPayload.merge_target_need_candidate_id = mergeTargetCandidateId.trim();
+        }
+
+        const body: AdjudicateNeedRequest = {
+          support_packet_id: supportPacketId.trim(),
+          final_decision: decision,
+          rationale: rationale.trim(),
+          loopback_target: loopbackTarget,
+          required_actions: parseLines(requiredActionsText),
+          gap_codes: parseLines(gapCodesText),
+          decision_payload: decisionPayload,
         };
+        if (humanRationale.trim()) {
+          body.human_rationale = humanRationale.trim();
+        }
+        if (decision === 'reject') {
+          body.rejected_reason = rejectedReason;
+        }
+        if (decision === 'request_searchplan_recheck') {
+          body.searchplan_recheck_reason = searchplanRecheckReason.trim();
+          body.searchplan_recheck_gap_codes = parseLines(gapCodesText);
+        }
+        if (decision === 'merge' && mergeTargetCandidateId.trim() && candidateTitleCardId) {
+          body.merge_target_need_candidate_ref = {
+            ref_type: 'need_candidate',
+            ref_id: mergeTargetCandidateId.trim(),
+            title_card_id: candidateTitleCardId,
+          };
+        }
+
+        const result = await adjudicateNeed(candidate.need_candidate_id, body);
+
+        // Non-validate decisions terminate at N7; a validate that already
+        // carries a materialised ValidatedNeed is likewise complete.
+        if (decision !== 'validate' || result.validated_need) {
+          onSubmitted(result);
+          onClose();
+          return;
+        }
+
+        // Validate path: N7 only records the adjudication. The ValidatedNeed is
+        // materialised by the N8 human-confirm below (same artifact the harness
+        // produces in-process under human_delegated authority).
+        adjudicationResultId = result.adjudication_result.adjudication_result_id;
+        setPendingConfirmAdjudicationId(adjudicationResultId);
       }
 
-      const result = await adjudicateNeed(candidate.need_candidate_id, body);
-      onSubmitted(result);
+      const confirmation = await confirmValidatedNeed(adjudicationResultId, {
+        human_actor: { actor_type: 'human', actor_id: reviewerActorId.trim() },
+        human_rationale: humanRationale.trim() || rationale.trim(),
+      });
+      setPendingConfirmAdjudicationId(null);
+      onSubmitted({
+        adjudication_result: confirmation.adjudication_result,
+        need_candidate: confirmation.need_candidate,
+        validated_need: confirmation.validated_need,
+      });
       onClose();
     } catch (caught) {
       setSubmitError(caught instanceof Error ? caught.message : '提交 adjudication 失败。');
@@ -307,6 +344,8 @@ export function AdjudicationConfirmForm({
     requiredActionsText,
     gapCodesText,
     humanRationale,
+    reviewerActorId,
+    pendingConfirmAdjudicationId,
     rejectedReason,
     searchplanRecheckReason,
     mergeTargetCandidateId,
@@ -320,6 +359,10 @@ export function AdjudicationConfirmForm({
   }
 
   const activeOption = DECISION_OPTIONS.find((opt) => opt.value === decision) ?? DECISION_OPTIONS[0];
+  // After N7 (adjudicate) commits a validate decision, only the N8 confirm retry
+  // remains: lock the inputs that captured the N7 authority so the decision and
+  // frozen evidence cannot drift while the materialisation is pending.
+  const pendingConfirm = pendingConfirmAdjudicationId !== null;
 
   return (
     <article data-ui="card" data-padding="md" data-elevation="md">
@@ -368,6 +411,7 @@ export function AdjudicationConfirmForm({
               data-ui="select"
               data-size="md"
               value={decision}
+              disabled={pendingConfirm}
               onChange={(event) =>
                 setDecision(event.target.value as TopicSelectionNeedAdjudicationDecision)
               }
@@ -376,7 +420,11 @@ export function AdjudicationConfirmForm({
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <p data-ui="text" data-variant="caption" data-tone="muted">{activeOption.description}</p>
+            <p data-ui="text" data-variant="caption" data-tone="muted">
+              {pendingConfirm
+                ? 'N7 裁决已提交，decision 已锁定；请重试 N8 确认或取消。'
+                : activeOption.description}
+            </p>
           </div>
         </section>
 
@@ -400,6 +448,7 @@ export function AdjudicationConfirmForm({
                   data-size="sm"
                   placeholder="validation_support_packet_id"
                   value={supportPacketId}
+                  disabled={pendingConfirm}
                   onChange={(event) => setSupportPacketId(event.target.value)}
                 />
               </div>
@@ -408,6 +457,7 @@ export function AdjudicationConfirmForm({
                 data-ui="select"
                 data-size="md"
                 value={supportPacketId}
+                disabled={pendingConfirm}
                 onChange={(event) => setSupportPacketId(event.target.value)}
               >
                 {packets.map((packet) => (
@@ -429,6 +479,7 @@ export function AdjudicationConfirmForm({
               onChange={(value) => setValidateFields((current) => ({ ...current, scopeConfirmation: value }))}
               placeholder="正在确认：在 [scope X] 内，[mechanism Y] 类的 unmet need 成立 …"
               rows={3}
+              disabled={pendingConfirm}
             />
             <ValidateField
               label="② 证据（what supports it）"
@@ -437,6 +488,7 @@ export function AdjudicationConfirmForm({
               onChange={(value) => setValidateFields((current) => ({ ...current, supportSummary: value }))}
               placeholder="主要 support：[support unit a / b / c] … strength 评估 …"
               rows={3}
+              disabled={pendingConfirm}
             />
             <ValidateField
               label="③ 反证（counter-evidence / unresolved objections）"
@@ -445,6 +497,7 @@ export function AdjudicationConfirmForm({
               onChange={(value) => setValidateFields((current) => ({ ...current, challengeSummary: value }))}
               placeholder="保留的 challenge：[challenge x] 已记录但接受；conflict_refs … 处理 …"
               rows={3}
+              disabled={pendingConfirm}
             />
             <ValidateField
               label="④ Blocker（open blockers being tolerated）"
@@ -453,6 +506,7 @@ export function AdjudicationConfirmForm({
               onChange={(value) => setValidateFields((current) => ({ ...current, blockerSummary: value }))}
               placeholder="open recheck refs / 待解决 blocker；如无写「无未解 blocker」"
               rows={2}
+              disabled={pendingConfirm}
             />
             <ValidateField
               label="⑤ Accepted risk（scope / 原因 / expiry / recheck condition）"
@@ -461,6 +515,7 @@ export function AdjudicationConfirmForm({
               onChange={(value) => setValidateFields((current) => ({ ...current, acceptedRiskSummary: value }))}
               placeholder="accepted risk 列表：scope=[…] reason=[…] expiry=[…] recheck=[…]"
               rows={3}
+              disabled={pendingConfirm}
             />
             <ValidateField
               label="⑥ Downstream effect（v1b 继承什么）"
@@ -469,7 +524,23 @@ export function AdjudicationConfirmForm({
               onChange={(value) => setValidateFields((current) => ({ ...current, downstreamEffect: value }))}
               placeholder="对 v1b 的影响：claim ceiling=[…]，资源约束=[…]，non-goal=[…]"
               rows={3}
+              disabled={pendingConfirm}
             />
+            <section data-ui="section" data-padding="sm">
+              <div data-ui="stack" data-direction="col" data-gap="1">
+                <p data-ui="text" data-variant="label" data-tone="primary">Reviewer actor_id（必填，记入 human-confirm）</p>
+                <input
+                  data-ui="input"
+                  data-size="md"
+                  value={reviewerActorId}
+                  onChange={(event) => setReviewerActorId(event.target.value)}
+                  placeholder="reviewer-id"
+                />
+                <p data-ui="text" data-variant="caption" data-tone="muted">
+                  validate 将连发 N7 裁决 + N8 人审确认，一步物化 ValidatedNeed（与 harness 的 human_delegated 路径产出同一对象）。
+                </p>
+              </div>
+            </section>
           </>
         ) : (
           <DecisionPathFields
@@ -535,6 +606,13 @@ export function AdjudicationConfirmForm({
           </div>
         </section>
 
+        {pendingConfirmAdjudicationId ? (
+          <div data-ui="alert" data-tone="warning">
+            <p data-ui="text" data-variant="caption" data-tone="primary">
+              N7 裁决已记录（{pendingConfirmAdjudicationId}）；再次提交只重试 N8 人审确认以物化 ValidatedNeed。
+            </p>
+          </div>
+        ) : null}
         {submitError ? (
           <p data-ui="text" data-variant="caption" data-tone="danger">{submitError}</p>
         ) : null}
@@ -588,9 +666,10 @@ type ValidateFieldProps = {
   onChange: (value: string) => void;
   placeholder: string;
   rows: number;
+  disabled?: boolean;
 };
 
-function ValidateField({ label, value, error, onChange, placeholder, rows }: ValidateFieldProps) {
+function ValidateField({ label, value, error, onChange, placeholder, rows, disabled }: ValidateFieldProps) {
   return (
     <section data-ui="section" data-padding="sm">
       <div data-ui="stack" data-direction="col" data-gap="1">
@@ -600,6 +679,7 @@ function ValidateField({ label, value, error, onChange, placeholder, rows }: Val
           data-size="md"
           rows={rows}
           value={value}
+          disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
         />

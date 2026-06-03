@@ -33,9 +33,9 @@ const SUB_TABS = ['seed', 'search-plan', 'evidence-map', 'need-candidate', 'vali
  *
  * Fetches v1a authority/workflow data once for the active title-card via
  * `useV1aStageData`, then routes to the right reviewer card based on
- * `subTab`. This is the Phase 2.1 ship: read-only ReviewerCard renders.
- * Phase 2.2-2.5 will progressively swap placeholder ReviewerCard slots
- * for interactive controls and drilldowns.
+ * `subTab`. Interactive surfaces: NeedCandidate adjudication (6-section
+ * confirm form), ValidatedNeed → V1bInputBundle publish, SearchPlan recheck,
+ * and EvidenceMap stale. SeedOverview is read-only.
  */
 export function V1aStageView({
   titleCard,

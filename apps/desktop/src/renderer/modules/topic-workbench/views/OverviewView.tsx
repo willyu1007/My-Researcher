@@ -16,10 +16,11 @@ type OverviewViewProps = {
 };
 
 /**
- * Overview view — the only place to create / switch / inspect title-cards.
+ * Overview view — the place to switch / inspect title-cards. Creation is not
+ * available here yet (backend / dev tool only; see the empty-state copy).
  *
- * D3: this is the "总揽" stage of the new workbench. Stage 进入 via the four
- * stepper-style entry cards at the bottom.
+ * D3: this is the "总揽" stage of the new workbench. Stage 进入 via the three
+ * stepper-style entry cards (v1a / v1b / v1c) at the bottom.
  */
 export function OverviewView({
   items,

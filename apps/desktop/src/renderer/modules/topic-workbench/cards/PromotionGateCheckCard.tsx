@@ -2,18 +2,30 @@ import { useState } from 'react';
 import { ReviewerCard, ReviewerCardEmpty } from './ReviewerCard';
 import type {
   TopicSelectionPromotionGateCheckRecord,
+  TopicSelectionPromotionGateDisposition,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
 
 type PromotionGateCheckCardProps = {
   gateChecks: TopicSelectionPromotionGateCheckRecord[];
 };
 
-function dispositionTone(disposition: string): 'neutral' | 'info' | 'success' | 'warning' | 'danger' {
-  if (disposition === 'promote') return 'success';
-  if (disposition === 'promote_with_conditions') return 'success';
-  if (disposition === 'blocked') return 'danger';
-  if (disposition === 'needs_revision') return 'warning';
-  return 'info';
+function dispositionTone(
+  disposition: TopicSelectionPromotionGateDisposition,
+): 'neutral' | 'info' | 'success' | 'warning' | 'danger' {
+  switch (disposition) {
+    case 'ready_for_human_decision':
+      return 'success';
+    case 'blocked':
+      return 'danger';
+    case 'needs_revision':
+      return 'warning';
+    case 'recheck_required':
+      return 'warning';
+    case 'park':
+      return 'neutral';
+    default:
+      return 'info';
+  }
 }
 
 /**

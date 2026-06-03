@@ -135,6 +135,48 @@ export async function adjudicateNeed(
 }
 
 /**
+ * Phase 2.5 — human-confirm a `validate` adjudication (N8).
+ *
+ * Materialises the ValidatedNeed from a `final_decision='validate'`
+ * adjudication. `adjudicateNeed` (N7) only records the decision and leaves the
+ * candidate at `needs_human_review`; this call records the accountable human
+ * `confirm` decision and writes the ValidatedNeed.
+ *
+ * The desktop reviewer path posts a plain human payload (`human_actor` +
+ * `human_rationale`); the workflow harness calls the same service in-process
+ * with `human_delegated` authority. The two paths are compatible by design —
+ * `blockWorkflowHarnessAutomationOnDirectWrite` only rejects payloads carrying
+ * harness markers (scenario_id / node_id / harness schema_version).
+ *
+ * Body mirrors `apps/backend/src/routes/topic-selection-v1a-routes.ts:632`
+ * (`humanConfirmationBody`: anyOf human_actor+human_rationale | confirmation_input).
+ */
+export type ConfirmValidatedNeedRequest = {
+  human_actor: TopicSelectionActorRef;
+  human_rationale: string;
+  semantic_review_context_packet_ref?: TopicSelectionFunctionalRef | null;
+  semantic_review_ref?: TopicSelectionFunctionalRef | null;
+  artifact_refs?: TopicSelectionFunctionalRef[];
+};
+
+export type ConfirmValidatedNeedResponse = {
+  validated_need: TopicSelectionValidatedNeedRecord;
+  need_candidate: TopicSelectionNeedCandidateRecord;
+  adjudication_result: TopicSelectionValidateNeedAdjudicationResultRecord;
+};
+
+export async function confirmValidatedNeed(
+  adjudicationResultId: string,
+  body: ConfirmValidatedNeedRequest,
+): Promise<ConfirmValidatedNeedResponse> {
+  return requestGovernance<ConfirmValidatedNeedResponse>({
+    method: 'POST',
+    path: `/topic-selection/v1a/adjudications/${encodeURIComponent(adjudicationResultId)}/human-confirmations`,
+    body,
+  });
+}
+
+/**
  * Phase 2.5 — publish a V1a→V1b input bundle for a validated need.
  * Required by v1a→v1b handoff (design-spec §147).
  */
