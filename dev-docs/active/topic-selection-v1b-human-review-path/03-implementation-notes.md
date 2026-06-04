@@ -51,5 +51,14 @@ N5 handler 读 `loaded.value.planRun`（constraint_profile_ref / readiness_asses
   - 验证：hash 单测 6/6（golden 不变）+ v1b 集成 7/7（N5/N6 hash 校验 + frozen-input 409 全过 → 字节一致、非回归）。
 - 旧版/双轨核查：v1b legacy direct-write 路由（`…/selection-decisions` 等）**未复活**，仍 404（集成测试 1）。人审路由是**新语义路径、经 harness**，非第二条 runtime。v1a N8 是同一 service 方法（`confirmValidatedNeed`）的两个入口（HTTP-人 / in-process-harness），单源、非双轨。
 
+## N2 record-research-constraint-profile (human input) — 2026-06-03
+- 决策：哈希 **B**（复用 harness `hashSnapshotAuthority`，不复制带 `uniqueRefs` 的嵌套 shape）；UI **精简版**；接线 **方便稳定**。
+- [x] backend done：
+  - harness 暴露 3 个 public 方法供人审复用：`computeIntakeSnapshotAuthority(snapshot)→{ref,hash}`、`findIntakeSnapshotById`、`findV1aToV1bInputBundleById`（委托 `runnerDependencies` 的 intake/need-validation repo）。N2 service 因此**只依赖 harness**（controller 已持有）——**零 app.ts 改动、零类型摩擦**（避开了 research-slice 的窄接口）。
+  - `V1bConstraintProfileHumanService.recordConstraintProfile`：从持久化拼 `human_delegated` N2 frozen-input（accepted profile + `canonicalHash` / snapshot ref+hash via 复用 / `v1a_bundle_ref=snapshot.v1b_input_bundle_ref` + `v1a_bundle_hash=canonicalHash(bundle)`）→ `invokeNode`。**无持久化缺口**（snapshot/bundle hash 都从持久化记录 re-derive）。
+  - controller `recordConstraintProfileHuman`（用既有 `this.workflowHarness` 构造 service）+ `ConstraintProfileHumanBody`；route `POST /topic-selection/v1b/intake-snapshots/:intakeSnapshotId/constraint-profile/human`（schema 必填 `target_community`+`claim_ceiling`）。
+  - e2e：N1 → route → admitted N2；非 human→400。**v1b 集成 8/8**（含 N5+N2 两个人审 e2e，全链非回归）。
+- [ ] N2 UI（精简）：新建 `ResearchConstraintProfileCard` 撰写表单 + V1bStageView "constraint" sub-tab + intake-snapshot 列表入口。
+
 ## Open TODOs
 - [ ] (later) 旧 option set（本次 commit 前创建的）无 `n4_handoff_hash`；service 会 409 提示，需重跑 N4 或迁移（数据迁移，非代码双轨）。

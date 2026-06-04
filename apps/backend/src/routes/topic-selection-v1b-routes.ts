@@ -19,6 +19,7 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
   TopicSelectionV1bController,
+  type ConstraintProfileHumanBody,
   type OfflineDatasetBody,
   type SliceHumanSelectionBody,
   type WorkflowHarnessArtifactBody,
@@ -86,6 +87,32 @@ const sliceHumanSelectionSchema = {
     accepted_risk_refs: { type: 'array', items: recordPayload },
   }),
   ...paramsSchema({ optionSetId: stringId }),
+};
+
+// T-115 Phase 2 — human-authority N2 record-research-constraint-profile.
+const constraintProfileHumanSchema = {
+  ...bodySchema(['actor', 'profile'], {
+    actor: actorRefSchema,
+    profile: {
+      type: 'object',
+      additionalProperties: true,
+      required: ['target_community', 'claim_ceiling'],
+      properties: {
+        target_community: stringId,
+        claim_ceiling: stringId,
+        target_venue_class: nullableStringId,
+        intended_contribution_style: nullableStringId,
+        method_constraints: stringArray,
+        resource_constraints: stringArray,
+        available_assets: stringArray,
+        feasibility_budget: recordPayload,
+        non_goals: stringArray,
+        human_constraint_notes: nullableStringId,
+        constraint_payload: recordPayload,
+      },
+    },
+  }),
+  ...paramsSchema({ intakeSnapshotId: stringId }),
 };
 
 const offlineDatasetBody = bodySchema([], {
@@ -229,6 +256,11 @@ export async function registerTopicSelectionV1bRoutes(
     '/topic-selection/v1b/research-slice-option-sets/:optionSetId/human-selection',
     { schema: sliceHumanSelectionSchema },
     controller.selectResearchSliceHuman,
+  );
+  fastify.post<{ Body: ConstraintProfileHumanBody; Params: { intakeSnapshotId: string } }>(
+    '/topic-selection/v1b/intake-snapshots/:intakeSnapshotId/constraint-profile/human',
+    { schema: constraintProfileHumanSchema },
+    controller.recordConstraintProfileHuman,
   );
   fastify.get(
     '/topic-selection/v1b/topic-question-candidate-sets/:candidateSetId/candidates',

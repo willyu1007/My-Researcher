@@ -3,7 +3,12 @@
 > 每次验证运行记录命令 + 结果。
 
 ## Status
-- Phase 1a + 1b done；Phase 2 ① ② ④ done（人审路由 + e2e 全链通）。剩 ③ UI、⑤ N7/N2。
+- N5 人审切片完整（backend+UI）+ 单源哈希 + N7 剔除 + **N2 backend done**。剩 N2 UI。
+
+### 2026-06-03 · N2 backend — constraint-profile human path
+- 改动：harness 3 个 public 复用方法；`V1bConstraintProfileHumanService`；controller `recordConstraintProfileHuman` + body type；route `POST /intake-snapshots/:id/constraint-profile/human`；集成测试新增 N2 e2e。**无 app.ts 改动**。
+- `TS_NODE_PROJECT=apps/backend/tsconfig.json node --env-file=.env.local --test --loader ./apps/backend/node_modules/ts-node/esm.mjs apps/backend/src/routes/topic-selection-v1b-routes.integration.test.ts` → **8/8 pass**（新增 "human N2 constraint profile is admitted through the harness"：N1 → route → admitted N2 + authority_ref；非 human→400；N5+N1–N11+legacy-404+Prisma 全绿）。
+- 哈希 B 验证：service 复用 harness `hashSnapshotAuthority`，`intake_snapshot_hash` 与 handler re-derive 一致（admitted 即证），零复制。
 
 ### 2026-06-03 · Phase 2 ②+④ — human-selection route + e2e
 - 改动：research-slice service `findOptionSetById`；controller `selectResearchSliceHuman` + `SliceHumanSelectionBody`；routes `POST /research-slice-option-sets/:optionSetId/human-selection`；集成测试新增人审 N5 e2e。**无 app.ts 改动**。

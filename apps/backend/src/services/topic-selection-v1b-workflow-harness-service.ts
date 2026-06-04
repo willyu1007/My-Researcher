@@ -11863,6 +11863,30 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
   }
 
+  /**
+   * T-115 — public accessors for the human N2 path (V1bConstraintProfileHumanService).
+   * Reusing these (Option B) lets the human service reproduce the EXACT intake-snapshot
+   * authority ref + (uniqueRefs-nested) hash this harness re-derives, and read the same
+   * lineage records, with ZERO duplication of the hash shape.
+   */
+  computeIntakeSnapshotAuthority(
+    snapshot: TopicSelectionV1bIntakeSnapshotRecord,
+  ): { ref: TopicSelectionFunctionalRef; hash: string } {
+    return { ref: this.snapshotRef(snapshot), hash: this.hashSnapshotAuthority(snapshot) };
+  }
+
+  async findIntakeSnapshotById(
+    intakeSnapshotId: string,
+  ): Promise<TopicSelectionV1bIntakeSnapshotRecord | null> {
+    return this.runnerDependencies.v1bIntakeRepository?.findIntakeSnapshotById(intakeSnapshotId) ?? null;
+  }
+
+  async findV1aToV1bInputBundleById(
+    bundleId: string,
+  ): Promise<TopicSelectionV1aToV1bInputBundleRecord | null> {
+    return this.runnerDependencies.needValidationRepository?.findV1aToV1bInputBundleById(bundleId) ?? null;
+  }
+
   private hashProfileAuthority(profile: TopicSelectionResearchConstraintProfileRecord): string {
     return this.hash({
       accepted_profile_payload_hash: this.hash({

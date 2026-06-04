@@ -8,6 +8,10 @@ import { TopicSelectionV1bTopicQuestionService } from '../services/topic-selecti
 import { TopicSelectionV1bValueAssessmentService } from '../services/topic-selection-v1b-value-assessment-service.js';
 import { TopicSelectionV1bWorkflowHarnessService } from '../services/topic-selection-v1b-workflow-harness-service.js';
 import { V1bSliceHumanSelectionService } from '../services/topic-selection-v1b-slice-human-selection-service.js';
+import {
+  V1bConstraintProfileHumanService,
+  type V1bHumanConstraintProfileContent,
+} from '../services/topic-selection-v1b-constraint-profile-human-service.js';
 import type {
   TopicSelectionActorRef,
   TopicSelectionFunctionalRef,
@@ -28,6 +32,11 @@ export type SliceHumanSelectionBody = {
   decision_basis?: Record<string, unknown>;
   required_actions?: string[];
   accepted_risk_refs?: TopicSelectionFunctionalRef[];
+};
+
+export type ConstraintProfileHumanBody = {
+  actor: TopicSelectionActorRef;
+  profile: V1bHumanConstraintProfileContent;
 };
 
 export type OfflineDatasetBody = Parameters<TopicSelectionOfflineEvaluationReplayService['createDataset']>[0];
@@ -109,6 +118,28 @@ export class TopicSelectionV1bController {
         decision_basis: request.body.decision_basis,
         required_actions: request.body.required_actions,
         accepted_risk_refs: request.body.accepted_risk_refs,
+      });
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  /**
+   * T-115 Phase 2 — human-authority N2 record-research-constraint-profile. The
+   * researcher authors the constraint profile; built into a `human_delegated`
+   * harness invocation and run THROUGH the harness (no legacy direct write).
+   */
+  recordConstraintProfileHuman = async (
+    request: BodyParamsRequest<ConstraintProfileHumanBody, { intakeSnapshotId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const service = new V1bConstraintProfileHumanService(this.workflowHarness);
+      const result = await service.recordConstraintProfile({
+        intake_snapshot_id: request.params.intakeSnapshotId,
+        profile: request.body.profile,
+        actor: request.body.actor,
       });
       return reply.status(201).send(result);
     } catch (error) {

@@ -2496,6 +2496,57 @@ test('topic-selection v1b human N5 selection (T-115) produces a ResearchSlice th
   }
 });
 
+test('topic-selection v1b human N2 constraint profile (T-115) is admitted through the harness', async () => {
+  const app = buildApp({
+    topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
+    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
+  });
+  try {
+    const suffix = uniqueId('v1b-human-n2');
+    // Run N1 to materialise the intake snapshot (the N2 lineage authority).
+    const bundleResult = await createV1bInputBundle(app, suffix);
+    const n1 = await invokeV1bHarnessNode(app, v1bHarnessN1Request(bundleResult.v1bInputBundle, suffix));
+    assert.ok(n1.authority_ref, JSON.stringify(n1));
+    const intakeSnapshotId = n1.authority_ref.ref_id;
+
+    // Researcher authors the constraint profile (minimal form) through the T-115 route.
+    const res = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/intake-snapshots/${encodeURIComponent(intakeSnapshotId)}/constraint-profile/human`,
+      payload: {
+        actor: { actor_type: 'human', actor_id: 'reviewer-1' },
+        profile: {
+          target_community: 'LLM systems researchers',
+          claim_ceiling: 'Can claim reviewer-aligned planning feasibility, not production superiority.',
+          method_constraints: ['offline replay evaluation'],
+          non_goals: ['Do not target production deployment'],
+        },
+      },
+    });
+    assertStatus(res, 201);
+    const result = res.json() as WorkflowHarnessHttpResult;
+    assert.ok(
+      ['admitted', 'admitted_with_warnings'].includes(result.gate_status),
+      `expected admitted N2, got ${JSON.stringify(result)}`,
+    );
+    assert.ok(result.authority_ref, 'human N2 should emit a constraint-profile authority ref');
+    assert.equal(result.authority_ref?.title_card_id, bundleResult.v1bInputBundle.title_card_id);
+
+    // Non-human actor is rejected (400) by the service.
+    const botRes = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/intake-snapshots/${encodeURIComponent(intakeSnapshotId)}/constraint-profile/human`,
+      payload: {
+        actor: { actor_type: 'llm', actor_id: 'bot' },
+        profile: { target_community: 'x', claim_ceiling: 'y' },
+      },
+    });
+    assert.equal(botRes.statusCode, 400);
+  } finally {
+    await app.close();
+  }
+});
+
 test('topic-selection v1b offline replay HTTP routes calculate metrics and expose diffs', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
