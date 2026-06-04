@@ -1063,6 +1063,24 @@ tasks:
       - R-013
     dev_docs_path: dev-docs/active/paper-implementation-legacy-authority-cleanup
     updated: 2026-06-01
+  - id: T-114
+    slug: paper-implementation-runtime-orchestration-hardening
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-013
+    dev_docs_path: dev-docs/active/paper-implementation-runtime-orchestration-hardening
+    updated: 2026-06-03
+  - id: T-115
+    slug: topic-selection-v1b-human-review-path
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-009
+    dev_docs_path: dev-docs/active/topic-selection-v1b-human-review-path
+    updated: 2026-06-03
   - id: T-116
     slug: adaptive-llm-systems-literature-collection-ingestion
     status: done

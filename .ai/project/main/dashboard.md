@@ -8,13 +8,15 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 114 (planned: 2, in-progress: 3, blocked: 0, done: 39, archived: 70)
+- Tasks: 116 (planned: 2, in-progress: 5, blocked: 0, done: 39, archived: 70)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-116 adaptive-llm-systems-literature-collection-ingestion | done | F-000 | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
+| T-114 paper-implementation-runtime-orchestration-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
+| T-115 topic-selection-v1b-human-review-path | in-progress | F-001 | dev-docs/active/topic-selection-v1b-human-review-path |
 | T-112 topic-selection-llm-context-cache-runtime | done | F-001 | dev-docs/active/topic-selection-llm-context-cache-runtime |
 | T-023 research-argument-control-plane-v1 | archived | F-001 | dev-docs/archive/research-argument-control-plane-v1 |
 | T-086 research-argument-writing-entry-bridge-acceptance | archived | F-001 | dev-docs/archive/research-argument-writing-entry-bridge-acceptance |
@@ -28,10 +30,4 @@ Project: `main`
 | T-090 experiment-foundation-capability-validation | done | F-001 | dev-docs/active/experiment-foundation-capability-validation |
 | T-102 paper-implementation-v1-hardening | done | F-001 | dev-docs/active/paper-implementation-v1-hardening |
 | T-103 experiment-foundation-full-flow-validation-runner | done | F-001 | dev-docs/active/experiment-foundation-full-flow-validation-runner |
-| T-104 paper-implementation-live-experiment-adapter | done | F-001 | dev-docs/active/paper-implementation-live-experiment-adapter |
-| T-105 paper-implementation-provider-variance-evaluation | done | F-001 | dev-docs/active/paper-implementation-provider-variance-evaluation |
-| T-091 paper-implementation-full-landing | done | F-001 | dev-docs/active/paper-implementation-full-landing |
-| T-101 paper-implementation-contract-evaluation-suite | done | F-001 | dev-docs/active/paper-implementation-contract-evaluation-suite |
-| T-095 paper-implementation-validation-cycle-planning | done | F-001 | dev-docs/active/paper-implementation-validation-cycle-planning |
-| T-096 paper-implementation-workorder-experiment-bridge | done | F-001 | dev-docs/active/paper-implementation-workorder-experiment-bridge |
 <!-- AUTO-GENERATED:END dashboard -->

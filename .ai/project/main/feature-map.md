@@ -128,6 +128,8 @@ Project: `main`
 | T-110 experiment-foundation-research-workbench | archived | dev-docs/archive/experiment-foundation-research-workbench |
 | T-112 topic-selection-llm-context-cache-runtime | done | dev-docs/active/topic-selection-llm-context-cache-runtime |
 | T-113 paper-implementation-legacy-authority-cleanup | done | dev-docs/active/paper-implementation-legacy-authority-cleanup |
+| T-114 paper-implementation-runtime-orchestration-hardening | in-progress | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
+| T-115 topic-selection-v1b-human-review-path | in-progress | dev-docs/active/topic-selection-v1b-human-review-path |
 
 ### F-002 Desktop Frontend Foundation
 

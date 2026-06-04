@@ -1,0 +1,93 @@
+# 09 Node Capability Matrix
+
+## Purpose
+This matrix locks the orchestration capability expectations for every current `PaperImplementation` agent workflow type and the deterministic flow nodes that surround them.
+
+Production implementation MUST NOT promote a workflow slot until its row defines loop, retry, fallback, debate, multi-scenario, provider/canary, admission, and authority-boundary expectations.
+
+## Capability Legend
+| Term | Meaning |
+|---|---|
+| `required` | Required before product-mode promotion of this node. |
+| `recommended` | Should be built for the node, but may follow the first production slice. |
+| `support-only` | May affect context, review, or queueing, but cannot create authority. |
+| `queue-only` | Failure path must block or reach Domain Gate for decision/repair work; runtime/admission must not continue automatically or materialize queue items directly. |
+| `forbidden` | Must fail closed if attempted. |
+| `n/a` | Not meaningful for this node. |
+
+Capability meanings:
+- `Loop`: ref-backed re-entry into upstream or downstream work after a gate, failed run, invalidated evidence, or human decision.
+- `Retry`: bounded runtime retry for transient/provider/schema/ref failures; retry never weakens deterministic gates.
+- `Fallback`: explicit fail-closed behavior when provider/profile/runtime is unavailable. Fallback MUST NOT mean mock output, cached historical output, or unverified Codex output satisfying `provider_llm`.
+- `Debate`: multi-role semantic review, critique, adversarial check, or adjudication.
+- `Multi-scenario`: first-class branch/candidate/scenario output with comparable identities and admission choice rules.
+- `Admission`: deterministic recomputation of runtime identity, output hash, trace/source refs, forbidden fields, and authority boundary before domain gates see the artifact.
+- `Provider canary`: local fake plus opt-in live provider proof that product-mode execution hits the approved shared runtime path and blocks before provider call when over budget.
+
+## Global Rules
+1. Every promoted `provider_llm` node MUST use the approved `AgentOrchestrator -> BackendLlmGateway` boundary or a neutral extracted equivalent.
+2. Runtime slot owns context packet cache and prompt packet cache policy, key construction, lookup result classification, stale/drift behavior, and audit refs.
+3. Runtime slot owns prompt packet construction, prompt template/version/variant binding, redaction policy, token-budget gate, compression policy/report, and compressed context refs. Admission verifies these identities but does not rebuild them.
+4. Provider-required live output MUST treat exact response reuse as miss/block. Context and prompt packet metadata may be reused only after exact identity checks.
+5. Runtime fallback is fail-closed. Admitted blockers or runtime failures may later become queue work through Domain Gate, but runtime must not materialize queue items. Silent fallback to `mocked_llm`, fixture replay, prompt cache, or historical response is forbidden in product mode.
+6. Harness runs may orchestrate scenarios and assert outcomes, but MUST NOT own prompt/cache/token/compression/admission semantics or authority writes.
+7. Existing harness run/proposal artifacts are proposal-harness evidence only. They MUST NOT be wrapped as runtime role artifacts, admission records, or final runtime artifacts for a promoted slot.
+8. Debate and multi-scenario outputs are proposal/support artifacts until admitted and then passed through deterministic domain services.
+9. Loopback context MUST be ref/hash backed and non-authority. It cannot create a motive, validation cycle, work order, claim, dossier, or writing packet by itself.
+10. Any row marked `required` still needs L1-L5 evidence before closure: contract/unit, service integration, Prisma smoke, provider canary when applicable, and adversarial/stress.
+
+## Agent Workflow Capability Matrix
+| Workflow type | Promotion tier | Authority impact | Loop | Retry | Fallback | Debate | Multi-scenario | Provider canary | Admission minimum | Next implementation decision |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `trace_integrity_review` | promoted P1 first slice | writing prerequisite; trace repair input | required via trace repair queue and broken/stale ref loopback | implemented same-profile technical retry for provider/schema failures | queue-only; no mock/cache fallback | implemented bounded semantic debate | support-only repair-plan variants | env-gated canary hook exists; same runtime route as deterministic tests | trace manifest status, source refs, target refs, memo-role guard, semantic support map, runtime identity | Promoted as `trace_integrity_review.boundary_debate`; keep it as the bounded-debate reference pattern. |
+| `claim_boundary_review` | promoted P1 first slice | high; claim strength and overclaim risk | required to claim repair, trace repair, failed-run inclusion, and upstream feedback | implemented same-profile technical retry for provider/schema failures | queue-only; provider failure cannot downgrade claim review | implemented critic/adjudicator pattern | implemented claim-boundary scenario payloads | env-gated canary hook exists; same runtime route as deterministic tests | claim trace packet refs, support/challenge refs, source locators, failed-run accounting, no-overclaim gate | Promoted as `claim_boundary_review.boundary_debate`; deterministic claim service remains authority owner through Domain Gate. |
+| `dossier_readiness_prep` | promoted P1 first slice | high; writing readiness projection input | required to claim, trace, work-order, and dossier repair queues | implemented same-profile technical retry for provider/schema failures | queue-only; readiness cannot be inferred from fallback output | implemented bounded readiness review/adjudication | implemented ready/park/abandon-style readiness alternatives | env-gated canary hook exists; same runtime route as deterministic tests | dossier version refs, readiness gate refs, trace/claim packet refs, failed-run count, writing-packet non-authority boundary | Promoted as `dossier_readiness_prep.readiness_audit`; writing-packet projection remains outside runtime authority. |
+| `result_analysis` | promoted P2 result slice | high; feeds claim boundary but text is not evidence | required to claim boundary, validation feedback, and upstream feedback | implemented same-profile technical retry for provider/schema failures | queue-only; no mock/cache fallback | single-role interpretation builder with bounded scenario analysis; deeper multi-role debate deferred | implemented for positive/negative/inconclusive/failed-run interpretations | env-gated canary hook exists; same runtime route as deterministic tests | run evidence refs, validation report refs, failure summaries, limitations, no interpretation-as-evidence; admitted final materializes only a result interpretation packet | Promoted as `result_analysis.interpretation_scenarios`; next hardening should consider multi-role interpretation debate only if scenario quality requires it. |
+| `experiment_critique` | promoted P2 experiment slice | medium/high; can block WorkOrder or plan | required to experiment design/work-order repair | implemented same-profile technical retry for provider/schema failures | queue-only; no live adapter fallback | implemented as independent critique role | implemented critique-dimension coverage | env-gated canary hook exists; same runtime route as deterministic tests | WorkOrder/plan refs, compute/budget refs, confirmatory/exploratory separation, no execution side effect | Promoted as `experiment_critique.plan_critique`; keep critique separate from live experiment adapter and WorkOrder admission. |
+| `experiment_design` | promoted P2 experiment slice | medium/high; proposes WorkOrder-ready plan | required to validation cycle and WorkOrder gate | implemented same-profile technical retry for provider/schema failures | queue-only; no mock/cache fallback | design risk critique remains paired via separate critique slot | implemented multi-candidate WorkOrder draft alternatives | env-gated canary hook exists; same runtime route as deterministic tests | route/probe refs, metric refs, dataset/code/config refs, run policy, budget, stop rules | Promoted as `experiment_design.work_order_draft`; runtime does not create WorkOrders. |
+| `route_architecture` | P2 route slice | medium; proposes route candidates | required to feasibility probes and validation-cycle repair | required | queue-only | recommended with skeptic handoff | required for route alternatives | required before product | motive/board/cycle refs, route refs, scope boundary, expected information gain | Pair with route skeptic review for promotion. |
+| `route_skeptic_review` | P2 route slice | medium; blocker/queue advisory | required to route repair or abandonment queue | required | queue-only | required as critic slot | support-only route-risk scenarios | required before product if provider-backed | route candidate refs, blocker refs, budget/scope risk, no route mutation | Output should be queue item or review artifact only. |
+| `validation_cycle_planning` | P3 validation slice | medium; creates cycle candidates | required via loop-budget review and low-information cycle feedback | required | queue-only | recommended for high-cost cycles | required for cycle/route/probe alternatives | required before product | motive/board refs, criteria, budget, expected information gain, stop conditions | Existing deterministic service remains authority owner. |
+| `feasibility_planning` | P3 validation slice | medium; probe/plan candidate input | required to route/probe repair and budget review | required | queue-only | recommended for expensive probes | required for feasibility alternatives | required before product | route/probe refs, baseline gaps, budget blockers, source hashes | Promote with validation-cycle planning. |
+| `cross_board_synthesis` | P4 motive/evidence slice | medium/high; can influence motive portfolio | required when suggesting merge/split/reuse/portfolio changes | required | queue-only | recommended for conflict synthesis | recommended for merge/split/reuse alternatives | required before product | board version refs, transfer binding refs, challenge/conflict refs, memo-as-evidence guard | Do not promote before trace and claim first slice. |
+| `evidence_board_curation` | P4 motive/evidence slice | medium; evidence binding and gaps | required to trace repair, evidence transfer, stale evidence recheck | required | queue-only | recommended for conflict/challenge review | recommended for binding/gap alternatives | required before product | source locators, binding roles, trace refs, freshness, memo guard | Needs strict source-locator tests first. |
+| `motive_decomposition` | P4 motive/evidence slice | high; semantic motive shape | required through evolution/feedback path only | required | queue-only | recommended for high-impact motive split/merge | required for motive candidate sets | required before product | motive assertion refs, evidence refs, semantic-change blocker, human confirmation on scope changes | Keep draft-only; semantic changes require deterministic/human gate. |
+| `motive_evolution` | P4 motive/evidence slice | very high; changes motive state/portfolio | required to supersede/merge/split/park/abandon paths | required | queue-only | required for primary/portfolio-changing decisions | required for evolution alternatives | required before product | evolution decision refs, portfolio role constraints, trace refs, human confirmation, state-writer boundary | Last promotion candidate; highest authority risk. |
+
+## Deterministic Flow Node Capability Matrix
+| Flow node | Runtime relation | Loop | Retry | Fallback | Debate | Multi-scenario | Provider canary | Admission / authority rule |
+|---|---|---|---|---|---|---|---|---|
+| Intake bootstrap | deterministic producer | upstream feedback loop only | n/a | forbidden | n/a | n/a | n/a | Active bridge handoff and hash gates remain deterministic authority. |
+| Trace manifest creation/repair | deterministic authority prerequisite | required via trace repair queue | n/a | forbidden | n/a | support-only repair variants may feed queue | n/a | Trace status, target refs, source locators, and natural-language field roles are authority prerequisites. |
+| WorkOrder admission | deterministic experiment gate | required from experiment critique/design repair | operational queue/backoff only | forbidden naked experiment submission | n/a | support-only plan alternatives before admission | n/a | WorkOrder service owns admission; runtime output can only propose inputs. |
+| Live experiment submit/sync/collect/cancel | experiment runtime lane | required through run monitor and evidence ledger | operational retry/backoff required | environment/cloud fallback must be explicit and non-authority | n/a | n/a | n/a | T-104 adapter owns external execution; LLM harness cannot submit experiments. |
+| Result/claim/dossier authority writes | deterministic authority lane | required from runtime-admitted repair signals | n/a | forbidden | n/a | n/a | n/a | T-098 gates own interpretation, claim boundary, dossier readiness, and writing packet projection. |
+| Decision work queue | deterministic orchestration surface | required | retry counters/cooldown required | queue is the fallback | n/a | n/a | n/a | Queue resolution may unblock work but cannot mutate harness/domain authority by itself. |
+| Provider variance evaluation | evaluation lane | n/a | evaluation rerun only | live execution fallback forbidden | n/a | repeated deterministic cases only | preflight only today | T-105 fake/preflight is not live provider execution and cannot count as product canary. |
+
+## Promoted Slot Rows
+The following rows have concrete runtime slot identities and production-grade closure evidence.
+
+| Slot row id | Workflow type | Required capabilities | Runtime/admission proof | Minimum tests |
+|---|---|---|---|---|
+| `trace_integrity_review.boundary_debate` | `trace_integrity_review` | loop, retry, queue-only fallback, bounded debate, provider canary, admission | runtime identity binds retrieval packet, role artifacts, trace manifests, target refs, source hashes, prompt packet/template/version/variant, schema/profile, redaction policy, cache result, token-budget result, compression report/status, and output hash | background-only trace, missing failure evidence, source-locator semantic mismatch, memo/interpretation misuse, unresolved skeptic finding, provider over-budget zero-call, compression-quality zero-call, exact replay no duplicate proposals |
+| `claim_boundary_review.boundary_debate` | `claim_boundary_review` | loop, retry, queue-only fallback, debate, multi-scenario, provider canary, admission | debate roles and adjudication artifacts are ref-backed; admission recomputes claim trace/support/challenge/failed-run refs before deterministic claim gate | overclaim, missing source locator, failed-run omission, support/challenge drift, critic/adjudicator disagreement, provider response reuse blocked |
+| `dossier_readiness_prep.readiness_audit` | `dossier_readiness_prep` | loop, retry, queue-only fallback, multi-scenario, provider canary, admission | readiness alternatives are proposal artifacts only; admission verifies dossier/claim/trace/run refs and blocks writing-packet authority bypass | ready/park/abandon alternatives, missing claim trace, failed-run count drift, writing packet override attempt, replay/drift/no duplicate write |
+| `result_analysis.interpretation_scenarios` | `result_analysis` | loop, retry, queue-only fallback, multi-scenario output, provider canary, admission, Domain Gate materialization | interpretation scenarios are runtime final artifacts until admitted; Domain Gate validates the `createResultInterpretationPacket` request and materializes a deterministic `result_interpretation_packet` only | positive/negative/inconclusive/failed-run scenarios, failed-run accounting, limitations, provider retry exhaustion, blocked preflight, no interpretation-as-evidence, no final/domain artifact on runtime failure |
+| `experiment_design.work_order_draft` | `experiment_design` | loop, retry, queue-only fallback, multi-candidate output, provider canary, admission, explicit no-Domain-Gate boundary | WorkOrder draft candidates are admitted runtime final artifacts only; deterministic WorkOrder creation remains a separate explicit route/service action | route/probe refs, metric/dataset/baseline/code/config refs, run policy, budget, stop rules, confirmatory/exploratory separation, provider retry exhaustion, no WorkOrder/live adapter side effect |
+| `experiment_critique.plan_critique` | `experiment_critique` | loop, retry, queue-only fallback, independent critique role, provider canary, admission, explicit no-Domain-Gate boundary | Critique findings and decisions are admitted runtime final artifacts only; they may block or repair a plan but cannot create WorkOrders or live experiment adapter payloads | critique dimension coverage, compute/budget refs, confirmatory/exploratory separation, execution side-effect guard, provider retry exhaustion, no final/domain artifact on runtime failure |
+
+## Promotion Order
+1. P1: `trace_integrity_review`, `claim_boundary_review`, and `dossier_readiness_prep` are promoted.
+2. P2: `result_analysis`, `experiment_design`, and `experiment_critique` are promoted; remaining P2 order is `route_architecture`, `route_skeptic_review`.
+3. P3: `validation_cycle_planning`, `feasibility_planning`.
+4. P4: `cross_board_synthesis`, `evidence_board_curation`, `motive_decomposition`, `motive_evolution`.
+
+The order favors writing-risk closure first, then experiment/route planning, then validation loop planning, then high-authority motive/evidence changes.
+
+## Open Decisions
+1. Whether remaining debate-like nodes should reuse the P1 runtime service pattern directly or first extract a neutral bounded-debate helper.
+2. Whether the later production default should remain `codex_assisted` or switch to a provider-backed profile after L4/L6 evidence is stable.
+3. Whether deeper result-analysis quality requires a future multi-role interpretation debate beyond the current single-role interpretation-scenario builder.
+4. Whether retry/fallback policy should remain slot-local for the next promotion group or move into a shared runtime primitive after another P2 slice.
+5. Whether remaining nodes need additional queryable Prisma projections beyond the current generic runtime/admission envelope columns.
