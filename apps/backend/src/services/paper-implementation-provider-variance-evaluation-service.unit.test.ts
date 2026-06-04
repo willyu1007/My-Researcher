@@ -29,6 +29,7 @@ import type {
 
 import { PaperImplementationController } from '../controllers/paper-implementation-controller.js';
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
+import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import type {
   PaperImplementationBootstrapPersistence,
   PaperImplementationBootstrapResult,
@@ -38,6 +39,8 @@ import type { PaperImplementationTraceRepository } from '../repositories/paper-i
 import { registerPaperImplementationRoutes } from '../routes/paper-implementation-routes.js';
 import { PaperImplementationAiWorkflowHarnessService } from './paper-implementation-ai-workflow-harness-service.js';
 import { PaperImplementationProviderVarianceEvaluationService } from './paper-implementation-provider-variance-evaluation-service.js';
+import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { PaperImplementationTraceIntegrityDebateRuntimeService } from './paper-implementation-trace-integrity-debate-runtime-service.js';
 
 const NOW = '2026-05-24T08:00:00.000Z';
 const PROJECT_ID = 'impl_project_provider_variance_001';
@@ -281,6 +284,9 @@ test('provider variance evaluation route validates payloads and returns aggregat
   const { aiWorkflowHarness, project, service } = buildService();
   await seedHarnessContext(aiWorkflowHarness, project.implementation_project_id);
   const app = Fastify();
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository: new InMemoryPaperImplementationRuntimeRepository(),
+  });
   const controller = new PaperImplementationController(
     {} as never,
     {} as never,
@@ -289,6 +295,19 @@ test('provider variance evaluation route validates payloads and returns aggregat
     {} as never,
     {} as never,
     aiWorkflowHarness,
+    runtimeAdmission,
+    new PaperImplementationTraceIntegrityDebateRuntimeService({
+      runtimeAdmission,
+      agentOrchestrator: {
+        invokeStructuredOutput: async () => {
+          throw new Error('trace integrity debate runtime is not used by this route test');
+        },
+      },
+    }),
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
     undefined,
     service,
   );

@@ -38,6 +38,7 @@
     "./research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts": "./src/research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts.ts",
     "./research-lifecycle/topic-selection-v1c-paper-project-bridge-contracts": "./src/research-lifecycle/topic-selection-v1c-paper-project-bridge-contracts.ts",
     "./research-lifecycle/topic-selection-v1c-downstream-feedback-recheck-contracts": "./src/research-lifecycle/topic-selection-v1c-downstream-feedback-recheck-contracts.ts",
+    "./research-lifecycle/paper-implementation-agent-common-contracts": "./src/research-lifecycle/paper-implementation-agent-common-contracts.ts",
     "./research-lifecycle/paper-implementation-contracts": "./src/research-lifecycle/paper-implementation-contracts.ts",
     "./research-lifecycle/paper-implementation-trace-contracts": "./src/research-lifecycle/paper-implementation-trace-contracts.ts",
     "./research-lifecycle/paper-implementation-motive-contracts": "./src/research-lifecycle/paper-implementation-motive-contracts.ts",
@@ -46,6 +47,7 @@
     "./research-lifecycle/paper-implementation-live-experiment-adapter-contracts": "./src/research-lifecycle/paper-implementation-live-experiment-adapter-contracts.ts",
     "./research-lifecycle/paper-implementation-result-claim-dossier-contracts": "./src/research-lifecycle/paper-implementation-result-claim-dossier-contracts.ts",
     "./research-lifecycle/paper-implementation-ai-workflow-harness-contracts": "./src/research-lifecycle/paper-implementation-ai-workflow-harness-contracts.ts",
+    "./research-lifecycle/paper-implementation-runtime-contracts": "./src/research-lifecycle/paper-implementation-runtime-contracts.ts",
     "./research-lifecycle/paper-implementation-provider-variance-contracts": "./src/research-lifecycle/paper-implementation-provider-variance-contracts.ts"
   },
   "scripts": {

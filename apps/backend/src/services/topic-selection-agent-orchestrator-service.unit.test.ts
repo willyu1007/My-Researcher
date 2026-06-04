@@ -283,6 +283,7 @@ test('agent orchestrator normalizes mocked, codex, and provider execution onto o
   assert.match(provider.provenance.normalized_params_hash ?? '', /^[a-f0-9]{64}$/);
   assert.match(provider.provenance.structured_output_hash ?? '', /^[a-f0-9]{64}$/);
   assert.equal(providerGateway.calls.length, 1);
+  assert.equal(providerGateway.calls[0]!.executionContext.feature, 'topic_selection');
   assert.equal(providerGateway.calls[0]!.schemaName, 'topic_selection_ranked_candidate_draft_batch');
   assert.deepEqual(providerGateway.calls[0]!.model, {
     providerId: 'openai',
@@ -298,6 +299,121 @@ test('agent orchestrator normalizes mocked, codex, and provider execution onto o
     structured_output_required: true,
     output_format: 'json_schema',
   });
+});
+
+test('agent orchestrator forwards caller-owned feature id to provider execution context', async () => {
+  const providerGateway = new StubLlmGateway(output());
+  const { orchestrator } = makeOrchestrator({ llmGateway: providerGateway });
+
+  await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+    ...baseInvocation(),
+    feature_id: 'paper_implementation',
+    execution_mode: 'provider_llm',
+    run_mode: 'product',
+  });
+
+  assert.equal(providerGateway.calls.length, 1);
+  assert.equal(providerGateway.calls[0]!.executionContext.feature, 'paper_implementation');
+});
+
+test('agent orchestrator sends provider-compatible schema while preserving internal validation schema', async () => {
+  const providerGateway = new StubLlmGateway(output());
+  const { orchestrator } = makeOrchestrator({ llmGateway: providerGateway });
+
+  const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+    ...baseInvocation(),
+    execution_mode: 'provider_llm',
+    run_mode: 'product',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      propertyNames: { not: { enum: ['hidden_reasoning'] } },
+      required: ['batch_id', 'drafts'],
+      properties: {
+        batch_id: { type: 'string', minLength: 1 },
+        drafts: {
+          type: 'array',
+          minItems: 1,
+          items: {
+            allOf: [
+              {
+                type: 'object',
+                additionalProperties: false,
+                required: ['draft_id', 'candidate_need'],
+                properties: {
+                  draft_id: { type: 'string', minLength: 1 },
+                  candidate_need: { type: 'string', minLength: 1 },
+                },
+              },
+              {
+                not: {
+                  type: 'object',
+                  required: ['legacy_wrapper'],
+                },
+              },
+              {
+                if: {
+                  properties: { status: { const: 'passed' } },
+                  required: ['status'],
+                },
+                then: {
+                  required: ['domain_gate_request'],
+                },
+                else: {
+                  properties: {
+                    domain_gate_request: { type: 'null' },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+      dependentRequired: {
+        batch_id: ['drafts'],
+      },
+    },
+  });
+
+  assert.equal(result.status, 'succeeded');
+  assert.equal(providerGateway.calls.length, 1);
+  const providerSchema = providerGateway.calls[0]!.schema as {
+    propertyNames?: unknown;
+    not?: unknown;
+    if?: unknown;
+    then?: unknown;
+    else?: unknown;
+    dependentRequired?: unknown;
+    properties?: {
+      drafts?: {
+        items?: {
+          allOf?: unknown;
+          not?: unknown;
+          if?: unknown;
+          then?: unknown;
+          else?: unknown;
+          type?: string;
+          properties?: Record<string, unknown>;
+        };
+      };
+    };
+  };
+  assert.equal(providerSchema.propertyNames, undefined);
+  assert.equal(providerSchema.not, undefined);
+  assert.equal(providerSchema.if, undefined);
+  assert.equal(providerSchema.then, undefined);
+  assert.equal(providerSchema.else, undefined);
+  assert.equal(providerSchema.dependentRequired, undefined);
+  assert.equal(providerSchema.properties?.drafts?.items?.allOf, undefined);
+  assert.equal(providerSchema.properties?.drafts?.items?.not, undefined);
+  assert.equal(providerSchema.properties?.drafts?.items?.if, undefined);
+  assert.equal(providerSchema.properties?.drafts?.items?.then, undefined);
+  assert.equal(providerSchema.properties?.drafts?.items?.else, undefined);
+  assert.equal(providerSchema.properties?.drafts?.items?.type, 'object');
+  assert.deepEqual(Object.keys(providerSchema.properties?.drafts?.items?.properties ?? {}), [
+    'draft_id',
+    'candidate_need',
+  ]);
 });
 
 test('agent orchestrator blocks invalid structured output without mode-specific result shape', async () => {

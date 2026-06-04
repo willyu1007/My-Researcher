@@ -10,6 +10,7 @@ import {
 import * as autoPullContracts from './auto-pull-contracts.js';
 import * as experimentFoundationContracts from './experiment-foundation-contracts.js';
 import * as literatureContracts from './literature-contracts.js';
+import * as paperImplementationAgentCommonContracts from './paper-implementation-agent-common-contracts.js';
 import * as paperImplementationContracts from './paper-implementation-contracts.js';
 import * as paperImplementationAiWorkflowHarnessContracts from './paper-implementation-ai-workflow-harness-contracts.js';
 import * as paperImplementationMotiveContracts from './paper-implementation-motive-contracts.js';
@@ -19,6 +20,7 @@ import * as paperImplementationValidationContracts from './paper-implementation-
 import * as paperImplementationWorkOrderContracts from './paper-implementation-workorder-contracts.js';
 import * as paperImplementationLiveExperimentAdapterContracts from './paper-implementation-live-experiment-adapter-contracts.js';
 import * as paperImplementationProviderVarianceContracts from './paper-implementation-provider-variance-contracts.js';
+import * as paperImplementationRuntimeContracts from './paper-implementation-runtime-contracts.js';
 import * as paperProjectContracts from './paper-project-contracts.js';
 import * as researchLifecycleContracts from './index.js';
 import * as researchLifecycleCoreContracts from './research-lifecycle-core-contracts.js';
@@ -3091,6 +3093,7 @@ test('research-lifecycle barrel re-exports the runtime value surface of split mo
     ...Object.keys(researchLifecycleCoreContracts),
     ...Object.keys(paperProjectContracts),
     ...Object.keys(literatureContracts),
+    ...Object.keys(paperImplementationAgentCommonContracts),
     ...Object.keys(paperImplementationContracts),
     ...Object.keys(paperImplementationAiWorkflowHarnessContracts),
     ...Object.keys(paperImplementationTraceContracts),
@@ -3099,6 +3102,7 @@ test('research-lifecycle barrel re-exports the runtime value surface of split mo
     ...Object.keys(paperImplementationWorkOrderContracts),
     ...Object.keys(paperImplementationLiveExperimentAdapterContracts),
     ...Object.keys(paperImplementationResultClaimDossierContracts),
+    ...Object.keys(paperImplementationRuntimeContracts),
     ...Object.keys(paperImplementationProviderVarianceContracts),
     ...Object.keys(autoPullContracts),
     ...Object.keys(experimentFoundationContracts),

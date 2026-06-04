@@ -7,6 +7,7 @@ export * from './experiment-foundation-contracts.js';
 export * from './topic-selection-control-plane-contracts.js';
 export * from './topic-selection-agent-profile-contracts.js';
 export * from './topic-selection-agent-invocation-contracts.js';
+export * from './topic-selection-runtime-common-contracts.js';
 export * from './topic-selection-llm-runtime-contracts.js';
 export * from './topic-selection-debate-scenario-contracts.js';
 export * from './topic-selection-search-resource-contracts.js';
@@ -28,6 +29,7 @@ export * from './topic-selection-v1c-promotion-gate-contracts.js';
 export * from './topic-selection-v1c-human-promotion-decision-contracts.js';
 export * from './topic-selection-v1c-paper-project-bridge-contracts.js';
 export * from './topic-selection-v1c-downstream-feedback-recheck-contracts.js';
+export * from './paper-implementation-agent-common-contracts.js';
 export * from './paper-implementation-contracts.js';
 export * from './paper-implementation-trace-contracts.js';
 export * from './paper-implementation-motive-contracts.js';
@@ -36,6 +38,7 @@ export * from './paper-implementation-workorder-contracts.js';
 export * from './paper-implementation-live-experiment-adapter-contracts.js';
 export * from './paper-implementation-result-claim-dossier-contracts.js';
 export * from './paper-implementation-ai-workflow-harness-contracts.js';
+export * from './paper-implementation-runtime-contracts.js';
 export * from './paper-implementation-provider-variance-contracts.js';
 export {
   type PaperImplementationWritingEntryPacket,

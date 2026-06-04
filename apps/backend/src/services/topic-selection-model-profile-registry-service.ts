@@ -10,6 +10,14 @@ import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
+  PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
+  PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import {
   TOPIC_SELECTION_MODEL_PROFILE_REGISTRY_SCHEMA_VERSION,
   topicSelectionModelProfileRegistrySchema,
   type TopicSelectionAgentRunMode,
@@ -760,6 +768,144 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
       output_contract: 'TopicSelectionV1cDownstreamFeedbackCandidate@v1',
       model_options: providerOptions(TOPIC_SELECTION_V1C_DOWNSTREAM_FEEDBACK_NORMALIZATION_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'medium',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
+      profile_function: 'paper_implementation_trace_integrity_boundary_debate',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_trace_integrity_review',
+      quality_objectives: [
+        'run_fixed_role_trace_integrity_debate_without_authority_write',
+        'preserve_trace_source_and_failed_run_lineage',
+        'produce_admission_ready_trace_integrity_role_outputs',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'TraceIntegrityRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'medium',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+      profile_function: 'paper_implementation_claim_boundary_debate',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_claim_boundary_review',
+      quality_objectives: [
+        'run_fixed_role_claim_boundary_debate_without_authority_write',
+        'preserve_support_challenge_failed_run_and_forbidden_overclaim_refs',
+        'produce_admission_ready_claim_boundary_domain_gate_request',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'PaperImplementationP1RuntimeReviewRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'medium',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID,
+      profile_function: 'paper_implementation_dossier_readiness_audit',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_dossier_readiness_prep',
+      quality_objectives: [
+        'run_fixed_role_dossier_readiness_audit_without_authority_write',
+        'preserve_claim_trace_failed_run_and_readiness_blocker_refs',
+        'produce_admission_ready_dossier_readiness_domain_gate_request',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'PaperImplementationP1RuntimeReviewRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'medium',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
+      profile_function: 'paper_implementation_result_analysis_interpretation_scenarios',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_result_analysis',
+      quality_objectives: [
+        'run_fixed_role_result_analysis_without_authority_write',
+        'preserve_run_evidence_validation_failed_run_and_limitation_refs',
+        'produce_admission_ready_result_interpretation_domain_gate_request',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'PaperImplementationResultAnalysisRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'medium',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID,
+      profile_function: 'paper_implementation_experiment_design_work_order_draft',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_experiment_design',
+      quality_objectives: [
+        'run_fixed_role_experiment_design_without_work_order_write',
+        'preserve_route_probe_metric_dataset_code_config_budget_and_stop_refs',
+        'produce_admission_ready_work_order_draft_candidates',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'PaperImplementationExperimentPlanningRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'large',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID,
+      profile_function: 'paper_implementation_experiment_critique_plan_critique',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_experiment_critique',
+      quality_objectives: [
+        'run_independent_experiment_critique_without_work_order_or_adapter_write',
+        'preserve_confirmatory_exploratory_compute_budget_dataset_metric_baseline_and_side_effect_findings',
+        'produce_admission_ready_plan_critique_decision',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'PaperImplementationExperimentPlanningRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID).map(
         (option) => ({
           ...option,
           normalized_params: normalizedParams({

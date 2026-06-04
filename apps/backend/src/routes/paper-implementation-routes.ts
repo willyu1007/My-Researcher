@@ -58,6 +58,15 @@ import {
 import {
   runProviderVarianceEvaluationRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-provider-variance-contracts';
+import {
+  admitPaperImplementationRuntimeArtifactRequestSchema,
+  listPaperImplementationRuntimeAdmissionRecordsQuerySchema,
+  listPaperImplementationRuntimeArtifactsQuerySchema,
+  runPaperImplementationExperimentPlanningRuntimeRequestSchema,
+  runPaperImplementationP1RuntimeReviewRequestSchema,
+  runPaperImplementationResultAnalysisRuntimeRequestSchema,
+  runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 
 import { PaperImplementationController } from '../controllers/paper-implementation-controller.js';
 
@@ -130,6 +139,10 @@ const decisionWorkQueueItemParams = paramsSchema({
   implementation_project_id: stringId,
   queue_item_id: stringId,
 });
+const runtimeArtifactParams = paramsSchema({
+  implementation_project_id: stringId,
+  runtime_artifact_id: stringId,
+});
 
 export async function registerPaperImplementationRoutes(
   fastify: FastifyInstance,
@@ -189,6 +202,103 @@ export async function registerPaperImplementationRoutes(
     '/paper-implementation/projects/:implementation_project_id/implementation-input-snapshots',
     { schema: implementationProjectParams },
     controller.listImplementationInputSnapshots,
+  );
+  fastify.get(
+    '/paper-implementation/projects/:implementation_project_id/runtime-artifacts',
+    {
+      schema: {
+        ...implementationProjectParams,
+        querystring: listPaperImplementationRuntimeArtifactsQuerySchema,
+      },
+    },
+    controller.listRuntimeArtifacts,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-artifacts/:runtime_artifact_id/admit',
+    {
+      schema: {
+        ...runtimeArtifactParams,
+        body: admitPaperImplementationRuntimeArtifactRequestSchema,
+      },
+    },
+    controller.admitRuntimeArtifact,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-artifacts/:runtime_artifact_id/materialize-domain-gate',
+    {
+      schema: runtimeArtifactParams,
+    },
+    controller.materializeRuntimeDomainGate,
+  );
+  fastify.get(
+    '/paper-implementation/projects/:implementation_project_id/runtime-admission-records',
+    {
+      schema: {
+        ...implementationProjectParams,
+        querystring: listPaperImplementationRuntimeAdmissionRecordsQuerySchema,
+      },
+    },
+    controller.listRuntimeAdmissionRecords,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/trace-integrity-boundary-debate/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema,
+      },
+    },
+    controller.runTraceIntegrityBoundaryDebateRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/claim-boundary-debate/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationP1RuntimeReviewRequestSchema,
+      },
+    },
+    controller.runClaimBoundaryDebateRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/dossier-readiness-audit/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationP1RuntimeReviewRequestSchema,
+      },
+    },
+    controller.runDossierReadinessAuditRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/result-analysis-scenarios/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationResultAnalysisRuntimeRequestSchema,
+      },
+    },
+    controller.runResultAnalysisRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/experiment-design-work-order-draft/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationExperimentPlanningRuntimeRequestSchema,
+      },
+    },
+    controller.runExperimentDesignRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/experiment-critique-plan-critique/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationExperimentPlanningRuntimeRequestSchema,
+      },
+    },
+    controller.runExperimentCritiqueRuntime,
   );
   fastify.post(
     '/paper-implementation/projects/:implementation_project_id/agent-workflow-harness-runs',

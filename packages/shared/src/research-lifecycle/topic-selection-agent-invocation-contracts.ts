@@ -10,6 +10,10 @@ import {
   TOPIC_SELECTION_AGENT_RUN_MODES,
   type TopicSelectionAgentRunMode,
 } from './topic-selection-agent-profile-contracts.js';
+import {
+  TOPIC_SELECTION_RUNTIME_CACHE_RESULTS,
+  type TopicSelectionRuntimeCacheResult,
+} from './topic-selection-runtime-common-contracts.js';
 
 export const TOPIC_SELECTION_AGENT_INVOCATION_AUDIT_SCHEMA_VERSION =
   'topic-selection-agent-invocation-audit-v1' as const;
@@ -118,6 +122,9 @@ export interface TopicSelectionAgentInvocationProvenance {
   prompt_template_version: string;
   schema_name: string;
   prompt_packet_hash: string;
+  prompt_packet_cache_status?: TopicSelectionRuntimeCacheResult | null;
+  prompt_packet_cache_result_ref?: TopicSelectionFunctionalRef | null;
+  prompt_packet_cache_result_hash?: string | null;
   redacted_prompt_artifact_ref?: TopicSelectionFunctionalRef | null;
   prompt_quality_report_ref?: TopicSelectionFunctionalRef | null;
   response_hash: string | null;
@@ -314,6 +321,11 @@ export const topicSelectionAgentInvocationProvenanceSchema = {
     prompt_template_version: stringId,
     schema_name: stringId,
     prompt_packet_hash: hashString,
+    prompt_packet_cache_status: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_RUNTIME_CACHE_RESULTS] }, { type: 'null' }],
+    },
+    prompt_packet_cache_result_ref: nullableFunctionalRef,
+    prompt_packet_cache_result_hash: nullableHashString,
     redacted_prompt_artifact_ref: nullableFunctionalRef,
     prompt_quality_report_ref: nullableFunctionalRef,
     response_hash: nullableHashString,

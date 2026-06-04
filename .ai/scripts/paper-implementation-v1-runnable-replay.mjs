@@ -11,6 +11,7 @@ import { InMemoryPaperImplementationRepository } from '../../apps/backend/src/re
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-ai-workflow-harness-repository.ts';
 import { InMemoryPaperImplementationMotiveRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-motive-repository.ts';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-result-claim-dossier-repository.ts';
+import { InMemoryPaperImplementationRuntimeRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-runtime-repository.ts';
 import { InMemoryPaperImplementationTraceRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-trace-repository.ts';
 import { InMemoryPaperImplementationValidationRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-validation-repository.ts';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-workorder-repository.ts';
@@ -20,6 +21,8 @@ import { PaperImplementationLiveExperimentAdapterService } from '../../apps/back
 import { PaperImplementationMotiveEvidenceBoardService } from '../../apps/backend/src/services/paper-implementation-motive-evidence-board-service.ts';
 import { PaperImplementationProviderVarianceEvaluationService } from '../../apps/backend/src/services/paper-implementation-provider-variance-evaluation-service.ts';
 import { PaperImplementationResultClaimDossierService } from '../../apps/backend/src/services/paper-implementation-result-claim-dossier-service.ts';
+import { PaperImplementationRuntimeAdmissionService } from '../../apps/backend/src/services/paper-implementation-runtime-admission-service.ts';
+import { PaperImplementationTraceIntegrityDebateRuntimeService } from '../../apps/backend/src/services/paper-implementation-trace-integrity-debate-runtime-service.ts';
 import { PaperImplementationTraceKernelService } from '../../apps/backend/src/services/paper-implementation-trace-kernel-service.ts';
 import { PaperImplementationValidationCyclePlanningService } from '../../apps/backend/src/services/paper-implementation-validation-cycle-planning-service.ts';
 import { PaperImplementationWorkOrderExperimentBridgeService } from '../../apps/backend/src/services/paper-implementation-workorder-experiment-bridge-service.ts';
@@ -385,6 +388,7 @@ function makeReplayHarness() {
   const workOrderRepository = new InMemoryPaperImplementationWorkOrderRepository();
   const resultClaimRepository = new InMemoryPaperImplementationResultClaimDossierRepository();
   const harnessRepository = new InMemoryPaperImplementationAiWorkflowHarnessRepository();
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
   const downstreamFeedback = new RecordingDownstreamFeedbackService();
   const idFactory = makeIdFactory();
   const intakeBootstrap = new PaperImplementationIntakeBootstrapService({
@@ -454,6 +458,21 @@ function makeReplayHarness() {
     idFactory,
     now: () => NOW,
   });
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository: runtimeRepository,
+    idFactory,
+    now: () => NOW,
+  });
+  const traceIntegrityDebateRuntime = new PaperImplementationTraceIntegrityDebateRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: {
+      invokeStructuredOutput: async () => {
+        throw new Error('trace integrity debate runtime is not used by the V1 runnable replay.');
+      },
+    },
+    idFactory,
+    now: () => NOW,
+  });
   const controller = new PaperImplementationController(
     intakeBootstrap,
     traceKernel,
@@ -462,6 +481,8 @@ function makeReplayHarness() {
     workOrderExperimentBridge,
     resultClaimDossier,
     aiWorkflowHarness,
+    runtimeAdmission,
+    traceIntegrityDebateRuntime,
     liveExperimentAdapter,
     providerVarianceEvaluation,
   );

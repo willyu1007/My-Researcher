@@ -5083,6 +5083,152 @@ model PaperImplementationInputSnapshot {
   @@index([snapshotHash], map: "pi_input_hash_idx")
 }
 
+model PaperImplementationRuntimeArtifact {
+  id                           String   @id
+  artifactIdentityHash         String
+  runtimeIdentityHash          String
+  implementationProjectId      String
+  workflowType                 String
+  slotId                       String
+  artifactScope                String
+  artifactContractId           String
+  artifactContractVersion      String
+  targetRefType                String
+  targetRefId                  String
+  targetVersionId              String?
+  targetRef                    Json     @default("{}")
+  inputSnapshotRef             Json     @default("{}")
+  inputSnapshotHash            String
+  sourceHashBundleHash         String
+  createdBy                    String
+  createdAt                    DateTime @db.Timestamptz(6)
+  roleSlotId                   String?
+  callIndex                    Int?
+  priorRoleArtifactRefs        Json     @default("[]")
+  priorRoleArtifactHashes      String[] @default([])
+  roleChainHash                String
+  finalArtifactRef             Json?
+  finalArtifactHash            String?
+  runMode                      String
+  executionMode                String
+  executorKind                 String
+  modelProfileId               String
+  modelOptionId                String?
+  runtimeStatus                String
+  runtimeFailureCode           String?
+  retryAttemptIndex            Int
+  providerCallCount            Int
+  responseReuseStatus          String
+  responseReuseDecisionRef     Json?
+  responseReuseDecisionHash    String?
+  allowedSideEffects           String[] @default([])
+  retrievalPacketRef           Json?
+  retrievalPacketHash          String?
+  reviewedStatementPacketRef   Json?
+  reviewedStatementPacketHash  String?
+  contextPacketRef             Json     @default("{}")
+  contextPacketHash            String
+  runtimeInvocationContextHash String
+  contextPolicyProfileHash     String
+  cachePolicyProfileHash       String
+  sourceRefs                   Json     @default("[]")
+  sourceHashes                 String[] @default([])
+  promptPacketRef              Json     @default("{}")
+  promptPacketHash             String
+  promptTemplateId             String
+  promptTemplateVersionId      String
+  promptVariantId              String
+  promptRedactionPolicyHash    String
+  outputSchemaId               String
+  contextCacheKeyHash          String
+  contextCacheStatus           String
+  contextCacheResultRef        Json?
+  contextCacheResultHash       String?
+  promptPacketCacheKeyHash     String
+  promptPacketCacheStatus      String
+  promptPacketCacheResultRef   Json?
+  promptPacketCacheResultHash  String?
+  tokenBudgetGateResultRef     Json     @default("{}")
+  tokenBudgetGateResultHash    String
+  compressionPolicyProfileHash String
+  compressionStatus            String
+  compressionReportRef         Json?
+  compressionReportHash        String?
+  compressedContextPacketRef   Json?
+  compressedContextPacketHash  String?
+  artifactPayloadRef           Json     @default("{}")
+  artifactPayloadHash          String
+  outputHash                   String
+  runtimeAuditRef              Json     @default("{}")
+  runtimeAuditHash             String
+  blockerCodes                 String[] @default([])
+  warningCodes                 String[] @default([])
+  envelope                     Json     @default("{}")
+
+  @@index([implementationProjectId, createdAt(sort: Desc)], map: "pi_runtime_artifact_project_created_idx")
+  @@index([implementationProjectId, slotId, artifactScope], map: "pi_runtime_artifact_slot_scope_idx")
+  @@index([workflowType, runtimeStatus], map: "pi_runtime_artifact_workflow_status_idx")
+  @@index([targetRefType, targetRefId, targetVersionId], map: "pi_runtime_artifact_target_idx")
+  @@index([artifactIdentityHash], map: "pi_runtime_artifact_hash_idx")
+  @@index([runtimeIdentityHash], map: "pi_runtime_artifact_identity_idx")
+  @@index([sourceHashBundleHash], map: "pi_runtime_artifact_source_hash_idx")
+  @@index([promptPacketHash], map: "pi_runtime_artifact_prompt_hash_idx")
+  @@index([outputSchemaId], map: "pi_runtime_artifact_output_schema_idx")
+  @@index([runtimeAuditHash], map: "pi_runtime_artifact_audit_hash_idx")
+}
+
+model PaperImplementationRuntimeAdmissionRecord {
+  id                              String   @id
+  implementationProjectId         String
+  workflowType                    String
+  slotId                          String
+  admissionScope                  String
+  admissionPolicyId               String
+  admissionPolicyVersion          String
+  runtimeArtifactRef              Json     @default("{}")
+  runtimeArtifactHash             String
+  runtimeArtifactId               String
+  artifactContractId              String
+  targetRefType                   String
+  targetRefId                     String
+  targetVersionId                 String?
+  targetRef                       Json     @default("{}")
+  createdAt                       DateTime @db.Timestamptz(6)
+  expectedRuntimeIdentityHash     String
+  expectedSourceHashBundleHash    String
+  expectedRetrievalPacketHash     String?
+  expectedPromptPacketHash        String
+  expectedOutputSchemaId          String
+  expectedPriorRoleArtifactHashes String[] @default([])
+  expectedFinalArtifactHash       String?
+  observedRuntimeIdentityHash     String
+  observedSourceHashBundleHash    String
+  observedRetrievalPacketHash     String?
+  observedPromptPacketHash        String
+  observedOutputSchemaId          String
+  observedPriorRoleArtifactHashes String[] @default([])
+  observedOutputHash              String
+  admissionStatus                 String
+  admissionIdentity               Json     @default("{}")
+  admissionIdentityHash           String
+  admittedArtifactRef             Json?
+  admittedArtifactHash            String?
+  issueCodes                      String[] @default([])
+  warningCodes                    String[] @default([])
+  recordPayload                   Json     @default("{}")
+
+  @@index([implementationProjectId, createdAt(sort: Desc)], map: "pi_runtime_admission_project_created_idx")
+  @@index([implementationProjectId, admissionScope, admissionStatus], map: "pi_runtime_admission_scope_status_idx")
+  @@index([runtimeArtifactId], map: "pi_runtime_admission_artifact_idx")
+  @@index([admissionPolicyId, admissionPolicyVersion], map: "pi_runtime_admission_policy_idx")
+  @@index([targetRefType, targetRefId, targetVersionId], map: "pi_runtime_admission_target_idx")
+  @@index([admissionIdentityHash], map: "pi_runtime_admission_identity_idx")
+  @@unique([implementationProjectId, admissionIdentityHash], map: "pi_runtime_admission_identity_unique")
+  @@index([expectedPromptPacketHash], map: "pi_runtime_admission_expected_prompt_idx")
+  @@index([observedPromptPacketHash], map: "pi_runtime_admission_observed_prompt_idx")
+  @@index([observedOutputHash], map: "pi_runtime_admission_output_hash_idx")
+}
+
 model PaperImplementationAgentWorkflowHarnessRun {
   id                          String   @id
   implementationProjectId     String

@@ -32,6 +32,7 @@ import type {
 import { PaperImplementationController } from '../controllers/paper-implementation-controller.js';
 import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
+import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../repositories/in-memory-paper-implementation-workorder-repository.js';
 import type {
@@ -45,6 +46,8 @@ import type { PaperImplementationIntakeBootstrapService } from './paper-implemen
 import { PaperImplementationLiveExperimentAdapterService } from './paper-implementation-live-experiment-adapter-service.js';
 import type { PaperImplementationMotiveEvidenceBoardService } from './paper-implementation-motive-evidence-board-service.js';
 import type { PaperImplementationResultClaimDossierService } from './paper-implementation-result-claim-dossier-service.js';
+import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { PaperImplementationTraceIntegrityDebateRuntimeService } from './paper-implementation-trace-integrity-debate-runtime-service.js';
 import { PaperImplementationTraceKernelService } from './paper-implementation-trace-kernel-service.js';
 import type { PaperImplementationValidationCyclePlanningService } from './paper-implementation-validation-cycle-planning-service.js';
 import { PaperImplementationWorkOrderExperimentBridgeService } from './paper-implementation-workorder-experiment-bridge-service.js';
@@ -786,6 +789,9 @@ test('cancel finalizes trusted cancelled run evidence with target-specific trace
 test('route wiring validates submit payload and delegates live experiment submit', async () => {
   const { service } = await makeHarness();
   const app = Fastify({ logger: false });
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository: new InMemoryPaperImplementationRuntimeRepository(),
+  });
   await registerPaperImplementationRoutes(
     app,
     new PaperImplementationController(
@@ -796,6 +802,19 @@ test('route wiring validates submit payload and delegates live experiment submit
       {} as PaperImplementationWorkOrderExperimentBridgeService,
       {} as PaperImplementationResultClaimDossierService,
       {} as PaperImplementationAiWorkflowHarnessService,
+      runtimeAdmission,
+      new PaperImplementationTraceIntegrityDebateRuntimeService({
+        runtimeAdmission,
+        agentOrchestrator: {
+          invokeStructuredOutput: async () => {
+            throw new Error('trace integrity debate runtime is not used by this route test');
+          },
+        },
+      }),
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
       service,
     ),
   );

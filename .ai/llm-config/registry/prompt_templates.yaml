@@ -192,3 +192,157 @@ templates:
       - Return only the structured feedback candidate JSON.
       - Do not invent refs, mutate bridge or promotion records, or create recheck artifacts directly.
       - Recheck-producing feedback must include a non-empty required_action.
+
+  - prompt_template_id: paper-implementation-trace-integrity-boundary-debate
+    version: 1
+    runtime_profile_id: paper-implementation.trace-integrity.boundary-debate.v1
+    description: Run one fixed role in the PaperImplementation trace-integrity boundary debate runtime slot.
+    variables_schema:
+      type: object
+      required: [role_slot_id, retrieval_packet_ref, retrieval_packet_hash, reviewed_statement_refs, source_refs]
+      properties:
+        role_slot_id:
+          type: string
+        retrieval_packet_ref:
+          type: object
+        retrieval_packet_hash:
+          type: string
+        reviewed_statement_refs:
+          type: array
+        source_refs:
+          type: array
+        prior_role_artifact_refs:
+          type: array
+    notes:
+      - Return only the TraceIntegrityRoleArtifact JSON for the requested role slot.
+      - Cite only refs present in the bounded retrieval packet or prior admitted role artifacts.
+      - Do not write trace repairs, claims, dossier readiness, work orders, queue items, prompt text, or raw provider output.
+      - Semantic blockers must use the trace-integrity blocker taxonomy documented in T-114.
+
+  - prompt_template_id: paper-implementation-claim-boundary-debate
+    version: 1
+    runtime_profile_id: paper-implementation.claim-boundary.boundary-debate.v1
+    description: Run one fixed role in the PaperImplementation claim-boundary debate runtime slot.
+    variables_schema:
+      type: object
+      required: [slot_id, role_slot_id, target_ref, source_refs, source_hash_bundle_hash]
+      properties:
+        slot_id:
+          type: string
+        role_slot_id:
+          type: string
+        target_ref:
+          type: object
+        source_refs:
+          type: array
+        source_hash_bundle_hash:
+          type: string
+        prior_role_artifact_refs:
+          type: array
+    notes:
+      - Return only the PaperImplementationP1RuntimeReviewRoleArtifact JSON for the requested role slot.
+      - Final adjudicator output may include a domain_gate_request for CreateClaimCandidateRequest only.
+      - Do not create claims, trace packets, dossiers, queue items, prompt text, or raw provider output directly.
+      - Preserve forbidden_overclaims, support/challenge refs, claim trace refs, and failed-run accounting.
+
+  - prompt_template_id: paper-implementation-dossier-readiness-audit
+    version: 1
+    runtime_profile_id: paper-implementation.dossier-readiness.readiness-audit.v1
+    description: Run one fixed role in the PaperImplementation dossier-readiness audit runtime slot.
+    variables_schema:
+      type: object
+      required: [slot_id, role_slot_id, target_ref, source_refs, source_hash_bundle_hash]
+      properties:
+        slot_id:
+          type: string
+        role_slot_id:
+          type: string
+        target_ref:
+          type: object
+        source_refs:
+          type: array
+        source_hash_bundle_hash:
+          type: string
+        prior_role_artifact_refs:
+          type: array
+    notes:
+      - Return only the PaperImplementationP1RuntimeReviewRoleArtifact JSON for the requested role slot.
+      - Final adjudicator output may include a domain_gate_request for CreateImplementationDossierRequest only.
+      - Do not create dossiers, writing packets, claims, queue items, prompt text, or raw provider output directly.
+      - Preserve claim trace refs, failed/inconclusive run refs, readiness blockers, and scenario alternatives.
+
+  - prompt_template_id: paper-implementation-result-analysis-scenarios
+    version: 1
+    runtime_profile_id: paper-implementation.result-analysis.interpretation-scenarios.v1
+    description: Run the fixed PaperImplementation result-analysis interpretation-scenario runtime role.
+    variables_schema:
+      type: object
+      required: [slot_id, role_slot_id, target_ref, source_refs, source_hash_bundle_hash]
+      properties:
+        slot_id:
+          type: string
+        role_slot_id:
+          type: string
+        target_ref:
+          type: object
+        source_refs:
+          type: array
+        source_hash_bundle_hash:
+          type: string
+        required_scenario_kinds:
+          type: array
+    notes:
+      - Return only the PaperImplementationResultAnalysisRoleArtifact JSON for the interpretation-scenario role.
+      - Passed output must include scenario_outputs and a domain_gate_request for CreateResultInterpretationPacketRequest only.
+      - Interpretations are not evidence; keep run evidence, validation reports, failed runs, limitations, and follow-up refs separate.
+      - Do not create result packets, claims, dossiers, writing packets, queue items, prompt text, or raw provider output directly.
+
+  - prompt_template_id: paper-implementation-experiment-design-work-order-draft
+    version: 1
+    runtime_profile_id: paper-implementation.experiment-design.work-order-draft.v1
+    description: Run the fixed PaperImplementation experiment-design WorkOrder draft proposal runtime role.
+    variables_schema:
+      type: object
+      required: [slot_id, role_slot_id, target_ref, source_refs, source_hash_bundle_hash]
+      properties:
+        slot_id:
+          type: string
+        role_slot_id:
+          type: string
+        target_ref:
+          type: object
+        source_refs:
+          type: array
+        source_hash_bundle_hash:
+          type: string
+    notes:
+      - Return only the PaperImplementationExperimentPlanningRoleArtifact JSON for the WorkOrder designer role.
+      - Passed output must include at least two work_order_draft_candidates with explicit confirmatory/exploratory separation.
+      - Candidates may contain WorkOrder draft request payloads but must not create or admit WorkOrders directly.
+      - Do not submit live experiments, create queue items, prompt text, or raw provider output.
+
+  - prompt_template_id: paper-implementation-experiment-critique-plan-critique
+    version: 1
+    runtime_profile_id: paper-implementation.experiment-critique.plan-critique.v1
+    description: Run the fixed PaperImplementation independent experiment-plan critique runtime role.
+    variables_schema:
+      type: object
+      required: [slot_id, role_slot_id, target_ref, source_refs, source_hash_bundle_hash, required_critique_dimensions]
+      properties:
+        slot_id:
+          type: string
+        role_slot_id:
+          type: string
+        target_ref:
+          type: object
+        source_refs:
+          type: array
+        source_hash_bundle_hash:
+          type: string
+        required_critique_dimensions:
+          type: array
+    notes:
+      - Return only the PaperImplementationExperimentPlanningRoleArtifact JSON for the independent critic role.
+      - Passed output must cover all required critique dimensions and include critique_decision.no_execution_side_effect=true.
+      - The critique can block or require revision but must not create WorkOrders, experiment runs, or adapter payloads directly.
+      - Do not create queue items, prompt text, or raw provider output.

@@ -11,6 +11,12 @@ import type {
   ImplementationIntakeSnapshot,
   ImplementationProject,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
+import {
+  PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_REVIEW_ROLE_SLOT_IDS,
+  type PaperImplementationP1RuntimeReviewRoleOutput,
+  type RunPaperImplementationP1RuntimeReviewRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import type {
   CitationCandidate,
   ClaimTracePacket,
@@ -23,13 +29,23 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
+import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import type {
   PaperImplementationBootstrapPersistence,
   PaperImplementationBootstrapResult,
   PaperImplementationRepository,
 } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationTraceRepository } from '../repositories/paper-implementation-trace.repository.js';
+import {
+  sha256Text,
+  stableStringify,
+} from './literature-content-processing-utils.js';
 import { PaperImplementationAiWorkflowHarnessService } from './paper-implementation-ai-workflow-harness-service.js';
+import { PaperImplementationP1RuntimeReviewService } from './paper-implementation-p1-runtime-review-service.js';
+import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import type {
+  TopicSelectionAgentInvocationResult,
+} from './topic-selection-agent-orchestrator-service.js';
 
 const NOW = '2026-05-21T10:00:00.000Z';
 
@@ -133,6 +149,20 @@ class StaticTraceRepository implements PaperImplementationTraceRepository {
   }
 }
 
+class EchoMockRuntimeAgentOrchestrator {
+  readonly calls: Array<{ node_id: string; mocked_output?: { output: unknown } | null }> = [];
+
+  async invokeStructuredOutput<T>(
+    input: { node_id: string; mocked_output?: { output: T } | null } & Record<string, unknown>,
+  ): Promise<TopicSelectionAgentInvocationResult<T>> {
+    this.calls.push(input);
+    if (!input.mocked_output) {
+      throw new Error(`mocked output missing for ${input.node_id}`);
+    }
+    return makeRuntimeInvocationResult(input, input.mocked_output.output);
+  }
+}
+
 function buildService() {
   const project = makeProject();
   const traceRepository = new StaticTraceRepository();
@@ -146,6 +176,25 @@ function buildService() {
     now: () => NOW,
   });
   return { service, traceRepository, repository, project };
+}
+
+function buildP1RuntimeService() {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  let sequence = 0;
+  const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository: runtimeRepository,
+    idFactory,
+    now: () => NOW,
+  });
+  const orchestrator = new EchoMockRuntimeAgentOrchestrator();
+  const runtimeService = new PaperImplementationP1RuntimeReviewService({
+    runtimeAdmission,
+    agentOrchestrator: orchestrator,
+    idFactory,
+    now: () => NOW,
+  });
+  return { runtimeRepository, runtimeService, orchestrator };
 }
 
 test('AI workflow harness completes a proposal-only trace-ready run', async () => {
@@ -173,6 +222,79 @@ test('AI workflow harness completes a proposal-only trace-ready run', async () =
   assert.equal(result.gate_result.result, 'pass');
   assert.equal(result.proposal_artifacts[0]?.proposal_status, 'proposed');
   assert.equal(result.queue_items.length, 0);
+});
+
+test('AI workflow harness consumes admitted runtime final artifacts as proposal refs without authority writes', async () => {
+  const { service, traceRepository, project } = buildService();
+  const { runtimeRepository, runtimeService, orchestrator } = buildP1RuntimeService();
+  traceRepository.addTraceManifest(makeTraceManifest(project.implementation_project_id));
+
+  const runtimeResult = await runtimeService.runClaimBoundaryDebate(
+    project.implementation_project_id,
+    makeClaimBoundaryRuntimeRequest(),
+  );
+  const finalArtifactRef = runtimeResult.final_admission_record?.admitted_artifact_ref
+    ?? runtimeResult.final_runtime_artifact?.artifact_payload_ref;
+  assert.equal(runtimeResult.status, 'passed');
+  assert.equal(runtimeResult.final_admission_record?.admission_status, 'admitted');
+  assert.ok(finalArtifactRef);
+
+  const harness = await service.createImplementationHarness(
+    project.implementation_project_id,
+    makeHarnessRequest(),
+  );
+  const snapshot = await service.createImplementationInputSnapshot(
+    project.implementation_project_id,
+    makeSnapshotRequest(),
+  );
+  const runtimeBackedProposal = {
+    ...makeRunRequest().proposal_artifacts[0]!,
+    artifact_kind: 'gate_prep_report' as const,
+    artifact_ref: finalArtifactRef,
+    payload: {
+      proposal_only: true,
+      runtime_artifact_id: runtimeResult.final_runtime_artifact?.runtime_artifact_id,
+      runtime_admission_record_id: runtimeResult.final_admission_record?.admission_record_id,
+    },
+  };
+  const accepted = await service.createAgentWorkflowHarnessRun(
+    project.implementation_project_id,
+    makeRunRequest({
+      harness_id: harness.harness_id,
+      input_snapshot_id: snapshot.input_snapshot_id,
+      proposal_artifacts: [runtimeBackedProposal],
+    }),
+  );
+
+  assert.equal(orchestrator.calls.length, PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_REVIEW_ROLE_SLOT_IDS.length);
+  assert.equal((await runtimeRepository.listRuntimeArtifacts(project.implementation_project_id)).length, 4);
+  assert.equal(accepted.harness_run.run_status, 'completed');
+  assert.equal(accepted.gate_result.result, 'pass');
+  assert.deepEqual(accepted.proposal_artifacts[0]?.artifact_ref, finalArtifactRef);
+  assert.equal(accepted.transition_attempt.output_refs.length, 1);
+  assert.equal(accepted.transition_attempt.output_refs[0]?.ref_type, 'implementation_proposal_artifact');
+  assert.equal(
+    accepted.transition_attempt.output_refs[0]?.ref_id,
+    accepted.proposal_artifacts[0]?.proposal_artifact_id,
+  );
+
+  const blocked = await service.createAgentWorkflowHarnessRun(
+    project.implementation_project_id,
+    makeRunRequest({
+      harness_run_id: 'harness_run_runtime_direct_write',
+      harness_id: harness.harness_id,
+      input_snapshot_id: snapshot.input_snapshot_id,
+      proposal_artifacts: [{
+        ...runtimeBackedProposal,
+        proposal_artifact_id: 'proposal_runtime_direct_write',
+      }],
+      direct_authority_mutation_refs: [finalArtifactRef],
+    }),
+  );
+  assert.equal(blocked.harness_run.run_status, 'blocked');
+  assert.ok(blocked.harness_run.blocked_reasons.includes('direct_authority_mutation_forbidden'));
+  assert.ok(blocked.quality_signals.some((signal) =>
+    signal.signal_type === 'forbidden_state_mutation' && signal.severity === 'critical'));
 });
 
 test('implementation harness rejects disabled invariants before workflow execution', async () => {
@@ -621,6 +743,134 @@ function makeTraceManifest(implementationProjectId: string): TraceManifest {
   };
 }
 
+function makeClaimBoundaryRuntimeRequest(): RunPaperImplementationP1RuntimeReviewRequest {
+  const resultPacketRef = ref('result_interpretation_packet', 'result_packet_1');
+  const claimTracePacketRef = ref('claim_trace_packet', 'claim_trace_packet_1');
+  return {
+    run_id: 'claim_boundary_runtime_run_1',
+    run_mode: 'mock',
+    execution_mode: 'mocked_llm',
+    model_profile_id: PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+    target_ref: resultPacketRef,
+    target_version_id: 'v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input_snapshot_1'),
+    input_snapshot_hash: testHash('input_snapshot_1'),
+    source_refs: [resultPacketRef, claimTracePacketRef],
+    source_hashes: [testHash('result_packet_1'), testHash('claim_trace_packet_1')],
+    preflight_blocker_codes: [],
+    mocked_role_outputs: makeClaimBoundaryRoleOutputs(),
+  };
+}
+
+function makeClaimBoundaryRoleOutputs(): RunPaperImplementationP1RuntimeReviewRequest['mocked_role_outputs'] {
+  return Object.fromEntries(
+    PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_REVIEW_ROLE_SLOT_IDS.map((slotId) => [
+      slotId,
+      makeClaimBoundaryRoleOutput(slotId),
+    ]),
+  );
+}
+
+function makeClaimBoundaryRoleOutput(
+  roleSlotId: PaperImplementationP1RuntimeReviewRoleOutput['role_slot_id'],
+): PaperImplementationP1RuntimeReviewRoleOutput {
+  const final = roleSlotId.endsWith('adjudicator_final');
+  return {
+    role_slot_id: roleSlotId,
+    role_status: 'passed',
+    summary: `${roleSlotId} accepted the claim boundary.`,
+    cited_source_refs: [ref('result_interpretation_packet', 'result_packet_1')],
+    blocker_codes: [],
+    warning_codes: [],
+    domain_gate_request: final ? { claim_candidate_id: 'claim_candidate_1' } : null,
+    scenario_outputs: [],
+  };
+}
+
+function makeRuntimeInvocationResult<T>(
+  input: { node_id: string; mocked_output?: { output: T } | null } & Record<string, unknown>,
+  output: T,
+): TopicSelectionAgentInvocationResult<T> {
+  const outputHash = testHash(output);
+  const promptPacketHash = testHash({
+    node_id: input.node_id,
+    messages: input.messages ?? [],
+  });
+  return {
+    schema_version: 'v1',
+    node_id: input.node_id,
+    workflow_run_id: String(input.workflow_run_id ?? 'claim_boundary_runtime_run_1'),
+    node_attempt_id: String(input.node_attempt_id ?? `${input.node_id}.attempt-0`),
+    status: 'succeeded',
+    structured_output: output,
+    provenance: {
+      workflow_run_id: String(input.workflow_run_id ?? 'claim_boundary_runtime_run_1'),
+      node_id: input.node_id,
+      node_attempt_id: String(input.node_attempt_id ?? `${input.node_id}.attempt-0`),
+      invocation_attempt_id: String(input.invocation_attempt_id ?? `${input.node_id}.call-1`),
+      execution_mode: 'mocked_llm',
+      executor_kind: 'multi_agent_debate',
+      source_kind: 'mock_fixture',
+      non_provider: true,
+      run_mode: 'test',
+      profile_id: String(input.profile_id ?? PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID),
+      profile_version: 'v1',
+      profile_hash: testHash(input.profile_id ?? PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID),
+      model_option_id: null,
+      normalized_params_hash: null,
+      capability_degraded: false,
+      capability_degrade_reason: null,
+      output_contract: String(input.output_contract ?? 'PaperImplementationP1RuntimeReviewRoleArtifact@v1'),
+      prompt_template_id: 'paper-implementation-claim-boundary-debate',
+      prompt_template_version: 'v1',
+      schema_name: String(input.schema_name ?? 'paper_implementation_p1_runtime_review_role_output'),
+      prompt_packet_hash: promptPacketHash,
+      prompt_packet_cache_status: 'not_applicable',
+      prompt_packet_cache_result_ref: null,
+      prompt_packet_cache_result_hash: null,
+      response_hash: outputHash,
+      structured_output_hash: outputHash,
+      cache_status: 'not_applicable',
+      response_reuse_ref: null,
+      telemetry: null,
+    },
+    validation: { valid: true, error_count: 0, errors: [] },
+    token_budget_gate_result: {
+      provider_id: null,
+      model_id: null,
+      profile_id: String(input.profile_id ?? PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID),
+      model_option_id: null,
+      estimated_input_tokens: 800,
+      estimated_output_tokens: 1200,
+      context_window_tokens: 128000,
+      schema_overhead_tokens: 800,
+      decision: 'within_budget',
+      compression_strategy_ref: ref('compression_strategy', 'paper-implementation-p1-context-compression'),
+      blocker_codes: [],
+      warning_codes: [],
+    },
+    warning_codes: [],
+    blocker_codes: [],
+    error_code: null,
+    audit_snapshot: {
+      schema_version: 'topic-selection-agent-invocation-audit-v1',
+      node_id: input.node_id,
+      workflow_run_id: String(input.workflow_run_id ?? 'claim_boundary_runtime_run_1'),
+      node_attempt_id: String(input.node_attempt_id ?? `${input.node_id}.attempt-0`),
+      status: 'succeeded',
+      provenance: { prompt_packet_hash: promptPacketHash },
+      token_budget_gate_result: { decision: 'within_budget' },
+      validation: { valid: true, error_count: 0, errors: [] },
+      warning_codes: [],
+      blocker_codes: [],
+      error_code: null,
+      created_at: NOW,
+    },
+    created_at: NOW,
+    audit_artifact_ref: null,
+  } as unknown as TopicSelectionAgentInvocationResult<T>;
+}
+
 function emptyIncludedContext(
   overrides: Partial<CreateImplementationInputSnapshotRequest['included_context']> = {},
 ): CreateImplementationInputSnapshotRequest['included_context'] {
@@ -640,6 +890,10 @@ function emptyIncludedContext(
     trace_manifest_refs: [],
     ...overrides,
   };
+}
+
+function testHash(value: unknown): string {
+  return sha256Text(stableStringify(value));
 }
 
 function ref(refType: string, refId: string, versionId: string | null = null): TopicSelectionFunctionalRef {

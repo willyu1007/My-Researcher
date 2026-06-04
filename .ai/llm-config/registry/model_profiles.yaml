@@ -123,3 +123,87 @@ profiles:
       - provider_id: openai
         model_id: gpt-5.5
         weight: 100
+
+  - profile_id: paper-implementation.trace-integrity.boundary-debate.v1
+    intent: paper_implementation_trace_integrity_boundary_debate_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.claim-boundary.boundary-debate.v1
+    intent: paper_implementation_claim_boundary_debate_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.dossier-readiness.readiness-audit.v1
+    intent: paper_implementation_dossier_readiness_audit_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.result-analysis.interpretation-scenarios.v1
+    intent: paper_implementation_result_analysis_interpretation_scenarios_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.experiment-design.work-order-draft.v1
+    intent: paper_implementation_experiment_design_work_order_draft_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.experiment-critique.plan-critique.v1
+    intent: paper_implementation_experiment_critique_plan_critique_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100

@@ -43,6 +43,7 @@ import { InMemoryPaperImplementationRepository } from '../repositories/in-memory
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
 import { InMemoryPaperImplementationMotiveRepository } from '../repositories/in-memory-paper-implementation-motive-repository.js';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from '../repositories/in-memory-paper-implementation-result-claim-dossier-repository.js';
+import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../repositories/in-memory-paper-implementation-workorder-repository.js';
@@ -52,7 +53,13 @@ import {
 } from '../services/paper-implementation-intake-bootstrap-service.js';
 import { PaperImplementationAiWorkflowHarnessService } from '../services/paper-implementation-ai-workflow-harness-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from '../services/paper-implementation-motive-evidence-board-service.js';
+import { PaperImplementationP1RuntimeReviewService } from '../services/paper-implementation-p1-runtime-review-service.js';
+import { PaperImplementationResultAnalysisRuntimeService } from '../services/paper-implementation-result-analysis-runtime-service.js';
+import { PaperImplementationExperimentPlanningRuntimeService } from '../services/paper-implementation-experiment-planning-runtime-service.js';
 import { PaperImplementationResultClaimDossierService } from '../services/paper-implementation-result-claim-dossier-service.js';
+import { PaperImplementationRuntimeAdmissionService } from '../services/paper-implementation-runtime-admission-service.js';
+import { PaperImplementationRuntimeDomainGateService } from '../services/paper-implementation-runtime-domain-gate-service.js';
+import { PaperImplementationTraceIntegrityDebateRuntimeService } from '../services/paper-implementation-trace-integrity-debate-runtime-service.js';
 import { PaperImplementationTraceKernelService } from '../services/paper-implementation-trace-kernel-service.js';
 import { PaperImplementationValidationCyclePlanningService } from '../services/paper-implementation-validation-cycle-planning-service.js';
 import { PaperImplementationWorkOrderExperimentBridgeService } from '../services/paper-implementation-workorder-experiment-bridge-service.js';
@@ -541,6 +548,12 @@ function makeRealService(): {
   workOrderExperimentBridge: PaperImplementationWorkOrderExperimentBridgeService;
   resultClaimDossier: PaperImplementationResultClaimDossierService;
   aiWorkflowHarness: PaperImplementationAiWorkflowHarnessService;
+  runtimeAdmission: PaperImplementationRuntimeAdmissionService;
+  traceIntegrityDebateRuntime: PaperImplementationTraceIntegrityDebateRuntimeService;
+  p1RuntimeReview: PaperImplementationP1RuntimeReviewService;
+  resultAnalysisRuntime: PaperImplementationResultAnalysisRuntimeService;
+  experimentPlanningRuntime: PaperImplementationExperimentPlanningRuntimeService;
+  runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
 } {
   const downstreamFeedback = new RecordingDownstreamFeedbackService();
   const repository = new InMemoryPaperImplementationRepository();
@@ -557,6 +570,57 @@ function makeRealService(): {
     downstreamFeedbackService: downstreamFeedback,
     idFactory,
     now: () => NOW,
+  });
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository: new InMemoryPaperImplementationRuntimeRepository(),
+    idFactory,
+    now: () => NOW,
+  });
+  const traceIntegrityDebateRuntime = new PaperImplementationTraceIntegrityDebateRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: {
+      invokeStructuredOutput: async () => {
+        throw new Error('trace integrity debate runtime is not used by this route test');
+      },
+    },
+  });
+  const p1RuntimeReview = new PaperImplementationP1RuntimeReviewService({
+    runtimeAdmission,
+    agentOrchestrator: {
+      invokeStructuredOutput: async () => {
+        throw new Error('P1 runtime review is not used by this route test');
+      },
+    },
+  });
+  const resultAnalysisRuntime = new PaperImplementationResultAnalysisRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: {
+      invokeStructuredOutput: async () => {
+        throw new Error('result analysis runtime is not used by this route test');
+      },
+    },
+  });
+  const experimentPlanningRuntime = new PaperImplementationExperimentPlanningRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: {
+      invokeStructuredOutput: async () => {
+        throw new Error('experiment planning runtime is not used by this route test');
+      },
+    },
+  });
+  const resultClaimDossier = new PaperImplementationResultClaimDossierService({
+    projectRepository: repository,
+    resultClaimRepository: resultClaimDossierRepository,
+    traceRepository,
+    validationRepository,
+    workOrderRepository,
+    feedbackRecorder: service,
+    idFactory,
+    now: () => NOW,
+  });
+  const runtimeDomainGate = new PaperImplementationRuntimeDomainGateService({
+    runtimeAdmission,
+    resultClaimDossier,
   });
   return {
     downstreamFeedback,
@@ -591,16 +655,7 @@ function makeRealService(): {
       idFactory,
       now: () => NOW,
     }),
-    resultClaimDossier: new PaperImplementationResultClaimDossierService({
-      projectRepository: repository,
-      resultClaimRepository: resultClaimDossierRepository,
-      traceRepository,
-      validationRepository,
-      workOrderRepository,
-      feedbackRecorder: service,
-      idFactory,
-      now: () => NOW,
-    }),
+    resultClaimDossier,
     aiWorkflowHarness: new PaperImplementationAiWorkflowHarnessService({
       projectRepository: repository,
       traceRepository,
@@ -608,6 +663,12 @@ function makeRealService(): {
       idFactory,
       now: () => NOW,
     }),
+    runtimeAdmission,
+    traceIntegrityDebateRuntime,
+    p1RuntimeReview,
+    resultAnalysisRuntime,
+    experimentPlanningRuntime,
+    runtimeDomainGate,
   };
 }
 
@@ -621,6 +682,12 @@ test('PaperImplementation routes expose AI workflow harness proposal-only closur
     workOrderExperimentBridge,
     resultClaimDossier,
     aiWorkflowHarness,
+    runtimeAdmission,
+    traceIntegrityDebateRuntime,
+    p1RuntimeReview,
+    resultAnalysisRuntime,
+    experimentPlanningRuntime,
+    runtimeDomainGate,
   } = makeRealService();
   await registerPaperImplementationRoutes(
     app,
@@ -632,6 +699,12 @@ test('PaperImplementation routes expose AI workflow harness proposal-only closur
       workOrderExperimentBridge,
       resultClaimDossier,
       aiWorkflowHarness,
+      runtimeAdmission,
+      traceIntegrityDebateRuntime,
+      p1RuntimeReview,
+      resultAnalysisRuntime,
+      experimentPlanningRuntime,
+      runtimeDomainGate,
     ),
   );
   try {
@@ -1561,6 +1634,12 @@ test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale h
     workOrderExperimentBridge,
     resultClaimDossier,
     aiWorkflowHarness,
+    runtimeAdmission,
+    traceIntegrityDebateRuntime,
+    p1RuntimeReview,
+    resultAnalysisRuntime,
+    experimentPlanningRuntime,
+    runtimeDomainGate,
   } = makeRealService();
   await registerPaperImplementationRoutes(
     app,
@@ -1572,6 +1651,12 @@ test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale h
       workOrderExperimentBridge,
       resultClaimDossier,
       aiWorkflowHarness,
+      runtimeAdmission,
+      traceIntegrityDebateRuntime,
+      p1RuntimeReview,
+      resultAnalysisRuntime,
+      experimentPlanningRuntime,
+      runtimeDomainGate,
     ),
   );
   try {

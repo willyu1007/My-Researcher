@@ -14,8 +14,16 @@ import {
   TOPIC_SELECTION_AGENT_EXECUTION_MODES,
   type TopicSelectionAgentExecutionMode,
 } from './topic-selection-need-validation-contracts.js';
+import {
+  TOPIC_SELECTION_RUNTIME_CACHE_RESULTS,
+  type TopicSelectionRuntimeCacheResult,
+} from './topic-selection-runtime-common-contracts.js';
 
 export type { TopicSelectionFunctionalRef } from './topic-selection-control-plane-contracts.js';
+export {
+  TOPIC_SELECTION_RUNTIME_CACHE_RESULTS,
+  type TopicSelectionRuntimeCacheResult,
+} from './topic-selection-runtime-common-contracts.js';
 
 export const TOPIC_SELECTION_LLM_RUNTIME_SCHEMA_VERSION =
   'TopicSelectionLlmRuntime@v1' as const;
@@ -36,6 +44,11 @@ export const TOPIC_SELECTION_RUNTIME_INVOCATION_CONTEXT_SCHEMA_VERSION =
 
 export const TOPIC_SELECTION_CONTEXT_FAMILIES = [
   'resource_sampling_literature_classification_batch',
+  'paper_implementation_trace_integrity_review',
+  'paper_implementation_claim_boundary_review',
+  'paper_implementation_dossier_readiness_prep',
+  'paper_implementation_result_analysis',
+  'paper_implementation_experiment_planning',
   'v1a_n5_evidence_extraction',
   'v1a_n6_exploration',
   'v1a_n6_arbiter',
@@ -101,17 +114,6 @@ export const TOPIC_SELECTION_COMPRESSION_EXECUTOR_KINDS = [
 ] as const;
 export type TopicSelectionCompressionExecutorKind =
   (typeof TOPIC_SELECTION_COMPRESSION_EXECUTOR_KINDS)[number];
-
-export const TOPIC_SELECTION_RUNTIME_CACHE_RESULTS = [
-  'hit',
-  'miss',
-  'blocked_stale',
-  'blocked_drift',
-  'bypassed',
-  'not_applicable',
-] as const;
-export type TopicSelectionRuntimeCacheResult =
-  (typeof TOPIC_SELECTION_RUNTIME_CACHE_RESULTS)[number];
 
 export const TOPIC_SELECTION_TOKEN_BUDGET_GATE_DECISIONS = [
   'within_budget',

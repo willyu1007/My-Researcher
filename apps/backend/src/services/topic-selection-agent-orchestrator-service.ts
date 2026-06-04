@@ -23,6 +23,7 @@ import {
   type TopicSelectionContextPolicyProfile,
   type TopicSelectionDynamicPromptMaterialRecord,
   type TopicSelectionExactResponseReuseProvenance,
+  type TopicSelectionRuntimeCacheResult,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-llm-runtime-contracts';
 import {
   TOPIC_SELECTION_AGENT_EXECUTOR_KINDS,
@@ -143,6 +144,7 @@ export type TopicSelectionAgentRuntimeCompressionAttemptInput = {
 
 export type TopicSelectionAgentInvocationRequest<T> = {
   workspace_id?: string | null;
+  feature_id?: string | null;
   title_card_id?: string | null;
   node_id: string;
   workflow_run_id: string;
@@ -198,6 +200,9 @@ type SourceExecution<T> = {
 
 type PreparedPromptPacket = {
   promptPacketHash: string;
+  promptPacketCacheStatus: TopicSelectionRuntimeCacheResult | null;
+  promptPacketCacheResultRef: TopicSelectionFunctionalRef | null;
+  promptPacketCacheResultHash: string | null;
   promptQualityReportRef: TopicSelectionFunctionalRef | null;
   redactedPromptArtifactRef: TopicSelectionFunctionalRef | null;
   blockerCodes: string[];
@@ -291,6 +296,9 @@ export class TopicSelectionAgentOrchestratorService {
           validation: this.promptQualityValidationSummary(preparedPromptPacket.blockerCodes),
           promptQualityReportRef: preparedPromptPacket.promptQualityReportRef,
           redactedPromptArtifactRef: preparedPromptPacket.redactedPromptArtifactRef,
+          promptPacketCacheStatus: preparedPromptPacket.promptPacketCacheStatus,
+          promptPacketCacheResultRef: preparedPromptPacket.promptPacketCacheResultRef,
+          promptPacketCacheResultHash: preparedPromptPacket.promptPacketCacheResultHash,
         },
       );
       return this.buildResult(effectiveInput, {
@@ -540,6 +548,13 @@ export class TopicSelectionAgentOrchestratorService {
         'MISSING_PROVIDER_MODEL_OPTION',
         'provider_response',
         promptPacketHash,
+        {
+          promptQualityReportRef: preparedPromptPacket.promptQualityReportRef,
+          redactedPromptArtifactRef: preparedPromptPacket.redactedPromptArtifactRef,
+          promptPacketCacheStatus: preparedPromptPacket.promptPacketCacheStatus,
+          promptPacketCacheResultRef: preparedPromptPacket.promptPacketCacheResultRef,
+          promptPacketCacheResultHash: preparedPromptPacket.promptPacketCacheResultHash,
+        },
       );
     }
     const requestPolicy = this.requestPolicyForResolvedProfile(resolvedProfile);
@@ -547,7 +562,7 @@ export class TopicSelectionAgentOrchestratorService {
     try {
       const request: LlmStructuredOutputRequest = {
         executionContext: {
-          feature: 'topic_selection',
+          feature: this.featureId(input),
           operation: input.node_id,
           traceId: invocationAttemptId,
           metadata: {
@@ -652,7 +667,7 @@ export class TopicSelectionAgentOrchestratorService {
   }
 
   private providerCompatibleSchema(schema: Record<string, unknown>): Record<string, unknown> {
-    return this.removeFalsePropertySchemas(schema) as Record<string, unknown>;
+    return this.toProviderCompatibleSchema(schema) as Record<string, unknown>;
   }
 
   private assertCodexReuseProvenance<T>(
@@ -725,21 +740,78 @@ export class TopicSelectionAgentOrchestratorService {
     return artifact.artifact_ref_id;
   }
 
-  private removeFalsePropertySchemas(value: unknown, parentKey: string | null = null): unknown {
+  private toProviderCompatibleSchema(value: unknown, parentKey: string | null = null): unknown {
     if (Array.isArray(value)) {
-      return value.map((item) => this.removeFalsePropertySchemas(item));
+      return value.map((item) => this.toProviderCompatibleSchema(item));
     }
     if (!value || typeof value !== 'object') {
       return value;
     }
+    const record = value as Record<string, unknown>;
+    const allOf = Array.isArray(record.allOf)
+      ? record.allOf.map((item) => this.toProviderCompatibleSchema(item))
+      : null;
     const output: Record<string, unknown> = {};
-    for (const [key, child] of Object.entries(value)) {
+    for (const [key, child] of Object.entries(record)) {
       if (parentKey === 'properties' && child === false) {
         continue;
       }
-      output[key] = this.removeFalsePropertySchemas(child, key);
+      if (key === 'allOf') {
+        continue;
+      }
+      if (key === 'not' || key === 'propertyNames') {
+        continue;
+      }
+      if (
+        key === 'if'
+        || key === 'then'
+        || key === 'else'
+        || key === 'dependentRequired'
+        || key === 'dependentSchemas'
+      ) {
+        continue;
+      }
+      output[key] = this.toProviderCompatibleSchema(child, key);
+    }
+    if (allOf) {
+      return this.mergeProviderCompatibleSchemas([...allOf, output]);
     }
     return output;
+  }
+
+  private mergeProviderCompatibleSchemas(schemas: unknown[]): Record<string, unknown> {
+    const merged: Record<string, unknown> = {};
+    for (const schema of schemas) {
+      if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+        continue;
+      }
+      for (const [key, value] of Object.entries(schema)) {
+        if (key === 'required' && Array.isArray(value)) {
+          merged.required = this.uniqueStrings([
+            ...this.stringArrayValue(merged.required),
+            ...this.stringArrayValue(value),
+          ]);
+          continue;
+        }
+        if (key === 'properties' && value && typeof value === 'object' && !Array.isArray(value)) {
+          merged.properties = {
+            ...(merged.properties && typeof merged.properties === 'object' && !Array.isArray(merged.properties)
+              ? merged.properties
+              : {}),
+            ...value,
+          };
+          continue;
+        }
+        if (key === 'additionalProperties') {
+          merged.additionalProperties = merged.additionalProperties === false || value === false
+            ? false
+            : value;
+          continue;
+        }
+        merged[key] = value;
+      }
+    }
+    return merged;
   }
 
   private async buildResult<T>(
@@ -830,6 +902,9 @@ export class TopicSelectionAgentOrchestratorService {
     if (!runtime) {
       return {
         promptPacketHash: this.promptPacketHash(input, resolvedProfile),
+        promptPacketCacheStatus: null,
+        promptPacketCacheResultRef: null,
+        promptPacketCacheResultHash: null,
         promptQualityReportRef: null,
         redactedPromptArtifactRef: null,
         blockerCodes: [],
@@ -889,6 +964,9 @@ export class TopicSelectionAgentOrchestratorService {
     );
     return {
       promptPacketHash: suppliedHash ?? promptPacket.identity.prompt_packet_hash,
+      promptPacketCacheStatus: recordedPromptPacket.promptPacketCacheStatus,
+      promptPacketCacheResultRef: recordedPromptPacket.promptPacketCacheResultRef,
+      promptPacketCacheResultHash: recordedPromptPacket.promptPacketCacheResultHash,
       promptQualityReportRef: recordedPromptPacket.promptQualityReportRef,
       redactedPromptArtifactRef: recordedPromptPacket.redactedPromptArtifactRef,
       blockerCodes: recordedPromptPacket.blockerCodes,
@@ -913,6 +991,9 @@ export class TopicSelectionAgentOrchestratorService {
       if (!this.promptCacheQualityMatchesCurrentRuntime(result, promptPacket)) {
         return {
           promptPacketHash: promptPacket.identity.prompt_packet_hash,
+          promptPacketCacheStatus: result.cache_result,
+          promptPacketCacheResultRef: result.provenance_ref,
+          promptPacketCacheResultHash: this.hash(result),
           promptQualityReportRef: null,
           redactedPromptArtifactRef: null,
           blockerCodes: ['PROMPT_PACKET_CACHE_BLOCKED_DRIFT'],
@@ -924,6 +1005,9 @@ export class TopicSelectionAgentOrchestratorService {
       }
       return {
         promptPacketHash: result.prompt_packet_hash,
+        promptPacketCacheStatus: result.cache_result,
+        promptPacketCacheResultRef: result.provenance_ref,
+        promptPacketCacheResultHash: this.hash(result),
         promptQualityReportRef: result.prompt_quality_report_ref,
         redactedPromptArtifactRef: result.redacted_prompt_artifact_ref,
         blockerCodes: promptPacket.prompt_quality_report.quality_decision === 'block'
@@ -936,6 +1020,9 @@ export class TopicSelectionAgentOrchestratorService {
     if (result.cache_result === 'blocked_stale' || result.cache_result === 'blocked_drift') {
       return {
         promptPacketHash: promptPacket.identity.prompt_packet_hash,
+        promptPacketCacheStatus: result.cache_result,
+        promptPacketCacheResultRef: result.provenance_ref,
+        promptPacketCacheResultHash: this.hash(result),
         promptQualityReportRef: null,
         redactedPromptArtifactRef: null,
         blockerCodes: [
@@ -972,6 +1059,9 @@ export class TopicSelectionAgentOrchestratorService {
       redactedPromptArtifactHash: string;
     },
   ): Promise<{
+    promptPacketCacheStatus: TopicSelectionRuntimeCacheResult | null;
+    promptPacketCacheResultRef: TopicSelectionFunctionalRef | null;
+    promptPacketCacheResultHash: string | null;
     promptQualityReportRef: TopicSelectionFunctionalRef;
     redactedPromptArtifactRef: TopicSelectionFunctionalRef;
     blockerCodes: string[];
@@ -979,6 +1069,9 @@ export class TopicSelectionAgentOrchestratorService {
   }> {
     if (!this.promptPacketCache) {
       return {
+        promptPacketCacheStatus: 'bypassed',
+        promptPacketCacheResultRef: null,
+        promptPacketCacheResultHash: null,
         promptQualityReportRef: artifactRefs.promptQualityReportRef,
         redactedPromptArtifactRef: artifactRefs.redactedPromptArtifactRef,
         blockerCodes: promptPacket.blocker_codes,
@@ -999,6 +1092,14 @@ export class TopicSelectionAgentOrchestratorService {
       warning_codes: promptPacket.warning_codes,
     });
     return {
+      promptPacketCacheStatus: recorded.inserted ? 'miss' : 'hit',
+      promptPacketCacheResultRef: recorded.entry.provenance_ref,
+      promptPacketCacheResultHash: this.hash({
+        cache_result: recorded.inserted ? 'miss' : 'hit',
+        prompt_packet_hash: recorded.entry.prompt_packet_hash,
+        context_policy_profile_hash: recorded.entry.context_policy_profile_hash,
+        provenance_ref: recorded.entry.provenance_ref,
+      }),
       promptQualityReportRef: recorded.entry.prompt_quality_report_ref,
       redactedPromptArtifactRef: recorded.entry.redacted_prompt_artifact_ref,
       blockerCodes: recorded.entry.blocker_codes,
@@ -1165,6 +1266,9 @@ export class TopicSelectionAgentOrchestratorService {
       compressedContextHash?: string | null;
       promptQualityReportRef?: TopicSelectionFunctionalRef | null;
       redactedPromptArtifactRef?: TopicSelectionFunctionalRef | null;
+      promptPacketCacheStatus?: TopicSelectionRuntimeCacheResult | null;
+      promptPacketCacheResultRef?: TopicSelectionFunctionalRef | null;
+      promptPacketCacheResultHash?: string | null;
     } = {},
   ): SourceExecution<T> {
     const model = this.modelRefForResolvedProfile(resolvedProfile);
@@ -1195,6 +1299,9 @@ export class TopicSelectionAgentOrchestratorService {
         prompt_packet_hash: promptPacketHash,
         ...this.runtimePromptPacketProvenance({
           promptPacketHash,
+          promptPacketCacheStatus: options.promptPacketCacheStatus ?? null,
+          promptPacketCacheResultRef: options.promptPacketCacheResultRef ?? null,
+          promptPacketCacheResultHash: options.promptPacketCacheResultHash ?? null,
           promptQualityReportRef: options.promptQualityReportRef ?? null,
           redactedPromptArtifactRef: options.redactedPromptArtifactRef ?? null,
           blockerCodes: [],
@@ -1324,6 +1431,9 @@ export class TopicSelectionAgentOrchestratorService {
           validation: this.runtimeGateValidationSummary(errorCode, evaluation.result.decision),
           promptQualityReportRef: preparedPromptPacket.promptQualityReportRef,
           redactedPromptArtifactRef: preparedPromptPacket.redactedPromptArtifactRef,
+          promptPacketCacheStatus: preparedPromptPacket.promptPacketCacheStatus,
+          promptPacketCacheResultRef: preparedPromptPacket.promptPacketCacheResultRef,
+          promptPacketCacheResultHash: preparedPromptPacket.promptPacketCacheResultHash,
         },
       ),
       warningCodes,
@@ -1372,6 +1482,9 @@ export class TopicSelectionAgentOrchestratorService {
           compressedContextHash: compression.result.report.compressed_context_hash,
           promptQualityReportRef: preparedPromptPacket.promptQualityReportRef,
           redactedPromptArtifactRef: preparedPromptPacket.redactedPromptArtifactRef,
+          promptPacketCacheStatus: preparedPromptPacket.promptPacketCacheStatus,
+          promptPacketCacheResultRef: preparedPromptPacket.promptPacketCacheResultRef,
+          promptPacketCacheResultHash: preparedPromptPacket.promptPacketCacheResultHash,
           validation: this.runtimeGateValidationSummary(
             errorCode,
             compression.result.quality_gate_result === 'blocked'
@@ -1533,6 +1646,10 @@ export class TopicSelectionAgentOrchestratorService {
     return input.invocation_attempt_id?.trim() || input.node_attempt_id;
   }
 
+  private featureId(input: TopicSelectionAgentInvocationRequest<unknown>): string {
+    return input.feature_id?.trim() || 'topic_selection';
+  }
+
   private debateExtensionProvenance(
     input: TopicSelectionAgentInvocationRequest<unknown>,
   ): Pick<TopicSelectionAgentInvocationProvenance, 'debate_extension'> | Record<string, never> {
@@ -1677,12 +1794,25 @@ export class TopicSelectionAgentOrchestratorService {
     preparedPromptPacket: PreparedPromptPacket,
   ): Pick<
     TopicSelectionAgentInvocationProvenance,
-    'redacted_prompt_artifact_ref' | 'prompt_quality_report_ref'
+    | 'prompt_packet_cache_status'
+    | 'prompt_packet_cache_result_ref'
+    | 'prompt_packet_cache_result_hash'
+    | 'redacted_prompt_artifact_ref'
+    | 'prompt_quality_report_ref'
   > | Record<string, never> {
-    if (!preparedPromptPacket.redactedPromptArtifactRef && !preparedPromptPacket.promptQualityReportRef) {
+    if (
+      preparedPromptPacket.promptPacketCacheStatus === null
+      && !preparedPromptPacket.promptPacketCacheResultRef
+      && !preparedPromptPacket.promptPacketCacheResultHash
+      && !preparedPromptPacket.redactedPromptArtifactRef
+      && !preparedPromptPacket.promptQualityReportRef
+    ) {
       return {};
     }
     return {
+      prompt_packet_cache_status: preparedPromptPacket.promptPacketCacheStatus,
+      prompt_packet_cache_result_ref: preparedPromptPacket.promptPacketCacheResultRef,
+      prompt_packet_cache_result_hash: preparedPromptPacket.promptPacketCacheResultHash,
       redacted_prompt_artifact_ref: preparedPromptPacket.redactedPromptArtifactRef,
       prompt_quality_report_ref: preparedPromptPacket.promptQualityReportRef,
     };
@@ -1762,6 +1892,12 @@ export class TopicSelectionAgentOrchestratorService {
 
   private uniqueStrings(values: string[]): string[] {
     return [...new Set(values.filter((value) => value.trim().length > 0))];
+  }
+
+  private stringArrayValue(value: unknown): string[] {
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : [];
   }
 
   private sameStringSet(left: string[], right: string[]): boolean {

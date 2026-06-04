@@ -11,7 +11,7 @@ import {
   type PaperImplementationAgentExecutionMode,
   type PaperImplementationAgentRunMode,
   type PaperImplementationAgentWorkflowType,
-} from './paper-implementation-ai-workflow-harness-contracts.js';
+} from './paper-implementation-agent-common-contracts.js';
 
 export const PAPER_IMPLEMENTATION_PROVIDER_VARIANCE_PROFILE_MODES = [
   'deterministic_fake',

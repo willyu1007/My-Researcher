@@ -58,6 +58,15 @@ import type {
 import type {
   RunProviderVarianceEvaluationRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-provider-variance-contracts';
+import type {
+  AdmitPaperImplementationRuntimeArtifactRequestPayload,
+  ListPaperImplementationRuntimeAdmissionRecordsQuery,
+  ListPaperImplementationRuntimeArtifactsQuery,
+  RunPaperImplementationExperimentPlanningRuntimeRequest,
+  RunPaperImplementationP1RuntimeReviewRequest,
+  RunPaperImplementationResultAnalysisRuntimeRequest,
+  RunPaperImplementationTraceIntegrityDebateRuntimeRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 
 import { AppError } from '../errors/app-error.js';
 import { PaperImplementationIntakeBootstrapService } from '../services/paper-implementation-intake-bootstrap-service.js';
@@ -69,6 +78,12 @@ import { PaperImplementationResultClaimDossierService } from '../services/paper-
 import { PaperImplementationAiWorkflowHarnessService } from '../services/paper-implementation-ai-workflow-harness-service.js';
 import { PaperImplementationLiveExperimentAdapterService } from '../services/paper-implementation-live-experiment-adapter-service.js';
 import { PaperImplementationProviderVarianceEvaluationService } from '../services/paper-implementation-provider-variance-evaluation-service.js';
+import { PaperImplementationRuntimeAdmissionService } from '../services/paper-implementation-runtime-admission-service.js';
+import { PaperImplementationTraceIntegrityDebateRuntimeService } from '../services/paper-implementation-trace-integrity-debate-runtime-service.js';
+import { PaperImplementationP1RuntimeReviewService } from '../services/paper-implementation-p1-runtime-review-service.js';
+import { PaperImplementationResultAnalysisRuntimeService } from '../services/paper-implementation-result-analysis-runtime-service.js';
+import { PaperImplementationExperimentPlanningRuntimeService } from '../services/paper-implementation-experiment-planning-runtime-service.js';
+import { PaperImplementationRuntimeDomainGateService } from '../services/paper-implementation-runtime-domain-gate-service.js';
 
 type BodyRequest<T> = FastifyRequest<{ Body: T }>;
 type ParamsRequest<T> = FastifyRequest<{ Params: T }>;
@@ -107,6 +122,12 @@ export class PaperImplementationController {
     private readonly workOrderExperimentBridge: PaperImplementationWorkOrderExperimentBridgeService,
     private readonly resultClaimDossier: PaperImplementationResultClaimDossierService,
     private readonly aiWorkflowHarness: PaperImplementationAiWorkflowHarnessService,
+    private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService,
+    private readonly traceIntegrityDebateRuntime: PaperImplementationTraceIntegrityDebateRuntimeService,
+    private readonly p1RuntimeReview: PaperImplementationP1RuntimeReviewService,
+    private readonly resultAnalysisRuntime: PaperImplementationResultAnalysisRuntimeService,
+    private readonly experimentPlanningRuntime: PaperImplementationExperimentPlanningRuntimeService,
+    private readonly runtimeDomainGate: PaperImplementationRuntimeDomainGateService,
     private readonly liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService,
     private readonly providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService,
   ) {}
@@ -1303,6 +1324,192 @@ export class PaperImplementationController {
         request.params.implementation_project_id,
       );
       return reply.send({ items });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  listRuntimeArtifacts = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Querystring: ListPaperImplementationRuntimeArtifactsQuery;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const items = await this.runtimeAdmission.listRuntimeArtifacts(
+        request.params.implementation_project_id,
+        request.query,
+      );
+      return reply.send({ items });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  admitRuntimeArtifact = async (
+    request: FastifyRequest<{
+      Params: {
+        implementation_project_id: string;
+        runtime_artifact_id: string;
+      };
+      Body: AdmitPaperImplementationRuntimeArtifactRequestPayload;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.runtimeAdmission.admitRuntimeArtifact({
+        implementation_project_id: request.params.implementation_project_id,
+        runtime_artifact_id: request.params.runtime_artifact_id,
+        ...request.body,
+      });
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  listRuntimeAdmissionRecords = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Querystring: ListPaperImplementationRuntimeAdmissionRecordsQuery;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const items = await this.runtimeAdmission.listAdmissionRecords(
+        request.params.implementation_project_id,
+        request.query,
+      );
+      return reply.send({ items });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  materializeRuntimeDomainGate = async (
+    request: FastifyRequest<{
+      Params: {
+        implementation_project_id: string;
+        runtime_artifact_id: string;
+      };
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.runtimeDomainGate.materializeFinalRuntimeArtifact(
+        request.params.implementation_project_id,
+        request.params.runtime_artifact_id,
+      );
+      return reply.status(result.status === 'materialized' ? 201 : 200).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runTraceIntegrityBoundaryDebateRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationTraceIntegrityDebateRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.traceIntegrityDebateRuntime.runBoundaryDebate(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runClaimBoundaryDebateRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationP1RuntimeReviewRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.p1RuntimeReview.runClaimBoundaryDebate(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runDossierReadinessAuditRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationP1RuntimeReviewRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.p1RuntimeReview.runDossierReadinessAudit(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runResultAnalysisRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationResultAnalysisRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.resultAnalysisRuntime.runInterpretationScenarios(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runExperimentDesignRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationExperimentPlanningRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.experimentPlanningRuntime.runExperimentDesign(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runExperimentCritiqueRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationExperimentPlanningRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.experimentPlanningRuntime.runExperimentCritique(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
     }

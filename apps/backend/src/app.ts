@@ -22,6 +22,7 @@ import { InMemoryPaperImplementationRepository } from './repositories/in-memory-
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from './repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
 import { InMemoryPaperImplementationMotiveRepository } from './repositories/in-memory-paper-implementation-motive-repository.js';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from './repositories/in-memory-paper-implementation-result-claim-dossier-repository.js';
+import { InMemoryPaperImplementationRuntimeRepository } from './repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from './repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from './repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from './repositories/in-memory-paper-implementation-workorder-repository.js';
@@ -54,6 +55,7 @@ import { PrismaPaperImplementationRepository } from './repositories/prisma/prism
 import { PrismaPaperImplementationAiWorkflowHarnessRepository } from './repositories/prisma/prisma-paper-implementation-ai-workflow-harness-repository.js';
 import { PrismaPaperImplementationMotiveRepository } from './repositories/prisma/prisma-paper-implementation-motive-repository.js';
 import { PrismaPaperImplementationResultClaimDossierRepository } from './repositories/prisma/prisma-paper-implementation-result-claim-dossier-repository.js';
+import { PrismaPaperImplementationRuntimeRepository } from './repositories/prisma/prisma-paper-implementation-runtime-repository.js';
 import { PrismaPaperImplementationTraceRepository } from './repositories/prisma/prisma-paper-implementation-trace-repository.js';
 import { PrismaPaperImplementationValidationRepository } from './repositories/prisma/prisma-paper-implementation-validation-repository.js';
 import { PrismaPaperImplementationWorkOrderRepository } from './repositories/prisma/prisma-paper-implementation-workorder-repository.js';
@@ -102,6 +104,7 @@ import type { PaperImplementationRepository } from './repositories/paper-impleme
 import type { PaperImplementationAiWorkflowHarnessRepository } from './repositories/paper-implementation-ai-workflow-harness.repository.js';
 import type { PaperImplementationMotiveRepository } from './repositories/paper-implementation-motive.repository.js';
 import type { PaperImplementationResultClaimDossierRepository } from './repositories/paper-implementation-result-claim-dossier.repository.js';
+import type { PaperImplementationRuntimeRepository } from './repositories/paper-implementation-runtime.repository.js';
 import type { PaperImplementationTraceRepository } from './repositories/paper-implementation-trace.repository.js';
 import type { PaperImplementationValidationRepository } from './repositories/paper-implementation-validation.repository.js';
 import type { PaperImplementationWorkOrderRepository } from './repositories/paper-implementation-workorder.repository.js';
@@ -149,6 +152,13 @@ import { PaperImplementationValidationCyclePlanningService } from './services/pa
 import { PaperImplementationWorkOrderExperimentBridgeService } from './services/paper-implementation-workorder-experiment-bridge-service.js';
 import { PaperImplementationLiveExperimentAdapterService } from './services/paper-implementation-live-experiment-adapter-service.js';
 import { PaperImplementationProviderVarianceEvaluationService } from './services/paper-implementation-provider-variance-evaluation-service.js';
+import { PaperImplementationRuntimeAdmissionService } from './services/paper-implementation-runtime-admission-service.js';
+import { PaperImplementationTraceIntegrityDebateRuntimeService } from './services/paper-implementation-trace-integrity-debate-runtime-service.js';
+import { PaperImplementationTraceIntegrityRetrievalService } from './services/paper-implementation-trace-integrity-retrieval-service.js';
+import { PaperImplementationP1RuntimeReviewService } from './services/paper-implementation-p1-runtime-review-service.js';
+import { PaperImplementationResultAnalysisRuntimeService } from './services/paper-implementation-result-analysis-runtime-service.js';
+import { PaperImplementationExperimentPlanningRuntimeService } from './services/paper-implementation-experiment-planning-runtime-service.js';
+import { PaperImplementationRuntimeDomainGateService } from './services/paper-implementation-runtime-domain-gate-service.js';
 import { ResearchLifecycleService } from './services/research-lifecycle-service.js';
 import {
   TitleCardManagementService,
@@ -201,6 +211,10 @@ export type BuildAppOptions = {
   topicSelectionV1aLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   topicSelectionV1bLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   topicSelectionV1cPromotionGateLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationTraceIntegrityDebateLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationP1RuntimeReviewLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationResultAnalysisLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationExperimentPlanningLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   topicSelectionPromptPacketCacheStore?: TopicSelectionPromptPacketCacheStore;
   paperImplementationRepository?: PaperImplementationRepository;
   paperImplementationMotiveRepository?: PaperImplementationMotiveRepository;
@@ -209,6 +223,7 @@ export type BuildAppOptions = {
   paperImplementationWorkOrderRepository?: PaperImplementationWorkOrderRepository;
   paperImplementationResultClaimDossierRepository?: PaperImplementationResultClaimDossierRepository;
   paperImplementationAiWorkflowHarnessRepository?: PaperImplementationAiWorkflowHarnessRepository;
+  paperImplementationRuntimeRepository?: PaperImplementationRuntimeRepository;
   paperImplementationBridgeService?: TopicSelectionPaperProjectBridgeHandoffProvider;
   paperImplementationDownstreamFeedbackService?: PaperImplementationDownstreamFeedbackService;
 };
@@ -333,6 +348,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     ?? createPaperImplementationResultClaimDossierRepository(storeConfig.paperImplementationStrategy);
   const paperImplementationAiWorkflowHarnessRepository = options.paperImplementationAiWorkflowHarnessRepository
     ?? createPaperImplementationAiWorkflowHarnessRepository(storeConfig.paperImplementationStrategy);
+  const paperImplementationRuntimeRepository = options.paperImplementationRuntimeRepository
+    ?? createPaperImplementationRuntimeRepository(storeConfig.paperImplementationStrategy);
   const auditStore = new FileGovernanceDeliveryAuditStore({
     filePath: process.env.GOVERNANCE_DELIVERY_AUDIT_LOG_PATH,
   });
@@ -598,6 +615,66 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const paperImplementationProviderVarianceEvaluationService = new PaperImplementationProviderVarianceEvaluationService({
     aiWorkflowHarness: paperImplementationAiWorkflowHarnessService,
   });
+  const paperImplementationRuntimeAdmissionService = new PaperImplementationRuntimeAdmissionService({
+    repository: paperImplementationRuntimeRepository,
+  });
+  const paperImplementationTraceIntegrityDebateAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
+    controlPlane: topicSelectionControlPlaneService,
+    llmGateway: options.paperImplementationTraceIntegrityDebateLlmGateway ?? llmGateway,
+    promptPacketCache: topicSelectionPromptPacketCacheService,
+  });
+  const paperImplementationTraceIntegrityRetrievalService =
+    new PaperImplementationTraceIntegrityRetrievalService();
+  const paperImplementationTraceIntegrityDebateRuntimeService =
+    new PaperImplementationTraceIntegrityDebateRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationTraceIntegrityDebateAgentOrchestratorService,
+      retrievalService: paperImplementationTraceIntegrityRetrievalService,
+    });
+  const paperImplementationP1RuntimeReviewAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
+    controlPlane: topicSelectionControlPlaneService,
+    llmGateway: options.paperImplementationP1RuntimeReviewLlmGateway
+      ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+      ?? llmGateway,
+    promptPacketCache: topicSelectionPromptPacketCacheService,
+  });
+  const paperImplementationP1RuntimeReviewService =
+    new PaperImplementationP1RuntimeReviewService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationP1RuntimeReviewAgentOrchestratorService,
+    });
+  const paperImplementationResultAnalysisAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
+    controlPlane: topicSelectionControlPlaneService,
+    llmGateway: options.paperImplementationResultAnalysisLlmGateway
+      ?? options.paperImplementationP1RuntimeReviewLlmGateway
+      ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+      ?? llmGateway,
+    promptPacketCache: topicSelectionPromptPacketCacheService,
+  });
+  const paperImplementationResultAnalysisRuntimeService =
+    new PaperImplementationResultAnalysisRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationResultAnalysisAgentOrchestratorService,
+    });
+  const paperImplementationExperimentPlanningAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
+    controlPlane: topicSelectionControlPlaneService,
+    llmGateway: options.paperImplementationExperimentPlanningLlmGateway
+      ?? options.paperImplementationResultAnalysisLlmGateway
+      ?? options.paperImplementationP1RuntimeReviewLlmGateway
+      ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+      ?? llmGateway,
+    promptPacketCache: topicSelectionPromptPacketCacheService,
+  });
+  const paperImplementationExperimentPlanningRuntimeService =
+    new PaperImplementationExperimentPlanningRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationExperimentPlanningAgentOrchestratorService,
+    });
+  const paperImplementationRuntimeDomainGateService =
+    new PaperImplementationRuntimeDomainGateService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      resultClaimDossier: paperImplementationResultClaimDossierService,
+    });
   const paperImplementationController = new PaperImplementationController(
     paperImplementationIntakeBootstrapService,
     paperImplementationTraceKernelService,
@@ -606,6 +683,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     paperImplementationWorkOrderExperimentBridgeService,
     paperImplementationResultClaimDossierService,
     paperImplementationAiWorkflowHarnessService,
+    paperImplementationRuntimeAdmissionService,
+    paperImplementationTraceIntegrityDebateRuntimeService,
+    paperImplementationP1RuntimeReviewService,
+    paperImplementationResultAnalysisRuntimeService,
+    paperImplementationExperimentPlanningRuntimeService,
+    paperImplementationRuntimeDomainGateService,
     paperImplementationLiveExperimentAdapterService,
     paperImplementationProviderVarianceEvaluationService,
   );
@@ -1104,6 +1187,17 @@ function createPaperImplementationAiWorkflowHarnessRepository(
   }
 
   return new InMemoryPaperImplementationAiWorkflowHarnessRepository();
+}
+
+function createPaperImplementationRuntimeRepository(
+  strategy: RepositoryStrategy,
+): PaperImplementationRuntimeRepository {
+  if (strategy === 'prisma') {
+    const prisma = getPrismaClient();
+    return new PrismaPaperImplementationRuntimeRepository(prisma);
+  }
+
+  return new InMemoryPaperImplementationRuntimeRepository();
 }
 
 function createAutoPullScheduler(service: AutoPullService): AutoPullScheduler | null {
