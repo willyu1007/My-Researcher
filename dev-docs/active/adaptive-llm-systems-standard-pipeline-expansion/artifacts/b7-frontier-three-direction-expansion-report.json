@@ -1,0 +1,1069 @@
+{
+  "generated_at": "2026-06-04T02:17:52.452Z",
+  "apply": true,
+  "batch": {
+    "batch_id": "B7-frontier-three-direction-expansion",
+    "batch_kind": "frontier-three-direction-controlled-import",
+    "source_route": "arxiv:html-exact-id-sequential",
+    "purpose": "Expand the adaptive LLM systems corpus around the three agreed directions through standard controlled metadata import.",
+    "content_processing_enqueued": false
+  },
+  "request_delay_ms": 900,
+  "request_timeout_ms": 30000,
+  "query_max_results": 25,
+  "import_per_direction_limit": 6,
+  "min_year": 2023,
+  "exact_plan": true,
+  "query_summaries": [
+    {
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B7-RAG-03",
+      "query_family": "RAG Cache / Context Reuse",
+      "search_query": "exact-arxiv:2605.27494",
+      "result_count": 1
+    },
+    {
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B7-RAG-03",
+      "query_family": "RAG Cache / Context Reuse",
+      "search_query": "exact-arxiv:2604.26176",
+      "result_count": 1
+    },
+    {
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B7-RAG-02",
+      "query_family": "Adaptive Retrieval / Routing",
+      "search_query": "exact-arxiv:2604.22849",
+      "result_count": 1
+    },
+    {
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B7-RAG-01",
+      "query_family": "RAG Serving And Resource Allocation",
+      "search_query": "exact-arxiv:2601.10644",
+      "result_count": 1
+    },
+    {
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B7-RAG-03",
+      "query_family": "RAG Cache / Context Reuse",
+      "search_query": "exact-arxiv:2511.02919",
+      "result_count": 1
+    },
+    {
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B7-RAG-04",
+      "query_family": "Retrieval-Compute Allocation",
+      "search_query": "exact-arxiv:2504.01281",
+      "result_count": 1
+    },
+    {
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B7-SYS-02",
+      "query_family": "KV Cache Scheduling",
+      "search_query": "exact-arxiv:2605.13734",
+      "result_count": 1
+    },
+    {
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B7-SYS-03",
+      "query_family": "Prefill Decode Scheduling",
+      "search_query": "exact-arxiv:2508.06133",
+      "result_count": 1
+    },
+    {
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B7-SYS-02",
+      "query_family": "KV Cache Scheduling",
+      "search_query": "exact-arxiv:2501.06709",
+      "result_count": 1
+    },
+    {
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B7-SYS-04",
+      "query_family": "LLM Inference Resource Allocation",
+      "search_query": "exact-arxiv:2504.11320",
+      "result_count": 1
+    },
+    {
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B7-SYS-01",
+      "query_family": "LLM Serving Scheduling",
+      "search_query": "exact-arxiv:2407.00023",
+      "result_count": 1
+    },
+    {
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B7-SYS-03",
+      "query_family": "Prefill Decode Scheduling",
+      "search_query": "exact-arxiv:2408.08147",
+      "result_count": 1
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B7-STR-01",
+      "query_family": "Test-Time Compute Budget",
+      "search_query": "exact-arxiv:2604.14853",
+      "result_count": 1
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B7-STR-03",
+      "query_family": "Adaptive Reasoning Compute",
+      "search_query": "exact-arxiv:2603.18411",
+      "result_count": 1
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B7-STR-01",
+      "query_family": "Test-Time Compute Budget",
+      "search_query": "exact-arxiv:2602.09574",
+      "result_count": 1
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B7-STR-01",
+      "query_family": "Test-Time Compute Budget",
+      "search_query": "exact-arxiv:2602.03975",
+      "result_count": 1
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B7-STR-01",
+      "query_family": "Test-Time Compute Budget",
+      "search_query": "exact-arxiv:2602.03814",
+      "result_count": 1
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B7-STR-04",
+      "query_family": "Model Routing And Cascades",
+      "search_query": "exact-arxiv:2604.12262",
+      "result_count": 1
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B7-STR-03",
+      "query_family": "Adaptive Reasoning Compute",
+      "search_query": "exact-arxiv:2503.07572",
+      "result_count": 1
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B7-STR-02",
+      "query_family": "Inference-Time Scaling",
+      "search_query": "exact-arxiv:2502.13962",
+      "result_count": 1
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B7-STR-02",
+      "query_family": "Inference-Time Scaling",
+      "search_query": "exact-arxiv:2503.24235",
+      "result_count": 1
+    }
+  ],
+  "discovered_count": 21,
+  "existing_count": 2,
+  "selected_count": 16,
+  "direction_summary": [
+    {
+      "direction_id": "rag-aware-allocation",
+      "selected_count": 5,
+      "new_count": 5
+    },
+    {
+      "direction_id": "llm-serving-resource-allocation",
+      "selected_count": 5,
+      "new_count": 5
+    },
+    {
+      "direction_id": "test-time-compute-budgeting",
+      "selected_count": 6,
+      "new_count": 6
+    }
+  ],
+  "import_result": {
+    "status_code": 200,
+    "payload": {
+      "results": [
+        {
+          "literature_id": "LIT-0290",
+          "canonical_work_key": "arxiv:2605.13734",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "KVServe: Service-Aware KV Cache Compression for Communication-Efficient Disaggregated LLM Serving",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2605.13734"
+        },
+        {
+          "literature_id": "LIT-0291",
+          "canonical_work_key": "arxiv:2508.06133",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "LLM Serving Optimization with Variable Prefill and Decode Lengths",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2508.06133"
+        },
+        {
+          "literature_id": "LIT-0292",
+          "canonical_work_key": "arxiv:2604.14853",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "Adaptive Test-Time Compute Allocation for Reasoning LLMs via Constrained Policy Optimization",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2604.14853"
+        },
+        {
+          "literature_id": "LIT-0293",
+          "canonical_work_key": "arxiv:2501.06709",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "Mell: Memory-Efficient Large Language Model Serving via Multi-GPU KV Cache Management",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2501.06709"
+        },
+        {
+          "literature_id": "LIT-0294",
+          "canonical_work_key": "arxiv:2504.01281",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "Scaling Test-Time Inference with Policy-Optimized, Dynamic Retrieval-Augmented Generation via KV Caching and Decoding",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2504.01281"
+        },
+        {
+          "literature_id": "LIT-0295",
+          "canonical_work_key": "arxiv:2602.03975",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "Adaptive Test-Time Compute Allocation via Learned Heuristics over Categorical Structure",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2602.03975"
+        },
+        {
+          "literature_id": "LIT-0296",
+          "canonical_work_key": "arxiv:2602.03814",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "Conformal Thinking: Risk Control for Reasoning on a Compute Budget",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2602.03814"
+        },
+        {
+          "literature_id": "LIT-0297",
+          "canonical_work_key": "arxiv:2601.10644",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "RoutIR: Fast Serving of Retrieval Pipelines for Retrieval-Augmented Generation",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2601.10644"
+        },
+        {
+          "literature_id": "LIT-0298",
+          "canonical_work_key": "arxiv:2603.18411",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "TARo: Token-level Adaptive Routing for LLM Test-time Alignment",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2603.18411"
+        },
+        {
+          "literature_id": "LIT-0299",
+          "canonical_work_key": "arxiv:2504.11320",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "Optimizing LLM Inference: Fluid-Guided Online Scheduling with Memory Constraints",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2504.11320"
+        },
+        {
+          "literature_id": "LIT-0300",
+          "canonical_work_key": "arxiv:2602.09574",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "Aligning Tree-Search Policies with Fixed Token Budgets in Test-Time Scaling of LLMs",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2602.09574"
+        },
+        {
+          "literature_id": "LIT-0301",
+          "canonical_work_key": "arxiv:2604.26176",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "CacheRAG: A Semantic Caching System for Retrieval-Augmented Generation in Knowledge Graph Question Answering",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2604.26176"
+        },
+        {
+          "literature_id": "LIT-0302",
+          "canonical_work_key": "arxiv:2604.22849",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "R$^3$AG: Retriever Routing for Retrieval-Augmented Generation",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2604.22849"
+        },
+        {
+          "literature_id": "LIT-0303",
+          "canonical_work_key": "arxiv:2511.02919",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "Cache Mechanism for Agent RAG Systems",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2511.02919"
+        },
+        {
+          "literature_id": "LIT-0304",
+          "canonical_work_key": "arxiv:2503.07572",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "Optimizing Test-Time Compute via Meta Reinforcement Fine-Tuning",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2503.07572"
+        },
+        {
+          "literature_id": "LIT-0305",
+          "canonical_work_key": "arxiv:2408.08147",
+          "is_new": true,
+          "matched_by": "none",
+          "title": "P/D-Serve: Serving Disaggregated Large Language Model at Scale",
+          "source_provider": "arxiv",
+          "source_url": "https://arxiv.org/abs/2408.08147"
+        }
+      ]
+    }
+  },
+  "before": {
+    "literature_count": 289,
+    "source_count": 293,
+    "pipeline_run_count": 0,
+    "content_asset_count": 0,
+    "content_processing_batch_job_count": 0,
+    "fulltext_acquisition_job_count": 0
+  },
+  "after": {
+    "literature_count": 305,
+    "source_count": 309,
+    "pipeline_run_count": 0,
+    "content_asset_count": 0,
+    "content_processing_batch_job_count": 0,
+    "fulltext_acquisition_job_count": 0
+  },
+  "deltas": {
+    "literature_count": 16,
+    "source_count": 16,
+    "pipeline_run_count": 0,
+    "content_asset_count": 0,
+    "content_processing_batch_job_count": 0,
+    "fulltext_acquisition_job_count": 0
+  },
+  "selected_items": [
+    {
+      "arxiv_id": "2605.13734",
+      "title": "KVServe: Service-Aware KV Cache Compression for Communication-Efficient Disaggregated LLM Serving",
+      "year": 2026,
+      "author_count": 12,
+      "direction_id": "llm-serving-resource-allocation",
+      "direction_ids": [
+        "llm-serving-resource-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-SYS-02"
+      ],
+      "query_families": [
+        "KV Cache Scheduling"
+      ],
+      "score": 14,
+      "source_url": "https://arxiv.org/abs/2605.13734",
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "subcluster:llm-serving-scheduling",
+        "resource:batch-slots",
+        "resource:kv-cache",
+        "resource:prefill",
+        "resource:decode",
+        "resource:gpu-memory",
+        "decision:schedule",
+        "decision:cache-admit-evict",
+        "metric:ttft",
+        "metric:tpot",
+        "metric:p95-latency",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p1",
+        "query:q-b7-sys-02"
+      ],
+      "literature_id": "LIT-0290",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2508.06133",
+      "title": "LLM Serving Optimization with Variable Prefill and Decode Lengths",
+      "year": 2025,
+      "author_count": 3,
+      "direction_id": "llm-serving-resource-allocation",
+      "direction_ids": [
+        "llm-serving-resource-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-SYS-03"
+      ],
+      "query_families": [
+        "Prefill Decode Scheduling"
+      ],
+      "score": 14,
+      "source_url": "https://arxiv.org/abs/2508.06133",
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "subcluster:llm-serving-scheduling",
+        "resource:batch-slots",
+        "resource:kv-cache",
+        "resource:prefill",
+        "resource:decode",
+        "resource:gpu-memory",
+        "decision:schedule",
+        "decision:cache-admit-evict",
+        "metric:ttft",
+        "metric:tpot",
+        "metric:p95-latency",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p1",
+        "query:q-b7-sys-03"
+      ],
+      "literature_id": "LIT-0291",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2604.14853",
+      "title": "Adaptive Test-Time Compute Allocation for Reasoning LLMs via Constrained Policy Optimization",
+      "year": 2026,
+      "author_count": 5,
+      "direction_id": "test-time-compute-budgeting",
+      "direction_ids": [
+        "test-time-compute-budgeting"
+      ],
+      "query_ids": [
+        "Q-B7-STR-01"
+      ],
+      "query_families": [
+        "Test-Time Compute Budget"
+      ],
+      "score": 12,
+      "source_url": "https://arxiv.org/abs/2604.14853",
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "subcluster:test-time-scaling",
+        "subcluster:adaptive-compute",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:cost-budget",
+        "decision:budget-allocate",
+        "decision:model-route",
+        "decision:reason-continue-stop",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-strategy",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p1",
+        "query:q-b7-str-01"
+      ],
+      "literature_id": "LIT-0292",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2501.06709",
+      "title": "Mell: Memory-Efficient Large Language Model Serving via Multi-GPU KV Cache Management",
+      "year": 2025,
+      "author_count": 5,
+      "direction_id": "llm-serving-resource-allocation",
+      "direction_ids": [
+        "llm-serving-resource-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-SYS-02"
+      ],
+      "query_families": [
+        "KV Cache Scheduling"
+      ],
+      "score": 12,
+      "source_url": "https://arxiv.org/abs/2501.06709",
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "subcluster:llm-serving-scheduling",
+        "resource:batch-slots",
+        "resource:kv-cache",
+        "resource:prefill",
+        "resource:decode",
+        "resource:gpu-memory",
+        "decision:schedule",
+        "decision:cache-admit-evict",
+        "metric:ttft",
+        "metric:tpot",
+        "metric:p95-latency",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p1",
+        "query:q-b7-sys-02"
+      ],
+      "literature_id": "LIT-0293",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2504.01281",
+      "title": "Scaling Test-Time Inference with Policy-Optimized, Dynamic Retrieval-Augmented Generation via KV Caching and Decoding",
+      "year": 2025,
+      "author_count": 4,
+      "direction_id": "rag-aware-allocation",
+      "direction_ids": [
+        "rag-aware-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-RAG-04"
+      ],
+      "query_families": [
+        "Retrieval-Compute Allocation"
+      ],
+      "score": 11,
+      "source_url": "https://arxiv.org/abs/2504.01281",
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "subcluster:rag-serving-optimization",
+        "resource:retrieval-depth",
+        "resource:context-window",
+        "decision:retrieve-or-not",
+        "decision:budget-allocate",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-system",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p1",
+        "query:q-b7-rag-04"
+      ],
+      "literature_id": "LIT-0294",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2602.03975",
+      "title": "Adaptive Test-Time Compute Allocation via Learned Heuristics over Categorical Structure",
+      "year": 2026,
+      "author_count": 1,
+      "direction_id": "test-time-compute-budgeting",
+      "direction_ids": [
+        "test-time-compute-budgeting"
+      ],
+      "query_ids": [
+        "Q-B7-STR-01"
+      ],
+      "query_families": [
+        "Test-Time Compute Budget"
+      ],
+      "score": 10,
+      "source_url": "https://arxiv.org/abs/2602.03975",
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "subcluster:test-time-scaling",
+        "subcluster:adaptive-compute",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:cost-budget",
+        "decision:budget-allocate",
+        "decision:model-route",
+        "decision:reason-continue-stop",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-strategy",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p1",
+        "query:q-b7-str-01"
+      ],
+      "literature_id": "LIT-0295",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2602.03814",
+      "title": "Conformal Thinking: Risk Control for Reasoning on a Compute Budget",
+      "year": 2026,
+      "author_count": 9,
+      "direction_id": "test-time-compute-budgeting",
+      "direction_ids": [
+        "test-time-compute-budgeting"
+      ],
+      "query_ids": [
+        "Q-B7-STR-01"
+      ],
+      "query_families": [
+        "Test-Time Compute Budget"
+      ],
+      "score": 10,
+      "source_url": "https://arxiv.org/abs/2602.03814",
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "subcluster:test-time-scaling",
+        "subcluster:adaptive-compute",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:cost-budget",
+        "decision:budget-allocate",
+        "decision:model-route",
+        "decision:reason-continue-stop",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-strategy",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p1",
+        "query:q-b7-str-01"
+      ],
+      "literature_id": "LIT-0296",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2601.10644",
+      "title": "RoutIR: Fast Serving of Retrieval Pipelines for Retrieval-Augmented Generation",
+      "year": 2026,
+      "author_count": 5,
+      "direction_id": "rag-aware-allocation",
+      "direction_ids": [
+        "rag-aware-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-RAG-01"
+      ],
+      "query_families": [
+        "RAG Serving And Resource Allocation"
+      ],
+      "score": 10,
+      "source_url": "https://arxiv.org/abs/2601.10644",
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "subcluster:rag-serving-optimization",
+        "resource:retrieval-depth",
+        "resource:context-window",
+        "decision:retrieve-or-not",
+        "decision:budget-allocate",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-system",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p1",
+        "query:q-b7-rag-01"
+      ],
+      "literature_id": "LIT-0297",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2603.18411",
+      "title": "TARo: Token-level Adaptive Routing for LLM Test-time Alignment",
+      "year": 2026,
+      "author_count": 8,
+      "direction_id": "test-time-compute-budgeting",
+      "direction_ids": [
+        "test-time-compute-budgeting"
+      ],
+      "query_ids": [
+        "Q-B7-STR-03"
+      ],
+      "query_families": [
+        "Adaptive Reasoning Compute"
+      ],
+      "score": 10,
+      "source_url": "https://arxiv.org/abs/2603.18411",
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "subcluster:test-time-scaling",
+        "subcluster:adaptive-compute",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:cost-budget",
+        "decision:budget-allocate",
+        "decision:model-route",
+        "decision:reason-continue-stop",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-strategy",
+        "classification:rule-derived",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p2",
+        "query:q-b7-str-03"
+      ],
+      "literature_id": "LIT-0298",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2504.11320",
+      "title": "Optimizing LLM Inference: Fluid-Guided Online Scheduling with Memory Constraints",
+      "year": 2025,
+      "author_count": 4,
+      "direction_id": "llm-serving-resource-allocation",
+      "direction_ids": [
+        "llm-serving-resource-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-SYS-04"
+      ],
+      "query_families": [
+        "LLM Inference Resource Allocation"
+      ],
+      "score": 10,
+      "source_url": "https://arxiv.org/abs/2504.11320",
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "subcluster:llm-serving-scheduling",
+        "resource:batch-slots",
+        "resource:kv-cache",
+        "resource:prefill",
+        "resource:decode",
+        "resource:gpu-memory",
+        "decision:schedule",
+        "decision:cache-admit-evict",
+        "metric:ttft",
+        "metric:tpot",
+        "metric:p95-latency",
+        "classification:rule-derived",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p2",
+        "query:q-b7-sys-04"
+      ],
+      "literature_id": "LIT-0299",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2602.09574",
+      "title": "Aligning Tree-Search Policies with Fixed Token Budgets in Test-Time Scaling of LLMs",
+      "year": 2026,
+      "author_count": 3,
+      "direction_id": "test-time-compute-budgeting",
+      "direction_ids": [
+        "test-time-compute-budgeting"
+      ],
+      "query_ids": [
+        "Q-B7-STR-01"
+      ],
+      "query_families": [
+        "Test-Time Compute Budget"
+      ],
+      "score": 9,
+      "source_url": "https://arxiv.org/abs/2602.09574",
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "subcluster:test-time-scaling",
+        "subcluster:adaptive-compute",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:cost-budget",
+        "decision:budget-allocate",
+        "decision:model-route",
+        "decision:reason-continue-stop",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-strategy",
+        "classification:rule-derived",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p2",
+        "query:q-b7-str-01"
+      ],
+      "literature_id": "LIT-0300",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2604.26176",
+      "title": "CacheRAG: A Semantic Caching System for Retrieval-Augmented Generation in Knowledge Graph Question Answering",
+      "year": 2026,
+      "author_count": 2,
+      "direction_id": "rag-aware-allocation",
+      "direction_ids": [
+        "rag-aware-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-RAG-03"
+      ],
+      "query_families": [
+        "RAG Cache / Context Reuse"
+      ],
+      "score": 9,
+      "source_url": "https://arxiv.org/abs/2604.26176",
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "subcluster:rag-serving-optimization",
+        "resource:retrieval-depth",
+        "resource:context-window",
+        "decision:retrieve-or-not",
+        "decision:budget-allocate",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-system",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p1",
+        "query:q-b7-rag-03"
+      ],
+      "literature_id": "LIT-0301",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2604.22849",
+      "title": "R$^3$AG: Retriever Routing for Retrieval-Augmented Generation",
+      "year": 2026,
+      "author_count": 4,
+      "direction_id": "rag-aware-allocation",
+      "direction_ids": [
+        "rag-aware-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-RAG-02"
+      ],
+      "query_families": [
+        "Adaptive Retrieval / Routing"
+      ],
+      "score": 9,
+      "source_url": "https://arxiv.org/abs/2604.22849",
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "subcluster:rag-serving-optimization",
+        "resource:retrieval-depth",
+        "resource:context-window",
+        "decision:retrieve-or-not",
+        "decision:budget-allocate",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-system",
+        "classification:rule-derived",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p2",
+        "query:q-b7-rag-02"
+      ],
+      "literature_id": "LIT-0302",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2511.02919",
+      "title": "Cache Mechanism for Agent RAG Systems",
+      "year": 2025,
+      "author_count": 6,
+      "direction_id": "rag-aware-allocation",
+      "direction_ids": [
+        "rag-aware-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-RAG-03"
+      ],
+      "query_families": [
+        "RAG Cache / Context Reuse"
+      ],
+      "score": 9,
+      "source_url": "https://arxiv.org/abs/2511.02919",
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "subcluster:rag-serving-optimization",
+        "resource:retrieval-depth",
+        "resource:context-window",
+        "decision:retrieve-or-not",
+        "decision:budget-allocate",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-system",
+        "classification:rule-derived",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p2",
+        "query:q-b7-rag-03"
+      ],
+      "literature_id": "LIT-0303",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2503.07572",
+      "title": "Optimizing Test-Time Compute via Meta Reinforcement Fine-Tuning",
+      "year": 2025,
+      "author_count": 7,
+      "direction_id": "test-time-compute-budgeting",
+      "direction_ids": [
+        "test-time-compute-budgeting"
+      ],
+      "query_ids": [
+        "Q-B7-STR-03"
+      ],
+      "query_families": [
+        "Adaptive Reasoning Compute"
+      ],
+      "score": 9,
+      "source_url": "https://arxiv.org/abs/2503.07572",
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "subcluster:test-time-scaling",
+        "subcluster:adaptive-compute",
+        "resource:generation-tokens",
+        "resource:reasoning-steps",
+        "resource:cost-budget",
+        "decision:budget-allocate",
+        "decision:model-route",
+        "decision:reason-continue-stop",
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "bridge:core-strategy",
+        "classification:rule-derived",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p2",
+        "query:q-b7-str-03"
+      ],
+      "literature_id": "LIT-0304",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    },
+    {
+      "arxiv_id": "2408.08147",
+      "title": "P/D-Serve: Serving Disaggregated Large Language Model at Scale",
+      "year": 2024,
+      "author_count": 30,
+      "direction_id": "llm-serving-resource-allocation",
+      "direction_ids": [
+        "llm-serving-resource-allocation"
+      ],
+      "query_ids": [
+        "Q-B7-SYS-03"
+      ],
+      "query_families": [
+        "Prefill Decode Scheduling"
+      ],
+      "score": 8,
+      "source_url": "https://arxiv.org/abs/2408.08147",
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "subcluster:llm-serving-scheduling",
+        "resource:batch-slots",
+        "resource:kv-cache",
+        "resource:prefill",
+        "resource:decode",
+        "resource:gpu-memory",
+        "decision:schedule",
+        "decision:cache-admit-evict",
+        "metric:ttft",
+        "metric:tpot",
+        "metric:p95-latency",
+        "classification:rule-derived",
+        "batch:b7-frontier-three-direction-expansion",
+        "priority:p2",
+        "query:q-b7-sys-03"
+      ],
+      "literature_id": "LIT-0305",
+      "is_new": true,
+      "matched_by": "none",
+      "source_provider": "arxiv"
+    }
+  ],
+  "existing_records": [
+    {
+      "literature_id": "LIT-0220",
+      "arxiv_id": "2407.00023",
+      "title": "Preble: Efficient Distributed Prompt Scheduling for LLM Serving",
+      "tags": [
+        "batch:b3-system-substrate",
+        "bridge:system-strategy",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:system-support",
+        "decision:batch-schedule",
+        "decision:cache-admit-evict",
+        "direction:llm-serving-resource-allocation",
+        "metric:cache-hit-rate",
+        "metric:p95-latency",
+        "metric:p99-latency",
+        "metric:ttft",
+        "priority:p1",
+        "query:q-sys-03",
+        "query:q-sys-06",
+        "resource:latency-budget",
+        "resource:prefix-cache",
+        "subcluster:prefix-cache",
+        "subcluster:slo-scheduling",
+        "subcluster:tail-latency"
+      ]
+    },
+    {
+      "literature_id": "LIT-0266",
+      "arxiv_id": "2605.27494",
+      "title": "Grounded Cache Routing for Retrieval-Augmented Generation: When Is It Safe to Reuse an Answer?",
+      "tags": [
+        "batch:b6-citation-expansion",
+        "bridge:core-strategy",
+        "bridge:core-system",
+        "classification:judgment-card-ready",
+        "classification:rule-derived",
+        "collection:core",
+        "decision:budget-allocate",
+        "decision:cache-admit-evict",
+        "direction:rag-aware-allocation",
+        "metric:cache-hit-rate",
+        "metric:cost-per-query",
+        "metric:ttft",
+        "priority:p1",
+        "query:b6-core-rag-cache-routing",
+        "resource:context-window",
+        "resource:kv-cache",
+        "resource:prefix-cache",
+        "subcluster:context-budget",
+        "subcluster:rag-routing",
+        "subcluster:rag-serving-optimization"
+      ]
+    }
+  ]
+}

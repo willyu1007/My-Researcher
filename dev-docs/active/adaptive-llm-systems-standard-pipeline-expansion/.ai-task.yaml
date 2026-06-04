@@ -1,0 +1,15 @@
+version: 1
+task_id: T-119
+project: main
+slug: adaptive-llm-systems-standard-pipeline-expansion
+status: in-progress
+updated: "2026-06-04"
+keywords:
+  - literature
+  - adaptive-llm-systems
+  - standard-pipeline
+  - controlled-import
+  - direction:rag-aware-allocation
+  - direction:llm-serving-resource-allocation
+  - direction:test-time-compute-budgeting
+  - upstream:T-116
