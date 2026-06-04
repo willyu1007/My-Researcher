@@ -5,6 +5,18 @@
 
 Production promotion MUST introduce explicit runtime slot and admission boundaries before any harness-backed workflow can claim product-mode orchestration coverage.
 
+## Cross-Cutting Decision For Remaining Nodes
+Every remaining PaperImplementation node promotion MUST optimize for process robustness and bounded complexity, not human-readable audit output.
+
+This decision applies to every future slot in `13-pending-node-processing-matrix.md`:
+- Harness is a verifier and stress orchestrator. It may construct deterministic scenarios, replay/drift/adversarial inputs, call the real runtime route/service path, and assert machine-checkable invariants.
+- Harness MUST NOT own production semantics. It must not compile prompts, select models, compute cache keys, compress context, judge semantic blockers, repair runtime outputs, generate production-consumable runtime artifacts, or bypass admission/domain gates.
+- Runtime is the production execution boundary. It owns context compilation, prompt/profile/model-option resolution, product eligibility, cache identity, token/compression gates, provider/Codex/mock execution routing, same-profile technical retry, and role/final runtime artifact emission.
+- Runtime MUST NOT own domain authority. It must not create or mutate route, cycle, WorkOrder, claim, dossier, motive, evidence-board, trace, queue, or live experiment adapter state.
+- Admission verifies runtime evidence. It recomputes identity, provenance, source/trace refs, forbidden fields, blocker taxonomy, replay/idempotency, and drift. It must not rebuild prompts, rerun providers, invent semantic blockers, repair artifacts, or materialize queue/domain state.
+- Domain Gate and deterministic services own state transitions. They may consume admitted final runtime artifacts, but runtime success alone is never business success.
+- Human-readable summaries, explanations, and audit narratives are not acceptance evidence for node promotion. Acceptance MUST be based on machine-verifiable fields: `slot_id`, profile/prompt/context/cache identity, runtime status, blocker codes, retry metadata, provider call count, admission outcome, replay/drift behavior, and explicit domain write presence or absence.
+
 ## Canonical Vocabulary And No-Dual-Track Rule
 Existing harness records and new runtime records MUST keep distinct meanings. The implementation must not create a wrapper or compatibility lane that lets the old harness artifact masquerade as a production runtime artifact.
 
@@ -248,11 +260,13 @@ Retrieval packet construction is a runtime-service responsibility. Harness may s
 ## Code Review Checklist
 Use this checklist before implementing any promoted slot:
 - Does the harness avoid direct provider/runtime-kernel imports?
+- Does the harness only verify scenarios and invariants while the runtime route/service path owns production execution?
 - Does every promoted slot have a `slot_id` and profile identity?
 - Does RuntimeSlot own context/prompt cache keying, stale/drift policy, metadata-only persistence, and response-reuse guard?
 - Does provider mode fail closed instead of using mock/cache/replay fallback?
 - Does admission recompute identity instead of trusting harness-supplied hashes?
 - Does runtime success still pass through deterministic domain gates?
+- Are promotion claims based on machine-verifiable runtime/admission/domain fields rather than human-readable summaries?
 - Are prompt/cache/token/compression artifacts metadata/ref-backed and not authority payloads?
 - Are intermediate role artifacts admitted only for role chaining and final verification, not domain state transitions?
 - Are debate and multi-scenario branches represented with distinct slot/scenario identity?

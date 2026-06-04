@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AppError } from '../errors/app-error.js';
 import {
+  PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
+  PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import {
   createDefaultTopicSelectionModelProfileRegistry,
   TOPIC_SELECTION_CONFIRMATION_SEMANTIC_REVIEW_SINGLE_AGENT_PROFILE_ID,
   TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID,
@@ -25,6 +33,15 @@ import {
 import type {
   TopicSelectionModelProfileRegistry,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
+
+const PAPER_IMPLEMENTATION_PROMOTED_PROFILE_IDS = [
+  PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID,
+] as const;
 
 function cloneRegistry(
   registry: TopicSelectionModelProfileRegistry,
@@ -313,6 +330,61 @@ test('model profile registry resolves resource sampling provider-only profile', 
   });
   assert.equal(dashscope.selected_model_option?.provider_id, 'dashscope');
   assert.equal(dashscope.selected_model_option?.model_id, 'qwen3.6-plus');
+});
+
+test('model profile registry keeps PaperImplementation product mode provider-only', () => {
+  const service = new TopicSelectionModelProfileRegistryService();
+
+  for (const profileId of PAPER_IMPLEMENTATION_PROMOTED_PROFILE_IDS) {
+    const productProvider = service.resolveProfile({
+      profile_id: profileId,
+      execution_mode: 'provider_llm',
+      run_mode: 'product',
+    });
+    assert.deepEqual(productProvider.profile.run_mode_eligibility, {
+      mocked_llm: ['test', 'acceptance'],
+      codex_assisted: ['test', 'acceptance'],
+      provider_llm: ['acceptance', 'product'],
+    });
+    assert.equal(productProvider.selected_model_option?.provider_id, 'openai');
+
+    assert.throws(
+      () => service.resolveProfile({
+        profile_id: profileId,
+        execution_mode: 'codex_assisted',
+        run_mode: 'product',
+      }),
+      (error: unknown) =>
+        error instanceof AppError
+        && error.errorCode === 'INVALID_PAYLOAD'
+        && error.message === 'run_mode is not allowed by model profile.',
+    );
+    assert.throws(
+      () => service.resolveProfile({
+        profile_id: profileId,
+        execution_mode: 'mocked_llm',
+        run_mode: 'product',
+      }),
+      (error: unknown) =>
+        error instanceof AppError
+        && error.errorCode === 'INVALID_PAYLOAD'
+        && error.message === 'run_mode is not allowed by model profile.',
+    );
+
+    const codexAcceptance = service.resolveProfile({
+      profile_id: profileId,
+      execution_mode: 'codex_assisted',
+      run_mode: 'acceptance',
+    });
+    assert.equal(codexAcceptance.selected_model_option, null);
+
+    const mockedTest = service.resolveProfile({
+      profile_id: profileId,
+      execution_mode: 'mocked_llm',
+      run_mode: 'test',
+    });
+    assert.equal(mockedTest.selected_model_option, null);
+  }
 });
 
 test('model profile registry enforces run-mode and role profile execution eligibility', () => {

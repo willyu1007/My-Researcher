@@ -5,7 +5,7 @@
 - Task ID: `T-114`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-013`
 - Current focus: trace-integrity, claim-boundary, dossier-readiness, result-analysis, experiment-design, and experiment-critique runtime slots now use controlled runtime/admission paths; experiment planning artifacts are admitted evidence only and cannot create WorkOrders, Domain Gate payloads, or live experiment adapter side effects.
-- Next step: promote the remaining P2 route slice with `route_architecture` / `route_skeptic_review` after the experiment-planning review-fix verification remains green.
+- Next step: use `13-pending-node-processing-matrix.md` to promote the remaining P2 route slice with `route_architecture` / `route_skeptic_review`, with PaperImplementation product-mode profile eligibility aligned to the runtime guard.
 
 ## Problem
 - PaperImplementation V1 has strong domain contracts, route-level replay, proposal-only AI harness, live experiment adapter, and deterministic provider-variance preflight.
@@ -66,3 +66,4 @@
 - [x] Result-analysis `interpretation_scenarios` is promoted through a controlled runtime slot route, shared runtime/admission persistence, existing orchestrator/gateway path, deterministic Domain Gate materialization into result interpretation packets, provider canary hooks, L5 stress coverage, and L6 evidence requirements.
 - [x] Experiment-design `work_order_draft` and experiment-critique `plan_critique` are promoted through controlled runtime slot routes, shared runtime/admission persistence, existing orchestrator/gateway path, provider canary hooks, L5 stress coverage, L6 near-prod evidence requirements, and explicit no-Domain-Gate/no-WorkOrder/no-live-adapter authority boundaries.
 - [x] Experiment-planning review fixes tightened WorkOrder draft candidate shape to the real `CreateResearchWorkOrderDraftRequest`, removed critique executor-kind drift, and require P2 live boundary evidence to pass rather than merely return a blocked response.
+- [x] Pending node processing matrix exists for all unpromoted agent workflow nodes and deterministic/operational lanes that still need runtime, profile, context, loop, fallback, debate, admission, or stress treatment.

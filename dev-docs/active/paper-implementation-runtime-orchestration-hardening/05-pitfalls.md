@@ -13,6 +13,7 @@
 - Do not rely on `additionalProperties: false` alone for forbidden body fields when Fastify/Ajv may remove additional properties before controller code sees them.
 - Do not run provider canary through provider-only scripts or direct SDK calls; canary evidence must traverse the same controlled runtime run route/service/admission path as production.
 - Do not reuse topic-selection business model profiles for PaperImplementation canaries; PaperImplementation slots need PaperImplementation-specific profile ids inside the unified registry.
+- Do not let promoted PaperImplementation profiles inherit the shared default `codex_assisted -> product` eligibility; PaperImplementation product runtime profiles must bind an explicit provider-only product policy.
 - Do not double-count provider calls by adding final artifact telemetry to role artifact telemetry. The final artifact should summarize role calls, not represent an additional model call.
 - Do not require a minimal refs-only provider canary to reach semantic `passed`. Canary success proves live runtime/provider/admission execution; semantic pass requires a retrieval packet with sufficient reviewed statement and source content.
 - Do not persist only artifact refs/hashes when a runtime consumer needs the semantic payload; role and final runtime artifacts must carry JSON-safe `artifact_payload`.
@@ -41,6 +42,11 @@
 - Do not rely only on provider-compatible role schemas for result-analysis completeness. Runtime semantic gates must still reject passed outputs that omit required scenario kinds or Domain Gate requests before any final artifact is recorded.
 
 ## Resolved Failures / Lessons
+- Symptom: promoted PaperImplementation profiles could appear Codex-product eligible in the shared model-profile registry even though runtime routes/schema already enforced product-provider execution.
+  Root cause: PaperImplementation profile definitions inherited `DEFAULT_RUN_MODE_ELIGIBILITY`, which intentionally keeps `codex_assisted -> product` available for topic-selection profiles.
+  What was tried: runtime guards prevented behavior drift, but registry semantics still risked misleading future slot implementation.
+  Fix: bind all promoted PaperImplementation runtime profiles to an explicit eligibility policy: `provider_llm` supports `acceptance` / `product`, while `mocked_llm` and `codex_assisted` support only `test` / `acceptance`.
+  Prevention: every future PaperImplementation promoted profile must set domain-specific run-mode eligibility explicitly and include a registry test for product-mode execution.
 - Symptom: the first admission service rejected every runtime artifact whose `runtime_status` was not `passed`, including `blocked`.
   Root cause: admission conflated technical runtime failure with admissible semantic blocker evidence.
   What was tried: initial service tests covered `failed_runtime` but not `blocked`.

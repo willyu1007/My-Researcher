@@ -12,6 +12,20 @@
 - T-109 replay is route-level in-memory and explicitly does not prove local Postgres parity, browser E2E, true cloud execution, live provider output variance, or writing ingestion.
 - Topic-selection T-112 proves a higher bar: runtime/admission services, prompt/cache identity, provider canaries, compression/token gates, stress runners, and no-side-effect-bypass checks.
 
+## 2026-06-04 P0 Model Profile Eligibility Cleanup
+- Closed the cross-cutting PaperImplementation profile eligibility risk before the next node promotion.
+- The unified backend model-profile registry now gives promoted PaperImplementation runtime profiles an explicit PaperImplementation eligibility policy instead of inheriting the shared default.
+- Product mode for promoted PaperImplementation runtime profiles is provider-only: `provider_llm` may run in `acceptance` and `product`, while `mocked_llm` and `codex_assisted` are limited to `test` / `acceptance`.
+- Topic-selection profile semantics remain unchanged; this is a domain-specific registry policy for PaperImplementation slots, not a second runtime entrypoint or wrapper.
+
+## 2026-06-04 Cross-Cutting Harness Runtime Boundary Decision
+- Confirmed this boundary applies to every remaining node promotion, not only trace/P1/P2 promoted slots.
+- Harness is a verifier and stress orchestrator: it may construct deterministic, replay, drift, compression, adversarial, and multi-branch cases, then assert machine-checkable invariants against the real runtime route/service path.
+- Harness must not own production semantics: no prompt compilation, model selection, cache keying, compression decision, semantic blocker invention, output repair, runtime artifact generation, admission override, or domain gate bypass.
+- Runtime owns production-capable slot execution: context packet, prompt/profile/model-option resolution, product eligibility, cache identity, token/compression gates, executor routing, same-profile technical retry, fail-closed runtime status, and role/final runtime artifacts.
+- Runtime must not write authority. Domain Gate and deterministic services own route/cycle/WorkOrder/claim/dossier/motive/evidence/trace/queue/live-experiment state transitions after admission.
+- Promotion evidence is machine-verifiable. Human-readable summaries and audit narratives are optional diagnostics and must not become node-promotion acceptance criteria.
+
 ## 2026-06-03 Harness Coverage Audit
 - Added `08-harness-coverage-audit.md` after checking contracts, service, unit tests, Prisma models, runnable replay, and T-099 docs.
 - Conclusion: current `PaperImplementationHarness` covers proposal-only integrity, input snapshots, trace/reference/memo guards, mock/product isolation, gate/transition recording, blocker queueing, and multi-artifact output within one run.

@@ -99,6 +99,12 @@ const PROVIDER_ONLY_RUN_MODE_ELIGIBILITY: TopicSelectionModelProfileRunModeEligi
   provider_llm: ['acceptance', 'product'],
 };
 
+const PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY: TopicSelectionModelProfileRunModeEligibility = {
+  mocked_llm: ['test', 'acceptance'],
+  codex_assisted: ['test', 'acceptance'],
+  provider_llm: ['acceptance', 'product'],
+};
+
 const PROVIDER_REQUIRED_CAPABILITIES = [
   'structured_output',
   'json_schema',
@@ -789,6 +795,7 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'produce_admission_ready_trace_integrity_role_outputs',
       ],
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
       output_contract: 'TraceIntegrityRoleArtifact@v1',
       model_options: providerOptions(PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID).map(
         (option) => ({
@@ -812,6 +819,7 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'produce_admission_ready_claim_boundary_domain_gate_request',
       ],
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
       output_contract: 'PaperImplementationP1RuntimeReviewRoleArtifact@v1',
       model_options: providerOptions(PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID).map(
         (option) => ({
@@ -835,6 +843,7 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'produce_admission_ready_dossier_readiness_domain_gate_request',
       ],
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
       output_contract: 'PaperImplementationP1RuntimeReviewRoleArtifact@v1',
       model_options: providerOptions(PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID).map(
         (option) => ({
@@ -858,6 +867,7 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'produce_admission_ready_result_interpretation_domain_gate_request',
       ],
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
       output_contract: 'PaperImplementationResultAnalysisRoleArtifact@v1',
       model_options: providerOptions(PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID).map(
         (option) => ({
@@ -881,6 +891,7 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'produce_admission_ready_work_order_draft_candidates',
       ],
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
       output_contract: 'PaperImplementationExperimentPlanningRoleArtifact@v1',
       model_options: providerOptions(PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID).map(
         (option) => ({
@@ -904,6 +915,7 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'produce_admission_ready_plan_critique_decision',
       ],
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
       output_contract: 'PaperImplementationExperimentPlanningRoleArtifact@v1',
       model_options: providerOptions(PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID).map(
         (option) => ({

@@ -160,6 +160,7 @@ This is a non-binding planning hypothesis. Implementation may narrow this after 
 
 ### Phase 4 - Full Node Promotion
 - Promoted slots now include the P1 writing-readiness slice, `result_analysis.interpretation_scenarios`, `experiment_design.work_order_draft`, and `experiment_critique.plan_critique`.
+- Pending slot details are tracked in `13-pending-node-processing-matrix.md`; that matrix is the handoff artifact for remaining node work.
 - Promote remaining slots in dependency order:
   1. route planning slice: `route_architecture` and `route_skeptic_review`;
   2. validation planning slice: `validation_cycle_planning` and `feasibility_planning`;
