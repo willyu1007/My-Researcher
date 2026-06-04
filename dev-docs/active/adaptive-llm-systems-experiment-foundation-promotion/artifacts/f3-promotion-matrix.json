@@ -1,0 +1,702 @@
+{
+  "generated_at": "2026-06-04T01:15:26.017Z",
+  "upstream": {
+    "task_id": "T-117",
+    "source_detail_path": ".ai/.tmp/adaptive-llm-systems-readiness-followup/f2-fulltext-code-readiness.json",
+    "source_summary": {
+      "target_count": 39,
+      "experiment_candidate_count": 15,
+      "p0_seed_count": 24,
+      "f1_anchor_count": 1,
+      "verified_code_repo_count": 11,
+      "high_runnable_count": 10,
+      "needs_manual_followup_count": 16
+    }
+  },
+  "decision": {
+    "f3_state": "started",
+    "canonical_asset_creation": false,
+    "auto_promotion_allowed": false,
+    "first_lane_recommendation": "LIT-0204"
+  },
+  "summary": {
+    "candidate_count": 10,
+    "auto_promotion_allowed_count": 0,
+    "manual_review_required_count": 10,
+    "primary_family_counts": {
+      "benchmark": 1,
+      "dataset": 2,
+      "method_component": 3,
+      "evaluation_protocol": 1,
+      "baseline": 3
+    },
+    "risk_counts": {
+      "low": 8,
+      "medium": 2
+    }
+  },
+  "matrix": [
+    {
+      "literature_id": "LIT-0204",
+      "title": "RAGPerf: An End-to-End Benchmarking Framework for Retrieval-Augmented Generation Systems",
+      "year": 2026,
+      "promotion_priority": 1,
+      "experiment_lane": "rag-systems-benchmark",
+      "primary_candidate_family": "benchmark",
+      "secondary_candidate_families": [
+        "evaluation_protocol",
+        "dataset"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_benchmark_protocol_ref",
+        "missing_metric_definition_refs",
+        "missing_dataset_refs",
+        "missing_evaluator_smoke",
+        "missing_version_ref"
+      ],
+      "proposed_asset_output": "End-to-end RAG systems benchmark candidate for quality/latency/cost tradeoff evaluation.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0204"
+        },
+        {
+          "kind": "external_repository",
+          "id": "platformxlab/RAGPerf"
+        }
+      ],
+      "repository": "https://github.com/platformxlab/RAGPerf",
+      "repository_verification_status": "verified-url",
+      "license": "Apache-2.0",
+      "protocol_signal": "benchmark-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.82,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "low",
+      "risk_reasons": [
+        "Benchmark protocol and evaluator smoke must be verified before promotion."
+      ],
+      "metric_tags": [
+        "metric:answer-quality",
+        "metric:faithfulness",
+        "metric:p95-latency",
+        "metric:ttft"
+      ],
+      "resource_tags": [
+        "resource:context-window",
+        "resource:decode",
+        "resource:prefill"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "missing_fields": [
+        "benchmark_protocol_ref",
+        "metric_definition_refs",
+        "dataset_refs",
+        "evaluator_smoke",
+        "version_ref"
+      ],
+      "next_verification_action": "Inspect RAGPerf benchmark protocol, datasets, metrics, and minimal smoke command."
+    },
+    {
+      "literature_id": "LIT-0189",
+      "title": "RAGPulse: An Open-Source RAG Workload Trace to Optimize RAG Serving Systems",
+      "year": 2025,
+      "promotion_priority": 2,
+      "experiment_lane": "rag-serving-workload-trace",
+      "primary_candidate_family": "dataset",
+      "secondary_candidate_families": [
+        "benchmark",
+        "evaluation_protocol"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_trace_schema",
+        "missing_split_protocol",
+        "missing_data_policy_ref",
+        "missing_privacy_review",
+        "missing_checksum_manifest"
+      ],
+      "proposed_asset_output": "RAG serving workload-trace dataset candidate for retrieval/prefill/decode load modeling.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0189"
+        },
+        {
+          "kind": "external_repository",
+          "id": "flashserve/RAGPulse"
+        }
+      ],
+      "repository": "https://github.com/flashserve/RAGPulse",
+      "repository_verification_status": "verified-url",
+      "license": "MIT",
+      "protocol_signal": "workload-trace-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.7699999999999999,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "medium",
+      "risk_reasons": [
+        "Workload traces need privacy, redistribution, schema, and replay policy review."
+      ],
+      "metric_tags": [
+        "metric:p95-latency",
+        "metric:ttft"
+      ],
+      "resource_tags": [
+        "resource:context-window",
+        "resource:decode",
+        "resource:prefill"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "missing_fields": [
+        "trace_schema",
+        "split_protocol",
+        "data_policy_ref",
+        "privacy_review",
+        "checksum_manifest"
+      ],
+      "next_verification_action": "Inspect trace schema, license text, and replay instructions before dataset candidate promotion."
+    },
+    {
+      "literature_id": "LIT-0195",
+      "title": "FlashRAG: A Modular Toolkit for Efficient Retrieval-Augmented Generation Research",
+      "year": 2024,
+      "promotion_priority": 3,
+      "experiment_lane": "rag-toolkit-baseline-harness",
+      "primary_candidate_family": "method_component",
+      "secondary_candidate_families": [
+        "baseline",
+        "evaluation_protocol"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_component_spec",
+        "missing_version_ref",
+        "missing_supported_benchmark_refs",
+        "missing_entrypoint_smoke"
+      ],
+      "proposed_asset_output": "Reusable RAG toolkit/method component candidate for benchmark harness integration.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0195"
+        },
+        {
+          "kind": "external_repository",
+          "id": "RUC-NLPIR/FlashRAG"
+        }
+      ],
+      "repository": "https://github.com/RUC-NLPIR/FlashRAG",
+      "repository_verification_status": "verified-url",
+      "license": "MIT",
+      "protocol_signal": "toolkit-or-simulator-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.82,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "low",
+      "risk_reasons": [
+        "Toolkit scope must be narrowed to reproducible components and compatible evaluation protocols."
+      ],
+      "metric_tags": [
+        "metric:answer-quality",
+        "metric:faithfulness",
+        "metric:p95-latency",
+        "metric:ttft"
+      ],
+      "resource_tags": [],
+      "direction_tags": [],
+      "missing_fields": [
+        "component_spec",
+        "version_ref",
+        "supported_benchmark_refs",
+        "entrypoint_smoke"
+      ],
+      "next_verification_action": "Identify a minimal FlashRAG pipeline and its dataset/evaluator dependencies."
+    },
+    {
+      "literature_id": "LIT-0197",
+      "title": "RAGChecker: A Fine-grained Framework for Diagnosing Retrieval-Augmented Generation",
+      "year": 2024,
+      "promotion_priority": 4,
+      "experiment_lane": "rag-quality-diagnosis-protocol",
+      "primary_candidate_family": "evaluation_protocol",
+      "secondary_candidate_families": [
+        "benchmark",
+        "method_component"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_metric_definition_refs",
+        "missing_protocol_summary",
+        "missing_evaluator_ref",
+        "missing_benchmark_ref"
+      ],
+      "proposed_asset_output": "Fine-grained RAG diagnosis/evaluation protocol candidate.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0197"
+        },
+        {
+          "kind": "external_repository",
+          "id": "amazon-science/RAGChecker"
+        }
+      ],
+      "repository": "https://github.com/amazon-science/RAGChecker",
+      "repository_verification_status": "verified-url",
+      "license": "Apache-2.0",
+      "protocol_signal": "toolkit-or-simulator-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.82,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "low",
+      "risk_reasons": [
+        "Metric definitions and evaluator inputs must be separated from benchmark assets."
+      ],
+      "metric_tags": [
+        "metric:answer-quality",
+        "metric:faithfulness",
+        "metric:p95-latency",
+        "metric:ttft"
+      ],
+      "resource_tags": [],
+      "direction_tags": [],
+      "missing_fields": [
+        "metric_definition_refs",
+        "protocol_summary",
+        "evaluator_ref",
+        "benchmark_ref"
+      ],
+      "next_verification_action": "Extract metric definitions and evaluator entrypoints for protocol candidate payload."
+    },
+    {
+      "literature_id": "LIT-0198",
+      "title": "RAGLAB: A Modular and Research-Oriented Unified Framework for Retrieval-Augmented Generation",
+      "year": 2024,
+      "promotion_priority": 5,
+      "experiment_lane": "rag-framework-baseline-harness",
+      "primary_candidate_family": "method_component",
+      "secondary_candidate_families": [
+        "baseline",
+        "evaluation_protocol"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_component_spec",
+        "missing_version_ref",
+        "missing_supported_benchmark_refs",
+        "missing_entrypoint_smoke"
+      ],
+      "proposed_asset_output": "Research-oriented RAG framework candidate for modular baseline construction.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0198"
+        },
+        {
+          "kind": "external_repository",
+          "id": "fate-ubw/RAGLAB"
+        }
+      ],
+      "repository": "https://github.com/fate-ubw/RAGLAB",
+      "repository_verification_status": "verified-url",
+      "license": "MIT",
+      "protocol_signal": "toolkit-or-simulator-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.82,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "low",
+      "risk_reasons": [
+        "Framework must be scoped to reproducible baseline components."
+      ],
+      "metric_tags": [
+        "metric:answer-quality",
+        "metric:faithfulness",
+        "metric:p95-latency",
+        "metric:ttft"
+      ],
+      "resource_tags": [],
+      "direction_tags": [],
+      "missing_fields": [
+        "component_spec",
+        "version_ref",
+        "supported_benchmark_refs",
+        "entrypoint_smoke"
+      ],
+      "next_verification_action": "Identify RAGLAB runnable examples and supported evaluation datasets."
+    },
+    {
+      "literature_id": "LIT-0181",
+      "title": "Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity",
+      "year": 2024,
+      "promotion_priority": 6,
+      "experiment_lane": "rag-aware-allocation-policy-baseline",
+      "primary_candidate_family": "baseline",
+      "secondary_candidate_families": [
+        "method_component"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_duplicate_check",
+        "missing_version_ref",
+        "missing_policy_ref",
+        "missing_benchmark_refs",
+        "missing_entrypoint_smoke"
+      ],
+      "proposed_asset_output": "Adaptive RAG policy baseline for query-complexity-aware retrieval/generation allocation.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0181"
+        },
+        {
+          "kind": "external_repository",
+          "id": "starsuzi/Adaptive-RAG"
+        }
+      ],
+      "repository": "https://github.com/starsuzi/Adaptive-RAG",
+      "repository_verification_status": "verified-url",
+      "license": "Apache-2.0",
+      "protocol_signal": "code-backed-method-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.82,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "low",
+      "risk_reasons": [
+        "Requires repository smoke and benchmark compatibility check before promotion."
+      ],
+      "metric_tags": [
+        "metric:answer-quality",
+        "metric:cost-per-query",
+        "metric:recall-at-k"
+      ],
+      "resource_tags": [
+        "resource:model-choice",
+        "resource:retrieval-depth",
+        "resource:top-k"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "missing_fields": [
+        "duplicate_check",
+        "version_ref",
+        "policy_ref",
+        "benchmark_refs",
+        "entrypoint_smoke"
+      ],
+      "next_verification_action": "Inspect repository entrypoint and identify minimal benchmark-compatible run command."
+    },
+    {
+      "literature_id": "LIT-0215",
+      "title": "BurstGPT: A Real-world Workload Dataset to Optimize LLM Serving Systems",
+      "year": 2024,
+      "promotion_priority": 7,
+      "experiment_lane": "llm-serving-workload-trace",
+      "primary_candidate_family": "dataset",
+      "secondary_candidate_families": [
+        "benchmark"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_trace_schema",
+        "missing_split_protocol",
+        "missing_data_policy_ref",
+        "missing_privacy_review",
+        "missing_checksum_manifest"
+      ],
+      "proposed_asset_output": "LLM serving workload dataset candidate for queueing/scheduling substrate experiments.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0215"
+        },
+        {
+          "kind": "external_repository",
+          "id": "HPMLL/BurstGPT"
+        }
+      ],
+      "repository": "https://github.com/HPMLL/BurstGPT",
+      "repository_verification_status": "verified-url",
+      "license": "CC-BY-4.0",
+      "protocol_signal": "workload-trace-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.7699999999999999,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "medium",
+      "risk_reasons": [
+        "Real-world workload traces need policy, privacy, and redistribution review."
+      ],
+      "metric_tags": [
+        "metric:gpu-utilization",
+        "metric:tpot",
+        "metric:ttft"
+      ],
+      "resource_tags": [],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "missing_fields": [
+        "trace_schema",
+        "split_protocol",
+        "data_policy_ref",
+        "privacy_review",
+        "checksum_manifest"
+      ],
+      "next_verification_action": "Inspect workload format, license constraints, and replay compatibility with serving simulators."
+    },
+    {
+      "literature_id": "LIT-0218",
+      "title": "Vidur: A Large-Scale Simulation Framework For LLM Inference",
+      "year": 2024,
+      "promotion_priority": 8,
+      "experiment_lane": "llm-serving-simulator",
+      "primary_candidate_family": "method_component",
+      "secondary_candidate_families": [
+        "baseline"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_component_spec",
+        "missing_version_ref",
+        "missing_workload_dataset_refs",
+        "missing_entrypoint_smoke"
+      ],
+      "proposed_asset_output": "LLM inference simulator component candidate for serving policy experiments.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0218"
+        },
+        {
+          "kind": "external_repository",
+          "id": "microsoft/vidur"
+        }
+      ],
+      "repository": "https://github.com/microsoft/vidur",
+      "repository_verification_status": "verified-url",
+      "license": "MIT",
+      "protocol_signal": "toolkit-or-simulator-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.82,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "low",
+      "risk_reasons": [
+        "Simulator must be bound to workload traces and version-locked configs."
+      ],
+      "metric_tags": [
+        "metric:gpu-utilization",
+        "metric:tpot",
+        "metric:ttft"
+      ],
+      "resource_tags": [],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "missing_fields": [
+        "component_spec",
+        "version_ref",
+        "workload_dataset_refs",
+        "entrypoint_smoke"
+      ],
+      "next_verification_action": "Identify a minimal Vidur simulation run using a local or synthetic workload."
+    },
+    {
+      "literature_id": "LIT-0234",
+      "title": "RouteLLM: Learning to Route LLMs with Preference Data",
+      "year": 2024,
+      "promotion_priority": 9,
+      "experiment_lane": "test-time-routing-baseline",
+      "primary_candidate_family": "baseline",
+      "secondary_candidate_families": [
+        "method_component"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_supported_benchmark_refs",
+        "missing_version_ref",
+        "missing_policy_ref",
+        "missing_entrypoint_smoke"
+      ],
+      "proposed_asset_output": "LLM routing baseline candidate for adaptive model-choice cost/quality experiments.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0234"
+        },
+        {
+          "kind": "external_repository",
+          "id": "lm-sys/RouteLLM"
+        }
+      ],
+      "repository": "https://github.com/lm-sys/RouteLLM",
+      "repository_verification_status": "verified-url",
+      "license": "Apache-2.0",
+      "protocol_signal": "code-backed-method-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.82,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "low",
+      "risk_reasons": [
+        "Preference-data assumptions and model/provider dependencies need review."
+      ],
+      "metric_tags": [
+        "metric:answer-quality",
+        "metric:cost-per-query"
+      ],
+      "resource_tags": [
+        "resource:cost-budget",
+        "resource:model-choice"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "missing_fields": [
+        "supported_benchmark_refs",
+        "version_ref",
+        "policy_ref",
+        "entrypoint_smoke"
+      ],
+      "next_verification_action": "Inspect RouteLLM examples and define a provider-independent smoke path."
+    },
+    {
+      "literature_id": "LIT-0273",
+      "title": "LoongServe: Efficiently Serving Long-Context Large Language Models with Elastic Sequence Parallelism",
+      "year": 2024,
+      "promotion_priority": 10,
+      "experiment_lane": "long-context-serving-baseline",
+      "primary_candidate_family": "baseline",
+      "secondary_candidate_families": [
+        "method_component"
+      ],
+      "candidate_status": "manual_review_required",
+      "promotion_decision_kind": "manual_review_required",
+      "auto_promotion_allowed": false,
+      "auto_promotion_blockers": [
+        "duplicate_check_not_completed",
+        "version_or_policy_refs_missing",
+        "repository_smoke_not_verified",
+        "missing_hardware_profile",
+        "missing_version_ref",
+        "missing_entrypoint_smoke",
+        "missing_supported_workload_refs"
+      ],
+      "proposed_asset_output": "Long-context LLM serving baseline candidate for context-window/prefill/decode resource allocation.",
+      "source_refs": [
+        {
+          "kind": "literature_record",
+          "id": "LIT-0273"
+        },
+        {
+          "kind": "external_repository",
+          "id": "LoongServe/LoongServe"
+        }
+      ],
+      "repository": "https://github.com/LoongServe/LoongServe",
+      "repository_verification_status": "verified-url",
+      "license": "Apache-2.0",
+      "protocol_signal": "code-backed-method-protocol-candidate",
+      "runnable_baseline_feasibility": "high",
+      "confidence_score": 0.82,
+      "duplicate_status": "not_checked",
+      "completeness_status": "needs_info",
+      "policy_status": "clear",
+      "risk_level": "low",
+      "risk_reasons": [
+        "System requirements may exceed local reproducibility and need adapter/resource constraints."
+      ],
+      "metric_tags": [
+        "metric:p95-latency",
+        "metric:p99-latency"
+      ],
+      "resource_tags": [
+        "resource:context-window",
+        "resource:decode",
+        "resource:gpu-memory",
+        "resource:prefill"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "missing_fields": [
+        "hardware_profile",
+        "version_ref",
+        "entrypoint_smoke",
+        "supported_workload_refs"
+      ],
+      "next_verification_action": "Inspect LoongServe minimum hardware assumptions and decide whether to keep as local-smoke or external-run candidate."
+    }
+  ],
+  "artifact_paths": {
+    "matrix_json": "dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion/artifacts/f3-promotion-matrix.json",
+    "markdown": "dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion/06-f3-promotion-matrix.md"
+  }
+}
