@@ -1,0 +1,3952 @@
+{
+  "run_id": "20260604T-key-content-curated-all-fulltext",
+  "apply": true,
+  "selector": "all-fulltext",
+  "limit": 200,
+  "generated_at": "2026-06-04T05:40:35.473Z",
+  "target_summary": {
+    "corpus_count": 125,
+    "fulltext_ready_count": 112,
+    "key_content_ready_count": 3,
+    "key_content_failed_count": 0
+  },
+  "selected_targets": [
+    {
+      "id": "LIT-0314",
+      "title": "The Cost of Dynamic Reasoning: Demystifying AI Agents and Test-Time Scaling from an AI Infrastructure Perspective",
+      "arxiv_id": "2506.04301",
+      "doi": "10.48550/arxiv.2506.04301",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0315",
+      "title": "Adaptive Graph of Thoughts: Test-Time Adaptive Reasoning Unifying Chain, Tree, and Graph Structures",
+      "arxiv_id": "2502.05078",
+      "doi": "10.48550/arxiv.2502.05078",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0316",
+      "title": "RAGBoost: Efficient Retrieval-Augmented Generation with Accuracy-Preserving Context Reuse",
+      "arxiv_id": "2511.03475",
+      "doi": null,
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0317",
+      "title": "SubGCache: Accelerating Graph-based RAG with Subgraph-level KV Cache",
+      "arxiv_id": "2505.10951",
+      "doi": "10.1609/aaai.v40i41.40827",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0324",
+      "title": "Higress-RAG: A Holistic Optimization Framework for Enterprise Retrieval-Augmented Generation via Dual Hybrid Retrieval, Adaptive Routing, and CRAG",
+      "arxiv_id": "2602.23374",
+      "doi": "10.48550/arxiv.2602.23374",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0310",
+      "title": "AugServe: Adaptive Request Scheduling for Augmented Large Language Model Inference Serving",
+      "arxiv_id": "2512.04013",
+      "doi": "10.48550/arxiv.2512.04013",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0311",
+      "title": "HydraInfer: Hybrid Disaggregated Scheduling for Multimodal Large Language Model Serving",
+      "arxiv_id": "2505.12658",
+      "doi": "10.48550/arxiv.2505.12658",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0313",
+      "title": "Taming Request Imbalance: SLO-Aware Scheduling for Disaggregated LLM Inference",
+      "arxiv_id": "2605.02329",
+      "doi": null,
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0320",
+      "title": "Can 1B LLM Surpass 405B LLM? Rethinking Compute-Optimal Test-Time Scaling",
+      "arxiv_id": "2502.06703",
+      "doi": "10.48550/arxiv.2502.06703",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0323",
+      "title": "Inference-Time Scaling for Generalist Reward Modeling",
+      "arxiv_id": "2504.02495",
+      "doi": "10.48550/arxiv.2504.02495",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0290",
+      "title": "KVServe: Service-Aware KV Cache Compression for Communication-Efficient Disaggregated LLM Serving",
+      "arxiv_id": "2605.13734",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0291",
+      "title": "LLM Serving Optimization with Variable Prefill and Decode Lengths",
+      "arxiv_id": "2508.06133",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0292",
+      "title": "Adaptive Test-Time Compute Allocation for Reasoning LLMs via Constrained Policy Optimization",
+      "arxiv_id": "2604.14853",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0293",
+      "title": "Mell: Memory-Efficient Large Language Model Serving via Multi-GPU KV Cache Management",
+      "arxiv_id": "2501.06709",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0294",
+      "title": "Scaling Test-Time Inference with Policy-Optimized, Dynamic Retrieval-Augmented Generation via KV Caching and Decoding",
+      "arxiv_id": "2504.01281",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0295",
+      "title": "Adaptive Test-Time Compute Allocation via Learned Heuristics over Categorical Structure",
+      "arxiv_id": "2602.03975",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0296",
+      "title": "Conformal Thinking: Risk Control for Reasoning on a Compute Budget",
+      "arxiv_id": "2602.03814",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0297",
+      "title": "RoutIR: Fast Serving of Retrieval Pipelines for Retrieval-Augmented Generation",
+      "arxiv_id": "2601.10644",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0301",
+      "title": "CacheRAG: A Semantic Caching System for Retrieval-Augmented Generation in Knowledge Graph Question Answering",
+      "arxiv_id": "2604.26176",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0178",
+      "title": "Active Retrieval Augmented Generation",
+      "arxiv_id": "2305.06983",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0179",
+      "title": "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection",
+      "arxiv_id": "2310.11511",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0181",
+      "title": "Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity",
+      "arxiv_id": "2403.14403",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0182",
+      "title": "CacheBlend: Fast Large Language Model Serving for RAG with Cached Knowledge Fusion",
+      "arxiv_id": "2405.16444",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0183",
+      "title": "METIS: Fast Quality-Aware RAG Systems with Configuration Adaptation",
+      "arxiv_id": "2412.10543",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0184",
+      "title": "DeepRAG: Thinking to Retrieve Step by Step for Large Language Models",
+      "arxiv_id": "2502.01142",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0185",
+      "title": "RAGO: Systematic Performance Optimization for Retrieval-Augmented Generation Serving",
+      "arxiv_id": "2503.14649",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0186",
+      "title": "SARA: Selective and Adaptive Retrieval-augmented Generation with Context Compression",
+      "arxiv_id": "2507.05633",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0187",
+      "title": "Stop-RAG: Value-Based Retrieval Control for Iterative RAG",
+      "arxiv_id": "2510.14337",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0188",
+      "title": "Retrieval as a Decision: Training-Free Adaptive Gating for Efficient RAG",
+      "arxiv_id": "2511.09803",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0190",
+      "title": "RAGRouter-Bench: A Dataset and Benchmark for Adaptive RAG Routing",
+      "arxiv_id": "2602.00296",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0194",
+      "title": "RAGCache: Efficient Knowledge Caching for Retrieval-Augmented Generation",
+      "arxiv_id": "2404.12457",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0199",
+      "title": "TurboRAG: Accelerating Retrieval-Augmented Generation with Precomputed KV Caches for Chunked Text",
+      "arxiv_id": "2410.07590",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0200",
+      "title": "Cache-Craft: Managing Chunk-Caches for Efficient Retrieval-Augmented Generation",
+      "arxiv_id": "2502.15734",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0201",
+      "title": "CacheClip: Accelerating RAG with Effective KV Cache Reuse",
+      "arxiv_id": "2510.10129",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0202",
+      "title": "From Prefix Cache to Fusion RAG Cache: Accelerating LLM Inference in Retrieval-Augmented Generation",
+      "arxiv_id": "2601.12904",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0203",
+      "title": "ProphetKV: User-Query-Driven Selective Recomputation for Efficient KV Cache Reuse in Retrieval-Augmented Generation",
+      "arxiv_id": "2602.02579",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0205",
+      "title": "PCR: A Prefetch-Enhanced Cache Reuse System for Low-Latency RAG Serving",
+      "arxiv_id": "2603.23049",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0234",
+      "title": "RouteLLM: Learning to Route LLMs with Preference Data",
+      "arxiv_id": "2406.18665",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0235",
+      "title": "Large Language Monkeys: Scaling Inference Compute with Repeated Sampling",
+      "arxiv_id": "2407.21787",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0236",
+      "title": "Scaling LLM Test-Time Compute Optimally can be More Effective than Scaling Model Parameters",
+      "arxiv_id": "2408.03314",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0237",
+      "title": "When To Solve, When To Verify: Compute-Optimal Problem Solving and Generative Verification for LLM Reasoning",
+      "arxiv_id": "2504.01005",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0238",
+      "title": "Plan and Budget: Effective and Efficient Test-Time Scaling on Reasoning Large Language Models",
+      "arxiv_id": "2505.16122",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0239",
+      "title": "Thought calibration: Efficient and confident test-time scaling",
+      "arxiv_id": "2505.18404",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p0"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0177",
+      "title": "Leveraging Passage Retrieval with Generative Models for Open Domain Question Answering",
+      "arxiv_id": "2007.01282",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0180",
+      "title": "Corrective Retrieval Augmented Generation",
+      "arxiv_id": "2401.15884",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0189",
+      "title": "RAGPulse: An Open-Source RAG Workload Trace to Optimize RAG Serving Systems",
+      "arxiv_id": "2511.12979",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b1-core-high-precision"
+      ]
+    },
+    {
+      "id": "LIT-0195",
+      "title": "FlashRAG: A Modular Toolkit for Efficient Retrieval-Augmented Generation Research",
+      "arxiv_id": "2405.13576",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0196",
+      "title": "RAGBench: Explainable Benchmark for Retrieval-Augmented Generation Systems",
+      "arxiv_id": "2407.11005",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0197",
+      "title": "RAGChecker: A Fine-grained Framework for Diagnosing Retrieval-Augmented Generation",
+      "arxiv_id": "2408.08067",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0198",
+      "title": "RAGLAB: A Modular and Research-Oriented Unified Framework for Retrieval-Augmented Generation",
+      "arxiv_id": "2408.11381",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0204",
+      "title": "RAGPerf: An End-to-End Benchmarking Framework for Retrieval-Augmented Generation Systems",
+      "arxiv_id": "2603.10765",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b2-core-system-bridge"
+      ]
+    },
+    {
+      "id": "LIT-0208",
+      "title": "FlexGen: High-Throughput Generative Inference of Large Language Models with a Single GPU",
+      "arxiv_id": "2303.06865",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0209",
+      "title": "Fast Distributed Inference Serving for Large Language Models",
+      "arxiv_id": "2305.05920",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0210",
+      "title": "Efficient Memory Management for Large Language Model Serving with PagedAttention",
+      "arxiv_id": "2309.06180",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0211",
+      "title": "CacheGen: KV Cache Compression and Streaming for Fast Large Language Model Serving",
+      "arxiv_id": "2310.07240",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0212",
+      "title": "Splitwise: Efficient generative LLM inference using phase splitting",
+      "arxiv_id": "2311.18677",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0213",
+      "title": "SGLang: Efficient Execution of Structured Language Model Programs",
+      "arxiv_id": "2312.07104",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0214",
+      "title": "DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving",
+      "arxiv_id": "2401.09670",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0215",
+      "title": "BurstGPT: A Real-world Workload Dataset to Optimize LLM Serving Systems",
+      "arxiv_id": "2401.17644",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0216",
+      "title": "Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve",
+      "arxiv_id": "2403.02310",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0217",
+      "title": "vAttention: Dynamic Memory Management for Serving LLMs without PagedAttention",
+      "arxiv_id": "2405.04437",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0218",
+      "title": "Vidur: A Large-Scale Simulation Framework For LLM Inference",
+      "arxiv_id": "2405.05465",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0219",
+      "title": "Llumnix: Dynamic Scheduling for Large Language Model Serving",
+      "arxiv_id": "2406.03243",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0220",
+      "title": "Preble: Efficient Distributed Prompt Scheduling for LLM Serving",
+      "arxiv_id": "2407.00023",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0221",
+      "title": "Mooncake: A KVCache-centric Disaggregated Architecture for LLM Serving",
+      "arxiv_id": "2407.00079",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0222",
+      "title": "SLOs-Serve: Optimized Serving of Multi-SLO LLMs",
+      "arxiv_id": "2504.08784",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0223",
+      "title": "JITServe: SLO-aware LLM Serving with Imprecise Request Information",
+      "arxiv_id": "2504.20068",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0224",
+      "title": "Nexus:Proactive Intra-GPU Disaggregation of Prefill and Decode in LLM Serving",
+      "arxiv_id": "2507.06608",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0225",
+      "title": "SLO-Aware Compute Resource Allocation for Prefill-Decode Disaggregated LLM Inference",
+      "arxiv_id": "2603.04716",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0226",
+      "title": "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models",
+      "arxiv_id": "2201.11903",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0227",
+      "title": "Self-Consistency Improves Chain of Thought Reasoning in Language Models",
+      "arxiv_id": "2203.11171",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0228",
+      "title": "Reflexion: Language Agents with Verbal Reinforcement Learning",
+      "arxiv_id": "2303.11366",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0229",
+      "title": "Self-Refine: Iterative Refinement with Self-Feedback",
+      "arxiv_id": "2303.17651",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0230",
+      "title": "FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance",
+      "arxiv_id": "2305.05176",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0231",
+      "title": "Tree of Thoughts: Deliberate Problem Solving with Large Language Models",
+      "arxiv_id": "2305.10601",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0232",
+      "title": "Let's Verify Step by Step",
+      "arxiv_id": "2305.20050",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0233",
+      "title": "Graph of Thoughts: Solving Elaborate Problems with Large Language Models",
+      "arxiv_id": "2308.09687",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0241",
+      "title": "The Art of Scaling Test-Time Compute for Large Language Models",
+      "arxiv_id": "2512.02008",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0242",
+      "title": "CoRefine: Confidence-Guided Self-Refinement for Adaptive Test-Time Compute",
+      "arxiv_id": "2602.08948",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0244",
+      "title": "When More Thinking Hurts: Overthinking in LLM Test-Time Compute Scaling",
+      "arxiv_id": "2604.10739",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0261",
+      "title": "A Queueing Theoretic Perspective on Low-Latency LLM Inference with Variable Token Length",
+      "arxiv_id": "2407.05347",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0266",
+      "title": "Grounded Cache Routing for Retrieval-Augmented Generation: When Is It Safe to Reuse an Answer?",
+      "arxiv_id": "2605.27494",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0267",
+      "title": "RAGDoll: Efficient Offloading-based Online RAG System on a Single GPU",
+      "arxiv_id": "2504.15302",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0268",
+      "title": "Retriever Portfolios: A Principled Approach to Adaptive RAG",
+      "arxiv_id": "2605.31176",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0269",
+      "title": "Trinity: Disaggregating Vector Search from Prefill-Decode Disaggregation in LLM Serving",
+      "arxiv_id": "2512.02281",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0270",
+      "title": "TeleRAG: Efficient Retrieval-Augmented Generation Inference with Lookahead Retrieval",
+      "arxiv_id": "2502.20969",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0271",
+      "title": "Route Before Retrieve: Activating Latent Routing Abilities of LLMs for RAG vs. Long-Context Selection",
+      "arxiv_id": "2605.10235",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0272",
+      "title": "ExeGPT: Constraint-Aware Resource Scheduling for LLM Inference",
+      "arxiv_id": "2404.07947",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0273",
+      "title": "LoongServe: Efficiently Serving Long-Context Large Language Models with Elastic Sequence Parallelism",
+      "arxiv_id": "2404.09526",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0274",
+      "title": "UCCI: Calibrated Uncertainty for Cost-Optimal LLM Cascade Routing",
+      "arxiv_id": "2605.18796",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0275",
+      "title": "UniScale: Adaptive Unified Inference Scaling via Online Joint Optimization of Model Routing and Test-Time Scaling",
+      "arxiv_id": "2605.30898",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0276",
+      "title": "Inference Scaling for Long-Context Retrieval Augmented Generation",
+      "arxiv_id": "2410.04343",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0277",
+      "title": "Chameleon: a Heterogeneous and Disaggregated Accelerator System for Retrieval-Augmented Language Models",
+      "arxiv_id": "2310.09949",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b6-citation-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0283",
+      "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+      "arxiv_id": "2005.11401",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:f1-import-missing-core-classic"
+      ]
+    },
+    {
+      "id": "LIT-0298",
+      "title": "TARo: Token-level Adaptive Routing for LLM Test-time Alignment",
+      "arxiv_id": "2603.18411",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0299",
+      "title": "Optimizing LLM Inference: Fluid-Guided Online Scheduling with Memory Constraints",
+      "arxiv_id": "2504.11320",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0300",
+      "title": "Aligning Tree-Search Policies with Fixed Token Budgets in Test-Time Scaling of LLMs",
+      "arxiv_id": "2602.09574",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0302",
+      "title": "R$^3$AG: Retriever Routing for Retrieval-Augmented Generation",
+      "arxiv_id": "2604.22849",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0303",
+      "title": "Cache Mechanism for Agent RAG Systems",
+      "arxiv_id": "2511.02919",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:core"
+      ],
+      "direction_tags": [
+        "direction:rag-aware-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0304",
+      "title": "Optimizing Test-Time Compute via Meta Reinforcement Fine-Tuning",
+      "arxiv_id": "2503.07572",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0305",
+      "title": "P/D-Serve: Serving Disaggregated Large Language Model at Scale",
+      "arxiv_id": "2408.08147",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b7-frontier-three-direction-expansion"
+      ]
+    },
+    {
+      "id": "LIT-0240",
+      "title": "Reasoning on a Budget: A Survey of Adaptive and Controllable Test-Time Compute in LLMs",
+      "arxiv_id": "2507.02076",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0243",
+      "title": "Dynamic Model Routing and Cascading for Efficient LLM Inference: A Survey",
+      "arxiv_id": "2603.04445",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b4-strategy-policy"
+      ]
+    },
+    {
+      "id": "LIT-0319",
+      "title": "DEL-ToM: Inference-Time Scaling for Theory-of-Mind Reasoning via Dynamic Epistemic Logic",
+      "arxiv_id": null,
+      "doi": "10.18653/v1/2025.emnlp-main.573",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0258",
+      "title": "The information bottleneck method",
+      "arxiv_id": "physics/0004057",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0259",
+      "title": "Group Equivariant Convolutional Networks",
+      "arxiv_id": "1602.07576",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0260",
+      "title": "Geometric Deep Learning: Grids, Groups, Graphs, Geodesics, and Gauges",
+      "arxiv_id": "2104.13478",
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0321",
+      "title": "Think Right, Not More: Test-Time Scaling for Numerical Claim Verification",
+      "arxiv_id": null,
+      "doi": "10.18653/v1/2025.findings-emnlp.1322",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0322",
+      "title": "Collaborative Beam Search: Enhancing LLM Reasoning via Collective Consensus",
+      "arxiv_id": null,
+      "doi": "10.18653/v1/2025.emnlp-main.574",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    }
+  ],
+  "summary": {
+    "selected": 109,
+    "imported": 109,
+    "dry_run_valid": 0,
+    "dry_run_invalid": 0,
+    "failed": 0
+  },
+  "before": {
+    "corpus": 125,
+    "with_assets": 112,
+    "fulltext_preprocessed": 112,
+    "key_content_ready": 3,
+    "chunked": 3,
+    "embedded": 3,
+    "indexed": 3,
+    "with_embedding_chunks": 3
+  },
+  "after": {
+    "corpus": 125,
+    "with_assets": 112,
+    "fulltext_preprocessed": 112,
+    "key_content_ready": 112,
+    "chunked": 3,
+    "embedded": 3,
+    "indexed": 3,
+    "with_embedding_chunks": 3
+  },
+  "imports": [
+    {
+      "literature_id": "LIT-0314",
+      "title": "The Cost of Dynamic Reasoning: Demystifying AI Agents and Test-Time Scaling from an AI Infrastructure Perspective",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "d615ebbf-1af1-403a-81c6-5d12e653accf",
+        "checksum": "8c3e8f519daf6cebc9f9f9119bb5017bd539dbeb02607c32a695112c1f3a7285",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0315",
+      "title": "Adaptive Graph of Thoughts: Test-Time Adaptive Reasoning Unifying Chain, Tree, and Graph Structures",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "cdc308e0-7585-4c0f-8eb9-cb3258daf6da",
+        "checksum": "98df53e548f67f6ff0c9cec1da59c6961dcb4bb70a2da2ab399eb450d8012765",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0316",
+      "title": "RAGBoost: Efficient Retrieval-Augmented Generation with Accuracy-Preserving Context Reuse",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "c1765100-ac8d-464e-a071-4e0533e7e5f7",
+        "checksum": "732804c3de2ab16112fdcb22d840af98a965f33bdbdadfd26e1b47608f6f01fd",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0317",
+      "title": "SubGCache: Accelerating Graph-based RAG with Subgraph-level KV Cache",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "f4970934-bfe1-458f-870b-a487cc835cee",
+        "checksum": "d8e235d8530658ee6cf457218979481a5e01395377196f8bfcb3699de3ce56c1",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0324",
+      "title": "Higress-RAG: A Holistic Optimization Framework for Enterprise Retrieval-Augmented Generation via Dual Hybrid Retrieval, Adaptive Routing, and CRAG",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "f420071c-0eb5-4152-823f-ad693473fa5b",
+        "checksum": "ce08bda11797412b107d2433f5c9db73a809df6b6d65cae45e0ba1d30c96d311",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0310",
+      "title": "AugServe: Adaptive Request Scheduling for Augmented Large Language Model Inference Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "ee808b3d-1ee0-49f7-9748-8459c7d47c51",
+        "checksum": "c2c22716ed4615d8990cda142239e7df3b539c72feef0527d5e2643640b98953",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0311",
+      "title": "HydraInfer: Hybrid Disaggregated Scheduling for Multimodal Large Language Model Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "e742abde-95bb-450b-b97d-0076a8e9c92a",
+        "checksum": "8cba7e16762981182adba091b127f8a217e144d98b9b7939a0f815f3df7fd371",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0313",
+      "title": "Taming Request Imbalance: SLO-Aware Scheduling for Disaggregated LLM Inference",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "01da48ac-f0ae-47f6-bcd9-613bce49ac90",
+        "checksum": "e274828ddca7654b74c4ae83b5dedacb42530d77acbf6999e30837aa8bd03524",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0320",
+      "title": "Can 1B LLM Surpass 405B LLM? Rethinking Compute-Optimal Test-Time Scaling",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "9f4f2890-14db-42f9-bd7c-8b2ed2076582",
+        "checksum": "6e6ae2da01f6e98a50261c27caa6fc50744088d79815b39381c82cc1532a3f4f",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0323",
+      "title": "Inference-Time Scaling for Generalist Reward Modeling",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "7dec4b05-8d61-42df-81c3-75fd91464059",
+        "checksum": "08963b8282f2a0913e78b3ff02550db36b9af48ee3d9aa449f8f288a0bff63af",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0290",
+      "title": "KVServe: Service-Aware KV Cache Compression for Communication-Efficient Disaggregated LLM Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "bdab3b33-8311-4d44-adb7-db9985f8e1af",
+        "checksum": "cbc434e594019a97c1abfd8d83cb70b6838da75bf4bdd5d14c9bee7aac47bc3b",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0291",
+      "title": "LLM Serving Optimization with Variable Prefill and Decode Lengths",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "dfa1225f-fdfd-45f1-89f5-b281a378f348",
+        "checksum": "34a3d2e3ae4253db84a9e34be0c631478d6669f236c015451edf2871b1753d93",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0292",
+      "title": "Adaptive Test-Time Compute Allocation for Reasoning LLMs via Constrained Policy Optimization",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "cc090907-d9e9-4add-aad2-f29de1f37a96",
+        "checksum": "0b86502572485088359af2955e7fd9f32ebdedab202ec14ed7ea193698b3ad08",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0293",
+      "title": "Mell: Memory-Efficient Large Language Model Serving via Multi-GPU KV Cache Management",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "c6861849-6dc0-4e21-a117-e25b8ccbd8be",
+        "checksum": "5e018ba248c750900720d5fbfed2581400c6f801171e3f24dbe965a6692cf296",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0294",
+      "title": "Scaling Test-Time Inference with Policy-Optimized, Dynamic Retrieval-Augmented Generation via KV Caching and Decoding",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "82061bed-f643-48d1-a620-bc3f5a2e9651",
+        "checksum": "5918d800da0ca687a1dc0f2f939657134b7f97522f38100b230b1c43fbc4f5b8",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0295",
+      "title": "Adaptive Test-Time Compute Allocation via Learned Heuristics over Categorical Structure",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "b6cc2cef-604d-4d7e-b681-877eb96a7034",
+        "checksum": "06719d5ca47a713353228fa277f841d62cfc1e7d7ae419a6f05c329930e6b57c",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0296",
+      "title": "Conformal Thinking: Risk Control for Reasoning on a Compute Budget",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "57172d9f-e5ba-4ec7-8068-8ef686cc962c",
+        "checksum": "e60cd791bd8098d4008725a34595f82cf7048489506a0a21aced85f14c015732",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0297",
+      "title": "RoutIR: Fast Serving of Retrieval Pipelines for Retrieval-Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "7ba4e707-55f7-4496-a95e-d9be0f8786d3",
+        "checksum": "03b3e1a7af6f624aa55af97a4327ebb752cf4634fdfca3b7ed84c311d1a25fa4",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0301",
+      "title": "CacheRAG: A Semantic Caching System for Retrieval-Augmented Generation in Knowledge Graph Question Answering",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "24cec519-03ab-48a2-918c-d4dea9b3d5cd",
+        "checksum": "d44f765788b336b1b3ad88ff43701224e1a74e758957f4c8ec9acc1448569554",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0178",
+      "title": "Active Retrieval Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "53cbcd6f-00bb-4096-a84e-3653e2554623",
+        "checksum": "e7f631ebb4713d77aa659618a1daf7a229c90dc3a3eb41a7987e40bd7b5dba79",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0179",
+      "title": "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "c9aa36b8-2c1b-4082-bf3f-964cc5d9d208",
+        "checksum": "1a305a730860febf4fff8fbdaa0a409cf3e7fcca697e4768ccca6898c149a47e",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0181",
+      "title": "Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "87a61724-aa8f-47c2-937c-f143f51f6ac5",
+        "checksum": "e27025fe4734f331b1e64b8d73e495af655e7ec77230d66fdbc00d1ffaed3d92",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0182",
+      "title": "CacheBlend: Fast Large Language Model Serving for RAG with Cached Knowledge Fusion",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "5c8ac5e0-c978-493b-a134-3119af0b36be",
+        "checksum": "c9a8d0c037c685e106fd065274c106b8a74752636b0c36fba66ad53eb928497b",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0183",
+      "title": "METIS: Fast Quality-Aware RAG Systems with Configuration Adaptation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "011a6f93-cb7f-42db-a2f7-aa1f14e98b5f",
+        "checksum": "8eb5181316f928d6cfd9bb1ac871ac6d5d3b299cd46f044071bef34291389376",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0184",
+      "title": "DeepRAG: Thinking to Retrieve Step by Step for Large Language Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "81108779-9294-4d55-b0fd-6180d6112e64",
+        "checksum": "25c3a36f71332de0b33f5779b5411e8b73e9a82af0b1bd8e87b0f038273e72b1",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0185",
+      "title": "RAGO: Systematic Performance Optimization for Retrieval-Augmented Generation Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "e5125542-dd3a-4f22-bade-3c894596d8d8",
+        "checksum": "2b7496afd41c63043e069478ac69aad2deaf0dddf875fe51a4c1ae42427dd034",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0186",
+      "title": "SARA: Selective and Adaptive Retrieval-augmented Generation with Context Compression",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "9c99d5ff-8fbe-447e-8e26-6347c13e91ca",
+        "checksum": "7625b8986d65c86bdb93a0361491b1386b93d18469dda5aada9b81dd3a0f83ad",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0187",
+      "title": "Stop-RAG: Value-Based Retrieval Control for Iterative RAG",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "d7928b18-8e8c-4bf6-8d69-5366e8a1226f",
+        "checksum": "e27416dbf5a44e8bf2ff93db8d3758d4a515ea44f2888c9d9482af79a274711b",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0188",
+      "title": "Retrieval as a Decision: Training-Free Adaptive Gating for Efficient RAG",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "9ac2f22b-e66d-4921-8456-7b9e4e881a0f",
+        "checksum": "b8edfcd7497aee01e60728359838078f89099a606de00327b1ace1f3fb9042de",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0190",
+      "title": "RAGRouter-Bench: A Dataset and Benchmark for Adaptive RAG Routing",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "5167dc5d-6f25-406f-835e-17e91d17edea",
+        "checksum": "740f10f266c50a93235d8ba4421548676f0fb6a511d24f93c5d02ac1a95009d7",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0194",
+      "title": "RAGCache: Efficient Knowledge Caching for Retrieval-Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "10711bc0-f76c-48fa-a236-ac444de3b135",
+        "checksum": "6b0380e2e30474a08059fa65aef4396a02875cb249ae217a1b92b39ad4ab6220",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0199",
+      "title": "TurboRAG: Accelerating Retrieval-Augmented Generation with Precomputed KV Caches for Chunked Text",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "d31d00ab-5d0d-4248-a537-7e477033c237",
+        "checksum": "9400e86de080a9a4f9f0511d2674f60c924d337fdb88dc51bfb71463d8b74a90",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0200",
+      "title": "Cache-Craft: Managing Chunk-Caches for Efficient Retrieval-Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "e5440e27-ccd5-4506-9b7c-1ad403f5047d",
+        "checksum": "49b25f33e31fb0684d94b91f7da7e9513bf11513dae8832f3e0696896f3ce345",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0201",
+      "title": "CacheClip: Accelerating RAG with Effective KV Cache Reuse",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "bc464f0a-5482-40ea-99da-f473545de2d1",
+        "checksum": "90447a4a6a90cc5951d9fdd15bb1ac8797dde6b90280e05cec3ea75bbe28da90",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0202",
+      "title": "From Prefix Cache to Fusion RAG Cache: Accelerating LLM Inference in Retrieval-Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "1e95f126-d606-467c-88d0-ae1a7aeb0b69",
+        "checksum": "bcfcff337b8d04fde0ae1c6dfa005fc5a8c2c0551b3934fc7fc2966c1dcb36a0",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0203",
+      "title": "ProphetKV: User-Query-Driven Selective Recomputation for Efficient KV Cache Reuse in Retrieval-Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "38dc6d85-c5c7-464e-a899-9f4e5c551324",
+        "checksum": "22ded22c368cad520af245bfdfa61649a67dcaf6e8ad781d87b0f64fc0b27f72",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0205",
+      "title": "PCR: A Prefetch-Enhanced Cache Reuse System for Low-Latency RAG Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "690d2deb-5902-4ca5-9c51-44a504750c6a",
+        "checksum": "917c34e4f73e309dc01a30e63b4a4d8738b4bf437956d90de8a94cb5a5549258",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0234",
+      "title": "RouteLLM: Learning to Route LLMs with Preference Data",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "568b8071-ee38-4275-9fa9-f737ce6c34ae",
+        "checksum": "7011fd53cfa8cb6a69bde301ffe32ae77fead421a95202078a9f75cfa680b2f3",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0235",
+      "title": "Large Language Monkeys: Scaling Inference Compute with Repeated Sampling",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "29a7361e-53e6-45d3-9a87-4c04a9461a10",
+        "checksum": "60ff9fda1554f21e3a988d39207c19f37fd7dfeff48bbbd699ce4992b66df9c0",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0236",
+      "title": "Scaling LLM Test-Time Compute Optimally can be More Effective than Scaling Model Parameters",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "f5a960e4-9739-467b-ad78-9ec01a02088b",
+        "checksum": "d6eb1981473b46b16c9e46a8bafe6c0e4d14ce3b3c803251ac7e8dfe1f0d0fa2",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0237",
+      "title": "When To Solve, When To Verify: Compute-Optimal Problem Solving and Generative Verification for LLM Reasoning",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "7c472b70-2e41-4f3d-b54c-bd3132ba8cbc",
+        "checksum": "d676dac04cb9ad46bd41081eecd718a9ddd6f6631fa5f17055603bea40877e9c",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0238",
+      "title": "Plan and Budget: Effective and Efficient Test-Time Scaling on Reasoning Large Language Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "1e2ca312-2e42-45ef-9149-9e7b8d139c14",
+        "checksum": "ccfd41f0f58a55c3e4ff1bd622ad405a1cf2fa9f242b5c7c5e89f3839e00cbaf",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0239",
+      "title": "Thought calibration: Efficient and confident test-time scaling",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "fe4605c2-a7db-4698-8bb0-835539d0de4d",
+        "checksum": "3eab470880bd08934ff7d4237849ac63c46da82abe958a6328eb6c896c41d38a",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0177",
+      "title": "Leveraging Passage Retrieval with Generative Models for Open Domain Question Answering",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "12a99ef9-51ac-4df5-9a62-6423a2235695",
+        "checksum": "1e56e5648666dfbb633491e83a6535ffb54d9ce687e74c1c70b8fb5c9c71e96c",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0180",
+      "title": "Corrective Retrieval Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "235bc70e-c3e4-4dd6-ab40-6b34a765082f",
+        "checksum": "2663b742c48c5d7cd600f4f000101e2907f80610fe484c70c19650b4b7b560b3",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0189",
+      "title": "RAGPulse: An Open-Source RAG Workload Trace to Optimize RAG Serving Systems",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "2e453194-4c89-4288-b982-03c2666a2d4a",
+        "checksum": "e78799d80ffa9c481c7550b9b2aa0fdd337bc4a30fad295345584997f524cc3b",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0195",
+      "title": "FlashRAG: A Modular Toolkit for Efficient Retrieval-Augmented Generation Research",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "4f8a4581-73d5-4f5f-9d39-09013c93749b",
+        "checksum": "1d4bb7c315da29faf07c202dd0e30943843fa258f1b2a7ba9e41c79783d49fd8",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0196",
+      "title": "RAGBench: Explainable Benchmark for Retrieval-Augmented Generation Systems",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "fd098444-4f17-48ac-9441-a680915bdce3",
+        "checksum": "43c0048d76b1db1eb7694c4b9ab83342d3c4fa0d3a3e351f5fdd2bf165a776cd",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0197",
+      "title": "RAGChecker: A Fine-grained Framework for Diagnosing Retrieval-Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "cf37088c-9ca4-47a3-9196-b7574c0a7ad3",
+        "checksum": "6609a3b196e7d96ae5335164d848f7d485b825e9df6912004445a5d16d089588",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0198",
+      "title": "RAGLAB: A Modular and Research-Oriented Unified Framework for Retrieval-Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "c1c11f31-31cf-4e56-8d88-9d4f8b616fdd",
+        "checksum": "33d56357278c9719a97c80ba825bd67757cac7ef6ed87bd010259dbb650d42b8",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0204",
+      "title": "RAGPerf: An End-to-End Benchmarking Framework for Retrieval-Augmented Generation Systems",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "ed919444-5948-4575-b2e1-1f6dd4133c16",
+        "checksum": "39063383da8cd3f16449e28e4d1f43fa2d8baa4bf4d780e57c51121062ab9a42",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0208",
+      "title": "FlexGen: High-Throughput Generative Inference of Large Language Models with a Single GPU",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "4dc9aae5-2b60-410b-9f9e-4c04b8c8d912",
+        "checksum": "a1606a2cf26deacde9156aa209e021b1f40fb4970242bdfcd9f58a86b8213888",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0209",
+      "title": "Fast Distributed Inference Serving for Large Language Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "bf91bf14-d479-4214-bd20-d6098586d238",
+        "checksum": "cddf64ef9cb7d9147217b49020134165a605c6c8df838b63a87c7d249e0b7638",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0210",
+      "title": "Efficient Memory Management for Large Language Model Serving with PagedAttention",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "f2a5c1ed-a8b0-41f2-a8cc-d077542f0a24",
+        "checksum": "a9f1b02daf3641c879f145692018f87a70f79b6a567b0ad7de147a696ec19598",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0211",
+      "title": "CacheGen: KV Cache Compression and Streaming for Fast Large Language Model Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "d5ab7cd6-8054-42d8-b61d-4b98c801c187",
+        "checksum": "f0ca2053e5db1cb832810a9ac6c5f6bcdfd9afdb60e6f87a566fbecf2c5b03cf",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0212",
+      "title": "Splitwise: Efficient generative LLM inference using phase splitting",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "957dfc2f-1994-4c4e-a62a-ff1d57b21f29",
+        "checksum": "50d3f602d88a97092d8ff7a0e9fc791bb7052b2272102e2d52d138291e739d08",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0213",
+      "title": "SGLang: Efficient Execution of Structured Language Model Programs",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "2a1d49d3-ff72-463c-95be-16af5a9cc3e7",
+        "checksum": "2ec7924e6a0dd93485e158c21c0bc59f4e52c105fbd2034a6b72b0b0a856eafc",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0214",
+      "title": "DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "43c2d398-334a-4234-bd73-9a56a1b25981",
+        "checksum": "93ab5d0efc779fce593bd059632cf20aecd17f7cdbc9386b56873696e5e6e47f",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0215",
+      "title": "BurstGPT: A Real-world Workload Dataset to Optimize LLM Serving Systems",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "cd609606-fe7e-45f9-8065-7940f3537689",
+        "checksum": "3de10d6834263b7712ada198ed3a530d4532a13a672c947d6480cc5f1c54e835",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0216",
+      "title": "Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "3f85a62e-42c1-4d26-b81d-831eb9d4c313",
+        "checksum": "9fb41bce023009aa92bf394d59c329a4dc814299daa3286d75ed630472c3359e",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0217",
+      "title": "vAttention: Dynamic Memory Management for Serving LLMs without PagedAttention",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "9b8ea651-0b18-4f57-a74f-6cf9a0855475",
+        "checksum": "d50f9d97ea6beaa1378be64a2f690a2b2a61a68579818eae68a1e32346c6c41b",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0218",
+      "title": "Vidur: A Large-Scale Simulation Framework For LLM Inference",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "db10f1f9-9fb7-444e-8aa5-4b474e2a119f",
+        "checksum": "8bd11baea7a028395efdefe7e56963ac97d2770477a9ae3d18d831a2297ecbf7",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0219",
+      "title": "Llumnix: Dynamic Scheduling for Large Language Model Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "be79ecc8-cb19-4460-8fa8-7f9d03354583",
+        "checksum": "4a0107b8f753aac278e7d9f6252c5ce100265983d23ceff22b503bb6241fd86d",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0220",
+      "title": "Preble: Efficient Distributed Prompt Scheduling for LLM Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "452f6b90-371b-4c91-b01c-d39fcf49d1ed",
+        "checksum": "dedf53d2911417bbd2528e497bc58c5b4750bcfda3213e36903e97b980e6849f",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0221",
+      "title": "Mooncake: A KVCache-centric Disaggregated Architecture for LLM Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "4acca376-d7ec-499c-a5a5-9110468301c2",
+        "checksum": "3793c20f905292ffbb1724f06c123efabe207dc3b00e68f2f8857d27420e6a2a",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0222",
+      "title": "SLOs-Serve: Optimized Serving of Multi-SLO LLMs",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "a43d883b-682d-4a95-a645-f83abafb9c42",
+        "checksum": "df480f7f87b2599f47d11d7c6a40f3a64b87fcf0cdee83c3f4cda99edc16309c",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0223",
+      "title": "JITServe: SLO-aware LLM Serving with Imprecise Request Information",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "bf922e8f-c9e5-4de5-899f-2ca964469e2f",
+        "checksum": "b59d18609f4de92cb6045a8a20894e4c0a10707925ef1dc62645b1715c51d3ef",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0224",
+      "title": "Nexus:Proactive Intra-GPU Disaggregation of Prefill and Decode in LLM Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "fdc3bf6c-d421-4025-a136-b85103cc0515",
+        "checksum": "635c1e7c5b7ba4a4b3dfa85f16e47f9a496898bfef1f46e98ce74d3ebe401860",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0225",
+      "title": "SLO-Aware Compute Resource Allocation for Prefill-Decode Disaggregated LLM Inference",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "745944cb-1e27-4189-82b3-bf8c904a055c",
+        "checksum": "a024297045f52702a571befa74e8ee6064e7264f1734cda539e3bbbd532bbc9c",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0226",
+      "title": "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "34743904-3a3f-4f3e-ae2e-c6786a2f3e1d",
+        "checksum": "ebe7c3992c2ab548db9eee171c9d217dd0bc0946273676300d27c796a63e2105",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0227",
+      "title": "Self-Consistency Improves Chain of Thought Reasoning in Language Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "880abf8a-7770-40f1-bc7b-0f6944b06b2c",
+        "checksum": "52c02df0474a55abf0dce3906b2820580f8a40177144dd4f5c17009c8e671fa2",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0228",
+      "title": "Reflexion: Language Agents with Verbal Reinforcement Learning",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "d4311910-f014-4f93-8b79-df604c6e3be3",
+        "checksum": "250e16274f6494f677dde311fe07046af27f650fc52641ad18c087bcec1f7604",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0229",
+      "title": "Self-Refine: Iterative Refinement with Self-Feedback",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "4ddff994-1eeb-4854-89e5-ff39703fb0a5",
+        "checksum": "2d7519e9713835ed1b4ea603441f1d67c058ea35a8b4ea30d66b4b5da390c39d",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0230",
+      "title": "FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "959aeae9-9139-4c73-94a1-64626a52be3f",
+        "checksum": "b1aca985b150d6769964fa33d1ba885f20a1444eaa96593c1f3850433dfbd119",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0231",
+      "title": "Tree of Thoughts: Deliberate Problem Solving with Large Language Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "00261876-13d7-4cd0-bd98-e9b0a5fdcd61",
+        "checksum": "c068bc86f1759e8e5d71a6974648ed14c34fad2e04f1434b019543706630c43f",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0232",
+      "title": "Let's Verify Step by Step",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "9b809efe-278e-41a1-b5f7-4d105fe5f65d",
+        "checksum": "1360d8544ee513c85411a0e240725a81137735af55cc68ac23c04a12c7be5dc3",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0233",
+      "title": "Graph of Thoughts: Solving Elaborate Problems with Large Language Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "857918c3-bad9-4b79-8b0e-ef117d29053a",
+        "checksum": "dc2a62ae9c2e3cf4f6965b33df6289670cc2666ffc4b1f289cb3680decf3d5b9",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0241",
+      "title": "The Art of Scaling Test-Time Compute for Large Language Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "57b93865-6e2e-40bf-8179-0e6b2dd2cc34",
+        "checksum": "da5857a8e1c5f5260799e70b30b833a08d560eb0c3dc2b2a7e80836aa8503b2c",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0242",
+      "title": "CoRefine: Confidence-Guided Self-Refinement for Adaptive Test-Time Compute",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "d1f3c685-3d85-4ec6-a599-276d954adfce",
+        "checksum": "5450e6bb5c26c29d40e8f3094ea28647b9be4cfacbed958c10bcbba5eaecd905",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0244",
+      "title": "When More Thinking Hurts: Overthinking in LLM Test-Time Compute Scaling",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "1f0736ac-3f60-4b0e-a69c-2d036288199a",
+        "checksum": "237d277c10354d9cd270067e322371980ac53a202389cf49db76bc9da9097715",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0261",
+      "title": "A Queueing Theoretic Perspective on Low-Latency LLM Inference with Variable Token Length",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "a3d35a35-463f-4b24-9ea7-f7f39470d487",
+        "checksum": "45ae5f14fa865e7200a98deb90779f3213162811c0831f5df5206c4a77b54368",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0266",
+      "title": "Grounded Cache Routing for Retrieval-Augmented Generation: When Is It Safe to Reuse an Answer?",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "24559a02-97cb-4d0c-95fd-353bb80ac816",
+        "checksum": "e23fcd7722aea17e75ab12ba11ebe1f1551247bd56c103ab11687300afcb5a2b",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0267",
+      "title": "RAGDoll: Efficient Offloading-based Online RAG System on a Single GPU",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "76f128a4-24de-424e-afc4-aa342f2c20cc",
+        "checksum": "376a6417bf4e5cf10c0dbc12f90bf79747b7f10ed680441dc351a0e7980a4cc7",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0268",
+      "title": "Retriever Portfolios: A Principled Approach to Adaptive RAG",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "ca4debef-85d9-41d7-a5f3-77f36c1ab558",
+        "checksum": "eedacaca3ddee8158608bdf80ac027b507a1b1e7b5503dfb95a4594eca3135b5",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0269",
+      "title": "Trinity: Disaggregating Vector Search from Prefill-Decode Disaggregation in LLM Serving",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "bc8ab122-ec7a-4151-ae0a-64b04fb260d5",
+        "checksum": "f1d860bdd11735d8bb090ffd759e2a6cbdf2f0e8aba6a40a502a41c92e96ca61",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0270",
+      "title": "TeleRAG: Efficient Retrieval-Augmented Generation Inference with Lookahead Retrieval",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "0b7bd1d9-67ac-4927-8c46-ca810f698b39",
+        "checksum": "e6596c58d27af757b9ef32d0571c18928a08cf24b241555c074f6e6a13c2fd4b",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0271",
+      "title": "Route Before Retrieve: Activating Latent Routing Abilities of LLMs for RAG vs. Long-Context Selection",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "8661c42b-4f3e-413c-a581-e10923a9c4dd",
+        "checksum": "c083427f2a5e77c0a73d5398a0e844db44ea88135b5d23abbcd5d35c1943ffde",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0272",
+      "title": "ExeGPT: Constraint-Aware Resource Scheduling for LLM Inference",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "9ce9f444-b62f-4910-8345-ac2c037add3e",
+        "checksum": "3e60ab883ce2aaff3c09705d3940b640fc4f9a36705a7883dad3f7af78bb7dc3",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0273",
+      "title": "LoongServe: Efficiently Serving Long-Context Large Language Models with Elastic Sequence Parallelism",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "d1dddef3-f0c8-4476-881d-1bf392f0b9c3",
+        "checksum": "44942388fbd2b057e9daf29131e4df9a1335135b39de2a0c231017f7259f6441",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0274",
+      "title": "UCCI: Calibrated Uncertainty for Cost-Optimal LLM Cascade Routing",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "fd3956d9-2a7f-4463-ba97-d0542e4313db",
+        "checksum": "1026741f71653b87f9e06756e481571cc33723c7e8fc69afdf3d224c473e1e0d",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0275",
+      "title": "UniScale: Adaptive Unified Inference Scaling via Online Joint Optimization of Model Routing and Test-Time Scaling",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "128d90d4-6e73-4698-adec-8418849acff8",
+        "checksum": "d494e5ea4ed2b7efba81926d04ca3d3020419f62bf4d28fac0057dfeb4d947ab",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0276",
+      "title": "Inference Scaling for Long-Context Retrieval Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "b3733de3-6c56-48e9-9015-44a9b10bccaa",
+        "checksum": "182a550296dec7126c25ee9f0c4b0d4dc1acd21586bff5d41464628e604412af",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0277",
+      "title": "Chameleon: a Heterogeneous and Disaggregated Accelerator System for Retrieval-Augmented Language Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "1e353cf8-c5f5-4b5f-84de-a2b5cb4df751",
+        "checksum": "396030e3861a509e95df06d26f0ccc3170c657bd3a9ee107e02e2a1fd92fc737",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0283",
+      "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "f01407d1-8fb4-4c9e-8d4e-e77215c5b20f",
+        "checksum": "78c1a9caa7ead777dd36d4fa88c311f686eca2836ff28274b0e5403c2972c07c",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0298",
+      "title": "TARo: Token-level Adaptive Routing for LLM Test-time Alignment",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "ffd3d0d2-9fd2-4fa8-af59-3e96104b4210",
+        "checksum": "3a1a479efc6c9b8834f6d6e4c985326b2afdb4e48407562bc095914dbf55d78d",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0299",
+      "title": "Optimizing LLM Inference: Fluid-Guided Online Scheduling with Memory Constraints",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "37187e18-4c30-44db-bfa5-d91328e0439a",
+        "checksum": "affa6f9236cc7d9be80485706c2b7465ec4325973970bc80d4466ed53e7da851",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0300",
+      "title": "Aligning Tree-Search Policies with Fixed Token Budgets in Test-Time Scaling of LLMs",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "c05ce6a3-2c05-4ec5-849b-6e95247989c9",
+        "checksum": "8cf98ea395c6167c78f510135e7697c5496d1754800cabfe3a4d1a51011507ff",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0302",
+      "title": "R$^3$AG: Retriever Routing for Retrieval-Augmented Generation",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "f9756bb5-9a0f-4486-942a-4650d61a4b83",
+        "checksum": "4faaff6cede6c7375472eda3e9e71ebee1250b6d8d5ab38ca3a486db01179510",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0303",
+      "title": "Cache Mechanism for Agent RAG Systems",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "eed60dca-eec3-4914-b0d1-a2e1f4221a80",
+        "checksum": "2c2b43bb6023447af37c45958a234487f67fc414ecfce8624b1b7c970ad9545a",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0304",
+      "title": "Optimizing Test-Time Compute via Meta Reinforcement Fine-Tuning",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "9c30388a-e38e-4cbf-81f7-21b6206d48d4",
+        "checksum": "3afbdf4e300a0049ba86c2db06698c0fc7c763b60749c95f8c288688368b3d07",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0305",
+      "title": "P/D-Serve: Serving Disaggregated Large Language Model at Scale",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "0e327741-0928-4eb9-8d2a-a1487f1f5f6c",
+        "checksum": "f32889af71e9dbde23ce67244e75af03c54f527b363874055765f9552514ade9",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0240",
+      "title": "Reasoning on a Budget: A Survey of Adaptive and Controllable Test-Time Compute in LLMs",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "9b67cc24-baa5-43f9-92af-b048f0c9d005",
+        "checksum": "8ab7bf4385c16cdbfd712a2fa1f1a92002d4c01909d2f68c4561609bb4d1b338",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0243",
+      "title": "Dynamic Model Routing and Cascading for Efficient LLM Inference: A Survey",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "c0fbc8b0-0687-44cf-b605-77b20ca46469",
+        "checksum": "2588534e8ef34c364b97f409ba739e92eca8f65aa3996cc40388834cdd89d19e",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0319",
+      "title": "DEL-ToM: Inference-Time Scaling for Theory-of-Mind Reasoning via Dynamic Epistemic Logic",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "289678a5-674d-451c-9b01-eb4192e1813a",
+        "checksum": "c01b7a211f01d4e25b43108758c19bde9473fb19c9577e8e64ce030356cbac8c",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0258",
+      "title": "The information bottleneck method",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "b341d466-a600-4415-8bd7-64636b099047",
+        "checksum": "01ad203d34f75815f5fad00cb3539f2de37c959f63625b05d0378e8090d25ddd",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0259",
+      "title": "Group Equivariant Convolutional Networks",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "773be4c2-bdc0-4870-9d64-296a28a8be92",
+        "checksum": "0d226e20f2b423a6721dee312ebc10e6091531ad112775fb0c95416f609da056",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0260",
+      "title": "Geometric Deep Learning: Grids, Groups, Graphs, Geodesics, and Gauges",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "77fb039a-3ce1-4df6-8c81-d6aa53b2a809",
+        "checksum": "e2f9fb27d34ddd068ecbde6c5bc9a3539ac835c77f215967567dc4307ddb7ae2",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0321",
+      "title": "Think Right, Not More: Test-Time Scaling for Numerical Claim Verification",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "dab9fb1b-39af-4aff-a20d-ddc802ffdb32",
+        "checksum": "f535e7fa254b164f472c353efbb15a74f84b449c8f94b4d3221c37172e7839c4",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0322",
+      "title": "Collaborative Beam Search: Enhancing LLM Reasoning via Collective Consensus",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "27e55fb2-dc90-412b-ad2c-bc8b1b8a2196",
+        "checksum": "ad6d066b0a1d8b2c1548e0306bfa18ced699f6a60813da37fdbd307d06fc0fc5",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    }
+  ]
+}

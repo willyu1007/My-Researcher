@@ -1,0 +1,1686 @@
+{
+  "run_id": "20260604T-missing-assets-fulltext-preprocess",
+  "mode": "backfill",
+  "apply": true,
+  "selector": "all-tagged",
+  "target_stage": "FULLTEXT_PREPROCESSED",
+  "generated_at": "2026-06-04T05:55:08.574Z",
+  "target_summary": {
+    "corpus_count": 125,
+    "with_arxiv_id": 109,
+    "with_assets": 124,
+    "with_fulltext_docs": 112,
+    "with_embedding_chunks": 112,
+    "by_rights": {
+      "OA": 19,
+      "UNKNOWN": 106
+    },
+    "by_collection": {
+      "collection:core": 43,
+      "collection:strategy-support": 35,
+      "collection:system-support": 34,
+      "collection:theory-support": 13
+    },
+    "by_direction": {
+      "direction:llm-serving-resource-allocation": 34,
+      "direction:rag-aware-allocation": 39,
+      "direction:test-time-compute-budgeting": 35
+    }
+  },
+  "selected_targets": [
+    {
+      "id": "LIT-0318",
+      "title": "Beyond Test-Time Compute Strategies: Advocating Energy-per-Token in LLM Inference",
+      "arxiv_id": null,
+      "doi": "10.1145/3721146.3721953",
+      "rights_class": "OA",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0207",
+      "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models",
+      "arxiv_id": null,
+      "doi": null,
+      "rights_class": "OA",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0312",
+      "title": "Bullet: Boosting GPU Utilization for LLM Serving via Dynamic Spatial-Temporal Orchestration",
+      "arxiv_id": null,
+      "doi": "10.1145/3779212.3790135",
+      "rights_class": "OA",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0309",
+      "title": "Efficient LLM Inference via Chunked Prefills",
+      "arxiv_id": null,
+      "doi": "10.1145/3759441.3759444",
+      "rights_class": "UNKNOWN",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0249",
+      "title": "An analysis of approximations for maximizing submodular set functions - I",
+      "arxiv_id": null,
+      "doi": "10.1007/bf01588971",
+      "rights_class": "UNKNOWN",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0250",
+      "title": "On the Resemblance and Containment of Documents",
+      "arxiv_id": null,
+      "doi": "10.1109/sequen.1997.666900",
+      "rights_class": "UNKNOWN",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0251",
+      "title": "Approximate Nearest Neighbors: Towards Removing the Curse of Dimensionality",
+      "arxiv_id": null,
+      "doi": "10.1145/276698.276876",
+      "rights_class": "UNKNOWN",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0252",
+      "title": "When Is \"Nearest Neighbor\" Meaningful?",
+      "arxiv_id": null,
+      "doi": "10.1007/3-540-49257-7_15",
+      "rights_class": "UNKNOWN",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0253",
+      "title": "Random Projection in Dimensionality Reduction: Applications to Image and Text Data",
+      "arxiv_id": null,
+      "doi": "10.1145/502512.502546",
+      "rights_class": "UNKNOWN",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0254",
+      "title": "Finite-time Analysis of the Multiarmed Bandit Problem",
+      "arxiv_id": null,
+      "doi": "10.1023/a:1013689704352",
+      "rights_class": "UNKNOWN",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0255",
+      "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+      "arxiv_id": null,
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0256",
+      "title": "A Mathematical Theory of Communication",
+      "arxiv_id": null,
+      "doi": "10.1002/j.1538-7305.1948.tb01338.x",
+      "rights_class": "UNKNOWN",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    }
+  ],
+  "request_payload": {
+    "target_stage": "FULLTEXT_PREPROCESSED",
+    "workset": {
+      "literature_ids": [
+        "LIT-0318",
+        "LIT-0207",
+        "LIT-0312",
+        "LIT-0309",
+        "LIT-0249",
+        "LIT-0250",
+        "LIT-0251",
+        "LIT-0252",
+        "LIT-0253",
+        "LIT-0254",
+        "LIT-0255",
+        "LIT-0256"
+      ],
+      "stage_filters": {
+        "missing": true,
+        "stale": true,
+        "failed": true
+      }
+    },
+    "options": {
+      "max_parallel_literature_runs": 1,
+      "extraction_concurrency": 1,
+      "embedding_concurrency": 1,
+      "provider_call_budget": 20
+    }
+  },
+  "dry_run": {
+    "estimate": {
+      "dry_run_id": "76a8fc29-79d1-4847-b4be-24963c95c8d2",
+      "generated_at": "2026-06-04T05:55:08.597Z",
+      "target_stage": "FULLTEXT_PREPROCESSED",
+      "workset": {
+        "literature_ids": [
+          "LIT-0318",
+          "LIT-0207",
+          "LIT-0312",
+          "LIT-0309",
+          "LIT-0249",
+          "LIT-0250",
+          "LIT-0251",
+          "LIT-0252",
+          "LIT-0253",
+          "LIT-0254",
+          "LIT-0255",
+          "LIT-0256"
+        ],
+        "stage_filters": {
+          "missing": true,
+          "stale": true,
+          "failed": true
+        }
+      },
+      "options": {
+        "max_parallel_literature_runs": 1,
+        "extraction_concurrency": 1,
+        "embedding_concurrency": 1,
+        "provider_call_budget": 20
+      },
+      "total_literatures": 325,
+      "selected_count": 12,
+      "planned_item_count": 12,
+      "skipped_ready_count": 0,
+      "blocked_count": 0,
+      "curation_required_count": 0,
+      "stage_counts": {
+        "CITATION_NORMALIZED": 0,
+        "ABSTRACT_READY": 0,
+        "FULLTEXT_PREPROCESSED": 12,
+        "KEY_CONTENT_READY": 0,
+        "CHUNKED": 0,
+        "EMBEDDED": 0,
+        "INDEXED": 0
+      },
+      "rights_class_counts": [
+        {
+          "rights_class": "OA",
+          "count": 3
+        },
+        {
+          "rights_class": "UNKNOWN",
+          "count": 9
+        }
+      ],
+      "estimated_provider_calls": {
+        "extraction_calls": 0,
+        "embedding_calls": 0
+      },
+      "estimated_storage_bytes": 0,
+      "blockers": [],
+      "plan_items": [
+        {
+          "literature_id": "LIT-0207",
+          "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models",
+          "rights_class": "OA",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0249",
+          "title": "An analysis of approximations for maximizing submodular set functions - I",
+          "rights_class": "UNKNOWN",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0250",
+          "title": "On the Resemblance and Containment of Documents",
+          "rights_class": "UNKNOWN",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0251",
+          "title": "Approximate Nearest Neighbors: Towards Removing the Curse of Dimensionality",
+          "rights_class": "UNKNOWN",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0252",
+          "title": "When Is \"Nearest Neighbor\" Meaningful?",
+          "rights_class": "UNKNOWN",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0253",
+          "title": "Random Projection in Dimensionality Reduction: Applications to Image and Text Data",
+          "rights_class": "UNKNOWN",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0254",
+          "title": "Finite-time Analysis of the Multiarmed Bandit Problem",
+          "rights_class": "UNKNOWN",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0255",
+          "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+          "rights_class": "UNKNOWN",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0256",
+          "title": "A Mathematical Theory of Communication",
+          "rights_class": "UNKNOWN",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0309",
+          "title": "Efficient LLM Inference via Chunked Prefills",
+          "rights_class": "UNKNOWN",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0312",
+          "title": "Bullet: Boosting GPU Utilization for LLM Serving via Dynamic Spatial-Temporal Orchestration",
+          "rights_class": "OA",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        },
+        {
+          "literature_id": "LIT-0318",
+          "title": "Beyond Test-Time Compute Strategies: Advocating Energy-per-Token in LLM Inference",
+          "rights_class": "OA",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "blocked": false,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": null
+        }
+      ]
+    }
+  },
+  "created_job": {
+    "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+    "status": "QUEUED",
+    "target_stage": "FULLTEXT_PREPROCESSED",
+    "workset": {
+      "literature_ids": [
+        "LIT-0318",
+        "LIT-0207",
+        "LIT-0312",
+        "LIT-0309",
+        "LIT-0249",
+        "LIT-0250",
+        "LIT-0251",
+        "LIT-0252",
+        "LIT-0253",
+        "LIT-0254",
+        "LIT-0255",
+        "LIT-0256"
+      ],
+      "stage_filters": {
+        "missing": true,
+        "stale": true,
+        "failed": true
+      }
+    },
+    "options": {
+      "max_parallel_literature_runs": 1,
+      "extraction_concurrency": 1,
+      "embedding_concurrency": 1,
+      "provider_call_budget": 20
+    },
+    "dry_run_estimate": {
+      "options": {
+        "provider_call_budget": 20,
+        "embedding_concurrency": 1,
+        "extraction_concurrency": 1,
+        "max_parallel_literature_runs": 1
+      },
+      "workset": {
+        "stage_filters": {
+          "stale": true,
+          "failed": true,
+          "missing": true
+        },
+        "literature_ids": [
+          "LIT-0318",
+          "LIT-0207",
+          "LIT-0312",
+          "LIT-0309",
+          "LIT-0249",
+          "LIT-0250",
+          "LIT-0251",
+          "LIT-0252",
+          "LIT-0253",
+          "LIT-0254",
+          "LIT-0255",
+          "LIT-0256"
+        ]
+      },
+      "blockers": [],
+      "dry_run_id": "5f691bed-2d6c-4586-a416-9a391f59b373",
+      "plan_items": [
+        {
+          "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "OA",
+          "literature_id": "LIT-0207",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "An analysis of approximations for maximizing submodular set functions - I",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0249",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "On the Resemblance and Containment of Documents",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0250",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Approximate Nearest Neighbors: Towards Removing the Curse of Dimensionality",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0251",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "When Is \"Nearest Neighbor\" Meaningful?",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0252",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Random Projection in Dimensionality Reduction: Applications to Image and Text Data",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0253",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Finite-time Analysis of the Multiarmed Bandit Problem",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0254",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0255",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "A Mathematical Theory of Communication",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0256",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Efficient LLM Inference via Chunked Prefills",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0309",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Bullet: Boosting GPU Utilization for LLM Serving via Dynamic Spatial-Temporal Orchestration",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "OA",
+          "literature_id": "LIT-0312",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Beyond Test-Time Compute Strategies: Advocating Energy-per-Token in LLM Inference",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "OA",
+          "literature_id": "LIT-0318",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        }
+      ],
+      "generated_at": "2026-06-04T05:55:08.606Z",
+      "stage_counts": {
+        "CHUNKED": 0,
+        "INDEXED": 0,
+        "EMBEDDED": 0,
+        "ABSTRACT_READY": 0,
+        "KEY_CONTENT_READY": 0,
+        "CITATION_NORMALIZED": 0,
+        "FULLTEXT_PREPROCESSED": 12
+      },
+      "target_stage": "FULLTEXT_PREPROCESSED",
+      "blocked_count": 0,
+      "selected_count": 12,
+      "total_literatures": 325,
+      "planned_item_count": 12,
+      "rights_class_counts": [
+        {
+          "count": 3,
+          "rights_class": "OA"
+        },
+        {
+          "count": 9,
+          "rights_class": "UNKNOWN"
+        }
+      ],
+      "skipped_ready_count": 0,
+      "curation_required_count": 0,
+      "estimated_storage_bytes": 0,
+      "estimated_provider_calls": {
+        "embedding_calls": 0,
+        "extraction_calls": 0
+      }
+    },
+    "totals": {
+      "total": 12,
+      "queued": 12,
+      "running": 0,
+      "succeeded": 0,
+      "partial": 0,
+      "blocked": 0,
+      "failed": 0,
+      "skipped": 0,
+      "canceled": 0
+    },
+    "error_code": null,
+    "error_message": null,
+    "created_at": "2026-06-04T05:55:08.606Z",
+    "started_at": null,
+    "paused_at": null,
+    "canceled_at": null,
+    "finished_at": null,
+    "updated_at": "2026-06-04T05:55:08.606Z",
+    "items": [
+      {
+        "item_id": "d21bc271-d345-4a27-913f-1ec1fee3b59d",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0207",
+        "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "fdbb4f94-8f60-4709-a067-557fdb217866",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0249",
+        "title": "An analysis of approximations for maximizing submodular set functions - I",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "210a3e4e-3afd-43d7-82ae-ca8a63f5cabb",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0250",
+        "title": "On the Resemblance and Containment of Documents",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "11ad9272-a2ee-4f39-ba2c-5266974ad397",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0251",
+        "title": "Approximate Nearest Neighbors: Towards Removing the Curse of Dimensionality",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "06642bb7-3dc6-49ce-9138-7a56f0e45164",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0252",
+        "title": "When Is \"Nearest Neighbor\" Meaningful?",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "08211ad5-11a3-415a-a688-015ae6fb7e2c",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0253",
+        "title": "Random Projection in Dimensionality Reduction: Applications to Image and Text Data",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "5e4ce05f-7214-48e4-b704-d4dbc3b7525a",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0254",
+        "title": "Finite-time Analysis of the Multiarmed Bandit Problem",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "8b2f6508-4220-4abb-a302-95ad7bd188d6",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0255",
+        "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "259db164-4016-465c-b517-b84ec5c0ec49",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0256",
+        "title": "A Mathematical Theory of Communication",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "6a71cfc6-f45f-456f-be6b-7bf44a4abab9",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0309",
+        "title": "Efficient LLM Inference via Chunked Prefills",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "66a78c68-4486-4fb6-b201-45cc2ef35cf6",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0312",
+        "title": "Bullet: Boosting GPU Utilization for LLM Serving via Dynamic Spatial-Temporal Orchestration",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      },
+      {
+        "item_id": "5a8db90b-6d25-4b1e-a2c3-b5b18721f039",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0318",
+        "title": "Beyond Test-Time Compute Strategies: Advocating Energy-per-Token in LLM Inference",
+        "status": "QUEUED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": null,
+        "attempt_count": 0,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "key_content_curation_status": "NOT_APPLICABLE"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": null,
+        "finished_at": null,
+        "updated_at": "2026-06-04T05:55:08.606Z"
+      }
+    ]
+  },
+  "final_job": {
+    "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+    "status": "PARTIAL",
+    "target_stage": "FULLTEXT_PREPROCESSED",
+    "workset": {
+      "literature_ids": [
+        "LIT-0318",
+        "LIT-0207",
+        "LIT-0312",
+        "LIT-0309",
+        "LIT-0249",
+        "LIT-0250",
+        "LIT-0251",
+        "LIT-0252",
+        "LIT-0253",
+        "LIT-0254",
+        "LIT-0255",
+        "LIT-0256"
+      ],
+      "stage_filters": {
+        "missing": true,
+        "stale": true,
+        "failed": true
+      }
+    },
+    "options": {
+      "max_parallel_literature_runs": 1,
+      "extraction_concurrency": 1,
+      "embedding_concurrency": 1,
+      "provider_call_budget": 20
+    },
+    "dry_run_estimate": {
+      "options": {
+        "provider_call_budget": 20,
+        "embedding_concurrency": 1,
+        "extraction_concurrency": 1,
+        "max_parallel_literature_runs": 1
+      },
+      "workset": {
+        "stage_filters": {
+          "stale": true,
+          "failed": true,
+          "missing": true
+        },
+        "literature_ids": [
+          "LIT-0318",
+          "LIT-0207",
+          "LIT-0312",
+          "LIT-0309",
+          "LIT-0249",
+          "LIT-0250",
+          "LIT-0251",
+          "LIT-0252",
+          "LIT-0253",
+          "LIT-0254",
+          "LIT-0255",
+          "LIT-0256"
+        ]
+      },
+      "blockers": [],
+      "dry_run_id": "5f691bed-2d6c-4586-a416-9a391f59b373",
+      "plan_items": [
+        {
+          "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "OA",
+          "literature_id": "LIT-0207",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "An analysis of approximations for maximizing submodular set functions - I",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0249",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "On the Resemblance and Containment of Documents",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0250",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Approximate Nearest Neighbors: Towards Removing the Curse of Dimensionality",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0251",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "When Is \"Nearest Neighbor\" Meaningful?",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0252",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Random Projection in Dimensionality Reduction: Applications to Image and Text Data",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0253",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Finite-time Analysis of the Multiarmed Bandit Problem",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0254",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0255",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "A Mathematical Theory of Communication",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0256",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Efficient LLM Inference via Chunked Prefills",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "UNKNOWN",
+          "literature_id": "LIT-0309",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Bullet: Boosting GPU Utilization for LLM Serving via Dynamic Spatial-Temporal Orchestration",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "OA",
+          "literature_id": "LIT-0312",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        },
+        {
+          "title": "Beyond Test-Time Compute Strategies: Advocating Energy-per-Token in LLM Inference",
+          "blocked": false,
+          "retryable": true,
+          "blocker_code": null,
+          "rights_class": "OA",
+          "literature_id": "LIT-0318",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "key_content_curation_status": null
+        }
+      ],
+      "generated_at": "2026-06-04T05:55:08.606Z",
+      "stage_counts": {
+        "CHUNKED": 0,
+        "INDEXED": 0,
+        "EMBEDDED": 0,
+        "ABSTRACT_READY": 0,
+        "KEY_CONTENT_READY": 0,
+        "CITATION_NORMALIZED": 0,
+        "FULLTEXT_PREPROCESSED": 12
+      },
+      "target_stage": "FULLTEXT_PREPROCESSED",
+      "blocked_count": 0,
+      "selected_count": 12,
+      "total_literatures": 325,
+      "planned_item_count": 12,
+      "rights_class_counts": [
+        {
+          "count": 3,
+          "rights_class": "OA"
+        },
+        {
+          "count": 9,
+          "rights_class": "UNKNOWN"
+        }
+      ],
+      "skipped_ready_count": 0,
+      "curation_required_count": 0,
+      "estimated_storage_bytes": 0,
+      "estimated_provider_calls": {
+        "embedding_calls": 0,
+        "extraction_calls": 0
+      }
+    },
+    "totals": {
+      "total": 12,
+      "queued": 0,
+      "running": 0,
+      "succeeded": 11,
+      "partial": 0,
+      "blocked": 1,
+      "failed": 0,
+      "skipped": 0,
+      "canceled": 0
+    },
+    "error_code": "BACKFILL_JOB_COMPLETED_WITH_ERRORS",
+    "error_message": "One or more backfill items did not succeed.",
+    "created_at": "2026-06-04T05:55:08.606Z",
+    "started_at": "2026-06-04T05:55:08.617Z",
+    "paused_at": null,
+    "canceled_at": null,
+    "finished_at": "2026-06-04T05:55:30.375Z",
+    "updated_at": "2026-06-04T05:55:30.375Z",
+    "items": [
+      {
+        "item_id": "06642bb7-3dc6-49ce-9138-7a56f0e45164",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0252",
+        "title": "When Is \"Nearest Neighbor\" Meaningful?",
+        "status": "BLOCKED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 0,
+        "content_processing_run_id": "e3f66402-9246-4069-a318-74448f9c1c1c",
+        "attempt_count": 1,
+        "error_code": "FULLTEXT_OCR_REQUIRED",
+        "error_message": "The PDF appears to be scanned or has no extractable text; OCR is required before preprocessing can complete.",
+        "blocker_code": "FULLTEXT_OCR_REQUIRED",
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "failed_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "content_processing_run_id": "e3f66402-9246-4069-a318-74448f9c1c1c",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "failed_content_processing_run_id": "e3f66402-9246-4069-a318-74448f9c1c1c"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:08.622Z",
+        "finished_at": "2026-06-04T05:55:09.743Z",
+        "updated_at": "2026-06-04T05:55:09.743Z"
+      },
+      {
+        "item_id": "08211ad5-11a3-415a-a688-015ae6fb7e2c",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0253",
+        "title": "Random Projection in Dimensionality Reduction: Applications to Image and Text Data",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "c3f3f5ab-bf3e-43f2-beff-57153f3f5366",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "c3f3f5ab-bf3e-43f2-beff-57153f3f5366",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "c3f3f5ab-bf3e-43f2-beff-57153f3f5366"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:09.748Z",
+        "finished_at": "2026-06-04T05:55:11.302Z",
+        "updated_at": "2026-06-04T05:55:11.302Z"
+      },
+      {
+        "item_id": "11ad9272-a2ee-4f39-ba2c-5266974ad397",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0251",
+        "title": "Approximate Nearest Neighbors: Towards Removing the Curse of Dimensionality",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "1f027eeb-2558-4e6d-9fdc-02294ac6f01f",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "1f027eeb-2558-4e6d-9fdc-02294ac6f01f",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "1f027eeb-2558-4e6d-9fdc-02294ac6f01f"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:11.305Z",
+        "finished_at": "2026-06-04T05:55:13.374Z",
+        "updated_at": "2026-06-04T05:55:13.374Z"
+      },
+      {
+        "item_id": "210a3e4e-3afd-43d7-82ae-ca8a63f5cabb",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0250",
+        "title": "On the Resemblance and Containment of Documents",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "062f6add-52bd-4670-bec6-546fd9837698",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "062f6add-52bd-4670-bec6-546fd9837698",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "062f6add-52bd-4670-bec6-546fd9837698"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:13.379Z",
+        "finished_at": "2026-06-04T05:55:14.733Z",
+        "updated_at": "2026-06-04T05:55:14.733Z"
+      },
+      {
+        "item_id": "259db164-4016-465c-b517-b84ec5c0ec49",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0256",
+        "title": "A Mathematical Theory of Communication",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "5dac6fb7-ae51-4b66-b358-b7266962249b",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "5dac6fb7-ae51-4b66-b358-b7266962249b",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "5dac6fb7-ae51-4b66-b358-b7266962249b"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:14.737Z",
+        "finished_at": "2026-06-04T05:55:17.395Z",
+        "updated_at": "2026-06-04T05:55:17.395Z"
+      },
+      {
+        "item_id": "5a8db90b-6d25-4b1e-a2c3-b5b18721f039",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0318",
+        "title": "Beyond Test-Time Compute Strategies: Advocating Energy-per-Token in LLM Inference",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "c351be92-9285-4d21-849c-fccb6db37d1d",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "c351be92-9285-4d21-849c-fccb6db37d1d",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "c351be92-9285-4d21-849c-fccb6db37d1d"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:17.400Z",
+        "finished_at": "2026-06-04T05:55:18.933Z",
+        "updated_at": "2026-06-04T05:55:18.933Z"
+      },
+      {
+        "item_id": "5e4ce05f-7214-48e4-b704-d4dbc3b7525a",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0254",
+        "title": "Finite-time Analysis of the Multiarmed Bandit Problem",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "b4bfd592-60d3-4f72-96aa-2dc1400b07ab",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "b4bfd592-60d3-4f72-96aa-2dc1400b07ab",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "b4bfd592-60d3-4f72-96aa-2dc1400b07ab"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:18.937Z",
+        "finished_at": "2026-06-04T05:55:20.503Z",
+        "updated_at": "2026-06-04T05:55:20.503Z"
+      },
+      {
+        "item_id": "66a78c68-4486-4fb6-b201-45cc2ef35cf6",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0312",
+        "title": "Bullet: Boosting GPU Utilization for LLM Serving via Dynamic Spatial-Temporal Orchestration",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "17b970cc-8f63-43df-94ab-003c51ffd5b0",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "17b970cc-8f63-43df-94ab-003c51ffd5b0",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "17b970cc-8f63-43df-94ab-003c51ffd5b0"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:20.508Z",
+        "finished_at": "2026-06-04T05:55:22.615Z",
+        "updated_at": "2026-06-04T05:55:22.615Z"
+      },
+      {
+        "item_id": "6a71cfc6-f45f-456f-be6b-7bf44a4abab9",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0309",
+        "title": "Efficient LLM Inference via Chunked Prefills",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "e3c3a6d7-dd66-4495-9dff-3c901559fb40",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "e3c3a6d7-dd66-4495-9dff-3c901559fb40",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "e3c3a6d7-dd66-4495-9dff-3c901559fb40"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:22.618Z",
+        "finished_at": "2026-06-04T05:55:24.622Z",
+        "updated_at": "2026-06-04T05:55:24.622Z"
+      },
+      {
+        "item_id": "8b2f6508-4220-4abb-a302-95ad7bd188d6",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0255",
+        "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "2a67833a-e838-413a-9823-5fb7496a6114",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "2a67833a-e838-413a-9823-5fb7496a6114",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "2a67833a-e838-413a-9823-5fb7496a6114"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:24.625Z",
+        "finished_at": "2026-06-04T05:55:26.122Z",
+        "updated_at": "2026-06-04T05:55:26.122Z"
+      },
+      {
+        "item_id": "d21bc271-d345-4a27-913f-1ec1fee3b59d",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0207",
+        "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "9d2f3f59-9484-4b96-b395-15bfbbed313c",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "9d2f3f59-9484-4b96-b395-15bfbbed313c",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "9d2f3f59-9484-4b96-b395-15bfbbed313c"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:26.128Z",
+        "finished_at": "2026-06-04T05:55:28.300Z",
+        "updated_at": "2026-06-04T05:55:28.300Z"
+      },
+      {
+        "item_id": "fdbb4f94-8f60-4709-a067-557fdb217866",
+        "job_id": "fbdc20c3-a4f9-4c1e-be4c-d220db825da2",
+        "literature_id": "LIT-0249",
+        "title": "An analysis of approximations for maximizing submodular set functions - I",
+        "status": "SUCCEEDED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "next_stage_index": 1,
+        "content_processing_run_id": "ad976500-ee42-4d15-bdcf-5c81844cb066",
+        "attempt_count": 1,
+        "error_code": null,
+        "error_message": null,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "NOT_APPLICABLE",
+        "checkpoint": {
+          "current_stage": "FULLTEXT_PREPROCESSED",
+          "current_stage_index": 0,
+          "last_succeeded_stage": "FULLTEXT_PREPROCESSED",
+          "content_processing_run_id": "ad976500-ee42-4d15-bdcf-5c81844cb066",
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "last_content_processing_run_id": "ad976500-ee42-4d15-bdcf-5c81844cb066"
+        },
+        "created_at": "2026-06-04T05:55:08.606Z",
+        "started_at": "2026-06-04T05:55:28.302Z",
+        "finished_at": "2026-06-04T05:55:30.371Z",
+        "updated_at": "2026-06-04T05:55:30.371Z"
+      }
+    ]
+  },
+  "deltas": {
+    "records": 0,
+    "sources": 0,
+    "pipelineStates": 0,
+    "stageStates": 0,
+    "pipelineRuns": 12,
+    "pipelineArtifacts": 11,
+    "assets": 0,
+    "fulltextDocs": 11,
+    "embeddingVersions": 0,
+    "embeddingChunks": 0,
+    "tokenIndexes": 0,
+    "processingJobs": 1,
+    "processingItems": 12,
+    "acquisitionJobs": 0,
+    "acquisitionItems": 0
+  }
+}

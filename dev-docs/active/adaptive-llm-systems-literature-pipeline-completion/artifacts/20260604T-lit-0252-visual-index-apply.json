@@ -1,0 +1,149 @@
+{
+  "run_id": "20260604T-lit-0252-visual-index",
+  "apply": true,
+  "generated_at": "2026-06-04T11:16:32.359Z",
+  "literature_id": "LIT-0252",
+  "title": "When Is \"Nearest Neighbor\" Meaningful?",
+  "standard_stage_policy": {
+    "fulltext_preprocessed_changed": false,
+    "standard_indexed_stage_changed": false,
+    "key_content_ready_status": "SUCCEEDED/PARTIAL_READY",
+    "embedding_version_status": "PARTIAL_INDEXED"
+  },
+  "active_embedding_profile": {
+    "profileId": "default",
+    "provider": "openai",
+    "model": "text-embedding-3-large",
+    "dimensions": null
+  },
+  "chunks": {
+    "count": 13,
+    "token_count": 254,
+    "sample": [
+      {
+        "chunk_id": "visual-research_problem-fddbd5f6d3e4dfbc",
+        "chunk_type": "visual_summary",
+        "text": "Nearest-neighbor search can return a formally closest point that is not meaningfully separated from alternatives. The paper studies when dimensionality causes nearest and farthest distances to become nearly indistinguishable, making the returned neighbor unstable as evidence."
+      },
+      {
+        "chunk_id": "visual-contributions-d6b513dc014773b9",
+        "chunk_type": "visual_summary",
+        "text": "The paper reframes nearest-neighbor utility around distance contrast rather than search efficiency alone. It formalizes DMIN/DMAX behavior, gives broad sufficient conditions for distance concentration, and identifies workload structures where nearest-neighbor search can remain meaningful."
+      },
+      {
+        "chunk_id": "visual-contributions-61c0e23e73b44f45",
+        "chunk_type": "visual_summary",
+        "text": "It argues that high-dimensional index evaluations need simple baselines and meaningful workloads. The paper repeatedly warns that sophisticated indexes can be misleading when the query answer itself has weak contrast, and that linear scan should be included as a baseline."
+      }
+    ]
+  },
+  "blocker_policy": {
+    "fulltext_preprocessed_remains_blocked": true,
+    "reason": "visual extraction is not a complete OCR text layer"
+  },
+  "apply_result": {
+    "embedding_version_id": "b3522d9f-9812-4b30-8342-ee71669f7e3c",
+    "embedding_status": "PARTIAL_INDEXED",
+    "embedding_dimension": 3072,
+    "embedding_telemetry": {
+      "provider_id": "openai",
+      "model_id": "text-embedding-3-large",
+      "profile_id": "default",
+      "prompt_template_id": null,
+      "prompt_template_version": null,
+      "elapsed_ms": 2020,
+      "request_count": 1,
+      "retry_count": 0,
+      "timeout_count": 0,
+      "rate_limit_count": 0,
+      "input_tokens": 553,
+      "output_tokens": null,
+      "embedding_input_tokens": 553,
+      "total_tokens": 553,
+      "cost_usd": null,
+      "provider_side_cache_hit": null,
+      "provider_side_cache_read_tokens": null,
+      "provider_side_cache_write_tokens": null
+    },
+    "final_record": {
+      "id": "LIT-0252",
+      "activeEmbeddingVersionId": "b3522d9f-9812-4b30-8342-ee71669f7e3c",
+      "pipelineState": {
+        "id": "bd7c645f-b9e2-4a0a-bdc3-9dcbdd840281",
+        "literatureId": "LIT-0252",
+        "citationComplete": true,
+        "abstractReady": true,
+        "keyContentReady": true,
+        "dedupStatus": "unique",
+        "updatedAt": "2026-06-04T11:16:34.383Z"
+      },
+      "pipelineStageStates": [
+        {
+          "stageCode": "FULLTEXT_PREPROCESSED",
+          "status": "BLOCKED",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "FULLTEXT_OCR_REQUIRED",
+                "message": "GROBID found no text blocks in the PDF.",
+                "severity": "blocker",
+                "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0252/1780552467211-622ff57f-5502-4151-9ea5-18fbbb11450d-LIT-0252.pdf",
+                "endpoint_url": "http://localhost:8070"
+              }
+            ],
+            "reason_code": "FULLTEXT_OCR_REQUIRED",
+            "reason_message": "The PDF appears to be scanned or has no extractable text; OCR is required before preprocessing can complete."
+          }
+        },
+        {
+          "stageCode": "INDEXED",
+          "status": "NOT_STARTED",
+          "detail": {}
+        },
+        {
+          "stageCode": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "detail": {
+            "source": "manual_visual_curated",
+            "checksum": "e01231e49de62afbd130498019fe9aadc4b47cde9ec4a0bc19267dd44e91101f",
+            "generated": false,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "d6d57b10-a0fb-46b0-bd4d-0980d0190a0f",
+            "diagnostics": [
+              {
+                "code": "VISUAL_SUMMARY_LEVEL_EXTRACTION",
+                "message": "Summary-level visual extraction was used because the PDF is scanned and standard GROBID preprocessing requires OCR.",
+                "severity": "warning"
+              },
+              {
+                "code": "STANDARD_FULLTEXT_NOT_PREPROCESSED",
+                "message": "FULLTEXT_PREPROCESSED remains blocked; this dossier is a partial retrieval surface only.",
+                "severity": "warning"
+              }
+            ],
+            "readiness_status": "PARTIAL_READY",
+            "key_content_ready": true,
+            "visual_artifact_id": "5a70a491-3593-49c7-98b3-bd353d848e78",
+            "standard_fulltext_preprocessed": false
+          }
+        },
+        {
+          "stageCode": "VISUAL_INDEXED",
+          "status": "SUCCEEDED",
+          "detail": {
+            "stage_code": "VISUAL_INDEXED",
+            "chunk_count": 13,
+            "token_count": 254,
+            "readiness_status": "PARTIAL_READY",
+            "chunk_artifact_id": "ae8e1942-7d73-4cc5-a489-8fddaafba14a",
+            "index_artifact_id": "da10bc0b-cef7-4a5b-8112-851ed666e1c6",
+            "embedding_version_id": "b3522d9f-9812-4b30-8342-ee71669f7e3c",
+            "embedding_artifact_id": "34bfb7b6-47ba-4bc5-97c5-afb05fd503a0",
+            "standard_indexed_stage_changed": false
+          }
+        }
+      ]
+    }
+  }
+}

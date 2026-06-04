@@ -17,7 +17,7 @@
 | Metric | Value |
 | --- | --- |
 | Current-round records | 89 |
-| All literature DB records | 281 |
+| All literature DB records | 288 |
 | Judgment-card-ready records | 77 |
 | Theory-inclusion-card-ready records | 13 |
 | Needs-judgment-card records | 0 |
@@ -80,7 +80,7 @@
 ## Non-Blocking Gaps
 | Gap | Impact | Follow-up |
 | --- | --- | --- |
-| Missing canonical classic RAG anchor | `arxiv:2005.11401` is absent, leaving a foundational RAG citation hole. | F1-import-missing-core-classic |
+| Missing canonical classic RAG anchor | No current impact; record exists outside this specific gap. | F1-import-missing-core-classic |
 | Fulltext/code/protocol not verified | Judgment cards are metadata-level; experiment and paper promotion need evidence checks. | F2-fulltext-and-code-readiness-pass |
 | Experiment assets not created | 15 candidates are ready for review, but experiment-foundation owns asset creation. | F3-experiment-foundation-promotion-candidates |
 | PaperImplementation shortlist not selected | The corpus is broad; claim-specific paper selection should wait for topic/argument choice. | F4-paper-implementation-shortlist |
@@ -102,8 +102,8 @@
 ## Safety Verification
 | Counter | Value |
 | --- | --- |
-| `literature_count` | 281 |
-| `source_count` | 285 |
+| `literature_count` | 288 |
+| `source_count` | 292 |
 | `pipeline_run_count` | 0 |
 | `content_asset_count` | 0 |
 | `content_processing_batch_job_count` | 0 |
@@ -111,6 +111,7 @@
 
 ## Notes
 - Use the effective priority distribution for readiness reporting; `12-priority-reconciliation.md` preserves the one-priority tag invariant for this round.
+- Detailed readiness manifest: `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness-manifest.json`; detailed local JSON is generated outside repo at `.ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/phase6-corpus-readiness.json`.
 - The missing classic RAG anchor is a targeted correction, not a reason to restart collection.
 - Classic theory records without abstracts are acceptable for seed-bank use, but not for evidence-active use.
 - B6 staged candidates should be reviewed before another citation-expansion import; this task deliberately avoided bulk import.

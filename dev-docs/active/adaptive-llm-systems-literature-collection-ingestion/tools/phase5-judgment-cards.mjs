@@ -1,12 +1,18 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 import { getPrismaClient } from '../../../../apps/backend/src/repositories/prisma/prisma-client.ts';
 
-const OUT_DIR = 'dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts';
-const JSON_PATH = path.join(OUT_DIR, 'phase5-judgment-cards.json');
-const MD_PATH = 'dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/10-judgment-cards.md';
+const TASK_DIR = 'dev-docs/active/adaptive-llm-systems-literature-collection-ingestion';
+const OUT_DIR = path.join(TASK_DIR, 'artifacts');
+const TMP_DETAIL_DIR = '.ai/.tmp/adaptive-llm-systems-literature-collection-ingestion';
+const LEGACY_JSON_PATH = path.join(OUT_DIR, 'phase5-judgment-cards.json');
+const DETAIL_JSON_PATH = path.join(TMP_DETAIL_DIR, 'phase5-judgment-cards.json');
+const MANIFEST_PATH = path.join(OUT_DIR, 'phase5-judgment-cards-manifest.json');
+const MD_PATH = path.join(TASK_DIR, '10-judgment-cards.md');
 const REPORT_PATH = path.join(OUT_DIR, 'phase5-judgment-cards-report.json');
+const ARTIFACT_BOUNDARY_VERSION = 'repo-lightweight-manifest:v1';
 
 const PHASE_BATCH_TAGS = [
   'batch:b1-core-high-precision',
@@ -417,8 +423,9 @@ function renderMarkdown(payload) {
   lines.push('## Status');
   lines.push('- State: completed');
   lines.push('- Date: 2026-06-03');
-  lines.push('- Storage: task evidence artifact, not DB schema.');
-  lines.push(`- Detailed JSON artifact: \`${JSON_PATH}\``);
+  lines.push('- Storage: DB is the corpus SSOT; repo keeps lightweight task evidence only.');
+  lines.push(`- Detailed card manifest: \`${MANIFEST_PATH}\``);
+  lines.push(`- Detailed local JSON, generated outside repo: \`${DETAIL_JSON_PATH}\``);
   lines.push(`- Execution report: \`${REPORT_PATH}\``);
   lines.push('- Content processing enqueued: `false`');
   lines.push('');
@@ -474,7 +481,59 @@ function renderMarkdown(payload) {
   lines.push('- Review the B6 staged but non-imported citation candidates before another citation expansion batch.');
   lines.push('- Phase 6 should summarize layer/year/card coverage and split follow-up tasks for fulltext acquisition, experiment-foundation promotion, and PaperImplementation candidate selection.');
   lines.push('');
-  return `${lines.join('\n')}\n`;
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+function lineCount(text) {
+  if (text.length === 0) return 0;
+  return text.endsWith('\n') ? text.split('\n').length - 1 : text.split('\n').length;
+}
+
+function sha256(text) {
+  return crypto.createHash('sha256').update(text).digest('hex');
+}
+
+async function readJsonOrNull(filePath) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+async function writeDetailedJsonAndManifest({ payload, summary, counters }) {
+  const text = `${JSON.stringify(payload, null, 2)}\n`;
+  await fs.mkdir(TMP_DETAIL_DIR, { recursive: true });
+  await fs.writeFile(DETAIL_JSON_PATH, text);
+
+  const previousManifest = await readJsonOrNull(MANIFEST_PATH);
+  const manifest = {
+    generated_at: payload.generated_at,
+    artifact_boundary_version: ARTIFACT_BOUNDARY_VERSION,
+    artifact_class: 'judgment-card-detail-snapshot',
+    repo_policy: {
+      db_is_ssot: true,
+      repo_keeps: 'human-readable summaries, execution reports, and lightweight manifests',
+      repo_excludes: 'large detailed corpus/readiness snapshots',
+      reason: 'Detailed judgment cards are generated task evidence; LiteratureRecord and related DB tables remain the corpus SSOT.',
+    },
+    removed_from_repo: true,
+    original_repo_artifact: previousManifest?.original_repo_artifact ?? {
+      path: LEGACY_JSON_PATH,
+      status: 'legacy detailed artifact path no longer tracked',
+    },
+    detailed_local_copy: {
+      path: DETAIL_JSON_PATH,
+      git_ignored: true,
+      size_bytes: Buffer.byteLength(text, 'utf8'),
+      line_count: lineCount(text),
+      sha256: sha256(text),
+    },
+    summary,
+    counters,
+  };
+  await fs.writeFile(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
+  return manifest;
 }
 
 async function countSideEffects(prisma) {
@@ -606,7 +665,11 @@ async function main() {
     };
     if (writeArtifacts) {
       await fs.mkdir(OUT_DIR, { recursive: true });
-      await fs.writeFile(JSON_PATH, `${JSON.stringify(payload, null, 2)}\n`);
+      const manifest = await writeDetailedJsonAndManifest({
+        payload,
+        summary: payload.summary,
+        counters: payload.counters,
+      });
       await fs.writeFile(MD_PATH, renderMarkdown(payload));
       await fs.writeFile(REPORT_PATH, `${JSON.stringify({
         generated_at: payload.generated_at,
@@ -615,10 +678,12 @@ async function main() {
         summary: payload.summary,
         counters: payload.counters,
         artifact_paths: {
-          json: JSON_PATH,
+          manifest: MANIFEST_PATH,
+          detailed_local_json: DETAIL_JSON_PATH,
           markdown: MD_PATH,
           report: REPORT_PATH,
         },
+        detailed_local_copy: manifest.detailed_local_copy,
       }, null, 2)}\n`);
     }
     console.log(JSON.stringify({
@@ -626,11 +691,12 @@ async function main() {
       write_artifacts: writeArtifacts,
       summary: payload.summary,
       counters: payload.counters,
-      artifact_paths: {
-        json: JSON_PATH,
+      artifact_paths: writeArtifacts ? {
+        manifest: MANIFEST_PATH,
+        detailed_local_json: DETAIL_JSON_PATH,
         markdown: MD_PATH,
         report: REPORT_PATH,
-      },
+      } : null,
     }, null, 2));
   } finally {
     await prisma.$disconnect();

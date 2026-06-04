@@ -1,0 +1,134 @@
+{
+  "run_id": "20260604T-key-content-curated-canary-dry",
+  "apply": false,
+  "selector": "priority-arxiv",
+  "limit": 3,
+  "generated_at": "2026-06-04T05:39:16.700Z",
+  "target_summary": {
+    "corpus_count": 125,
+    "fulltext_ready_count": 112,
+    "key_content_ready_count": 0,
+    "key_content_failed_count": 2
+  },
+  "selected_targets": [
+    {
+      "id": "LIT-0306",
+      "title": "BanaServe: Unified KV Cache and Dynamic Module Migration for Balancing Disaggregated LLM Serving in AI Infrastructure",
+      "arxiv_id": "2510.13223",
+      "doi": "10.1002/spe.70054",
+      "rights_class": "OA",
+      "key_content_status": "FAILED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0307",
+      "title": "Apt-Serve: Adaptive Request Scheduling on Hybrid Cache for Scalable LLM Inference Serving",
+      "arxiv_id": "2504.07494",
+      "doi": "10.1145/3725394",
+      "rights_class": "OA",
+      "key_content_status": "FAILED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0308",
+      "title": "BucketServe: Bucket-Based Dynamic Batching for Smart and Efficient LLM Inference Serving",
+      "arxiv_id": "2507.17120",
+      "doi": "10.48550/arxiv.2507.17120",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    }
+  ],
+  "summary": {
+    "selected": 3,
+    "imported": 0,
+    "dry_run_valid": 3,
+    "dry_run_invalid": 0,
+    "failed": 0
+  },
+  "before": {
+    "corpus": 125,
+    "with_assets": 112,
+    "fulltext_preprocessed": 112,
+    "key_content_ready": 0,
+    "chunked": 0,
+    "embedded": 0,
+    "indexed": 0,
+    "with_embedding_chunks": 0
+  },
+  "after": {
+    "corpus": 125,
+    "with_assets": 112,
+    "fulltext_preprocessed": 112,
+    "key_content_ready": 0,
+    "chunked": 0,
+    "embedded": 0,
+    "indexed": 0,
+    "with_embedding_chunks": 0
+  },
+  "imports": [
+    {
+      "literature_id": "LIT-0306",
+      "title": "BanaServe: Unified KV Cache and Dynamic Module Migration for Balancing Disaggregated LLM Serving in AI Infrastructure",
+      "status": "DRY_RUN_VALID",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": null,
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0307",
+      "title": "Apt-Serve: Adaptive Request Scheduling on Hybrid Cache for Scalable LLM Inference Serving",
+      "status": "DRY_RUN_VALID",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": null,
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0308",
+      "title": "BucketServe: Bucket-Based Dynamic Batching for Smart and Efficient LLM Inference Serving",
+      "status": "DRY_RUN_VALID",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": null,
+      "issues": [],
+      "error": null
+    }
+  ]
+}

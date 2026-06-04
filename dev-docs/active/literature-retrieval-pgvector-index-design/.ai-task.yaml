@@ -1,0 +1,14 @@
+version: 1
+task_id: T-121
+project: main
+slug: literature-retrieval-pgvector-index-design
+status: in-progress
+updated: "2026-06-04"
+keywords:
+  - literature
+  - retrieval
+  - pgvector
+  - embedding-index
+  - postgres
+  - migration-design
+  - follows:T-120

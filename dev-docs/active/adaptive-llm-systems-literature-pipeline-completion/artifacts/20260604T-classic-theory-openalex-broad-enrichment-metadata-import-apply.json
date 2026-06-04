@@ -1,0 +1,87 @@
+{
+  "run_id": "20260604T-classic-theory-openalex-broad-enrichment",
+  "generated_at": "2026-06-04T04:17:53.396Z",
+  "target_ids": [
+    "LIT-0255",
+    "LIT-0257"
+  ],
+  "selected_count": 2,
+  "candidates": [
+    {
+      "literature_id": "LIT-0255",
+      "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+      "selected": {
+        "openalex_id": "https://openalex.org/W2158131535",
+        "candidate_title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+        "source_url": "https://openalex.org/W2158131535",
+        "title_score": 1,
+        "publication_year": 2013,
+        "abstract_length": 954,
+        "abstract_checksum": "1d9f1e6e98bd5fac46bb784a8dd45475a56de9c144c39ce4536dd8d38f2cdadc"
+      },
+      "rejected": null
+    },
+    {
+      "literature_id": "LIT-0257",
+      "title": "Online Computation and Competitive Analysis",
+      "selected": {
+        "openalex_id": "https://openalex.org/W1552828154",
+        "candidate_title": "Online Computation and Competitive Analysis",
+        "source_url": "https://openalex.org/W1552828154",
+        "title_score": 1,
+        "publication_year": 1998,
+        "abstract_length": 660,
+        "abstract_checksum": "beb6440854f1887fa62e27917169e509fd5732fc281c7770260ac21fc8daf17e"
+      },
+      "rejected": null
+    }
+  ],
+  "import_results": [
+    {
+      "literature_id": "LIT-0255",
+      "canonical_work_key": "tay:2dc84ca6e31dcf0f37bcf61e686d49a3b4fedf2d",
+      "is_new": false,
+      "matched_by": "title_authors_year",
+      "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+      "source_provider": "web",
+      "source_url": "https://openalex.org/W2158131535"
+    },
+    {
+      "literature_id": "LIT-0257",
+      "canonical_work_key": "tay:ba15d43490a00df49ca46f402ab88141965ec2e9",
+      "is_new": false,
+      "matched_by": "title_authors_year",
+      "title": "Online Computation and Competitive Analysis",
+      "source_provider": "web",
+      "source_url": "https://openalex.org/W1552828154"
+    }
+  ],
+  "post_update": [
+    {
+      "literature_id": "LIT-0255",
+      "abstract_text_length": 954,
+      "pipeline_state": {
+        "id": "c2fbf5a5-cbaa-4db6-a5ae-82b9b2408c40",
+        "literatureId": "LIT-0255",
+        "citationComplete": true,
+        "abstractReady": false,
+        "keyContentReady": false,
+        "dedupStatus": "duplicate",
+        "updatedAt": "2026-06-04T04:17:53.368Z"
+      }
+    },
+    {
+      "literature_id": "LIT-0257",
+      "abstract_text_length": 660,
+      "pipeline_state": {
+        "id": "2e8b643e-4d89-4d11-855f-7fb29969af2f",
+        "literatureId": "LIT-0257",
+        "citationComplete": true,
+        "abstractReady": false,
+        "keyContentReady": false,
+        "dedupStatus": "duplicate",
+        "updatedAt": "2026-06-04T04:17:53.388Z"
+      }
+    }
+  ]
+}

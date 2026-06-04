@@ -1,0 +1,290 @@
+{
+  "run_id": "20260604T-counting-conventions",
+  "generated_at": "2026-06-04T08:42:56.439Z",
+  "counting_contract": {
+    "db_total_records": "All LiteratureRecord rows; includes historical evidence/test records.",
+    "adaptive_corpus_records": "Rows with any collection:*, direction:*, or batch:* tag.",
+    "pipeline_complete_records": "Adaptive corpus rows with INDEXED=SUCCEEDED.",
+    "pipeline_blocked_records": "Adaptive corpus rows not indexed; use blocker list, not table-total subtraction.",
+    "non_corpus_records": "Rows without corpus tags; excluded from collection progress."
+  },
+  "metrics": {
+    "db_total_records": 326,
+    "adaptive_corpus_records": 125,
+    "pipeline_complete_records": 123,
+    "pipeline_blocked_records": 2,
+    "non_corpus_records": 201,
+    "all_records_indexed": 123,
+    "all_records_not_indexed": 203
+  },
+  "corpus_distribution": {
+    "by_collection": {
+      "collection:core": 43,
+      "collection:strategy-support": 35,
+      "collection:system-support": 34,
+      "collection:theory-support": 13
+    },
+    "by_direction": {
+      "direction:llm-serving-resource-allocation": 34,
+      "direction:rag-aware-allocation": 39,
+      "direction:test-time-compute-budgeting": 35
+    },
+    "by_batch": {
+      "batch:b1-core-high-precision": 14,
+      "batch:b2-core-system-bridge": 12,
+      "batch:b3-system-substrate": 19,
+      "batch:b4-strategy-policy": 19,
+      "batch:b5-theory-mapping": 13,
+      "batch:b6-citation-expansion": 12,
+      "batch:b7-frontier-three-direction-expansion": 16,
+      "batch:b8-direction-balanced-scaleout": 19,
+      "batch:f1-import-missing-core-classic": 1
+    },
+    "by_priority": {
+      "priority:p0": 24,
+      "priority:p1": 72,
+      "priority:p2": 17,
+      "priority:p3": 12
+    },
+    "by_rights_class": {
+      "OA": 19,
+      "UNKNOWN": 106
+    }
+  },
+  "corpus_pipeline": {
+    "stage_coverage": {
+      "CITATION_NORMALIZED": {
+        "succeeded": 125,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 0
+      },
+      "ABSTRACT_READY": {
+        "succeeded": 125,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 0
+      },
+      "FULLTEXT_PREPROCESSED": {
+        "succeeded": 123,
+        "blocked": 2,
+        "failed": 0,
+        "not_started": 0
+      },
+      "KEY_CONTENT_READY": {
+        "succeeded": 123,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 2
+      },
+      "CHUNKED": {
+        "succeeded": 123,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 2
+      },
+      "EMBEDDED": {
+        "succeeded": 123,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 2
+      },
+      "INDEXED": {
+        "succeeded": 123,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 2
+      }
+    },
+    "with_raw_assets": 124,
+    "with_fulltext_documents": 123,
+    "with_embedding_chunks": 123,
+    "blocked_records": [
+      {
+        "literature_id": "LIT-0252",
+        "title": "When Is \"Nearest Neighbor\" Meaningful?",
+        "tags": [
+          "batch:b5-theory-mapping",
+          "bridge:core-theory",
+          "bridge:theory-to-chunking",
+          "classification:rule-derived",
+          "classification:theory-inclusion-card-ready",
+          "collection:theory-support",
+          "decision:budget-allocate",
+          "metric:recall-at-k",
+          "metric:retrieval-stability",
+          "priority:p3",
+          "query:q-thy-07",
+          "query:q-thy-09",
+          "resource:retrieval-depth",
+          "theory:high-dimensional-geometry",
+          "theory:measure",
+          "theory:metric-space"
+        ],
+        "stages": {
+          "CITATION_NORMALIZED": "SUCCEEDED",
+          "ABSTRACT_READY": "SUCCEEDED",
+          "FULLTEXT_PREPROCESSED": "BLOCKED",
+          "KEY_CONTENT_READY": "NOT_STARTED",
+          "CHUNKED": "NOT_STARTED",
+          "EMBEDDED": "NOT_STARTED",
+          "INDEXED": "NOT_STARTED"
+        },
+        "blocker": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "BLOCKED",
+          "reason_code": "FULLTEXT_OCR_REQUIRED",
+          "reason_message": "The PDF appears to be scanned or has no extractable text; OCR is required before preprocessing can complete."
+        }
+      },
+      {
+        "literature_id": "LIT-0257",
+        "title": "Online Computation and Competitive Analysis",
+        "tags": [
+          "batch:b5-theory-mapping",
+          "bridge:system-strategy",
+          "classification:rule-derived",
+          "classification:theory-inclusion-card-ready",
+          "collection:theory-support",
+          "decision:batch-schedule",
+          "metric:p95-latency",
+          "metric:regret",
+          "priority:p3",
+          "query:q-thy-02",
+          "theory:constrained-optimization",
+          "theory:online-scheduling"
+        ],
+        "stages": {
+          "CITATION_NORMALIZED": "SUCCEEDED",
+          "ABSTRACT_READY": "SUCCEEDED",
+          "FULLTEXT_PREPROCESSED": "BLOCKED",
+          "KEY_CONTENT_READY": "NOT_STARTED",
+          "CHUNKED": "NOT_STARTED",
+          "EMBEDDED": "NOT_STARTED",
+          "INDEXED": "NOT_STARTED"
+        },
+        "blocker": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "BLOCKED",
+          "reason_code": "FULLTEXT_SOURCE_MISSING",
+          "reason_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete."
+        }
+      }
+    ]
+  },
+  "non_corpus_distribution": {
+    "by_title_bucket": {
+      "other_untagged": 12,
+      "topic_selection_v1b_api_evidence": 95,
+      "topic_selection_v1b_harness_evidence": 94
+    },
+    "sample": [
+      {
+        "literature_id": "LIT-0001",
+        "title": "Topic Selection v1b Harness Evidence t107-external-codex-n8-variance-20260528d_setup",
+        "bucket": "topic_selection_v1b_harness_evidence"
+      },
+      {
+        "literature_id": "LIT-0002",
+        "title": "Topic Selection v1b Harness Evidence t107-external-codex-n4-variance-20260528_setup",
+        "bucket": "topic_selection_v1b_harness_evidence"
+      },
+      {
+        "literature_id": "LIT-0003",
+        "title": "Topic Selection v1b Harness Evidence t107-external-codex-n4-variance-20260528b_setup",
+        "bucket": "topic_selection_v1b_harness_evidence"
+      },
+      {
+        "literature_id": "LIT-0004",
+        "title": "Topic Selection v1b Harness Evidence t107-external-codex-n4-variance-20260528c_setup",
+        "bucket": "topic_selection_v1b_harness_evidence"
+      },
+      {
+        "literature_id": "LIT-0005",
+        "title": "Topic Selection v1b API Evidence v1b-harness-http-1779962582270-65010a",
+        "bucket": "topic_selection_v1b_api_evidence"
+      },
+      {
+        "literature_id": "LIT-0006",
+        "title": "Topic Selection v1b API Evidence v1b-harness-http-full-1779962583681-37a869",
+        "bucket": "topic_selection_v1b_api_evidence"
+      },
+      {
+        "literature_id": "LIT-0007",
+        "title": "Topic Selection v1b API Evidence v1b-prisma-harness-1779962586681-90735b",
+        "bucket": "topic_selection_v1b_api_evidence"
+      },
+      {
+        "literature_id": "LIT-0008",
+        "title": "Topic Selection v1b Harness Evidence t107-v1b-cleanup-fixture-20260528",
+        "bucket": "topic_selection_v1b_harness_evidence"
+      },
+      {
+        "literature_id": "LIT-0009",
+        "title": "Topic Selection v1b Harness Evidence t107-external-codex-n6-variance-cleanup-20260528_setup",
+        "bucket": "topic_selection_v1b_harness_evidence"
+      },
+      {
+        "literature_id": "LIT-0010",
+        "title": "Topic Selection v1b API Evidence v1b-prisma-harness-1779967229719-f680a9",
+        "bucket": "topic_selection_v1b_api_evidence"
+      },
+      {
+        "literature_id": "LIT-0011",
+        "title": "Topic Selection v1b API Evidence v1b-prisma-harness-1779967293870-27da5e",
+        "bucket": "topic_selection_v1b_api_evidence"
+      },
+      {
+        "literature_id": "LIT-0012",
+        "title": "Topic Selection v1b API Evidence v1b-prisma-harness-1779967359519-a31413",
+        "bucket": "topic_selection_v1b_api_evidence"
+      },
+      {
+        "literature_id": "LIT-0013",
+        "title": "Topic Selection v1b API Evidence v1b-prisma-harness-1779967427624-aed289",
+        "bucket": "topic_selection_v1b_api_evidence"
+      },
+      {
+        "literature_id": "LIT-0014",
+        "title": "Topic Selection v1b API Evidence v1b-prisma-harness-1779967539360-3bec8e",
+        "bucket": "topic_selection_v1b_api_evidence"
+      },
+      {
+        "literature_id": "LIT-0015",
+        "title": "Provider canary support evidence 1",
+        "bucket": "other_untagged"
+      },
+      {
+        "literature_id": "LIT-0016",
+        "title": "Provider canary challenge evidence 2",
+        "bucket": "other_untagged"
+      },
+      {
+        "literature_id": "LIT-0017",
+        "title": "Provider canary baseline evidence 3",
+        "bucket": "other_untagged"
+      },
+      {
+        "literature_id": "LIT-0018",
+        "title": "Provider canary context evidence 4",
+        "bucket": "other_untagged"
+      },
+      {
+        "literature_id": "LIT-0019",
+        "title": "support topic selection fixture 1",
+        "bucket": "other_untagged"
+      },
+      {
+        "literature_id": "LIT-0020",
+        "title": "challenge topic selection fixture 2",
+        "bucket": "other_untagged"
+      }
+    ]
+  },
+  "next_collection_baseline": {
+    "denominator_before_next_batch": 125,
+    "indexed_before_next_batch": 123,
+    "manual_blockers_before_next_batch": 2,
+    "excluded_non_corpus_records": 201
+  }
+}

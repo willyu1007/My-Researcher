@@ -1,0 +1,65 @@
+{
+  "task_id": "T-118",
+  "literature_id": "LIT-0204",
+  "run_id": "ragperf-s0s1-20260604T015307Z",
+  "generated_at": "2026-06-04T00:00:00.000Z",
+  "package_checkpoint_commit": "17e414f",
+  "temporary_workspace": "/tmp/ragperf-s0s1-20260604T015307Z",
+  "repository": {
+    "url": "https://github.com/platformxlab/RAGPerf",
+    "clone_path": "/tmp/ragperf-s0s1-20260604T015307Z/RAGPerf",
+    "observed_head": "49c9794895666d029a3c98a48afd872197d83b23",
+    "license": "Apache-2.0"
+  },
+  "s0_static_protocol_check": {
+    "status": "passed",
+    "checks": {
+      "shallow_clone_outside_repo": "passed",
+      "head_matches_prior_evidence": "passed",
+      "required_source_files_present": "passed",
+      "license_observed": "passed",
+      "requirements_source": "partial",
+      "example_config_local_paths": "needs_rewrite",
+      "tiny_config_generation": "passed",
+      "tiny_config_yaml_parse": "passed"
+    },
+    "requirements_observation": {
+      "input_file": "resource/requirements.in",
+      "cmake_output_file": "requirement.txt",
+      "readme_install_file": "requirement.txt",
+      "monitoring_readme_install_file": "requirements.txt",
+      "interpretation": "README aligns with the CMake output target; monitoring README has a filename mismatch."
+    },
+    "tiny_configs": [
+      "/tmp/ragperf-s0s1-20260604T015307Z/tiny-configs/lance_insert_tiny.yaml",
+      "/tmp/ragperf-s0s1-20260604T015307Z/tiny-configs/lance_query_tiny.yaml",
+      "/tmp/ragperf-s0s1-20260604T015307Z/tiny-configs/monitor_cpu_only.yaml"
+    ]
+  },
+  "s1_local_lancedb_smoke": {
+    "status": "blocked_before_execution",
+    "attempted_entrypoint": "PYTHONPATH=/tmp/ragperf-s0s1-20260604T015307Z/RAGPerf/src python3 /tmp/ragperf-s0s1-20260604T015307Z/RAGPerf/src/run_new.py --config /tmp/ragperf-s0s1-20260604T015307Z/tiny-configs/lance_insert_tiny.yaml --msys-config /tmp/ragperf-s0s1-20260604T015307Z/tiny-configs/monitor_cpu_only.yaml",
+    "first_failure": "ModuleNotFoundError: No module named 'psutil'",
+    "environment_findings": {
+      "python_version": "3.12.6",
+      "cmake": "not_installed",
+      "compiler": "Apple clang version 21.0.0"
+    },
+    "blockers": [
+      "cmake_not_installed",
+      "python_version_differs_from_readme_python_3_10",
+      "official_entrypoint_imports_dependencies_before_argparse",
+      "psutil_missing_in_current_python_environment",
+      "text_insert_path_hardcodes_cuda_0_for_embedding",
+      "text_query_path_requires_generation_true",
+      "query_path_instantiates_vllm_responser",
+      "lance_query_yaml_missing_generation_parallelism"
+    ]
+  },
+  "decision": {
+    "s0_status": "passed",
+    "s1_status": "blocked_before_execution",
+    "auto_promotion_allowed": false,
+    "recommended_next_action": "choose between a faithful Linux/Python3.10/CUDA/vLLM execution environment and an experiment-foundation minimal adapter for CPU/retrieval smoke"
+  }
+}

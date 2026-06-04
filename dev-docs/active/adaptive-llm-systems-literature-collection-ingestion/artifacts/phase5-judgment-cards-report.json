@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-03T23:26:23.143Z",
+  "generated_at": "2026-06-04T00:18:08.997Z",
   "apply": false,
   "write_artifacts": true,
   "summary": {
@@ -28,24 +28,24 @@
   },
   "counters": {
     "before": {
-      "literature_count": 281,
-      "source_count": 285,
+      "literature_count": 288,
+      "source_count": 292,
       "pipeline_run_count": 0,
       "content_asset_count": 0,
       "content_processing_batch_job_count": 0,
       "fulltext_acquisition_job_count": 0,
-      "needs_judgment_card_count": 0,
+      "needs_judgment_card_count": 1,
       "judgment_card_ready_count": 77,
       "theory_inclusion_card_ready_count": 13
     },
     "after": {
-      "literature_count": 281,
-      "source_count": 285,
+      "literature_count": 288,
+      "source_count": 292,
       "pipeline_run_count": 0,
       "content_asset_count": 0,
       "content_processing_batch_job_count": 0,
       "fulltext_acquisition_job_count": 0,
-      "needs_judgment_card_count": 0,
+      "needs_judgment_card_count": 1,
       "judgment_card_ready_count": 77,
       "theory_inclusion_card_ready_count": 13
     },
@@ -62,8 +62,16 @@
     }
   },
   "artifact_paths": {
-    "json": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards.json",
+    "manifest": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-manifest.json",
+    "detailed_local_json": ".ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/phase5-judgment-cards.json",
     "markdown": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/10-judgment-cards.md",
     "report": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-report.json"
+  },
+  "detailed_local_copy": {
+    "path": ".ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/phase5-judgment-cards.json",
+    "git_ignored": true,
+    "size_bytes": 228136,
+    "line_count": 6020,
+    "sha256": "1c97cf3fd6755b28eaa75b6a23c462e77d1df1e6fffa9e6520bcd1c0276f5c37"
   }
 }

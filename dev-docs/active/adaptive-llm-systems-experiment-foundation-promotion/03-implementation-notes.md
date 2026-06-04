@@ -40,3 +40,13 @@
   - dataset candidates: Wikipedia corpus slice and Natural Questions query workload.
 - Decision: keep all candidates below canonical asset creation because duplicate check, dataset policy, protocol hash, metric/evaluator records, smoke evidence, dependency preflight, local path rewrite, and GPU/model checks are incomplete.
 - Evidence boundary: source links, git HEAD, protocol commands, metric requirements, gate blockers, and smoke plan are stored; no repository clone, dataset, model, log, or execution output is stored in repo.
+
+## 2026-06-04 - LIT-0204 S0/S1 Preflight
+- Created a temporary workspace outside the repo at `/tmp/ragperf-s0s1-20260604T015307Z`.
+- Shallow cloned `https://github.com/platformxlab/RAGPerf`.
+- Verified HEAD as `49c9794895666d029a3c98a48afd872197d83b23`.
+- Confirmed the CMake dependency target writes `requirement.txt`; the monitoring README still references `requirements.txt`.
+- Generated tiny LanceDB insert/query configs and a CPU-only monitor config under `/tmp`.
+- Parsed the tiny configs with Ruby YAML.
+- Attempted the official entrypoint with the tiny insert config; it failed before execution because the local Python environment lacks `psutil`.
+- Decision: S1 is blocked before benchmark execution on this machine because local `cmake` is unavailable, Python is `3.12.6` rather than README's Python `3.10`, and the official text paths are coupled to CUDA/vLLM/generation.

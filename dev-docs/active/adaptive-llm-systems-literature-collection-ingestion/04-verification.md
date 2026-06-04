@@ -8,22 +8,24 @@
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase5-judgment-cards.mjs`
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase6-corpus-readiness.mjs`
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/priority-reconciliation.mjs`
-  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards.json`
-  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness.json`
+  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-manifest.json`
+  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness-manifest.json`
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/priority-reconciliation-report.json`
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/12-priority-reconciliation.md`
 - Checks:
-  - Tracked artifact visibility:
-    - `git check-ignore -v dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards.json dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase5-judgment-cards.mjs`
-      - Result: passed; no output and exit code 1, meaning these task-bundle files are not ignored.
+  - Artifact boundary visibility:
+    - `git check-ignore -v .ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/phase5-judgment-cards.json`
+      - Result: passed; `.ai/.tmp` detailed local JSON is ignored.
+    - `git check-ignore -v dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-manifest.json dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase5-judgment-cards.mjs`
+      - Result: passed; no output and exit code 1, meaning the manifest and tool are not ignored.
   - Phase 5 safe default mode:
     - `shasum -a 256 dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/10-judgment-cards.md`
       - Result before/after default run: `72ad827080a28d6111e464fde5649714854e4bd9f01833874ec41b5a48e1cbd0`.
     - `node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase5-judgment-cards.mjs`
       - Result: passed; `write_artifacts=false`, `apply=false`, judgment cards 77, theory inclusion cards 13, all side-effect deltas 0.
-  - Phase 5 tracked artifact rewrite:
+  - Phase 5 manifest/report rewrite:
     - `node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase5-judgment-cards.mjs --write`
-      - Result: passed; rewrote tracked Phase 5 artifacts without DB writes.
+      - Result: passed; rewrote Phase 5 manifest/report/Markdown and ignored local detailed JSON without DB writes.
   - Priority reconciliation:
     - `node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/priority-reconciliation.mjs --apply`
       - Result: passed; 18 decisions, 16 tag updates, literature/source/content/pipeline/fulltext deltas 0.
@@ -32,11 +34,51 @@
       - Non-matched seed rows: `COR-001`, `COR-003`, `COR-005`, `STR-006`; these are missing/current-round-matching caveats, not priority conflicts.
       - Current-round multi-priority records: 0.
       - Current-round multi-collection records: 0.
-  - Phase 6 tracked readiness refresh:
+  - Phase 6 manifest/report readiness refresh:
     - `node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase6-corpus-readiness.mjs`
       - Result: passed; current-round records 89, judgment-card-ready 77, theory-inclusion-card-ready 13, needs-judgment-card 0, multi-priority 0, follow-up tasks 7.
       - Effective priorities: P0 24, P1 51, P2 2, P3 12.
       - Content-processing/fulltext/pipeline counters remain 0.
+  - Governance:
+    - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+      - Result: passed.
+    - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+      - Result: passed.
+
+### 2026-06-04 - Corpus Artifact Boundary Cleanup
+- Status: passed.
+- Checks:
+  - Syntax:
+    - `node --check dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase5-judgment-cards.mjs`
+      - Result: passed.
+    - `node --check dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase6-corpus-readiness.mjs`
+      - Result: passed.
+  - Manifest migration:
+    - Result: passed; migrated former repo detailed snapshots to lightweight manifests and ignored `.ai/.tmp` local copies.
+    - Manifest files:
+      - `artifacts/phase5-judgment-cards-manifest.json`.
+      - `artifacts/phase6-corpus-readiness-manifest.json`.
+      - `artifacts/b6-citation-expansion-stage-manifest.json`.
+      - `artifacts/b6-citation-expansion-candidates-manifest.json`.
+  - Phase 5 generation after boundary cleanup:
+    - `node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase5-judgment-cards.mjs --write`
+      - Result: passed.
+      - Records scanned: 89.
+      - Judgment cards: 77.
+      - Theory inclusion cards: 13.
+      - All DB side-effect deltas: 0.
+      - Detailed local JSON: `.ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/phase5-judgment-cards.json`.
+  - Phase 6 generation after deleting repo detailed snapshots:
+    - `node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase6-corpus-readiness.mjs`
+      - Result: passed.
+      - Current-round records: 89.
+      - All literature DB records: 288.
+      - B6 staged candidates loaded from manifest: 807.
+      - Follow-up tasks: 7.
+      - Content-processing/fulltext/pipeline counters remain 0.
+      - Detailed local JSON: `.ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/phase6-corpus-readiness.json`.
+  - Repo detailed snapshot absence:
+    - Result: passed; `phase5-judgment-cards.json`, `phase6-corpus-readiness.json`, `b6-citation-expansion-stage-report.json`, and `b6-citation-expansion-candidates.md` are not present in the task-bundle artifacts directory.
   - Governance:
     - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
       - Result: passed.
@@ -48,7 +90,7 @@
 - Artifacts:
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/11-corpus-readiness-review.md`
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase6-corpus-readiness.mjs`
-  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness.json`
+  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness-manifest.json`
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness-report.json`
 - Checks:
   - Phase 6 readiness generation:
@@ -88,7 +130,7 @@
 - Artifacts:
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/10-judgment-cards.md`
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase5-judgment-cards.mjs`
-  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards.json`
+  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-manifest.json`
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-report.json`
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-card-tag-apply-report.json`
 - Checks:

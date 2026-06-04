@@ -1,0 +1,630 @@
+{
+  "generated_at": "2026-06-04T10:30:01.788Z",
+  "batch_id": "B9-new-collection-round",
+  "imported_records": 22,
+  "valid_corpus_records": 21,
+  "excluded_records": [
+    {
+      "literature_id": "LIT-0337",
+      "title": "SparKV: Overhead-Aware KV Cache Loading for Efficient On-Device LLM Inference",
+      "arxiv_id": "2604.21231",
+      "tags": [
+        "subcluster:llm-serving-scheduling",
+        "subcluster:kv-cache",
+        "resource:batch-slots",
+        "resource:kv-cache",
+        "resource:prefill",
+        "resource:decode",
+        "resource:gpu-memory",
+        "decision:schedule",
+        "decision:cache-admit-evict",
+        "metric:ttft",
+        "metric:tpot",
+        "metric:p95-latency",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "track:serving-system-frontier",
+        "priority:p1",
+        "query:q-b9-sys-ex-05",
+        "classification:withdrawn",
+        "classification:excluded-from-corpus",
+        "exclusion:withdrawn-arxiv-no-pdf",
+        "import-batch:b9-new-collection-round"
+      ],
+      "reason": "withdrawn-arxiv-no-pdf"
+    }
+  ],
+  "stage_coverage": {
+    "CITATION_NORMALIZED": {
+      "succeeded": 21,
+      "blocked": 0,
+      "not_started": 0
+    },
+    "ABSTRACT_READY": {
+      "succeeded": 21,
+      "blocked": 0,
+      "not_started": 0
+    },
+    "FULLTEXT_PREPROCESSED": {
+      "succeeded": 21,
+      "blocked": 0,
+      "not_started": 0
+    },
+    "KEY_CONTENT_READY": {
+      "succeeded": 21,
+      "blocked": 0,
+      "not_started": 0
+    },
+    "CHUNKED": {
+      "succeeded": 21,
+      "blocked": 0,
+      "not_started": 0
+    },
+    "EMBEDDED": {
+      "succeeded": 21,
+      "blocked": 0,
+      "not_started": 0
+    },
+    "INDEXED": {
+      "succeeded": 21,
+      "blocked": 0,
+      "not_started": 0
+    }
+  },
+  "with_raw_assets": 21,
+  "with_fulltext_documents": 21,
+  "with_embedding_chunks": 21,
+  "items": [
+    {
+      "literature_id": "LIT-0328",
+      "title": "Cost-Aware Query Routing in RAG: Empirical Analysis of Retrieval Depth Tradeoffs",
+      "arxiv_id": "2606.02581",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0329",
+      "title": "Q-RAG: Long Context Multi-step Retrieval via Value-based Embedder Training",
+      "arxiv_id": "2511.07328",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0330",
+      "title": "Adaptive Query Routing: A Tier-Based Framework for Hybrid Retrieval Across Financial, Legal, and Medical Documents",
+      "arxiv_id": "2604.14222",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0331",
+      "title": "GraphRAG-Router: Learning Cost-Efficient Routing over GraphRAGs and LLMs with Reinforcement Learning",
+      "arxiv_id": "2604.16401",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0332",
+      "title": "Rethinking the Necessity of Adaptive Retrieval-Augmented Generation through the Lens of Adaptive Listwise Ranking",
+      "arxiv_id": "2604.15621",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0333",
+      "title": "RAGRouter: Learning to Route Queries to Multiple Retrieval-Augmented Language Models",
+      "arxiv_id": "2505.23052",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0334",
+      "title": "RouteRAG: Efficient Retrieval-Augmented Generation from Text and Graph via Reinforcement Learning",
+      "arxiv_id": "2512.09487",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:core",
+        "direction:rag-aware-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0335",
+      "title": "AdaGReS:Adaptive Greedy Context Selection via Redundancy-Aware Scoring for Token-Budgeted RAG",
+      "arxiv_id": "2512.25052",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:theory-support",
+        "direction:rag-aware-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0336",
+      "title": "Large-Scale LLM Inference with Heterogeneous Workloads: Prefill-Decode Contention and Asymptotically Optimal Control",
+      "arxiv_id": "2602.02987",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0337",
+      "title": "SparKV: Overhead-Aware KV Cache Loading for Efficient On-Device LLM Inference",
+      "arxiv_id": "2604.21231",
+      "is_corpus": false,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "NOT_STARTED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "asset_count": 0,
+      "fulltext_document_count": 0,
+      "has_embedding_chunks": false,
+      "tags": [
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "classification:withdrawn",
+        "classification:excluded-from-corpus",
+        "exclusion:withdrawn-arxiv-no-pdf",
+        "import-batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0338",
+      "title": "CacheFlow: Efficient LLM Serving with 3D-Parallel KV Cache Restoration",
+      "arxiv_id": "2604.25080",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0339",
+      "title": "Prefill-as-a-Service: KVCache of Next-Generation Models Could Go Cross-Datacenter",
+      "arxiv_id": "2604.15039",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0340",
+      "title": "Continuum: Efficient and Robust Multi-Turn LLM Agent Scheduling with KV Cache Time-to-Live",
+      "arxiv_id": "2511.02230",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0341",
+      "title": "Optimal Scheduling Algorithms for LLM Inference: Theory and Practice",
+      "arxiv_id": "2508.01002",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:system-support",
+        "direction:llm-serving-resource-allocation",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0342",
+      "title": "Adaptive Test-Time Compute Allocation with Evolving In-Context Demonstrations",
+      "arxiv_id": "2604.21018",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0343",
+      "title": "What If We Allocate Test-Time Compute Adaptively?",
+      "arxiv_id": "2602.01070",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0344",
+      "title": "Scaling up Test-Time Compute with Latent Reasoning: A Recurrent Depth Approach",
+      "arxiv_id": "2502.05171",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0345",
+      "title": "ATLAS: Agentic Test-time Learning-to-Allocate Scaling",
+      "arxiv_id": "2606.01667",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0346",
+      "title": "Timely Machine: Awareness of Time Makes Test-Time Scaling Agentic",
+      "arxiv_id": "2601.16486",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0347",
+      "title": "s1: Simple test-time scaling",
+      "arxiv_id": "2501.19393",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0348",
+      "title": "DynScaling: Efficient Verifier-free Inference Scaling via Dynamic and Integrated Sampling",
+      "arxiv_id": "2506.16043",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:strategy-support",
+        "direction:test-time-compute-budgeting",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    },
+    {
+      "literature_id": "LIT-0349",
+      "title": "Group Distributionally Robust Optimization-Driven Reinforcement Learning for LLM Reasoning",
+      "arxiv_id": "2601.19280",
+      "is_corpus": true,
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "SUCCEEDED",
+        "KEY_CONTENT_READY": "SUCCEEDED",
+        "CHUNKED": "SUCCEEDED",
+        "EMBEDDED": "SUCCEEDED",
+        "INDEXED": "SUCCEEDED"
+      },
+      "asset_count": 1,
+      "fulltext_document_count": 1,
+      "has_embedding_chunks": true,
+      "tags": [
+        "collection:theory-support",
+        "direction:test-time-compute-budgeting",
+        "classification:rule-derived",
+        "classification:needs-judgment-card",
+        "batch:b9-new-collection-round"
+      ]
+    }
+  ]
+}

@@ -227,9 +227,10 @@
 - Replay tool: `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase5-judgment-cards.mjs`.
 - Generated artifacts:
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/10-judgment-cards.md`.
-  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards.json`.
+  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-manifest.json`.
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-report.json`.
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-card-tag-apply-report.json`.
+- Detailed judgment-card JSON is generated under `.ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/` and is not tracked.
 - Generated 77 lightweight judgment cards across:
   - B1: 14.
   - B2: 12.
@@ -251,8 +252,9 @@
 - Replay tool: `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/tools/phase6-corpus-readiness.mjs`.
 - Generated artifacts:
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/11-corpus-readiness-review.md`.
-  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness.json`.
+  - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness-manifest.json`.
   - `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness-report.json`.
+- Detailed corpus-readiness JSON is generated under `.ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/` and is not tracked.
 - Reviewed the current-round B1-B6 denominator of 89 records:
   - Core: 34.
   - System support: 21.
@@ -271,16 +273,16 @@
 - Verified no content-processing side effects and moved the task state to `done`.
 
 ## 2026-06-04 - Quality Repair Pass
-- Moved Phase 5 and Phase 6 replay tools plus generated evidence into the tracked task bundle:
+- Moved Phase 5 and Phase 6 replay tools plus lightweight generated evidence into the tracked task bundle:
   - `tools/phase5-judgment-cards.mjs`.
   - `tools/phase6-corpus-readiness.mjs`.
-  - `artifacts/phase5-judgment-cards.json`.
+  - `artifacts/phase5-judgment-cards-manifest.json`.
   - `artifacts/phase5-judgment-cards-report.json`.
   - `artifacts/phase5-judgment-card-tag-apply-report.json`.
-  - `artifacts/phase6-corpus-readiness.json`.
+  - `artifacts/phase6-corpus-readiness-manifest.json`.
   - `artifacts/phase6-corpus-readiness-report.json`.
-  - `artifacts/b6-citation-expansion-stage-report.json`.
-  - `artifacts/b6-citation-expansion-candidates.md`.
+  - `artifacts/b6-citation-expansion-stage-manifest.json`.
+  - `artifacts/b6-citation-expansion-candidates-manifest.json`.
 - Hardened `tools/phase5-judgment-cards.mjs` with explicit modes:
   - default/check: reads DB and prints the summary without writing artifacts or DB tags.
   - `--write`: rewrites tracked artifacts and `10-judgment-cards.md` without DB writes.
@@ -290,6 +292,21 @@
 - Updated `07-seed-catalog.md` for the two promoted experiment-foundation benchmark seeds (`COR-010`, `COR-011`) so seed priority and DB priority agree.
 - Refreshed `10-judgment-cards.md` and `11-corpus-readiness-review.md` from tracked tools; Phase 6 now reports 7 follow-up tasks because priority-tag normalization is resolved.
 - Verified all repair scripts had zero literature/source/content/pipeline/fulltext side-effect deltas except the intended priority-tag updates.
+
+## 2026-06-04 - Corpus Artifact Boundary Cleanup
+- Decision: the DB is the corpus SSOT; repo task bundles should keep reports, human-readable summaries, and lightweight manifests, not large corpus/readiness snapshots.
+- Removed detailed repo snapshots from the task bundle:
+  - `artifacts/phase5-judgment-cards.json`.
+  - `artifacts/phase6-corpus-readiness.json`.
+  - `artifacts/b6-citation-expansion-stage-report.json`.
+  - `artifacts/b6-citation-expansion-candidates.md`.
+- Added or refreshed lightweight manifests:
+  - `artifacts/phase5-judgment-cards-manifest.json`.
+  - `artifacts/phase6-corpus-readiness-manifest.json`.
+  - `artifacts/b6-citation-expansion-stage-manifest.json`.
+  - `artifacts/b6-citation-expansion-candidates-manifest.json`.
+- The manifests preserve original repo-artifact checksums from the migration and point to ignored `.ai/.tmp` detailed local copies for replay/debugging.
+- Updated `tools/phase5-judgment-cards.mjs` and `tools/phase6-corpus-readiness.mjs` so future runs keep detailed JSON outside repo and write only manifest/report/Markdown into the task bundle.
 
 ## Open Questions
 - Whether OpenReview/ACL/ACM/USENIX/IEEE entries should be imported manually first or staged through Zotero.

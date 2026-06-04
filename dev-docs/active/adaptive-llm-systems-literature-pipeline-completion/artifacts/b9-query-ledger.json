@@ -1,0 +1,452 @@
+{
+  "generated_at": "2026-06-04T10:20:02.072Z",
+  "batch_id": "B9-new-collection-round",
+  "source_contract": {
+    "arxiv_exact": "https://arxiv.org/abs/<id>",
+    "openalex_works_search": "https://api.openalex.org/works?search=..."
+  },
+  "web_anchors": [
+    {
+      "source": "web-search",
+      "url": "https://arxiv.org/abs/2606.01667",
+      "note": "Recent test-time learning-to-allocate scaling seed."
+    },
+    {
+      "source": "web-search",
+      "url": "https://arxiv.org/abs/2606.02581",
+      "note": "Recent RAG cost-aware query routing seed."
+    },
+    {
+      "source": "web-search",
+      "url": "https://arxiv.org/abs/2604.25080",
+      "note": "Recent LLM serving KV-cache restoration and scheduling seed."
+    },
+    {
+      "source": "web-search",
+      "url": "https://docs.openalex.org/api-entities/works/search-works",
+      "note": "OpenAlex works-search source contract."
+    }
+  ],
+  "queries": [
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-EX-01",
+      "query_family": "Cost-Aware RAG Routing",
+      "search_query": "exact-arxiv:2606.02581",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-EX-02",
+      "query_family": "Adaptive Query Routing",
+      "search_query": "exact-arxiv:2604.14222",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-EX-03",
+      "query_family": "Adaptive Retrieval Decision",
+      "search_query": "exact-arxiv:2604.15621",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-EX-04",
+      "query_family": "Multi-Step Retrieval Budget",
+      "search_query": "exact-arxiv:2511.07328",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-EX-05",
+      "query_family": "Graph/Text RouteRAG",
+      "search_query": "exact-arxiv:2512.09487",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-EX-06",
+      "query_family": "GraphRAG Routing",
+      "search_query": "exact-arxiv:2604.16401",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-EX-07",
+      "query_family": "RAGRouter",
+      "search_query": "exact-arxiv:2505.23052",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-01",
+      "query_family": "RAG Adaptive Routing",
+      "search_query": "retrieval augmented generation adaptive routing",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 12
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-02",
+      "query_family": "RAG Cost-Aware Retrieval",
+      "search_query": "retrieval augmented generation cost aware retrieval depth",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 3
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-03",
+      "query_family": "RAG Cache Context Reuse",
+      "search_query": "retrieval augmented generation cache context reuse",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 9
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-04",
+      "query_family": "RAG Serving Optimization",
+      "search_query": "retrieval augmented generation serving optimization latency",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 3
+    },
+    {
+      "track_id": "rag-core-frontier",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-RAG-05",
+      "query_family": "RAG Retrieval Compute Budget",
+      "search_query": "retrieval augmented generation compute budget routing",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 5
+    },
+    {
+      "track_id": "rag-theory-bridge",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-THY-RAG-01",
+      "query_family": "Submodular Context Selection",
+      "search_query": "submodular selection retrieval budget context",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 10
+    },
+    {
+      "track_id": "rag-theory-bridge",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-THY-RAG-02",
+      "query_family": "Metric Retrieval Stability",
+      "search_query": "metric space retrieval stability ranking",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 2
+    },
+    {
+      "track_id": "rag-theory-bridge",
+      "direction_id": "rag-aware-allocation",
+      "query_id": "Q-B9-THY-RAG-03",
+      "query_family": "Measure Retrieval Allocation",
+      "search_query": "measure theory retrieval allocation ranking",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-EX-01",
+      "query_family": "Prefill Decode Control",
+      "search_query": "exact-arxiv:2602.02987",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-EX-02",
+      "query_family": "KV Cache Restoration",
+      "search_query": "exact-arxiv:2604.25080",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-EX-03",
+      "query_family": "Prefill-as-a-Service",
+      "search_query": "exact-arxiv:2604.15039",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-EX-04",
+      "query_family": "Agent Scheduling KV TTL",
+      "search_query": "exact-arxiv:2511.02230",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-EX-05",
+      "query_family": "KV Cache Loading",
+      "search_query": "exact-arxiv:2604.21231",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-01",
+      "query_family": "LLM Serving Resource Allocation",
+      "search_query": "large language model serving resource allocation scheduling",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 9
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-02",
+      "query_family": "KV Cache Scheduling",
+      "search_query": "large language model KV cache scheduling serving",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 23
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-03",
+      "query_family": "Prefill Decode Resource Allocation",
+      "search_query": "prefill decode resource allocation large language model serving",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 28
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-04",
+      "query_family": "LLM Inference SLO Scheduling",
+      "search_query": "LLM inference SLO scheduling latency throughput",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 28
+    },
+    {
+      "track_id": "serving-system-frontier",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-SYS-05",
+      "query_family": "Agent LLM Serving Scheduling",
+      "search_query": "agent large language model serving scheduling KV cache",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 20
+    },
+    {
+      "track_id": "serving-theory-bridge",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-THY-SYS-01",
+      "query_family": "Queueing For LLM Serving",
+      "search_query": "queueing large language model serving scheduling",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 7
+    },
+    {
+      "track_id": "serving-theory-bridge",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-THY-SYS-02",
+      "query_family": "Optimal Control For LLM Inference",
+      "search_query": "optimal control LLM inference resource allocation",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "serving-theory-bridge",
+      "direction_id": "llm-serving-resource-allocation",
+      "query_id": "Q-B9-THY-SYS-03",
+      "query_family": "Online Scheduling LLM Serving",
+      "search_query": "online scheduling large language model serving latency",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 2
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-EX-01",
+      "query_family": "Agentic TTC Allocation",
+      "search_query": "exact-arxiv:2606.01667",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-EX-02",
+      "query_family": "Evolving Demonstration Compute Allocation",
+      "search_query": "exact-arxiv:2604.21018",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-EX-03",
+      "query_family": "Time-Aware Agentic Scaling",
+      "search_query": "exact-arxiv:2601.16486",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-EX-04",
+      "query_family": "Adaptive TTC Framework",
+      "search_query": "exact-arxiv:2602.01070",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-EX-05",
+      "query_family": "Budget Forcing",
+      "search_query": "exact-arxiv:2501.19393",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-EX-06",
+      "query_family": "Latent Reasoning Scaling",
+      "search_query": "exact-arxiv:2502.05171",
+      "source": "arxiv",
+      "result_count": 1,
+      "candidate_count": 1
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-01",
+      "query_family": "Adaptive Test-Time Compute",
+      "search_query": "adaptive test-time compute allocation reasoning large language model",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 2
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-02",
+      "query_family": "Inference-Time Scaling Budget",
+      "search_query": "inference-time scaling budget language model reasoning",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 3
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-03",
+      "query_family": "Verifier Budget Allocation",
+      "search_query": "verifier budget allocation test-time reasoning",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 2
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-04",
+      "query_family": "Budget Forcing Reasoning",
+      "search_query": "budget forcing test-time scaling reasoning language model",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 2
+    },
+    {
+      "track_id": "ttc-strategy-frontier",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-STR-05",
+      "query_family": "Early Stop Reasoning Budget",
+      "search_query": "early stopping reasoning budget large language model",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 9
+    },
+    {
+      "track_id": "ttc-theory-bridge",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-THY-STR-01",
+      "query_family": "Bandit Budget Allocation For Reasoning",
+      "search_query": "bandit budget allocation reasoning large language model",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 8
+    },
+    {
+      "track_id": "ttc-theory-bridge",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-THY-STR-02",
+      "query_family": "Optimal Stopping Test-Time Reasoning",
+      "search_query": "optimal stopping test-time reasoning language model",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 0
+    },
+    {
+      "track_id": "ttc-theory-bridge",
+      "direction_id": "test-time-compute-budgeting",
+      "query_id": "Q-B9-THY-STR-03",
+      "query_family": "Constrained Optimization Test-Time Compute",
+      "search_query": "constrained optimization test-time compute allocation",
+      "source": "openalex",
+      "result_count": 35,
+      "candidate_count": 2
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "run_id": "20260604T-settings-after-grobid-start",
+  "mode": "settings",
+  "apply": false,
+  "selector": "priority-arxiv",
+  "target_stage": "ABSTRACT_READY",
+  "generated_at": "2026-06-04T04:30:55.600Z",
+  "target_summary": {
+    "corpus_count": 125,
+    "with_arxiv_id": 109,
+    "with_assets": 109,
+    "with_fulltext_docs": 0,
+    "with_embedding_chunks": 0,
+    "by_rights": {
+      "OA": 19,
+      "UNKNOWN": 106
+    },
+    "by_collection": {
+      "collection:core": 43,
+      "collection:strategy-support": 35,
+      "collection:system-support": 34,
+      "collection:theory-support": 13
+    },
+    "by_direction": {
+      "direction:llm-serving-resource-allocation": 34,
+      "direction:rag-aware-allocation": 39,
+      "direction:test-time-compute-budgeting": 35
+    }
+  },
+  "selected_targets": [
+    {
+      "id": "LIT-0306",
+      "title": "BanaServe: Unified KV Cache and Dynamic Module Migration for Balancing Disaggregated LLM Serving in AI Infrastructure",
+      "arxiv_id": "2510.13223",
+      "doi": "10.1002/spe.70054",
+      "rights_class": "OA",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    }
+  ],
+  "fulltext_parser_health": {
+    "provider": "grobid",
+    "endpoint_url": "http://localhost:8070",
+    "status": "ready",
+    "checked_at": "2026-06-04T04:30:55.609Z",
+    "version": null,
+    "details": {
+      "initialized": true,
+      "ready": true,
+      "pool": {
+        "initialized": true,
+        "active": 0,
+        "idle": 0,
+        "maxActive": 10
+      },
+      "models": {
+        "loaded": {
+          "date": "wapiti",
+          "citation": "wapiti",
+          "table": "wapiti",
+          "affiliation-address": "wapiti",
+          "name-citation": "wapiti",
+          "header": "wapiti",
+          "figure": "wapiti",
+          "name-header": "wapiti",
+          "reference-segmenter": "wapiti",
+          "funding-acknowledgement": "wapiti",
+          "fulltext": "wapiti",
+          "segmentation": "wapiti"
+        },
+        "failed": {},
+        "totalLoaded": 12,
+        "totalFailed": 0
+      },
+      "grobidHomeConfigured": true
+    }
+  },
+  "deltas": {
+    "records": 0,
+    "sources": 0,
+    "pipelineStates": 0,
+    "stageStates": 0,
+    "pipelineRuns": 0,
+    "pipelineArtifacts": 0,
+    "assets": 0,
+    "fulltextDocs": 0,
+    "embeddingVersions": 0,
+    "embeddingChunks": 0,
+    "tokenIndexes": 0,
+    "processingJobs": 0,
+    "processingItems": 0,
+    "acquisitionJobs": 0,
+    "acquisitionItems": 0
+  }
+}

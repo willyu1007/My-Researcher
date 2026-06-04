@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-06-04T00:10:35.761Z",
+  "artifact_boundary_version": "repo-lightweight-manifest:v1",
+  "artifact_class": "citation-expansion-candidate-table",
+  "repo_policy": {
+    "db_is_ssot": true,
+    "repo_keeps": "human-readable summaries, reports, and lightweight manifests",
+    "repo_excludes": "large detailed corpus/readiness snapshots and staged candidate dumps",
+    "reason": "Detailed corpus/readiness snapshot; DB is SSOT; keep repo to lightweight audit evidence."
+  },
+  "removed_from_repo": true,
+  "original_repo_artifact": {
+    "path": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/b6-citation-expansion-candidates.md",
+    "size_bytes": 13877,
+    "line_count": 63,
+    "sha256": "5ced8147847c956d1bc5be2e2bd7a2f2d71b35baf5ca83f11aa8e3a458d8cba4"
+  },
+  "detailed_local_copy": {
+    "path": ".ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/b6-citation-expansion-candidates.md",
+    "git_ignored": true,
+    "size_bytes": 13877,
+    "line_count": 63,
+    "sha256": "5ced8147847c956d1bc5be2e2bd7a2f2d71b35baf5ca83f11aa8e3a458d8cba4"
+  },
+  "summary": {
+    "table_type": "b6-staged-citation-expansion-candidates",
+    "candidate_source": "Semantic Scholar references/citations stage output"
+  }
+}

@@ -1,0 +1,426 @@
+{
+  "run_id": "20260604T-missing-assets-key-content-curated",
+  "apply": true,
+  "selector": "all-fulltext",
+  "limit": 50,
+  "generated_at": "2026-06-04T05:56:01.037Z",
+  "target_summary": {
+    "corpus_count": 125,
+    "fulltext_ready_count": 123,
+    "key_content_ready_count": 112,
+    "key_content_failed_count": 0
+  },
+  "selected_targets": [
+    {
+      "id": "LIT-0318",
+      "title": "Beyond Test-Time Compute Strategies: Advocating Energy-per-Token in LLM Inference",
+      "arxiv_id": null,
+      "doi": "10.1145/3721146.3721953",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:strategy-support"
+      ],
+      "direction_tags": [
+        "direction:test-time-compute-budgeting"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0207",
+      "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models",
+      "arxiv_id": null,
+      "doi": null,
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b3-system-substrate"
+      ]
+    },
+    {
+      "id": "LIT-0312",
+      "title": "Bullet: Boosting GPU Utilization for LLM Serving via Dynamic Spatial-Temporal Orchestration",
+      "arxiv_id": null,
+      "doi": "10.1145/3779212.3790135",
+      "rights_class": "OA",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p2"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0309",
+      "title": "Efficient LLM Inference via Chunked Prefills",
+      "arxiv_id": null,
+      "doi": "10.1145/3759441.3759444",
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p1"
+      ],
+      "collection_tags": [
+        "collection:system-support"
+      ],
+      "direction_tags": [
+        "direction:llm-serving-resource-allocation"
+      ],
+      "batch_tags": [
+        "batch:b8-direction-balanced-scaleout"
+      ]
+    },
+    {
+      "id": "LIT-0249",
+      "title": "An analysis of approximations for maximizing submodular set functions - I",
+      "arxiv_id": null,
+      "doi": "10.1007/bf01588971",
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0250",
+      "title": "On the Resemblance and Containment of Documents",
+      "arxiv_id": null,
+      "doi": "10.1109/sequen.1997.666900",
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0251",
+      "title": "Approximate Nearest Neighbors: Towards Removing the Curse of Dimensionality",
+      "arxiv_id": null,
+      "doi": "10.1145/276698.276876",
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0253",
+      "title": "Random Projection in Dimensionality Reduction: Applications to Image and Text Data",
+      "arxiv_id": null,
+      "doi": "10.1145/502512.502546",
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0254",
+      "title": "Finite-time Analysis of the Multiarmed Bandit Problem",
+      "arxiv_id": null,
+      "doi": "10.1023/a:1013689704352",
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0255",
+      "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+      "arxiv_id": null,
+      "doi": null,
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    },
+    {
+      "id": "LIT-0256",
+      "title": "A Mathematical Theory of Communication",
+      "arxiv_id": null,
+      "doi": "10.1002/j.1538-7305.1948.tb01338.x",
+      "rights_class": "UNKNOWN",
+      "key_content_status": "NOT_STARTED",
+      "priority_tags": [
+        "priority:p3"
+      ],
+      "collection_tags": [
+        "collection:theory-support"
+      ],
+      "direction_tags": [],
+      "batch_tags": [
+        "batch:b5-theory-mapping"
+      ]
+    }
+  ],
+  "summary": {
+    "selected": 11,
+    "imported": 11,
+    "dry_run_valid": 0,
+    "dry_run_invalid": 0,
+    "failed": 0
+  },
+  "before": {
+    "corpus": 125,
+    "with_assets": 124,
+    "fulltext_preprocessed": 123,
+    "key_content_ready": 112,
+    "chunked": 112,
+    "embedded": 112,
+    "indexed": 112,
+    "with_embedding_chunks": 112
+  },
+  "after": {
+    "corpus": 125,
+    "with_assets": 124,
+    "fulltext_preprocessed": 123,
+    "key_content_ready": 123,
+    "chunked": 112,
+    "embedded": 112,
+    "indexed": 112,
+    "with_embedding_chunks": 112
+  },
+  "imports": [
+    {
+      "literature_id": "LIT-0318",
+      "title": "Beyond Test-Time Compute Strategies: Advocating Energy-per-Token in LLM Inference",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "85a50e8d-9466-4e57-9853-df064127ad89",
+        "checksum": "b419300a21a098a6716c1b7dea860d824ab0ec72c1d0481205ab9db149dbbc28",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0207",
+      "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "cd8b4148-0c6a-47c1-b388-c95b0a4dd166",
+        "checksum": "47f35a0ca7c071d12710e50b6d937fc79a820f343066b6e7961eb3a7682938da",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0312",
+      "title": "Bullet: Boosting GPU Utilization for LLM Serving via Dynamic Spatial-Temporal Orchestration",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "53ea801f-632b-41fb-9dc7-4ab040d2b740",
+        "checksum": "7c43035f3f0e70c605d3ce08b315a3091dbe83b30a9fa31c279bdbfa911b6024",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0309",
+      "title": "Efficient LLM Inference via Chunked Prefills",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "ec8e17a3-d8c0-4b09-b2cc-7e561476e68e",
+        "checksum": "ec511fc5f6029a55adce29fd237817b87a6a0c7a64d447351da242ea8e8f4bb0",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0249",
+      "title": "An analysis of approximations for maximizing submodular set functions - I",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "8602bbb7-f68f-4411-ad85-fcff1fd85c60",
+        "checksum": "1a9545f92f9a4317bc7edbca7fe0695771b343872568a2dbcb35e8705b0d6481",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0250",
+      "title": "On the Resemblance and Containment of Documents",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "817778b6-517a-49bc-8d65-4f056765d198",
+        "checksum": "beed1ed088f176830941d321ddfe43e13730398f449adf1801a82ec6c0292d91",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0251",
+      "title": "Approximate Nearest Neighbors: Towards Removing the Curse of Dimensionality",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "d08d67a5-f4ee-4d2c-bc93-c29b63db2e7b",
+        "checksum": "aa03366a4aa45d282ce50a264860ebbac5f5840119ce06ae25975a87518feda5",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0253",
+      "title": "Random Projection in Dimensionality Reduction: Applications to Image and Text Data",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "4cf4fc5f-8dae-499f-bd2f-8adba7154f7b",
+        "checksum": "29ac434d6ed3a382815bd9502b33110b88fba71f0072a2cb176192e4d1e6adef",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0254",
+      "title": "Finite-time Analysis of the Multiarmed Bandit Problem",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "03f57455-4591-44a1-aa42-2ee2801d1181",
+        "checksum": "3ebf2ffc930bc3736687bb9cfbe1a784374c3d66eaa9c70fd72d5d3d316655f3",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0255",
+      "title": "Sinkhorn Distances: Lightspeed Computation of Optimal Transport",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "1e2139e8-b03c-46d0-9dd3-898c3c761922",
+        "checksum": "427aec43400d22af34d1c4e32f6f11a58c6c32047d57943f3c87cbe9d6a380c9",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    },
+    {
+      "literature_id": "LIT-0256",
+      "title": "A Mathematical Theory of Communication",
+      "status": "IMPORTED",
+      "readiness_status": "PARTIAL_READY",
+      "dry_run_valid": true,
+      "import_result": {
+        "artifact_id": "436e058d-b33d-4f8f-8c7e-3f02ca9cc18d",
+        "checksum": "d89d6b45d18f7e3a4aaa0216129ba23f993ffc96097c1ba76ad347f16ce6800f",
+        "readiness_status": "PARTIAL_READY",
+        "source": "codex_curated",
+        "state_key_content_ready": true
+      },
+      "issues": [],
+      "error": null
+    }
+  ]
+}

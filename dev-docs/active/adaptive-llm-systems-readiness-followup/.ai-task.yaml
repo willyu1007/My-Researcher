@@ -1,0 +1,14 @@
+version: 1
+task_id: T-117
+project: main
+slug: adaptive-llm-systems-readiness-followup
+status: done
+updated: "2026-06-04"
+keywords:
+  - literature
+  - adaptive-llm-systems
+  - rag-aware-allocation
+  - fulltext-readiness
+  - code-readiness
+  - experiment-foundation
+  - follow-up

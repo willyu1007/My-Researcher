@@ -54,3 +54,28 @@
     - Result: passed.
   - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
     - Result: passed.
+
+### 2026-06-04 - LIT-0204 S0/S1 Preflight
+- Status: completed-with-blockers.
+- Commit checkpoint:
+  - `git commit -m "docs(literature): add adaptive systems promotion package"`
+    - Result: passed; commit `17e414f`.
+- Source and S0 checks:
+  - `git clone --depth 1 https://github.com/platformxlab/RAGPerf.git /tmp/ragperf-s0s1-20260604T015307Z/RAGPerf`
+    - Result: passed.
+  - `git -C /tmp/ragperf-s0s1-20260604T015307Z/RAGPerf rev-parse HEAD`
+    - Result: passed; `49c9794895666d029a3c98a48afd872197d83b23`.
+  - `git ls-remote https://github.com/platformxlab/RAGPerf.git HEAD`
+    - Result: passed; `49c9794895666d029a3c98a48afd872197d83b23`.
+  - `rg -n "requirement|requirements|generate_py3_requirements|pip" ...`
+    - Result: passed; CMake writes `requirement.txt`, README uses `requirement.txt`, monitoring README uses `requirements.txt`.
+  - `ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path); puts "ok #{path}" }' ...`
+    - Result: passed; tiny insert/query/monitor configs parse.
+- S1 attempt:
+  - `PYTHONPATH=/tmp/ragperf-s0s1-20260604T015307Z/RAGPerf/src python3 /tmp/ragperf-s0s1-20260604T015307Z/RAGPerf/src/run_new.py --config /tmp/ragperf-s0s1-20260604T015307Z/tiny-configs/lance_insert_tiny.yaml --msys-config /tmp/ragperf-s0s1-20260604T015307Z/tiny-configs/monitor_cpu_only.yaml`
+    - Result: blocked before execution.
+    - First failure: `ModuleNotFoundError: No module named 'psutil'`.
+    - Environment findings: local Python `3.12.6`; `cmake` not installed; Apple clang available.
+- Output:
+  - `08-lit-0204-ragperf-s0-s1-preflight.md`.
+  - `artifacts/lit-0204-ragperf-s0-s1-preflight.json`.

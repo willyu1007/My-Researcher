@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-06-04T00:18:23.169Z",
+  "artifact_boundary_version": "repo-lightweight-manifest:v1",
+  "artifact_class": "readiness-target-detail-snapshot",
+  "repo_policy": {
+    "db_is_ssot": true,
+    "repo_keeps": "human-readable summaries, execution reports, and lightweight manifests",
+    "repo_excludes": "large detailed corpus/readiness snapshots",
+    "reason": "Detailed readiness matrices are generated task evidence; LiteratureRecord and related DB tables remain the corpus SSOT."
+  },
+  "removed_from_repo": true,
+  "original_repo_artifact": {
+    "path": "dev-docs/active/adaptive-llm-systems-readiness-followup/artifacts/f2-readiness-targets.json",
+    "size_bytes": 31838,
+    "line_count": 1258,
+    "sha256": "bd5e833e571100ccd921855bf5c0ffada531c47fd6ee65496d247ea3c16d7734"
+  },
+  "detailed_local_copy": {
+    "path": ".ai/.tmp/adaptive-llm-systems-readiness-followup/f2-readiness-targets.json",
+    "git_ignored": true,
+    "size_bytes": 31838,
+    "line_count": 1258,
+    "sha256": "cba3f1916ad1bbaca97ac1f5e33c4e60fcda520397ade9b54884679f962f965a"
+  },
+  "summary": {
+    "target_count": 39
+  }
+}

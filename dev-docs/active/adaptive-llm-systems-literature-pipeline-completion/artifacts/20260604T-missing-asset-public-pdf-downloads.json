@@ -1,0 +1,269 @@
+{
+  "run_id": "20260604T-missing-asset-public-pdf-downloads",
+  "generated_at": "2026-06-04T05:54:39.435Z",
+  "summary": {
+    "candidates": 13,
+    "acquired": 12,
+    "missing": 1
+  },
+  "results": [
+    {
+      "literature_id": "LIT-0207",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://www.usenix.org/system/files/osdi22-yu.pdf",
+        "asset_id": "50b0db78-5006-425a-a9e2-17636bb71ce0",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0207/1780552457906-c442d9c8-e06e-48fe-b695-1e5159b242bd-LIT-0207.pdf",
+        "checksum": "b8038438ad8ff99bb131c1a6e16f7df10cf2f962aeb1bf4f1c00cc37e70658ca",
+        "byte_size": 3906936,
+        "mime_type": "application/pdf",
+        "rights_class": "OA",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://www.usenix.org/system/files/osdi22-yu.pdf",
+          "status": "SUCCEEDED",
+          "asset_id": "50b0db78-5006-425a-a9e2-17636bb71ce0"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0249",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://thibaut.horel.org/submodularity/papers/nemhauser1978.pdf",
+        "asset_id": "37a76cc7-8ed1-41d7-909a-e721b127921c",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0249/1780552460038-cbfdce08-2348-4fe0-8ae1-c03e5743903c-LIT-0249.pdf",
+        "checksum": "0891faeec6bcb9bd6428e57dfd6f14ab69468b09128aa61662a0c7d6315bcb76",
+        "byte_size": 1243305,
+        "mime_type": "application/pdf",
+        "rights_class": "UNKNOWN",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://thibaut.horel.org/submodularity/papers/nemhauser1978.pdf",
+          "status": "SUCCEEDED",
+          "asset_id": "37a76cc7-8ed1-41d7-909a-e721b127921c"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0250",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://www.cs.princeton.edu/courses/archive/spr05/cos598E/bib/broder97resemblance.pdf",
+        "asset_id": "79f8befa-4662-4615-85df-7b0f37fe7963",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0250/1780552462430-61adc31d-b79e-4cb3-977f-f0dd526e1ba3-LIT-0250.pdf",
+        "checksum": "da1227992d4a308f9f6f9f99893fd7b00c26e6cf757b1372f426074c101ef56b",
+        "byte_size": 254930,
+        "mime_type": "application/pdf",
+        "rights_class": "UNKNOWN",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://www.cs.princeton.edu/courses/archive/spr05/cos598E/bib/broder97resemblance.pdf",
+          "status": "SUCCEEDED",
+          "asset_id": "79f8befa-4662-4615-85df-7b0f37fe7963"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0251",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://sarielhp.org/p/12/him/him.pdf",
+        "asset_id": "ea9ae854-5947-4e9e-9795-58e9a245a809",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0251/1780552464723-ad2dbdb9-ca38-4352-b1bc-8ac99c64c050-LIT-0251.pdf",
+        "checksum": "77be6b32e42cb57e25a5861377a878dd12987a3a31b6e2f8b3bdb71d1ed03d5d",
+        "byte_size": 643399,
+        "mime_type": "application/pdf",
+        "rights_class": "UNKNOWN",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://sarielhp.org/p/12/him/him.pdf",
+          "status": "SUCCEEDED",
+          "asset_id": "ea9ae854-5947-4e9e-9795-58e9a245a809"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0252",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://research.cs.wisc.edu/techreports/1998/TR1377.pdf",
+        "asset_id": "7f954eec-7255-485d-ace8-c5d4ccbbef4a",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0252/1780552467211-622ff57f-5502-4151-9ea5-18fbbb11450d-LIT-0252.pdf",
+        "checksum": "0774be9b77694e0de88e959f595742a39af2e0b5c29872a3d14ea522ea4a3c7b",
+        "byte_size": 2485478,
+        "mime_type": "application/pdf",
+        "rights_class": "UNKNOWN",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://research.cs.wisc.edu/techreports/1998/TR1377.pdf",
+          "status": "SUCCEEDED",
+          "asset_id": "7f954eec-7255-485d-ace8-c5d4ccbbef4a"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0253",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://cs.uwaterloo.ca/~jhoey/teaching/cs793/papers/p245-bingham.pdf",
+        "asset_id": "83387ac3-527d-4b7a-8c01-f5f1376c4fa1",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0253/1780552469166-de2ee34a-21b4-44f1-a468-614dd1591621-LIT-0253.pdf",
+        "checksum": "0b01535ed3cdf27ef4c0ca1930ddf39ca247aed5c4af31a031910ab249eeab2b",
+        "byte_size": 592181,
+        "mime_type": "application/pdf",
+        "rights_class": "UNKNOWN",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://cs.uwaterloo.ca/~jhoey/teaching/cs793/papers/p245-bingham.pdf",
+          "status": "SUCCEEDED",
+          "asset_id": "83387ac3-527d-4b7a-8c01-f5f1376c4fa1"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0254",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://link.springer.com/content/pdf/10.1023%2FA%3A1013689704352.pdf",
+        "asset_id": "99d469b4-c4f7-4a2a-a8ac-4c539ec569f3",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0254/1780552472627-f3a3063e-ef91-47bc-90be-02c8e543face-LIT-0254.pdf",
+        "checksum": "4533abda119fc3ea5dfa11ecc5f379e2a8bfb2c07621b7a68244123b79284656",
+        "byte_size": 207956,
+        "mime_type": "application/pdf",
+        "rights_class": "UNKNOWN",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://link.springer.com/content/pdf/10.1023%2FA%3A1013689704352.pdf",
+          "status": "SUCCEEDED",
+          "asset_id": "99d469b4-c4f7-4a2a-a8ac-4c539ec569f3"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0255",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://proceedings.neurips.cc/paper_files/paper/2013/file/af21d0c97db2e27e13572cbf59eb343d-Paper.pdf",
+        "asset_id": "88af8678-c5c8-4eb4-bc53-6f6b91bf1f82",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0255/1780552474587-19e68183-7f03-4fed-86cf-cc9bf41d4841-LIT-0255.pdf",
+        "checksum": "ec3bb83fc9cc12be1c703d0b1bf99c170eb19c08a585ad910a696f25f596c78b",
+        "byte_size": 369066,
+        "mime_type": "application/pdf",
+        "rights_class": "UNKNOWN",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://proceedings.neurips.cc/paper_files/paper/2013/file/af21d0c97db2e27e13572cbf59eb343d-Paper.pdf",
+          "status": "SUCCEEDED",
+          "asset_id": "88af8678-c5c8-4eb4-bc53-6f6b91bf1f82"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0256",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf",
+        "asset_id": "fc0947e7-85c4-47bc-a0b1-b04855ffcf63",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0256/1780552477250-1e36d6e2-1a11-46d2-828c-793df7afbc9b-LIT-0256.pdf",
+        "checksum": "6e4e3411984f3edf99dbfe8b941cb5e8a321379ff0cae6ae5c1f592ad8882ca8",
+        "byte_size": 366296,
+        "mime_type": "application/pdf",
+        "rights_class": "UNKNOWN",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf",
+          "status": "SUCCEEDED",
+          "asset_id": "fc0947e7-85c4-47bc-a0b1-b04855ffcf63"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0257",
+      "status": "MISSING",
+      "success": null,
+      "attempts": []
+    },
+    {
+      "literature_id": "LIT-0309",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://arxiv.org/pdf/2308.16369",
+        "asset_id": "22213383-65d2-448e-93f9-c27167237dcc",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0309/1780552478609-2c7e545a-076d-43af-8a61-fd8a90fa85ef-LIT-0309.pdf",
+        "checksum": "67a87e83b9f0a0683784ac68d6476efc74082b9edba5e26a57be5f2d2e4f65ea",
+        "byte_size": 1312532,
+        "mime_type": "application/pdf",
+        "rights_class": "UNKNOWN",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://arxiv.org/pdf/2308.16369",
+          "status": "SUCCEEDED",
+          "asset_id": "22213383-65d2-448e-93f9-c27167237dcc"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0312",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://arxiv.org/pdf/2504.19516",
+        "asset_id": "1191bc1b-bd6e-4577-9d19-d0dd1db2ea3c",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0312/1780552479130-2210dbb8-cc8b-4a4c-aae0-6bf9f29a2436-LIT-0312.pdf",
+        "checksum": "e0b9274a8fadd3089f464fc1f577783ff74291804772394d179d0306c9b99a15",
+        "byte_size": 3311205,
+        "mime_type": "application/pdf",
+        "rights_class": "OA",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://arxiv.org/pdf/2504.19516",
+          "status": "SUCCEEDED",
+          "asset_id": "1191bc1b-bd6e-4577-9d19-d0dd1db2ea3c"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-0318",
+      "status": "ACQUIRED",
+      "success": {
+        "source_url": "https://arxiv.org/pdf/2603.20224",
+        "asset_id": "c6fa34d4-c00e-4601-a19a-60e0b7fb8547",
+        "local_path": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing/raw/LIT-0318/1780552479425-f96a5264-ebb6-4bff-abf3-618ad2896098-LIT-0318.pdf",
+        "checksum": "969d48cf74cd9693a901fbea1c6e9c41261c298374b495e7989f2ee0fd7072ac",
+        "byte_size": 849161,
+        "mime_type": "application/pdf",
+        "rights_class": "OA",
+        "status": "registered"
+      },
+      "attempts": [
+        {
+          "source_url": "https://arxiv.org/pdf/2603.20224",
+          "status": "SUCCEEDED",
+          "asset_id": "c6fa34d4-c00e-4601-a19a-60e0b7fb8547"
+        }
+      ]
+    }
+  ]
+}

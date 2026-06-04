@@ -1088,3 +1088,38 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/adaptive-llm-systems-literature-collection-ingestion
     updated: 2026-06-04
+  - id: T-117
+    slug: adaptive-llm-systems-readiness-followup
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/adaptive-llm-systems-readiness-followup
+    updated: 2026-06-04
+  - id: T-118
+    slug: adaptive-llm-systems-experiment-foundation-promotion
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion
+    updated: 2026-06-04
+  - id: T-119
+    slug: adaptive-llm-systems-standard-pipeline-expansion
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/adaptive-llm-systems-standard-pipeline-expansion
+    updated: 2026-06-04
+  - id: T-120
+    slug: adaptive-llm-systems-literature-pipeline-completion
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/adaptive-llm-systems-literature-pipeline-completion
+    updated: 2026-06-04
+  - id: T-121
+    slug: literature-retrieval-pgvector-index-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-retrieval-pgvector-index-design
+    updated: 2026-06-04

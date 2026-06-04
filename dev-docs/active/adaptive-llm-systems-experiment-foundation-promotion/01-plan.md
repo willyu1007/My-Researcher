@@ -40,9 +40,26 @@
   5. BurstGPT/Vidur/LoongServe system substrate baselines.
 - Remaining decision: choose whether the next action is S0/S1 smoke preflight or import-ready payload construction for the RAGPerf benchmark/evaluation-protocol candidates.
 
+## Phase 5 - LIT-0204 S0/S1 Preflight
+- Status: completed-with-blockers.
+- S0 static protocol check passed:
+  - source clone outside repo.
+  - HEAD/license/source file verification.
+  - requirements source inspection.
+  - tiny config generation and YAML parse.
+- S1 local LanceDB smoke is blocked before execution in the current environment:
+  - no local `cmake`.
+  - local Python is `3.12.6`, while README recommends Python `3.10`.
+  - official entrypoint imports dependencies before argument handling.
+  - text insert/query paths are coupled to CUDA/vLLM/generation.
+- Output:
+  - `08-lit-0204-ragperf-s0-s1-preflight.md`.
+  - `artifacts/lit-0204-ragperf-s0-s1-preflight.json`.
+
 ## Acceptance Criteria
 - [x] Matrix covers all 10 high runnable candidates from T-117.
 - [x] Candidate statuses do not claim auto-promotion.
 - [x] Each top candidate has concrete verification actions.
 - [x] First lane has a candidate split, gate blockers, metric requirements, and smoke plan.
+- [x] First lane has S0/S1 preflight evidence and a concrete S1 blocker list.
 - [x] Repo artifacts remain lightweight.

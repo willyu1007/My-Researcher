@@ -126,4 +126,9 @@ Project: `main`
 | T-114 paper-implementation-runtime-orchestration-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
 | T-115 topic-selection-v1b-human-review-path | in-progress | F-001 | dev-docs/active/topic-selection-v1b-human-review-path |
 | T-116 adaptive-llm-systems-literature-collection-ingestion | done | F-000 | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
+| T-117 adaptive-llm-systems-readiness-followup | done | F-000 | dev-docs/active/adaptive-llm-systems-readiness-followup |
+| T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
+| T-119 adaptive-llm-systems-standard-pipeline-expansion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-standard-pipeline-expansion |
+| T-120 adaptive-llm-systems-literature-pipeline-completion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-literature-pipeline-completion |
+| T-121 literature-retrieval-pgvector-index-design | in-progress | F-000 | dev-docs/active/literature-retrieval-pgvector-index-design |
 <!-- AUTO-GENERATED:END task-index -->

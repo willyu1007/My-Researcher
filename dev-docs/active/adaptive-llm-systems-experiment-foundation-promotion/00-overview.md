@@ -2,7 +2,7 @@
 
 ## Status
 - State: in-progress
-- Next step: run the `LIT-0204` RAGPerf S0/S1 preflight or construct import-ready benchmark/evaluation-protocol candidate payloads after duplicate and policy checks.
+- Next step: decide whether `LIT-0204` RAGPerf S1 should proceed through a faithful Linux/Python3.10/CUDA/vLLM environment or through an experiment-foundation minimal adapter for CPU/retrieval smoke.
 
 ## Goal
 - Start `F3-experiment-foundation-promotion-candidates`.
@@ -41,6 +41,7 @@
 - [x] F3 promotion matrix exists with all 10 high-runnable candidates.
 - [x] Each row has candidate family, source refs, expected asset output, missing fields, risk, and next verification action.
 - [x] `LIT-0204` RAGPerf has a concrete candidate-payload requirement split for benchmark, evaluation protocol, and dataset candidates.
+- [x] `LIT-0204` RAGPerf S0/S1 preflight is recorded with S0 passed and S1 blocked before execution.
 - [x] Auto-promotion is explicitly blocked unless source/provenance, duplicate, completeness, policy, risk, and confidence gates are satisfied.
 - [x] Governance sync/lint passes.
 

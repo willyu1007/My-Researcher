@@ -3,8 +3,9 @@
 ## Status
 - State: completed
 - Date: 2026-06-03
-- Storage: task evidence artifact, not DB schema.
-- Detailed JSON artifact: `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards.json`
+- Storage: DB is the corpus SSOT; repo keeps lightweight task evidence only.
+- Detailed card manifest: `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-manifest.json`
+- Detailed local JSON, generated outside repo: `.ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/phase5-judgment-cards.json`
 - Execution report: `dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards-report.json`
 - Content processing enqueued: `false`
 

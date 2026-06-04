@@ -8,13 +8,18 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 116 (planned: 2, in-progress: 5, blocked: 0, done: 39, archived: 70)
+- Tasks: 121 (planned: 2, in-progress: 9, blocked: 0, done: 40, archived: 70)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-116 adaptive-llm-systems-literature-collection-ingestion | done | F-000 | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
+| T-117 adaptive-llm-systems-readiness-followup | done | F-000 | dev-docs/active/adaptive-llm-systems-readiness-followup |
+| T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
+| T-119 adaptive-llm-systems-standard-pipeline-expansion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-standard-pipeline-expansion |
+| T-120 adaptive-llm-systems-literature-pipeline-completion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-literature-pipeline-completion |
+| T-121 literature-retrieval-pgvector-index-design | in-progress | F-000 | dev-docs/active/literature-retrieval-pgvector-index-design |
 | T-114 paper-implementation-runtime-orchestration-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
 | T-115 topic-selection-v1b-human-review-path | in-progress | F-001 | dev-docs/active/topic-selection-v1b-human-review-path |
 | T-112 topic-selection-llm-context-cache-runtime | done | F-001 | dev-docs/active/topic-selection-llm-context-cache-runtime |
@@ -29,5 +34,4 @@ Project: `main`
 | T-106 experiment-foundation-real-interaction-hardening | in-progress | F-001 | dev-docs/active/experiment-foundation-real-interaction-hardening |
 | T-090 experiment-foundation-capability-validation | done | F-001 | dev-docs/active/experiment-foundation-capability-validation |
 | T-102 paper-implementation-v1-hardening | done | F-001 | dev-docs/active/paper-implementation-v1-hardening |
-| T-103 experiment-foundation-full-flow-validation-runner | done | F-001 | dev-docs/active/experiment-foundation-full-flow-validation-runner |
 <!-- AUTO-GENERATED:END dashboard -->

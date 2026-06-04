@@ -1,14 +1,23 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 import { getPrismaClient } from '../../../../apps/backend/src/repositories/prisma/prisma-client.ts';
 
-const OUT_DIR = 'dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts';
-const JSON_PATH = path.join(OUT_DIR, 'phase6-corpus-readiness.json');
+const TASK_DIR = 'dev-docs/active/adaptive-llm-systems-literature-collection-ingestion';
+const OUT_DIR = path.join(TASK_DIR, 'artifacts');
+const TMP_DETAIL_DIR = '.ai/.tmp/adaptive-llm-systems-literature-collection-ingestion';
+const LEGACY_JSON_PATH = path.join(OUT_DIR, 'phase6-corpus-readiness.json');
+const DETAIL_JSON_PATH = path.join(TMP_DETAIL_DIR, 'phase6-corpus-readiness.json');
+const MANIFEST_PATH = path.join(OUT_DIR, 'phase6-corpus-readiness-manifest.json');
 const REPORT_PATH = path.join(OUT_DIR, 'phase6-corpus-readiness-report.json');
-const MD_PATH = 'dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/11-corpus-readiness-review.md';
-const PHASE5_JSON_PATH = 'dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase5-judgment-cards.json';
-const B6_STAGE_PATH = 'dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/b6-citation-expansion-stage-report.json';
+const MD_PATH = path.join(TASK_DIR, '11-corpus-readiness-review.md');
+const PHASE5_JSON_PATH = path.join(OUT_DIR, 'phase5-judgment-cards.json');
+const PHASE5_REPORT_PATH = path.join(OUT_DIR, 'phase5-judgment-cards-report.json');
+const PHASE5_MANIFEST_PATH = path.join(OUT_DIR, 'phase5-judgment-cards-manifest.json');
+const B6_STAGE_PATH = path.join(OUT_DIR, 'b6-citation-expansion-stage-report.json');
+const B6_STAGE_MANIFEST_PATH = path.join(OUT_DIR, 'b6-citation-expansion-stage-manifest.json');
+const ARTIFACT_BOUNDARY_VERSION = 'repo-lightweight-manifest:v1';
 
 const BATCH_TAGS = [
   'batch:b1-core-high-precision',
@@ -251,11 +260,21 @@ function renderMarkdown(payload) {
   lines.push('');
   lines.push('## Notes');
   lines.push('- Use the effective priority distribution for readiness reporting; `12-priority-reconciliation.md` preserves the one-priority tag invariant for this round.');
+  lines.push(`- Detailed readiness manifest: \`${MANIFEST_PATH}\`; detailed local JSON is generated outside repo at \`${DETAIL_JSON_PATH}\`.`);
   lines.push('- The missing classic RAG anchor is a targeted correction, not a reason to restart collection.');
   lines.push('- Classic theory records without abstracts are acceptable for seed-bank use, but not for evidence-active use.');
   lines.push('- B6 staged candidates should be reviewed before another citation-expansion import; this task deliberately avoided bulk import.');
   lines.push('');
-  return `${lines.join('\n')}\n`;
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+function lineCount(text) {
+  if (text.length === 0) return 0;
+  return text.endsWith('\n') ? text.split('\n').length - 1 : text.split('\n').length;
+}
+
+function sha256(text) {
+  return crypto.createHash('sha256').update(text).digest('hex');
 }
 
 async function readJsonOrNull(filePath) {
@@ -266,11 +285,71 @@ async function readJsonOrNull(filePath) {
   }
 }
 
+async function readPhase5Summary() {
+  const legacyDetail = await readJsonOrNull(PHASE5_JSON_PATH);
+  if (legacyDetail?.summary) {
+    return legacyDetail.summary;
+  }
+  const report = await readJsonOrNull(PHASE5_REPORT_PATH);
+  if (report?.summary) {
+    return report.summary;
+  }
+  const manifest = await readJsonOrNull(PHASE5_MANIFEST_PATH);
+  return manifest?.summary ?? null;
+}
+
+async function readB6StageSummary() {
+  const legacyDetail = await readJsonOrNull(B6_STAGE_PATH);
+  if (legacyDetail) {
+    return legacyDetail;
+  }
+  const manifest = await readJsonOrNull(B6_STAGE_MANIFEST_PATH);
+  return manifest?.summary ?? {};
+}
+
+async function writeDetailedJsonAndManifest({ payload }) {
+  const text = `${JSON.stringify(payload, null, 2)}\n`;
+  await fs.mkdir(TMP_DETAIL_DIR, { recursive: true });
+  await fs.writeFile(DETAIL_JSON_PATH, text);
+
+  const previousManifest = await readJsonOrNull(MANIFEST_PATH);
+  const manifest = {
+    generated_at: payload.generated_at,
+    artifact_boundary_version: ARTIFACT_BOUNDARY_VERSION,
+    artifact_class: 'corpus-readiness-detail-snapshot',
+    repo_policy: {
+      db_is_ssot: true,
+      repo_keeps: 'human-readable summaries, execution reports, and lightweight manifests',
+      repo_excludes: 'large detailed corpus/readiness snapshots',
+      reason: 'Detailed corpus readiness is generated task evidence; LiteratureRecord and related DB tables remain the corpus SSOT.',
+    },
+    removed_from_repo: true,
+    original_repo_artifact: previousManifest?.original_repo_artifact ?? {
+      path: LEGACY_JSON_PATH,
+      status: 'legacy detailed artifact path no longer tracked',
+    },
+    detailed_local_copy: {
+      path: DETAIL_JSON_PATH,
+      git_ignored: true,
+      size_bytes: Buffer.byteLength(text, 'utf8'),
+      line_count: lineCount(text),
+      sha256: sha256(text),
+    },
+    summary: payload.summary,
+    distribution: payload.distribution,
+    b6_stage: payload.b6_stage,
+    follow_up_count: payload.follow_ups.length,
+    safety_counters: payload.safety_counters,
+  };
+  await fs.writeFile(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
+  return manifest;
+}
+
 async function main() {
   const prisma = getPrismaClient();
   try {
-    const phase5 = await readJsonOrNull(PHASE5_JSON_PATH);
-    const b6StageRaw = await readJsonOrNull(B6_STAGE_PATH);
+    const phase5Summary = await readPhase5Summary();
+    const b6StageRaw = await readB6StageSummary();
     const b6Stage = {
       seed_count: b6StageRaw?.seed_count ?? 0,
       staged_candidate_count: b6StageRaw?.staged_candidate_count ?? 0,
@@ -401,7 +480,7 @@ async function main() {
         by_year_band: countBy(records, (record) => yearBand(record.year)),
         by_year: countBy(records, (record) => String(record.year)),
       },
-      phase5_summary: phase5?.summary ?? null,
+      phase5_summary: phase5Summary,
       b6_stage: b6Stage,
       high_experiment_candidates: highExperimentCandidates,
       no_abstract_records: noAbstract,
@@ -413,7 +492,7 @@ async function main() {
       safety_counters: safetyCounters,
     };
     await fs.mkdir(OUT_DIR, { recursive: true });
-    await fs.writeFile(JSON_PATH, `${JSON.stringify(payload, null, 2)}\n`);
+    const manifest = await writeDetailedJsonAndManifest({ payload });
     await fs.writeFile(MD_PATH, renderMarkdown(payload));
     await fs.writeFile(REPORT_PATH, `${JSON.stringify({
       generated_at: payload.generated_at,
@@ -425,9 +504,11 @@ async function main() {
       safety_counters: payload.safety_counters,
       artifact_paths: {
         markdown: MD_PATH,
-        json: JSON_PATH,
+        manifest: MANIFEST_PATH,
+        detailed_local_json: DETAIL_JSON_PATH,
         report: REPORT_PATH,
       },
+      detailed_local_copy: manifest.detailed_local_copy,
     }, null, 2)}\n`);
     console.log(JSON.stringify({
       decision: payload.decision,
@@ -438,7 +519,8 @@ async function main() {
       safety_counters: payload.safety_counters,
       artifact_paths: {
         markdown: MD_PATH,
-        json: JSON_PATH,
+        manifest: MANIFEST_PATH,
+        detailed_local_json: DETAIL_JSON_PATH,
         report: REPORT_PATH,
       },
     }, null, 2));

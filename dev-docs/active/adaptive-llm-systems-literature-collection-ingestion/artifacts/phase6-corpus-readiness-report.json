@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-03T23:27:45.112Z",
+  "generated_at": "2026-06-04T00:18:09.984Z",
   "decision": {
     "state": "completed",
     "readiness": "ready_as_research_seed_corpus",
@@ -11,7 +11,7 @@
   },
   "summary": {
     "record_count": 89,
-    "all_literature_count": 281,
+    "all_literature_count": 288,
     "judgment_ready_count": 77,
     "theory_ready_count": 13,
     "needs_judgment_count": 0,
@@ -83,8 +83,8 @@
   },
   "follow_up_count": 7,
   "safety_counters": {
-    "literature_count": 281,
-    "source_count": 285,
+    "literature_count": 288,
+    "source_count": 292,
     "pipeline_run_count": 0,
     "content_asset_count": 0,
     "content_processing_batch_job_count": 0,
@@ -92,7 +92,15 @@
   },
   "artifact_paths": {
     "markdown": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/11-corpus-readiness-review.md",
-    "json": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness.json",
+    "manifest": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness-manifest.json",
+    "detailed_local_json": ".ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/phase6-corpus-readiness.json",
     "report": "dev-docs/active/adaptive-llm-systems-literature-collection-ingestion/artifacts/phase6-corpus-readiness-report.json"
+  },
+  "detailed_local_copy": {
+    "path": ".ai/.tmp/adaptive-llm-systems-literature-collection-ingestion/phase6-corpus-readiness.json",
+    "git_ignored": true,
+    "size_bytes": 36405,
+    "line_count": 1273,
+    "sha256": "2d10c3ce5cb7925499075db36dac9760d688ea3cce175df8844358c9d60e8aa0"
   }
 }
