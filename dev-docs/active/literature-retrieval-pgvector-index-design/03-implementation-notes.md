@@ -18,7 +18,355 @@
 - Use pgvector as the future retrieval substrate to avoid late migration pain.
 - Keep the migration additive:
   - retain JSONB vector as rollback/parity data.
-  - add native vector storage and index.
+  - add normalized native vector storage.
   - dual-write during the cutover window.
   - switch retrieval reads only after parity and performance evidence.
 - Do not jump directly to deleting JSONB vectors; that would create unnecessary rollback risk.
+
+## 2026-06-05 - Storage Shape Discussion
+- Decision point discussed: native vector column on existing `LiteratureEmbeddingChunk` vs separate vector-index table.
+- First-pass decision:
+  - add the native pgvector column to `LiteratureEmbeddingChunk`.
+  - keep the existing JSONB `vector` as raw provider-vector rollback and parity data.
+  - store L2-normalized vectors in the native `vector(3072)` column.
+  - expose DB-side vector lookup through a repository candidate-query method, not direct SQL embedded in `LiteratureRetrievalService`.
+- Rationale:
+  - current retrieval has one active embedding profile/dimension at a time.
+  - current data model treats a chunk's vector as a one-to-one attribute of the embedding chunk.
+  - adding a column minimizes migration risk and keeps the write path near `persistEmbeddingVersionSnapshot`.
+  - service-level retrieval semantics should remain unchanged after candidate selection.
+- Separate table is deferred, not rejected.
+  - Split to a separate vector-index table when vectors become independently evolving index assets.
+  - Strong triggers include multiple dense vectors per chunk, multiple active candidate stores per literature, rebuild/backfill health that must be isolated from chunks, or main-table operational weight from future acceleration structures.
+- Evolution guardrail:
+  - the stable abstraction is "bounded vector candidate retrieval" at the repository boundary.
+  - the initial physical store is a chunk-table native vector column.
+  - a future table-backed implementation should be swappable behind the same repository method.
+
+## 2026-06-05 - Prisma And Raw SQL Boundary Discussion
+- Decision point discussed: representing pgvector in Prisma schema vs managing it entirely through raw SQL.
+- Decision:
+  - represent the native vector column in `prisma/schema.prisma` as `Unsupported("vector(3072)")` after validating support in a temporary Postgres migration run.
+  - keep the first-pass native vector field nullable during additive migration and backfill.
+  - use raw SQL for extension setup, vector backfill/dual-write conversion, and inner-product candidate queries.
+- Robustness rationale:
+  - the repo uses `repo-prisma` as DB SSOT, so hiding the column in raw SQL only would create schema/context drift.
+  - schema representation keeps the pgvector column visible to Prisma validation, migration review, and `docs/context/db/schema.json`.
+  - raw SQL stays isolated in repository methods so pgvector-specific behavior does not leak into service-level retrieval semantics.
+- Performance rationale:
+  - Prisma Client `findMany` cannot express the pgvector operator/index path needed to avoid JSONB vector loading.
+  - repository-scoped raw SQL can use DB-side inner-product ordering and candidate limits directly.
+- Evolution rationale:
+  - if the design later moves to a separate vector-index table, the same pattern applies: Prisma declares the table/unsupported vector field, raw SQL owns vector operations.
+  - repository abstraction remains the stable migration boundary.
+
+## 2026-06-05 - First-Phase Retrieval Boundary
+- Decision point discussed: whether first-phase pgvector should include native vector indexing or acceleration selection.
+- First-phase boundary:
+  - use exact DB-side native vector candidate retrieval.
+  - do not select, tune, or create a native vector index in this task phase.
+  - defer future acceleration/index selection until measured first-phase evidence shows it is needed.
+- First-phase goal:
+  - remove the current JSONB full-vector transfer into Node.
+  - keep service-level retrieval semantics unchanged after candidate selection.
+  - establish a parity baseline for any later acceleration strategy.
+- Known first-phase bottleneck:
+  - Postgres still computes exact inner products over the filtered active/evidence-ready candidate set.
+  - unscoped retrieval can remain expensive as active chunks grow.
+  - this is accepted as a measured boundary, not solved prematurely in T-121.
+
+## 2026-06-05 - Unscoped Retrieval Boundary Discussion
+- Decision point discussed: whether first-phase pgvector should continue to allow unscoped retrieval.
+- Decision:
+  - keep unscoped retrieval as a bounded compatibility path in the first phase.
+  - do not treat unscoped retrieval as a long-term unbounded performance guarantee.
+  - define scoped retrieval as the predictable-performance path.
+- Robustness rationale:
+  - existing workflow/agent callers may depend on full-corpus evidence discovery semantics.
+  - removing unscoped retrieval during the storage migration would mix behavioral change with persistence change.
+  - bounded unscoped retrieval preserves compatibility while keeping failure modes recoverable.
+- Performance rationale:
+  - first phase removes Node-side JSONB full-vector materialization.
+  - Postgres still performs exact inner products over the filtered candidate set.
+  - unscoped queries therefore remain useful but must be measured separately from scoped queries.
+- Evolution rationale:
+  - collect filtered candidate count, DB similarity-query latency, and scoped/unscoped P50/P95 before choosing any later acceleration or scope policy.
+  - if first-phase evidence shows unscoped retrieval is too expensive, choose between scope narrowing, metadata/topic prefiltering, native vector acceleration, or a separate candidate store in a later decision.
+
+## 2026-06-05 - Native Vector Type And Dimension Decision
+- Decision point discussed: first-phase native vector type for the active 3072-dimensional retrieval profile.
+- Decision:
+  - use `vector(3072)` as the first-phase native pgvector column.
+  - store L2-normalized values in the native column.
+  - represent it in Prisma as `Unsupported("vector(3072)")`.
+  - keep the existing JSONB `vector` as the raw full rollback and parity source during migration.
+- Robustness rationale:
+  - fixed dimensions catch embedding-profile mismatch before retrieval.
+  - full precision minimizes ranking drift during JSONB-to-pgvector parity testing.
+  - using `halfvec(3072)` during the first storage migration would combine persistence migration with precision change, making regressions harder to diagnose.
+- Performance rationale:
+  - `vector(3072)` still removes JSONB parsing, Prisma vector transfer, and Node-side full-corpus similarity scoring from the hot path.
+  - it does not solve the exact-scan DB bottleneck by itself; that remains a first-phase boundary.
+- Evolution rationale:
+  - half precision, quantization, reduced dimensions, or dedicated acceleration structures remain later decisions based on measured first-phase latency, storage, and retrieval-quality evidence.
+
+## 2026-06-05 - Operator And Norm Policy Decision
+- Decision point discussed: cosine distance `<=>` vs inner product `<#>` for first-phase exact candidate ordering.
+- Decision:
+  - use pgvector `<#>` for first-phase DB-side exact candidate ordering.
+  - normalize raw JSONB vectors into the native `vector(3072)` column during backfill.
+  - normalize new chunk embeddings before dual-writing the native column.
+  - normalize query embeddings before SQL.
+- Score mapping:
+  - `<#>` returns negative inner product.
+  - calculate `dot = -1 * (native_vector <#> query_vector_normalized)`.
+  - calculate `vector_score = clamp((dot + 1) / 2, 0, 1)` to preserve current `normalizedCosine` scale.
+- Robustness rationale:
+  - the current implementation stores provider vectors raw and computes cosine at query time.
+  - storing normalized native vectors makes inner product semantically equivalent to cosine without relying on provider behavior.
+  - norm distribution checks catch provider/profile drift before retrieval quality silently changes.
+- Performance rationale:
+  - inner product is the preferred exact-search operator when vectors are normalized.
+  - choosing `<#>` now reduces the risk of later operator migration when the corpus grows.
+- Required gates:
+  - raw norm distribution: min, p50, p95, max, stddev.
+  - native `vector_norm(...)` near `1`.
+  - zero-norm, non-finite, wrong-dimension, and abnormal-norm counts.
+  - raw JSONB `normalizedCosine` vs native inner-product score drift.
+  - topK overlap and rank drift across scoped and unscoped fixed query sets.
+
+## 2026-06-05 - Candidate Window And Rerank Policy Decision
+- Decision point discussed: first-phase DB candidate window, service rerank window, and second-phase alternatives.
+- Decision:
+  - use an internal DB candidate window derived from existing request parameters.
+  - do not expose `candidate_limit` as a public API parameter in the first phase.
+  - keep lexical, metadata, stale filtering, same-work dedup, and evidence grouping in service-level rerank.
+- Formula:
+  - `candidate_limit = clamp(top_k * evidence_per_literature * profile_multiplier, 200, ceiling)`.
+  - unscoped ceiling: `1200`.
+  - scoped ceiling: `2000`.
+  - profile multipliers: `general=8`, `topic_exploration=10`, `writing_evidence=10`, `paper_management=12`.
+  - per-literature cap: `clamp(evidence_per_literature * 2, 4, 12)`.
+- Robustness rationale:
+  - current service ranks final literature hits after chunk scoring, evidence grouping, and same-work dedup.
+  - a vector-only DB candidate window that is too small can drop lexical/metadata-strong literature before rerank.
+  - overfetch reduces behavior drift from the current full-chunk rerank path.
+- Performance rationale:
+  - candidate window bounds data returned to Node and service rerank cost.
+  - it does not reduce the exact inner-product work Postgres performs over the filtered candidate set.
+- Required telemetry:
+  - `candidate_limit`, `candidate_returned`, `candidate_limit_hit`, `per_literature_candidate_cap`.
+  - `filtered_embedding_version_count`, `filtered_chunk_count`, scoped/unscoped mode.
+  - DB similarity-query latency, post-rerank drop rate.
+- Second-phase alternatives:
+  - tune multipliers/floors/ceilings from telemetry.
+  - add lexical or metadata candidate union before hybrid rerank.
+  - add topic/metadata prefiltering or scope narrowing for expensive unscoped retrieval.
+  - evaluate normalized-inner-product acceleration/index paths.
+  - split to a separate candidate store if multiple retrieval strategies need independent lifecycle.
+
+## 2026-06-05 - Migration Cutover State Machine Decision
+- Decision point discussed: backfill, dual-write, shadow-read parity, feature-flag cutover, and rollback boundaries.
+- Decision:
+  - use a staged cutover: `schema_prepare -> backfill -> dual_write -> shadow_read_parity -> feature_flag_cutover -> stabilization`.
+  - keep user-visible reads on JSONB until coverage, parity, and latency gates pass.
+  - keep JSONB raw vectors as the first-phase rollback source.
+- Backfill policy:
+  - schema preparation may succeed before all data is clean.
+  - invalid vectors should be quarantined/reported, not silently skipped.
+  - unresolved quarantine rows block pgvector cutover for affected active/evidence-ready versions.
+- Dual-write policy:
+  - new embedding chunks write raw JSONB vector and normalized native vector.
+  - native write failure prevents the embedding version from becoming retrieval-active.
+  - this avoids active versions with partial native vector coverage.
+- Shadow-read policy:
+  - JSONB remains the user-visible source while pgvector runs for parity evidence.
+  - parity covers topK overlap, rank drift, score drift, candidate window hit rate, partial visual index behavior, stale filtering, same-work dedup, and scoped/unscoped latency.
+- Feature flag and rollback policy:
+  - pgvector reads are flag-gated.
+  - automatic per-request JSONB fallback is allowed only during canary cutover.
+  - every canary fallback reason and count must be recorded.
+  - any canary fallback blocks promotion to stable/default-on pgvector mode.
+  - stable/default-on pgvector mode must remove automatic per-request JSONB fallback.
+  - rollback in the first phase is explicit and flag-based; native vectors are retained for repair and investigation.
+- Stabilization policy:
+  - automatic fallback code/config/test paths are removed before stable/default-on pgvector mode.
+  - JSONB retrieval cleanup is required after repeated cutover evidence; it is not optional long-term debt.
+
+## 2026-06-05 - Fallback Lifetime Decision
+- Decision point discussed: whether JSONB fallback is migration-only or a permanent retrieval safety path.
+- Decision:
+  - automatic per-request JSONB fallback is migration-only.
+  - it is allowed only during canary cutover as an observable safety net.
+  - it must be removed before stable/default-on pgvector mode.
+  - long-term rollback is explicit feature-flag rollback, not automatic per-request dual-track fallback.
+- Rationale:
+  - permanent fallback would hide pgvector correctness and coverage bugs.
+  - permanent fallback would keep JSONB and pgvector semantics coupled indefinitely.
+  - removing fallback after migration reduces dual-track testing and operational risk.
+- Required evidence:
+  - canary fallback count is zero before promotion.
+  - fallback reason telemetry exists during canary.
+  - stable/default-on implementation has no automatic per-request JSONB fallback path.
+  - rollback drill uses explicit feature flag to switch reads back to JSONB.
+
+## 2026-06-05 - Cutover Gate Threshold Decision
+- Decision point discussed: concrete thresholds for pgvector read cutover.
+- Decision:
+  - data quality, coverage, and fallback gates are hard blockers.
+  - parity and performance gates start with conservative thresholds and may be adjusted once after shadow-read evidence.
+- Hard blockers:
+  - active/evidence-ready native vector coverage is `100%`.
+  - unresolved quarantine rows affecting active/evidence-ready retrieval are `0`.
+  - wrong-dimension, NaN, Infinity, and zero-norm counts are `0`.
+  - canary automatic fallback count is `0`.
+  - stable/default-on pgvector mode has no automatic per-request JSONB fallback path.
+- Initial parity/performance thresholds:
+  - native norm tolerance: `abs(norm - 1) <= 1e-5`, relaxable to `1e-4` only with recorded shadow evidence.
+  - score drift: P95 `<= 1e-4`, max `<= 1e-3`.
+  - topK overlap: scoped `>= 0.9`, unscoped `>= 0.8`.
+  - `candidate_limit_hit` above `20%` across repeated shadow queries blocks default-on rollout.
+  - latency: when JSONB baseline is measurable, pgvector P95 must be no higher than `0.7x` JSONB P95.
+  - if JSONB baseline fails for unscoped retrieval, record the failure and require bounded pgvector retrieval to complete without Node full-vector loading.
+- Observed metrics:
+  - median and P95 rank drift are recorded in the first phase but do not hard-block initial cutover by themselves.
+  - profile-specific multiplier pressure and post-rerank drop rate are recorded for second-phase tuning.
+
+## 2026-06-05 - Final Cleanup And Legacy Removal Decision
+- Decision point discussed: whether JSONB retrieval remains as long-term rollback/compatibility debt after pgvector stabilizes.
+- Decision:
+  - migration is not complete until legacy JSONB retrieval storage, read paths, fallback paths, rollback flags, shadow-only paths, compatibility tests, and stable-path docs are removed.
+  - JSONB retrieval may exist only through schema prepare, backfill, shadow-read, canary, and stabilization windows.
+  - after stable gates pass, final cleanup is required.
+- Cleanup scope:
+  - remove the JSONB vector column and Prisma `Json` field used for retrieval.
+  - remove repository/service branches that implement JSONB retrieval fallback or parity as stable runtime behavior.
+  - remove automatic fallback and explicit rollback feature flags.
+  - remove shadow-read-only code once parity evidence has been accepted.
+  - update DB context and governance artifacts after schema cleanup.
+- Guardrails:
+  - do not start cleanup until stable/default-on pgvector mode passes repeated gates.
+  - run a rollback drill before cleanup while the flag still exists.
+  - after cleanup, rollback is a new recovery/migration task rather than a retained runtime dual path.
+- Rationale:
+  - keeping JSONB retrieval after pgvector stabilization creates permanent dual-track testing burden.
+  - keeping fallback/rollback code after stabilization can hide pgvector regressions.
+  - removing legacy paths makes pgvector the single retrieval authority and reduces future ambiguity.
+
+## 2026-06-05 - Final Schema Field Naming Decision
+- Decision point discussed: whether the native pgvector column should eventually reuse `vector` or keep a new retrieval-specific name.
+- Decision:
+  - name the native pgvector field `retrievalVector`.
+  - use `retrievalVector Unsupported("vector(3072)")?` during additive migration.
+  - after stable gates and final cleanup, keep `retrievalVector Unsupported("vector(3072)")` as the required retrieval vector field.
+  - remove the legacy `vector Json` field rather than renaming `retrievalVector` back to `vector`.
+- Rationale:
+  - current `vector` means raw provider-vector JSONB.
+  - the pgvector value is L2-normalized retrieval storage and has different semantics from the raw provider vector.
+  - `retrievalVector` describes the stable business purpose better than migration-oriented names such as `vectorNative`.
+  - reusing `vector` after cleanup would make historical docs, parity logs, and code review harder to reason about.
+- Cleanup requirement:
+  - audit all stable consumers of `LiteratureEmbeddingChunk.vector`.
+  - move retrieval consumers to `retrievalVector` or repository-level pgvector candidate methods.
+  - do not retain JSONB storage only to satisfy old consumers unless a separate non-retrieval artifact owner is explicitly documented.
+
+## 2026-06-05 - Migration-Only Durable Artifact Decision
+- Decision point discussed: whether backfill/quarantine records conflict with the earlier decision that fallback/quarantine must be temporary.
+- Decision:
+  - use durable migration records only as migration control-plane artifacts.
+  - create a run-level artifact for backfill/repair attempts.
+  - create a row-level quarantine issue artifact for invalid vector blockers.
+  - remove these artifacts and their runtime code during final cleanup.
+- Recommended shape:
+  - `LiteratureEmbeddingVectorBackfillRun`: status, scope, target dimension, target column, totals, error code/message, timestamps.
+  - `LiteratureEmbeddingVectorQuarantineIssue`: run id, literature id, embedding version id, chunk row id, chunk id, issue code, severity, status, observed dimension, observed norm, compact details, resolution timestamp.
+- Boundaries:
+  - do not store full vector payloads in quarantine rows.
+  - do not read migration issue tables from user-facing retrieval.
+  - do not use migration issue tables as the stable error path for new embeddings after cleanup.
+  - after cleanup, invalid new vectors fail the embedding/indexing job or block activation through the normal job/item error path.
+- Rationale:
+  - migration can span batches and process restarts, so logs alone are not reliable enough for coverage and cutover gates.
+  - durable records make backfill idempotent, resumable, and auditable.
+  - deleting them during final cleanup preserves the earlier no-dual-track/no-technical-debt policy.
+
+## 2026-06-05 - Rollout And Configuration Lifecycle Decision
+- Decision point discussed: whether pgvector cutover should use multiple feature flags or a finite rollout mode, and which settings may survive stabilization.
+- Decision:
+  - use one internal rollout mode instead of independent booleans.
+  - allowed modes are `jsonb_only`, `shadow_pgvector`, `pgvector_canary`, `pgvector_default`, and `finalized`.
+  - stable mode keeps pgvector tuning only; migration controls are removed during final cleanup.
+- Migration-only controls:
+  - rollout mode storage/config.
+  - shadow parity sampling and scope.
+  - canary scope and fallback switch.
+  - canary fallback reason/count telemetry.
+  - explicit JSONB rollback switch.
+  - migration backfill/quarantine wiring.
+- Long-term tuning that may remain:
+  - candidate window floor/ceiling.
+  - profile multipliers.
+  - per-literature cap.
+  - scoped/unscoped degradation thresholds.
+  - DB candidate query timeout.
+  - telemetry sampling.
+- Not configurable:
+  - pgvector vs JSONB backend after final cleanup.
+  - automatic JSONB fallback.
+  - pgvector operator/dimension/field-name choices from this migration.
+  - norm and data-quality gates.
+- Rationale:
+  - one finite mode prevents invalid combinations such as pgvector reads with shadow-only behavior or fallback outside canary.
+  - configuration that exists only to protect migration should not survive as an operational escape hatch.
+  - retaining only pgvector tuning supports performance evolution without keeping JSONB dual-track risk.
+- Cleanup requirement:
+  - remove migration rollout mode/configuration, shadow/canary/fallback settings, explicit JSONB rollback controls, and tests that preserve these as stable runtime behavior.
+
+## 2026-06-05 - Implementation Phase Boundary Decision
+- Decision point discussed: whether implementation should be one large migration or split into phases.
+- Decision:
+  - split implementation into five phases:
+    - infrastructure foundation.
+    - small-scale migration and validation.
+    - large-scale data migration.
+    - cutover acceptance.
+    - final cleanup and legacy removal.
+- Phase 1 boundary:
+  - add infrastructure and verification scaffolding only.
+  - user-visible retrieval stays on JSONB.
+- Phase 2 boundary:
+  - migrate a representative small set and run `shadow_pgvector`.
+  - validate semantics, not throughput.
+- Phase 3 boundary:
+  - migrate the broad retained dataset and enable dual-write/activation blockers.
+  - do not switch user-visible read path.
+- Phase 4 boundary:
+  - perform `shadow_pgvector -> pgvector_canary -> pgvector_default` promotion.
+  - accept pgvector only after coverage, quarantine, norm, parity, latency, candidate-window, scoped/unscoped, and partial-index gates pass.
+- Phase 5 boundary:
+  - delete legacy JSONB retrieval and all migration-only controls/artifacts.
+  - final cleanup is part of the definition of done.
+- Rationale:
+  - separating large-scale data migration from read-path cutover keeps data coverage failures distinct from retrieval behavior regressions.
+  - small-scale validation catches semantic mistakes before broad backfill.
+  - final cleanup as a mandatory phase prevents dual-track technical debt.
+
+## 2026-06-05 - Repository And Service Boundary Decision
+- Decision point discussed: where pgvector SQL/operator behavior belongs.
+- Decision:
+  - keep raw SQL, `<#>`, native vector column access, candidate ordering, and vector-score mapping inside repository methods.
+  - keep service-level hybrid rerank behavior outside the repository.
+  - do not expose `candidate_limit` as a public API parameter in the first phase.
+- Repository contract:
+  - inputs: active/evidence-ready embedding version IDs, normalized query vector, `candidate_limit`, `per_literature_candidate_cap`, and any filter context needed for safe DB-side filtering.
+  - outputs: bounded candidate chunks, literature/version identifiers, `vector_score`, inner-product diagnostic value, and candidate-query telemetry.
+  - excluded output: raw JSONB vectors.
+- Service contract:
+  - resolve compatible active/evidence-ready versions.
+  - normalize query vector before repository call.
+  - run lexical/metadata/stale/same-work/evidence grouping and final topK.
+  - orchestrate shadow-read parity and cutover gates.
+- Rationale:
+  - pgvector persistence details remain isolated from business rerank semantics.
+  - repository can later switch from chunk-column storage to a separate candidate store without rewriting retrieval service behavior.
+  - service no longer loads JSONB vectors in the pgvector path.
