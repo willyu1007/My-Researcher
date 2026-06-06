@@ -43,6 +43,7 @@ export function ResearchConstraintProfileCard({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [blockedStatus, setBlockedStatus] = useState<string | null>(null);
+  const [recordedStatus, setRecordedStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!titleCardId) {
@@ -79,6 +80,7 @@ export function ResearchConstraintProfileCard({
     setSubmitting(true);
     setSubmitError(null);
     setBlockedStatus(null);
+    setRecordedStatus(null);
     try {
       const result = await recordConstraintProfileHuman(snapshotId, {
         actor: { actor_type: 'human', actor_id: reviewerActorId.trim() },
@@ -91,6 +93,15 @@ export function ResearchConstraintProfileCard({
         },
       });
       if (result.gate_status === 'admitted' || result.gate_status === 'admitted_with_warnings') {
+        // Clear the authored fields so an identical profile is not re-submitted by
+        // accident (the required fields going blank also re-disables the button);
+        // reviewer/snapshot persist for the next entry.
+        setTargetCommunity('');
+        setClaimCeiling('');
+        setMethodConstraints('');
+        setNonGoals('');
+        setNotes('');
+        setRecordedStatus(result.gate_status);
         onMutated?.();
       } else {
         setBlockedStatus(result.gate_status);
@@ -131,7 +142,10 @@ export function ResearchConstraintProfileCard({
                 data-ui="select"
                 data-size="md"
                 value={snapshotId}
-                onChange={(event) => setSnapshotId(event.target.value)}
+                onChange={(event) => {
+                  setSnapshotId(event.target.value);
+                  setRecordedStatus(null);
+                }}
               >
                 {snapshots.map((snapshot) => (
                   <option key={snapshot.v1b_intake_snapshot_id} value={snapshot.v1b_intake_snapshot_id}>
@@ -201,6 +215,13 @@ export function ResearchConstraintProfileCard({
                 placeholder="reviewer-id"
               />
             </div>
+            {recordedStatus ? (
+              <div data-ui="alert" data-tone="success">
+                <p data-ui="text" data-variant="caption" data-tone="primary">
+                  已记录约束档案（gate：{recordedStatus}），经 harness human_delegated 写入。可继续为其它 snapshot 撰写。
+                </p>
+              </div>
+            ) : null}
             {blockedStatus ? (
               <div data-ui="alert" data-tone="warning">
                 <p data-ui="text" data-variant="caption" data-tone="primary">
