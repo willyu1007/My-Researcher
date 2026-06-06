@@ -59,7 +59,7 @@ function CheckStatusBadge({ status }: { status: TopicSelectionArgumentReadinessM
  * The reviewer card surfaces the disposition / promote_allowed / blockers /
  * warnings / required_actions / loopback_hints, AND — fetched on demand by the
  * GateCheck's `argument_readiness_mini_check_id` / `promotion_decision_support_id`
- * (T-115 decision-support) — the 6 per-check verdicts (证据), the support
+ * (T-087 Phase 4 decision-support) — the 6 per-check verdicts (证据), the support
  * reviewer_questions (反证) and risk_notes (阻断). The detail fetch degrades
  * gracefully: if it fails, the aggregate gate verdict still renders. This is a
  * read-only surface; the human promotion decision (N4) is driven from the
@@ -90,6 +90,11 @@ export function PromotionGateCheckCard({ gateChecks }: PromotionGateCheckCardPro
     let mounted = true;
     setDetailLoading(true);
     setDetailError(null);
+    // Clear the previous gate-check's detail so support-derived sections
+    // (reviewer_questions / risk_notes / summary) never render against a
+    // different gate-check's disposition during the switch fetch window.
+    setMiniCheck(null);
+    setSupport(null);
     void Promise.all([
       miniCheckId ? getArgumentReadinessMiniCheck(miniCheckId).catch(() => null) : Promise.resolve(null),
       supportId ? getPromotionDecisionSupport(supportId).catch(() => null) : Promise.resolve(null),

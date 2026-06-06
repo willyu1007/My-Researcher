@@ -54,7 +54,7 @@ export async function listPromotionGateChecksByTitleCard(
 }
 
 /**
- * T-115 (v1c decision-support) — fetch the N2 argument-readiness mini-check by id
+ * T-087 Phase 4 (v1c decision-support) — fetch the N2 argument-readiness mini-check by id
  * (the 6 per-check verdicts behind a GateCheck's `argument_readiness_mini_check_id`).
  * Returns the bare record (controller `reply.send(result)`).
  */
@@ -68,7 +68,7 @@ export async function getArgumentReadinessMiniCheck(
 }
 
 /**
- * T-115 (v1c decision-support) — fetch the N2 promotion decision-support packet by id
+ * T-087 Phase 4 (v1c decision-support) — fetch the N2 promotion decision-support packet by id
  * (summary / reviewer_questions / risk_notes behind a GateCheck's `promotion_decision_support_id`).
  */
 export async function getPromotionDecisionSupport(
