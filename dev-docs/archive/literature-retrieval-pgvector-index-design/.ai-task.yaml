@@ -2,8 +2,8 @@ version: 1
 task_id: T-121
 project: main
 slug: literature-retrieval-pgvector-index-design
-status: in-progress
-updated: "2026-06-04"
+status: archived
+updated: "2026-06-06"
 keywords:
   - literature
   - retrieval

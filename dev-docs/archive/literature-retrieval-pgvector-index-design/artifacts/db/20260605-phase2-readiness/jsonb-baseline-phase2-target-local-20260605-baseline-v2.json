@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "run_id": "phase2-target-local-20260605-baseline-v2",
+  "mode": "jsonb_baseline",
+  "generated_at": "2026-06-05T15:03:44.503Z",
+  "target_db_ref": "local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev",
+  "query_set_checksum": "6f36f11dcfcc0be4b7e55ca49afcfe28e8c02e2266398927ff633c1bad480cb4",
+  "query_count": 5,
+  "query_results": [
+    {
+      "query_id": "q_lit_0252_visual_scoped",
+      "query_fingerprint": "abbd7839fd13b9a19a884a7f993490b0be4fa86f8f517ce76acba85596279702",
+      "query_vector_sha256": "c9f69016021f0a856818dcf9adb3d9c74c6101f2129ce13b39a135e5de8dd798",
+      "status": "passed",
+      "request": {
+        "query": "When is nearest neighbor meaningful for high dimensional embedding retrieval?",
+        "profile": "writing_evidence",
+        "top_k": 5,
+        "evidence_per_literature": 3,
+        "include_stale": false
+      },
+      "literature_scope": [
+        "LIT-0252"
+      ],
+      "baseline_source": "internal_scoped_jsonb",
+      "items": [
+        {
+          "literature_id": "LIT-0252",
+          "embedding_version_id": "b3522d9f-9812-4b30-8342-ee71669f7e3c",
+          "hybrid_score": 0.790984,
+          "vector_score": 0.79997
+        }
+      ],
+      "meta": {
+        "profile": "writing_evidence",
+        "query_tokens": [
+          "when",
+          "nearest",
+          "neighbor",
+          "meaningful",
+          "high",
+          "dimensional",
+          "embedding",
+          "retrieval"
+        ],
+        "degraded_mode": false,
+        "freshness_warnings": [],
+        "profiles_used": [
+          {
+            "provider": "openai",
+            "model": "text-embedding-3-large",
+            "dimension": 3072,
+            "literature_count": 1
+          }
+        ],
+        "skipped_profiles": [],
+        "query_embedding_telemetry": null
+      },
+      "error_code": null,
+      "error_message": null
+    },
+    {
+      "query_id": "q_standard_semantic_scoped",
+      "query_fingerprint": "9f286f27f36757063c61c0558ce34a5949989e366126c3976d03cee77eca7cf5",
+      "query_vector_sha256": "72a08b0fca3085610cbb2abdf20689ab1a9e4c8733eda47473ddaac70b9171f0",
+      "status": "passed",
+      "request": {
+        "query": "Passage retrieval with generative models for open domain question answering",
+        "profile": "general",
+        "top_k": 5,
+        "evidence_per_literature": 3,
+        "include_stale": false
+      },
+      "literature_scope": [
+        "LIT-0177"
+      ],
+      "baseline_source": "internal_scoped_jsonb",
+      "items": [
+        {
+          "literature_id": "LIT-0177",
+          "embedding_version_id": "4facd0a9-48b7-48fb-9cd3-cb682ccfe642",
+          "hybrid_score": 0.885077,
+          "vector_score": 0.883462
+        }
+      ],
+      "meta": {
+        "profile": "general",
+        "query_tokens": [
+          "passage",
+          "retrieval",
+          "generative",
+          "models",
+          "open",
+          "domain",
+          "question",
+          "answering"
+        ],
+        "degraded_mode": false,
+        "freshness_warnings": [],
+        "profiles_used": [
+          {
+            "provider": "openai",
+            "model": "text-embedding-3-large",
+            "dimension": 3072,
+            "literature_count": 1
+          }
+        ],
+        "skipped_profiles": [],
+        "query_embedding_telemetry": null
+      },
+      "error_code": null,
+      "error_message": null
+    },
+    {
+      "query_id": "q_metadata_lexical",
+      "query_fingerprint": "5130f3cf112de2281a98d3f8c2b85b745eef1fd3ad1d388c7f339f4a1b9054a7",
+      "query_vector_sha256": "5cd891eeba1cf891776d204d96e78714ea88d813075b1d8c2035724f001d2770",
+      "status": "passed",
+      "request": {
+        "query": "Active Retrieval Augmented Generation",
+        "profile": "topic_exploration",
+        "top_k": 5,
+        "evidence_per_literature": 3,
+        "include_stale": false
+      },
+      "literature_scope": [
+        "LIT-0178"
+      ],
+      "baseline_source": "internal_scoped_jsonb",
+      "items": [
+        {
+          "literature_id": "LIT-0178",
+          "embedding_version_id": "d98acfcb-ec9b-4740-9309-131f1de730ab",
+          "hybrid_score": 0.915259,
+          "vector_score": 0.845925
+        }
+      ],
+      "meta": {
+        "profile": "topic_exploration",
+        "query_tokens": [
+          "active",
+          "retrieval",
+          "augmented",
+          "generation"
+        ],
+        "degraded_mode": false,
+        "freshness_warnings": [],
+        "profiles_used": [
+          {
+            "provider": "openai",
+            "model": "text-embedding-3-large",
+            "dimension": 3072,
+            "literature_count": 1
+          }
+        ],
+        "skipped_profiles": [],
+        "query_embedding_telemetry": null
+      },
+      "error_code": null,
+      "error_message": null
+    },
+    {
+      "query_id": "q_stale_default_excluded",
+      "query_fingerprint": "b677ef27d0f43f74268b3f9b75f74fdc94c44b24196abfa737da21d5e3993786",
+      "query_vector_sha256": "436dcbf32406aefa8ec79fbcc797ce8b96fa0289ec785c5a8c783bec449b09a6",
+      "status": "passed",
+      "request": {
+        "query": "retrieval augmented generation evidence with stale indexes excluded",
+        "profile": "general",
+        "top_k": 5,
+        "evidence_per_literature": 3,
+        "include_stale": false
+      },
+      "literature_scope": [
+        "LIT-0252",
+        "LIT-0177",
+        "LIT-0178",
+        "LIT-0179"
+      ],
+      "baseline_source": "internal_scoped_jsonb",
+      "items": [
+        {
+          "literature_id": "LIT-0178",
+          "embedding_version_id": "d98acfcb-ec9b-4740-9309-131f1de730ab",
+          "hybrid_score": 0.761972,
+          "vector_score": 0.749953
+        },
+        {
+          "literature_id": "LIT-0179",
+          "embedding_version_id": "a4284218-1feb-4ff8-9abf-10567ac41f82",
+          "hybrid_score": 0.67748,
+          "vector_score": 0.713637
+        },
+        {
+          "literature_id": "LIT-0177",
+          "embedding_version_id": "4facd0a9-48b7-48fb-9cd3-cb682ccfe642",
+          "hybrid_score": 0.653318,
+          "vector_score": 0.679542
+        },
+        {
+          "literature_id": "LIT-0252",
+          "embedding_version_id": "b3522d9f-9812-4b30-8342-ee71669f7e3c",
+          "hybrid_score": 0.489635,
+          "vector_score": 0.682775
+        }
+      ],
+      "meta": {
+        "profile": "general",
+        "query_tokens": [
+          "retrieval",
+          "augmented",
+          "generation",
+          "evidence",
+          "stale",
+          "indexes",
+          "excluded"
+        ],
+        "degraded_mode": false,
+        "freshness_warnings": [],
+        "profiles_used": [
+          {
+            "provider": "openai",
+            "model": "text-embedding-3-large",
+            "dimension": 3072,
+            "literature_count": 4
+          }
+        ],
+        "skipped_profiles": [],
+        "query_embedding_telemetry": null
+      },
+      "error_code": null,
+      "error_message": null
+    },
+    {
+      "query_id": "q_unscoped_bounded",
+      "query_fingerprint": "8f904c32ed4d5ec3dccb4979cd90a591af6eae80cbe5853da3721c7ebd2c2a67",
+      "query_vector_sha256": "4c3b39f21ee4c2b167be33cdb71d34a8b33a72f256037557e6454c93d58f8a02",
+      "status": "passed",
+      "request": {
+        "query": "self reflection retrieval augmented generation and passage retrieval evidence",
+        "profile": "general",
+        "top_k": 5,
+        "evidence_per_literature": 5,
+        "include_stale": false
+      },
+      "literature_scope": [
+        "LIT-0252",
+        "LIT-0177",
+        "LIT-0178",
+        "LIT-0179"
+      ],
+      "baseline_source": "internal_scoped_jsonb",
+      "items": [
+        {
+          "literature_id": "LIT-0179",
+          "embedding_version_id": "a4284218-1feb-4ff8-9abf-10567ac41f82",
+          "hybrid_score": 0.811504,
+          "vector_score": 0.832507
+        },
+        {
+          "literature_id": "LIT-0178",
+          "embedding_version_id": "d98acfcb-ec9b-4740-9309-131f1de730ab",
+          "hybrid_score": 0.78999,
+          "vector_score": 0.79665
+        },
+        {
+          "literature_id": "LIT-0177",
+          "embedding_version_id": "4facd0a9-48b7-48fb-9cd3-cb682ccfe642",
+          "hybrid_score": 0.777646,
+          "vector_score": 0.767743
+        },
+        {
+          "literature_id": "LIT-0252",
+          "embedding_version_id": "b3522d9f-9812-4b30-8342-ee71669f7e3c",
+          "hybrid_score": 0.471989,
+          "vector_score": 0.655508
+        }
+      ],
+      "meta": {
+        "profile": "general",
+        "query_tokens": [
+          "self",
+          "reflection",
+          "retrieval",
+          "augmented",
+          "generation",
+          "passage",
+          "evidence"
+        ],
+        "degraded_mode": false,
+        "freshness_warnings": [],
+        "profiles_used": [
+          {
+            "provider": "openai",
+            "model": "text-embedding-3-large",
+            "dimension": 3072,
+            "literature_count": 4
+          }
+        ],
+        "skipped_profiles": [],
+        "query_embedding_telemetry": null
+      },
+      "error_code": null,
+      "error_message": null
+    }
+  ]
+}

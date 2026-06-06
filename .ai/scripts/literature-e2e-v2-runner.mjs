@@ -965,11 +965,20 @@ async function injectDuplicateRetrievalStressClone(prisma, literatureByKey) {
         cloned_from_literature_id: targetLiteratureId,
       },
       contentChecksum: chunk.contentChecksum,
-      vector: chunk.vector,
       createdAt: now,
       updatedAt: now,
     })),
   });
+  for (const chunk of chunks) {
+    await prisma.$executeRawUnsafe(`
+      UPDATE "LiteratureEmbeddingChunk" AS clone
+      SET "retrievalVector" = source."retrievalVector"
+      FROM "LiteratureEmbeddingChunk" AS source
+      WHERE clone."id" = ${sqlString(`${cloneEmbeddingVersionId}-chunk-${chunk.chunkIndex}`)}
+        AND source."id" = ${sqlString(chunk.id)}
+        AND source."retrievalVector" IS NOT NULL
+    `);
+  }
   await prisma.literatureRecord.update({
     where: { id: cloneLiteratureId },
     data: {
@@ -986,6 +995,10 @@ async function injectDuplicateRetrievalStressClone(prisma, literatureByKey) {
     clone_literature_id: cloneLiteratureId,
     cloned_chunk_count: chunks.length,
   });
+}
+
+function sqlString(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
 }
 
 async function runRetrievalQueries(app, literatureByKey) {

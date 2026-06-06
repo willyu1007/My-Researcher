@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T14:04:39.728Z",
+  "target_db_ref": "local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev",
+  "migration_id": "20260605104000_add_literature_pgvector_phase1",
+  "target_dimension": 3072,
+  "target_column": "retrievalVector",
+  "items": [
+    {
+      "sample_role": "partial_visual_surface",
+      "literature_id": "LIT-0252",
+      "embedding_version_id": "b3522d9f-9812-4b30-8342-ee71669f7e3c",
+      "embedding_profile_id": "default",
+      "provider": "openai",
+      "model": "text-embedding-3-large",
+      "dimension": 3072,
+      "chunk_count": 13,
+      "vector_count": 13,
+      "stale_status": "current",
+      "evidence_scope": "partial_visual",
+      "selection_reason": "partial_visual_surface: When Is \"Nearest Neighbor\" Meaningful?"
+    },
+    {
+      "sample_role": "standard_fulltext_semantic",
+      "literature_id": "LIT-0177",
+      "embedding_version_id": "4facd0a9-48b7-48fb-9cd3-cb682ccfe642",
+      "embedding_profile_id": "default",
+      "provider": "openai",
+      "model": "text-embedding-3-large",
+      "dimension": 3072,
+      "chunk_count": 50,
+      "vector_count": 50,
+      "stale_status": "current",
+      "evidence_scope": "standard_fulltext",
+      "selection_reason": "standard_fulltext_semantic: Leveraging Passage Retrieval with Generative Models for Open Domain Question Answering"
+    },
+    {
+      "sample_role": "metadata_title_lexical",
+      "literature_id": "LIT-0178",
+      "embedding_version_id": "d98acfcb-ec9b-4740-9309-131f1de730ab",
+      "embedding_profile_id": "default",
+      "provider": "openai",
+      "model": "text-embedding-3-large",
+      "dimension": 3072,
+      "chunk_count": 142,
+      "vector_count": 142,
+      "stale_status": "current",
+      "evidence_scope": "metadata_lexical",
+      "selection_reason": "metadata_title_lexical: Active Retrieval Augmented Generation"
+    },
+    {
+      "sample_role": "unscoped_corpus_control",
+      "literature_id": "LIT-0179",
+      "embedding_version_id": "a4284218-1feb-4ff8-9abf-10567ac41f82",
+      "embedding_profile_id": "default",
+      "provider": "openai",
+      "model": "text-embedding-3-large",
+      "dimension": 3072,
+      "chunk_count": 185,
+      "vector_count": 185,
+      "stale_status": "current",
+      "evidence_scope": "unscoped_control",
+      "selection_reason": "unscoped_corpus_control: Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection"
+    }
+  ],
+  "blockers": [],
+  "warnings": [
+    "stale diagnostic sample was requested but no stale active/evidence-ready version was found."
+  ]
+}

@@ -218,6 +218,33 @@
 - Hard blockers:
   - active/evidence-ready native vector coverage is `100%`.
   - unresolved quarantine rows affecting active/evidence-ready retrieval are `0`.
+
+## 2026-06-05 - Phase 3 Readiness Findings Repair Implementation
+- Repository contract:
+  - Added `summarizeEmbeddingRetrievalVectorCoverage`.
+  - Prisma implementation uses aggregate SQL over `LiteratureEmbeddingChunk.retrievalVector IS NOT NULL`.
+  - In-memory implementation mirrors coverage semantics for service and flow tests.
+- New embedding write path:
+  - `persistEmbeddingVersionSnapshot` now normalizes raw embedding vectors and writes native `retrievalVector` rows after JSONB chunk persistence.
+  - Reused matching embedding versions are rematerialized idempotently.
+  - Invalid vectors fail closed with redacted details.
+- Activation gate:
+  - `activateLatestReadyEmbeddingVersion` now checks native coverage and open blocking quarantine before replacing token indexes or updating the active embedding pointer.
+  - Incomplete native coverage blocks activation with `GATE_CONSTRAINT_FAILED`.
+- Phase 3 runner:
+  - `LiteratureRetrievalPgvectorPhase3RunnerService` plans a broad workset from active/evidence-ready embedding versions.
+  - Dry-run validates vectors and projects writes without mutation.
+  - Execute requires target approval and writes in batches with retry and recovery checkpoint evidence.
+  - Verify uses live full-corpus coverage and open quarantine gates.
+  - Broad backfill reads chunks per embedding version and flushes projected/written vectors by batch; it does not load the entire active corpus of JSONB vectors into one repository call.
+- CLI:
+  - Added `pnpm literature:pgvector:phase3`.
+  - Execute and verify require `--target-db-approved --target-db-ref`.
+  - The CLI rejects mismatches between `DATABASE_URL` fingerprint and the approved target ref.
+- Boundary:
+  - This is still data-migration readiness work.
+  - Public retrieval remains JSONB.
+  - Broad execute run is not recorded by this implementation note.
   - wrong-dimension, NaN, Infinity, and zero-norm counts are `0`.
   - canary automatic fallback count is `0`.
   - stable/default-on pgvector mode has no automatic per-request JSONB fallback path.
@@ -269,6 +296,23 @@
   - audit all stable consumers of `LiteratureEmbeddingChunk.vector`.
   - move retrieval consumers to `retrievalVector` or repository-level pgvector candidate methods.
   - do not retain JSONB storage only to satisfy old consumers unless a separate non-retrieval artifact owner is explicitly documented.
+
+## 2026-06-05 - Phase 1 Readiness Finding Resolution
+- Finding addressed: T-121 was not yet a scoped implementation handoff.
+- Resolution:
+  - Added `06-phase-1-readiness.md` as the Phase 1 handoff addendum.
+  - Phase 1 is approved only for infrastructure/preflight work.
+  - Phase 1 explicitly does not approve large-scale backfill, user-visible pgvector reads, cutover, or cleanup.
+- Finding addressed: temporary Postgres pgvector preflight substrate was not executable.
+- Resolution:
+  - Added `.ai/scripts/literature-pgvector-phase1-preflight.mjs`.
+  - The script defaults to dry-run and requires `--execute --database-is-disposable --allow-create-extension` for mutation.
+  - The execute path verifies pgvector extension availability, `vector(3072)` DDL, correct-dimension insert, wrong-dimension rejection, normalized norm checks, `<#>` exact ordering, and a JSONB-to-normalized-vector backfill write.
+- Finding addressed: partial visual index semantics could be lost if Phase 1 SQL hard-coded `INDEXED`.
+- Resolution:
+  - The readiness addendum requires pgvector candidate SQL to query by service-resolved `eligibleEmbeddingVersionIds`.
+  - The repository method must not hard-code `status = 'INDEXED'`.
+  - `PARTIAL_INDEXED` active versions such as `LIT-0252` remain part of the Phase 1 guardrail.
 
 ## 2026-06-05 - Migration-Only Durable Artifact Decision
 - Decision point discussed: whether backfill/quarantine records conflict with the earlier decision that fallback/quarantine must be temporary.
@@ -370,3 +414,265 @@
   - pgvector persistence details remain isolated from business rerank semantics.
   - repository can later switch from chunk-column storage to a separate candidate store without rewriting retrieval service behavior.
   - service no longer loads JSONB vectors in the pgvector path.
+
+## 2026-06-05 - Phase 1 Infrastructure Implementation
+- Implemented additive repo-prisma schema preparation:
+  - nullable `LiteratureEmbeddingChunk.retrievalVector Unsupported("vector(3072)")?`.
+  - migration-only `LiteratureEmbeddingVectorBackfillRun`.
+  - migration-only `LiteratureEmbeddingVectorQuarantineIssue`.
+  - raw migration SQL creates `vector` extension if absent, adds the nullable column, and creates lookup indexes.
+- Implemented repository contract and skeleton:
+  - native retrieval vector writes validate 3072 dimensions and update only `retrievalVector`.
+  - candidate query accepts service-resolved `eligibleEmbeddingVersionIds`, normalized query vector, candidate limit, and per-literature cap.
+  - candidate query uses `<#>` over normalized native vectors and returns bounded candidates plus telemetry.
+  - candidate query does not select raw JSONB `vector`.
+  - candidate query does not hard-code `status = 'INDEXED'`, preserving partial active version semantics such as `LIT-0252`.
+- Implemented finite rollout settings scaffold:
+  - default mode is `jsonb_only`.
+  - allowed modes are `jsonb_only`, `shadow_pgvector`, `pgvector_canary`, `pgvector_default`, and `finalized`.
+  - invalid one-step transitions are rejected.
+- Implemented verification scaffolding:
+  - disposable pgvector preflight script.
+  - targeted unit tests for rollout settings and Prisma pgvector SQL boundary.
+  - DB context regeneration after schema change.
+- Explicitly not implemented in Phase 1:
+  - persistent DB migration apply.
+  - active corpus backfill.
+  - embedding write-path dual-write.
+  - shadow-read parity.
+  - canary/default pgvector retrieval.
+  - JSONB retrieval cleanup.
+
+## 2026-06-05 - Phase 2 Readiness Finding Resolution
+- Finding addressed: persistent target DB migration apply was not approved.
+- Resolution:
+  - Kept target DB mutation as an explicit approval gate.
+  - Added `07-phase-2-readiness.md` and `artifacts/db/20260605-phase2-readiness/01-target-db-apply-gate.md`.
+  - Phase 2 execution remained blocked at this checkpoint until the intended local/dev DB was named, approved, migrated, and post-smoked; this was later satisfied on the approved local target.
+- Finding addressed: Phase 2 lacked an executable runbook and evidence schema.
+- Resolution:
+  - Added sample workset, shadow query set, shadow artifact, and verification checklist contracts.
+  - Required JSONB baseline capture before sample native-vector writes.
+  - Required generated execution artifacts under `artifacts/db/20260605-phase2-readiness/`.
+- Finding addressed: shadow parity boundary was not defined.
+- Resolution:
+  - Defined `shadow_pgvector` as an internal runner/artifact-sink boundary.
+  - Public literature retrieval responses must remain unchanged in Phase 2.
+- Finding addressed: stale filtering and DB candidate cap ordering was ambiguous.
+- Resolution:
+  - Renamed pgvector candidate query input to `eligibleEmbeddingVersionIds`.
+  - The service/runner must resolve active, evidence-ready, and stale-policy eligibility before repository calls.
+  - Stale-ineligible versions cannot enter SQL and therefore cannot consume per-literature caps.
+- Finding addressed: backfill runner contract was missing.
+- Resolution:
+  - Added a runner contract for plan, JSONB baseline, dry-run, sample execute, shadow, verify, quarantine, coverage, resume, and rollback boundaries.
+  - The low-level repository write remains a normalized-vector primitive; the runner owns validation and artifact production.
+
+## 2026-06-05 - Phase 2 Runner Implementation
+- Implemented `LiteratureRetrievalPgvectorPhase2RunnerService`.
+- Runner capabilities:
+  - `planSampleWorkset`: materializes the representative sample manifest, including `LIT-0252` and optional stale diagnostic sample.
+  - `captureJsonbBaseline`: records JSONB user-visible baseline responses from the existing retrieval service.
+  - `backfillSample`: validates raw JSONB vectors, normalizes valid vectors, writes `retrievalVector` only in execute mode, and creates redacted quarantine issues for invalid vectors.
+  - `runShadow`: calls pgvector candidate retrieval with service-resolved `eligibleEmbeddingVersionIds`, reranks through `LiteratureRetrievalService.retrieveShadowFromPgvectorCandidates`, and writes artifact-shaped parity evidence.
+  - `verify`: evaluates coverage, quarantine, invalid-vector, score-drift, topK-overlap, and candidate-window gates.
+- Implemented `LiteratureRetrievalService.retrieveShadowFromPgvectorCandidates` as an internal rerank boundary.
+  - The method reuses literature metadata, lexical scoring, same-work dedup, stale warnings, evidence grouping, and final topK construction.
+  - It is not wired to controllers and does not change public `LiteratureRetrieveResponse`.
+- Implemented `.ai/scripts/literature-pgvector-phase2-runner.mjs` and package script `pnpm literature:pgvector:phase2`.
+  - `backfill-sample --execute` requires `--target-db-approved --target-db-ref <local-dev-ref>`.
+  - The script does not apply migrations; it assumes the target DB apply gate has already been satisfied.
+- Implementation boundary:
+  - Initial implementation did not apply a persistent DB migration or execute sample backfill.
+  - No public retrieval route was cut over to pgvector.
+
+## 2026-06-05 - Phase 2 Target Apply And Dry-Run Execution
+- Recorded approved local target:
+  - `local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev`.
+  - raw `DATABASE_URL`, username, and credentials are not recorded in repo.
+- Applied additive migration `20260605104000_add_literature_pgvector_phase1` to the approved local target.
+- Post-apply smoke confirmed:
+  - `vector` extension exists.
+  - `LiteratureEmbeddingChunk.retrievalVector` exists as `vector(3072)`.
+  - `LiteratureEmbeddingVectorBackfillRun` exists.
+  - `LiteratureEmbeddingVectorQuarantineIssue` exists.
+  - legacy `LiteratureEmbeddingChunk.vector` remains `jsonb`.
+  - literature retrieval vector rollout remains `jsonb_only`.
+- Execution repair:
+  - The first `plan` run exposed that sample planning was loading all active JSONB vectors after the native `retrievalVector` column existed.
+  - Changed `planSampleWorkset` to use embedding-version `chunkCount` and `vectorCount` metadata instead of loading raw chunk vectors.
+  - Changed Prisma chunk reads to explicitly select legacy fields and avoid the `Unsupported("vector(3072)")` column.
+- Generated sample workset manifest for the approved target:
+  - samples: `LIT-0252`, `LIT-0177`, `LIT-0178`, `LIT-0179`.
+  - blockers: none.
+  - warning: no stale active/evidence-ready diagnostic sample is currently available.
+- Ran sample backfill dry-run:
+  - selected chunks: `390`.
+  - valid normalized vectors: `390`.
+  - projected writes: `390`.
+  - native writes: `0`.
+  - quarantine: `0`.
+  - coverage ratio: `1`.
+- Remaining Phase 2 execution gate:
+  - fixed shadow query set still needs real `normalized_query_vector` values before JSONB baseline, sample execute, shadow parity, and final verify.
+
+## 2026-06-05 - Phase 2 Sample Execution Completion
+- Generated fixed shadow query set using the active OpenAI embedding profile:
+  - artifact: `.ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/shadow-query-set-phase2-target-local-20260605-v2.json`.
+  - durable index: `artifacts/db/20260605-phase2-readiness/09-generated-artifact-index.md`.
+  - profile: `default`, provider `openai`, model `text-embedding-3-large`, dimension `3072`.
+  - query vectors were normalized to unit length.
+  - provider raw response and secrets were not written to repo.
+- Fixed baseline scope handling:
+  - `literature_scope` is not a public `LiteratureRetrieveRequest` field.
+  - scoped Phase 2 JSONB baseline now uses an internal sample-corpus JSONB path instead of adding non-contract fields to public requests.
+  - public literature retrieval remains unchanged.
+- Executed Phase 2 sample backfill:
+  - selected chunks: `390`.
+  - written native vectors: `390`.
+  - coverage ratio: `1`.
+  - quarantine count: `0`.
+- Ran `shadow_pgvector` v1 and found score drift max `0.002911588937759446` for the sample bounded-corpus query.
+  - Root cause: per-literature candidate cap was too narrow for the query evidence window.
+  - Fix: v2 query set raises `q_unscoped_bounded.evidence_per_literature` from `3` to `5`, increasing per-literature cap from `6` to `10`.
+- Ran `shadow_pgvector` v2 and final verify:
+  - score drift P95: `6.837158202932514e-7`.
+  - score drift max: `6.837158202932514e-7`.
+  - scoped topK overlap min: `1`.
+  - sample bounded-corpus topK overlap min: `1`.
+  - candidate limit hit rate: `0`.
+  - final Phase 2 verify status: `PASS`.
+- Residual boundary:
+  - no stale active/evidence-ready diagnostic sample exists in the current local target, so stale-include diagnostic is N/A.
+  - Phase 2 does not approve large-scale backfill, public pgvector reads, staging/prod migration, or cleanup.
+
+## 2026-06-05 - Phase 2 Quality Hardening
+- Target binding hardening:
+  - `backfill-sample --execute` and `verify` require `--target-db-approved --target-db-ref`.
+  - The CLI derives a redacted target fingerprint from `DATABASE_URL` and rejects mismatches before approved write/verify operations.
+  - The service rejects `backfill-sample` execution when the approved target does not match the sample workset `target_db_ref`.
+- Artifact lineage hardening:
+  - JSONB baseline artifacts include `query_set_checksum`, `query_count`, per-query `query_fingerprint`, and query-vector SHA-256.
+  - `run-shadow` rejects mismatched baseline/query-set/sample-workset combinations before producing shadow evidence.
+  - Shadow artifacts store query-set and baseline lineage fields for final verification.
+- Final verify hardening:
+  - `verify` is async and performs live DB checks in addition to artifact gates.
+  - Final verify requires completed execute backfill evidence; dry-run projected coverage cannot satisfy final verification.
+  - Live gates confirm backfill run completion, sample native vector coverage, unresolved quarantine count, and public rollout mode.
+- Evidence:
+  - Phase 2 runner unit tests now cover target mismatch rejection, stale baseline rejection, scoped final verify pass, and dry-run final verify failure.
+  - Re-generated v2 JSONB baseline, v2 shadow parity, and final verification artifacts passed on the approved local target.
+
+## 2026-06-06 - Phase 3 Quarantine Gate Hardening
+- Finding addressed:
+  - Phase 3 verification counted open blocking quarantine by current backfill `run_id` when a backfill artifact was supplied.
+  - That could miss older open blocking quarantine rows for the same selected embedding versions, while the activation blocker is version-scoped.
+- Resolution:
+  - Changed Phase 3 verification to count the union of current-run open blocking quarantine issues and manifest embedding-version-scope open blocking quarantine issues.
+  - Added regression coverage proving a clean current execute run still fails verification when an older open blocking quarantine exists for the same workset.
+- Current target observation:
+  - The approved local target has no selected-version quarantine rows after the broad execute.
+  - The fix hardens future verification semantics without changing the recorded Phase 3 success result.
+
+## 2026-06-06 - Phase 4 Implementation Readiness Review
+- Added `09-phase-4-readiness.md`.
+- Decision:
+  - Phase 3 data migration is complete enough to serve as a Phase 4 foundation.
+  - Public read-path cutover is not implementation-ready yet.
+- Readiness blockers recorded:
+  - public retrieval is not mode-aware.
+  - public pgvector path does not own query-vector normalization, candidate-window calculation, timeout, or telemetry.
+  - canary fallback event recording and promotion-blocking gates do not exist.
+  - full-corpus repeated shadow/canary harness does not exist.
+  - rollout promotion operations are not target/evidence approval-gated.
+  - stable/default audit and cleanup preconditions are not yet provable.
+- Boundary:
+  - The next implementation work may repair Phase 4 readiness findings.
+  - It must not promote public mode beyond `jsonb_only` until the new Phase 4 gates pass.
+
+## 2026-06-06 - Phase 4 Readiness Finding Implementation
+- Implemented mode-aware public retrieval while preserving the existing public response DTO:
+  - `jsonb_only` delegates to the prior JSONB scoring path.
+  - `shadow_pgvector` runs pgvector candidate retrieval only in the evidence envelope and keeps JSONB visible.
+  - `pgvector_canary` allows structured JSONB fallback events.
+  - `pgvector_default` and `finalized` have no automatic JSONB fallback branch.
+- Implemented public-path pgvector candidate orchestration:
+  - service-level query embedding and vector normalization.
+  - candidate-window calculation from rollout settings.
+  - service-resolved profile/evidence-ready/stale eligibility before repository SQL.
+  - telemetry capture for candidate count, limit pressure, and DB similarity latency.
+- Implemented Phase 4 artifact gates:
+  - `LiteratureRetrievalPgvectorPhase4RunnerService.runEvidence`.
+  - `LiteratureRetrievalPgvectorPhase4RunnerService.evaluatePromotion`.
+  - `LiteratureRetrievalPgvectorPhase4RunnerService.auditStableDefault`.
+  - `.ai/scripts/literature-pgvector-phase4-runner.mjs`.
+- Added `pnpm literature:pgvector:phase4` for artifact generation.
+- Boundary:
+  - The Phase 4 command is approval/evidence generation only.
+  - It does not call `transitionMode` and does not mutate the public rollout mode.
+  - Public cutover still requires reviewed target evidence plus a passing promotion decision artifact.
+
+## 2026-06-06 - Phase 4 Controlled Promotion Apply
+- Added the missing durable execution step after promotion decision:
+  - `run-evidence` can evaluate the requested rollout mode without persisting settings, avoiding a bootstrap loop where shadow evidence would require shadow mode before promotion.
+  - `evaluate-promotion` remains decision-only.
+  - `apply-promotion` reads an approved decision artifact and calls `transitionMode` only after target/live-mode gates pass.
+- Apply gates:
+  - promotion decision status is `APPROVED`.
+  - target DB ref is explicitly approved and matches the decision.
+  - live mode equals decision `current_mode`.
+  - vector settings transition service is available.
+- Boundary:
+  - No Phase 4 implementation path directly writes application settings outside `LiteratureRetrievalVectorSettingsService.transitionMode`.
+  - No rollout transition has been executed in this implementation pass.
+
+## 2026-06-06 - Phase 4 Local Target Execution
+- First shadow evidence run exposed a runner bug:
+  - Phase 4 runner ignored Phase 2 query-set `literature_scope`.
+  - The scoped reviewed query matrix was therefore run as unscoped public JSONB retrieval, producing Prisma chunk-read failure before pgvector evidence could be collected.
+- Fix:
+  - Phase 4 runner now has a scoped evidence path for query records with `literature_scope` and `normalized_query_vector`.
+  - Scoped path builds JSONB baseline and pgvector candidates over service-approved active/evidence-ready scoped embedding versions.
+  - `run-evidence` still does not persist rollout mode.
+- Executed local target cutover:
+  - `jsonb_only -> shadow_pgvector`: evidence `PASS`, decision `APPROVED`, apply `APPLIED`.
+  - `shadow_pgvector -> pgvector_canary`: evidence `PASS`, decision `APPROVED`, apply `APPLIED`.
+  - `pgvector_canary -> pgvector_default`: evidence `PASS`, decision `APPROVED`, apply `APPLIED`.
+- Public retrieval smoke after default:
+  - mode `pgvector_default`.
+  - visible source `pgvector`.
+  - fallback count `0`.
+- Stable/default audit:
+  - default evidence and no-fallback gates pass.
+  - rollback-drill gate fails because no rollback drill artifact has been recorded.
+
+## 2026-06-06 - Phase 4 Rollback Drill Boundary
+- Added rollback drill as a first-class Phase 4 runner mode:
+  - `LiteratureRetrievalPgvectorPhase4RunnerService.runRollbackDrill`.
+  - `pnpm literature:pgvector:phase4 -- --mode rollback-drill`.
+- Drill behavior:
+  - requires approved target DB ref, live `pgvector_default`, and passing default evidence on the same target.
+  - transitions `pgvector_default -> jsonb_only`.
+  - verifies the reviewed query set returns JSONB-visible reads with fallback count `0`.
+  - restores through the legal settings chain `jsonb_only -> shadow_pgvector -> pgvector_canary -> pgvector_default`.
+- Boundary:
+  - The drill uses `LiteratureRetrievalVectorSettingsService.transitionMode`; it does not bypass the finite-state rollout contract.
+  - The approved local target was restored to `pgvector_default` after the drill.
+  - Stable/default audit now passes with the rollback drill artifact recorded.
+
+## 2026-06-06 - Phase 5 Cleanup And Archive Closure
+- Final cleanup removed the migration runtime from active code:
+  - public retrieval now uses pgvector candidate selection directly.
+  - JSONB retrieval fallback, shadow/canary rollout controls, Phase 1-4 migration runners, and rollout settings service code were removed.
+  - `LiteratureEmbeddingChunk.vector` was removed from repo-prisma schema and backend chunk domain records.
+  - migration-only backfill/quarantine Prisma models, repository contracts, services, and tests were removed.
+- Approved local target cleanup:
+  - applied `20260606090000_finalize_literature_pgvector_cleanup`.
+  - applied `20260606100000_remove_literature_retrieval_rollout_setting`.
+  - live DB checks show no legacy `vector` column, no migration-only tables, no obsolete rollout setting row, and `24,773/24,773` native vector coverage.
+- Post-cleanup residue repair:
+  - fixed `.ai/scripts/literature-e2e-v2-runner.mjs` duplicate-stress clone path so it copies stable `retrievalVector` instead of the removed JSONB `vector` field.
+  - removed local temporary task artifacts under `.ai/.tmp/literature-retrieval-pgvector-index-design` and `.ai/.tmp/literature-corpus-cleanup`.
+- Archive decision:
+  - T-121 is complete for the approved local target and is archived as historical migration evidence.
+  - Future staging/prod rollout, vector acceleration, or retrieval tuning should be started as a new task with its own target approval and evidence gates.

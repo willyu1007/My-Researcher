@@ -78,11 +78,15 @@ async function seedLocalLiterature(
       sourceRefs: [{ ref_type: 'paragraph', ref_id: 'para-1' }],
       metadata: { origin_stage: 'FULLTEXT_PREPROCESSED' },
       contentChecksum: 'content-checksum',
-      vector: input.vector ?? [0.1, 0.2, 0.3],
       createdAt: now,
       updatedAt: now,
     },
   ]);
+  await repository.writeEmbeddingRetrievalVectors([{
+    embeddingChunkId: `${input.versionId}-chunk-1`,
+    normalizedVector: normalizeTestVector(input.vector ?? [0.1, 0.2, 0.3]),
+    updatedAt: now,
+  }]);
 
   await repository.upsertPipelineState({
     id: `${input.literatureId}-pipeline-state`,
@@ -108,9 +112,63 @@ async function seedLocalLiterature(
   });
 }
 
+function createEmbeddingSettingsService(): LiteratureContentProcessingSettingsService {
+  return {
+    resolveOpenAIProviderApiKey: async () => 'sk-test',
+    resolveActiveEmbeddingProfile: async () => ({
+      profileId: 'default',
+      provider: 'openai',
+      model: 'text-embedding-3-large',
+      dimensions: 3,
+    }),
+    resolveOpenAIEmbeddingConfig: async () => ({
+      apiKey: 'sk-test',
+      profileId: 'default',
+      model: 'text-embedding-3-large',
+      dimensions: 3,
+    }),
+  } as LiteratureContentProcessingSettingsService;
+}
+
+function createRetrievalService(repository: InMemoryLiteratureRepository): LiteratureRetrievalService {
+  return new LiteratureRetrievalService(repository, createEmbeddingSettingsService());
+}
+
+async function withEmbeddingFetch<T>(
+  vector: number[],
+  callback: () => Promise<T>,
+): Promise<T> {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    data: [{ embedding: vector }],
+    usage: { prompt_tokens: 2, total_tokens: 2 },
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })) as typeof fetch;
+  try {
+    return await callback();
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+}
+
+function normalizeTestVector(vector: number[]): number[] {
+  const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+  return magnitude === 0 ? vector : vector.map((value) => value / magnitude);
+}
+
+async function retrieveWithTestEmbedding(
+  service: LiteratureRetrievalService,
+  request: Parameters<LiteratureRetrievalService['retrieve']>[0],
+  vector: number[] = [1, 0, 0],
+): Promise<Awaited<ReturnType<LiteratureRetrievalService['retrieve']>>> {
+  return withEmbeddingFetch(vector, () => service.retrieve(request));
+}
+
 test('retrieve ranks literature by hybrid score and returns chunk evidence', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureRetrievalService(repository);
+  const service = createRetrievalService(repository);
 
   await seedLocalLiterature(repository, {
     literatureId: 'LIT-RET-1',
@@ -126,7 +184,7 @@ test('retrieve ranks literature by hybrid score and returns chunk evidence', asy
     chunkText: 'graph coloring theorem and combinatorics notes',
   });
 
-  const response = await service.retrieve({
+  const response = await retrieveWithTestEmbedding(service, {
     query: 'retrieval evaluation',
     top_k: 10,
     evidence_per_literature: 2,
@@ -138,15 +196,15 @@ test('retrieve ranks literature by hybrid score and returns chunk evidence', asy
   assert.equal(response.meta.query_tokens.includes('retrieval'), true);
   assert.equal(response.items[0]?.evidence_chunks[0]?.chunk_type, 'fulltext_paragraph');
   assert.equal(response.meta.profile, 'general');
-  assert.equal(response.meta.degraded_mode, true);
-  assert.equal(response.meta.profiles_used.length, 0);
-  assert.equal(response.meta.skipped_profiles.length, 1);
-  assert.equal(response.meta.query_embedding_telemetry, null);
+  assert.equal(response.meta.degraded_mode, false);
+  assert.equal(response.meta.profiles_used.length, 1);
+  assert.equal(response.meta.skipped_profiles.length, 0);
+  assert.equal(response.meta.query_embedding_telemetry?.embedding_input_tokens, 2);
 });
 
 test('retrieve only consumes active topic evidence activation', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureRetrievalService(repository);
+  const service = createRetrievalService(repository);
   const now = new Date().toISOString();
 
   await seedLocalLiterature(repository, {
@@ -188,7 +246,7 @@ test('retrieve only consumes active topic evidence activation', async () => {
     updatedAt: now,
   });
 
-  const response = await service.retrieve({
+  const response = await retrieveWithTestEmbedding(service, {
     query: 'topic gated evidence',
     topic_id: 'topic-evidence',
     top_k: 10,
@@ -199,7 +257,7 @@ test('retrieve only consumes active topic evidence activation', async () => {
 
 test('retrieve boosts exact phrase lexical matches and explains matched tokens', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureRetrievalService(repository);
+  const service = createRetrievalService(repository);
 
   await seedLocalLiterature(repository, {
     literatureId: 'LIT-RET-PHRASE',
@@ -214,7 +272,7 @@ test('retrieve boosts exact phrase lexical matches and explains matched tokens',
     chunkText: 'The method masks tokens in a language encoder and studies modeling objectives separately.',
   });
 
-  const response = await service.retrieve({
+  const response = await retrieveWithTestEmbedding(service, {
     query: 'masked language modeling',
     top_k: 2,
   });
@@ -229,7 +287,7 @@ test('retrieve boosts exact phrase lexical matches and explains matched tokens',
 
 test('retrieve uses literature metadata for exact identifier and title term matches', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureRetrievalService(repository);
+  const service = createRetrievalService(repository);
 
   await seedLocalLiterature(repository, {
     literatureId: 'LIT-RET-ALPHAFOLD',
@@ -246,7 +304,7 @@ test('retrieve uses literature metadata for exact identifier and title term matc
     doiNormalized: '10.1000/generic-protein',
   });
 
-  const response = await service.retrieve({
+  const response = await retrieveWithTestEmbedding(service, {
     query: 'AlphaFold',
     top_k: 2,
   });
@@ -260,7 +318,7 @@ test('retrieve uses literature metadata for exact identifier and title term matc
 
 test('retrieve deduplicates split records by canonical work identity before applying top-k', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureRetrievalService(repository);
+  const service = createRetrievalService(repository);
 
   await seedLocalLiterature(repository, {
     literatureId: 'LIT-RET-DUP-DOI',
@@ -307,7 +365,7 @@ test('retrieve deduplicates split records by canonical work identity before appl
     titleAuthorsYearHash: null,
   });
 
-  const response = await service.retrieve({
+  const response = await retrieveWithTestEmbedding(service, {
     query: 'canonical duplicate evidence',
     top_k: 5,
   });
@@ -331,7 +389,7 @@ test('retrieve deduplicates split records by canonical work identity before appl
 
 test('retrieve consumes confirmed same-work clusters while ignoring candidate clusters', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureRetrievalService(repository);
+  const service = createRetrievalService(repository);
   const now = new Date().toISOString();
   let capturedClusterFilter: Parameters<InMemoryLiteratureRepository['listLiteratureClusters']>[0] | undefined;
   const originalListLiteratureClusters = repository.listLiteratureClusters.bind(repository);
@@ -449,7 +507,7 @@ test('retrieve consumes confirmed same-work clusters while ignoring candidate cl
     },
   ], []);
 
-  const response = await service.retrieve({
+  const response = await retrieveWithTestEmbedding(service, {
     query: 'clustered duplicate evidence',
     top_k: 10,
   });
@@ -463,7 +521,7 @@ test('retrieve consumes confirmed same-work clusters while ignoring candidate cl
   );
 });
 
-test('retrieve skips OpenAI profile when API key is not configured', async () => {
+test('retrieve fails closed when query embedding config is not available', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureRetrievalService(repository);
   const now = new Date().toISOString();
@@ -522,7 +580,6 @@ test('retrieve skips OpenAI profile when API key is not configured', async () =>
       sourceRefs: [{ ref_type: 'paragraph', ref_id: 'para-1' }],
       metadata: { origin_stage: 'KEY_CONTENT_READY' },
       contentChecksum: 'content-checksum',
-      vector: [0.1, 0.2, 0.3],
       createdAt: now,
       updatedAt: now,
     },
@@ -550,16 +607,9 @@ test('retrieve skips OpenAI profile when API key is not configured', async () =>
     updatedAt: now,
   });
 
-  const response = await service.retrieve({
+  await assert.rejects(() => service.retrieve({
     query: 'openai embedding',
-  });
-
-  assert.equal(response.items.length, 1);
-  assert.equal(response.meta.degraded_mode, true);
-  assert.equal(response.meta.profiles_used.length, 0);
-  assert.equal(response.meta.skipped_profiles.length, 1);
-  assert.equal(response.meta.skipped_profiles[0]?.provider, 'openai');
-  assert.equal(response.meta.query_embedding_telemetry, null);
+  }), /OpenAI embedding API key is not configured/);
 });
 
 test('retrieve uses only the configured active embedding profile when active versions are mixed', async () => {
@@ -634,7 +684,7 @@ test('retrieve uses only the configured active embedding profile when active ver
 
 test('retrieve excludes stale indexes by default and can include them for diagnostics', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureRetrievalService(repository);
+  const service = createRetrievalService(repository);
   const now = new Date().toISOString();
 
   await seedLocalLiterature(repository, {
@@ -657,7 +707,7 @@ test('retrieve excludes stale indexes by default and can include them for diagno
     updatedAt: now,
   });
 
-  const defaultResponse = await service.retrieve({
+  const defaultResponse = await retrieveWithTestEmbedding(service, {
     query: 'writing evidence claim',
     profile: 'writing_evidence',
     top_k: 1,
@@ -667,7 +717,7 @@ test('retrieve excludes stale indexes by default and can include them for diagno
   assert.equal(defaultResponse.meta.freshness_warnings.length, 1);
   assert.equal(defaultResponse.items.length, 0);
 
-  const response = await service.retrieve({
+  const response = await retrieveWithTestEmbedding(service, {
     query: 'writing evidence claim',
     profile: 'writing_evidence',
     top_k: 1,
@@ -682,4 +732,110 @@ test('retrieve excludes stale indexes by default and can include them for diagno
   assert.deepEqual(response.items[0]?.warnings, ['Embedding profile changed after the active index was built.']);
   assert.equal(response.items[0]?.evidence_chunks[0]?.chunk_type, 'evidence');
   assert.equal(response.items[0]?.evidence_chunks[0]?.score_breakdown.profile_boost, 0.16);
+});
+
+test('retrieve uses pgvector candidates and does not run the legacy JSONB chunk scan', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  let pgvectorCandidateCalls = 0;
+  const originalListEmbeddingVectorCandidates = repository.listEmbeddingVectorCandidates.bind(repository);
+  repository.listEmbeddingVectorCandidates = async (query) => {
+    pgvectorCandidateCalls += 1;
+    return originalListEmbeddingVectorCandidates(query);
+  };
+  const originalListEmbeddingChunks = repository.listEmbeddingChunksByEmbeddingVersionIds.bind(repository);
+  repository.listEmbeddingChunksByEmbeddingVersionIds = async () => {
+    throw new Error('legacy JSONB chunk scan must not run during pgvector retrieval');
+  };
+  const service = createRetrievalService(repository);
+
+  await seedLocalLiterature(repository, {
+    literatureId: 'LIT-RET-PGVECTOR',
+    title: 'Pgvector Stable Match',
+    versionId: 'EV-RET-PGVECTOR',
+    chunkText: 'pgvector stable visible evidence',
+    vector: [1, 0, 0],
+  });
+
+  const response = await retrieveWithTestEmbedding(service, {
+    query: 'pgvector stable evidence',
+    top_k: 5,
+  });
+
+  repository.listEmbeddingChunksByEmbeddingVersionIds = originalListEmbeddingChunks;
+  assert.equal(response.items[0]?.literature_id, 'LIT-RET-PGVECTOR');
+  assert.equal(response.meta.degraded_mode, false);
+  assert.equal(response.meta.profiles_used.length, 1);
+  assert.equal(pgvectorCandidateCalls, 1);
+});
+
+test('retrieve fails instead of falling back to JSONB when pgvector candidate selection fails', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  repository.listEmbeddingVectorCandidates = async () => {
+    throw new Error('pgvector candidate query failed');
+  };
+  repository.listEmbeddingChunksByEmbeddingVersionIds = async () => {
+    throw new Error('legacy JSONB fallback must not run');
+  };
+  const service = createRetrievalService(repository);
+
+  await seedLocalLiterature(repository, {
+    literatureId: 'LIT-RET-NO-FALLBACK',
+    title: 'No Fallback Candidate',
+    versionId: 'EV-RET-NO-FALLBACK',
+    chunkText: 'pgvector failure should not fallback to jsonb',
+    vector: [1, 0, 0],
+  });
+
+  await assert.rejects(() => retrieveWithTestEmbedding(service, {
+    query: 'pgvector failure',
+    top_k: 5,
+  }), /pgvector candidate query failed/);
+});
+
+test('retrieve excludes stale embedding versions from pgvector candidate SQL by default', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  let eligibleEmbeddingVersionIds: string[] = [];
+  const originalListEmbeddingVectorCandidates = repository.listEmbeddingVectorCandidates.bind(repository);
+  repository.listEmbeddingVectorCandidates = async (query) => {
+    eligibleEmbeddingVersionIds = [...query.eligibleEmbeddingVersionIds];
+    return originalListEmbeddingVectorCandidates(query);
+  };
+  const service = createRetrievalService(repository);
+  const now = new Date().toISOString();
+
+  await seedLocalLiterature(repository, {
+    literatureId: 'LIT-RET-FRESH-PGVECTOR',
+    title: 'Fresh Pgvector Candidate',
+    versionId: 'EV-RET-FRESH-PGVECTOR',
+    chunkText: 'fresh pgvector candidate evidence',
+    vector: [1, 0, 0],
+  });
+  await seedLocalLiterature(repository, {
+    literatureId: 'LIT-RET-STALE-PGVECTOR',
+    title: 'Stale Pgvector Candidate',
+    versionId: 'EV-RET-STALE-PGVECTOR',
+    chunkText: 'stale pgvector candidate evidence',
+    vector: [1, 0, 0],
+  });
+  await repository.upsertPipelineStageState({
+    id: 'LIT-RET-STALE-PGVECTOR-indexed-state',
+    literatureId: 'LIT-RET-STALE-PGVECTOR',
+    stageCode: 'INDEXED',
+    status: 'STALE',
+    lastRunId: null,
+    detail: {
+      reason_code: 'PROFILE_CHANGED',
+      reason_message: 'Embedding profile changed after the active index was built.',
+    },
+    updatedAt: now,
+  });
+
+  const response = await retrieveWithTestEmbedding(service, {
+    query: 'pgvector candidate evidence',
+    top_k: 5,
+  });
+
+  assert.deepEqual(eligibleEmbeddingVersionIds, ['EV-RET-FRESH-PGVECTOR']);
+  assert.equal(response.meta.freshness_warnings.length, 1);
+  assert.equal(response.items.some((item) => item.literature_id === 'LIT-RET-STALE-PGVECTOR'), false);
 });

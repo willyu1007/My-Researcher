@@ -10,6 +10,8 @@ import { AppError } from '../errors/app-error.js';
 import type {
   LiteratureClusterGraphRecord,
   LiteratureEmbeddingChunkRecord,
+  LiteratureEmbeddingVectorCandidateTelemetry,
+  LiteratureEmbeddingVectorCandidateRecord,
   LiteratureEmbeddingVersionRecord,
   LiteratureRecord,
   LiteratureRepository,
@@ -79,6 +81,16 @@ type LiteratureWorkIdentityMaps = {
   directIdentityKeysByLiteratureId: Map<string, Set<string>>;
 };
 
+type LiteratureRetrievalCandidateWindowSettings = {
+  floor: number;
+  unscoped_ceiling: number;
+  scoped_ceiling: number;
+  profile_multipliers: Record<LiteratureRetrieveProfileId, number>;
+  per_literature_cap_min: number;
+  per_literature_cap_max: number;
+  query_timeout_ms: number;
+};
+
 const RETRIEVAL_STOPWORDS = new Set([
   'a',
   'an',
@@ -145,6 +157,21 @@ const RETRIEVAL_PROFILE_CONFIGS: Record<LiteratureRetrieveProfileId, RetrievalPr
   },
 };
 
+const DEFAULT_PGVECTOR_CANDIDATE_WINDOW: LiteratureRetrievalCandidateWindowSettings = {
+  floor: 200,
+  unscoped_ceiling: 1200,
+  scoped_ceiling: 2000,
+  profile_multipliers: {
+    general: 8,
+    topic_exploration: 10,
+    writing_evidence: 10,
+    paper_management: 12,
+  },
+  per_literature_cap_min: 4,
+  per_literature_cap_max: 12,
+  query_timeout_ms: 5000,
+};
+
 export class LiteratureRetrievalService {
   private readonly queryEmbeddingCache = new Map<string, { vector: number[]; telemetry: LlmCallTelemetry }>();
 
@@ -156,6 +183,96 @@ export class LiteratureRetrievalService {
   ) {}
 
   async retrieve(request: LiteratureRetrieveRequest): Promise<LiteratureRetrieveResponse> {
+    const result = await this.retrieveFromPgvector(request, DEFAULT_PGVECTOR_CANDIDATE_WINDOW);
+    return result.response;
+  }
+
+  private async retrieveFromPgvector(
+    request: LiteratureRetrieveRequest,
+    candidateWindowSettings: LiteratureRetrievalCandidateWindowSettings,
+  ): Promise<{
+    response: LiteratureRetrieveResponse;
+    pgvector_telemetry: LiteratureEmbeddingVectorCandidateTelemetry;
+  }> {
+    const query = request.query.trim();
+    if (!query) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'query cannot be empty.');
+    }
+
+    const profileId = this.normalizeProfile(request.profile);
+    const topK = this.normalizeRange(request.top_k, 10, 1, 30);
+    const evidencePerLiterature = this.normalizeRange(request.evidence_per_literature, 3, 1, 5);
+    const activeEmbeddingProfile = await this.resolveActiveEmbeddingProfile();
+    const resolvedVersions = await this.resolveCandidateVersions(request);
+    const { compatibleVersions: candidateVersions, skippedProfiles } = this.filterVersionsByActiveProfile(
+      resolvedVersions,
+      activeEmbeddingProfile,
+    );
+    if (candidateVersions.length === 0) {
+      return {
+        response: await this.retrieveFromPgvectorCandidates(request, {
+          candidateVersions: [],
+          candidates: [],
+          skippedProfiles,
+          queryEmbeddingTelemetry: null,
+        }),
+        pgvector_telemetry: {
+          candidateLimit: 0,
+          candidateReturned: 0,
+          candidateLimitHit: false,
+          perLiteratureCandidateCap: 0,
+          filteredEmbeddingVersionCount: 0,
+          filteredChunkCount: 0,
+          dbSimilarityQueryMs: 0,
+        },
+      };
+    }
+
+    const literatureIds = [...new Set(candidateVersions.map((version) => version.literatureId))];
+    const staleWarnings = await this.resolveFreshnessWarnings(literatureIds, candidateVersions);
+    const staleVersionIds = new Set(staleWarnings.map((warning) => warning.embedding_version_id));
+    const includeStale = request.include_stale === true;
+    const eligibleVersions = includeStale
+      ? candidateVersions
+      : candidateVersions.filter((version) => !staleVersionIds.has(version.id));
+    const retrievalProfile = this.toRetrievalProfile(activeEmbeddingProfile, candidateVersions);
+    const embeddedQuery = await this.embedQueryByProfile(query, retrievalProfile);
+    const normalizedQueryVector = this.normalizeVector(embeddedQuery.vector, retrievalProfile.dimension);
+    const candidateWindow = this.resolvePgvectorCandidateWindow(
+      candidateWindowSettings,
+      profileId,
+      topK,
+      evidencePerLiterature,
+      Boolean(request.topic_id?.trim() || request.paper_id?.trim()),
+    );
+
+    const result = await this.withPgvectorCandidateTimeout(this.repository.listEmbeddingVectorCandidates({
+      normalizedQueryVector,
+      eligibleEmbeddingVersionIds: eligibleVersions.map((version) => version.id),
+      candidateLimit: candidateWindow.candidateLimit,
+      perLiteratureCandidateCap: candidateWindow.perLiteratureCandidateCap,
+    }), candidateWindowSettings.query_timeout_ms);
+    const response = await this.retrieveFromPgvectorCandidates(request, {
+      candidateVersions,
+      candidates: result.candidates,
+      skippedProfiles,
+      queryEmbeddingTelemetry: this.toTelemetryDTO(embeddedQuery.telemetry),
+    });
+    return {
+      response,
+      pgvector_telemetry: result.telemetry,
+    };
+  }
+
+  async retrieveFromPgvectorCandidates(
+    request: LiteratureRetrieveRequest,
+    input: {
+      candidateVersions: LiteratureEmbeddingVersionRecord[];
+      candidates: LiteratureEmbeddingVectorCandidateRecord[];
+      queryEmbeddingTelemetry?: LiteratureLlmCallTelemetryDTO | null;
+      skippedProfiles?: LiteratureRetrieveResponse['meta']['skipped_profiles'];
+    },
+  ): Promise<LiteratureRetrieveResponse> {
     const query = request.query.trim();
     if (!query) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'query cannot be empty.');
@@ -167,14 +284,9 @@ export class LiteratureRetrievalService {
     const profileConfig = RETRIEVAL_PROFILE_CONFIGS[profileId];
     const topK = this.normalizeRange(request.top_k, 10, 1, 30);
     const evidencePerLiterature = this.normalizeRange(request.evidence_per_literature, 3, 1, 5);
+    const includeStale = request.include_stale === true;
 
-    const activeEmbeddingProfile = await this.resolveActiveEmbeddingProfile();
-    const resolvedVersions = await this.resolveCandidateVersions(request);
-    const { compatibleVersions: candidateVersions, skippedProfiles } = this.filterVersionsByActiveProfile(
-      resolvedVersions,
-      activeEmbeddingProfile,
-    );
-    if (candidateVersions.length === 0) {
+    if (input.candidateVersions.length === 0) {
       return {
         items: [],
         meta: {
@@ -183,13 +295,13 @@ export class LiteratureRetrievalService {
           degraded_mode: false,
           freshness_warnings: [],
           profiles_used: [],
-          skipped_profiles: skippedProfiles,
-          query_embedding_telemetry: null,
+          skipped_profiles: input.skippedProfiles ?? [],
+          query_embedding_telemetry: input.queryEmbeddingTelemetry ?? null,
         },
       };
     }
 
-    const literatureIds = [...new Set(candidateVersions.map((version) => version.literatureId))];
+    const literatureIds = [...new Set(input.candidateVersions.map((version) => version.literatureId))];
     const literatures = await this.repository.listLiteraturesByIds(literatureIds);
     const literatureById = new Map(literatures.map((item) => [item.id, item]));
     const confirmedSameWorkClusters = await this.repository.listLiteratureClusters({
@@ -198,55 +310,20 @@ export class LiteratureRetrievalService {
       literatureIds,
     });
     const workIdentityMaps = this.buildWorkIdentityMaps(literatures, confirmedSameWorkClusters);
-    const staleWarnings = await this.resolveFreshnessWarnings(literatureIds, candidateVersions);
+    const staleWarnings = await this.resolveFreshnessWarnings(literatureIds, input.candidateVersions);
     const staleByVersionId = new Map(staleWarnings.map((warning) => [warning.embedding_version_id, warning]));
-    const includeStale = request.include_stale === true;
+    const versionById = new Map(input.candidateVersions.map((version) => [version.id, version]));
+    const firstVersion = input.candidateVersions[0];
+    const retrievalProfile = this.toRetrievalProfile({
+      profileId: firstVersion?.profileId === 'economy' ? 'economy' : 'default',
+      provider: firstVersion?.provider === 'dashscope' ? 'dashscope' : 'openai',
+      model: firstVersion?.model ?? 'text-embedding-3-large',
+      dimensions: firstVersion?.dimension ?? null,
+    }, input.candidateVersions);
 
-    const profilesUsed: LiteratureRetrieveResponse['meta']['profiles_used'] = [];
     const scoredChunks: ScoredChunk[] = [];
-    let degradedMode = false;
-
-    const retrievalProfile = this.toRetrievalProfile(activeEmbeddingProfile, candidateVersions);
-    let queryVector: number[] | null = null;
-    let queryEmbeddingTelemetry: LiteratureLlmCallTelemetryDTO | null = null;
-    try {
-      const embeddedQuery = await this.embedQueryByProfile(query, retrievalProfile);
-      queryVector = embeddedQuery.vector;
-      queryEmbeddingTelemetry = this.toTelemetryDTO(embeddedQuery.telemetry);
-    } catch (error) {
-      degradedMode = true;
-      skippedProfiles.push({
-        provider: retrievalProfile.provider,
-        model: retrievalProfile.model,
-        dimension: retrievalProfile.dimension,
-        reason: error instanceof Error ? error.message : 'embedding query failed',
-      });
-    }
-
-    const chunks = await this.repository.listEmbeddingChunksByEmbeddingVersionIds(
-      candidateVersions.map((version) => version.id),
-    );
-    if (chunks.length === 0) {
-      skippedProfiles.push({
-        provider: retrievalProfile.provider,
-        model: retrievalProfile.model,
-        dimension: retrievalProfile.dimension,
-        reason: 'no chunks available for active embedding profile',
-      });
-    }
-
-    const versionById = new Map(candidateVersions.map((version) => [version.id, version]));
-    if (queryVector) {
-      profilesUsed.push({
-        provider: retrievalProfile.provider,
-        model: retrievalProfile.model,
-        dimension: retrievalProfile.dimension,
-        literature_count: candidateVersions.length,
-      });
-    }
-
-    for (const chunk of chunks) {
-      const version = versionById.get(chunk.embeddingVersionId);
+    for (const candidate of input.candidates) {
+      const version = versionById.get(candidate.embeddingVersionId);
       if (!version) {
         continue;
       }
@@ -255,22 +332,24 @@ export class LiteratureRetrievalService {
         continue;
       }
       const literature = literatureById.get(version.literatureId) ?? null;
-      const vectorScore = queryVector ? this.normalizedCosine(queryVector, chunk.vector) : 0;
-      const lexicalDetail = this.lexicalScoreDetail(queryContext, chunk.text);
+      const lexicalDetail = this.lexicalScoreDetail(queryContext, candidate.text);
       const lexicalScore = lexicalDetail.score;
-      const profileBoost = profileConfig.chunkBoosts[chunk.chunkType] ?? 0;
-      const metadataDetail = this.metadataScore(queryContext, chunk, literature, profileBoost);
+      const profileBoost = profileConfig.chunkBoosts[candidate.chunkType] ?? 0;
+      const chunkForRerank: LiteratureEmbeddingChunkRecord = {
+        ...candidate,
+      };
+      const metadataDetail = this.metadataScore(queryContext, chunkForRerank, literature, profileBoost);
       const metadataScore = metadataDetail.score;
-      const weightedVectorScore = this.toScore(vectorScore * profileConfig.vectorWeight);
+      const weightedVectorScore = this.toScore(candidate.vectorScore * profileConfig.vectorWeight);
       const weightedLexicalScore = this.toScore(lexicalScore * profileConfig.lexicalWeight);
       const weightedMetadataScore = this.toScore(metadataScore * profileConfig.metadataWeight);
       const hybridScore = this.toScore(weightedVectorScore + weightedLexicalScore + weightedMetadataScore);
       scoredChunks.push({
         literatureId: version.literatureId,
         embeddingVersionId: version.id,
-        chunk,
+        chunk: chunkForRerank,
         hybridScore,
-        vectorScore,
+        vectorScore: candidate.vectorScore,
         lexicalScore,
         metadataScore,
         profileBoost,
@@ -307,13 +386,78 @@ export class LiteratureRetrievalService {
       meta: {
         profile: profileId,
         query_tokens: queryTokens,
-        degraded_mode: degradedMode,
+        degraded_mode: false,
         freshness_warnings: staleWarnings,
-        profiles_used: profilesUsed,
-        skipped_profiles: skippedProfiles,
-        query_embedding_telemetry: queryEmbeddingTelemetry,
+        profiles_used: [{
+          provider: retrievalProfile.provider,
+          model: retrievalProfile.model,
+          dimension: retrievalProfile.dimension,
+          literature_count: input.candidateVersions.length,
+        }],
+        skipped_profiles: input.skippedProfiles ?? [],
+        query_embedding_telemetry: input.queryEmbeddingTelemetry ?? null,
       },
     };
+  }
+
+  private resolvePgvectorCandidateWindow(
+    window: LiteratureRetrievalCandidateWindowSettings,
+    profileId: LiteratureRetrieveProfileId,
+    topK: number,
+    evidencePerLiterature: number,
+    isScoped: boolean,
+  ): {
+    candidateLimit: number;
+    perLiteratureCandidateCap: number;
+  } {
+    const multiplier = window.profile_multipliers[profileId];
+    const ceiling = isScoped ? window.scoped_ceiling : window.unscoped_ceiling;
+    const rawLimit = topK * evidencePerLiterature * multiplier;
+    const perLiteratureCandidateCap = this.clampInteger(
+      evidencePerLiterature * 2,
+      window.per_literature_cap_min,
+      window.per_literature_cap_max,
+    );
+    return {
+      candidateLimit: this.clampInteger(rawLimit, window.floor, ceiling),
+      perLiteratureCandidateCap,
+    };
+  }
+
+  private normalizeVector(vector: number[], expectedDimension: number): number[] {
+    if (expectedDimension > 0 && vector.length !== expectedDimension) {
+      throw new Error(`vector dimension mismatch: expected ${expectedDimension}, got ${vector.length}`);
+    }
+    const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+    if (!Number.isFinite(magnitude) || magnitude === 0) {
+      throw new Error('query vector cannot be normalized');
+    }
+    return vector.map((value) => value / magnitude);
+  }
+
+  private clampInteger(value: number, min: number, max: number): number {
+    const lower = Math.max(1, Math.trunc(min));
+    const upper = Math.max(lower, Math.trunc(max));
+    return Math.max(lower, Math.min(upper, Math.trunc(value)));
+  }
+
+  private async withPgvectorCandidateTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    const timeout = Math.max(1, Math.trunc(timeoutMs));
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_resolve, reject) => {
+          timeoutHandle = setTimeout(() => {
+            reject(new Error(`pgvector candidate query timed out after ${timeout}ms`));
+          }, timeout);
+        }),
+      ]);
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    }
   }
 
   private async resolveCandidateVersions(request: LiteratureRetrieveRequest): Promise<LiteratureEmbeddingVersionRecord[]> {
@@ -855,31 +999,6 @@ export class LiteratureRetrievalService {
       ...detail,
       score: this.toScore(Math.min(1, profileBoost + detail.score)),
     };
-  }
-
-  private normalizedCosine(left: number[], right: number[]): number {
-    if (left.length === 0 || right.length === 0 || left.length !== right.length) {
-      return 0;
-    }
-
-    let dot = 0;
-    let leftNorm = 0;
-    let rightNorm = 0;
-    for (let index = 0; index < left.length; index += 1) {
-      const l = left[index] ?? 0;
-      const r = right[index] ?? 0;
-      dot += l * r;
-      leftNorm += l * l;
-      rightNorm += r * r;
-    }
-
-    if (leftNorm === 0 || rightNorm === 0) {
-      return 0;
-    }
-
-    const cosine = dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
-    const normalized = (cosine + 1) / 2;
-    return this.toScore(Math.max(0, Math.min(1, normalized)));
   }
 
   private tokenize(text: string): string[] {

@@ -1118,8 +1118,15 @@ tasks:
     updated: 2026-06-04
   - id: T-121
     slug: literature-retrieval-pgvector-index-design
+    status: archived
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/archive/literature-retrieval-pgvector-index-design
+    updated: 2026-06-06
+  - id: T-122
+    slug: literature-scaleout-corpus-strategy
     status: in-progress
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/literature-retrieval-pgvector-index-design
-    updated: 2026-06-04
+    dev_docs_path: dev-docs/active/literature-scaleout-corpus-strategy
+    updated: 2026-06-06

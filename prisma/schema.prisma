@@ -496,7 +496,7 @@ model LiteratureEmbeddingVersion {
 }
 
 model LiteratureEmbeddingChunk {
-  id                 String                     @id
+  id                 String                       @id
   embeddingVersionId String
   literatureId       String
   chunkId            String
@@ -504,15 +504,15 @@ model LiteratureEmbeddingChunk {
   text               String
   startOffset        Int
   endOffset          Int
-  chunkType          String                     @default("fulltext_paragraph")
-  sourceRefs         Json                       @default("[]")
-  metadata           Json                       @default("{}")
+  chunkType          String                       @default("fulltext_paragraph")
+  sourceRefs         Json                         @default("[]")
+  metadata           Json                         @default("{}")
   contentChecksum    String?
-  vector             Json
-  createdAt          DateTime                   @db.Timestamptz(6)
-  updatedAt          DateTime                   @db.Timestamptz(6)
-  embeddingVersion   LiteratureEmbeddingVersion @relation(fields: [embeddingVersionId], references: [id], onDelete: Cascade)
-  literature         LiteratureRecord           @relation(fields: [literatureId], references: [id], onDelete: Cascade)
+  retrievalVector    Unsupported("vector(3072)")?
+  createdAt          DateTime                     @db.Timestamptz(6)
+  updatedAt          DateTime                     @db.Timestamptz(6)
+  embeddingVersion   LiteratureEmbeddingVersion   @relation(fields: [embeddingVersionId], references: [id], onDelete: Cascade)
+  literature         LiteratureRecord             @relation(fields: [literatureId], references: [id], onDelete: Cascade)
 
   @@unique([embeddingVersionId, chunkId])
   @@index([embeddingVersionId, chunkIndex])
@@ -5217,13 +5217,13 @@ model PaperImplementationRuntimeAdmissionRecord {
   warningCodes                    String[] @default([])
   recordPayload                   Json     @default("{}")
 
+  @@unique([implementationProjectId, admissionIdentityHash], map: "pi_runtime_admission_identity_unique")
   @@index([implementationProjectId, createdAt(sort: Desc)], map: "pi_runtime_admission_project_created_idx")
   @@index([implementationProjectId, admissionScope, admissionStatus], map: "pi_runtime_admission_scope_status_idx")
   @@index([runtimeArtifactId], map: "pi_runtime_admission_artifact_idx")
   @@index([admissionPolicyId, admissionPolicyVersion], map: "pi_runtime_admission_policy_idx")
   @@index([targetRefType, targetRefId, targetVersionId], map: "pi_runtime_admission_target_idx")
   @@index([admissionIdentityHash], map: "pi_runtime_admission_identity_idx")
-  @@unique([implementationProjectId, admissionIdentityHash], map: "pi_runtime_admission_identity_unique")
   @@index([expectedPromptPacketHash], map: "pi_runtime_admission_expected_prompt_idx")
   @@index([observedPromptPacketHash], map: "pi_runtime_admission_observed_prompt_idx")
   @@index([observedOutputHash], map: "pi_runtime_admission_output_hash_idx")

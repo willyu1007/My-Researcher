@@ -588,8 +588,12 @@ async function seedActiveEmbedding(
     sourceRefs: [],
     metadata: {},
     contentChecksum: `${literatureId}-content`,
-    vector,
     createdAt: now,
+    updatedAt: now,
+  }]);
+  await repository.writeEmbeddingRetrievalVectors([{
+    embeddingChunkId: `${literatureId}-chunk-row`,
+    normalizedVector: vector,
     updatedAt: now,
   }]);
   const literatureRecord = await repository.findLiteratureById(literatureId);

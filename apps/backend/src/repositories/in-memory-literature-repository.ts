@@ -11,6 +11,13 @@ import type {
   LiteratureContentProcessingBatchItemStatus,
   LiteratureContentProcessingBatchJobRecord,
   LiteratureEmbeddingChunkRecord,
+  LiteratureEmbeddingRetrievalVectorChunkRecord,
+  LiteratureEmbeddingRetrievalVectorWrite,
+  LiteratureEmbeddingRetrievalVectorCoverageQuery,
+  LiteratureEmbeddingRetrievalVectorCoverageSummary,
+  LiteratureEmbeddingVectorCandidateQuery,
+  LiteratureEmbeddingVectorCandidateRecord,
+  LiteratureEmbeddingVectorCandidateResult,
   LiteratureEmbeddingTokenIndexRecord,
   LiteratureEmbeddingVersionRecord,
   LiteratureFulltextAcquisitionItemRecord,
@@ -83,6 +90,7 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
   private readonly embeddingVersionIdsByLiterature = new Map<string, string[]>();
   private readonly embeddingChunks = new Map<string, LiteratureEmbeddingChunkRecord>();
   private readonly embeddingChunkIdsByVersion = new Map<string, string[]>();
+  private readonly embeddingRetrievalVectors = new Map<string, number[]>();
   private readonly embeddingTokenIndexes = new Map<string, LiteratureEmbeddingTokenIndexRecord>();
   private readonly embeddingTokenIndexIdsByVersion = new Map<string, string[]>();
   private readonly contentProcessingBatchJobs = new Map<string, LiteratureContentProcessingBatchJobRecord>();
@@ -857,6 +865,160 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
       .filter((record): record is LiteratureEmbeddingChunkRecord => record !== undefined);
   }
 
+  async listEmbeddingRetrievalVectorChunksByEmbeddingVersionIds(
+    embeddingVersionIds: string[],
+  ): Promise<LiteratureEmbeddingRetrievalVectorChunkRecord[]> {
+    if (embeddingVersionIds.length === 0) {
+      return [];
+    }
+    const versionIds = new Set(embeddingVersionIds);
+    return [...this.embeddingChunks.values()]
+      .filter((chunk) => versionIds.has(chunk.embeddingVersionId))
+      .map((chunk) => ({
+        chunk,
+        vector: this.embeddingRetrievalVectors.get(chunk.id),
+      }))
+      .filter((item): item is { chunk: LiteratureEmbeddingChunkRecord; vector: number[] } => item.vector !== undefined)
+      .map(({ chunk, vector }) => ({
+        embeddingVersionId: chunk.embeddingVersionId,
+        literatureId: chunk.literatureId,
+        chunkId: chunk.chunkId,
+        vector: [...vector],
+      }));
+  }
+
+  async writeEmbeddingRetrievalVectors(records: LiteratureEmbeddingRetrievalVectorWrite[]): Promise<number> {
+    let writtenCount = 0;
+    for (const record of records) {
+      if (!this.embeddingChunks.has(record.embeddingChunkId)) {
+        continue;
+      }
+      this.embeddingRetrievalVectors.set(record.embeddingChunkId, [...record.normalizedVector]);
+      writtenCount += 1;
+    }
+    return writtenCount;
+  }
+
+  async summarizeEmbeddingRetrievalVectorCoverage(
+    query: LiteratureEmbeddingRetrievalVectorCoverageQuery,
+  ): Promise<LiteratureEmbeddingRetrievalVectorCoverageSummary> {
+    const versionIds = new Set(query.embeddingVersionIds);
+    if (versionIds.size === 0) {
+      return {
+        embeddingVersionCount: 0,
+        literatureCount: 0,
+        chunkCount: 0,
+        nativeVectorCount: 0,
+        missingNativeVectorCount: 0,
+        coverageRatio: 0,
+        byVersion: [],
+      };
+    }
+    const byVersionMap = new Map<string, {
+      embeddingVersionId: string;
+      literatureId: string;
+      chunkCount: number;
+      nativeVectorCount: number;
+      missingNativeVectorCount: number;
+    }>();
+    for (const chunk of this.embeddingChunks.values()) {
+      if (!versionIds.has(chunk.embeddingVersionId)) {
+        continue;
+      }
+      const existing = byVersionMap.get(chunk.embeddingVersionId) ?? {
+        embeddingVersionId: chunk.embeddingVersionId,
+        literatureId: chunk.literatureId,
+        chunkCount: 0,
+        nativeVectorCount: 0,
+        missingNativeVectorCount: 0,
+      };
+      existing.chunkCount += 1;
+      if (this.embeddingRetrievalVectors.has(chunk.id)) {
+        existing.nativeVectorCount += 1;
+      } else {
+        existing.missingNativeVectorCount += 1;
+      }
+      byVersionMap.set(chunk.embeddingVersionId, existing);
+    }
+    const byVersion = [...byVersionMap.values()]
+      .sort((left, right) =>
+        left.literatureId.localeCompare(right.literatureId)
+        || left.embeddingVersionId.localeCompare(right.embeddingVersionId));
+    const chunkCount = byVersion.reduce((sum, row) => sum + row.chunkCount, 0);
+    const nativeVectorCount = byVersion.reduce((sum, row) => sum + row.nativeVectorCount, 0);
+    return {
+      embeddingVersionCount: byVersion.length,
+      literatureCount: new Set(byVersion.map((row) => row.literatureId)).size,
+      chunkCount,
+      nativeVectorCount,
+      missingNativeVectorCount: byVersion.reduce((sum, row) => sum + row.missingNativeVectorCount, 0),
+      coverageRatio: chunkCount === 0 ? 0 : nativeVectorCount / chunkCount,
+      byVersion,
+    };
+  }
+
+  async listEmbeddingVectorCandidates(
+    query: LiteratureEmbeddingVectorCandidateQuery,
+  ): Promise<LiteratureEmbeddingVectorCandidateResult> {
+    const candidateLimit = Math.max(1, Math.min(5000, Math.trunc(query.candidateLimit)));
+    const perLiteratureCandidateCap = Math.max(1, Math.min(5000, Math.trunc(query.perLiteratureCandidateCap)));
+    const versionIds = new Set(query.eligibleEmbeddingVersionIds);
+    const startedAt = Date.now();
+    const filtered = [...this.embeddingChunks.values()]
+      .filter((chunk) => versionIds.has(chunk.embeddingVersionId))
+      .map((chunk) => ({
+        chunk,
+        vector: this.embeddingRetrievalVectors.get(chunk.id),
+      }))
+      .filter((item): item is { chunk: LiteratureEmbeddingChunkRecord; vector: number[] } => item.vector !== undefined);
+    const rankedByLiterature = new Map<string, Array<{ chunk: LiteratureEmbeddingChunkRecord; vector: number[]; negativeInnerProduct: number }>>();
+    for (const item of filtered) {
+      const negativeInnerProduct = -dotProduct(item.vector, query.normalizedQueryVector);
+      const rows = rankedByLiterature.get(item.chunk.literatureId) ?? [];
+      rows.push({ ...item, negativeInnerProduct });
+      rankedByLiterature.set(item.chunk.literatureId, rows);
+    }
+    const capped = [...rankedByLiterature.values()].flatMap((rows) =>
+      rows
+        .sort((left, right) => left.negativeInnerProduct - right.negativeInnerProduct || left.chunk.id.localeCompare(right.chunk.id))
+        .slice(0, perLiteratureCandidateCap),
+    );
+    const candidates = capped
+      .sort((left, right) => left.negativeInnerProduct - right.negativeInnerProduct || left.chunk.id.localeCompare(right.chunk.id))
+      .slice(0, candidateLimit)
+      .map(({ chunk, negativeInnerProduct }): LiteratureEmbeddingVectorCandidateRecord => ({
+        id: chunk.id,
+        embeddingVersionId: chunk.embeddingVersionId,
+        literatureId: chunk.literatureId,
+        chunkId: chunk.chunkId,
+        chunkIndex: chunk.chunkIndex,
+        text: chunk.text,
+        startOffset: chunk.startOffset,
+        endOffset: chunk.endOffset,
+        chunkType: chunk.chunkType,
+        sourceRefs: chunk.sourceRefs,
+        metadata: chunk.metadata,
+        contentChecksum: chunk.contentChecksum,
+        createdAt: chunk.createdAt,
+        updatedAt: chunk.updatedAt,
+        vectorScore: Math.max(0, Math.min(1, (-negativeInnerProduct + 1) / 2)),
+        negativeInnerProduct,
+      }));
+
+    return {
+      candidates,
+      telemetry: {
+        candidateLimit,
+        candidateReturned: candidates.length,
+        candidateLimitHit: candidates.length >= candidateLimit,
+        perLiteratureCandidateCap,
+        filteredEmbeddingVersionCount: query.eligibleEmbeddingVersionIds.length,
+        filteredChunkCount: filtered.length,
+        dbSimilarityQueryMs: Date.now() - startedAt,
+      },
+    };
+  }
+
   async replaceEmbeddingTokenIndexes(
     embeddingVersionId: string,
     records: LiteratureEmbeddingTokenIndexRecord[],
@@ -1229,4 +1391,13 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
   private contentAssetPathKey(literatureId: string, localPath: string): string {
     return `${literatureId}::${localPath}`;
   }
+}
+
+function dotProduct(left: number[], right: number[]): number {
+  const length = Math.min(left.length, right.length);
+  let dot = 0;
+  for (let index = 0; index < length; index += 1) {
+    dot += (left[index] ?? 0) * (right[index] ?? 0);
+  }
+  return dot;
 }

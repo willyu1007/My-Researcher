@@ -191,9 +191,74 @@ export type LiteratureEmbeddingChunkRecord = {
   sourceRefs: Record<string, unknown>[];
   metadata: Record<string, unknown>;
   contentChecksum: string | null;
-  vector: number[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type LiteratureEmbeddingRetrievalVectorChunkRecord = {
+  embeddingVersionId: string;
+  literatureId: string;
+  chunkId: string;
+  vector: number[];
+};
+
+export type LiteratureEmbeddingRetrievalVectorWrite = {
+  embeddingChunkId: string;
+  normalizedVector: number[];
+  updatedAt: string;
+};
+
+export type LiteratureEmbeddingRetrievalVectorCoverageQuery = {
+  embeddingVersionIds: string[];
+};
+
+export type LiteratureEmbeddingRetrievalVectorCoverageByVersionRecord = {
+  embeddingVersionId: string;
+  literatureId: string;
+  chunkCount: number;
+  nativeVectorCount: number;
+  missingNativeVectorCount: number;
+};
+
+export type LiteratureEmbeddingRetrievalVectorCoverageSummary = {
+  embeddingVersionCount: number;
+  literatureCount: number;
+  chunkCount: number;
+  nativeVectorCount: number;
+  missingNativeVectorCount: number;
+  coverageRatio: number;
+  byVersion: LiteratureEmbeddingRetrievalVectorCoverageByVersionRecord[];
+};
+
+export type LiteratureEmbeddingVectorCandidateQuery = {
+  /**
+   * Service-resolved embedding version IDs that are already filtered for active,
+   * evidence-ready, and request stale-policy eligibility.
+   */
+  eligibleEmbeddingVersionIds: string[];
+  normalizedQueryVector: number[];
+  candidateLimit: number;
+  perLiteratureCandidateCap: number;
+};
+
+export type LiteratureEmbeddingVectorCandidateRecord = LiteratureEmbeddingChunkRecord & {
+  vectorScore: number;
+  negativeInnerProduct: number;
+};
+
+export type LiteratureEmbeddingVectorCandidateTelemetry = {
+  candidateLimit: number;
+  candidateReturned: number;
+  candidateLimitHit: boolean;
+  perLiteratureCandidateCap: number;
+  filteredEmbeddingVersionCount: number;
+  filteredChunkCount: number;
+  dbSimilarityQueryMs: number;
+};
+
+export type LiteratureEmbeddingVectorCandidateResult = {
+  candidates: LiteratureEmbeddingVectorCandidateRecord[];
+  telemetry: LiteratureEmbeddingVectorCandidateTelemetry;
 };
 
 export type LiteratureEmbeddingTokenIndexRecord = {
@@ -652,6 +717,16 @@ export interface LiteratureRepository {
   createEmbeddingChunks(records: LiteratureEmbeddingChunkRecord[]): Promise<LiteratureEmbeddingChunkRecord[]>;
   listEmbeddingChunksByEmbeddingVersionId(embeddingVersionId: string): Promise<LiteratureEmbeddingChunkRecord[]>;
   listEmbeddingChunksByEmbeddingVersionIds(embeddingVersionIds: string[]): Promise<LiteratureEmbeddingChunkRecord[]>;
+  listEmbeddingRetrievalVectorChunksByEmbeddingVersionIds(
+    embeddingVersionIds: string[],
+  ): Promise<LiteratureEmbeddingRetrievalVectorChunkRecord[]>;
+  writeEmbeddingRetrievalVectors(records: LiteratureEmbeddingRetrievalVectorWrite[]): Promise<number>;
+  summarizeEmbeddingRetrievalVectorCoverage(
+    query: LiteratureEmbeddingRetrievalVectorCoverageQuery,
+  ): Promise<LiteratureEmbeddingRetrievalVectorCoverageSummary>;
+  listEmbeddingVectorCandidates(
+    query: LiteratureEmbeddingVectorCandidateQuery,
+  ): Promise<LiteratureEmbeddingVectorCandidateResult>;
 
   replaceEmbeddingTokenIndexes(
     embeddingVersionId: string,

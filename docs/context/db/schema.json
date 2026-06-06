@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-06-03T11:51:40.624Z",
+  "updatedAt": "2026-06-06T03:19:18.805Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -3843,6 +3843,17 @@
           "unique": false
         },
         {
+          "name": "retrievalVector",
+          "type": "Unsupported(\"vector(3072)\")",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "sourceRefs",
           "type": "Json",
           "nullable": false,
@@ -3882,17 +3893,6 @@
           "list": false,
           "dbName": null,
           "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "vector",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
           "default": null,
           "primaryKey": false,
           "unique": false

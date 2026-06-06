@@ -4,6 +4,8 @@ import path from 'node:path';
 import { AppError } from '../../errors/app-error.js';
 import type {
   LiteratureContentAssetRecord,
+  LiteratureEmbeddingChunkRecord,
+  LiteratureEmbeddingRetrievalVectorWrite,
   LiteratureEmbeddingVersionRecord,
   LiteratureFulltextAnchorRecord,
   LiteratureFulltextDocumentRecord,
@@ -647,6 +649,11 @@ export class LiteratureFlowArtifactRuntime {
       embeddingArtifactChecksum: input.embeddedArtifact.checksum,
     });
     if (existingMatchingVersion) {
+      await this.materializeNativeRetrievalVectorsForVersion({
+        version: existingMatchingVersion,
+        vectorByChunkId,
+        now,
+      });
       return existingMatchingVersion;
     }
 
@@ -685,11 +692,16 @@ export class LiteratureFlowArtifactRuntime {
       sourceRefs: chunk.source_refs,
       metadata: chunk.metadata,
       contentChecksum: chunk.content_checksum,
-      vector: vectorByChunkId.get(chunk.chunk_id) ?? [],
       createdAt: now,
       updatedAt: now,
     }));
     await this.repository.createEmbeddingChunks(embeddingChunks);
+    await this.materializeNativeRetrievalVectors({
+      version,
+      chunks: embeddingChunks,
+      vectorByChunkId,
+      now,
+    });
 
     return version;
   }
@@ -750,6 +762,8 @@ export class LiteratureFlowArtifactRuntime {
       throw new Error('A READY or active INDEXED embedding version matching the current CHUNKED and EMBEDDED artifacts is required before INDEXED can activate.');
     }
 
+    await this.assertNativeRetrievalVectorActivationReady(version);
+
     const tokenEntries = [...this.readTokenToChunkIds(input.indexedArtifact).entries()];
     const now = new Date().toISOString();
     const tokenIndexes = tokenEntries.map(([token, chunkIds]) => ({
@@ -779,6 +793,127 @@ export class LiteratureFlowArtifactRuntime {
     });
 
     return updated;
+  }
+
+  private async materializeNativeRetrievalVectorsForVersion(input: {
+    version: LiteratureEmbeddingVersionRecord;
+    vectorByChunkId: Map<string, number[]>;
+    now: string;
+  }): Promise<void> {
+    const chunks = await this.repository.listEmbeddingChunksByEmbeddingVersionId(input.version.id);
+    await this.materializeNativeRetrievalVectors({
+      version: input.version,
+      chunks,
+      vectorByChunkId: input.vectorByChunkId,
+      now: input.now,
+    });
+  }
+
+  private async materializeNativeRetrievalVectors(input: {
+    version: LiteratureEmbeddingVersionRecord;
+    chunks: LiteratureEmbeddingChunkRecord[];
+    vectorByChunkId: Map<string, number[]>;
+    now: string;
+  }): Promise<void> {
+    const writes = this.toNativeRetrievalVectorWrites(input);
+    const writtenCount = await this.repository.writeEmbeddingRetrievalVectors(writes);
+    if (writtenCount !== writes.length) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `Native retrieval vector materialization wrote ${writtenCount}/${writes.length} chunks for embedding version ${input.version.id}.`,
+        {
+          embedding_version_id: input.version.id,
+          expected_write_count: writes.length,
+          written_count: writtenCount,
+        },
+      );
+    }
+  }
+
+  private toNativeRetrievalVectorWrites(input: {
+    version: LiteratureEmbeddingVersionRecord;
+    chunks: LiteratureEmbeddingChunkRecord[];
+    vectorByChunkId: Map<string, number[]>;
+    now: string;
+  }): LiteratureEmbeddingRetrievalVectorWrite[] {
+    if (input.version.dimension <= 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `Embedding version ${input.version.id} cannot materialize native retrieval vectors without a positive dimension.`,
+        {
+          embedding_version_id: input.version.id,
+          observed_dimension: input.version.dimension,
+        },
+      );
+    }
+    return input.chunks.map((chunk) => {
+      const vector = input.vectorByChunkId.get(chunk.chunkId);
+      if (!vector) {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          `Embedding chunk ${chunk.chunkId} cannot materialize a native retrieval vector: EMBEDDING_VECTOR_MISSING.`,
+          {
+            embedding_version_id: input.version.id,
+            embedding_chunk_id: chunk.id,
+            chunk_id: chunk.chunkId,
+            issue_code: 'EMBEDDING_VECTOR_MISSING',
+            expected_dimension: input.version.dimension,
+            vector_payload_redacted: true,
+          },
+        );
+      }
+      const validation = normalizeEmbeddingVector(vector, input.version.dimension);
+      if (validation.issueCode) {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          `Embedding chunk ${chunk.chunkId} cannot materialize a native retrieval vector: ${validation.issueCode}.`,
+          {
+            embedding_version_id: input.version.id,
+            embedding_chunk_id: chunk.id,
+            chunk_id: chunk.chunkId,
+            issue_code: validation.issueCode,
+            observed_dimension: vector.length,
+            expected_dimension: input.version.dimension,
+            observed_norm: validation.observedNorm,
+            vector_payload_redacted: true,
+          },
+        );
+      }
+      return {
+        embeddingChunkId: chunk.id,
+        normalizedVector: validation.normalizedVector,
+        updatedAt: input.now,
+      };
+    });
+  }
+
+  private async assertNativeRetrievalVectorActivationReady(
+    version: LiteratureEmbeddingVersionRecord,
+  ): Promise<void> {
+    const coverage = await this.repository.summarizeEmbeddingRetrievalVectorCoverage({
+      embeddingVersionIds: [version.id],
+    });
+    if (
+      version.chunkCount <= 0
+      || coverage.chunkCount !== version.chunkCount
+      || coverage.nativeVectorCount !== version.chunkCount
+      || coverage.missingNativeVectorCount !== 0
+    ) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `Embedding version ${version.id} cannot activate until every chunk has a native retrieval vector.`,
+        {
+          embedding_version_id: version.id,
+          expected_chunk_count: version.chunkCount,
+          coverage,
+        },
+      );
+    }
   }
 
   readTokenToChunkIds(indexedArtifact: LiteraturePipelineArtifactRecord): Map<string, string[]> {
@@ -1521,4 +1656,27 @@ export class LiteratureFlowArtifactRuntime {
   private sha256(text: string): string {
     return crypto.createHash('sha256').update(text).digest('hex');
   }
+}
+
+function normalizeEmbeddingVector(vector: number[], targetDimension: number): {
+  normalizedVector: number[];
+  issueCode: string | null;
+  observedNorm: number | null;
+} {
+  if (vector.length !== targetDimension) {
+    return { normalizedVector: [], issueCode: 'WRONG_DIMENSION', observedNorm: null };
+  }
+  if (vector.some((value) => !Number.isFinite(value))) {
+    return { normalizedVector: [], issueCode: 'NON_FINITE_VALUE', observedNorm: null };
+  }
+  const norm = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+  if (norm === 0) {
+    return { normalizedVector: [], issueCode: 'ZERO_NORM', observedNorm: 0 };
+  }
+  const normalizedVector = vector.map((value) => value / norm);
+  const normalizedNorm = Math.sqrt(normalizedVector.reduce((sum, value) => sum + value * value, 0));
+  if (Math.abs(normalizedNorm - 1) > 1e-5) {
+    return { normalizedVector: [], issueCode: 'NORMALIZED_NORM_DRIFT', observedNorm: normalizedNorm };
+  }
+  return { normalizedVector, issueCode: null, observedNorm: norm };
 }

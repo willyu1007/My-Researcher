@@ -45,7 +45,8 @@ Project: `main`
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
 | T-119 adaptive-llm-systems-standard-pipeline-expansion | in-progress | dev-docs/active/adaptive-llm-systems-standard-pipeline-expansion |
 | T-120 adaptive-llm-systems-literature-pipeline-completion | in-progress | dev-docs/active/adaptive-llm-systems-literature-pipeline-completion |
-| T-121 literature-retrieval-pgvector-index-design | in-progress | dev-docs/active/literature-retrieval-pgvector-index-design |
+| T-121 literature-retrieval-pgvector-index-design | archived | dev-docs/archive/literature-retrieval-pgvector-index-design |
+| T-122 literature-scaleout-corpus-strategy | in-progress | dev-docs/active/literature-scaleout-corpus-strategy |
 
 ### F-001 Research Lifecycle Governance Core
 

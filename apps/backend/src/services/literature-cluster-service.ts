@@ -16,7 +16,7 @@ import type {
 import { AppError } from '../errors/app-error.js';
 import type {
   LiteratureClusterEvidenceRecord,
-  LiteratureEmbeddingChunkRecord,
+  LiteratureEmbeddingRetrievalVectorChunkRecord,
   LiteratureEmbeddingVersionRecord,
   LiteratureClusterGraphRecord,
   LiteratureClusterMemberRecord,
@@ -451,8 +451,10 @@ export class LiteratureClusterService {
       return [];
     }
 
-    const chunks = await this.repository.listEmbeddingChunksByEmbeddingVersionIds(activeVersions.map((version) => version.id));
-    const chunksByVersionId = new Map<string, LiteratureEmbeddingChunkRecord[]>();
+    const chunks = await this.repository.listEmbeddingRetrievalVectorChunksByEmbeddingVersionIds(
+      activeVersions.map((version) => version.id),
+    );
+    const chunksByVersionId = new Map<string, LiteratureEmbeddingRetrievalVectorChunkRecord[]>();
     for (const chunk of chunks) {
       if (chunk.vector.length === 0) {
         continue;

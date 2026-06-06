@@ -10,7 +10,7 @@
   - similarity is computed in `LiteratureRetrievalService.normalizedCosine`.
 
 ## Phase 1 - Target Architecture
-- Status: partially completed.
+- Status: completed and superseded by full Phase 1-5 implementation evidence.
 - Decide the native vector storage shape:
   - decision for the first implementation pass: additive pgvector column on `LiteratureEmbeddingChunk`.
   - keep JSONB vector as the raw provider vector during migration for rollback and parity checks.
@@ -46,7 +46,7 @@
   - keep this window internal; do not add a public request parameter in the first phase.
 
 ## Phase 2 - Migration Design
-- Status: planned.
+- Status: completed on the approved local target; historical migration-mode details below are retained as design and execution evidence, not active runtime policy.
 - Additive migration:
   - install/enable `vector` extension.
   - add nullable `retrievalVector` native column with type `vector(3072)` while retaining raw JSONB `vector`.
@@ -67,6 +67,7 @@
   - keep old JSONB retrieval behind explicit rollback only before `finalized`.
   - add pgvector retrieval repository method with a bounded candidate contract.
   - run shadow reads/parity before returning pgvector results to users.
+  - resolve active/evidence-ready/stale-policy eligibility before repository candidate calls and pass only `eligibleEmbeddingVersionIds`.
   - advance rollout mode only after parity and performance evidence.
   - allow automatic per-request JSONB fallback only during canary cutover, and record every fallback reason.
   - treat any automatic fallback event as promotion-blocking evidence.
@@ -86,7 +87,7 @@
   - keep non-retrieval embedding artifacts only if another owner explicitly depends on them; they must not be part of retrieval rollback.
 
 ## Phase 3 - Verification Design
-- Status: planned.
+- Status: completed through broad local backfill, public cutover, final cleanup, and post-cleanup residue audit on the approved local target.
 - Temporary Postgres migration test:
   - create extension.
   - apply migration.
@@ -134,7 +135,7 @@
   - if JSONB baseline fails for unscoped retrieval, record the failure and require pgvector to complete bounded retrieval without Node full-vector loading.
 
 ## Phase 4 - Implementation Handoff
-- Status: planned.
+- Status: completed; T-121 is closed and archived after Phase 1-5 implementation, DB cleanup, and final governance verification.
 - Convert design into an implementation task only after:
   - schema migration approach is approved.
   - rollback approach is documented.
@@ -142,6 +143,33 @@
   - active embedding dimension policy is accepted.
   - cutover state machine and feature-flag rollback behavior are accepted.
   - final cleanup and legacy removal requirements are accepted.
+- Phase 1 handoff decision:
+  - Phase 1 infrastructure started after disposable-DB pgvector preflight.
+  - Phase 1 must leave user-visible retrieval on JSONB.
+  - Phase 1 does not approve Phase 2 small-scale backfill, Phase 3 large-scale migration, Phase 4 read-path cutover, or Phase 5 cleanup.
+  - Preflight entrypoint: `node .ai/scripts/literature-pgvector-phase1-preflight.mjs --dry-run`.
+  - Disposable execute entrypoint: `DATABASE_URL=<throwaway-postgres-url> node .ai/scripts/literature-pgvector-phase1-preflight.mjs --execute --database-is-disposable --allow-create-extension`.
+  - Phase 1 evidence root: `artifacts/db/20260605-phase1-infrastructure/`.
+- Phase 2 handoff decision:
+  - Phase 2 implemented only small-scale sample backfill and artifact-only `shadow_pgvector` validation.
+  - Phase 2 must not change user-visible retrieval responses.
+  - Phase 2 ran against the approved local target after `artifacts/db/20260605-phase2-readiness/01-target-db-apply-gate.md` was satisfied.
+  - Phase 2 materialized sample workset, fixed query set, JSONB baseline, backfill summary, shadow parity artifact, and verification summary under `artifacts/db/20260605-phase2-readiness/`.
+  - Phase 2 must use service-resolved `eligibleEmbeddingVersionIds` so stale-ineligible versions cannot consume DB candidate caps.
+  - Phase 2 final verification now requires target lineage, query artifact lineage, completed execute evidence, and live DB gates.
+  - Phase 2 runner entrypoint: `pnpm literature:pgvector:phase2 -- --mode <plan|capture-jsonb-baseline|backfill-sample|run-shadow|verify>`.
+- Phase 3 readiness decision:
+  - Phase 3 readiness findings F1-F5 are implemented.
+  - Phase 3 broad local migration execution has completed on the approved local target with final verification `PASS`.
+  - Phase 3 must keep public retrieval on JSONB.
+- Phase 4 readiness decision:
+  - Phase 4 implementation readiness review is complete.
+  - Findings F1-F6 were resolved before public read-path promotion.
+  - The approved local target completed `shadow_pgvector -> pgvector_canary -> pgvector_default`, rollback drill, and stable/default audit.
+- Phase 5 closure decision:
+  - Final cleanup removed the JSONB retrieval runtime, migration controls, migration runners, raw JSONB chunk-vector domain dependence, and migration-only backfill/quarantine contracts.
+  - The approved local target applied destructive cleanup and obsolete rollout-setting cleanup migrations.
+  - Post-cleanup audit found no active backend/schema/package/script dual-track runtime.
 
 ## Implementation Phase Plan
 - Phase 1 - Infrastructure foundation:
@@ -153,14 +181,18 @@
   - keep user-visible retrieval behavior unchanged.
 - Phase 2 - Small-scale migration and validation:
   - migrate a representative small set, including `LIT-0252` and a few standard fulltext records.
+  - materialize the sample workset manifest before mutation.
+  - capture JSONB baseline for the fixed shadow query set before native vector writes.
   - run `shadow_pgvector`; user-visible results remain JSONB.
   - validate dimension, norm, score drift, topK overlap, partial visual index behavior, stale/evidence gates, and candidate-window telemetry.
+  - write shadow telemetry only to artifacts, not public response contracts.
   - optimize for semantic correctness and tooling confidence, not throughput.
 - Phase 3 - Large-scale data migration:
-  - backfill all active/evidence-ready embedding versions.
+  - use `pnpm literature:pgvector:phase3` to plan, dry-run, execute, and verify broad active/evidence-ready embedding-version backfill.
+  - backfill all selected active/evidence-ready embedding versions after workset and target approval.
   - if final cleanup will make `retrievalVector` required, also backfill or clean up every retained chunk row.
-  - enable dual-write and activation blockers for new embedding versions.
-  - measure coverage, quarantine, throughput, retry, and recovery behavior.
+  - keep native materialization and activation blockers enabled for new embedding versions.
+  - measure coverage, quarantine, throughput, retry, and recovery behavior through Phase 3 artifacts.
   - do not switch user-visible read path in this phase.
 - Phase 4 - Cutover acceptance:
   - promote through `shadow_pgvector -> pgvector_canary -> pgvector_default`.

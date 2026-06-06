@@ -945,6 +945,34 @@ test('literature flow creates a new embedding version when fulltext chunks chang
   }
 });
 
+test('literature flow materializes native retrieval vectors before embedding activation', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureFlowService(repository, createMockSettingsService());
+  const restoreFetch = mockOpenAIContentProcessing();
+  await seedLiterature(repository, 'LIT-FLOW-NATIVE-VECTOR', 'OA', {
+    abstractText: 'Trusted abstract for native vector materialization.',
+    keyContentDigest: 'Trusted key content digest for native vector materialization.',
+    fulltextText: 'Fulltext evidence for native vector materialization.',
+  });
+
+  try {
+    const run = await service.triggerContentProcessingRun('LIT-FLOW-NATIVE-VECTOR', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
+    const terminal = await waitForTerminalRun(repository, run.run_id);
+    assert.equal(terminal.status, 'SUCCESS');
+
+    const literature = await repository.findLiteratureById('LIT-FLOW-NATIVE-VECTOR');
+    assert.ok(literature?.activeEmbeddingVersionId);
+    const coverage = await repository.summarizeEmbeddingRetrievalVectorCoverage({
+      embeddingVersionIds: [literature.activeEmbeddingVersionId],
+    });
+    assert.equal(coverage.chunkCount > 0, true);
+    assert.equal(coverage.nativeVectorCount, coverage.chunkCount);
+    assert.equal(coverage.missingNativeVectorCount, 0);
+  } finally {
+    restoreFetch();
+  }
+});
+
 test('literature flow rebuilds a stale index on the active indexed version without creating a legacy ready path', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureFlowService(repository, createMockSettingsService());
@@ -991,6 +1019,68 @@ test('literature flow rebuilds a stale index on the active indexed version witho
     assert.equal(versions[0]?.status, 'INDEXED');
     const tokenRowsAfter = await repository.listEmbeddingTokenIndexesByEmbeddingVersionId(activeVersionId);
     assert.equal(tokenRowsAfter.length, tokenRowsBefore.length);
+  } finally {
+    restoreFetch();
+  }
+});
+
+test('literature flow blocks embedding activation when native vector coverage is incomplete', async () => {
+  class IncompleteNativeCoverageRepository extends InMemoryLiteratureRepository {
+    forceMissingCoverage = false;
+
+    override async summarizeEmbeddingRetrievalVectorCoverage(
+      query: Parameters<InMemoryLiteratureRepository['summarizeEmbeddingRetrievalVectorCoverage']>[0],
+    ) {
+      const coverage = await super.summarizeEmbeddingRetrievalVectorCoverage(query);
+      if (!this.forceMissingCoverage) {
+        return coverage;
+      }
+      return {
+        ...coverage,
+        nativeVectorCount: 0,
+        missingNativeVectorCount: coverage.chunkCount,
+        coverageRatio: 0,
+        byVersion: coverage.byVersion.map((row) => ({
+          ...row,
+          nativeVectorCount: 0,
+          missingNativeVectorCount: row.chunkCount,
+        })),
+      };
+    }
+  }
+
+  const repository = new IncompleteNativeCoverageRepository();
+  const service = new LiteratureFlowService(repository, createMockSettingsService());
+  const restoreFetch = mockOpenAIContentProcessing();
+  await seedLiterature(repository, 'LIT-FLOW-NATIVE-GUARD', 'OA', {
+    abstractText: 'Trusted abstract for native vector activation guard.',
+    keyContentDigest: 'Trusted key content digest for native vector activation guard.',
+    fulltextText: 'Initial fulltext evidence for native vector activation guard.',
+  });
+
+  try {
+    const firstRun = await service.triggerContentProcessingRun('LIT-FLOW-NATIVE-GUARD', ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
+    const firstTerminal = await waitForTerminalRun(repository, firstRun.run_id);
+    assert.equal(firstTerminal.status, 'SUCCESS');
+
+    const literatureAfterFirst = await repository.findLiteratureById('LIT-FLOW-NATIVE-GUARD');
+    assert.ok(literatureAfterFirst?.activeEmbeddingVersionId);
+    const activeVersionBeforeFailure = literatureAfterFirst.activeEmbeddingVersionId;
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await seedRawFulltextAsset(
+      repository,
+      'LIT-FLOW-NATIVE-GUARD',
+      'Changed fulltext evidence that should be blocked before active pointer update.',
+    );
+
+    repository.forceMissingCoverage = true;
+    const failedRun = await service.triggerContentProcessingRun('LIT-FLOW-NATIVE-GUARD', ['FULLTEXT_PREPROCESSED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED']);
+    const failedTerminal = await waitForTerminalRun(repository, failedRun.run_id);
+    assert.equal(failedTerminal.status, 'PARTIAL');
+
+    const literatureAfterFailure = await repository.findLiteratureById('LIT-FLOW-NATIVE-GUARD');
+    assert.equal(literatureAfterFailure?.activeEmbeddingVersionId, activeVersionBeforeFailure);
   } finally {
     restoreFetch();
   }

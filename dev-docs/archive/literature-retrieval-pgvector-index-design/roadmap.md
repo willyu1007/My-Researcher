@@ -20,9 +20,14 @@
 - Do not change user-visible retrieval behavior in this phase.
 
 ## Implementation Phase 2 - Small-Scale Migration And Validation
+- Satisfy the explicit target persistent local/dev DB apply gate before execution.
+- Materialize a fixed sample workset and query set before mutation.
+- Capture JSONB baseline before native vector writes.
+- Use `pnpm literature:pgvector:phase2` as the runner entrypoint for plan, baseline, sample backfill, shadow, and verify modes.
 - Backfill `retrievalVector` for a small representative set, including `LIT-0252` and a few standard fulltext records.
 - Validate dimension, raw norm distribution, normalized norm, score drift, topK overlap, partial visual index behavior, and stale/evidence gates.
 - Run `shadow_pgvector` only; user-visible retrieval remains JSONB.
+- Write shadow evidence only to artifacts; do not change public retrieve responses.
 - Use this phase to validate semantics and tooling, not throughput.
 
 ## Implementation Phase 3 - Large-Scale Data Migration
@@ -63,7 +68,9 @@
 - Migration-only run/quarantine records can become technical debt if they survive as stable runtime state.
 - Multiple independent migration booleans can create invalid rollout combinations; use a finite mode instead.
 - Future acceleration/index selection must be based on first-phase parity and performance evidence, not assumed in this design pass.
+- Phase 2 must not execute until the target persistent local/dev DB approval and post-apply smoke are recorded.
+- Stale-ineligible embedding versions must be excluded before pgvector candidate SQL so they cannot consume per-literature caps.
 
 ## Recommended Next Decision
-- Convert this design into implementation work using the five implementation phases above.
-- Start with Phase 1 only; user-visible retrieval must remain JSONB until Phase 4 cutover acceptance.
+- Decide whether to approve applying the additive Phase 1 migration to the intended persistent local/dev DB.
+- If approved, execute Phase 2 only as small-scale backfill and artifact-only `shadow_pgvector`; user-visible retrieval must remain JSONB until Phase 4 cutover acceptance.

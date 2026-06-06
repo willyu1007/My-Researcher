@@ -12,6 +12,12 @@ import type {
   LiteratureContentProcessingBatchItemStatus,
   LiteratureContentProcessingBatchJobRecord,
   LiteratureEmbeddingChunkRecord,
+  LiteratureEmbeddingRetrievalVectorChunkRecord,
+  LiteratureEmbeddingRetrievalVectorWrite,
+  LiteratureEmbeddingRetrievalVectorCoverageQuery,
+  LiteratureEmbeddingRetrievalVectorCoverageSummary,
+  LiteratureEmbeddingVectorCandidateQuery,
+  LiteratureEmbeddingVectorCandidateResult,
   LiteratureEmbeddingTokenIndexRecord,
   LiteratureEmbeddingVersionRecord,
   LiteratureFulltextAcquisitionItemRecord,
@@ -367,6 +373,28 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
     embeddingVersionIds: string[],
   ): Promise<LiteratureEmbeddingChunkRecord[]> {
     return this.embeddingStore.listEmbeddingChunksByEmbeddingVersionIds(embeddingVersionIds);
+  }
+
+  async listEmbeddingRetrievalVectorChunksByEmbeddingVersionIds(
+    embeddingVersionIds: string[],
+  ): Promise<LiteratureEmbeddingRetrievalVectorChunkRecord[]> {
+    return this.embeddingStore.listEmbeddingRetrievalVectorChunksByEmbeddingVersionIds(embeddingVersionIds);
+  }
+
+  async writeEmbeddingRetrievalVectors(records: LiteratureEmbeddingRetrievalVectorWrite[]): Promise<number> {
+    return this.embeddingStore.writeEmbeddingRetrievalVectors(records);
+  }
+
+  async summarizeEmbeddingRetrievalVectorCoverage(
+    query: LiteratureEmbeddingRetrievalVectorCoverageQuery,
+  ): Promise<LiteratureEmbeddingRetrievalVectorCoverageSummary> {
+    return this.embeddingStore.summarizeEmbeddingRetrievalVectorCoverage(query);
+  }
+
+  async listEmbeddingVectorCandidates(
+    query: LiteratureEmbeddingVectorCandidateQuery,
+  ): Promise<LiteratureEmbeddingVectorCandidateResult> {
+    return this.embeddingStore.listEmbeddingVectorCandidates(query);
   }
 
   async replaceEmbeddingTokenIndexes(

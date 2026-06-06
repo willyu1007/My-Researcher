@@ -1,14 +1,41 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type {
   LiteratureEmbeddingChunkRecord,
+  LiteratureEmbeddingRetrievalVectorChunkRecord,
+  LiteratureEmbeddingRetrievalVectorWrite,
+  LiteratureEmbeddingRetrievalVectorCoverageQuery,
+  LiteratureEmbeddingRetrievalVectorCoverageSummary,
+  LiteratureEmbeddingVectorCandidateQuery,
+  LiteratureEmbeddingVectorCandidateRecord,
+  LiteratureEmbeddingVectorCandidateResult,
   LiteratureEmbeddingTokenIndexRecord,
   LiteratureEmbeddingVersionRecord,
 } from '../../literature-repository.js';
 import {
+  asRecord,
   toEmbeddingChunkRecord,
   toEmbeddingTokenIndexRecord,
   toEmbeddingVersionRecord,
 } from './prisma-literature-record-mappers.js';
+
+const RETRIEVAL_VECTOR_DIMENSION = 3072;
+const MAX_VECTOR_CANDIDATE_LIMIT = 5000;
+const EMBEDDING_CHUNK_SELECT = {
+  id: true,
+  embeddingVersionId: true,
+  literatureId: true,
+  chunkId: true,
+  chunkIndex: true,
+  text: true,
+  startOffset: true,
+  endOffset: true,
+  chunkType: true,
+  sourceRefs: true,
+  metadata: true,
+  contentChecksum: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.LiteratureEmbeddingChunkSelect;
 
 export class PrismaLiteratureEmbeddingStore {
   constructor(private readonly prisma: PrismaClient) {}
@@ -160,7 +187,6 @@ export class PrismaLiteratureEmbeddingStore {
         sourceRefs: record.sourceRefs as unknown as Prisma.InputJsonValue,
         metadata: record.metadata as unknown as Prisma.InputJsonValue,
         contentChecksum: record.contentChecksum,
-        vector: record.vector as unknown as Prisma.InputJsonValue,
         createdAt: new Date(record.createdAt),
         updatedAt: new Date(record.updatedAt),
       })),
@@ -171,6 +197,7 @@ export class PrismaLiteratureEmbeddingStore {
   async listEmbeddingChunksByEmbeddingVersionId(embeddingVersionId: string): Promise<LiteratureEmbeddingChunkRecord[]> {
     const rows = await this.prisma.literatureEmbeddingChunk.findMany({
       where: { embeddingVersionId },
+      select: EMBEDDING_CHUNK_SELECT,
       orderBy: { chunkIndex: 'asc' },
     });
     return rows.map((row) => toEmbeddingChunkRecord(row));
@@ -186,8 +213,237 @@ export class PrismaLiteratureEmbeddingStore {
           in: embeddingVersionIds,
         },
       },
+      select: EMBEDDING_CHUNK_SELECT,
     });
     return rows.map((row) => toEmbeddingChunkRecord(row));
+  }
+
+  async listEmbeddingRetrievalVectorChunksByEmbeddingVersionIds(
+    embeddingVersionIds: string[],
+  ): Promise<LiteratureEmbeddingRetrievalVectorChunkRecord[]> {
+    if (embeddingVersionIds.length === 0) {
+      return [];
+    }
+    const versionIdArray = `ARRAY[${embeddingVersionIds.map((id) => sqlString(id)).join(', ')}]::text[]`;
+    const rows = await this.prisma.$queryRawUnsafe<Array<{
+      embeddingVersionId: string;
+      literatureId: string;
+      chunkId: string;
+      retrievalVector: string | null;
+    }>>(`
+      SELECT
+        c."embeddingVersionId",
+        c."literatureId",
+        c."chunkId",
+        c."retrievalVector"::text AS "retrievalVector"
+      FROM "LiteratureEmbeddingChunk" c
+      WHERE c."embeddingVersionId" = ANY(${versionIdArray})
+        AND c."retrievalVector" IS NOT NULL
+      ORDER BY c."embeddingVersionId" ASC, c."chunkIndex" ASC
+    `);
+    return rows.map((row) => ({
+      embeddingVersionId: row.embeddingVersionId,
+      literatureId: row.literatureId,
+      chunkId: row.chunkId,
+      vector: parsePgvectorLiteral(row.retrievalVector),
+    }));
+  }
+
+  async writeEmbeddingRetrievalVectors(records: LiteratureEmbeddingRetrievalVectorWrite[]): Promise<number> {
+    if (records.length === 0) {
+      return 0;
+    }
+    let writtenCount = 0;
+    await this.prisma.$transaction(async (tx) => {
+      for (const record of records) {
+        const vectorLiteral = toPgvectorLiteral(record.normalizedVector);
+        writtenCount += await tx.$executeRawUnsafe(`
+          UPDATE "LiteratureEmbeddingChunk"
+          SET
+            "retrievalVector" = ${sqlString(vectorLiteral)}::vector,
+            "updatedAt" = ${sqlString(new Date(record.updatedAt).toISOString())}::timestamptz
+          WHERE "id" = ${sqlString(record.embeddingChunkId)}
+        `);
+      }
+    });
+    return writtenCount;
+  }
+
+  async summarizeEmbeddingRetrievalVectorCoverage(
+    query: LiteratureEmbeddingRetrievalVectorCoverageQuery,
+  ): Promise<LiteratureEmbeddingRetrievalVectorCoverageSummary> {
+    const embeddingVersionIds = [...new Set(query.embeddingVersionIds)];
+    if (embeddingVersionIds.length === 0) {
+      return emptyRetrievalVectorCoverageSummary();
+    }
+
+    const versionIdArray = `ARRAY[${embeddingVersionIds.map((id) => sqlString(id)).join(', ')}]::text[]`;
+    const rows = await this.prisma.$queryRawUnsafe<Array<{
+      embeddingVersionId: string;
+      literatureId: string;
+      chunkCount: unknown;
+      nativeVectorCount: unknown;
+      missingNativeVectorCount: unknown;
+    }>>(`
+      SELECT
+        c."embeddingVersionId",
+        c."literatureId",
+        COUNT(*)::int AS "chunkCount",
+        COUNT(c."retrievalVector")::int AS "nativeVectorCount",
+        (COUNT(*) - COUNT(c."retrievalVector"))::int AS "missingNativeVectorCount"
+      FROM "LiteratureEmbeddingChunk" c
+      WHERE c."embeddingVersionId" = ANY(${versionIdArray})
+      GROUP BY c."embeddingVersionId", c."literatureId"
+      ORDER BY c."literatureId" ASC, c."embeddingVersionId" ASC
+    `);
+    const byVersion = rows.map((row) => ({
+      embeddingVersionId: row.embeddingVersionId,
+      literatureId: row.literatureId,
+      chunkCount: toNumber(row.chunkCount),
+      nativeVectorCount: toNumber(row.nativeVectorCount),
+      missingNativeVectorCount: toNumber(row.missingNativeVectorCount),
+    }));
+    const chunkCount = byVersion.reduce((sum, row) => sum + row.chunkCount, 0);
+    const nativeVectorCount = byVersion.reduce((sum, row) => sum + row.nativeVectorCount, 0);
+    return {
+      embeddingVersionCount: byVersion.length,
+      literatureCount: new Set(byVersion.map((row) => row.literatureId)).size,
+      chunkCount,
+      nativeVectorCount,
+      missingNativeVectorCount: byVersion.reduce((sum, row) => sum + row.missingNativeVectorCount, 0),
+      coverageRatio: chunkCount === 0 ? 0 : nativeVectorCount / chunkCount,
+      byVersion,
+    };
+  }
+
+  async listEmbeddingVectorCandidates(
+    query: LiteratureEmbeddingVectorCandidateQuery,
+  ): Promise<LiteratureEmbeddingVectorCandidateResult> {
+    const candidateLimit = clampInteger(query.candidateLimit, 1, MAX_VECTOR_CANDIDATE_LIMIT);
+    const perLiteratureCandidateCap = clampInteger(query.perLiteratureCandidateCap, 1, MAX_VECTOR_CANDIDATE_LIMIT);
+    if (query.eligibleEmbeddingVersionIds.length === 0) {
+      return {
+        candidates: [],
+        telemetry: {
+          candidateLimit,
+          candidateReturned: 0,
+          candidateLimitHit: false,
+          perLiteratureCandidateCap,
+          filteredEmbeddingVersionCount: 0,
+          filteredChunkCount: 0,
+          dbSimilarityQueryMs: 0,
+        },
+      };
+    }
+
+    const queryVectorLiteral = toPgvectorLiteral(query.normalizedQueryVector);
+    const versionIdArray = `ARRAY[${query.eligibleEmbeddingVersionIds.map((id) => sqlString(id)).join(', ')}]::text[]`;
+    const startedAt = Date.now();
+    const rows = await this.prisma.$queryRawUnsafe<Array<{
+      id: string;
+      embeddingVersionId: string;
+      literatureId: string;
+      chunkId: string;
+      chunkIndex: number;
+      text: string;
+      startOffset: number;
+      endOffset: number;
+      chunkType: string;
+      sourceRefs: unknown;
+      metadata: unknown;
+      contentChecksum: string | null;
+      createdAt: Date | string;
+      updatedAt: Date | string;
+      negativeInnerProduct: unknown;
+      vectorScore: unknown;
+      filteredChunkCount: unknown;
+    }>>(`
+      WITH filtered AS (
+        SELECT
+          c."id",
+          c."embeddingVersionId",
+          c."literatureId",
+          c."chunkId",
+          c."chunkIndex",
+          c."text",
+          c."startOffset",
+          c."endOffset",
+          c."chunkType",
+          c."sourceRefs",
+          c."metadata",
+          c."contentChecksum",
+          c."createdAt",
+          c."updatedAt",
+          c."retrievalVector" <#> ${sqlString(queryVectorLiteral)}::vector AS "negativeInnerProduct",
+          (COUNT(*) OVER())::int AS "filteredChunkCount",
+          ROW_NUMBER() OVER (
+            PARTITION BY c."literatureId"
+            ORDER BY c."retrievalVector" <#> ${sqlString(queryVectorLiteral)}::vector ASC, c."id" ASC
+          ) AS "literatureRank"
+        FROM "LiteratureEmbeddingChunk" c
+        WHERE c."embeddingVersionId" = ANY(${versionIdArray})
+          AND c."retrievalVector" IS NOT NULL
+      ),
+      capped AS (
+        SELECT *
+        FROM filtered
+        WHERE "literatureRank" <= ${perLiteratureCandidateCap}
+      )
+      SELECT
+        "id",
+        "embeddingVersionId",
+        "literatureId",
+        "chunkId",
+        "chunkIndex",
+        "text",
+        "startOffset",
+        "endOffset",
+        "chunkType",
+        "sourceRefs",
+        "metadata",
+        "contentChecksum",
+        "createdAt",
+        "updatedAt",
+        "negativeInnerProduct",
+        LEAST(1, GREATEST(0, ((-1 * "negativeInnerProduct") + 1) / 2))::float8 AS "vectorScore",
+        "filteredChunkCount"
+      FROM capped
+      ORDER BY "negativeInnerProduct" ASC, "id" ASC
+      LIMIT ${candidateLimit}
+    `);
+    const dbSimilarityQueryMs = Date.now() - startedAt;
+    const filteredChunkCount = rows.length > 0 ? toNumber(rows[0].filteredChunkCount) : 0;
+    const candidates = rows.map((row): LiteratureEmbeddingVectorCandidateRecord => ({
+      id: row.id,
+      embeddingVersionId: row.embeddingVersionId,
+      literatureId: row.literatureId,
+      chunkId: row.chunkId,
+      chunkIndex: row.chunkIndex,
+      text: row.text,
+      startOffset: row.startOffset,
+      endOffset: row.endOffset,
+      chunkType: row.chunkType,
+      sourceRefs: asRecordArray(row.sourceRefs),
+      metadata: asRecord(row.metadata),
+      contentChecksum: row.contentChecksum,
+      createdAt: toIsoString(row.createdAt),
+      updatedAt: toIsoString(row.updatedAt),
+      vectorScore: toNumber(row.vectorScore),
+      negativeInnerProduct: toNumber(row.negativeInnerProduct),
+    }));
+
+    return {
+      candidates,
+      telemetry: {
+        candidateLimit,
+        candidateReturned: candidates.length,
+        candidateLimitHit: candidates.length >= candidateLimit,
+        perLiteratureCandidateCap,
+        filteredEmbeddingVersionCount: query.eligibleEmbeddingVersionIds.length,
+        filteredChunkCount,
+        dbSimilarityQueryMs,
+      },
+    };
   }
 
   async replaceEmbeddingTokenIndexes(
@@ -225,4 +481,86 @@ export class PrismaLiteratureEmbeddingStore {
     });
     return rows.map((row) => toEmbeddingTokenIndexRecord(row));
   }
+}
+
+function emptyRetrievalVectorCoverageSummary(): LiteratureEmbeddingRetrievalVectorCoverageSummary {
+  return {
+    embeddingVersionCount: 0,
+    literatureCount: 0,
+    chunkCount: 0,
+    nativeVectorCount: 0,
+    missingNativeVectorCount: 0,
+    coverageRatio: 0,
+    byVersion: [],
+  };
+}
+
+function clampInteger(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  return Math.min(max, Math.max(min, Math.trunc(value)));
+}
+
+function toPgvectorLiteral(values: number[]): string {
+  if (values.length !== RETRIEVAL_VECTOR_DIMENSION) {
+    throw new Error(`Expected ${RETRIEVAL_VECTOR_DIMENSION}-dimensional vector.`);
+  }
+  return `[${values.map((value) => {
+    if (!Number.isFinite(value)) {
+      throw new Error('Vector values must be finite numbers.');
+    }
+    return Number(value).toPrecision(12);
+  }).join(',')}]`;
+}
+
+function parsePgvectorLiteral(value: string | null): number[] {
+  if (!value) {
+    return [];
+  }
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) {
+    throw new Error('Invalid pgvector literal returned by database.');
+  }
+  const inner = trimmed.slice(1, -1).trim();
+  if (!inner) {
+    return [];
+  }
+  return inner.split(',').map((part) => {
+    const number = Number(part.trim());
+    if (!Number.isFinite(number)) {
+      throw new Error('Invalid pgvector numeric value returned by database.');
+    }
+    return number;
+  });
+}
+
+function sqlString(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+  if (value && typeof value === 'object' && typeof (value as { toString?: unknown }).toString === 'function') {
+    return Number((value as { toString: () => string }).toString());
+  }
+  return Number(value);
+}
+
+function toIsoString(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function asRecordArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is Record<string, unknown> =>
+    Boolean(item) && typeof item === 'object' && !Array.isArray(item),
+  );
 }

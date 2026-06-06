@@ -689,14 +689,9 @@ export function toEmbeddingChunkRecord(row: {
   sourceRefs: unknown;
   metadata: unknown;
   contentChecksum: string | null;
-  vector: unknown;
   createdAt: Date;
   updatedAt: Date;
 }): LiteratureEmbeddingChunkRecord {
-  const vectorSource = Array.isArray(row.vector) ? row.vector : [];
-  const vector = vectorSource
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value));
   return {
     id: row.id,
     embeddingVersionId: row.embeddingVersionId,
@@ -716,7 +711,6 @@ export function toEmbeddingChunkRecord(row: {
       ? row.metadata as Record<string, unknown>
       : {},
     contentChecksum: row.contentChecksum,
-    vector,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

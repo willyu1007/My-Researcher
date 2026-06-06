@@ -1,0 +1,869 @@
+# 04 Verification
+
+## Verification Log
+
+### 2026-06-06 - Archive Closure Verification
+- Status: completed.
+- Scope:
+  - Final archive handoff for T-121 after Phase 1-5 implementation, approved local DB cleanup, post-cleanup residue audit, and governance verification.
+- Commands:
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `pnpm --filter @paper-engineering-assistant/backend exec node --loader ts-node/esm --test src/services/literature-retrieval-service.unit.test.ts src/services/literature-cluster-service.unit.test.ts src/repositories/prisma/literature/prisma-literature-embedding-store.unit.test.ts src/repositories/prisma/literature/prisma-literature-record-mappers.test.ts`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma validate --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate status --schema prisma/schema.prisma`
+  - Read-only target DB check for obsolete rollout setting, legacy vector column, migration-only tables, and native coverage.
+  - Direct Prisma-backed `LiteratureRetrievalService.retrieve` smoke with mocked embedding response.
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - `git diff --check`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Results:
+  - Backend typecheck passed.
+  - Focused tests passed: `29/29`.
+  - Prisma schema validation passed.
+  - Prisma migration status reports database schema is up to date with `50` migrations.
+  - Live DB checks: obsolete rollout setting `0`, legacy vector column `0`, migration-only table count `0`, native coverage `24,773/24,773`, missing `0`.
+  - Direct service smoke returned `itemCount=3`, `degradedMode=false`, `profilesUsed=1`, first literature `LIT-0185`.
+  - DB context contract refresh completed.
+  - Diff whitespace check passed.
+  - Governance sync/lint passed.
+  - Archive move is approved by the user and will move this bundle from `dev-docs/active/` to `dev-docs/archive/`.
+
+### 2026-06-06 - Phase 5 Code And Schema Cleanup
+- Status: code/schema cleanup implemented; destructive DB apply pending explicit approval.
+- Implementation:
+  - Added Phase 5 implementation readiness review in `10-phase-5-readiness.md`.
+  - Removed migration rollout runtime from public literature retrieval:
+    - no `jsonb_only`, `shadow_pgvector`, `pgvector_canary`, `pgvector_default`, or `finalized` runtime mode API remains in backend source.
+    - no automatic JSONB fallback, shadow-read, or rollback service path remains.
+    - public retrieval now uses pgvector candidate selection directly.
+  - Removed migration-only Phase 1/2/3/4 scripts, backend runner services, rollout settings service, and related tests.
+  - Removed `LiteratureEmbeddingChunk.vector` from repo-prisma schema and backend chunk domain records.
+  - Moved semantic clustering vector reads to repository-owned native `retrievalVector` reads.
+  - Removed migration-only backfill/quarantine repository contracts and Prisma models.
+  - Added scoped migration `prisma/migrations/20260606090000_finalize_literature_pgvector_cleanup/migration.sql`.
+  - Refreshed `docs/context/db/schema.json` from repo-prisma.
+- Commands:
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `pnpm --filter @paper-engineering-assistant/backend exec node --loader ts-node/esm --test src/services/literature-retrieval-service.unit.test.ts src/services/literature-cluster-service.unit.test.ts src/repositories/prisma/literature/prisma-literature-embedding-store.unit.test.ts src/repositories/prisma/literature/prisma-literature-record-mappers.test.ts`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma validate --schema prisma/schema.prisma`
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - `git diff --check`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - `pnpm --filter @paper-engineering-assistant/backend test`
+  - Read-only target DB guard precheck: `SELECT COUNT(*), COUNT("retrievalVector"), COUNT(*) - COUNT("retrievalVector") FROM "LiteratureEmbeddingChunk"`
+  - `rg -n "retrieveWithVectorRolloutEvidence|retrieveShadowFromPgvectorCandidates|jsonb_only|shadow_pgvector|pgvector_canary|pgvector_default|LiteratureRetrievalVector|VectorBackfill|VectorQuarantine|LiteratureEmbeddingVectorBackfillRun|LiteratureEmbeddingVectorQuarantineIssue" apps/backend/src prisma/schema.prisma package.json .ai/scripts -S`
+- Results:
+  - Backend typecheck passed.
+  - Focused tests passed: `29/29`.
+  - Prisma schema validation passed.
+  - DB context contract refreshed.
+  - Diff whitespace check passed.
+  - Governance sync/lint passed.
+  - Backend full test suite passed: `1209` tests, `1182` pass, `27` skipped, `0` fail.
+  - Read-only target DB guard precheck returned `24,773/24,773` native vectors and `0` missing.
+  - Migration-only rollout/backfill/quarantine keyword scan returned no backend/schema/package/script hits.
+- DB apply checkpoint:
+  - Generated live DB diff preview under `.ai/.tmp/literature-retrieval-pgvector-index-design/phase5/phase5-schema-cleanup-preview.sql`.
+  - The live diff includes unrelated historical drift, so it is not the Phase 5 apply artifact.
+  - The scoped Phase 5 apply artifact is `prisma/migrations/20260606090000_finalize_literature_pgvector_cleanup/migration.sql`.
+  - Do not run `prisma migrate deploy` against the approved target until the user explicitly approves this destructive migration.
+
+### 2026-06-06 - Phase 5 Approved Local DB Cleanup Apply
+- Status: completed on approved local target.
+- Target:
+  - `local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev`.
+- Approval:
+  - User approved applying the Phase 5 destructive cleanup migration.
+- Commands:
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate deploy --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate status --schema prisma/schema.prisma`
+  - Read-only target DB smoke for `retrievalVector`, legacy `vector`, migration tables, native coverage, and `_prisma_migrations`.
+  - Direct Prisma-backed `LiteratureRetrievalService.retrieve` smoke with mocked embedding response.
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+- Results:
+  - Migration `20260606090000_finalize_literature_pgvector_cleanup` applied successfully.
+  - Prisma migration status reports database schema is up to date.
+  - `LiteratureEmbeddingChunk.retrievalVector` exists as native `vector`.
+  - Legacy `LiteratureEmbeddingChunk.vector` column count: `0`.
+  - Migration-only table count for `LiteratureEmbeddingVectorBackfillRun` and `LiteratureEmbeddingVectorQuarantineIssue`: `0`.
+  - Native vector coverage after drop: `24,773/24,773`, missing `0`.
+  - `_prisma_migrations` records Phase 5 migration finished at `2026-06-06 11:47:14.957759+08`.
+  - Direct service smoke returned `itemCount=3`, `degradedMode=false`, `profilesUsed=1`, first literature `LIT-0185`.
+  - DB context contract refresh completed.
+
+### 2026-06-06 - Phase 5 Legacy Residue Audit And Cleanup
+- Status: completed.
+- Implementation:
+  - Fixed `.ai/scripts/literature-e2e-v2-runner.mjs` duplicate-stress clone path so it no longer writes the removed JSONB `vector` column; it now clones stable native `retrievalVector` through repository-scoped SQL.
+  - Added and applied data cleanup migration `20260606100000_remove_literature_retrieval_rollout_setting`.
+  - Removed temporary local artifacts under `.ai/.tmp/literature-retrieval-pgvector-index-design` and `.ai/.tmp/literature-corpus-cleanup`.
+  - Removed generated Python `__pycache__` directories under `.ai/skills`.
+- Commands:
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate deploy --schema prisma/schema.prisma`
+  - Read-only target DB checks for rollout setting, legacy vector column, migration tables, and native coverage.
+  - `node --check .ai/scripts/literature-e2e-v2-runner.mjs`
+  - `rg -n "retrieveWithVectorRolloutEvidence|retrieveShadowFromPgvectorCandidates|retrieveFromJsonb|jsonb_only|shadow_pgvector|pgvector_canary|pgvector_default|LiteratureRetrievalVector|VectorBackfill|VectorQuarantine|LiteratureEmbeddingVectorBackfillRun|LiteratureEmbeddingVectorQuarantineIssue|literature:pgvector|literature-pgvector-phase" apps/backend/src prisma/schema.prisma package.json .ai/scripts -S`
+  - `rg -n "vector\\s+Json|\\bvector:\\s*chunk\\.vector|c\\.\\\"vector\\\"|\\\"vector\\\" =|record\\.vector|row\\.vector" apps/backend/src prisma/schema.prisma .ai/scripts -S`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `pnpm --filter @paper-engineering-assistant/backend exec node --loader ts-node/esm --test src/services/literature-retrieval-service.unit.test.ts src/services/literature-cluster-service.unit.test.ts src/repositories/prisma/literature/prisma-literature-embedding-store.unit.test.ts src/repositories/prisma/literature/prisma-literature-record-mappers.test.ts`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma validate --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate status --schema prisma/schema.prisma`
+  - Direct Prisma-backed `LiteratureRetrievalService.retrieve` smoke with mocked embedding response.
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - `git diff --check`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Results:
+  - Migration `20260606100000_remove_literature_retrieval_rollout_setting` applied successfully.
+  - Obsolete `ApplicationSetting` row `literature_retrieval_vector/rollout`: `0`.
+  - Legacy `LiteratureEmbeddingChunk.vector` column count: `0`.
+  - Migration-only table count for `LiteratureEmbeddingVectorBackfillRun` and `LiteratureEmbeddingVectorQuarantineIssue`: `0`.
+  - Native vector coverage remains `24,773/24,773`, missing `0`.
+  - Migration runtime keyword scan returned no backend/schema/package/script hits.
+  - Raw-vector storage scan found no legacy DB writes; remaining `row.vector` references are embedding artifact payload parsing, not stable DB storage.
+  - Temporary local artifact scan for `.ai/.tmp/literature-retrieval-pgvector-index-design` and `.ai/.tmp/literature-corpus-cleanup` returned no paths.
+  - Generated Python `__pycache__` scan under `.ai/skills` returned no paths.
+  - Backend typecheck passed.
+  - Focused tests passed: `29/29`.
+  - Prisma schema validation passed.
+  - Prisma migration status reports database schema is up to date with `50` migrations.
+  - Direct service smoke returned `itemCount=3`, `degradedMode=false`, `profilesUsed=1`, first literature `LIT-0185`.
+  - DB context contract refresh completed.
+  - Diff whitespace check passed.
+  - Governance sync/lint passed.
+
+### 2026-06-05 - Phase 3 Readiness Findings Repair
+- Status: completed.
+- Implementation:
+  - Added Phase 3 broad workset/backfill/verify runner and CLI.
+  - Added full-corpus native-vector coverage repository contract.
+  - Added new embedding native-vector materialization in the content-processing runtime.
+  - Added activation blocker for incomplete native-vector coverage and open blocking quarantine.
+  - Added Phase 3 target approval and recovery artifact contracts.
+- Commands:
+  - `cd apps/backend && TS_NODE_PROJECT=tsconfig.json node --test --loader ts-node/esm src/services/literature-retrieval-pgvector-phase3-runner-service.unit.test.ts`
+  - `cd apps/backend && TS_NODE_PROJECT=tsconfig.json node --test --loader ts-node/esm src/repositories/prisma/literature/prisma-literature-embedding-store.unit.test.ts src/services/literature-retrieval-pgvector-phase3-runner-service.unit.test.ts src/services/literature-flow-service.unit.test.ts`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `node --check .ai/scripts/literature-pgvector-phase3-runner.mjs`
+  - `pnpm literature:pgvector:phase3 -- --help`
+  - `pnpm literature:pgvector:phase3 -- --mode plan --run-id phase3-target-local-20260605-plan --target-db-ref local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev`
+  - `pnpm literature:pgvector:phase3 -- --mode backfill --run-id phase3-target-local-20260605-dryrun --target-db-ref local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev --workset .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase3-readiness/broad-workset-manifest.json`
+  - `pnpm --filter @paper-engineering-assistant/backend test`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma validate --schema prisma/schema.prisma`
+  - `git diff --check`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Results:
+  - Phase 3 runner focused tests passed: 5/5.
+  - Combined targeted tests passed: 32/32.
+  - Backend typecheck passed.
+  - Phase 3 CLI syntax/help passed.
+  - Phase 3 plan artifact generated under `.ai/.tmp`; durable summary is `artifacts/db/20260605-phase3-readiness/04-generated-artifact-index.md`.
+  - Phase 3 dry-run artifact generated under `.ai/.tmp`; durable summary is `artifacts/db/20260605-phase3-readiness/04-generated-artifact-index.md`.
+  - Dry-run selected 145 literature/version rows, 24,773 chunks, 24,773 valid vectors, 0 invalid vectors, 0 quarantine rows, 0 writes, and 50 projected batches.
+  - Backend full test suite passed: 1223 tests, 1196 pass, 27 skipped, 0 fail.
+  - Prisma validate passed with `.env.local`.
+  - Diff whitespace check passed.
+  - Governance sync/lint passed.
+
+### 2026-06-06 - Phase 3 Broad Local Backfill Execute
+- Status: completed with final verification `PASS`.
+- Target:
+  - `local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev`.
+- Commands:
+  - `pnpm literature:pgvector:phase3 -- --mode backfill --run-id phase3-target-local-20260606-execute --execute --target-db-approved --target-db-ref local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev --workset .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase3-readiness/broad-workset-manifest.json`
+  - `pnpm literature:pgvector:phase3 -- --mode verify --run-id phase3-target-local-20260606-verify --target-db-approved --target-db-ref local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev --workset .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase3-readiness/broad-workset-manifest.json --backfill .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase3-readiness/broad-backfill-phase3-target-local-20260606-execute.json`
+- Results:
+  - Execute completed.
+  - Selected literature/version rows: `145`.
+  - Selected chunks: `24,773`.
+  - Native vectors written: `24,773`.
+  - Coverage before: `0.015742945949218906`.
+  - Coverage after: `1`.
+  - Batch count: `50`; completed batches: `50`.
+  - Retry count: `0`.
+  - Quarantine rows: `0`.
+  - Recovery checkpoints: `50`.
+  - Verification gate status: `PASS`.
+  - Live coverage: `24,773/24,773`.
+  - Public retrieval mode: `jsonb_only`.
+  - Durable artifact index: `artifacts/db/20260605-phase3-readiness/04-generated-artifact-index.md`.
+- Boundary:
+  - This completes Phase 3 local data migration for the approved target.
+  - It does not promote public pgvector reads, canary/default mode, staging/prod mutation, or cleanup.
+
+### 2026-06-06 - Phase 3 Quarantine Gate Fix And Phase 4 Readiness Review
+- Status: completed.
+- Implementation:
+  - Hardened Phase 3 verification quarantine counting so it checks the union of current backfill run issues and manifest embedding-version-scope open blocking issues.
+  - Added a regression test proving older open blocking quarantine rows fail Phase 3 verification even when the current execute run is clean.
+  - Added Phase 4 implementation readiness review in `09-phase-4-readiness.md`.
+- Commands:
+  - `cd apps/backend && TS_NODE_PROJECT=tsconfig.json node --test --loader ts-node/esm src/services/literature-retrieval-pgvector-phase3-runner-service.unit.test.ts`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `pnpm literature:pgvector:phase3 -- --mode verify --run-id phase3-quarantine-gate-fix-20260606-verify --target-db-approved --target-db-ref local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev --workset .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase3-readiness/broad-workset-manifest.json --backfill .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase3-readiness/broad-backfill-phase3-target-local-20260606-execute.json --artifact-dir .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase3-quarantine-gate-fix`
+  - `cd apps/backend && TS_NODE_PROJECT=tsconfig.json node --test --loader ts-node/esm src/repositories/prisma/literature/prisma-literature-embedding-store.unit.test.ts src/services/literature-retrieval-pgvector-phase2-runner-service.unit.test.ts src/services/literature-retrieval-pgvector-phase3-runner-service.unit.test.ts src/services/literature-retrieval-vector-settings-service.unit.test.ts src/services/literature-flow-service.unit.test.ts`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `git diff --check`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Results:
+  - Phase 3 runner focused tests passed: `6/6`.
+  - Backend typecheck passed.
+  - Hardened live Phase 3 verify passed on the approved local target.
+  - Combined targeted tests passed: `44/44`.
+  - Diff whitespace check passed.
+  - Governance sync/lint passed.
+- Phase 4 readiness decision:
+  - Phase 3 local data migration is a valid foundation.
+  - Public read-path cutover is blocked until Phase 4 readiness findings F1-F6 are resolved.
+  - Public retrieval mode must remain `jsonb_only`.
+
+### 2026-06-06 - Phase 4 Readiness Finding Implementation
+- Status: completed for readiness-finding implementation; public mode remains `jsonb_only`.
+- Implementation:
+  - Added mode-aware retrieval execution through `LiteratureRetrievalService.retrieveWithVectorRolloutEvidence`.
+  - Kept the public `retrieve` response contract unchanged.
+  - Wired `LiteratureRetrievalVectorSettingsService` into app construction and `LiteratureService`.
+  - Added public-path pgvector candidate execution with service-owned query embedding, vector normalization, candidate-window settings, profile filtering, evidence-ready filtering, and stale-policy eligibility before repository SQL.
+  - Enforced rollout-settings candidate query timeout and records timeout as canary fallback evidence.
+  - Added canary-only JSONB fallback events and no automatic fallback for `pgvector_default`/`finalized`.
+  - Added `LiteratureRetrievalPgvectorPhase4RunnerService` for shadow/canary/default evidence, promotion decision gates, and stable/default audit.
+  - Added `pnpm literature:pgvector:phase4` as the artifact-only Phase 4 command.
+- Commands:
+  - `pnpm --filter @paper-engineering-assistant/backend exec node --loader ts-node/esm --test src/services/literature-retrieval-service.unit.test.ts`
+  - `pnpm --filter @paper-engineering-assistant/backend exec node --loader ts-node/esm --test src/services/literature-retrieval-pgvector-phase4-runner-service.unit.test.ts`
+  - `pnpm literature:pgvector:phase4 -- --help`
+  - `pnpm --filter @paper-engineering-assistant/backend test -- literature-retrieval-service.unit.test.ts`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+- Results:
+  - Retrieval service focused tests passed: `15/15`.
+  - Phase 4 runner focused tests passed: `4/4`.
+  - Phase 4 CLI help loaded successfully.
+  - Backend aggregate test command passed before the candidate-timeout follow-up: `1202` pass, `27` skip, `0` fail.
+  - Final timeout follow-up was revalidated by retrieval focused tests and backend typecheck.
+  - Backend typecheck passed.
+- Boundary:
+  - This completes Phase 4 readiness-finding implementation.
+  - It does not execute a rollout mode transition.
+  - Actual public cutover still requires reviewed Phase 4 evidence artifacts and an approved promotion decision artifact on the target DB.
+
+### 2026-06-06 - Phase 4 Controlled Promotion Apply Command
+- Status: completed.
+- Implementation:
+  - Added `LiteratureRetrievalPgvectorPhase4RunnerService.applyPromotion`.
+  - Added `pnpm literature:pgvector:phase4 -- --mode apply-promotion`.
+  - `run-evidence` now evaluates the requested rollout mode in-process without persisting public mode, so target-mode evidence can be generated before a durable transition.
+  - `apply-promotion` is the only Phase 4 CLI path that persists rollout mode; it requires:
+    - promotion decision status `APPROVED`.
+    - `--target-db-approved`.
+    - target DB ref matching the promotion decision.
+    - live rollout mode matching the promotion decision `current_mode`.
+    - settings service transition availability.
+- Commands:
+  - `pnpm --filter @paper-engineering-assistant/backend exec node --loader ts-node/esm --test src/services/literature-retrieval-pgvector-phase4-runner-service.unit.test.ts`
+  - `pnpm literature:pgvector:phase4 -- --help`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+- Results:
+  - Phase 4 runner focused tests passed: `5/5`.
+  - Phase 4 CLI help includes `apply-promotion`.
+  - Backend typecheck passed.
+- Boundary:
+  - This adds the missing controlled execution point.
+  - No rollout transition was executed during this implementation pass.
+
+### 2026-06-06 - Phase 4 Local Target Execution
+- Status: completed through `pgvector_default`; rollback drill and stable/default audit now pass on the approved local target.
+- Target:
+  - `local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev`.
+- Query set:
+  - `.ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/shadow-query-set-phase2-target-local-20260605-v2.json`.
+- Phase 3 verification:
+  - `.ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase3-readiness/phase3-verification-phase3-target-local-20260606-verify.json`.
+- Execution notes:
+  - Initial Phase 4 shadow evidence attempt failed because Phase 4 runner ignored query-set `literature_scope`, causing the scoped Phase 2 query matrix to run as unscoped public JSONB retrieval.
+  - Verified the scoped JSONB baseline still works through Phase 2 runner.
+  - Fixed Phase 4 runner to honor `literature_scope + normalized_query_vector` for scoped evidence.
+- Commands and results:
+  - `pnpm literature:pgvector:phase4 -- --mode run-evidence --rollout-mode shadow_pgvector --run-id phase4-shadow-target-local-20260606-evidence-v2 ...`
+    - Result: `PASS`.
+    - Metrics: `5/5` queries passed, fallback count `0`, candidate-limit hit rate `0`, max DB similarity `30ms`, min topK overlap `1`, max score drift `0.0000010000000000287557`.
+  - `pnpm literature:pgvector:phase4 -- --mode evaluate-promotion --run-id phase4-promote-jsonb-to-shadow-20260606-decision --current-mode jsonb_only --target-mode shadow_pgvector ...`
+    - Result: `APPROVED`.
+  - `pnpm literature:pgvector:phase4 -- --mode apply-promotion --run-id phase4-apply-jsonb-to-shadow-20260606 ...`
+    - Result: `APPLIED`.
+  - `pnpm literature:pgvector:phase4 -- --mode run-evidence --rollout-mode pgvector_canary --run-id phase4-canary-target-local-20260606-evidence ...`
+    - Result: `PASS`.
+  - `pnpm literature:pgvector:phase4 -- --mode evaluate-promotion --run-id phase4-promote-shadow-to-canary-20260606-decision --current-mode shadow_pgvector --target-mode pgvector_canary ...`
+    - Result: `APPROVED`.
+  - `pnpm literature:pgvector:phase4 -- --mode apply-promotion --run-id phase4-apply-shadow-to-canary-20260606 ...`
+    - Result: `APPLIED`.
+  - `pnpm literature:pgvector:phase4 -- --mode run-evidence --rollout-mode pgvector_default --run-id phase4-default-target-local-20260606-evidence ...`
+    - Result: `PASS`.
+  - `pnpm literature:pgvector:phase4 -- --mode evaluate-promotion --run-id phase4-promote-canary-to-default-20260606-decision --current-mode pgvector_canary --target-mode pgvector_default ...`
+    - Result: `APPROVED`.
+  - `pnpm literature:pgvector:phase4 -- --mode apply-promotion --run-id phase4-apply-canary-to-default-20260606 ...`
+    - Result: `APPLIED`.
+  - `pnpm literature:pgvector:phase4 -- --mode stable-audit --run-id phase4-stable-default-audit-20260606 --current-mode pgvector_default ...`
+    - Result: `FAIL`, expected blocker `rollback_drill_recorded`.
+  - `pnpm literature:pgvector:phase4 -- --mode rollback-drill --run-id phase4-rollback-drill-target-local-20260606 --current-mode pgvector_default ...`
+    - Result: `PASS`.
+    - Artifact: `.ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260606-phase4-execution/phase4-rollback-drill-phase4-rollback-drill-target-local-20260606.json`.
+    - Transition chain: `pgvector_default -> jsonb_only -> shadow_pgvector -> pgvector_canary -> pgvector_default`.
+    - Query result: `5/5` rollback queries passed with `rollout_mode=jsonb_only`, `visible_source=jsonb`, and fallback count `0`.
+  - `pnpm literature:pgvector:phase4 -- --mode stable-audit --run-id phase4-stable-default-audit-after-rollback-drill-20260606 --current-mode pgvector_default ...`
+    - Result: `PASS`.
+    - Artifact: `.ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260606-phase4-execution/phase4-stable-default-audit-phase4-stable-default-audit-after-rollback-drill-20260606.json`.
+- Live mode check:
+  - Application setting `literature_retrieval_vector/rollout` now has `mode=pgvector_default`.
+  - Post-drill check returned `mode=pgvector_default`, `updatedAt=2026-06-06T01:25:07.638Z`.
+- Public retrieval smoke:
+  - Direct service smoke returned `rollout_mode=pgvector_default`, `visible_source=pgvector`, fallback events `0`, candidateReturned `200`, itemCount `5`.
+- Boundary:
+  - Approved local target public read path is now `pgvector_default`.
+  - Do not start Phase 5 cleanup or promote to `finalized` until a Phase 5 readiness review approves removing migration-only rollback/shadow/canary infrastructure.
+
+### 2026-06-04 - Current Storage And Retrieval Evidence
+- Status: completed.
+- Commands:
+  - `rg -n "pgvector|vector\\(|CREATE EXTENSION|ivfflat|hnsw|<->|<#>|<=>|Unsupported\\(\\\"vector" prisma apps packages -S`
+  - `sed -n '480,520p' prisma/schema.prisma`
+  - `sed -n '150,190p' apps/backend/src/repositories/prisma/literature/prisma-literature-embedding-store.ts`
+  - `sed -n '150,260p' apps/backend/src/services/literature-retrieval-service.ts`
+  - SQL check for `pg_extension` and `information_schema.columns`.
+- Results:
+  - No pgvector extension/query/index usage found in repo search.
+  - `LiteratureEmbeddingChunk.vector` is defined as Prisma `Json`.
+  - DB column `LiteratureEmbeddingChunk.vector` is `jsonb`.
+  - Current DB has no installed `vector` extension.
+  - Retrieval loads chunks via Prisma `findMany` and scores vectors in TypeScript.
+
+### 2026-06-04 - Task Package Creation
+- Status: completed.
+- Created task package:
+  - `.ai-task.yaml`
+  - `roadmap.md`
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `04-verification.md`
+  - `05-pitfalls.md`
+- Pending:
+  - governance lint after task package creation.
+
+### 2026-06-04 - Governance Sync
+- Status: completed.
+- Command:
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+- Result:
+  - Sync completed.
+  - `T-121` registered in project hub.
+  - Derived views regenerated:
+    - `.ai/project/main/registry.yaml`
+    - `.ai/project/main/dashboard.md`
+    - `.ai/project/main/feature-map.md`
+    - `.ai/project/main/task-index.md`
+
+### 2026-06-04 - Governance Lint
+- Status: completed.
+- Command:
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Lint passed.
+
+### 2026-06-05 - Storage And Prisma Boundary Decision Notes
+- Status: completed.
+- Command:
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design/01-plan.md dev-docs/active/literature-retrieval-pgvector-index-design/02-architecture.md dev-docs/active/literature-retrieval-pgvector-index-design/03-implementation-notes.md`
+- Result:
+  - Diff whitespace check passed.
+  - No schema or product code changes were made.
+
+### 2026-06-05 - First-Phase Exact Retrieval Boundary
+- Status: completed.
+- Decision:
+  - First phase is exact DB-side native vector candidate retrieval only.
+  - Future acceleration/index selection is deferred until first-phase parity and performance evidence exists.
+  - The known first-phase bottleneck is documented: Postgres still computes exact similarity over the filtered candidate set.
+- Commands:
+  - `rg -n "HNSW|IVFFlat|ivfflat|hnsw|vector\\(3072\\)|Unsupported\\(\\\"vector|Pending final whitespace|approximate|Approximate" dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - No concrete acceleration/index option remains in first-phase design text; remaining matches are historical or QA command text.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Unscoped Retrieval Boundary
+- Status: completed.
+- Decision:
+  - First phase keeps unscoped retrieval as a bounded compatibility path.
+  - Scoped retrieval is the predictable-performance path.
+  - Degradation thresholds for unscoped retrieval must be chosen from first-phase measurements.
+- Expected future evidence:
+  - filtered candidate count.
+  - DB exact similarity-query latency.
+  - scoped and unscoped P50/P95.
+  - retrieval parity against the JSONB path.
+- Commands:
+  - `rg -n "add native vector storage and index|column/index|add pgvector column/index|HNSW|IVFFlat|ivfflat|hnsw|vector\\(3072\\)|Unsupported\\(\\\"vector|Pending final whitespace|approximate|Approximate|unbounded|unscoped" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Unscoped retrieval is documented as bounded compatibility behavior, not an unbounded first-phase guarantee.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Native Vector Type And Dimension
+- Status: completed.
+- Decision:
+  - First phase uses `vector(3072)` as the native pgvector column type.
+  - The native column stores L2-normalized vectors.
+  - Prisma schema should represent the column as `Unsupported("vector(3072)")`.
+  - JSONB vector storage remains the raw parity and rollback source during migration.
+- Expected future evidence:
+  - temporary Postgres migration creates the `vector` extension.
+  - migration can create a nullable `vector(3072)` column.
+  - representative 3072-dimensional vectors can be normalized, inserted, and queried with inner product.
+  - dimension mismatch fails during backfill or write-path validation.
+- Commands:
+  - `rg -n "Unsupported|type/dimension|native type|dimension|3072|halfvec|vector\\(" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - First-phase type/dimension decision is documented as `vector(3072)`.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Inner Product And Norm Policy
+- Status: completed.
+- Decision:
+  - First phase uses pgvector `<#>` for DB-side exact candidate ordering.
+  - Native `vector(3072)` values are L2-normalized.
+  - JSONB `vector` remains the raw provider vector for rollback and parity.
+- Expected future evidence:
+  - raw vector norm distribution.
+  - native `vector_norm(...)` near `1`.
+  - zero-norm, non-finite, wrong-dimension, and abnormal-norm counts.
+  - score drift between JSONB `normalizedCosine` and native inner-product mapping.
+  - topK overlap and rank drift for scoped and unscoped fixed queries.
+- Commands:
+  - `rg -n "<#>|<=>|cosine|inner product|normalized|vector_norm|l2|L2|distance" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Inner-product retrieval and norm gates are documented for the first phase.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Candidate Window And Rerank Policy
+- Status: completed.
+- Decision:
+  - First phase uses an internal candidate window derived from `top_k`, `evidence_per_literature`, retrieval profile, and scoped/unscoped mode.
+  - Default formula is documented with profile multipliers, floor, scoped/unscoped ceilings, and per-literature cap.
+  - Second-phase alternatives are recorded without changing the first-phase implementation boundary.
+- Expected future evidence:
+  - `candidate_limit`, `candidate_returned`, `candidate_limit_hit`, and `per_literature_candidate_cap`.
+  - scoped/unscoped DB similarity-query latency.
+  - candidate window hit rate and post-rerank drop rate.
+  - final topK overlap and rank drift against JSONB full-rerank baseline.
+- Commands:
+  - `rg -n "candidate_limit|per_literature_candidate_cap|profile_multiplier|top_k|evidence_per_literature|rerank window|Second-phase|second-phase" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Candidate window policy and second-phase alternatives are documented.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Migration Cutover State Machine
+- Status: completed.
+- Decision:
+  - First phase uses staged cutover: `schema_prepare -> backfill -> dual_write -> shadow_read_parity -> feature_flag_cutover -> stabilization`.
+  - Backfill invalid rows are quarantined/reported and block affected cutover instead of being silently skipped.
+  - New embedding versions cannot become retrieval-active with incomplete native vector coverage.
+  - Automatic JSONB fallback is canary-only and must be removed before stable/default-on pgvector mode.
+  - JSONB remains the explicit feature-flag rollback source during first-phase cutover.
+- Expected future evidence:
+  - native vector coverage for active/evidence-ready versions.
+  - quarantine row count and affected literature/version IDs.
+  - dual-write success/failure counts.
+  - shadow-read parity results.
+  - feature-flag state, canary fallback count, and canary fallback reasons.
+  - stable/default-on audit proving no automatic per-request JSONB fallback path remains.
+  - rollback drill showing explicit feature-flag switch returns reads to JSONB without data deletion.
+- Commands:
+  - `rg -n "schema_prepare|backfill|dual_write|shadow_read|feature_flag|fallback|rollback|quarantine|coverage|cutover" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Migration cutover state machine and rollback guardrails are documented.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Fallback Lifetime
+- Status: completed.
+- Decision:
+  - Automatic per-request JSONB fallback is migration-only.
+  - Canary cutover may use automatic fallback as an observable safety net.
+  - Any canary fallback blocks promotion.
+  - Stable/default-on pgvector mode must remove fallback code/config/test paths.
+  - Long-term rollback is explicit feature-flag rollback, not automatic dual-track fallback.
+- Expected future evidence:
+  - canary fallback count and reasons.
+  - promotion gate requiring zero fallback events.
+  - stable/default-on audit showing no automatic per-request fallback path.
+  - rollback drill through explicit feature flag.
+- Commands:
+  - `rg -n "fallback|feature-flag rollback|feature_flag|canary|stable/default-on|automatic per-request|dual-track" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Fallback is documented as migration/canary-only.
+  - Stable/default-on mode requires fallback removal.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Final Cleanup And Legacy Removal
+- Status: completed.
+- Decision:
+  - Migration is not complete until JSONB retrieval storage and runtime dual-track content are removed.
+  - Final cleanup runs only after stable/default-on pgvector mode passes repeated gates and rollback drill evidence exists.
+  - After cleanup, pgvector is the single retrieval authority; JSONB retrieval rollback is no longer retained at runtime.
+- Expected future evidence:
+  - schema cleanup removes the JSONB retrieval vector column/field.
+  - repository/service code no longer has JSONB retrieval fallback branches.
+  - automatic fallback, explicit rollback flag, and shadow-read-only code are removed.
+  - stable tests assert no JSONB retrieval path exists.
+  - DB context and governance artifacts are regenerated after cleanup.
+- Commands:
+  - `rg -n "finalize_cleanup|Final Cleanup|legacy|dual-track|JSONB retrieval|rollback flag|shadow-read-only|single retrieval authority|stable tests" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Final cleanup is documented as required terminal work, not optional follow-up.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Cutover Gate Thresholds
+- Status: completed.
+- Decision:
+  - Coverage, data quality, and fallback gates are hard blockers.
+  - Parity and performance gates use conservative initial thresholds.
+  - Parity/performance thresholds may be adjusted once after shadow-read evidence, but hard blockers are not adjustable in first-phase cutover.
+- Hard blockers:
+  - active/evidence-ready native vector coverage is `100%`.
+  - active/evidence-ready quarantine rows are `0`.
+  - wrong-dimension, NaN, Infinity, and zero-norm counts are `0`.
+  - canary automatic fallback count is `0`.
+  - stable/default-on implementation has no automatic per-request JSONB fallback path.
+- Initial thresholds:
+  - native norm tolerance: `abs(norm - 1) <= 1e-5`, relaxable to `1e-4` only with recorded shadow evidence.
+  - score drift: P95 `<= 1e-4`, max `<= 1e-3`.
+  - topK overlap: scoped `>= 0.9`, unscoped `>= 0.8`.
+  - `candidate_limit_hit` above `20%` across repeated shadow queries blocks default-on rollout.
+  - pgvector P95 no higher than `0.7x` JSONB P95 when JSONB baseline is measurable.
+- Commands:
+  - `rg -n "100%|1e-5|1e-4|1e-3|0\\.9|0\\.8|20%|0\\.7x|candidate_limit_hit|score drift|topK overlap|hard blocker|Cutover Gates" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Cutover gate thresholds are documented.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Repository And Service Boundary
+- Status: completed.
+- Decision:
+  - Repository owns pgvector SQL/operator behavior and bounded candidate retrieval.
+  - Service owns active/evidence-ready resolution, query normalization, hybrid rerank, parity, and cutover orchestration.
+  - Pgvector path must not return raw JSONB vectors to the service.
+
+### 2026-06-05 - Phase 1 Infrastructure Implementation Verification
+- Status: completed with one environment-scoped full-suite caveat.
+- Evidence root:
+  - `artifacts/db/20260605-phase1-infrastructure/`
+- Commands:
+  - `node --check .ai/scripts/literature-pgvector-phase1-preflight.mjs`
+  - `node .ai/scripts/literature-pgvector-phase1-preflight.mjs --dry-run`
+  - `DATABASE_URL=<throwaway-postgres-url> node .ai/scripts/literature-pgvector-phase1-preflight.mjs --execute --database-is-disposable --allow-create-extension`
+  - `pnpm --filter @paper-engineering-assistant/backend prisma:format`
+  - `DATABASE_URL=<placeholder> pnpm --filter @paper-engineering-assistant/backend prisma:validate`
+  - `DATABASE_URL=<placeholder> pnpm --filter @paper-engineering-assistant/backend prisma:generate`
+  - `node --test --loader ts-node/esm src/services/literature-retrieval-vector-settings-service.unit.test.ts src/repositories/prisma/literature/prisma-literature-embedding-store.unit.test.ts`
+  - `DATABASE_URL=<placeholder> pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+- Results:
+  - Preflight syntax check passed.
+  - Dry-run passed with `status: "dry_run"`.
+  - Disposable preflight execute passed with `status: "passed"`.
+  - Disposable preflight confirmed pgvector extension, `vector(3072)`, wrong-dimension rejection, `<#>` ordering, norm checks, and backfill write norm.
+  - Prisma format/validate/generate passed. The first validate attempt failed only because `DATABASE_URL` was absent from the shell, then passed with a placeholder URL.
+  - Targeted Phase 1 unit tests passed, `5/5`.
+  - Backend typecheck passed.
+  - DB context regenerated successfully.
+- Full backend test caveat:
+  - `DATABASE_URL=<placeholder> pnpm --filter @paper-engineering-assistant/backend test` completed with `1205` tests, `1170` passed, `8` failed, `27` skipped.
+  - The `8` failures were existing Prisma transaction rollback and Prisma HTTP smoke tests that attempted to connect to the placeholder DB and received access-denied errors.
+  - Phase 1 targeted tests passed before this environment boundary.
+- Expected future evidence:
+  - repository method contract includes normalized query vector, candidate window, and per-literature cap.
+  - repository method returns bounded candidates, vector score, inner-product diagnostic value, and telemetry.
+  - service tests prove lexical/metadata/stale/same-work/evidence grouping remain service-owned.
+  - pgvector read path does not load raw JSONB vectors into Node.
+- Commands:
+  - `rg -n "Repository And Service Boundary|candidate-query telemetry|raw JSONB vectors|inner-product diagnostic|candidate_limit|per_literature_candidate_cap|pgvector SQL|<#>" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Repository/service boundary is documented.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Final Schema Field Naming
+- Status: completed.
+- Decision:
+  - Native pgvector retrieval storage is named `retrievalVector`.
+  - Migration uses nullable `retrievalVector Unsupported("vector(3072)")?`.
+  - Final cleanup removes legacy `vector Json` and keeps required `retrievalVector Unsupported("vector(3072)")`.
+  - The legacy `vector` name is not reused for normalized retrieval storage.
+- Expected future evidence:
+  - Prisma schema diff shows `retrievalVector` added before cutover and `vector Json` removed during final cleanup.
+  - code search proves stable retrieval no longer reads `LiteratureEmbeddingChunk.vector`.
+  - repository/service contracts expose bounded pgvector candidates rather than raw JSONB vectors.
+- Commands:
+  - `rg -n "retrievalVector|vector Json|LiteratureEmbeddingChunk\\.vector|Unsupported\\(\\\"vector\\(3072\\)\\\"\\)" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Final schema field naming is documented.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Migration-Only Durable Artifacts
+- Status: completed.
+- Decision:
+  - Backfill/quarantine records are allowed only as migration control-plane artifacts.
+  - Run-level and row-level issue records support resumable backfill, repair, coverage gates, and activation blocking.
+  - Full vector payloads are not stored in quarantine records.
+  - Stable/default-on pgvector mode must not read migration issue tables.
+  - Final cleanup removes migration-only tables and runtime code, or exports a static report and deletes runtime tables.
+- Expected future evidence:
+  - migration schema includes run and issue records only in the migration window.
+  - cutover evidence shows active/evidence-ready native coverage is `100%` and open blocking issues are `0`.
+  - stable cleanup diff removes migration-only repositories/services/tests.
+  - new embedding vector failures after cleanup use the normal indexing/job error path.
+- Commands:
+  - `rg -n "migration-only|BackfillRun|QuarantineIssue|quarantine issue|durable artifacts|runtime tables|normal indexing/job error path" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Migration-only durable artifacts are documented as temporary control-plane records.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Rollout And Configuration Lifecycle
+- Status: completed.
+- Decision:
+  - Pgvector cutover uses one finite rollout mode instead of multiple independent booleans.
+  - Allowed modes are `jsonb_only`, `shadow_pgvector`, `pgvector_canary`, `pgvector_default`, and `finalized`.
+  - Automatic JSONB fallback is valid only in `pgvector_canary`.
+  - Explicit JSONB rollback is valid only before `finalized`.
+  - Final cleanup removes migration rollout/config controls and retains only stable pgvector tuning.
+- Expected future evidence:
+  - mode transition tests reject invalid states.
+  - canary fallback count is `0` before `pgvector_default`.
+  - cleanup diff removes rollout mode storage/config, shadow/canary/fallback settings, and explicit JSONB rollback controls.
+  - stable config contract contains only pgvector tuning parameters.
+- Commands:
+  - `rg -n "jsonb_only|shadow_pgvector|pgvector_canary|pgvector_default|finalized|rollout mode|migration-only rollout|stable pgvector tuning|explicit JSONB rollback" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Rollout/config lifecycle is documented as finite migration mode plus stable pgvector tuning.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Implementation Phase Boundaries
+- Status: completed.
+- Decision:
+  - Implementation is split into five phases: infrastructure foundation, small-scale migration and validation, large-scale data migration, cutover acceptance, and final cleanup.
+  - Phase 3 is data migration only and must not switch user-visible reads.
+  - Phase 4 owns read-path cutover and acceptance gates.
+  - Phase 5 is mandatory migration completion work, not optional cleanup.
+- Expected future evidence:
+  - Phase 1 tests prove schema/raw-SQL scaffolding without behavior change.
+  - Phase 2 evidence covers `LIT-0252` and representative fulltext records in `shadow_pgvector`.
+  - Phase 3 evidence covers broad coverage, quarantine, retry, recovery, dual-write, and activation blockers.
+  - Phase 4 evidence covers rollout mode transitions, fallback count `0`, parity, latency, candidate-window pressure, scoped/unscoped behavior, and partial visual index behavior.
+  - Phase 5 cleanup diff removes JSONB retrieval, migration controls, migration artifacts, and compatibility tests.
+- Commands:
+  - `rg -n "Implementation Phase|Phase 1|Phase 2|Phase 3|Phase 4|Phase 5|large-scale data migration|read-path cutover|definition of done|migration completion" dev-docs/active/literature-retrieval-pgvector-index-design -S`
+  - `git diff --check -- dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Implementation phase boundaries are documented.
+  - Diff whitespace check passed.
+  - Governance lint passed.
+
+### 2026-06-05 - Phase 1 Readiness Finding Resolution
+- Status: completed for infrastructure/preflight scope.
+- Changes:
+  - Added `06-phase-1-readiness.md`.
+  - Added `.ai/scripts/literature-pgvector-phase1-preflight.mjs`.
+  - Updated `00-overview.md`, `01-plan.md`, `03-implementation-notes.md`, and `05-pitfalls.md`.
+- Commands:
+  - `node --check .ai/scripts/literature-pgvector-phase1-preflight.mjs`
+  - `node .ai/scripts/literature-pgvector-phase1-preflight.mjs --dry-run`
+  - `DATABASE_URL=<throwaway-postgres-url> node .ai/scripts/literature-pgvector-phase1-preflight.mjs --execute --database-is-disposable --allow-create-extension`
+  - `git diff --check -- .ai/scripts/literature-pgvector-phase1-preflight.mjs dev-docs/active/literature-retrieval-pgvector-index-design`
+- Result:
+  - Script syntax check passed.
+  - Dry-run returned `status: "dry_run"` with required execute flags `--execute --database-is-disposable --allow-create-extension`.
+  - Disposable-DB execute returned `status: "passed"` and verified pgvector extension, `vector(3072)`, wrong-dimension rejection, normalized norm checks, `<#>` ordering, and JSONB-to-normalized-vector backfill write.
+  - Dry-run documented mutation scope: `CREATE EXTENSION IF NOT EXISTS vector`, temporary schema/table creation, and schema cleanup unless `--keep-schema` is used.
+  - Diff whitespace check passed.
+- Safety boundary:
+  - Persistent local/dev DB migration apply was not run by Phase 1.
+  - Phase 1 does not approve sample backfill or user-visible pgvector reads.
+
+### 2026-06-05 - Phase 2 Readiness Finding Resolution
+- Status: completed for implementation-readiness artifacts; target DB apply was approval-blocked at this checkpoint and was later completed on the approved local target.
+- Changes:
+  - Added `07-phase-2-readiness.md`.
+  - Added Phase 2 artifact contracts under `artifacts/db/20260605-phase2-readiness/`.
+  - Updated overview, plan, architecture, roadmap, implementation notes, pitfalls, and Phase 1 post-verify wording.
+  - Renamed pgvector candidate query input to `eligibleEmbeddingVersionIds`.
+- Commands:
+  - `node --test --loader ts-node/esm src/repositories/prisma/literature/prisma-literature-embedding-store.unit.test.ts src/services/literature-retrieval-vector-settings-service.unit.test.ts`
+  - `DATABASE_URL=postgresql://user:pass@127.0.0.1:5432/postgres pnpm --filter @paper-engineering-assistant/backend prisma:validate`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `git diff --check -- apps/backend/src/repositories dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Results:
+  - Targeted repository/settings tests passed, `5/5`.
+  - Prisma validate passed with a placeholder URL. A prior validate attempt without `DATABASE_URL` failed at environment config only.
+  - Backend typecheck passed.
+  - Diff whitespace check passed.
+  - Project governance sync completed.
+  - Project governance lint passed.
+- Safety boundary:
+  - No persistent target DB migration apply was run.
+  - No sample workset backfill was run.
+  - No public literature retrieve response contract was changed.
+
+### 2026-06-05 - Phase 2 Runner Implementation Verification
+- Status: completed for runner/service implementation; target DB execution remains approval-blocked.
+- Changes:
+  - Added `LiteratureRetrievalPgvectorPhase2RunnerService`.
+  - Added internal `LiteratureRetrievalService.retrieveShadowFromPgvectorCandidates`.
+  - Added `.ai/scripts/literature-pgvector-phase2-runner.mjs`.
+  - Added package script `pnpm literature:pgvector:phase2`.
+  - Added unit tests for Phase 2 workset planning, dry-run/execute backfill, redacted quarantine, stale exclusion before pgvector SQL, public response non-change, and Prisma quarantine resume safety.
+- Commands:
+  - `node --test --loader ts-node/esm src/services/literature-retrieval-pgvector-phase2-runner-service.unit.test.ts src/repositories/prisma/literature/prisma-literature-embedding-store.unit.test.ts src/services/literature-retrieval-vector-settings-service.unit.test.ts`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `DATABASE_URL=postgresql://user:pass@127.0.0.1:5432/postgres pnpm --filter @paper-engineering-assistant/backend prisma:validate`
+  - `git diff --check -- .ai/scripts/literature-pgvector-phase2-runner.mjs package.json apps/backend/src dev-docs/active/literature-retrieval-pgvector-index-design`
+  - `node --check .ai/scripts/literature-pgvector-phase2-runner.mjs`
+  - `pnpm literature:pgvector:phase2 -- --help`
+  - `pnpm literature:pgvector:phase2 -- --mode backfill-sample --sample-workset /tmp/nonexistent-phase2-sample.json --execute`
+- Results:
+  - Targeted tests passed, `9/9`.
+  - Backend typecheck passed.
+  - Prisma validate passed with placeholder `DATABASE_URL`.
+  - Diff whitespace check passed.
+  - Phase 2 runner script syntax check passed.
+  - Phase 2 package command help printed successfully.
+  - Unapproved execute guard blocked before reading the sample file with `--execute requires --target-db-approved and --target-db-ref.`
+- Safety boundary:
+  - No persistent target DB migration apply was run.
+  - No Phase 2 sample backfill was executed against local/dev DB.
+  - No public controller route was changed.
+
+### 2026-06-05 - Phase 2 Target Apply And Dry-Run Verification
+- Status: completed through target apply, post-smoke, sample planning, and backfill dry-run.
+- Target:
+  - `local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev`.
+- Commands:
+  - `set -a; source .env.local; set +a; pnpm --filter @paper-engineering-assistant/backend exec prisma validate --schema ../../prisma/schema.prisma`
+  - `set -a; source .env.local; set +a; pnpm --filter @paper-engineering-assistant/backend exec prisma migrate deploy --schema ../../prisma/schema.prisma`
+  - `set -a; source .env.local; set +a; pnpm --filter @paper-engineering-assistant/backend exec prisma migrate status --schema ../../prisma/schema.prisma`
+  - Prisma post-apply smoke query for extension, column type, migration-only tables, legacy JSONB vector, and migration history.
+  - Application setting query for literature retrieval vector rollout mode.
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - `node --test --loader ts-node/esm src/repositories/prisma/literature/prisma-literature-embedding-store.unit.test.ts src/services/literature-retrieval-pgvector-phase2-runner-service.unit.test.ts src/services/literature-retrieval-vector-settings-service.unit.test.ts`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `pnpm literature:pgvector:phase2 -- --mode plan --target-db-ref 'local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev' --include-stale-diagnostic --run-id phase2-target-local-20260605`
+  - `pnpm literature:pgvector:phase2 -- --mode backfill-sample --sample-workset dev-docs/active/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/sample-workset-manifest.json --run-id phase2-target-local-20260605-dryrun`
+- Results:
+  - Schema validation passed with target env loaded.
+  - Migration `20260605104000_add_literature_pgvector_phase1` applied successfully.
+  - Migration status reports database schema is up to date.
+  - Post-apply smoke passed:
+    - `vector` extension exists.
+    - `retrievalVector` exists as `vector(3072)`.
+    - backfill run table exists.
+    - quarantine issue table exists.
+    - legacy `vector` exists as `jsonb`.
+    - migration history includes the target migration.
+  - Public rollout mode remains `jsonb_only`.
+  - DB context contract refreshed.
+  - Initial `plan` failed because it loaded all active JSONB chunk vectors after the native vector column existed.
+  - After repair, targeted tests passed, `10/10`, and backend typecheck passed.
+  - Sample workset generated with four samples: `LIT-0252`, `LIT-0177`, `LIT-0178`, `LIT-0179`.
+  - Sample workset blockers: none.
+  - Stale diagnostic warning: no stale active/evidence-ready version was found.
+  - Backfill dry-run selected `390` chunks, projected `390` valid writes, wrote `0` native vectors, and produced `0` quarantine issues.
+- Remaining blocker:
+  - A fixed shadow query set with real `normalized_query_vector` values is required before JSONB baseline, sample execute backfill, `shadow_pgvector`, and final Phase 2 verify.
+- Safety boundary:
+  - No sample native-vector write has been executed yet.
+  - No public retrieval route was changed.
+  - Staging and production remain untouched.
+
+### 2026-06-05 - Phase 2 Sample Backfill And Shadow Verification
+- Status: completed with final verification `PASS`.
+- Commands:
+  - Generated `shadow-query-set-phase2-target-local-20260605.json` with active OpenAI embedding profile.
+  - `pnpm literature:pgvector:phase2 -- --mode capture-jsonb-baseline --query-set .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/shadow-query-set-phase2-target-local-20260605.json --target-db-ref 'local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev' --run-id phase2-target-local-20260605-baseline`
+  - `pnpm literature:pgvector:phase2 -- --mode backfill-sample --sample-workset dev-docs/active/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/sample-workset-manifest.json --execute --target-db-approved --target-db-ref 'local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev' --run-id phase2-target-local-20260605-execute`
+  - `pnpm literature:pgvector:phase2 -- --mode run-shadow --sample-workset dev-docs/active/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/sample-workset-manifest.json --query-set .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/shadow-query-set-phase2-target-local-20260605.json --baseline dev-docs/active/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/jsonb-baseline-phase2-target-local-20260605-baseline.json --run-id phase2-target-local-20260605-shadow`
+  - Generated `shadow-query-set-phase2-target-local-20260605-v2.json` by raising `q_unscoped_bounded.evidence_per_literature` from `3` to `5`.
+  - `pnpm literature:pgvector:phase2 -- --mode capture-jsonb-baseline --query-set .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/shadow-query-set-phase2-target-local-20260605-v2.json --target-db-ref 'local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev' --run-id phase2-target-local-20260605-baseline-v2`
+  - `pnpm literature:pgvector:phase2 -- --mode run-shadow --sample-workset dev-docs/active/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/sample-workset-manifest.json --query-set .ai/.tmp/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/shadow-query-set-phase2-target-local-20260605-v2.json --baseline dev-docs/active/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/jsonb-baseline-phase2-target-local-20260605-baseline-v2.json --run-id phase2-target-local-20260605-shadow-v2`
+  - `pnpm literature:pgvector:phase2 -- --mode verify --sample-workset dev-docs/active/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/sample-workset-manifest.json --backfill dev-docs/active/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/backfill-sample-phase2-target-local-20260605-execute.json --shadow dev-docs/active/literature-retrieval-pgvector-index-design/artifacts/db/20260605-phase2-readiness/shadow-parity-phase2-target-local-20260605-shadow-v2.json --target-db-approved --target-db-ref 'local-env:127.0.0.1:5432/postgres?schema=my_researcher_dev' --run-id phase2-target-local-20260605-verify`
+- Results:
+  - Query-set generation used `1` provider request and `0` retries; query vectors are `3072` dimensions and normalized to unit length.
+  - JSONB baseline v2 passed `5/5` queries.
+  - Backfill execute wrote `390/390` native vectors.
+  - Backfill execute quarantine count: `0`.
+  - DB coverage check confirmed `390` total sample chunks, `390` non-null native vectors, `0` missing.
+  - Shadow v1 failed score drift gates because `q_unscoped_bounded` used too narrow a per-literature candidate cap.
+  - Shadow v2 passed all shadow gates after increasing the sample bounded-corpus query evidence window.
+  - Final verify status: `PASS`.
+  - Final verify now includes target lineage and live DB gates:
+    - approved target DB ref: pass.
+    - artifact target/migration/query lineage: pass.
+    - completed execute backfill artifact: pass.
+    - live backfill run completed: pass.
+    - live sample native vector coverage: `390/390`.
+    - live unresolved quarantine: `0`.
+    - live public retrieval mode: `jsonb_only`.
+  - User-visible retrieval mode remains `jsonb_only`.
+- Final gate observations:
+  - sample native vector coverage: `1`.
+  - unresolved quarantine: `0`.
+  - invalid vector counts: `0/0/0`.
+  - score drift P95: `6.837158202932514e-7`.
+  - score drift max: `6.837158202932514e-7`.
+  - scoped topK overlap min: `1`.
+  - sample bounded-corpus topK overlap min: `1`.
+  - candidate limit hit rate: `0`.
+- Residual risk:
+  - stale-include diagnostic is N/A because the current local target has no stale active/evidence-ready sample.
+  - global unscoped/public-scale parity is not proven by Phase 2; it belongs to later large-scale migration/cutover phases.

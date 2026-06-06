@@ -154,11 +154,10 @@ flowchart LR
   - lexical score, metadata score, stale-warning filtering, same-work dedup, evidence grouping, and final topK.
   - cutover/shadow-read orchestration and parity evaluation.
 - Repository method input shape:
-  - compatible active/evidence-ready `embeddingVersionIds`.
+  - service-resolved `eligibleEmbeddingVersionIds` filtered for active, evidence-ready, and request stale-policy eligibility.
   - normalized query vector.
   - `candidate_limit`.
   - `per_literature_candidate_cap`.
-  - include/exclude stale context if the implementation pushes stale filtering below service.
 - Repository method output shape:
   - chunk identity and text fields needed for rerank/evidence.
   - literature and embedding version identifiers.
