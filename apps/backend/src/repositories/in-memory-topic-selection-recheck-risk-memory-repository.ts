@@ -123,6 +123,12 @@ export class InMemoryTopicSelectionRecheckRiskMemoryRepository implements TopicS
       .sort((left, right) => left.created_at.localeCompare(right.created_at));
   }
 
+  async listAcceptedRisksByTitleCardId(titleCardId: string): Promise<TopicSelectionAcceptedRiskRecord[]> {
+    return [...this.acceptedRisks.values()]
+      .filter((record) => record.title_card_id === titleCardId)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at));
+  }
+
   async createHumanOverride(record: TopicSelectionHumanOverrideRecord): Promise<TopicSelectionHumanOverrideRecord> {
     this.humanOverrides.set(record.human_override_id, record);
     return record;

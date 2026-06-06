@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type {
   TitleCardPrimaryTabKey,
 } from '../../../literature/shared/types';
@@ -14,6 +14,7 @@ import { EvidenceMapCard } from '../cards/EvidenceMapCard';
 import { NeedCandidateReviewCard } from '../cards/NeedCandidateReviewCard';
 import { ValidatedNeedDecisionCard } from '../cards/ValidatedNeedDecisionCard';
 import { AdjudicationConfirmForm } from '../cards/AdjudicationConfirmForm';
+import { AcceptedRiskCard, type AcceptedRiskTargetOption } from '../cards/AcceptedRiskCard';
 
 type V1aStageViewProps = {
   titleCard: TitleCardWorkbenchSummary | null;
@@ -26,7 +27,7 @@ type V1aStageViewProps = {
   ) => void;
 };
 
-const SUB_TABS = ['seed', 'search-plan', 'evidence-map', 'need-candidate', 'validated-need'] as const;
+const SUB_TABS = ['seed', 'search-plan', 'evidence-map', 'need-candidate', 'validated-need', 'accepted-risk'] as const;
 
 /**
  * v1a stage view — composes 5 reviewer surfaces.
@@ -50,6 +51,33 @@ export function V1aStageView({
     : 'seed';
   const [adjudicating, setAdjudicating] = useState<TopicSelectionNeedCandidateRecord | null>(null);
   const [initialDecision, setInitialDecision] = useState<TopicSelectionNeedAdjudicationDecision | undefined>(undefined);
+
+  // Target objects an AcceptedRisk can reference, built from the v1a objects the
+  // stage already loaded (no extra fetch). Recomputed only when the stage data
+  // changes. Newest-first within each kind.
+  const acceptedRiskTargets: AcceptedRiskTargetOption[] = useMemo(() => [
+    ...data.needCandidates.map((record) => ({
+      ref_type: 'need_candidate',
+      ref_id: record.need_candidate_id,
+      label: `NeedCandidate · ${record.unmet_need_statement.slice(0, 48)}`,
+    })),
+    ...data.validatedNeeds.map((record) => ({
+      ref_type: 'validated_need',
+      ref_id: record.validated_need_id,
+      label: `ValidatedNeed · ${record.validated_need_statement.slice(0, 48)}`,
+    })),
+    ...data.evidenceMaps.map((record) => ({
+      ref_type: 'evidence_map',
+      ref_id: record.evidence_map_id,
+      label: `EvidenceMap · ${record.evidence_map_id.slice(0, 16)}`,
+    })),
+    ...data.searchPlans.map((record) => ({
+      ref_type: 'search_plan',
+      ref_id: record.search_plan_id,
+      version_id: record.plan_version,
+      label: `SearchPlan · ${record.search_plan_id.slice(0, 16)} · v${record.plan_version}`,
+    })),
+  ], [data]);
 
   if (!titleCardId) {
     return (
@@ -124,6 +152,14 @@ export function V1aStageView({
           validatedNeeds={data.validatedNeeds}
           needCandidates={data.needCandidates}
           onPublished={() => void reload()}
+        />
+      ) : null}
+      {activeSubTab === 'accepted-risk' ? (
+        <AcceptedRiskCard
+          titleCardId={titleCardId}
+          targetOptions={acceptedRiskTargets}
+          refreshToken={refreshToken}
+          onMutated={() => void reload()}
         />
       ) : null}
 

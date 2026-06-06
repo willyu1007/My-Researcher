@@ -400,6 +400,19 @@ export class TopicSelectionV1aController {
     }
   };
 
+  /** Read projection: accepted risks for a title-card (Phase 5 AcceptedRisk reviewer surface). */
+  listAcceptedRisksByTitleCard = async (
+    request: ParamsRequest<{ titleCardId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const items = await this.recheckRiskMemory.listAcceptedRisksByTitleCardId(request.params.titleCardId);
+      return reply.send({ items });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   listOpenWorkQueueItems = async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const result = await this.recheckRiskMemory.listOpenQueueItems();

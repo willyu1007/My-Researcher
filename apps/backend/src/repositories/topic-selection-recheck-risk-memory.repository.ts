@@ -69,6 +69,7 @@ export interface TopicSelectionRecheckRiskMemoryRepository {
     patch: TopicSelectionAcceptedRiskStatusPatch,
   ): Promise<TopicSelectionAcceptedRiskRecord>;
   listActiveAcceptedRisksDueForRecheck(asOf: string): Promise<TopicSelectionAcceptedRiskRecord[]>;
+  listAcceptedRisksByTitleCardId(titleCardId: string): Promise<TopicSelectionAcceptedRiskRecord[]>;
 
   createHumanOverride(record: TopicSelectionHumanOverrideRecord): Promise<TopicSelectionHumanOverrideRecord>;
 

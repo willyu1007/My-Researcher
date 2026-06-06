@@ -37,6 +37,9 @@ import type {
   TopicSelectionSearchPlanRecheckRequestRecord,
   TopicSelectionSearchPlanRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
+import type {
+  TopicSelectionAcceptedRiskRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-recheck-risk-memory-contracts';
 
 export type V1aListResponse<T> = { items: T[] };
 
@@ -46,6 +49,48 @@ export async function listSearchPlansByTitleCard(
   const payload = await requestGovernance<V1aListResponse<TopicSelectionSearchPlanRecord>>({
     method: 'GET',
     path: `/topic-selection/v1a/title-cards/${encodeURIComponent(titleCardId)}/search-plans`,
+  });
+  return payload.items ?? [];
+}
+
+/**
+ * Phase 5 — record a human AcceptedRisk (guardedDirectWrite route; human/hybrid
+ * actor required). The runtime consumes `accepted_risk_refs` on gates/transitions,
+ * so this is the human-authority entry, compatible with the harness (not a bypass).
+ * Backend requires non-empty `scope_refs` and at least one of
+ * `expires_at` / `recheck_condition` / `expiry_condition`.
+ */
+export type CreateAcceptedRiskRequest = {
+  title_card_id?: string | null;
+  risk_type: string;
+  target_ref: TopicSelectionFunctionalRef;
+  scope_refs: TopicSelectionFunctionalRef[];
+  affected_object_refs?: TopicSelectionFunctionalRef[];
+  severity?: TopicSelectionAcceptedRiskRecord['severity'];
+  source_type?: TopicSelectionAcceptedRiskRecord['source_type'];
+  rationale: string;
+  accepted_by: TopicSelectionActorRef;
+  expiry_condition?: string | null;
+  recheck_condition?: string | null;
+  expires_at?: string | null;
+};
+
+export async function createAcceptedRisk(
+  body: CreateAcceptedRiskRequest,
+): Promise<TopicSelectionAcceptedRiskRecord> {
+  return requestGovernance<TopicSelectionAcceptedRiskRecord>({
+    method: 'POST',
+    path: '/topic-selection/v1a/accepted-risks',
+    body,
+  });
+}
+
+export async function listAcceptedRisksByTitleCard(
+  titleCardId: string,
+): Promise<TopicSelectionAcceptedRiskRecord[]> {
+  const payload = await requestGovernance<V1aListResponse<TopicSelectionAcceptedRiskRecord>>({
+    method: 'GET',
+    path: `/topic-selection/v1a/title-cards/${encodeURIComponent(titleCardId)}/accepted-risks`,
   });
   return payload.items ?? [];
 }

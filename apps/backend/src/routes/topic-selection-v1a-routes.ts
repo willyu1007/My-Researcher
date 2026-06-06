@@ -919,6 +919,11 @@ export async function registerTopicSelectionV1aRoutes(
     guardedDirectWrite(acceptedRiskBody),
     controller.acceptRisk,
   );
+  fastify.get(
+    '/topic-selection/v1a/title-cards/:titleCardId/accepted-risks',
+    { schema: paramsSchema({ titleCardId: stringId }) },
+    controller.listAcceptedRisksByTitleCard,
+  );
   fastify.get('/topic-selection/v1a/work-queue/open', controller.listOpenWorkQueueItems);
   // T-087 D1 read-only projections: list v1a authority/workflow objects per title-card.
   fastify.get(

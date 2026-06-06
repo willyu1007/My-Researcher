@@ -381,6 +381,14 @@ export class PrismaTopicSelectionRecheckRiskMemoryRepository implements TopicSel
     return rows.map(toAcceptedRiskRecord);
   }
 
+  async listAcceptedRisksByTitleCardId(titleCardId: string): Promise<TopicSelectionAcceptedRiskRecord[]> {
+    const rows = await this.prisma.topicSelectionAcceptedRisk.findMany({
+      where: { titleCardId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map(toAcceptedRiskRecord);
+  }
+
   async createHumanOverride(record: TopicSelectionHumanOverrideRecord): Promise<TopicSelectionHumanOverrideRecord> {
     const row = await this.prisma.topicSelectionHumanOverride.create({
       data: {

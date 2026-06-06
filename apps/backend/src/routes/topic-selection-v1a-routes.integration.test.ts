@@ -808,8 +808,22 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
       },
     });
     assertStatus(acceptedRiskRes, 201);
-    const acceptedRisk = acceptedRiskRes.json() as { status: string };
+    const acceptedRisk = acceptedRiskRes.json() as { status: string; accepted_risk_id: string };
     assert.equal(acceptedRisk.status, 'active');
+
+    // Phase 5 — the accepted-risk read projection returns the recorded risk for the title-card.
+    const acceptedRiskListRes = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1a/title-cards/${titleCardId}/accepted-risks`,
+    });
+    assertStatus(acceptedRiskListRes, 200);
+    const acceptedRiskList = acceptedRiskListRes.json() as {
+      items: Array<{ accepted_risk_id: string }>;
+    };
+    assert.ok(
+      acceptedRiskList.items.some((item) => item.accepted_risk_id === acceptedRisk.accepted_risk_id),
+      'accepted-risk list projection returns the recorded risk',
+    );
 
     const recheckCandidateRes = await app.inject({
       method: 'POST',

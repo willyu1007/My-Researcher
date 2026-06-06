@@ -457,6 +457,11 @@ export class TopicSelectionRecheckRiskMemoryService {
     });
   }
 
+  /** Read projection: accepted risks recorded against a title-card (reviewer surface). */
+  async listAcceptedRisksByTitleCardId(titleCardId: string): Promise<TopicSelectionAcceptedRiskRecord[]> {
+    return this.repository.listAcceptedRisksByTitleCardId(titleCardId);
+  }
+
   async recordHumanOverride(input: OverrideInput): Promise<TopicSelectionHumanOverrideRecord> {
     if (!this.isHumanActor(input.actor)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'HumanOverride requires a human or hybrid actor.');
