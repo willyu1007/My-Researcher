@@ -18,6 +18,8 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
+  TopicSelectionArgumentReadinessMiniCheckRecord,
+  TopicSelectionPromotionDecisionSupportRecord,
   TopicSelectionPromotionGateCheckRecord,
   TopicSelectionPromotionGateRequiredAction,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
@@ -49,6 +51,33 @@ export async function listPromotionGateChecksByTitleCard(
     path: `/topic-selection/v1c/title-cards/${encodeURIComponent(titleCardId)}/promotion-gate-checks`,
   });
   return payload.items ?? [];
+}
+
+/**
+ * T-115 (v1c decision-support) — fetch the N2 argument-readiness mini-check by id
+ * (the 6 per-check verdicts behind a GateCheck's `argument_readiness_mini_check_id`).
+ * Returns the bare record (controller `reply.send(result)`).
+ */
+export async function getArgumentReadinessMiniCheck(
+  miniCheckId: string,
+): Promise<TopicSelectionArgumentReadinessMiniCheckRecord> {
+  return requestGovernance<TopicSelectionArgumentReadinessMiniCheckRecord>({
+    method: 'GET',
+    path: `/topic-selection/v1c/argument-readiness-mini-checks/${encodeURIComponent(miniCheckId)}`,
+  });
+}
+
+/**
+ * T-115 (v1c decision-support) — fetch the N2 promotion decision-support packet by id
+ * (summary / reviewer_questions / risk_notes behind a GateCheck's `promotion_decision_support_id`).
+ */
+export async function getPromotionDecisionSupport(
+  supportId: string,
+): Promise<TopicSelectionPromotionDecisionSupportRecord> {
+  return requestGovernance<TopicSelectionPromotionDecisionSupportRecord>({
+    method: 'GET',
+    path: `/topic-selection/v1c/promotion-decision-support/${encodeURIComponent(supportId)}`,
+  });
 }
 
 export async function listPromotionDecisionsByTitleCard(
