@@ -58,7 +58,12 @@ N5 handler 读 `loaded.value.planRun`（constraint_profile_ref / readiness_asses
   - `V1bConstraintProfileHumanService.recordConstraintProfile`：从持久化拼 `human_delegated` N2 frozen-input（accepted profile + `canonicalHash` / snapshot ref+hash via 复用 / `v1a_bundle_ref=snapshot.v1b_input_bundle_ref` + `v1a_bundle_hash=canonicalHash(bundle)`）→ `invokeNode`。**无持久化缺口**（snapshot/bundle hash 都从持久化记录 re-derive）。
   - controller `recordConstraintProfileHuman`（用既有 `this.workflowHarness` 构造 service）+ `ConstraintProfileHumanBody`；route `POST /topic-selection/v1b/intake-snapshots/:intakeSnapshotId/constraint-profile/human`（schema 必填 `target_community`+`claim_ceiling`）。
   - e2e：N1 → route → admitted N2；非 human→400。**v1b 集成 8/8**（含 N5+N2 两个人审 e2e，全链非回归）。
-- [ ] N2 UI（精简）：新建 `ResearchConstraintProfileCard` 撰写表单 + V1bStageView "constraint" sub-tab + intake-snapshot 列表入口。
+- [x] N2 UI（精简）— 直接在 main 上做：
+  - 读投影：harness 暴露 `listIntakeSnapshotsByTitleCardId`（委托 intake repo，新增于 interface / in-memory / prisma 三处；prisma 用既有 `@@index([titleCardId, createdAt desc])`）；controller `listIntakeSnapshotsByTitleCard` + route `GET /topic-selection/v1b/title-cards/:titleCardId/intake-snapshots`。**仍是 clean 文件、零 app.ts 改动**。
+  - `api/v1b.ts`：加 `listIntakeSnapshotsByTitleCard`（GET）+ `recordConstraintProfileHuman`（POST）+ `RecordConstraintProfileHumanRequest` 类型（profile 形与 backend `V1bHumanConstraintProfileContent` 逐字段一致：`target_community`/`claim_ceiling` 必填，其余可选）。
+  - 新建 `ResearchConstraintProfileCard`：snapshot picker（拉 intake-snapshots）+ 最小撰写表单（target_community + claim_ceiling 必填；method_constraints/non_goals/notes 可选）+ reviewer actor_id → POST 人审路由 → `admitted`/`admitted_with_warnings` 则 `onMutated` reload，否则展示 `gate_status`（与 N5 `SliceSelectionForm` 同一分支语义）。全部 contract-valid `data-ui`（warning 用 `alert`，非 text tone）。
+  - `V1bStageView`：`SUB_TABS` 头部加 `'constraint'`（默认落点仍 `slice`，非破坏）；渲染卡片（传 `titleCardId`/`refreshToken`/`onMutated`）；更新只读口径文案（N2 撰写 + N5 选择均经 harness human_delegated）。
+  - 验证：`pnpm desktop:typecheck` exit 0；UI gate minimal `--fail-on warnings` **0/0**（129 文件）；v1b 集成 **7/8**（#6 human N2 admitted 经 harness 绿；#8 Prisma smoke 仅因本地直跑未注入 `DATABASE_URL`，与本改动无关、且不覆盖新 GET 路由）；ts-node 全类型检查覆盖 route→controller→harness→repo 图。
 
 ## Open TODOs
 - [ ] (later) 旧 option set（本次 commit 前创建的）无 `n4_handoff_hash`；service 会 409 提示，需重跑 N4 或迁移（数据迁移，非代码双轨）。

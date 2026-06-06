@@ -263,6 +263,11 @@ export async function registerTopicSelectionV1bRoutes(
     controller.recordConstraintProfileHuman,
   );
   fastify.get(
+    '/topic-selection/v1b/title-cards/:titleCardId/intake-snapshots',
+    { schema: paramsSchema({ titleCardId: stringId }) },
+    controller.listIntakeSnapshotsByTitleCard,
+  );
+  fastify.get(
     '/topic-selection/v1b/topic-question-candidate-sets/:candidateSetId/candidates',
     { schema: paramsSchema({ candidateSetId: stringId }) },
     controller.listTopicQuestionCandidatesByCandidateSet,

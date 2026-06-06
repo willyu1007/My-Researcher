@@ -14,6 +14,9 @@ export interface TopicSelectionV1bIntakeRepository {
   listIntakeSnapshotsByBundleId(
     v1bInputBundleId: string,
   ): Promise<TopicSelectionV1bIntakeSnapshotRecord[]>;
+  listIntakeSnapshotsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionV1bIntakeSnapshotRecord[]>;
 
   createResearchConstraintProfile(
     record: TopicSelectionResearchConstraintProfileRecord,

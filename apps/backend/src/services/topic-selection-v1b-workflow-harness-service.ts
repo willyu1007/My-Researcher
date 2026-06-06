@@ -11887,6 +11887,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return this.runnerDependencies.needValidationRepository?.findV1aToV1bInputBundleById(bundleId) ?? null;
   }
 
+  async listIntakeSnapshotsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionV1bIntakeSnapshotRecord[]> {
+    return this.runnerDependencies.v1bIntakeRepository?.listIntakeSnapshotsByTitleCardId(titleCardId) ?? [];
+  }
+
   private hashProfileAuthority(profile: TopicSelectionResearchConstraintProfileRecord): string {
     return this.hash({
       accepted_profile_payload_hash: this.hash({

@@ -22,6 +22,9 @@ import type {
   TopicSelectionResearchSliceOptionSetRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-research-slice-contracts';
 import type {
+  TopicSelectionV1bIntakeSnapshotRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-intake-contracts';
+import type {
   TopicSelectionTopicQuestionCandidateRecord,
   TopicSelectionTopicQuestionCandidateSetRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-question-contracts';
@@ -112,6 +115,51 @@ export async function selectResearchSliceHuman(
   return requestGovernance<TopicSelectionV1bWorkflowHarnessRunResult>({
     method: 'POST',
     path: `/topic-selection/v1b/research-slice-option-sets/${encodeURIComponent(optionSetId)}/human-selection`,
+    body,
+  });
+}
+
+/**
+ * T-115 — list intake snapshots for a title-card (N2 constraint-profile picker).
+ */
+export async function listIntakeSnapshotsByTitleCard(
+  titleCardId: string,
+): Promise<TopicSelectionV1bIntakeSnapshotRecord[]> {
+  const payload = await requestGovernance<V1bListResponse<TopicSelectionV1bIntakeSnapshotRecord>>({
+    method: 'GET',
+    path: `/topic-selection/v1b/title-cards/${encodeURIComponent(titleCardId)}/intake-snapshots`,
+  });
+  return payload.items ?? [];
+}
+
+/**
+ * T-115 — human-authority N2 record-research-constraint-profile. The researcher
+ * authors the profile; the backend runs it through the harness in human_delegated mode.
+ */
+export type RecordConstraintProfileHumanRequest = {
+  actor: TopicSelectionActorRef;
+  profile: {
+    target_community: string;
+    claim_ceiling: string;
+    target_venue_class?: string | null;
+    intended_contribution_style?: string | null;
+    method_constraints?: string[];
+    resource_constraints?: string[];
+    available_assets?: string[];
+    feasibility_budget?: Record<string, unknown>;
+    non_goals?: string[];
+    human_constraint_notes?: string | null;
+    constraint_payload?: Record<string, unknown>;
+  };
+};
+
+export async function recordConstraintProfileHuman(
+  intakeSnapshotId: string,
+  body: RecordConstraintProfileHumanRequest,
+): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+  return requestGovernance<TopicSelectionV1bWorkflowHarnessRunResult>({
+    method: 'POST',
+    path: `/topic-selection/v1b/intake-snapshots/${encodeURIComponent(intakeSnapshotId)}/constraint-profile/human`,
     body,
   });
 }

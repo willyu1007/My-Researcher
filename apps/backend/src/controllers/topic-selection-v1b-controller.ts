@@ -147,6 +147,20 @@ export class TopicSelectionV1bController {
     }
   };
 
+  /** T-115 — read-only projection: intake snapshots for a title-card, so the
+   * constraint-profile authoring surface can offer a snapshot picker. */
+  listIntakeSnapshotsByTitleCard = async (
+    request: ParamsRequest<{ titleCardId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const items = await this.workflowHarness.listIntakeSnapshotsByTitleCardId(request.params.titleCardId);
+      return reply.send({ items });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   recordWorkflowHarnessArtifact = async (
     request: BodyRequest<WorkflowHarnessArtifactBody>,
     reply: FastifyReply,

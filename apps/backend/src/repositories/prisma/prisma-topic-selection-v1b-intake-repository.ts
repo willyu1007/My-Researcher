@@ -287,6 +287,16 @@ export class PrismaTopicSelectionV1bIntakeRepository implements TopicSelectionV1
     return rows.map(toIntakeSnapshotRecord);
   }
 
+  async listIntakeSnapshotsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionV1bIntakeSnapshotRecord[]> {
+    const rows = await this.prisma.topicSelectionV1bIntakeSnapshot.findMany({
+      where: { titleCardId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map(toIntakeSnapshotRecord);
+  }
+
   async createResearchConstraintProfile(
     record: TopicSelectionResearchConstraintProfileRecord,
   ): Promise<TopicSelectionResearchConstraintProfileRecord> {

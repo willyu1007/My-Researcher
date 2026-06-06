@@ -31,6 +31,14 @@ export class InMemoryTopicSelectionV1bIntakeRepository implements TopicSelection
       .sort((left, right) => right.created_at.localeCompare(left.created_at));
   }
 
+  async listIntakeSnapshotsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionV1bIntakeSnapshotRecord[]> {
+    return [...this.snapshots.values()]
+      .filter((record) => record.title_card_id === titleCardId)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at));
+  }
+
   async createResearchConstraintProfile(
     record: TopicSelectionResearchConstraintProfileRecord,
   ): Promise<TopicSelectionResearchConstraintProfileRecord> {
