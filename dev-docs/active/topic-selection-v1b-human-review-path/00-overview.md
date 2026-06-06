@@ -1,13 +1,14 @@
 # 00 Overview
 
 ## Status
-- State: in-progress
+- State: done（governance registry/task-index 待 `ctl-project-governance sync` 同步 —— 因 `.ai/project/*` 正被并行工作占用，延后同步）
 - Task ID: `T-115`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-009`
 - Parent: `T-087` (topic-selection desktop workbench) · Depends on: `T-088` (workflow-runtime-foundation, in-progress)
 - Decisions (2026-06-03): D1 复用 builder · D2 per-node 新语义路径 · D3 先只做 Phase 1（后端 service+单测，零 UI）。
 - Progress: **Phase 1a + 1b done**（canonical 哈希模块 + `V1bSliceHumanSelectionService`，11/11 单测、backend typecheck 0 error、UI gate 0/0）。1c 完整 harness-admission e2e 重定位到 Phase 2。
 - Progress: **N5 人审垂直切片端到端完成** — ✅① N4 持久化 handoff hash · ✅② 人审路由（无 app.ts 改动）· ✅③ `SliceOptionSetCard` 交互选定表单（desktop typecheck + UI gate 0/0）· ✅④ e2e（v1b 集成 7/7，人审 N5→ResearchSlice 真实跑通）。
+- Progress: **DONE (2026-06-06)** — ✅⑤ N2 constraint-profile 人审面（backend `0ccca9e` + UI `f63ca58`）。**N7 经核实为 mechanical（`chooseN7Candidate`），从范围移除——非人审节点。** harness 哈希经 `canonicalHash` 单源化（私有 `hash()` 委托，D1 consolidation 完成，v1b 集成 hash 校验全绿）。v1b 人审路径（N2 撰写 + N5 选择）完整收口、单源、无双轨。
 - Next step: **⑤ = N2 only**。N7 经核实**不需要人审**——`runN7MaterializeTopicQuestionContract` 用 `chooseN7Candidate` 算法选候选、Initial frozen-input 无人审决策内容，是机械物化；契约 `human_delegated` 允许位 ≠ 产品需要 → **N7 维持只读/harness-owned**。v1b 剩余唯一真人审节点是 **N2 record-research-constraint-profile**：研究者**撰写**约束档案（scope/预算/claim ceiling/non-goal），约束整条 pipeline。设计见 `02-architecture.md` §Phase 2 ⑤。
 
 ## Goal

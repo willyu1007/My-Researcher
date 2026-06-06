@@ -7,7 +7,7 @@
 
 ## Pre-implementation findings (carried from assessment, 2026-06-03)
 - v1b 单写入口 = `/workflow-harness/nodes/:nodeId/invocations` → `controller.ln` → `TopicSelectionV1bWorkflowHarnessService`。
-- 人审节点 = N2 / N5 / N7（`allowed_execution_modes` 含 `human_delegated`）。N8 model-like；N9/N10 deterministic `['none']`。
+- 人审节点 = **N2 / N5**（真正需人审）。**N7 虽 `allowed_execution_modes` 含 `human_delegated`，但实为 mechanical（`chooseN7Candidate` 算法选取），非人审面 —— allowance ≠ needs-review，已从范围移除。** N8 model-like；N9/N10 deterministic `['none']`。
 - N5 lineage hash 可从持久化取：`comparison_payload.authority_hash`（option set 记录）+ N4 handoff artifact。canonical `hash()` 为可复用 service 方法。
 - 详见 `02-architecture.md`。
 
@@ -43,7 +43,7 @@ N5 handler 读 `loaded.value.planRun`（constraint_profile_ref / readiness_asses
 - [x] (2-②) per-node 人审路由 `POST /research-slice-option-sets/:optionSetId/human-selection`。**全程走 clean 文件、无 app.ts 改动**：在 research-slice **service** 加公开 `findOptionSetById`（委托 repo）；在 **controller** 用既有 `this.workflowHarness` + `this.researchSlice` 构造 `V1bSliceHumanSelectionService`（两者结构上满足 service 的 invoker/read-port），加 `selectResearchSliceHuman` handler + `SliceHumanSelectionBody`；在 **routes** 加路由 + body schema（新语义路径，不撞 legacy 404）。
 - [x] (2-③) `SliceOptionSetCard` 升级为交互：`api/v1b.ts` 加 `selectResearchSliceHuman` client（`listResearchSliceOptionsByOptionSet` 已有）；卡片在 `status==='ready_for_selection' && !selected_option_id` 时渲染 `SliceSelectionForm`（拉 options + reviewer actor_id + rationale + confidence → POST 人审路由 → admitted 则 `onMutated` reload，blocked 则提示）；`V1bStageView` 传 `onMutated` + 更新只读口径文案。全部 contract-valid `data-ui`（warning 用 alert，非 text tone）。验证：`pnpm desktop:typecheck` exit 0；UI gate minimal `--fail-on warnings` **0/0**（128 文件）。
 - [x] (2-④) 完整 e2e（先于 ③ 做，验证后端全链）：集成测试新增 "human N5 selection (T-115) produces a ResearchSlice through the harness" —— 真实跑 N1→N4 → POST 人审路由 → `human_delegated` → admitted + authority_ref + N5→N6 handoff；非 human actor→400。**v1b 集成 7/7**（含 legacy-404 / N1–N11 / offline replay / Prisma smoke 全绿，非回归）。ts-node 全类型检查覆盖 route→controller→service 图（full-project tsc 因环境内存被 kill，非类型错误）。
-- [ ] (2-⑤) 复制到 N7（question contract）/ N2（constraint profile）。
+- [x] (2-⑤) N2 constraint-profile 人审面完成（backend `0ccca9e` + UI `f63ca58`）。**N7 经核实为 mechanical（`chooseN7Candidate`），已从范围移除——非人审节点。** 至此 v1b 人审路径（N2 撰写 + N5 选择）完整收口；harness 哈希经 `canonicalHash` 单源（私有 `hash()` 委托），无双轨。
 
 ## De-dup / single-source (2026-06-03) — no dual-track
 - [x] harness service 改用共享哈希模块，D1 consolidation 完成（消除双轨）：harness `private hashResearchSliceOptionAuthority` 委托 shared `sharedHashResearchSliceOptionAuthority`；`hashContext` 的 frozen-input 计算改用 shared `hashV1bFrozenInput`。两处重复的 **shape**（20 字段 option-authority + frozen-input envelope）现在单一来源 = `topic-selection-v1b-harness-authority-hash.ts`，harness + `V1bSliceHumanSelectionService` + 单测 golden 共用，杜绝漂移。

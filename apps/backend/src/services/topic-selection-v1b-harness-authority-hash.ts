@@ -9,14 +9,13 @@
  *   - accepted_selection_payload_hash = canonicalHash(acceptedPayload)
  *   - frozen_input_hash               = hashV1bFrozenInput(frozenInput)
  *
- * These mirror the private hashing inside `TopicSelectionV1bWorkflowHarnessService`
- * (`hashResearchSliceOptionAuthority` ~L12309, `hash` ~L12648, `ref` ~L12634)
- * byte-for-byte. `stableStringify` sorts object keys, so the resulting hash is
+ * `stableStringify` sorts object keys, so the resulting hash is
  * field-order-independent; only the key set + values (and nested ref shape) must
  * match.
  *
- * Phase 2 (coordinated with T-088) should make the harness service import these
- * helpers in place of its private copies to complete the D1 consolidation.
+ * D1 consolidation COMPLETE: `TopicSelectionV1bWorkflowHarnessService` imports all
+ * three helpers and its private `hash()` delegates to `canonicalHash`, so the
+ * harness and the N2/N5 human-path services share one hashing source — no dual track.
  */
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';

@@ -205,10 +205,7 @@ import {
 } from './topic-selection-v1b-n8-value-assessment-admission-service.js';
 import { TopicSelectionV1bN8ValueAssessmentRuntimeService } from './topic-selection-v1b-n8-value-assessment-runtime-service.js';
 import {
-  sha256Text,
-  stableStringify,
-} from './literature-content-processing-utils.js';
-import {
+  canonicalHash,
   hashResearchSliceOptionAuthority as sharedHashResearchSliceOptionAuthority,
   hashV1bFrozenInput,
 } from './topic-selection-v1b-harness-authority-hash.js';
@@ -12661,6 +12658,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private hash(value: unknown): string {
-    return sha256Text(stableStringify(value));
+    // Single-source with the human-path services + frozen-input hashing: both
+    // derive from `canonicalHash` (sha256(stableStringify)) so the harness and
+    // the N2/N5 human services can never drift apart. (D1 consolidation.)
+    return canonicalHash(value);
   }
 }

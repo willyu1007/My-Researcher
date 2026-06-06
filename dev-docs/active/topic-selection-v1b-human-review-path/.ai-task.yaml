@@ -2,8 +2,8 @@ version: 1
 task_id: T-115
 project: main
 slug: topic-selection-v1b-human-review-path
-status: in-progress
-updated: "2026-06-03"
+status: done
+updated: "2026-06-06"
 keywords:
   - topic-selection
   - v1b
