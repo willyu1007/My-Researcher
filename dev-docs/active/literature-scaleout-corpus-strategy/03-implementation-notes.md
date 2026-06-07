@@ -1010,3 +1010,84 @@
   - all seven standard stages succeeded for all 9 records.
   - active embedding versions are all indexed; total chunks/vectors: 1388/1388.
   - final B13 reports candidate pool 537, discovered candidates 238, promoted candidates 120, managed corpus 263, effective literature 263, pipeline incomplete 0, blocked 0, and not-started 0.
+
+## 2026-06-07 - D41 Narrow RAG/Test-Time B10 Query Override Allowlist
+- B10 runner changes:
+  - bumped `QUERY_CATALOG_VERSION` to `b10-scaleout-v2c`.
+  - added `B10_QUERY_ALLOWLIST_REGEX` and `B10_QUERY_EXCLUDE_REGEX` to filter existing catalog queries before provider execution.
+  - added `B10_QUERY_OVERRIDES_JSON` so a run can replace track queries with exact-title or curated query allowlists.
+  - added `B10_PERSIST_STATUSES` so apply runs can persist only desired statuses, used here to skip duplicate rows.
+- Narrow catalog diagnostics:
+  - OpenAlex narrow query-regex dry-run executed 48 provider queries, scanned 1200 results, and found 18 source-available candidates, all duplicates.
+  - explicit arXiv narrow query-regex dry-run produced 0 candidates.
+  - exact-title OpenAlex override dry-run executed 17 provider queries, scanned 170 results, and found 11 source-available candidates: 2 `DISCOVERED` and 9 duplicates.
+- Apply decision:
+  - narrowed the apply to two RAG-core titles:
+    - `Open-Source Reproduction and Explainability Analysis of Corrective Retrieval Augmented Generation`.
+    - `DRAGIN: Dynamic Retrieval Augmented Generation based on the Information Needs of Large Language Models`.
+  - used `B10_PERSIST_STATUSES=DISCOVERED` so the same-batch duplicate produced by the OpenAlex DOI/abs double entry was not written.
+- Apply result:
+  - created B10 batch `f7a1b5dc-1f8a-4f29-89c8-5b14757283ec`.
+  - persisted 2 `DISCOVERED` candidates and 0 duplicate candidate rows.
+  - wrote no `LiteratureRecord` rows and no standard-pipeline artifacts.
+- Follow-up dry-run:
+  - B11 dry-run over the allowlist batch classified both new candidates as `READY_FOR_PROMOTION`.
+  - direction split: 2 RAG-aware allocation.
+  - collection role split: 2 `collection:core`.
+  - DB delta remained 0 for the dry-run.
+- Counting:
+  - B13 after apply reports candidate pool 539, discovered candidates 240, promoted candidates 120, managed corpus 263, effective literature 263, pipeline incomplete 0, blocked 0, and not-started 0.
+
+## 2026-06-08 - D43 Test-Time Exact-Title B11/B12 Completion
+- B11 apply/promote:
+  - promoted the three D42 test-time exact-title candidates with explicit `B11_CANDIDATE_IDS`.
+  - created `LIT-0452` for `Budget-aware Test-time Scaling via Discriminative Verification`.
+  - created `LIT-0453` for `AgentTTS: Large Language Model Agent for Test-time Compute-optimal Scaling Strategy in Complex Tasks`.
+  - created `LIT-0454` for `SETS: Leveraging Self-Verification and Self-Correction for Improved Test-Time Scaling`.
+  - B11 apply/promote DB delta was 3 `LiteratureRecord` rows and 3 `LiteratureSource` rows.
+- B12 standard and acquisition:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 3 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 3 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 3 records and created 3 content assets.
+  - fulltext preprocess rerun succeeded for all 3 records and created 3 ready fulltext documents.
+- Key-content and index:
+  - exported source-grounded curation bundles for all 3 records.
+  - `codex_curated` dossier dry-run returned 3 valid dossiers, 0 issues, and 0 repaired source refs.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all 3 records with 0 key-content extraction provider calls.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 3 embedding calls.
+  - index apply succeeded for all 3 records.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 3 records.
+  - active embedding versions are all indexed; total chunks/vectors: 631/631 and token-index rows: 4853.
+- Counting:
+  - final B13 reports candidate pool 542, discovered candidates 238, ready-for-promotion candidates 20, promoted candidates 125, managed corpus 268, effective literature 268, incomplete 0, blocked 0, and not-started 0.
+
+## 2026-06-07 - D42 RAG Allowlist B12 Completion and Test-Time Exact-Title Replenishment
+- D41 RAG-core promote:
+  - promoted the two D41 RAG-core candidates with `B11_CANDIDATE_IDS`.
+  - created `LIT-0450` for `DRAGIN: Dynamic Retrieval Augmented Generation based on the Information Needs of Large Language Models`.
+  - created `LIT-0451` for `Open-Source Reproduction and Explainability Analysis of Corrective Retrieval Augmented Generation`.
+  - B11 apply/promote DB delta was 2 `LiteratureRecord` rows and 2 `LiteratureSource` rows.
+- B12 standard and acquisition:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on both records, then blocked `FULLTEXT_PREPROCESSED` with `FULLTEXT_SOURCE_MISSING` before acquisition.
+  - acquisition dry-run planned 2 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for both records and created 2 content assets.
+  - fulltext preprocess rerun succeeded for both records and created 2 ready fulltext documents.
+- Key-content and index:
+  - exported source-grounded curation bundles for both records.
+  - `codex_curated` dossier dry-run returned 2 valid dossiers, 0 issues, and 0 repaired source refs.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for both records with 0 key-content extraction provider calls.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 2 embedding calls.
+  - index apply succeeded for both records.
+  - final state probe found all seven standard stages `SUCCEEDED` for both records; active embedding versions have 281 chunks/vectors total.
+- D42 test-time exact-title replenishment:
+  - local duplicate probe found `The Art of Scaling Test-Time Compute for Large Language Models` already in `LIT-0241`, so it was left out of the apply set.
+  - OpenAlex exact-title dry-run over five test-time titles found 3 clean `DISCOVERED` source-available candidates.
+  - explicit arXiv dry-run over the same title set found 0 additional candidates.
+  - B10 apply created batch `1a6c1e1a-2aa2-4a04-bde3-a69df42497ea` / `B10-20260607T-b10-testtime-title-allowlist-apply` and persisted 3 `DISCOVERED` candidates:
+    - `AgentTTS: Large Language Model Agent for Test-time Compute-optimal Scaling Strategy in Complex Tasks`.
+    - `Budget-aware Test-time Scaling via Discriminative Verification`.
+    - `SETS: Leveraging Self-Verification and Self-Correction for Improved Test-Time Scaling`.
+  - B11 dry-run over the new batch classified all 3 as `READY_FOR_PROMOTION`; no D42 test-time promotion was applied.
+- Counting:
+  - after RAG-core B12 completion, B13 reported candidate pool 539, discovered candidates 238, promoted candidates 122, managed corpus 265, effective literature 265, incomplete 0, blocked 0, and not-started 0.
+  - after test-time exact-title B10 apply, B13 reported candidate pool 542, discovered candidates 241, promoted candidates 122, managed corpus 265, effective literature 265, incomplete 0, blocked 0, and not-started 0.

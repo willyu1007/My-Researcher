@@ -567,3 +567,80 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## RAG Title-Allowlist B11 Dry Run
+- Input batch: `B10-20260607-rag-title-allowlist-apply`.
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-rag-title-allowlist-dry-run-b11-candidate-triage-report.json`
+- Result:
+  - evaluated 2 newly discovered RAG-core candidates.
+  - classified both as `READY_FOR_PROMOTION`.
+  - direction split: 2 RAG-aware allocation.
+  - collection role split: 2 `collection:core`.
+  - triage band: 2 high.
+  - DB delta: 0 candidates, 0 `LiteratureRecord` rows, 0 `LiteratureSource` rows.
+- Selected next-promotion candidates:
+  - `Open-Source Reproduction and Explainability Analysis of Corrective Retrieval Augmented Generation`.
+  - `DRAGIN: Dynamic Retrieval Augmented Generation based on the Information Needs of Large Language Models`.
+
+## RAG Title-Allowlist B11 Apply/Promote
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-rag-title-allowlist-apply-promote-b11-candidate-triage-report.json`
+- Input candidate IDs:
+  - `4d488061-9d2d-4312-a9c9-de63ce1b6126`
+  - `6e8c3adf-dc0d-4beb-b035-e73579ff3a08`
+- Result:
+  - apply/promote attempted 2 promotions and succeeded for both.
+  - apply/promote DB delta: 2 `LiteratureRecord` rows and 2 `LiteratureSource` rows.
+  - direction split: 2 RAG-aware allocation.
+  - collection role split: 2 `collection:core`.
+- Promoted records:
+  - `LIT-0450`: `DRAGIN: Dynamic Retrieval Augmented Generation based on the Information Needs of Large Language Models`.
+  - `LIT-0451`: `Open-Source Reproduction and Explainability Analysis of Corrective Retrieval Augmented Generation`.
+- Counting after B12 completion:
+  - candidate pool records: 539.
+  - discovered candidates: 238.
+  - promoted candidates: 122.
+  - managed corpus records: 265.
+  - effective literature records: 265.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.
+
+## Test-Time Exact-Title B11 Dry Run
+- Input batch: `B10-20260607T-b10-testtime-title-allowlist-apply`.
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-testtime-title-allowlist-dry-run-b11-candidate-triage-report.json`
+- Result:
+  - evaluated 3 newly discovered test-time candidates.
+  - classified all 3 as `READY_FOR_PROMOTION`.
+  - direction split: 3 test-time compute budgeting.
+  - collection role split: 3 `collection:strategy-support`.
+  - triage band: 3 high.
+  - DB delta: 0 candidates, 0 `LiteratureRecord` rows, 0 `LiteratureSource` rows.
+- Selected next-promotion candidates:
+  - `Budget-aware Test-time Scaling via Discriminative Verification`.
+  - `AgentTTS: Large Language Model Agent for Test-time Compute-optimal Scaling Strategy in Complex Tasks`.
+  - `SETS: Leveraging Self-Verification and Self-Correction for Improved Test-Time Scaling`.
+
+## Test-Time Exact-Title B11 Apply/Promote
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b11-testtime-title-allowlist-apply-promote-b11-candidate-triage-report.json`
+- Input candidate IDs:
+  - `ae9397d2-ac01-4f72-abaf-ecb6dacf4cdb`
+  - `1e80720d-7454-44b0-9565-9c59f16f52d8`
+  - `9aa854df-35c4-4dd3-9745-add4da4def10`
+- Result:
+  - apply/promote attempted 3 promotions and succeeded for all 3.
+  - apply/promote DB delta: 3 `LiteratureRecord` rows and 3 `LiteratureSource` rows.
+  - direction split: 3 test-time compute budgeting.
+  - collection role split: 3 `collection:strategy-support`.
+- Promoted records:
+  - `LIT-0452`: `Budget-aware Test-time Scaling via Discriminative Verification`.
+  - `LIT-0453`: `AgentTTS: Large Language Model Agent for Test-time Compute-optimal Scaling Strategy in Complex Tasks`.
+  - `LIT-0454`: `SETS: Leveraging Self-Verification and Self-Correction for Improved Test-Time Scaling`.
+- Counting after B12 completion:
+  - candidate pool records: 542.
+  - discovered candidates: 238.
+  - promoted candidates: 125.
+  - managed corpus records: 268.
+  - effective literature records: 268.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

@@ -628,15 +628,76 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
   - final state probe found all seven standard stages `SUCCEEDED` for all 9 records.
   - active embedding versions are all indexed; total chunks/vectors: 1388/1388.
 
+## RAG Title-Allowlist Completion
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-export-lit-0450-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-export-lit-0451-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-rag-title-allowlist-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-rag-title-allowlist-index.json`
+- Input:
+  - B11 promoted `LIT-0450` and `LIT-0451` from the D41 RAG-core title allowlist.
+  - direction split: 2 RAG-aware allocation.
+  - collection role split: 2 `collection:core`.
+- Result:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on both records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 2 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for both records and created 2 content assets.
+  - fulltext preprocessing succeeded for both records and created 2 ready fulltext documents.
+  - dossier dry-run import returned 2 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 2 embedding calls.
+  - index apply succeeded for both records.
+  - final state probe found all seven standard stages `SUCCEEDED` for both records.
+  - active embedding versions are all indexed; total chunks/vectors: 281/281.
+
+## Test-Time Exact-Title Completion
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-export-lit-0452-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-export-lit-0453-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-export-lit-0454-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-b12-testtime-title-allowlist-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-b12-testtime-title-allowlist-index.json`
+- Input:
+  - B11 promoted `LIT-0452`, `LIT-0453`, and `LIT-0454` from the D42 test-time exact-title allowlist.
+  - direction split: 3 test-time compute budgeting.
+  - collection role split: 3 `collection:strategy-support`.
+- Result:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 3 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 3 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 3 records and created 3 content assets.
+  - fulltext preprocessing succeeded for all 3 records and created 3 ready fulltext documents.
+  - dossier dry-run import returned 3 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 3 embedding calls.
+  - index apply succeeded for all 3 records.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 3 records.
+  - active embedding versions are all indexed; total chunks/vectors: 631/631 and token-index rows: 4853.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche10-index.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-b12-testtime-title-allowlist-index.json`
 - Metrics:
-  - candidate pool records: 537.
+  - candidate pool records: 542.
   - candidate discovered records: 238.
   - candidate ready-for-promotion records: 20.
-  - candidate promoted records: 120.
-  - managed corpus records: 263.
-  - effective literature records: 263.
+  - candidate promoted records: 125.
+  - managed corpus records: 268.
+  - effective literature records: 268.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
@@ -661,4 +722,6 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - Source-available tranche8 added 15 effective serving/resource-allocation records through the selector-filtered arXiv path.
 - Source-available tranche9 added 14 effective records through the selector-filtered arXiv path.
 - Source-available tranche10 added 9 effective near-threshold high-signal records after rejecting the default-ready tail set.
-- At the D40 checkpoint, every currently managed corpus record is effective; the remaining 20 ready candidates are source-unknown/DOI-only, and the default-threshold source-available ready set is tail-heavy, so next work should use targeted B10 or a stricter source-available review rather than blind promote.
+- D42 completed the 2 D41 RAG-core allowlist candidates through `INDEXED`.
+- D43 completed the 3 D42 test-time exact-title allowlist candidates through `INDEXED`.
+- At the D43 checkpoint, every currently managed corpus record is effective; the next tranche can prioritize another narrow RAG/test-time allowlist or a source-available B11 selector pass.

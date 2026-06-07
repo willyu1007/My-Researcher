@@ -781,6 +781,161 @@
   - governance sync completed.
   - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
 
+### 2026-06-08 - D43 Test-Time Exact-Title B11/B12 Completion
+- Status: completed for D42 test-time exact-title B11/B12 promotion through `INDEXED`.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b11-testtime-title-allowlist-apply-promote-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-export-lit-0452-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-export-lit-0453-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-export-lit-0454-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-b12-testtime-title-allowlist-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-b12-testtime-title-allowlist-index.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-b11-testtime-title-allowlist-apply-promote B11_CANDIDATE_IDS=... B11_MAX_PROMOTIONS=3 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-b12-testtime-title-allowlist-standard-apply B12_LITERATURE_IDS=LIT-0452,LIT-0453,LIT-0454 B12_STAGES=CITATION_NORMALIZED,ABSTRACT_READY,FULLTEXT_PREPROCESSED node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-b12-testtime-title-allowlist-acquisition-dry-run B12_LITERATURE_IDS=LIT-0452,LIT-0453,LIT-0454 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-b12-testtime-title-allowlist-acquisition-apply B12_LITERATURE_IDS=LIT-0452,LIT-0453,LIT-0454 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-b12-testtime-title-allowlist-fulltext-preprocess-apply B12_LITERATURE_IDS=LIT-0452,LIT-0453,LIT-0454 B12_STAGES=FULLTEXT_PREPROCESSED node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true DOSSIER_RUN_ID=20260608T-b12-testtime-title-allowlist-dossier node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module - <<'NODE' ... build source-grounded codex_curated dossiers and dry-run/import ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true AUTO_PULL_SCHEDULER_ENABLED=false B12_BACKFILL_RUN_ID=20260608T-b12-testtime-title-allowlist-index-dry-run B12_LITERATURE_IDS=LIT-0452,LIT-0453,LIT-0454 B12_BACKFILL_TARGET_STAGE=INDEXED node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true AUTO_PULL_SCHEDULER_ENABLED=false B12_BACKFILL_RUN_ID=20260608T-b12-testtime-title-allowlist-index-apply B12_LITERATURE_IDS=LIT-0452,LIT-0453,LIT-0454 B12_BACKFILL_TARGET_STAGE=INDEXED node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260608T-after-b12-testtime-title-allowlist-index node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
+  - `git ls-files --others --exclude-standard dev-docs/active/literature-scaleout-corpus-strategy/artifacts`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - D42 test-time exact-title candidates were promoted to `LIT-0452`, `LIT-0453`, and `LIT-0454`.
+  - all 3 records completed all seven standard stages through `INDEXED`.
+  - `codex_curated` dossier dry-run/import succeeded for all 3 records; key-content extraction provider calls were 0.
+  - index dry-run estimated 0 extraction calls and 3 embedding calls; index apply succeeded with 3/3 items `SUCCEEDED`.
+  - final state probe found 631 chunks/vectors and 4853 token-index rows across the 3 active embedding versions.
+  - final B13 reports candidate pool 542, discovered candidates 238, promoted candidates 125, managed corpus 268, effective literature 268, incomplete 0, blocked 0, and not-started 0.
+  - B11/B12 script syntax checks passed.
+  - `git diff --check` passed and `dev-docs/active/literature-scaleout-corpus-strategy/artifacts` has no untracked files.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-07 - D42 RAG Allowlist B12 Completion and Test-Time Exact-Title Replenishment
+- Status: completed for D41 RAG-core B11/B12 promotion; completed for D42 B10 test-time exact-title candidate-layer apply and B11 dry-run.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-rag-title-allowlist-apply-promote-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-export-lit-0450-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-export-lit-0451-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-rag-title-allowlist-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-rag-title-allowlist-index.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-testtime-title-allowlist-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-testtime-title-allowlist-arxiv-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-testtime-title-allowlist-apply-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b10-testtime-title-allowlist-apply.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-testtime-title-allowlist-dry-run-b11-candidate-triage-report.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-rag-title-allowlist-apply-promote B11_CANDIDATE_IDS=... B11_MAX_PROMOTIONS=2 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260607T-b12-rag-title-allowlist-standard-apply B12_LITERATURE_IDS=LIT-0450,LIT-0451 B12_STAGES=CITATION_NORMALIZED,ABSTRACT_READY,FULLTEXT_PREPROCESSED node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260607T-b12-rag-title-allowlist-acquisition-dry-run B12_LITERATURE_IDS=LIT-0450,LIT-0451 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260607T-b12-rag-title-allowlist-acquisition-apply B12_LITERATURE_IDS=LIT-0450,LIT-0451 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260607T-b12-rag-title-allowlist-fulltext-preprocess-apply B12_LITERATURE_IDS=LIT-0450,LIT-0451 B12_STAGES=FULLTEXT_PREPROCESSED node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_DOSSIER_RUN_ID=20260607T-b12-rag-title-allowlist-dossier-export node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module - <<'NODE' ... export curation bundles ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_DOSSIER_RUN_ID=20260607T-b12-rag-title-allowlist-dossier-dry-run node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module - <<'NODE' ... build source-grounded codex_curated dossiers and dry-run import ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_DOSSIER_RUN_ID=20260607T-b12-rag-title-allowlist-dossier-import node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module - <<'NODE' ... import codex_curated dossiers ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true AUTO_PULL_SCHEDULER_ENABLED=false B12_BACKFILL_RUN_ID=20260607T-b12-rag-title-allowlist-index-dry-run B12_LITERATURE_IDS=LIT-0450,LIT-0451 B12_BACKFILL_TARGET_STAGE=INDEXED node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true AUTO_PULL_SCHEDULER_ENABLED=false B12_BACKFILL_RUN_ID=20260607T-b12-rag-title-allowlist-index-apply B12_LITERATURE_IDS=LIT-0450,LIT-0451 B12_BACKFILL_TARGET_STAGE=INDEXED node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `QUERY_OVERRIDES=$(jq -nc '{...}'); TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260607T-b10-testtime-title-allowlist-dry-run B10_TRACK_IDS=test-time-compute-budgeting-strategy B10_QUERY_OVERRIDES_JSON="$QUERY_OVERRIDES" B10_REQUIRE_SOURCE_AVAILABLE=true B10_TITLE_ALLOWLIST_REGEX=... node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --providers openalex`
+  - `QUERY_OVERRIDES=$(jq -nc '{...}'); TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260607T-b10-testtime-title-allowlist-arxiv-dry-run ... node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --providers arxiv`
+  - `QUERY_OVERRIDES=$(jq -nc '{...}'); TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260607T-b10-testtime-title-allowlist-apply B10_PERSIST_STATUSES=DISCOVERED ... node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --providers openalex --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260607T-after-b10-testtime-title-allowlist-apply node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-testtime-title-allowlist-dry-run B11_BATCH_CODE=B10-20260607T-b10-testtime-title-allowlist-apply B11_CANDIDATE_STATUS=DISCOVERED B11_MAX_PROMOTIONS=3 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
+  - `git ls-files --others --exclude-standard dev-docs/active/literature-scaleout-corpus-strategy/artifacts`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - D41 RAG-core candidates were promoted to `LIT-0450` and `LIT-0451`.
+  - both records completed all seven standard stages through `INDEXED`.
+  - active embedding versions are indexed with 281 chunks/vectors total.
+  - `codex_curated` dossier dry-run/import succeeded for both records; key-content extraction provider calls were 0.
+  - B13 after RAG B12 completion reported candidate pool 539, discovered candidates 238, promoted candidates 122, managed corpus 265, effective literature 265, incomplete 0, blocked 0, and not-started 0.
+  - test-time exact-title OpenAlex dry-run found 3 clean source-available `DISCOVERED` candidates; arXiv dry-run found 0 additional candidates.
+  - B10 test-time apply persisted 3 `DISCOVERED` candidates and created batch `1a6c1e1a-2aa2-4a04-bde3-a69df42497ea`.
+  - B11 dry-run over the new test-time batch classified all 3 as `READY_FOR_PROMOTION`; DB delta remained 0.
+  - final B13 reports candidate pool 542, discovered candidates 241, promoted candidates 122, managed corpus 265, effective literature 265, incomplete 0, blocked 0, and not-started 0.
+  - B10, B11, and B12 script syntax checks passed.
+  - `git diff --check` passed and `dev-docs/active/literature-scaleout-corpus-strategy/artifacts` has no untracked files.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-07 - D41 Narrow RAG/Test-Time B10 Query Override Allowlist
+- Status: completed for B10 candidate-layer apply and B11 dry-run; no `LiteratureRecord` promotion executed.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-testtime-narrow-catalog-openalex-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-testtime-narrow-catalog-arxiv-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-testtime-title-override-openalex-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-title-allowlist-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-title-allowlist-arxiv-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-title-allowlist-apply-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b10-rag-title-allowlist-apply.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-rag-title-allowlist-dry-run-b11-candidate-triage-report.json`
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260607T-b10-rag-testtime-narrow-catalog-openalex-dry-run B10_QUERY_ALLOWLIST_REGEX=... B10_TITLE_ALLOWLIST_REGEX=... node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --providers openalex`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260607T-b10-rag-testtime-narrow-catalog-arxiv-dry-run B10_QUERY_ALLOWLIST_REGEX=... B10_TITLE_ALLOWLIST_REGEX=... node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --providers arxiv`
+  - `QUERY_OVERRIDES=$(jq -nc '{...}'); TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260607T-b10-rag-testtime-title-override-openalex-dry-run B10_QUERY_OVERRIDES_JSON="$QUERY_OVERRIDES" ... node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --providers openalex`
+  - `QUERY_OVERRIDES=$(jq -nc '{...}'); TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260607T-b10-rag-title-allowlist-dry-run B10_QUERY_OVERRIDES_JSON="$QUERY_OVERRIDES" B10_TITLE_ALLOWLIST_REGEX=... node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --providers openalex`
+  - `QUERY_OVERRIDES=$(jq -nc '{...}'); TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260607T-b10-rag-title-allowlist-apply B10_QUERY_OVERRIDES_JSON="$QUERY_OVERRIDES" B10_PERSIST_STATUSES=DISCOVERED B10_TITLE_ALLOWLIST_REGEX=... node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --providers openalex --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260607T-after-b10-rag-title-allowlist-apply node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-rag-title-allowlist-dry-run B11_BATCH_CODE=B10-20260607-rag-title-allowlist-apply B11_CANDIDATE_STATUS=DISCOVERED B11_MAX_CANDIDATES=10 B11_MAX_PROMOTIONS=2 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-source-available-selector.mjs`
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
+  - `git ls-files --others --exclude-standard dev-docs/active/literature-scaleout-corpus-strategy/artifacts`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - B10, B11 triage, and B11 selector script syntax checks passed.
+  - added query-level B10 controls: `B10_QUERY_ALLOWLIST_REGEX`, `B10_QUERY_EXCLUDE_REGEX`, `B10_QUERY_OVERRIDES_JSON`, and `B10_PERSIST_STATUSES`.
+  - narrow OpenAlex query-regex dry-run executed 48 provider queries, scanned 1200 provider results, found 18 source-available candidates, and all 18 were duplicates.
+  - narrow arXiv query-regex dry-run produced 0 candidates.
+  - exact-title OpenAlex override dry-run executed 17 provider queries, scanned 170 provider results, and found 11 source-available candidates: 2 `DISCOVERED` and 9 duplicates.
+  - clean RAG title allowlist dry-run produced 3 candidates: 2 `DISCOVERED` and 1 same-batch duplicate for the Corrective RAG title.
+  - clean RAG title allowlist apply used `B10_PERSIST_STATUSES=DISCOVERED`, created batch `f7a1b5dc-1f8a-4f29-89c8-5b14757283ec`, persisted 2 `DISCOVERED` candidates, and did not write the same-batch duplicate row.
+  - persisted titles were `Open-Source Reproduction and Explainability Analysis of Corrective Retrieval Augmented Generation` and `DRAGIN: Dynamic Retrieval Augmented Generation based on the Information Needs of Large Language Models`.
+  - B13 after apply reports candidate pool 539, discovered candidates 240, promoted candidates 120, managed corpus 263, effective literature 263, incomplete 0, blocked 0, and not-started 0.
+  - B11 dry-run over the new allowlist batch classified both candidates as `READY_FOR_PROMOTION`; DB delta remained 0.
+  - `git diff --check` passed and `dev-docs/active/literature-scaleout-corpus-strategy/artifacts` has no untracked files.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
 ### 2026-06-07 - D38 Source-Available Tranche9 Selector Pass
 - Status: completed for selector pass only; no promotion executed.
 - Files:

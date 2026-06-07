@@ -327,3 +327,89 @@ TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-openalex-apply \
 - Decision:
   - no B10 apply was executed in D40.
   - current clean non-tail RAG/test-time replenishment needs either a narrower query catalog or a curated title allowlist before writing new candidate rows.
+
+## Narrow Query Override Allowlist
+- Runner changes:
+  - `QUERY_CATALOG_VERSION`: `b10-scaleout-v2c`.
+  - `B10_QUERY_ALLOWLIST_REGEX`: optional regex filter for base catalog queries.
+  - `B10_QUERY_EXCLUDE_REGEX`: optional regex exclusion for base catalog queries.
+  - `B10_QUERY_OVERRIDES_JSON`: optional JSON object/array that replaces selected track queries with exact-title or curated query allowlists.
+  - `B10_PERSIST_STATUSES`: optional status allowlist for apply persistence, used to avoid writing duplicate rows.
+- Narrow OpenAlex query-regex dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-testtime-narrow-catalog-openalex-dry-run-b10-candidate-discovery-report.json`
+  - Executed provider queries: 48.
+  - Provider errors: 0.
+  - Provider results scanned: 1200.
+  - Candidate count: 18.
+  - Discovered: 0.
+  - Duplicates: 18.
+  - DB delta: 0 batches, 0 candidates.
+- Narrow arXiv query-regex dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-testtime-narrow-catalog-arxiv-dry-run-b10-candidate-discovery-report.json`
+  - Candidate count: 0.
+  - Discovered: 0.
+  - DB delta: 0 batches, 0 candidates.
+- Exact-title OpenAlex override dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-testtime-title-override-openalex-dry-run-b10-candidate-discovery-report.json`
+  - Query overrides:
+    - `rag-aware-allocation-core`: 6 exact-title/curated queries.
+    - `test-time-compute-budgeting-strategy`: 4 exact-title/curated queries.
+    - `test-time-compute-budgeting-search`: 4 exact-title/curated queries.
+    - `test-time-compute-budgeting-theory`: 3 exact-title/curated queries.
+  - Executed provider queries: 17.
+  - Provider errors: 0.
+  - Provider results scanned: 170.
+  - Candidate count: 11.
+  - Discovered: 2.
+  - Duplicates: 9.
+  - New discovered titles:
+    - `Open-Source Reproduction and Explainability Analysis of Corrective Retrieval Augmented Generation`.
+    - `DRAGIN: Dynamic Retrieval Augmented Generation based on the Information Needs of Large Language Models`.
+  - DB delta: 0 batches, 0 candidates.
+- Clean RAG title allowlist dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-title-allowlist-dry-run-b10-candidate-discovery-report.json`
+  - Candidate count: 3.
+  - Discovered: 2.
+  - Duplicate: 1 same-batch DOI/abs duplicate for the Corrective RAG title.
+  - DB delta: 0 batches, 0 candidates.
+- Clean RAG title allowlist apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-title-allowlist-apply-b10-candidate-discovery-report.json`
+  - Batch ID: `f7a1b5dc-1f8a-4f29-89c8-5b14757283ec`.
+  - Persist filter: `B10_PERSIST_STATUSES=DISCOVERED`.
+  - Persisted 2 discovered candidates and skipped the same-batch duplicate row.
+  - DB delta: 1 batch, 2 candidates.
+  - No `LiteratureRecord` rows were created.
+  - Counting after apply:
+    - candidate pool records: 539.
+    - candidate discovered records: 240.
+    - managed corpus records: 263.
+    - effective literature records: 263.
+    - pipeline incomplete/blocker/not-started: 0.
+
+## Test-Time Exact-Title Allowlist
+- Local duplicate preflight:
+  - `The Art of Scaling Test-Time Compute for Large Language Models` already exists as `LIT-0241`, so it was left out of the apply set.
+- OpenAlex dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-testtime-title-allowlist-dry-run-b10-candidate-discovery-report.json`
+  - Query override track: `test-time-compute-budgeting-strategy`.
+  - Query override count: 5 exact-title queries.
+  - Title allowlist: `Budget-aware Test-time Scaling|Is That Your Final Answer|AgentTTS|SETS: Leveraging|Representation Consistency`.
+  - Candidate count: 3.
+  - Discovered: 3.
+  - Duplicates: 0.
+  - Source-available candidates: 3.
+  - DB delta: 0 batches, 0 candidates.
+- ArXiv dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-testtime-title-allowlist-arxiv-dry-run-b10-candidate-discovery-report.json`
+  - Candidate count: 0.
+  - Discovered: 0.
+  - DB delta: 0 batches, 0 candidates.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-testtime-title-allowlist-apply-b10-candidate-discovery-report.json`
+  - Batch ID: `1a6c1e1a-2aa2-4a04-bde3-a69df42497ea`.
+  - Batch code: `B10-20260607T-b10-testtime-title-allowlist-apply`.
+  - Persist filter: `B10_PERSIST_STATUSES=DISCOVERED`.
+  - Persisted 3 discovered candidates:
+    - `AgentTTS: Large Language Model Agent for Test-time Compute-optimal Scaling Strategy in Complex Tasks`.
+    - `Budget-aware Test-time Scaling via Discriminative Verification`.
+    - `SETS: Leveraging Self-Verification and Self-Correction for Improved Test-Time Scaling`.
+  - DB delta: 1 batch, 3 candidates.
+  - No `LiteratureRecord` rows were created.
+  - Counting after apply:
+    - candidate pool records: 542.
+    - candidate discovered records: 241.
+    - managed corpus records: 265.
+    - effective literature records: 265.
+    - pipeline incomplete/blocker/not-started: 0.

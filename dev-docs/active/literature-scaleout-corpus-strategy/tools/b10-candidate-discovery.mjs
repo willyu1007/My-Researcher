@@ -22,11 +22,12 @@ const TASK_DIR = 'dev-docs/active/literature-scaleout-corpus-strategy';
 const OUT_DIR = path.join(TASK_DIR, 'artifacts');
 const TMP_DIR = '.ai/.tmp/literature-scaleout-corpus-strategy';
 const SUPPORTED_PROVIDERS = ['openalex', 'arxiv', 'semantic_scholar'];
-const QUERY_CATALOG_VERSION = 'b10-scaleout-v2b';
+const QUERY_CATALOG_VERSION = 'b10-scaleout-v2c';
 
 const APPLY = process.argv.includes('--apply');
 const runId = readArg('--run-id', process.env.B10_DISCOVERY_RUN_ID ?? new Date().toISOString().replace(/[:.]/g, '-'));
 const batchCode = readArg('--batch-code', process.env.B10_BATCH_CODE ?? `B10-${runId}`);
+const persistStatuses = readCsvArg('--persist-statuses', process.env.B10_PERSIST_STATUSES ?? '');
 const queryLimitPerTrack = readInteger('B10_QUERY_LIMIT', 1, { min: 1, max: 20 });
 const providerResultLimit = readInteger('B10_PROVIDER_RESULT_LIMIT', 8, { min: 1, max: 200 });
 const maxCandidates = readInteger('B10_MAX_CANDIDATES', 80, { min: 1, max: 1000 });
@@ -36,8 +37,12 @@ const arxivDelayMs = readInteger('B10_ARXIV_DELAY_MS', 3200, { min: 0, max: 6000
 const providerRetries = readInteger('B10_PROVIDER_RETRIES', 2, { min: 1, max: 5 });
 const minYear = readInteger('B10_MIN_YEAR', 2018, { min: 1900, max: 2100 });
 const requireSourceAvailable = readBoolean('B10_REQUIRE_SOURCE_AVAILABLE', false);
+const queryAllowlistRegexRaw = process.env.B10_QUERY_ALLOWLIST_REGEX ?? '';
+const queryExcludeRegexRaw = process.env.B10_QUERY_EXCLUDE_REGEX ?? '';
 const titleAllowlistRegexRaw = process.env.B10_TITLE_ALLOWLIST_REGEX ?? '';
 const titleExcludeRegexRaw = process.env.B10_TITLE_EXCLUDE_REGEX ?? '';
+const queryAllowlistRegex = compileRegex('B10_QUERY_ALLOWLIST_REGEX', queryAllowlistRegexRaw);
+const queryExcludeRegex = compileRegex('B10_QUERY_EXCLUDE_REGEX', queryExcludeRegexRaw);
 const titleAllowlistRegex = compileRegex('B10_TITLE_ALLOWLIST_REGEX', titleAllowlistRegexRaw);
 const titleExcludeRegex = compileRegex('B10_TITLE_EXCLUDE_REGEX', titleExcludeRegexRaw);
 const openAlexMailto = process.env.OPENALEX_MAILTO ?? process.env.UNPAYWALL_EMAIL ?? '';
@@ -45,6 +50,7 @@ const openAlexApiKey = process.env.OPENALEX_API_KEY ?? '';
 const semanticScholarApiKey = process.env.SEMANTIC_SCHOLAR_API_KEY ?? '';
 const providerSelection = resolveProviderSelection(readArg('--providers', process.env.B10_PROVIDERS ?? 'auto'));
 const providerList = providerSelection.enabledProviders;
+const queryOverridesRaw = process.env.B10_QUERY_OVERRIDES_JSON ?? '';
 
 const SOURCE_CONTRACT = {
   openalex: {
@@ -281,14 +287,19 @@ const TRACKS = [
   },
 ];
 
+const queryOverrides = readQueryOverrides(queryOverridesRaw);
 const trackIdFilter = readCsvArg('--track-ids', process.env.B10_TRACK_IDS ?? '');
-const selectedTracks = trackIdFilter.length
+const baseSelectedTracks = trackIdFilter.length
   ? TRACKS.filter((track) => trackIdFilter.includes(track.track_id))
   : TRACKS;
 const missingTrackIds = trackIdFilter.filter((trackId) => !TRACKS.some((track) => track.track_id === trackId));
 if (missingTrackIds.length > 0) {
   throw new Error(`Unknown B10 track ids: ${missingTrackIds.join(', ')}`);
 }
+const selectedTracks = baseSelectedTracks.map((track) => ({
+  ...track,
+  queries: queryOverrides.get(track.track_id) ?? track.queries,
+}));
 if (selectedTracks.length === 0) {
   throw new Error('B10 selected track set is empty.');
 }
@@ -380,6 +391,42 @@ function compileRegex(name, rawValue) {
   } catch (error) {
     throw new Error(`${name} is not a valid regular expression: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+function readQueryOverrides(rawValue) {
+  if (!rawValue.trim()) return new Map();
+  let parsed;
+  try {
+    parsed = JSON.parse(rawValue);
+  } catch (error) {
+    throw new Error(`B10_QUERY_OVERRIDES_JSON must be valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const entries = Array.isArray(parsed)
+    ? parsed.flatMap((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+        const trackId = typeof item.track_id === 'string' ? item.track_id : '';
+        const queries = Array.isArray(item.queries)
+          ? item.queries
+          : typeof item.query === 'string'
+            ? [item.query]
+            : [];
+        return trackId ? [[trackId, queries]] : [];
+      })
+    : Object.entries(parsed);
+  const overrides = new Map();
+  for (const [trackId, rawQueries] of entries) {
+    if (!TRACKS.some((track) => track.track_id === trackId)) {
+      throw new Error(`B10_QUERY_OVERRIDES_JSON contains unknown track id: ${trackId}`);
+    }
+    const queries = (Array.isArray(rawQueries) ? rawQueries : [rawQueries])
+      .map((query) => String(query ?? '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+    if (queries.length === 0) {
+      throw new Error(`B10_QUERY_OVERRIDES_JSON contains no queries for track id: ${trackId}`);
+    }
+    overrides.set(trackId, unique(queries));
+  }
+  return overrides;
 }
 
 function sleep(ms) {
@@ -543,6 +590,12 @@ function passesRunFilters(candidate) {
   if (requireSourceAvailable && !hasSourceAvailablePath(candidate)) return false;
   if (titleAllowlistRegex && !titleAllowlistRegex.test(candidate.title)) return false;
   if (titleExcludeRegex && titleExcludeRegex.test(`${candidate.title} ${candidate.abstractText}`)) return false;
+  return true;
+}
+
+function passesQueryFilters(query) {
+  if (queryAllowlistRegex && !queryAllowlistRegex.test(query)) return false;
+  if (queryExcludeRegex && queryExcludeRegex.test(query)) return false;
   return true;
 }
 
@@ -909,7 +962,22 @@ async function discover() {
     semantic_scholar: fetchSemanticScholar,
   };
   for (const track of selectedTracks.slice(0, trackLimit)) {
-    for (const query of track.queries.slice(0, queryLimitPerTrack)) {
+    const filteredQueries = track.queries.filter(passesQueryFilters);
+    for (const query of track.queries) {
+      if (passesQueryFilters(query)) continue;
+      queryLedger.push({
+        provider: 'catalog',
+        track_id: track.track_id,
+        direction: track.direction,
+        collection_role: track.collection_role,
+        query,
+        result_count: 0,
+        candidate_count: 0,
+        skipped: true,
+        skip_reason: 'filtered_by_query_allowlist',
+      });
+    }
+    for (const query of filteredQueries.slice(0, queryLimitPerTrack)) {
       for (const providerName of providerList) {
         const fetcher = providers[providerName];
         if (!fetcher) {
@@ -1297,9 +1365,12 @@ const before = {
 const { queryLedger, candidates } = await discover();
 const matches = await loadExistingMatches(prisma, candidates);
 const decidedCandidates = applyDuplicateDecisions(candidates, matches);
+const persistedCandidates = persistStatuses.length
+  ? decidedCandidates.filter((candidate) => persistStatuses.includes(candidate.status))
+  : decidedCandidates;
 let batchId = null;
 if (APPLY) {
-  batchId = await persistBatch(prisma, decidedCandidates, queryLedger, startedAt);
+  batchId = await persistBatch(prisma, persistedCandidates, queryLedger, startedAt);
 }
 const after = {
   batches: await prisma.literatureDiscoveryBatch.count(),
@@ -1322,6 +1393,7 @@ const artifact = await writeArtifacts({
     source_contract: SOURCE_CONTRACT,
     config: {
       track_ids: selectedTracks.slice(0, trackLimit).map((track) => track.track_id),
+      query_overrides: Object.fromEntries([...queryOverrides.entries()].map(([trackId, queries]) => [trackId, queries.length])),
       query_limit_per_track: queryLimitPerTrack,
       track_limit: trackLimit,
       provider_result_limit: providerResultLimit,
@@ -1330,7 +1402,10 @@ const artifact = await writeArtifacts({
       request_delay_ms: requestDelayMs,
       arxiv_delay_ms: arxivDelayMs,
       provider_retries: providerRetries,
+      persist_statuses: persistStatuses,
       candidate_filters: {
+        query_allowlist_regex: queryAllowlistRegexRaw || null,
+        query_exclude_regex: queryExcludeRegexRaw || null,
         require_source_available: requireSourceAvailable,
         title_allowlist_regex: titleAllowlistRegexRaw || null,
         title_exclude_regex: titleExcludeRegexRaw || null,
@@ -1357,6 +1432,7 @@ const artifact = await writeArtifacts({
   detail: {
     before,
     after,
+    persisted_candidate_count: APPLY ? persistedCandidates.length : 0,
     matches: {
       existing_literature_count: matches.literatureRows.length,
       existing_candidate_count: matches.candidateRows.length,
