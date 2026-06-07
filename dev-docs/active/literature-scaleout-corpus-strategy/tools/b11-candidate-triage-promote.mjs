@@ -765,7 +765,7 @@ async function writeArtifacts(report) {
   await fs.mkdir(OUT_DIR, { recursive: true });
   await fs.mkdir(TMP_DIR, { recursive: true });
   const reportPath = path.join(OUT_DIR, `${runId}-b11-candidate-triage-report.json`);
-  const decisionsPath = path.join(OUT_DIR, `${runId}-b11-candidate-decisions.json`);
+  const decisionsPath = path.join(TMP_DIR, `${runId}-b11-candidate-decisions.json`);
   const detailPath = path.join(TMP_DIR, `${runId}-b11-candidate-triage-detail.json`);
   await fs.writeFile(reportPath, `${JSON.stringify(report.report, null, 2)}\n`);
   await fs.writeFile(decisionsPath, `${JSON.stringify(report.decisions, null, 2)}\n`);

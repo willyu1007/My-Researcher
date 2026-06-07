@@ -3,7 +3,7 @@
 ## Status
 - State: in-progress
 - Origin: follow-up from the adaptive LLM systems literature collection discussion.
-- Next step: continue opportunity-first B11/B12 tranches using candidates with verified fulltext availability; source-access blocked records stay soft-excluded unless authenticated/user-provided fulltext is available.
+- Next step: continue source-available B11 tranches from `DISCOVERED` candidates, or run direction-targeted B10 if source-available depth in a direction gets thin.
 
 ## Goal
 - Replace the current small-batch collection rhythm with a 5000-level literature scaleout strategy.
@@ -19,14 +19,15 @@
   - `collection:theory-support`
 
 ## Current Baseline
-- Current candidate pool: 62 records.
-  - 26 ready for promotion.
-  - 14 promoted.
+- Current candidate pool: 535 records.
+  - 299 discovered.
+  - 20 ready for promotion.
+  - 57 promoted.
   - 9 deferred.
-  - 9 duplicates.
+  - 146 duplicates.
   - 4 rejected.
-- Current managed adaptive corpus: 157 records.
-- Current effective literature records: 157 records.
+- Current managed adaptive corpus: 200 records.
+- Current effective literature records: 200 records.
 - Current incomplete managed records: 0.
 - Current adaptive corpus blockers with explicit blocker detail: 0 records.
 - Current soft-excluded source-access records: 3 records.
@@ -39,6 +40,10 @@
   - no records from the initial 10-record B11 promoted pilot remain in the key-content queue.
   - `LIT-0163` through `LIT-0166` were promoted in the opportunity tranche; `LIT-0164` and `LIT-0165` completed through `INDEXED`, while `LIT-0163` and `LIT-0166` are soft-excluded source-access records.
   - `LIT-0252` was cleared from OCR blocker by replacing the scanned source with a public title-matched PDF, importing a `codex_curated` dossier, and indexing the record.
+  - `LIT-0350` through `LIT-0361` completed the test-time arXiv B12 tranche through `INDEXED` via rights-safe arXiv acquisition, `codex_curated` dossiers, and chunk/embed/index backfill.
+  - `LIT-0362` through `LIT-0367` completed a source-available RAG/test-time tranche through `INDEXED` via arXiv acquisition, `codex_curated` dossiers, and chunk/embed/index backfill.
+  - `LIT-0368` through `LIT-0376` completed the next source-available RAG/serving/test-time tranche through `INDEXED` via arXiv acquisition, `codex_curated` dossiers, and chunk/embed/index backfill.
+  - `LIT-0377` through `LIT-0386` completed source-available tranche5 through `INDEXED` via arXiv acquisition, `codex_curated` dossiers, and chunk/embed/index backfill.
 - Current pipeline-not-started managed records: 0.
 - Raw DB includes non-corpus records used for historical system evidence, fixtures, and excluded imports; raw DB size is not a literature-progress metric.
 
@@ -129,6 +134,15 @@
 - D24: `LiteratureService` now allocates `LIT-*` and `LSRC-*` IDs from existing high-water marks instead of `count+1`, preventing repeat source-id collisions in sparse local DBs.
 - D25: B12 completed all six arXiv-ready RAG-aware records through `INDEXED` via rights-safe arXiv acquisition, fulltext preprocessing, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
 - D25: final B13 counting reports candidate pool 62, promoted candidates 20, ready candidates 20, managed corpus 163, effective literature 163, pipeline incomplete 0, blocked 0, not started 0, excluded non-corpus 9.
+- D26: B10 catalog v2b expands the OpenAlex query catalog, records `query_catalog_version`, supports `B10_TRACK_IDS` for direction-targeted runs, and can produce 500+ new discovered candidates in dry-run without DB writes.
+- D26: test-time compute should be expanded through targeted B10 batches rather than relying on a single global top-k run, because LLM-serving queries dominate the full mixed catalog.
+- D27: the first test-time targeted B10 v2b apply wrote 103 candidate rows, including 76 newly discovered test-time candidates and 27 duplicates, without changing managed/effective literature counts.
+- D28: an explicit 12-candidate arXiv-backed test-time B11 tranche promoted `LIT-0350` through `LIT-0361` into managed corpus; effective literature remains unchanged until B12 completes the standard pipeline.
+- D29: B12 completed the 12-record test-time arXiv tranche through `INDEXED`; managed corpus and effective literature both now report 175 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+- D30: the next source-available tranche audited the remaining ready pool, found those 20 records were DOI-only, then selected 10 arXiv-backed `DISCOVERED` candidates; B11 promoted 6 and reverse-marked 4 duplicates, and B12 completed the 6 promoted records through `INDEXED`.
+- D31: source-available tranche4 selected another 10 arXiv-backed `DISCOVERED` candidates; B11 promoted 9 and reverse-marked 1 duplicate, and B12 completed the 9 promoted records through `INDEXED`, bringing managed/effective corpus to 190.
+- D32: high-volume generated JSON run outputs were moved out of versioned `dev-docs` artifacts into `.ai/.tmp`, and B10/B11 now keep raw candidate/query/decision dumps local while preserving lightweight summary reports.
+- D33: source-available tranche5 selected 10 arXiv-backed `DISCOVERED` candidates; B11 promoted all 10 and B12 completed them through `INDEXED`, bringing managed/effective corpus to 200.
 
 ## Scope
 - Define collection cadence and batch gates for 5000-level scaleout.
@@ -159,7 +173,7 @@
 
 ## Acceptance Criteria
 - [ ] Layered corpus model is documented and accepted as the new scaleout target.
-- [ ] B10 broad discovery plan can produce 500-800 candidates per run.
+- [x] B10 broad discovery plan can produce 500-800 candidates per run.
 - [x] B10 candidate discovery entrypoint exists with dry-run/apply, artifacts, and candidate staging writes.
 - [x] B11 triage/promote entrypoint exists with dry-run/apply/promote and a 10-record promote pilot.
 - [ ] B11 triage plan can promote 200-300 records per run into managed pipeline corpus.

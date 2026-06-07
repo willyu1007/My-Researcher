@@ -9,6 +9,9 @@
 - Script: `tools/b10-candidate-discovery.mjs`
 - Default mode: dry-run.
 - Apply mode: pass `--apply`.
+- Output boundary:
+  - lightweight discovery report: `dev-docs/active/literature-scaleout-corpus-strategy/artifacts/`
+  - raw candidate dump, query ledger, and detail payload: `.ai/.tmp/literature-scaleout-corpus-strategy/`
 - Writes:
   - `LiteratureDiscoveryBatch`
   - `LiteratureDiscoveryCandidate`
@@ -39,6 +42,7 @@
   - `all`: run all implemented providers.
   - explicit example: `openalex,arxiv,semantic_scholar`.
 - `B10_TRACK_LIMIT`: number of tracks to run.
+- `B10_TRACK_IDS`: optional comma-separated explicit track id allowlist.
 - `B10_QUERY_LIMIT`: queries per track.
 - `B10_PROVIDER_RESULT_LIMIT`: provider results per query.
 - `B10_MAX_CANDIDATES`: maximum candidates staged from one run.
@@ -164,9 +168,72 @@ TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-openalex-apply \
   - pipeline blockers: 2.
 
 ## Scaleout Gate
-- Do not run 500-800 candidate scaleout until:
-  - B11 triage can score and mark the 54 discovered pilot candidates.
-  - Semantic Scholar API key or provider budget behavior is confirmed, or provider remains skipped in `auto`.
-  - arXiv request reliability is rechecked with normal delay and timeout, or provider remains explicit-only.
-  - OpenAlex query catalog is expanded beyond the current 108-candidate dry-run envelope.
-  - B13 counting is run before and after the batch.
+- 500-800 candidate scaleout is now enabled for local dev with the expanded B10 catalog, subject to:
+  - run B13 counting before and after any `--apply`.
+  - keep default `auto` provider mode unless Semantic Scholar or arXiv reliability is explicitly revalidated.
+  - use `B10_TRACK_IDS` for direction-targeted runs when one direction, especially LLM serving, would dominate the global top-k.
+  - run B11 dry-run before any promotion.
+
+## Catalog v2b Scaleout Dry Runs
+- Full mixed-catalog dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-catalog-v2-dry-run-b10-candidate-discovery-report.json`
+  - Query catalog: `b10-scaleout-v2`.
+  - Executed OpenAlex queries: 120.
+  - Provider errors: 0.
+  - Provider candidates before global cap: 2664.
+  - Staged dry-run candidates: 1000.
+  - Discovered in dry-run: 560.
+  - Duplicates in dry-run: 440.
+  - Discovered with arXiv id: 311.
+  - Discovered with DOI: 436.
+  - Direction split:
+    - LLM serving resource allocation: 640.
+    - RAG-aware allocation: 321.
+    - Test-time compute budgeting: 39.
+  - DB delta: 0 batches, 0 candidates.
+- Test-time targeted dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-catalog-v2b-testtime-dry-run-b10-candidate-discovery-report.json`
+  - Query catalog: `b10-scaleout-v2b`.
+  - Track ids:
+    - `test-time-compute-budgeting-strategy`
+    - `test-time-compute-budgeting-search`
+    - `test-time-compute-budgeting-theory`
+  - Executed OpenAlex queries: 60.
+  - Provider errors: 0.
+  - Staged dry-run candidates: 103.
+  - Discovered in dry-run: 76.
+  - Duplicates in dry-run: 27.
+  - Discovered with arXiv id: 45.
+  - Discovered with DOI: 70.
+  - DB delta: 0 batches, 0 candidates.
+- Operational decision:
+  - Use full mixed-catalog runs to raise total candidate volume.
+  - Use `B10_TRACK_IDS` targeted runs to rebalance undercovered directions before B11 promotion.
+
+## Catalog v2b Test-Time Apply
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-catalog-v2b-testtime-apply-b10-candidate-discovery-report.json`
+- Batch ID: `0a9edeac-9cd4-48c9-95cb-03d6e2f9a72b`
+- Input:
+  - provider mode: `auto` (`openalex` enabled; Semantic Scholar and arXiv skipped).
+  - track ids:
+    - `test-time-compute-budgeting-strategy`
+    - `test-time-compute-budgeting-search`
+    - `test-time-compute-budgeting-theory`
+  - max candidates: 400.
+- Result:
+  - DB delta: 1 batch, 103 candidates.
+  - candidate status split:
+    - `DISCOVERED`: 76.
+    - `DUPLICATE`: 27.
+  - direction split:
+    - test-time compute budgeting: 103.
+  - collection role split:
+    - `collection:strategy-support`: 98.
+    - `collection:theory-support`: 5.
+  - No `LiteratureRecord` rows were created.
+  - No content/fulltext/key-content/embedding/index rows were created.
+- Counting after apply:
+  - candidate pool records: 535.
+  - candidate discovered records: 341.
+  - candidate duplicate records: 141.
+  - managed corpus records: 163.
+  - effective literature records: 163.
+  - pipeline incomplete/blocker/not-started: 0.

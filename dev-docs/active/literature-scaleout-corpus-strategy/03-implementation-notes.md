@@ -38,6 +38,7 @@
 - B10 broad discovery writes:
   - candidate staging rows.
   - lightweight batch summaries for reproducibility and debugging.
+  - raw candidate dumps and query ledgers to `.ai/.tmp/` instead of versioned dev-docs artifacts.
 - B11 automated triage is the promotion boundary:
   - accepted candidates create or link `LiteratureRecord` rows as managed corpus.
   - promoted records then use the existing standard pipeline unchanged.
@@ -671,3 +672,157 @@
 - Counting:
   - final B13 reports candidate pool 62, managed corpus 163, effective literature 163, incomplete 0, blocked 0, not started 0, excluded non-corpus 9.
   - all currently managed corpus records are effective at this checkpoint.
+
+## 2026-06-07 - D26 B10 Catalog v2b Expansion
+- Expanded the B10 OpenAlex query catalog from the pilot-scale envelope to a scaleout envelope:
+  - added deeper RAG adaptive retrieval / context-budget / retrieval-policy queries.
+  - added broader LLM serving scheduling, KV-cache, prefill/decode, batching, disaggregation, and SLO/cost queries.
+  - added test-time compute budgeting queries for inference scaling, budgeted reasoning, stopping, metareasoning, and search/sampling-based reasoning.
+- Added `query_catalog_version` to B10 reports so future artifacts can distinguish catalog revisions.
+- Added `B10_TRACK_IDS` to support direction-targeted dry-runs/apply runs.
+  - Rationale: the full mixed OpenAlex catalog reaches scaleout volume, but LLM-serving results dominate the global top-k.
+  - Direction-targeted runs let B10 raise undercovered directions, especially test-time compute, without weakening B11/B12 promotion gates.
+- Added a lightweight RAG application-tail guard:
+  - obvious domain-application RAG titles are filtered unless the text also contains allocation/retrieval-policy/context-selection/control signals.
+  - This keeps B10 broad but reduces low-value application RAG candidates before B11.
+- Verification:
+  - full mixed v2 dry-run reached the 1000 candidate cap with 560 discovered candidates and 0 provider errors.
+  - targeted v2b test-time dry-run produced 103 test-time candidates, including 76 discovered and 45 arXiv-backed discovered candidates, with 0 provider errors.
+- Current next step:
+  - apply the expanded catalog as direction-targeted B10 batches, then run B11 dry-run before any promotion.
+
+## 2026-06-07 - D27 Test-Time Targeted Candidate Apply
+- Applied the B10 v2b test-time targeted batch against local dev.
+- Batch:
+  - batch id: `0a9edeac-9cd4-48c9-95cb-03d6e2f9a72b`.
+  - query catalog: `b10-scaleout-v2b`.
+  - track ids: `test-time-compute-budgeting-strategy`, `test-time-compute-budgeting-search`, and `test-time-compute-budgeting-theory`.
+- Result:
+  - wrote 1 `LiteratureDiscoveryBatch` row and 103 `LiteratureDiscoveryCandidate` rows.
+  - added 76 newly discovered test-time candidates and 27 duplicate-marked candidate rows.
+  - no `LiteratureRecord`, source, fulltext, key-content, embedding, or index rows were created.
+- B11 dry-run on the new discovered candidates:
+  - 47 `READY_FOR_PROMOTION`.
+  - 24 `DEFERRED`.
+  - 3 `DUPLICATE`.
+  - 2 `REJECTED`.
+  - 27 ready candidates have arXiv URLs.
+- Decision:
+  - promote this batch only through explicit candidate ids.
+  - prefer arXiv-backed test-time reasoning/budgeting papers before application-tail MCTS or domain-specific records.
+
+## 2026-06-07 - D28 Test-Time ArXiv B11 Tranche
+- Promoted an explicit 12-candidate arXiv-backed test-time tranche from batch `0a9edeac-9cd4-48c9-95cb-03d6e2f9a72b`.
+- Selection:
+  - kept to test-time scaling, reasoning budget, inference-time search, self-consistency, verifier/process-reward, and anytime reasoning records.
+  - skipped obvious application-tail candidates such as medical, SQL, dialogue-agent, and multimodal-only records for this tranche.
+- Promotion:
+  - dry-run classified all 12 explicit candidates as `READY_FOR_PROMOTION`.
+  - apply/promote created `LIT-0350` through `LIT-0361` and 12 literature sources.
+  - promoted candidate rows are now `PROMOTED` and linked to their `LiteratureRecord` ids.
+- Counting:
+  - managed corpus increased from 163 to 175.
+  - effective literature remains 163 until B12 completes the standard pipeline.
+  - the 12 promoted records are currently pipeline-not-started, with 0 explicit blockers.
+- Next step:
+  - run B12 standard/acquisition for `LIT-0350` through `LIT-0361`, prioritizing arXiv fulltext acquisition and `codex_curated` dossiers.
+
+## 2026-06-07 - D29 Test-Time ArXiv B12 Tranche
+- Completed the 12 B11-promoted test-time records `LIT-0350` through `LIT-0361` through the standard B12 pipeline.
+- Standard pipeline:
+  - standard dry-run selected all 12 records with citation, abstract, and fulltext preprocessing still `NOT_STARTED`.
+  - standard apply normalized citation and abstract for all 12 records, then blocked fulltext preprocessing with `FULLTEXT_SOURCE_MISSING`, as expected before acquisition.
+- Fulltext acquisition and preprocessing:
+  - acquisition dry-run planned 12 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 12 records and created 12 content assets.
+  - fulltext preprocessing apply succeeded for all 12 records and created 12 ready fulltext documents.
+- Curation/backfill:
+  - exported source-grounded curation bundles for all 12 records.
+  - generated `codex_curated` dossiers from parsed fulltext paragraphs.
+  - dossier dry-run import returned 12 valid dossiers, 0 invalid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all 12 records with source `codex_curated`.
+  - key-content import telemetry reported 0 LLM gateway requests, 0 retries, and 0 timeouts.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 12 embedding calls.
+  - index apply succeeded for all 12 records with no timeout cleanup.
+- Counting:
+  - B13 after the tranche reports candidate pool 535, managed corpus 175, effective literature 175, pipeline incomplete 0, blocked 0, and not-started 0.
+  - the tranche added 12 effective test-time compute records without adding key-content provider extraction load.
+
+## 2026-06-07 - D30 Source-Available Tranche3
+- Returned to B10/B11 selection after the D29 B12 closure.
+- Candidate audit:
+  - the remaining 20 `READY_FOR_PROMOTION` candidates were all DOI resolver records, with no arXiv/direct-PDF source class.
+  - the `DISCOVERED` pool still contained 185 arXiv-backed candidates across RAG-aware allocation, LLM serving, and test-time compute.
+- B11 selection:
+  - selected 10 explicit arXiv-backed candidates from `DISCOVERED`, avoiding obvious application-tail topics.
+  - B11 dry-run classified 6 as `READY_FOR_PROMOTION` and 4 as `DUPLICATE`.
+  - B11 apply/promote promoted the 6 ready records into `LIT-0362` through `LIT-0367`.
+  - the 4 duplicate candidates were reverse-marked `DUPLICATE` and were not imported into `LiteratureRecord`.
+- B12 processing:
+  - standard apply normalized citation and abstract for all 6 promoted records, then blocked fulltext preprocessing with `FULLTEXT_SOURCE_MISSING` before acquisition.
+  - arXiv acquisition apply succeeded for all 6 records and created 6 content assets.
+  - fulltext preprocessing apply succeeded for all 6 records and created 6 ready fulltext documents.
+  - generated source-grounded `codex_curated` dossiers from parsed fulltext paragraphs; dry-run import returned 6 valid dossiers, 0 issues, and 0 repaired source refs.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all 6 records with 0 key-content LLM gateway requests, retries, or timeouts.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=6`.
+  - index apply succeeded for all 6 records with no timeout cleanup.
+- Counting:
+  - B13 after the tranche reports candidate pool 535, promoted candidates 38, duplicates 145, managed corpus 181, effective literature 181, pipeline incomplete 0, blocked 0, and not-started 0.
+  - the tranche added 6 effective records: 3 RAG-aware allocation records and 3 test-time compute records.
+
+## 2026-06-07 - D31 Source-Available Tranche4
+- Continued from arXiv-backed `DISCOVERED` candidates after D30, keeping the same small-tranche gate.
+- Candidate selection:
+  - refreshed the discovered-pool audit and found 175 arXiv-backed `DISCOVERED` candidates remained.
+  - selected 10 explicit candidates: 4 RAG-aware allocation, 3 LLM-serving, and 3 test-time compute records.
+  - B11 dry-run classified 9 as `READY_FOR_PROMOTION` and 1 as `DUPLICATE`.
+  - B11 apply/promote promoted the 9 ready records into `LIT-0368` through `LIT-0376`.
+  - the duplicate `DualPath` candidate was reverse-marked `DUPLICATE` and did not enter `LiteratureRecord`.
+- B12 processing:
+  - standard apply normalized citation and abstract for all 9 promoted records, then blocked fulltext preprocessing with `FULLTEXT_SOURCE_MISSING` before acquisition.
+  - arXiv acquisition apply succeeded for all 9 records and created 9 content assets.
+  - fulltext preprocessing apply succeeded for all 9 records and created 9 ready fulltext documents.
+  - generated source-grounded `codex_curated` dossiers from parsed fulltext paragraphs; dry-run import returned 9 valid dossiers, 0 issues, and 0 repaired source refs.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all 9 records with 0 key-content LLM gateway requests, retries, or timeouts.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=9`.
+  - index apply succeeded for all 9 records with no timeout cleanup.
+- Counting:
+  - B13 after the tranche reports candidate pool 535, promoted candidates 47, duplicates 146, managed corpus 190, effective literature 190, pipeline incomplete 0, blocked 0, and not-started 0.
+  - the tranche added 9 effective records across RAG-aware allocation, LLM serving/resource allocation, and test-time compute.
+
+## 2026-06-07 - D32 Artifact Hygiene
+- Cleaned up generated JSON artifacts from the active dev-docs artifact directory:
+  - moved 107 untracked run-output JSON files to `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
+  - kept tracked historical artifacts untouched.
+  - updated T-122 markdown references for the moved run-local artifacts.
+- Tightened future B10/B11 output boundaries:
+  - B10 still writes the lightweight discovery report under `dev-docs/.../artifacts`.
+  - B10 now writes raw candidate dumps and query ledgers under `.ai/.tmp/literature-scaleout-corpus-strategy`.
+  - B11 still writes the lightweight triage report under `dev-docs/.../artifacts`.
+  - B11 now writes per-candidate decision lists under `.ai/.tmp/literature-scaleout-corpus-strategy`.
+- Rationale:
+  - the large line-count spike was generated evidence, not business code.
+  - versioned docs should carry summaries/checkpoints; high-volume raw dumps stay local and reproducible.
+
+## 2026-06-07 - D33 Source-Available Tranche5
+- Continued from arXiv-backed `DISCOVERED` candidates with the small-tranche gate.
+- Candidate audit:
+  - found 165 remaining arXiv-backed `DISCOVERED` candidates.
+  - direction split: 53 RAG-aware allocation, 81 LLM-serving/resource allocation, and 31 test-time compute.
+  - B11 pool dry-run over all 165 candidates found 77 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+- Selection:
+  - selected 10 explicit candidates after manually filtering obvious application-tail ready candidates.
+  - tranche mix: 4 RAG-aware allocation, 4 LLM-serving/resource allocation, and 2 test-time compute records.
+  - explicit B11 dry-run classified all 10 as `READY_FOR_PROMOTION`.
+- Promotion and B12:
+  - B11 apply/promote created `LIT-0377` through `LIT-0386` and 10 literature sources.
+  - standard B12 apply normalized citation and abstract for all 10 records, then blocked fulltext preprocessing before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition apply succeeded for all 10 records and created 10 content assets.
+  - fulltext preprocessing apply succeeded for all 10 records and created 10 ready fulltext documents.
+  - source-grounded `codex_curated` dossier dry-run returned 10 valid dossiers, 0 issues, and 0 repaired source refs.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all 10 records with source `codex_curated`.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=10`.
+  - index apply succeeded for all 10 records with no timeout cleanup.
+- Counting:
+  - B13 after the tranche reports candidate pool 535, discovered candidates 299, promoted candidates 57, managed corpus 200, effective literature 200, pipeline incomplete 0, blocked 0, and not-started 0.
+  - the tranche added 10 effective records and crossed the 200-record managed/effective checkpoint.

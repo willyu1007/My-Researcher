@@ -22,6 +22,7 @@ const TASK_DIR = 'dev-docs/active/literature-scaleout-corpus-strategy';
 const OUT_DIR = path.join(TASK_DIR, 'artifacts');
 const TMP_DIR = '.ai/.tmp/literature-scaleout-corpus-strategy';
 const SUPPORTED_PROVIDERS = ['openalex', 'arxiv', 'semantic_scholar'];
+const QUERY_CATALOG_VERSION = 'b10-scaleout-v2b';
 
 const APPLY = process.argv.includes('--apply');
 const runId = readArg('--run-id', process.env.B10_DISCOVERY_RUN_ID ?? new Date().toISOString().replace(/[:.]/g, '-'));
@@ -70,6 +71,20 @@ const TRACKS = [
       'retrieval augmented generation adaptive routing resource allocation',
       'RAG cost-aware retrieval depth compute budget',
       'adaptive retrieval compute allocation context budget',
+      'query adaptive retrieval augmented generation',
+      'adaptive RAG query complexity retrieval decision',
+      'retrieval augmented generation dynamic retrieval policy',
+      'RAG adaptive retrieval depth',
+      'retrieval augmented generation context budget allocation',
+      'retrieval augmented generation compute budget',
+      'cost efficient adaptive retrieval augmented generation',
+      'confidence adaptive retrieval augmented generation',
+      'adaptive query routing retrieval augmented generation',
+      'on demand retrieval augmented generation',
+      'active retrieval augmented generation adaptive retrieval',
+      'selective retrieval augmented generation compute budget',
+      'retrieval augmented generation retrieval policy optimization',
+      'retrieval augmented generation context selection budget',
     ],
   },
   {
@@ -83,6 +98,24 @@ const TRACKS = [
     queries: [
       'submodular retrieval context selection budget',
       'retrieval ranking allocation theory adaptive selection',
+      'contextual bandit adaptive retrieval augmented generation',
+      'multi armed bandit retrieval selection RAG',
+      'budgeted maximum coverage retrieval context selection',
+      'submodular context selection retrieval augmented generation',
+      'optimal stopping adaptive retrieval language model',
+      'information retrieval budget allocation contextual',
+      'query difficulty retrieval budget allocation',
+      'adaptive retrieval selection uncertainty',
+      'budgeted retrieval reranking optimization',
+      'knapsack context selection retrieval augmented generation',
+      'sequential retrieval stopping language models',
+      'learning to retrieve adaptive budget language models',
+      'retrieval policy optimization question answering',
+      'dynamic retrieval decision language models',
+      'uncertainty aware retrieval augmented generation',
+      'retrieval selection policy large language model',
+      'adaptive evidence retrieval budget language model',
+      'retrieval stopping policy augmented generation',
     ],
   },
   {
@@ -97,6 +130,23 @@ const TRACKS = [
       'large language model serving scheduling resource allocation',
       'LLM inference KV cache scheduling prefill decode',
       'LLM serving batching latency throughput resource allocation',
+      'disaggregated LLM serving prefill decode scheduling',
+      'LLM serving prefill decode disaggregation KV cache',
+      'KV cache management LLM serving scheduling',
+      'prefix cache LLM serving scheduling',
+      'continuous batching LLM inference serving',
+      'PagedAttention LLM serving memory management',
+      'LLM inference serving GPU memory scheduling',
+      'model serving large language model GPU scheduling',
+      'LLM serving throughput latency scheduling',
+      'request scheduling large language model inference',
+      'multi tenant LLM serving resource allocation',
+      'speculative decoding serving scheduling resource allocation',
+      'mixture of experts LLM serving scheduling',
+      'LLM inference scheduler KV cache memory',
+      'SLO aware LLM serving scheduling',
+      'large language model inference system resource management',
+      'LLM serving admission control batching',
     ],
   },
   {
@@ -110,6 +160,24 @@ const TRACKS = [
     queries: [
       'online scheduling LLM serving latency resource allocation',
       'queueing scheduling inference serving GPU memory allocation',
+      'queueing model LLM inference serving scheduling',
+      'cost aware LLM serving resource allocation',
+      'autoscaling large language model serving',
+      'deadline aware LLM inference scheduling',
+      'SLO aware inference serving resource allocation',
+      'GPU cluster scheduling LLM inference',
+      'serverless LLM inference scheduling',
+      'cloud LLM inference serving scheduling',
+      'phase disaggregated LLM serving scheduling',
+      'traffic aware LLM serving scheduling',
+      'elastic LLM serving resource allocation',
+      'online scheduling large language model inference',
+      'adaptive batching LLM serving latency',
+      'budget aware LLM serving scheduling',
+      'performance cost tradeoff LLM inference serving',
+      'heterogeneous GPU LLM serving scheduling',
+      'distributed LLM inference scheduling',
+      'capacity planning LLM inference serving',
     ],
   },
   {
@@ -126,6 +194,53 @@ const TRACKS = [
       'token budget aware LLM reasoning',
       'adaptive inference reasoning budget',
       'adaptive reasoning budget large language model test-time scaling',
+      'inference time compute scaling language models',
+      'compute optimal inference large language models',
+      'budgeted reasoning large language models',
+      'adaptive test time compute allocation language models',
+      'inference time scaling reasoning language models',
+      'thinking tokens budget large language model',
+      'self consistency compute budget language models',
+      'verifier guided search budget language model',
+      'chain of thought compute budget allocation',
+      'adaptive sampling language model reasoning budget',
+      'deliberation budget large language models',
+      'test time scaling reasoning budget',
+      'anytime reasoning large language model compute',
+      'budget forcing language model reasoning',
+      'metareasoning compute allocation language models',
+      'compute allocation for inference time reasoning',
+    ],
+  },
+  {
+    track_id: 'test-time-compute-budgeting-search',
+    direction: 'test-time-compute-budgeting',
+    collection_role: 'collection:strategy-support',
+    direction_tag: 'direction:test-time-compute-budgeting',
+    role_scores: { core: 0.72, system_support: 0.28, strategy_support: 0.9, theory_support: 0.52 },
+    implementation_score: 0.58,
+    theory_score: 0.58,
+    queries: [
+      'self consistency chain of thought reasoning large language models',
+      'tree of thoughts deliberate problem solving language models',
+      'large language monkeys repeated sampling inference compute',
+      'best of n sampling language model reasoning',
+      'verifier guided search large language model reasoning',
+      'process reward model test time search reasoning',
+      'Monte Carlo tree search large language model reasoning',
+      'adaptive self consistency language model reasoning',
+      'repeated sampling LLM reasoning inference compute',
+      'test time search large language model reasoning',
+      'inference time search reasoning large language model',
+      'deliberation language model reasoning test time',
+      'long chain of thought reasoning compute budget',
+      'reasoning paths sampling language model verifier',
+      'majority vote self consistency language model reasoning',
+      'outcome reward model search language model reasoning',
+      'planning with large language models tree search',
+      'generator verifier reasoning large language model',
+      'compute efficient chain of thought reasoning',
+      'budgeted best of n language model reasoning',
     ],
   },
   {
@@ -141,11 +256,38 @@ const TRACKS = [
       'test-time compute scaling laws large language models',
       'sequential decision compute budget allocation stopping policy',
       'adaptive computation allocation online learning budget',
+      'compute optimal inference scaling laws language models',
+      'inference scaling laws test time compute',
+      'test time compute scaling laws reasoning',
+      'optimal stopping language model reasoning compute',
+      'sequential computation allocation test time inference',
+      'budgeted inference decision making language models',
+      'adaptive computation time language models',
+      'rational metareasoning compute budget',
+      'anytime algorithms reasoning budget language models',
+      'inference compute allocation theory language models',
+      'verifier based search compute allocation',
+      'tree search budget language models inference',
+      'best of n sampling compute budget language models',
+      'self consistency scaling laws language models',
+      'chain of thought scaling laws compute budget',
+      'uncertainty adaptive compute language models',
     ],
   },
 ];
 
-const trackLimit = readInteger('B10_TRACK_LIMIT', TRACKS.length, { min: 1, max: TRACKS.length });
+const trackIdFilter = readCsvArg('--track-ids', process.env.B10_TRACK_IDS ?? '');
+const selectedTracks = trackIdFilter.length
+  ? TRACKS.filter((track) => trackIdFilter.includes(track.track_id))
+  : TRACKS;
+const missingTrackIds = trackIdFilter.filter((trackId) => !TRACKS.some((track) => track.track_id === trackId));
+if (missingTrackIds.length > 0) {
+  throw new Error(`Unknown B10 track ids: ${missingTrackIds.join(', ')}`);
+}
+if (selectedTracks.length === 0) {
+  throw new Error('B10 selected track set is empty.');
+}
+const trackLimit = readInteger('B10_TRACK_LIMIT', selectedTracks.length, { min: 1, max: selectedTracks.length });
 
 function readArg(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -382,6 +524,7 @@ function passesTrackFocus(candidate) {
     return false;
   }
   if (candidate.direction === 'rag-aware-allocation') {
+    if (isWeakRagApplicationTail(title, text)) return false;
     if (candidate.collectionRole === 'collection:theory-support') {
       return hasAny(text, ['retrieval', 'ranking', 'selection', 'submodular', 'budget'])
         && hasAny(text, ['allocation', 'budget', 'selection', 'adaptive', 'optimization', 'stopping']);
@@ -425,8 +568,41 @@ function passesTrackFocus(candidate) {
     const titleHasTestTime = hasAny(title, ['test-time', 'test time', 'inference-time', 'inference time']);
     const titleHasBudgetReasoning = hasAny(title, ['reasoning', 'verifier', 'inference'])
       && hasAny(title, ['budget', 'token', 'compute', 'scaling', 'allocation', 'stopping']);
-    return (titleHasTestTime || titleHasBudgetReasoning)
-      && hasAny(text, ['budget', 'allocation', 'adaptive', 'verifier', 'stopping', 'scaling', 'tokens', 'token', 'compute']);
+    const titleHasSearchReasoning = hasAny(title, [
+      'self-consistency',
+      'self consistency',
+      'tree of thoughts',
+      'tree-of-thought',
+      'chain of thought',
+      'monte carlo tree search',
+      'mcts',
+      'best-of',
+      'best of n',
+      'repeated sampling',
+      'process reward',
+      'verifier',
+      'sampling',
+      'deliberation',
+      'thinking',
+    ]) && hasAny(text, ['reasoning', 'language model', 'large language model', 'llm']);
+    return (titleHasTestTime || titleHasBudgetReasoning || titleHasSearchReasoning)
+      && hasAny(text, [
+        'budget',
+        'allocation',
+        'adaptive',
+        'verifier',
+        'search',
+        'sampling',
+        'self-consistency',
+        'self consistency',
+        'tree of thought',
+        'stopping',
+        'scaling',
+        'tokens',
+        'token',
+        'compute',
+        'reasoning',
+      ]);
   }
   return false;
 }
@@ -438,6 +614,52 @@ function hasAny(text, terms) {
 function hasRagSignal(text) {
   return /\brag\b/i.test(text)
     || hasAny(text, ['retrieval augmented generation', 'retrieval-augmented generation']);
+}
+
+function isWeakRagApplicationTail(title, text) {
+  if (!hasRagSignal(title)) return false;
+  const hasAllocationSignal = hasAny(text, [
+    'allocation',
+    'routing',
+    'budget',
+    'compute',
+    'cost',
+    'latency',
+    'context selection',
+    'retrieval selection',
+    'retrieval policy',
+    'retrieval depth',
+    'query adaptive',
+    'query-adaptive',
+    'confidence',
+    'uncertainty',
+    'dynamic retrieval',
+    'adaptive retrieval',
+    'on-demand retrieval',
+    'selective retrieval',
+    'optimal stopping',
+  ]);
+  if (hasAllocationSignal) return false;
+  return hasAny(title, [
+    'medical',
+    'health',
+    'clinical',
+    'patient',
+    'mri',
+    'brain',
+    'radiology',
+    'education',
+    'teaching',
+    'student',
+    'business intelligence',
+    'financial question answering',
+    'legal',
+    'cyber attack',
+    'knowledge assessment',
+    'tourism',
+    'agriculture',
+    'manufacturing',
+  ]);
 }
 
 async function requestWithRetry(url, options = {}) {
@@ -651,7 +873,7 @@ async function discover() {
     arxiv: fetchArxiv,
     semantic_scholar: fetchSemanticScholar,
   };
-  for (const track of TRACKS.slice(0, trackLimit)) {
+  for (const track of selectedTracks.slice(0, trackLimit)) {
     for (const query of track.queries.slice(0, queryLimitPerTrack)) {
       for (const providerName of providerList) {
         const fetcher = providers[providerName];
@@ -1017,8 +1239,8 @@ async function writeArtifacts(report) {
   await fs.mkdir(OUT_DIR, { recursive: true });
   await fs.mkdir(TMP_DIR, { recursive: true });
   const reportPath = path.join(OUT_DIR, `${runId}-b10-candidate-discovery-report.json`);
-  const candidatesPath = path.join(OUT_DIR, `${runId}-b10-candidates.json`);
-  const queryLedgerPath = path.join(OUT_DIR, `${runId}-b10-query-ledger.json`);
+  const candidatesPath = path.join(TMP_DIR, `${runId}-b10-candidates.json`);
+  const queryLedgerPath = path.join(TMP_DIR, `${runId}-b10-query-ledger.json`);
   const detailPath = path.join(TMP_DIR, `${runId}-b10-candidate-discovery-detail.json`);
   await fs.writeFile(reportPath, `${JSON.stringify(report.report, null, 2)}\n`);
   await fs.writeFile(candidatesPath, `${JSON.stringify(report.candidates, null, 2)}\n`);
@@ -1055,10 +1277,12 @@ const artifact = await writeArtifacts({
     batch_id: batchId,
     apply: APPLY,
     generated_at: new Date().toISOString(),
+    query_catalog_version: QUERY_CATALOG_VERSION,
     provider_selection: providerSelection,
     providers: providerList,
     source_contract: SOURCE_CONTRACT,
     config: {
+      track_ids: selectedTracks.slice(0, trackLimit).map((track) => track.track_id),
       query_limit_per_track: queryLimitPerTrack,
       track_limit: trackLimit,
       provider_result_limit: providerResultLimit,
