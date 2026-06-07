@@ -972,3 +972,41 @@
   - all seven standard stages succeeded for all 14 records.
   - active embedding versions are all indexed; total chunks/vectors: 2483/2483.
   - final B13 reports candidate pool 537, discovered candidates 247, promoted candidates 111, managed corpus 254, effective literature 254, pipeline incomplete 0, blocked 0, and not-started 0.
+
+## 2026-06-07 - D40 Source-Available Tranche10 Near-Threshold Completion
+- Commit checkpoint:
+  - committed the previous T-122 tranche work as `78c9b4dc feat(literature): expand source tranches`.
+  - scoped the commit to `dev-docs/active/literature-scaleout-corpus-strategy/**`, leaving unrelated PaperImplementation/topic-selection worktree changes untouched.
+- B10 replenishment diagnostic:
+  - source-available preflight found 103 remaining `DISCOVERED` candidates with an arXiv path and 0 source-available `READY_FOR_PROMOTION` candidates.
+  - stricter OpenAlex RAG/test-time non-tail dry-run scanned 100 queries and 2500 provider results with 0 provider errors.
+  - the OpenAlex dry-run kept 38 source-available candidates, but only 1 was new; the new title was `Prompt-based Code Completion via Multi-Retrieval Augmented Generation`, so it was not applied.
+  - explicit arXiv non-tail dry-run scanned 25 queries and 500 provider results with 0 provider errors.
+  - the arXiv dry-run found 2 new RAG theory-support candidates, but both were weak/off-mainline for this corpus pass, so it was not applied.
+- B11 selector decision:
+  - default-threshold source-available dry-run over 103 candidates produced 15 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+  - default ready selector selected 0 because all 15 ready candidates were application-tail or direction-tail.
+  - deferred selector exposed 20 non-tail near-threshold candidates.
+  - explicit lower-threshold dry-run at `B11_READY_THRESHOLD=0.72` produced 13 high-band ready decisions.
+  - manual quality pass selected 9 records and left weaker/off-mainline items unpromoted.
+- B11 apply/promote:
+  - promoted 9 selected source-available candidates.
+  - created `LIT-0441` through `LIT-0449` and 9 literature sources.
+  - direction split: 2 LLM-serving/resource allocation, 2 RAG-aware allocation, and 5 test-time compute.
+  - B13 after promote reported managed corpus 263, effective literature 254, pipeline incomplete 9, and not-started 9.
+- B12 standard and acquisition:
+  - standard apply normalized citation and abstract for all 9 records.
+  - initial fulltext preprocess blocked all 9 with `FULLTEXT_SOURCE_MISSING`, as expected before acquisition.
+  - acquisition dry-run planned 9 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 9 records and created 9 content assets.
+  - fulltext preprocess rerun succeeded for all 9 records and created 9 ready fulltext documents.
+- Key-content and index:
+  - source-grounded `codex_curated` dossier dry-run returned 9 valid dossiers, 0 invalid dossiers, 0 issues, and 0 repaired source refs.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all 9 records with source `codex_curated`.
+  - key-content extraction provider calls remained 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 9 embedding calls.
+  - index apply succeeded for all 9 records.
+- Final state:
+  - all seven standard stages succeeded for all 9 records.
+  - active embedding versions are all indexed; total chunks/vectors: 1388/1388.
+  - final B13 reports candidate pool 537, discovered candidates 238, promoted candidates 120, managed corpus 263, effective literature 263, pipeline incomplete 0, blocked 0, and not-started 0.

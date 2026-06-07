@@ -526,3 +526,44 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## Source-Available Tranche10 Near-Threshold Pass
+- Preflight artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche10-preflight.json`
+- ArXiv-pool dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche10-arxiv-pool-dry-run-b11-candidate-triage-report.json`
+- Default ready selector artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche10-selector-b11-source-available-selector.json`
+- Deferred selector artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche10-deferred-selector-b11-source-available-selector.json`
+- Lower-threshold dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche10-lower-threshold-dry-run-b11-candidate-triage-report.json`
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche10-apply-promote-b11-candidate-triage-report.json`
+- Input:
+  - preflight found 0 source-available `READY_FOR_PROMOTION` candidates and 103 source-available `DISCOVERED` candidates.
+  - source-available `DISCOVERED` direction split: 44 RAG-aware allocation, 31 LLM-serving/resource allocation, and 28 test-time compute.
+  - B11 dry-run over the 103-candidate source-available pool found 15 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+  - default ready selector selected 0 because all 15 ready candidates were application-tail or direction-tail.
+  - deferred selector found 73 eligible non-tail deferred candidates and selected 20 for review.
+  - explicit lower-threshold dry-run used `B11_READY_THRESHOLD=0.72` and classified 13 of the 20 selected deferred candidates as `READY_FOR_PROMOTION`.
+- Selection decision:
+  - selected 9 high-signal records from the lower-threshold set.
+  - left off-mainline or weaker records unpromoted, including `ToolFlood`, `SPICE`, `Loose LIPS`, and task-motion-planning effort allocation.
+- Result:
+  - apply/promote attempted 9 promotions and succeeded for all 9.
+  - apply/promote DB delta: 9 `LiteratureRecord` rows and 9 `LiteratureSource` rows.
+  - direction split: 2 LLM-serving/resource allocation, 2 RAG-aware allocation, and 5 test-time compute.
+- Promoted records:
+  - `LIT-0441`: PerLLM: Personalized Inference Scheduling with Edge-Cloud Collaboration for Diverse LLM Services.
+  - `LIT-0442`: Learning and Leveraging Verifiers to Improve Planning Capabilities of Pre-trained Language Models.
+  - `LIT-0443`: On Measuring Faithfulness or Self-consistency of Natural Language Explanations.
+  - `LIT-0444`: Universal Self-Consistency for Large Language Model Generation.
+  - `LIT-0445`: Ranking with submodular functions on a budget.
+  - `LIT-0446`: DéjàVu: KV-cache Streaming for Fast, Fault-tolerant Generative LLM Serving.
+  - `LIT-0447`: ReST-MCTS*: LLM Self-Training via Process Reward Guided Tree Search.
+  - `LIT-0448`: Maximizing Rollout Informativeness under a Fixed Budget: A Submodular View of Tree Search for Tool-Use Agentic Reinforcement Learning.
+  - `LIT-0449`: Improving reasoning at inference time via uncertainty minimisation.
+- Counting after B12 completion:
+  - candidate pool records: 537.
+  - discovered candidates: 238.
+  - promoted candidates: 120.
+  - managed corpus records: 263.
+  - effective literature records: 263.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

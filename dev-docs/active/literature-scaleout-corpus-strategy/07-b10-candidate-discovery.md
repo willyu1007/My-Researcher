@@ -289,3 +289,41 @@ TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-openalex-apply \
     - managed corpus records: 240.
     - effective literature records: 240.
     - pipeline incomplete/blocker/not-started: 0.
+
+## Non-Tail RAG/Test-Time Replenishment Probes
+- Strict OpenAlex dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-testtime-nontail-source-available-dry-run-b10-candidate-discovery-report.json`
+  - Input filters:
+    - `B10_REQUIRE_SOURCE_AVAILABLE=true`.
+    - `B10_TITLE_EXCLUDE_REGEX` covered the application/direction tails surfaced by tranche10 selector review.
+  - Track ids:
+    - `rag-aware-allocation-core`
+    - `rag-aware-allocation-theory`
+    - `test-time-compute-budgeting-strategy`
+    - `test-time-compute-budgeting-search`
+    - `test-time-compute-budgeting-theory`
+  - Executed OpenAlex queries: 100.
+  - Provider errors: 0.
+  - Provider results scanned: 2500.
+  - Source-available candidates kept: 38.
+  - Discovered in dry-run: 1.
+  - Duplicates in dry-run: 37.
+  - New discovered title review:
+    - not applied: `Prompt-based Code Completion via Multi-Retrieval Augmented Generation`.
+  - DB delta: 0 batches, 0 candidates.
+- Explicit arXiv dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-testtime-arxiv-nontail-dry-run-b10-candidate-discovery-report.json`
+  - Input filters:
+    - `B10_REQUIRE_SOURCE_AVAILABLE=true`.
+    - same tail-exclude regex as the strict OpenAlex probe.
+  - Executed arXiv queries: 25.
+  - Provider errors: 0.
+  - Provider results scanned: 500.
+  - Candidates kept: 2.
+  - Discovered in dry-run: 2.
+  - Duplicates in dry-run: 0.
+  - New discovered title review:
+    - not applied: `MLEvolve: A Self-Evolving Framework for Automated Machine Learning Algorithm Discovery`.
+    - not applied: `You Only Index Once: Cross-Layer Sparse Attention with Shared Routing`.
+  - DB delta: 0 batches, 0 candidates.
+- Decision:
+  - no B10 apply was executed in D40.
+  - current clean non-tail RAG/test-time replenishment needs either a narrower query catalog or a curated title allowlist before writing new candidate rows.
