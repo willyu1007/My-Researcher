@@ -424,3 +424,47 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## Source-Available Tranche8
+- Source-available preflight artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche8-preflight.json`
+- Candidate id artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche8-candidate-ids.json`
+- ArXiv-pool dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche8-arxiv-pool-dry-run-b11-candidate-triage-report.json`
+- Selector artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche8-selector-b11-source-available-selector.json`
+- Explicit dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche8-dry-run-b11-candidate-triage-report.json`
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche8-apply-promote-b11-candidate-triage-report.json`
+- Candidate link artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche8-promoted-links.json`
+- Input:
+  - preflight found 0 source-available `READY_FOR_PROMOTION` candidates and 130 source-available `DISCOVERED` candidates.
+  - source-available `DISCOVERED` direction split: 44 RAG-aware allocation, 58 LLM-serving/resource allocation, and 28 test-time compute.
+  - B11 dry-run over the 130-candidate source-available pool found 42 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+  - selector selected 15 arXiv-backed LLM-serving/resource allocation records; RAG/test-time quotas could not be filled from non-tail ready candidates in this pool.
+  - max promotions: 15.
+- Result:
+  - explicit dry-run decisions: 15 `READY_FOR_PROMOTION`.
+  - apply/promote attempted 15 promotions and succeeded for all 15.
+  - DB delta: 15 `LiteratureRecord` rows and 15 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0412`: Transformer-Lite: High-efficiency Deployment of Large Language Models on Mobile Phone GPUs.
+  - `LIT-0413`: EcoServe: Designing Carbon-Aware AI Inference Systems.
+  - `LIT-0414`: Efficient Interactive LLM Serving with Proxy Model-based Sequence Length Prediction.
+  - `LIT-0415`: FastSwitch: Optimizing Context Switching Efficiency in Fairness-aware Large Language Model Serving.
+  - `LIT-0416`: Towards Greener LLMs: Bringing Energy-Efficiency to the Forefront of LLM Inference.
+  - `LIT-0417`: Towards Pareto Optimal Throughput in Small Language Model Serving.
+  - `LIT-0418`: SARATHI: Efficient LLM Inference by Piggybacking Decodes with Chunked Prefills.
+  - `LIT-0419`: ALISA: Accelerating Large Language Model Inference via Sparsity-Aware KV Caching.
+  - `LIT-0420`: Faster LLM Inference using DBMS-Inspired Preemption and Cache Replacement Policies.
+  - `LIT-0421`: FastKV: Decoupling of Context Reduction and KV Cache Compression for Prefill-Decoding Acceleration.
+  - `LIT-0422`: Hydragen: High-Throughput LLM Inference with Shared Prefixes.
+  - `LIT-0423`: InfiniGen: Efficient Generative Inference of Large Language Models with Dynamic KV Cache Management.
+  - `LIT-0424`: KV-Compress: Paged KV-Cache Compression with Variable Compression Rates per Attention Head.
+  - `LIT-0425`: MemServe: Context Caching for Disaggregated LLM Serving with Elastic Memory Pool.
+  - `LIT-0426`: TAPAS: Thermal- and Power-Aware Scheduling for LLM Inference in Cloud Platforms.
+- Counting after B12 completion:
+  - candidate pool records: 535.
+  - discovered candidates: 259.
+  - promoted candidates: 97.
+  - managed corpus records: 240.
+  - effective literature records: 240.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

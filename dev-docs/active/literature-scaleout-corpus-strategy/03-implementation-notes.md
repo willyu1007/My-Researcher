@@ -877,3 +877,27 @@
   - final state probe found all seven standard stages `SUCCEEDED` for all 15 records.
   - active embedding versions are all `INDEXED`, using `text-embedding-3-large` with dimension 3072; total chunks/vectors: 2360/2360.
   - B13 after the tranche reports candidate pool 535, discovered candidates 274, promoted candidates 82, managed corpus 225, effective literature 225, pipeline incomplete 0, blocked 0, and not-started 0.
+
+## 2026-06-07 - D36 Source-Available Tranche8
+- Continued from arXiv-backed `DISCOVERED` candidates after D35 and kept the 15-record selector gate.
+- Candidate preflight and audit:
+  - no source-available `READY_FOR_PROMOTION` candidates remained; the 20 ready candidates were source-unknown/DOI-only.
+  - found 130 remaining source-available `DISCOVERED` candidates: 44 RAG-aware allocation, 58 LLM-serving/resource allocation, and 28 test-time compute.
+  - B11 pool dry-run over the 130 source-available candidates found 42 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+- Selection:
+  - selector selected 15 LLM-serving/resource allocation records.
+  - RAG/test-time quota slots were not filled because non-tail ready depth for those directions was thin in this pool.
+  - explicit B11 dry-run classified all 15 selected records as `READY_FOR_PROMOTION`.
+- Promotion and B12:
+  - B11 apply/promote created `LIT-0412` through `LIT-0426` and 15 literature sources.
+  - standard B12 apply normalized citation and abstract for all 15 records, then blocked fulltext preprocessing before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition apply succeeded for all 15 records and created 15 content assets.
+  - fulltext preprocessing apply succeeded for all 15 records and created 15 ready fulltext documents.
+  - source-grounded `codex_curated` dossier dry-run returned 15 valid dossiers, 0 issues, and 0 repaired source refs.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all 15 records with source `codex_curated`, 0 extraction provider requests, 0 retries, and 0 timeouts.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=15`.
+  - index apply succeeded for all 15 records with no timeout cleanup.
+- Counting:
+  - final state probe found all seven standard stages `SUCCEEDED` for all 15 records.
+  - active embedding versions are all `INDEXED`, using `text-embedding-3-large` with dimension 3072; total chunks/vectors: 2054/2054.
+  - B13 after the tranche reports candidate pool 535, discovered candidates 259, promoted candidates 97, managed corpus 240, effective literature 240, pipeline incomplete 0, blocked 0, and not-started 0.

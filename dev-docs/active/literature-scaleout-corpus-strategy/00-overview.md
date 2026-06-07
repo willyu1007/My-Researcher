@@ -20,14 +20,14 @@
 
 ## Current Baseline
 - Current candidate pool: 535 records.
-  - 274 discovered.
+  - 259 discovered.
   - 20 ready for promotion.
-  - 82 promoted.
+  - 97 promoted.
   - 9 deferred.
   - 146 duplicates.
   - 4 rejected.
-- Current managed adaptive corpus: 225 records.
-- Current effective literature records: 225 records.
+- Current managed adaptive corpus: 240 records.
+- Current effective literature records: 240 records.
 - Current incomplete managed records: 0.
 - Current adaptive corpus blockers with explicit blocker detail: 0 records.
 - Current soft-excluded source-access records: 3 records.
@@ -46,6 +46,7 @@
   - `LIT-0377` through `LIT-0386` completed source-available tranche5 through `INDEXED` via arXiv acquisition, `codex_curated` dossiers, and chunk/embed/index backfill.
   - `LIT-0387` through `LIT-0396` completed source-available tranche6 through `INDEXED` via arXiv acquisition, selector-filtered `codex_curated` dossiers, and chunk/embed/index backfill.
   - `LIT-0397` through `LIT-0411` completed source-available tranche7 through `INDEXED` via arXiv acquisition, selector-filtered `codex_curated` dossiers, and chunk/embed/index backfill.
+  - `LIT-0412` through `LIT-0426` completed source-available tranche8 through `INDEXED` via arXiv acquisition, selector-filtered `codex_curated` dossiers, and chunk/embed/index backfill.
 - Current pipeline-not-started managed records: 0.
 - Raw DB includes non-corpus records used for historical system evidence, fixtures, and excluded imports; raw DB size is not a literature-progress metric.
 
@@ -147,6 +148,7 @@
 - D33: source-available tranche5 selected 10 arXiv-backed `DISCOVERED` candidates; B11 promoted all 10 and B12 completed them through `INDEXED`, bringing managed/effective corpus to 200.
 - D34: source-available tranche6 added a reusable selector gate, selected 10 arXiv-backed candidates after filtering application-tail ready items, promoted `LIT-0387` through `LIT-0396`, and completed all 10 through `INDEXED`, bringing managed/effective corpus to 210.
 - D35: source-available tranche7 scaled the selector-filtered path to 15 records, promoted `LIT-0397` through `LIT-0411`, and completed all 15 through `INDEXED`, bringing managed/effective corpus to 225.
+- D36: source-available tranche8 selected 15 high-signal LLM-serving/resource-allocation records, promoted `LIT-0412` through `LIT-0426`, and completed all 15 through `INDEXED`, bringing managed/effective corpus to 240.
 
 ## Scope
 - Define collection cadence and batch gates for 5000-level scaleout.
