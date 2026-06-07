@@ -129,11 +129,36 @@ variables:
     default: /Volumes/DataDisk/Data/PaperEngineer/literature-content-processing
     scopes: [dev]
     description: Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports.
+  LITERATURE_KEY_CONTENT_READY_METHOD:
+    type: enum
+    enum: [llm_gateway, codex_curated, manual_curated]
+    required: false
+    default: codex_curated
+    description: Default KEY_CONTENT_READY completion mode; codex_curated blocks for curated dossier import instead of calling the LLM gateway.
   UNPAYWALL_EMAIL:
     type: string
     required: false
     scopes: [dev]
     description: Contact email used for Unpaywall API requests during local literature fulltext acquisition.
+  OPENALEX_MAILTO:
+    type: string
+    required: false
+    scopes: [dev]
+    description: Contact email attached to OpenAlex literature discovery requests for polite-pool identification.
+  OPENALEX_API_KEY:
+    type: string
+    required: false
+    secret: true
+    secret_ref: openalex_api_key
+    scopes: [dev]
+    description: Optional OpenAlex API key for high-volume literature candidate discovery.
+  SEMANTIC_SCHOLAR_API_KEY:
+    type: string
+    required: false
+    secret: true
+    secret_ref: semantic_scholar_api_key
+    scopes: [dev]
+    description: Optional Semantic Scholar Graph API key for literature candidate discovery.
   LITERATURE_PIPELINE_EMBEDDING_URL:
     type: string
     required: false

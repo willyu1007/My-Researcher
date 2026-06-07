@@ -208,7 +208,7 @@ test('literature content-processing settings routes redact provider API keys', a
   assert.equal(initialBody.providers[0]?.api_key_set, false);
   assert.equal(initialBody.embedding.profiles[0]?.model, 'text-embedding-3-large');
   assert.equal(initialBody.extraction.profiles[0]?.model, 'gpt-5.5');
-  assert.equal(initialBody.extraction.runtime.preferred_key_content_method, 'llm_gateway');
+  assert.equal(initialBody.extraction.runtime.preferred_key_content_method, 'codex_curated');
   assert.equal(initialBody.fulltext_parser.grobid.endpoint_url, 'http://localhost:8070');
   assert.equal(typeof initialBody.effective_storage_roots.normalized_text, 'string');
 
@@ -1643,6 +1643,11 @@ test('literature workflow routes support import, topic scope, paper link sync an
     url: '/settings/literature-content-processing',
     payload: {
       providers: [{ provider: 'openai', api_key: 'sk-route-content-processing' }],
+      extraction: {
+        runtime: {
+          preferred_key_content_method: 'llm_gateway',
+        },
+      },
     },
   });
 

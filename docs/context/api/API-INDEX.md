@@ -1,7 +1,7 @@
 # API Index
 
-> Auto-generated at 2026-05-28T10:30:48.757Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `13860deb8602...`)
+> Auto-generated at 2026-06-06T14:50:29.619Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `c5e45edf853a...`)
 
 Total endpoints: **186**
 
@@ -167,8 +167,8 @@ Total endpoints: **186**
 | GET | /topic-selection/v1c/title-cards/{titleCardId}/paper-project-bridges | List PaperProjectBridges under a title-card (T-087 Phase 4 read-only projection). | none | titleCardId | items | — |
 | POST | /topic-selection/v1c/promotion-input-snapshots | Create a v1c PromotionInputSnapshot from a ready v1b-to-v1c input bundle. | none | v1b_to_v1c_input_bundle_id | — | 400, 404, 409 |
 | GET | /topic-selection/v1c/promotion-input-snapshots/{snapshotId} | Read a v1c PromotionInputSnapshot. | none | snapshotId | — | 404 |
-| POST | /topic-selection/v1c/promotion-decision-support | Create promotion decision support, dossier, mini-check, and gate check. | none | promotion_input_snapshot_id | promotion_decision_support, promotion_dossier, argument_readiness_mini_check, promotion_gate_check, handoff | 400, 404, 409 |
-| POST | /topic-selection/v1c/promotion-gate-checks | Create promotion gate support and return the gate check bundle. | none | promotion_input_snapshot_id | promotion_decision_support, promotion_dossier, argument_readiness_mini_check, promotion_gate_check, handoff | 400, 404, 409 |
+| POST | /topic-selection/v1c/promotion-decision-support | Create N2 promotion decision support and dossier. | none | promotion_input_snapshot_id | promotion_decision_support, promotion_dossier | 400, 404, 409 |
+| POST | /topic-selection/v1c/promotion-gate-checks | Create N3 promotion gate check from existing support. | none | — | promotion_decision_support, promotion_dossier, argument_readiness_mini_check, promotion_gate_check, handoff | 400, 404, 409 |
 | GET | /topic-selection/v1c/promotion-decision-support/{supportId} | Read PromotionDecisionSupport. | none | supportId | — | 404 |
 | GET | /topic-selection/v1c/promotion-dossiers/{dossierId} | Read PromotionDossier. | none | dossierId | — | 404 |
 | GET | /topic-selection/v1c/argument-readiness-mini-checks/{miniCheckId} | Read ArgumentReadinessMiniCheck. | none | miniCheckId | — | 404 |

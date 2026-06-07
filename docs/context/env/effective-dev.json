@@ -1,6 +1,6 @@
 {
   "env": "dev",
-  "generated_at_utc": "2026-05-24T06:25:30Z",
+  "generated_at_utc": "2026-06-06T14:50:26Z",
   "values": {
     "APPLICATION_SETTINGS_REPOSITORY": "prisma",
     "APP_ENV": "dev",
@@ -16,12 +16,15 @@
     "EXPERIMENT_FOUNDATION_LOCAL_SCRIPT_ALLOWED_COMMANDS": "node",
     "HOST": "127.0.0.1",
     "LITERATURE_CONTENT_PROCESSING_ROOT": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing",
+    "LITERATURE_KEY_CONTENT_READY_METHOD": "codex_curated",
     "LITERATURE_PIPELINE_EMBEDDING_MODEL": "text-embedding-v1",
     "LITERATURE_USER_AUTH_PIPELINE_ENABLED": "false",
     "OPENAI_API_KEY": "***REDACTED***",
+    "OPENALEX_API_KEY": "***REDACTED***",
     "PAPER_ENGINEER_LOCAL_DATA_ROOT": "/Volumes/DataDisk/Data/PaperEngineer",
     "PORT": 3000,
     "RESEARCH_LIFECYCLE_REPOSITORY": "prisma",
+    "SEMANTIC_SCHOLAR_API_KEY": "***REDACTED***",
     "SERVICE_NAME": "paper-engineering-assistant-backend",
     "TITLE_CARD_REPOSITORY": "prisma"
   }

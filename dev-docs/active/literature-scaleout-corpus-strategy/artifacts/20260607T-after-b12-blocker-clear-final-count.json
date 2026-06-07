@@ -1,0 +1,620 @@
+{
+  "run_id": "20260607T-after-b12-blocker-clear-final-count",
+  "generated_at": "2026-06-07T02:55:46.903Z",
+  "counting_contract": {
+    "candidate_pool_records": "All LiteratureDiscoveryCandidate rows; broad metadata-first discovery only.",
+    "candidate_pool_discovered_records": "Candidate rows with status DISCOVERED.",
+    "candidate_pool_accepted_records": "Candidate rows with status READY_FOR_PROMOTION or PROMOTED.",
+    "candidate_pool_rejected_records": "Candidate rows with status REJECTED.",
+    "candidate_pool_duplicate_records": "Candidate rows with status DUPLICATE.",
+    "candidate_pool_deferred_records": "Candidate rows with status DEFERRED.",
+    "managed_corpus_records": "LiteratureRecord rows with stable corpus tags and no excluded-from-corpus tag.",
+    "adaptive_corpus_records": "Compatibility alias for managed_corpus_records.",
+    "effective_literature_records": "Managed corpus rows with all standard stages through INDEXED=SUCCEEDED.",
+    "pipeline_complete_records": "Compatibility alias for effective_literature_records.",
+    "pipeline_incomplete_records": "Managed corpus rows not effective yet; includes not-started, stale, failed, and blocked records.",
+    "pipeline_blocked_records": "Managed corpus rows with an explicit FAILED/BLOCKED stage blocker.",
+    "pipeline_not_started_records": "Managed corpus rows where every standard stage is still NOT_STARTED.",
+    "excluded_non_corpus_records": "LiteratureRecord rows outside managed corpus, including historical evidence and explicit exclusions.",
+    "db_total_records": "All LiteratureRecord rows; database hygiene only, not literature progress."
+  },
+  "metrics": {
+    "candidate_batches": 2,
+    "candidate_pool_records": 62,
+    "candidate_pool_discovered_records": 0,
+    "candidate_pool_accepted_records": 40,
+    "candidate_pool_ready_for_promotion_records": 26,
+    "candidate_pool_promoted_records": 14,
+    "candidate_pool_rejected_records": 4,
+    "candidate_pool_duplicate_records": 9,
+    "candidate_pool_deferred_records": 9,
+    "managed_corpus_records": 160,
+    "adaptive_corpus_records": 160,
+    "effective_literature_records": 157,
+    "pipeline_complete_records": 157,
+    "pipeline_incomplete_records": 3,
+    "pipeline_blocked_records": 3,
+    "pipeline_not_started_records": 0,
+    "excluded_non_corpus_records": 6,
+    "db_total_records": 166
+  },
+  "candidate_pool_distribution": {
+    "by_status": {
+      "DISCOVERED": 0,
+      "DUPLICATE": 9,
+      "REJECTED": 4,
+      "DEFERRED": 9,
+      "READY_FOR_PROMOTION": 26,
+      "PROMOTED": 14
+    },
+    "by_source_provider": {
+      "openalex": 62
+    },
+    "batches": [
+      {
+        "batch_id": "23f968b4-aeda-48eb-b591-8f5ae2dd66d0",
+        "batch_code": "B10-20260606T-b10-openalex-apply",
+        "status": "COMPLETED",
+        "direction_scope": [
+          "direction:rag-aware-allocation",
+          "direction:llm-serving-resource-allocation",
+          "direction:test-time-compute-budgeting"
+        ],
+        "source_providers": [
+          "openalex"
+        ],
+        "candidate_count": 2,
+        "completed_at": "2026-06-06T10:15:19.811Z"
+      },
+      {
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+        "status": "COMPLETED",
+        "direction_scope": [
+          "direction:rag-aware-allocation",
+          "direction:llm-serving-resource-allocation",
+          "direction:test-time-compute-budgeting"
+        ],
+        "source_providers": [
+          "openalex"
+        ],
+        "candidate_count": 60,
+        "completed_at": "2026-06-06T10:35:37.591Z"
+      }
+    ],
+    "sample": [
+      {
+        "candidate_id": "e36829f4-0495-49bc-8a6a-22dd970fbf17",
+        "batch_id": "23f968b4-aeda-48eb-b591-8f5ae2dd66d0",
+        "title": "Introducing the Bacterial and Viral Bioinformatics Resource Center (BV-BRC): a resource combining PATRIC, IRD and ViPR",
+        "year": 2022,
+        "source_provider": "openalex",
+        "status": "REJECTED",
+        "dedup_key": "doi:10.1093/nar/gkac1003",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "4a93adb5-74e0-46a3-8ebb-1cd542f11691",
+        "batch_id": "23f968b4-aeda-48eb-b591-8f5ae2dd66d0",
+        "title": "A Survey of Large Language Models",
+        "year": 2026,
+        "source_provider": "openalex",
+        "status": "REJECTED",
+        "dedup_key": "doi:10.1007/s11704-026-60308-3",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "d4ddd77a-f689-4da3-894a-cd9ac90cb422",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "Bullet: Boosting GPU Utilization for LLM Serving via Dynamic Spatial-Temporal Orchestration",
+        "year": 2026,
+        "source_provider": "openalex",
+        "status": "DUPLICATE",
+        "dedup_key": "doi:10.1145/3779212.3790135",
+        "matched_literature_id": "LIT-0312",
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "24af1274-e826-49f6-87f2-758d6fdf64a4",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "AdaGReS:Adaptive Greedy Context Selection via Redundancy-Aware Scoring for Token-Budgeted RAG",
+        "year": 2025,
+        "source_provider": "openalex",
+        "status": "DUPLICATE",
+        "dedup_key": "arxiv:2512.25052",
+        "matched_literature_id": "LIT-0335",
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "3e3a2314-055a-45a5-9446-f4a894efe9f6",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "RTP-LLM: High-Performance Alibaba LLM Inference Engine",
+        "year": 2026,
+        "source_provider": "openalex",
+        "status": "PROMOTED",
+        "dedup_key": "arxiv:2605.29639",
+        "matched_literature_id": null,
+        "promoted_literature_id": "LIT-0165"
+      },
+      {
+        "candidate_id": "224f1d1d-d5fa-4dfa-ac98-7cf3e2175ac1",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "Adaptive Control of Retrieval-Augmented Generation for Large Language Models Through Reflective Tags",
+        "year": 2024,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.3390/electronics13234643",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "1d0fdd53-adcb-4d9c-b66f-7cd36175c79f",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "Adaptive Control of Retrieval-Augmented Generation for LLMs Through Reflective Tags",
+        "year": 2024,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.20944/preprints202408.2152.v1",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "88a7c4c9-bc22-4332-97cd-739f809b8c41",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "Adaptive Hybrid Retrieval-Augmented Generation with Context-Aware Confidence Control",
+        "year": 2025,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.1109/eit67313.2025.11231898",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "965790dc-ecc4-4cab-9211-e61b75ff04df",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "AdaGReS:Adaptive Greedy Context Selection via Redundancy-Aware Scoring for Token-Budgeted RAG",
+        "year": 2025,
+        "source_provider": "openalex",
+        "status": "DUPLICATE",
+        "dedup_key": "doi:10.48550/arxiv.2512.25052",
+        "matched_literature_id": "LIT-0335",
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "7bfff32a-c08e-41f4-89b9-c17b53f35fc7",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "Adaptive iterative retrieval for enhanced retrieval-augmented generation",
+        "year": 2025,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.1016/j.neucom.2025.132272",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "776cebfa-d933-4435-84e5-47f50b23ec41",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "Adaptive Retrieval-Augmented Generation for Conversational Systems",
+        "year": 2025,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.18653/v1/2025.findings-naacl.30",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "7023f524-1172-4ae9-ba1c-31c4139e3c27",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "Adaptive Retrieval-Augmented Generation for Conversational Systems",
+        "year": 2024,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.48550/arxiv.2407.21712",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "dfd50389-a24a-4baa-832f-45aab54ddbf7",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "RAPID-Serve: Resource-efficient and Accelerated P/D Intra-GPU Disaggregation",
+        "year": 2026,
+        "source_provider": "openalex",
+        "status": "DUPLICATE",
+        "dedup_key": "doi:10.48550/arxiv.2601.11822",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "7d471962-485d-4090-a98b-38c9a3fcd894",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "AU-RAG: Agent-based Universal Retrieval Augmented Generation",
+        "year": 2024,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.1145/3673791.3698416",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "f5fecf02-aee3-4236-8c02-2e8c80d602da",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "CDF-RAG: Causal Dynamic Feedback for Adaptive Retrieval-Augmented Generation",
+        "year": 2025,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.48550/arxiv.2504.12560",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "77ba81df-3c4c-466a-b88d-f2d6b1e5590a",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "CtrlA: Adaptive Retrieval-Augmented Generation via Inherent Control",
+        "year": 2025,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.18653/v1/2025.findings-acl.652",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "ad039b65-4851-423c-910f-1bf8e602433d",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "CtrlA: Adaptive Retrieval-Augmented Generation via Inherent Control",
+        "year": 2024,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.48550/arxiv.2405.18727",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "6822e8eb-f52b-418c-8780-7ff054f56d78",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "Domain-Specific Retrieval-Augmented Generation with Adaptive Embedding and Knowledge Distillation-Based Re-Ranking",
+        "year": 2025,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.3390/pr14010099",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "60bd7a85-7934-48c0-9bb1-173ff9f4b7ec",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "Embedding-Informed Adaptive Retrieval-Augmented Generation of Large Language Models",
+        "year": 2024,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.48550/arxiv.2404.03514",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      },
+      {
+        "candidate_id": "56ee3074-16d4-4069-a640-90a7c2855831",
+        "batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+        "title": "External Knowledge Is Not Always Needed: An Adaptive Retrieval Augmented Generation Method",
+        "year": 2024,
+        "source_provider": "openalex",
+        "status": "READY_FOR_PROMOTION",
+        "dedup_key": "doi:10.1109/aiim64537.2024.10934284",
+        "matched_literature_id": null,
+        "promoted_literature_id": null
+      }
+    ]
+  },
+  "managed_corpus_distribution": {
+    "by_collection": {
+      "collection:core": 50,
+      "collection:strategy-support": 44,
+      "collection:system-support": 50,
+      "collection:theory-support": 16
+    },
+    "by_direction": {
+      "direction:llm-serving-resource-allocation": 50,
+      "direction:rag-aware-allocation": 47,
+      "direction:test-time-compute-budgeting": 46
+    },
+    "by_batch": {
+      "batch:B10-20260606T-b10-openalex-pilot-apply": 14,
+      "batch:b1-core-high-precision": 14,
+      "batch:b2-core-system-bridge": 12,
+      "batch:b3-system-substrate": 19,
+      "batch:b4-strategy-policy": 19,
+      "batch:b5-theory-mapping": 13,
+      "batch:b6-citation-expansion": 12,
+      "batch:b7-frontier-three-direction-expansion": 16,
+      "batch:b8-direction-balanced-scaleout": 19,
+      "batch:b9-new-collection-round": 21,
+      "batch:f1-import-missing-core-classic": 1
+    },
+    "by_priority": {
+      "priority:p0": 24,
+      "priority:p1": 83,
+      "priority:p2": 27,
+      "priority:p3": 12
+    },
+    "by_rights_class": {
+      "OA": 23,
+      "UNKNOWN": 137
+    }
+  },
+  "managed_corpus_pipeline": {
+    "stage_coverage": {
+      "CITATION_NORMALIZED": {
+        "succeeded": 160,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 0
+      },
+      "ABSTRACT_READY": {
+        "succeeded": 160,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 0
+      },
+      "FULLTEXT_PREPROCESSED": {
+        "succeeded": 157,
+        "blocked": 3,
+        "failed": 0,
+        "not_started": 0
+      },
+      "KEY_CONTENT_READY": {
+        "succeeded": 157,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 3
+      },
+      "CHUNKED": {
+        "succeeded": 157,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 3
+      },
+      "EMBEDDED": {
+        "succeeded": 157,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 3
+      },
+      "INDEXED": {
+        "succeeded": 157,
+        "blocked": 0,
+        "failed": 0,
+        "not_started": 3
+      }
+    },
+    "with_raw_assets": 157,
+    "with_fulltext_documents": 157,
+    "with_embedding_chunks": 157,
+    "incomplete_records": [
+      {
+        "literature_id": "LIT-0163",
+        "title": "NeuStream: Bridging Deep Learning Serving and Stream Processing",
+        "tags": [
+          "corpus:managed",
+          "direction:llm-serving-resource-allocation",
+          "collection:system-support",
+          "batch:B10-20260606T-b10-openalex-pilot-apply",
+          "triage:high",
+          "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+        ],
+        "stages": {
+          "CITATION_NORMALIZED": "SUCCEEDED",
+          "ABSTRACT_READY": "SUCCEEDED",
+          "FULLTEXT_PREPROCESSED": "BLOCKED",
+          "KEY_CONTENT_READY": "NOT_STARTED",
+          "CHUNKED": "NOT_STARTED",
+          "EMBEDDED": "NOT_STARTED",
+          "INDEXED": "NOT_STARTED"
+        },
+        "blocker": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "BLOCKED",
+          "reason_code": "FULLTEXT_SOURCE_MISSING",
+          "reason_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete."
+        }
+      },
+      {
+        "literature_id": "LIT-0166",
+        "title": "WindServe: Efficient Phase-Disaggregated LLM Serving with Stream-based Dynamic Scheduling",
+        "tags": [
+          "corpus:managed",
+          "direction:llm-serving-resource-allocation",
+          "collection:system-support",
+          "batch:B10-20260606T-b10-openalex-pilot-apply",
+          "triage:high",
+          "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+        ],
+        "stages": {
+          "CITATION_NORMALIZED": "SUCCEEDED",
+          "ABSTRACT_READY": "SUCCEEDED",
+          "FULLTEXT_PREPROCESSED": "BLOCKED",
+          "KEY_CONTENT_READY": "NOT_STARTED",
+          "CHUNKED": "NOT_STARTED",
+          "EMBEDDED": "NOT_STARTED",
+          "INDEXED": "NOT_STARTED"
+        },
+        "blocker": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "BLOCKED",
+          "reason_code": "FULLTEXT_SOURCE_MISSING",
+          "reason_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete."
+        }
+      },
+      {
+        "literature_id": "LIT-0257",
+        "title": "Online Computation and Competitive Analysis",
+        "tags": [
+          "batch:b5-theory-mapping",
+          "bridge:system-strategy",
+          "classification:rule-derived",
+          "classification:theory-inclusion-card-ready",
+          "collection:theory-support",
+          "decision:batch-schedule",
+          "metric:p95-latency",
+          "metric:regret",
+          "priority:p3",
+          "query:q-thy-02",
+          "theory:constrained-optimization",
+          "theory:online-scheduling"
+        ],
+        "stages": {
+          "CITATION_NORMALIZED": "SUCCEEDED",
+          "ABSTRACT_READY": "SUCCEEDED",
+          "FULLTEXT_PREPROCESSED": "BLOCKED",
+          "KEY_CONTENT_READY": "NOT_STARTED",
+          "CHUNKED": "NOT_STARTED",
+          "EMBEDDED": "NOT_STARTED",
+          "INDEXED": "NOT_STARTED"
+        },
+        "blocker": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "BLOCKED",
+          "reason_code": "FULLTEXT_SOURCE_MISSING",
+          "reason_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete."
+        }
+      }
+    ],
+    "blocked_records": [
+      {
+        "literature_id": "LIT-0163",
+        "title": "NeuStream: Bridging Deep Learning Serving and Stream Processing",
+        "tags": [
+          "corpus:managed",
+          "direction:llm-serving-resource-allocation",
+          "collection:system-support",
+          "batch:B10-20260606T-b10-openalex-pilot-apply",
+          "triage:high",
+          "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+        ],
+        "stages": {
+          "CITATION_NORMALIZED": "SUCCEEDED",
+          "ABSTRACT_READY": "SUCCEEDED",
+          "FULLTEXT_PREPROCESSED": "BLOCKED",
+          "KEY_CONTENT_READY": "NOT_STARTED",
+          "CHUNKED": "NOT_STARTED",
+          "EMBEDDED": "NOT_STARTED",
+          "INDEXED": "NOT_STARTED"
+        },
+        "blocker": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "BLOCKED",
+          "reason_code": "FULLTEXT_SOURCE_MISSING",
+          "reason_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete."
+        }
+      },
+      {
+        "literature_id": "LIT-0166",
+        "title": "WindServe: Efficient Phase-Disaggregated LLM Serving with Stream-based Dynamic Scheduling",
+        "tags": [
+          "corpus:managed",
+          "direction:llm-serving-resource-allocation",
+          "collection:system-support",
+          "batch:B10-20260606T-b10-openalex-pilot-apply",
+          "triage:high",
+          "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+        ],
+        "stages": {
+          "CITATION_NORMALIZED": "SUCCEEDED",
+          "ABSTRACT_READY": "SUCCEEDED",
+          "FULLTEXT_PREPROCESSED": "BLOCKED",
+          "KEY_CONTENT_READY": "NOT_STARTED",
+          "CHUNKED": "NOT_STARTED",
+          "EMBEDDED": "NOT_STARTED",
+          "INDEXED": "NOT_STARTED"
+        },
+        "blocker": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "BLOCKED",
+          "reason_code": "FULLTEXT_SOURCE_MISSING",
+          "reason_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete."
+        }
+      },
+      {
+        "literature_id": "LIT-0257",
+        "title": "Online Computation and Competitive Analysis",
+        "tags": [
+          "batch:b5-theory-mapping",
+          "bridge:system-strategy",
+          "classification:rule-derived",
+          "classification:theory-inclusion-card-ready",
+          "collection:theory-support",
+          "decision:batch-schedule",
+          "metric:p95-latency",
+          "metric:regret",
+          "priority:p3",
+          "query:q-thy-02",
+          "theory:constrained-optimization",
+          "theory:online-scheduling"
+        ],
+        "stages": {
+          "CITATION_NORMALIZED": "SUCCEEDED",
+          "ABSTRACT_READY": "SUCCEEDED",
+          "FULLTEXT_PREPROCESSED": "BLOCKED",
+          "KEY_CONTENT_READY": "NOT_STARTED",
+          "CHUNKED": "NOT_STARTED",
+          "EMBEDDED": "NOT_STARTED",
+          "INDEXED": "NOT_STARTED"
+        },
+        "blocker": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "BLOCKED",
+          "reason_code": "FULLTEXT_SOURCE_MISSING",
+          "reason_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete."
+        }
+      }
+    ],
+    "not_started_records": []
+  },
+  "excluded_non_corpus_distribution": {
+    "by_title_bucket": {
+      "explicitly_excluded": 1,
+      "other_untagged": 4,
+      "topic_selection_v1b_api_evidence": 1
+    },
+    "sample": [
+      {
+        "literature_id": "LIT-0023",
+        "title": "RAG fine-tuning method for traceable topic selection 1",
+        "bucket": "other_untagged"
+      },
+      {
+        "literature_id": "LIT-0024",
+        "title": "RAG freshness risk and retrieval conflict analysis 2",
+        "bucket": "other_untagged"
+      },
+      {
+        "literature_id": "LIT-0025",
+        "title": "Benchmark comparison for RAG topic planning 3",
+        "bucket": "other_untagged"
+      },
+      {
+        "literature_id": "LIT-0026",
+        "title": "Background overview for RAG paper engineering 4",
+        "bucket": "other_untagged"
+      },
+      {
+        "literature_id": "LIT-0152",
+        "title": "Topic Selection v1b API Evidence v1b-prisma-harness-1780716078313-338576",
+        "bucket": "topic_selection_v1b_api_evidence"
+      },
+      {
+        "literature_id": "LIT-0337",
+        "title": "SparKV: Overhead-Aware KV Cache Loading for Efficient On-Device LLM Inference",
+        "bucket": "explicitly_excluded"
+      }
+    ]
+  },
+  "scaleout_baseline": {
+    "candidate_pool_before_b10": 62,
+    "managed_corpus_before_b10": 160,
+    "effective_literature_before_b10": 157,
+    "incomplete_records_before_b10": 3,
+    "manual_blockers_before_b10": 3,
+    "not_started_records_before_b10": 0,
+    "excluded_non_corpus_records": 6
+  }
+}

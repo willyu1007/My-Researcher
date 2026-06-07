@@ -101,7 +101,9 @@ test('backfill dry-run scales to 10000 literature records without triggering pro
 test('backfill global worksets exclude medium-confidence auto-pull candidates by default', async () => {
   const repository = new InMemoryLiteratureRepository();
   const fakeFlow = new FakeFlowRunner();
-  const service = new LiteratureBackfillService(repository, fakeFlow as unknown as LiteratureFlowService);
+  const service = new LiteratureBackfillService(repository, fakeFlow as unknown as LiteratureFlowService, {
+    resolvePreferredKeyContentMethod: async () => 'llm_gateway',
+  });
 
   await seedLiterature(repository, 'LIT-BACKFILL-HIGH');
   await seedQualityAssessment(repository, 'LIT-BACKFILL-HIGH', 'high_confidence');
@@ -200,6 +202,36 @@ test('backfill dry-run estimates zero key-content provider calls for curated met
   assert.equal(response.estimate.estimated_provider_calls.embedding_calls, 1);
   assert.equal(response.estimate.curation_required_count, 1);
   assert.equal(response.estimate.plan_items[0]?.key_content_curation_status, 'CURATION_REQUIRED');
+});
+
+test('backfill dry-run estimates llm_gateway key-content calls from ready fulltext sections', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const fakeFlow = new FakeFlowRunner();
+  const service = new LiteratureBackfillService(repository, fakeFlow as unknown as LiteratureFlowService, {
+    resolvePreferredKeyContentMethod: async () => 'llm_gateway',
+  });
+  await seedLiterature(repository, 'LIT-BACKFILL-KEY-CALLS');
+  await seedReadyFulltext(repository, 'LIT-BACKFILL-KEY-CALLS', [
+    'Section one has extractable text.',
+    'Section two also has extractable text.',
+    '',
+  ]);
+
+  const response = await service.dryRun({
+    target_stage: 'KEY_CONTENT_READY',
+    workset: {
+      literature_ids: ['LIT-BACKFILL-KEY-CALLS'],
+      stage_filters: {
+        missing: true,
+        stale: true,
+        failed: true,
+      },
+    },
+  });
+
+  assert.equal(response.estimate.planned_item_count, 1);
+  assert.equal(response.estimate.stage_counts.KEY_CONTENT_READY, 1);
+  assert.equal(response.estimate.estimated_provider_calls.extraction_calls, 3);
 });
 
 test('backfill job marks curated KEY_CONTENT_READY blockers as waiting for dossier', async () => {
@@ -667,6 +699,73 @@ async function seedLiterature(
   });
 }
 
+async function seedReadyFulltext(
+  repository: InMemoryLiteratureRepository,
+  literatureId: string,
+  sectionTexts: string[],
+): Promise<void> {
+  const now = new Date().toISOString();
+  const documentId = `${literatureId}-doc`;
+  const normalizedText = sectionTexts.join('\n\n');
+  const sections = sectionTexts.map((text, index) => {
+    const position = index + 1;
+    return {
+      id: `${literatureId}-section-row-${position}`,
+      documentId,
+      sectionId: `section-${String(position).padStart(4, '0')}`,
+      title: `Section ${position}`,
+      level: 1,
+      orderIndex: index,
+      startOffset: 0,
+      endOffset: text.length,
+      pageStart: null,
+      pageEnd: null,
+      checksum: sha256Text(`${position}:${text}`),
+      createdAt: now,
+      updatedAt: now,
+    };
+  });
+  const paragraphs = sectionTexts.map((text, index) => {
+    const position = index + 1;
+    return {
+      id: `${literatureId}-paragraph-row-${position}`,
+      documentId,
+      paragraphId: `para-${String(position).padStart(4, '0')}`,
+      sectionId: `section-${String(position).padStart(4, '0')}`,
+      orderIndex: 0,
+      text,
+      startOffset: 0,
+      endOffset: text.length,
+      pageNumber: null,
+      checksum: sha256Text(`${position}:${text}`),
+      confidence: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+  });
+  await repository.upsertFulltextExtractionBundle({
+    document: {
+      id: documentId,
+      literatureId,
+      sourceAssetId: `${literatureId}-asset`,
+      normalizedText,
+      normalizedTextPath: null,
+      normalizedTextChecksum: sha256Text(normalizedText),
+      parserName: 'unit-test',
+      parserVersion: '1',
+      parserArtifactPath: null,
+      parserArtifactMimeType: null,
+      status: 'READY',
+      diagnostics: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    sections,
+    paragraphs,
+    anchors: [],
+  });
+}
+
 async function seedQualityAssessment(
   repository: InMemoryLiteratureRepository,
   literatureId: string,
@@ -685,6 +784,10 @@ async function seedQualityAssessment(
     createdAt: now,
     updatedAt: now,
   });
+}
+
+function sha256Text(value: string): string {
+  return crypto.createHash('sha256').update(value).digest('hex');
 }
 
 async function waitForJobTerminal(

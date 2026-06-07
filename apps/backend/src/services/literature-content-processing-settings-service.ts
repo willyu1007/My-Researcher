@@ -28,6 +28,7 @@ const FULLTEXT_PARSER_KEY = 'fulltext_parser';
 const DEFAULT_GROBID_ENDPOINT_URL = 'http://localhost:8070';
 export const PAPER_ENGINEER_LOCAL_DATA_ROOT_ENV = 'PAPER_ENGINEER_LOCAL_DATA_ROOT';
 export const LITERATURE_CONTENT_PROCESSING_ROOT_ENV = 'LITERATURE_CONTENT_PROCESSING_ROOT';
+export const LITERATURE_KEY_CONTENT_READY_METHOD_ENV = 'LITERATURE_KEY_CONTENT_READY_METHOD';
 export const DEFAULT_PAPER_ENGINEER_LOCAL_DATA_ROOT = '/Volumes/DataDisk/Data/PaperEngineer';
 
 export function resolveDefaultPaperEngineerLocalDataRoot(): string {
@@ -52,6 +53,13 @@ function resolveConfiguredFilesystemPath(value: string | undefined): string | nu
     return path.join(os.homedir(), trimmed.slice(2));
   }
   return path.resolve(trimmed);
+}
+
+function readConfiguredKeyContentReadyMethod(value: string | undefined): LiteratureKeyContentReadyMethod | null {
+  const trimmed = value?.trim();
+  return trimmed === 'llm_gateway' || trimmed === 'codex_curated' || trimmed === 'manual_curated'
+    ? trimmed
+    : null;
 }
 
 const DEFAULT_EMBEDDING_PROFILES: LiteratureEmbeddingProfileDTO[] = [
@@ -83,7 +91,7 @@ const DEFAULT_EXTRACTION_PROFILES: LiteratureExtractionProfileDTO[] = [
 ];
 
 const DEFAULT_EXTRACTION_RUNTIME: LiteratureContentProcessingSettingsDTO['extraction']['runtime'] = {
-  preferred_key_content_method: 'llm_gateway',
+  preferred_key_content_method: 'codex_curated',
   section_concurrency: 3,
   request_timeout_ms: 120_000,
   max_retries: 1,
@@ -692,7 +700,7 @@ export class LiteratureContentProcessingSettingsService {
       : {};
     return {
       preferred_key_content_method: this.readKeyContentReadyMethod(row.preferred_key_content_method)
-        ?? DEFAULT_EXTRACTION_RUNTIME.preferred_key_content_method,
+        ?? this.resolveDefaultKeyContentReadyMethod(),
       section_concurrency: this.clampInteger(
         this.readNumber(row.section_concurrency, DEFAULT_EXTRACTION_RUNTIME.section_concurrency),
         DEFAULT_EXTRACTION_RUNTIME.section_concurrency,
@@ -751,9 +759,12 @@ export class LiteratureContentProcessingSettingsService {
   }
 
   private readKeyContentReadyMethod(value: unknown): LiteratureKeyContentReadyMethod | null {
-    return value === 'llm_gateway' || value === 'codex_curated' || value === 'manual_curated'
-      ? value
-      : null;
+    return typeof value === 'string' ? readConfiguredKeyContentReadyMethod(value) : null;
+  }
+
+  private resolveDefaultKeyContentReadyMethod(): LiteratureKeyContentReadyMethod {
+    return readConfiguredKeyContentReadyMethod(process.env[LITERATURE_KEY_CONTENT_READY_METHOD_ENV])
+      ?? DEFAULT_EXTRACTION_RUNTIME.preferred_key_content_method;
   }
 
   private normalizeKeyContentReadyMethod(value: LiteratureKeyContentReadyMethod): LiteratureKeyContentReadyMethod {

@@ -1,0 +1,816 @@
+{
+  "run_id": "20260607T-b12-codex-curated-batch3-dossier-import",
+  "generated_at": "2026-06-07T00:53:48.085Z",
+  "states": [
+    {
+      "literature_id": "LIT-0159",
+      "literature": {
+        "id": "LIT-0159",
+        "title": "HexAGenT: Efficient Agentic LLM Serving via Workflow- and Heterogeneity-Aware Scheduling",
+        "year": 2026,
+        "rightsClass": "UNKNOWN",
+        "tags": [
+          "corpus:managed",
+          "direction:llm-serving-resource-allocation",
+          "collection:system-support",
+          "batch:B10-20260606T-b10-openalex-pilot-apply",
+          "triage:high",
+          "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+        ],
+        "activeEmbeddingVersionId": null,
+        "updatedAt": "2026-06-07T00:53:47.975Z"
+      },
+      "stages": [
+        {
+          "stageCode": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "detail": {
+            "source": "collection_metadata",
+            "checksum": "34c744674470351346c1588e46c7234510369ab1b38d7a89c5c5befbeb850875",
+            "language": "en",
+            "generated": false,
+            "confidence": 0.95,
+            "source_ref": {
+              "field": "rawPayload.abstract",
+              "provider": "web",
+              "ref_type": "literature_source",
+              "source_id": "LSRC-0168",
+              "fetched_at": "2026-06-06T10:54:55.559Z",
+              "source_url": "https://arxiv.org/abs/2605.16637",
+              "source_item_id": "openalex:W7161915195"
+            },
+            "stage_code": "ABSTRACT_READY",
+            "reason_codes": [],
+            "abstract_ready": true,
+            "abstract_profile_id": "66713cd0-df91-4096-bbfe-773b3a15892e"
+          },
+          "updatedAt": "2026-06-06T11:11:21.800Z",
+          "lastRunId": "e1a06018-a78b-4dfc-b660-93d7c7d3f857"
+        },
+        {
+          "stageCode": "CHUNKED",
+          "status": "NOT_STARTED",
+          "detail": {},
+          "updatedAt": "2026-06-06T11:11:21.725Z",
+          "lastRunId": null
+        },
+        {
+          "stageCode": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "detail": {
+            "confidence": 1,
+            "stage_code": "CITATION_NORMALIZED",
+            "parsed_year": 2026,
+            "source_refs": [
+              {
+                "provider": "web",
+                "ref_type": "literature_source",
+                "source_id": "LSRC-0168",
+                "fetched_at": "2026-06-06T10:54:55.559Z",
+                "source_url": "https://arxiv.org/abs/2605.16637",
+                "source_item_id": "openalex:W7161915195"
+              }
+            ],
+            "input_checksum": "6353c6f0b62359663a902f97a504148aa43ac638ac0731ebcef166a2ea9e04ad",
+            "normalized_doi": null,
+            "normalized_title": "hexagent efficient agentic llm serving via workflow and heterogeneity aware scheduling",
+            "citation_complete": true,
+            "normalized_authors": [
+              "binhang yuan",
+              "chen chia wang",
+              "jiawei jiang",
+              "ke zhou",
+              "wenshuang li",
+              "xu xu",
+              "you peng",
+              "youhe jiang"
+            ],
+            "citation_profile_id": "71ac241f-62d1-4ba9-9b78-58d7aef52051",
+            "normalized_arxiv_id": "2605.16637",
+            "normalized_source_url": "https://arxiv.org/abs/2605.16637",
+            "incomplete_reason_codes": [],
+            "title_authors_year_hash": "db09a0d2652a0cca4fed303f4b394c570b7fc7c2"
+          },
+          "updatedAt": "2026-06-06T11:11:21.783Z",
+          "lastRunId": "e1a06018-a78b-4dfc-b660-93d7c7d3f857"
+        },
+        {
+          "stageCode": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "detail": {},
+          "updatedAt": "2026-06-06T11:11:21.725Z",
+          "lastRunId": null
+        },
+        {
+          "stageCode": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "GROBID_TEI_PARSED",
+                "severity": "info",
+                "text_length": 53931,
+                "anchor_count": 159,
+                "endpoint_url": "http://localhost:8070",
+                "section_count": 54,
+                "paragraph_count": 105,
+                "parser_quality_score": 1,
+                "parser_quality_bucket": "high",
+                "parser_quality_inputs": {
+                  "page_count": 20,
+                  "text_length": 53931,
+                  "anchor_count": 159,
+                  "section_count": 54,
+                  "paragraph_count": 105,
+                  "average_paragraph_length": 499
+                }
+              }
+            ],
+            "document_id": "0f319a01-8ffb-400d-bb1d-6375155ae618",
+            "text_length": 54089,
+            "anchor_count": 159,
+            "artifact_type": "PREPROCESSED_TEXT",
+            "section_count": 54,
+            "paragraph_count": 105,
+            "source_asset_id": "c0155e37-8183-4487-8fa9-99e55a7d43c6",
+            "normalized_text_checksum": "425efc1203e9e907349f2dccebdc818e873b16c9a4a8206de001819650a7e37d"
+          },
+          "updatedAt": "2026-06-06T11:24:18.724Z",
+          "lastRunId": "dbc7fbf8-d4f8-4b20-bb46-37504fb37c72"
+        },
+        {
+          "stageCode": "INDEXED",
+          "status": "NOT_STARTED",
+          "detail": {},
+          "updatedAt": "2026-06-06T11:11:21.725Z",
+          "lastRunId": null
+        },
+        {
+          "stageCode": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "detail": {
+            "source": "codex_curated",
+            "checksum": "d3f151900b22c36c858d2938bcbbd1b29ad1d339cdf6b0fcf94512a04a69161a",
+            "generated": true,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "e19dd209-9496-4c7f-83bc-e6287f86677d",
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_BATCH3",
+                "run_id": "20260607T-b12-codex-curated-batch3-dossier-dry-run",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "literature_id": "LIT-0159",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T00:53:47.975Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ],
+            "readiness_status": "READY",
+            "key_content_ready": true
+          },
+          "updatedAt": "2026-06-07T00:53:47.975Z",
+          "lastRunId": null
+        }
+      ],
+      "artifacts": {
+        "key_content": {
+          "id": "e19dd209-9496-4c7f-83bc-e6287f86677d",
+          "stageCode": "KEY_CONTENT_READY",
+          "artifactType": "KEY_CONTENT_DOSSIER",
+          "checksum": "d3f151900b22c36c858d2938bcbbd1b29ad1d339cdf6b0fcf94512a04a69161a",
+          "createdAt": "2026-06-07T00:53:47.975Z",
+          "payload_summary": {
+            "readiness_status": "READY",
+            "schema_version": "key_content.v1",
+            "extraction_profile": "paper_semantic_dossier.v1",
+            "display_digest": "HexAGenT dossier covering agentic workflow scheduling, online DAG horizons, heterogeneous prefill-decode placement, and workflow-level SLO results.",
+            "input_refs": {
+              "title": "HexAGenT: Efficient Agentic LLM Serving via Workflow- and Heterogeneity-Aware Scheduling",
+              "curator": "codex",
+              "imported_at": "2026-06-07T00:53:47.975Z",
+              "literature_id": "LIT-0159",
+              "curation_bundle": "dev-docs/active/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-codex-curated-batch3-lit-0159-bundle-export.json",
+              "curation_source": "codex_curated",
+              "abstract_checksum": "34c744674470351346c1588e46c7234510369ab1b38d7a89c5c5befbeb850875",
+              "fulltext_checksum": "425efc1203e9e907349f2dccebdc818e873b16c9a4a8206de001819650a7e37d",
+              "abstract_profile_id": "66713cd0-df91-4096-bbfe-773b3a15892e",
+              "external_model_calls": 0,
+              "fulltext_document_id": "0f319a01-8ffb-400d-bb1d-6375155ae618",
+              "fulltext_source_asset_id": "c0155e37-8183-4487-8fa9-99e55a7d43c6"
+            },
+            "category_counts": {
+              "method": 4,
+              "experiments": 3,
+              "limitations": 2,
+              "key_findings": 3,
+              "contributions": 3,
+              "table_insights": 1,
+              "figure_insights": 1,
+              "reproducibility": 1,
+              "research_problem": 2,
+              "automation_signals": 2,
+              "claim_evidence_map": 2,
+              "evidence_candidates": 3,
+              "datasets_and_benchmarks": 2,
+              "related_work_positioning": 2
+            },
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_BATCH3",
+                "run_id": "20260607T-b12-codex-curated-batch3-dossier-dry-run",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "literature_id": "LIT-0159",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T00:53:47.975Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ]
+          }
+        },
+        "chunks": null,
+        "embeddings": null,
+        "index": null
+      },
+      "embedding_versions": []
+    },
+    {
+      "literature_id": "LIT-0161",
+      "literature": {
+        "id": "LIT-0161",
+        "title": "KVDirect: Distributed Disaggregated LLM Inference",
+        "year": 2024,
+        "rightsClass": "UNKNOWN",
+        "tags": [
+          "corpus:managed",
+          "direction:llm-serving-resource-allocation",
+          "collection:system-support",
+          "batch:B10-20260606T-b10-openalex-pilot-apply",
+          "triage:high",
+          "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+        ],
+        "activeEmbeddingVersionId": null,
+        "updatedAt": "2026-06-07T00:53:48.025Z"
+      },
+      "stages": [
+        {
+          "stageCode": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "detail": {
+            "source": "collection_metadata",
+            "checksum": "613614e5f175a9d2307387e2921d6882e735efcf0ffae53d80fe7df7f3f18366",
+            "language": "en",
+            "generated": false,
+            "confidence": 0.95,
+            "source_ref": {
+              "field": "rawPayload.abstract",
+              "provider": "web",
+              "ref_type": "literature_source",
+              "source_id": "LSRC-0170",
+              "fetched_at": "2026-06-06T10:54:55.579Z",
+              "source_url": "https://arxiv.org/abs/2501.14743",
+              "source_item_id": "openalex:W4406879595"
+            },
+            "stage_code": "ABSTRACT_READY",
+            "reason_codes": [],
+            "abstract_ready": true,
+            "abstract_profile_id": "9fed9013-2248-4530-aea1-2c862ae03519"
+          },
+          "updatedAt": "2026-06-06T11:11:22.354Z",
+          "lastRunId": "f6c51cbf-b4e9-4504-bd61-36c0149410ba"
+        },
+        {
+          "stageCode": "CHUNKED",
+          "status": "NOT_STARTED",
+          "detail": {},
+          "updatedAt": "2026-06-06T11:11:22.292Z",
+          "lastRunId": null
+        },
+        {
+          "stageCode": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "detail": {
+            "confidence": 1,
+            "stage_code": "CITATION_NORMALIZED",
+            "parsed_year": 2024,
+            "source_refs": [
+              {
+                "provider": "web",
+                "ref_type": "literature_source",
+                "source_id": "LSRC-0170",
+                "fetched_at": "2026-06-06T10:54:55.579Z",
+                "source_url": "https://arxiv.org/abs/2501.14743",
+                "source_item_id": "openalex:W4406879595"
+              }
+            ],
+            "input_checksum": "cfbbedf4b711818e8b52dab71ceee7d23f36b974af66bb7934c8f5ca7f3e7455",
+            "normalized_doi": "10.48550/arxiv.2501.14743",
+            "normalized_title": "kvdirect distributed disaggregated llm inference",
+            "citation_complete": true,
+            "normalized_authors": [
+              "chao mengyuan",
+              "chenyu jiang",
+              "dan yu",
+              "f meng",
+              "hang liu",
+              "jiang rain",
+              "jie xu",
+              "shiyang chen",
+              "wei xu"
+            ],
+            "citation_profile_id": "4e34f2d6-9fbd-4157-8a6c-97068aec75cb",
+            "normalized_arxiv_id": "2501.14743",
+            "normalized_source_url": "https://arxiv.org/abs/2501.14743",
+            "incomplete_reason_codes": [],
+            "title_authors_year_hash": "a4ee55e638d7f92bbc257f08eb73698194d0072b"
+          },
+          "updatedAt": "2026-06-06T11:11:22.336Z",
+          "lastRunId": "f6c51cbf-b4e9-4504-bd61-36c0149410ba"
+        },
+        {
+          "stageCode": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "detail": {},
+          "updatedAt": "2026-06-06T11:11:22.292Z",
+          "lastRunId": null
+        },
+        {
+          "stageCode": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "GROBID_TEI_PARSED",
+                "severity": "info",
+                "text_length": 50608,
+                "anchor_count": 180,
+                "endpoint_url": "http://localhost:8070",
+                "section_count": 42,
+                "paragraph_count": 78,
+                "parser_quality_score": 1,
+                "parser_quality_bucket": "high",
+                "parser_quality_inputs": {
+                  "page_count": 15,
+                  "text_length": 50608,
+                  "anchor_count": 180,
+                  "section_count": 42,
+                  "paragraph_count": 78,
+                  "average_paragraph_length": 637
+                }
+              }
+            ],
+            "document_id": "8b807935-c587-43b8-b49d-213fabd6d779",
+            "text_length": 50727,
+            "anchor_count": 180,
+            "artifact_type": "PREPROCESSED_TEXT",
+            "section_count": 42,
+            "paragraph_count": 78,
+            "source_asset_id": "afd60673-ce9b-475e-bb2e-5c47d2b0ea48",
+            "normalized_text_checksum": "7ea1218b5b41154061cabc5994beaf3beec376d8ca4f80f4c04ca83af9deb64e"
+          },
+          "updatedAt": "2026-06-06T11:24:23.468Z",
+          "lastRunId": "3f0a8849-0980-4d95-8799-0ea209cf5068"
+        },
+        {
+          "stageCode": "INDEXED",
+          "status": "NOT_STARTED",
+          "detail": {},
+          "updatedAt": "2026-06-06T11:11:22.292Z",
+          "lastRunId": null
+        },
+        {
+          "stageCode": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "detail": {
+            "source": "codex_curated",
+            "checksum": "6ca3599ff38b4c951595d93d5e759fcd7f5bde83238e4e87ff06f7ccc447e832",
+            "generated": true,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "30520ba3-65f1-48b5-a52b-23fb1af5562d",
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_BATCH3",
+                "run_id": "20260607T-b12-codex-curated-batch3-dossier-dry-run",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "literature_id": "LIT-0161",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T00:53:48.025Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ],
+            "readiness_status": "READY",
+            "key_content_ready": true
+          },
+          "updatedAt": "2026-06-07T00:53:48.025Z",
+          "lastRunId": null
+        }
+      ],
+      "artifacts": {
+        "key_content": {
+          "id": "30520ba3-65f1-48b5-a52b-23fb1af5562d",
+          "stageCode": "KEY_CONTENT_READY",
+          "artifactType": "KEY_CONTENT_DOSSIER",
+          "checksum": "6ca3599ff38b4c951595d93d5e759fcd7f5bde83238e4e87ff06f7ccc447e832",
+          "createdAt": "2026-06-07T00:53:48.025Z",
+          "payload_summary": {
+            "readiness_status": "READY",
+            "schema_version": "key_content.v1",
+            "extraction_profile": "paper_semantic_dossier.v1",
+            "display_digest": "KVDirect dossier covering distributed disaggregated inference, tensor-centric KV-cache transfer, pull-mode RDMA communication, and latency/bandwidth evidence.",
+            "input_refs": {
+              "title": "KVDirect: Distributed Disaggregated LLM Inference",
+              "curator": "codex",
+              "imported_at": "2026-06-07T00:53:48.025Z",
+              "literature_id": "LIT-0161",
+              "curation_bundle": "dev-docs/active/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-codex-curated-batch3-lit-0161-bundle-export.json",
+              "curation_source": "codex_curated",
+              "abstract_checksum": "613614e5f175a9d2307387e2921d6882e735efcf0ffae53d80fe7df7f3f18366",
+              "fulltext_checksum": "7ea1218b5b41154061cabc5994beaf3beec376d8ca4f80f4c04ca83af9deb64e",
+              "abstract_profile_id": "9fed9013-2248-4530-aea1-2c862ae03519",
+              "external_model_calls": 0,
+              "fulltext_document_id": "8b807935-c587-43b8-b49d-213fabd6d779",
+              "fulltext_source_asset_id": "afd60673-ce9b-475e-bb2e-5c47d2b0ea48"
+            },
+            "category_counts": {
+              "method": 3,
+              "experiments": 3,
+              "limitations": 2,
+              "key_findings": 3,
+              "contributions": 3,
+              "table_insights": 1,
+              "figure_insights": 1,
+              "reproducibility": 1,
+              "research_problem": 2,
+              "automation_signals": 2,
+              "claim_evidence_map": 2,
+              "evidence_candidates": 3,
+              "datasets_and_benchmarks": 2,
+              "related_work_positioning": 2
+            },
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_BATCH3",
+                "run_id": "20260607T-b12-codex-curated-batch3-dossier-dry-run",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "literature_id": "LIT-0161",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T00:53:48.025Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ]
+          }
+        },
+        "chunks": null,
+        "embeddings": null,
+        "index": null
+      },
+      "embedding_versions": []
+    },
+    {
+      "literature_id": "LIT-0162",
+      "literature": {
+        "id": "LIT-0162",
+        "title": "NetKV: Network-Aware Decode Instance Selection for Disaggregated LLM Inference",
+        "year": 2026,
+        "rightsClass": "UNKNOWN",
+        "tags": [
+          "corpus:managed",
+          "direction:llm-serving-resource-allocation",
+          "collection:system-support",
+          "batch:B10-20260606T-b10-openalex-pilot-apply",
+          "triage:high",
+          "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+        ],
+        "activeEmbeddingVersionId": null,
+        "updatedAt": "2026-06-07T00:53:48.054Z"
+      },
+      "stages": [
+        {
+          "stageCode": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "detail": {
+            "source": "collection_metadata",
+            "checksum": "c31466323165243047241fd66b799d6e116d7695320392c0c4d522a456ce17ae",
+            "language": "en",
+            "generated": false,
+            "confidence": 0.95,
+            "source_ref": {
+              "field": "rawPayload.abstract",
+              "provider": "web",
+              "ref_type": "literature_source",
+              "source_id": "LSRC-0171",
+              "fetched_at": "2026-06-06T10:54:55.590Z",
+              "source_url": "https://arxiv.org/abs/2606.03910",
+              "source_item_id": "openalex:W7163595053"
+            },
+            "stage_code": "ABSTRACT_READY",
+            "reason_codes": [],
+            "abstract_ready": true,
+            "abstract_profile_id": "78ed8b7e-c2c7-4096-b17c-076ad7d0bc93"
+          },
+          "updatedAt": "2026-06-06T11:11:22.656Z",
+          "lastRunId": "21b33d8c-de2c-4d9d-ac49-c5e187cbc640"
+        },
+        {
+          "stageCode": "CHUNKED",
+          "status": "NOT_STARTED",
+          "detail": {},
+          "updatedAt": "2026-06-06T11:11:22.583Z",
+          "lastRunId": null
+        },
+        {
+          "stageCode": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "detail": {
+            "confidence": 1,
+            "stage_code": "CITATION_NORMALIZED",
+            "parsed_year": 2026,
+            "source_refs": [
+              {
+                "provider": "web",
+                "ref_type": "literature_source",
+                "source_id": "LSRC-0171",
+                "fetched_at": "2026-06-06T10:54:55.590Z",
+                "source_url": "https://arxiv.org/abs/2606.03910",
+                "source_item_id": "openalex:W7163595053"
+              }
+            ],
+            "input_checksum": "d1fee97f25bc58b756521c614bc7def08e8665b30066055fc94ad11026c1e30b",
+            "normalized_doi": null,
+            "normalized_title": "netkv network aware decode instance selection for disaggregated llm inference",
+            "citation_complete": true,
+            "normalized_authors": [
+              "mubarak adetunji ojewale"
+            ],
+            "citation_profile_id": "45e4ec64-5a82-4d24-a341-9bd385c1323d",
+            "normalized_arxiv_id": "2606.03910",
+            "normalized_source_url": "https://arxiv.org/abs/2606.03910",
+            "incomplete_reason_codes": [],
+            "title_authors_year_hash": "da79b850132bd838b857baf3d24efccb5a083a98"
+          },
+          "updatedAt": "2026-06-06T11:11:22.632Z",
+          "lastRunId": "21b33d8c-de2c-4d9d-ac49-c5e187cbc640"
+        },
+        {
+          "stageCode": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "detail": {},
+          "updatedAt": "2026-06-06T11:11:22.583Z",
+          "lastRunId": null
+        },
+        {
+          "stageCode": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "GROBID_TEI_PARSED",
+                "severity": "info",
+                "text_length": 51072,
+                "anchor_count": 116,
+                "endpoint_url": "http://localhost:8070",
+                "section_count": 37,
+                "paragraph_count": 79,
+                "parser_quality_score": 1,
+                "parser_quality_bucket": "high",
+                "parser_quality_inputs": {
+                  "page_count": 12,
+                  "text_length": 51072,
+                  "anchor_count": 116,
+                  "section_count": 37,
+                  "paragraph_count": 79,
+                  "average_paragraph_length": 633
+                }
+              }
+            ],
+            "document_id": "47b0be13-092a-4fed-aa34-fd92a193410b",
+            "text_length": 51187,
+            "anchor_count": 116,
+            "artifact_type": "PREPROCESSED_TEXT",
+            "section_count": 37,
+            "paragraph_count": 79,
+            "source_asset_id": "a1d2c255-a871-410f-a1a8-6633eedcf8f0",
+            "normalized_text_checksum": "7fb22bbe6a0f73a79d0bc73e5240ef764b4a65361efde761ca9f3d641f299a3b"
+          },
+          "updatedAt": "2026-06-06T11:24:25.701Z",
+          "lastRunId": "8e903197-f713-4b78-be81-5dde2059530f"
+        },
+        {
+          "stageCode": "INDEXED",
+          "status": "NOT_STARTED",
+          "detail": {},
+          "updatedAt": "2026-06-06T11:11:22.583Z",
+          "lastRunId": null
+        },
+        {
+          "stageCode": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "detail": {
+            "source": "codex_curated",
+            "checksum": "cd26d25b6f283f0a32981cd3723a6d5af89842cbb7c6408104d40d6e0644b3ef",
+            "generated": true,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "b31ca1ae-c73f-4886-a487-60e124c3878d",
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_BATCH3",
+                "run_id": "20260607T-b12-codex-curated-batch3-dossier-dry-run",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "literature_id": "LIT-0162",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T00:53:48.054Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ],
+            "readiness_status": "READY",
+            "key_content_ready": true
+          },
+          "updatedAt": "2026-06-07T00:53:48.054Z",
+          "lastRunId": null
+        }
+      ],
+      "artifacts": {
+        "key_content": {
+          "id": "b31ca1ae-c73f-4886-a487-60e124c3878d",
+          "stageCode": "KEY_CONTENT_READY",
+          "artifactType": "KEY_CONTENT_DOSSIER",
+          "checksum": "cd26d25b6f283f0a32981cd3723a6d5af89842cbb7c6408104d40d6e0644b3ef",
+          "createdAt": "2026-06-07T00:53:48.054Z",
+          "payload_summary": {
+            "readiness_status": "READY",
+            "schema_version": "key_content.v1",
+            "extraction_profile": "paper_semantic_dossier.v1",
+            "display_digest": "NetKV dossier covering network-aware decode selection, network cost oracle, TTFT/transfer tradeoffs, and simulator evidence for disaggregated LLM inference.",
+            "input_refs": {
+              "title": "NetKV: Network-Aware Decode Instance Selection for Disaggregated LLM Inference",
+              "curator": "codex",
+              "imported_at": "2026-06-07T00:53:48.054Z",
+              "literature_id": "LIT-0162",
+              "curation_bundle": "dev-docs/active/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-codex-curated-batch3-lit-0162-bundle-export.json",
+              "curation_source": "codex_curated",
+              "abstract_checksum": "c31466323165243047241fd66b799d6e116d7695320392c0c4d522a456ce17ae",
+              "fulltext_checksum": "7fb22bbe6a0f73a79d0bc73e5240ef764b4a65361efde761ca9f3d641f299a3b",
+              "abstract_profile_id": "78ed8b7e-c2c7-4096-b17c-076ad7d0bc93",
+              "external_model_calls": 0,
+              "fulltext_document_id": "47b0be13-092a-4fed-aa34-fd92a193410b",
+              "fulltext_source_asset_id": "a1d2c255-a871-410f-a1a8-6633eedcf8f0"
+            },
+            "category_counts": {
+              "method": 4,
+              "experiments": 3,
+              "limitations": 2,
+              "key_findings": 3,
+              "contributions": 3,
+              "table_insights": 1,
+              "figure_insights": 1,
+              "reproducibility": 1,
+              "research_problem": 2,
+              "automation_signals": 2,
+              "claim_evidence_map": 2,
+              "evidence_candidates": 3,
+              "datasets_and_benchmarks": 2,
+              "related_work_positioning": 2
+            },
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_BATCH3",
+                "run_id": "20260607T-b12-codex-curated-batch3-dossier-dry-run",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "literature_id": "LIT-0162",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T00:53:48.054Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ]
+          }
+        },
+        "chunks": null,
+        "embeddings": null,
+        "index": null
+      },
+      "embedding_versions": []
+    }
+  ]
+}

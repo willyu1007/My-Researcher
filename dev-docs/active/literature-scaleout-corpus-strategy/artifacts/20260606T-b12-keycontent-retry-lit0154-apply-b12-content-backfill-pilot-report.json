@@ -1,0 +1,180 @@
+{
+  "run_id": "20260606T-b12-keycontent-retry-lit0154-apply",
+  "generated_at": "2026-06-06T13:36:09.526Z",
+  "mode": "apply",
+  "selection": {
+    "batch_id_filter": null,
+    "batch_code_filter": null,
+    "explicit_literature_ids": [
+      "LIT-0154"
+    ],
+    "selected_literature_ids": [
+      "LIT-0154"
+    ],
+    "max_records": 10
+  },
+  "backfill": {
+    "target_stage": "KEY_CONTENT_READY",
+    "max_parallel_literature_runs": 1,
+    "extraction_concurrency": 1,
+    "embedding_concurrency": 1,
+    "section_concurrency": 1,
+    "extraction_request_timeout_ms": 30000,
+    "content_run_timeout_ms": 60000,
+    "provider_call_budget": 2,
+    "poll_interval_ms": 500,
+    "poll_timeout_ms": 120000,
+    "writes_enabled": true
+  },
+  "dry_run_estimate": {
+    "dry_run_id": "9d78dc8e-4d02-40b3-a2a7-6f59fcb72ae6",
+    "generated_at": "2026-06-06T13:35:08.716Z",
+    "target_stage": "KEY_CONTENT_READY",
+    "total_literatures": 162,
+    "selected_count": 1,
+    "planned_item_count": 1,
+    "skipped_ready_count": 0,
+    "blocked_count": 0,
+    "curation_required_count": 0,
+    "stage_counts": {
+      "CITATION_NORMALIZED": 0,
+      "ABSTRACT_READY": 0,
+      "FULLTEXT_PREPROCESSED": 0,
+      "KEY_CONTENT_READY": 1,
+      "CHUNKED": 0,
+      "EMBEDDED": 0,
+      "INDEXED": 0
+    },
+    "rights_class_counts": [
+      {
+        "rights_class": "UNKNOWN",
+        "count": 1
+      }
+    ],
+    "estimated_provider_calls": {
+      "extraction_calls": 1,
+      "embedding_calls": 0
+    },
+    "estimated_storage_bytes": 0,
+    "blockers": [],
+    "plan_items": [
+      {
+        "literature_id": "LIT-0154",
+        "title": "Token-Budget-Aware LLM Reasoning",
+        "rights_class": "UNKNOWN",
+        "requested_stages": [
+          "KEY_CONTENT_READY"
+        ],
+        "blocked": false,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": null
+      }
+    ]
+  },
+  "summary": {
+    "dry_run_selected_count": 1,
+    "dry_run_planned_item_count": 1,
+    "dry_run_blocked_count": 0,
+    "dry_run_stage_counts": {
+      "CITATION_NORMALIZED": 0,
+      "ABSTRACT_READY": 0,
+      "FULLTEXT_PREPROCESSED": 0,
+      "KEY_CONTENT_READY": 1,
+      "CHUNKED": 0,
+      "EMBEDDED": 0,
+      "INDEXED": 0
+    },
+    "estimated_provider_calls": {
+      "extraction_calls": 1,
+      "embedding_calls": 0
+    },
+    "job_status": "FAILED",
+    "job_totals": {
+      "total": 1,
+      "queued": 0,
+      "running": 0,
+      "succeeded": 0,
+      "partial": 0,
+      "blocked": 0,
+      "failed": 1,
+      "skipped": 0,
+      "canceled": 0
+    },
+    "timed_out": false,
+    "timeout_cleanup_count": 1,
+    "timeout_cleanup_terminalized_runs": 1,
+    "item_status_counts": {
+      "FAILED": 1
+    },
+    "item_error_counts": {
+      "BACKFILL_ITEM_WORKER_FAILED": 1
+    }
+  },
+  "job": {
+    "timed_out": false,
+    "job": {
+      "job_id": "3d5423af-5f9a-4e95-8309-2eef63397ebf",
+      "status": "FAILED",
+      "target_stage": "KEY_CONTENT_READY",
+      "options": {
+        "max_parallel_literature_runs": 1,
+        "extraction_concurrency": 1,
+        "embedding_concurrency": 1,
+        "provider_call_budget": 2
+      },
+      "totals": {
+        "total": 1,
+        "queued": 0,
+        "running": 0,
+        "succeeded": 0,
+        "partial": 0,
+        "blocked": 0,
+        "failed": 1,
+        "skipped": 0,
+        "canceled": 0
+      },
+      "error_code": "BACKFILL_JOB_COMPLETED_WITH_ERRORS",
+      "error_message": "One or more backfill items did not succeed.",
+      "created_at": "2026-06-06T13:35:08.725Z",
+      "started_at": "2026-06-06T13:35:08.735Z",
+      "finished_at": "2026-06-06T13:36:09.194Z",
+      "items": [
+        {
+          "item_id": "11a2899a-513d-4094-b928-894129430195",
+          "literature_id": "LIT-0154",
+          "title": "Token-Budget-Aware LLM Reasoning",
+          "status": "FAILED",
+          "requested_stages": [
+            "KEY_CONTENT_READY"
+          ],
+          "next_stage_index": 0,
+          "content_processing_run_id": "ca79dd82-4e4d-4ef2-820f-949fe29a2e19",
+          "attempt_count": 1,
+          "error_code": "BACKFILL_ITEM_WORKER_FAILED",
+          "error_message": "Timed out after 60000ms waiting for content-processing run ca79dd82-4e4d-4ef2-820f-949fe29a2e19.",
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "checkpoint": {
+            "current_stage": "KEY_CONTENT_READY",
+            "current_stage_index": 0,
+            "content_processing_run_id": "ca79dd82-4e4d-4ef2-820f-949fe29a2e19",
+            "key_content_curation_status": "NOT_APPLICABLE"
+          }
+        }
+      ]
+    },
+    "timeout_cleanup": [
+      {
+        "literature_id": "LIT-0154",
+        "stage_code": "KEY_CONTENT_READY",
+        "content_processing_run_id": "ca79dd82-4e4d-4ef2-820f-949fe29a2e19",
+        "terminalized": true,
+        "previous_run_status": "RUNNING",
+        "step_count": 1,
+        "error_code": "B12_BACKFILL_CONTENT_RUN_TIMEOUT"
+      }
+    ]
+  }
+}

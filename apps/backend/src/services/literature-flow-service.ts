@@ -1570,7 +1570,7 @@ export class LiteratureFlowService {
   }
 
   private async resolvePreferredKeyContentMethod(): Promise<LiteratureKeyContentReadyMethod> {
-    return this.settingsService?.resolvePreferredKeyContentMethod?.() ?? 'llm_gateway';
+    return this.settingsService?.resolvePreferredKeyContentMethod?.() ?? 'codex_curated';
   }
 
   private async reuseCuratedKeyContentIfCurrent(

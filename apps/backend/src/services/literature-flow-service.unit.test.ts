@@ -387,7 +387,9 @@ test('literature flow blocks ABSTRACT_READY when no trusted abstract source exis
 
 test('literature flow blocks KEY_CONTENT_READY when extraction provider is not configured', async () => {
   const repository = new InMemoryLiteratureRepository();
-  const service = new LiteratureFlowService(repository);
+  const settingsService = createMockSettingsService();
+  settingsService.resolveExtractionConfig = async () => null;
+  const service = new LiteratureFlowService(repository, settingsService);
   await seedLiterature(repository, 'LIT-FLOW-NO-KEY', 'OA', {
     abstractText: 'Trusted abstract for key-content prerequisite.',
     fulltextText: 'Fulltext evidence for missing key-content gate.',

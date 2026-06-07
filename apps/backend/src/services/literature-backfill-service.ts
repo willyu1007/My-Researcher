@@ -432,7 +432,7 @@ export class LiteratureBackfillService {
         stageCounts[stage] += 1;
       }
       if (preferredKeyContentMethod === 'llm_gateway' && item.requested_stages.includes('KEY_CONTENT_READY')) {
-        extractionCalls += 1;
+        extractionCalls += await this.estimateKeyContentExtractionCalls(item.literature_id);
       }
       if (item.requested_stages.includes('EMBEDDED')) {
         embeddingCalls += 1;
@@ -1251,8 +1251,30 @@ export class LiteratureBackfillService {
     };
   }
 
+  private async estimateKeyContentExtractionCalls(literatureId: string): Promise<number> {
+    const documents = await this.repository.listFulltextDocumentsByLiteratureId(literatureId);
+    const document = documents
+      .filter((item) => item.status === 'READY')
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+    if (!document) {
+      return 1;
+    }
+
+    const [sections, paragraphs] = await Promise.all([
+      this.repository.listFulltextSectionsByDocumentId(document.id),
+      this.repository.listFulltextParagraphsByDocumentId(document.id),
+    ]);
+    const sectionIdsWithText = new Set(
+      paragraphs
+        .filter((paragraph) => paragraph.text.trim().length > 0)
+        .map((paragraph) => paragraph.sectionId),
+    );
+    const extractionUnitCount = sections.filter((section) => sectionIdsWithText.has(section.sectionId)).length;
+    return extractionUnitCount > 0 ? extractionUnitCount + 1 : 1;
+  }
+
   private async resolvePreferredKeyContentMethod(): Promise<LiteratureKeyContentReadyMethod> {
-    return this.options.resolvePreferredKeyContentMethod?.() ?? 'llm_gateway';
+    return this.options.resolvePreferredKeyContentMethod?.() ?? 'codex_curated';
   }
 
   private readOptions(value: Record<string, unknown>): NormalizedBackfillOptions {

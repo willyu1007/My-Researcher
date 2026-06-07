@@ -26,6 +26,10 @@ import {
 
 const KEY_CONTENT_SCHEMA_VERSION = 'key_content.v1' as const;
 const KEY_CONTENT_EXTRACTION_PROFILE = 'paper_semantic_dossier.v1' as const;
+const KEY_CONTENT_SECTION_JSON_SCHEMA_PARAMS = {
+  ...DEFAULT_HIGH_REASONING_JSON_SCHEMA_PARAMS,
+  reasoning_depth: 'low',
+} as const;
 
 const CATEGORY_KEYS = [
   'research_problem',
@@ -406,7 +410,7 @@ export class LiteratureKeyContentExtractionService {
       ],
       schemaName: 'literature_key_content_section',
       schema: this.openAIOutputSchema(),
-      normalizedParams: DEFAULT_HIGH_REASONING_JSON_SCHEMA_PARAMS,
+      normalizedParams: KEY_CONTENT_SECTION_JSON_SCHEMA_PARAMS,
       policy: {
         timeoutMs: config.runtime.request_timeout_ms,
         maxRetries: config.runtime.max_retries,

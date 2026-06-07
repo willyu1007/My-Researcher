@@ -1,0 +1,29 @@
+{
+  "run_id": "20260606T-b10-arxiv-canary",
+  "batch_code": "B10-20260606T-b10-arxiv-canary",
+  "source_contract": {
+    "openalex": {
+      "docs": "https://developers.openalex.org/api-reference/works/list-works",
+      "paging_docs": "https://docs.openalex.org/how-to-use-the-api/get-lists-of-entities/paging"
+    },
+    "arxiv": {
+      "docs": "https://info.arxiv.org/help/api/user-manual.html"
+    },
+    "semantic_scholar": {
+      "docs": "https://api.semanticscholar.org/api-docs/graph",
+      "product_docs": "https://www.semanticscholar.org/product/api"
+    }
+  },
+  "queries": [
+    {
+      "provider": "arxiv",
+      "track_id": "rag-aware-allocation-core",
+      "direction": "rag-aware-allocation",
+      "collection_role": "collection:core",
+      "query": "retrieval augmented generation adaptive routing resource allocation",
+      "result_count": 0,
+      "candidate_count": 0,
+      "error": "fetch failed"
+    }
+  ]
+}

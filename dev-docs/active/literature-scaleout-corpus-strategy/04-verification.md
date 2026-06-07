@@ -1,0 +1,1239 @@
+# 04 Verification
+
+## Verification Log
+
+### 2026-06-06 - Task Package Creation
+- Status: completed.
+- Created files:
+  - `.ai-task.yaml`
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `04-verification.md`
+  - `05-pitfalls.md`
+  - `roadmap.md`
+- Current baseline recorded:
+  - managed adaptive corpus: 146.
+  - effective literature: 144.
+  - blockers: 2.
+- Pending:
+  - governance lint.
+
+### 2026-06-06 - Governance Sync
+- Status: completed.
+- Command:
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+- Result:
+  - Sync completed.
+  - `T-122` registered in project hub.
+  - Derived views regenerated:
+    - `.ai/project/main/registry.yaml`
+    - `.ai/project/main/dashboard.md`
+    - `.ai/project/main/feature-map.md`
+    - `.ai/project/main/task-index.md`
+
+### 2026-06-06 - Governance Lint
+- Status: completed.
+- Command:
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Lint passed.
+
+### 2026-06-06 - D1 Target Scale Update
+- Status: completed.
+- Decision:
+  - Candidate pool target remains 5000-8000.
+  - Managed pipeline corpus target is updated to 2000-2500.
+  - Effective literature target is updated to 800-1000.
+  - Per-run cadence is updated to 500-800 discovery candidates, 200-300 managed promotions, and 80-120 effective-literature completions.
+- Files updated:
+  - `00-overview.md`
+  - `01-plan.md`
+  - `03-implementation-notes.md`
+  - `roadmap.md`
+
+### 2026-06-06 - D1 Verification
+- Status: completed.
+- Commands:
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy`
+  - `rg -n "1500-2500|300-800|100-200|30-80" dev-docs/active/literature-scaleout-corpus-strategy -S`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Diff whitespace check passed.
+  - ASCII check passed.
+  - No old target ranges remain in T-122.
+  - Governance sync completed.
+  - Governance lint passed.
+
+### 2026-06-06 - D2 Candidate Staging Decision
+- Status: completed.
+- Decision:
+  - Candidate pool uses dedicated staging tables.
+  - B10 writes staging rows plus artifact manifests.
+  - B10 does not write broad candidates directly into `LiteratureRecord`.
+  - B11 accepted candidates are promoted into `LiteratureRecord` as managed-corpus records.
+  - After promotion, the existing standard literature pipeline remains unchanged.
+- Files updated:
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `roadmap.md`
+
+### 2026-06-06 - D2 Verification
+- Status: completed with unrelated governance warning.
+- Commands:
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy .ai/project/main`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy`
+  - `rg -n 'artifact-first|artifact-only|Should candidate pool|Should `pool:candidate`|Should B10 write directly|Open Questions|pool:candidate' dev-docs/active/literature-scaleout-corpus-strategy -S`
+  - `rg -n 'D2|staging table|LiteratureDiscoveryBatch|LiteratureDiscoveryCandidate|B10 writes staging|promoted into `LiteratureRecord`|candidate staging' dev-docs/active/literature-scaleout-corpus-strategy -S`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Diff whitespace check passed.
+  - ASCII check passed.
+  - Deprecated artifact-only/open-question wording has no remaining matches in T-122.
+  - D2 staging-table wording is present in T-122.
+  - Governance sync completed and regenerated project views.
+  - Governance lint passed.
+  - Note: sync still reports an unrelated T-115 warning because that active/done task has unchecked high-level acceptance boxes in its historical overview.
+
+### 2026-06-06 - D2 Pipeline Boundary Revision
+- Status: completed.
+- Decision:
+  - Candidate staging is a new pre-pipeline node.
+  - B11 promotion is the boundary into `LiteratureRecord`.
+  - The existing seven-stage standard literature pipeline remains unchanged after promotion.
+  - Effective literature is strictly full-pipeline-complete literature.
+- Files updated:
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `04-verification.md`
+  - `roadmap.md`
+
+### 2026-06-06 - D2 Pipeline Boundary Verification
+- Status: completed with unrelated governance warning.
+- Commands:
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy .ai/project/main dev-docs/active/topic-selection-v1b-human-review-path/00-overview.md`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy`
+  - `rg -n "Working corpus|working corpus|Indexed core|indexed core|effective adaptive corpus|standard indexed corpus|working-corpus|indexed-core|artifact-first|artifact-only|Open Questions|pool:candidate" dev-docs/active/literature-scaleout-corpus-strategy --glob '!04-verification.md' -S`
+  - `rg -n "candidate staging|existing standard pipeline|managed adaptive corpus|effective literature|Managed Pipeline Corpus|LiteratureRecord|CITATION_NORMALIZED|INDEXED" dev-docs/active/literature-scaleout-corpus-strategy -S`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Diff whitespace check passed.
+  - ASCII check passed.
+  - No stale layer terminology remains outside the verification log.
+  - Candidate/managed/effective boundary wording is present.
+  - Governance sync completed.
+  - Governance lint passed.
+  - Note: lint still reports an unrelated T-115 warning because that active/done task has unchecked high-level acceptance boxes in its historical overview.
+
+### 2026-06-06 - D3 Deduplication Boundary
+- Status: completed.
+- Decision:
+  - Candidate staging is the standard ingress for newly acquired external literature.
+  - B10 candidate staging runs only lightweight obvious-duplicate checks.
+  - B11 promotion reuses the existing `LiteratureRecord` deduplication and link/merge behavior.
+  - Duplicate decisions found at B11 are reverse-marked on candidate staging rows.
+- Files updated:
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `05-pitfalls.md`
+  - `roadmap.md`
+
+### 2026-06-06 - D3 Verification
+- Status: completed.
+- Commands:
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy .ai/project/main dev-docs/active/topic-selection-v1b-human-review-path/00-overview.md`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy`
+  - `rg -n "D3|obvious-duplicate|authoritative deduplication|reverse-mark|duplicateReason|candidateDuplicateStatus|dedupDecisionSource|B11 is the authoritative" dev-docs/active/literature-scaleout-corpus-strategy -S`
+  - `rg -n "Working corpus|working corpus|Indexed core|indexed core|effective adaptive corpus|standard indexed corpus|working-corpus|indexed-core|artifact-first|artifact-only|Open Questions|pool:candidate" dev-docs/active/literature-scaleout-corpus-strategy --glob '!04-verification.md' -S`
+- Result:
+  - Diff whitespace check passed.
+  - ASCII check passed.
+  - D3 deduplication wording is present.
+  - No stale layer terminology remains outside the verification log.
+
+### 2026-06-06 - D3 User Acceptance Sync
+- Status: completed with unrelated governance warning.
+- Command:
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Governance sync completed.
+  - Governance lint passed.
+  - Note: lint still reports an unrelated T-115 warning because that active/done task has unchecked high-level acceptance boxes in its historical overview.
+
+### 2026-06-06 - D4 Lightweight Candidate Schema
+- Status: completed.
+- Decision:
+  - Use the lightweight candidate-staging design.
+  - Initial implementation has no separate `CandidateDecisionLog` table.
+  - Candidate rows store only current lifecycle status, latest decision reason, match/promote links, and timestamps.
+  - Batch outputs are lightweight summaries, not strong audit artifacts.
+- Files updated:
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `05-pitfalls.md`
+  - `roadmap.md`
+
+### 2026-06-06 - D4 Verification
+- Status: completed.
+- Commands:
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy .ai/project/main dev-docs/active/topic-selection-v1b-human-review-path/00-overview.md`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy`
+  - `rg -n 'D4|lightweight two-table|CandidateDecisionLog|current lifecycle status|latest decision reason|lightweight batch summaries|current-state rows' dev-docs/active/literature-scaleout-corpus-strategy -S`
+  - `rg -n 'artifact manifests|candidate manifest|managed-corpus manifest|rejected/deferred candidate manifest|promotion manifest' dev-docs/active/literature-scaleout-corpus-strategy --glob '!04-verification.md' -S`
+- Result:
+  - Diff whitespace check passed.
+  - ASCII check passed.
+  - D4 lightweight-schema wording is present.
+  - No old strong-manifest requirements remain outside the verification log.
+
+### 2026-06-06 - D5 Simple Candidate Lifecycle
+- Status: completed.
+- Decision:
+  - Candidate lifecycle uses the simple six-status enum.
+  - Allowed statuses are `DISCOVERED`, `DUPLICATE`, `REJECTED`, `DEFERRED`, `READY_FOR_PROMOTION`, and `PROMOTED`.
+  - Initial design does not add queue, retry, audit, or operational failure statuses.
+  - Operational failures stay in `decisionReason` and batch summaries.
+- Files updated:
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `05-pitfalls.md`
+  - `roadmap.md`
+
+### 2026-06-06 - D5 Verification
+- Status: completed.
+- Commands:
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy .ai/project/main dev-docs/active/topic-selection-v1b-human-review-path/00-overview.md`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy`
+  - `rg -n 'D5|DISCOVERED|DUPLICATE|REJECTED|DEFERRED|READY_FOR_PROMOTION|PROMOTED|six-status|Allowed transitions|operational failures' dev-docs/active/literature-scaleout-corpus-strategy -S`
+  - `rg -n 'complex candidate queue|separate candidate queue|retry state machine|operational failure states|Do not add retry' dev-docs/active/literature-scaleout-corpus-strategy -S`
+- Result:
+  - Diff whitespace check passed.
+  - ASCII check passed.
+  - D5 lifecycle wording and allowed statuses are present.
+  - Candidate-layer queue/retry expansion is explicitly blocked.
+
+### 2026-06-06 - D6 Minimal Field Set
+- Status: completed.
+- Decision:
+  - Candidate staging keeps only B10/B11-required fields.
+  - `LiteratureDiscoveryBatch` stores run summary fields.
+  - `LiteratureDiscoveryCandidate` stores candidate metadata, source provenance, dedup keys, lightweight scores, current decision, and match/promote links.
+  - `normalizedTitle` is stored to make obvious duplicate checks cheap and reproducible.
+  - First-version indexes are ordinary lookup indexes, not authoritative unique constraints.
+- Files updated:
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `05-pitfalls.md`
+  - `roadmap.md`
+
+### 2026-06-06 - D6 Verification
+- Status: completed.
+- Commands:
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy .ai/project/main dev-docs/active/topic-selection-v1b-human-review-path/00-overview.md`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy`
+  - `rg -n 'D6|Minimal Field Set|normalizedTitle|dblpUrl|errorSummary|completedAt|Minimal Indexing Boundary|ordinary lookup indexes|hard uniqueness|hard unique|globally unique' dev-docs/active/literature-scaleout-corpus-strategy -S`
+  - `rg -n 'unique\\(|@@unique|source-specific tables' dev-docs/active/literature-scaleout-corpus-strategy --glob '!04-verification.md' -S`
+- Result:
+  - Diff whitespace check passed.
+  - ASCII check passed.
+  - D6 minimal-field and ordinary-index wording is present.
+  - No Prisma-style unique constraint proposal appears in T-122.
+  - Source-specific candidate tables are explicitly blocked.
+
+### 2026-06-06 - D7 Prisma Schema Draft
+- Status: completed.
+- Decision:
+  - Prisma schema draft is documented only.
+  - Draft adds `LiteratureDiscoveryBatch` and `LiteratureDiscoveryCandidate`.
+  - Draft adds two optional `LiteratureRecord` back-reference lists for matched and promoted candidates.
+  - Candidate status remains `String` in Prisma, with B10/B11 enforcing allowed lifecycle values.
+  - Actual `prisma/schema.prisma` migration is deferred to a later DB SSOT step.
+- Files updated:
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `05-pitfalls.md`
+  - `roadmap.md`
+
+### 2026-06-06 - D7 Verification
+- Status: completed.
+- Commands:
+  - `node .ai/skills/features/database/db-human-interface/scripts/ctl-db-doc.mjs status`
+  - `rg -n '[ \\t]+$' dev-docs/active/literature-scaleout-corpus-strategy`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy`
+  - `rg -n 'D7|Prisma Schema Draft|model LiteratureDiscoveryBatch|model LiteratureDiscoveryCandidate|doiNormalized|sourceUrl|status                String|discoveryMatchedCandidates|discoveryPromotedCandidates|DB SSOT|repo-prisma' dev-docs/active/literature-scaleout-corpus-strategy -S`
+  - `rg -n 'model LiteratureDiscoveryBatch|model LiteratureDiscoveryCandidate|discoveryMatchedCandidates|discoveryPromotedCandidates' prisma/schema.prisma`
+- Result:
+  - DB SSOT status reports `repo-prisma`.
+  - No trailing whitespace found in T-122.
+  - ASCII check passed.
+  - D7 Prisma schema draft wording is present.
+  - Actual `prisma/schema.prisma` has not been modified with the candidate models or back-reference fields.
+
+### 2026-06-06 - D8 Prisma SSOT Applied
+- Status: completed through repo/schema/context verification; DB write pending.
+- Decision:
+  - User approved applying the candidate staging schema draft.
+  - `prisma/schema.prisma` now contains `LiteratureDiscoveryBatch` and `LiteratureDiscoveryCandidate`.
+  - `LiteratureRecord` now has `discoveryMatchedCandidates` and `discoveryPromotedCandidates` back-reference fields.
+  - `docs/context/db/schema.json` was refreshed from the Prisma SSOT.
+  - No database migration or DB write was executed.
+- Evidence:
+  - `artifacts/db/00-connection-check.md`
+  - `artifacts/db/01-schema-diff-preview.md`
+  - `artifacts/db/02-migration-plan.md`
+  - `artifacts/db/03-execution-log.md`
+  - `artifacts/db/04-post-verify.md`
+
+### 2026-06-06 - D8 Verification
+- Status: completed with migration-apply checkpoint pending.
+- Commands:
+  - `pnpm exec prisma format --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma validate --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma generate --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script`
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - `node .ai/tests/run.mjs --suite database`
+  - `rg -n 'LiteratureDiscoveryBatch|LiteratureDiscoveryCandidate|discoveryMatchedCandidates|discoveryPromotedCandidates' docs/context/db/schema.json prisma/schema.prisma`
+- Result:
+  - Prisma format passed.
+  - Prisma validate passed after loading `.env.local`.
+  - Prisma client generation passed.
+  - Read-only local DB diff succeeded and produced the expected candidate-staging create-table/index/FK SQL.
+  - Read-only local DB diff also exposed unrelated DB drift; do not apply the full generated diff directly.
+  - DB context contract refreshed successfully.
+  - Database test suite passed.
+  - Candidate staging models and relations are present in both `prisma/schema.prisma` and `docs/context/db/schema.json`.
+  - No database write was executed.
+
+### 2026-06-06 - D9 DB Migration Strategy Closure
+- Status: completed; DB apply pending explicit confirmation.
+- Decision:
+  - First target environment is local dev.
+  - Use a versioned Prisma migration file.
+  - Do not use `prisma db push`.
+  - Do not apply the full read-only live-DB diff.
+  - Exclude unrelated `TopicResearchRecord` drift from candidate-staging apply.
+- Migration file:
+  - `prisma/migrations/20260606113000_add_literature_discovery_candidate_staging/migration.sql`
+- Commands:
+  - `cat docs/project/db-ssot.json`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script | rg -n "LiteratureDiscovery|discovery|ALTER TABLE \"public\"\\.\"TopicResearchRecord\"|CREATE INDEX|DROP INDEX|TopicResearchRecord"`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma validate --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma generate --schema prisma/schema.prisma`
+  - `rg -n '^CREATE INDEX "TopicResearchRecord|ALTER TABLE "TopicResearchRecord|DROP INDEX|ALTER TABLE "public"\."TopicResearchRecord' prisma/migrations/20260606113000_add_literature_discovery_candidate_staging/migration.sql || true`
+  - `git diff --check -- prisma/migrations/20260606113000_add_literature_discovery_candidate_staging dev-docs/active/literature-scaleout-corpus-strategy .ai/project/main`
+  - `LC_ALL=C rg -n "[^\x00-\x7F]" dev-docs/active/literature-scaleout-corpus-strategy prisma/migrations/20260606113000_add_literature_discovery_candidate_staging || true`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - DB SSOT mode is `repo-prisma`.
+  - Read-only diff confirms candidate staging SQL is expected.
+  - Read-only diff also confirms unrelated `TopicResearchRecord` drift still exists and is intentionally excluded.
+  - Scoped migration file contains only candidate staging table, index, and foreign-key SQL.
+  - Prisma validate passed.
+  - Prisma generate passed.
+  - Scoped migration range check found no `TopicResearchRecord` SQL.
+  - Diff whitespace check passed.
+  - ASCII check passed.
+  - Database suite passed.
+  - Governance sync completed.
+  - Governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+  - No database write was executed.
+
+### 2026-06-06 - D10 Local Dev DB Apply
+- Status: completed.
+- User approval:
+  - User explicitly allowed DB write.
+- Target:
+  - local dev database schema `my_researcher_dev`.
+- Commands:
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate status --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate deploy --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate status --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma validate --schema prisma/schema.prisma`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma generate --schema prisma/schema.prisma`
+  - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node --env-file=.env.local --input-type=module <<'NODE' ... candidate catalog smoke check ... NODE`
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script | rg -n "LiteratureDiscovery|TopicResearchRecord|This database is already in sync" || true`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - Pre-apply migration status showed exactly one pending migration: `20260606113000_add_literature_discovery_candidate_staging`.
+  - `prisma migrate deploy` applied the scoped candidate-staging migration successfully.
+  - Post-apply migration status reports database schema is up to date.
+  - Prisma validate passed.
+  - Prisma generate passed.
+  - DB context contract refreshed.
+  - Database suite passed.
+  - Candidate catalog smoke check found:
+    - tables: `LiteratureDiscoveryBatch`, `LiteratureDiscoveryCandidate`.
+    - candidate indexes: 16.
+    - candidate foreign keys: 4.
+    - batch rows: 0.
+    - candidate rows: 0.
+  - Post-apply read-only diff no longer includes `LiteratureDiscovery*`.
+  - Remaining read-only diff is unrelated `TopicResearchRecord` drift and stays out of scope.
+  - Governance sync completed.
+  - Governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-06 - D11 B13 Counting Contract
+- Status: completed.
+- Files:
+  - `06-counting-contract.md`
+  - `tools/literature-scaleout-counting-report.mjs`
+  - `artifacts/20260606T-b13-counting-contract.json`
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-b13-counting-contract node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `jq '.metrics, .managed_corpus_distribution, .candidate_pool_distribution.by_status' dev-docs/active/literature-scaleout-corpus-strategy/artifacts/20260606T-b13-counting-contract.json`
+- Result:
+  - script syntax check passed.
+  - report generation passed.
+  - artifact generated at `artifacts/20260606T-b13-counting-contract.json`.
+  - `candidate_pool_records`: 0.
+  - `managed_corpus_records`: 146.
+  - `adaptive_corpus_records`: 146.
+  - `effective_literature_records`: 144.
+  - `pipeline_complete_records`: 144.
+  - `pipeline_blocked_records`: 2.
+  - `excluded_non_corpus_records`: 6.
+  - `db_total_records`: 152.
+  - blocked records remain `LIT-0252` and `LIT-0257`.
+
+### 2026-06-06 - D12 Env Contract For B10 Providers
+- Status: completed.
+- Files:
+  - `env/contract.yaml`
+  - `env/secrets/dev.ref.yaml`
+  - generated `env/.env.example`
+  - generated `docs/env.md`
+  - generated `docs/context/env/contract.json`
+  - `artifacts/env/00-change-intent.md`
+  - `artifacts/env/01-contract-diff.md`
+  - `artifacts/env/02-compat-migration-plan.md`
+  - `artifacts/env/03-validation-log.md`
+  - `artifacts/env/04-context-refresh.md`
+- Commands:
+  - `cat docs/project/env-ssot.json`
+  - `python3 -B -S .ai/skills/features/environment/env-contractctl/scripts/env_contractctl.py validate --root . --out dev-docs/active/literature-scaleout-corpus-strategy/artifacts/env/03-validation-log.md`
+  - `python3 -B -S .ai/skills/features/environment/env-contractctl/scripts/env_contractctl.py generate --root . --out dev-docs/active/literature-scaleout-corpus-strategy/artifacts/env/04-context-refresh.md`
+  - `rg -n "OPENALEX|SEMANTIC_SCHOLAR" env/.env.example docs/env.md docs/context/env/contract.json`
+- Result:
+  - env SSOT mode is `repo-env-contract`.
+  - validation passed.
+  - env artifacts regenerated.
+  - no secret values were written.
+
+### 2026-06-06 - D12 B10 Candidate Discovery Entrypoint
+- Status: first entrypoint completed; 500-800 candidate scaleout pending provider/query hardening.
+- Files:
+  - `tools/b10-candidate-discovery.mjs`
+  - `07-b10-candidate-discovery.md`
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-dry-run B10_TRACK_LIMIT=1 B10_QUERY_LIMIT=1 B10_PROVIDER_RESULT_LIMIT=3 B10_MAX_CANDIDATES=12 B10_REQUEST_TIMEOUT_MS=7000 B10_PROVIDER_RETRIES=1 B10_REQUEST_DELAY_MS=300 B10_ARXIV_DELAY_MS=300 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-arxiv-canary B10_PROVIDERS=arxiv B10_TRACK_LIMIT=1 B10_QUERY_LIMIT=1 B10_PROVIDER_RESULT_LIMIT=2 B10_MAX_CANDIDATES=4 B10_REQUEST_TIMEOUT_MS=25000 B10_PROVIDER_RETRIES=1 B10_REQUEST_DELAY_MS=300 B10_ARXIV_DELAY_MS=300 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-openalex-apply B10_PROVIDERS=openalex B10_TRACK_LIMIT=1 B10_QUERY_LIMIT=1 B10_PROVIDER_RESULT_LIMIT=3 B10_MAX_CANDIDATES=2 B10_REQUEST_TIMEOUT_MS=10000 B10_PROVIDER_RETRIES=1 B10_REQUEST_DELAY_MS=300 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --apply`
+  - `node --env-file=.env.local --input-type=module <<'NODE' ... mark weak canary candidates rejected ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-tight-filter-dry-run B10_PROVIDERS=openalex B10_TRACK_LIMIT=1 B10_QUERY_LIMIT=1 B10_PROVIDER_RESULT_LIMIT=3 B10_MAX_CANDIDATES=12 B10_REQUEST_TIMEOUT_MS=10000 B10_PROVIDER_RETRIES=1 B10_REQUEST_DELAY_MS=300 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-after-b10-canary-cleanup-counting node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - script syntax check passed.
+  - dry-run wrote artifacts and no DB rows.
+  - OpenAlex apply smoke wrote 1 batch and 2 candidates.
+  - both canary candidates were marked `REJECTED` after quality review.
+  - canary batch summary was updated to `rejected_count=2`.
+  - tightened OpenAlex repeat dry-run produced 0 candidates for the same broad query.
+  - B13 after cleanup:
+    - candidate batches: 1.
+    - candidate pool records: 2.
+    - candidate rejected records: 2.
+    - managed corpus records: 146.
+    - effective literature records: 144.
+    - pipeline blockers: 2.
+  - arXiv provider path exists but local canary hit provider-level fetch/timeout failure.
+  - Semantic Scholar provider path exists but local canary returned `429` without API key.
+
+### 2026-06-06 - D13 B10 Provider/Query Hardening
+- Status: completed.
+- Files:
+  - `tools/b10-candidate-discovery.mjs`
+  - `07-b10-candidate-discovery.md`
+  - `artifacts/20260606T-b10-auto-default-dry-run-b10-candidate-discovery-report.json`
+  - `artifacts/20260606T-b10-rag-boundary-dry-run-b10-candidate-discovery-report.json`
+  - `artifacts/20260606T-b10-openalex-pilot-apply-b10-candidate-discovery-report.json`
+  - `artifacts/20260606T-after-b10-openalex-pilot-apply-counting.json`
+- Commands:
+  - `curl -L --max-time 20 -sS 'https://export.arxiv.org/api/query?search_query=all%3Aretrieval%20augmented%20generation&start=0&max_results=1'`
+  - `node --input-type=module -e '... fetch arXiv canary URL ...'`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-auto-default-dry-run B10_TRACK_LIMIT=1 B10_QUERY_LIMIT=1 B10_PROVIDER_RESULT_LIMIT=8 B10_MAX_CANDIDATES=12 B10_REQUEST_TIMEOUT_MS=15000 B10_PROVIDER_RETRIES=1 B10_REQUEST_DELAY_MS=100 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-rag-boundary-dry-run B10_TRACK_LIMIT=6 B10_QUERY_LIMIT=3 B10_PROVIDER_RESULT_LIMIT=50 B10_MAX_CANDIDATES=120 B10_REQUEST_TIMEOUT_MS=20000 B10_PROVIDER_RETRIES=1 B10_REQUEST_DELAY_MS=100 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-openalex-pilot-apply B10_TRACK_LIMIT=6 B10_QUERY_LIMIT=3 B10_PROVIDER_RESULT_LIMIT=50 B10_MAX_CANDIDATES=60 B10_REQUEST_TIMEOUT_MS=20000 B10_PROVIDER_RETRIES=1 B10_REQUEST_DELAY_MS=100 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-after-b10-openalex-pilot-apply-counting node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - arXiv direct canary failed locally with connection reset / `ECONNRESET`; B10 keeps arXiv explicit-only in `auto` mode.
+  - syntax check passed.
+  - auto default dry-run:
+    - enabled OpenAlex only.
+    - recorded 2 skipped-provider ledger entries.
+    - found 6 RAG-core candidates.
+    - DB delta: 0 batches, 0 candidates.
+  - coverage dry-run after RAG word-boundary hardening:
+    - executed provider queries: 16.
+    - skipped-provider ledger entries: 2.
+    - provider errors: 0.
+    - provider results scanned: 800.
+    - provider candidates before run cap: 126.
+    - dry-run candidates: 108.
+    - dry-run discovered: 88.
+    - dry-run duplicates: 20.
+  - OpenAlex pilot apply:
+    - batch id: `0caeeefb-735f-410d-aa88-7fedc187c6f3`.
+    - DB delta: 1 batch, 60 candidates.
+    - candidate statuses: 54 `DISCOVERED`, 6 `DUPLICATE`.
+    - direction split: 41 RAG-aware allocation, 15 LLM serving resource allocation, 4 test-time compute budgeting.
+    - no `LiteratureRecord` rows were created.
+  - B13 after pilot apply:
+    - candidate batches: 2.
+    - candidate pool records: 62.
+    - candidate discovered records: 54.
+    - candidate duplicate records: 6.
+    - candidate rejected records: 2.
+    - managed corpus records: 146.
+    - effective literature records: 144.
+    - pipeline blockers: 2.
+
+### 2026-06-06 - D13 Final Verification
+- Status: completed with existing unrelated governance warning.
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js validate --schema prisma/schema.prisma`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status --schema prisma/schema.prisma`
+  - `node .ai/tests/run.mjs --suite environment`
+  - `node .ai/tests/run.mjs --suite database`
+  - `git diff --check`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy --glob '!artifacts/**' --glob '!*.json'`
+  - `rg -n "181862|@163\\.com|api_key=[A-Za-z0-9]|OPENALEX_API_KEY=.*[^>]|SEMANTIC_SCHOLAR_API_KEY=.*[^>]" dev-docs/active/literature-scaleout-corpus-strategy/artifacts .ai/.tmp/literature-scaleout-corpus-strategy`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - B10 script syntax check passed.
+  - B13 script syntax check passed.
+  - Prisma validate passed with `.env.local` loaded.
+  - Prisma migration status reports local dev database schema is up to date.
+  - environment suite passed.
+  - database suite passed.
+  - whitespace diff check passed.
+  - handwritten T-122 docs/scripts ASCII check passed; generated JSON artifacts are excluded because external paper metadata can contain non-ASCII titles.
+  - artifact/tmp secret scan found no real email or API key leakage.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-06 - D14 B11 Triage/Promote Pilot
+- Status: completed.
+- Files:
+  - `tools/b11-candidate-triage-promote.mjs`
+  - `08-b11-candidate-triage-promote.md`
+  - `artifacts/20260606T-b11-tight-triage-dry-run-b11-candidate-triage-report.json`
+  - `artifacts/20260606T-b11-pilot-apply-promote-b11-candidate-triage-report.json`
+  - `artifacts/20260606T-after-b11-pilot-apply-promote-counting.json`
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-dry-run B11_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 B11_CANDIDATE_STATUS=DISCOVERED B11_MAX_CANDIDATES=80 B11_MAX_PROMOTIONS=10 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-tight-triage-dry-run B11_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 B11_CANDIDATE_STATUS=DISCOVERED B11_MAX_CANDIDATES=80 B11_MAX_PROMOTIONS=10 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote B11_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 B11_CANDIDATE_STATUS=DISCOVERED B11_MAX_CANDIDATES=80 B11_MAX_PROMOTIONS=10 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-after-b11-pilot-apply-promote-counting node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `node --env-file=.env.local --input-type=module <<'NODE' ... verify promoted candidate links/tags/sources ... NODE`
+- Result:
+  - B11 script syntax check passed.
+  - first dry-run was too permissive: 50 of 54 candidates were READY.
+  - tightened dry-run held domain-specific RAG, benchmark tails, and position papers out of immediate READY.
+  - final dry-run decisions:
+    - `READY_FOR_PROMOTION`: 41.
+    - `DEFERRED`: 9.
+    - `DUPLICATE`: 2.
+    - `REJECTED`: 2.
+  - apply/promote run:
+    - evaluated 54 candidates.
+    - promoted 10 candidates.
+    - `LiteratureRecord` delta: +10.
+    - `LiteratureSource` delta: +10.
+    - candidate-row delta: 0.
+  - promoted literature ids:
+    - `LIT-0153` through `LIT-0162`.
+  - promoted rows have managed/direction/collection/batch/triage tags and web/OpenAlex source refs.
+  - promoted rows have 0 standard pipeline stage rows so they are managed but not effective.
+  - B13 after counting fix:
+    - candidate pool records: 62.
+    - candidate ready-for-promotion records: 31.
+    - candidate promoted records: 10.
+    - managed corpus records: 156.
+    - effective literature records: 144.
+    - pipeline incomplete records: 12.
+    - pipeline blocked records: 2.
+    - pipeline not-started records: 10.
+
+### 2026-06-06 - D14 Final Verification
+- Status: completed with existing unrelated governance warning.
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js validate --schema prisma/schema.prisma`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status --schema prisma/schema.prisma`
+  - `node .ai/tests/run.mjs --suite environment`
+  - `node .ai/tests/run.mjs --suite database`
+  - `rg -n "181862|@163\\.com|api_key=[A-Za-z0-9]|OPENALEX_API_KEY=.*[^>]|SEMANTIC_SCHOLAR_API_KEY=.*[^>]" dev-docs/active/literature-scaleout-corpus-strategy/artifacts .ai/.tmp/literature-scaleout-corpus-strategy`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy --glob '!artifacts/**' --glob '!*.json'`
+  - `git diff --check`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - all script syntax checks passed.
+  - Prisma validate passed.
+  - Prisma migrate status reports local dev database is up to date.
+  - environment suite passed.
+  - database suite passed.
+  - artifact/tmp secret scan found no real email or API key leakage.
+  - handwritten T-122 docs/scripts ASCII check passed.
+  - whitespace diff check passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-07 - D23 Source-Blocker Soft Exclusion
+- Status: completed.
+- Files:
+  - `artifacts/20260607T-d23-source-blocker-soft-exclusion.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-d23-source-blocker-soft-exclusion-detail.json`
+  - `artifacts/20260607T-after-d23-source-blocker-soft-exclusion.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-after-d23-source-blocker-soft-exclusion-detail.json`
+- Result:
+  - `LIT-0163`, `LIT-0166`, and `LIT-0257` were tagged `classification:excluded-from-corpus`, `classification:source-access-blocked`, and `b12:soft-excluded`.
+  - DB rows, sources, pipeline states, acquisition failures, and candidate promotion links were preserved.
+  - promoted candidate decision reasons for `LIT-0163` and `LIT-0166` were updated with D23 soft-exclusion context.
+  - B13 after D23 reports candidate pool 62, managed corpus 157, effective literature 157, pipeline incomplete 0, explicit blockers 0, pipeline not-started 0, and excluded non-corpus 9.
+  - active-state probe reported 0 active content jobs, 0 active content items, and 0 running pipeline runs.
+  - database suite passed.
+  - whitespace diff check passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-06 - D15 B12 Standard-Pipeline Pilot
+- Status: completed.
+- Files:
+  - `tools/b12-standard-pipeline-pilot.mjs`
+  - `09-b12-standard-pipeline-pilot.md`
+  - `artifacts/20260606T-b12-standard-pipeline-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `artifacts/20260606T-b12-standard-pipeline-apply-b12-standard-pipeline-pilot-report.json`
+  - `artifacts/20260606T-after-b12-standard-pipeline-apply.json`
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-dry-run B12_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 B12_MAX_RECORDS=10 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-apply B12_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 B12_MAX_RECORDS=10 B12_POLL_TIMEOUT_MS=60000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-after-b12-standard-pipeline-apply node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - B12 script syntax check passed.
+  - dry-run selected 10 B11-promoted records and wrote no DB rows.
+  - apply created 10 `BACKFILL` content-processing runs.
+  - all 10 runs ended `PARTIAL`.
+  - requested stage results:
+    - `CITATION_NORMALIZED`: 10 `SUCCEEDED`.
+    - `ABSTRACT_READY`: 10 `SUCCEEDED`.
+    - `FULLTEXT_PREPROCESSED`: 10 `BLOCKED`.
+  - blocker reason: 10 `FULLTEXT_SOURCE_MISSING`.
+  - content assets created: 0.
+  - fulltext documents created: 0.
+  - B13 after apply:
+    - candidate pool records: 62.
+    - managed corpus records: 156.
+    - effective literature records: 144.
+    - pipeline incomplete records: 12.
+    - pipeline blocked records: 12.
+    - pipeline not-started records: 0.
+
+### 2026-06-06 - D15 Final Verification
+- Status: completed with existing unrelated governance warning.
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js validate --schema prisma/schema.prisma`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status --schema prisma/schema.prisma`
+  - `node .ai/tests/run.mjs --suite environment`
+  - `node .ai/tests/run.mjs --suite database`
+  - `rg -n "181862|@163\\.com|api_key=[A-Za-z0-9]|OPENALEX_API_KEY=.*[^>]|SEMANTIC_SCHOLAR_API_KEY=.*[^>]" dev-docs/active/literature-scaleout-corpus-strategy/artifacts .ai/.tmp/literature-scaleout-corpus-strategy`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy --glob "!artifacts/**" --glob "!*.json"`
+  - `git diff --check`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - all script syntax checks passed.
+  - Prisma validate passed.
+  - Prisma migrate status reports local dev database is up to date.
+  - environment suite passed.
+  - database suite passed.
+  - artifact/tmp secret scan found no real email or API key leakage.
+  - handwritten T-122 docs/scripts ASCII check passed.
+  - whitespace diff check passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-06 - D16 B12 Fulltext Acquisition And Preprocessing
+- Status: completed.
+- Files:
+  - `tools/b12-fulltext-acquisition-pilot.mjs`
+  - `tools/b12-standard-pipeline-pilot.mjs`
+  - `artifacts/20260606T-b12-fulltext-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `artifacts/20260606T-b12-fulltext-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `artifacts/20260606T-b12-fulltext-preprocess-after-settings-fix-b12-standard-pipeline-pilot-report.json`
+  - `artifacts/20260606T-after-b12-fulltext-preprocessed.json`
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260606T-b12-fulltext-acquisition-dry-run B12_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 B12_MAX_RECORDS=10 B12_ACQUISITION_PROVIDER_CALL_BUDGET=20 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260606T-b12-fulltext-acquisition-apply B12_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 B12_MAX_RECORDS=10 B12_ACQUISITION_PROVIDER_CALL_BUDGET=20 B12_ACQUISITION_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs --apply`
+  - `curl -sS http://localhost:8070/api/isalive`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-fulltext-preprocess-after-settings-fix B12_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 B12_MAX_RECORDS=10 B12_STAGES=FULLTEXT_PREPROCESSED B12_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-after-b12-fulltext-preprocessed node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - acquisition dry-run selected 10 records, planned 10 items, and had 0 blockers.
+  - acquisition source split was 8 arXiv and 2 Unpaywall.
+  - acquisition apply job succeeded with 10 succeeded items and 10 content assets created.
+  - GROBID health endpoint returned ready/alive.
+  - standard runner settings injection fixed the earlier `FULLTEXT_PARSER_UNAVAILABLE` pilot-runner issue.
+  - fulltext preprocessing rerun created 10 successful runs.
+  - `FULLTEXT_PREPROCESSED`: 10 `SUCCEEDED`.
+  - records with content assets: 10.
+  - records with fulltext documents: 10.
+  - B13 after fulltext preprocessing:
+    - candidate pool records: 62.
+    - managed corpus records: 156.
+    - effective literature records: 144.
+    - pipeline incomplete records: 12.
+    - pipeline blocked records: 2.
+    - pipeline not-started records: 0.
+
+### 2026-06-06 - D16 B12 Content-Backfill Pilot
+- Status: partial; provider-timeout blocker recorded.
+- Files:
+  - `tools/b12-content-backfill-pilot.mjs`
+  - `artifacts/20260606T-b12-content-backfill-dry-run-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260606T-b12-content-backfill-remaining-dry-run-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260606T-after-b12-content-backfill-cleanup.json`
+  - `artifacts/20260606T-after-b12-second-content-cleanup.json`
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260606T-b12-content-backfill-dry-run B12_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 B12_MAX_RECORDS=10 B12_BACKFILL_PROVIDER_CALL_BUDGET=30 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260606T-b12-content-backfill-remaining-dry-run B12_LITERATURE_IDS=LIT-0153,LIT-0154,LIT-0155,LIT-0156,LIT-0157,LIT-0159,LIT-0161,LIT-0162 B12_BACKFILL_PROVIDER_CALL_BUDGET=30 B12_BACKFILL_SECTION_CONCURRENCY=1 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-after-b12-content-backfill-cleanup node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-after-b12-second-content-cleanup node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... verify active jobs and B12 stage states ...'`
+- Result:
+  - full batch dry-run selected 10 records and planned 10 items.
+  - full batch dry-run planned 10 extraction calls and 10 embedding calls.
+  - first apply was stopped after key-content provider progress exceeded the expected window on `LIT-0158`.
+  - first cleanup marked the job `FAILED` with 1 succeeded, 1 failed, and 8 canceled items.
+  - `LIT-0160` completed through `INDEXED`.
+  - second apply targeted the remaining 8 records with section concurrency 1.
+  - second apply was stopped after key-content provider progress exceeded the expected window on `LIT-0153`.
+  - second cleanup marked the job `FAILED` with 1 failed and 7 canceled items.
+  - active-job probe found no queued/running content jobs, acquisition jobs, or B12 pipeline runs.
+  - B13 after second cleanup:
+    - candidate pool records: 62.
+    - managed corpus records: 156.
+    - effective literature records: 145.
+    - pipeline incomplete records: 11.
+    - pipeline blocked records: 4.
+    - pipeline not-started records: 0.
+  - Explicit blockers now include `LIT-0153`, `LIT-0158`, `LIT-0252`, and `LIT-0257`.
+  - Apply artifacts were not produced for the interrupted content-backfill runs because the local runner process was stopped before it returned to artifact writing.
+
+### 2026-06-06 - D16 Final Verification
+- Status: completed with existing unrelated governance warning.
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy --glob '!artifacts/**' --glob '!*.json'`
+  - `rg -n "181862|@163\\.com|api_key=[A-Za-z0-9]|OPENALEX_API_KEY=.*[^>]|SEMANTIC_SCHOLAR_API_KEY=.*[^>]" dev-docs/active/literature-scaleout-corpus-strategy/artifacts .ai/.tmp/literature-scaleout-corpus-strategy`
+  - `rg -n "working-corpus|indexed-core|fulltext-source blockers|raw fulltext assets are missing|effective literature remains 144" dev-docs/active/literature-scaleout-corpus-strategy --glob '!04-verification.md' -S`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js validate --schema prisma/schema.prisma`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status --schema prisma/schema.prisma`
+  - `node .ai/tests/run.mjs --suite environment`
+  - `node .ai/tests/run.mjs --suite database`
+  - `git diff --check`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - all B10/B11/B12/B13 script syntax checks passed.
+  - handwritten T-122 docs/scripts ASCII check passed.
+  - artifact/tmp secret scan found no real email or API key leakage.
+  - stale layer/fulltext-blocker wording check found no matches outside the verification log.
+  - Prisma validate passed.
+  - Prisma migrate status reports local dev database schema is up to date.
+  - environment suite passed.
+  - database suite passed.
+  - whitespace diff check passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-06 - D16 B12 Timeout Cleanup Fix
+- Status: completed.
+- Files:
+  - `tools/b12-content-backfill-pilot.mjs`
+  - `artifacts/20260606T-b12-keycontent-retry-lit0153-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260606T-after-b12-keycontent-retry-lit0153-cleanup.json`
+  - `artifacts/20260606T-b12-keycontent-retry-lit0153-cleanup-fix-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260606T-after-b12-keycontent-cleanup-fix-verify.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260606T-b12-keycontent-retry-lit0153-dry-run B12_LITERATURE_IDS=LIT-0153 B12_BACKFILL_TARGET_STAGE=KEY_CONTENT_READY B12_BACKFILL_PROVIDER_CALL_BUDGET=2 B12_BACKFILL_SECTION_CONCURRENCY=1 B12_BACKFILL_EXTRACTION_REQUEST_TIMEOUT_MS=60000 B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS=120000 B12_BACKFILL_POLL_TIMEOUT_MS=240000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260606T-b12-keycontent-retry-lit0153-apply B12_LITERATURE_IDS=LIT-0153 B12_BACKFILL_TARGET_STAGE=KEY_CONTENT_READY B12_BACKFILL_PROVIDER_CALL_BUDGET=2 B12_BACKFILL_SECTION_CONCURRENCY=1 B12_BACKFILL_EXTRACTION_REQUEST_TIMEOUT_MS=60000 B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS=120000 B12_BACKFILL_POLL_TIMEOUT_MS=240000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260606T-b12-keycontent-retry-lit0153-cleanup-fix-apply B12_LITERATURE_IDS=LIT-0153 B12_BACKFILL_TARGET_STAGE=KEY_CONTENT_READY B12_BACKFILL_PROVIDER_CALL_BUDGET=2 B12_BACKFILL_SECTION_CONCURRENCY=1 B12_BACKFILL_EXTRACTION_REQUEST_TIMEOUT_MS=30000 B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS=60000 B12_BACKFILL_POLL_TIMEOUT_MS=120000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `ps -axo pid,stat,command | rg 'b12-content-backfill-pilot|20260606T-b12-keycontent-retry-lit0153-cleanup-fix-apply' | rg -v 'rg '`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... verify active jobs and latest LIT-0153 runs ...'`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-after-b12-keycontent-cleanup-fix-verify node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - pre-fix retry proved the batch job could fail after content-run timeout and write an artifact, but the underlying pipeline run remained `RUNNING`.
+  - pre-fix dangling run `e869cf2d-69bc-44a6-89b0-0699451c3863` was manually terminalized as `B12_BACKFILL_CONTENT_RUN_TIMEOUT`.
+  - runner fix detects timed-out content-processing runs and terminalizes pipeline run/step/stage with `B12_BACKFILL_CONTENT_RUN_TIMEOUT`.
+  - post-fix retry artifact reported `timeout_cleanup_count=1` and `timeout_cleanup_terminalized_runs=1`.
+  - process probe found no residual B12 content-backfill runner.
+  - DB probe found no active content jobs/items and no running B12 pipeline runs.
+  - latest `LIT-0153` run `5fafa2e6-3912-46d5-a0a3-ea0dec95902d` is `FAILED` with `B12_BACKFILL_CONTENT_RUN_TIMEOUT`.
+  - B13 after verification:
+    - candidate pool records: 62.
+    - managed corpus records: 156.
+    - effective literature records: 145.
+    - pipeline incomplete records: 11.
+    - pipeline blocked records: 4.
+    - pipeline not-started records: 0.
+
+### 2026-06-06 - D16 Timeout Cleanup Final Verification
+- Status: completed with existing unrelated governance warning.
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy --glob '!artifacts/**' --glob '!*.json'`
+  - `rg -n "181862|@163\\.com|api_key=[A-Za-z0-9]|OPENALEX_API_KEY=.*[^>]|SEMANTIC_SCHOLAR_API_KEY=.*[^>]" dev-docs/active/literature-scaleout-corpus-strategy/artifacts .ai/.tmp/literature-scaleout-corpus-strategy`
+  - `rg -n 'working-corpus|indexed-core|fulltext-source blockers|raw fulltext assets are missing|effective literature remains 144' dev-docs/active/literature-scaleout-corpus-strategy --glob '!04-verification.md' -S`
+  - `rg -n 'DEBUG-MODE: BEGIN|DEBUG-MODE: END|\\[DBG:' dev-docs/active/literature-scaleout-corpus-strategy apps/backend/src .ai/.tmp/literature-scaleout-corpus-strategy/journal.md --glob '!04-verification.md'`
+  - `git diff --check`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js validate --schema prisma/schema.prisma`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status --schema prisma/schema.prisma`
+  - `node .ai/tests/run.mjs --suite environment`
+  - `node .ai/tests/run.mjs --suite database`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... active content/pipeline run counts ...'`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - all B10/B11/B12/B13 script syntax checks passed.
+  - handwritten T-122 docs/scripts ASCII check passed.
+  - artifact/tmp secret scan found no real email or API key leakage.
+  - stale wording check found no matches outside the verification log.
+  - debug cleanup check found no debug-mode markers or debug log prefixes.
+  - whitespace diff check passed.
+  - Prisma validate passed.
+  - Prisma migrate status reports local dev database schema is up to date.
+  - environment suite passed.
+  - database suite passed.
+  - active-state probe reported 0 active content jobs, 0 active content items, and 0 running B12 pipeline runs.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-06 - D16 Non-Blocker Key-Content Retry
+- Status: completed; retry failed with bounded timeout and cleanup.
+- Files:
+  - `artifacts/20260606T-b12-keycontent-retry-lit0154-dry-run-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260606T-b12-keycontent-retry-lit0154-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260606T-after-b12-keycontent-retry-lit0154.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260606T-b12-keycontent-retry-lit0154-dry-run B12_LITERATURE_IDS=LIT-0154 B12_BACKFILL_TARGET_STAGE=KEY_CONTENT_READY B12_BACKFILL_PROVIDER_CALL_BUDGET=2 B12_BACKFILL_SECTION_CONCURRENCY=1 B12_BACKFILL_EXTRACTION_REQUEST_TIMEOUT_MS=30000 B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS=60000 B12_BACKFILL_POLL_TIMEOUT_MS=120000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260606T-b12-keycontent-retry-lit0154-apply B12_LITERATURE_IDS=LIT-0154 B12_BACKFILL_TARGET_STAGE=KEY_CONTENT_READY B12_BACKFILL_PROVIDER_CALL_BUDGET=2 B12_BACKFILL_SECTION_CONCURRENCY=1 B12_BACKFILL_EXTRACTION_REQUEST_TIMEOUT_MS=30000 B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS=60000 B12_BACKFILL_POLL_TIMEOUT_MS=120000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260606T-after-b12-keycontent-retry-lit0154 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - pre-run probe confirmed `LIT-0154` was fulltext-ready and `KEY_CONTENT_READY=NOT_STARTED`.
+  - dry-run selected 1 record, planned 1 `KEY_CONTENT_READY` item, used the pre-diagnosis one-call extraction estimate, and had 0 blockers.
+  - apply ended `FAILED` with `BACKFILL_ITEM_WORKER_FAILED`.
+  - runner cleanup reported `timeout_cleanup_count=1` and `timeout_cleanup_terminalized_runs=1`.
+  - latest `LIT-0154` pipeline run is `FAILED` with `B12_BACKFILL_CONTENT_RUN_TIMEOUT`.
+  - DB probe found 0 active content jobs, 0 active content items, and 0 running B12 pipeline runs.
+  - process probe found no residual B12 content-backfill runner.
+  - B13 after retry:
+    - candidate pool records: 62.
+    - managed corpus records: 156.
+    - effective literature records: 145.
+    - pipeline incomplete records: 11.
+    - pipeline blocked records: 5.
+    - pipeline not-started records: 0.
+
+### 2026-06-06 - D16 Non-Blocker Retry Final Verification
+- Status: completed with existing unrelated governance warning.
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy --glob '!artifacts/**' --glob '!*.json'`
+  - `rg -n "181862|@163\\.com|api_key=[A-Za-z0-9]|OPENALEX_API_KEY=.*[^>]|SEMANTIC_SCHOLAR_API_KEY=.*[^>]" dev-docs/active/literature-scaleout-corpus-strategy/artifacts .ai/.tmp/literature-scaleout-corpus-strategy`
+  - `rg -n 'working-corpus|indexed-core|fulltext-source blockers|raw fulltext assets are missing|effective literature remains 144|remaining 7|blocked records: 4|pipeline blocked records: 4|explicit blockers: 4' dev-docs/active/literature-scaleout-corpus-strategy --glob '!04-verification.md' -S`
+  - `rg -n 'DEBUG-MODE: BEGIN|DEBUG-MODE: END|\\[DBG:' dev-docs/active/literature-scaleout-corpus-strategy apps/backend/src .ai/.tmp/literature-scaleout-corpus-strategy/journal.md --glob '!04-verification.md'`
+  - `git diff --check`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js validate --schema prisma/schema.prisma`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status --schema prisma/schema.prisma`
+  - `node .ai/tests/run.mjs --suite environment`
+  - `node .ai/tests/run.mjs --suite database`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... active content/pipeline run counts ...'`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main && node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - all B10/B11/B12/B13 script syntax checks passed.
+  - handwritten T-122 docs/scripts ASCII check passed.
+  - artifact/tmp secret scan found no real email or API key leakage.
+  - stale wording check found no matches outside the verification log.
+  - debug cleanup check found no debug-mode markers or debug log prefixes.
+  - whitespace diff check passed.
+  - Prisma validate passed.
+  - Prisma migrate status reports local dev database schema is up to date.
+  - environment suite passed.
+  - database suite passed.
+  - active-state probe reported 0 active content jobs, 0 active content items, and 0 running B12 pipeline runs.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-06 - D16 Provider Timeout Diagnosis
+- Status: completed; provider gateway works, real key-content section prompt needs lower section reasoning and honest call budgeting.
+- Files:
+  - `artifacts/20260606T-b12-provider-timeout-diagnosis-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260606T-b12-provider-timeout-diagnosis-dry-run-b12-content-backfill-pilot-report-detail.json`
+- Commands:
+  - minimal live OpenAI gateway canary through `BackendLlmGateway.createStructuredOutput` with `gpt-5.5`, 30000ms timeout, 0 retries.
+  - real `LIT-0154` max-section canary through `LiteratureKeyContentExtractionService.extractSection` with 45000ms timeout, 0 retries.
+  - low-reasoning `LIT-0154` max-section canary using the same prompt/schema with 45000ms timeout, 0 retries.
+  - `TS_NODE_TRANSPILE_ONLY=true node --test --loader ./apps/backend/node_modules/ts-node/esm.mjs apps/backend/src/services/literature-backfill-service.unit.test.ts apps/backend/src/services/literature-key-content-extraction-service.unit.test.ts apps/backend/src/services/llm-gateway.unit.test.ts`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260606T-b12-provider-timeout-diagnosis-dry-run B12_LITERATURE_IDS=LIT-0154 B12_BACKFILL_TARGET_STAGE=KEY_CONTENT_READY B12_BACKFILL_PROVIDER_CALL_BUDGET=2 B12_BACKFILL_SECTION_CONCURRENCY=1 B12_BACKFILL_EXTRACTION_REQUEST_TIMEOUT_MS=45000 B12_BACKFILL_EXTRACTION_MAX_RETRIES=0 B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS=60000 B12_BACKFILL_POLL_TIMEOUT_MS=120000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+- Result:
+  - minimal gateway canary passed in 3397ms with 0 timeouts.
+  - high-reasoning real section canary failed at 45003ms with `LlmGatewayError TimeoutError`.
+  - low-reasoning real section canary passed in 31096ms.
+  - focused service tests passed: 41/41.
+  - B12 runner syntax check passed.
+  - diagnostic dry-run reports `estimated_provider_calls.extraction_calls=42` for `LIT-0154`, correcting the previous one-call estimate.
+
+### 2026-06-06 - D16 Provider Timeout Final Verification
+- Status: completed with existing unrelated governance warning.
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `LC_ALL=C rg -n "[^\\x00-\\x7F]" dev-docs/active/literature-scaleout-corpus-strategy --glob '!artifacts/**' --glob '!*.json'`
+  - `rg -n "181862|@163\\.com|api_key=[A-Za-z0-9]|OPENALEX_API_KEY=.*[^>]|SEMANTIC_SCHOLAR_API_KEY=.*[^>]" dev-docs/active/literature-scaleout-corpus-strategy/artifacts .ai/.tmp/literature-scaleout-corpus-strategy`
+  - `rg -n 'working-corpus|indexed-core|fulltext-source blockers|raw fulltext assets are missing|effective literature remains 144|remaining 7|blocked records: 4|pipeline blocked records: 4|explicit blockers: 4|estimated 1 extraction call|one extraction call' dev-docs/active/literature-scaleout-corpus-strategy .ai/.tmp/literature-scaleout-corpus-strategy/journal.md --glob '!04-verification.md' --glob '!artifacts/**' -S`
+  - `rg -n 'DEBUG-MODE: BEGIN|DEBUG-MODE: END|\\[DBG:' dev-docs/active/literature-scaleout-corpus-strategy apps/backend/src .ai/.tmp/literature-scaleout-corpus-strategy/journal.md --glob '!04-verification.md'`
+  - `git diff --check`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js validate --schema prisma/schema.prisma`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status --schema prisma/schema.prisma`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... active content/pipeline run counts ...'`
+  - `node .ai/tests/run.mjs --suite environment`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - all B10/B11/B12/B13 script syntax checks passed.
+  - handwritten T-122 docs/scripts ASCII check passed.
+  - artifact/tmp secret scan found no real email or API key leakage.
+  - stale wording check found no matches outside the verification log and historical artifacts.
+  - debug cleanup check found no debug-mode markers or debug log prefixes.
+  - whitespace diff check passed.
+  - Prisma validate passed.
+  - Prisma migrate status reports local dev database schema is up to date.
+  - active-state probe reported 0 active content jobs, 0 active content items, and 0 running B12 key-content backfill pipeline runs.
+  - environment suite passed.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-06 - D17 Key-Content Method Default Switch
+- Status: completed; default path is `codex_curated` and provider extraction is explicit-only.
+- Files:
+  - `artifacts/env/20260606-key-content-method/03-validation-log.md`
+  - `artifacts/env/20260606-key-content-method/04-context-refresh.md`
+  - `artifacts/env-local/20260606-key-content-method/02-config-compile-report.md`
+  - `artifacts/20260606T-b12-codex-curated-default-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260606T-b12-codex-curated-default-dry-run-b12-content-backfill-pilot-report-detail.json`
+- Commands:
+  - `python3 -B -S .ai/skills/features/environment/env-contractctl/scripts/env_contractctl.py validate --root . --out dev-docs/active/literature-scaleout-corpus-strategy/artifacts/env/20260606-key-content-method/03-validation-log.md`
+  - `python3 -B -S .ai/skills/features/environment/env-contractctl/scripts/env_contractctl.py generate --root . --out dev-docs/active/literature-scaleout-corpus-strategy/artifacts/env/20260606-key-content-method/04-context-refresh.md`
+  - `python3 -B -S .ai/skills/features/environment/env-localctl/scripts/env_localctl.py compile --root . --env dev --runtime-target local --workload api --no-write --out dev-docs/active/literature-scaleout-corpus-strategy/artifacts/env-local/20260606-key-content-method/02-config-compile-report.md`
+  - `node .ai/scripts/ctl-openapi-quality.mjs verify --source docs/context/api/openapi.yaml --strict`
+  - `node .ai/scripts/ctl-api-index.mjs generate --touch`
+  - `TS_NODE_TRANSPILE_ONLY=true node --test --loader ./apps/backend/node_modules/ts-node/esm.mjs apps/backend/src/services/literature-content-processing-settings-service.unit.test.ts apps/backend/src/services/literature-flow-service.unit.test.ts apps/backend/src/services/literature-backfill-service.unit.test.ts apps/backend/src/routes/research-lifecycle-routes.integration.test.ts`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260606T-b12-codex-curated-default-dry-run B12_LITERATURE_IDS=LIT-0155 B12_BACKFILL_TARGET_STAGE=KEY_CONTENT_READY B12_BACKFILL_PROVIDER_CALL_BUDGET=2 B12_BACKFILL_SECTION_CONCURRENCY=1 B12_BACKFILL_POLL_TIMEOUT_MS=120000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... resolved method and DB extraction row probe ...'`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs && node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `git diff --check`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js validate --schema prisma/schema.prisma`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status --schema prisma/schema.prisma`
+  - `node .ai/tests/run.mjs --suite environment`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - env contract validate and context generation passed.
+  - local env compile with `--no-write` refreshed `docs/context/env/effective-dev.json`; it contains `LITERATURE_KEY_CONTENT_READY_METHOD=codex_curated`.
+  - OpenAPI strict verification passed and API index regenerated with `preferred_key_content_method.default=codex_curated`.
+  - focused backend tests passed: 70/70.
+  - local dev DB probe resolved `preferred_key_content_method=codex_curated`; the `literature_content_processing/extraction` row also stores `codex_curated`.
+  - DB probe found no provider secret rows created for this change.
+  - B12 dry-run for `LIT-0155` planned one `KEY_CONTENT_READY` item with `curation_required_count=1`, `key_content_curation_status=CURATION_REQUIRED`, and `estimated_provider_calls.extraction_calls=0`.
+  - B10/B11/B12/B13 script syntax checks passed.
+  - whitespace diff check passed.
+  - Prisma validate passed.
+  - Prisma migrate status reports local dev database schema is up to date.
+  - environment suite passed.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-07 - D18 B12 codex_curated Happy-Path Canary
+- Status: completed; `LIT-0155` reached `INDEXED` through the default curated key-content path.
+- Files:
+  - `artifacts/20260607T-b12-codex-curated-lit0155-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-lit0155-bundle-full.json`
+  - `artifacts/20260607T-b12-codex-curated-lit0155-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-lit0155-dossier-dry-run-request.json`
+  - `artifacts/20260607T-b12-codex-curated-lit0155-post-import-state.json`
+  - `artifacts/20260607T-b12-codex-curated-lit0155-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-b12-codex-curated-lit0155-index-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-after-b12-codex-curated-lit0155-index-state.json`
+  - `artifacts/20260607T-after-b12-codex-curated-lit0155-index.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... export LIT-0155 key-content curation bundle ...'`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... build source-grounded codex_curated dossier and dry-run import ...'`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... import codex_curated dossier ...'`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... post-import state probe ...'`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-codex-curated-lit0155-index-dry-run B12_LITERATURE_IDS=LIT-0155 B12_BACKFILL_TARGET_STAGE=INDEXED B12_BACKFILL_PROVIDER_CALL_BUDGET=5 B12_BACKFILL_POLL_TIMEOUT_MS=300000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-codex-curated-lit0155-index-apply B12_LITERATURE_IDS=LIT-0155 B12_BACKFILL_TARGET_STAGE=INDEXED B12_BACKFILL_PROVIDER_CALL_BUDGET=5 B12_BACKFILL_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260607T-after-b12-codex-curated-lit0155-index node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module -e '... final LIT-0155 stage and embedding probe ...'`
+- Result:
+  - bundle export succeeded for `LIT-0155`: 31 sections, 93 paragraphs, 190 anchors, ready fulltext checksum `c134e81f0936daf2e8aa99adc486453a6ab03863aeadf393adc7675099721875`.
+  - dossier dry-run import returned `valid=true`, no issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`.
+  - imported key-content diagnostics report `LLM calls=0`, `request_count=0`, `retry_count=0`, and `timeout_count=0`.
+  - post-import state showed `KEY_CONTENT_READY=SUCCEEDED`.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `KEY_CONTENT_READY` count was 0.
+  - index dry-run estimated `extraction_calls=0` and `embedding_calls=1`.
+  - index apply succeeded: job totals 1 succeeded, 0 failed, 0 blocked, no timeout cleanup.
+  - final state probe found all standard stages succeeded.
+  - active embedding version `778204b0-33e4-4211-804b-08e6091a5d33` is `INDEXED` with 153 chunks/vectors, `text-embedding-3-large`, dimension 3072.
+  - B13 after canary reports candidate pool 62, managed corpus 156, effective literature 146, pipeline incomplete 10, explicit blockers 5, pipeline not started 0.
+
+### 2026-06-07 - D19 B12 codex_curated Batch2
+- Status: completed; `LIT-0156` and `LIT-0157` reached `INDEXED` through the default curated key-content path.
+- Files:
+  - `artifacts/20260607T-b12-codex-curated-batch2-lit-0156-bundle-export.json`
+  - `artifacts/20260607T-b12-codex-curated-batch2-lit-0157-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-batch2-lit-0156-bundle-full.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-batch2-lit-0157-bundle-full.json`
+  - `artifacts/20260607T-b12-codex-curated-batch2-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-batch2-dossier-requests.json`
+  - `artifacts/20260607T-b12-codex-curated-batch2-dossier-import.json`
+  - `artifacts/20260607T-b12-codex-curated-batch2-post-import-state.json`
+  - `artifacts/20260607T-b12-codex-curated-batch2-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-b12-codex-curated-batch2-index-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-after-b12-codex-curated-batch2-index-state.json`
+  - `artifacts/20260607T-after-b12-codex-curated-batch2-index.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... export existing curation bundles ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... validate paragraph refs, build source-grounded codex_curated dossiers, dry-run import ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... import codex_curated dossiers and write post-import state ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-codex-curated-batch2-index-dry-run B12_LITERATURE_IDS=LIT-0156,LIT-0157 B12_BACKFILL_TARGET_STAGE=INDEXED B12_BACKFILL_PROVIDER_CALL_BUDGET=10 B12_BACKFILL_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-codex-curated-batch2-index-apply B12_LITERATURE_IDS=LIT-0156,LIT-0157 B12_BACKFILL_TARGET_STAGE=INDEXED B12_BACKFILL_PROVIDER_CALL_BUDGET=10 B12_BACKFILL_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260607T-after-b12-codex-curated-batch2-index node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... final state and active job probe ... NODE`
+  - `node .ai/tests/run.mjs --suite database`
+  - `git diff --check`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - bundle export succeeded for `LIT-0156`: 16 sections, 54 paragraphs, 45 anchors, ready fulltext checksum `051612acdfaf3dc5d3ed87d9241ec712394711f5df84df82bd12d978916bee19`.
+  - bundle export succeeded for `LIT-0157`: 52 sections, 87 paragraphs, 36 anchors, ready fulltext checksum `3e6470c8bdc6fd0d3330e0300914322901653f33221826dbf90582937fa745f0`.
+  - paragraph-ref validation found 0 missing refs for both dossiers.
+  - dossier dry-run import returned `valid=true`, no issues, and `repaired_source_ref_count=0` for both records.
+  - key-content import succeeded with source `codex_curated` for both records.
+  - imported key-content diagnostics report `LLM calls=0`, `request_count=0`, `retry_count=0`, and `timeout_count=0`.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `KEY_CONTENT_READY` count was 0.
+  - index dry-run estimated `extraction_calls=0` and `embedding_calls=2`.
+  - index apply succeeded: job totals 2 succeeded, 0 failed, 0 blocked, no timeout cleanup.
+  - final state probe found all standard stages succeeded for both records.
+  - `LIT-0156` active embedding version `841aa66b-f2be-4399-8b5b-ed072d88d28c` is `INDEXED` with 99 chunks/vectors, `text-embedding-3-large`, dimension 3072.
+  - `LIT-0157` active embedding version `835c6795-337a-48ac-9c6e-391064b333b2` is `INDEXED` with 161 chunks/vectors, `text-embedding-3-large`, dimension 3072.
+  - active-state probe reported 0 active content jobs, 0 active content items, and 0 running batch pipeline runs.
+  - B13 after batch2 reports candidate pool 62, managed corpus 156, effective literature 148, pipeline incomplete 8, explicit blockers 5, pipeline not started 0.
+  - database suite passed.
+  - whitespace diff check passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-07 - D20 B12 codex_curated Batch3
+- Status: completed; `LIT-0159`, `LIT-0161`, and `LIT-0162` reached `INDEXED` through the default curated key-content path.
+- Files:
+  - `artifacts/20260607T-b12-codex-curated-batch3-lit-0159-bundle-export.json`
+  - `artifacts/20260607T-b12-codex-curated-batch3-lit-0161-bundle-export.json`
+  - `artifacts/20260607T-b12-codex-curated-batch3-lit-0162-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-batch3-lit-0159-bundle-full.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-batch3-lit-0161-bundle-full.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-batch3-lit-0162-bundle-full.json`
+  - `artifacts/20260607T-b12-codex-curated-batch3-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-batch3-dossier-requests.json`
+  - `artifacts/20260607T-b12-codex-curated-batch3-dossier-import.json`
+  - `artifacts/20260607T-b12-codex-curated-batch3-post-import-state.json`
+  - `artifacts/20260607T-b12-codex-curated-batch3-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-b12-codex-curated-batch3-index-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-after-b12-codex-curated-batch3-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-after-b12-codex-curated-batch3-index-state-detail.json`
+  - `artifacts/20260607T-after-b12-codex-curated-batch3-index.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... export existing curation bundles ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... validate paragraph refs, build source-grounded codex_curated dossiers, dry-run import ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... import codex_curated dossiers and write post-import state ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-codex-curated-batch3-index-dry-run B12_LITERATURE_IDS=LIT-0159,LIT-0161,LIT-0162 B12_BACKFILL_TARGET_STAGE=INDEXED B12_BACKFILL_PROVIDER_CALL_BUDGET=10 B12_BACKFILL_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-codex-curated-batch3-index-apply B12_LITERATURE_IDS=LIT-0159,LIT-0161,LIT-0162 B12_BACKFILL_TARGET_STAGE=INDEXED B12_BACKFILL_PROVIDER_CALL_BUDGET=10 B12_BACKFILL_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260607T-after-b12-codex-curated-batch3-index node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... final state and active job probe ... NODE`
+  - `node .ai/tests/run.mjs --suite database`
+  - `git diff --check`
+- Result:
+  - bundle export succeeded for `LIT-0159`: 54 sections, 105 paragraphs, 159 anchors, ready fulltext checksum `425efc1203e9e907349f2dccebdc818e873b16c9a4a8206de001819650a7e37d`.
+  - bundle export succeeded for `LIT-0161`: 42 sections, 78 paragraphs, 180 anchors, ready fulltext checksum `7ea1218b5b41154061cabc5994beaf3beec376d8ca4f80f4c04ca83af9deb64e`.
+  - bundle export succeeded for `LIT-0162`: 37 sections, 79 paragraphs, 116 anchors, ready fulltext checksum `7fb22bbe6a0f73a79d0bc73e5240ef764b4a65361efde761ca9f3d641f299a3b`.
+  - dossier dry-run import returned `valid=true`, `readiness_status=READY`, and `repaired_source_ref_count=0` for all three records.
+  - key-content import succeeded with source `codex_curated` for all three records.
+  - imported key-content diagnostics report 0 LLM gateway calls.
+  - post-import state showed `KEY_CONTENT_READY=SUCCEEDED` for all three records.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `KEY_CONTENT_READY` count was 0.
+  - index dry-run estimated `extraction_calls=0` and `embedding_calls=3`.
+  - index apply succeeded: job totals 3 succeeded, 0 failed, 0 blocked, no timeout cleanup.
+  - final state probe found all standard stages succeeded for all three records.
+  - `LIT-0159` active embedding version `e343343f-46ec-49a2-951a-037bbf389514` is `INDEXED` with 191 chunks/vectors, `text-embedding-3-large`, dimension 3072.
+  - `LIT-0161` active embedding version `c321c4d6-677f-4676-8064-0e3a7b235c35` is `INDEXED` with 146 chunks/vectors, `text-embedding-3-large`, dimension 3072.
+  - `LIT-0162` active embedding version `97e4f1f4-8bcb-41b1-81b6-73c2c4a8a09f` is `INDEXED` with 144 chunks/vectors, `text-embedding-3-large`, dimension 3072.
+  - active-state probe reported 0 active content jobs, 0 active content items, and 0 running batch pipeline runs.
+  - B13 after batch3 reports candidate pool 62, managed corpus 156, effective literature 151, pipeline incomplete 5, explicit blockers 5, pipeline not started 0.
+  - database suite passed.
+  - whitespace diff check passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-07 - D21 Opportunity Tranche2 Promote and codex_curated Index
+- Status: completed with partial B12 opportunity success; `LIT-0164` and `LIT-0165` reached `INDEXED`, while `LIT-0163` and `LIT-0166` are fulltext-source blockers.
+- Files:
+  - `artifacts/20260607T-b11-opportunity-tranche2-dry-run-b11-candidate-triage-report.json`
+  - `artifacts/20260607T-b11-opportunity-tranche2-apply-promote-b11-candidate-triage-report.json`
+  - `artifacts/20260607T-b11-opportunity-tranche2-apply-promote-b11-candidate-decisions.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-opportunity-tranche2-apply-promote-b11-candidate-triage-detail.json`
+  - `artifacts/20260607T-after-b11-opportunity-tranche2-promote.json`
+  - `artifacts/20260607T-b12-opportunity-tranche2-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `artifacts/20260607T-b12-opportunity-tranche2-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `artifacts/20260607T-b12-opportunity-tranche2-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `artifacts/20260607T-b12-opportunity-tranche2-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `artifacts/20260607T-b12-opportunity-tranche2-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-lit-0164-bundle-export.json`
+  - `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-lit-0165-bundle-export.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-opportunity-tranche2-lit-0164-bundle-full.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-opportunity-tranche2-lit-0165-bundle-full.json`
+  - `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-opportunity-tranche2-dossier-dry-run-requests.json`
+  - `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-dossier-import.json`
+  - `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-post-import-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-codex-curated-opportunity-tranche2-dossier-import-detail.json`
+  - `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-index-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-after-b12-opportunity-tranche2-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-after-b12-opportunity-tranche2-index-state-detail.json`
+  - `artifacts/20260607T-after-b12-opportunity-tranche2-index.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-opportunity-tranche2-dry-run B11_CANDIDATE_STATUS=READY_FOR_PROMOTION B11_MAX_CANDIDATES=31 B11_MAX_PROMOTIONS=2 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-opportunity-tranche2-apply-promote B11_CANDIDATE_STATUS=READY_FOR_PROMOTION B11_MAX_CANDIDATES=31 B11_MAX_PROMOTIONS=4 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260607T-b12-opportunity-tranche2-standard-apply B12_LITERATURE_IDS=LIT-0163,LIT-0164,LIT-0165,LIT-0166 B12_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260607T-b12-opportunity-tranche2-acquisition-apply B12_LITERATURE_IDS=LIT-0163,LIT-0164,LIT-0165,LIT-0166 B12_ACQUISITION_PROVIDER_CALL_BUDGET=20 B12_ACQUISITION_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260607T-b12-opportunity-tranche2-fulltext-preprocess-apply B12_LITERATURE_IDS=LIT-0164,LIT-0165 B12_STAGES=FULLTEXT_PREPROCESSED B12_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... export curation bundles for LIT-0164 and LIT-0165 ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... build source-grounded codex_curated dossiers and dry-run import ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... import codex_curated dossiers and write post-import state ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-codex-curated-opportunity-tranche2-index-dry-run B12_LITERATURE_IDS=LIT-0164,LIT-0165 B12_BACKFILL_TARGET_STAGE=INDEXED B12_BACKFILL_PROVIDER_CALL_BUDGET=10 B12_BACKFILL_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-codex-curated-opportunity-tranche2-index-apply B12_LITERATURE_IDS=LIT-0164,LIT-0165 B12_BACKFILL_TARGET_STAGE=INDEXED B12_BACKFILL_PROVIDER_CALL_BUDGET=10 B12_BACKFILL_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260607T-after-b12-opportunity-tranche2-index node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs - <<'NODE' ... final state and active job probe ... NODE`
+- Result:
+  - B11 dry-run evaluated 31 ready candidates: 30 remained `READY_FOR_PROMOTION`, 1 was classified as `DUPLICATE`, and DB delta was 0.
+  - B11 apply promoted 4 candidates with 0 failures, creating `LIT-0163`, `LIT-0164`, `LIT-0165`, and `LIT-0166` plus 4 sources.
+  - B13 after B11 promotion reported managed corpus 160, effective literature 151, pipeline incomplete 9, explicit blockers 5, and pipeline not-started 4.
+  - Standard B12 apply normalized citations and abstracts for all 4 promoted records, then blocked fulltext preprocessing for all 4 before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - Fulltext acquisition succeeded for arXiv records `LIT-0164` and `LIT-0165`, creating 2 content assets.
+  - Fulltext acquisition failed for `LIT-0163` with `UNPAYWALL_NO_OA_PDF` and for `LIT-0166` with `Content asset download failed with status 403`.
+  - Fulltext preprocessing succeeded for `LIT-0164` and `LIT-0165`, creating 2 fulltext documents.
+  - bundle export succeeded for `LIT-0164`: 34 sections, 89 paragraphs, 154 anchors, ready fulltext checksum `a04c44adef9cb955f3026e69d12e763f6efb22da55fe6fed5e683a5bc9151d3f`.
+  - bundle export succeeded for `LIT-0165`: 46 sections, 114 paragraphs, 206 anchors, ready fulltext checksum `6b10e706eaf1c7e7eaa7b045127c2dba6596c534efe7414432e0d2c03062b393`.
+  - dossier dry-run import returned `valid=true`, no issues, and `repaired_source_ref_count=0` for both records; `LIT-0164` used 70 source refs and `LIT-0165` used 87 source refs.
+  - key-content import succeeded with source `codex_curated` for both records and reported 0 LLM gateway calls.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `KEY_CONTENT_READY` count was 0.
+  - index dry-run estimated `extraction_calls=0` and `embedding_calls=2`.
+  - index apply succeeded: job totals 2 succeeded, 0 failed, 0 blocked, no timeout cleanup.
+  - `LIT-0164` active embedding version `81967af7-a77f-4139-865a-c0be907621b2` is `INDEXED` with 154 chunks/vectors, `text-embedding-3-large`, dimension 3072.
+  - `LIT-0165` active embedding version `26014dfc-caec-4644-9ffb-a7aec9e025bf` is `INDEXED` with 194 chunks/vectors, `text-embedding-3-large`, dimension 3072.
+  - final active-state probe reported 0 active content jobs, 0 active content items, and 0 running B12 pipeline runs.
+  - B13 after D21 reports candidate pool 62, candidate ready-for-promotion 26, candidate promoted 14, candidate duplicate 9, managed corpus 160, effective literature 153, pipeline incomplete 7, explicit blockers 7, and pipeline not-started 0.
+
+### 2026-06-07 - D22 B12 Blocker Cleanup
+- Status: completed for four blockers; three source-access blockers remain.
+- Files:
+  - `artifacts/20260607T-b12-blocker-clear-keycontent-bundle-export-lit-0153-bundle-export.json`
+  - `artifacts/20260607T-b12-blocker-clear-keycontent-bundle-export-lit-0154-bundle-export.json`
+  - `artifacts/20260607T-b12-blocker-clear-keycontent-bundle-export-lit-0158-bundle-export.json`
+  - `artifacts/20260607T-b12-blocker-clear-keycontent-dossier-dry-run.json`
+  - `artifacts/20260607T-b12-blocker-clear-keycontent-dossier-import.json`
+  - `artifacts/20260607T-b12-blocker-clear-keycontent-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-b12-blocker-clear-keycontent-index-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0166-wrong-source-cleanup.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0252-explicit-psu-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0252-explicit-psu-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0252-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0252-bundle-export-lit-0252-bundle-export.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0252-dossier-dry-run.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0252-dossier-import.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0252-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0252-index-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-b12-blocker-clear-lit0252-index-retry-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-after-b12-blocker-clear-lit0252-index.json`
+  - `artifacts/20260607T-after-b12-blocker-clear-final-count.json`
+  - `artifacts/20260607T-b12-blocker-clear-remaining-source-audit-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `artifacts/20260607T-b12-blocker-clear-remaining-source-audit-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `artifacts/20260607T-b12-blocker-clear-remaining-source-audit.json`
+- Result:
+  - `LIT-0153`, `LIT-0154`, and `LIT-0158` imported source-grounded `codex_curated` dossiers and completed through `INDEXED`.
+  - key-content cleanup used 0 extraction provider calls and 3 embedding provider calls.
+  - `LIT-0166` wrong-source write was cleaned up; arXiv `2506.05871` is `BestServe`, not `WindServe`.
+  - `LIT-0252` replaced the OCR-blocked scanned PDF with a public title-matched PDF, passed fulltext preprocessing, imported a 74-source-ref `codex_curated` dossier, and completed through `INDEXED`.
+  - remaining acquisition apply created 0 content assets: `LIT-0163` failed `UNPAYWALL_NO_OA_PDF`, `LIT-0166` failed ACM PDF download with 403, and `LIT-0257` blocked because no explicit URL, arXiv id, or DOI OA resolver is available.
+  - source audit found no rights-safe automatically downloadable fulltext for `LIT-0163`, `LIT-0166`, or `LIT-0257`.
+  - B13 after D22 reports candidate pool 62, managed corpus 160, effective literature 157, pipeline incomplete 3, explicit blockers 3, and pipeline not-started 0.
+  - active-state probe reported 0 active content jobs, 0 active content items, and 0 running pipeline runs.
+  - database suite passed.
+  - whitespace diff check passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.

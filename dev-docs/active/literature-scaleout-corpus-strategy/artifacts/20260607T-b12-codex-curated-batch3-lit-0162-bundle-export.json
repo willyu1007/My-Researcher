@@ -1,0 +1,3024 @@
+{
+  "literature_id": "LIT-0162",
+  "title": "NetKV: Network-Aware Decode Instance Selection for Disaggregated LLM Inference",
+  "authors": [
+    "Mubarak Adetunji Ojewale"
+  ],
+  "year": 2026,
+  "abstract": "Disaggregated LLM inference forces the KV cache to traverse the datacenter network before decoding begins, so transfer time enters directly into the Time to First Token (TTFT) budget. Current schedulers route on compute load and prefix-cache locality alone, ignoring the topological distance and dynamic congestion between prefill and decode instances. We close this gap with a thin operator-to-scheduler interface, the network cost oracle, and we prove that ignoring the network term renders cache-aware-only scheduling arbitrarily suboptimal as context length grows. NetKV, the O(|D|) per-request greedy that consumes this oracle, has tier rankings that are provably robust to stale telemetry. On a 64-GPU four-tier fat-tree simulator driven by Mooncake traces, NetKV reduces mean TTFT by up to 21.2% over round-robin and 17.6% over a tuned cache+load-aware scheduler, lifts SLO attainment by up to 20.1 percentage points, and keeps the Time Between Tokens overhead below 0.5 ms in every condition tested, with no changes to the transport, inference engine, or hardware.",
+  "abstract_profile": {
+    "id": "78ed8b7e-c2c7-4096-b17c-076ad7d0bc93",
+    "checksum": "c31466323165243047241fd66b799d6e116d7695320392c0c4d522a456ce17ae",
+    "confidence": 0.95,
+    "generated": false
+  },
+  "document": {
+    "id": "47b0be13-092a-4fed-aa34-fd92a193410b",
+    "source_asset_id": "a1d2c255-a871-410f-a1a8-6633eedcf8f0",
+    "normalized_text_checksum": "7fb22bbe6a0f73a79d0bc73e5240ef764b4a65361efde761ca9f3d641f299a3b",
+    "parser_name": "grobid-tei-v1",
+    "parser_version": "1",
+    "status": "READY",
+    "diagnostics": [
+      {
+        "code": "GROBID_TEI_PARSED",
+        "severity": "info",
+        "text_length": 51072,
+        "anchor_count": 116,
+        "endpoint_url": "http://localhost:8070",
+        "section_count": 37,
+        "paragraph_count": 79,
+        "parser_quality_score": 1,
+        "parser_quality_bucket": "high",
+        "parser_quality_inputs": {
+          "page_count": 12,
+          "text_length": 51072,
+          "anchor_count": 116,
+          "section_count": 37,
+          "paragraph_count": 79,
+          "average_paragraph_length": 633
+        }
+      }
+    ]
+  },
+  "section_count": 37,
+  "paragraph_count": 79,
+  "anchor_count": 116,
+  "sections": [
+    {
+      "section_id": "sec-1",
+      "title": "I. INTRODUCTION",
+      "level": 1,
+      "order_index": 0,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "6242015d0fa9462da10843c1f8a70dc5703f3106a34d084ba3a6b2ab0f56d2a2"
+    },
+    {
+      "section_id": "sec-2",
+      "title": "II. BACKGROUND AND RELATED WORK",
+      "level": 1,
+      "order_index": 1,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "b37bbac88d382b60cd34a0e520ffd6603942e900fd097334602dca3740d37de6"
+    },
+    {
+      "section_id": "sec-3",
+      "title": "A. Disaggregated LLM Inference",
+      "level": 1,
+      "order_index": 2,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "40d90eae8b16c5c784a0b2e8188f7f6d3673e4d08cad7fa633bd784fd512c24d"
+    },
+    {
+      "section_id": "sec-4",
+      "title": "B. KV-Cache-Aware Request Routing",
+      "level": 1,
+      "order_index": 3,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "54ddbaf611176f038d15d76c7ed7b7ebfc2aad215065bca11d29002fcb0a7bc7"
+    },
+    {
+      "section_id": "sec-5",
+      "title": "C. Network-Aware Scheduling for ML Workloads",
+      "level": 1,
+      "order_index": 4,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "9b61f32998f4afc7825a82f733665ac33671a4743ee65cc1b6a7cf89fc894d69"
+    },
+    {
+      "section_id": "sec-6",
+      "title": "D. Positioning",
+      "level": 1,
+      "order_index": 5,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "cff7cee33bf1ede604d1a351735d5ad123d60ee1a501dc64cdd48b9e9c5c2533"
+    },
+    {
+      "section_id": "sec-7",
+      "title": "III. SYSTEM MODEL",
+      "level": 1,
+      "order_index": 6,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "f4b7b8e1df77c85149101228816b0f121ec010b7cccd6669d11afa47c2f7a742"
+    },
+    {
+      "section_id": "sec-8",
+      "title": "A. Cluster Architecture",
+      "level": 1,
+      "order_index": 7,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "51fb4a96ea1a51ce969dec609f82f29cfaa12a74b902b068001b73c30b2a1cc3"
+    },
+    {
+      "section_id": "sec-9",
+      "title": "B. Request and KV Cache Model",
+      "level": 1,
+      "order_index": 8,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "7464ad6798d4facf70c65c95c9b3ba481a552c69dd2f5a440f99b3148a8a4447"
+    },
+    {
+      "section_id": "sec-10",
+      "title": "C. Decode Instance State",
+      "level": 1,
+      "order_index": 9,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "0208e4c2c8254ae739c63dd7853355904d94dc090309dd953da8b78210e58c8b"
+    },
+    {
+      "section_id": "sec-11",
+      "title": "D. Network Cost Model",
+      "level": 1,
+      "order_index": 10,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "325fe5446ccd23aa47c8af907d7e6231a899193059fdbef746c59f612319e32d"
+    },
+    {
+      "section_id": "sec-12",
+      "title": "E. Network Cost Oracle Interface",
+      "level": 1,
+      "order_index": 11,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "3bea5e7495d02850c9c628ec9c35d8d727c79e35c4147cf64f5e22e93d288682"
+    },
+    {
+      "section_id": "sec-13",
+      "title": "IV. PROBLEM FORMULATION A. Objective",
+      "level": 1,
+      "order_index": 12,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "c38a395c524f1462133399dca1609d1805f80c09500a126c06fed4feae5608f3"
+    },
+    {
+      "section_id": "sec-14",
+      "title": "B. Component Models",
+      "level": 1,
+      "order_index": 13,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "189f5e60ec0d35c6481b662dbc04c58f5abcd5be189d2be6af763699696f2eb9"
+    },
+    {
+      "section_id": "sec-15",
+      "title": "□",
+      "level": 1,
+      "order_index": 14,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "4e1ca2f9e688f56fe6e9ca4fb6a26f88a1a492cd2f68406092c97cdaab27534d"
+    },
+    {
+      "section_id": "sec-16",
+      "title": "Numerical example.",
+      "level": 1,
+      "order_index": 15,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "c22ceb3406e16510fee69cc5a8b255eb6757edf0c1435ae273bd79af8c2d242b"
+    },
+    {
+      "section_id": "sec-17",
+      "title": "V. ALGORITHM A. NetKV Scheduling Algorithm",
+      "level": 1,
+      "order_index": 16,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "49c665f1c04525dbd65d2250f6eb1828c1426fba24e78317e6e3efba8b4df7d6"
+    },
+    {
+      "section_id": "sec-18",
+      "title": "B. Complexity",
+      "level": 1,
+      "order_index": 17,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "bd15471ef8d4ba32d4c2bd8a7e4c1d0ed5f0e11081591b78d0883b049c9a25e5"
+    },
+    {
+      "section_id": "sec-19",
+      "title": "C. Self-Contention Tracking",
+      "level": 1,
+      "order_index": 18,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "2d6e3d5e1f3462243a758931d66bf726d2f86fda914f38aca6c02e672fc2547c"
+    },
+    {
+      "section_id": "sec-20",
+      "title": "D. Oracle Staleness Analysis",
+      "level": 1,
+      "order_index": 19,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "274627a96dc7991a62962547a87018c56db94fd96a3363221d3eedf1243bb1cb"
+    },
+    {
+      "section_id": "sec-21",
+      "title": "VI. EVALUATION A. Experimental Setup",
+      "level": 1,
+      "order_index": 20,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "0964068a7048bc6302cbf440ca3013cdd77e26bb02b0935f5d95a6bcd382ede5"
+    },
+    {
+      "section_id": "sec-22",
+      "title": "B. Simulator Design and Validation",
+      "level": 1,
+      "order_index": 21,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "1853d6c4758bd5fbec7b4bdd658a920a398a3003af53da826765784587f43450"
+    },
+    {
+      "section_id": "sec-23",
+      "title": "C. Experiment 1: Load Sweep",
+      "level": 1,
+      "order_index": 22,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "34beafcc6729c44c3950916e07e7b493ce8f91c453f3d226b2267ccabbf5742d"
+    },
+    {
+      "section_id": "sec-24",
+      "title": "D. Experiment 2: Context Length Sweep",
+      "level": 1,
+      "order_index": 23,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "cb784459124f22e5923db959ac82a4b9ed1ff939ea4bfad2c8a161f424c69060"
+    },
+    {
+      "section_id": "sec-25",
+      "title": "G. Experiment 5: Prefix Sharing Interaction",
+      "level": 1,
+      "order_index": 24,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "f510b9bc1c79162ba7031683c4c879d3bb86eebe6a1f5fc2616d2238e4cb9388"
+    },
+    {
+      "section_id": "sec-26",
+      "title": "H. Experiment 6: Ablation Study",
+      "level": 1,
+      "order_index": 25,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "256ef8aeeb05497f2d89a2e155162ad98d435649ffc154f7e456b44e83941280"
+    },
+    {
+      "section_id": "sec-27",
+      "title": "I. Experiment 7: Scalability",
+      "level": 1,
+      "order_index": 26,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "7b81c4def139f9a2a6e004d52da7ecb668d51bf711f9087e4d4483b95e12377d"
+    },
+    {
+      "section_id": "sec-28",
+      "title": "VII. DISCUSSION",
+      "level": 1,
+      "order_index": 27,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "51e4775fa499e23877f9ddba596c72182dd9ceb710c4393f9153d397d3e21cbf"
+    },
+    {
+      "section_id": "sec-29",
+      "title": "A. Deployment Considerations",
+      "level": 1,
+      "order_index": 28,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "f1f008ec4747cf6f248bfb72f351e97b79e6139ee7bd5907b7c8bcc03f1e797b"
+    },
+    {
+      "section_id": "sec-30",
+      "title": "B. Tier-Shifting Mechanism",
+      "level": 1,
+      "order_index": 29,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "19af4b8fc14268bb76f0be9ff0d1e55e62a0d6d04c47a89a6985ad39bef3e82b"
+    },
+    {
+      "section_id": "sec-31",
+      "title": "C. Limitations",
+      "level": 1,
+      "order_index": 30,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "c0e6c8c194050c9e5535b194af283b070894f8e545f170ab79f63ce245e6d37c"
+    },
+    {
+      "section_id": "sec-32",
+      "title": "D. Future Work",
+      "level": 1,
+      "order_index": 31,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "034afb15d21a62fef1e3949cfed95ae4f9e72e5cb2f5f25066bf841ff037b7b9"
+    },
+    {
+      "section_id": "sec-33",
+      "title": "VIII. CONCLUSION",
+      "level": 1,
+      "order_index": 32,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "6a1c675ad98a8bed51f94396c3928aee250910375ca73e500072f648b0e937cf"
+    },
+    {
+      "section_id": "sec-34",
+      "title": "Body",
+      "level": 1,
+      "order_index": 33,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "44b979a3c475ca4504d71c1fb9708e42a07e899974b33cda4fda27f5cb0cb112"
+    },
+    {
+      "section_id": "sec-35",
+      "title": "Body",
+      "level": 1,
+      "order_index": 34,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "8f8323b102768697bb19f76bbbeaa51e4e2abf6cc625f9005e746b80fb844f37"
+    },
+    {
+      "section_id": "sec-36",
+      "title": "Body",
+      "level": 1,
+      "order_index": 35,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "90b5e0bd403563fd3fbe6b8f338d06867f0732b65df0c949f455fb6a909c7fe8"
+    },
+    {
+      "section_id": "sec-37",
+      "title": "Body",
+      "level": 1,
+      "order_index": 36,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "4bd9ce58baaf4c882e6a4e7debd396eab902c9c84e2e759b892135d04fd46f21"
+    }
+  ],
+  "paragraph_samples": [
+    {
+      "paragraph_id": "_a54Tnjp",
+      "section_id": "sec-1",
+      "order_index": 0,
+      "text": "A key requirement for interactive Large Language Model (LLM) serving is the ability to deliver the first generated token within a Service Level Objective (SLO) on the Time to First Token (TTFT), and to sustain a steady inter-token rate, called the Time Between Tokens (TBT), once decoding has begun. [1] [3] Modern production systems for LLM inference have converged on a disaggregated architecture in which the compute-intensive prefill phase and the memory-bandwidthbound decode phase run on separate GPU pools-. [4] [5] [6] [7] This design is now adopted by every major framework, including NVIDIA Dynamo, llm-d, SGLang, and vLLM, because it eliminates the prefill-decode interference that arises when the two phases share a GPU, and allows the two pools to be sized independently.",
+      "checksum": "9c4cf916876a16e47927cd2db3512af6a890a977ee83103d41d18147b6ac70e8"
+    },
+    {
+      "paragraph_id": "_f82wvXh",
+      "section_id": "sec-1",
+      "order_index": 1,
+      "text": "Disaggregation, however, introduces a new system bottleneck. The Key-Value (KV) cache generated during prefill must be transferred across the datacenter network to a decode instance before token generation can begin. [8] For a 128Kcontext Llama-3-70Brequest, the aggregate KV cache is approximately 40 GB and, under tensor-parallel (TP) sharding with TP=4, this corresponds to roughly 10 GB of data crossing each prefill-to-decode GPU pair in parallel. On a 25 Gbps Remote Direct Memory Access (RDMA) link, that per-pair transfer takes about 3.2 s, easily dominating the TTFT budget. The transfer time therefore enters directly into the TTFT, and the chosen decode instance determines what fraction of the budget is consumed by data movement rather than computation.",
+      "checksum": "91ddb34e483fa12fa096e9865d45f0df9e2bfab60a654a7d8316f1e385b422a9"
+    },
+    {
+      "paragraph_id": "_EkpDdh7",
+      "section_id": "sec-1",
+      "order_index": 2,
+      "text": "The central scheduling decision in disaggregated inference can thus be stated as follows. Given a request that has completed prefill on instance p, which decode instance d should receive its KV cache? Current production schedulers answer this question using two signals: compute load (GPU memory availability, current batch size, queuing delay) and KV-cache locality (whether a candidate decode instance already holds a matching prefix from a prior request). [1] [3] [5] [4] Specifically, DistServe favours same-node placement at deployment time but has no per-request network signal; Mooncake's Conductor scores candidates by cache match and instance load; llmd implements a composite scorer over prefix-cache and load within the Kubernetes Gateway API; and Dynamo's KVaware router directs requests to instances holding matching prefix blocks. I The positioning is summarised in Table. None of these schedulers, however, incorporates a third signal that directly determines transfer latency, namely the network cost between the prefill and the decode instance. [3] Mooncake's authors explicitly identify this gap: \"More difficulty lies in predicting the transfer time because it is determined not only by the size of the transferred data but also by the current network status, especially whether the sending node is under congestion\".",
+      "checksum": "14a9cb350c2ff885416f14ade57f4c9fc3796dced23fc4b3662529d43f0f752e"
+    },
+    {
+      "paragraph_id": "_x64UctQ",
+      "section_id": "sec-1",
+      "order_index": 3,
+      "text": "This omission reflects a fundamental information asymmetry between two parties. The inference scheduler, operating at the application layer, has no visibility into the physical network topology, link utilisation, or routing decisions. The cluster operator, managing the network fabric, has detailed topology and telemetry but no knowledge of upcoming KV cache transfers, their sizes, or their latency sensitivity. [9] Neither side alone can make a globally optimal placement decision. We postulate that bridging this gap does not require deep integration, but rather a thin, well-defined information-exchange interface that we call a network cost oracle. The operator does not need to understand inference semantics, and the scheduler does not need raw topology data. A small, periodically updated signal, specifically a locality-tier classification of instance pairs together with per-tier bandwidth estimates and congestion indicators, is sufficient to make the network bottleneck visible to the scheduler.",
+      "checksum": "3926cc290f23b11ce4ae8eea591962139d2f212b3ed80b86e4ecf88f641c524d"
+    },
+    {
+      "paragraph_id": "_bQynrA7",
+      "section_id": "sec-1",
+      "order_index": 4,
+      "text": "We make a threefold contribution. (1) We formalise decodeinstance selection as an online optimisation jointly over com-pute load, cache locality, and network transfer cost, and we prove that ignoring the network term renders cache-awareonly scheduling arbitrarily suboptimal as context length grows (Proposition 1 in §IV). (2) We propose NetKV, an O(|D|) perrequest greedy algorithm that consumes the oracle output, and we prove a sufficient condition under which its tier rankings are robust to stale congestion telemetry (Proposition 2 in §V). NetKV is deployable as a scoring plugin to existing schedulers and requires no changes to the transport layer, the inference engine, or the network hardware. (3) We evaluate NetKV on a 64-GPU four-tier fat-tree cluster simulator driven by Mooncake production traces ( §VI). Across seven experiments and five baselines, NetKV reduces mean TTFT by up to 21.2% over round-robin and 17.6% over a tuned cache+load-aware scheduler, improves SLO attainment by up to 20.1 percentage points, and keeps the TBT overhead below 0.5 ms in every condition we tested. The improvements scale with context length, network oversubscription, and background congestion, the regimes in which the network bottleneck of disaggregation is most acute.",
+      "checksum": "7fc1889620e98f67e7b76e5b4f0ff5986b598d079c03e5151f55ef2cc4f5b2a1"
+    },
+    {
+      "paragraph_id": "_2HrS3QQ",
+      "section_id": "sec-3",
+      "order_index": 5,
+      "text": "LLM inference comprises two phases with distinct computational profiles. The prefill phase processes the entire input prompt in a single forward pass and is compute-bound. The decode phase generates output tokens autoregressively, one per step, and is memory-bandwidth-bound. Colocating both phases on the same GPU leads to mutual interference: long prefills block decode batches and inflate the TBT, while decode batches fragment GPU memory that prefill would otherwise use.",
+      "checksum": "4ba65a8bbbbbe799865362acfda612c1731760835c621f908636b0d5e940200a"
+    },
+    {
+      "paragraph_id": "_sg9ff62",
+      "section_id": "sec-3",
+      "order_index": 6,
+      "text": "[1] DistServeintroduced prefill-decode disaggregation and co-optimised GPU allocation and parallelism strategies for each phase independently. [2] Splitwiseproposed a similar phase-splitting architecture with layer-level pipelining that overlaps KV cache transfer with computation. [3] Mooncakebuilt a production-scale disaggregated platform for Kimi (the Moonshot AI chatbot), featuring a KV-cache-centric distributed store that leverages CPU DRAM, SSD, and RDMA for cache persistence. [10] FlowKVaddresses transfer latency through contiguous memory layout and fused transfer kernels, reporting up to a 96% reduction in per-transfer latency relative to its own naive baseline. [11] Sarathi-Servesoftens the prefilldecode boundary via chunked prefill but does not eliminate the need to transport KV state across instances. All of these systems acknowledge KV cache transfer as the principal overhead of disaggregation. DistServe mitigates it by preferring same-node placement, Splitwise overlaps transfer with computation, Mooncake optimises the storage and retrieval path, and FlowKV optimises the transfer mechanism itself. None of them, however, makes per-request decode placement decisions as a function of dynamic network state or topological distance, which is the gap that NetKV addresses.",
+      "checksum": "18369cf28712c30ae76db28cbeb60e0d38a9b4bd80e4ab7916ff3a96ec1ab218"
+    },
+    {
+      "paragraph_id": "_rFtradA",
+      "section_id": "sec-4",
+      "order_index": 7,
+      "text": "A parallel line of work optimises request routing based on KV-cache locality. [5] llm-dimplements prefix-cache-aware routing within the Kubernetes Gateway API Inference Extension, scoring decode pods by prefix match length. [4] NVIDIA Dynamoprovides a KV-aware router that directs requests to instances holding matching prefix blocks, together with a KV Block Manager for hierarchical cache offloading. [12] Al-paServeplaces model replicas to optimise Service Level Objective (SLO) attainment under bursty workloads. [13] Server-lessLLMintroduces locality-aware checkpoint loading. [14] Llumnixsupports live request migration across decode instances for load rebalancing. These systems demonstrate that cache-aware routing produces large TTFT gains over cacheblind baselines. Their per-request routing decisions, however, remain topology-agnostic. A decode pod with a 90% prefix hit on a congested cross-pod link can yield a worse TTFT than a cold-cache pod on the same rack. NetKV adds the network dimension to this decision, enabling the scheduler to reason about the tradeoff between cache locality and transfer cost.",
+      "checksum": "b99b6fbaaca132a4812d3b750da8a3dbf06472b2970df9ab286960bd76b20010"
+    },
+    {
+      "paragraph_id": "_CsfqGyr",
+      "section_id": "sec-5",
+      "order_index": 8,
+      "text": "Network-aware scheduling has been extensively studied for distributed training. [15] CASSINImodels the periodic communication patterns of training jobs as geometric abstractions, enabling interleaving of communication phases across jobs that share network links. [16] vClosjointly optimises topology, routing, communication patterns, and GPU assignments. [17] TopoOptco-optimises network topology and parallelisation strategy using reconfigurable optical interconnects. These systems exploit a key property of training, namely that communication is periodic, deterministic, and known in advance: an AllReduce of fixed message size at every iteration. Inference communication is fundamentally different. KV cache transfers are request-driven, stochastic, and variable in size, with the payload proportional to the input sequence length. The communication graph changes with every request, so CASSINI's circle-based abstraction and TopoOpt's offline topology co-optimisation are inapplicable. NetKV addresses this by treating network-aware scheduling as an online decision problem integrated with the per-request scheduling loop.",
+      "checksum": "0d62311dc20598755a59dcbab420be67c174d8d0500f8e7c35b285f9410c9516"
+    },
+    {
+      "paragraph_id": "_aeDw426",
+      "section_id": "sec-6",
+      "order_index": 9,
+      "text": "[18] GORGOstudies a related tradeoff between KV cache reuse and network latency at the geo-distributed level, where WAN latencies are measured in hundreds of milliseconds to several seconds. NetKV operates intra-cluster, where the information asymmetry between scheduler and operator is most acute and where topology granularity (rack, pod, spine) directly determines transfer performance. [19] Helixformulates LLM placement on heterogeneous GPUs as a max-flow problem on the cluster's compute-network graph, but solves an offline placement problem rather than per-request routing within an already-placed pool, and is therefore complementary to NetKV. Cloud providers such as AWS SageMaker HyperPod, NVIDIA Run:ai, and Kubernetes Topology Aware",
+      "checksum": "6ed1e730ef956cd49fad4ded085d390746b00fd62028601597032cc7474bcacc"
+    },
+    {
+      "paragraph_id": "_bT9uMeQ",
+      "section_id": "sec-6",
+      "order_index": 10,
+      "text": "TABLE I: Positioning of NetKV relative to existing systems. System Cache Net. Per-req Inf. DistServe [1] × × a ✓ ✓ Mooncake [3] ✓ × ✓ ✓ llm-d [5]/Dynamo [4] ✓ × ✓ ✓ CASSINI [15]/TopoOpt [17] N/A ✓ × × Helix [19] × ✓ b × ✓ GORGO [18] ✓ ✓ c ✓ ✓ NetKV ✓ ✓ ✓ ✓ a Placement only. b Offline, link-level. c Geo/WAN.",
+      "checksum": "33d25e3ca1ef236f5a2997a0ce756a7f8e2e03eea8ad506172a765604c7ce1ba"
+    },
+    {
+      "paragraph_id": "_sJBZ8hu",
+      "section_id": "sec-6",
+      "order_index": 11,
+      "text": "Scheduling support topology-aware initial placement but not per-request routing within an already-placed pool. I Tablesummarises this positioning. NetKV is, to our knowledge, the first system to incorporate network topology and dynamic congestion awareness into per-request decode-instance selection for disaggregated LLM inference.",
+      "checksum": "10feea419ff4007a38e827bac8ff7668147401a478b6107612beadabdf371b15"
+    }
+  ],
+  "anchors": [
+    {
+      "anchor_id": "b0",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Distserve: disaggregating prefill and decoding for goodput-optimized large language model serving Y Zhong S Liu J Chen J Hu Y Zhu X Liu X Jin H Zhang Proceedings of the 18th USENIX Conference on Operating Systems Design and Implementation, ser. OSDI'24. USA: USENIX Association the 18th USENIX Conference on Operating Systems Design and Implementation, ser. OSDI'24. USA: USENIX Association 2024 Y. Zhong, S. Liu, J. Chen, J. Hu, Y. Zhu, X. Liu, X. Jin, and H. Zhang, \"Distserve: disaggregating prefill and decoding for goodput-optimized large language model serving,\" in Proceedings of the 18th USENIX Conference on Operating Systems Design and Implementation, ser. OSDI'24. USA: USENIX Association, 2024.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,70.99,232.80,6.91;12,67.22,79.95,232.80,6.91;12,67.22,88.78,232.80,7.05;12,67.22,97.74,232.80,7.05;12,67.22,106.85,152.48,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 70.99,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 79.95,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 88.78,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 97.74,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 106.85,
+            "page": 12,
+            "width": 152.48,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "0925a4657655aafa05e38a74744082c6ce4938d905cc6cd0fe9931f4215bb400"
+    },
+    {
+      "anchor_id": "b1",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Splitwise: Efficient generative LLM inference using phase splitting P Patel E Choukse C Zhang A Shah Í Goiri S Maleki R Bianchini 2024 P. Patel, E. Choukse, C. Zhang, A. Shah, Í. Goiri, S. Maleki, and R. Bianchini, \"Splitwise: Efficient generative LLM inference using phase splitting,\" 2024.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,114.31,232.80,8.65;12,67.22,125.01,232.80,6.91;12,67.22,133.98,51.83,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 114.31,
+            "page": 12,
+            "width": 232.8,
+            "height": 8.65
+          },
+          {
+            "x": 67.22,
+            "y": 125.01,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 133.98,
+            "page": 12,
+            "width": 51.83,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "c60ceba210782f42396619b263083cd0daca74c502764beee7e29a0d59da06ea"
+    },
+    {
+      "anchor_id": "b10",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Sarathi-Serve: Taming throughput-latency tradeoff in LLM inference with chunked prefill A Agrawal N Kedia A Panwar J Mohan N Kwatra B S Gulavani A Tumanov R Ramjee Proceedings of the 18th USENIX Symposium on Operating Systems Design and Implementation (OSDI) the 18th USENIX Symposium on Operating Systems Design and Implementation (OSDI) 2024 A. Agrawal, N. Kedia, A. Panwar, J. Mohan, N. Kwatra, B. S. Gulavani, A. Tumanov, and R. Ramjee, \"Sarathi-Serve: Taming throughput-latency tradeoff in LLM inference with chunked prefill,\" in Proceedings of the 18th USENIX Symposium on Operating Systems Design and Implemen- tation (OSDI), 2024.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,449.86,232.80,6.91;12,67.22,458.83,232.80,6.91;12,67.22,467.65,232.80,7.05;12,67.22,476.62,232.80,6.87;12,67.22,485.58,67.56,7.05",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 449.86,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 458.83,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 467.65,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 476.62,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.87
+          },
+          {
+            "x": 67.22,
+            "y": 485.58,
+            "page": 12,
+            "width": 67.56,
+            "height": 7.05
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "38da51d9395231c06ada3432bebcdafdb2da8ddc31a81f65be87149541ef173c"
+    },
+    {
+      "anchor_id": "b11",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "AlpaServe: Statistical multiplexing with model parallelism for deep learning serving Z Li L Zheng Y Zhong V Liu Y Sheng X Jin Y Huang Z Chen H Zhang J E Gonzalez I Stoica Proceedings of the 17th USENIX Symposium on Operating Systems Design and Implementation the 17th USENIX Symposium on Operating Systems Design and Implementation 2023 Z. Li, L. Zheng, Y. Zhong, V. Liu, Y. Sheng, X. Jin, Y. Huang, Z. Chen, H. Zhang, J. E. Gonzalez, and I. Stoica, \"AlpaServe: Statistical multiplexing with model parallelism for deep learning serving,\" in Proceedings of the 17th USENIX Symposium on Operating Systems Design and Implementation (OSDI), 2023.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,494.92,232.80,6.91;12,67.22,503.89,232.80,6.91;12,67.22,512.85,232.80,6.91;12,67.22,521.68,232.80,6.87;12,67.22,530.64,139.10,7.05",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 494.92,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 503.89,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 512.85,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 521.68,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.87
+          },
+          {
+            "x": 67.22,
+            "y": 530.64,
+            "page": 12,
+            "width": 139.1,
+            "height": 7.05
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "8305fc030be82fdd181e3a751b89351b98f07d8f42b7de6a3e9c29c2780bbc14"
+    },
+    {
+      "anchor_id": "b12",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "ServerlessLLM: Locality-enhanced serverless inference for large language models Y Fu L Xue Y Huang A.-O Brabete D Ustiugov Y Patel L Mai Proceedings of the 18th USENIX Symposium on Operating Systems Design and Implementation (OSDI) the 18th USENIX Symposium on Operating Systems Design and Implementation (OSDI) 2024 Y. Fu, L. Xue, Y. Huang, A.-O. Brabete, D. Ustiugov, Y. Patel, and L. Mai, \"ServerlessLLM: Locality-enhanced serverless inference for large language models,\" in Proceedings of the 18th USENIX Symposium on Operating Systems Design and Implementation (OSDI), 2024.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,539.98,232.80,6.91;12,67.22,548.95,232.80,6.91;12,67.22,557.77,232.80,7.05;12,67.22,566.74,213.32,7.05",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 539.98,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 548.95,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 557.77,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 566.74,
+            "page": 12,
+            "width": 213.32,
+            "height": 7.05
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "00c29d64796f8a421dd3c472e436a3369d73b827a45e76548ba3f68a8177bba6"
+    },
+    {
+      "anchor_id": "b13",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Llumnix: Dynamic scheduling for large language model serving B Sun Z Huang H Zhao W Xiao X Zhang Y Li W Lin Proceedings of the 18th USENIX Symposium on Operating Systems Design and Implementation (OSDI) the 18th USENIX Symposium on Operating Systems Design and Implementation (OSDI) 2024 B. Sun, Z. Huang, H. Zhao, W. Xiao, X. Zhang, Y. Li, and W. Lin, \"Llumnix: Dynamic scheduling for large language model serving,\" in Proceedings of the 18th USENIX Symposium on Operating Systems Design and Implementation (OSDI), 2024.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,576.07,232.80,6.91;12,67.22,585.04,232.80,6.91;12,67.22,593.86,232.80,6.87;12,67.22,602.83,139.10,7.05",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 576.07,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 585.04,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 593.86,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.87
+          },
+          {
+            "x": 67.22,
+            "y": 602.83,
+            "page": 12,
+            "width": 139.1,
+            "height": 7.05
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "446e486e7505e32c791feaa28b1d9d70bd91997ea465725ac8f3e64c98bbedbf"
+    },
+    {
+      "anchor_id": "b14",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Cassini: network-aware job scheduling in machine learning clusters S Rajasekaran M Ghobadi A Akella Proceedings of the 21st USENIX Symposium on Networked Systems Design and Implementation, ser. NSDI'24. USA: USENIX Association the 21st USENIX Symposium on Networked Systems Design and Implementation, ser. NSDI'24. USA: USENIX Association 2024 S. Rajasekaran, M. Ghobadi, and A. Akella, \"Cassini: network-aware job scheduling in machine learning clusters,\" in Proceedings of the 21st USENIX Symposium on Networked Systems Design and Implementation, ser. NSDI'24. USA: USENIX Association, 2024.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,612.17,232.80,6.91;12,67.22,620.99,232.80,7.05;12,67.22,629.96,232.80,6.87;12,67.22,639.07,166.12,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 612.17,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 620.99,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 629.96,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.87
+          },
+          {
+            "x": 67.22,
+            "y": 639.07,
+            "page": 12,
+            "width": 166.12,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "f0fc5cb75909a611665606061dd5f2be226943c9582ee47cd382d05e79792084"
+    },
+    {
+      "anchor_id": "b15",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "vclos: Network contention aware scheduling for distributed machine learning tasks in multi-tenant gpu clusters X Han S Zhao Y Lv P Cao W Jiang Q Yang Y Liu S Lin B Jiang X Liu Y Cui C Zhou X Wang 10.1016/j.comnet.2025.111285 Comput. Netw 268 C Aug. 2025 X. Han, S. Zhao, Y. Lv, P. Cao, W. Jiang, Q. Yang, Y. Liu, S. Lin, B. Jiang, X. Liu, Y. Cui, C. Zhou, and X. Wang, \"vclos: Network contention aware scheduling for distributed machine learning tasks in multi-tenant gpu clusters,\" Comput. Netw., vol. 268, no. C, Aug. 2025. [Online]. Available: https://doi.org/10.1016/j.comnet.2025.111285",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,648.26,232.80,6.91;12,67.22,657.23,232.80,6.91;12,67.22,666.20,232.80,6.91;12,67.22,675.02,232.80,7.05;12,67.22,684.13,213.64,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 648.26,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 657.23,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 666.2,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 675.02,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 684.13,
+            "page": 12,
+            "width": 213.64,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "4f8ed8854a92934539c586e41d33a1dba8a86ae5ef20c8d7f59a70d57b6ffcab"
+    },
+    {
+      "anchor_id": "b16",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "{TopoOpt}: Co-optimizing network topology and parallelization strategy for distributed training jobs W Wang M Khazraee Z Zhong M Ghobadi Z Jia D Mudigere Y Zhang A Kewitsch 20th USENIX Symposium on Networked Systems Design and Implementation 2023 23 W. Wang, M. Khazraee, Z. Zhong, M. Ghobadi, Z. Jia, D. Mudigere, Y. Zhang, and A. Kewitsch, \"{TopoOpt}: Co-optimizing network topol- ogy and parallelization strategy for distributed training jobs,\" in 20th USENIX Symposium on Networked Systems Design and Implementation (NSDI 23), 2023, pp. 739-767.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,693.32,232.80,6.91;12,67.22,702.29,232.80,6.91;12,67.22,711.11,232.80,7.05;12,330.24,53.58,232.80,6.87;12,330.24,62.54,101.92,7.05",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 693.32,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 702.29,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 711.11,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 53.58,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.87
+          },
+          {
+            "x": 330.24,
+            "y": 62.54,
+            "page": 12,
+            "width": 101.92,
+            "height": 7.05
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "0ce1712c2c9392550af973d039fe8869423385ba072b339d69d523654f243b58"
+    },
+    {
+      "anchor_id": "b17",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "GORGO: Maximizing KV-cache reuse while minimizing network latency in cross-region LLM load balancing arXiv:2602.11688 Feb. 2026 \"GORGO: Maximizing KV-cache reuse while minimizing network latency in cross-region LLM load balancing,\" arXiv:2602.11688, Feb. 2026.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,71.65,232.80,6.91;12,330.24,80.62,232.80,6.91;12,330.24,89.59,17.93,6.91",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 71.65,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 80.62,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 89.59,
+            "page": 12,
+            "width": 17.93,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "06b1cff4663f4f06a3d3871f9deafed0ef0297c4b3077c6594c4e8f94ec28aed"
+    },
+    {
+      "anchor_id": "b18",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Helix: Serving large language models over heterogeneous gpus and network via max-flow Y Mei Y Zhuang X Miao J Yang Z Jia R Vinayak 10.1145/3669940.3707215 Proceedings of the 30th ACM International Conference on Architectural Support for Programming Languages and Operating Systems New York, NY, USA the 30th ACM International Conference on Architectural Support for Programming Languages and Operating Systems Association for Computing Machinery 2025 1 ser. ASPLOS '25 Y. Mei, Y. Zhuang, X. Miao, J. Yang, Z. Jia, and R. Vinayak, \"Helix: Serving large language models over heterogeneous gpus and network via max-flow,\" in Proceedings of the 30th ACM International Conference on Architectural Support for Programming Languages and Operating Systems, Volume 1, ser. ASPLOS '25. New York, NY, USA: Association for Computing Machinery, 2025, p. 586-602. [Online]. Available: https://doi.org/10.1145/3669940.3707215",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,98.55,232.80,6.91;12,330.24,107.52,232.80,6.91;12,330.24,116.34,232.80,7.05;12,330.24,125.31,232.80,6.87;12,330.24,134.28,232.80,7.05;12,330.24,143.39,232.80,6.91;12,330.24,152.35,168.13,6.91",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 98.55,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 107.52,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 116.34,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 125.31,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.87
+          },
+          {
+            "x": 330.24,
+            "y": 134.28,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 143.39,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 152.35,
+            "page": 12,
+            "width": 168.13,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "e0d408ea3cab50b343197c5c1545e14babbf8bed0aded18f0ab81ba555d5b9ad"
+    },
+    {
+      "anchor_id": "b19",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "A scalable, commodity data center network architecture M Al-Fares A Loukissas A Vahdat 10.1145/1402946.1402967 Aug. 2008 Association for Computing Machinery 38 New York, NY, USA M. Al-Fares, A. Loukissas, and A. Vahdat, \"A scalable, commodity data center network architecture,\" vol. 38, no. 4. New York, NY, USA: Association for Computing Machinery, Aug. 2008, p. 63-74. [Online]. Available: https://doi.org/10.1145/1402946.1402967",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,161.32,232.80,6.91;12,330.24,170.28,232.80,6.91;12,330.24,179.25,232.80,6.91;12,330.24,188.22,199.91,6.91",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 161.32,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 170.28,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 179.25,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 188.22,
+            "page": 12,
+            "width": 199.91,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "5679a99ac1f14041d89475b139a9cdf273e7c5b4436c7994833d778e89522fe4"
+    },
+    {
+      "anchor_id": "b2",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Mooncake: A kvcache-centric disaggregated architecture for llm serving R Qin Z Li W He J Cui H Tang F Ren T Ma S Cai Y Zhang M Zhang Y Wu W Zheng X Xu 10.1145/3773772 Nov. 2025 Association for Computing Machinery New York, NY, USA R. Qin, Z. Li, W. He, J. Cui, H. Tang, F. Ren, T. Ma, S. Cai, Y. Zhang, M. Zhang, Y. Wu, W. Zheng, and X. Xu, \"Mooncake: A kvcache-centric disaggregated architecture for llm serving.\" New York, NY, USA: Association for Computing Machinery, Nov. 2025. [Online]. Available: https://doi.org/10.1145/3773772",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,143.17,232.80,6.91;12,67.22,152.14,232.80,6.91;12,67.22,161.11,232.80,6.91;12,67.22,170.07,232.80,6.91;12,67.22,179.04,170.03,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 143.17,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 152.14,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 161.11,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 170.07,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 179.04,
+            "page": 12,
+            "width": 170.03,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "a4b400df2ce375a944228186774670cfde77f153d9537528d50f96cba410782c"
+    },
+    {
+      "anchor_id": "b20",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Congestion control for large-scale rdma deployments Y Zhu H Eran D Firestone C Guo M Lipshteyn Y Liron J Padhye S Raindel M H Yahia M Zhang 10.1145/2829988.2787484 Aug. 2015 Association for Computing Machinery 45 New York, NY, USA Y. Zhu, H. Eran, D. Firestone, C. Guo, M. Lipshteyn, Y. Liron, J. Padhye, S. Raindel, M. H. Yahia, and M. Zhang, \"Congestion control for large-scale rdma deployments,\" vol. 45, no. 4. New York, NY, USA: Association for Computing Machinery, Aug. 2015, p. 523-536. [Online]. Available: https://doi.org/10.1145/2829988.2787484",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,197.18,232.80,6.91;12,330.24,206.15,232.80,6.91;12,330.24,215.12,232.80,6.91;12,330.24,224.08,232.80,6.91;12,330.24,233.05,199.91,6.91",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 197.18,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 206.15,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 215.12,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 224.08,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 233.05,
+            "page": 12,
+            "width": 199.91,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "63766b777aed78f04d1142b7cad18060589a0f5e74d76c9e027dea8d3bfb272b"
+    },
+    {
+      "anchor_id": "b21",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "GQA: Training generalized multi-query transformer models from multi-head checkpoints J Ainslie J Lee-Thorp M De Jong Y Zemlyanskiy F Lebrón S Sanghai Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing the 2023 Conference on Empirical Methods in Natural Language Processing 2023 J. Ainslie, J. Lee-Thorp, M. De Jong, Y. Zemlyanskiy, F. Lebrón, and S. Sanghai, \"GQA: Training generalized multi-query transformer models from multi-head checkpoints,\" in Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing, 2023, pp. 4895- 4901.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,242.02,232.80,6.91;12,330.24,250.98,232.80,6.91;12,330.24,259.81,232.80,7.05;12,330.24,268.77,232.80,7.05;12,330.24,277.88,17.93,6.91",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 242.02,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 250.98,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 259.81,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 268.77,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 277.88,
+            "page": 12,
+            "width": 17.93,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "9c340d609db24911046dca498bd25f6e03f3a98a209f1391209353ca12067ccb"
+    },
+    {
+      "anchor_id": "b22",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "HPCC: High precision congestion control Y Li R Miao H H Liu Y Zhuang F Feng L Tang Z Cao M Zhang F Kelly M Alizadeh M Yu Proceedings of the ACM SIGCOMM 2019 Conference the ACM SIGCOMM 2019 Conference 2019 Y. Li, R. Miao, H. H. Liu, Y. Zhuang, F. Feng, L. Tang, Z. Cao, M. Zhang, F. Kelly, M. Alizadeh, and M. Yu, \"HPCC: High precision congestion control,\" in Proceedings of the ACM SIGCOMM 2019 Conference, 2019.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,286.85,232.80,6.91;12,330.24,295.81,232.80,6.91;12,330.24,304.64,232.80,7.05;12,330.24,313.60,59.16,7.05",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 286.85,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 295.81,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 304.64,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 313.6,
+            "page": 12,
+            "width": 59.16,
+            "height": 7.05
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "18e011ae923411b2dc1a62108435e4597026b4e0df9505aac50052525eb66214"
+    },
+    {
+      "anchor_id": "b23",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Orca: A distributed serving system for {Transformer-Based} generative models G.-I Yu J S Jeong G.-W Kim S Kim B.-G Chun 16th USENIX symposium on operating systems design and implementation 2022 22 G.-I. Yu, J. S. Jeong, G.-W. Kim, S. Kim, and B.-G. Chun, \"Orca: A distributed serving system for {Transformer-Based} generative models,\" in 16th USENIX symposium on operating systems design and implemen- tation (OSDI 22), 2022, pp. 521-538.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,322.71,232.80,6.91;12,330.24,331.42,232.80,7.17;12,330.24,340.50,232.80,7.05;12,330.24,349.47,123.75,7.05",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 322.71,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 331.42,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.17
+          },
+          {
+            "x": 330.24,
+            "y": 340.5,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 349.47,
+            "page": 12,
+            "width": 123.75,
+            "height": 7.05
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "c55d07d58d653e8a59978616f8ec9ab3452672399fb0fa2fa720abed48ba14f3"
+    },
+    {
+      "anchor_id": "b24",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Mlcommons MLPerf inference: Datacenter v5.0 results Apr. 2025 llama-2-70B offline, e.g., Juniper Networks 32×H100 submission at 82,749 tokens/s MLCommons, \"MLPerf inference: Datacenter v5.0 results,\" https:// mlcommons.org/benchmarks/inference-datacenter/, Apr. 2025, llama-2- 70B offline, e.g., Juniper Networks 32×H100 submission at 82,749 tokens/s.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,358.58,232.80,6.91;12,330.24,367.54,232.80,6.91;12,330.24,376.51,232.80,6.91;12,330.24,385.48,28.04,6.91",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 358.58,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 367.54,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 376.51,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 385.48,
+            "page": 12,
+            "width": 28.04,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "0487d4334f54a16d14c9a320007ce55fc377d0fc92be2f3538b224f8ca92c93a"
+    },
+    {
+      "anchor_id": "b25",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Data center tcp (dctcp) M Alizadeh A Greenberg D A Maltz J Padhye P Patel B Prabhakar S Sengupta M Sridharan 10.1145/1851182.1851192 Proceedings of the ACM SIGCOMM 2010 Conference, ser. SIGCOMM '10 New York, NY, USA the ACM SIGCOMM 2010 Conference, ser. SIGCOMM '10 Association for Computing Machinery 2010 M. Alizadeh, A. Greenberg, D. A. Maltz, J. Padhye, P. Patel, B. Prabhakar, S. Sengupta, and M. Sridharan, \"Data center tcp (dctcp),\" in Proceedings of the ACM SIGCOMM 2010 Conference, ser. SIGCOMM '10. New York, NY, USA: Association for Computing Machinery, 2010, p. 63-74. [Online]. Available: https: //doi.org/10.1145/1851182.1851192",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,394.44,232.80,6.91;12,330.24,403.41,232.80,6.91;12,330.24,412.23,232.80,7.05;12,330.24,421.34,232.80,6.91;12,330.24,430.31,232.80,6.91;12,330.24,439.28,115.21,6.91",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 394.44,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 403.41,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 412.23,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 421.34,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 430.31,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 439.28,
+            "page": 12,
+            "width": 115.21,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "b55ca43130e8da9ff76b70699f9301b7e6c44865ddfe52ecfc728573755e1696"
+    },
+    {
+      "anchor_id": "b26",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "CacheGen: KV cache compression and streaming for fast large language model serving Y Liu H Li Y Cheng S Ray Y Huang Q Zhang K Du J Yao S Lu G Ananthanarayanan M Maire H Hoffmann A Holtzman J Jiang Proceedings of the ACM SIGCOMM 2024 Conference the ACM SIGCOMM 2024 Conference 2024 Y. Liu, H. Li, Y. Cheng, S. Ray, Y. Huang, Q. Zhang, K. Du, J. Yao, S. Lu, G. Ananthanarayanan, M. Maire, H. Hoffmann, A. Holtzman, and J. Jiang, \"CacheGen: KV cache compression and streaming for fast large language model serving,\" in Proceedings of the ACM SIGCOMM 2024 Conference, 2024.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,448.24,232.80,6.91;12,330.24,457.21,232.80,6.91;12,330.24,466.17,232.80,6.91;12,330.24,475.00,232.80,7.05;12,330.24,483.96,77.89,7.05",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 448.24,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 457.21,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 466.17,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 330.24,
+            "y": 475,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 483.96,
+            "page": 12,
+            "width": 77.89,
+            "height": 7.05
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "dad0b4a91a91d2d40c7b1e69f59eb962245b957c1ec1edc8abf8ad5c2405f7fa"
+    },
+    {
+      "anchor_id": "b27",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "LMCache: An efficient KV cache layer for enterprise-scale LLM inference Y Liu J Yao H Li Y Cheng arXiv:2510.09665 Oct. 2025 Y. Liu, J. Yao, H. Li, Y. Cheng et al., \"LMCache: An efficient KV cache layer for enterprise-scale LLM inference,\" arXiv:2510.09665, Oct. 2025.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,330.24,492.93,232.80,7.05;12,330.24,502.04,232.80,6.91",
+        "boxes": [
+          {
+            "x": 330.24,
+            "y": 492.93,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 330.24,
+            "y": 502.04,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "a718bc1032cc25a2ce7ab3feb3de72d5f91704ef4e2003897bf2dacabe1c30e7"
+    },
+    {
+      "anchor_id": "b3",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Dynamo: A datacenter-scale distributed inference framework Nvidia Open-source project 2025 NVIDIA, \"Dynamo: A datacenter-scale distributed inference frame- work,\" Open-source project, https://github.com/ai-dynamo/dynamo, 2025.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,188.23,232.80,6.91;12,67.22,197.20,232.80,6.91;12,67.22,206.17,17.93,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 188.23,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 197.2,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 206.17,
+            "page": 12,
+            "width": 17.93,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "f3da969970fbb54db284a71193bbff0632b80cffd8f43829d115a7fbbf7d5116"
+    },
+    {
+      "anchor_id": "b4",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "llm-d: Kubernetes-native distributed inferencing 2025 llm-d project llm-d project, \"llm-d: Kubernetes-native distributed inferencing,\" CNCF Sandbox, https://llm-d.ai, 2025.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,215.36,232.80,6.91;12,67.22,224.33,103.05,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 215.36,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 224.33,
+            "page": 12,
+            "width": 103.05,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "838ed07dd486ae1c58147f881eecc99c8260d44f7602d31e25a0db26e3e2b271"
+    },
+    {
+      "anchor_id": "b5",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Sglang: efficient execution of structured language model programs L Zheng L Yin Z Xie C Sun J Huang C H Yu S Cao C Kozyrakis I Stoica J E Gonzalez C Barrett Y Sheng Proceedings of the 38th International Conference on Neural Information Processing Systems Red Hook, NY, USA the 38th International Conference on Neural Information Processing Systems Curran Associates Inc 2024 L. Zheng, L. Yin, Z. Xie, C. Sun, J. Huang, C. H. Yu, S. Cao, C. Kozyrakis, I. Stoica, J. E. Gonzalez, C. Barrett, and Y. Sheng, \"Sglang: efficient execution of structured language model programs,\" in Proceedings of the 38th International Conference on Neural Information Processing Systems. Red Hook, NY, USA: Curran Associates Inc., 2024.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,233.52,232.80,6.91;12,67.22,242.49,232.80,6.91;12,67.22,251.46,232.80,6.91;12,67.22,260.28,232.80,6.87;12,67.22,269.25,232.80,7.05;12,67.22,278.36,17.93,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 233.52,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 242.49,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 251.46,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 260.28,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.87
+          },
+          {
+            "x": 67.22,
+            "y": 269.25,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 278.36,
+            "page": 12,
+            "width": 17.93,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "1ee6118bd79941ff4d29915c2d2cc584f8c7137bc0d66006aec27e7bc4e897b2"
+    },
+    {
+      "anchor_id": "b6",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Efficient memory management for large language model serving with pagedattention W Kwon Z Li S Zhuang Y Sheng L Zheng C H Yu J Gonzalez H Zhang I Stoica 10.1145/3600006.3613165 Proceedings of the 29th Symposium on Operating Systems Principles, ser. SOSP '23 New York, NY, USA the 29th Symposium on Operating Systems Principles, ser. SOSP '23 Association for Computing Machinery 2023 W. Kwon, Z. Li, S. Zhuang, Y. Sheng, L. Zheng, C. H. Yu, J. Gonzalez, H. Zhang, and I. Stoica, \"Efficient memory management for large language model serving with pagedattention,\" in Proceedings of the 29th Symposium on Operating Systems Principles, ser. SOSP '23. New York, NY, USA: Association for Computing Machinery, 2023, p. 611-626. [Online]. Available: https://doi.org/10.1145/3600006.3613165",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,287.55,232.80,6.91;12,67.22,296.52,232.80,6.91;12,67.22,305.34,232.80,7.05;12,67.22,314.31,232.80,7.05;12,67.22,323.42,232.80,6.91;12,67.22,332.38,232.59,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 287.55,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 296.52,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 305.34,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 314.31,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 323.42,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 332.38,
+            "page": 12,
+            "width": 232.59,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "e60065692d219fb680e0b01a3c17481be837636bb5d92a0f18e0a2d68c54bf22"
+    },
+    {
+      "anchor_id": "b7",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "The llama 3 herd of models A Grattafiori A Dubey A Jauhri A Pandey A Kadian A Al-Dahle A Letman A Mathur A Schelten A Vaughan 2024 A. Grattafiori, A. Dubey, A. Jauhri, A. Pandey, A. Kadian, A. Al-Dahle, A. Letman, A. Mathur, A. Schelten, A. Vaughan et al., \"The llama 3 herd of models,\" 2024.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,341.58,232.80,6.91;12,67.22,350.40,232.80,7.05;12,67.22,359.51,75.10,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 341.58,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 350.4,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 359.51,
+            "page": 12,
+            "width": 75.1,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "19f7c54950e3502ecd15e9c9b208690758a2fa2efcd92fe60071fb2814fcab5d"
+    },
+    {
+      "anchor_id": "b8",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Cloud abstractions for ai workloads M Canini T A Benson R Bianchini I N Goiri D Kostić P Pietzuch S Peter 10.1145/3725783.3764395 Proceedings of the 16th ACM SIGOPS Asia-Pacific Workshop on Systems, ser. APSys '25 New York, NY, USA the 16th ACM SIGOPS Asia-Pacific Workshop on Systems, ser. APSys '25 Association for Computing Machinery 2025 M. Canini, T. A. Benson, R. Bianchini, I. n. Goiri, D. Kostić, P. Pietzuch, and S. Peter, \"Cloud abstractions for ai workloads,\" in Proceedings of the 16th ACM SIGOPS Asia-Pacific Workshop on Systems, ser. APSys '25. New York, NY, USA: Association for Computing Machinery, 2025, p. 98-105. [Online]. Available: https://doi.org/10.1145/3725783.3764395",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,368.70,232.80,6.91;12,67.22,377.67,232.80,6.91;12,67.22,386.49,232.80,7.05;12,67.22,395.46,232.80,7.05;12,67.22,404.57,232.80,6.91;12,67.22,413.54,132.93,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 368.7,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 377.67,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 386.49,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 395.46,
+            "page": 12,
+            "width": 232.8,
+            "height": 7.05
+          },
+          {
+            "x": 67.22,
+            "y": 404.57,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 413.54,
+            "page": 12,
+            "width": 132.93,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "f099d1dfa1542b4a3796414228c0a3d1eb8d8cff0d34c400435d87c98b9809ee"
+    },
+    {
+      "anchor_id": "b9",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "FlowKV: A disaggregated inference framework with low-latency KV cache transfer and load-aware scheduling W Li G Jiang X Ding Z Tao C Hao C Xu Y Zhang H Wang arXiv:2504.03775 2025 W. Li, G. Jiang, X. Ding, Z. Tao, C. Hao, C. Xu, Y. Zhang, and H. Wang, \"FlowKV: A disaggregated inference framework with low-latency KV cache transfer and load-aware scheduling,\" arXiv:2504.03775, 2025.",
+      "page_number": 12,
+      "bbox": {
+        "raw": "12,67.22,422.73,232.80,6.91;12,67.22,431.70,232.80,6.91;12,67.22,440.66,223.39,6.91",
+        "boxes": [
+          {
+            "x": 67.22,
+            "y": 422.73,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 431.7,
+            "page": 12,
+            "width": 232.8,
+            "height": 6.91
+          },
+          {
+            "x": 67.22,
+            "y": 440.66,
+            "page": 12,
+            "width": 223.39,
+            "height": 6.91
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "28dd46aa8c162a865b7e5540666440f9165c3588aa81fa2c191c096cc959f802"
+    },
+    {
+      "anchor_id": "biblStruct-88",
+      "anchor_type": "biblStruct",
+      "label": null,
+      "text": "Mubarak Adetunji Ojewale mubarak.ojewale@ncirl.ie Cloud Competency Centre National College of Ireland NetKV: Network-Aware Decode Instance Selection for Disaggregated LLM Inference 2 Jun 2026 47F2C833A047A6992F11997D708364CD arXiv:2606.03910v1[cs.PF]",
+      "page_number": null,
+      "bbox": null,
+      "target_refs": [],
+      "checksum": "b417a916bda51c0195d668fd3e142f2bb48351d491051cc0c432b1a7862ee355"
+    },
+    {
+      "anchor_id": "fig_0",
+      "anchor_type": "figure",
+      "label": "2",
+      "text": "Fig. 2 : 2 Fig. 2: Oracle staleness sweep: TTFT, TBT, and SLO are invariant from 100 ms to 60 s refresh intervals.",
+      "page_number": 8,
+      "bbox": {
+        "raw": "8,90.86,356.90,430.27,8.64;8,48.96,207.06,514.80,141.98",
+        "boxes": [
+          {
+            "x": 90.86,
+            "y": 356.9,
+            "page": 8,
+            "width": 430.27,
+            "height": 8.64
+          },
+          {
+            "x": 48.96,
+            "y": 207.06,
+            "page": 8,
+            "width": 514.8,
+            "height": 141.98
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "6fc48f83abafdc33de4b8dde131afbe79452da2e8b5176f0babde98fe64138ce"
+    },
+    {
+      "anchor_id": "fig_1",
+      "anchor_type": "figure",
+      "label": "3",
+      "text": "Fig. 3 : 3 Fig. 3: Prefix-sharing sweep on the RAG workload: NetKV-Full preserves a roughly constant TTFT advantage over CA and CLA* across the full range, indicating that the network-aware contribution is orthogonal to the cache-aware contribution.",
+      "page_number": 9,
+      "bbox": {
+        "raw": "9,48.96,201.10,514.07,8.64;9,48.96,213.06,497.87,8.64;9,48.96,50.54,514.94,142.70",
+        "boxes": [
+          {
+            "x": 48.96,
+            "y": 201.1,
+            "page": 9,
+            "width": 514.07,
+            "height": 8.64
+          },
+          {
+            "x": 48.96,
+            "y": 213.06,
+            "page": 9,
+            "width": 497.87,
+            "height": 8.64
+          },
+          {
+            "x": 48.96,
+            "y": 50.54,
+            "page": 9,
+            "width": 514.94,
+            "height": 142.7
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "2137ab4d1fca5340a03acfde078e7e8e91587a3f6d47a35d6357f1141336828f"
+    },
+    {
+      "anchor_id": "fig_2",
+      "anchor_type": "figure",
+      "label": "4",
+      "text": "Fig. 4 : 4 Fig. 4: Ablation ladder: mean TTFT for CLA*, NetKV-Topo-Only, NetKV-Static, and NetKV-Full across the chatbot, RAG, and long-context workloads.",
+      "page_number": 9,
+      "bbox": {
+        "raw": "9,48.96,387.30,514.07,8.64;9,48.96,399.25,115.47,8.64;9,48.96,236.88,514.80,142.56",
+        "boxes": [
+          {
+            "x": 48.96,
+            "y": 387.3,
+            "page": 9,
+            "width": 514.07,
+            "height": 8.64
+          },
+          {
+            "x": 48.96,
+            "y": 399.25,
+            "page": 9,
+            "width": 115.47,
+            "height": 8.64
+          },
+          {
+            "x": 48.96,
+            "y": 236.88,
+            "page": 9,
+            "width": 514.8,
+            "height": 142.56
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "ec31061461a4def40e15237b381137c99b3f6805e5c134693d41e185f86e216d"
+    },
+    {
+      "anchor_id": "fig_3",
+      "anchor_type": "figure",
+      "label": "Four",
+      "text": "Four patterns emerge. (i) The TTFT gain is driven by transfer-time reduction (19-38% across conditions). (ii) The TBT cost is bounded: absolute TBT stays in 12.55-13.42 ms across all runs, with NetKV-vs-CLA* overhead of 0-0.45 ms, an order of magnitude below interactive TBT SLOs. (iii) The gains are orthogonal to cache-aware and load-balanced scheduling (Experiment 5). (iv) Static topology awareness dominates; dynamic congestion adds a small residual under stress, so a minimal deployment exposing only the static tier map captures most of the benefit.",
+      "page_number": 10,
+      "bbox": {
+        "raw": "10,321.94,243.86,241.09,8.64;10,311.98,255.82,251.06,8.64;10,311.98,267.78,251.06,8.64;10,311.98,279.73,251.06,8.64;10,311.98,291.69,251.06,8.64;10,311.98,303.64,251.06,8.64;10,311.98,315.60,251.06,8.64;10,311.98,327.55,251.06,8.64;10,311.98,339.51,251.06,8.64;10,311.98,351.46,137.24,8.64",
+        "boxes": [
+          {
+            "x": 321.94,
+            "y": 243.86,
+            "page": 10,
+            "width": 241.09,
+            "height": 8.64
+          },
+          {
+            "x": 311.98,
+            "y": 255.82,
+            "page": 10,
+            "width": 251.06,
+            "height": 8.64
+          },
+          {
+            "x": 311.98,
+            "y": 267.78,
+            "page": 10,
+            "width": 251.06,
+            "height": 8.64
+          },
+          {
+            "x": 311.98,
+            "y": 279.73,
+            "page": 10,
+            "width": 251.06,
+            "height": 8.64
+          },
+          {
+            "x": 311.98,
+            "y": 291.69,
+            "page": 10,
+            "width": 251.06,
+            "height": 8.64
+          },
+          {
+            "x": 311.98,
+            "y": 303.64,
+            "page": 10,
+            "width": 251.06,
+            "height": 8.64
+          },
+          {
+            "x": 311.98,
+            "y": 315.6,
+            "page": 10,
+            "width": 251.06,
+            "height": 8.64
+          },
+          {
+            "x": 311.98,
+            "y": 327.55,
+            "page": 10,
+            "width": 251.06,
+            "height": 8.64
+          },
+          {
+            "x": 311.98,
+            "y": 339.51,
+            "page": 10,
+            "width": 251.06,
+            "height": 8.64
+          },
+          {
+            "x": 311.98,
+            "y": 351.46,
+            "page": 10,
+            "width": 137.24,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "367943606007de6e7c01161fb338fb35519a03c0df3f211080355f3122d62d9d"
+    },
+    {
+      "anchor_id": "formula_0",
+      "anchor_type": "formula",
+      "label": "1",
+      "text": "1 s r = 2 • n layers • n kv heads • d head • ℓ r • b elem (",
+      "page_number": 3,
+      "bbox": {
+        "raw": "3,91.99,592.07,204.16,9.80",
+        "boxes": [
+          {
+            "x": 91.99,
+            "y": 592.07,
+            "page": 3,
+            "width": 204.16,
+            "height": 9.8
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "67b817aa63995c02c09c841b5d45298b44d9e04c4eae5a88b642ead5cec78d58"
+    },
+    {
+      "anchor_id": "formula_1",
+      "anchor_type": "formula",
+      "label": null,
+      "text": ")",
+      "page_number": 3,
+      "bbox": {
+        "raw": "3,296.15,592.39,3.87,8.64",
+        "boxes": [
+          {
+            "x": 296.15,
+            "y": 592.39,
+            "page": 3,
+            "width": 3.87,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "ba5ec51d07a4ac0e951608704431d59a02b21a4e951acc10505a8dc407c501ee"
+    },
+    {
+      "anchor_id": "formula_10",
+      "anchor_type": "formula",
+      "label": "(8)",
+      "text": "(8) (1 -ρ 1 ) < k • 1-c1 1-c3 • (1 -ρ 2 ) + B1(1-c1) sr T queue (d 2 ) -T queue (d 1 ) .",
+      "page_number": 4,
+      "bbox": {
+        "raw": "4,338.67,691.66,224.36,31.12",
+        "boxes": [
+          {
+            "x": 338.67,
+            "y": 691.66,
+            "page": 4,
+            "width": 224.36,
+            "height": 31.12
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "5fb7338f0c7f10725f284dd1de98fcaf37b83a7f3e799d3dc937f80151e670ad"
+    },
+    {
+      "anchor_id": "formula_11",
+      "anchor_type": "formula",
+      "label": null,
+      "text": "s r (1 -ρ 1 )/(B 1 (1 -c 1 )) + T queue (d 1 ) < s r (1 -ρ 2 )/(B 3 (1 - c 3 )) + T queue (d 2 ). Substituting B 3 = B 1 /k, dividing by s r /(B 1 (1 -c 1 )",
+      "page_number": 5,
+      "bbox": {
+        "raw": "5,48.96,280.85,251.06,33.56",
+        "boxes": [
+          {
+            "x": 48.96,
+            "y": 280.85,
+            "page": 5,
+            "width": 251.06,
+            "height": 33.56
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "a1fe72092081e30fd97951ffa1bec5dbbf9190e4a5146ce5c55127eacdff4f3e"
+    },
+    {
+      "anchor_id": "formula_12",
+      "anchor_type": "formula",
+      "label": null,
+      "text": "B τ ≥ B τ ′ , if B τ (1-c * τ ) > B τ ′ (1-c * τ ′ )",
+      "page_number": 5,
+      "bbox": {
+        "raw": "5,311.98,239.17,169.83,12.47",
+        "boxes": [
+          {
+            "x": 311.98,
+            "y": 239.17,
+            "page": 5,
+            "width": 169.83,
+            "height": 12.47
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "56affb9b9b9ff170f001592782d3eea18f6863533fca63c99d838609b27879ca"
+    },
+    {
+      "anchor_id": "formula_13",
+      "anchor_type": "formula",
+      "label": "9",
+      "text": "9 ϵ < B τ (1-c * τ ) -B τ ′ (1-c * τ ′ ) B τ + B τ ′ (",
+      "page_number": 5,
+      "bbox": {
+        "raw": "5,376.56,267.17,182.60,24.80",
+        "boxes": [
+          {
+            "x": 376.56,
+            "y": 267.17,
+            "page": 5,
+            "width": 182.6,
+            "height": 24.8
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "3663ad5221d782d9b368ff02ad2d9c6e8a11e07d22f00324b38f513b9b3affcb"
+    },
+    {
+      "anchor_id": "formula_14",
+      "anchor_type": "formula",
+      "label": null,
+      "text": ")",
+      "page_number": 5,
+      "bbox": {
+        "raw": "5,559.16,275.81,3.87,8.64",
+        "boxes": [
+          {
+            "x": 559.16,
+            "y": 275.81,
+            "page": 5,
+            "width": 3.87,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "ba5ec51d07a4ac0e951608704431d59a02b21a4e951acc10505a8dc407c501ee"
+    },
+    {
+      "anchor_id": "formula_15",
+      "anchor_type": "formula",
+      "label": null,
+      "text": "ĉτ = c * τ + ϵ, ĉτ ′ = c * τ ′ -ϵ. Then Beff (τ ) = B τ (1-c * τ )-B τ ϵ and Beff (τ ′ ) = B τ ′ (1-c * τ ′ )+B τ ′ ϵ. Ordering is preserved ( Beff (τ ) > Beff (τ ′ )) iff B τ (1-c * τ ) -B τ ′ (1-c * τ ′ ) > (B τ + B τ ′ )ϵ, yielding",
+      "page_number": 5,
+      "bbox": {
+        "raw": "5,311.98,307.37,251.06,48.56",
+        "boxes": [
+          {
+            "x": 311.98,
+            "y": 307.37,
+            "page": 5,
+            "width": 251.06,
+            "height": 48.56
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "35bf92874e5338d6d3abe6a81cd7518e9c2b43d6aa353ee49b870ed4de051142"
+    },
+    {
+      "anchor_id": "formula_2",
+      "anchor_type": "formula",
+      "label": "(2)",
+      "text": "(2) s eff r (d) = s r • 1 - λ r (d) ℓ r",
+      "page_number": 3,
+      "bbox": {
+        "raw": "3,381.21,79.27,181.83,23.23",
+        "boxes": [
+          {
+            "x": 381.21,
+            "y": 79.27,
+            "page": 3,
+            "width": 181.83,
+            "height": 23.23
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "7d5b8a01771867f38f8a268d871a53b848a581869378313dad3c1bfcf618d3e1"
+    },
+    {
+      "anchor_id": "formula_3",
+      "anchor_type": "formula",
+      "label": "(3)",
+      "text": "(3) T transfer (p, d, s) = s B eff (p, d) + L τ (p,d)",
+      "page_number": 3,
+      "bbox": {
+        "raw": "3,360.74,246.42,202.30,23.38",
+        "boxes": [
+          {
+            "x": 360.74,
+            "y": 246.42,
+            "page": 3,
+            "width": 202.3,
+            "height": 23.38
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "f3de0ec29daf71617357ab18cf57fa4eff8e6b1693b36f9bf2de028cd283babc"
+    },
+    {
+      "anchor_id": "formula_4",
+      "anchor_type": "formula",
+      "label": "(4)",
+      "text": "(4) B eff (p, d) = B τ (p,d) • (1 -c τ (p,d) ) 1 + n τ inflight (p)",
+      "page_number": 3,
+      "bbox": {
+        "raw": "3,366.86,293.63,196.17,25.49",
+        "boxes": [
+          {
+            "x": 366.86,
+            "y": 293.63,
+            "page": 3,
+            "width": 196.17,
+            "height": 25.49
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "15489d62f2db837640ada8fc571ebe42c9b6c2a20c6a49b10c969553cc1e1f53"
+    },
+    {
+      "anchor_id": "formula_5",
+      "anchor_type": "formula",
+      "label": null,
+      "text": "• d 2 , on a different pod (τ =3, B 3 =25 Gbps ≈ 3.125 GB/s),",
+      "page_number": 4,
+      "bbox": {
+        "raw": "4,48.96,198.87,251.06,9.65",
+        "boxes": [
+          {
+            "x": 48.96,
+            "y": 198.87,
+            "page": 4,
+            "width": 251.06,
+            "height": 9.65
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "a114e90fae27d94c497bf32cd13096abbaf77056fffe54c6a6f2274756d591bd"
+    },
+    {
+      "anchor_id": "formula_6",
+      "anchor_type": "formula",
+      "label": null,
+      "text": "B eff (d 1 ) = 6.25•0.8 1+1 = 2.5 GB/s, B eff (d 2 ) = 3.125•0.8 1+0 = 2.5 GB/s.",
+      "page_number": 4,
+      "bbox": {
+        "raw": "4,109.22,278.28,130.55,29.15",
+        "boxes": [
+          {
+            "x": 109.22,
+            "y": 278.28,
+            "page": 4,
+            "width": 130.55,
+            "height": 29.15
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "af1d76017e8806eb72e173dabd550b4e6b8d12a10ffdd59776ee656870ba8522"
+    },
+    {
+      "anchor_id": "formula_7",
+      "anchor_type": "formula",
+      "label": "(5)",
+      "text": "(5) d * = arg min d∈Dr T transfer (p, d, s eff r (d)) + T queue (d) + T decode (d),",
+      "page_number": 4,
+      "bbox": {
+        "raw": "4,316.39,120.89,246.64,26.32",
+        "boxes": [
+          {
+            "x": 316.39,
+            "y": 120.89,
+            "page": 4,
+            "width": 246.64,
+            "height": 26.32
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "d65382664981828ad9104959a14852beb86a05b059fdbeee069088a3ca2d71a9"
+    },
+    {
+      "anchor_id": "formula_8",
+      "anchor_type": "formula",
+      "label": null,
+      "text": "T queue (d) = max(0, q d -(β max -β d )) • titer (β d ). (6)",
+      "page_number": 4,
+      "bbox": {
+        "raw": "4,338.18,388.39,224.86,11.64",
+        "boxes": [
+          {
+            "x": 338.18,
+            "y": 388.39,
+            "page": 4,
+            "width": 224.86,
+            "height": 11.64
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "e82da2a1e85bea7a76737461c9ab6eea7600261461418ef4abd0a2580718ce61"
+    },
+    {
+      "anchor_id": "ref-20",
+      "anchor_type": "ref",
+      "label": null,
+      "text": null,
+      "page_number": null,
+      "bbox": null,
+      "target_refs": [
+        {
+          "target": "https://github.com/kermitt2/grobid"
+        }
+      ],
+      "checksum": null
+    },
+    {
+      "anchor_id": "ref-21",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[1]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,248.34,518.48,11.51,8.64",
+        "boxes": [
+          {
+            "x": 248.34,
+            "y": 518.48,
+            "page": 1,
+            "width": 11.51,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b0"
+        }
+      ],
+      "checksum": "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+    },
+    {
+      "anchor_id": "ref-22",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[3]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,263.69,518.48,11.51,8.64",
+        "boxes": [
+          {
+            "x": 263.69,
+            "y": 518.48,
+            "page": 1,
+            "width": 11.51,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b2"
+        }
+      ],
+      "checksum": "06d033ece6645de592db973644cf7357255f24536ff7b03c3b2ace10736f7636"
+    },
+    {
+      "anchor_id": "ref-23",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[4]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,125.29,542.39,10.58,8.64",
+        "boxes": [
+          {
+            "x": 125.29,
+            "y": 542.39,
+            "page": 1,
+            "width": 10.58,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b3"
+        }
+      ],
+      "checksum": "46b1884167c4edd308bcf0c04163dd02d05c9742b35e86b57b5f7ed1b82f3850"
+    },
+    {
+      "anchor_id": "ref-24",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[5]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,167.59,542.39,10.58,8.64",
+        "boxes": [
+          {
+            "x": 167.59,
+            "y": 542.39,
+            "page": 1,
+            "width": 10.58,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b4"
+        }
+      ],
+      "checksum": "1ae3592f8248c3f879b56afe3f2ce6aad45ba898434796d35c565684397fb3e6"
+    },
+    {
+      "anchor_id": "ref-25",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[6]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,221.51,542.39,10.58,8.64",
+        "boxes": [
+          {
+            "x": 221.51,
+            "y": 542.39,
+            "page": 1,
+            "width": 10.58,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b5"
+        }
+      ],
+      "checksum": "fe94b827f0455bee6f4a6a265286f827f18748ede569565ee827058085bad146"
+    },
+    {
+      "anchor_id": "ref-26",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[7]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,285.91,542.39,10.58,8.64",
+        "boxes": [
+          {
+            "x": 285.91,
+            "y": 542.39,
+            "page": 1,
+            "width": 10.58,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b6"
+        }
+      ],
+      "checksum": "589ffd3acf522ae81192579f297589e93b0c41f748b224d1b4bb5c857a2f70cb"
+    },
+    {
+      "anchor_id": "ref-27",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[8]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,139.55,638.23,11.62,8.64",
+        "boxes": [
+          {
+            "x": 139.55,
+            "y": 638.23,
+            "page": 1,
+            "width": 11.62,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b7"
+        }
+      ],
+      "checksum": "a8f2ecf6c811b67c050190173c8b89ce2c99b7993d29235ff3bf656b6a2c505e"
+    },
+    {
+      "anchor_id": "ref-28",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[1]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,446.29,327.39,10.79,8.64",
+        "boxes": [
+          {
+            "x": 446.29,
+            "y": 327.39,
+            "page": 1,
+            "width": 10.79,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b0"
+        }
+      ],
+      "checksum": "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+    },
+    {
+      "anchor_id": "ref-29",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[3]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,528.50,339.35,10.79,8.64",
+        "boxes": [
+          {
+            "x": 528.5,
+            "y": 339.35,
+            "page": 1,
+            "width": 10.79,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b2"
+        }
+      ],
+      "checksum": "06d033ece6645de592db973644cf7357255f24536ff7b03c3b2ace10736f7636"
+    },
+    {
+      "anchor_id": "ref-30",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[5]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,465.10,363.26,10.79,8.64",
+        "boxes": [
+          {
+            "x": 465.1,
+            "y": 363.26,
+            "page": 1,
+            "width": 10.79,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b4"
+        }
+      ],
+      "checksum": "1ae3592f8248c3f879b56afe3f2ce6aad45ba898434796d35c565684397fb3e6"
+    },
+    {
+      "anchor_id": "ref-31",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[4]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,369.48,387.17,10.58,8.64",
+        "boxes": [
+          {
+            "x": 369.48,
+            "y": 387.17,
+            "page": 1,
+            "width": 10.58,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b3"
+        }
+      ],
+      "checksum": "46b1884167c4edd308bcf0c04163dd02d05c9742b35e86b57b5f7ed1b82f3850"
+    },
+    {
+      "anchor_id": "ref-32",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "I",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,557.23,387.17,2.90,8.64",
+        "boxes": [
+          {
+            "x": 557.23,
+            "y": 387.17,
+            "page": 1,
+            "width": 2.9,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [],
+      "checksum": "a83dd0ccbffe39d071cc317ddf6e97f5c6b1c87af91919271f9fa140b0508c6c"
+    },
+    {
+      "anchor_id": "ref-33",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[3]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,362.96,482.81,10.58,8.64",
+        "boxes": [
+          {
+            "x": 362.96,
+            "y": 482.81,
+            "page": 1,
+            "width": 10.58,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b2"
+        }
+      ],
+      "checksum": "06d033ece6645de592db973644cf7357255f24536ff7b03c3b2ace10736f7636"
+    },
+    {
+      "anchor_id": "ref-34",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[9]",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,548.93,578.45,10.58,8.64",
+        "boxes": [
+          {
+            "x": 548.93,
+            "y": 578.45,
+            "page": 1,
+            "width": 10.58,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b8"
+        }
+      ],
+      "checksum": "16390873ae6b6a173fc894a873bab02283debbd320b5f0758849d01afa6ee8b6"
+    },
+    {
+      "anchor_id": "ref-35",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "(1)",
+      "page_number": 1,
+      "bbox": {
+        "raw": "1,461.21,698.00,11.62,8.64",
+        "boxes": [
+          {
+            "x": 461.21,
+            "y": 698,
+            "page": 1,
+            "width": 11.62,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b0"
+        }
+      ],
+      "checksum": "fd0ad9026eee596b7072a762941f60bef57e760a230edd450b3a634825685c2a"
+    },
+    {
+      "anchor_id": "ref-36",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "(2)",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,143.15,88.29,11.62,8.64",
+        "boxes": [
+          {
+            "x": 143.15,
+            "y": 88.29,
+            "page": 2,
+            "width": 11.62,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b1"
+        }
+      ],
+      "checksum": "0e77e68ba5473d98840c3212f4a8cb801226494f1162c8001a9f4ed7b00cbaa8"
+    },
+    {
+      "anchor_id": "ref-37",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[1]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,101.98,458.90,11.62,8.64",
+        "boxes": [
+          {
+            "x": 101.98,
+            "y": 458.9,
+            "page": 2,
+            "width": 11.62,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b0"
+        }
+      ],
+      "checksum": "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+    },
+    {
+      "anchor_id": "ref-38",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[2]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,205.00,482.81,11.62,8.64",
+        "boxes": [
+          {
+            "x": 205,
+            "y": 482.81,
+            "page": 2,
+            "width": 11.62,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b1"
+        }
+      ],
+      "checksum": "038966de9f6b9a901b20b4c6ca8b2a46009feebe031babc842d43690c0bc222b"
+    },
+    {
+      "anchor_id": "ref-39",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[3]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,288.41,506.72,11.62,8.64",
+        "boxes": [
+          {
+            "x": 288.41,
+            "y": 506.72,
+            "page": 2,
+            "width": 11.62,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b2"
+        }
+      ],
+      "checksum": "06d033ece6645de592db973644cf7357255f24536ff7b03c3b2ace10736f7636"
+    },
+    {
+      "anchor_id": "ref-40",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[10]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,176.95,554.54,16.60,8.64",
+        "boxes": [
+          {
+            "x": 176.95,
+            "y": 554.54,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b9"
+        }
+      ],
+      "checksum": "41164c427f4cf681cc1b50eaf1a175e3574a1d015c6c90fbdaf77aea39d24086"
+    },
+    {
+      "anchor_id": "ref-41",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[11]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,208.42,590.41,16.60,8.64",
+        "boxes": [
+          {
+            "x": 208.42,
+            "y": 590.41,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b10"
+        }
+      ],
+      "checksum": "95bce61a71a78185f4b6f8f25fc6986108043727fe9d9c19dbe44b0081ef928a"
+    },
+    {
+      "anchor_id": "ref-42",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[5]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,419.18,79.61,11.62,8.64",
+        "boxes": [
+          {
+            "x": 419.18,
+            "y": 79.61,
+            "page": 2,
+            "width": 11.62,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b4"
+        }
+      ],
+      "checksum": "1ae3592f8248c3f879b56afe3f2ce6aad45ba898434796d35c565684397fb3e6"
+    },
+    {
+      "anchor_id": "ref-43",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[4]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,349.84,115.47,11.62,8.64",
+        "boxes": [
+          {
+            "x": 349.84,
+            "y": 115.47,
+            "page": 2,
+            "width": 11.62,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b3"
+        }
+      ],
+      "checksum": "46b1884167c4edd308bcf0c04163dd02d05c9742b35e86b57b5f7ed1b82f3850"
+    },
+    {
+      "anchor_id": "ref-44",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[12]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,347.36,151.34,16.60,8.64",
+        "boxes": [
+          {
+            "x": 347.36,
+            "y": 151.34,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b11"
+        }
+      ],
+      "checksum": "568f15e9fe7bcf0adbe2836f7b2c521ab414bcb65c1224ee0feda777965886f7"
+    },
+    {
+      "anchor_id": "ref-45",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[13]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,352.78,175.25,16.60,8.64",
+        "boxes": [
+          {
+            "x": 352.78,
+            "y": 175.25,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b12"
+        }
+      ],
+      "checksum": "525ec3b5ad9afc0f09a5f7e0eb865e97f5b4b614a85cf93f3ae644f8e5f874f0"
+    },
+    {
+      "anchor_id": "ref-46",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[14]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,350.75,187.20,16.60,8.64",
+        "boxes": [
+          {
+            "x": 350.75,
+            "y": 187.2,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b13"
+        }
+      ],
+      "checksum": "b8d52dc8aa20e6a056357c967c95447dd9feb6e3e818e98cb2b9183e8c918cc6"
+    },
+    {
+      "anchor_id": "ref-47",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[15]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,458.01,329.03,16.60,8.64",
+        "boxes": [
+          {
+            "x": 458.01,
+            "y": 329.03,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b14"
+        }
+      ],
+      "checksum": "3bcf2afdb32ea342100e69fd054bb7052791450672fdfa8a269e36a5fa7d5b7a"
+    },
+    {
+      "anchor_id": "ref-48",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[16]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,472.22,364.90,16.60,8.64",
+        "boxes": [
+          {
+            "x": 472.22,
+            "y": 364.9,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b15"
+        }
+      ],
+      "checksum": "f0d0e023f9b1a4da91c19ac15cf2ea71427f0e4a8cf70397527d67c360d80af7"
+    },
+    {
+      "anchor_id": "ref-49",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[17]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,380.27,388.81,16.60,8.64",
+        "boxes": [
+          {
+            "x": 380.27,
+            "y": 388.81,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b16"
+        }
+      ],
+      "checksum": "fe3b7b3db0778380f48e04b7f215ea1ac524bf0a846bcf78f8e3da2727707f1a"
+    },
+    {
+      "anchor_id": "ref-50",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[18]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,360.90,566.50,16.60,8.64",
+        "boxes": [
+          {
+            "x": 360.9,
+            "y": 566.5,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b17"
+        }
+      ],
+      "checksum": "5c43cd9d0adb3c014f9d7ce845a81cb207abf73728f482b62681a2129455e9c8"
+    },
+    {
+      "anchor_id": "ref-51",
+      "anchor_type": "ref",
+      "label": null,
+      "text": "[19]",
+      "page_number": 2,
+      "bbox": {
+        "raw": "2,514.23,638.23,16.60,8.64",
+        "boxes": [
+          {
+            "x": 514.23,
+            "y": 638.23,
+            "page": 2,
+            "width": 16.6,
+            "height": 8.64
+          }
+        ]
+      },
+      "target_refs": [
+        {
+          "target": "#b18"
+        }
+      ],
+      "checksum": "691f362eb14915823efa2d8ac4afde3c22b30cedf95389e4d6c70ae8db9636a3"
+    }
+  ],
+  "export_policy": {
+    "accepted_curation_sources": [
+      "codex_curated",
+      "manual_curated"
+    ],
+    "required_schema_version": "key_content.v1",
+    "required_extraction_profile": "paper_semantic_dossier.v1",
+    "require_resolvable_source_refs": true
+  }
+}

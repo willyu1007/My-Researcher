@@ -1,0 +1,35 @@
+# 05 Pitfalls
+
+## Do Not Repeat
+- Do not treat the 5000 target as 5000 papers that must all run fulltext, key-content, embedding, and indexing.
+- Do not use raw `LiteratureRecord` count as literature progress.
+- Do not put B10 weak candidates directly into `LiteratureRecord`; use candidate staging tables.
+- Do not turn B10 candidate dedup into the authoritative literature merge rule; B10 only catches obvious duplicates.
+- Do not delete duplicate candidates before B11; mark/link them so provenance and reverse decisions remain visible.
+- Do not add a candidate decision-log table before B10/B11 prove that current-state rows are insufficient.
+- Do not add retry, queue, or operational failure states to the candidate lifecycle enum in the initial design.
+- Do not encode B10/B11 deduplication authority as hard unique constraints in the first candidate schema.
+- Do not split candidate storage into source-specific tables; keep provider differences in `sourcePayload`.
+- Do not treat the Prisma schema draft as an applied migration; actual schema changes must use the DB SSOT workflow.
+- Do not apply the full local read-only Prisma diff directly; it includes unrelated DB drift outside candidate staging.
+- Do not call promoted but incomplete `LiteratureRecord` rows effective literature.
+- Do not let broad candidates pollute the managed corpus or effective literature counts before triage.
+- Do not lose source provenance during broad discovery; every candidate needs query/source evidence.
+- Do not overfit each batch to 20-30 manually curated imports; that cadence cannot reach 5000-level coverage.
+- Do not count non-corpus system evidence rows as literature.
+- Do not push low-confidence theory/math seeds toward full-pipeline effective literature without a bridge rationale.
+- Do not trust broad OpenAlex keyword hits without direction-specific focus checks; generic surveys and unrelated resource-center papers can match loose resource/allocation terms.
+- Do not delete weak canary candidates from staging; mark them with a decision reason so B10/B11 provenance remains auditable.
+- Do not match `rag` as a raw substring; require word-boundary `RAG` or complete retrieval-augmented-generation title signals so words like `leveraging` do not enter the RAG-core candidate pool.
+- Do not call every managed-but-not-effective record a blocker; newly promoted records with all stages `NOT_STARTED` are pipeline-incomplete, while `pipeline_blocked_records` should mean explicit `FAILED` or `BLOCKED` stage detail.
+- Do not treat B12 `FULLTEXT_SOURCE_MISSING` as a failed promotion; it means the standard pipeline has taken ownership and now needs a rights-safe raw fulltext asset before deeper stages.
+- Do not run key-content, chunking, embedding, or indexing for B12 records until `FULLTEXT_PREPROCESSED` has succeeded.
+- Do not assume fulltext acquisition is still the current B12 blocker for `LIT-0153` through `LIT-0162`; all 10 now have raw fulltext assets and READY fulltext documents.
+- Do not assume B12 key-content backfill calls the provider by default; the default method is `codex_curated` and requires curated dossier import.
+- Do not run broad `llm_gateway` key-content apply without an explicit provider override, section-level call budget, and bounded timeout/retry settings.
+- Do not retry provider key-content extraction for multiple records without explicit `B12_BACKFILL_SECTION_CONCURRENCY=1`, `B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS`, `B12_BACKFILL_EXTRACTION_REQUEST_TIMEOUT_MS`, and `B12_BACKFILL_EXTRACTION_MAX_RETRIES` settings.
+- Do not call an interrupted content-backfill apply undocumented just because no runner artifact was written; record the cleanup job totals and B13 count instead.
+- Do not treat the B12 runner timeout cleanup as evidence that provider extraction is healthy; it only proves local timeout cleanup and process exit are bounded.
+- Do not use arXiv `2506.05871` for `LIT-0166`; it is `BestServe`, not `WindServe`.
+- Do not count ACM gold-OA DOI metadata as usable fulltext unless a title-matched PDF can actually be downloaded or provided through an authenticated/manual path.
+- Do not leave unresolved source-access blockers in the managed/effective resource pool; soft-exclude them with `classification:excluded-from-corpus` while preserving audit evidence.

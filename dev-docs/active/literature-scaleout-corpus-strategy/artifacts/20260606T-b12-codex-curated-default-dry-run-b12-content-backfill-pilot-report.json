@@ -1,0 +1,110 @@
+{
+  "run_id": "20260606T-b12-codex-curated-default-dry-run",
+  "generated_at": "2026-06-06T14:55:56.947Z",
+  "mode": "dry-run",
+  "selection": {
+    "batch_id_filter": null,
+    "batch_code_filter": null,
+    "explicit_literature_ids": [
+      "LIT-0155"
+    ],
+    "selected_literature_ids": [
+      "LIT-0155"
+    ],
+    "max_records": 10
+  },
+  "backfill": {
+    "target_stage": "KEY_CONTENT_READY",
+    "max_parallel_literature_runs": 1,
+    "extraction_concurrency": 1,
+    "embedding_concurrency": 1,
+    "section_concurrency": 1,
+    "extraction_request_timeout_ms": null,
+    "extraction_max_retries": null,
+    "content_run_timeout_ms": null,
+    "timeout_budget": {
+      "effective_request_timeout_ms": 120000,
+      "effective_max_retries": 1,
+      "estimated_single_section_retry_window_ms": 240250,
+      "content_run_timeout_ms": null,
+      "content_run_timeout_margin_ms": null,
+      "warning": null
+    },
+    "provider_call_budget": 2,
+    "poll_interval_ms": 500,
+    "poll_timeout_ms": 120000,
+    "writes_enabled": false
+  },
+  "dry_run_estimate": {
+    "dry_run_id": "966c1af5-903f-4e61-a760-116379ff80b6",
+    "generated_at": "2026-06-06T14:55:56.940Z",
+    "target_stage": "KEY_CONTENT_READY",
+    "total_literatures": 162,
+    "selected_count": 1,
+    "planned_item_count": 1,
+    "skipped_ready_count": 0,
+    "blocked_count": 0,
+    "curation_required_count": 1,
+    "stage_counts": {
+      "CITATION_NORMALIZED": 0,
+      "ABSTRACT_READY": 0,
+      "FULLTEXT_PREPROCESSED": 0,
+      "KEY_CONTENT_READY": 1,
+      "CHUNKED": 0,
+      "EMBEDDED": 0,
+      "INDEXED": 0
+    },
+    "rights_class_counts": [
+      {
+        "rights_class": "UNKNOWN",
+        "count": 1
+      }
+    ],
+    "estimated_provider_calls": {
+      "extraction_calls": 0,
+      "embedding_calls": 0
+    },
+    "estimated_storage_bytes": 0,
+    "blockers": [],
+    "plan_items": [
+      {
+        "literature_id": "LIT-0155",
+        "title": "Inference Scaling Laws: An Empirical Analysis of Compute-Optimal Inference for Problem-Solving with Language Models",
+        "rights_class": "UNKNOWN",
+        "requested_stages": [
+          "KEY_CONTENT_READY"
+        ],
+        "blocked": false,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "CURATION_REQUIRED"
+      }
+    ]
+  },
+  "summary": {
+    "dry_run_selected_count": 1,
+    "dry_run_planned_item_count": 1,
+    "dry_run_blocked_count": 0,
+    "dry_run_stage_counts": {
+      "CITATION_NORMALIZED": 0,
+      "ABSTRACT_READY": 0,
+      "FULLTEXT_PREPROCESSED": 0,
+      "KEY_CONTENT_READY": 1,
+      "CHUNKED": 0,
+      "EMBEDDED": 0,
+      "INDEXED": 0
+    },
+    "estimated_provider_calls": {
+      "extraction_calls": 0,
+      "embedding_calls": 0
+    },
+    "job_status": null,
+    "job_totals": null,
+    "timed_out": false,
+    "timeout_cleanup_count": 0,
+    "timeout_cleanup_terminalized_runs": 0,
+    "item_status_counts": {},
+    "item_error_counts": {}
+  },
+  "job": null
+}

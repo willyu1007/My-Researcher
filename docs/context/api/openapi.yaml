@@ -7276,7 +7276,7 @@ components:
       properties:
         preferred_key_content_method:
           $ref: '#/components/schemas/LiteratureKeyContentReadyMethod'
-          default: llm_gateway
+          default: codex_curated
         section_concurrency:
           type: integer
           minimum: 1

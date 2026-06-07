@@ -1,0 +1,639 @@
+# 03 Implementation Notes
+
+## 2026-06-06 - Task Created
+- Created T-122 to capture the shift from small-batch literature collection to layered scaleout.
+- Decision:
+  - Treat 5000 as a broad candidate-pool target, not as 5000 fully indexed papers.
+  - Keep effective literature much smaller and higher quality.
+- Baseline:
+  - current managed adaptive corpus: 146.
+  - current effective literature: 144.
+  - current blockers: 2.
+- Scope:
+  - planning and task-package creation only.
+  - no new literature import in this step.
+  - no schema or product-code change in this step.
+
+## Strategy Decision
+- Use a three-layer model:
+  - candidate pool: 5000-8000.
+  - managed pipeline corpus: 2000-2500.
+  - effective literature: 800-1000.
+- This preserves broad research recall while keeping full pipeline cost focused on high-value papers.
+
+## 2026-06-06 - D1 Target Scale Alignment
+- Decision: accepted.
+- The 5000-level target is candidate-pool scale, not full pipeline completion scale.
+- Managed pipeline corpus target is 2000-2500.
+- Effective literature target is 800-1000.
+- Operating rhythm is updated to:
+  - B10 discovery: 500-800 candidates per run.
+  - B11 triage: 200-300 managed-corpus promotions per run.
+  - B12 core promotion: 80-120 effective-literature completions per run.
+
+## 2026-06-06 - D2 Candidate Staging Alignment
+- Decision: accepted.
+- Candidate pool is a new staging node before the existing standard literature pipeline.
+- Candidate pool will use dedicated staging tables instead of writing weak candidates directly into `LiteratureRecord`.
+- B10 broad discovery writes:
+  - candidate staging rows.
+  - lightweight batch summaries for reproducibility and debugging.
+- B11 automated triage is the promotion boundary:
+  - accepted candidates create or link `LiteratureRecord` rows as managed corpus.
+  - promoted records then use the existing standard pipeline unchanged.
+  - rejected, deferred, and duplicate candidates remain in staging.
+- Rationale:
+  - prevents another non-corpus pollution channel inside `LiteratureRecord`.
+  - supports cross-batch dedup, rescoring, and re-triage.
+  - keeps the 5000-8000 candidate pool queryable without inflating managed or effective literature counts.
+
+## 2026-06-06 - D2 Revision: Existing Pipeline Remains Standard
+- Decision: accepted.
+- Candidate staging is a pre-pipeline node only.
+- After B11 promotion, the existing pipeline remains unchanged:
+  - `CITATION_NORMALIZED`
+  - `ABSTRACT_READY`
+  - `FULLTEXT_PREPROCESSED`
+  - `KEY_CONTENT_READY`
+  - `CHUNKED`
+  - `EMBEDDED`
+  - `INDEXED`
+- Effective literature is defined strictly as records that complete the full standard pipeline.
+
+## 2026-06-06 - D3 Deduplication Boundary
+- Decision: accepted.
+- Candidate staging is the standard ingress for newly acquired external literature.
+- B10 candidate staging runs only simple obvious-duplicate checks:
+  - exact DOI, arXiv ID, OpenAlex ID, or Semantic Scholar ID.
+  - normalized title plus year plus first author.
+- B10 duplicate checks should mark/link candidate rows, not delete them.
+- B11 promotion remains the authoritative deduplication boundary:
+  - reuse the existing `LiteratureRecord` deduplication and link/merge behavior.
+  - create a new `LiteratureRecord` only when no existing managed literature match is found.
+  - if a duplicate is found, reverse-mark the candidate with duplicate status, match link, reason, confidence, decision source, and checked timestamp.
+- Rationale:
+  - keeps candidate ingestion fast enough for 5000-8000 records.
+  - avoids reimplementing literature merge semantics in the candidate layer.
+  - preserves basic source provenance without adding strong audit infrastructure.
+
+## 2026-06-06 - D4 Lightweight Candidate Schema
+- Decision: accepted.
+- Initial candidate staging implementation uses only two entities:
+  - `LiteratureDiscoveryBatch`
+  - `LiteratureDiscoveryCandidate`
+- Do not add a separate `CandidateDecisionLog` table in the first implementation.
+- Candidate rows store only:
+  - current lifecycle status.
+  - latest decision reason and timestamp.
+  - duplicate reason and confidence.
+  - matched candidate or literature links.
+  - promoted literature link.
+- Batch summaries remain lightweight and operational:
+  - useful for debugging, rerun hygiene, and count reconciliation.
+  - not a strong audit mechanism.
+- Rationale:
+  - candidate staging should stay a cheap pre-pipeline surface.
+  - B11 and the existing literature pipeline remain the serious management boundary.
+  - simpler schema reduces implementation time before B10/B11 scaleout.
+
+## 2026-06-06 - D5 Simple Candidate Lifecycle
+- Decision: accepted.
+- Candidate status enum is limited to:
+  - `DISCOVERED`
+  - `DUPLICATE`
+  - `REJECTED`
+  - `DEFERRED`
+  - `READY_FOR_PROMOTION`
+  - `PROMOTED`
+- B10 creates `DISCOVERED` candidates unless a lightweight obvious duplicate is found.
+- B11 sets candidates to `DUPLICATE`, `REJECTED`, `DEFERRED`, or `READY_FOR_PROMOTION`.
+- A successful promotion sets `PROMOTED` and links `promotedLiteratureId`.
+- Operational failures should be captured in `decisionReason` and batch summaries, not as extra lifecycle states.
+- Rationale:
+  - keeps candidate staging lightweight.
+  - avoids building a second queue system before scaleout proves the need.
+  - keeps retry behavior operational instead of semantic.
+
+## 2026-06-06 - D6 Minimal Field Set
+- Decision: accepted.
+- Keep candidate staging schema light and directly aligned to B10/B11.
+- `LiteratureDiscoveryBatch` stores only the broad discovery run summary:
+  - `batchCode`
+  - `directionScope`
+  - `sourceProviders`
+  - `queryLedger`
+  - `summaryStats`
+  - `status`
+  - `errorSummary`
+  - `createdAt`
+  - `updatedAt`
+  - `completedAt`
+- `LiteratureDiscoveryCandidate` stores only the current candidate state:
+  - candidate metadata and normalized title.
+  - external source IDs and URLs.
+  - raw source payload and source provider.
+  - dedup key and duplicate reason/confidence.
+  - lightweight direction/role/relevance scores.
+  - current decision reason/time.
+  - matched/promoted links.
+- Use ordinary lookup indexes for first implementation.
+- Do not rely on hard uniqueness constraints for deduplication in the first version.
+- Rationale:
+  - external metadata quality varies by provider.
+  - deduplication decisions belong to B10/B11 logic, not a database uniqueness error.
+  - the schema should stay easy to evolve after real B10/B11 runs expose provider quirks.
+
+## 2026-06-06 - D7 Prisma Schema Draft
+- Decision: accepted as a draft only.
+- Draft adds:
+  - `LiteratureDiscoveryBatch`
+  - `LiteratureDiscoveryCandidate`
+  - two optional back-reference lists on `LiteratureRecord`.
+- Draft does not modify `prisma/schema.prisma` yet.
+- Draft uses `String` status fields instead of Prisma enums:
+  - this follows existing literature job/pipeline model conventions.
+  - allowed candidate statuses remain constrained by B10/B11 application code.
+- Draft uses ordinary lookup indexes only:
+  - no `@@unique` on `dedupKey`.
+  - no `@@unique` on DOI, arXiv ID, OpenAlex ID, or Semantic Scholar ID.
+- Rationale:
+  - candidate staging is a pre-pipeline surface, not authoritative literature storage.
+  - provider metadata can be incomplete or inconsistent.
+  - promotion-time dedup remains the semantic authority.
+  - later DB SSOT work can harden constraints after real B10/B11 data exposes stable invariants.
+
+## 2026-06-06 - D8 Prisma SSOT Applied
+- Decision: approved by user and applied to repo Prisma SSOT.
+- Changed `prisma/schema.prisma`:
+  - added `LiteratureDiscoveryBatch`.
+  - added `LiteratureDiscoveryCandidate`.
+  - added `discoveryMatchedCandidates` and `discoveryPromotedCandidates` back-reference fields on `LiteratureRecord`.
+- Refreshed generated DB context:
+  - `docs/context/db/schema.json`
+  - `docs/context/registry.json`
+- Validation completed:
+  - `pnpm exec prisma format --schema prisma/schema.prisma`
+  - `pnpm exec prisma validate --schema prisma/schema.prisma`
+  - `pnpm exec prisma generate --schema prisma/schema.prisma`
+  - `node .ai/tests/run.mjs --suite database`
+- Database write status:
+  - no DB migration or write was executed.
+  - read-only local DB diff succeeded but exposed unrelated existing drift outside candidate staging.
+  - do not apply the full read-only diff directly.
+- Next migration checkpoint:
+  - confirm target environment.
+  - decide whether to handle unrelated drift first or apply a scoped candidate-staging migration.
+  - only then execute `prisma migrate` or an approved equivalent strategy.
+
+## Recommended First Implementation Step
+- Design and implement the candidate staging schema before B10 scaleout.
+- Preferred first B10 output:
+  - query ledger.
+  - candidate staging rows.
+  - lightweight batch summary.
+  - obvious-duplicate summary.
+  - source provenance.
+  - preliminary direction/role predictions.
+
+## 2026-06-06 - D9 DB Migration Strategy Closed
+- Decision: use a scoped versioned Prisma migration for candidate staging.
+- Target environment:
+  - local dev first.
+- Migration file:
+  - `prisma/migrations/20260606113000_add_literature_discovery_candidate_staging/migration.sql`
+- Included changes:
+  - create `LiteratureDiscoveryBatch`.
+  - create `LiteratureDiscoveryCandidate`.
+  - create candidate lookup indexes.
+  - add candidate foreign keys to batch, self-match, matched literature, and promoted literature.
+- Excluded changes:
+  - no `TopicResearchRecord` default change.
+  - no `TopicResearchRecord` index changes.
+  - no unrelated index rename cleanup from live DB drift.
+  - no `prisma db push`.
+  - no staging or prod apply.
+- Apply boundary:
+  - no database write was executed.
+  - applying this migration still requires explicit user confirmation for local dev.
+  - after apply, run migration status, candidate-table smoke checks, DB context refresh, and database suite.
+
+## 2026-06-06 - D10 Local Dev DB Apply Completed
+- User approved DB write.
+- Applied to:
+  - local dev database `my_researcher_dev`.
+- Applied migration:
+  - `20260606113000_add_literature_discovery_candidate_staging`.
+- Command:
+  - `set -a; . ./.env.local; set +a; pnpm exec prisma migrate deploy --schema prisma/schema.prisma`
+- Result:
+  - migration applied successfully.
+  - `prisma migrate status` reports database schema is up to date.
+  - candidate-table smoke check found both tables, 16 candidate indexes, and 4 candidate foreign keys.
+  - candidate tables are empty after migration.
+  - post-apply diff no longer includes `LiteratureDiscovery*`.
+  - remaining diff is unrelated `TopicResearchRecord` drift and stays out of scope.
+- Verification:
+  - Prisma validate passed.
+  - Prisma generate passed.
+  - DB context refreshed.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 warning.
+
+## 2026-06-06 - D11 B13 Counting Contract Locked
+- Added:
+  - `06-counting-contract.md`
+  - `tools/literature-scaleout-counting-report.mjs`
+  - `artifacts/20260606T-b13-counting-contract.json`
+- Contract:
+  - candidate pool metrics come only from `LiteratureDiscoveryCandidate`.
+  - managed corpus metrics come from `LiteratureRecord` rows with stable corpus tags and no excluded-from-corpus tag.
+  - effective literature metrics require every standard stage through `INDEXED` to be `SUCCEEDED`.
+  - `adaptive_corpus_records` remains a compatibility alias for `managed_corpus_records`.
+  - `pipeline_complete_records` remains a compatibility alias for `effective_literature_records`.
+- Pre-B10-pilot local-dev baseline:
+  - candidate pool: 0.
+  - managed corpus: 146.
+  - effective literature: 144.
+  - blockers: 2.
+  - excluded/non-corpus records: 6.
+  - raw DB total: 152.
+
+## 2026-06-06 - D13 B10 Provider/Query Hardening and Pilot Apply
+- Hardened B10 default provider behavior:
+  - default `B10_PROVIDERS` is now `auto`.
+  - `auto` enables OpenAlex.
+  - `auto` records skipped-provider ledger entries for Semantic Scholar when no API key is configured.
+  - `auto` keeps arXiv explicit-only after local canary requests returned `ECONNRESET`/fetch failures.
+  - explicit provider lists and `all` remain available for targeted provider checks.
+- Hardened query/focus behavior:
+  - added stronger RAG-core queries such as adaptive retrieval-augmented generation variants.
+  - added test-time compute/scaling/token-budget queries.
+  - made RAG-core matching require word-boundary `RAG` or complete retrieval-augmented-generation title signals.
+  - tightened test-time compute matching to title-level test-time or budget/reasoning signals.
+  - excluded additional generic title forms such as overviews, toolboxes, and solvers.
+- Verification dry-runs:
+  - auto default dry-run wrote no DB rows and recorded 2 skipped-provider ledger entries.
+  - OpenAlex coverage dry-run scanned 800 provider results, found 126 provider candidates, and capped to 108 dry-run candidates with no provider errors.
+- Pilot apply:
+  - run id: `20260606T-b10-openalex-pilot-apply`.
+  - batch id: `0caeeefb-735f-410d-aa88-7fedc187c6f3`.
+  - DB delta: 1 batch, 60 candidate rows.
+  - candidate status split: 54 `DISCOVERED`, 6 `DUPLICATE`.
+  - direction split: 41 RAG-aware allocation, 15 LLM serving resource allocation, 4 test-time compute budgeting.
+  - no `LiteratureRecord`, content, fulltext, key-content, embedding, or index rows were created.
+- Counting after pilot apply:
+  - candidate pool: 62.
+  - discovered candidates: 54.
+  - duplicate candidates: 6.
+  - rejected canary candidates: 2.
+  - managed corpus: 146.
+  - effective literature: 144.
+  - blockers: 2.
+- Next implementation step:
+  - implement B11 scoring/triage for the 54 discovered pilot candidates before running 500-800 candidate scaleout.
+
+## 2026-06-06 - D14 B11 Triage/Promote Pilot
+- Added:
+  - `tools/b11-candidate-triage-promote.mjs`
+  - `08-b11-candidate-triage-promote.md`
+- B11 script modes:
+  - dry-run: generate score/status decisions only.
+  - `--apply`: update candidate status, duplicate links, decision reason/time, and batch status summaries.
+  - `--apply --promote`: promote a capped READY subset into `LiteratureRecord` using `LiteratureService.collectionImport`.
+- Data boundary:
+  - B11 status updates stay in candidate staging.
+  - Promotion uses the existing literature import/dedup path instead of creating `LiteratureRecord` rows directly.
+  - Promoted rows get `corpus:managed`, direction, collection, batch, and triage tags.
+  - Promoted rows do not get content/fulltext/key-content/embedding/index rows.
+- Pilot dry-run:
+  - run id: `20260606T-b11-tight-triage-dry-run`.
+  - evaluated 54 discovered candidates from batch `0caeeefb-735f-410d-aa88-7fedc187c6f3`.
+  - decisions: 41 `READY_FOR_PROMOTION`, 9 `DEFERRED`, 2 `DUPLICATE`, 2 `REJECTED`.
+  - DB delta: 0.
+- Pilot apply/promote:
+  - run id: `20260606T-b11-pilot-apply-promote`.
+  - triage decisions were applied to the same 54 candidates.
+  - max promotions: 10.
+  - promotions succeeded: 10.
+  - `LiteratureRecord` delta: +10.
+  - `LiteratureSource` delta: +10.
+  - promoted literature ids: `LIT-0153` through `LIT-0162`.
+- B13 counting adjustment:
+  - promoted but not-started managed records exposed that `pipeline_blocked_records` was too broad.
+  - updated B13 script and contract to separate:
+    - `pipeline_incomplete_records`
+    - `pipeline_blocked_records`
+    - `pipeline_not_started_records`
+- Current local-dev state after B11:
+  - candidate pool: 62.
+  - ready-for-promotion candidates: 31.
+  - promoted candidates: 10.
+  - duplicate candidates: 8.
+  - rejected candidates: 4.
+  - deferred candidates: 9.
+  - managed corpus: 156.
+  - effective literature: 144.
+  - pipeline incomplete: 12.
+  - explicit blockers: 2.
+  - pipeline not started: 10.
+- Next implementation step:
+  - run B12/standard-pipeline processing for the 10 promoted managed records before scaling B10/B11 further.
+- Note:
+  - raw DB totals are database hygiene only and may differ from older T-120 artifacts.
+  - the managed/effective/blocker baseline remains aligned with T-120.
+
+## 2026-06-06 - D15 B12 Standard-Pipeline Pilot
+- Added:
+  - `tools/b12-standard-pipeline-pilot.mjs`
+  - `09-b12-standard-pipeline-pilot.md`
+- B12 script modes:
+  - dry-run: select promoted literature and report current stage/source state without DB writes.
+  - `--apply`: trigger existing `LiteratureFlowService` runs and poll each run to a terminal status.
+- Selection boundary:
+  - default source is `LiteratureDiscoveryCandidate.status=PROMOTED`.
+  - optional filters: `B12_BATCH_ID`, `B12_BATCH_CODE`, `B12_LITERATURE_IDS`.
+  - pilot selected the 10 records promoted from batch `0caeeefb-735f-410d-aa88-7fedc187c6f3`.
+- Pipeline boundary:
+  - requested stages default to `CITATION_NORMALIZED,ABSTRACT_READY,FULLTEXT_PREPROCESSED`.
+  - trigger source is `BACKFILL`.
+  - script does not download PDFs, create raw content assets, create fulltext documents, curate key content, embed, or index.
+- Pilot apply result:
+  - created 10 content-processing runs.
+  - all 10 runs ended `PARTIAL`.
+  - citation normalization succeeded for all 10.
+  - abstract readiness succeeded for all 10.
+  - fulltext preprocessing blocked for all 10 with `FULLTEXT_SOURCE_MISSING`.
+  - no content assets or fulltext documents exist for the 10 records.
+- Current local-dev state after B12:
+  - candidate pool: 62.
+  - ready-for-promotion candidates: 31.
+  - promoted candidates: 10.
+  - managed corpus: 156.
+  - effective literature: 144.
+  - pipeline incomplete: 12.
+  - explicit blockers: 12.
+  - pipeline not started: 0.
+- Next implementation step:
+  - implement or run the rights-safe fulltext acquisition/asset-registration path for selected B12 records, then rerun `FULLTEXT_PREPROCESSED`.
+
+## 2026-06-06 - D16 B12 Fulltext And Content-Backfill Pilot
+- Added:
+  - `tools/b12-fulltext-acquisition-pilot.mjs`
+  - `tools/b12-content-backfill-pilot.mjs`
+- Updated:
+  - `tools/b12-standard-pipeline-pilot.mjs` now instantiates `LiteratureContentProcessingSettingsService`.
+  - `tools/b12-content-backfill-pilot.mjs` exposes `B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS`.
+  - `tools/b12-content-backfill-pilot.mjs` defaults `B12_BACKFILL_SECTION_CONCURRENCY` to 1 for local pilot runs.
+- Fulltext acquisition:
+  - dry-run selected 10 B11-promoted records.
+  - apply succeeded for all 10 records.
+  - source split was 8 arXiv and 2 Unpaywall.
+  - created 10 raw fulltext content assets.
+- Fulltext preprocessing:
+  - rerun after acquisition initially exposed missing content-processing settings in the pilot runner.
+  - after settings injection, `FULLTEXT_PREPROCESSED` succeeded for all 10 records.
+  - created 10 READY fulltext documents and corresponding preprocessed-text artifacts.
+- Content backfill:
+  - dry-run planned `KEY_CONTENT_READY`, `CHUNKED`, `EMBEDDED`, and `INDEXED` for the 10 records.
+  - first apply completed `LIT-0160` through `INDEXED`.
+  - first apply was stopped after `LIT-0158` exceeded the expected key-content provider progress window.
+  - second apply was stopped after `LIT-0153` exceeded the expected key-content provider progress window.
+  - interrupted apply runners did not produce JSON artifacts because the local process was stopped before returning to artifact writing.
+- D16 checkpoint local-dev state after cleanup:
+  - candidate pool: 62.
+  - managed corpus: 156.
+  - effective literature: 145.
+  - pipeline incomplete: 11.
+  - explicit blockers: 5.
+  - pipeline not started: 0.
+  - `LIT-0160` is effective literature.
+  - `LIT-0153` and `LIT-0154` are explicit `KEY_CONTENT_READY` blockers with `B12_BACKFILL_CONTENT_RUN_TIMEOUT`.
+  - `LIT-0158` is an explicit `KEY_CONTENT_READY` blocker with `B12_BACKFILL_PROVIDER_TIMEOUT_INTERRUPTED`.
+  - at the D16 checkpoint, the then-remaining six B11-promoted records had fulltext ready and awaited key-content.
+- Next implementation step:
+  - resolve key-content provider timeout behavior before any 80-120 record B12 content-backfill run.
+  - test one or two retry records with explicit content-run and extraction request timeouts.
+
+## 2026-06-06 - D16 B12 Timeout Cleanup Fix
+- Evidence:
+  - one-record `LIT-0153` retry with `B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS=120000` failed the batch item and wrote an artifact.
+  - the underlying content-processing pipeline run stayed `RUNNING`, leaving the local runner process alive until manually stopped.
+- Fix:
+  - `tools/b12-content-backfill-pilot.mjs` now detects timed-out backfill items.
+  - it terminalizes the corresponding pipeline run, run step, and stage state with `B12_BACKFILL_CONTENT_RUN_TIMEOUT`.
+  - after writing the artifact, it exits the CLI when timeout cleanup was needed so the local provider call cannot keep the process alive.
+- Verification:
+  - retry run `20260606T-b12-keycontent-retry-lit0153-cleanup-fix-apply` wrote an apply artifact.
+  - summary reported `timeout_cleanup_count=1` and `timeout_cleanup_terminalized_runs=1`.
+  - DB probe found no active content jobs/items and no running B12 pipeline runs.
+  - B13 after verification stayed stable: candidate pool 62, managed corpus 156, effective literature 145, incomplete 11, blocked 4, not started 0.
+
+## 2026-06-06 - D16 B12 Non-Blocker Key-Content Retry
+- Input:
+  - selected `LIT-0154` because `FULLTEXT_PREPROCESSED=SUCCEEDED` and `KEY_CONTENT_READY=NOT_STARTED`.
+  - explicit bounds: `B12_BACKFILL_SECTION_CONCURRENCY=1`, `B12_BACKFILL_EXTRACTION_REQUEST_TIMEOUT_MS=30000`, `B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS=60000`.
+- Result:
+  - dry-run planned exactly one `KEY_CONTENT_READY` item and used the pre-diagnosis one-call extraction estimate.
+  - apply failed with `B12_BACKFILL_CONTENT_RUN_TIMEOUT`.
+  - runner cleanup reported `timeout_cleanup_count=1` and `timeout_cleanup_terminalized_runs=1`.
+  - DB probe found no active content jobs/items and no running B12 pipeline runs.
+  - B13 after retry: candidate pool 62, managed corpus 156, effective literature 145, incomplete 11, blocked 5, not started 0.
+- Conclusion:
+  - timeout cleanup is working on a previously non-blocked record.
+  - key-content provider timeout is not isolated to `LIT-0153` or `LIT-0158`; it also affects `LIT-0154`.
+
+## 2026-06-06 - D16 Provider Timeout Diagnosis
+- Evidence:
+  - `LIT-0153` and `LIT-0154` cleanup-fix retries were terminalized at about 60.8s, matching the configured 60s content-run timeout.
+  - with `request_timeout_ms=30000` and `max_retries=1`, a single section can consume about 60.25s before gateway telemetry is produced; the outer content-run timeout was therefore racing the inner provider retry window.
+  - minimal live gateway canary for OpenAI `gpt-5.5` passed in 3397ms with 1 request, 0 retries, 0 timeouts, 59 input tokens, 22 output tokens, and 81 total tokens.
+  - real `LIT-0154` max-section canary with the existing section prompt and high reasoning timed out at 45003ms and produced canonical `LlmGatewayError TimeoutError` telemetry.
+  - the same `LIT-0154` max-section prompt with low reasoning passed in 31096ms with 6678 input tokens, 3892 output tokens, and 10570 total tokens.
+  - ready fulltext section counts show true key-content fan-out is much larger than the earlier dry-run estimate: `LIT-0154` has 41 extraction units, so one `KEY_CONTENT_READY` attempt is about 42 provider calls including consolidation.
+- Fix:
+  - section-level key-content extraction now uses low reasoning while paper-level consolidation keeps high reasoning.
+  - backfill dry-run now estimates `llm_gateway` key-content provider calls from ready fulltext sections plus one consolidation call.
+  - `tools/b12-content-backfill-pilot.mjs` now accepts `B12_BACKFILL_EXTRACTION_MAX_RETRIES` and records a timeout-budget block in artifacts.
+- Verification:
+  - focused service tests passed: 41/41.
+  - B12 runner syntax check passed.
+  - diagnostic dry-run artifact `artifacts/20260606T-b12-provider-timeout-diagnosis-dry-run-b12-content-backfill-pilot-report.json` reports `LIT-0154` estimated extraction calls as 42 and records the 45s request / 0 retry / 60s content-run budget.
+- Next implementation step:
+  - run future key-content retries with provider budget sized to actual section fan-out.
+  - avoid content-run timeout values that are lower than the single-section provider retry window.
+  - use `B12_BACKFILL_EXTRACTION_MAX_RETRIES=0` for bounded diagnostic retries, then widen only after a successful small apply.
+
+## 2026-06-06 - D17 Key-Content Method Default Switch
+- Decision:
+  - `codex_curated` is now the preferred `KEY_CONTENT_READY` method by default.
+  - `llm_gateway` remains available only through explicit env/DB/runtime override for bounded provider retries.
+- Implementation:
+  - backend settings default and flow/backfill fallback now resolve to `codex_curated`.
+  - shared schema and OpenAPI context expose `codex_curated` as the default runtime method.
+  - env contract adds `LITERATURE_KEY_CONTENT_READY_METHOD` with default `codex_curated`.
+  - dev/staging/prod values set `LITERATURE_KEY_CONTENT_READY_METHOD: codex_curated`.
+  - local `.env.local` includes `LITERATURE_KEY_CONTENT_READY_METHOD=codex_curated`.
+  - local dev DB content-processing settings persist `preferred_key_content_method: codex_curated`.
+- Operational effect:
+  - default B12 key-content backfill no longer calls the provider gateway.
+  - records without an imported curated dossier should stop at `KEY_CONTENT_CURATION_REQUIRED`.
+  - provider timeout diagnosis remains relevant only when `llm_gateway` is explicitly selected.
+
+## 2026-06-07 - D18 B12 codex_curated Happy-Path Canary
+- Target:
+  - selected non-blocked `LIT-0155`, which had `FULLTEXT_PREPROCESSED=SUCCEEDED` and no key-content artifact.
+- Curation:
+  - exported the key-content curation bundle from the ready fulltext document.
+  - generated a source-grounded `codex_curated` dossier using local Codex curation over exported paragraphs.
+  - dry-run import passed with `valid=true`, no unresolved source refs, and 0 repaired refs.
+  - import succeeded and marked `KEY_CONTENT_READY=SUCCEEDED`.
+  - imported artifact diagnostics report `LLM calls=0`, `retry_count=0`, and `timeout_count=0`.
+- Backfill:
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - dry-run estimated provider calls: `extraction_calls=0`, `embedding_calls=1`.
+  - index apply succeeded with one item and no timeout cleanup.
+  - `LIT-0155` now has all seven standard stages `SUCCEEDED` and an active indexed embedding version with 153 chunks/vectors.
+- Counting:
+  - B13 after canary reports candidate pool 62, managed corpus 156, effective literature 146, incomplete 10, blocked 5, not started 0.
+
+## 2026-06-07 - D19 B12 codex_curated Batch2
+- Target:
+  - selected the next two non-blocked fulltext-ready records: `LIT-0156` and `LIT-0157`.
+  - both had `CITATION_NORMALIZED`, `ABSTRACT_READY`, and `FULLTEXT_PREPROCESSED` already `SUCCEEDED`.
+- Curation:
+  - exported key-content curation bundles for both records.
+  - generated source-grounded `codex_curated` dossiers from exported fulltext paragraphs.
+  - dossier dry-run import passed for both records with `readiness_status=READY`.
+  - import succeeded and marked `KEY_CONTENT_READY=SUCCEEDED` for both records.
+  - imported artifact diagnostics report `LLM calls=0`, `retry_count=0`, and `timeout_count=0`.
+- Backfill:
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `KEY_CONTENT_READY` count was 0.
+  - dry-run estimated provider calls: `extraction_calls=0`, `embedding_calls=2`.
+  - index apply succeeded with two items and no timeout cleanup.
+  - `LIT-0156` now has all seven standard stages `SUCCEEDED` and an active indexed embedding version with 99 chunks/vectors.
+  - `LIT-0157` now has all seven standard stages `SUCCEEDED` and an active indexed embedding version with 161 chunks/vectors.
+- Counting:
+  - B13 after batch2 reports candidate pool 62, managed corpus 156, effective literature 148, incomplete 8, blocked 5, not started 0.
+  - D19 handoff identified `LIT-0159`, `LIT-0161`, and `LIT-0162` as the next non-blocked B11-promoted records; D20 completed them.
+
+## 2026-06-07 - D20 B12 codex_curated Batch3
+- Target:
+  - selected the final three non-blocked records from the initial B11-promoted tranche: `LIT-0159`, `LIT-0161`, and `LIT-0162`.
+  - all three had `CITATION_NORMALIZED`, `ABSTRACT_READY`, and `FULLTEXT_PREPROCESSED` already `SUCCEEDED`.
+- Curation:
+  - exported key-content curation bundles for all three records.
+  - generated source-grounded `codex_curated` dossiers from exported fulltext paragraphs.
+  - dossier dry-run import passed for all three records with `readiness_status=READY` and `repaired_source_ref_count=0`.
+  - import succeeded and marked `KEY_CONTENT_READY=SUCCEEDED` for all three records.
+  - imported artifact diagnostics report 0 LLM gateway calls.
+- Backfill:
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `KEY_CONTENT_READY` count was 0.
+  - dry-run estimated provider calls: `extraction_calls=0`, `embedding_calls=3`.
+  - index apply succeeded with three items and no timeout cleanup.
+  - `LIT-0159` now has all seven standard stages `SUCCEEDED` and an active indexed embedding version with 191 chunks/vectors.
+  - `LIT-0161` now has all seven standard stages `SUCCEEDED` and an active indexed embedding version with 146 chunks/vectors.
+  - `LIT-0162` now has all seven standard stages `SUCCEEDED` and an active indexed embedding version with 144 chunks/vectors.
+- Counting:
+  - B13 after batch3 reports candidate pool 62, managed corpus 156, effective literature 151, incomplete 5, blocked 5, not started 0.
+  - no non-blocked records from the initial 10-record B11 promote pilot remain in the key-content queue.
+
+## 2026-06-07 - D21 Opportunity Tranche2
+- B11 promote:
+  - evaluated 31 `READY_FOR_PROMOTION` candidates.
+  - promoted four high-scoring LLM-serving records: `LIT-0163`, `LIT-0164`, `LIT-0165`, and `LIT-0166`.
+  - reverse-marked one ready candidate as `DUPLICATE`.
+- B12 standard/acquisition:
+  - standard apply succeeded for citation and abstract on all four records and marked fulltext preprocessing source-missing before acquisition.
+  - acquisition dry-run planned all four records with 2 arXiv and 2 Unpaywall sources.
+  - acquisition apply succeeded for the two arXiv records, `LIT-0164` and `LIT-0165`.
+  - `LIT-0163` failed acquisition with `UNPAYWALL_NO_OA_PDF`.
+  - `LIT-0166` failed acquisition with a 403 download from the OA PDF path.
+- Curation/backfill:
+  - `LIT-0164` and `LIT-0165` fulltext preprocessing succeeded.
+  - exported curation bundles for both records.
+  - generated source-grounded `codex_curated` dossiers with 0 LLM gateway calls.
+  - dossier dry-run import passed with `valid=true` and `repaired_source_ref_count=0` for both records.
+  - import marked `KEY_CONTENT_READY=SUCCEEDED` for both records.
+  - index apply succeeded with two items and no timeout cleanup.
+  - `LIT-0164` now has all seven standard stages `SUCCEEDED` and an active indexed embedding version with 154 chunks/vectors.
+  - `LIT-0165` now has all seven standard stages `SUCCEEDED` and an active indexed embedding version with 194 chunks/vectors.
+- Counting:
+  - B13 after opportunity tranche2 reports candidate pool 62, managed corpus 160, effective literature 153, incomplete 7, blocked 7, not started 0.
+
+## 2026-06-07 - D22 B12 Blocker Cleanup
+- Key-content blocker cleanup:
+  - exported curation bundles for `LIT-0153`, `LIT-0154`, and `LIT-0158`.
+  - generated source-grounded `codex_curated` dossiers from exported fulltext paragraphs.
+  - dossier dry-run imports passed for all three records with no unresolved source refs.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all three records.
+  - index apply completed `CHUNKED`, `EMBEDDED`, and `INDEXED` for all three records.
+  - key-content extraction provider calls: 0.
+  - embedding provider calls: 3.
+- Wrong-source cleanup:
+  - rejected arXiv `2506.05871` for `LIT-0166` because the downloaded paper is `BestServe`, not `WindServe`.
+  - removed the wrong content asset, fulltext document, pipeline artifact, generated normalized files, and stale bundle export.
+  - restored `LIT-0166` to `FULLTEXT_PREPROCESSED=BLOCKED` with `FULLTEXT_SOURCE_MISSING`.
+- OCR/source blocker cleanup:
+  - acquired a public title-matched PDF for `LIT-0252` from the Penn State course mirror.
+  - fulltext preprocessing succeeded on the replacement PDF.
+  - exported a curation bundle with 39 sections, 89 paragraphs, 121 anchors, and 250 source refs.
+  - imported a 74-source-ref `codex_curated` dossier.
+  - index apply completed `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+- Remaining source audit:
+  - `LIT-0163`: OpenAlex/Unpaywall report gold OA landing-page access but no PDF URL; Semantic Scholar reports closed OA PDF; ACM landing/PDF probes return 403.
+  - `LIT-0166`: OpenAlex/Unpaywall point to an ACM PDF URL, but unauthenticated download returns 403; Semantic Scholar has no PDF URL.
+  - `LIT-0257`: book record has no DOI/arXiv/explicit fulltext URL; Cambridge excerpt is only a 10-page excerpt and PDFCoffee-style mirrors are not rights-safe sources.
+- Current local-dev state after D22:
+  - candidate pool: 62.
+  - managed corpus: 160.
+  - effective literature: 157.
+  - pipeline incomplete: 3.
+  - explicit blockers: 3.
+  - pipeline not started: 0.
+- Next implementation step:
+  - continue B11/B12 opportunity work with stronger fulltext availability signals, or resolve `LIT-0163`, `LIT-0166`, and `LIT-0257` with authenticated/user-provided fulltext.
+
+## 2026-06-07 - D23 Source-Blocker Soft Exclusion
+- Decision:
+  - records with unresolved rights-safe fulltext access should not pollute the managed/effective resource pool.
+  - preserve records and audit trails instead of physical deletion.
+- DB update:
+  - added `classification:excluded-from-corpus`, `classification:source-access-blocked`, and `b12:soft-excluded` to `LIT-0163`, `LIT-0166`, and `LIT-0257`.
+  - preserved existing literature rows, sources, pipeline states, and acquisition evidence.
+  - appended D23 decision notes to the promoted candidates for `LIT-0163` and `LIT-0166`.
+- Counting:
+  - B13 after soft exclusion reports candidate pool 62, managed corpus 157, effective literature 157, incomplete 0, blocked 0, not started 0, excluded non-corpus 9.
+- Re-entry rule:
+  - these records can re-enter the managed resource pool only after authenticated/user-provided fulltext is available and the exclusion tags are explicitly removed.
+
+## 2026-06-06 - D12 B10 Candidate Discovery Entrypoint
+- Added:
+  - `tools/b10-candidate-discovery.mjs`
+  - `07-b10-candidate-discovery.md`
+- Env contract additions:
+  - `OPENALEX_MAILTO`
+  - `OPENALEX_API_KEY`
+  - `SEMANTIC_SCHOLAR_API_KEY`
+- Implemented provider paths:
+  - OpenAlex works search.
+  - arXiv API.
+  - Semantic Scholar Graph API.
+- Implemented B10 behavior:
+  - dry-run by default.
+  - `--apply` writes `LiteratureDiscoveryBatch` and `LiteratureDiscoveryCandidate`.
+  - no `LiteratureRecord` writes.
+  - no fulltext/content/key-content/embedding writes.
+  - obvious duplicate guard against existing literature, existing candidates, and same-batch candidates.
+  - lightweight score and direction/role scores persisted on candidate rows.
+- Canary result:
+  - OpenAlex apply smoke wrote 1 batch and 2 candidates.
+  - canary review found both candidates too weak for the target direction.
+  - both rows were marked `REJECTED` with decision reason instead of being deleted.
+  - filter was hardened with higher relevance threshold, direction-specific focus checks, and survey/resource-center exclusions.
+  - repeat OpenAlex dry-run with the same query produced 0 candidates.
+  - B13 after cleanup reports candidate pool 2, rejected 2, managed corpus 146, effective literature 144.
+- Provider notes:
+  - arXiv canary had provider-level fetch/timeout failure in this local run.
+  - Semantic Scholar canary returned `429` without API key.
+  - do not run full 500-800 scaleout until these provider behaviors are resolved or explicitly disabled.

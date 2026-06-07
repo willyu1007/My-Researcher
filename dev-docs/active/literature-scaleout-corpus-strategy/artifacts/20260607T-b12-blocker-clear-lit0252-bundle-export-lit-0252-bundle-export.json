@@ -1,0 +1,51 @@
+{
+  "run_id": "20260607T-b12-blocker-clear-lit0252-bundle-export",
+  "generated_at": "2026-06-07T02:43:38.592Z",
+  "literature_id": "LIT-0252",
+  "title": "When Is \"Nearest Neighbor\" Meaningful?",
+  "document": {
+    "id": "034b78f9-452f-456b-a52c-5ebee33e8f85",
+    "source_asset_id": "7f022623-135a-4a8d-a1a8-f31993b8b762",
+    "normalized_text_checksum": "02b8b0475fa34e5cac078f200d116868ef912011fe6597968b07311c278b0829",
+    "parser_name": "grobid-tei-v1",
+    "parser_version": "1",
+    "status": "READY",
+    "diagnostics": [
+      {
+        "code": "GROBID_TEI_PARSED",
+        "severity": "info",
+        "text_length": 35482,
+        "anchor_count": 121,
+        "endpoint_url": "http://localhost:8070",
+        "section_count": 39,
+        "paragraph_count": 89,
+        "parser_quality_score": 1,
+        "parser_quality_bucket": "high",
+        "parser_quality_inputs": {
+          "page_count": 18,
+          "text_length": 35482,
+          "anchor_count": 121,
+          "section_count": 39,
+          "paragraph_count": 89,
+          "average_paragraph_length": 385
+        }
+      }
+    ]
+  },
+  "counts": {
+    "sections": 39,
+    "paragraphs": 89,
+    "anchors": 121,
+    "source_refs": 250
+  },
+  "export_policy": {
+    "accepted_curation_sources": [
+      "codex_curated",
+      "manual_curated"
+    ],
+    "required_schema_version": "key_content.v1",
+    "required_extraction_profile": "paper_semantic_dossier.v1",
+    "require_resolvable_source_refs": true
+  },
+  "bundle_path": ".ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-blocker-clear-lit0252-bundle-export-lit-0252-bundle-full.json"
+}

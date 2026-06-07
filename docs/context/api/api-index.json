@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-28T10:30:48.757Z",
+  "generatedAt": "2026-06-06T14:50:29.619Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "13860deb8602e7346ebc71e601d060af88e77c3f68c6f86d40209da291cd1916",
+  "sourceChecksumSha256": "c5e45edf853ab817e2dfb6cd7739dae38d1ad7a43798c5fea4beb703245f39dd",
   "stats": {
     "totalEndpoints": 186,
     "byTag": {
@@ -5119,7 +5119,7 @@
       "method": "POST",
       "path": "/topic-selection/v1c/promotion-decision-support",
       "operationId": "createTopicSelectionV1cPromotionDecisionSupport",
-      "summary": "Create promotion decision support, dossier, mini-check, and gate check.",
+      "summary": "Create N2 promotion decision support and dossier.",
       "tag": "topic-selection-v1c",
       "auth": "none",
       "input": {
@@ -5144,10 +5144,7 @@
         "successStatus": 201,
         "coreFields": [
           "promotion_decision_support",
-          "promotion_dossier",
-          "argument_readiness_mini_check",
-          "promotion_gate_check",
-          "handoff"
+          "promotion_dossier"
         ]
       },
       "errors": [
@@ -5163,17 +5160,18 @@
       "method": "POST",
       "path": "/topic-selection/v1c/promotion-gate-checks",
       "operationId": "createTopicSelectionV1cPromotionGateCheck",
-      "summary": "Create promotion gate support and return the gate check bundle.",
+      "summary": "Create N3 promotion gate check from existing support.",
       "tag": "topic-selection-v1c",
       "auth": "none",
       "input": {
         "params": [],
         "query": [],
         "body": {
-          "required": [
-            "promotion_input_snapshot_id"
-          ],
+          "required": [],
           "optional": [
+            "promotion_decision_support_id",
+            "support_run_key",
+            "promotion_input_snapshot_id",
             "workspace_id",
             "created_by",
             "policy_version_id",
@@ -5200,7 +5198,7 @@
         409
       ],
       "example": {
-        "curl": "curl -X POST '/topic-selection/v1c/promotion-gate-checks' -H 'Content-Type: application/json' -d '{\"promotion_input_snapshot_id\":\"<promotion_input_snapshot_id>\"}'"
+        "curl": "curl -X POST '/topic-selection/v1c/promotion-gate-checks'"
       }
     },
     {

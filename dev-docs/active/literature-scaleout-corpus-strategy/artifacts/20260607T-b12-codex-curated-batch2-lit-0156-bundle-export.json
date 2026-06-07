@@ -1,0 +1,340 @@
+{
+  "run_id": "20260607T-b12-codex-curated-batch2-lit-0156-bundle-export",
+  "generated_at": "2026-06-07T00:29:29.144Z",
+  "literature_id": "LIT-0156",
+  "title": "Cloud Native System for LLM Inference Serving",
+  "year": 2025,
+  "section_count": 16,
+  "paragraph_count": 54,
+  "anchor_count": 45,
+  "document": {
+    "id": "de7c3a56-80b2-4ccf-b506-021d2fc0f995",
+    "source_asset_id": "f337abbc-db1c-482e-a4ec-a01cc61a0c84",
+    "normalized_text_checksum": "051612acdfaf3dc5d3ed87d9241ec712394711f5df84df82bd12d978916bee19",
+    "parser_name": "grobid-tei-v1",
+    "parser_version": "1",
+    "status": "READY",
+    "diagnostics": [
+      {
+        "code": "GROBID_TEI_PARSED",
+        "severity": "info",
+        "text_length": 26437,
+        "anchor_count": 45,
+        "endpoint_url": "http://localhost:8070",
+        "section_count": 16,
+        "paragraph_count": 54,
+        "parser_quality_score": 1,
+        "parser_quality_bucket": "high",
+        "parser_quality_inputs": {
+          "page_count": 7,
+          "text_length": 26437,
+          "anchor_count": 45,
+          "section_count": 16,
+          "paragraph_count": 54,
+          "average_paragraph_length": 481
+        }
+      }
+    ]
+  },
+  "export_policy": {
+    "accepted_curation_sources": [
+      "codex_curated",
+      "manual_curated"
+    ],
+    "required_schema_version": "key_content.v1",
+    "required_extraction_profile": "paper_semantic_dossier.v1",
+    "require_resolvable_source_refs": true
+  },
+  "first_sections": [
+    {
+      "section_id": "sec-1",
+      "title": "Introduction",
+      "level": 1,
+      "order_index": 0,
+      "start_offset": 0,
+      "end_offset": 8379,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "19d5129b8182243298ab0c293f26376f2e3cb47af4d948adf1a94c0c33b02fbb"
+    },
+    {
+      "section_id": "sec-2",
+      "title": "Inaccurate Resource Profiling",
+      "level": 1,
+      "order_index": 1,
+      "start_offset": 8379,
+      "end_offset": 9581,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "463b86b52c2192f75e51098792b3851cc51b65a3f7767f64ef82a99081bc527d"
+    },
+    {
+      "section_id": "sec-3",
+      "title": "Variability Across Inference Stages:",
+      "level": 1,
+      "order_index": 2,
+      "start_offset": 9581,
+      "end_offset": 10277,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "94d066e8848aa3b12eeaebc1ae9cae7771f7f896d3546067eeb9fba92d953a8e"
+    },
+    {
+      "section_id": "sec-4",
+      "title": "Rigid Scheduling and Orchestration",
+      "level": 1,
+      "order_index": 3,
+      "start_offset": 10277,
+      "end_offset": 11338,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "9bf2dd3ec2dd963cb39e5fdb759f23df6ec7fab5770dea92cbbe3c62172c48c3"
+    },
+    {
+      "section_id": "sec-5",
+      "title": "Coarse-Grained Model Management.",
+      "level": 1,
+      "order_index": 4,
+      "start_offset": 11338,
+      "end_offset": 12025,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "c4cd26b6b3fa597011a578e9c30e67723961b32f828111777b07fc877ca64f80"
+    },
+    {
+      "section_id": "sec-6",
+      "title": "Imbalanced model deployment",
+      "level": 1,
+      "order_index": 5,
+      "start_offset": 12025,
+      "end_offset": 12760,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "bc1906c43f4280eea9065d728cfefcfe68c48de73d1e3c6b618c1aaa5ae928d7"
+    },
+    {
+      "section_id": "sec-7",
+      "title": "Uneven Computational Demand Across Model Components.",
+      "level": 1,
+      "order_index": 6,
+      "start_offset": 12760,
+      "end_offset": 20794,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "a5950df0a6f71e61a5dfdb86d429d6f5e98a7edc251edc73e7f540fe64747ceb"
+    },
+    {
+      "section_id": "sec-8",
+      "title": "LLM Serving Performance Improvement with Cloud Native",
+      "level": 1,
+      "order_index": 7,
+      "start_offset": 20794,
+      "end_offset": 21269,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "393e30b1cd388c9fa92a828750c1de3d733f87844e48bab91754a8f27eb4b6ff"
+    },
+    {
+      "section_id": "sec-9",
+      "title": "Experimental Settings",
+      "level": 1,
+      "order_index": 8,
+      "start_offset": 21269,
+      "end_offset": 23011,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "ac3cfae5e8d214f02134c64442b8650ae88bee9fd6ed6058a74e65e7c3e20911"
+    },
+    {
+      "section_id": "sec-10",
+      "title": "Observations and Results",
+      "level": 1,
+      "order_index": 9,
+      "start_offset": 23011,
+      "end_offset": 25284,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "b4f17a618bb27525e231daff0fdaeedf2fd9d8046acba9b3ed2fd04cb33e89a0"
+    },
+    {
+      "section_id": "sec-11",
+      "title": "Conclusions",
+      "level": 1,
+      "order_index": 10,
+      "start_offset": 25284,
+      "end_offset": 26010,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "6990d2e8e4d4131b0feb56746a56b8222b879994c985b9a3c791c5cec4fb631d"
+    },
+    {
+      "section_id": "sec-12",
+      "title": "Body",
+      "level": 1,
+      "order_index": 11,
+      "start_offset": 26010,
+      "end_offset": 26097,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "1e637cde0547b4b91b6d78278c4eeb5410036387909e65861e0028c8e7ad5a44"
+    },
+    {
+      "section_id": "sec-13",
+      "title": "Body",
+      "level": 1,
+      "order_index": 12,
+      "start_offset": 26097,
+      "end_offset": 26179,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "ee7e7c2396246263e0781191d381b772bd5949e283d52deb2745c2c48605b7de"
+    },
+    {
+      "section_id": "sec-14",
+      "title": "Body",
+      "level": 1,
+      "order_index": 13,
+      "start_offset": 26179,
+      "end_offset": 26255,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "920954101cd8d3198a6b9b62594ea75d3a5c5d4191644a3e9347cd567275ea47"
+    },
+    {
+      "section_id": "sec-15",
+      "title": "Body",
+      "level": 1,
+      "order_index": 14,
+      "start_offset": 26255,
+      "end_offset": 26433,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "2f9019464de4f0f3d305caa09a001e59f7ed9084c55ccd7748d26d11bd08ac13"
+    },
+    {
+      "section_id": "sec-16",
+      "title": "Body",
+      "level": 1,
+      "order_index": 15,
+      "start_offset": 26433,
+      "end_offset": 26508,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "5b695253aad3910f0a148486b70d8e5ac62479c4b0d6a294cbf0739dd50bfb8e"
+    }
+  ],
+  "paragraph_samples": [
+    {
+      "paragraph_id": "_QMrV4ct",
+      "section_id": "sec-1",
+      "order_index": 0,
+      "text_preview": "[3] Since the release of GPT-3.5in 2022, LLMs have gained widespread attention and are now applied in various domains, including healthcare, law, and education. [12] [10] [13] [1] [5] [8] [2] [6] Rapid advancement of LLMs has led to the development of numerous new models, such as the GPT series (GPT-1, GPT-2, GPT-3, etc.), the LLaMA family (LLaMA2, LongChat), BLOOM, FALCON, GLM, Mistral, PaLM, and DeepSeek. These models have attracted strong interest from both academia and industry, fueling innovation in artificial intelligence and natural language processing. 1 However, as these models grow i",
+      "checksum": "e0c0ff1bbb0b11fb2ef416c21ea10efd8b00e2307a0c0952feb2974d64a3b4fb"
+    },
+    {
+      "paragraph_id": "_KWw5sjU",
+      "section_id": "sec-1",
+      "order_index": 1,
+      "text_preview": "LLM inference serving, the process of deploying trained models to generate real-time predictions, is computationally intensive due to frequent auto-regressive computations, memory access, and storage operations. As a result, inference performance is highly dependent on GPU resources, directly affecting both service efficiency and user experience. Furthermore, increasing user expectations demand lower latency and greater stability in LLM responses. Two key performance metrics define inference efficiency: latency and throughput. Latency is primarily determined by Time to First Token (TTFT), Time",
+      "checksum": "e9660a19d751f12bb0395ec720df60300d38402d26cfa903682e152819febbb8"
+    },
+    {
+      "paragraph_id": "_f8udwZB",
+      "section_id": "sec-1",
+      "order_index": 2,
+      "text_preview": "Despite advances in LLM technology, cloud-based inference deployment remains inefficient, leading to considerable resource under-utilization and scalability challenges. Most LLMs rely on Transformer architectures with self-attention mechanisms and are typically deployed as large, monolithic models. Their sheer size (e.g., GPT-4 with 1.8 trillion parameters) results in high overhead costs related to initialization and replication. In high-concurrency, low-latency environments, cloud providers frequently over-provision model replicas to ensure service quality, but this approach exacerbates resou",
+      "checksum": "d4ca7c2712d19f5a6ea440c10560d6489fb41b1c78526b517b40e48950dc7087"
+    },
+    {
+      "paragraph_id": "_n3834cC",
+      "section_id": "sec-1",
+      "order_index": 3,
+      "text_preview": "Addressing these inefficiencies requires innovative approaches to resource scheduling and deployment strategies. One promising direction is Cloud Native computing, an architectural paradigm designed to maximize the scalability, flexibility, and efficiency of applications in cloud environments. Cloud Native systems leverage technologies such as containerization, microservices, and dynamic orchestration to enable more efficient resource management. Unlike traditional monolithic deployments, Cloud Native architectures break down applications into modular components that can be independently manag",
+      "checksum": "7f584c0f7156ac59f8ca831af759836db8bf0176c71a23840663d66c5ffd74c1"
+    },
+    {
+      "paragraph_id": "_EhFJR6m",
+      "section_id": "sec-1",
+      "order_index": 4,
+      "text_preview": "The key insights of this article are as follows:",
+      "checksum": "735f0eeadfbc3af06419c00b9afbed05ea726fdc58d7d22b3054f729e33bd677"
+    },
+    {
+      "paragraph_id": "_Ne5u5VV",
+      "section_id": "sec-1",
+      "order_index": 5,
+      "text_preview": "• Large-scale LLM inference serving faces fundamental challenges in resource utilization, often leading to inefficiencies in cloud environments.",
+      "checksum": "d1e029753bd2ad911719f112aeff8aefb3ef9fb0485d261d3d85d6d72126bc58"
+    },
+    {
+      "paragraph_id": "_bkqtT9P",
+      "section_id": "sec-1",
+      "order_index": 6,
+      "text_preview": "• Achieving optimal inference performance is difficult due to workload variability, dynamic resource demands, and imbalances in allocation strategies.",
+      "checksum": "a5ad2215c44c71600445ef29171298b4964f3f2ce932adf2327e61325f338d38"
+    },
+    {
+      "paragraph_id": "_5tzReaS",
+      "section_id": "sec-1",
+      "order_index": 7,
+      "text_preview": "• Cloud Native technologies provide a structured approach to improving LLM inference serving by enhancing scalability, efficiency, and adaptability.",
+      "checksum": "9037a680d83948aa1228f90e256256be4e6862a45f424b96049c15864e28a97e"
+    },
+    {
+      "paragraph_id": "_JX7DmnQ",
+      "section_id": "sec-1",
+      "order_index": 8,
+      "text_preview": "2 Why Is LLM Inference Serving Hard to Optimize? Can resource utilization efficiency be improved while maintaining the Service Level Objective (SLO) of inference services? This question remains a critical challenge for LLM research teams worldwide. Several fundamental factors contribute to the difficulty of optimizing inference performance: Uncertainty in Input and Output Length: LLM inference services handle diverse inputs, with highly variable and unpredictable output lengths. Static resource configurations struggle to accommodate these variations, making it difficult to efficiently allocate",
+      "checksum": "515ab166230a96e8bf35f362c5f7e30be15eb3bda227ffb8b9aa206bb0ac5a9f"
+    },
+    {
+      "paragraph_id": "_y2e3YWP",
+      "section_id": "sec-1",
+      "order_index": 9,
+      "text_preview": "Imbalance in Inference Stages: The inference process consists of multiple stages, such as prefill and decode, each with different resource demands. Here, the prefill stage refers to the process of generating the first token by LLMs, while the decode stage refers to the process of generating each subsequent token after the first. The prefill stage may require intensive computation, while the decode stage is more memory-bound. This imbalance can lead to inefficient resource usage, with certain hardware components underutilized while others are overloaded.",
+      "checksum": "7901f638ce46b378403cfbeb7f33cbcb58d7359d67ecfd3c7b926f0458df3f6a"
+    },
+    {
+      "paragraph_id": "_Ms5B6yP",
+      "section_id": "sec-1",
+      "order_index": 10,
+      "text_preview": "Inefficiencies in Traditional Resource Allocation: Static resource allocation methods fail to adapt to dynamically changing workloads and varying SLOs. Pre-reserving resources and using fixed configurations often result in over-provisioning (leading to wasted resources) or under-provisioning (causing performance degradation).",
+      "checksum": "443e59f5c322e7d596949c9e478a5caae72732b00bdb2d642a8412c5b10e8476"
+    },
+    {
+      "paragraph_id": "_b8bMf7G",
+      "section_id": "sec-1",
+      "order_index": 11,
+      "text_preview": "Lack of Fine-Grained System Adaptability: Many inference systems are designed with coarsegrained modular architectures that lack the flexibility to adjust resource allocation dynamically. This rigidity makes it difficult to respond efficiently to workload fluctuations and high-concurrency scenarios.",
+      "checksum": "51f74f8bbbb83b95f609844f6631dabe4f5c97f1be9eb0f2f73d692b54b8bc66"
+    },
+    {
+      "paragraph_id": "_YBKqpNF",
+      "section_id": "sec-1",
+      "order_index": 12,
+      "text_preview": "Resource Competition and Scheduling Bottlenecks: In high-concurrency environments, multiple requests compete for limited computing resources, increasing service latency. Static scheduling strategies struggle to handle this contention, further exacerbating performance delays and inconsistencies.",
+      "checksum": "1afd294f02e6058194d53faab30913daabd7e460caff5c7381f76fa7fa4519aa"
+    },
+    {
+      "paragraph_id": "_555jbfw",
+      "section_id": "sec-1",
+      "order_index": 13,
+      "text_preview": "Hardware and Resource Imbalances: Mismatches between hardware capabilities-such as GPU compute power, memory bandwidth, and network throughput-often create bottlenecks in specific inference tasks. These imbalances lead to suboptimal system performance and reduced overall efficiency.",
+      "checksum": "207dd62cbea4823974a84ca6e6311384a4bf527d0ff186f074805464ccce63de"
+    },
+    {
+      "paragraph_id": "_DnAXx2v",
+      "section_id": "sec-1",
+      "order_index": 14,
+      "text_preview": "Challenges in Managing Burst Workloads: While inference systems are designed with anticipated demand in mind, they often fail to handle unexpected traffic spikes effectively. This limitation results in performance degradation and increased response time during peak loads.",
+      "checksum": "a41e9f47085de49f95bf4a79822a0dcdd3d7b2bec0c72eb869c5bf9bbc69a52c"
+    },
+    {
+      "paragraph_id": "_zGGeRmA",
+      "section_id": "sec-1",
+      "order_index": 15,
+      "text_preview": "Trade-Off Between Latency and Throughput: A persistent challenge in inference serving is balancing latency and throughput. Reducing latency can decrease overall system throughput, while optimizing for throughput can introduce excessive delays for individual requests. Finding an optimal balance remains a complex problem in large-scale LLM deployment.",
+      "checksum": "5674b432fdcaa43e7c40b8c52edcd0679f0e8c8a7f16a0fa876bdcad80fdd8c9"
+    }
+  ]
+}

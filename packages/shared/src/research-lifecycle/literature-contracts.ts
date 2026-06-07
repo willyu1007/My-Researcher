@@ -1805,7 +1805,7 @@ const literatureExtractionProfileSchema = {
 const literatureExtractionRuntimeSettingsSchema = {
   type: 'object',
   properties: {
-    preferred_key_content_method: { type: 'string', enum: LITERATURE_KEY_CONTENT_READY_METHODS },
+    preferred_key_content_method: { type: 'string', enum: LITERATURE_KEY_CONTENT_READY_METHODS, default: 'codex_curated' },
     section_concurrency: { type: 'integer', minimum: 1, maximum: 8 },
     request_timeout_ms: { type: 'integer', minimum: 1_000, maximum: 300_000 },
     max_retries: { type: 'integer', minimum: 0, maximum: 3 },

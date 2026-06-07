@@ -340,6 +340,38 @@ test('key-content extraction consolidates duplicate section claims at paper leve
   }
 });
 
+test('key-content extraction uses low reasoning for section calls and high reasoning for paper consolidation', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const literatureId = 'KEY-REASONING-PROFILE-1';
+  await seedLiterature(repository, literatureId);
+  await seedSourceBundle(repository, literatureId);
+  const literature = await repository.findLiteratureById(literatureId);
+  assert.ok(literature);
+
+  const previousFetch = globalThis.fetch;
+  const calls: Array<Record<string, unknown>> = [];
+  globalThis.fetch = (async (_input, init) => {
+    calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify(buildOutputPayload()),
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await new LiteratureKeyContentExtractionService(repository, createSettingsService()).extract(literature);
+
+    assert.equal(result.ready, true);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[0]?.reasoning, { effort: 'low' });
+    assert.deepEqual(calls[1]?.reasoning, { effort: 'high' });
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test('key-content extraction fails core items that cannot resolve source refs', async () => {
   const repository = new InMemoryLiteratureRepository();
   const literatureId = 'KEY-BAD-REF-1';

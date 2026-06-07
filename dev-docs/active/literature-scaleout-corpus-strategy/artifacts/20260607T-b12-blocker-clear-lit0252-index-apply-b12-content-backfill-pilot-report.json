@@ -1,0 +1,190 @@
+{
+  "run_id": "20260607T-b12-blocker-clear-lit0252-index-apply",
+  "generated_at": "2026-06-07T02:43:03.421Z",
+  "mode": "apply",
+  "selection": {
+    "batch_id_filter": null,
+    "batch_code_filter": null,
+    "explicit_literature_ids": [
+      "LIT-0252"
+    ],
+    "selected_literature_ids": [
+      "LIT-0252"
+    ],
+    "max_records": 10
+  },
+  "backfill": {
+    "target_stage": "INDEXED",
+    "max_parallel_literature_runs": 1,
+    "extraction_concurrency": 1,
+    "embedding_concurrency": 1,
+    "section_concurrency": 1,
+    "extraction_request_timeout_ms": null,
+    "extraction_max_retries": null,
+    "content_run_timeout_ms": null,
+    "timeout_budget": {
+      "effective_request_timeout_ms": 120000,
+      "effective_max_retries": 1,
+      "estimated_single_section_retry_window_ms": 240250,
+      "content_run_timeout_ms": null,
+      "content_run_timeout_margin_ms": null,
+      "warning": null
+    },
+    "provider_call_budget": 10,
+    "poll_interval_ms": 500,
+    "poll_timeout_ms": 600000,
+    "writes_enabled": true
+  },
+  "dry_run_estimate": {
+    "dry_run_id": "61d21ef5-cafd-4838-9b32-c65c72ee3038",
+    "generated_at": "2026-06-07T02:43:02.372Z",
+    "target_stage": "INDEXED",
+    "total_literatures": 166,
+    "selected_count": 1,
+    "planned_item_count": 1,
+    "skipped_ready_count": 0,
+    "blocked_count": 0,
+    "curation_required_count": 1,
+    "stage_counts": {
+      "CITATION_NORMALIZED": 0,
+      "ABSTRACT_READY": 0,
+      "FULLTEXT_PREPROCESSED": 0,
+      "KEY_CONTENT_READY": 1,
+      "CHUNKED": 1,
+      "EMBEDDED": 1,
+      "INDEXED": 1
+    },
+    "rights_class_counts": [
+      {
+        "rights_class": "UNKNOWN",
+        "count": 1
+      }
+    ],
+    "estimated_provider_calls": {
+      "extraction_calls": 0,
+      "embedding_calls": 1
+    },
+    "estimated_storage_bytes": 4096,
+    "blockers": [],
+    "plan_items": [
+      {
+        "literature_id": "LIT-0252",
+        "title": "When Is \"Nearest Neighbor\" Meaningful?",
+        "rights_class": "UNKNOWN",
+        "requested_stages": [
+          "KEY_CONTENT_READY",
+          "CHUNKED",
+          "EMBEDDED",
+          "INDEXED"
+        ],
+        "blocked": false,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": "CURATION_REQUIRED"
+      }
+    ]
+  },
+  "summary": {
+    "dry_run_selected_count": 1,
+    "dry_run_planned_item_count": 1,
+    "dry_run_blocked_count": 0,
+    "dry_run_stage_counts": {
+      "CITATION_NORMALIZED": 0,
+      "ABSTRACT_READY": 0,
+      "FULLTEXT_PREPROCESSED": 0,
+      "KEY_CONTENT_READY": 1,
+      "CHUNKED": 1,
+      "EMBEDDED": 1,
+      "INDEXED": 1
+    },
+    "estimated_provider_calls": {
+      "extraction_calls": 0,
+      "embedding_calls": 1
+    },
+    "job_status": "PARTIAL",
+    "job_totals": {
+      "total": 1,
+      "queued": 0,
+      "running": 0,
+      "succeeded": 0,
+      "partial": 0,
+      "blocked": 1,
+      "failed": 0,
+      "skipped": 0,
+      "canceled": 0
+    },
+    "timed_out": false,
+    "timeout_cleanup_count": 0,
+    "timeout_cleanup_terminalized_runs": 0,
+    "item_status_counts": {
+      "BLOCKED": 1
+    },
+    "item_error_counts": {
+      "KEY_CONTENT_CURATION_REQUIRED": 1
+    }
+  },
+  "job": {
+    "timed_out": false,
+    "job": {
+      "job_id": "7c845338-239a-45cb-bfb6-f9d122dcf378",
+      "status": "PARTIAL",
+      "target_stage": "INDEXED",
+      "options": {
+        "max_parallel_literature_runs": 1,
+        "extraction_concurrency": 1,
+        "embedding_concurrency": 1,
+        "provider_call_budget": 10
+      },
+      "totals": {
+        "total": 1,
+        "queued": 0,
+        "running": 0,
+        "succeeded": 0,
+        "partial": 0,
+        "blocked": 1,
+        "failed": 0,
+        "skipped": 0,
+        "canceled": 0
+      },
+      "error_code": "BACKFILL_JOB_COMPLETED_WITH_ERRORS",
+      "error_message": "One or more backfill items did not succeed.",
+      "created_at": "2026-06-07T02:43:02.379Z",
+      "started_at": "2026-06-07T02:43:02.399Z",
+      "finished_at": "2026-06-07T02:43:02.943Z",
+      "items": [
+        {
+          "item_id": "34401a94-7a96-4ebd-8f48-5c58a52fc1de",
+          "literature_id": "LIT-0252",
+          "title": "When Is \"Nearest Neighbor\" Meaningful?",
+          "status": "BLOCKED",
+          "requested_stages": [
+            "KEY_CONTENT_READY",
+            "CHUNKED",
+            "EMBEDDED",
+            "INDEXED"
+          ],
+          "next_stage_index": 0,
+          "content_processing_run_id": "56be5149-0d94-4c60-b5cf-e9558f7039b4",
+          "attempt_count": 1,
+          "error_code": "KEY_CONTENT_CURATION_REQUIRED",
+          "error_message": "Preferred KEY_CONTENT_READY method is codex_curated; import a curated key-content dossier before continuing.",
+          "blocker_code": "KEY_CONTENT_CURATION_REQUIRED",
+          "retryable": true,
+          "key_content_curation_status": "WAITING_FOR_DOSSIER",
+          "checkpoint": {
+            "failed_stage": "KEY_CONTENT_READY",
+            "current_stage": "KEY_CONTENT_READY",
+            "current_stage_index": 0,
+            "dossier_import_route": "/literature/LIT-0252/content-processing/key-content-dossier",
+            "curation_bundle_route": "/literature/LIT-0252/content-processing/key-content-curation-bundle",
+            "content_processing_run_id": "56be5149-0d94-4c60-b5cf-e9558f7039b4",
+            "key_content_curation_status": "WAITING_FOR_DOSSIER",
+            "failed_content_processing_run_id": "56be5149-0d94-4c60-b5cf-e9558f7039b4",
+            "key_content_curation_required_at": "2026-06-07T02:43:02.930Z"
+          }
+        }
+      ]
+    },
+    "timeout_cleanup": []
+  }
+}

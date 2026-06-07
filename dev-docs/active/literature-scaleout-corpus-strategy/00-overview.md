@@ -1,0 +1,183 @@
+# 00 Overview
+
+## Status
+- State: in-progress
+- Origin: follow-up from the adaptive LLM systems literature collection discussion.
+- Next step: continue opportunity-first B11/B12 tranches using candidates with verified fulltext availability; source-access blocked records stay soft-excluded unless authenticated/user-provided fulltext is available.
+
+## Goal
+- Replace the current small-batch collection rhythm with a 5000-level literature scaleout strategy.
+- Separate broad discovery from evidence-ready literature management so the project can grow quickly without forcing every candidate through fulltext and indexing.
+- Preserve the three main research directions:
+  - RAG-aware resource allocation / adaptive retrieval-compute allocation.
+  - LLM serving scheduling and resource allocation.
+  - Test-time compute budgeting.
+- Preserve the four collection roles:
+  - `collection:core`
+  - `collection:system-support`
+  - `collection:strategy-support`
+  - `collection:theory-support`
+
+## Current Baseline
+- Current candidate pool: 62 records.
+  - 26 ready for promotion.
+  - 14 promoted.
+  - 9 deferred.
+  - 9 duplicates.
+  - 4 rejected.
+- Current managed adaptive corpus: 157 records.
+- Current effective literature records: 157 records.
+- Current incomplete managed records: 0.
+- Current adaptive corpus blockers with explicit blocker detail: 0 records.
+- Current soft-excluded source-access records: 3 records.
+  - `LIT-0163`: B11 opportunity-tranche record; acquisition failed because Unpaywall returned no OA PDF.
+  - `LIT-0166`: B11 opportunity-tranche record; acquisition failed on a 403 download from the OA PDF path.
+  - `LIT-0257`: book record with no rights-safe fulltext source.
+- Current B11-promoted B12 state:
+  - `LIT-0153` through `LIT-0162` now have raw fulltext assets and READY fulltext documents.
+  - `LIT-0153`, `LIT-0154`, `LIT-0155`, `LIT-0156`, `LIT-0157`, `LIT-0158`, `LIT-0159`, `LIT-0160`, `LIT-0161`, and `LIT-0162` completed all standard stages through `INDEXED` and now count as effective literature.
+  - no records from the initial 10-record B11 promoted pilot remain in the key-content queue.
+  - `LIT-0163` through `LIT-0166` were promoted in the opportunity tranche; `LIT-0164` and `LIT-0165` completed through `INDEXED`, while `LIT-0163` and `LIT-0166` are soft-excluded source-access records.
+  - `LIT-0252` was cleared from OCR blocker by replacing the scanned source with a public title-matched PDF, importing a `codex_curated` dossier, and indexing the record.
+- Current pipeline-not-started managed records: 0.
+- Raw DB includes non-corpus records used for historical system evidence, fixtures, and excluded imports; raw DB size is not a literature-progress metric.
+
+## Target Model
+
+| Layer | Target Size | Purpose | Minimum Requirement |
+| --- | ---: | --- | --- |
+| Candidate pool | 5000-8000 | Broad discovery, trend scan, citation expansion | metadata, abstract, source provenance |
+| Managed pipeline corpus | 2000-2500 | Promoted papers under formal literature management and staged pipeline processing | `LiteratureRecord`, direction/role tags, pipeline state |
+| Effective literature | 800-1000 | Literature that completed the full standard collection pipeline | all standard stages through `INDEXED=SUCCEEDED` |
+
+## Aligned Decisions
+- D1: the 5000-level target means candidate-pool scale, not 5000 fully indexed papers.
+- D1: managed pipeline corpus target is 2000-2500.
+- D1: effective literature target is 800-1000.
+- D2: add a candidate staging node before the existing standard literature pipeline.
+- D2: B10 broad discovery writes candidates into dedicated candidate staging tables and may emit lightweight batch summaries for reproducibility.
+- D2: B11 promotion creates or links `LiteratureRecord` rows; after promotion, the existing standard literature pipeline is unchanged.
+- D2: a `LiteratureRecord` is managed literature, but it is not effective literature until all standard pipeline stages are complete.
+- D3: candidate staging is the standard ingress for newly acquired external literature.
+- D3: B10 uses only lightweight obvious-duplicate guards inside candidate staging.
+- D3: authoritative deduplication and merge/link decisions happen at B11 promotion by reusing the existing `LiteratureRecord` pipeline.
+- D3: if B11 finds a duplicate, the candidate record is reverse-marked with duplicate status and the matched candidate or literature link.
+- D4: candidate staging uses a lightweight two-table design: `LiteratureDiscoveryBatch` and `LiteratureDiscoveryCandidate`.
+- D4: do not add a separate candidate decision log or strong audit mechanism in the first implementation.
+- D4: store only the candidate row's current lifecycle status, latest decision reason, match/promote links, and timestamps.
+- D5: candidate lifecycle uses a small status enum: `DISCOVERED`, `DUPLICATE`, `REJECTED`, `DEFERRED`, `READY_FOR_PROMOTION`, `PROMOTED`.
+- D5: do not add a complex candidate queue, retry, or audit state machine in the initial implementation.
+- D5: operational errors stay in batch summaries and `decisionReason`; they do not expand the candidate lifecycle enum.
+- D6: candidate schema keeps only B10/B11-required fields: run summary, candidate metadata, source provenance, dedup keys, lightweight scores, current decision, and match/promote links.
+- D6: store `normalizedTitle` to make obvious duplicate checks cheap and reproducible.
+- D6: use ordinary lookup indexes in the first version; do not use hard uniqueness constraints as the authoritative dedup mechanism.
+- D7: Prisma schema draft adds only two new models plus two optional back-reference lists on `LiteratureRecord`.
+- D7: candidate lifecycle remains a `String` field with application-level allowed values, not a Prisma enum in the first implementation.
+- D7: the schema draft is documentation only; applying it requires a later DB SSOT change using the repo-prisma workflow.
+- D8: approved candidate staging schema has been applied to `prisma/schema.prisma`.
+- D8: `docs/context/db/schema.json` has been refreshed from the Prisma SSOT.
+- D8: no database write has been executed; read-only local diff shows unrelated DB drift, so migration apply requires a separate environment/strategy checkpoint.
+- D9: DB migration strategy is scoped to local dev first, using `prisma migrate deploy` against the versioned migration file `20260606113000_add_literature_discovery_candidate_staging`.
+- D9: the scoped migration intentionally excludes unrelated `TopicResearchRecord` drift from the read-only local DB diff.
+- D9: no `prisma db push`, broad generated diff apply, staging apply, or prod apply is allowed without a new explicit approval checkpoint.
+- D10: the scoped candidate-staging migration has been applied to local dev and post-verified.
+- D10: post-apply diff no longer includes `LiteratureDiscovery*`; the remaining local DB diff is unrelated `TopicResearchRecord` drift.
+- D11: B13 counting contract is locked with a reproducible scaleout counting report.
+- D11: current local-dev scaleout baseline is candidate pool 0, managed corpus 146, effective literature 144, blockers 2, excluded/non-corpus 6, raw DB total 152.
+- D12: B10 candidate discovery runner is implemented with dry-run/apply modes and candidate staging writes.
+- D12: first OpenAlex apply smoke wrote 2 candidate rows, then both were reverse-marked `REJECTED` after canary review exposed weak query focus.
+- D13: B10 default provider selection is now conservative `auto` mode.
+- D13: `auto` mode enables OpenAlex, records skipped-provider ledger entries for Semantic Scholar when no API key is configured, and keeps arXiv explicit-only after the local ECONNRESET canary.
+- D13: RAG title matching now uses word-boundary RAG/complete retrieval-augmented-generation signals instead of raw substring matching.
+- D13: OpenAlex coverage dry-run produced 108 candidates across the three directions with no provider errors.
+- D13: OpenAlex pilot apply wrote 60 candidate rows into staging only: 54 `DISCOVERED`, 6 `DUPLICATE`, 0 `LiteratureRecord` writes.
+- D13: after pilot apply, B13 counting reports candidate pool 62, managed corpus 146, effective literature 144, blockers 2.
+- D14: B11 candidate triage/promote runner is implemented with dry-run, apply, and explicit promote modes.
+- D14: B11 pilot triage evaluated 54 discovered OpenAlex candidates: 41 ready, 9 deferred, 2 duplicate, 2 rejected.
+- D14: B11 pilot promote elevated the top 10 ready candidates into `LiteratureRecord` using `LiteratureService.collectionImport`.
+- D14: after B11 pilot promote, B13 counting reports candidate pool 62, managed corpus 156, effective literature 144, pipeline incomplete 12, explicit blockers 2.
+- D14: B13 counting now separates `pipeline_incomplete_records`, `pipeline_blocked_records`, and `pipeline_not_started_records`.
+- D15: B12 standard-pipeline pilot runner is implemented with dry-run/apply modes and uses the existing `LiteratureFlowService`.
+- D15: B12 pilot applied BACKFILL runs to the 10 B11-promoted records and moved all 10 from not-started to explicit `FULLTEXT_SOURCE_MISSING` blockers after citation and abstract stages succeeded.
+- D15: after B12 pilot apply, B13 counting reports candidate pool 62, managed corpus 156, effective literature 144, pipeline incomplete 12, explicit blockers 12, pipeline not started 0.
+- D16: B12 fulltext acquisition pilot is implemented with dry-run/apply modes and rights-safe source planning.
+- D16: B12 acquisition apply succeeded for all 10 B11-promoted records and created 10 raw fulltext assets.
+- D16: B12 fulltext preprocessing rerun succeeded for all 10 records after the standard runner was wired to content-processing settings.
+- D16: B12 content backfill pilot runner is implemented; bulk `llm_gateway` key-content extraction exposed provider timeout behavior and should remain explicit-only.
+- D16: `LIT-0160` completed `KEY_CONTENT_READY`, `CHUNKED`, `EMBEDDED`, and `INDEXED`; `LIT-0153`, `LIT-0154`, and `LIT-0158` became explicit `KEY_CONTENT_READY` blockers; at that checkpoint 6 B11-promoted records were ready for key-content but not yet effective.
+- D16: B12 content-backfill runner cleanup now terminalizes timed-out content-processing runs and exits cleanly after writing artifacts, preventing dangling local `RUNNING` pipeline runs.
+- D16: after the `LIT-0154` non-blocker key-content retry, B13 counting reports candidate pool 62, managed corpus 156, effective literature 145, pipeline incomplete 11, explicit blockers 5, pipeline not started 0.
+- D17: default `KEY_CONTENT_READY` method is now `codex_curated` across code, env contract/values, local `.env.local`, OpenAPI context, and local dev DB settings.
+- D17: default B12 key-content runs now block for curated dossier import instead of calling the LLM gateway; provider-backed extraction requires an explicit `llm_gateway` override.
+- D18: `LIT-0155` completed the B12 `codex_curated` happy-path canary: exported bundle, imported a source-grounded curated dossier with 0 key-content provider calls, then completed `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+- D18: after the `LIT-0155` canary, B13 counting reports candidate pool 62, managed corpus 156, effective literature 146, pipeline incomplete 10, explicit blockers 5, pipeline not started 0.
+- D19: `LIT-0156` and `LIT-0157` completed a two-record B12 `codex_curated` batch: both imported source-grounded curated dossiers with 0 key-content provider calls, then completed `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+- D19: after the two-record batch, B13 counting reports candidate pool 62, managed corpus 156, effective literature 148, pipeline incomplete 8, explicit blockers 5, pipeline not started 0.
+- D20: `LIT-0159`, `LIT-0161`, and `LIT-0162` completed a three-record B12 `codex_curated` batch: all three imported source-grounded curated dossiers with 0 key-content provider calls, then completed `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+- D20: after the three-record batch, B13 counting reports candidate pool 62, managed corpus 156, effective literature 151, pipeline incomplete 5, explicit blockers 5, pipeline not started 0.
+- D21: B11 opportunity tranche promoted four high-scoring LLM-serving candidates into `LIT-0163` through `LIT-0166`; one ready candidate was reverse-marked duplicate during re-triage.
+- D21: B12 opportunity tranche completed `LIT-0164` and `LIT-0165` through `INDEXED` via `codex_curated` dossiers with 0 key-content provider calls; `LIT-0163` and `LIT-0166` are fulltext-source blockers from acquisition failures.
+- D21: after the opportunity tranche, B13 counting reports candidate pool 62, managed corpus 160, effective literature 153, pipeline incomplete 7, explicit blockers 7, pipeline not started 0.
+- D22: blocker cleanup completed `LIT-0153`, `LIT-0154`, and `LIT-0158` through `INDEXED` by importing source-grounded `codex_curated` dossiers and running chunk/embed/index with 0 key-content provider calls.
+- D22: blocker cleanup completed `LIT-0252` through `INDEXED` after replacing the OCR-blocked scanned PDF with a public title-matched PDF and importing a source-grounded `codex_curated` dossier.
+- D22: the false `LIT-0166` arXiv source was removed because arXiv `2506.05871` is `BestServe`, not `WindServe`; the DB state was restored to `FULLTEXT_SOURCE_MISSING`.
+- D22: remaining blockers are `LIT-0163`, `LIT-0166`, and `LIT-0257`; source audit found no rights-safe automatically downloadable fulltext for them.
+- D22: after blocker cleanup, B13 counting reports candidate pool 62, managed corpus 160, effective literature 157, pipeline incomplete 3, explicit blockers 3, pipeline not started 0.
+- D23: source-access blocked records `LIT-0163`, `LIT-0166`, and `LIT-0257` were soft-excluded from the managed/effective resource pool by adding `classification:excluded-from-corpus`, `classification:source-access-blocked`, and `b12:soft-excluded`.
+- D23: after soft exclusion, B13 counting reports candidate pool 62, managed corpus 157, effective literature 157, pipeline incomplete 0, explicit blockers 0, pipeline not started 0, excluded non-corpus 9.
+
+## Scope
+- Define collection cadence and batch gates for 5000-level scaleout.
+- Define metadata-only candidate staging before full corpus promotion.
+- Define automatic triage from candidate pool to managed pipeline corpus.
+- Define controlled promotion from managed pipeline corpus to effective literature through the existing standard pipeline.
+- Define layered deduplication between B10 candidate staging and B11 promotion.
+- Define lightweight candidate schema without a separate decision-log table.
+- Define simple candidate lifecycle statuses for B10/B11.
+- Define the minimal field set and indexing boundary for candidate staging.
+- Define a Prisma schema draft for the lightweight candidate staging tables.
+- Define updated counting conventions that separate candidate, managed, effective, blocked, and non-corpus counts.
+
+## Non-goals
+- Do not attempt to fulltext-process or index all 5000 candidates.
+- Do not import broad candidates into `LiteratureRecord` before B11 acceptance.
+- Do not stage broad candidates without provenance and dedup identifiers.
+- Do not make candidate-stage deduplication the authoritative literature merge rule.
+- Do not add strong audit or decision-log infrastructure to the initial candidate layer.
+- Do not introduce a separate candidate queue or retry state machine before B10/B11 prove the need.
+- Do not split source-specific candidate tables or add hard uniqueness constraints in the first schema.
+- Do not execute staging/prod database writes without a separate target-environment checkpoint.
+- Do not run 500-800 candidate B10 scaleout without a current dry-run artifact and B13 before/after count.
+- Do not apply unrelated live-DB drift as part of the candidate-staging migration.
+- Do not weaken the existing full-pipeline gates for effective-literature papers.
+- Do not mix non-corpus system evidence rows into literature-progress metrics.
+- Do not delete historical non-corpus records in this task.
+
+## Acceptance Criteria
+- [ ] Layered corpus model is documented and accepted as the new scaleout target.
+- [ ] B10 broad discovery plan can produce 500-800 candidates per run.
+- [x] B10 candidate discovery entrypoint exists with dry-run/apply, artifacts, and candidate staging writes.
+- [x] B11 triage/promote entrypoint exists with dry-run/apply/promote and a 10-record promote pilot.
+- [ ] B11 triage plan can promote 200-300 records per run into managed pipeline corpus.
+- [ ] B12 core promotion plan can select 80-120 papers per run for full pipeline completion.
+- [x] B12 standard-pipeline pilot entrypoint exists with dry-run/apply, artifacts, and a 10-record promoted-literature run.
+- [x] B12 fulltext acquisition entrypoint exists with dry-run/apply, artifacts, and a 10-record promoted-literature run.
+- [x] B12 fulltext preprocessing succeeds for the 10 B11-promoted records after rights-safe asset acquisition.
+- [x] B12 content backfill entrypoint exists with dry-run/apply controls and provider-call budgeting.
+- [x] B13 counting convention defines candidate, managed, effective, blocked, and non-corpus metrics.
+- [x] Candidate pool staging schema is designed before B10 writes candidates at scale.
+- [x] D3 deduplication boundary defines lightweight candidate dedup, promotion-time authoritative dedup, and duplicate reverse-marking.
+- [x] D4 lightweight schema excludes a separate candidate decision-log table.
+- [x] D5 candidate lifecycle uses the simple six-status enum without a separate queue state machine.
+- [x] D6 minimal field set keeps candidate staging lightweight and avoids authoritative uniqueness constraints.
+- [x] D7 Prisma schema draft is documented before migration.
+- [x] D8 Prisma SSOT is updated and DB context is refreshed.
+- [x] D9 scoped DB migration strategy is documented with a versioned migration file.
+- [x] D10 scoped candidate-staging migration is applied to local dev and post-verified.
+- [x] D11 B13 scaleout counting report is implemented and baseline artifact is generated.
+- [x] D12 B10 first entrypoint and OpenAlex apply smoke are implemented and verified.
+- [x] D13 B10 provider/query hardening is implemented and OpenAlex pilot apply is counted.
+- [x] D14 B11 first triage/promote entrypoint and 10-record promote pilot are implemented and verified.
+- [x] D15 B12 first standard-pipeline pilot is implemented and verified for the 10 B11-promoted records.
+- [x] D16 B12 fulltext acquisition/preprocessing and first content-backfill pilot are implemented and verified with current provider-timeout blockers recorded.
+- [x] Governance sync/lint passes with the existing unrelated T-115 warning.

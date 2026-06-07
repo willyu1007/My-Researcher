@@ -1,0 +1,353 @@
+{
+  "run_id": "20260607T-b12-blocker-clear-keycontent-bundle-export",
+  "literature_id": "LIT-0153",
+  "title": "BudgetThinker: Empowering Budget-aware LLM Reasoning with Control Tokens",
+  "year": 2025,
+  "document": {
+    "id": "e40b8783-eeb2-455d-8383-449b31102a7d",
+    "source_asset_id": "94d98ebe-f02c-4620-9e12-9355731102cf",
+    "normalized_text_checksum": "def8a121c0df32842c7bb7199f1976b5afc79e89b2b0f3c98a5cb4f1fdfa0232",
+    "parser_name": "grobid-tei-v1",
+    "parser_version": "1",
+    "status": "READY",
+    "diagnostics": [
+      {
+        "code": "GROBID_TEI_PARSED",
+        "severity": "info",
+        "text_length": 25061,
+        "anchor_count": 147,
+        "endpoint_url": "http://localhost:8070",
+        "section_count": 28,
+        "paragraph_count": 51,
+        "parser_quality_score": 1,
+        "parser_quality_bucket": "high",
+        "parser_quality_inputs": {
+          "page_count": 14,
+          "text_length": 25061,
+          "anchor_count": 147,
+          "section_count": 28,
+          "paragraph_count": 51,
+          "average_paragraph_length": 478
+        }
+      }
+    ]
+  },
+  "abstract_profile": {
+    "id": "02260398-5bd3-4962-a6e4-aba9b9fcfb7b",
+    "checksum": "74dbace49c4b5ffe667c197464e9b78b2d026b885cad68a20244c1c249bdff1f",
+    "confidence": 0.95,
+    "generated": false
+  },
+  "section_count": 28,
+  "paragraph_count": 51,
+  "anchor_count": 147,
+  "sample_sections": [
+    {
+      "section_id": "sec-1",
+      "title": "Introduction",
+      "level": 1,
+      "order_index": 0,
+      "start_offset": 0,
+      "end_offset": 4093,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "fd5c73d5652c8d3692706caa942777e57f09a732c971b74c19f66d473e628223"
+    },
+    {
+      "section_id": "sec-2",
+      "title": "Special-Token Conditioned Budget-Aware Reasoning",
+      "level": 1,
+      "order_index": 1,
+      "start_offset": 4093,
+      "end_offset": 4642,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "5492d84ac34812ae8c3dc18d701ac86f7b10736d50fb5121bea251ec64f3bd00"
+    },
+    {
+      "section_id": "sec-3",
+      "title": "Special-Token Budget Signaling",
+      "level": 1,
+      "order_index": 2,
+      "start_offset": 4642,
+      "end_offset": 6442,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "7fb7d22d74cbb3b1aac03e7aaf568a9720c747fc480ed613339c10fd157dd571"
+    },
+    {
+      "section_id": "sec-4",
+      "title": "SFT Data Curation",
+      "level": 1,
+      "order_index": 3,
+      "start_offset": 6442,
+      "end_offset": 6673,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "5e6e13c8ff52ce3f01d3773c28463024074ee1e1383704fe90bca33772ac348e"
+    },
+    {
+      "section_id": "sec-5",
+      "title": "Budget Assignment.",
+      "level": 1,
+      "order_index": 4,
+      "start_offset": 6673,
+      "end_offset": 7508,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "0726eb8fb7670bf877f30b1fe47d8ead683031dabf40de6f34fa9fc272e2ba9b"
+    },
+    {
+      "section_id": "sec-6",
+      "title": "Dataset Balancing.",
+      "level": 1,
+      "order_index": 5,
+      "start_offset": 7508,
+      "end_offset": 8314,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "6d5530e603c85f29faa96f65868c623327c85f99d5658e42b4960b2eff6e9516"
+    },
+    {
+      "section_id": "sec-7",
+      "title": "Reinforcement Learning",
+      "level": 1,
+      "order_index": 6,
+      "start_offset": 8314,
+      "end_offset": 8545,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "3a66fe7b6d632c6d3462cfeb98cfa8410b3531b7236737fbfe880ead7c5440e9"
+    },
+    {
+      "section_id": "sec-8",
+      "title": "Reward Design.",
+      "level": 1,
+      "order_index": 7,
+      "start_offset": 8545,
+      "end_offset": 9517,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "8f2969397c8c8483b8cc32c6d3ccffcc1ee78e748024528c44a612ef99102e44"
+    },
+    {
+      "section_id": "sec-9",
+      "title": "Iterative Reinforcement Learning.",
+      "level": 1,
+      "order_index": 8,
+      "start_offset": 9517,
+      "end_offset": 10571,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "4cd45d187a7ec286074f44805c59c1ffa26fcf121f876635e05185fa90492df6"
+    },
+    {
+      "section_id": "sec-10",
+      "title": "Experiments",
+      "level": 1,
+      "order_index": 9,
+      "start_offset": 10571,
+      "end_offset": 10986,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "09a2346d0a4649c9f3cc3618a6a0bc5e0097d6cc1bcc8919e0accfad03468bf1"
+    },
+    {
+      "section_id": "sec-11",
+      "title": "Experiment Setup",
+      "level": 1,
+      "order_index": 10,
+      "start_offset": 10986,
+      "end_offset": 14561,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "42335ba80cb4ffa4db70706efa667c1d4524d76bf7ddaf003dd30b40d2e34778"
+    },
+    {
+      "section_id": "sec-12",
+      "title": "Main Performance",
+      "level": 1,
+      "order_index": 11,
+      "start_offset": 14561,
+      "end_offset": 16483,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "d751f9d7a490d48582f09992971e16ce441187f38dd71c989a01a82e784de8f0"
+    },
+    {
+      "section_id": "sec-13",
+      "title": "Analysis of Control Token Insertion Strategies",
+      "level": 1,
+      "order_index": 12,
+      "start_offset": 16483,
+      "end_offset": 17969,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "c001f80bff846a8b0409994df82b64ba3906e5ce90c841e19e8f098b75e3ff37"
+    },
+    {
+      "section_id": "sec-14",
+      "title": "Analysis of Iterative Training",
+      "level": 1,
+      "order_index": 13,
+      "start_offset": 17969,
+      "end_offset": 18003,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "96bd2c01f4fbe9f504e6f58c19ba4cabcb7da36280bec77780687ee44e35fd6f"
+    },
+    {
+      "section_id": "sec-15",
+      "title": "Model",
+      "level": 1,
+      "order_index": 14,
+      "start_offset": 18003,
+      "end_offset": 18358,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "765a168f37ddf79b5351ab13b8bfdd98c5063f88b6b684b67936fccaac3f12c5"
+    },
+    {
+      "section_id": "sec-16",
+      "title": "Darker cells indicate higher values within each column.",
+      "level": 1,
+      "order_index": 15,
+      "start_offset": 18358,
+      "end_offset": 19093,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "439f4b2aeaded54a0fc360280b1fe6ba688e0d226c29b235137a22949e650b37"
+    },
+    {
+      "section_id": "sec-17",
+      "title": "Ablation on Reinforcement Learning",
+      "level": 1,
+      "order_index": 16,
+      "start_offset": 19093,
+      "end_offset": 19744,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "fb8ee29c0045ed223fa9cb716c0e69b59eec6bb2d3e5925e7d229b5fa18e6b94"
+    },
+    {
+      "section_id": "sec-18",
+      "title": "Related Work",
+      "level": 1,
+      "order_index": 17,
+      "start_offset": 19744,
+      "end_offset": 19760,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "d47bcdaf40974a1b4b58ca3fca134236bf1f3bfc46c8a1b83eb82bcc4f0939a0"
+    },
+    {
+      "section_id": "sec-19",
+      "title": "Test-Time Scaling for Reasoning LLMs",
+      "level": 1,
+      "order_index": 18,
+      "start_offset": 19760,
+      "end_offset": 21301,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "f783567aba36c063c813f7f44787e59d2ead3498ecd52847118ed63db04b28a0"
+    },
+    {
+      "section_id": "sec-20",
+      "title": "Efficient Chain of Thoughts",
+      "level": 1,
+      "order_index": 19,
+      "start_offset": 21301,
+      "end_offset": 22905,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "b1e4557e97951c11cfad704ec131b4214db5d9b35e5dad48240d9a3c44c5341b"
+    }
+  ],
+  "sample_paragraphs": [
+    {
+      "paragraph_id": "_FFYkZ4J",
+      "section_id": "sec-1",
+      "order_index": 0,
+      "page_number": null,
+      "text": "(DeepSeek-AI, 2025; OpenAI, 2024) A key recent progress in Large Language Models (LLMs) is test-time scaling, a paradigm where models are prompted to \"think longer\" by generating extended Chain-of-Thought (CoT) reasoning before delivering a final answer. (DeepSeek-AI, 2025; Google, 2025) (Hui et al., 2024; Yang et al., 2025) While this approach has unlocked state-of-the-art performance in complex domains like advanced mathematicsand coding, it comes at the significant cost of increased latency and computational overhead. This reliance on increasingly long reasoning makes simple scaling strategies impractical for real-world systems with strict performance constraints, such as vehicle control,"
+    },
+    {
+      "paragraph_id": "_Ynw7g4g",
+      "section_id": "sec-1",
+      "order_index": 1,
+      "page_number": null,
+      "text": "Existing approaches to control the reasoning budget, however, have proven insufficient. (Pu et al., 2025; Sun et al., 2025) (Han et al., 2024) Directly inserting budget constraints into promptsoften fails to reliably control output length. (Yang et al., 2025; OpenAI, 2025) Other methods that toggle between \"thinking\" and \"non-thinking\" modeslack the fine-grained control necessary for variable budgets. (Hou et al., 2025; Aggarwal & Welleck, 2025; Wu et al., 2025) Even more advanced training-based techniques using Supervised Fine-Tuning (SFT) and Reinforcement Learning (RL)struggle to enforce strict adherence to a specified constraint, a limitation our work confirms and aims to address."
+    },
+    {
+      "paragraph_id": "_nUR6TQX",
+      "section_id": "sec-1",
+      "order_index": 2,
+      "page_number": null,
+      "text": "In this paper, we address the challenge of precisely controlling the length of a model's thought process. We argue that merely stating a budget constraint in the initial prompt is insufficient, and the model needs to be continuously reminded of its remaining token budget as it generates its response. To achieve this, we develop a novel training and inference framework that enables precise control over the length of the CoT. 1a Our method periodically inserts special Control Tokens that act as explicit signals of the remaining budget, as illustrated in Figure. 1b As shown in Figure, training with these control tokens leads to a faster and more stable reduction in the gap between the generated"
+    },
+    {
+      "paragraph_id": "_kePU574",
+      "section_id": "sec-1",
+      "order_index": 3,
+      "page_number": null,
+      "text": "• We introduce a method that inserts special tokens during the inference process to achieve controllable output length. This technique minimizes the number of inserted tokens and their impact on the model's output quality."
+    },
+    {
+      "paragraph_id": "_tQqHkg6",
+      "section_id": "sec-1",
+      "order_index": 4,
+      "page_number": null,
+      "text": "• We design a comprehensive training process, progressing from SFT to RL, which incorporates a length-aware reward function. This allows the model to adapt to control via special tokens and produce higher-quality, budget-aware outputs. Our method is designed as a plug-and-play module that complements existing test-time scaling training procedures."
+    },
+    {
+      "paragraph_id": "_8w4Ebgm",
+      "section_id": "sec-1",
+      "order_index": 5,
+      "page_number": null,
+      "text": "• We demonstrate that our approach surpasses strong baselines across multiple foundational models and datasets under various reasoning budgets."
+    },
+    {
+      "paragraph_id": "_U7xcRsC",
+      "section_id": "sec-1",
+      "order_index": 6,
+      "page_number": null,
+      "text": "(Hendrycks et al., 2021) We evaluate our method based on DeepSeek distilled Qwen 2.5 1.5B and 7B (DeepSeek-AI, 2025), on challenging reasoning benchmarks including MATH-500, AMC 2023, and AIME 2024. (Hou et al., 2025) Compared to baselines such as the original reasoning models and a state-of-the-art efficient reasoning method, our approach demonstrates a better trade-off between accuracy and token budget. Specifically, our method improves accuracy by an average of 4.9% across all tested budgets and exhibits more precise adherence to the specified constraints."
+    },
+    {
+      "paragraph_id": "_TxhBxVD",
+      "section_id": "sec-2",
+      "order_index": 7,
+      "page_number": null,
+      "text": "We present BudgetThinker, a budget-aware generation framework that guides LLMs to follow a predefined token budget by conditioning them on explicit control signals. Our method enhances budget adherence by (i) introducing a dynamic control token insertion strategy that continuously reminds the model of the remaining budget and (ii) developing a two-stage training pipeline combining supervised fine-tuning (SFT) and reinforcement learning (RL) to teach the model to follow these control tokens."
+    },
+    {
+      "paragraph_id": "_pJHnng6",
+      "section_id": "sec-3",
+      "order_index": 8,
+      "page_number": null,
+      "text": "Our method enforces a target output length, or budget, by augmenting the standard autoregressive generation process. The core idea is to insert a small, fixed set of special control tokens into the sequence at positions corresponding to fractions of the total budget. These tokens act as explicit signals to the model, indicating how much of its budget has been consumed. Let be the target budget and be a fixed hyperparameter for the number of control signals. We introduce a set of special control tokens, C = { 1 , 2 , . . . , }, where signals that the generation has progressed through the -th fraction of the total budget (e.g. , 1 signifies 10% completion if =10). During generation, the token "
+    },
+    {
+      "paragraph_id": "_6cxNJmC",
+      "section_id": "sec-3",
+      "order_index": 9,
+      "page_number": null,
+      "text": "At each timestep that corresponds to the end of a budget fraction ⌊ • /⌋, we deterministically insert the corresponding control token . For all other timesteps, the next token ′ is sampled from the LLM's distribution , conditioned on the full history of both model-generated tokens and our inserted control tokens."
+    },
+    {
+      "paragraph_id": "_h2GZ3KC",
+      "section_id": "sec-3",
+      "order_index": 10,
+      "page_number": null,
+      "text": "For comparison, we define a naive baseline: Fixed-Interval Signaling. This simpler strategy inserts control tokens at constant, fixed intervals rather than at budget ratios. Given a fixed interval length , a control token is inserted every steps (i.e. , when = • ). However, this approach lacks scalability with respect to the budget . For example, if = 100, a budget of = 500 would require 5 control tokens, while a budget of = 1000 would require 10. The model must be trained to recognize a potentially unbounded number of control tokens as the budget grows. In contrast, our ratio-based method always uses the same fixed set of tokens, making it far more robust to varying budgets."
+    },
+    {
+      "paragraph_id": "_Nx9vjeG",
+      "section_id": "sec-4",
+      "order_index": 11,
+      "page_number": null,
+      "text": "To teach the LLM the semantics of our control tokens, we construct a specialized dataset for Supervised Fine-Tuning (SFT). The curation process involves two key steps: budget assignment and dataset balancing."
+    }
+  ],
+  "source_ref_count": 227
+}

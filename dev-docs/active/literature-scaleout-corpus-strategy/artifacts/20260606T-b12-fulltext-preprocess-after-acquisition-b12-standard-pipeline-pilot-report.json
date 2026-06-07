@@ -1,0 +1,1173 @@
+{
+  "run_id": "20260606T-b12-fulltext-preprocess-after-acquisition",
+  "generated_at": "2026-06-06T11:23:15.895Z",
+  "mode": "apply",
+  "selection": {
+    "batch_id_filter": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+    "batch_code_filter": null,
+    "explicit_literature_ids": [],
+    "max_records": 10,
+    "selected_records": 10
+  },
+  "pipeline": {
+    "trigger_source": "BACKFILL",
+    "requested_stages": [
+      "FULLTEXT_PREPROCESSED"
+    ],
+    "poll_interval_ms": 250,
+    "poll_timeout_ms": 120000,
+    "writes_enabled": true
+  },
+  "summary": {
+    "selected_records": 10,
+    "pipeline_runs_created": 10,
+    "run_status_counts": {
+      "FAILED": 10
+    },
+    "timed_out_runs": 0,
+    "requested_stage_status_counts": {
+      "FULLTEXT_PREPROCESSED": {
+        "BLOCKED": 10
+      }
+    },
+    "blocker_counts": {
+      "FULLTEXT_PARSER_UNAVAILABLE": 10
+    },
+    "records_with_content_assets": 10,
+    "records_with_fulltext_documents": 0
+  },
+  "selected_literature": [
+    {
+      "literature_id": "LIT-0153",
+      "title": "BudgetThinker: Empowering Budget-aware LLM Reasoning with Control Tokens",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:test-time-compute-budgeting",
+        "collection:strategy-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "823d6d90-614b-4a5a-b70c-66e13e63812e",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4415986755",
+          "source_url": "https://arxiv.org/abs/2508.17196"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "c652ddcb-e994-4178-984f-914f7b7b9ef6",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:13.247Z",
+          "finished_at": "2026-06-06T11:23:13.282Z"
+        },
+        {
+          "run_id": "c26b3f5a-778f-4a81-952c-7ecfbb5de49f",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:20.057Z",
+          "finished_at": "2026-06-06T11:11:20.153Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    },
+    {
+      "literature_id": "LIT-0154",
+      "title": "Token-Budget-Aware LLM Reasoning",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:test-time-compute-budgeting",
+        "collection:strategy-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "13aa2440-0c30-4918-b5a2-48727e15fba8",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4412944599",
+          "source_url": "https://doi.org/10.18653/v1/2025.findings-acl.1274"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "c895ea78-708f-4b68-9df9-cc6fb1f69535",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:13.508Z",
+          "finished_at": "2026-06-06T11:23:13.538Z"
+        },
+        {
+          "run_id": "534d4317-2f77-4f4f-87ff-65a5120fa2eb",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:20.343Z",
+          "finished_at": "2026-06-06T11:11:20.413Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    },
+    {
+      "literature_id": "LIT-0155",
+      "title": "Inference Scaling Laws: An Empirical Analysis of Compute-Optimal Inference for Problem-Solving with Language Models",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:test-time-compute-budgeting",
+        "collection:theory-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "7cc1eca6-011a-4b5c-8464-144602ad1dbb",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4401307656",
+          "source_url": "https://arxiv.org/abs/2408.00724"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "32753794-ef76-4c5e-b163-900eb54df022",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:13.774Z",
+          "finished_at": "2026-06-06T11:23:13.831Z"
+        },
+        {
+          "run_id": "9f6463bf-6e08-4f1e-ae2c-4cab2e036247",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:20.632Z",
+          "finished_at": "2026-06-06T11:11:20.692Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    },
+    {
+      "literature_id": "LIT-0156",
+      "title": "Cloud Native System for LLM Inference Serving",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:llm-serving-resource-allocation",
+        "collection:system-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "d7c5d282-89fc-443c-9546-78fdc2425b10",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4415232699",
+          "source_url": "https://arxiv.org/abs/2507.18007"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "28210fc6-2c38-4f62-8303-33df848a9e21",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:14.042Z",
+          "finished_at": "2026-06-06T11:23:14.062Z"
+        },
+        {
+          "run_id": "18129832-3f44-4a9b-945c-905d4fb11ea7",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:20.903Z",
+          "finished_at": "2026-06-06T11:11:20.944Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    },
+    {
+      "literature_id": "LIT-0157",
+      "title": "Efficient LLM Serving Under Variable Cloud Traffic Loads",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:llm-serving-resource-allocation",
+        "collection:system-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "9ff7311a-37b8-498f-ab7d-32e710e2bba9",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W7162195266",
+          "source_url": "https://doi.org/10.52783/dxjb.v38.293"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "d3827b85-2e4f-4ab8-86a0-fb53cd220fe4",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:14.304Z",
+          "finished_at": "2026-06-06T11:23:14.337Z"
+        },
+        {
+          "run_id": "f5379c8c-2d72-490e-9046-4d392e91baaa",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:21.180Z",
+          "finished_at": "2026-06-06T11:11:21.230Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    },
+    {
+      "literature_id": "LIT-0158",
+      "title": "ElasticMM: Efficient Multimodal LLMs Serving with Elastic Multimodal Parallelism",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:llm-serving-resource-allocation",
+        "collection:system-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "d15f299c-23fc-4c8e-b4a3-af0067bc9ce9",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4414738498",
+          "source_url": "https://arxiv.org/abs/2507.10069"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "babc2eec-be0f-4d10-84e8-1a73c297375b",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:14.569Z",
+          "finished_at": "2026-06-06T11:23:14.599Z"
+        },
+        {
+          "run_id": "e53a1332-1619-4f63-8216-51b56ca5744c",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:21.455Z",
+          "finished_at": "2026-06-06T11:11:21.508Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    },
+    {
+      "literature_id": "LIT-0159",
+      "title": "HexAGenT: Efficient Agentic LLM Serving via Workflow- and Heterogeneity-Aware Scheduling",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:llm-serving-resource-allocation",
+        "collection:system-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "48e4178d-d8b0-4adf-99d1-108f1b2163f1",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W7161915195",
+          "source_url": "https://arxiv.org/abs/2605.16637"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "fe78bd48-deb4-42f9-9b5b-4b2feb1859c6",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:14.834Z",
+          "finished_at": "2026-06-06T11:23:14.857Z"
+        },
+        {
+          "run_id": "e1a06018-a78b-4dfc-b660-93d7c7d3f857",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:21.744Z",
+          "finished_at": "2026-06-06T11:11:21.809Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    },
+    {
+      "literature_id": "LIT-0160",
+      "title": "Infinite-LLM: Efficient LLM Service for Long Context with DistAttention and Distributed KVCache",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:llm-serving-resource-allocation",
+        "collection:system-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "af84853a-1e4c-41e9-8a90-28a424aeb863",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4390690436",
+          "source_url": "https://arxiv.org/abs/2401.02669"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "86697fa9-eeca-4306-b1fd-749480fae656",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:15.100Z",
+          "finished_at": "2026-06-06T11:23:15.133Z"
+        },
+        {
+          "run_id": "78f869cb-e458-42e6-95b6-8522f8fba3d8",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:22.026Z",
+          "finished_at": "2026-06-06T11:11:22.086Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    },
+    {
+      "literature_id": "LIT-0161",
+      "title": "KVDirect: Distributed Disaggregated LLM Inference",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:llm-serving-resource-allocation",
+        "collection:system-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "b3303be3-7619-41a0-9940-dc048a6f0429",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4406879595",
+          "source_url": "https://arxiv.org/abs/2501.14743"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "10d7af91-10bd-4172-baff-a8c3ff35e79d",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:15.370Z",
+          "finished_at": "2026-06-06T11:23:15.388Z"
+        },
+        {
+          "run_id": "f6c51cbf-b4e9-4504-bd61-36c0149410ba",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:22.316Z",
+          "finished_at": "2026-06-06T11:11:22.365Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    },
+    {
+      "literature_id": "LIT-0162",
+      "title": "NetKV: Network-Aware Decode Instance Selection for Disaggregated LLM Inference",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:llm-serving-resource-allocation",
+        "collection:system-support",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": "0f7e2719-6ef8-40b0-9f7f-bb157fcd2dbd",
+      "candidate_batch_id": "0caeeefb-735f-410d-aa88-7fedc187c6f3",
+      "candidate_batch_code": "B10-20260606T-b10-openalex-pilot-apply",
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W7163595053",
+          "source_url": "https://arxiv.org/abs/2606.03910"
+        }
+      ],
+      "content_asset_count": 1,
+      "fulltext_document_count": 0,
+      "latest_runs": [
+        {
+          "run_id": "2fca6518-9c84-449c-b097-07a31979fc5f",
+          "trigger_source": "BACKFILL",
+          "status": "FAILED",
+          "requested_stages": [
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "error_message": "GROBID endpoint settings are not available.",
+          "created_at": "2026-06-06T11:23:15.633Z",
+          "finished_at": "2026-06-06T11:23:15.658Z"
+        },
+        {
+          "run_id": "21b33d8c-de2c-4d9d-ac49-c5e187cbc640",
+          "trigger_source": "BACKFILL",
+          "status": "PARTIAL",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": "FULLTEXT_SOURCE_MISSING",
+          "error_message": "A registered raw fulltext asset is required before FULLTEXT_PREPROCESSED can complete.",
+          "created_at": "2026-06-06T11:11:22.602Z",
+          "finished_at": "2026-06-06T11:11:22.670Z"
+        }
+      ],
+      "stages": {
+        "CITATION_NORMALIZED": "SUCCEEDED",
+        "ABSTRACT_READY": "SUCCEEDED",
+        "FULLTEXT_PREPROCESSED": "BLOCKED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "FULLTEXT_PREPROCESSED": {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "diagnostics": [
+            {
+              "code": "FULLTEXT_PARSER_UNAVAILABLE",
+              "severity": "blocker"
+            }
+          ],
+          "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+          "reason_message": "GROBID endpoint settings are not available."
+        }
+      },
+      "blocker": {
+        "stage_code": "FULLTEXT_PREPROCESSED",
+        "status": "BLOCKED",
+        "reason_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "reason_message": "GROBID endpoint settings are not available."
+      }
+    }
+  ],
+  "executions": [
+    {
+      "literature_id": "LIT-0153",
+      "candidate_id": "823d6d90-614b-4a5a-b70c-66e13e63812e",
+      "timed_out": false,
+      "run": {
+        "run_id": "c652ddcb-e994-4178-984f-914f7b7b9ef6",
+        "literature_id": "LIT-0153",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:13.247Z",
+        "started_at": "2026-06-06T11:23:13.250Z",
+        "finished_at": "2026-06-06T11:23:13.282Z",
+        "updated_at": "2026-06-06T11:23:13.282Z",
+        "steps": [
+          {
+            "step_id": "b8830efe-5ccb-4dd8-94ff-9df4f1e4d853",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:13.279Z"
+          }
+        ]
+      }
+    },
+    {
+      "literature_id": "LIT-0154",
+      "candidate_id": "13aa2440-0c30-4918-b5a2-48727e15fba8",
+      "timed_out": false,
+      "run": {
+        "run_id": "c895ea78-708f-4b68-9df9-cc6fb1f69535",
+        "literature_id": "LIT-0154",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:13.508Z",
+        "started_at": "2026-06-06T11:23:13.511Z",
+        "finished_at": "2026-06-06T11:23:13.538Z",
+        "updated_at": "2026-06-06T11:23:13.538Z",
+        "steps": [
+          {
+            "step_id": "3746dbda-6edc-4f3d-8a55-6aba62676ab6",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:13.535Z"
+          }
+        ]
+      }
+    },
+    {
+      "literature_id": "LIT-0155",
+      "candidate_id": "7cc1eca6-011a-4b5c-8464-144602ad1dbb",
+      "timed_out": false,
+      "run": {
+        "run_id": "32753794-ef76-4c5e-b163-900eb54df022",
+        "literature_id": "LIT-0155",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:13.774Z",
+        "started_at": "2026-06-06T11:23:13.787Z",
+        "finished_at": "2026-06-06T11:23:13.831Z",
+        "updated_at": "2026-06-06T11:23:13.831Z",
+        "steps": [
+          {
+            "step_id": "84d5dd9e-3344-44f6-adeb-97eef9a3f3a9",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:13.825Z"
+          }
+        ]
+      }
+    },
+    {
+      "literature_id": "LIT-0156",
+      "candidate_id": "d7c5d282-89fc-443c-9546-78fdc2425b10",
+      "timed_out": false,
+      "run": {
+        "run_id": "28210fc6-2c38-4f62-8303-33df848a9e21",
+        "literature_id": "LIT-0156",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:14.042Z",
+        "started_at": "2026-06-06T11:23:14.045Z",
+        "finished_at": "2026-06-06T11:23:14.062Z",
+        "updated_at": "2026-06-06T11:23:14.062Z",
+        "steps": [
+          {
+            "step_id": "3b002a44-ef02-46df-98c1-1c327bd01045",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:14.058Z"
+          }
+        ]
+      }
+    },
+    {
+      "literature_id": "LIT-0157",
+      "candidate_id": "9ff7311a-37b8-498f-ab7d-32e710e2bba9",
+      "timed_out": false,
+      "run": {
+        "run_id": "d3827b85-2e4f-4ab8-86a0-fb53cd220fe4",
+        "literature_id": "LIT-0157",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:14.304Z",
+        "started_at": "2026-06-06T11:23:14.308Z",
+        "finished_at": "2026-06-06T11:23:14.337Z",
+        "updated_at": "2026-06-06T11:23:14.337Z",
+        "steps": [
+          {
+            "step_id": "c9f0447a-cc57-4591-819b-7a1d96a3c502",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:14.333Z"
+          }
+        ]
+      }
+    },
+    {
+      "literature_id": "LIT-0158",
+      "candidate_id": "d15f299c-23fc-4c8e-b4a3-af0067bc9ce9",
+      "timed_out": false,
+      "run": {
+        "run_id": "babc2eec-be0f-4d10-84e8-1a73c297375b",
+        "literature_id": "LIT-0158",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:14.569Z",
+        "started_at": "2026-06-06T11:23:14.573Z",
+        "finished_at": "2026-06-06T11:23:14.599Z",
+        "updated_at": "2026-06-06T11:23:14.599Z",
+        "steps": [
+          {
+            "step_id": "fc2686e5-b174-4d9c-a2d1-4c14a93e7168",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:14.596Z"
+          }
+        ]
+      }
+    },
+    {
+      "literature_id": "LIT-0159",
+      "candidate_id": "48e4178d-d8b0-4adf-99d1-108f1b2163f1",
+      "timed_out": false,
+      "run": {
+        "run_id": "fe78bd48-deb4-42f9-9b5b-4b2feb1859c6",
+        "literature_id": "LIT-0159",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:14.834Z",
+        "started_at": "2026-06-06T11:23:14.838Z",
+        "finished_at": "2026-06-06T11:23:14.857Z",
+        "updated_at": "2026-06-06T11:23:14.857Z",
+        "steps": [
+          {
+            "step_id": "96c82d4b-49f5-40aa-ad20-dd35dff34862",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:14.855Z"
+          }
+        ]
+      }
+    },
+    {
+      "literature_id": "LIT-0160",
+      "candidate_id": "af84853a-1e4c-41e9-8a90-28a424aeb863",
+      "timed_out": false,
+      "run": {
+        "run_id": "86697fa9-eeca-4306-b1fd-749480fae656",
+        "literature_id": "LIT-0160",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:15.100Z",
+        "started_at": "2026-06-06T11:23:15.106Z",
+        "finished_at": "2026-06-06T11:23:15.133Z",
+        "updated_at": "2026-06-06T11:23:15.133Z",
+        "steps": [
+          {
+            "step_id": "88f23867-2a2f-4ca3-aefc-8fa10dc2272b",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:15.130Z"
+          }
+        ]
+      }
+    },
+    {
+      "literature_id": "LIT-0161",
+      "candidate_id": "b3303be3-7619-41a0-9940-dc048a6f0429",
+      "timed_out": false,
+      "run": {
+        "run_id": "10d7af91-10bd-4172-baff-a8c3ff35e79d",
+        "literature_id": "LIT-0161",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:15.370Z",
+        "started_at": "2026-06-06T11:23:15.372Z",
+        "finished_at": "2026-06-06T11:23:15.388Z",
+        "updated_at": "2026-06-06T11:23:15.388Z",
+        "steps": [
+          {
+            "step_id": "e3c9e39d-f8dd-4bd5-aefd-800d8db5dc2a",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:15.387Z"
+          }
+        ]
+      }
+    },
+    {
+      "literature_id": "LIT-0162",
+      "candidate_id": "0f7e2719-6ef8-40b0-9f7f-bb157fcd2dbd",
+      "timed_out": false,
+      "run": {
+        "run_id": "2fca6518-9c84-449c-b097-07a31979fc5f",
+        "literature_id": "LIT-0162",
+        "trigger_source": "BACKFILL",
+        "status": "FAILED",
+        "requested_stages": [
+          "FULLTEXT_PREPROCESSED"
+        ],
+        "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+        "error_message": "GROBID endpoint settings are not available.",
+        "created_at": "2026-06-06T11:23:15.633Z",
+        "started_at": "2026-06-06T11:23:15.636Z",
+        "finished_at": "2026-06-06T11:23:15.658Z",
+        "updated_at": "2026-06-06T11:23:15.658Z",
+        "steps": [
+          {
+            "step_id": "fdf6dd53-3d3c-48df-a6d8-63b04df7eccc",
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "status": "BLOCKED",
+            "error_code": "FULLTEXT_PARSER_UNAVAILABLE",
+            "error_message": "GROBID endpoint settings are not available.",
+            "output_ref": {},
+            "finished_at": "2026-06-06T11:23:15.655Z"
+          }
+        ]
+      }
+    }
+  ]
+}

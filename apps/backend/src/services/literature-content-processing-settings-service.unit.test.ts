@@ -6,6 +6,7 @@ import { InMemoryApplicationSettingsRepository } from '../repositories/in-memory
 import {
   DEFAULT_PAPER_ENGINEER_LOCAL_DATA_ROOT,
   LITERATURE_CONTENT_PROCESSING_ROOT_ENV,
+  LITERATURE_KEY_CONTENT_READY_METHOD_ENV,
   LiteratureContentProcessingSettingsService,
   PAPER_ENGINEER_LOCAL_DATA_ROOT_ENV,
 } from './literature-content-processing-settings-service.js';
@@ -21,8 +22,10 @@ function restoreEnv(name: string, value: string | undefined): void {
 test('literature content-processing settings default to redacted OpenAI and large embedding profile', async () => {
   const previousDataRoot = process.env[PAPER_ENGINEER_LOCAL_DATA_ROOT_ENV];
   const previousLiteratureRoot = process.env[LITERATURE_CONTENT_PROCESSING_ROOT_ENV];
+  const previousKeyContentMethod = process.env[LITERATURE_KEY_CONTENT_READY_METHOD_ENV];
   delete process.env[PAPER_ENGINEER_LOCAL_DATA_ROOT_ENV];
   delete process.env[LITERATURE_CONTENT_PROCESSING_ROOT_ENV];
+  delete process.env[LITERATURE_KEY_CONTENT_READY_METHOD_ENV];
   const service = new LiteratureContentProcessingSettingsService(new InMemoryApplicationSettingsRepository());
 
   try {
@@ -40,7 +43,7 @@ test('literature content-processing settings default to redacted OpenAI and larg
     assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'default')?.model, 'gpt-5.5');
     assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'high_accuracy')?.model, 'gpt-5.5');
     assert.deepEqual(settings.extraction.runtime, {
-      preferred_key_content_method: 'llm_gateway',
+      preferred_key_content_method: 'codex_curated',
       section_concurrency: 3,
       request_timeout_ms: 120_000,
       max_retries: 1,
@@ -55,6 +58,7 @@ test('literature content-processing settings default to redacted OpenAI and larg
   } finally {
     restoreEnv(PAPER_ENGINEER_LOCAL_DATA_ROOT_ENV, previousDataRoot);
     restoreEnv(LITERATURE_CONTENT_PROCESSING_ROOT_ENV, previousLiteratureRoot);
+    restoreEnv(LITERATURE_KEY_CONTENT_READY_METHOD_ENV, previousKeyContentMethod);
   }
 });
 
@@ -123,9 +127,9 @@ test('literature content-processing settings preserve, replace, and clear secret
   assert.equal(extractionConfig?.apiKey, 'sk-test-secret');
   assert.equal(extractionConfig?.provider, 'openai');
   assert.equal(extractionConfig?.model, 'gpt-5.5');
-  assert.equal(extractionConfig?.runtime.preferred_key_content_method, 'llm_gateway');
+  assert.equal(extractionConfig?.runtime.preferred_key_content_method, 'codex_curated');
   assert.equal(extractionConfig?.runtime.section_concurrency, 3);
-  assert.equal(await service.resolvePreferredKeyContentMethod(), 'llm_gateway');
+  assert.equal(await service.resolvePreferredKeyContentMethod(), 'codex_curated');
   assert.equal(preserved.fulltext_parser.grobid.endpoint_url, 'http://localhost:8070');
   assert.equal(preserved.effective_storage_roots.raw_files, '/tmp/literature/raw');
   assert.equal(await service.resolveStorageRoot('indexes'), '/tmp/literature/indexes');
@@ -186,6 +190,19 @@ test('literature content-processing settings report OpenAI env fallback as confi
     } else {
       process.env.OPENAI_API_KEY = previous;
     }
+  }
+});
+
+test('literature content-processing settings honor key-content method env fallback when no DB setting exists', async () => {
+  const previous = process.env[LITERATURE_KEY_CONTENT_READY_METHOD_ENV];
+  process.env[LITERATURE_KEY_CONTENT_READY_METHOD_ENV] = 'llm_gateway';
+  try {
+    const service = new LiteratureContentProcessingSettingsService(new InMemoryApplicationSettingsRepository());
+
+    assert.equal((await service.getSettings()).extraction.runtime.preferred_key_content_method, 'llm_gateway');
+    assert.equal(await service.resolvePreferredKeyContentMethod(), 'llm_gateway');
+  } finally {
+    restoreEnv(LITERATURE_KEY_CONTENT_READY_METHOD_ENV, previous);
   }
 });
 

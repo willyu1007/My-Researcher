@@ -1,0 +1,356 @@
+{
+  "run_id": "20260607T-b12-codex-curated-lit0155-bundle-export",
+  "generated_at": "2026-06-07T00:19:31.056Z",
+  "literature_id": "LIT-0155",
+  "title": "Inference Scaling Laws: An Empirical Analysis of Compute-Optimal Inference for Problem-Solving with Language Models",
+  "year": 2024,
+  "section_count": 31,
+  "paragraph_count": 93,
+  "anchor_count": 190,
+  "document": {
+    "id": "239cfd77-0cc9-47b4-b946-50dd6742ae6d",
+    "source_asset_id": "cf4cb622-bbc4-4b6f-a29e-faf865cf6661",
+    "normalized_text_checksum": "c134e81f0936daf2e8aa99adc486453a6ab03863aeadf393adc7675099721875",
+    "parser_name": "grobid-tei-v1",
+    "parser_version": "1",
+    "status": "READY",
+    "diagnostics": [
+      {
+        "code": "GROBID_TEI_PARSED",
+        "severity": "info",
+        "text_length": 39540,
+        "anchor_count": 190,
+        "endpoint_url": "http://localhost:8070",
+        "section_count": 31,
+        "paragraph_count": 93,
+        "parser_quality_score": 1,
+        "parser_quality_bucket": "high",
+        "parser_quality_inputs": {
+          "page_count": 21,
+          "text_length": 39540,
+          "anchor_count": 190,
+          "section_count": 31,
+          "paragraph_count": 93,
+          "average_paragraph_length": 418
+        }
+      }
+    ]
+  },
+  "export_policy": {
+    "accepted_curation_sources": [
+      "codex_curated",
+      "manual_curated"
+    ],
+    "required_schema_version": "key_content.v1",
+    "required_extraction_profile": "paper_semantic_dossier.v1",
+    "require_resolvable_source_refs": true
+  },
+  "first_sections": [
+    {
+      "section_id": "_NKdwAYj",
+      "title": "Body",
+      "level": 1,
+      "order_index": 0,
+      "start_offset": 0,
+      "end_offset": 525,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "a79943419f18f37fc7b2bfb08f0ce1dd387bd71511461f6eff3f629f038faa01"
+    },
+    {
+      "section_id": "sec-2",
+      "title": "INTRODUCTION",
+      "level": 1,
+      "order_index": 1,
+      "start_offset": 525,
+      "end_offset": 6942,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "aebdee697f9b025597d67a7658eb728bfb96fc67bfe774cf27bef0065586e9e6"
+    },
+    {
+      "section_id": "sec-3",
+      "title": "RELATED WORKS",
+      "level": 1,
+      "order_index": 2,
+      "start_offset": 6942,
+      "end_offset": 10701,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "a02d8214243730eb0e1997d6d2e5002bda53e0304842837ff4ce380d80200cfa"
+    },
+    {
+      "section_id": "sec-4",
+      "title": "COMPUTE-OPTIMAL INFERENCE FOR PROBLEM-SOLVING",
+      "level": 1,
+      "order_index": 3,
+      "start_offset": 10701,
+      "end_offset": 12058,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "a3bfd5fe9d0cd79c664c64b6989a718c9b72d1e63a5b39a9454aff8c4b016995"
+    },
+    {
+      "section_id": "sec-5",
+      "title": "INFERENCE STRATEGIES",
+      "level": 1,
+      "order_index": 4,
+      "start_offset": 12058,
+      "end_offset": 13816,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "f3ff5dc6bfb79d6da53a2283bc098fc1cc1cb260fe3c51a2c7c5b6c840b7816a"
+    },
+    {
+      "section_id": "sec-6",
+      "title": "Notations and assumptions.",
+      "level": 1,
+      "order_index": 5,
+      "start_offset": 13816,
+      "end_offset": 18129,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "bb2f0f225db942b06126da205dd206f52631e9e0ff0a8643e8ece362cdc63e82"
+    },
+    {
+      "section_id": "sec-7",
+      "title": "REWARD BALANCED SEARCH (REBASE)",
+      "level": 1,
+      "order_index": 6,
+      "start_offset": 18129,
+      "end_offset": 20887,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "6d0be1b051ff32bb55615ae5d866e59d6510a2f636e7eda93b89ea703760a193"
+    },
+    {
+      "section_id": "sec-8",
+      "title": "EXPERIMENTS",
+      "level": 1,
+      "order_index": 7,
+      "start_offset": 20887,
+      "end_offset": 21325,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "427ea87eec0969a30ceb24efe7d0d3504b1d3ce4e9bc23c270b5beef99c3f133"
+    },
+    {
+      "section_id": "sec-9",
+      "title": "SETUP Datasets.",
+      "level": 1,
+      "order_index": 8,
+      "start_offset": 21325,
+      "end_offset": 21731,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "32ac6f199e756dc6ccfd609b9c6a3afb523a03b1938689306b0350c6bb988f5c"
+    },
+    {
+      "section_id": "sec-10",
+      "title": "Policy model (solution generator).",
+      "level": 1,
+      "order_index": 9,
+      "start_offset": 21731,
+      "end_offset": 22639,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "437960d1530b1ee59f66765e16e80024428b10a9a5234bbfdbf639681cc2bc3e"
+    },
+    {
+      "section_id": "sec-11",
+      "title": "Sampling (7B) Sampling (34B) REBASE (7B) REBASE (34B)",
+      "level": 1,
+      "order_index": 10,
+      "start_offset": 22639,
+      "end_offset": 24050,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "df207ceb2e8d0755dea0d1a8e00077538fe243b321fd75ca2d2e466cc6c9255e"
+    },
+    {
+      "section_id": "sec-12",
+      "title": "COMPUTE-OPTIMAL MODEL SIZE",
+      "level": 1,
+      "order_index": 11,
+      "start_offset": 24050,
+      "end_offset": 25794,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "49ca2e907a846ab97affd525029cce7db74d8461163140d1de2d00daa4f531ea"
+    },
+    {
+      "section_id": "sec-13",
+      "title": "COMPUTE-OPTIMAL INFERENCE STRATEGY",
+      "level": 1,
+      "order_index": 12,
+      "start_offset": 25794,
+      "end_offset": 30386,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "976373764ce30cf0e73b81915d3d9d163b80e1c682ccfa2f9d52ac8c95c244f8"
+    },
+    {
+      "section_id": "sec-14",
+      "title": "CONCLUSIONS",
+      "level": 1,
+      "order_index": 13,
+      "start_offset": 30386,
+      "end_offset": 32331,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "de9cdb3ba1f14e025d3e21475bc6e020040fbbdc1394cb35d50abadc009d1664"
+    },
+    {
+      "section_id": "sec-15",
+      "title": "A.1 PROOF OF THEOREM 1",
+      "level": 1,
+      "order_index": 14,
+      "start_offset": 32331,
+      "end_offset": 35437,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "d36c7d0f11d98d5f95cb6a3569b32cd0ab549ef8bf92746f37bbc06864567d06"
+    },
+    {
+      "section_id": "sec-16",
+      "title": "D.3 COMPARISON OF DIFFERENT STRATEGIES ACROSS DIFFERENT MODELS",
+      "level": 1,
+      "order_index": 15,
+      "start_offset": 35437,
+      "end_offset": 35976,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "8bfdd7b43feb4119b0b776c3ebaaebbc2f515d329057452b0519c06aa0be61bb"
+    },
+    {
+      "section_id": "sec-17",
+      "title": "Body",
+      "level": 1,
+      "order_index": 16,
+      "start_offset": 35976,
+      "end_offset": 36576,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "f986ec6df2f7617e27ecb5fa3bc23051ecd5090c6866e0d78be40567b693cd20"
+    },
+    {
+      "section_id": "sec-18",
+      "title": "Body",
+      "level": 1,
+      "order_index": 17,
+      "start_offset": 36576,
+      "end_offset": 36921,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "8553d3d6e164a0ae7b159f49750286b6bfbe664e4e7a0c1204fb6a6fe28e639d"
+    },
+    {
+      "section_id": "sec-19",
+      "title": "Body",
+      "level": 1,
+      "order_index": 18,
+      "start_offset": 36921,
+      "end_offset": 37006,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "4a7814f0580f46b36fd740cd5a9501621ee5f799c96394e37bd36c815fa68670"
+    },
+    {
+      "section_id": "sec-20",
+      "title": "Body",
+      "level": 1,
+      "order_index": 19,
+      "start_offset": 37006,
+      "end_offset": 37352,
+      "page_start": null,
+      "page_end": null,
+      "checksum": "13687afc115a1a381fde87828229578c431c4a9873b4d8db8b38a04a16cf1d06"
+    }
+  ],
+  "paragraph_samples": [
+    {
+      "paragraph_id": "_CTnyruN",
+      "section_id": "_NKdwAYj",
+      "order_index": 0,
+      "text_preview": ") models and GSM8K test error. We evaluate the error rate (lower is better) of models using various sizes and numbers of sampled solutions for weighted majority voting. Left: the error rate for each model size decreases steadily as inference-compute increases, and converges at the end. Right: the optimal model size (shown as stars for 2 41 , 2 44 , and 2 47 FLOPs) varies based on the inference-time compute budget. For instance, smaller models are compute-optimal at 2 41 and 2 44 FLOPs. Both axes",
+      "checksum": "eafc890a93e28d5d189a13214d3781ed32358918388acbd6558c11f553460794"
+    },
+    {
+      "paragraph_id": "_qvcRunf",
+      "section_id": "sec-2",
+      "order_index": 1,
+      "text_preview": "(Hestness et al., 2017; Rosenfeld et al., 2020) (Kaplan et al., 2020; Hoffmann et al., 2022; OpenAI, 2023) (Henighan et al., 2020; Yu et al., 2022; Peebles & Xie, 2023) (Brooks et al., 2024) (Gao et al., 2023) (Jones, 2021) Scaling laws of neural networkshave been established across a range of domains, including language modeling, image modeling, video modeling, reward modeling, and board games. These studies have demonstrated how model performance is influenced by both the size of the model and",
+      "checksum": "88dab4b18336cc4b8fefce78cb7ef738f02b846aea6c7be08cc80aaf467a4cc1"
+    },
+    {
+      "paragraph_id": "_jWNCYvr",
+      "section_id": "sec-2",
+      "order_index": 2,
+      "text_preview": "(Nye et al., 2021; Wei et al., 2022; Wang et al., 2023b; Yao et al., 2023; Chen et al., 2024b) To improve the task performance of large language models (LLMs), inference techniques typically involve additional compute as a performance maximization step at inference time. The computational cost of these techniques must be taken into account for compute-optimal inference. (Jones, 2021) For example, Monte Carlo Tree Search (MCTS) may improve task performance, but it potentially requires much more c",
+      "checksum": "14980d8c758e42911342893ea96fb433048744a883bc5ad537cf90eb19fad231"
+    },
+    {
+      "paragraph_id": "_TaPxPjw",
+      "section_id": "sec-2",
+      "order_index": 3,
+      "text_preview": "Specifically, we explore how to select an optimal size for the language model and an effective inference strategy (e.g., greedy search, majority voting, best-of-n, weighted voting, and their treesearch variants) to maximize performance (i.e., accuracy) with a given compute budget. foot_0 We control the inference compute (FLOPs) of a fixed model by generating more tokens through the language model, sampling further candidate solutions, and ranking them with a reward model. (Cobbe et al., 2021) (H",
+      "checksum": "1d8f475318f75408d7e80a1d7a028ba2d50e50ae2860f92401772e52086768d6"
+    },
+    {
+      "paragraph_id": "_RjMybAt",
+      "section_id": "sec-2",
+      "order_index": 4,
+      "text_preview": "1 Our results on Pythia (Fig.) illustrate how performance scales with increased inference compute across various model sizes. Typically, increasing the compute budget leads to higher accuracy until the accuracy reaches saturation. As the compute budget increases, smaller models initially perform better than larger ones, but once the accuracy of the smaller models saturates, the larger models have favorable performance. 1 The right panel of Figuredemonstrates that the optimal model size for infer",
+      "checksum": "2cfb5fb28cc091a751a0ccfdb7b9b158a7ded623bbb0d53f4c3cb22bf14a0ec4"
+    },
+    {
+      "paragraph_id": "_fPFdYaW",
+      "section_id": "sec-2",
+      "order_index": 5,
+      "text_preview": "We analyze the asymptotic behavior of sampling and voting-based inference strategies, showing their convergence upper bound and rate of convergence. Given a dataset, the accuracy of the language model will ultimately saturate to a fixed limit which is determined by the output probabilities assigned by the model, exhibiting exponential convergence speed through sampling and voting. This implies that, without an oracle verifier, simple strategies like sampling cannot achieve perfect accuracy even ",
+      "checksum": "bddd399c7203679e6a821886f712aedf6f6a5c91231c310b4bbcaba123f799a8"
+    },
+    {
+      "paragraph_id": "_keDfPS6",
+      "section_id": "sec-2",
+      "order_index": 6,
+      "text_preview": "We have also found that the commonly-used MCTS method does not perform well with weighted voting, as it often yields many unfinished solutions, hence having less effective votes. To address this issue, we propose a novel tree search algorithm, REward BAlanced SEarch (REBASE), which pairs well with weighted voting and achieves a Pareto-optimal trade-off between accuracy and inference compute. The key idea of REBASE is to use a node-quality reward to control node expansion, which eliminates the ne",
+      "checksum": "5f25779f9dd68229e2d36d8d18f566558de8db72edb23a18a04538baed1ab6cf"
+    },
+    {
+      "paragraph_id": "_UwzTBAf",
+      "section_id": "sec-2",
+      "order_index": 7,
+      "text_preview": "In our experiments, REBASE consistently outperforms sampling and MCTS methods across all settings, models, and tasks. Importantly, we find that REBASE with a smaller language model typically achieves a Pareto-optimal trade-off. 4 5 For instance, we show that the Llemma-7B model can achieve competitive accuracy to a Llemma-34B model while using 2× less FLOPs when evaluating on MATH500 (Fig.) or GSM8K (Fig.). Moreover, Llemma-7B with REBASE outperforms Llemma-34B with standard majority voting acro",
+      "checksum": "21fb09a32016bdf6247f1e21255a2d09963552db84b4cdf8ce9dd00713b9d6ca"
+    },
+    {
+      "paragraph_id": "_jTz7rXC",
+      "section_id": "sec-2",
+      "order_index": 8,
+      "text_preview": "Our contributions are summarized as follows:",
+      "checksum": "204d09bd865ba5fd32f920c6e09b86862016a72142b5ea7e319fc925d8a313ea"
+    },
+    {
+      "paragraph_id": "_uzXQ7e8",
+      "section_id": "sec-2",
+      "order_index": 9,
+      "text_preview": "• We explore new inference scaling laws and compute-optimal inference by evaluating the performance of various model sizes under a fixed inference strategy. We show that smaller models can outperform larger ones under the same compute budget by increasing the number of samples.",
+      "checksum": "0271f24ed50ada48c9f10128fef0acaf3053133054d82dbe44025a5994f85b41"
+    },
+    {
+      "paragraph_id": "_uhaQM2N",
+      "section_id": "sec-2",
+      "order_index": 10,
+      "text_preview": "• We provide new theoretical analysis of the scaling behavior of voting methods, presenting convergence bounds and rates. Our analysis shows performance limits and diminishing returns from sampling, pointing to the need for more sophisticated inference algorithms.",
+      "checksum": "7bc39213530856ac604b9d931a6b2d14630e36a3c18600084c63d5efee6b1d15"
+    },
+    {
+      "paragraph_id": "_9W5essn",
+      "section_id": "sec-2",
+      "order_index": 11,
+      "text_preview": "• We formulate a new compute-optimal inference problem and propose a novel tree search algorithm, REBASE, which is compute-optimal compared to widely-used sampling and MCTS methods. Our results show benefits of using smaller models with advanced inference algorithms, and new algorithms for achieving better cost-performance tradeoffs.",
+      "checksum": "b0d510536ae7d53bd803121692b1ba4da85165f99fd5755e0fad6b209fbad91f"
+    }
+  ]
+}
