@@ -1884,18 +1884,28 @@ export class LiteratureService {
   }
 
   private async nextLiteratureId(): Promise<string> {
-    const next = (await this.literatureRepository.countLiteratures()) + 1;
-    return `LIT-${String(next).padStart(4, '0')}`;
+    const rows = await this.literatureRepository.listLiteratures();
+    return this.nextPrefixedNumericId(rows.map((row) => row.id), 'LIT');
   }
 
   private async nextLiteratureSourceId(): Promise<string> {
-    const next = (await this.literatureRepository.countLiteratureSources()) + 1;
-    return `LSRC-${String(next).padStart(4, '0')}`;
+    return this.nextPrefixedNumericId(await this.literatureRepository.listLiteratureSourceIds(), 'LSRC');
   }
 
   private async nextTopicScopeId(): Promise<string> {
     const next = (await this.literatureRepository.countTopicScopes()) + 1;
     return `TSCP-${String(next).padStart(4, '0')}`;
+  }
+
+  private nextPrefixedNumericId(ids: string[], prefix: string): string {
+    const pattern = new RegExp(`^${prefix}-(\\d+)$`);
+    const maxId = ids
+      .map((id) => pattern.exec(id)?.[1])
+      .filter((value): value is string => Boolean(value))
+      .map((value) => Number.parseInt(value, 10))
+      .filter(Number.isFinite)
+      .reduce((currentMax, value) => Math.max(currentMax, value), 0);
+    return `${prefix}-${String(maxId + 1).padStart(4, '0')}`;
   }
 
   private async nextPaperLiteratureLinkId(): Promise<string> {

@@ -1,0 +1,57 @@
+{
+  "run_id": "20260607T-b11-arxiv-ready-tranche-apply-promote",
+  "apply": true,
+  "promote": true,
+  "generated_at": "2026-06-07T04:18:17.886Z",
+  "filters": {
+    "batch_id": null,
+    "batch_code": null,
+    "candidate_ids": [
+      "7023f524-1172-4ae9-ba1c-31c4139e3c27",
+      "f5fecf02-aee3-4236-8c02-2e8c80d602da",
+      "ad039b65-4851-423c-910f-1bf8e602433d",
+      "60bd7a85-7934-48c0-9bb1-173ff9f4b7ec",
+      "2685e34c-f7cd-47cd-b57b-c75307a434ea",
+      "ecb298b8-e372-434d-bd6d-9186a90a6e56"
+    ],
+    "candidate_statuses": [
+      "READY_FOR_PROMOTION"
+    ],
+    "max_candidates": 6,
+    "max_promotions": 6,
+    "ready_threshold": 0.76,
+    "defer_threshold": 0.56
+  },
+  "input_summary": {
+    "candidate_count": 6,
+    "existing_literature_matches_loaded": 0,
+    "existing_candidate_matches_loaded": 0,
+    "existing_source_matches_loaded": 0
+  },
+  "decision_summary": {
+    "by_status": {
+      "READY_FOR_PROMOTION": 6
+    },
+    "by_direction": {
+      "rag-aware-allocation": 6
+    },
+    "by_collection_role": {
+      "collection:core": 6
+    },
+    "by_triage_band": {
+      "high": 6
+    }
+  },
+  "promotion_summary": {
+    "attempted": 6,
+    "by_status": {
+      "PROMOTED": 5,
+      "PROMOTE_FAILED": 1
+    }
+  },
+  "db_delta": {
+    "candidates": 0,
+    "literature_records": 6,
+    "literature_sources": 5
+  }
+}

@@ -1,0 +1,292 @@
+{
+  "run_id": "20260607T-b12-codex-curated-arxiv-ready-tranche-lit-0170-bundle-export",
+  "generated_at": "2026-06-07T04:29:19.165Z",
+  "literature_id": "LIT-0170",
+  "title": "Embedding-Informed Adaptive Retrieval-Augmented Generation of Large Language Models",
+  "year": 2024,
+  "document": {
+    "id": "e6024710-7e8d-47a9-a59c-45f2325b1e4c",
+    "source_asset_id": "2dc8ac17-0a00-4c9d-b8ce-b0805566ad94",
+    "normalized_text_checksum": "653c045fd1b4ad7cc5b83a776b1163787f3a154a4826c1f9a975dfe726d11e07",
+    "parser_name": "grobid-tei-v1",
+    "parser_version": "1",
+    "status": "READY",
+    "diagnostics": [
+      {
+        "code": "GROBID_TEI_PARSED",
+        "severity": "info",
+        "text_length": 23498,
+        "anchor_count": 132,
+        "endpoint_url": "http://localhost:8070",
+        "section_count": 21,
+        "paragraph_count": 39,
+        "parser_quality_score": 1,
+        "parser_quality_bucket": "high",
+        "parser_quality_inputs": {
+          "page_count": 10,
+          "text_length": 23498,
+          "anchor_count": 132,
+          "section_count": 21,
+          "paragraph_count": 39,
+          "average_paragraph_length": 590
+        }
+      }
+    ]
+  },
+  "section_count": 21,
+  "paragraph_count": 39,
+  "anchor_count": 132,
+  "first_sections": [
+    {
+      "section_id": "sec-1",
+      "title": "Introduction",
+      "level": 1,
+      "order_index": 0
+    },
+    {
+      "section_id": "sec-2",
+      "title": "Embedding-Informed Retrieval",
+      "level": 1,
+      "order_index": 1
+    },
+    {
+      "section_id": "sec-3",
+      "title": "Experimental Setup",
+      "level": 1,
+      "order_index": 2
+    },
+    {
+      "section_id": "sec-4",
+      "title": "Experimental Results",
+      "level": 1,
+      "order_index": 3
+    },
+    {
+      "section_id": "sec-5",
+      "title": "Methods ACC (%) POR(%)",
+      "level": 1,
+      "order_index": 4
+    },
+    {
+      "section_id": "sec-6",
+      "title": "Comparison of Computational Cost to Determine When to Retrieve (RQ2).",
+      "level": 1,
+      "order_index": 5
+    },
+    {
+      "section_id": "sec-7",
+      "title": "Conclusion",
+      "level": 1,
+      "order_index": 6
+    },
+    {
+      "section_id": "sec-8",
+      "title": "Limitations",
+      "level": 1,
+      "order_index": 7
+    },
+    {
+      "section_id": "sec-9",
+      "title": "Ethics Statement",
+      "level": 1,
+      "order_index": 8
+    },
+    {
+      "section_id": "sec-10",
+      "title": "A Related Work",
+      "level": 1,
+      "order_index": 9
+    },
+    {
+      "section_id": "sec-11",
+      "title": "Parametric and Non-parametric Knowledge.",
+      "level": 1,
+      "order_index": 10
+    },
+    {
+      "section_id": "sec-12",
+      "title": "B Embedding-Informed ARAG",
+      "level": 1,
+      "order_index": 11
+    },
+    {
+      "section_id": "sec-13",
+      "title": "C Why the Pre-Trained Embeddings Help?",
+      "level": 1,
+      "order_index": 12
+    },
+    {
+      "section_id": "sec-14",
+      "title": "D Baselines",
+      "level": 1,
+      "order_index": 13
+    },
+    {
+      "section_id": "sec-15",
+      "title": "E Dataset Construction",
+      "level": 1,
+      "order_index": 14
+    },
+    {
+      "section_id": "sec-16",
+      "title": "Body",
+      "level": 1,
+      "order_index": 15
+    },
+    {
+      "section_id": "sec-17",
+      "title": "Body",
+      "level": 1,
+      "order_index": 16
+    },
+    {
+      "section_id": "sec-18",
+      "title": "Body",
+      "level": 1,
+      "order_index": 17
+    },
+    {
+      "section_id": "sec-19",
+      "title": "Body",
+      "level": 1,
+      "order_index": 18
+    },
+    {
+      "section_id": "sec-20",
+      "title": "Body",
+      "level": 1,
+      "order_index": 19
+    }
+  ],
+  "paragraph_samples": [
+    {
+      "paragraph_id": "_sd4k6Vc",
+      "section_id": "sec-1",
+      "order_index": 0,
+      "text": "(Li et al., 2022; Yasunaga et al., 2023; Lin et al., 2022) Retrieval-augmented LLMs have exceled in various NLP tasks. (Mallen et al., 2023) However, it was observedthat the retrieved knowledge might not necessarily improve the quality of a generated response, especially when the model is already knowledgeable on the input query from pretraining. Moreover, the retrieval process can incur additional computational costs and latency, e.g., by significantly increasing the context length."
+    },
+    {
+      "paragraph_id": "_X98TP9V",
+      "section_id": "sec-1",
+      "order_index": 1,
+      "text": "To solve this, Adaptive Retrieval-Augmented Generation (ARAG) dynamically determines whether the LLM has already acquired the knowledge to answer the query during pre-training, then only to retrieve from external corpus when the knowledge required is absent. (Mallen et al., 2023) The pilot work of ARAGonly retrieves if an entity from the query has low frequency in the pre-trained corpus. The LLMs are deemed not knowledgeable on the query if the extracted entities have low frequencies. An obvious"
+    },
+    {
+      "paragraph_id": "_fSk84yr",
+      "section_id": "sec-1",
+      "order_index": 2,
+      "text": "In this work, we propose to decide whether to retrieve by analyzing the LLM pre-trained parameters, which does not require accessing the pretrained data or extra LLM calls. Specifically, we predict whether the external knowledge from retrieval could help, by inspecting the pre-trained embeddings of tokens from the input query. We hypothesize that the pre-trained token embeddings capture rich information on the model's intrinsic knowledge base. (Cai et al., 2020) This stems from previous analysis"
+    },
+    {
+      "paragraph_id": "_3d8TkXM",
+      "section_id": "sec-1",
+      "order_index": 3,
+      "text": "• We hypothesis that the pre-trained LLMs token embeddings capture rich information on the model's intrinsic knowledge base, and propose EI-ARAG to predict the necessity to retrieve based on these embeddings."
+    },
+    {
+      "paragraph_id": "_afqpyKG",
+      "section_id": "sec-1",
+      "order_index": 4,
+      "text": "• Instead of requiring extra LLM calls to judge whether the LLM is knowledgeable on the input, our proposed EI-ARAG shows that we can do it efficiently with the pre-trained token embedding."
+    },
+    {
+      "paragraph_id": "_7cT7eVK",
+      "section_id": "sec-1",
+      "order_index": 5,
+      "text": "• Extensive experiments and in-depth analyses demonstrate the superiority of our approach on various benchmarks."
+    },
+    {
+      "paragraph_id": "_KbUbQ4w",
+      "section_id": "sec-1",
+      "order_index": 6,
+      "text": "(Mallen et al., 2023) To determine when to retrieve, existing methods either need to access pre-training data to calculate entity frequency (e.g., how many times 'Louisiana' appears in pre-training corpus), or require extra inference prompting LLMs to make decision themselves (e.g., \"Do you need to retrive external knowledge to answer the question correctly?\" (Zhang et al., 2024) ). However, (i) relying on the entity frequency restricts the approach, making it suitable only for entitycentric que"
+    },
+    {
+      "paragraph_id": "_hbRjns6",
+      "section_id": "sec-2",
+      "order_index": 7,
+      "text": "While the input embedding layer (i.e.1st layer) contains rich semantic information of each token, later layers of LLMs provide embeddings that are more contextualized on current question. To capture more precisely LLMs' intrinsic knowledge given a specific question, we extract embeddings for each token from the contextualized layers. (Li et al., 2020) We then obtain a sentence embedding for the given question via average pooling following."
+    },
+    {
+      "paragraph_id": "_Jrj4Agf",
+      "section_id": "sec-2",
+      "order_index": 8,
+      "text": "Formally, given a question q ∼ Q, we tokenize it with tokenizer T and subsequently convert into a token embedding sequence, embed 1st (T(q)). We hypothesize that embed 1st (T(q)) encapsulates intrinsic knowledge of LLMs on the question q. To predict whether the LLM is already knowledge on q, we train a classifier C : Q → Y ∈ {0, 1} whose prediction is y ∈ Y , where y = 1 indicates the need for retrieval augmentation, and y ′ i = 0 indicates otherwise. Specifically, we have,"
+    },
+    {
+      "paragraph_id": "_7PfUHfW",
+      "section_id": "sec-2",
+      "order_index": 9,
+      "text": "where C is a neural network. We denoted its training set as D = {q i , y i } N i=1 . The question q i is randomly sampled from the original training split of datasets. The label y i is determined by inferencing twice with the LLM on q i , one with retrieval and one without retrieval. We determine y i = 1 if the result with retrieval is better than not. During the test, we only retrieve when C predicts 1."
+    },
+    {
+      "paragraph_id": "_xAn75fp",
+      "section_id": "sec-2",
+      "order_index": 10,
+      "text": "1 (Cai et al., 2021) To validate our hypothesis that the pre-trained embeddings contains rich information on the intrinsic knowledge, we visualize in Figurethe embeddings of entities in different layers of LLaMA 2 7B and color them based on the logarithmic entity frequency associated in each question following. We can observe that at the 0th layer, i.e., the input embedding layer, the embeddings is less discriminative in terms of the frequency. (Mallen et al., 2023) While on higher layers, we ob"
+    },
+    {
+      "paragraph_id": "_Qh47nRM",
+      "section_id": "sec-3",
+      "order_index": 11,
+      "text": "In this section, we describe the datasets, baselines, metrics, and implementation details of our experiments. The experiments are designed to answer the following research questions:"
+    },
+    {
+      "paragraph_id": "_TXNqDNJ",
+      "section_id": "sec-3",
+      "order_index": 12,
+      "text": "RQ1: Can our method effectively decide when to retrieve for ARAG? How does it perform compared to state-of-the-art baselines?"
+    },
+    {
+      "paragraph_id": "_Xwnr7yW",
+      "section_id": "sec-3",
+      "order_index": 13,
+      "text": "RQ2: Is using embeddings more computationally efficient than prompting-based methods?"
+    },
+    {
+      "paragraph_id": "_ryu3YNv",
+      "section_id": "sec-3",
+      "order_index": 14,
+      "text": "RQ3: What kinds of knowledge are captured from the embeddings to decide when to retrieve? The extensive discussion in Section C has already answered RQ3 where we find contextualized em-beddings to reflect LLM instrinsic knowledge similarly as entity frequency."
+    },
+    {
+      "paragraph_id": "_w3CnzF9",
+      "section_id": "sec-3",
+      "order_index": 15,
+      "text": "Datasets. (Mallen et al., 2023; Zhang et al., 2024) Following the evaluation in, we verify the effectiveness of our proposed framework on two open-domain QA datasets (Entity QA dataset and Non-entity QA dataset) to answer our research questions. Please refer to Appendix E for details. Baselines. (Mallen et al., 2023) 2 We compare our EI-ARAG against relevant baselines, including: (1) Simple Full Retrieval;((5) Adaptive-RAG w/ Oracle: using the Oracle classifier with our Adaptive-RAG, which inclu"
+    },
+    {
+      "paragraph_id": "_FN8qDH4",
+      "section_id": "sec-3",
+      "order_index": 16,
+      "text": "Evaluation Metrics. (Mallen et al., 2023; Zhang et al., 2024) Following similar settings as, we report the results with (i) retrieval Accuracy (ACC), which evaluates how well LLMs can perform adaptive retrieval and (ii) Percentage of Retrieval (POR) which assesses the efficiency of implementing adaptive retrieval. Accuracy measures the proportion of the predicted answer containing the ground-truth answer. Percentage of Retrieval quantifies the proportion of instances in which ARAG methods opt to"
+    },
+    {
+      "paragraph_id": "_xJEYT4g",
+      "section_id": "sec-4",
+      "order_index": 17,
+      "text": "Entity-centric QA (RQ1). 1 As shown in Table, we can observe that: (i) The simple No Retrieval method yields the lowest accuracy, highlighting the importance of incorporating external knowledge for enhanced response quality. Conversely, Full Retrieval shows a significant improvement in accuracy, affirming the benefit of external data. Among adaptive retrieval methods, DARAG, which is a prompting-based method, shows varied performance. Unfortunately, since GPT-Neo is not a chat model, DARAG tends"
+    },
+    {
+      "paragraph_id": "_asvrQ37",
+      "section_id": "sec-5",
+      "order_index": 18,
+      "text": "(Mallen et al., 2023) (Zhang et al., 2024) (Zhang et al., 2024) No Retrieval 47.33 0 Full Retrieval 62.33 100 DARAGN/A N/A PARAG-Vanilla61.78 97.67 PARAG-TAARE62.33 98.56 EI-ARAG (Ours) 62.67 92.11"
+    },
+    {
+      "paragraph_id": "_MWbZHZe",
+      "section_id": "sec-5",
+      "order_index": 19,
+      "text": "4 2 Adaptive-RAG w/ Oracle 68.56 52.67 Tableand Figure, we also run additional experiments and report the results on PopQA, with varying layers when extracting the latent embeddings from LLaMA 2 7B. Non Entity-centric QA (RQ1). In this subsection, we show the overall experimental results and offer in-depth analyses of our method in the nonentity-centric dataset TriviaQA. 2 3 The main results as shown in Tableand the error analysis of our EI-ARAG are shown in Figure. It is worth noting that DARAG"
+    }
+  ],
+  "export_policy": {
+    "accepted_curation_sources": [
+      "codex_curated",
+      "manual_curated"
+    ],
+    "required_schema_version": "key_content.v1",
+    "required_extraction_profile": "paper_semantic_dossier.v1",
+    "require_resolvable_source_refs": true
+  }
+}

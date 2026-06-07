@@ -637,3 +637,37 @@
   - arXiv canary had provider-level fetch/timeout failure in this local run.
   - Semantic Scholar canary returned `429` without API key.
   - do not run full 500-800 scaleout until these provider behaviors are resolved or explicitly disabled.
+
+## 2026-06-07 - D24 B11 ArXiv-Ready RAG Tranche
+- Target:
+  - selected six `READY_FOR_PROMOTION` candidates with strong arXiv fulltext availability and RAG-aware allocation relevance.
+  - explicit candidate selection used `B11_CANDIDATE_IDS` to avoid reprocessing unrelated ready candidates.
+- Promotion:
+  - dry-run kept all six candidates at `READY_FOR_PROMOTION`.
+  - apply/promote created `LIT-0167` through `LIT-0172`.
+  - five promotions completed normally; `Vendi-RAG` created `LIT-0172` but failed source creation on a sparse-ID `LSRC-*` collision.
+- Reconcile:
+  - reconciled `LIT-0172` by adding source `LSRC-0363`, creating the missing pipeline state, and linking candidate `ecb298b8-e372-434d-bd6d-9186a90a6e56` as `PROMOTED`.
+  - batch status counts after reconcile: 20 `PROMOTED`, 20 `READY_FOR_PROMOTION`, 9 `DUPLICATE`, 9 `DEFERRED`, 4 `REJECTED`.
+- Code hardening:
+  - `LiteratureService` now allocates `LIT-*` and `LSRC-*` from the maximum existing numeric suffix instead of table counts.
+  - added a sparse high-water unit test covering `LIT-0349` and `LSRC-0363` pre-existing IDs.
+
+## 2026-06-07 - D25 B12 ArXiv-Ready RAG Tranche
+- Standard pipeline:
+  - B12 standard apply normalized citation and abstract for all six records.
+  - initial fulltext preprocessing blocked with `FULLTEXT_SOURCE_MISSING`, as expected before acquisition.
+- Fulltext acquisition and preprocessing:
+  - acquisition dry-run planned six arXiv downloads and 0 blockers.
+  - acquisition apply succeeded for all six records and created six content assets.
+  - fulltext preprocessing apply succeeded for all six records and created six ready fulltext documents.
+- Curation/backfill:
+  - exported curation bundles for `LIT-0167` through `LIT-0172`.
+  - generated source-grounded `codex_curated` dossiers from parsed fulltext paragraphs.
+  - dossier dry-run imports passed for all six records with `valid=true`, no issues, and `repaired_source_ref_count=0`.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all six records and reported 0 LLM gateway calls.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=6`.
+  - index apply succeeded with six items and no timeout cleanup.
+- Counting:
+  - final B13 reports candidate pool 62, managed corpus 163, effective literature 163, incomplete 0, blocked 0, not started 0, excluded non-corpus 9.
+  - all currently managed corpus records are effective at this checkpoint.

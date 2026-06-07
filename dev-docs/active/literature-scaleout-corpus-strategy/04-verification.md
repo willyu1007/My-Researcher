@@ -641,6 +641,83 @@
   - governance sync completed.
   - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
 
+### 2026-06-07 - D24 B11 ArXiv-Ready RAG Tranche
+- Status: completed; six RAG-aware arXiv-backed candidates were promoted and the one partial Vendi-RAG promotion was reconciled.
+- Files:
+  - `artifacts/20260607T-b11-arxiv-ready-tranche-dry-run-b11-candidate-triage-report.json`
+  - `artifacts/20260607T-b11-arxiv-ready-tranche-dry-run-b11-candidate-decisions.json`
+  - `artifacts/20260607T-b11-arxiv-ready-tranche-apply-promote-b11-candidate-triage-report.json`
+  - `artifacts/20260607T-b11-arxiv-ready-tranche-apply-promote-b11-candidate-decisions.json`
+  - `artifacts/20260607T-b11-arxiv-ready-tranche-vendi-reconcile.json`
+  - `artifacts/20260607T-after-b11-arxiv-ready-tranche-reconcile.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-arxiv-ready-tranche-dry-run B11_CANDIDATE_STATUS=READY_FOR_PROMOTION B11_CANDIDATE_IDS=... B11_MAX_CANDIDATES=6 B11_MAX_PROMOTIONS=6 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-arxiv-ready-tranche-apply-promote B11_CANDIDATE_STATUS=READY_FOR_PROMOTION B11_CANDIDATE_IDS=... B11_MAX_CANDIDATES=6 B11_MAX_PROMOTIONS=6 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs --apply --promote`
+  - `node --env-file=.env.local --input-type=module - <<'NODE' ... reconcile Vendi-RAG partial promotion ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260607T-after-b11-arxiv-ready-tranche-reconcile node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - dry-run selected six candidates and kept all six `READY_FOR_PROMOTION`.
+  - apply/promote attempted six promotions, created `LIT-0167` through `LIT-0172`, and wrote five sources normally.
+  - `LIT-0172` was created but source creation failed on a sparse-ID `LSRC-*` collision; candidate remained `READY_FOR_PROMOTION` before reconcile.
+  - reconcile created source `LSRC-0363`, initialized the missing pipeline state, and linked candidate `ecb298b8-e372-434d-bd6d-9186a90a6e56` to `LIT-0172` as `PROMOTED`.
+  - B13 after reconcile reported candidate pool 62, promoted candidates 20, ready candidates 20, managed corpus 163, effective literature 157, incomplete 6, blocked 0, not started 6.
+
+### 2026-06-07 - D25 B12 ArXiv-Ready RAG Tranche
+- Status: completed; `LIT-0167` through `LIT-0172` reached `INDEXED` through arXiv acquisition and source-grounded `codex_curated` dossiers.
+- Files:
+  - `artifacts/20260607T-b12-arxiv-ready-tranche-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `artifacts/20260607T-b12-arxiv-ready-tranche-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `artifacts/20260607T-b12-arxiv-ready-tranche-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `artifacts/20260607T-b12-codex-curated-arxiv-ready-tranche-dossier-dry-run.json`
+  - `artifacts/20260607T-b12-codex-curated-arxiv-ready-tranche-dossier-import.json`
+  - `artifacts/20260607T-b12-codex-curated-arxiv-ready-tranche-index-apply-b12-content-backfill-pilot-report.json`
+  - `artifacts/20260607T-after-b12-codex-curated-arxiv-ready-tranche-index-state.json`
+  - `artifacts/20260607T-after-b12-codex-curated-arxiv-ready-tranche-index.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260607T-b12-arxiv-ready-tranche-standard-apply B12_LITERATURE_IDS=LIT-0167,LIT-0168,LIT-0169,LIT-0170,LIT-0171,LIT-0172 B12_MAX_RECORDS=6 B12_POLL_TIMEOUT_MS=60000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260607T-b12-arxiv-ready-tranche-acquisition-apply B12_LITERATURE_IDS=LIT-0167,LIT-0168,LIT-0169,LIT-0170,LIT-0171,LIT-0172 B12_MAX_RECORDS=6 B12_ACQUISITION_PROVIDER_CALL_BUDGET=20 B12_ACQUISITION_POLL_TIMEOUT_MS=300000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260607T-b12-arxiv-ready-tranche-fulltext-preprocess-apply B12_LITERATURE_IDS=LIT-0167,LIT-0168,LIT-0169,LIT-0170,LIT-0171,LIT-0172 B12_STAGES=FULLTEXT_PREPROCESSED B12_MAX_RECORDS=6 B12_POLL_TIMEOUT_MS=180000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module - <<'NODE' ... export bundles, build source-grounded codex_curated dossiers, and dry-run import ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module - <<'NODE' ... import codex_curated dossiers and write post-import state ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-codex-curated-arxiv-ready-tranche-index-apply B12_LITERATURE_IDS=LIT-0167,LIT-0168,LIT-0169,LIT-0170,LIT-0171,LIT-0172 B12_BACKFILL_TARGET_STAGE=INDEXED B12_MAX_RECORDS=6 B12_BACKFILL_PROVIDER_CALL_BUDGET=12 B12_BACKFILL_POLL_TIMEOUT_MS=900000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260607T-after-b12-codex-curated-arxiv-ready-tranche-index node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - standard apply created six runs, all `PARTIAL`: citation and abstract `SUCCEEDED`, fulltext preprocessing `BLOCKED` with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition apply succeeded for all six records and created six content assets.
+  - fulltext preprocessing apply succeeded for all six records and created six fulltext documents.
+  - dossier dry-run imports returned `valid=true`, `readiness_status=READY`, no issues, and `repaired_source_ref_count=0` for all six records.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all six records and reported 0 LLM gateway calls.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=6`.
+  - index apply succeeded: job totals 6 succeeded, 0 failed, 0 blocked, no timeout cleanup.
+  - final state probe found all seven standard stages `SUCCEEDED` for all six records.
+  - active embedding chunk counts: `LIT-0167` 82, `LIT-0168` 236, `LIT-0169` 178, `LIT-0170` 69, `LIT-0171` 75, `LIT-0172` 112.
+  - final B13 reports candidate pool 62, candidate ready-for-promotion 20, candidate promoted 20, managed corpus 163, effective literature 163, incomplete 0, blocked 0, not started 0, excluded non-corpus 9.
+
+### 2026-06-07 - D26 Sparse Literature/Source ID Hardening
+- Status: completed.
+- Code:
+  - `apps/backend/src/services/literature-service.ts`
+  - `apps/backend/src/repositories/literature-repository.ts`
+  - `apps/backend/src/repositories/prisma/prisma-literature-repository.ts`
+  - `apps/backend/src/repositories/prisma/literature/prisma-literature-core-store.ts`
+  - `apps/backend/src/repositories/in-memory-literature-repository.ts`
+  - `apps/backend/src/services/literature-service.unit.test.ts`
+- Commands:
+  - `cd apps/backend && node --test --loader ts-node/esm src/services/literature-service.unit.test.ts`
+  - `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - targeted literature-service test passed 16/16.
+  - sparse high-water unit test verifies that existing `LIT-0349` and `LSRC-0363` produce new `LIT-0350` and `LSRC-0364`.
+  - backend typecheck passed.
+  - database suite passed.
+  - B11/B12/B13 script syntax checks passed.
+
 ### 2026-06-06 - D15 B12 Standard-Pipeline Pilot
 - Status: completed.
 - Files:

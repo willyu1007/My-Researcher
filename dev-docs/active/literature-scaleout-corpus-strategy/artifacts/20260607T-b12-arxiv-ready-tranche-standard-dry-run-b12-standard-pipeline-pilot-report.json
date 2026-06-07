@@ -1,0 +1,305 @@
+{
+  "run_id": "20260607T-b12-arxiv-ready-tranche-standard-dry-run",
+  "generated_at": "2026-06-07T04:23:34.072Z",
+  "mode": "dry-run",
+  "selection": {
+    "batch_id_filter": null,
+    "batch_code_filter": null,
+    "explicit_literature_ids": [
+      "LIT-0167",
+      "LIT-0168",
+      "LIT-0169",
+      "LIT-0170",
+      "LIT-0171",
+      "LIT-0172"
+    ],
+    "max_records": 6,
+    "selected_records": 6
+  },
+  "pipeline": {
+    "trigger_source": "BACKFILL",
+    "requested_stages": [
+      "CITATION_NORMALIZED",
+      "ABSTRACT_READY",
+      "FULLTEXT_PREPROCESSED"
+    ],
+    "poll_interval_ms": 250,
+    "poll_timeout_ms": 60000,
+    "writes_enabled": false
+  },
+  "summary": {
+    "selected_records": 6,
+    "pipeline_runs_created": 0,
+    "run_status_counts": {},
+    "timed_out_runs": 0,
+    "requested_stage_status_counts": {
+      "CITATION_NORMALIZED": {
+        "NOT_STARTED": 6
+      },
+      "ABSTRACT_READY": {
+        "NOT_STARTED": 6
+      },
+      "FULLTEXT_PREPROCESSED": {
+        "NOT_STARTED": 6
+      }
+    },
+    "blocker_counts": {},
+    "records_with_content_assets": 0,
+    "records_with_fulltext_documents": 0
+  },
+  "selected_literature": [
+    {
+      "literature_id": "LIT-0167",
+      "title": "Adaptive Retrieval-Augmented Generation for Conversational Systems",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:rag-aware-allocation",
+        "collection:core",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": null,
+      "candidate_batch_id": null,
+      "candidate_batch_code": null,
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4402534392",
+          "source_url": "https://arxiv.org/abs/2407.21712"
+        }
+      ],
+      "content_asset_count": 0,
+      "fulltext_document_count": 0,
+      "latest_runs": [],
+      "stages": {
+        "CITATION_NORMALIZED": "NOT_STARTED",
+        "ABSTRACT_READY": "NOT_STARTED",
+        "FULLTEXT_PREPROCESSED": "NOT_STARTED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "CITATION_NORMALIZED": {},
+        "ABSTRACT_READY": {},
+        "FULLTEXT_PREPROCESSED": {}
+      },
+      "blocker": null
+    },
+    {
+      "literature_id": "LIT-0168",
+      "title": "CDF-RAG: Causal Dynamic Feedback for Adaptive Retrieval-Augmented Generation",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:rag-aware-allocation",
+        "collection:core",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": null,
+      "candidate_batch_id": null,
+      "candidate_batch_code": null,
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4417089546",
+          "source_url": "https://arxiv.org/abs/2504.12560"
+        }
+      ],
+      "content_asset_count": 0,
+      "fulltext_document_count": 0,
+      "latest_runs": [],
+      "stages": {
+        "CITATION_NORMALIZED": "NOT_STARTED",
+        "ABSTRACT_READY": "NOT_STARTED",
+        "FULLTEXT_PREPROCESSED": "NOT_STARTED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "CITATION_NORMALIZED": {},
+        "ABSTRACT_READY": {},
+        "FULLTEXT_PREPROCESSED": {}
+      },
+      "blocker": null
+    },
+    {
+      "literature_id": "LIT-0169",
+      "title": "CtrlA: Adaptive Retrieval-Augmented Generation via Inherent Control",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:rag-aware-allocation",
+        "collection:core",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": null,
+      "candidate_batch_id": null,
+      "candidate_batch_code": null,
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4399198064",
+          "source_url": "https://arxiv.org/abs/2405.18727"
+        }
+      ],
+      "content_asset_count": 0,
+      "fulltext_document_count": 0,
+      "latest_runs": [],
+      "stages": {
+        "CITATION_NORMALIZED": "NOT_STARTED",
+        "ABSTRACT_READY": "NOT_STARTED",
+        "FULLTEXT_PREPROCESSED": "NOT_STARTED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "CITATION_NORMALIZED": {},
+        "ABSTRACT_READY": {},
+        "FULLTEXT_PREPROCESSED": {}
+      },
+      "blocker": null
+    },
+    {
+      "literature_id": "LIT-0170",
+      "title": "Embedding-Informed Adaptive Retrieval-Augmented Generation of Large Language Models",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:rag-aware-allocation",
+        "collection:core",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": null,
+      "candidate_batch_id": null,
+      "candidate_batch_code": null,
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4394007585",
+          "source_url": "https://arxiv.org/abs/2404.03514"
+        }
+      ],
+      "content_asset_count": 0,
+      "fulltext_document_count": 0,
+      "latest_runs": [],
+      "stages": {
+        "CITATION_NORMALIZED": "NOT_STARTED",
+        "ABSTRACT_READY": "NOT_STARTED",
+        "FULLTEXT_PREPROCESSED": "NOT_STARTED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "CITATION_NORMALIZED": {},
+        "ABSTRACT_READY": {},
+        "FULLTEXT_PREPROCESSED": {}
+      },
+      "blocker": null
+    },
+    {
+      "literature_id": "LIT-0171",
+      "title": "MBA-RAG: a Bandit Approach for Adaptive Retrieval-Augmented Generation through Question Complexity",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:rag-aware-allocation",
+        "collection:core",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": null,
+      "candidate_batch_id": null,
+      "candidate_batch_code": null,
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4405033124",
+          "source_url": "https://arxiv.org/abs/2412.01572"
+        }
+      ],
+      "content_asset_count": 0,
+      "fulltext_document_count": 0,
+      "latest_runs": [],
+      "stages": {
+        "CITATION_NORMALIZED": "NOT_STARTED",
+        "ABSTRACT_READY": "NOT_STARTED",
+        "FULLTEXT_PREPROCESSED": "NOT_STARTED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "CITATION_NORMALIZED": {},
+        "ABSTRACT_READY": {},
+        "FULLTEXT_PREPROCESSED": {}
+      },
+      "blocker": null
+    },
+    {
+      "literature_id": "LIT-0172",
+      "title": "Vendi-RAG: Adaptively Trading-Off Diversity And Quality Significantly Improves Retrieval Augmented Generation With LLMs",
+      "rights_class": "UNKNOWN",
+      "tags": [
+        "corpus:managed",
+        "direction:rag-aware-allocation",
+        "collection:core",
+        "batch:B10-20260606T-b10-openalex-pilot-apply",
+        "triage:high",
+        "candidate-batch:B10-20260606T-b10-openalex-pilot-apply"
+      ],
+      "candidate_id": null,
+      "candidate_batch_id": null,
+      "candidate_batch_code": null,
+      "source_count": 1,
+      "sources": [
+        {
+          "provider": "web",
+          "source_item_id": "openalex:W4407691690",
+          "source_url": "https://arxiv.org/abs/2502.11228"
+        }
+      ],
+      "content_asset_count": 0,
+      "fulltext_document_count": 0,
+      "latest_runs": [],
+      "stages": {
+        "CITATION_NORMALIZED": "NOT_STARTED",
+        "ABSTRACT_READY": "NOT_STARTED",
+        "FULLTEXT_PREPROCESSED": "NOT_STARTED",
+        "KEY_CONTENT_READY": "NOT_STARTED",
+        "CHUNKED": "NOT_STARTED",
+        "EMBEDDED": "NOT_STARTED",
+        "INDEXED": "NOT_STARTED"
+      },
+      "requested_stage_details": {
+        "CITATION_NORMALIZED": {},
+        "ABSTRACT_READY": {},
+        "FULLTEXT_PREPROCESSED": {}
+      },
+      "blocker": null
+    }
+  ],
+  "executions": []
+}

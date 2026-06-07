@@ -592,6 +592,7 @@ export interface LiteratureRepository {
   countLiteratureSources(): Promise<number>;
   countTopicScopes(): Promise<number>;
   countPaperLiteratureLinks(): Promise<number>;
+  listLiteratureSourceIds(): Promise<string[]>;
 
   createLiterature(record: LiteratureRecord): Promise<LiteratureRecord>;
   updateLiterature(record: LiteratureRecord): Promise<LiteratureRecord>;

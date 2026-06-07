@@ -1,0 +1,1119 @@
+{
+  "run_id": "20260607T-b12-codex-curated-arxiv-ready-tranche-post-import-state",
+  "generated_at": "2026-06-07T04:29:43.974Z",
+  "literature_ids": [
+    "LIT-0167",
+    "LIT-0168",
+    "LIT-0169",
+    "LIT-0170",
+    "LIT-0171",
+    "LIT-0172"
+  ],
+  "states": [
+    {
+      "literature_id": "LIT-0167",
+      "stage_states": [
+        {
+          "stage_code": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "last_run_id": "642fb8e2-de17-4f72-bb5b-59d65c85f7d6",
+          "detail": {
+            "confidence": 1,
+            "stage_code": "CITATION_NORMALIZED",
+            "parsed_year": 2024,
+            "source_refs": [
+              {
+                "provider": "web",
+                "ref_type": "literature_source",
+                "source_id": "LSRC-0176",
+                "fetched_at": "2026-06-07T04:18:17.780Z",
+                "source_url": "https://arxiv.org/abs/2407.21712",
+                "source_item_id": "openalex:W4402534392"
+              }
+            ],
+            "input_checksum": "64c8861f14e9a4e33c292d9b7b815b22adb4802cff87e250f1c3b967d9b36cf4",
+            "normalized_doi": "10.48550/arxiv.2407.21712",
+            "normalized_title": "adaptive retrieval augmented generation for conversational systems",
+            "citation_complete": true,
+            "normalized_authors": [
+              "emine yilmaz",
+              "procheta sen",
+              "ruizhe li",
+              "xi wang"
+            ],
+            "citation_profile_id": "0fe558a8-3d85-445c-ba0c-7eb4ed3cc8df",
+            "normalized_arxiv_id": "2407.21712",
+            "normalized_source_url": "https://arxiv.org/abs/2407.21712",
+            "incomplete_reason_codes": [],
+            "title_authors_year_hash": "fb2b2395d30b077a663dec404872dd1ddd5aaeec"
+          },
+          "updated_at": "2026-06-07T04:23:40.838Z"
+        },
+        {
+          "stage_code": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": "642fb8e2-de17-4f72-bb5b-59d65c85f7d6",
+          "detail": {
+            "source": "collection_metadata",
+            "checksum": "3c48f73c2286aad4185e0913ace12e0c030d0210d0fea1c502d623f85596cc3c",
+            "language": "en",
+            "generated": false,
+            "confidence": 0.95,
+            "source_ref": {
+              "field": "rawPayload.abstract",
+              "provider": "web",
+              "ref_type": "literature_source",
+              "source_id": "LSRC-0176",
+              "fetched_at": "2026-06-07T04:18:17.780Z",
+              "source_url": "https://arxiv.org/abs/2407.21712",
+              "source_item_id": "openalex:W4402534392"
+            },
+            "stage_code": "ABSTRACT_READY",
+            "reason_codes": [],
+            "abstract_ready": true,
+            "abstract_profile_id": "4789a2f2-2b04-4c32-b6eb-a904f463f4bc"
+          },
+          "updated_at": "2026-06-07T04:23:40.857Z"
+        },
+        {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "last_run_id": "cbc63773-627e-4692-9cff-821dbd6e41a0",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "GROBID_TEI_PARSED",
+                "severity": "info",
+                "text_length": 38993,
+                "anchor_count": 120,
+                "endpoint_url": "http://localhost:8070",
+                "section_count": 22,
+                "paragraph_count": 54,
+                "parser_quality_score": 1,
+                "parser_quality_bucket": "high",
+                "parser_quality_inputs": {
+                  "page_count": 12,
+                  "text_length": 38993,
+                  "anchor_count": 120,
+                  "section_count": 22,
+                  "paragraph_count": 54,
+                  "average_paragraph_length": 710
+                }
+              }
+            ],
+            "document_id": "4360e4c6-f1ac-4170-99aa-c195b1e71aab",
+            "text_length": 39068,
+            "anchor_count": 120,
+            "artifact_type": "PREPROCESSED_TEXT",
+            "section_count": 22,
+            "paragraph_count": 54,
+            "source_asset_id": "5c4e8f53-d4f3-42d3-a80f-027bbc58b64a",
+            "normalized_text_checksum": "7ae9b1bcbcf551011942ec152885691b502c549b29c4defc81b4677d8cd8df62"
+          },
+          "updated_at": "2026-06-07T04:24:31.658Z"
+        },
+        {
+          "stage_code": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": null,
+          "detail": {
+            "source": "codex_curated",
+            "checksum": "02adbdbba02b0e8f7087fa3ab5c4e0a23642ea9b546c524deea866cf910d6b15",
+            "generated": true,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "a434097f-696b-49aa-8614-7958c8b7989c",
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_ARXIV_READY_TRANCHE",
+                "run_id": "20260607T-b12-codex-curated-arxiv-ready-tranche",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T04:29:43.815Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ],
+            "readiness_status": "READY",
+            "key_content_ready": true
+          },
+          "updated_at": "2026-06-07T04:29:43.815Z"
+        },
+        {
+          "stage_code": "CHUNKED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:40.792Z"
+        },
+        {
+          "stage_code": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:40.792Z"
+        },
+        {
+          "stage_code": "INDEXED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:40.792Z"
+        }
+      ],
+      "state": {
+        "literature_id": "LIT-0167",
+        "citation_complete": true,
+        "abstract_ready": true,
+        "key_content_ready": true,
+        "fulltext_preprocessed": true,
+        "chunked": false,
+        "embedded": false,
+        "indexed": false,
+        "dedup_status": "unique",
+        "updated_at": "2026-06-07T04:29:43.854Z"
+      }
+    },
+    {
+      "literature_id": "LIT-0168",
+      "stage_states": [
+        {
+          "stage_code": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "last_run_id": "78692f84-53e1-4201-ae71-64b737ecf6ad",
+          "detail": {
+            "confidence": 1,
+            "stage_code": "CITATION_NORMALIZED",
+            "parsed_year": 2025,
+            "source_refs": [
+              {
+                "provider": "web",
+                "ref_type": "literature_source",
+                "source_id": "LSRC-0177",
+                "fetched_at": "2026-06-07T04:18:17.817Z",
+                "source_url": "https://arxiv.org/abs/2504.12560",
+                "source_item_id": "openalex:W4417089546"
+              }
+            ],
+            "input_checksum": "e18f9d751d35df05ad8544ec25b8f2e31ff05ad9ed50e888c67e5c868b5f6c44",
+            "normalized_doi": "10.48550/arxiv.2504.12560",
+            "normalized_title": "cdf rag causal dynamic feedback for adaptive retrieval augmented generation",
+            "citation_complete": true,
+            "normalized_authors": [
+              "amir m rahmani",
+              "elahe khatibi",
+              "ziyu wang"
+            ],
+            "citation_profile_id": "238704a9-fc07-4f90-886a-b8476088b7c8",
+            "normalized_arxiv_id": "2504.12560",
+            "normalized_source_url": "https://arxiv.org/abs/2504.12560",
+            "incomplete_reason_codes": [],
+            "title_authors_year_hash": "781028b5147a6f2e02173667e8594a5efadf2687"
+          },
+          "updated_at": "2026-06-07T04:23:41.115Z"
+        },
+        {
+          "stage_code": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": "78692f84-53e1-4201-ae71-64b737ecf6ad",
+          "detail": {
+            "source": "collection_metadata",
+            "checksum": "7e6a5c0be51c6d69c91cc9833cd16a28d68047dd2b201b23263f623e8c66acf1",
+            "language": "en",
+            "generated": false,
+            "confidence": 0.95,
+            "source_ref": {
+              "field": "rawPayload.abstract",
+              "provider": "web",
+              "ref_type": "literature_source",
+              "source_id": "LSRC-0177",
+              "fetched_at": "2026-06-07T04:18:17.817Z",
+              "source_url": "https://arxiv.org/abs/2504.12560",
+              "source_item_id": "openalex:W4417089546"
+            },
+            "stage_code": "ABSTRACT_READY",
+            "reason_codes": [],
+            "abstract_ready": true,
+            "abstract_profile_id": "6b8d8658-e9cb-489f-a40f-d0df4b201af4"
+          },
+          "updated_at": "2026-06-07T04:23:41.134Z"
+        },
+        {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "last_run_id": "a42fb00c-80de-4289-aa7a-041af20b4e2e",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "GROBID_TEI_PARSED",
+                "severity": "info",
+                "text_length": 58191,
+                "anchor_count": 145,
+                "endpoint_url": "http://localhost:8070",
+                "section_count": 50,
+                "paragraph_count": 180,
+                "parser_quality_score": 1,
+                "parser_quality_bucket": "high",
+                "parser_quality_inputs": {
+                  "page_count": 17,
+                  "text_length": 58191,
+                  "anchor_count": 145,
+                  "section_count": 50,
+                  "paragraph_count": 180,
+                  "average_paragraph_length": 314
+                }
+              }
+            ],
+            "document_id": "c62f45fd-2004-4f96-a8df-16a4224634e9",
+            "text_length": 58420,
+            "anchor_count": 145,
+            "artifact_type": "PREPROCESSED_TEXT",
+            "section_count": 50,
+            "paragraph_count": 180,
+            "source_asset_id": "de2757d7-72ed-444a-9252-a6e122e1ac20",
+            "normalized_text_checksum": "450c579455a3a43c4545bf952939e306c4ffca06fef2aca0c116e685d1d2e5bb"
+          },
+          "updated_at": "2026-06-07T04:24:34.036Z"
+        },
+        {
+          "stage_code": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": null,
+          "detail": {
+            "source": "codex_curated",
+            "checksum": "a797675fce7ee05240b03722c07f89a4db8dedb84887e28a02a58b65b72e5687",
+            "generated": true,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "160bc052-e129-49d3-b500-d8d7c2a6760a",
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_ARXIV_READY_TRANCHE",
+                "run_id": "20260607T-b12-codex-curated-arxiv-ready-tranche",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T04:29:43.869Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ],
+            "readiness_status": "READY",
+            "key_content_ready": true
+          },
+          "updated_at": "2026-06-07T04:29:43.869Z"
+        },
+        {
+          "stage_code": "CHUNKED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.066Z"
+        },
+        {
+          "stage_code": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.066Z"
+        },
+        {
+          "stage_code": "INDEXED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.066Z"
+        }
+      ],
+      "state": {
+        "literature_id": "LIT-0168",
+        "citation_complete": true,
+        "abstract_ready": true,
+        "key_content_ready": true,
+        "fulltext_preprocessed": true,
+        "chunked": false,
+        "embedded": false,
+        "indexed": false,
+        "dedup_status": "unique",
+        "updated_at": "2026-06-07T04:29:43.882Z"
+      }
+    },
+    {
+      "literature_id": "LIT-0169",
+      "stage_states": [
+        {
+          "stage_code": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "last_run_id": "e534d27d-145c-4820-a5a4-c571f27bc8a5",
+          "detail": {
+            "confidence": 1,
+            "stage_code": "CITATION_NORMALIZED",
+            "parsed_year": 2024,
+            "source_refs": [
+              {
+                "provider": "web",
+                "ref_type": "literature_source",
+                "source_id": "LSRC-0178",
+                "fetched_at": "2026-06-07T04:18:17.838Z",
+                "source_url": "https://arxiv.org/abs/2405.18727",
+                "source_item_id": "openalex:W4399198064"
+              }
+            ],
+            "input_checksum": "50c0a50fb18d4bc60bae3aaa33f9253d5d45797ca83f31155244901a7b150966",
+            "normalized_doi": "10.48550/arxiv.2405.18727",
+            "normalized_title": "ctrla adaptive retrieval augmented generation via inherent control",
+            "citation_complete": true,
+            "normalized_authors": [
+              "cong zhang",
+              "hao zhang",
+              "huanshuo liu",
+              "kuicai dong",
+              "wang jing",
+              "xiang yang li",
+              "yi quan lee",
+              "yong liu",
+              "zhijiang guo"
+            ],
+            "citation_profile_id": "eae83f32-9b7b-4075-af63-6ad1e6291e8d",
+            "normalized_arxiv_id": "2405.18727",
+            "normalized_source_url": "https://arxiv.org/abs/2405.18727",
+            "incomplete_reason_codes": [],
+            "title_authors_year_hash": "f04c08d5425e4c864ae24a1ce9fd81756566bacc"
+          },
+          "updated_at": "2026-06-07T04:23:41.405Z"
+        },
+        {
+          "stage_code": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": "e534d27d-145c-4820-a5a4-c571f27bc8a5",
+          "detail": {
+            "source": "collection_metadata",
+            "checksum": "553e343a9715946a9cbca6ad868a592ebdc5af600c9f42e30b84837155f20812",
+            "language": "en",
+            "generated": false,
+            "confidence": 0.95,
+            "source_ref": {
+              "field": "rawPayload.abstract",
+              "provider": "web",
+              "ref_type": "literature_source",
+              "source_id": "LSRC-0178",
+              "fetched_at": "2026-06-07T04:18:17.838Z",
+              "source_url": "https://arxiv.org/abs/2405.18727",
+              "source_item_id": "openalex:W4399198064"
+            },
+            "stage_code": "ABSTRACT_READY",
+            "reason_codes": [],
+            "abstract_ready": true,
+            "abstract_profile_id": "3c5a9393-681c-45e2-bc33-0f0df52181b6"
+          },
+          "updated_at": "2026-06-07T04:23:41.442Z"
+        },
+        {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "last_run_id": "c7fd45bd-1fbb-485d-b3d6-c09ed2c241b2",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "GROBID_TEI_PARSED",
+                "severity": "info",
+                "text_length": 63765,
+                "anchor_count": 320,
+                "endpoint_url": "http://localhost:8070",
+                "section_count": 55,
+                "paragraph_count": 120,
+                "parser_quality_score": 1,
+                "parser_quality_bucket": "high",
+                "parser_quality_inputs": {
+                  "page_count": 28,
+                  "text_length": 63765,
+                  "anchor_count": 320,
+                  "section_count": 55,
+                  "paragraph_count": 120,
+                  "average_paragraph_length": 520
+                }
+              }
+            ],
+            "document_id": "1538dac0-a037-47e4-87d4-1c764de4045a",
+            "text_length": 63939,
+            "anchor_count": 320,
+            "artifact_type": "PREPROCESSED_TEXT",
+            "section_count": 55,
+            "paragraph_count": 120,
+            "source_asset_id": "988520e4-ebdf-4528-8fed-935a3e4166a9",
+            "normalized_text_checksum": "fee1f33fe659d7c18af0170453319454e05dad6045549fd25d6aab10887e09e1"
+          },
+          "updated_at": "2026-06-07T04:24:36.674Z"
+        },
+        {
+          "stage_code": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": null,
+          "detail": {
+            "source": "codex_curated",
+            "checksum": "1958dc3573c8ed034bea45293f36a84b83ce3fde903cfa1369eed4707214eeb6",
+            "generated": true,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "7cee0d09-5322-4ea2-a161-6d1041815e2c",
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_ARXIV_READY_TRANCHE",
+                "run_id": "20260607T-b12-codex-curated-arxiv-ready-tranche",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T04:29:43.898Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ],
+            "readiness_status": "READY",
+            "key_content_ready": true
+          },
+          "updated_at": "2026-06-07T04:29:43.898Z"
+        },
+        {
+          "stage_code": "CHUNKED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.340Z"
+        },
+        {
+          "stage_code": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.340Z"
+        },
+        {
+          "stage_code": "INDEXED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.340Z"
+        }
+      ],
+      "state": {
+        "literature_id": "LIT-0169",
+        "citation_complete": true,
+        "abstract_ready": true,
+        "key_content_ready": true,
+        "fulltext_preprocessed": true,
+        "chunked": false,
+        "embedded": false,
+        "indexed": false,
+        "dedup_status": "unique",
+        "updated_at": "2026-06-07T04:29:43.912Z"
+      }
+    },
+    {
+      "literature_id": "LIT-0170",
+      "stage_states": [
+        {
+          "stage_code": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "last_run_id": "eaf0dcfa-833d-43cc-b35a-849246c27bfd",
+          "detail": {
+            "confidence": 1,
+            "stage_code": "CITATION_NORMALIZED",
+            "parsed_year": 2024,
+            "source_refs": [
+              {
+                "provider": "web",
+                "ref_type": "literature_source",
+                "source_id": "LSRC-0179",
+                "fetched_at": "2026-06-07T04:18:17.853Z",
+                "source_url": "https://arxiv.org/abs/2404.03514",
+                "source_item_id": "openalex:W4394007585"
+              }
+            ],
+            "input_checksum": "127f7d716462b4ad4af1b14e365dba5916b9c9b4aec83f9809c677fef7004009",
+            "normalized_doi": "10.48550/arxiv.2404.03514",
+            "normalized_title": "embedding informed adaptive retrieval augmented generation of large language models",
+            "citation_complete": true,
+            "normalized_authors": [
+              "chengkai huang",
+              "kaige xie",
+              "lina yao",
+              "mcauley julian",
+              "rui wang",
+              "tong yu",
+              "xia yu"
+            ],
+            "citation_profile_id": "a7ab0245-63c4-4bc4-a11b-f7676dc83cc3",
+            "normalized_arxiv_id": "2404.03514",
+            "normalized_source_url": "https://arxiv.org/abs/2404.03514",
+            "incomplete_reason_codes": [],
+            "title_authors_year_hash": "f16520c92a0d37e50faef0c21f8ee2ac7236adbf"
+          },
+          "updated_at": "2026-06-07T04:23:41.645Z"
+        },
+        {
+          "stage_code": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": "eaf0dcfa-833d-43cc-b35a-849246c27bfd",
+          "detail": {
+            "source": "collection_metadata",
+            "checksum": "cd79fc38fa1ae29d36163e4d00cdfae9a9c476d33e388b452d8780ea12c85978",
+            "language": "en",
+            "generated": false,
+            "confidence": 0.95,
+            "source_ref": {
+              "field": "rawPayload.abstract",
+              "provider": "web",
+              "ref_type": "literature_source",
+              "source_id": "LSRC-0179",
+              "fetched_at": "2026-06-07T04:18:17.853Z",
+              "source_url": "https://arxiv.org/abs/2404.03514",
+              "source_item_id": "openalex:W4394007585"
+            },
+            "stage_code": "ABSTRACT_READY",
+            "reason_codes": [],
+            "abstract_ready": true,
+            "abstract_profile_id": "b6c8d664-8349-4f63-85e4-75e9338e0e18"
+          },
+          "updated_at": "2026-06-07T04:23:41.657Z"
+        },
+        {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "last_run_id": "afc09730-062f-4659-ae9f-78d6bce1fed6",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "GROBID_TEI_PARSED",
+                "severity": "info",
+                "text_length": 23498,
+                "anchor_count": 132,
+                "endpoint_url": "http://localhost:8070",
+                "section_count": 21,
+                "paragraph_count": 39,
+                "parser_quality_score": 1,
+                "parser_quality_bucket": "high",
+                "parser_quality_inputs": {
+                  "page_count": 10,
+                  "text_length": 23498,
+                  "anchor_count": 132,
+                  "section_count": 21,
+                  "paragraph_count": 39,
+                  "average_paragraph_length": 590
+                }
+              }
+            ],
+            "document_id": "e6024710-7e8d-47a9-a59c-45f2325b1e4c",
+            "text_length": 23557,
+            "anchor_count": 132,
+            "artifact_type": "PREPROCESSED_TEXT",
+            "section_count": 21,
+            "paragraph_count": 39,
+            "source_asset_id": "2dc8ac17-0a00-4c9d-b8ce-b0805566ad94",
+            "normalized_text_checksum": "653c045fd1b4ad7cc5b83a776b1163787f3a154a4826c1f9a975dfe726d11e07"
+          },
+          "updated_at": "2026-06-07T04:24:38.579Z"
+        },
+        {
+          "stage_code": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": null,
+          "detail": {
+            "source": "codex_curated",
+            "checksum": "71496225700fd4e4cfba24cb7e31fb7dedc76f260f0e1a09d13846119806a727",
+            "generated": true,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "cf96e7c3-242c-469a-9108-7023eacdd591",
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_ARXIV_READY_TRANCHE",
+                "run_id": "20260607T-b12-codex-curated-arxiv-ready-tranche",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T04:29:43.920Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ],
+            "readiness_status": "READY",
+            "key_content_ready": true
+          },
+          "updated_at": "2026-06-07T04:29:43.920Z"
+        },
+        {
+          "stage_code": "CHUNKED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.625Z"
+        },
+        {
+          "stage_code": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.625Z"
+        },
+        {
+          "stage_code": "INDEXED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.625Z"
+        }
+      ],
+      "state": {
+        "literature_id": "LIT-0170",
+        "citation_complete": true,
+        "abstract_ready": true,
+        "key_content_ready": true,
+        "fulltext_preprocessed": true,
+        "chunked": false,
+        "embedded": false,
+        "indexed": false,
+        "dedup_status": "unique",
+        "updated_at": "2026-06-07T04:29:43.928Z"
+      }
+    },
+    {
+      "literature_id": "LIT-0171",
+      "stage_states": [
+        {
+          "stage_code": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "last_run_id": "b468d138-6107-4a23-bfe7-919b2428c1b8",
+          "detail": {
+            "confidence": 1,
+            "stage_code": "CITATION_NORMALIZED",
+            "parsed_year": 2024,
+            "source_refs": [
+              {
+                "provider": "web",
+                "ref_type": "literature_source",
+                "source_id": "LSRC-0180",
+                "fetched_at": "2026-06-07T04:18:17.861Z",
+                "source_url": "https://arxiv.org/abs/2412.01572",
+                "source_item_id": "openalex:W4405033124"
+              }
+            ],
+            "input_checksum": "a1651fd0f15695c6e256dd15b8310e81c48b9592b5a8f5ea3d3e53d8954deb8c",
+            "normalized_doi": "10.48550/arxiv.2412.01572",
+            "normalized_title": "mba rag a bandit approach for adaptive retrieval augmented generation through question complexity",
+            "citation_complete": true,
+            "normalized_authors": [
+              "jian li",
+              "nan du",
+              "qi li",
+              "qiang gao",
+              "sihong xie",
+              "xiaqiang tang"
+            ],
+            "citation_profile_id": "9b8d207d-e969-4cae-be00-f14a843c159d",
+            "normalized_arxiv_id": "2412.01572",
+            "normalized_source_url": "https://arxiv.org/abs/2412.01572",
+            "incomplete_reason_codes": [],
+            "title_authors_year_hash": "66eb87be203e83d4e8d7fbe4be016f0f48b49c3e"
+          },
+          "updated_at": "2026-06-07T04:23:41.963Z"
+        },
+        {
+          "stage_code": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": "b468d138-6107-4a23-bfe7-919b2428c1b8",
+          "detail": {
+            "source": "collection_metadata",
+            "checksum": "91f7834d053e9c2a0f4006f249bca481646dfb49089a6d31f7f2e968e2a87615",
+            "language": "en",
+            "generated": false,
+            "confidence": 0.95,
+            "source_ref": {
+              "field": "rawPayload.abstract",
+              "provider": "web",
+              "ref_type": "literature_source",
+              "source_id": "LSRC-0180",
+              "fetched_at": "2026-06-07T04:18:17.861Z",
+              "source_url": "https://arxiv.org/abs/2412.01572",
+              "source_item_id": "openalex:W4405033124"
+            },
+            "stage_code": "ABSTRACT_READY",
+            "reason_codes": [],
+            "abstract_ready": true,
+            "abstract_profile_id": "d0c73c39-5442-4ce7-805e-c8ebacd15c00"
+          },
+          "updated_at": "2026-06-07T04:23:41.981Z"
+        },
+        {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "last_run_id": "1b1e0bd3-856a-41cc-9e89-40848d21d0cd",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "GROBID_TEI_PARSED",
+                "severity": "info",
+                "text_length": 18587,
+                "anchor_count": 76,
+                "endpoint_url": "http://localhost:8070",
+                "section_count": 26,
+                "paragraph_count": 43,
+                "parser_quality_score": 1,
+                "parser_quality_bucket": "high",
+                "parser_quality_inputs": {
+                  "page_count": 7,
+                  "text_length": 18587,
+                  "anchor_count": 76,
+                  "section_count": 26,
+                  "paragraph_count": 43,
+                  "average_paragraph_length": 421
+                }
+              }
+            ],
+            "document_id": "2b9979c0-012e-45d5-b6a6-fd211f60e73b",
+            "text_length": 18655,
+            "anchor_count": 76,
+            "artifact_type": "PREPROCESSED_TEXT",
+            "section_count": 26,
+            "paragraph_count": 43,
+            "source_asset_id": "7899b247-5c2b-4055-a0ea-5205fbe10838",
+            "normalized_text_checksum": "b50e89d7d5986805de071c4182edb31da4bb59d2eaf6895161f791c53f7705d8"
+          },
+          "updated_at": "2026-06-07T04:24:40.143Z"
+        },
+        {
+          "stage_code": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": null,
+          "detail": {
+            "source": "codex_curated",
+            "checksum": "0791b14ddc100f0883d1707ee5dd742908e49dc7e3f93e99984146163b76c4b8",
+            "generated": true,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "b63f284f-a862-4273-b6d4-289b6751ba95",
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_ARXIV_READY_TRANCHE",
+                "run_id": "20260607T-b12-codex-curated-arxiv-ready-tranche",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T04:29:43.934Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ],
+            "readiness_status": "READY",
+            "key_content_ready": true
+          },
+          "updated_at": "2026-06-07T04:29:43.934Z"
+        },
+        {
+          "stage_code": "CHUNKED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.917Z"
+        },
+        {
+          "stage_code": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.917Z"
+        },
+        {
+          "stage_code": "INDEXED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:41.917Z"
+        }
+      ],
+      "state": {
+        "literature_id": "LIT-0171",
+        "citation_complete": true,
+        "abstract_ready": true,
+        "key_content_ready": true,
+        "fulltext_preprocessed": true,
+        "chunked": false,
+        "embedded": false,
+        "indexed": false,
+        "dedup_status": "unique",
+        "updated_at": "2026-06-07T04:29:43.942Z"
+      }
+    },
+    {
+      "literature_id": "LIT-0172",
+      "stage_states": [
+        {
+          "stage_code": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "last_run_id": "80684a81-8708-4464-92b5-eaf590986e44",
+          "detail": {
+            "confidence": 1,
+            "stage_code": "CITATION_NORMALIZED",
+            "parsed_year": 2025,
+            "source_refs": [
+              {
+                "provider": "web",
+                "ref_type": "literature_source",
+                "source_id": "LSRC-0363",
+                "fetched_at": "2026-06-07T04:22:56.188Z",
+                "source_url": "https://arxiv.org/abs/2502.11228",
+                "source_item_id": "openalex:W4407691690"
+              }
+            ],
+            "input_checksum": "3f81ba215b0e7aa8c5be78bce6b4fbd5253242c67ceb4d97a3793d57cd306580",
+            "normalized_doi": "10.48550/arxiv.2502.11228",
+            "normalized_title": "vendi rag adaptively trading off diversity and quality significantly improves retrieval augmented generation with llms",
+            "citation_complete": true,
+            "normalized_authors": [
+              "adji bousso dieng",
+              "mohammad reza rezaei"
+            ],
+            "citation_profile_id": "0a059441-6766-4a8c-821d-388a13ea6405",
+            "normalized_arxiv_id": "2502.11228",
+            "normalized_source_url": "https://arxiv.org/abs/2502.11228",
+            "incomplete_reason_codes": [],
+            "title_authors_year_hash": "0f39f8999b7064edafd37110bd56ef3b08d6026b"
+          },
+          "updated_at": "2026-06-07T04:23:42.273Z"
+        },
+        {
+          "stage_code": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": "80684a81-8708-4464-92b5-eaf590986e44",
+          "detail": {
+            "source": "collection_metadata",
+            "checksum": "d1f18f82cb1843eb65fe02ef93b9f631b04612d579bef9952cf5634f846b4790",
+            "language": "en",
+            "generated": false,
+            "confidence": 0.95,
+            "source_ref": {
+              "field": "rawPayload.abstract",
+              "provider": "web",
+              "ref_type": "literature_source",
+              "source_id": "LSRC-0363",
+              "fetched_at": "2026-06-07T04:22:56.188Z",
+              "source_url": "https://arxiv.org/abs/2502.11228",
+              "source_item_id": "openalex:W4407691690"
+            },
+            "stage_code": "ABSTRACT_READY",
+            "reason_codes": [],
+            "abstract_ready": true,
+            "abstract_profile_id": "bb814a48-8620-4f38-a983-529b297fc409"
+          },
+          "updated_at": "2026-06-07T04:23:42.289Z"
+        },
+        {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "last_run_id": "0cd49d92-217e-4e16-8eed-9f81ea952215",
+          "detail": {
+            "stage_code": "FULLTEXT_PREPROCESSED",
+            "diagnostics": [
+              {
+                "code": "GROBID_TEI_PARSED",
+                "severity": "info",
+                "text_length": 36621,
+                "anchor_count": 129,
+                "endpoint_url": "http://localhost:8070",
+                "section_count": 28,
+                "paragraph_count": 75,
+                "parser_quality_score": 1,
+                "parser_quality_bucket": "high",
+                "parser_quality_inputs": {
+                  "page_count": 16,
+                  "text_length": 36621,
+                  "anchor_count": 129,
+                  "section_count": 28,
+                  "paragraph_count": 75,
+                  "average_paragraph_length": 478
+                }
+              }
+            ],
+            "document_id": "51f29dc6-f009-45d6-a431-a6330fac7971",
+            "text_length": 36723,
+            "anchor_count": 129,
+            "artifact_type": "PREPROCESSED_TEXT",
+            "section_count": 28,
+            "paragraph_count": 75,
+            "source_asset_id": "7573b701-f28e-4ded-a198-f724bf0dfae2",
+            "normalized_text_checksum": "781dd4ce2075d1b8529dda24a30bf6d9d7ddab4d83c3ceaeae12b686f22e4f22"
+          },
+          "updated_at": "2026-06-07T04:24:41.875Z"
+        },
+        {
+          "stage_code": "KEY_CONTENT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": null,
+          "detail": {
+            "source": "codex_curated",
+            "checksum": "067debb947f0a1856d50c9595eb85c0b875f12b26efcf808cbeb70347e6ebf45",
+            "generated": true,
+            "stage_code": "KEY_CONTENT_READY",
+            "artifact_id": "4f2fce85-cdbe-4b62-ac01-0c1448b167b8",
+            "diagnostics": [
+              {
+                "code": "CODEX_CURATED_ARXIV_READY_TRANCHE",
+                "run_id": "20260607T-b12-codex-curated-arxiv-ready-tranche",
+                "message": "Dossier generated by local Codex curation from exported B12 fulltext paragraphs; no LLM gateway call was used.",
+                "severity": "info",
+                "external_model_calls": 0
+              },
+              {
+                "code": "KEY_CONTENT_CURATED_IMPORT",
+                "curator": "codex",
+                "message": "Imported curated key-content dossier from codex_curated.",
+                "severity": "info",
+                "imported_at": "2026-06-07T04:29:43.949Z",
+                "curation_source": "codex_curated"
+              },
+              {
+                "code": "KEY_CONTENT_LLM_TELEMETRY",
+                "message": "LLM calls=0, retries=0, elapsed_ms=0.",
+                "severity": "info",
+                "retry_count": 0,
+                "request_count": 0,
+                "timeout_count": 0,
+                "elapsed_ms_total": 0,
+                "prompt_templates": [
+                  "curated-import@none"
+                ],
+                "rate_limit_count": 0
+              }
+            ],
+            "readiness_status": "READY",
+            "key_content_ready": true
+          },
+          "updated_at": "2026-06-07T04:29:43.949Z"
+        },
+        {
+          "stage_code": "CHUNKED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:42.206Z"
+        },
+        {
+          "stage_code": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:42.206Z"
+        },
+        {
+          "stage_code": "INDEXED",
+          "status": "NOT_STARTED",
+          "last_run_id": null,
+          "detail": {},
+          "updated_at": "2026-06-07T04:23:42.206Z"
+        }
+      ],
+      "state": {
+        "literature_id": "LIT-0172",
+        "citation_complete": true,
+        "abstract_ready": true,
+        "key_content_ready": true,
+        "fulltext_preprocessed": true,
+        "chunked": false,
+        "embedded": false,
+        "indexed": false,
+        "dedup_status": "unique",
+        "updated_at": "2026-06-07T04:29:43.964Z"
+      }
+    }
+  ]
+}

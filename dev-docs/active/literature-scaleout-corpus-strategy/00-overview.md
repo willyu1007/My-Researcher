@@ -125,6 +125,10 @@
 - D22: after blocker cleanup, B13 counting reports candidate pool 62, managed corpus 160, effective literature 157, pipeline incomplete 3, explicit blockers 3, pipeline not started 0.
 - D23: source-access blocked records `LIT-0163`, `LIT-0166`, and `LIT-0257` were soft-excluded from the managed/effective resource pool by adding `classification:excluded-from-corpus`, `classification:source-access-blocked`, and `b12:soft-excluded`.
 - D23: after soft exclusion, B13 counting reports candidate pool 62, managed corpus 157, effective literature 157, pipeline incomplete 0, explicit blockers 0, pipeline not started 0, excluded non-corpus 9.
+- D24: B11 arXiv-ready tranche promoted six RAG-aware allocation records into `LIT-0167` through `LIT-0172`; one partial Vendi-RAG promotion was reconciled by restoring the missing source, pipeline state, and candidate promoted link.
+- D24: `LiteratureService` now allocates `LIT-*` and `LSRC-*` IDs from existing high-water marks instead of `count+1`, preventing repeat source-id collisions in sparse local DBs.
+- D25: B12 completed all six arXiv-ready RAG-aware records through `INDEXED` via rights-safe arXiv acquisition, fulltext preprocessing, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- D25: final B13 counting reports candidate pool 62, promoted candidates 20, ready candidates 20, managed corpus 163, effective literature 163, pipeline incomplete 0, blocked 0, not started 0, excluded non-corpus 9.
 
 ## Scope
 - Define collection cadence and batch gates for 5000-level scaleout.
@@ -180,4 +184,5 @@
 - [x] D14 B11 first triage/promote entrypoint and 10-record promote pilot are implemented and verified.
 - [x] D15 B12 first standard-pipeline pilot is implemented and verified for the 10 B11-promoted records.
 - [x] D16 B12 fulltext acquisition/preprocessing and first content-backfill pilot are implemented and verified with current provider-timeout blockers recorded.
+- [x] D24/D25 arXiv-ready B11/B12 tranche is promoted, reconciled, completed through `INDEXED`, and counted as effective literature.
 - [x] Governance sync/lint passes with the existing unrelated T-115 warning.

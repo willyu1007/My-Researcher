@@ -117,6 +117,10 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
     return this.paperLinks.size;
   }
 
+  async listLiteratureSourceIds(): Promise<string[]> {
+    return [...this.literatureSources.keys()];
+  }
+
   async createLiterature(record: LiteratureRecord): Promise<LiteratureRecord> {
     this.literatures.set(record.id, record);
     this.reindexLiterature(record);

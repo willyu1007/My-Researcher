@@ -33,6 +33,13 @@ export class PrismaLiteratureCoreStore {
     return this.prisma.paperLiteratureLink.count();
   }
 
+  async listLiteratureSourceIds(): Promise<string[]> {
+    const rows = await this.prisma.literatureSource.findMany({
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+
   async createLiterature(record: LiteratureRecord): Promise<LiteratureRecord> {
     const created = await this.prisma.literatureRecord.create({
       data: {

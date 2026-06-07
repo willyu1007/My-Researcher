@@ -29,6 +29,7 @@ if (PROMOTE && !APPLY) {
 const runId = readArg('--run-id', process.env.B11_TRIAGE_RUN_ID ?? new Date().toISOString().replace(/[:.]/g, '-'));
 const batchIdFilter = readArg('--batch-id', process.env.B11_BATCH_ID ?? '');
 const batchCodeFilter = readArg('--batch-code', process.env.B11_BATCH_CODE ?? '');
+const explicitCandidateIds = readCsvArg('--candidate-ids', process.env.B11_CANDIDATE_IDS ?? '');
 const candidateStatuses = readCsvArg('--status', process.env.B11_CANDIDATE_STATUS ?? 'DISCOVERED');
 const maxCandidates = readInteger('B11_MAX_CANDIDATES', 120, { min: 1, max: 1000 });
 const maxPromotions = readInteger('B11_MAX_PROMOTIONS', 20, { min: 0, max: 300 });
@@ -473,6 +474,7 @@ function statusRank(status) {
 async function loadCandidates(prisma) {
   const where = {
     status: { in: candidateStatuses },
+    ...(explicitCandidateIds.length > 0 ? { id: { in: explicitCandidateIds } } : {}),
     ...(batchIdFilter ? { batchId: batchIdFilter } : {}),
     ...(batchCodeFilter ? { batch: { batchCode: batchCodeFilter } } : {}),
   };
@@ -809,6 +811,7 @@ const artifact = await writeArtifacts({
     filters: {
       batch_id: batchIdFilter || null,
       batch_code: batchCodeFilter || null,
+      candidate_ids: explicitCandidateIds,
       candidate_statuses: candidateStatuses,
       max_candidates: maxCandidates,
       max_promotions: maxPromotions,

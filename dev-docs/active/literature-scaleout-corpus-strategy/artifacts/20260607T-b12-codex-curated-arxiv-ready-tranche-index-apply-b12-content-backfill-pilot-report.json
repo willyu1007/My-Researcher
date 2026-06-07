@@ -1,0 +1,398 @@
+{
+  "run_id": "20260607T-b12-codex-curated-arxiv-ready-tranche-index-apply",
+  "generated_at": "2026-06-07T04:30:29.786Z",
+  "mode": "apply",
+  "selection": {
+    "batch_id_filter": null,
+    "batch_code_filter": null,
+    "explicit_literature_ids": [
+      "LIT-0167",
+      "LIT-0168",
+      "LIT-0169",
+      "LIT-0170",
+      "LIT-0171",
+      "LIT-0172"
+    ],
+    "selected_literature_ids": [
+      "LIT-0167",
+      "LIT-0168",
+      "LIT-0169",
+      "LIT-0170",
+      "LIT-0171",
+      "LIT-0172"
+    ],
+    "max_records": 6
+  },
+  "backfill": {
+    "target_stage": "INDEXED",
+    "max_parallel_literature_runs": 1,
+    "extraction_concurrency": 1,
+    "embedding_concurrency": 1,
+    "section_concurrency": 1,
+    "extraction_request_timeout_ms": null,
+    "extraction_max_retries": null,
+    "content_run_timeout_ms": null,
+    "timeout_budget": {
+      "effective_request_timeout_ms": 120000,
+      "effective_max_retries": 1,
+      "estimated_single_section_retry_window_ms": 240250,
+      "content_run_timeout_ms": null,
+      "content_run_timeout_margin_ms": null,
+      "warning": null
+    },
+    "provider_call_budget": 12,
+    "poll_interval_ms": 500,
+    "poll_timeout_ms": 900000,
+    "writes_enabled": true
+  },
+  "dry_run_estimate": {
+    "dry_run_id": "c38389bb-ee5d-4799-b08e-1b99c131cccb",
+    "generated_at": "2026-06-07T04:30:02.749Z",
+    "target_stage": "INDEXED",
+    "total_literatures": 172,
+    "selected_count": 6,
+    "planned_item_count": 6,
+    "skipped_ready_count": 0,
+    "blocked_count": 0,
+    "curation_required_count": 0,
+    "stage_counts": {
+      "CITATION_NORMALIZED": 0,
+      "ABSTRACT_READY": 0,
+      "FULLTEXT_PREPROCESSED": 0,
+      "KEY_CONTENT_READY": 0,
+      "CHUNKED": 6,
+      "EMBEDDED": 6,
+      "INDEXED": 6
+    },
+    "rights_class_counts": [
+      {
+        "rights_class": "UNKNOWN",
+        "count": 6
+      }
+    ],
+    "estimated_provider_calls": {
+      "extraction_calls": 0,
+      "embedding_calls": 6
+    },
+    "estimated_storage_bytes": 24576,
+    "blockers": [],
+    "plan_items": [
+      {
+        "literature_id": "LIT-0167",
+        "title": "Adaptive Retrieval-Augmented Generation for Conversational Systems",
+        "rights_class": "UNKNOWN",
+        "requested_stages": [
+          "CHUNKED",
+          "EMBEDDED",
+          "INDEXED"
+        ],
+        "blocked": false,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": null
+      },
+      {
+        "literature_id": "LIT-0168",
+        "title": "CDF-RAG: Causal Dynamic Feedback for Adaptive Retrieval-Augmented Generation",
+        "rights_class": "UNKNOWN",
+        "requested_stages": [
+          "CHUNKED",
+          "EMBEDDED",
+          "INDEXED"
+        ],
+        "blocked": false,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": null
+      },
+      {
+        "literature_id": "LIT-0169",
+        "title": "CtrlA: Adaptive Retrieval-Augmented Generation via Inherent Control",
+        "rights_class": "UNKNOWN",
+        "requested_stages": [
+          "CHUNKED",
+          "EMBEDDED",
+          "INDEXED"
+        ],
+        "blocked": false,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": null
+      },
+      {
+        "literature_id": "LIT-0170",
+        "title": "Embedding-Informed Adaptive Retrieval-Augmented Generation of Large Language Models",
+        "rights_class": "UNKNOWN",
+        "requested_stages": [
+          "CHUNKED",
+          "EMBEDDED",
+          "INDEXED"
+        ],
+        "blocked": false,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": null
+      },
+      {
+        "literature_id": "LIT-0171",
+        "title": "MBA-RAG: a Bandit Approach for Adaptive Retrieval-Augmented Generation through Question Complexity",
+        "rights_class": "UNKNOWN",
+        "requested_stages": [
+          "CHUNKED",
+          "EMBEDDED",
+          "INDEXED"
+        ],
+        "blocked": false,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": null
+      },
+      {
+        "literature_id": "LIT-0172",
+        "title": "Vendi-RAG: Adaptively Trading-Off Diversity And Quality Significantly Improves Retrieval Augmented Generation With LLMs",
+        "rights_class": "UNKNOWN",
+        "requested_stages": [
+          "CHUNKED",
+          "EMBEDDED",
+          "INDEXED"
+        ],
+        "blocked": false,
+        "blocker_code": null,
+        "retryable": true,
+        "key_content_curation_status": null
+      }
+    ]
+  },
+  "summary": {
+    "dry_run_selected_count": 6,
+    "dry_run_planned_item_count": 6,
+    "dry_run_blocked_count": 0,
+    "dry_run_stage_counts": {
+      "CITATION_NORMALIZED": 0,
+      "ABSTRACT_READY": 0,
+      "FULLTEXT_PREPROCESSED": 0,
+      "KEY_CONTENT_READY": 0,
+      "CHUNKED": 6,
+      "EMBEDDED": 6,
+      "INDEXED": 6
+    },
+    "estimated_provider_calls": {
+      "extraction_calls": 0,
+      "embedding_calls": 6
+    },
+    "job_status": "SUCCEEDED",
+    "job_totals": {
+      "total": 6,
+      "queued": 0,
+      "running": 0,
+      "succeeded": 6,
+      "partial": 0,
+      "blocked": 0,
+      "failed": 0,
+      "skipped": 0,
+      "canceled": 0
+    },
+    "timed_out": false,
+    "timeout_cleanup_count": 0,
+    "timeout_cleanup_terminalized_runs": 0,
+    "item_status_counts": {
+      "SUCCEEDED": 6
+    },
+    "item_error_counts": {}
+  },
+  "job": {
+    "timed_out": false,
+    "job": {
+      "job_id": "28c72c03-1fe8-463c-8b24-3cd86615e742",
+      "status": "SUCCEEDED",
+      "target_stage": "INDEXED",
+      "options": {
+        "max_parallel_literature_runs": 1,
+        "extraction_concurrency": 1,
+        "embedding_concurrency": 1,
+        "provider_call_budget": 12
+      },
+      "totals": {
+        "total": 6,
+        "queued": 0,
+        "running": 0,
+        "succeeded": 6,
+        "partial": 0,
+        "blocked": 0,
+        "failed": 0,
+        "skipped": 0,
+        "canceled": 0
+      },
+      "error_code": null,
+      "error_message": null,
+      "created_at": "2026-06-07T04:30:02.758Z",
+      "started_at": "2026-06-07T04:30:02.776Z",
+      "finished_at": "2026-06-07T04:30:29.286Z",
+      "items": [
+        {
+          "item_id": "00127ce3-ee13-42d9-a0e1-25afb5330a26",
+          "literature_id": "LIT-0169",
+          "title": "CtrlA: Adaptive Retrieval-Augmented Generation via Inherent Control",
+          "status": "SUCCEEDED",
+          "requested_stages": [
+            "CHUNKED",
+            "EMBEDDED",
+            "INDEXED"
+          ],
+          "next_stage_index": 3,
+          "content_processing_run_id": "248f9a2f-c0e3-45b2-ac4e-dd49fee0c43a",
+          "attempt_count": 3,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "checkpoint": {
+            "current_stage": "INDEXED",
+            "current_stage_index": 2,
+            "last_succeeded_stage": "INDEXED",
+            "content_processing_run_id": "248f9a2f-c0e3-45b2-ac4e-dd49fee0c43a",
+            "key_content_curation_status": "NOT_APPLICABLE",
+            "last_content_processing_run_id": "248f9a2f-c0e3-45b2-ac4e-dd49fee0c43a"
+          }
+        },
+        {
+          "item_id": "4478e399-e1d8-420c-8ee1-7d6045241669",
+          "literature_id": "LIT-0168",
+          "title": "CDF-RAG: Causal Dynamic Feedback for Adaptive Retrieval-Augmented Generation",
+          "status": "SUCCEEDED",
+          "requested_stages": [
+            "CHUNKED",
+            "EMBEDDED",
+            "INDEXED"
+          ],
+          "next_stage_index": 3,
+          "content_processing_run_id": "fb614772-c354-42a7-80b2-60b060254458",
+          "attempt_count": 3,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "checkpoint": {
+            "current_stage": "INDEXED",
+            "current_stage_index": 2,
+            "last_succeeded_stage": "INDEXED",
+            "content_processing_run_id": "fb614772-c354-42a7-80b2-60b060254458",
+            "key_content_curation_status": "NOT_APPLICABLE",
+            "last_content_processing_run_id": "fb614772-c354-42a7-80b2-60b060254458"
+          }
+        },
+        {
+          "item_id": "5ef216fe-7648-42f5-88bb-911605591fcf",
+          "literature_id": "LIT-0170",
+          "title": "Embedding-Informed Adaptive Retrieval-Augmented Generation of Large Language Models",
+          "status": "SUCCEEDED",
+          "requested_stages": [
+            "CHUNKED",
+            "EMBEDDED",
+            "INDEXED"
+          ],
+          "next_stage_index": 3,
+          "content_processing_run_id": "0835d8b9-b4a9-4178-927c-a0263da80e30",
+          "attempt_count": 3,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "checkpoint": {
+            "current_stage": "INDEXED",
+            "current_stage_index": 2,
+            "last_succeeded_stage": "INDEXED",
+            "content_processing_run_id": "0835d8b9-b4a9-4178-927c-a0263da80e30",
+            "key_content_curation_status": "NOT_APPLICABLE",
+            "last_content_processing_run_id": "0835d8b9-b4a9-4178-927c-a0263da80e30"
+          }
+        },
+        {
+          "item_id": "6f8c34ec-a7da-4e28-88d8-f83b6aad2624",
+          "literature_id": "LIT-0167",
+          "title": "Adaptive Retrieval-Augmented Generation for Conversational Systems",
+          "status": "SUCCEEDED",
+          "requested_stages": [
+            "CHUNKED",
+            "EMBEDDED",
+            "INDEXED"
+          ],
+          "next_stage_index": 3,
+          "content_processing_run_id": "9007d836-1730-4ad3-8858-9ba7f9673ccd",
+          "attempt_count": 3,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "checkpoint": {
+            "current_stage": "INDEXED",
+            "current_stage_index": 2,
+            "last_succeeded_stage": "INDEXED",
+            "content_processing_run_id": "9007d836-1730-4ad3-8858-9ba7f9673ccd",
+            "key_content_curation_status": "NOT_APPLICABLE",
+            "last_content_processing_run_id": "9007d836-1730-4ad3-8858-9ba7f9673ccd"
+          }
+        },
+        {
+          "item_id": "c9aacf93-714d-4693-a99d-aab7fed15c38",
+          "literature_id": "LIT-0171",
+          "title": "MBA-RAG: a Bandit Approach for Adaptive Retrieval-Augmented Generation through Question Complexity",
+          "status": "SUCCEEDED",
+          "requested_stages": [
+            "CHUNKED",
+            "EMBEDDED",
+            "INDEXED"
+          ],
+          "next_stage_index": 3,
+          "content_processing_run_id": "1c953fb5-cd0b-470c-bd90-3719c874040c",
+          "attempt_count": 3,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "checkpoint": {
+            "current_stage": "INDEXED",
+            "current_stage_index": 2,
+            "last_succeeded_stage": "INDEXED",
+            "content_processing_run_id": "1c953fb5-cd0b-470c-bd90-3719c874040c",
+            "key_content_curation_status": "NOT_APPLICABLE",
+            "last_content_processing_run_id": "1c953fb5-cd0b-470c-bd90-3719c874040c"
+          }
+        },
+        {
+          "item_id": "e09a8876-b65b-4347-8cc4-529f41ac7119",
+          "literature_id": "LIT-0172",
+          "title": "Vendi-RAG: Adaptively Trading-Off Diversity And Quality Significantly Improves Retrieval Augmented Generation With LLMs",
+          "status": "SUCCEEDED",
+          "requested_stages": [
+            "CHUNKED",
+            "EMBEDDED",
+            "INDEXED"
+          ],
+          "next_stage_index": 3,
+          "content_processing_run_id": "6fd1413b-cdf3-4b83-b6c1-93b58f17a63d",
+          "attempt_count": 3,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true,
+          "key_content_curation_status": "NOT_APPLICABLE",
+          "checkpoint": {
+            "current_stage": "INDEXED",
+            "current_stage_index": 2,
+            "last_succeeded_stage": "INDEXED",
+            "content_processing_run_id": "6fd1413b-cdf3-4b83-b6c1-93b58f17a63d",
+            "key_content_curation_status": "NOT_APPLICABLE",
+            "last_content_processing_run_id": "6fd1413b-cdf3-4b83-b6c1-93b58f17a63d"
+          }
+        }
+      ]
+    },
+    "timeout_cleanup": []
+  }
+}

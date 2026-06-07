@@ -29,6 +29,7 @@
 - `B11_TRIAGE_RUN_ID`: run id used in artifacts and decision reasons.
 - `B11_BATCH_ID`: optional candidate batch id filter.
 - `B11_BATCH_CODE`: optional candidate batch code filter.
+- `B11_CANDIDATE_IDS`: optional comma-separated explicit candidate id allowlist.
 - `B11_CANDIDATE_STATUS`: comma-separated source statuses, default `DISCOVERED`.
 - `B11_MAX_CANDIDATES`: maximum candidates to evaluate.
 - `B11_MAX_PROMOTIONS`: maximum candidates to promote when `--promote` is enabled.
@@ -129,8 +130,9 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
 - Superseded by B12 pilot in `09-b12-standard-pipeline-pilot.md`.
 - B12 acquired and preprocessed fulltext for all 10 promoted records.
 - `LIT-0153` through `LIT-0162` completed through `INDEXED` and now count as effective literature.
-- Current B12 managed-corpus blockers are 0; source-access records `LIT-0163`, `LIT-0166`, and `LIT-0257` are soft-excluded from the resource pool.
-- No records from the initial 10-record B11 promote pilot remain awaiting the default `codex_curated` key-content path.
+- Current B12 managed-corpus blockers are 0; source-access records `LIT-0163`, `LIT-0166`, and `LIT-0257` remain soft-excluded from the resource pool.
+- `LIT-0167` through `LIT-0172` completed through `INDEXED` in the arXiv-ready RAG tranche.
+- Current B13 checkpoint: 20 promoted candidates, 20 ready candidates, managed corpus 163, effective literature 163, and 0 incomplete/blocker/not-started records.
 
 ## Opportunity Tranche2
 - Artifact: `artifacts/20260607T-b11-opportunity-tranche2-apply-promote-b11-candidate-triage-report.json`
@@ -152,3 +154,30 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
 - After B12 opportunity processing:
   - `LIT-0164` and `LIT-0165` completed through `INDEXED`.
   - `LIT-0163` and `LIT-0166` were later soft-excluded because no rights-safe automatically downloadable fulltext was available.
+
+## ArXiv-Ready RAG Tranche
+- Artifacts:
+  - `artifacts/20260607T-b11-arxiv-ready-tranche-dry-run-b11-candidate-triage-report.json`
+  - `artifacts/20260607T-b11-arxiv-ready-tranche-apply-promote-b11-candidate-triage-report.json`
+  - `artifacts/20260607T-b11-arxiv-ready-tranche-vendi-reconcile.json`
+  - `artifacts/20260607T-after-b11-arxiv-ready-tranche-reconcile.json`
+- Input:
+  - source status: `READY_FOR_PROMOTION`.
+  - explicit candidate ids: six arXiv-backed RAG-aware allocation candidates.
+  - max promotions: 6.
+- Result:
+  - dry-run kept all six candidates at `READY_FOR_PROMOTION`.
+  - apply/promote created `LIT-0167` through `LIT-0172`.
+  - five promotions completed normally.
+  - `LIT-0172` was reconciled after a sparse-ID source collision left the `LiteratureRecord` without source/pipeline/candidate link.
+  - code now allocates `LIT-*` and `LSRC-*` from existing high-water marks to prevent repeat `count+1` collisions.
+- Promoted records:
+  - `LIT-0167`: Adaptive Retrieval-Augmented Generation for Conversational Systems.
+  - `LIT-0168`: CDF-RAG: Causal Dynamic Feedback for Adaptive Retrieval-Augmented Generation.
+  - `LIT-0169`: CtrlA: Adaptive Retrieval-Augmented Generation via Inherent Control.
+  - `LIT-0170`: Embedding-Informed Adaptive Retrieval-Augmented Generation of Large Language Models.
+  - `LIT-0171`: MBA-RAG: a Bandit Approach for Adaptive Retrieval-Augmented Generation through Question Complexity.
+  - `LIT-0172`: Vendi-RAG: Adaptively Trading-Off Diversity And Quality Significantly Improves Retrieval Augmented Generation With LLMs.
+- After B12 processing:
+  - all six records completed through `INDEXED` via arXiv fulltext acquisition and source-grounded `codex_curated` dossiers.
+  - B13 after completion reports 20 promoted candidates, 20 ready candidates, managed corpus 163, effective literature 163, and 0 incomplete/blocker/not-started records.

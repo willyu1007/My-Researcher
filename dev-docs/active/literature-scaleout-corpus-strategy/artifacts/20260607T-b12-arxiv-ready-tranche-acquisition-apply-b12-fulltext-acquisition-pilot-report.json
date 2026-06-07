@@ -1,0 +1,448 @@
+{
+  "run_id": "20260607T-b12-arxiv-ready-tranche-acquisition-apply",
+  "generated_at": "2026-06-07T04:24:13.032Z",
+  "mode": "apply",
+  "selection": {
+    "batch_id_filter": null,
+    "batch_code_filter": null,
+    "explicit_literature_ids": [
+      "LIT-0167",
+      "LIT-0168",
+      "LIT-0169",
+      "LIT-0170",
+      "LIT-0171",
+      "LIT-0172"
+    ],
+    "selected_literature_ids": [
+      "LIT-0167",
+      "LIT-0168",
+      "LIT-0169",
+      "LIT-0170",
+      "LIT-0171",
+      "LIT-0172"
+    ],
+    "max_records": 6,
+    "explicit_url_count": 0
+  },
+  "acquisition": {
+    "max_parallel_downloads": 1,
+    "provider_call_budget": 20,
+    "max_byte_size": null,
+    "force_refresh": false,
+    "poll_interval_ms": 500,
+    "poll_timeout_ms": 300000,
+    "writes_enabled": true
+  },
+  "dry_run_estimate": {
+    "dry_run_id": "86688284-98a5-40e1-9d51-b10933b1fc78",
+    "generated_at": "2026-06-07T04:23:57.091Z",
+    "total_literatures": 6,
+    "selected_count": 6,
+    "planned_item_count": 6,
+    "skipped_existing_asset_count": 0,
+    "blocked_count": 0,
+    "source_counts": [
+      {
+        "source_kind": "arxiv",
+        "count": 6
+      }
+    ],
+    "estimated_provider_calls": {
+      "unpaywall_calls": 0,
+      "download_calls": 6
+    },
+    "blockers": [],
+    "plan_items": [
+      {
+        "literature_id": "LIT-0167",
+        "title": "Adaptive Retrieval-Augmented Generation for Conversational Systems",
+        "rights_class": "UNKNOWN",
+        "selected_source_kind": "arxiv",
+        "source_url": "https://arxiv.org/pdf/2407.21712",
+        "blocked": false,
+        "blocker_code": null,
+        "blocker_message": null,
+        "retryable": true,
+        "candidates": [
+          {
+            "source_kind": "arxiv",
+            "source_url": "https://arxiv.org/pdf/2407.21712",
+            "requires_resolution": false,
+            "provenance": {
+              "arxiv_id": "2407.21712"
+            }
+          },
+          {
+            "source_kind": "unpaywall",
+            "source_url": null,
+            "requires_resolution": true,
+            "provenance": {
+              "doi": "10.48550/arxiv.2407.21712"
+            }
+          }
+        ]
+      },
+      {
+        "literature_id": "LIT-0168",
+        "title": "CDF-RAG: Causal Dynamic Feedback for Adaptive Retrieval-Augmented Generation",
+        "rights_class": "UNKNOWN",
+        "selected_source_kind": "arxiv",
+        "source_url": "https://arxiv.org/pdf/2504.12560",
+        "blocked": false,
+        "blocker_code": null,
+        "blocker_message": null,
+        "retryable": true,
+        "candidates": [
+          {
+            "source_kind": "arxiv",
+            "source_url": "https://arxiv.org/pdf/2504.12560",
+            "requires_resolution": false,
+            "provenance": {
+              "arxiv_id": "2504.12560"
+            }
+          },
+          {
+            "source_kind": "unpaywall",
+            "source_url": null,
+            "requires_resolution": true,
+            "provenance": {
+              "doi": "10.48550/arxiv.2504.12560"
+            }
+          }
+        ]
+      },
+      {
+        "literature_id": "LIT-0169",
+        "title": "CtrlA: Adaptive Retrieval-Augmented Generation via Inherent Control",
+        "rights_class": "UNKNOWN",
+        "selected_source_kind": "arxiv",
+        "source_url": "https://arxiv.org/pdf/2405.18727",
+        "blocked": false,
+        "blocker_code": null,
+        "blocker_message": null,
+        "retryable": true,
+        "candidates": [
+          {
+            "source_kind": "arxiv",
+            "source_url": "https://arxiv.org/pdf/2405.18727",
+            "requires_resolution": false,
+            "provenance": {
+              "arxiv_id": "2405.18727"
+            }
+          },
+          {
+            "source_kind": "unpaywall",
+            "source_url": null,
+            "requires_resolution": true,
+            "provenance": {
+              "doi": "10.48550/arxiv.2405.18727"
+            }
+          }
+        ]
+      },
+      {
+        "literature_id": "LIT-0170",
+        "title": "Embedding-Informed Adaptive Retrieval-Augmented Generation of Large Language Models",
+        "rights_class": "UNKNOWN",
+        "selected_source_kind": "arxiv",
+        "source_url": "https://arxiv.org/pdf/2404.03514",
+        "blocked": false,
+        "blocker_code": null,
+        "blocker_message": null,
+        "retryable": true,
+        "candidates": [
+          {
+            "source_kind": "arxiv",
+            "source_url": "https://arxiv.org/pdf/2404.03514",
+            "requires_resolution": false,
+            "provenance": {
+              "arxiv_id": "2404.03514"
+            }
+          },
+          {
+            "source_kind": "unpaywall",
+            "source_url": null,
+            "requires_resolution": true,
+            "provenance": {
+              "doi": "10.48550/arxiv.2404.03514"
+            }
+          }
+        ]
+      },
+      {
+        "literature_id": "LIT-0171",
+        "title": "MBA-RAG: a Bandit Approach for Adaptive Retrieval-Augmented Generation through Question Complexity",
+        "rights_class": "UNKNOWN",
+        "selected_source_kind": "arxiv",
+        "source_url": "https://arxiv.org/pdf/2412.01572",
+        "blocked": false,
+        "blocker_code": null,
+        "blocker_message": null,
+        "retryable": true,
+        "candidates": [
+          {
+            "source_kind": "arxiv",
+            "source_url": "https://arxiv.org/pdf/2412.01572",
+            "requires_resolution": false,
+            "provenance": {
+              "arxiv_id": "2412.01572"
+            }
+          },
+          {
+            "source_kind": "unpaywall",
+            "source_url": null,
+            "requires_resolution": true,
+            "provenance": {
+              "doi": "10.48550/arxiv.2412.01572"
+            }
+          }
+        ]
+      },
+      {
+        "literature_id": "LIT-0172",
+        "title": "Vendi-RAG: Adaptively Trading-Off Diversity And Quality Significantly Improves Retrieval Augmented Generation With LLMs",
+        "rights_class": "UNKNOWN",
+        "selected_source_kind": "arxiv",
+        "source_url": "https://arxiv.org/pdf/2502.11228",
+        "blocked": false,
+        "blocker_code": null,
+        "blocker_message": null,
+        "retryable": true,
+        "candidates": [
+          {
+            "source_kind": "arxiv",
+            "source_url": "https://arxiv.org/pdf/2502.11228",
+            "requires_resolution": false,
+            "provenance": {
+              "arxiv_id": "2502.11228"
+            }
+          },
+          {
+            "source_kind": "unpaywall",
+            "source_url": null,
+            "requires_resolution": true,
+            "provenance": {
+              "doi": "10.48550/arxiv.2502.11228"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "summary": {
+    "dry_run_selected_count": 6,
+    "dry_run_planned_item_count": 6,
+    "dry_run_blocked_count": 0,
+    "dry_run_source_counts": [
+      {
+        "source_kind": "arxiv",
+        "count": 6
+      }
+    ],
+    "job_status": "SUCCEEDED",
+    "job_totals": {
+      "total": 6,
+      "queued": 0,
+      "running": 0,
+      "succeeded": 6,
+      "partial": 0,
+      "blocked": 0,
+      "failed": 0,
+      "skipped": 0,
+      "canceled": 0
+    },
+    "timed_out": false,
+    "item_status_counts": {
+      "SUCCEEDED": 6
+    },
+    "item_error_counts": {},
+    "content_assets_created": 6
+  },
+  "job": {
+    "timed_out": false,
+    "job": {
+      "job_id": "d6ee06ed-3995-4d05-8fc4-652777cb46cc",
+      "status": "SUCCEEDED",
+      "totals": {
+        "total": 6,
+        "queued": 0,
+        "running": 0,
+        "succeeded": 6,
+        "partial": 0,
+        "blocked": 0,
+        "failed": 0,
+        "skipped": 0,
+        "canceled": 0
+      },
+      "error_code": null,
+      "error_message": null,
+      "created_at": "2026-06-07T04:23:57.104Z",
+      "started_at": "2026-06-07T04:23:57.122Z",
+      "finished_at": "2026-06-07T04:24:12.942Z",
+      "source_health": [
+        {
+          "source_kind": "explicit_url",
+          "runtime_source": "download",
+          "planned_count": 0,
+          "succeeded_count": 0,
+          "failed_count": 0,
+          "blocked_count": 0,
+          "retryable_failure_count": 0,
+          "non_retryable_failure_count": 0,
+          "error_counts_by_code": {},
+          "runtime_status": "READY",
+          "cooldown_until": null,
+          "failure_count": 0,
+          "last_error_code": null,
+          "last_error_message": null,
+          "last_request_at": "2026-06-07T04:24:12.162Z",
+          "last_success_at": "2026-06-07T04:24:12.425Z",
+          "last_failure_at": "2026-06-07T02:49:20.622Z"
+        },
+        {
+          "source_kind": "arxiv",
+          "runtime_source": "arxiv",
+          "planned_count": 6,
+          "succeeded_count": 6,
+          "failed_count": 0,
+          "blocked_count": 0,
+          "retryable_failure_count": 0,
+          "non_retryable_failure_count": 0,
+          "error_counts_by_code": {},
+          "runtime_status": "READY",
+          "cooldown_until": null,
+          "failure_count": 0,
+          "last_error_code": null,
+          "last_error_message": null,
+          "last_request_at": "2026-06-07T04:24:12.154Z",
+          "last_success_at": "2026-06-07T04:24:12.423Z",
+          "last_failure_at": "2026-06-04T10:22:26.450Z"
+        },
+        {
+          "source_kind": "unpaywall",
+          "runtime_source": "unpaywall",
+          "planned_count": 0,
+          "succeeded_count": 0,
+          "failed_count": 0,
+          "blocked_count": 0,
+          "retryable_failure_count": 0,
+          "non_retryable_failure_count": 0,
+          "error_counts_by_code": {},
+          "runtime_status": "READY",
+          "cooldown_until": null,
+          "failure_count": 0,
+          "last_error_code": null,
+          "last_error_message": null,
+          "last_request_at": "2026-06-07T02:49:19.697Z",
+          "last_success_at": "2026-06-07T02:49:19.977Z",
+          "last_failure_at": null
+        },
+        {
+          "source_kind": "download",
+          "runtime_source": "download",
+          "planned_count": 6,
+          "succeeded_count": 6,
+          "failed_count": 0,
+          "blocked_count": 0,
+          "retryable_failure_count": 0,
+          "non_retryable_failure_count": 0,
+          "error_counts_by_code": {},
+          "runtime_status": "READY",
+          "cooldown_until": null,
+          "failure_count": 0,
+          "last_error_code": null,
+          "last_error_message": null,
+          "last_request_at": "2026-06-07T04:24:12.162Z",
+          "last_success_at": "2026-06-07T04:24:12.425Z",
+          "last_failure_at": "2026-06-07T02:49:20.622Z"
+        }
+      ],
+      "items": [
+        {
+          "item_id": "b0a640e4-8b14-4d76-af4f-afc3d1a547c3",
+          "literature_id": "LIT-0167",
+          "status": "SUCCEEDED",
+          "selected_source_kind": "arxiv",
+          "source_url": "https://arxiv.org/pdf/2407.21712",
+          "final_url": "https://arxiv.org/pdf/2407.21712",
+          "content_asset_id": "5c4e8f53-d4f3-42d3-a80f-027bbc58b64a",
+          "attempt_count": 1,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true
+        },
+        {
+          "item_id": "8385543b-cb80-479d-8d35-9b25357106d8",
+          "literature_id": "LIT-0168",
+          "status": "SUCCEEDED",
+          "selected_source_kind": "arxiv",
+          "source_url": "https://arxiv.org/pdf/2504.12560",
+          "final_url": "https://arxiv.org/pdf/2504.12560",
+          "content_asset_id": "de2757d7-72ed-444a-9252-a6e122e1ac20",
+          "attempt_count": 1,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true
+        },
+        {
+          "item_id": "214c3011-9f93-499a-958d-7276f61e686b",
+          "literature_id": "LIT-0169",
+          "status": "SUCCEEDED",
+          "selected_source_kind": "arxiv",
+          "source_url": "https://arxiv.org/pdf/2405.18727",
+          "final_url": "https://arxiv.org/pdf/2405.18727",
+          "content_asset_id": "988520e4-ebdf-4528-8fed-935a3e4166a9",
+          "attempt_count": 1,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true
+        },
+        {
+          "item_id": "d23e33ad-d0f8-4ac4-88e5-e0c589a8e017",
+          "literature_id": "LIT-0170",
+          "status": "SUCCEEDED",
+          "selected_source_kind": "arxiv",
+          "source_url": "https://arxiv.org/pdf/2404.03514",
+          "final_url": "https://arxiv.org/pdf/2404.03514",
+          "content_asset_id": "2dc8ac17-0a00-4c9d-b8ce-b0805566ad94",
+          "attempt_count": 1,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true
+        },
+        {
+          "item_id": "ce3b1249-5d3b-42f3-9b1b-5450e11e303f",
+          "literature_id": "LIT-0171",
+          "status": "SUCCEEDED",
+          "selected_source_kind": "arxiv",
+          "source_url": "https://arxiv.org/pdf/2412.01572",
+          "final_url": "https://arxiv.org/pdf/2412.01572",
+          "content_asset_id": "7899b247-5c2b-4055-a0ea-5205fbe10838",
+          "attempt_count": 1,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true
+        },
+        {
+          "item_id": "819cd831-debc-4ef9-8640-256d31c8a09c",
+          "literature_id": "LIT-0172",
+          "status": "SUCCEEDED",
+          "selected_source_kind": "arxiv",
+          "source_url": "https://arxiv.org/pdf/2502.11228",
+          "final_url": "https://arxiv.org/pdf/2502.11228",
+          "content_asset_id": "7573b701-f28e-4ded-a198-f724bf0dfae2",
+          "attempt_count": 1,
+          "error_code": null,
+          "error_message": null,
+          "blocker_code": null,
+          "retryable": true
+        }
+      ]
+    }
+  }
+}

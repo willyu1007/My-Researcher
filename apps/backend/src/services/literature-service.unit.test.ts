@@ -64,6 +64,60 @@ test('import deduplicates by DOI across providers', async () => {
   assert.equal(runs.length, 0);
 });
 
+test('collection import allocates literature and source ids from sparse high-water marks', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const literatureService = new LiteratureService(
+    repository,
+    new InMemoryResearchLifecycleRepository(),
+  );
+  const now = new Date('2026-01-01T00:00:00.000Z').toISOString();
+
+  await repository.createLiterature({
+    id: 'LIT-0349',
+    title: 'Historical High Water Literature',
+    abstractText: null,
+    keyContentDigest: null,
+    authors: [],
+    year: 2026,
+    doiNormalized: null,
+    arxivId: null,
+    normalizedTitle: 'historical high water literature',
+    titleAuthorsYearHash: null,
+    rightsClass: 'UNKNOWN',
+    tags: [],
+    activeEmbeddingVersionId: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repository.upsertLiteratureSource({
+    id: 'LSRC-0363',
+    literatureId: 'LIT-0349',
+    provider: 'web',
+    sourceItemId: 'high-water-source',
+    sourceUrl: 'https://example.test/high-water-source',
+    rawPayload: {},
+    fetchedAt: now,
+  });
+
+  const imported = await literatureService.collectionImport({
+    items: [
+      {
+        provider: 'arxiv',
+        external_id: '2601.00001',
+        title: 'Sparse Identifier Import',
+        authors: ['Alice Example'],
+        year: 2026,
+        arxiv_id: '2601.00001',
+        source_url: 'https://arxiv.org/abs/2601.00001',
+      },
+    ],
+  });
+
+  assert.equal(imported.results[0]?.literature_id, 'LIT-0350');
+  const sources = await repository.listSourcesByLiteratureId('LIT-0350');
+  assert.equal(sources[0]?.id, 'LSRC-0364');
+});
+
 test('import merges source provenance and fills canonical identity keys conservatively', async () => {
   const repository = new InMemoryLiteratureRepository();
   const literatureService = new LiteratureService(

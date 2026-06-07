@@ -307,6 +307,12 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - `LIT-0165`: RTP-LLM: High-Performance Alibaba LLM Inference Engine.
 - `LIT-0166`: WindServe: Efficient Phase-Disaggregated LLM Serving with Stream-based Dynamic Scheduling.
 - `LIT-0252`: When Is "Nearest Neighbor" Meaningful?
+- `LIT-0167`: Adaptive Retrieval-Augmented Generation for Conversational Systems.
+- `LIT-0168`: CDF-RAG: Causal Dynamic Feedback for Adaptive Retrieval-Augmented Generation.
+- `LIT-0169`: CtrlA: Adaptive Retrieval-Augmented Generation via Inherent Control.
+- `LIT-0170`: Embedding-Informed Adaptive Retrieval-Augmented Generation of Large Language Models.
+- `LIT-0171`: MBA-RAG: a Bandit Approach for Adaptive Retrieval-Augmented Generation through Question Complexity.
+- `LIT-0172`: Vendi-RAG: Adaptively Trading-Off Diversity And Quality Significantly Improves Retrieval Augmented Generation With LLMs.
 
 ## Current B12 Record State
 - `LIT-0153`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version was refreshed during blocker cleanup.
@@ -325,15 +331,21 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - `LIT-0166`: citation and abstract succeeded; fulltext acquisition failed with a 403 download from the OA PDF path; soft-excluded from the managed/effective resource pool.
 - `LIT-0252`: all stages through `INDEXED` succeeded via a public title-matched PDF replacement plus `codex_curated`; original scanned PDF path remains a historical failed asset.
 - `LIT-0257`: citation and abstract succeeded; no explicit URL, arXiv id, or DOI OA resolver is available; soft-excluded from the managed/effective resource pool.
+- `LIT-0167`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 82 chunks/vectors.
+- `LIT-0168`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 236 chunks/vectors.
+- `LIT-0169`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 178 chunks/vectors.
+- `LIT-0170`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 69 chunks/vectors.
+- `LIT-0171`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 75 chunks/vectors.
+- `LIT-0172`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 112 chunks/vectors.
 
 ## Latest Counting
-- Artifact: `artifacts/20260607T-after-d23-source-blocker-soft-exclusion.json`
+- Artifact: `artifacts/20260607T-after-b12-codex-curated-arxiv-ready-tranche-index.json`
 - Metrics:
   - candidate pool records: 62.
-  - candidate ready-for-promotion records: 26.
-  - candidate promoted records: 14.
-  - managed corpus records: 157.
-  - effective literature records: 157.
+  - candidate ready-for-promotion records: 20.
+  - candidate promoted records: 20.
+  - managed corpus records: 163.
+  - effective literature records: 163.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
@@ -348,3 +360,5 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - Prefer bounded diagnostic `llm_gateway` retries with `B12_BACKFILL_EXTRACTION_MAX_RETRIES=0`; avoid content-run timeouts that are lower than the single-section provider retry window.
 - Keep `LIT-0163`, `LIT-0166`, and `LIT-0257` soft-excluded unless authenticated/user-provided fulltext is available.
 - The opportunity tranche added 2 effective records and 2 soft-excluded source-access records; future opportunity tranches should prefer arXiv or verified direct-PDF candidates when the goal is high B12 completion throughput.
+- The arXiv-ready RAG tranche added 6 effective records; future B11 promotion batches should prefer candidates with explicit arXiv or verified direct-PDF sources when the goal is fast effective-literature growth.
+- At the D25 checkpoint, every currently managed corpus record is effective; the remaining 20 ready candidates should be promoted in small source-available tranches.
