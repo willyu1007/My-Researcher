@@ -382,3 +382,45 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## Source-Available Tranche7
+- ArXiv-backed discovered audit artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche7-arxiv-audit.json`
+- ArXiv-pool dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche7-arxiv-pool-dry-run-b11-candidate-triage-report.json`
+- Selector artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche7-selector-b11-source-available-selector.json`
+- Explicit dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche7-dry-run-b11-candidate-triage-report.json`
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche7-apply-promote-b11-candidate-triage-report.json`
+- Candidate link artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche7-promoted-links.json`
+- Input:
+  - arXiv-backed `DISCOVERED` pool audit found 145 candidates: 46 RAG-aware allocation, 71 LLM-serving/resource allocation, and 28 test-time compute.
+  - B11 dry-run over the 145-candidate arXiv pool found 57 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+  - selector selected 15 arXiv-backed records: 13 LLM-serving/resource allocation and 2 RAG-aware allocation theory-support records.
+  - max promotions: 15.
+- Result:
+  - explicit dry-run decisions: 15 `READY_FOR_PROMOTION`.
+  - apply/promote attempted 15 promotions and succeeded for all 15.
+  - DB delta: 15 `LiteratureRecord` rows and 15 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0397`: EdgeLoRA: An Efficient Multi-Tenant LLM Serving System on Edge Devices.
+  - `LIT-0398`: UELLM: A Unified and Efficient Approach for LLM Inference Serving.
+  - `LIT-0399`: CaraServe: CPU-Assisted and Rank-Aware LoRA Serving for Generative LLM Inference.
+  - `LIT-0400`: Cost-Efficient Large Language Model Serving for Multi-turn Conversations with CachedAttention.
+  - `LIT-0401`: Efficiently Serving Large Multimodal Models Using EPD Disaggregation.
+  - `LIT-0402`: ExpertFlow: Efficient Mixture-of-Experts Inference via Predictive Expert Caching and Token Scheduling.
+  - `LIT-0403`: Fast Inference for Augmented Large Language Models.
+  - `LIT-0404`: FlashInfer: Efficient and Customizable Attention Engine for LLM Inference Serving.
+  - `LIT-0405`: MoE-Infinity: Efficient MoE Inference on Personal Machines with Sparsity-Aware Expert Cache.
+  - `LIT-0406`: NEO: Saving GPU Memory Crisis with CPU Offloading for Online LLM Inference.
+  - `LIT-0407`: ProMoE: Fast MoE-based LLM Serving using Proactive Caching.
+  - `LIT-0408`: Sub-SA: Strengthen In-context Learning via Submodular Selective Annotation.
+  - `LIT-0409`: Submodular Ground-Set Pruning: Monotone Tightness and a Non-Monotone Separation.
+  - `LIT-0410`: Keyformer: KV Cache Reduction through Key Tokens Selection for Efficient Generative Inference.
+  - `LIT-0411`: TokenScale: Timely and Accurate Autoscaling for Disaggregated LLM Serving with Token Velocity.
+- Counting after B12 completion:
+  - candidate pool records: 535.
+  - discovered candidates: 274.
+  - promoted candidates: 82.
+  - managed corpus records: 225.
+  - effective literature records: 225.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

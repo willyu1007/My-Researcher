@@ -442,6 +442,21 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - `LIT-0394`: DroidSpeak: KV Cache Sharing for Cross-LLM Communication and Multi-LLM Serving.
 - `LIT-0395`: FastDecode: High-Throughput GPU-Efficient LLM Serving using Heterogeneous Pipelines.
 - `LIT-0396`: Prompt Generate Train (PGT): Few-shot Domain Adaption of Retrieval Augmented Generation Models for Open Book Question-Answering.
+- `LIT-0397`: EdgeLoRA: An Efficient Multi-Tenant LLM Serving System on Edge Devices.
+- `LIT-0398`: UELLM: A Unified and Efficient Approach for LLM Inference Serving.
+- `LIT-0399`: CaraServe: CPU-Assisted and Rank-Aware LoRA Serving for Generative LLM Inference.
+- `LIT-0400`: Cost-Efficient Large Language Model Serving for Multi-turn Conversations with CachedAttention.
+- `LIT-0401`: Efficiently Serving Large Multimodal Models Using EPD Disaggregation.
+- `LIT-0402`: ExpertFlow: Efficient Mixture-of-Experts Inference via Predictive Expert Caching and Token Scheduling.
+- `LIT-0403`: Fast Inference for Augmented Large Language Models.
+- `LIT-0404`: FlashInfer: Efficient and Customizable Attention Engine for LLM Inference Serving.
+- `LIT-0405`: MoE-Infinity: Efficient MoE Inference on Personal Machines with Sparsity-Aware Expert Cache.
+- `LIT-0406`: NEO: Saving GPU Memory Crisis with CPU Offloading for Online LLM Inference.
+- `LIT-0407`: ProMoE: Fast MoE-based LLM Serving using Proactive Caching.
+- `LIT-0408`: Sub-SA: Strengthen In-context Learning via Submodular Selective Annotation.
+- `LIT-0409`: Submodular Ground-Set Pruning: Monotone Tightness and a Non-Monotone Separation.
+- `LIT-0410`: Keyformer: KV Cache Reduction through Key Tokens Selection for Efficient Generative Inference.
+- `LIT-0411`: TokenScale: Timely and Accurate Autoscaling for Disaggregated LLM Serving with Token Velocity.
 
 ## Current B12 Record State
 - `LIT-0153`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version was refreshed during blocker cleanup.
@@ -513,16 +528,31 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - `LIT-0394`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 171 chunks/vectors.
 - `LIT-0395`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 196 chunks/vectors.
 - `LIT-0396`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 72 chunks/vectors.
+- `LIT-0397`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 135 chunks/vectors.
+- `LIT-0398`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 95 chunks/vectors.
+- `LIT-0399`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 177 chunks/vectors.
+- `LIT-0400`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 177 chunks/vectors.
+- `LIT-0401`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 174 chunks/vectors.
+- `LIT-0402`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 99 chunks/vectors.
+- `LIT-0403`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 133 chunks/vectors.
+- `LIT-0404`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 157 chunks/vectors.
+- `LIT-0405`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 133 chunks/vectors.
+- `LIT-0406`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 122 chunks/vectors.
+- `LIT-0407`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 178 chunks/vectors.
+- `LIT-0408`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 113 chunks/vectors.
+- `LIT-0409`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 320 chunks/vectors.
+- `LIT-0410`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 195 chunks/vectors.
+- `LIT-0411`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 152 chunks/vectors.
 
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche6-index.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche7-index.json`
 - Metrics:
   - candidate pool records: 535.
-  - candidate discovered records: 289.
+  - candidate discovered records: 274.
   - candidate ready-for-promotion records: 20.
-  - candidate promoted records: 67.
-  - managed corpus records: 210.
-  - effective literature records: 210.
+  - candidate promoted records: 82.
+  - managed corpus records: 225.
+  - effective literature records: 225.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
@@ -543,4 +573,5 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - Source-available tranche4 added 9 effective records and reverse-marked 1 duplicate before promotion.
 - Source-available tranche5 added 10 effective records and crossed the 200-record managed/effective checkpoint.
 - Source-available tranche6 added 10 effective records through the selector-filtered arXiv path.
-- At the D34 checkpoint, every currently managed corpus record is effective; the remaining 20 ready candidates are DOI-only, so source-available tranches should continue from audited arXiv-backed `DISCOVERED` candidates or newly targeted B10 batches.
+- Source-available tranche7 added 15 effective records through the selector-filtered arXiv path.
+- At the D35 checkpoint, every currently managed corpus record is effective; the remaining 20 ready candidates are DOI-only, so source-available tranches should continue from audited arXiv-backed `DISCOVERED` candidates or newly targeted B10 batches.

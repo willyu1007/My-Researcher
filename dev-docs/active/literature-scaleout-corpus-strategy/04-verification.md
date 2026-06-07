@@ -962,6 +962,57 @@
   - active embedding versions are all `INDEXED`, using `text-embedding-3-large` with dimension 3072; total chunks/vectors: 1298/1298.
   - final B13 reports candidate pool 535, candidate discovered 289, candidate promoted 67, managed corpus 210, effective literature 210, incomplete 0, blocked 0, and not-started 0.
 
+### 2026-06-07 - D35 Source-Available Tranche7
+- Status: completed; selector-filtered 15 arXiv-backed candidates, promoted `LIT-0397` through `LIT-0411`, and completed all 15 through `INDEXED`.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche7-arxiv-audit.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche7-arxiv-pool-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche7-selector-b11-source-available-selector.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche7-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche7-apply-promote-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche7-promoted-links.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche7-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche7-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche7-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche7-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche7-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche7-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche7-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche7-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche7-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche7-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche7-index.json`
+- Commands:
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-source-available-selector.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module - <<'NODE' ... audit remaining arXiv-backed DISCOVERED candidates ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-source-available-tranche7-arxiv-pool-dry-run B11_CANDIDATE_STATUS=DISCOVERED B11_CANDIDATE_IDS=... B11_MAX_CANDIDATES=200 B11_MAX_PROMOTIONS=20 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `B11_SELECTOR_TARGET_COUNT=15 B11_SELECTOR_DIRECTION_QUOTAS=rag-aware-allocation=4,llm-serving-resource-allocation=10,test-time-compute-budgeting=1 node dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-source-available-selector.mjs --run-id 20260607T-b11-source-available-tranche7-selector --decisions .ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche7-arxiv-pool-dry-run-b11-candidate-decisions.json`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-source-available-tranche7-dry-run B11_CANDIDATE_STATUS=DISCOVERED B11_CANDIDATE_IDS=... B11_MAX_CANDIDATES=15 B11_MAX_PROMOTIONS=15 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260607T-b11-source-available-tranche7-apply-promote B11_CANDIDATE_STATUS=DISCOVERED B11_CANDIDATE_IDS=... B11_MAX_CANDIDATES=15 B11_MAX_PROMOTIONS=15 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260607T-b12-source-available-tranche7-standard-apply B12_LITERATURE_IDS=LIT-0397,...,LIT-0411 B12_POLL_TIMEOUT_MS=600000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260607T-b12-source-available-tranche7-acquisition-apply B12_LITERATURE_IDS=LIT-0397,...,LIT-0411 B12_ACQUISITION_PROVIDER_CALL_BUDGET=30 B12_ACQUISITION_POLL_TIMEOUT_MS=900000 B12_ACQUISITION_MAX_PARALLEL_DOWNLOADS=1 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260607T-b12-source-available-tranche7-fulltext-preprocess-apply B12_LITERATURE_IDS=LIT-0397,...,LIT-0411 B12_STAGES=FULLTEXT_PREPROCESSED B12_POLL_TIMEOUT_MS=900000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true AUTO_PULL_SCHEDULER_ENABLED=false node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module - <<'NODE' ... export bundles, build source-grounded codex_curated dossiers, and dry-run import ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true AUTO_PULL_SCHEDULER_ENABLED=false node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs --input-type=module - <<'NODE' ... import codex_curated dossiers ... NODE`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260607T-b12-source-available-tranche7-index-apply B12_LITERATURE_IDS=LIT-0397,...,LIT-0411 B12_BACKFILL_TARGET_STAGE=INDEXED B12_BACKFILL_PROVIDER_CALL_BUDGET=30 B12_BACKFILL_POLL_TIMEOUT_MS=1800000 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260607T-after-b12-source-available-tranche7-index node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
+- Result:
+  - arXiv-backed `DISCOVERED` audit found 145 candidates: 46 RAG-aware allocation, 71 LLM-serving/resource allocation, and 28 test-time compute.
+  - B11 arXiv-pool dry-run evaluated all 145 candidates: 57 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+  - selector selected 15 candidates: 13 LLM-serving/resource allocation and 2 RAG-aware/theory candidates; non-tail test-time ready depth was exhausted.
+  - explicit B11 dry-run evaluated 15 selected candidates: 15 `READY_FOR_PROMOTION`, DB delta 0.
+  - B11 apply/promote promoted 15 records into `LIT-0397` through `LIT-0411`, creating 15 literature sources.
+  - B12 standard apply normalized citation and abstract for all 15 records, then blocked fulltext preprocessing with `FULLTEXT_SOURCE_MISSING` before acquisition.
+  - acquisition dry-run planned 15 arXiv downloads with 0 blockers; acquisition apply succeeded for all 15 records and created 15 content assets.
+  - fulltext preprocessing apply succeeded for all 15 records and created 15 ready fulltext documents.
+  - dossier dry-run import returned 15 valid dossiers, 0 invalid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - dossier import succeeded for all 15 records with source `codex_curated`; LLM gateway telemetry reported 0 requests, 0 retries, and 0 timeouts.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=15`.
+  - index apply succeeded: job totals 15 succeeded, 0 failed, 0 blocked, no timeout cleanup.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 15 records.
+  - active embedding versions are all `INDEXED`, using `text-embedding-3-large` with dimension 3072; total chunks/vectors: 2360/2360.
+  - final B13 reports candidate pool 535, candidate discovered 274, candidate promoted 82, managed corpus 225, effective literature 225, incomplete 0, blocked 0, and not-started 0.
+
 ### 2026-06-07 - D23 Source-Blocker Soft Exclusion
 - Status: completed.
 - Files:
