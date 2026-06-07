@@ -342,3 +342,43 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## Source-Available Tranche6
+- ArXiv-backed discovered audit artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche6-arxiv-audit.json`
+- ArXiv-pool dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche6-arxiv-pool-dry-run-b11-candidate-triage-report.json`
+- Selector artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche6-selector-b11-source-available-selector.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche6-selector-v2-b11-source-available-selector.json`
+- Explicit dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche6-dry-run-b11-candidate-triage-report.json`
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche6-apply-promote-b11-candidate-triage-report.json`
+- Candidate link artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche6-promoted-links.json`
+- Input:
+  - arXiv-backed `DISCOVERED` pool audit found 155 candidates: 49 RAG-aware allocation, 77 LLM-serving/resource allocation, and 29 test-time compute.
+  - B11 dry-run over the 155-candidate arXiv pool found 67 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+  - selector v2 selected 10 arXiv-backed records after filtering application-tail ready candidates and excluding `autonomous research automation` as a test-time tail signal.
+  - selected tranche mix: 3 RAG-aware allocation, 6 LLM-serving/resource allocation, and 1 test-time compute record.
+  - max promotions: 10.
+- Result:
+  - explicit dry-run decisions: 10 `READY_FOR_PROMOTION`.
+  - apply/promote attempted 10 promotions and succeeded for all 10.
+  - DB delta: 10 `LiteratureRecord` rows and 10 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0387`: Open-RAG: Enhanced Retrieval-Augmented Reasoning with Open-Source Large Language Models.
+  - `LIT-0388`: Self-adaptive Multimodal Retrieval-Augmented Generation.
+  - `LIT-0389`: Edge Intelligence Optimization for Large Language Model Inference with Batching and Quantization.
+  - `LIT-0390`: You Only Cache Once: Decoder-Decoder Architectures for Language Models.
+  - `LIT-0391`: Titans: Learning to Memorize at Test Time.
+  - `LIT-0392`: BrownoutServe: SLO-Aware Inference Serving Under Bursty Workloads for MoE-Based LLMs.
+  - `LIT-0393`: BatchLLM: Optimizing Large Batched LLM Inference with Global Prefix Sharing and Throughput-oriented Token Batching.
+  - `LIT-0394`: DroidSpeak: KV Cache Sharing for Cross-LLM Communication and Multi-LLM Serving.
+  - `LIT-0395`: FastDecode: High-Throughput GPU-Efficient LLM Serving using Heterogeneous Pipelines.
+  - `LIT-0396`: Prompt Generate Train (PGT): Few-shot Domain Adaption of Retrieval Augmented Generation Models for Open Book Question-Answering.
+- Counting after B12 completion:
+  - candidate pool records: 535.
+  - discovered candidates: 289.
+  - promoted candidates: 67.
+  - managed corpus records: 210.
+  - effective literature records: 210.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

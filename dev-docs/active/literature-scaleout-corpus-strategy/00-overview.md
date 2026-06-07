@@ -3,7 +3,7 @@
 ## Status
 - State: in-progress
 - Origin: follow-up from the adaptive LLM systems literature collection discussion.
-- Next step: continue source-available B11 tranches from `DISCOVERED` candidates, or run direction-targeted B10 if source-available depth in a direction gets thin.
+- Next step: continue source-available B11 tranches from `DISCOVERED` candidates using the selector gate, or run direction-targeted B10 if source-available depth in a direction gets thin.
 
 ## Goal
 - Replace the current small-batch collection rhythm with a 5000-level literature scaleout strategy.
@@ -20,14 +20,14 @@
 
 ## Current Baseline
 - Current candidate pool: 535 records.
-  - 299 discovered.
+  - 289 discovered.
   - 20 ready for promotion.
-  - 57 promoted.
+  - 67 promoted.
   - 9 deferred.
   - 146 duplicates.
   - 4 rejected.
-- Current managed adaptive corpus: 200 records.
-- Current effective literature records: 200 records.
+- Current managed adaptive corpus: 210 records.
+- Current effective literature records: 210 records.
 - Current incomplete managed records: 0.
 - Current adaptive corpus blockers with explicit blocker detail: 0 records.
 - Current soft-excluded source-access records: 3 records.
@@ -44,6 +44,7 @@
   - `LIT-0362` through `LIT-0367` completed a source-available RAG/test-time tranche through `INDEXED` via arXiv acquisition, `codex_curated` dossiers, and chunk/embed/index backfill.
   - `LIT-0368` through `LIT-0376` completed the next source-available RAG/serving/test-time tranche through `INDEXED` via arXiv acquisition, `codex_curated` dossiers, and chunk/embed/index backfill.
   - `LIT-0377` through `LIT-0386` completed source-available tranche5 through `INDEXED` via arXiv acquisition, `codex_curated` dossiers, and chunk/embed/index backfill.
+  - `LIT-0387` through `LIT-0396` completed source-available tranche6 through `INDEXED` via arXiv acquisition, selector-filtered `codex_curated` dossiers, and chunk/embed/index backfill.
 - Current pipeline-not-started managed records: 0.
 - Raw DB includes non-corpus records used for historical system evidence, fixtures, and excluded imports; raw DB size is not a literature-progress metric.
 
@@ -143,6 +144,7 @@
 - D31: source-available tranche4 selected another 10 arXiv-backed `DISCOVERED` candidates; B11 promoted 9 and reverse-marked 1 duplicate, and B12 completed the 9 promoted records through `INDEXED`, bringing managed/effective corpus to 190.
 - D32: high-volume generated JSON run outputs were moved out of versioned `dev-docs` artifacts into `.ai/.tmp`, and B10/B11 now keep raw candidate/query/decision dumps local while preserving lightweight summary reports.
 - D33: source-available tranche5 selected 10 arXiv-backed `DISCOVERED` candidates; B11 promoted all 10 and B12 completed them through `INDEXED`, bringing managed/effective corpus to 200.
+- D34: source-available tranche6 added a reusable selector gate, selected 10 arXiv-backed candidates after filtering application-tail ready items, promoted `LIT-0387` through `LIT-0396`, and completed all 10 through `INDEXED`, bringing managed/effective corpus to 210.
 
 ## Scope
 - Define collection cadence and batch gates for 5000-level scaleout.

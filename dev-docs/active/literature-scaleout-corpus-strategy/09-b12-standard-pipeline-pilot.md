@@ -432,6 +432,16 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - `LIT-0384`: Aladdin: Joint Placement and Scaling for SLO-Aware LLM Serving.
 - `LIT-0385`: No Train Still Gain. Unleash Mathematical Reasoning of Large Language Models with Monte Carlo Tree Search Guided by Energy Function.
 - `LIT-0386`: Efficient LLM Scheduling by Learning to Rank.
+- `LIT-0387`: Open-RAG: Enhanced Retrieval-Augmented Reasoning with Open-Source Large Language Models.
+- `LIT-0388`: Self-adaptive Multimodal Retrieval-Augmented Generation.
+- `LIT-0389`: Edge Intelligence Optimization for Large Language Model Inference with Batching and Quantization.
+- `LIT-0390`: You Only Cache Once: Decoder-Decoder Architectures for Language Models.
+- `LIT-0391`: Titans: Learning to Memorize at Test Time.
+- `LIT-0392`: BrownoutServe: SLO-Aware Inference Serving Under Bursty Workloads for MoE-Based LLMs.
+- `LIT-0393`: BatchLLM: Optimizing Large Batched LLM Inference with Global Prefix Sharing and Throughput-oriented Token Batching.
+- `LIT-0394`: DroidSpeak: KV Cache Sharing for Cross-LLM Communication and Multi-LLM Serving.
+- `LIT-0395`: FastDecode: High-Throughput GPU-Efficient LLM Serving using Heterogeneous Pipelines.
+- `LIT-0396`: Prompt Generate Train (PGT): Few-shot Domain Adaption of Retrieval Augmented Generation Models for Open Book Question-Answering.
 
 ## Current B12 Record State
 - `LIT-0153`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version was refreshed during blocker cleanup.
@@ -493,16 +503,26 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - `LIT-0384`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 161 chunks/vectors.
 - `LIT-0385`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 109 chunks/vectors.
 - `LIT-0386`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 113 chunks/vectors.
+- `LIT-0387`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 97 chunks/vectors.
+- `LIT-0388`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 95 chunks/vectors.
+- `LIT-0389`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 81 chunks/vectors.
+- `LIT-0390`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 146 chunks/vectors.
+- `LIT-0391`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 164 chunks/vectors.
+- `LIT-0392`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 132 chunks/vectors.
+- `LIT-0393`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 144 chunks/vectors.
+- `LIT-0394`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 171 chunks/vectors.
+- `LIT-0395`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 196 chunks/vectors.
+- `LIT-0396`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 72 chunks/vectors.
 
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche5-index.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche6-index.json`
 - Metrics:
   - candidate pool records: 535.
-  - candidate discovered records: 299.
+  - candidate discovered records: 289.
   - candidate ready-for-promotion records: 20.
-  - candidate promoted records: 57.
-  - managed corpus records: 200.
-  - effective literature records: 200.
+  - candidate promoted records: 67.
+  - managed corpus records: 210.
+  - effective literature records: 210.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
@@ -522,4 +542,5 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - Source-available tranche3 added 6 effective records and reverse-marked 4 duplicates before promotion.
 - Source-available tranche4 added 9 effective records and reverse-marked 1 duplicate before promotion.
 - Source-available tranche5 added 10 effective records and crossed the 200-record managed/effective checkpoint.
-- At the D33 checkpoint, every currently managed corpus record is effective; the remaining 20 ready candidates are DOI-only, so source-available tranches should continue from audited arXiv-backed `DISCOVERED` candidates or newly targeted B10 batches.
+- Source-available tranche6 added 10 effective records through the selector-filtered arXiv path.
+- At the D34 checkpoint, every currently managed corpus record is effective; the remaining 20 ready candidates are DOI-only, so source-available tranches should continue from audited arXiv-backed `DISCOVERED` candidates or newly targeted B10 batches.
