@@ -574,15 +574,42 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - `LIT-0425`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 164 chunks/vectors.
 - `LIT-0426`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 170 chunks/vectors.
 
+## Source-Available Tranche9
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche9-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche9-index.json`
+- Input:
+  - B11 promoted `LIT-0427` through `LIT-0440`.
+  - direction split: 2 RAG-aware allocation and 12 LLM-serving/resource allocation.
+- Result:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 14 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 14 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 14 records and created 14 content assets.
+  - fulltext preprocessing succeeded for all 14 records and created 14 ready fulltext documents.
+  - dossier dry-run import returned 14 valid dossiers, 0 invalid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 14 embedding calls.
+  - index apply succeeded for all 14 records.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 14 records.
+  - active embedding versions are all indexed; total chunks/vectors: 2483/2483.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche8-index.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche9-index.json`
 - Metrics:
-  - candidate pool records: 535.
-  - candidate discovered records: 259.
+  - candidate pool records: 537.
+  - candidate discovered records: 247.
   - candidate ready-for-promotion records: 20.
-  - candidate promoted records: 97.
-  - managed corpus records: 240.
-  - effective literature records: 240.
+  - candidate promoted records: 111.
+  - managed corpus records: 254.
+  - effective literature records: 254.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
@@ -605,4 +632,5 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - Source-available tranche6 added 10 effective records through the selector-filtered arXiv path.
 - Source-available tranche7 added 15 effective records through the selector-filtered arXiv path.
 - Source-available tranche8 added 15 effective serving/resource-allocation records through the selector-filtered arXiv path.
-- At the D36 checkpoint, every currently managed corpus record is effective; the remaining 20 ready candidates are source-unknown/DOI-only, so source-available tranches should continue from audited arXiv-backed `DISCOVERED` candidates or newly targeted B10 batches.
+- Source-available tranche9 added 14 effective records through the selector-filtered arXiv path.
+- At the D39 checkpoint, every currently managed corpus record is effective; the remaining 20 ready candidates are source-unknown/DOI-only, so source-available tranches should continue from audited arXiv-backed `DISCOVERED` candidates or newly targeted B10 batches.

@@ -3,7 +3,7 @@
 ## Status
 - State: in-progress
 - Origin: follow-up from the adaptive LLM systems literature collection discussion.
-- Next step: continue source-available B11 tranches from `DISCOVERED` candidates using the selector gate, or run direction-targeted B10 if source-available depth in a direction gets thin.
+- Next step: continue source-available selector tranches from the remaining `DISCOVERED` pool, or run targeted B10 if non-tail RAG/test-time depth gets thin.
 
 ## Goal
 - Replace the current small-batch collection rhythm with a 5000-level literature scaleout strategy.
@@ -19,15 +19,15 @@
   - `collection:theory-support`
 
 ## Current Baseline
-- Current candidate pool: 535 records.
-  - 259 discovered.
+- Current candidate pool: 537 records.
+  - 247 discovered.
   - 20 ready for promotion.
-  - 97 promoted.
+  - 111 promoted.
   - 9 deferred.
   - 146 duplicates.
   - 4 rejected.
-- Current managed adaptive corpus: 240 records.
-- Current effective literature records: 240 records.
+- Current managed adaptive corpus: 254 records.
+- Current effective literature records: 254 records.
 - Current incomplete managed records: 0.
 - Current adaptive corpus blockers with explicit blocker detail: 0 records.
 - Current soft-excluded source-access records: 3 records.
@@ -47,6 +47,17 @@
   - `LIT-0387` through `LIT-0396` completed source-available tranche6 through `INDEXED` via arXiv acquisition, selector-filtered `codex_curated` dossiers, and chunk/embed/index backfill.
   - `LIT-0397` through `LIT-0411` completed source-available tranche7 through `INDEXED` via arXiv acquisition, selector-filtered `codex_curated` dossiers, and chunk/embed/index backfill.
   - `LIT-0412` through `LIT-0426` completed source-available tranche8 through `INDEXED` via arXiv acquisition, selector-filtered `codex_curated` dossiers, and chunk/embed/index backfill.
+  - `LIT-0427` through `LIT-0440` completed source-available tranche9 through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- Current B10 expansion state:
+  - D37 added source-available and title-regex filters to B10 runtime configuration.
+  - D37 wrote 2 clean RAG-core source-available candidates to staging only: `SF-RAG` and `PrefRAG`.
+  - D37 did not create or mutate `LiteratureRecord` rows; managed and effective literature remain 240.
+- Current B11 selector state:
+  - D38 source-available preflight found 0 source-available `READY_FOR_PROMOTION` candidates and 117 source-available `DISCOVERED` candidates.
+  - D38 source-available pool dry-run found 29 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+  - D38 selector selected 14 tranche9 candidates: 2 RAG-core records and 12 LLM-serving/resource-allocation records; explicit dry-run kept all 14 at `READY_FOR_PROMOTION`.
+  - D38 did not write candidate status changes or create `LiteratureRecord` rows.
+  - D39 applied/promoted those 14 selected candidates and completed all 14 records through `INDEXED`.
 - Current pipeline-not-started managed records: 0.
 - Raw DB includes non-corpus records used for historical system evidence, fixtures, and excluded imports; raw DB size is not a literature-progress metric.
 
@@ -149,6 +160,11 @@
 - D34: source-available tranche6 added a reusable selector gate, selected 10 arXiv-backed candidates after filtering application-tail ready items, promoted `LIT-0387` through `LIT-0396`, and completed all 10 through `INDEXED`, bringing managed/effective corpus to 210.
 - D35: source-available tranche7 scaled the selector-filtered path to 15 records, promoted `LIT-0397` through `LIT-0411`, and completed all 15 through `INDEXED`, bringing managed/effective corpus to 225.
 - D36: source-available tranche8 selected 15 high-signal LLM-serving/resource-allocation records, promoted `LIT-0412` through `LIT-0426`, and completed all 15 through `INDEXED`, bringing managed/effective corpus to 240.
+- D37: B10 now supports optional `B10_REQUIRE_SOURCE_AVAILABLE`, `B10_TITLE_ALLOWLIST_REGEX`, and `B10_TITLE_EXCLUDE_REGEX` filters for clean targeted expansion runs.
+- D37: a RAG/test-time source-available dry-run scanned 2500 OpenAlex results, kept 46 source-available candidates, and found 4 new `DISCOVERED` candidates; 2 obvious application-tail titles were not applied.
+- D37: the clean allowlist apply wrote 2 RAG-core source-available candidates (`SF-RAG`, `PrefRAG`) as `DISCOVERED`, added 1 B10 batch, and left managed/effective literature unchanged at 240.
+- D38: source-available B11 selector pass audited the refreshed `DISCOVERED` pool, selected 14 tranche9 candidates, and explicit dry-run classified all selected candidates as `READY_FOR_PROMOTION` with DB delta 0.
+- D39: B11/B12 tranche9 promoted `LIT-0427` through `LIT-0440` and completed all 14 through `INDEXED`, bringing managed/effective corpus to 254 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
 ## Scope
 - Define collection cadence and batch gates for 5000-level scaleout.

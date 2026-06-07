@@ -468,3 +468,61 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## Source-Available Tranche9 Selector Pass
+- Source-available preflight artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche9-preflight.json`
+- ArXiv-pool dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche9-arxiv-pool-dry-run-b11-candidate-triage-report.json`
+- Selector artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b11-source-available-tranche9-selector-b11-source-available-selector.json`
+- Explicit dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche9-dry-run-b11-candidate-triage-report.json`
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b11-source-available-tranche9-apply-promote-b11-candidate-triage-report.json`
+- Input:
+  - preflight found 0 source-available `READY_FOR_PROMOTION` candidates and 117 source-available `DISCOVERED` candidates.
+  - source-available `DISCOVERED` direction split: 46 RAG-aware allocation, 43 LLM-serving/resource allocation, and 28 test-time compute.
+  - B11 dry-run over the 117-candidate source-available pool found 29 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
+  - selector target was 15 with quotas `rag-aware-allocation=4`, `llm-serving-resource-allocation=10`, and `test-time-compute-budgeting=1`.
+  - selector found 14 eligible non-tail source-available ready candidates and selected all 14.
+- Selected records:
+  - `SF-RAG: Structure-Fidelity Retrieval-Augmented Generation for Academic Question Answering`.
+  - `PrefRAG: Preference-Driven Multi-Source Retrieval Augmented Generation`.
+  - `QServe: W4A8KV4 Quantization and System Co-design for Efficient LLM Serving`.
+  - `Punica: Multi-Tenant LoRA Serving`.
+  - `RetroInfer: A Vector Storage Engine for Scalable Long-Context LLM Inference`.
+  - `Characterizing and Optimizing LLM Inference Workloads on CPU-GPU Coupled Architectures`.
+  - `LLMServingSim2.0: A Unified Simulator for Heterogeneous Hardware and Serving Techniques in LLM Infrastructure`.
+  - `MPIC: Position-Independent Multimodal Context Caching System for Efficient MLLM Serving`.
+  - `Helix: Serving Large Language Models over Heterogeneous GPUs and Network via Max-Flow`.
+  - `InstInfer: In-Storage Attention Offloading for Cost-Effective Long-Context LLM Inference`.
+  - `Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads`.
+  - `Progressive Mixed-Precision Decoding for Efficient LLM Inference`.
+  - `Simple linear attention language models balance the recall-throughput tradeoff`.
+  - `Understanding the Potential of FPGA-Based Spatial Acceleration for Large Language Model Inference`.
+- Result:
+  - explicit dry-run decisions: 14 `READY_FOR_PROMOTION`.
+  - explicit dry-run direction split: 2 RAG-aware allocation and 12 LLM-serving/resource allocation.
+  - explicit dry-run DB delta: 0 candidates, 0 `LiteratureRecord` rows, and 0 `LiteratureSource` rows.
+  - apply/promote attempted 14 promotions and succeeded for all 14.
+  - apply/promote DB delta: 14 `LiteratureRecord` rows and 14 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0427`: PrefRAG: Preference-Driven Multi-Source Retrieval Augmented Generation.
+  - `LIT-0428`: SF-RAG: Structure-Fidelity Retrieval-Augmented Generation for Academic Question Answering.
+  - `LIT-0429`: Punica: Multi-Tenant LoRA Serving.
+  - `LIT-0430`: Understanding the Potential of FPGA-Based Spatial Acceleration for Large Language Model Inference.
+  - `LIT-0431`: Characterizing and Optimizing LLM Inference Workloads on CPU-GPU Coupled Architectures.
+  - `LIT-0432`: Helix: Serving Large Language Models over Heterogeneous GPUs and Network via Max-Flow.
+  - `LIT-0433`: InstInfer: In-Storage Attention Offloading for Cost-Effective Long-Context LLM Inference.
+  - `LIT-0434`: LLMServingSim2.0: A Unified Simulator for Heterogeneous Hardware and Serving Techniques in LLM Infrastructure.
+  - `LIT-0435`: Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads.
+  - `LIT-0436`: MPIC: Position-Independent Multimodal Context Caching System for Efficient MLLM Serving.
+  - `LIT-0437`: Progressive Mixed-Precision Decoding for Efficient LLM Inference.
+  - `LIT-0438`: QServe: W4A8KV4 Quantization and System Co-design for Efficient LLM Serving.
+  - `LIT-0439`: RetroInfer: A Vector Storage Engine for Scalable Long-Context LLM Inference.
+  - `LIT-0440`: Simple linear attention language models balance the recall-throughput tradeoff.
+- Counting after B12 completion:
+  - candidate pool records: 537.
+  - discovered candidates: 247.
+  - promoted candidates: 111.
+  - managed corpus records: 254.
+  - effective literature records: 254.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

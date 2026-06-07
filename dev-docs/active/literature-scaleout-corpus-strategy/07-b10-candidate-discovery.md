@@ -51,6 +51,9 @@
 - `B10_REQUEST_DELAY_MS`: non-arXiv provider delay.
 - `B10_ARXIV_DELAY_MS`: arXiv provider delay.
 - `B10_MIN_YEAR`: minimum publication year.
+- `B10_REQUIRE_SOURCE_AVAILABLE`: optional boolean; when true, keep only candidates with an arXiv path.
+- `B10_TITLE_ALLOWLIST_REGEX`: optional case-insensitive title regex for curated small applies.
+- `B10_TITLE_EXCLUDE_REGEX`: optional case-insensitive title plus abstract regex for excluding obvious tails.
 - `OPENALEX_MAILTO`: optional OpenAlex contact email.
 - `OPENALEX_API_KEY`: optional OpenAlex API key.
 - `SEMANTIC_SCHOLAR_API_KEY`: optional Semantic Scholar API key.
@@ -237,3 +240,52 @@ TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-openalex-apply \
   - managed corpus records: 163.
   - effective literature records: 163.
   - pipeline incomplete/blocker/not-started: 0.
+
+## Source-Available Targeted Expansion
+- Broad RAG/test-time dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-testtime-source-available-dry-run-b10-candidate-discovery-report.json`
+  - Input filters:
+    - `B10_REQUIRE_SOURCE_AVAILABLE=true`.
+    - no title allowlist or exclude regex.
+  - Track ids:
+    - `rag-aware-allocation-core`
+    - `rag-aware-allocation-theory`
+    - `test-time-compute-budgeting-strategy`
+    - `test-time-compute-budgeting-search`
+    - `test-time-compute-budgeting-theory`
+  - Executed OpenAlex queries: 100.
+  - Provider errors: 0.
+  - Provider results scanned: 2500.
+  - Source-available candidates kept: 46.
+  - Discovered in dry-run: 4.
+  - Duplicates in dry-run: 42.
+  - Direction split:
+    - RAG-aware allocation: 19.
+    - Test-time compute budgeting: 27.
+  - New discovered title review:
+    - kept for apply: `SF-RAG`, `PrefRAG`.
+    - not applied: `Prompt-based Code Completion via Multi-Retrieval Augmented Generation`, `Reinforcement Learning for Optimizing RAG for Domain Chatbots`.
+- Clean RAG-core allowlist dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-source-available-allowlist-dry-run-b10-candidate-discovery-report.json`
+  - Input filters:
+    - `B10_REQUIRE_SOURCE_AVAILABLE=true`.
+    - `B10_TITLE_ALLOWLIST_REGEX='^(SF-RAG|PrefRAG)'`.
+  - Candidate count: 2.
+  - Discovered: 2.
+  - Duplicates: 0.
+  - DB delta: 0 batches, 0 candidates.
+- Clean RAG-core allowlist apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b10-rag-source-available-allowlist-apply-b10-candidate-discovery-report.json`
+  - Batch ID: `c9b19682-58f8-4c9b-89e8-369ab1d58f4d`.
+  - Candidate count: 2.
+  - Discovered: 2.
+  - Duplicates: 0.
+  - Source-available: 2.
+  - Titles:
+    - `SF-RAG: Structure-Fidelity Retrieval-Augmented Generation for Academic Question Answering`.
+    - `PrefRAG: Preference-Driven Multi-Source Retrieval Augmented Generation`.
+  - DB delta: 1 batch, 2 candidates.
+  - No `LiteratureRecord` rows were created.
+  - Counting after apply:
+    - candidate pool records: 537.
+    - candidate discovered records: 261.
+    - managed corpus records: 240.
+    - effective literature records: 240.
+    - pipeline incomplete/blocker/not-started: 0.

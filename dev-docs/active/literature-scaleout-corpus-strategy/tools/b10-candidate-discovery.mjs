@@ -35,6 +35,11 @@ const requestDelayMs = readInteger('B10_REQUEST_DELAY_MS', 1100, { min: 0, max: 
 const arxivDelayMs = readInteger('B10_ARXIV_DELAY_MS', 3200, { min: 0, max: 60000 });
 const providerRetries = readInteger('B10_PROVIDER_RETRIES', 2, { min: 1, max: 5 });
 const minYear = readInteger('B10_MIN_YEAR', 2018, { min: 1900, max: 2100 });
+const requireSourceAvailable = readBoolean('B10_REQUIRE_SOURCE_AVAILABLE', false);
+const titleAllowlistRegexRaw = process.env.B10_TITLE_ALLOWLIST_REGEX ?? '';
+const titleExcludeRegexRaw = process.env.B10_TITLE_EXCLUDE_REGEX ?? '';
+const titleAllowlistRegex = compileRegex('B10_TITLE_ALLOWLIST_REGEX', titleAllowlistRegexRaw);
+const titleExcludeRegex = compileRegex('B10_TITLE_EXCLUDE_REGEX', titleExcludeRegexRaw);
 const openAlexMailto = process.env.OPENALEX_MAILTO ?? process.env.UNPAYWALL_EMAIL ?? '';
 const openAlexApiKey = process.env.OPENALEX_API_KEY ?? '';
 const semanticScholarApiKey = process.env.SEMANTIC_SCHOLAR_API_KEY ?? '';
@@ -360,6 +365,23 @@ function readInteger(name, fallback, options) {
   return Math.max(options.min, Math.min(options.max, value));
 }
 
+function readBoolean(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  if (/^(1|true|yes|y)$/i.test(raw)) return true;
+  if (/^(0|false|no|n)$/i.test(raw)) return false;
+  throw new Error(`${name} must be a boolean-like value.`);
+}
+
+function compileRegex(name, rawValue) {
+  if (!rawValue) return null;
+  try {
+    return new RegExp(rawValue, 'i');
+  } catch (error) {
+    throw new Error(`${name} is not a valid regular expression: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -515,6 +537,19 @@ function shouldKeepCandidate(candidate) {
     && candidate.relevanceScore !== null
     && candidate.relevanceScore >= 0.42
     && passesTrackFocus(candidate);
+}
+
+function passesRunFilters(candidate) {
+  if (requireSourceAvailable && !hasSourceAvailablePath(candidate)) return false;
+  if (titleAllowlistRegex && !titleAllowlistRegex.test(candidate.title)) return false;
+  if (titleExcludeRegex && titleExcludeRegex.test(`${candidate.title} ${candidate.abstractText}`)) return false;
+  return true;
+}
+
+function hasSourceAvailablePath(candidate) {
+  return Boolean(candidate.arxivId)
+    || /^10\.48550\/arxiv\./i.test(candidate.doiNormalized ?? '')
+    || /arxiv\.org\/(?:abs|pdf)\//i.test(candidate.sourceUrl ?? '');
 }
 
 function passesTrackFocus(candidate) {
@@ -720,7 +755,7 @@ async function fetchOpenAlex(track, query) {
       venue: work.primary_location?.source?.display_name,
       sourceUrl: arxivId ? `https://arxiv.org/abs/${arxivId}` : work.primary_location?.landing_page_url ?? work.doi ?? work.id,
     }, track, query, 'openalex', work);
-  }).filter(shouldKeepCandidate);
+  }).filter((candidate) => shouldKeepCandidate(candidate) && passesRunFilters(candidate));
   return {
     provider: 'openalex',
     query,
@@ -767,7 +802,7 @@ async function fetchArxiv(track, query) {
   const rawResults = parseArxivEntries(xml);
   const candidates = rawResults.map((entry) =>
     makeCandidate(entry, track, query, 'arxiv', { ...entry, query }),
-  ).filter(shouldKeepCandidate);
+  ).filter((candidate) => shouldKeepCandidate(candidate) && passesRunFilters(candidate));
   return {
     provider: 'arxiv',
     query,
@@ -811,7 +846,7 @@ async function fetchSemanticScholar(track, query) {
       semanticScholarId: paper.paperId,
       sourceUrl: paper.url,
     }, track, query, 'semantic_scholar', paper),
-  ).filter(shouldKeepCandidate);
+  ).filter((candidate) => shouldKeepCandidate(candidate) && passesRunFilters(candidate));
   return {
     provider: 'semantic_scholar',
     query,
@@ -1208,6 +1243,10 @@ function summarize(candidates) {
     candidate_count: candidates.length,
     discovered_count: candidates.filter((candidate) => candidate.status === 'DISCOVERED').length,
     duplicate_count: candidates.filter((candidate) => candidate.status === 'DUPLICATE').length,
+    source_available_count: candidates.filter(hasSourceAvailablePath).length,
+    discovered_source_available_count: candidates.filter((candidate) =>
+      candidate.status === 'DISCOVERED' && hasSourceAvailablePath(candidate),
+    ).length,
     by_source_provider: countBy(candidates, (candidate) => candidate.sourceProvider),
     by_status: countBy(candidates, (candidate) => candidate.status),
     by_direction: countBy(candidates, (candidate) => candidate.direction),
@@ -1291,6 +1330,11 @@ const artifact = await writeArtifacts({
       request_delay_ms: requestDelayMs,
       arxiv_delay_ms: arxivDelayMs,
       provider_retries: providerRetries,
+      candidate_filters: {
+        require_source_available: requireSourceAvailable,
+        title_allowlist_regex: titleAllowlistRegexRaw || null,
+        title_exclude_regex: titleExcludeRegexRaw || null,
+      },
       openalex_mailto_configured: Boolean(openAlexMailto),
       openalex_api_key_configured: Boolean(openAlexApiKey),
       semantic_scholar_api_key_configured: Boolean(semanticScholarApiKey),

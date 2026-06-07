@@ -901,3 +901,74 @@
   - final state probe found all seven standard stages `SUCCEEDED` for all 15 records.
   - active embedding versions are all `INDEXED`, using `text-embedding-3-large` with dimension 3072; total chunks/vectors: 2054/2054.
   - B13 after the tranche reports candidate pool 535, discovered candidates 259, promoted candidates 97, managed corpus 240, effective literature 240, pipeline incomplete 0, blocked 0, and not-started 0.
+
+## 2026-06-07 - D37 B10 Source-Available RAG Expansion
+- Added B10 runtime filters for cleaner targeted expansion:
+  - `B10_REQUIRE_SOURCE_AVAILABLE` keeps only candidates with an arXiv path.
+  - `B10_TITLE_ALLOWLIST_REGEX` keeps only title matches for curated small applies.
+  - `B10_TITLE_EXCLUDE_REGEX` blocks obvious title or abstract tails for future runs.
+  - default behavior is unchanged when the filters are unset.
+- Ran a broad RAG/test-time source-available OpenAlex dry-run:
+  - scanned 100 provider queries and 2500 provider results.
+  - kept 46 source-available candidates after B10 focus and run filters.
+  - found 4 new `DISCOVERED` candidates and 42 duplicates.
+  - all 4 new candidates were RAG-aware allocation; the test-time side produced only duplicates.
+- Quality decision:
+  - excluded `Prompt-based Code Completion via Multi-Retrieval Augmented Generation` as application-tail noise.
+  - excluded `Reinforcement Learning for Optimizing RAG for Domain Chatbots` as application-tail noise for this clean candidate expansion.
+  - applied only the clean RAG-core source-available pair: `SF-RAG` and `PrefRAG`.
+- Apply result:
+  - wrote 1 `LiteratureDiscoveryBatch`.
+  - wrote 2 `LiteratureDiscoveryCandidate` rows, both `DISCOVERED`.
+  - wrote 0 duplicates in the clean allowlist apply.
+  - created no `LiteratureRecord` rows and no content/fulltext/key-content/embedding/index rows.
+- Counting:
+  - B13 after the apply reports candidate pool 537, discovered candidates 261, promoted candidates 97, managed corpus 240, effective literature 240, pipeline incomplete 0, blocked 0, and not-started 0.
+
+## 2026-06-07 - D38 Source-Available Tranche9 Selector Pass
+- Ran the source-available preflight after D37:
+  - source-available `READY_FOR_PROMOTION`: 0.
+  - source-available `DISCOVERED`: 117.
+  - discovered direction split: 46 RAG-aware allocation, 43 LLM-serving/resource allocation, and 28 test-time compute.
+- Ran B11 dry-run over all 117 source-available `DISCOVERED` candidates:
+  - 29 `READY_FOR_PROMOTION`.
+  - 78 `DEFERRED`.
+  - 8 `DUPLICATE`.
+  - 2 `REJECTED`.
+  - DB delta: 0 candidates, 0 literature records, 0 literature sources.
+- Ran the selector with target 15 and direction quotas `rag=4`, `serving=10`, `test-time=1`:
+  - eligible candidates after source and tail filtering: 14.
+  - selected candidates: 14.
+  - selected direction split: 2 RAG-aware allocation and 12 LLM-serving/resource allocation.
+  - no test-time candidate was selected because the current ready test-time candidates are application-tail items.
+  - the two D37 RAG-core candidates, `SF-RAG` and `PrefRAG`, were selected.
+- Explicit B11 dry-run over the selected ids:
+  - classified all 14 selected candidates as `READY_FOR_PROMOTION`.
+  - DB delta remained 0.
+- Counting:
+  - B13 after the selector pass reports candidate pool 537, discovered candidates 261, promoted candidates 97, managed corpus 240, effective literature 240, pipeline incomplete 0, blocked 0, and not-started 0.
+  - This phase did not apply candidate status changes and did not promote literature.
+
+## 2026-06-07 - D39 Source-Available Tranche9 Promotion And B12 Completion
+- B11 apply/promote:
+  - promoted all 14 selected source-available candidates.
+  - created `LIT-0427` through `LIT-0440` and 14 literature sources.
+  - direction split: 2 RAG-aware allocation and 12 LLM-serving/resource allocation.
+  - B13 after promote reported managed corpus 254, effective literature 240, pipeline incomplete 14, and not-started 14.
+- B12 standard and acquisition:
+  - standard apply normalized citation and abstract for all 14 records.
+  - initial fulltext preprocess blocked all 14 with `FULLTEXT_SOURCE_MISSING`, as expected before acquisition.
+  - acquisition dry-run planned 14 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 14 records and created 14 content assets.
+  - fulltext preprocess rerun succeeded for all 14 records and created 14 ready fulltext documents.
+- Key-content and index:
+  - exported key-content curation bundles for all 14 records.
+  - source-grounded `codex_curated` dossier dry-run returned 14 valid dossiers, 0 invalid dossiers, 0 issues, and 0 repaired source refs.
+  - dossier import marked `KEY_CONTENT_READY=SUCCEEDED` for all 14 records with source `codex_curated`.
+  - key-content extraction provider calls remained 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 14 embedding calls.
+  - index apply succeeded for all 14 records.
+- Final state:
+  - all seven standard stages succeeded for all 14 records.
+  - active embedding versions are all indexed; total chunks/vectors: 2483/2483.
+  - final B13 reports candidate pool 537, discovered candidates 247, promoted candidates 111, managed corpus 254, effective literature 254, pipeline incomplete 0, blocked 0, and not-started 0.
