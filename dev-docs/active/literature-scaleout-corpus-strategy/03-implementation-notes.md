@@ -1399,3 +1399,66 @@
 - Next step:
   - treat the 50-paper theory-support target as closed.
   - before the next DB-writing scaleout run, choose whether to resume general source-available corpus growth or start a higher-volume B10 discovery tranche for the next corpus target.
+
+## 2026-06-08 - D53 Read-Only Source-Available Selector Preflight
+- Scope:
+  - kept the run read-only; no candidate or literature rows were updated.
+  - moved all D53 generated reports/details into `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
+- Baseline:
+  - B13 read-only count reports candidate pool 571, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 154, managed corpus 297, effective literature 297, incomplete 0, blocked 0, and not-started 0.
+- B11 discovered-pool dry-run:
+  - sampled all 233 `DISCOVERED` candidates.
+  - classified 96 as `READY_FOR_PROMOTION`, 109 as `DEFERRED`, 14 as `DUPLICATE`, and 14 as `REJECTED`.
+  - DB delta stayed 0.
+- Source-availability audit:
+  - among `DISCOVERED` plus `READY_FOR_PROMOTION`, counted 256 candidates and 92 source-available candidates.
+  - source-available split: 89 `DISCOVERED` and 3 `READY_FOR_PROMOTION`.
+  - direction split among source-available candidates: 41 RAG-aware allocation, 31 LLM-serving/resource allocation, and 20 test-time compute budgeting.
+- Selector result:
+  - joined the 233 dry-run decisions with the source-availability audit to produce 89 source-backed `DISCOVERED` decisions.
+  - only 15 of those 89 were B11-ready at default threshold.
+  - strict selector selected 0 because every source-backed ready `DISCOVERED` candidate hit an application-tail or direction-tail filter.
+  - allow-tail contrast selected 15, but the selected list is mostly medical, education, financial QA, Text-to-SQL, MCTS application, multimodal, or training-time tail.
+- Ready source-backed check:
+  - explicitly dry-ran the 3 existing source-backed `READY_FOR_PROMOTION` candidates.
+  - all 3 stayed high-band `READY_FOR_PROMOTION` with DB delta 0.
+  - all 3 are serving/theory candidates, so they are a clean tiny tranche only if serving overshoot is acceptable.
+- Next step:
+  - preferred D54 path: run a narrower RAG/test-time source-backed B10 refill with exact titles or arXiv allowlist, then B11/B12 a balanced small tranche.
+  - secondary option: promote the 3 existing source-backed serving-theory candidates if throughput is preferred over balance.
+
+## 2026-06-08 - D54 Balanced RAG/Test-Time Source-Backed Tranche
+- Scope:
+  - resumed B10/B11/B12 after D53's read-only selector preflight.
+  - kept the tranche balanced toward RAG-aware allocation and test-time compute budgeting rather than using the serving-heavy ready pool.
+  - did not retag these records as theory-support; this was a core/strategy corpus-growth tranche after the 50-paper theory target had closed.
+- B10 hardening:
+  - added arXiv ID allowlist support to `b10-candidate-discovery.mjs`.
+  - accepted `arxiv:<id>` and bare arXiv IDs as query overrides.
+  - routed those queries to arXiv `search_query=id:<id>` and scored exact ID matches as query-score `1`.
+  - this avoided brittle punctuation-heavy title search for test-time papers.
+- B10 apply:
+  - local duplicate preflight skipped `Cost-Aware Query Routing in RAG: Empirical Analysis of Retrieval Depth Tradeoffs` because it already exists as `LIT-0328`.
+  - local duplicate preflight skipped `Adaptive Test-Time Compute Allocation via Learned Heuristics over Categorical Structure` because it already exists as `LIT-0295`.
+  - RAG source-backed apply wrote 4 new `DISCOVERED` candidates.
+  - test-time arXiv-ID apply wrote 2 new `DISCOVERED` candidates.
+  - duplicate rows were skipped with `B10_PERSIST_STATUSES=DISCOVERED`.
+  - DB delta: 2 `LiteratureDiscoveryBatch` rows and 6 `LiteratureDiscoveryCandidate` rows.
+- B11:
+  - dry-run classified all 6 candidates as high-band `READY_FOR_PROMOTION`.
+  - apply/promote created `LIT-0484` through `LIT-0489`.
+  - DB delta: 6 `LiteratureRecord` rows and 6 `LiteratureSource` rows.
+- B12:
+  - standard apply succeeded for citation and abstract stages, then blocked all 6 at `FULLTEXT_PREPROCESSED` with expected `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 6 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 6 and created 6 content assets.
+  - fulltext preprocessing rerun succeeded for all 6 and created READY fulltext documents.
+  - imported source-grounded `codex_curated` dossiers for all 6 records with 0 key-content extraction provider calls and 0 source-ref repairs.
+  - content backfill dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 6 embedding calls.
+  - content backfill apply succeeded for all 6.
+  - final state probe confirmed all 6 records have all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+- Counting:
+  - B13 after D54 reports candidate pool 577, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 160, managed corpus 303, effective literature 303, incomplete 0, blocked 0, and not-started 0.
+- Next step:
+  - if the priority is balanced quality, repeat a narrow source-backed B10 refill before B11.
+  - if the priority is throughput, promote a small serving-heavy ready tranche separately and document the direction skew.

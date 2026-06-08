@@ -2619,3 +2619,83 @@
   - database suite passed.
   - governance sync completed.
   - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-08 - D53 Read-Only Source-Available Selector Preflight
+- Status: completed for B13 baseline, all-`DISCOVERED` B11 dry-run, source-availability audit, filtered selector input generation, strict selector contrast, allow-tail selector contrast, and explicit ready-source-backed B11 dry-run.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-baseline.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-discovered-pool-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-candidate-source-availability-audit.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-source-available-filtered-decisions.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-source-available-selector-filtered-b11-source-available-selector.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-source-available-selector-allow-tail-b11-source-available-selector.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-ready-source-backed-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260608T-d53-readonly-baseline ... literature-scaleout-counting-report.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d53-discovered-pool-dry-run B11_CANDIDATE_STATUS=DISCOVERED B11_MAX_CANDIDATES=300 B11_MAX_PROMOTIONS=30 ... b11-candidate-triage-promote.mjs`
+  - `20260608T-d53-candidate-source-availability-audit` inline read-only Prisma audit.
+  - `20260608T-d53-source-available-filtered-decisions` inline read-only Prisma join.
+  - `TS_NODE_TRANSPILE_ONLY=true B11_SELECTOR_RUN_ID=20260608T-d53-source-available-selector-filtered B11_SELECTOR_ASSUME_SOURCE_AVAILABLE=true ... b11-source-available-selector.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_SELECTOR_RUN_ID=20260608T-d53-source-available-selector-allow-tail B11_SELECTOR_ASSUME_SOURCE_AVAILABLE=true ... b11-source-available-selector.mjs --allow-application-tail`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d53-ready-source-backed-dry-run B11_CANDIDATE_STATUS=READY_FOR_PROMOTION ... b11-candidate-triage-promote.mjs`
+- Result:
+  - B13 baseline stayed at candidate pool 571, discovered 233, ready 23, promoted 154, managed/effective 297, incomplete 0, blocked 0, and not-started 0.
+  - all-`DISCOVERED` B11 dry-run classified 96 as ready, 109 deferred, 14 duplicate, and 14 rejected, with DB delta 0.
+  - source-availability audit found 92 source-available candidates among 256 `DISCOVERED`/`READY_FOR_PROMOTION` candidates.
+  - strict selector selected 0 clean source-backed `DISCOVERED` candidates because all 15 source-backed ready items were application/direction tail.
+  - allow-tail selector selected 15 only as a contrast set and is not recommended for immediate promotion.
+  - explicit ready-source-backed dry-run kept 3 existing serving/theory candidates as high-band `READY_FOR_PROMOTION`, with DB delta 0.
+
+### 2026-06-08 - D54 Balanced RAG/Test-Time Source-Backed Tranche
+- Status: completed for B10 exact-title/arXiv-ID dry-runs, B10 apply, B11 dry-run, B11 apply/promote, B12 standard pipeline, acquisition, fulltext preprocessing, `codex_curated` key-content import, index backfill, post-counting, and artifact cleanup.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-source-backed-refill-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-source-backed-refill-apply-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-testtime-arxiv-id-refill-v3-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-testtime-arxiv-id-refill-apply-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-source-backed-b11-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-source-backed-b11-apply-promote-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-dossier-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d54-rag-testtime-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d54-rag-testtime.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d54-rag-testtime-source-backed-refill-dry-run ... b10-candidate-discovery.mjs --providers arxiv,openalex`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d54-rag-source-backed-refill-apply B10_PERSIST_STATUSES=DISCOVERED ... b10-candidate-discovery.mjs --providers arxiv,openalex --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d54-testtime-arxiv-id-refill-v3-dry-run ... b10-candidate-discovery.mjs --providers arxiv`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d54-testtime-arxiv-id-refill-apply B10_PERSIST_STATUSES=DISCOVERED ... b10-candidate-discovery.mjs --providers arxiv --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d54-rag-testtime-source-backed-b11-dry-run ... b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d54-rag-testtime-source-backed-b11-apply-promote ... b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d54-rag-testtime-standard-dry-run ... b12-standard-pipeline-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d54-rag-testtime-standard-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d54-rag-testtime-acquisition-dry-run ... b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d54-rag-testtime-acquisition-apply ... b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d54-rag-testtime-fulltext-preprocess-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `20260608T-d54-rag-testtime-dossier` source-grounded `codex_curated` dossier export/import script.
+  - `20260608T-d54-rag-testtime-dossier` source-grounded `codex_curated` dossier import apply script.
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d54-rag-testtime-index-dry-run ... b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d54-rag-testtime-index-apply ... b12-content-backfill-pilot.mjs --apply`
+  - `20260608T-after-d54-rag-testtime-index-state` final state probe.
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260608T-after-d54-rag-testtime ... literature-scaleout-counting-report.mjs`
+- Result:
+  - B10 preflight skipped two already-managed exact-title records (`LIT-0328`, `LIT-0295`).
+  - B10 RAG apply wrote 4 `DISCOVERED` candidates and skipped same-batch duplicates.
+  - B10 test-time arXiv-ID apply wrote 2 `DISCOVERED` candidates after B10 gained exact arXiv ID query support.
+  - B11 dry-run classified all 6 as `READY_FOR_PROMOTION`.
+  - B11 apply/promote created `LIT-0484` through `LIT-0489`.
+  - standard apply succeeded for citation and abstract stages and produced expected `FULLTEXT_SOURCE_MISSING` blockers before acquisition.
+  - acquisition dry-run planned 6 arXiv downloads with 0 blockers; acquisition apply succeeded for all 6 and created 6 content assets.
+  - fulltext preprocessing succeeded for all 6 records and created 6 ready fulltext documents.
+  - dossier dry-run returned 6 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 6 embedding calls.
+  - index apply succeeded for all 6; final state probe found all 6 with all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+  - B13 after D54 reports candidate pool 577, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 160, managed corpus 303, effective literature 303, incomplete 0, blocked 0, and not-started 0.

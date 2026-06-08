@@ -3,7 +3,7 @@
 ## Status
 - State: in-progress
 - Origin: follow-up from the adaptive LLM systems literature collection discussion.
-- Next step: theory-support target is closed at 50 target-qualified records; choose the next scaleout focus before running another broad B10/B11 tranche.
+- Next step: D54 balanced RAG/test-time source-backed tranche is complete; choose whether D55 should repeat narrow source-backed refill or start a broader candidate expansion pass.
 
 ## Goal
 - Replace the current small-batch collection rhythm with a 5000-level literature scaleout strategy.
@@ -19,15 +19,15 @@
   - `collection:theory-support`
 
 ## Current Baseline
-- Current candidate pool: 571 records.
+- Current candidate pool: 577 records.
   - 233 discovered.
   - 23 ready for promotion.
-  - 154 promoted.
+  - 160 promoted.
   - 11 deferred.
   - 146 duplicates.
   - 4 rejected.
-- Current managed adaptive corpus: 297 records.
-- Current effective literature records: 297 records.
+- Current managed adaptive corpus: 303 records.
+- Current effective literature records: 303 records.
 - Current incomplete managed records: 0.
 - Current theory-support target state:
   - direction-qualified theory-support target: 50 records.
@@ -77,6 +77,7 @@
   - `LIT-0469` through `LIT-0472` completed the D50 serving theory tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, chunk/embed/index backfill, and post-promote theory-slot retagging.
   - `LIT-0473` through `LIT-0476` completed the D51 RAG/test-time/math theory tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, chunk/embed/index backfill, and post-promote theory-slot retagging.
   - `LIT-0477` through `LIT-0483` completed the D52 exact-title theory tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, chunk/embed/index backfill, and post-promote theory-slot retagging.
+  - `LIT-0484` through `LIT-0489` completed the D54 balanced RAG/test-time source-backed tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
 - Current B10 expansion state:
   - D37 added source-available and title-regex filters to B10 runtime configuration.
   - D37 wrote 2 clean RAG-core source-available candidates to staging only: `SF-RAG` and `PrefRAG`.
@@ -91,6 +92,8 @@
   - D47 applied only the clean RAG theory candidate `CARROT: A Learned Cost-Constrained Retrieval Optimization System for RAG` to candidate staging.
   - D48 test-time exact-title/provider checks found no new clean row to stage; the selected source-backed test-time theory path reused and repaired an existing candidate pair for `A Relative-Budget Theory`.
   - D52 exact-title source-available refill wrote seven clean theory-support candidates to staging only: four RAG allocation, two test-time budget, and one math-foundation bridge paper; duplicate rows were not persisted.
+  - D54 added B10 arXiv ID allowlist support for `arxiv:<id>` or bare arXiv IDs, using `search_query=id:<id>` and exact-ID scoring to avoid noisy title searches.
+  - D54 preflight skipped two exact-title targets already in the formal corpus (`LIT-0328`, `LIT-0295`), then wrote six clean source-backed candidates to staging only: four RAG-core records and two test-time compute-budgeting records.
 - Current B11 selector state:
   - D38 source-available preflight found 0 source-available `READY_FOR_PROMOTION` candidates and 117 source-available `DISCOVERED` candidates.
   - D38 source-available pool dry-run found 29 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
@@ -112,6 +115,7 @@
   - D50 B11 dry-run/apply-promote selected four remaining serving theory candidates and promoted all four into `LIT-0469` through `LIT-0472`.
   - D51 audited the remaining RAG/test-time/math source-available pool, kept the broad default dry-run read-only after all seven sampled candidates landed as `DEFERRED`, then used an explicit curated four-paper source-backed allowlist with `B11_READY_THRESHOLD=0.67` to promote `LIT-0473` through `LIT-0476`.
   - D52 B11 default-threshold dry-run classified all seven exact-title source-backed theory candidates as high-band `READY_FOR_PROMOTION`; apply/promote created `LIT-0477` through `LIT-0483`.
+  - D54 B11 default-threshold dry-run classified all six source-backed RAG/test-time candidates as high-band `READY_FOR_PROMOTION`; apply/promote created `LIT-0484` through `LIT-0489`.
 - Current pipeline-not-started managed records: 0.
 - Raw DB includes non-corpus records used for historical system evidence, fixtures, and excluded imports; raw DB size is not a literature-progress metric.
 
@@ -234,6 +238,7 @@
 - D50: B11/B12 promoted and completed four source-available serving theory candidates, raising managed/effective literature to 286 with 39/50 target-qualified theory-support records and closing the serving scheduling slot at 12/12.
 - D51: B11/B12 promoted and completed four source-backed RAG/test-time/math theory candidates, raising managed/effective literature to 290 with 43/50 target-qualified theory-support records.
 - D52: B10 exact-title refill, B11 default-threshold promote, and B12 completion added seven source-backed RAG/test-time/math theory records, raising managed/effective literature to 297 and closing the target-qualified theory-support set at 50/50.
+- D53: read-only B11/source-availability preflight confirmed managed/effective literature remains 297 with 0 blockers; source-backed `DISCOVERED` ready items are all application/direction tail, so the next DB-writing tranche should start with a narrower RAG/test-time source-backed B10 refill rather than direct broad promotion.
 
 ## Scope
 - Define collection cadence and batch gates for 5000-level scaleout.

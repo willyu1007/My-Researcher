@@ -528,6 +528,14 @@ function arxivIdFromDoi(doi) {
   return match ? normalizeLiteratureArxivId(match[1]) : null;
 }
 
+function arxivIdFromQuery(query) {
+  const raw = normalizeText(query).replace(/^arxiv:/i, '').trim();
+  if (/^\d{4}\.\d{4,5}(?:v\d+)?$/i.test(raw) || /^[a-z-]+(?:\.[A-Z]{2})?\/\d{7}(?:v\d+)?$/i.test(raw)) {
+    return normalizeLiteratureArxivId(raw);
+  }
+  return null;
+}
+
 function toDirectionScores(track, relevanceScore) {
   return {
     'rag-aware-allocation': track.direction === 'rag-aware-allocation' ? relevanceScore : 0,
@@ -596,7 +604,11 @@ function scoreCandidate(candidate, track, query) {
   const text = `${candidate.title} ${candidate.abstractText}`.toLowerCase();
   const queryTerms = query.toLowerCase().split(/\s+/).filter((term) => term.length > 3);
   const matchedTerms = queryTerms.filter((term) => text.includes(term)).length;
-  const queryScore = queryTerms.length ? matchedTerms / queryTerms.length : 0;
+  const queryScore = arxivIdFromQuery(query)
+    ? 1
+    : queryTerms.length
+      ? matchedTerms / queryTerms.length
+      : 0;
   const yearScore = candidate.year && candidate.year >= 2024
     ? 1
     : candidate.year && candidate.year >= 2020
@@ -902,7 +914,8 @@ function readXmlTag(xml, tagName) {
 
 async function fetchArxiv(track, query) {
   const url = new URL('https://export.arxiv.org/api/query');
-  url.searchParams.set('search_query', `all:${query}`);
+  const arxivId = arxivIdFromQuery(query);
+  url.searchParams.set('search_query', arxivId ? `id:${arxivId}` : `all:${query}`);
   url.searchParams.set('start', '0');
   url.searchParams.set('max_results', String(providerResultLimit));
   url.searchParams.set('sortBy', 'submittedDate');

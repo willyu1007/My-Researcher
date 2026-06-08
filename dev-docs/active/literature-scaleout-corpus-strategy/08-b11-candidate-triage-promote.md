@@ -914,3 +914,69 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## D53 Read-Only Source-Available Selector Preflight
+- Baseline artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-discovered-pool-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-source-available-filtered-decisions.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-source-available-selector-filtered-b11-source-available-selector.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-source-available-selector-allow-tail-b11-source-available-selector.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-ready-source-backed-dry-run-b11-candidate-triage-report.json`
+- All-`DISCOVERED` dry-run:
+  - input: 233 candidates.
+  - result: 96 `READY_FOR_PROMOTION`, 109 `DEFERRED`, 14 `DUPLICATE`, and 14 `REJECTED`.
+  - direction split: 107 RAG-aware allocation, 72 LLM-serving/resource allocation, and 54 test-time compute budgeting.
+  - role split: 69 core, 76 strategy-support, 48 system-support, and 40 theory-support.
+  - DB delta: 0.
+- Source-backed filtered selector:
+  - source-available filter reduced the 233 decisions to 89 source-backed `DISCOVERED` decisions.
+  - only 15/89 were B11-ready at default threshold.
+  - strict selector selected 0 because all 15 ready source-backed `DISCOVERED` candidates were application-tail or direction-tail.
+  - allow-tail contrast selected 15 but should not be used for D54 without manual topic override.
+- Existing ready source-backed candidates:
+  - `1b97f31c-49dd-43e4-982b-8a0db1798be9`: `Serving Hybrid LLM Loads with SLO Guarantees Using CPU-GPU Attention Piggybacking`.
+  - `9c6af67f-ca34-485b-87bf-63e126ca2fb4`: `WISP: Waste- and Interference-Suppressed Distributed Speculative LLM Serving at the Edge via Dynamic Drafting and SLO-Aware Batching`.
+  - `ffec7904-2891-4eb2-8ca8-6d3ccbbea4cb`: `WVA: A Global Optimization Control Plane for llmd`.
+  - explicit B11 dry-run kept all 3 as high-band `READY_FOR_PROMOTION` with DB delta 0.
+- Recommendation:
+  - do not direct-promote the broad `DISCOVERED` source-backed ready set.
+  - run a narrower RAG/test-time source-backed B10 refill before the next balanced B11/B12 tranche.
+
+## D54 Balanced RAG/Test-Time Apply/Promote
+- Input batches:
+  - `B10-20260608T-d54-rag-source-backed-refill-apply`: 4 persisted RAG-core `DISCOVERED` candidates.
+  - `B10-20260608T-d54-testtime-arxiv-id-refill-apply`: 2 persisted test-time `DISCOVERED` candidates.
+  - both applies used `B10_PERSIST_STATUSES=DISCOVERED` so same-batch duplicate rows were not persisted.
+- Input candidates:
+  - `33085b42-6d79-499d-8223-7ed9aad73274`: `A Dynamic Retrieval-Augmented Generation System with Selective Memory and Remembrance`.
+  - `d985fd30-ff21-4743-8b16-a78505260455`: `Agent-Orchestrated Adaptive RAG: A Comparative Study on Structured and Multi-Hop Retrieval`.
+  - `e68270cd-f4dd-462d-bb25-1bfc4f081354`: `FD-RAG: Federated Dual-System Retrieval-Augmented Generation`.
+  - `4d673f26-3181-43a8-aaa3-8af25d6299f5`: `GAM-RAG: Gain-Adaptive Memory for Evolving Retrieval in Retrieval-Augmented Generation`.
+  - `887798b4-0c09-4540-aaa2-643921964797`: `What should post-training optimize? A test-time scaling law perspective`.
+  - `bc543019-0f9f-480f-936a-e888863d185f`: `Best-of-$\infty$ -- Asymptotic Performance of Test-Time LLM Ensembling`.
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-source-backed-b11-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-source-backed-b11-apply-promote-b11-candidate-triage-report.json`
+- Result:
+  - default-threshold dry-run classified all 6 as high-band `READY_FOR_PROMOTION`.
+  - apply/promote attempted 6 promotions and succeeded for all 6.
+  - direction split at B11: 4 RAG-aware allocation and 2 test-time compute budgeting.
+  - collection role split at B11: 4 core and 2 strategy-support.
+  - DB delta: 6 `LiteratureRecord` rows and 6 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0484`: `A Dynamic Retrieval-Augmented Generation System with Selective Memory and Remembrance`.
+  - `LIT-0485`: `Agent-Orchestrated Adaptive RAG: A Comparative Study on Structured and Multi-Hop Retrieval`.
+  - `LIT-0486`: `FD-RAG: Federated Dual-System Retrieval-Augmented Generation`.
+  - `LIT-0487`: `GAM-RAG: Gain-Adaptive Memory for Evolving Retrieval in Retrieval-Augmented Generation`.
+  - `LIT-0488`: `Best-of-$\infty$ -- Asymptotic Performance of Test-Time LLM Ensembling`.
+  - `LIT-0489`: `What should post-training optimize? A test-time scaling law perspective`.
+- Counting after B12 completion:
+  - candidate pool records: 577.
+  - discovered candidates: 233.
+  - ready-for-promotion candidates: 23.
+  - promoted candidates: 160.
+  - managed corpus records: 303.
+  - effective literature records: 303.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

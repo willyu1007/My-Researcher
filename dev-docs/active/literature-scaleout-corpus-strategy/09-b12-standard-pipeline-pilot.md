@@ -870,17 +870,45 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
   - final state probe found all seven standard stages `SUCCEEDED` for all 7 records, with active and indexed embedding versions.
   - post-promote retag raised target-qualified theory-support records from 43 to 50 and closed the 50-paper target.
 
+## D54 Balanced RAG/Test-Time Completion
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-dossier-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d54-rag-testtime-index-state.json`
+- Input:
+  - B11 promoted `LIT-0484` through `LIT-0489`.
+  - direction split at B11: 4 RAG-aware allocation and 2 test-time compute budgeting.
+  - collection role split at B11: 4 core and 2 strategy-support.
+- Result:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 6 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 6 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 6 records and created 6 content assets.
+  - fulltext preprocessing succeeded for all 6 records and created 6 ready fulltext documents.
+  - dossier dry-run returned 6 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 6 embedding calls.
+  - index apply succeeded for all 6 records.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 6 records, with active and indexed embedding versions.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d54-rag-testtime.json`
+- D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 - Metrics:
-  - candidate pool records: 571.
+  - candidate pool records: 577.
   - candidate discovered records: 233.
   - candidate ready-for-promotion records: 23.
-  - candidate promoted records: 154.
+  - candidate promoted records: 160.
   - candidate deferred records: 11.
-  - managed corpus records: 297.
-  - effective literature records: 297.
+  - managed corpus records: 303.
+  - effective literature records: 303.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
@@ -920,3 +948,6 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - D51 completed 4 RAG/test-time/math theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 43/50.
 - D52 completed 7 exact-title RAG/test-time/math theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 50/50.
 - At the D52 checkpoint, every currently managed corpus record is effective; the theory-support target gap is 0.
+- D53 was read-only and kept managed/effective literature at 297 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+- D53 found that strict source-backed `DISCOVERED` selector output is empty after tail filtering; prefer a narrower RAG/test-time source-backed B10 refill before the next DB-writing B11/B12 tranche.
+- D54 completed 6 balanced RAG/test-time source-backed records through `INDEXED`, bringing managed/effective literature to 303 with 0 incomplete, 0 blocked, and 0 not-started managed records.

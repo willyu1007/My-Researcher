@@ -516,3 +516,53 @@ TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-openalex-apply \
   - managed corpus records: 276.
   - effective literature records: 276.
   - pipeline incomplete/blocker/not-started: 0.
+
+## D54 RAG/Test-Time Source-Backed Refill
+- Tool hardening:
+  - `b10-candidate-discovery.mjs` now supports arXiv ID allowlist queries.
+  - query overrides can use `arxiv:<id>` or a bare arXiv ID.
+  - arXiv fetch uses `search_query=id:<id>` for these queries.
+  - exact arXiv ID matches receive query-score `1`, while track/title/source filters still apply.
+- Duplicate preflight:
+  - `Cost-Aware Query Routing in RAG: Empirical Analysis of Retrieval Depth Tradeoffs` already exists as `LIT-0328`; it was excluded before B10 apply.
+  - `Adaptive Test-Time Compute Allocation via Learned Heuristics over Categorical Structure` already exists as `LIT-0295`; it was excluded before B10 apply.
+- RAG source-backed dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-source-backed-refill-dry-run-b10-candidate-discovery-report.json`
+  - candidate count: 8.
+  - discovered: 4.
+  - duplicates: 4.
+  - source-available candidates: 8.
+  - discovered source-available candidates: 4.
+  - DB delta: 0 batches, 0 candidates.
+- RAG source-backed apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-source-backed-refill-apply-b10-candidate-discovery-report.json`
+  - batch id: `87b5435c-3105-49d5-809d-5b1c87e06c8e`.
+  - batch code: `B10-20260608T-d54-rag-source-backed-refill-apply`.
+  - persisted 4 discovered candidates and skipped duplicate rows.
+  - persisted candidates:
+    - `A Dynamic Retrieval-Augmented Generation System with Selective Memory and Remembrance`.
+    - `Agent-Orchestrated Adaptive RAG: A Comparative Study on Structured and Multi-Hop Retrieval`.
+    - `FD-RAG: Federated Dual-System Retrieval-Augmented Generation`.
+    - `GAM-RAG: Gain-Adaptive Memory for Evolving Retrieval in Retrieval-Augmented Generation`.
+  - DB delta: 1 batch, 4 candidates.
+  - no `LiteratureRecord` rows were created.
+- Test-time arXiv-ID dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-testtime-arxiv-id-refill-v3-dry-run-b10-candidate-discovery-report.json`
+  - input: `arxiv:2509.21091` and `arxiv:2605.10716`.
+  - candidate count: 2.
+  - discovered: 2.
+  - duplicates: 0.
+  - source provider: arXiv.
+  - DB delta: 0 batches, 0 candidates.
+- Test-time arXiv-ID apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-testtime-arxiv-id-refill-apply-b10-candidate-discovery-report.json`
+  - batch id: `991c7999-8f95-44d5-b13b-cab3a89b9453`.
+  - batch code: `B10-20260608T-d54-testtime-arxiv-id-refill-apply`.
+  - persisted 2 discovered candidates:
+    - `Best-of-$\infty$ -- Asymptotic Performance of Test-Time LLM Ensembling`.
+    - `What should post-training optimize? A test-time scaling law perspective`.
+  - DB delta: 1 batch, 2 candidates.
+  - no `LiteratureRecord` rows were created.
+- Counting after B11/B12 completion:
+  - candidate pool records: 577.
+  - candidate discovered records: 233.
+  - candidate promoted records: 160.
+  - managed corpus records: 303.
+  - effective literature records: 303.
+  - pipeline incomplete/blocker/not-started: 0.
