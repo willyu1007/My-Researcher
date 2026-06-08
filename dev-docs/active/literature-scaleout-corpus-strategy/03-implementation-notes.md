@@ -2,7 +2,7 @@
 
 ## Purpose
 - This file keeps the current implementation decisions readable.
-- Completed D1-D58 details are summarized in `10-scaleout-run-ledger.md`.
+- Completed D1-D59 details are summarized in `10-scaleout-run-ledger.md`.
 - Raw run outputs and detailed reports live under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 
 ## Current Architecture Decisions
@@ -110,23 +110,33 @@
 - B12 completed all 4 promoted records through `INDEXED` using arXiv acquisition, serving-aware source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
 - Managed/effective corpus reached 334 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
+### D60 RAG/Test-Time Direction-Balance Tranche
+- Returned to direction balance after D59 serving-heavy growth.
+- A first arXiv-backed RAG/test-time B11 dry-run found useful titles but exposed mutually linked same-batch duplicate rows rather than clean canonical promote targets.
+- A narrower DOI/ACL candidate dry-run produced 9 high-band decisions: 6 clean `READY_FOR_PROMOTION` candidates and 3 duplicate-loop companions.
+- B11 apply/promote intentionally included only the 6 clean candidates, creating `LIT-0521` through `LIT-0526`.
+- Direction mix for the promoted set: 4 `direction:rag-aware-allocation` core records and 2 `direction:test-time-compute-budgeting` strategy-support records.
+- B12 completed all 6 through `INDEXED`; 5 fulltexts came from Unpaywall-discovered ACL PDFs and `LIT-0525` used an explicit arXiv PDF after Unpaywall returned `UNPAYWALL_NO_OA_PDF`.
+- Managed/effective corpus reached 340 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+- Follow-up: repair or explicitly handle mutually linked duplicate-loop candidates before using those rows as promotion selectors.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
 | Candidate batches | 16 |
 | Candidate pool | 608 |
-| Discovered candidates | 232 |
+| Discovered candidates | 226 |
 | Ready candidates | 23 |
-| Promoted candidates | 191 |
+| Promoted candidates | 197 |
 | Deferred candidates | 15 |
-| Managed corpus | 334 |
-| Effective literature | 334 |
+| Managed corpus | 340 |
+| Effective literature | 340 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: run a stricter RAG/test-time source-backed refill before more serving-heavy growth.
+- Preferred next collection step: fix duplicate-loop hygiene, then run another stricter RAG/test-time source-backed refill.
 - If immediate effective-literature growth is prioritized, use only source-backed candidates that pass B11 high-band gating and keep medium candidates deferred.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
