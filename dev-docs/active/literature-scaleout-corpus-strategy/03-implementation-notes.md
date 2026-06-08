@@ -1260,3 +1260,33 @@
 - Next step:
   - prioritize serving scheduling and RAG allocation theory from the remaining source-available ready pool.
   - keep test-time additions narrower; only 4 test-time target slots remain after D48.
+
+## 2026-06-08 - D49 Serving/RAG Theory Small Tranche
+- Input:
+  - selected 6 source-available `READY_FOR_PROMOTION` candidates from the D45 theory-support pool.
+  - serving candidates: `DriftSched`, `LAPS`, `Revisiting Service Level Objectives and System Level Metrics in Large Language Model Serving`, and `SCORPIO`.
+  - RAG candidates: `AutoRAG-HP` and `Self-Correcting RAG`.
+- B11:
+  - dry-run kept all 6 as high-band `READY_FOR_PROMOTION`.
+  - apply/promote promoted all 6 into `LIT-0463` through `LIT-0468`.
+  - DB delta: 6 `LiteratureRecord` rows and 6 `LiteratureSource` rows.
+  - direction split: 4 LLM-serving/resource allocation and 2 RAG-aware allocation.
+  - collection role split: 6 `collection:theory-support`.
+- B12:
+  - standard apply succeeded for citation and abstract stages, then blocked all 6 at `FULLTEXT_PREPROCESSED` with `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition dry-run planned 6 source downloads with 0 blockers.
+  - acquisition apply succeeded for all 6 and created 6 content assets.
+  - fulltext preprocessing rerun succeeded for all 6 and created READY fulltext documents.
+  - imported source-grounded `codex_curated` dossiers for all 6 records with 0 key-content extraction provider calls.
+  - content backfill dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 6 embedding calls.
+  - content backfill apply succeeded for all 6.
+  - final state probe confirmed all 6 records have `INDEXED=SUCCEEDED`, active embedding versions, and indexed embedding versions.
+- Post-promote theory retag:
+  - added `theory:target-qualified` and one theory slot tag to each completed record.
+  - slot assignment: 4 serving scheduling and 2 RAG allocation.
+- Counting:
+  - B13 after D49 reports candidate pool 564, discovered candidates 237, ready-for-promotion candidates 27, promoted candidates 139, managed corpus 282, effective literature 282, incomplete 0, blocked 0, and not-started 0.
+  - theory target state after D49: 37 effective `collection:theory-support` records, 35 target-qualified records, and 2 scope-borderline records.
+  - target-qualified slot counts: math foundation 10, RAG allocation 8, test-time budget 9, and serving scheduling 8.
+- Next step:
+  - close the remaining 15-paper theory gap with a balanced mix: RAG 5, serving 4, test-time 4, and math 2.

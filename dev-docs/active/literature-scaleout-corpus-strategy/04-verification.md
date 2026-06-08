@@ -2350,3 +2350,63 @@
   - database suite passed.
   - governance sync completed.
   - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-08 - D49 Serving/RAG Theory Small Tranche
+- Status: completed for B11 dry-run, B11 apply/promote, B12 standard pipeline, acquisition, fulltext preprocessing, `codex_curated` key-content import, index backfill, post-promote theory retag, and post-counting.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-apply-promote-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d49-serving-rag-theory-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-retag.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d49-serving-rag-theory.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d49-theory-target-state.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d49-serving-rag-theory-dry-run B11_CANDIDATE_STATUS=READY_FOR_PROMOTION ... b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d49-serving-rag-theory-apply-promote B11_CANDIDATE_STATUS=READY_FOR_PROMOTION ... b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d49-serving-rag-theory-standard-dry-run ... b12-standard-pipeline-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d49-serving-rag-theory-standard-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d49-serving-rag-theory-acquisition-dry-run ... b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d49-serving-rag-theory-acquisition-apply ... b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d49-serving-rag-theory-fulltext-preprocess-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `20260608T-d49-serving-rag-theory-dossier` `codex_curated` dossier export/import script.
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d49-serving-rag-theory-index-dry-run ... b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d49-serving-rag-theory-index-apply ... b12-content-backfill-pilot.mjs --apply`
+  - `20260608T-after-d49-serving-rag-theory-index-state` final state probe.
+  - `20260608T-d49-serving-rag-theory-retag` theory-slot retag script.
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260608T-after-d49-serving-rag-theory ... literature-scaleout-counting-report.mjs`
+  - `20260608T-after-d49-theory-target-state` target-state count script.
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
+  - `git ls-files --others --exclude-standard dev-docs/active/literature-scaleout-corpus-strategy/artifacts`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - B11 dry-run kept all 6 selected source-available theory candidates at high-band `READY_FOR_PROMOTION`.
+  - B11 apply/promote created `LIT-0463` through `LIT-0468`.
+  - standard apply succeeded for citation and abstract stages and produced expected `FULLTEXT_SOURCE_MISSING` blockers before acquisition.
+  - acquisition apply succeeded for all 6 and created 6 content assets.
+  - fulltext preprocessing rerun succeeded for all 6 and created 6 READY fulltext documents.
+  - `codex_curated` dossier import succeeded for all 6 with 0 key-content extraction provider calls and 0 repaired source refs.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 6 embedding calls.
+  - index apply succeeded for all 6; final state probe found 6/6 with `INDEXED=SUCCEEDED`, active embedding versions, and indexed embedding versions.
+  - post-promote retag updated 6 records and raised target-qualified theory-support from 29 to 35; slot counts are math foundation 10, RAG allocation 8, test-time budget 9, and serving scheduling 8.
+  - B13 after D49 reports candidate pool 564, discovered candidates 237, ready-for-promotion candidates 27, promoted candidates 139, managed corpus 282, effective literature 282, incomplete 0, blocked 0, and not-started 0.
+  - all five B10/B11/B12 script syntax checks passed.
+  - whitespace diff check passed.
+  - `dev-docs/active/literature-scaleout-corpus-strategy/artifacts` has no untracked files.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.

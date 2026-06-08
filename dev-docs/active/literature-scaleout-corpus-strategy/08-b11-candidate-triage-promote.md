@@ -767,3 +767,38 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## D49 Serving/RAG Theory Apply/Promote
+- Input candidates:
+  - `5b9c1b68-3d55-4a9c-afdf-e9f505dce0bb`: `DriftSched: Adaptive QoS-Aware Scheduling under Runtime Token Drift for Multi-Tenant GPU Inference`.
+  - `fcafe34e-d52c-435d-a4f8-6fdce44dc950`: `LAPS: A Length-Aware-Prefill LLM Serving System`.
+  - `9ce3de7a-2a2e-4345-8594-9edb73095b30`: `Revisiting Service Level Objectives and System Level Metrics in Large Language Model Serving`.
+  - `838133af-7fa9-4167-8992-743417330283`: `SCORPIO: Serving the Right Requests at the Right Time for Heterogeneous SLOs in LLM Inference`.
+  - `152d7c47-15b9-4934-8b12-4e070acb9e70`: `AutoRAG-HP: Automatic Online Hyper-Parameter Tuning for Retrieval-Augmented Generation`.
+  - `76a502f9-a6e9-4b65-a1b9-63f01f26d3f5`: `Self-Correcting RAG: Enhancing Faithfulness via MMKP Context Selection and NLI-Guided MCTS`.
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-apply-promote-b11-candidate-triage-report.json`
+- Result:
+  - dry-run classified all 6 as high-band `READY_FOR_PROMOTION`.
+  - apply/promote attempted 6 promotions and succeeded for all 6.
+  - direction split: 4 LLM-serving/resource allocation and 2 RAG-aware allocation.
+  - collection role split: 6 `collection:theory-support`.
+  - DB delta: 6 `LiteratureRecord` rows and 6 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0463`: `DriftSched: Adaptive QoS-Aware Scheduling under Runtime Token Drift for Multi-Tenant GPU Inference`.
+  - `LIT-0464`: `LAPS: A Length-Aware-Prefill LLM Serving System`.
+  - `LIT-0465`: `Revisiting Service Level Objectives and System Level Metrics in Large Language Model Serving`.
+  - `LIT-0466`: `SCORPIO: Serving the Right Requests at the Right Time for Heterogeneous SLOs in LLM Inference`.
+  - `LIT-0467`: `AutoRAG-HP: Automatic Online Hyper-Parameter Tuning for Retrieval-Augmented Generation`.
+  - `LIT-0468`: `Self-Correcting RAG: Enhancing Faithfulness via MMKP Context Selection and NLI-Guided MCTS`.
+- Counting after B12 completion and theory retag:
+  - candidate pool records: 564.
+  - discovered candidates: 237.
+  - ready-for-promotion candidates: 27.
+  - promoted candidates: 139.
+  - managed corpus records: 282.
+  - effective literature records: 282.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.
