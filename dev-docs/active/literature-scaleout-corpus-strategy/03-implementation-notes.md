@@ -2,7 +2,7 @@
 
 ## Purpose
 - This file keeps the current implementation decisions readable.
-- Completed D1-D64 details are summarized in `10-scaleout-run-ledger.md`.
+- Completed D1-D65 details are summarized in `10-scaleout-run-ledger.md`.
 - Raw run outputs and detailed reports live under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 
 ## Current Architecture Decisions
@@ -166,24 +166,37 @@
 - Final state probe found all 11 records have all seven standard stages `SUCCEEDED`, active embedding versions, and indexed vectors.
 - Managed/effective corpus reached 363 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
+### D65 Narrow RAG/Test-Time Source-Backed B10 Refill And Singleton Completion
+- Ran an OpenAlex source-backed dry-run over narrow RAG/test-time query overrides.
+- OpenAlex dry-run found 7 source-available candidates: 2 `DISCOVERED` and 5 duplicates.
+- Kept `RAG-Verus` out of apply scope because it is a repository-level program-verification application tail.
+- Ran an arXiv exact-ID dry-run for known RAG/test-time targets; it found 4 source-backed candidates: 1 `DISCOVERED` and 3 duplicates.
+- Applied only the clean arXiv-backed `DISCOVERED` row with `B10_PERSIST_STATUSES=DISCOVERED`.
+- B10 apply wrote 1 batch and 1 candidate: `Stronger Baselines for Retrieval-Augmented Generation with Long-Context Language Models`.
+- A follow-up B11 dry-run over the new candidate returned high-band `READY_FOR_PROMOTION` as RAG core.
+- B11 apply/promote created `LIT-0550` from candidate `ff23d45c-54e6-4096-b2e1-55a467925641`.
+- B12 completed `LIT-0550` through `INDEXED` using arXiv acquisition, source-grounded `codex_curated` dossier import, and chunk/embed/index backfill.
+- Final state probe found all seven standard stages `SUCCEEDED`, 1 content asset, 1 fulltext document, 107 embedding chunks, and 107 indexed vectors.
+- Managed/effective corpus reached 364/364 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 16 |
-| Candidate pool | 608 |
+| Candidate batches | 17 |
+| Candidate pool | 609 |
 | Discovered candidates | 216 |
 | Ready candidates | 14 |
-| Promoted candidates | 220 |
+| Promoted candidates | 221 |
 | Deferred candidates | 15 |
-| Managed corpus | 363 |
-| Effective literature | 363 |
+| Managed corpus | 364 |
+| Effective literature | 364 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: refill RAG/test-time candidate supply with stricter exact-title, arXiv-ID, or ACL source-backed B10 queries.
-- If immediate effective-literature growth is prioritized, continue serving-heavy source-available tranches but keep them explicitly labeled as serving-weighted.
+- Preferred next collection step: continue exact-title/arXiv-ID test-time refill before the next B11 apply.
+- Alternative: run another narrow source-backed selector pass if immediate effective-literature growth is prioritized.
 - Keep promoting only high-band clean candidates and leave medium/application-tail candidates deferred or rejected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

@@ -2,15 +2,15 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D64 wide source-available apply/promote.
+- Latest B11 DB-writing run: D65 RAG singleton apply/promote.
 - Current candidate state:
   - 216 `DISCOVERED`
   - 14 `READY_FOR_PROMOTION`
-  - 220 `PROMOTED`
+  - 221 `PROMOTED`
   - 139 `DUPLICATE`
   - 15 `DEFERRED`
   - 4 `REJECTED`
-- Current recommendation: refill RAG/test-time source-backed candidates before the next apply; current clean ready supply is serving-weighted.
+- Current recommendation: continue test-time exact-ID/source-backed refill before the next apply, or run another strict selector pass if immediate growth is prioritized.
 
 ## Entrypoint
 - Script: `tools/b11-candidate-triage-promote.mjs`
@@ -92,6 +92,7 @@
 | D61 | duplicate-anchor fix clean3 | 3 promoted | `LIT-0527`-`LIT-0529` | completed |
 | D63 | RAG/test-time clean9 | 9 promoted | `LIT-0530`-`LIT-0538` | completed |
 | D64 | wide source-available serving-weighted | 11 promoted | `LIT-0539`-`LIT-0549` | completed |
+| D65 | RAG singleton source-backed refill | 1 promoted | `LIT-0550` | completed |
 
 ## D55 Details
 - Input batch: `B10-20260608T-d55-openalex-exact-title-apply`.
@@ -203,6 +204,7 @@
 - `LIT-0520`: `Injecting Adrenaline into LLM Serving: Boosting Resource Utilization and Throughput via Attention Disaggregation`
 
 ## Next B11 Path
-- For direction balance, prioritize a stricter RAG/test-time source-backed refill next.
+- For direction balance, continue stricter test-time source-backed refill before larger B11 apply.
+- For immediate clean growth, run another strict source-available selector pass with explicit direction labels.
 - For immediate effective-literature growth, continue source-backed high-band subsets but label serving-heavy tranches explicitly.
 - For larger scaleout, expand B10 first, then apply source availability and tail filters before B11 promotion.

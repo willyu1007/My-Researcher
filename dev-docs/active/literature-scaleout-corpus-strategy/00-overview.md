@@ -5,9 +5,10 @@
 - Current task: `T-122 literature-scaleout-corpus-strategy`.
 - Origin task: `T-120`.
 - Related track: `T-121` is the pgvector/retrieval track, not the origin package.
-- Latest completed collection checkpoint: D64 wide source-available B11/B12 tranche.
+- Latest completed collection checkpoint: D65 RAG singleton B11/B12 completion.
+- Latest candidate refill checkpoint: D65 narrow RAG/test-time source-backed B10 refill.
 - Latest cleanup checkpoint: D56 documentation compaction, replacing append-only historical logs with compact ledgers.
-- Next decision: refill RAG/test-time candidates with narrower source-backed queries before the next apply.
+- Next decision: continue exact-title/arXiv-ID test-time refill or run another narrow source-backed selector pass.
 
 ## Goal
 - Build a lightweight literature candidate layer for large-scale collection across:
@@ -22,24 +23,24 @@
 
 | Metric | Current value |
 | --- | ---: |
-| Candidate batches | 16 |
-| Candidate pool records | 608 |
+| Candidate batches | 17 |
+| Candidate pool records | 609 |
 | Candidate `DISCOVERED` records | 216 |
 | Candidate `READY_FOR_PROMOTION` records | 14 |
-| Candidate `PROMOTED` records | 220 |
+| Candidate `PROMOTED` records | 221 |
 | Candidate `DUPLICATE` records | 139 |
 | Candidate `DEFERRED` records | 15 |
 | Candidate `REJECTED` records | 4 |
-| Managed adaptive corpus | 363 |
-| Effective literature | 363 |
+| Managed adaptive corpus | 364 |
+| Effective literature | 364 |
 | Incomplete managed records | 0 |
 | Pipeline blockers | 0 |
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 9 |
-| Raw DB literature records | 372 |
+| Raw DB literature records | 373 |
 
 Current evidence artifact:
-- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d64-wide-source-available-final-count.json`
+- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d65-rag-singleton-promote-b12-count.json`
 
 ## Theory-Support Target
 - Target-qualified theory-support set is closed at 50/50.

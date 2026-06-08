@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
-- Latest B12 run: D64 wide source-available completion.
-- Current managed corpus: 363.
-- Current effective literature: 363.
+- Latest B12 run: D65 RAG singleton completion.
+- Current managed corpus: 364.
+- Current effective literature: 364.
 - Current managed blockers: 0.
 - Default key-content method: `codex_curated`.
 
@@ -100,7 +100,7 @@
 ## Method Boundary
 - `codex_curated` is the default `KEY_CONTENT_READY` path.
 - Source-grounded curated dossiers are imported before chunk/embed/index backfill.
-- Completed D18-D64 curated imports used 0 key-content extraction provider calls.
+- Completed D18-D65 curated imports used 0 key-content extraction provider calls.
 - `llm_gateway` extraction remains explicit-only and should be used only for bounded diagnostics or approved retries.
 
 ## Completion Ledger
@@ -123,6 +123,7 @@
 | D61 | duplicate-anchor fix clean3 | 3 | completed |
 | D63 | RAG/test-time source-available clean9 | 9 | completed |
 | D64 | wide source-available serving-weighted tranche | 11 | completed |
+| D65 | RAG singleton source-backed completion | 1 | completed |
 
 ## D55 Details
 - Input: `LIT-0490` through `LIT-0500`.
@@ -304,27 +305,51 @@
   - all 11 have active embedding versions, indexed vectors, fulltext documents, and content assets.
   - embedding chunk/vector counts: `LIT-0539` 149, `LIT-0540` 108, `LIT-0541` 164, `LIT-0542` 182, `LIT-0543` 197, `LIT-0544` 217, `LIT-0545` 159, `LIT-0546` 103, `LIT-0547` 91, `LIT-0548` 124, `LIT-0549` 103.
 
+## D65 Details
+- Input: `LIT-0550`.
+- Standard apply:
+  - citation and abstract stages succeeded.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 1 arXiv download with 0 blockers.
+  - apply succeeded and created 1 content asset.
+- Fulltext preprocessing:
+  - succeeded and created 1 ready fulltext document.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated the record.
+  - import succeeded.
+  - extraction provider calls: 0.
+  - source-ref repairs: 0.
+- Index backfill:
+  - content backfill apply succeeded for `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated extraction calls: 0.
+  - estimated embedding calls: 1.
+- Final state:
+  - all seven standard stages are `SUCCEEDED`.
+  - active embedding version: `eba36415-a43d-44cd-a48a-b33d62d83133`.
+  - embedding chunk/vector counts: `LIT-0550` 107.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d64-wide-source-available-final-count.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d65-rag-singleton-promote-b12-count.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 
 | Metric | Value |
 | --- | ---: |
-| Candidate pool records | 608 |
+| Candidate pool records | 609 |
 | Candidate discovered records | 216 |
 | Candidate ready-for-promotion records | 14 |
-| Candidate promoted records | 220 |
+| Candidate promoted records | 221 |
 | Candidate deferred records | 15 |
-| Managed corpus records | 363 |
-| Effective literature records | 363 |
+| Managed corpus records | 364 |
+| Effective literature records | 364 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |
 | Target-qualified theory-support records | 50/50 |
 
 ## Next Gate
-- Preferred: refill RAG/test-time candidates through narrower source-backed B10 exact-title or arXiv-ID queries before the next apply.
+- Preferred: continue test-time exact-ID refill before the next apply.
 - Alternative: continue source-available serving/resource-allocation tranches, explicitly tracking the direction imbalance.
 - Keep `LIT-0163`, `LIT-0166`, and `LIT-0257` soft-excluded unless authenticated or user-provided fulltext becomes available.
 - Keep future `llm_gateway` key-content retries explicit and bounded.

@@ -6,10 +6,11 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D64 wide source-available serving-weighted tranche.
-- Candidate pool: 608.
-- Managed corpus: 363.
-- Effective literature: 363.
+- Latest corpus checkpoint: after D65 RAG singleton B11/B12 completion.
+- Latest candidate checkpoint: after D65 narrow RAG/test-time source-backed B10 refill.
+- Candidate pool: 609.
+- Managed corpus: 364.
+- Effective literature: 364.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 50/50 target-qualified records.
 
@@ -81,6 +82,7 @@
 | D62 | Ran read-only RAG/test-time source-available selector dry-run; identified 9 clean next-tranche candidates and 3 test-time tail exclusions. |
 | D63 | Promoted and completed the D62 clean9 subset, reaching 352 effective records with 0 managed blockers. |
 | D64 | Enforced D63 tail exclusions in the selector and completed 11 wide source-available records, reaching 363 effective records. |
+| D65 | Refilled the candidate layer with 1 clean source-backed RAG candidate, promoted it as `LIT-0550`, and completed it through `INDEXED`. |
 
 ## Effective-Literature Growth Ledger
 
@@ -101,12 +103,14 @@
 | D61 duplicate-anchor clean3 tranche | 3 | 343 |
 | D63 RAG/test-time clean9 tranche | 9 | 352 |
 | D64 wide source-available tranche | 11 | 363 |
+| D65 RAG singleton completion | 1 | 364 |
 
 ## Source-Backed Current Pattern
 - B10:
   - use exact-title, source-backed, or exact arXiv-ID query overrides.
   - persist only `DISCOVERED` rows for curated applies.
   - keep broad provider failures diagnostic.
+  - treat B10 refill as candidate-layer growth unless B11/B12 subsequently promotes and indexes the records.
 - B11:
   - dry-run first.
   - promote only high-band clean candidates.
@@ -122,13 +126,19 @@
 ## Evidence Roots
 - Current generated evidence root:
   - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`
-- Current D64 count artifact:
-  - `20260608T-d64-wide-source-available-final-count.json`
-- Current D64 final state evidence:
-  - `20260608T-after-d64-wide-source-available-index-state.json`
-  - `20260608T-d64-wide-source-available-b12-index-apply-b12-standard-pipeline-pilot-report.json`
+- Current D65 final count artifact:
+  - `20260608T-after-d65-rag-singleton-promote-b12-count.json`
+- Current D65 final state evidence:
+  - `20260608T-after-d65-rag-singleton-b12-index-state.json`
+  - `20260608T-d65-rag-singleton-b12-index-apply-b12-content-backfill-pilot-report.json`
 - Current D64 selector evidence:
   - `20260608T-d64-wide-source-available-selector-dry-run-b11-source-available-selector.json`
+- Current D65 B10 refill evidence:
+  - `20260608T-d65-rag-testtime-arxiv-id-refill-apply-b10-candidate-discovery-report.json`
+  - `20260608T-d65-rag-testtime-b10-refill-b11-dry-run-b11-candidate-triage-report.json`
+- Current D65 promotion evidence:
+  - `20260608T-d65-rag-singleton-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260608T-d65-rag-singleton-dossier-key-content-curated-apply.json`
 - Current D53 selector preflight:
   - `20260608T-d53-readonly-preflight-summary.json`
 - Current theory target closure:

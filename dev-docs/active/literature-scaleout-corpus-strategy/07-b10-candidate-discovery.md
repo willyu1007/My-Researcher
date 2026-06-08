@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D59 OpenAlex serving source-backed curated apply.
-- Current candidate pool: 608 records.
-- Current recommendation: use broad B10 for recall, but persist only curated source-backed `DISCOVERED` rows when promotion may follow.
+- Latest DB-writing B10 run: D65 RAG/test-time arXiv-ID source-backed refill.
+- Current candidate pool: 609 records.
+- Current recommendation: use exact-title/arXiv-ID source-backed refills for RAG/test-time; persist only curated `DISCOVERED` rows when promotion may follow.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -82,6 +82,7 @@
 | D57 | Serving/resource-allocation exact-title | 12 clean candidates staged | Promoted as `LIT-0501`-`LIT-0512` |
 | D58 | RAG/test-time source-backed scouting | read-only; no new candidates staged | promoted existing clean candidates as `LIT-0513`-`LIT-0516` |
 | D59 | Serving source-backed curated expansion | 8 clean candidates staged | 4 promoted as `LIT-0517`-`LIT-0520`, 4 deferred |
+| D65 | RAG/test-time source-backed exact-ID refill | 1 clean RAG candidate staged | Promoted as `LIT-0550` and completed |
 
 ## D55 Details
 - Diagnostic broad arXiv dry-run and arXiv-ID dry-run were kept read-only after arXiv HTTP 429s.
@@ -134,6 +135,25 @@
   - persisted 8 `DISCOVERED` candidates with `B10_PERSIST_STATUSES=DISCOVERED`.
   - DB delta: 1 batch, 8 candidates.
   - no `LiteratureRecord` rows were created by B10.
+
+## D65 Details
+- OpenAlex narrow dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d65-rag-testtime-source-backed-refill-dry-run-b10-candidate-discovery-report.json`
+  - selected RAG core/theory and test-time strategy/search/theory tracks.
+  - executed 25 source-backed queries with 0 provider errors.
+  - found 7 source-available candidates: 2 `DISCOVERED` and 5 duplicates.
+  - `RAG-Verus` was not applied because it is a repository-level program-verification application tail.
+- arXiv-ID dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d65-rag-testtime-arxiv-id-refill-dry-run-b10-candidate-discovery-report.json`
+  - exact-ID allowlist found 4 source-backed candidates: 1 `DISCOVERED` and 3 duplicates.
+  - duplicate test-time targets were already represented by `LIT-0238` and `LIT-0241`; the RAG gating target was already `LIT-0188`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d65-rag-testtime-arxiv-id-refill-apply-b10-candidate-discovery-report.json`
+  - batch id: `bd1fae8b-08a6-4f1b-b5fd-980a50e94201`.
+  - batch code: `B10-D65-rag-testtime-arxiv-id-refill`.
+  - persisted 1 `DISCOVERED` candidate with `B10_PERSIST_STATUSES=DISCOVERED`.
+  - candidate: `ff23d45c-54e6-4096-b2e1-55a467925641`, `Stronger Baselines for Retrieval-Augmented Generation with Long-Context Language Models`.
+  - DB delta: 1 batch, 1 candidate.
+  - no `LiteratureRecord` rows were created by B10.
+  - follow-up B11 dry-run classified the candidate as high-band `READY_FOR_PROMOTION`.
+  - follow-up B11/B12 completed the candidate as `LIT-0550`.
 
 ## Guardrails
 - Run a dry-run first.
