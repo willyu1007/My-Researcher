@@ -833,3 +833,84 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## D51 RAG/Test-Time/Math Theory Curated Apply/Promote
+- Initial broad dry-run:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-dry-run-b11-candidate-triage-report.json`
+  - input: seven source-available RAG/test-time/math-like `DISCOVERED` candidates.
+  - result: all seven were `DEFERRED` at default threshold, with no duplicate matches and DB delta 0.
+- Curated threshold:
+  - used explicit candidate ids and `B11_READY_THRESHOLD=0.67`.
+  - this was a scoped allowlist override for source-backed formal theory/metareasoning papers, not a global threshold change.
+- Curated input candidates:
+  - `0ed8ee0b-cefa-4907-824b-22b1a9711bcb`: `Towards Understanding Systems Trade-offs in Retrieval-Augmented Generation Model Inference`.
+  - `6ecf0594-aa6c-4dd7-811b-1501e661b180`: `Effort Allocation for Deadline-Aware Task and Motion Planning: A Metareasoning Approach`.
+  - `5ad6aaa1-0e09-42ef-b596-11a5b4a999c0`: `Modeling Boundedly Rational Agents with Latent Inference Budgets`.
+  - `c8220ae5-aa6e-4cca-a3e2-42888bd5b290`: `Linear Submodular Maximization with Bandit Feedback`.
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-curated-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-curated-apply-b11-candidate-triage-report.json`
+- Result:
+  - curated dry-run classified all 4 as `READY_FOR_PROMOTION`.
+  - apply/promote attempted 4 promotions and succeeded for all 4.
+  - direction split at B11: 1 LLM-serving/resource allocation, 1 RAG-aware allocation, and 2 test-time compute budgeting.
+  - collection role split at B11: 1 system-support, 1 strategy-support, and 2 theory-support.
+  - post-B12 retag corrected the theory-slot assignment for target counting.
+  - DB delta: 4 `LiteratureRecord` rows and 4 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0473`: `Towards Understanding Systems Trade-offs in Retrieval-Augmented Generation Model Inference`.
+  - `LIT-0474`: `Effort Allocation for Deadline-Aware Task and Motion Planning: A Metareasoning Approach`.
+  - `LIT-0475`: `Modeling Boundedly Rational Agents with Latent Inference Budgets`.
+  - `LIT-0476`: `Linear Submodular Maximization with Bandit Feedback`.
+- Counting after B12 completion and theory retag:
+  - candidate pool records: 564.
+  - discovered candidates: 233.
+  - ready-for-promotion candidates: 23.
+  - promoted candidates: 147.
+  - managed corpus records: 290.
+  - effective literature records: 290.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.
+
+## D52 Exact-Title Theory Apply/Promote
+- B10 input batches:
+  - `B10-20260608T-d52-rag-math-theory-exact-title-apply`: 5 persisted `DISCOVERED` candidates.
+  - `B10-20260608T-d52-testtime-theory-exact-title-apply`: 2 persisted `DISCOVERED` candidates.
+  - both applies used `B10_PERSIST_STATUSES=DISCOVERED` to avoid persisting same-batch duplicate rows.
+- Input candidates:
+  - `70724a16-f123-45c1-8c04-4dc03c9b00c7`: `A*-Decoding: Token-Efficient Inference Scaling`.
+  - `e7b52ee4-b40c-4088-842e-13c4a14646e8`: `Budget-Constrained Online Retrieval-Augmented Generation: The Chunk-as-a-Service Model`.
+  - `959ae3e4-c369-4ffb-8300-2ce86212b0dc`: `LLM-Independent Adaptive RAG: Let the Question Speak for Itself`.
+  - `1917b3b9-915b-464f-b967-8b4b27c92eee`: `When Knowledge Is Not Free: Cost-Aware Evidence Selection in Retrieval-Augmented Generation`.
+  - `39a47f12-12a8-46e6-8263-aa9c389bce62`: `Structure and Diversity Aware Context Bubble Construction for Enterprise Retrieval Augmented Systems`.
+  - `bc193feb-ab77-409b-acf9-a150945e0831`: `Predictive Scheduling for Efficient Inference-Time Reasoning in Large Language Models`.
+  - `2c27d747-f941-45cc-8c30-4ec3c9a4bd87`: `An Optimal Approximation for Submodular Maximization under a Matroid Constraint in the Adaptive Complexity Model`.
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-exact-title-b11-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-exact-title-b11-apply-promote-b11-candidate-triage-report.json`
+- Result:
+  - default-threshold dry-run classified all 7 as high-band `READY_FOR_PROMOTION`.
+  - no curated threshold override was needed.
+  - apply/promote attempted 7 promotions and succeeded for all 7.
+  - direction split at B11: 5 RAG-aware allocation and 2 test-time compute budgeting.
+  - collection role split: 7 `collection:theory-support`.
+  - DB delta: 7 `LiteratureRecord` rows and 7 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0477`: `A*-Decoding: Token-Efficient Inference Scaling`.
+  - `LIT-0478`: `Budget-Constrained Online Retrieval-Augmented Generation: The Chunk-as-a-Service Model`.
+  - `LIT-0479`: `LLM-Independent Adaptive RAG: Let the Question Speak for Itself`.
+  - `LIT-0480`: `When Knowledge Is Not Free: Cost-Aware Evidence Selection in Retrieval-Augmented Generation`.
+  - `LIT-0481`: `Structure and Diversity Aware Context Bubble Construction for Enterprise Retrieval Augmented Systems`.
+  - `LIT-0482`: `Predictive Scheduling for Efficient Inference-Time Reasoning in Large Language Models`.
+  - `LIT-0483`: `An Optimal Approximation for Submodular Maximization under a Matroid Constraint in the Adaptive Complexity Model`.
+- Counting after B12 completion and theory retag:
+  - candidate pool records: 571.
+  - discovered candidates: 233.
+  - ready-for-promotion candidates: 23.
+  - promoted candidates: 154.
+  - managed corpus records: 297.
+  - effective literature records: 297.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

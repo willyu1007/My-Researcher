@@ -1320,3 +1320,82 @@
 - Next step:
   - avoid more serving theory promotion until other slots catch up.
   - close the remaining 11-paper theory gap with RAG 5, test-time 4, and math 2.
+
+## 2026-06-08 - D51 RAG/Test-Time/Math Theory Curated Tranche
+- Input audit:
+  - audited remaining `READY_FOR_PROMOTION` and `DISCOVERED` source-available candidates after D50.
+  - remaining `READY_FOR_PROMOTION` source-available pool was serving-heavy, so no more serving candidate was selected.
+  - sampled seven RAG/test-time/math-like `DISCOVERED` candidates in a read-only B11 dry-run; all seven landed as `DEFERRED` at default threshold, with no duplicate matches or DB writes.
+- Curated B11 threshold:
+  - used an explicit four-paper source-backed allowlist and `B11_READY_THRESHOLD=0.67`.
+  - rationale: B11 default threshold is tuned for strong title/system signals and under-scores formal theory/metareasoning papers; the selected four had source provenance, no duplicate match, and direct theory-slot value.
+- B11 apply/promote:
+  - promoted `LIT-0473`: `Towards Understanding Systems Trade-offs in Retrieval-Augmented Generation Model Inference`.
+  - promoted `LIT-0474`: `Effort Allocation for Deadline-Aware Task and Motion Planning: A Metareasoning Approach`.
+  - promoted `LIT-0475`: `Modeling Boundedly Rational Agents with Latent Inference Budgets`.
+  - promoted `LIT-0476`: `Linear Submodular Maximization with Bandit Feedback`.
+  - DB delta: 4 `LiteratureRecord` rows and 4 `LiteratureSource` rows.
+- B12:
+  - standard apply succeeded for citation and abstract stages, then blocked all 4 at `FULLTEXT_PREPROCESSED` with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 4 arXiv downloads with 0 blockers.
+  - first acquisition apply succeeded for 3 records and failed retryably on `LIT-0475` with `INTERNAL_ERROR: fetch failed`.
+  - single-paper acquisition retry for `LIT-0475` succeeded and created the missing content asset.
+  - fulltext preprocessing rerun succeeded for all 4 and created READY fulltext documents.
+  - imported source-grounded `codex_curated` dossiers for all 4 records with 0 key-content extraction provider calls and 0 source-ref repairs.
+  - content backfill dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 4 embedding calls.
+  - content backfill apply succeeded for all 4.
+  - final state probe confirmed all 4 records have all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+- Post-promote theory retag:
+  - `LIT-0473` added `theory-slot:rag-allocation`.
+  - `LIT-0474` and `LIT-0475` added `theory-slot:test-time-budget`.
+  - `LIT-0476` added `theory-slot:math-foundation`.
+  - all four received `collection:theory-support` and `theory:target-qualified`.
+- Counting:
+  - B13 after D51 reports candidate pool 564, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 147, managed corpus 290, effective literature 290, incomplete 0, blocked 0, and not-started 0.
+  - theory target state after D51: 45 effective `collection:theory-support` records, 43 target-qualified records, and 2 scope-borderline records.
+  - target-qualified slot counts: math foundation 11, RAG allocation 9, test-time budget 11, and serving scheduling 12.
+- Next step:
+  - close the remaining 7-paper theory gap with RAG 4, test-time 2, and math 1.
+  - continue using curated source-backed allowlists or exact-title refill rather than broad `DISCOVERED` promotion.
+
+## 2026-06-08 - D52 Exact-Title Theory Target Closure
+- B10 refill:
+  - ran a narrow source-available dry-run over RAG/test-time/math theory exact-title targets.
+  - first mixed dry-run found 5 new RAG/math candidates and showed provider query errors for punctuation-heavy test-time titles.
+  - reran test-time queries with punctuation-normalized search strings.
+  - applied two clean batches with `B10_PERSIST_STATUSES=DISCOVERED` so same-batch duplicates were not persisted.
+  - DB delta: 2 `LiteratureDiscoveryBatch` rows and 7 `LiteratureDiscoveryCandidate` rows.
+  - persisted candidates:
+    - `A*-Decoding: Token-Efficient Inference Scaling`.
+    - `Budget-Constrained Online Retrieval-Augmented Generation: The Chunk-as-a-Service Model`.
+    - `LLM-Independent Adaptive RAG: Let the Question Speak for Itself`.
+    - `When Knowledge Is Not Free: Cost-Aware Evidence Selection in Retrieval-Augmented Generation`.
+    - `Structure and Diversity Aware Context Bubble Construction for Enterprise Retrieval Augmented Systems`.
+    - `Predictive Scheduling for Efficient Inference-Time Reasoning in Large Language Models`.
+    - `An Optimal Approximation for Submodular Maximization under a Matroid Constraint in the Adaptive Complexity Model`.
+- B11:
+  - default-threshold dry-run classified all 7 exact-title candidates as high-band `READY_FOR_PROMOTION`.
+  - no scoped threshold override was needed.
+  - apply/promote created `LIT-0477` through `LIT-0483`.
+  - DB delta: 7 `LiteratureRecord` rows and 7 `LiteratureSource` rows.
+- B12:
+  - standard apply succeeded for citation and abstract stages, then blocked all 7 at `FULLTEXT_PREPROCESSED` with expected `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 7 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 7 and created 7 content assets.
+  - fulltext preprocessing rerun succeeded for all 7 and created READY fulltext documents.
+  - imported source-grounded `codex_curated` dossiers for all 7 records with 0 key-content extraction provider calls and 0 source-ref repairs.
+  - content backfill dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 7 embedding calls.
+  - content backfill apply succeeded for all 7.
+  - final state probe confirmed all 7 records have all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+- Post-promote theory retag:
+  - `LIT-0477` and `LIT-0482` added `theory-slot:test-time-budget`.
+  - `LIT-0478`, `LIT-0479`, `LIT-0480`, and `LIT-0481` added `theory-slot:rag-allocation`.
+  - `LIT-0483` added `theory-slot:math-foundation`.
+  - all seven received `collection:theory-support` and `theory:target-qualified`.
+- Counting:
+  - B13 after D52 reports candidate pool 571, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 154, managed corpus 297, effective literature 297, incomplete 0, blocked 0, and not-started 0.
+  - theory target state after D52: 52 effective `collection:theory-support` records, 50 target-qualified records, and 2 scope-borderline records.
+  - target-qualified slot counts: math foundation 12, RAG allocation 13, test-time budget 13, and serving scheduling 12.
+- Next step:
+  - treat the 50-paper theory-support target as closed.
+  - before the next DB-writing scaleout run, choose whether to resume general source-available corpus growth or start a higher-volume B10 discovery tranche for the next corpus target.

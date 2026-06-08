@@ -814,23 +814,79 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
   - final state probe found all seven standard stages `SUCCEEDED` for all 4 records.
   - post-promote retag raised target-qualified theory-support records from 35 to 39 and closed the serving scheduling slot at 12/12.
 
+## D51 RAG/Test-Time/Math Theory Completion
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-acquisition-retry-lit0475-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d51-rag-testtime-math-theory-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-retag.json`
+- Input:
+  - B11 promoted `LIT-0473` through `LIT-0476`.
+  - theory-slot assignment after retag: 1 RAG allocation, 2 test-time budget, and 1 math foundation.
+- Result:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 4 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 4 arXiv downloads with 0 blockers.
+  - first acquisition apply succeeded for 3 records and failed retryably on `LIT-0475` with `INTERNAL_ERROR: fetch failed`.
+  - acquisition retry for `LIT-0475` succeeded and created the missing content asset.
+  - fulltext preprocessing succeeded for all 4 records and created 4 ready fulltext documents.
+  - dossier dry-run returned 4 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 4 embedding calls.
+  - index apply succeeded for all 4 records.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 4 records.
+  - post-promote retag raised target-qualified theory-support records from 39 to 43.
+
+## D52 Exact-Title Theory Target Closure
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-retag.json`
+- Input:
+  - B11 promoted `LIT-0477` through `LIT-0483`.
+  - theory-slot assignment after retag: 4 RAG allocation, 2 test-time budget, and 1 math foundation.
+- Result:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 7 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 7 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 7 records and created 7 content assets.
+  - fulltext preprocessing succeeded for all 7 records and created 7 ready fulltext documents.
+  - dossier dry-run returned 7 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 7 embedding calls.
+  - index apply succeeded for all 7 records.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 7 records, with active and indexed embedding versions.
+  - post-promote retag raised target-qualified theory-support records from 43 to 50 and closed the 50-paper target.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d50-serving-theory.json`
-- Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d50-theory-target-state.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory.json`
+- Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 - Metrics:
-  - candidate pool records: 564.
-  - candidate discovered records: 237.
+  - candidate pool records: 571.
+  - candidate discovered records: 233.
   - candidate ready-for-promotion records: 23.
-  - candidate promoted records: 143.
+  - candidate promoted records: 154.
   - candidate deferred records: 11.
-  - managed corpus records: 286.
-  - effective literature records: 286.
+  - managed corpus records: 297.
+  - effective literature records: 297.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
-  - target-qualified theory-support records: 39/50.
-  - effective theory-support records: 41, including 2 scope-borderline records.
-  - target-qualified slots: math foundation 10, RAG allocation 8, test-time budget 9, serving scheduling 12.
+  - target-qualified theory-support records: 50/50.
+  - effective theory-support records: 52, including 2 scope-borderline records.
+  - target-qualified slots: math foundation 12, RAG allocation 13, test-time budget 13, serving scheduling 12.
 
 ## Next Gate
 - The 10 initial B11-promoted records have completed all standard stages through `INDEXED`.
@@ -861,4 +917,6 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - D48 completed `CARROT` as `LIT-0461`, completed `A Relative-Budget Theory` as `LIT-0462`, and retagged four already-indexed test-time records into target-qualified theory support.
 - D49 completed 6 serving/RAG theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 35/50.
 - D50 completed 4 serving theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 39/50.
-- At the D50 checkpoint, every currently managed corpus record is effective; the remaining theory gap is 11 records: RAG 5, test-time 4, and math 2.
+- D51 completed 4 RAG/test-time/math theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 43/50.
+- D52 completed 7 exact-title RAG/test-time/math theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 50/50.
+- At the D52 checkpoint, every currently managed corpus record is effective; the theory-support target gap is 0.

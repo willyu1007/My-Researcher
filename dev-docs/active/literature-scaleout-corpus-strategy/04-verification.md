@@ -2470,3 +2470,152 @@
   - database suite passed.
   - governance sync completed.
   - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-08 - D51 RAG/Test-Time/Math Theory Curated Tranche
+- Status: completed for candidate audit, default B11 guard dry-run, curated B11 dry-run, B11 apply/promote, B12 standard pipeline, acquisition retry, fulltext preprocessing, `codex_curated` key-content import, index backfill, post-promote theory retag, post-counting, and post-verify.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-theory-candidate-audit.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-curated-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-curated-apply-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-acquisition-retry-lit0475-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d51-rag-testtime-math-theory-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-retag.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d51-rag-testtime-math-theory.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d51-theory-target-state.json`
+- Commands:
+  - `20260608T-d51-theory-candidate-audit` remaining theory candidate audit script.
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d51-rag-testtime-math-theory-dry-run ... b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_READY_THRESHOLD=0.67 B11_TRIAGE_RUN_ID=20260608T-d51-rag-testtime-math-theory-curated-dry-run ... b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_READY_THRESHOLD=0.67 B11_TRIAGE_RUN_ID=20260608T-d51-rag-testtime-math-theory-curated-apply ... b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d51-rag-testtime-math-theory-standard-dry-run ... b12-standard-pipeline-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d51-rag-testtime-math-theory-standard-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d51-rag-testtime-math-theory-acquisition-dry-run ... b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d51-rag-testtime-math-theory-acquisition-apply ... b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d51-rag-testtime-math-theory-acquisition-retry-lit0475 ... b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d51-rag-testtime-math-theory-fulltext-preprocess-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `20260608T-d51-rag-testtime-math-theory-dossier` `codex_curated` dossier export/import script.
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d51-rag-testtime-math-theory-index-dry-run ... b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d51-rag-testtime-math-theory-index-apply ... b12-content-backfill-pilot.mjs --apply`
+  - `20260608T-after-d51-rag-testtime-math-theory-index-state` final state probe.
+  - `20260608T-d51-rag-testtime-math-theory-retag` theory-slot retag script.
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260608T-after-d51-rag-testtime-math-theory ... literature-scaleout-counting-report.mjs`
+  - `20260608T-after-d51-theory-target-state` target-state count script.
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
+  - `git ls-files --others --exclude-standard dev-docs/active/literature-scaleout-corpus-strategy/artifacts`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - default B11 dry-run sampled 7 RAG/test-time/math-like `DISCOVERED` candidates and deferred all 7 with DB delta 0.
+  - scoped curated dry-run used `B11_READY_THRESHOLD=0.67` only for the explicit source-backed allowlist and classified 4/4 candidates as `READY_FOR_PROMOTION`.
+  - B11 apply/promote created `LIT-0473` through `LIT-0476`.
+  - standard apply succeeded for citation and abstract stages and produced expected `FULLTEXT_SOURCE_MISSING` blockers before acquisition.
+  - acquisition dry-run planned 4 arXiv downloads with 0 blockers.
+  - first acquisition apply succeeded for 3 records and failed retryably on `LIT-0475` with `INTERNAL_ERROR: fetch failed`; the single-record retry succeeded and created the missing content asset.
+  - fulltext preprocessing succeeded for all 4 records and created 4 ready fulltext documents.
+  - `codex_curated` dossier import succeeded for all 4 with 0 key-content extraction provider calls and 0 repaired source refs.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 4 embedding calls.
+  - index apply succeeded for all 4; final state probe found 4/4 with all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+  - post-promote retag updated 4 records and raised target-qualified theory-support from 39 to 43.
+  - B13 after D51 reports candidate pool 564, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 147, managed corpus 290, effective literature 290, incomplete 0, blocked 0, and not-started 0.
+  - theory target snapshot is 43/50 target-qualified and 45 effective theory-support records, with remaining gap 7: RAG allocation 4, test-time budget 2, and math foundation 1.
+  - all five B10/B11/B12 script syntax checks passed.
+  - whitespace diff check passed.
+  - `dev-docs/active/literature-scaleout-corpus-strategy/artifacts` has no untracked files.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-08 - D52 Exact-Title Theory Target Closure
+- Status: completed for B10 source-available exact-title dry-runs, B10 apply, B11 dry-run, B11 apply/promote, B12 standard pipeline, acquisition, fulltext preprocessing, `codex_curated` key-content import, index backfill, post-promote theory retag, post-counting, and post-verify.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-rag-testtime-math-theory-refill-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-exact-title-refill-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-testtime-exact-title-refill-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-testtime-token-budget-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-testtime-predictive-scheduling-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-rag-math-theory-exact-title-apply-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-testtime-theory-exact-title-apply-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-exact-title-b11-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-exact-title-b11-apply-promote-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-retag.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d52-rag-testtime-math-theory-refill-dry-run ... b10-candidate-discovery.mjs --providers arxiv,openalex`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d52-theory-exact-title-refill-dry-run ... b10-candidate-discovery.mjs --providers arxiv,openalex`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d52-testtime-exact-title-refill-dry-run ... b10-candidate-discovery.mjs --providers arxiv,openalex`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d52-testtime-token-budget-dry-run ... b10-candidate-discovery.mjs --providers arxiv,openalex`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d52-testtime-predictive-scheduling-dry-run ... b10-candidate-discovery.mjs --providers arxiv,openalex`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d52-rag-math-theory-exact-title-apply B10_PERSIST_STATUSES=DISCOVERED ... b10-candidate-discovery.mjs --providers arxiv,openalex --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d52-testtime-theory-exact-title-apply B10_PERSIST_STATUSES=DISCOVERED ... b10-candidate-discovery.mjs --providers arxiv,openalex --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d52-theory-exact-title-b11-dry-run ... b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d52-theory-exact-title-b11-apply-promote ... b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d52-theory-standard-dry-run ... b12-standard-pipeline-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d52-theory-standard-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d52-theory-acquisition-dry-run ... b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d52-theory-acquisition-apply ... b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d52-theory-fulltext-preprocess-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `20260608T-d52-theory-dossier` inline `codex_curated` dossier export/import script.
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d52-theory-index-dry-run ... b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d52-theory-index-apply ... b12-content-backfill-pilot.mjs --apply`
+  - `20260608T-after-d52-theory-index-state` final state probe.
+  - `20260608T-d52-theory` theory-slot retag script.
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260608T-after-d52-theory ... literature-scaleout-counting-report.mjs`
+  - `20260608T-after-d52-theory-target-state` target-state count script.
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
+  - `git ls-files --others --exclude-standard dev-docs/active/literature-scaleout-corpus-strategy/artifacts`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - broad source-available D52 dry-run found 2 new discovered candidates and 7 duplicates, so it was kept read-only.
+  - exact-title RAG/math dry-run found 5 new discovered candidates; same-batch duplicates were skipped during apply.
+  - punctuation-heavy test-time titles initially triggered provider query errors or duplicates, so the accepted test-time apply used punctuation-normalized query strings.
+  - B10 apply wrote 2 batches and 7 new `DISCOVERED` candidates, with DB delta +2 batches and +7 candidates.
+  - B11 default-threshold dry-run classified all 7 as high-band `READY_FOR_PROMOTION`; no scoped threshold override was needed.
+  - B11 apply/promote created `LIT-0477` through `LIT-0483`.
+  - standard apply succeeded for citation and abstract stages and produced expected `FULLTEXT_SOURCE_MISSING` blockers before acquisition.
+  - acquisition dry-run planned 7 arXiv downloads with 0 blockers; acquisition apply succeeded for all 7 and created 7 content assets.
+  - fulltext preprocessing succeeded for all 7 records and created 7 ready fulltext documents.
+  - `codex_curated` dossier import succeeded for all 7 with 0 key-content extraction provider calls and 0 repaired source refs.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 7 embedding calls.
+  - index apply succeeded for all 7; final state probe found 7/7 with all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+  - post-promote retag updated 7 records and raised target-qualified theory-support from 43 to 50.
+  - B13 after D52 reports candidate pool 571, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 154, managed corpus 297, effective literature 297, incomplete 0, blocked 0, and not-started 0.
+  - theory target snapshot is 50/50 target-qualified and 52 effective theory-support records, with 2 scope-borderline records and remaining gap 0.
+  - target-qualified slot counts are math foundation 12, RAG allocation 13, test-time budget 13, and serving scheduling 12.
+  - all five B10/B11/B12 script syntax checks passed.
+  - whitespace diff check passed.
+  - `dev-docs/active/literature-scaleout-corpus-strategy/artifacts` has no untracked files.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
