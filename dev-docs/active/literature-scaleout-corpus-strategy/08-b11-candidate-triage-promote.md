@@ -2,13 +2,13 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D58 RAG/test-time duplicate-loop apply/promote and cleanup.
+- Latest B11 DB-writing run: D59 serving source-backed curated apply/promote.
 - Current candidate state:
   - 232 `DISCOVERED`
   - 23 `READY_FOR_PROMOTION`
-  - 187 `PROMOTED`
+  - 191 `PROMOTED`
   - 143 `DUPLICATE`
-  - 11 `DEFERRED`
+  - 15 `DEFERRED`
   - 4 `REJECTED`
 - Current recommendation: do not direct-promote the broad `DISCOVERED` source-backed ready set; promote narrow source-backed tranches.
 
@@ -86,6 +86,7 @@
 | D55 | source-backed exact-title | 11 promoted | `LIT-0490`-`LIT-0500` | completed |
 | D57 | serving/resource-allocation exact-title | 12 promoted | `LIT-0501`-`LIT-0512` | completed |
 | D58 | RAG/test-time duplicate-loop cleanup | 4 promoted | `LIT-0513`-`LIT-0516` | completed |
+| D59 | serving source-backed curated expansion | 4 promoted, 4 deferred | `LIT-0517`-`LIT-0520` | completed |
 
 ## D55 Details
 - Input batch: `B10-20260608T-d55-openalex-exact-title-apply`.
@@ -174,7 +175,29 @@
 - `LIT-0515`: `DioR: Adaptive Cognitive Detection and Contextual Retrieval Optimization for Dynamic Retrieval-Augmented Generation`
 - `LIT-0516`: `Query-Adaptive Semantic Chunking for Retrieval-Augmented Generation: A Dynamic Strategy with Contextual Window Expansion`
 
+## D59 Details
+- Input batch: `B10-D59-serving-source-backed-curated`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d59-serving-curated-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d59-serving-curated-b11-apply-promote-b11-candidate-triage-report.json`.
+- Dry-run classified 4 candidates as high-band `READY_FOR_PROMOTION` and 4 candidates as medium-band `DEFERRED`.
+- Apply/promote attempted 4 promotions and succeeded for all 4.
+- Direction split:
+  - 8 LLM-serving/resource allocation decisions.
+- Collection role split:
+  - 3 system-support
+  - 1 strategy-support
+  - 4 theory-support deferred
+- DB delta:
+  - `LiteratureRecord`: +4
+  - `LiteratureSource`: +4
+
+## D59 Promoted Records
+- `LIT-0517`: `DynaServe: Unified and Elastic Execution for Dynamic Disaggregated LLM Serving`
+- `LIT-0518`: `semi-PD: Towards Efficient LLM Serving via Phase-Wise Disaggregated Computation and Unified Storage`
+- `LIT-0519`: `Chameleon: Adaptive Caching and Scheduling for Many-Adapter LLM Inference Environments`
+- `LIT-0520`: `Injecting Adrenaline into LLM Serving: Boosting Resource Utilization and Throughput via Attention Disaggregation`
+
 ## Next B11 Path
-- For immediate effective-literature growth, select the next B10 source-backed exact-title batch and run B11 dry-run before apply/promote.
-- For direction balance, continue RAG/test-time cleanup only if candidates are clearly central; otherwise switch to broader B10 catalog expansion.
+- For direction balance, prioritize a stricter RAG/test-time source-backed refill next.
+- For immediate effective-literature growth, select the next source-backed high-band subset and leave medium-band candidates deferred.
 - For larger scaleout, expand B10 first, then apply source availability and tail filters before B11 promotion.

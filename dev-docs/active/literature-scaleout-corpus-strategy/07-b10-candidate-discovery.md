@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D57 OpenAlex serving exact-title source-backed apply.
-- Current candidate pool: 600 records.
-- Current recommendation: use narrow source-backed exact-title/arXiv-ID refills or clean candidate-layer duplicate-loop cleanup for promotion-bound tranches.
+- Latest DB-writing B10 run: D59 OpenAlex serving source-backed curated apply.
+- Current candidate pool: 608 records.
+- Current recommendation: use broad B10 for recall, but persist only curated source-backed `DISCOVERED` rows when promotion may follow.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -81,6 +81,7 @@
 | D55 | OpenAlex exact-title source-backed | 11 clean candidates staged | Promoted as `LIT-0490`-`LIT-0500` |
 | D57 | Serving/resource-allocation exact-title | 12 clean candidates staged | Promoted as `LIT-0501`-`LIT-0512` |
 | D58 | RAG/test-time source-backed scouting | read-only; no new candidates staged | promoted existing clean candidates as `LIT-0513`-`LIT-0516` |
+| D59 | Serving source-backed curated expansion | 8 clean candidates staged | 4 promoted as `LIT-0517`-`LIT-0520`, 4 deferred |
 
 ## D55 Details
 - Diagnostic broad arXiv dry-run and arXiv-ID dry-run were kept read-only after arXiv HTTP 429s.
@@ -120,6 +121,20 @@
   - promote clean source-backed candidates already present in candidate staging but blocked by early duplicate-loop state.
   - avoid adding weak newly discovered candidates just to raise D58 volume.
 
+## D59 Details
+- Broad read-only scout artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d59-broad-source-backed-scout-b10-candidate-discovery-report.json`
+  - selected all 8 B10 tracks with source-available filtering.
+  - found 109 source-available candidates: 18 `DISCOVERED` and 91 duplicates.
+  - new clean rows were serving-heavy; RAG/test-time rows remained weak or tail-heavy.
+- Curated dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d59-serving-curated-dry-run-b10-candidate-discovery-report.json`
+  - title allowlist retained 4 clean serving candidates in dry-run.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d59-serving-curated-apply-b10-candidate-discovery-report.json`
+  - batch id: `be56a8f3-0d49-4f6d-9274-0e6f61cb3ec7`.
+  - batch code: `B10-D59-serving-source-backed-curated`.
+  - persisted 8 `DISCOVERED` candidates with `B10_PERSIST_STATUSES=DISCOVERED`.
+  - DB delta: 1 batch, 8 candidates.
+  - no `LiteratureRecord` rows were created by B10.
+
 ## Guardrails
 - Run a dry-run first.
 - Prefer `B10_PERSIST_STATUSES=DISCOVERED` for curated applies so duplicate rows are not persisted.
@@ -129,4 +144,5 @@
 
 ## Next B10 Path
 - Quality-first: continue source-backed exact-title/arXiv-ID refill or duplicate-loop cleanup only when candidate quality is clear.
-- Recall-first: broader B10 catalog expansion, then strict source-backed B11 selection before promotion.
+- Recall-first: broader B10 catalog expansion, but apply only curated source-backed rows and let B11 defer medium-band candidates.
+- RAG/test-time refill should use stricter query overrides because the latest broad source-backed pass was serving-heavy.

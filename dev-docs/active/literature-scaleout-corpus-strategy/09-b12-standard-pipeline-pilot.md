@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
-- Latest B12 run: D58 RAG/test-time duplicate-loop rebalance completion.
-- Current managed corpus: 330.
-- Current effective literature: 330.
+- Latest B12 run: D59 serving source-backed curated completion.
+- Current managed corpus: 334.
+- Current effective literature: 334.
 - Current managed blockers: 0.
 - Default key-content method: `codex_curated`.
 
@@ -100,7 +100,7 @@
 ## Method Boundary
 - `codex_curated` is the default `KEY_CONTENT_READY` path.
 - Source-grounded curated dossiers are imported before chunk/embed/index backfill.
-- Completed D18-D57 curated imports used 0 key-content extraction provider calls.
+- Completed D18-D59 curated imports used 0 key-content extraction provider calls.
 - `llm_gateway` extraction remains explicit-only and should be used only for bounded diagnostics or approved retries.
 
 ## Completion Ledger
@@ -118,6 +118,7 @@
 | D55 | source-backed exact-title | 11 | completed |
 | D57 | serving/resource-allocation exact-title | 12 | completed |
 | D58 | RAG/test-time duplicate-loop rebalance | 4 | completed |
+| D59 | serving source-backed curated expansion | 4 | completed |
 
 ## D55 Details
 - Input: `LIT-0490` through `LIT-0500`.
@@ -188,27 +189,50 @@
   - all 4 records have all seven standard stages `SUCCEEDED`.
   - all 4 have active and indexed embedding versions.
 
+## D59 Details
+- Input: `LIT-0517` through `LIT-0520`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 4.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 4 arXiv downloads with 0 blockers.
+  - apply succeeded for all 4 and created 4 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 4 and created 4 ready fulltext documents.
+- Key-content:
+  - source-grounded serving-aware `codex_curated` dossier dry-run validated all 4.
+  - import succeeded for all 4.
+  - extraction provider calls: 0.
+  - source-ref repairs: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 4 embedding calls.
+  - apply succeeded for all 4.
+- Final state:
+  - all 4 records have all seven standard stages `SUCCEEDED`.
+  - embedding chunk/vector counts: `LIT-0517` 133, `LIT-0518` 183, `LIT-0519` 204, `LIT-0520` 153.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d58-rag-testtime-cleanup.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d59-serving-curated.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 
 | Metric | Value |
 | --- | ---: |
-| Candidate pool records | 600 |
+| Candidate pool records | 608 |
 | Candidate discovered records | 232 |
 | Candidate ready-for-promotion records | 23 |
-| Candidate promoted records | 187 |
-| Candidate deferred records | 11 |
-| Managed corpus records | 330 |
-| Effective literature records | 330 |
+| Candidate promoted records | 191 |
+| Candidate deferred records | 15 |
+| Managed corpus records | 334 |
+| Effective literature records | 334 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |
 | Target-qualified theory-support records | 50/50 |
 
 ## Next Gate
-- Preferred: run either a broader B10 catalog expansion for fresh recall or another very small RAG/test-time cleanup tranche if exact source-backed candidates are clearly central.
-- Alternative: run broader B10 catalog expansion for recall, then gate B11/B12 on source availability and tail filters.
+- Preferred: run stricter RAG/test-time source-backed refill before another serving-heavy tranche.
+- Alternative: continue broad B10 catalog expansion for recall, then gate B11/B12 on source availability and high-band B11 decisions.
 - Keep `LIT-0163`, `LIT-0166`, and `LIT-0257` soft-excluded unless authenticated or user-provided fulltext becomes available.
 - Keep future `llm_gateway` key-content retries explicit and bounded.

@@ -2,7 +2,7 @@
 
 ## Purpose
 - This file keeps the current implementation decisions readable.
-- Completed D1-D57 details are summarized in `10-scaleout-run-ledger.md`.
+- Completed D1-D58 details are summarized in `10-scaleout-run-ledger.md`.
 - Raw run outputs and detailed reports live under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 
 ## Current Architecture Decisions
@@ -99,22 +99,34 @@
 - B12 completed all 4 through `INDEXED` using acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
 - Managed/effective corpus reached 330 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
+### D59 Serving Source-Backed Curated Expansion Tranche
+- Ran a broad read-only OpenAlex source-backed B10 scout across all tracks.
+- The broad scout found 109 source-available candidates: 18 `DISCOVERED` and 91 duplicates.
+- New `DISCOVERED` rows were overwhelmingly serving/resource-allocation; RAG/test-time additions remained weak or tail-heavy.
+- D59 therefore used a serving-focused title allowlist and persisted only `DISCOVERED` rows.
+- B10 apply wrote 1 batch and 8 arXiv-backed serving candidates.
+- B11 dry-run split the 8 candidates into 4 high-band `READY_FOR_PROMOTION` and 4 medium-band `DEFERRED`.
+- B11 apply/promote created `LIT-0517` through `LIT-0520` and left the other 4 candidates deferred.
+- B12 completed all 4 promoted records through `INDEXED` using arXiv acquisition, serving-aware source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- Managed/effective corpus reached 334 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 15 |
-| Candidate pool | 600 |
+| Candidate batches | 16 |
+| Candidate pool | 608 |
 | Discovered candidates | 232 |
 | Ready candidates | 23 |
-| Promoted candidates | 187 |
-| Managed corpus | 330 |
-| Effective literature | 330 |
+| Promoted candidates | 191 |
+| Deferred candidates | 15 |
+| Managed corpus | 334 |
+| Effective literature | 334 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: either continue small RAG/test-time source-backed cleanup or run broader B10 catalog expansion for fresh recall.
-- If recall is more important than immediate effective-literature growth, run a broader B10 catalog expansion first and keep B11/B12 promotion on a smaller source-backed subset.
+- Preferred next collection step: run a stricter RAG/test-time source-backed refill before more serving-heavy growth.
+- If immediate effective-literature growth is prioritized, use only source-backed candidates that pass B11 high-band gating and keep medium candidates deferred.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

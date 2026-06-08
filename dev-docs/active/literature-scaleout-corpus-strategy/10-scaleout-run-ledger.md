@@ -6,10 +6,10 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D58 RAG/test-time duplicate-loop rebalance tranche.
-- Candidate pool: 600.
-- Managed corpus: 330.
-- Effective literature: 330.
+- Latest corpus checkpoint: after D59 serving source-backed curated tranche.
+- Candidate pool: 608.
+- Managed corpus: 334.
+- Effective literature: 334.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 50/50 target-qualified records.
 
@@ -75,6 +75,7 @@
 | D56 | Compacted completed documentation logs into this ledger and current-state entrypoint docs. |
 | D57 | Completed 12 serving/resource-allocation exact-title records, reaching 326 effective records. |
 | D58 | Completed 4 RAG/test-time source-backed duplicate-loop records and one duplicate cleanup, reaching 330 effective records. |
+| D59 | Added 8 serving source-backed candidates, promoted/completed 4 high-band records, and deferred 4 medium-band records, reaching 334 effective records. |
 
 ## Effective-Literature Growth Ledger
 
@@ -90,6 +91,7 @@
 | D55 source-backed exact-title tranche | 11 | 314 |
 | D57 serving/resource-allocation exact-title tranche | 12 | 326 |
 | D58 RAG/test-time duplicate-loop rebalance | 4 | 330 |
+| D59 serving source-backed curated tranche | 4 | 334 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -110,10 +112,10 @@
 ## Evidence Roots
 - Current generated evidence root:
   - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`
-- Current D58 count artifact:
-  - `20260608T-after-d58-rag-testtime-cleanup.json`
-- Current D58 final state probe:
-  - `20260608T-after-d58-rag-testtime-index-state.json`
+- Current D59 count artifact:
+  - `20260608T-after-d59-serving-curated.json`
+- Current D59 final state probe:
+  - `20260608T-after-d59-serving-curated-index-state.json`
 - Current D53 selector preflight:
   - `20260608T-d53-readonly-preflight-summary.json`
 - Current theory target closure:
