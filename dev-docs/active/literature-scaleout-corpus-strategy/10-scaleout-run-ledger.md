@@ -6,10 +6,10 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D63 RAG/test-time clean9 source-available tranche.
+- Latest corpus checkpoint: after D64 wide source-available serving-weighted tranche.
 - Candidate pool: 608.
-- Managed corpus: 352.
-- Effective literature: 352.
+- Managed corpus: 363.
+- Effective literature: 363.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 50/50 target-qualified records.
 
@@ -80,6 +80,7 @@
 | D61 | Fixed B11 duplicate-anchor handling and completed 3 newly unblocked RAG/test-time records, reaching 343 effective records. |
 | D62 | Ran read-only RAG/test-time source-available selector dry-run; identified 9 clean next-tranche candidates and 3 test-time tail exclusions. |
 | D63 | Promoted and completed the D62 clean9 subset, reaching 352 effective records with 0 managed blockers. |
+| D64 | Enforced D63 tail exclusions in the selector and completed 11 wide source-available records, reaching 363 effective records. |
 
 ## Effective-Literature Growth Ledger
 
@@ -99,6 +100,7 @@
 | D60 RAG/test-time direction-balance tranche | 6 | 340 |
 | D61 duplicate-anchor clean3 tranche | 3 | 343 |
 | D63 RAG/test-time clean9 tranche | 9 | 352 |
+| D64 wide source-available tranche | 11 | 363 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -109,6 +111,7 @@
   - dry-run first.
   - promote only high-band clean candidates.
   - avoid default-ready application-tail candidates.
+  - treat chart/table/text-to-image/test-time-finetuning test-time papers as tail unless explicitly needed.
 - B12:
   - acquire rights-safe fulltext.
   - preprocess fulltext.
@@ -119,13 +122,13 @@
 ## Evidence Roots
 - Current generated evidence root:
   - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`
-- Current D63 count artifact:
-  - `20260608T-d63-clean9-final-count.json`
-- Current D63 final state evidence:
-  - `20260608T-after-d63-clean9-index-state.json`
-  - `20260608T-d63-clean9-b12-index-apply-b12-standard-pipeline-pilot-report.json`
-- Current D62 selector evidence:
-  - `20260608T-d62-rag-testtime-source-available-selector-dry-run-b11-source-available-selector.json`
+- Current D64 count artifact:
+  - `20260608T-d64-wide-source-available-final-count.json`
+- Current D64 final state evidence:
+  - `20260608T-after-d64-wide-source-available-index-state.json`
+  - `20260608T-d64-wide-source-available-b12-index-apply-b12-standard-pipeline-pilot-report.json`
+- Current D64 selector evidence:
+  - `20260608T-d64-wide-source-available-selector-dry-run-b11-source-available-selector.json`
 - Current D53 selector preflight:
   - `20260608T-d53-readonly-preflight-summary.json`
 - Current theory target closure:

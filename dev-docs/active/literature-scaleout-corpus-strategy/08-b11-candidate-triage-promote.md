@@ -2,15 +2,15 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D59 serving source-backed curated apply/promote.
+- Latest B11 DB-writing run: D64 wide source-available apply/promote.
 - Current candidate state:
-  - 232 `DISCOVERED`
-  - 23 `READY_FOR_PROMOTION`
-  - 191 `PROMOTED`
-  - 143 `DUPLICATE`
+  - 216 `DISCOVERED`
+  - 14 `READY_FOR_PROMOTION`
+  - 220 `PROMOTED`
+  - 139 `DUPLICATE`
   - 15 `DEFERRED`
   - 4 `REJECTED`
-- Current recommendation: do not direct-promote the broad `DISCOVERED` source-backed ready set; promote narrow source-backed tranches.
+- Current recommendation: refill RAG/test-time source-backed candidates before the next apply; current clean ready supply is serving-weighted.
 
 ## Entrypoint
 - Script: `tools/b11-candidate-triage-promote.mjs`
@@ -67,6 +67,7 @@
 - Broad `DISCOVERED` dry-runs can identify many ready candidates, but source-backed ready candidates may still be application-tail or direction-tail.
 - D53 strict source-backed selector selected 0 candidates from the broad pool after tail filtering.
 - D54 and D55 showed that exact-title/source-backed B10 refill produces cleaner B11 promotion input than direct broad-pool promotion.
+- D64 codified the D63 manual exclusions for chart/table/text-to-image/test-time-finetuning test-time tails in the source-available selector.
 
 ## Recent Promotion Ledger
 
@@ -87,6 +88,10 @@
 | D57 | serving/resource-allocation exact-title | 12 promoted | `LIT-0501`-`LIT-0512` | completed |
 | D58 | RAG/test-time duplicate-loop cleanup | 4 promoted | `LIT-0513`-`LIT-0516` | completed |
 | D59 | serving source-backed curated expansion | 4 promoted, 4 deferred | `LIT-0517`-`LIT-0520` | completed |
+| D60 | RAG/test-time direction-balance clean6 | 6 promoted | `LIT-0521`-`LIT-0526` | completed |
+| D61 | duplicate-anchor fix clean3 | 3 promoted | `LIT-0527`-`LIT-0529` | completed |
+| D63 | RAG/test-time clean9 | 9 promoted | `LIT-0530`-`LIT-0538` | completed |
+| D64 | wide source-available serving-weighted | 11 promoted | `LIT-0539`-`LIT-0549` | completed |
 
 ## D55 Details
 - Input batch: `B10-20260608T-d55-openalex-exact-title-apply`.
@@ -199,5 +204,5 @@
 
 ## Next B11 Path
 - For direction balance, prioritize a stricter RAG/test-time source-backed refill next.
-- For immediate effective-literature growth, select the next source-backed high-band subset and leave medium-band candidates deferred.
+- For immediate effective-literature growth, continue source-backed high-band subsets but label serving-heavy tranches explicitly.
 - For larger scaleout, expand B10 first, then apply source availability and tail filters before B11 promotion.

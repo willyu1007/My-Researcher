@@ -102,10 +102,14 @@ const DIRECTION_TAIL_TERMS = {
   'test-time-compute-budgeting': [
     'autonomous research automation',
     'cancer staging',
+    'chart generation',
     'code world',
     'dialogue agents',
     'multimodal',
     'space',
+    'table reasoning',
+    'text-to-image',
+    'test-time finetuning',
     'visual reasoning',
   ],
 };

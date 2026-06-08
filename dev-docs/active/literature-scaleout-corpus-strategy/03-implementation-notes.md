@@ -2,7 +2,7 @@
 
 ## Purpose
 - This file keeps the current implementation decisions readable.
-- Completed D1-D63 details are summarized in `10-scaleout-run-ledger.md`.
+- Completed D1-D64 details are summarized in `10-scaleout-run-ledger.md`.
 - Raw run outputs and detailed reports live under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 
 ## Current Architecture Decisions
@@ -154,24 +154,36 @@
 - Final state probe found all 9 records have all seven standard stages `SUCCEEDED`, active embedding versions, and indexed vectors.
 - Managed/effective corpus reached 352 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
+### D64 Wide Source-Available Selector Tranche
+- Added selector tail filters for chart generation, table reasoning, text-to-image, and test-time finetuning tails before rerunning selection.
+- Built a current three-direction source-available pool from unpromoted candidates.
+- Pool size: 230 candidates, including 85 serving, 81 RAG, and 64 test-time candidates; source mix was 194 arXiv and 36 ACL Anthology.
+- B11 dry-run over the pool produced 32 `READY_FOR_PROMOTION`, 87 `DEFERRED`, 109 `DUPLICATE`, and 2 `REJECTED` decisions.
+- Source-available selector target was 18 with direction quotas 6/6/6, but only 11 candidates passed the strict source/tail filter.
+- Selected and promoted 11 high-band records into `LIT-0539` through `LIT-0549`: 9 serving/resource-allocation records and 2 RAG/theory-support records.
+- No test-time record was promoted because remaining ready test-time candidates were application-tail after the D63 filter was enforced.
+- B12 completed all 11 through `INDEXED` using 8 arXiv sources, 3 Unpaywall sources, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- Final state probe found all 11 records have all seven standard stages `SUCCEEDED`, active embedding versions, and indexed vectors.
+- Managed/effective corpus reached 363 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
 | Candidate batches | 16 |
 | Candidate pool | 608 |
-| Discovered candidates | 219 |
-| Ready candidates | 18 |
-| Promoted candidates | 209 |
+| Discovered candidates | 216 |
+| Ready candidates | 14 |
+| Promoted candidates | 220 |
 | Deferred candidates | 15 |
-| Managed corpus | 352 |
-| Effective literature | 352 |
+| Managed corpus | 363 |
+| Effective literature | 363 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: run one wider source-available selector tranche using the D61 duplicate-anchor fix and D63 cleanliness filter.
-- If direction balance is prioritized first, refill RAG/test-time candidate supply with stricter exact-title or source-backed B10 queries.
+- Preferred next collection step: refill RAG/test-time candidate supply with stricter exact-title, arXiv-ID, or ACL source-backed B10 queries.
+- If immediate effective-literature growth is prioritized, continue serving-heavy source-available tranches but keep them explicitly labeled as serving-weighted.
 - Keep promoting only high-band clean candidates and leave medium/application-tail candidates deferred or rejected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
