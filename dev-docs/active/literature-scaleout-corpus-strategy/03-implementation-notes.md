@@ -2,7 +2,7 @@
 
 ## Purpose
 - This file keeps the current implementation decisions readable.
-- Completed D1-D59 details are summarized in `10-scaleout-run-ledger.md`.
+- Completed D1-D60 details are summarized in `10-scaleout-run-ledger.md`.
 - Raw run outputs and detailed reports live under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 
 ## Current Architecture Decisions
@@ -120,23 +120,33 @@
 - Managed/effective corpus reached 340 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 - Follow-up: repair or explicitly handle mutually linked duplicate-loop candidates before using those rows as promotion selectors.
 
+### D61 Duplicate-Anchor Hygiene and Clean3 Tranche
+- Read-only duplicate graph scan found 143 `DUPLICATE` candidates: 8 mutual-link rows across 4 titles, 7 chain-to-duplicate rows, 20 pointing to ready candidates, and 15 pointing to discovered candidates.
+- The persistent mutual-link rows were mostly serving-direction historical duplicates; the RAG/test-time blockage came from B11 treating unlinked `DUPLICATE` companion rows as existing-candidate duplicate anchors.
+- Updated `b11-candidate-triage-promote.mjs` so unlinked `DUPLICATE` candidates do not block a clean candidate with the same identity.
+- Kept linked duplicate rows as valid anchors when they point to real `matchedLiteratureId` or `promotedLiteratureId`.
+- Regression dry-run over the D60 blocked candidates produced 3 high-band `READY_FOR_PROMOTION` decisions.
+- B11 apply/promote created `LIT-0527` through `LIT-0529`: 2 RAG core records and 1 test-time strategy-support record.
+- B12 completed all 3 through `INDEXED` using Unpaywall-discovered ACL PDFs, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- Managed/effective corpus reached 343 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
 | Candidate batches | 16 |
 | Candidate pool | 608 |
-| Discovered candidates | 226 |
-| Ready candidates | 23 |
-| Promoted candidates | 197 |
+| Discovered candidates | 225 |
+| Ready candidates | 21 |
+| Promoted candidates | 200 |
 | Deferred candidates | 15 |
-| Managed corpus | 340 |
-| Effective literature | 340 |
+| Managed corpus | 343 |
+| Effective literature | 343 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: fix duplicate-loop hygiene, then run another stricter RAG/test-time source-backed refill.
+- Preferred next collection step: run a broader RAG/test-time source-available selector pass with the duplicate-anchor fix enabled.
 - If immediate effective-literature growth is prioritized, use only source-backed candidates that pass B11 high-band gating and keep medium candidates deferred.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

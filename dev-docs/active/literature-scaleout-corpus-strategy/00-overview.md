@@ -5,9 +5,9 @@
 - Current task: `T-122 literature-scaleout-corpus-strategy`.
 - Origin task: `T-120`.
 - Related track: `T-121` is the pgvector/retrieval track, not the origin package.
-- Latest completed collection checkpoint: D60 RAG/test-time direction-balance B11/B12 tranche.
+- Latest completed collection checkpoint: D61 duplicate-anchor hygiene plus RAG/test-time clean3 B11/B12 tranche.
 - Latest cleanup checkpoint: D56 documentation compaction, replacing append-only historical logs with compact ledgers.
-- Next decision: fix duplicate-loop hygiene for mutually linked candidate duplicates, then continue RAG/test-time source-backed refill.
+- Next decision: run a broader RAG/test-time source-available selector pass with the duplicate-anchor fix enabled.
 
 ## Goal
 - Build a lightweight literature candidate layer for large-scale collection across:
@@ -24,22 +24,22 @@
 | --- | ---: |
 | Candidate batches | 16 |
 | Candidate pool records | 608 |
-| Candidate `DISCOVERED` records | 226 |
-| Candidate `READY_FOR_PROMOTION` records | 23 |
-| Candidate `PROMOTED` records | 197 |
+| Candidate `DISCOVERED` records | 225 |
+| Candidate `READY_FOR_PROMOTION` records | 21 |
+| Candidate `PROMOTED` records | 200 |
 | Candidate `DUPLICATE` records | 143 |
 | Candidate `DEFERRED` records | 15 |
 | Candidate `REJECTED` records | 4 |
-| Managed adaptive corpus | 340 |
-| Effective literature | 340 |
+| Managed adaptive corpus | 343 |
+| Effective literature | 343 |
 | Incomplete managed records | 0 |
 | Pipeline blockers | 0 |
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 9 |
-| Raw DB literature records | 349 |
+| Raw DB literature records | 352 |
 
 Current evidence artifact:
-- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d60-direction-balance-final-count.json`
+- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d61-duplicate-anchor-fix-final-count.json`
 
 ## Theory-Support Target
 - Target-qualified theory-support set is closed at 50/50.

@@ -318,8 +318,8 @@ function sourceDuplicateMatch(candidate, matches) {
   return matches.sourceRows.find((row) => row.provider === provider && row.sourceItemId === sourceItemId) ?? null;
 }
 
-function candidateDuplicateMatch(candidate, rows) {
-  return rows.find((row) =>
+function candidateDuplicateMatches(candidate, rows) {
+  return rows.filter((row) =>
     row.id !== candidate.id
     && (
       (candidate.dedupKey && row.dedupKey === candidate.dedupKey)
@@ -335,7 +335,18 @@ function candidateDuplicateMatch(candidate, rows) {
         && firstAuthorKey(row.authors) === firstAuthorKey(candidate.authors)
       )
     )
-  ) ?? null;
+  );
+}
+
+function candidateDuplicateMatch(candidate, rows) {
+  return candidateDuplicateMatches(candidate, rows)[0] ?? null;
+}
+
+function isExistingCandidateDuplicateAnchor(candidate) {
+  if (candidate.status !== 'DUPLICATE') {
+    return candidate.status !== 'DISCOVERED';
+  }
+  return Boolean(candidate.matchedLiteratureId || candidate.promotedLiteratureId);
 }
 
 function sameTitleYearDuplicateMatch(candidate, acceptedRows) {
@@ -401,8 +412,9 @@ function decideCandidates(candidates, matches) {
       });
       continue;
     }
-    const existingCandidateMatch = candidateDuplicateMatch(candidate, existingCandidateRows);
-    if (existingCandidateMatch && existingCandidateMatch.status !== 'DISCOVERED') {
+    const existingCandidateMatch = candidateDuplicateMatches(candidate, existingCandidateRows)
+      .find(isExistingCandidateDuplicateAnchor);
+    if (existingCandidateMatch) {
       decisions.push({
         candidate,
         from_status: candidate.status,
