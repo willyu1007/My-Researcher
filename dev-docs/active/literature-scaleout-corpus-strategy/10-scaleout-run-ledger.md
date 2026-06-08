@@ -6,10 +6,10 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D55 source-backed exact-title tranche.
-- Candidate pool: 588.
-- Managed corpus: 314.
-- Effective literature: 314.
+- Latest corpus checkpoint: after D57 serving/resource-allocation exact-title tranche.
+- Candidate pool: 600.
+- Managed corpus: 326.
+- Effective literature: 326.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 50/50 target-qualified records.
 
@@ -73,6 +73,7 @@
 | D54 | Completed 6 balanced RAG/test-time source-backed records, reaching 303 effective records. |
 | D55 | Completed 11 source-backed exact-title records, reaching 314 effective records. |
 | D56 | Compacted completed documentation logs into this ledger and current-state entrypoint docs. |
+| D57 | Completed 12 serving/resource-allocation exact-title records, reaching 326 effective records. |
 
 ## Effective-Literature Growth Ledger
 
@@ -86,6 +87,7 @@
 | Theory-support closure D46-D52 | 29 | 297 |
 | D54 balanced source-backed tranche | 6 | 303 |
 | D55 source-backed exact-title tranche | 11 | 314 |
+| D57 serving/resource-allocation exact-title tranche | 12 | 326 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -106,10 +108,10 @@
 ## Evidence Roots
 - Current generated evidence root:
   - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`
-- Current D55 count artifact:
-  - `20260608T-after-d55-source-backed.json`
-- Current D55 final state probe:
-  - `20260608T-after-d55-source-backed-index-state.json`
+- Current D57 count artifact:
+  - `20260608T-after-d57-serving.json`
+- Current D57 final state probe:
+  - `20260608T-after-d57-serving-index-state.json`
 - Current D53 selector preflight:
   - `20260608T-d53-readonly-preflight-summary.json`
 - Current theory target closure:

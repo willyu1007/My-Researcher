@@ -5,9 +5,9 @@
 - Current task: `T-122 literature-scaleout-corpus-strategy`.
 - Origin task: `T-120`.
 - Related track: `T-121` is the pgvector/retrieval track, not the origin package.
-- Latest completed collection checkpoint: D55 source-backed exact-title tranche.
+- Latest completed collection checkpoint: D57 serving/resource-allocation exact-title tranche.
 - Latest cleanup checkpoint: D56 documentation compaction, replacing append-only historical logs with compact ledgers.
-- Next decision: choose between another 10-12 paper source-backed exact-title tranche or a broader B10 catalog expansion before the next B11/B12 promotion.
+- Next decision: rebalance with a RAG/test-time source-backed tranche or run broader B10 catalog expansion before the next B11/B12 promotion.
 
 ## Goal
 - Build a lightweight literature candidate layer for large-scale collection across:
@@ -22,24 +22,24 @@
 
 | Metric | Current value |
 | --- | ---: |
-| Candidate batches | 14 |
-| Candidate pool records | 588 |
+| Candidate batches | 15 |
+| Candidate pool records | 600 |
 | Candidate `DISCOVERED` records | 233 |
 | Candidate `READY_FOR_PROMOTION` records | 23 |
-| Candidate `PROMOTED` records | 171 |
+| Candidate `PROMOTED` records | 183 |
 | Candidate `DUPLICATE` records | 146 |
 | Candidate `DEFERRED` records | 11 |
 | Candidate `REJECTED` records | 4 |
-| Managed adaptive corpus | 314 |
-| Effective literature | 314 |
+| Managed adaptive corpus | 326 |
+| Effective literature | 326 |
 | Incomplete managed records | 0 |
 | Pipeline blockers | 0 |
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 9 |
-| Raw DB literature records | 323 |
+| Raw DB literature records | 335 |
 
 Current evidence artifact:
-- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d55-source-backed.json`
+- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d57-serving.json`
 
 ## Theory-Support Target
 - Target-qualified theory-support set is closed at 50/50.

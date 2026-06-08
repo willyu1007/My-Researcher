@@ -2,7 +2,7 @@
 
 ## Purpose
 - This file keeps the current implementation decisions readable.
-- Completed D1-D55 details are summarized in `10-scaleout-run-ledger.md`.
+- Completed D1-D57 details are summarized in `10-scaleout-run-ledger.md`.
 - Raw run outputs and detailed reports live under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 
 ## Current Architecture Decisions
@@ -79,22 +79,32 @@
 - B12 completed all 11 through `INDEXED` using arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
 - Managed/effective corpus reached 314 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
+### D57 Serving/Resource-Allocation Exact-Title Tranche
+- Started with a read-only OpenAlex source-backed scouting run across RAG, test-time, and serving tracks.
+- Scouting found 87 source-available candidates, but only 19 new `DISCOVERED` rows; the clean high-signal items were overwhelmingly serving/resource-allocation.
+- D57 therefore used a serving-focused exact-title allowlist rather than forcing weak RAG/test-time tails into the tranche.
+- B10 exact-title dry-run found 18 source-available candidates: 12 `DISCOVERED` and 6 same-batch duplicates.
+- B10 apply persisted 1 batch and 12 `DISCOVERED` candidates.
+- B11 promoted all 12 into `LIT-0501` through `LIT-0512`.
+- B12 completed all 12 through `INDEXED` using arXiv acquisition, serving-aware source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- Managed/effective corpus reached 326 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 14 |
-| Candidate pool | 588 |
+| Candidate batches | 15 |
+| Candidate pool | 600 |
 | Discovered candidates | 233 |
 | Ready candidates | 23 |
-| Promoted candidates | 171 |
-| Managed corpus | 314 |
-| Effective literature | 314 |
+| Promoted candidates | 183 |
+| Managed corpus | 326 |
+| Effective literature | 326 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: repeat the D55 exact-title/source-backed pattern for another 10-12 clean papers.
+- Preferred next collection step: rebalance with a RAG/test-time source-backed exact-title or arXiv-ID tranche.
 - If recall is more important than immediate effective-literature growth, run a broader B10 catalog expansion first and keep B11/B12 promotion on a smaller source-backed subset.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

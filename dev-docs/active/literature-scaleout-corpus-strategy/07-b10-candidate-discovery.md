@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D55 OpenAlex exact-title source-backed apply.
-- Current candidate pool: 588 records.
-- Current recommendation: use narrow source-backed exact-title or arXiv-ID refills for promotion-bound tranches; reserve broad catalog expansion for recall building.
+- Latest DB-writing B10 run: D57 OpenAlex serving exact-title source-backed apply.
+- Current candidate pool: 600 records.
+- Current recommendation: use narrow source-backed exact-title or arXiv-ID refills for promotion-bound tranches; use the next narrow run to rebalance RAG/test-time after D57's serving-heavy tranche.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -79,6 +79,7 @@
 | D52 | Exact-title theory target closure | 7 clean theory candidates staged | Promoted as `LIT-0477`-`LIT-0483` |
 | D54 | Balanced RAG/test-time source-backed | 6 clean candidates staged | Promoted as `LIT-0484`-`LIT-0489` |
 | D55 | OpenAlex exact-title source-backed | 11 clean candidates staged | Promoted as `LIT-0490`-`LIT-0500` |
+| D57 | Serving/resource-allocation exact-title | 12 clean candidates staged | Promoted as `LIT-0501`-`LIT-0512` |
 
 ## D55 Details
 - Diagnostic broad arXiv dry-run and arXiv-ID dry-run were kept read-only after arXiv HTTP 429s.
@@ -91,6 +92,23 @@
   - 11 `DISCOVERED` candidates
 - B10 created no `LiteratureRecord` rows.
 
+## D57 Details
+- Read-only scouting artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d57-source-backed-scout-dry-run-b10-candidate-discovery-report.json`
+  - scanned OpenAlex source-backed candidates across RAG, test-time, and serving tracks.
+  - found 87 source-available candidates: 19 `DISCOVERED` and 68 duplicates.
+  - clean newly discovered titles were serving-heavy, so D57 used a serving-focused exact-title allowlist.
+- Exact-title dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d57-serving-exact-title-dry-run-b10-candidate-discovery-report.json`
+  - candidate count: 18.
+  - discovered: 12.
+  - duplicates: 6.
+  - source-available candidates: 18.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d57-serving-exact-title-apply-b10-candidate-discovery-report.json`
+  - batch id: `e43a90e7-81d2-425d-a54a-5a3ac7b91d49`.
+  - batch code: `B10-20260608T-d57-serving-exact-title-apply`.
+  - persisted 12 `DISCOVERED` candidates and skipped same-batch duplicate rows.
+  - DB delta: 1 batch, 12 candidates.
+  - no `LiteratureRecord` rows were created by B10.
+
 ## Guardrails
 - Run a dry-run first.
 - Prefer `B10_PERSIST_STATUSES=DISCOVERED` for curated applies so duplicate rows are not persisted.
@@ -99,5 +117,5 @@
 - Keep generated artifacts out of versioned docs.
 
 ## Next B10 Path
-- Quality-first: another exact-title/source-backed refill of 10-12 candidates, then B11/B12.
+- Quality-first: a RAG/test-time exact-title or arXiv-ID source-backed refill to rebalance after D57.
 - Recall-first: broader B10 catalog expansion, then strict source-backed B11 selection before promotion.

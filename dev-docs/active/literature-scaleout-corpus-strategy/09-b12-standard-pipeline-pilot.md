@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
-- Latest B12 run: D55 source-backed exact-title completion.
-- Current managed corpus: 314.
-- Current effective literature: 314.
+- Latest B12 run: D57 serving/resource-allocation exact-title completion.
+- Current managed corpus: 326.
+- Current effective literature: 326.
 - Current managed blockers: 0.
 - Default key-content method: `codex_curated`.
 
@@ -100,7 +100,7 @@
 ## Method Boundary
 - `codex_curated` is the default `KEY_CONTENT_READY` path.
 - Source-grounded curated dossiers are imported before chunk/embed/index backfill.
-- Completed D18-D55 curated imports used 0 key-content extraction provider calls.
+- Completed D18-D57 curated imports used 0 key-content extraction provider calls.
 - `llm_gateway` extraction remains explicit-only and should be used only for bounded diagnostics or approved retries.
 
 ## Completion Ledger
@@ -116,6 +116,7 @@
 | D46-D52 | theory-support target closure | 30 | completed; target reached 50/50 |
 | D54 | balanced RAG/test-time source-backed | 6 | completed |
 | D55 | source-backed exact-title | 11 | completed |
+| D57 | serving/resource-allocation exact-title | 12 | completed |
 
 ## D55 Details
 - Input: `LIT-0490` through `LIT-0500`.
@@ -140,27 +141,50 @@
   - all 11 records have all seven standard stages `SUCCEEDED`.
   - all 11 have active and indexed embedding versions.
 
+## D57 Details
+- Input: `LIT-0501` through `LIT-0512`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 12.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 12 arXiv downloads with 0 blockers.
+  - apply succeeded for all 12 and created 12 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 12 and created 12 ready fulltext documents.
+- Key-content:
+  - source-grounded serving-aware `codex_curated` dossier dry-run validated all 12.
+  - import succeeded for all 12.
+  - extraction provider calls: 0.
+  - source-ref repairs: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 12 embedding calls.
+  - apply succeeded for all 12.
+- Final state:
+  - all 12 records have all seven standard stages `SUCCEEDED`.
+  - all 12 have active and indexed embedding versions.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d55-source-backed.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d57-serving.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 
 | Metric | Value |
 | --- | ---: |
-| Candidate pool records | 588 |
+| Candidate pool records | 600 |
 | Candidate discovered records | 233 |
 | Candidate ready-for-promotion records | 23 |
-| Candidate promoted records | 171 |
+| Candidate promoted records | 183 |
 | Candidate deferred records | 11 |
-| Managed corpus records | 314 |
-| Effective literature records | 314 |
+| Managed corpus records | 326 |
+| Effective literature records | 326 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |
 | Target-qualified theory-support records | 50/50 |
 
 ## Next Gate
-- Preferred: repeat the exact-title/source-backed B10 -> B11 -> B12 pattern for a small, clean D56/D57 tranche.
+- Preferred: run a RAG/test-time exact-title/source-backed B10 -> B11 -> B12 tranche to rebalance after D57.
 - Alternative: run broader B10 catalog expansion for recall, then gate B11/B12 on source availability and tail filters.
 - Keep `LIT-0163`, `LIT-0166`, and `LIT-0257` soft-excluded unless authenticated or user-provided fulltext becomes available.
 - Keep future `llm_gateway` key-content retries explicit and bounded.

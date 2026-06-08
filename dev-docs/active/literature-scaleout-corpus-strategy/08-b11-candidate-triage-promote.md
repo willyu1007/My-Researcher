@@ -2,11 +2,11 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D55 source-backed exact-title apply/promote.
+- Latest B11 DB-writing run: D57 serving/resource-allocation exact-title apply/promote.
 - Current candidate state:
   - 233 `DISCOVERED`
   - 23 `READY_FOR_PROMOTION`
-  - 171 `PROMOTED`
+  - 183 `PROMOTED`
   - 146 `DUPLICATE`
   - 11 `DEFERRED`
   - 4 `REJECTED`
@@ -84,6 +84,7 @@
 | D52 | exact-title theory target closure | 7 promoted | `LIT-0477`-`LIT-0483` | completed |
 | D54 | balanced RAG/test-time source-backed | 6 promoted | `LIT-0484`-`LIT-0489` | completed |
 | D55 | source-backed exact-title | 11 promoted | `LIT-0490`-`LIT-0500` | completed |
+| D57 | serving/resource-allocation exact-title | 12 promoted | `LIT-0501`-`LIT-0512` | completed |
 
 ## D55 Details
 - Input batch: `B10-20260608T-d55-openalex-exact-title-apply`.
@@ -116,6 +117,36 @@
 - `LIT-0499`: `Stop When Enough: Adaptive Early-Stopping for Chain-of-Thought Reasoning`
 - `LIT-0500`: `CGES: Confidence-Guided Early Stopping for Efficient and Accurate Self-Consistency`
 
+## D57 Details
+- Input batch: `B10-20260608T-d57-serving-exact-title-apply`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d57-serving-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d57-serving-b11-apply-promote-b11-candidate-triage-report.json`.
+- Dry-run classified all 12 candidates as high-band `READY_FOR_PROMOTION`.
+- Apply/promote attempted 12 promotions and succeeded for all 12.
+- Direction split:
+  - 12 LLM-serving/resource allocation
+- Collection role split:
+  - 10 system-support
+  - 2 strategy-support
+- DB delta:
+  - `LiteratureRecord`: +12
+  - `LiteratureSource`: +12
+
+## D57 Promoted Records
+- `LIT-0501`: `Analytical Provisioning for Attention-FFN Disaggregated LLM Serving under Stochastic Workloads`
+- `LIT-0502`: `Arrow: Adaptive Scheduling Mechanisms for Disaggregated LLM Inference Architecture`
+- `LIT-0503`: `ConServe: Fine-Grained GPU Harvesting for LLM Online and Offline Co-Serving`
+- `LIT-0504`: `DuetServe: Harmonizing Prefill and Decode for LLM Serving via Adaptive GPU Multiplexing`
+- `LIT-0505`: `EcoServe: Enabling Cost-effective LLM Serving with Proactive Intra- and Inter-Instance Orchestration`
+- `LIT-0506`: `Efficient Multi-round LLM Inference over Disaggregated Serving`
+- `LIT-0507`: `Frontier: Towards Comprehensive and Accurate LLM Inference Simulation`
+- `LIT-0508`: `Not All Prefills Are Equal: PPD Disaggregation for Multi-turn LLM Serving`
+- `LIT-0509`: `PrefillShare: A Shared Prefill Module for KV Reuse in Multi-LLM Disaggregated Serving`
+- `LIT-0510`: `SplitZip: Ultra Fast Lossless KV Compression for Disaggregated LLM Serving`
+- `LIT-0511`: `ENOVA: Autoscaling towards Cost-effective and Stable Serverless LLM Serving`
+- `LIT-0512`: `No Request Left Behind: Tackling Heterogeneity in Long-Context LLM Inference with Medha`
+
 ## Next B11 Path
 - For immediate effective-literature growth, select the next B10 source-backed exact-title batch and run B11 dry-run before apply/promote.
+- For direction balance, prioritize RAG/test-time source-backed candidates before another serving-heavy tranche.
 - For larger scaleout, expand B10 first, then apply source availability and tail filters before B11 promotion.
