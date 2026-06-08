@@ -689,18 +689,91 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
   - final state probe found all seven standard stages `SUCCEEDED` for all 3 records.
   - active embedding versions are all indexed; total chunks/vectors: 631/631 and token-index rows: 4853.
 
+## D46 Theory-Support Small Tranche Completion
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d46-theory-small-tranche-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-retag.json`
+- Input:
+  - B11 promoted `LIT-0455` through `LIT-0460` from the D45 ready theory-support set.
+  - direction split: 3 serving scheduling/resource-allocation, 2 RAG-aware allocation, and 1 test-time compute budgeting.
+  - collection role split: 6 `collection:theory-support`.
+- Result:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 6 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 6 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 6 records and created 6 content assets.
+  - fulltext preprocessing succeeded for all 6 records and created 6 ready fulltext documents.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 6 embedding calls.
+  - index apply succeeded for all 6 records.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 6 records.
+  - post-promote theory retag raised target-qualified theory-support records from 17 to 23.
+
+## D48 CARROT And Relative-Budget Theory Completion
+- CARROT artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/2026-06-08T00-21-11-432Z-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/2026-06-08T00-21-11-470Z-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/2026-06-08T00-22-15-645Z-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d48-carrot-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-theory-retag.json`
+- CARROT result:
+  - B11 promoted `LIT-0461`.
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY`, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition apply succeeded for arXiv `2411.00744` and created 1 content asset.
+  - fulltext preprocessing succeeded and created 1 READY fulltext document.
+  - key-content import used `codex_curated`; extraction provider calls were 0.
+  - index apply succeeded; final state probe found all seven standard stages `SUCCEEDED`.
+  - retag added `theory-slot:rag-allocation` and `theory:target-qualified`.
+- Relative-budget artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d48-relative-budget-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-testtime-theory-retag.json`
+- Relative-budget result:
+  - B11 promoted `LIT-0462`.
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY`, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition apply succeeded for arXiv `2602.01523` and created 1 content asset.
+  - fulltext preprocessing succeeded and created 1 READY fulltext document.
+  - key-content import used `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 1 embedding call.
+  - index apply succeeded; final state probe found all seven standard stages `SUCCEEDED`, 327 chunks, and 1605 token-index rows.
+  - retag added `theory-slot:test-time-budget` and `theory:target-qualified`.
+- Existing test-time retag result:
+  - after verifying all seven standard stages succeeded, `LIT-0237`, `LIT-0238`, `LIT-0292`, and `LIT-0296` were retagged as target-qualified test-time theory support.
+  - post-D48 theory target state: 31 effective `collection:theory-support` records, 29 target-qualified records, and 2 scope-borderline records.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-b12-testtime-title-allowlist-index.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d48-carrot-and-testtime-theory.json`
+- Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d48-theory-target-state.json`
 - Metrics:
-  - candidate pool records: 542.
-  - candidate discovered records: 238.
-  - candidate ready-for-promotion records: 20.
-  - candidate promoted records: 125.
-  - managed corpus records: 268.
-  - effective literature records: 268.
+  - candidate pool records: 564.
+  - candidate discovered records: 237.
+  - candidate ready-for-promotion records: 33.
+  - candidate promoted records: 133.
+  - candidate deferred records: 11.
+  - managed corpus records: 276.
+  - effective literature records: 276.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
+  - target-qualified theory-support records: 29/50.
+  - target-qualified slots: math foundation 10, RAG allocation 6, test-time budget 9, serving scheduling 4.
 
 ## Next Gate
 - The 10 initial B11-promoted records have completed all standard stages through `INDEXED`.
@@ -724,4 +797,9 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - Source-available tranche10 added 9 effective near-threshold high-signal records after rejecting the default-ready tail set.
 - D42 completed the 2 D41 RAG-core allowlist candidates through `INDEXED`.
 - D43 completed the 3 D42 test-time exact-title allowlist candidates through `INDEXED`.
-- At the D43 checkpoint, every currently managed corpus record is effective; the next tranche can prioritize another narrow RAG/test-time allowlist or a source-available B11 selector pass.
+- D44 retagged the existing theory-support set and found 17 target-qualified records against the 50-paper theory-support target.
+- D45 added 21 source-available theory-support candidates and marked 19 ready for promotion without changing managed/effective counts.
+- D46 completed 6 D45-ready theory-support candidates through `INDEXED` and post-promote retag, raising target-qualified theory-support to 23/50.
+- D47 added 1 clean RAG theory candidate to staging and found no clean new test-time theory candidate in the provider dry-runs.
+- D48 completed `CARROT` as `LIT-0461`, completed `A Relative-Budget Theory` as `LIT-0462`, and retagged four already-indexed test-time records into target-qualified theory support.
+- At the D48 checkpoint, every currently managed corpus record is effective; the next theory tranche should prioritize serving scheduling and RAG allocation.

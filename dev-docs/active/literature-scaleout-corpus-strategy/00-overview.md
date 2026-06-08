@@ -3,7 +3,7 @@
 ## Status
 - State: in-progress
 - Origin: follow-up from the adaptive LLM systems literature collection discussion.
-- Next step: continue a narrow test-time/RAG B10 allowlist expansion or run the next source-available B11 tranche from the refreshed `DISCOVERED` pool.
+- Next step: continue theory-support growth with a serving/RAG-heavy source-available tranche; test-time theory is less urgent after D48 raised the test-time slot to 9/13.
 
 ## Goal
 - Replace the current small-batch collection rhythm with a 5000-level literature scaleout strategy.
@@ -19,16 +19,31 @@
   - `collection:theory-support`
 
 ## Current Baseline
-- Current candidate pool: 542 records.
-  - 238 discovered.
-  - 20 ready for promotion.
-  - 125 promoted.
-  - 9 deferred.
+- Current candidate pool: 564 records.
+  - 237 discovered.
+  - 33 ready for promotion.
+  - 133 promoted.
+  - 11 deferred.
   - 146 duplicates.
   - 4 rejected.
-- Current managed adaptive corpus: 268 records.
-- Current effective literature records: 268 records.
+- Current managed adaptive corpus: 276 records.
+- Current effective literature records: 276 records.
 - Current incomplete managed records: 0.
+- Current theory-support target state:
+  - direction-qualified theory-support target: 50 records.
+  - effective `collection:theory-support` records: 31.
+  - target-qualified theory-support records: 29.
+  - scope-borderline theory-support records: 2, not counted toward the target (`LIT-0259`, `LIT-0260`).
+  - D45 source-available theory-support candidate layer: 21 new candidates, with B11 marking 19 ready and 2 deferred.
+  - D46 promoted and completed 6 of the D45 ready candidates through B12 and post-promote theory retag.
+  - D48 promoted and completed `CARROT` as `LIT-0461` for RAG allocation theory.
+  - D48 repaired/promoted the existing `A Relative-Budget Theory` test-time candidate as `LIT-0462`, marked its sibling duplicate to `LIT-0462`, completed B12, and retagged four already-effective test-time records into the target-qualified theory set.
+  - remaining target gap: 21 records.
+  - slot gaps to target:
+    - math foundation: 10/12, gap 2.
+    - RAG allocation: 6/13, gap 7.
+    - test-time budget: 9/13, gap 4.
+    - serving scheduling: 4/12, gap 8.
 - Current adaptive corpus blockers with explicit blocker detail: 0 records.
 - Current soft-excluded source-access records: 3 records.
   - `LIT-0163`: B11 opportunity-tranche record; acquisition failed because Unpaywall returned no OA PDF.
@@ -51,6 +66,9 @@
   - `LIT-0441` through `LIT-0449` completed source-available tranche10 through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
   - `LIT-0450` and `LIT-0451` completed the D41 RAG-core allowlist tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
   - `LIT-0452`, `LIT-0453`, and `LIT-0454` completed the D42 test-time exact-title allowlist tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+  - `LIT-0455` through `LIT-0460` completed the D46 theory-support small tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, chunk/embed/index backfill, and post-promote theory-slot retagging.
+  - `LIT-0461` completed the D48 single-paper RAG theory tranche through `INDEXED` after `CARROT` B11 apply/promote.
+  - `LIT-0462` completed the D48 single-paper test-time theory tranche through `INDEXED` after repairing the existing same-title candidate duplicate loop and promoting the DOI-bearing row.
 - Current B10 expansion state:
   - D37 added source-available and title-regex filters to B10 runtime configuration.
   - D37 wrote 2 clean RAG-core source-available candidates to staging only: `SF-RAG` and `PrefRAG`.
@@ -58,6 +76,12 @@
   - D40 ran non-tail RAG/test-time OpenAlex and explicit arXiv dry-runs; both were kept diagnostic-only because the few newly discovered titles were weak or off-mainline.
   - D41 added query override and persist-status filters to B10 and wrote 2 clean RAG-core source-available candidates to staging only: `DRAGIN` and an open-source Corrective RAG reproduction/explainability paper.
   - D42 wrote 3 clean test-time exact-title source-available candidates to staging only: `AgentTTS`, `Budget-aware Test-time Scaling via Discriminative Verification`, and `SETS`.
+  - D45 added B10 query catalog `b10-scaleout-v2d` with a dedicated `llm-serving-resource-allocation-theory` track.
+  - D45 source-available theory dry-run found 55 new `DISCOVERED` candidates across serving, RAG, and test-time theory-support tracks.
+  - D45 exact-title allowlist apply wrote 21 clean source-available theory-support candidates to staging only.
+  - D47 narrow RAG/test-time theory refill dry-runs found 3 new source-available RAG candidates and no clean new test-time candidate.
+  - D47 applied only the clean RAG theory candidate `CARROT: A Learned Cost-Constrained Retrieval Optimization System for RAG` to candidate staging.
+  - D48 test-time exact-title/provider checks found no new clean row to stage; the selected source-backed test-time theory path reused and repaired an existing candidate pair for `A Relative-Budget Theory`.
 - Current B11 selector state:
   - D38 source-available preflight found 0 source-available `READY_FOR_PROMOTION` candidates and 117 source-available `DISCOVERED` candidates.
   - D38 source-available pool dry-run found 29 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
@@ -70,6 +94,11 @@
   - D41 B11 apply/promote created `LIT-0450` and `LIT-0451`; both completed B12 through `INDEXED`.
   - D42 B11 dry-run classified all 3 newly written test-time exact-title candidates as `READY_FOR_PROMOTION`.
   - D43 B11 apply/promote created `LIT-0452`, `LIT-0453`, and `LIT-0454`; all 3 completed B12 through `INDEXED`.
+  - D45 B11 apply over the 21 theory-support candidates marked 19 `READY_FOR_PROMOTION` and 2 `DEFERRED`; it created no `LiteratureRecord` rows.
+  - D46 B11 first apply/promote was a no-op because the selector defaulted to `DISCOVERED`; the corrected `B11_CANDIDATE_STATUS=READY_FOR_PROMOTION` run promoted 6 D45-ready theory-support candidates into `LIT-0455` through `LIT-0460`.
+  - D47 B11 dry-run over the new `CARROT` batch classified the single candidate as high-band `READY_FOR_PROMOTION`; no candidate status or `LiteratureRecord` row was written.
+  - D48 B11 apply/promote promoted `CARROT` into `LIT-0461`.
+  - D48 repaired the `A Relative-Budget Theory` same-title candidate loop, promoted the DOI-bearing candidate into `LIT-0462`, and then marked the sibling candidate `DUPLICATE` against `LIT-0462`.
 - Current pipeline-not-started managed records: 0.
 - Raw DB includes non-corpus records used for historical system evidence, fixtures, and excluded imports; raw DB size is not a literature-progress metric.
 
@@ -183,6 +212,11 @@
 - D42: B11/B12 promoted the two D41 RAG-core allowlist candidates as `LIT-0450` and `LIT-0451`, then completed both through `INDEXED`, bringing managed/effective corpus to 265.
 - D42: a test-time exact-title allowlist apply wrote 3 `DISCOVERED` source-available candidates and B11 dry-run classified all 3 as `READY_FOR_PROMOTION`; managed/effective literature remains 265.
 - D43: B11/B12 promoted the three D42 test-time exact-title candidates as `LIT-0452` through `LIT-0454`, then completed all 3 through `INDEXED`, bringing managed/effective corpus to 268 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+- D44: theory-support audit retagged 19 effective theory-support records, counted 17 target-qualified records and 2 scope-borderline math/geometry records, and set the D45 gap to 33 records across math foundation, RAG allocation, test-time budget, and serving scheduling.
+- D45: B10/B11 candidate-layer theory expansion added 21 source-available theory-support candidates, marked 19 ready for promotion and 2 deferred, and kept managed/effective literature unchanged at 268.
+- D46: B11/B12 promoted 6 D45-ready theory-support candidates, completed all 6 through `INDEXED`, retagged them into theory slots, and raised managed/effective literature to 274 with 23/50 target-qualified theory-support records.
+- D47: narrow RAG/test-time theory B10 refill applied 1 clean RAG theory candidate (`CARROT`) to staging; test-time dry-runs found only duplicates or weak/off-target new hits, so managed/effective literature stayed 274.
+- D48: B11/B12 completed `CARROT` as `LIT-0461`, repaired/promoted `A Relative-Budget Theory` as `LIT-0462`, retagged four already-indexed test-time theory records, and raised managed/effective literature to 276 with 29/50 target-qualified theory-support records.
 
 ## Scope
 - Define collection cadence and batch gates for 5000-level scaleout.

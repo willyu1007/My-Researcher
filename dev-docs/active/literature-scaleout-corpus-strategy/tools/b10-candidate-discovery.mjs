@@ -22,7 +22,7 @@ const TASK_DIR = 'dev-docs/active/literature-scaleout-corpus-strategy';
 const OUT_DIR = path.join(TASK_DIR, 'artifacts');
 const TMP_DIR = '.ai/.tmp/literature-scaleout-corpus-strategy';
 const SUPPORTED_PROVIDERS = ['openalex', 'arxiv', 'semantic_scholar'];
-const QUERY_CATALOG_VERSION = 'b10-scaleout-v2c';
+const QUERY_CATALOG_VERSION = 'b10-scaleout-v2d';
 
 const APPLY = process.argv.includes('--apply');
 const runId = readArg('--run-id', process.env.B10_DISCOVERY_RUN_ID ?? new Date().toISOString().replace(/[:.]/g, '-'));
@@ -189,6 +189,37 @@ const TRACKS = [
       'heterogeneous GPU LLM serving scheduling',
       'distributed LLM inference scheduling',
       'capacity planning LLM inference serving',
+    ],
+  },
+  {
+    track_id: 'llm-serving-resource-allocation-theory',
+    direction: 'llm-serving-resource-allocation',
+    collection_role: 'collection:theory-support',
+    direction_tag: 'direction:llm-serving-resource-allocation',
+    role_scores: { core: 0.32, system_support: 0.5, strategy_support: 0.74, theory_support: 0.88 },
+    implementation_score: 0.4,
+    theory_score: 0.86,
+    queries: [
+      'queueing theory LLM inference serving scheduling',
+      'online scheduling large language model inference queueing',
+      'SLO aware LLM serving admission control queueing',
+      'LLM inference serving queueing model latency throughput',
+      'prefill decode queueing model LLM serving',
+      'continuous batching queueing model LLM inference',
+      'goodput optimization LLM serving queueing',
+      'capacity planning queueing LLM inference serving',
+      'deadline aware LLM inference scheduling theory',
+      'multi tenant LLM serving queueing resource allocation',
+      'GPU inference scheduling queueing large language models',
+      'latency throughput tradeoff LLM serving queueing',
+      'online admission control LLM inference serving',
+      'variable token length queueing LLM serving',
+      'request length aware scheduling LLM inference',
+      'stochastic scheduling LLM serving latency',
+      'autoscaling LLM inference queueing model',
+      'service level objective LLM serving scheduling',
+      'disaggregated prefill decode queueing model',
+      'analytical model LLM inference serving scheduling',
     ],
   },
   {
@@ -636,6 +667,32 @@ function passesTrackFocus(candidate) {
       ]);
   }
   if (candidate.direction === 'llm-serving-resource-allocation') {
+    if (candidate.collectionRole === 'collection:theory-support') {
+      return hasAny(text, [
+        'queueing',
+        'queuing',
+        'scheduling',
+        'admission control',
+        'online scheduling',
+        'capacity planning',
+        'goodput',
+        'slo',
+        'service level objective',
+        'deadline',
+        'latency',
+        'throughput',
+      ])
+        && hasAny(text, [
+          'llm',
+          'large language model',
+          'language model',
+          'inference',
+          'serving',
+          'prefill',
+          'decode',
+          'batching',
+        ]);
+    }
     return hasAny(title, [
       'llm',
       'large language model',

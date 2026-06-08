@@ -1091,3 +1091,172 @@
 - Counting:
   - after RAG-core B12 completion, B13 reported candidate pool 539, discovered candidates 238, promoted candidates 122, managed corpus 265, effective literature 265, incomplete 0, blocked 0, and not-started 0.
   - after test-time exact-title B10 apply, B13 reported candidate pool 542, discovered candidates 241, promoted candidates 122, managed corpus 265, effective literature 265, incomplete 0, blocked 0, and not-started 0.
+
+## 2026-06-08 - D44 Theory-Support Audit And Retag
+- Goal:
+  - raise theory-support from a raw 19-paper set toward 50 direction-qualified papers.
+  - avoid counting off-scope mathematical background as target progress.
+  - include mathematical foundations, but only when the bridge to RAG allocation, test-time budgeting, or serving scheduling is explicit.
+- Counting policy:
+  - target: 50 direction-qualified theory-support records.
+  - countable records must have `collection:theory-support`, `theory:target-qualified`, and one `theory-slot:*` tag.
+  - scope-borderline records keep theory-support tags for later reference but do not count toward the target.
+- Slot targets:
+  - math foundation: 12.
+  - RAG allocation: 13.
+  - test-time budget: 13.
+  - serving scheduling: 12.
+- Apply result:
+  - audited 19 effective `collection:theory-support` records.
+  - updated all 19 records by appending theory slot/classification tags only.
+  - target-qualified records: 17.
+  - scope-borderline records: 2 (`LIT-0259`, `LIT-0260`).
+  - no `LiteratureRecord`, `LiteratureDiscoveryCandidate`, source, fulltext, key-content, embedding, or index rows were created.
+- Qualified slot counts after retag:
+  - math foundation: 10.
+  - RAG allocation: 3.
+  - test-time budget: 3.
+  - serving scheduling: 1.
+- Gap to 50:
+  - math foundation: 2.
+  - RAG allocation: 10.
+  - test-time budget: 10.
+  - serving scheduling: 11.
+- Counting:
+  - B13 after retag reports candidate pool 542, discovered candidates 238, ready-for-promotion candidates 20, promoted candidates 125, managed corpus 268, effective literature 268, incomplete 0, blocked 0, and not-started 0.
+- Next step:
+  - run D45 targeted B10 expansion against serving/RAG/test-time theory-support first.
+  - add math-foundation only for the remaining 2 high-bridge papers; do not overfill the math slot before the three direction-specific gaps move.
+
+## 2026-06-08 - D45 Targeted Theory-Support Candidate Expansion
+- B10 catalog update:
+  - bumped `QUERY_CATALOG_VERSION` to `b10-scaleout-v2d`.
+  - added `llm-serving-resource-allocation-theory` as a dedicated `collection:theory-support` track.
+  - tightened the LLM-serving theory focus gate to require scheduling/queueing/SLO/admission/latency/throughput signals plus LLM serving/inference context.
+- Source-available theory dry-run:
+  - track ids: `llm-serving-resource-allocation-theory`, `rag-aware-allocation-theory`, and `test-time-compute-budgeting-theory`.
+  - query catalog: `b10-scaleout-v2d`.
+  - provider mode: `auto`, with OpenAlex enabled.
+  - result: 131 source-available theory-support candidates, including 55 `DISCOVERED` and 76 duplicates.
+  - direction split: 106 LLM-serving/resource allocation, 17 RAG-aware allocation, and 8 test-time compute budgeting.
+- Narrow title allowlist:
+  - excluded more system-implementation-biased serving titles from the apply set.
+  - dry-run result: 34 matching candidates, including 21 `DISCOVERED` and 13 duplicates.
+- B10 apply:
+  - batch id: `e4813106-7d45-4a89-ae56-472caa87e551`.
+  - batch code: `B10-20260608T-d45-theory-title-allowlist-apply`.
+  - persisted only `DISCOVERED` rows.
+  - DB delta: 1 `LiteratureDiscoveryBatch`, 21 `LiteratureDiscoveryCandidate` rows.
+  - no `LiteratureRecord`, source, fulltext, key-content, embedding, or index rows were created.
+- B11 apply without promote:
+  - evaluated the 21 new `DISCOVERED` candidates.
+  - marked 19 `READY_FOR_PROMOTION` and 2 `DEFERRED`.
+  - ready split: 14 LLM-serving/resource allocation, 4 RAG-aware allocation, and 1 test-time compute budgeting.
+  - deferred records: `LatencyPrism` and `Symphony`.
+  - no `LiteratureRecord` or `LiteratureSource` rows were created.
+- Counting:
+  - B13 after B11 apply reports candidate pool 563, discovered candidates 238, ready-for-promotion candidates 39, deferred candidates 11, promoted candidates 125, managed corpus 268, effective literature 268, incomplete 0, blocked 0, and not-started 0.
+- Next step:
+  - promote a small explicit subset of the 19 ready D45 theory-support candidates.
+  - after B12 completion, add `theory:target-qualified` and `theory-slot:*` tags before counting them toward the 50-paper theory target.
+
+## 2026-06-08 - D46 Theory-Support Small Tranche Promote And B12
+- Input:
+  - selected 6 source-available D45 `READY_FOR_PROMOTION` theory-support candidates.
+  - titles: `FlowPrefill`, `PASCAL`, `PRISM`, `Col-Bandit`, `MAB-DQA`, and `Not All Errors Are Equal`.
+- B11 promote:
+  - first apply/promote run was a no-op because B11 defaults to `DISCOVERED` candidates and the selected candidates were already `READY_FOR_PROMOTION`.
+  - corrected run used `B11_CANDIDATE_STATUS=READY_FOR_PROMOTION`.
+  - promoted all 6 candidates into `LIT-0455` through `LIT-0460`.
+  - DB delta: 6 `LiteratureRecord` rows and 6 `LiteratureSource` rows.
+  - promoted split: 3 serving scheduling/resource-allocation, 2 RAG-aware allocation, and 1 test-time compute budgeting.
+- B12 standard pipeline:
+  - dry-run selected all 6 records and planned citation normalization, abstract readiness, and fulltext preprocessing.
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 6, then blocked all 6 at `FULLTEXT_PREPROCESSED` with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned rights-safe arXiv acquisition for all 6.
+  - acquisition apply succeeded for all 6 and created 6 raw content assets.
+  - fulltext preprocessing rerun succeeded for all 6 and created READY fulltext documents.
+- Key content and indexing:
+  - imported source-grounded `codex_curated` dossiers for all 6 records with 0 key-content extraction provider calls.
+  - content backfill dry-run planned `CHUNKED`, `EMBEDDED`, and `INDEXED` for all 6, with 0 extraction calls and 6 embedding calls.
+  - content backfill apply succeeded for all 6 and left no timeout cleanup.
+  - final state probe confirmed all 6 records have `INDEXED=SUCCEEDED`, active embedding versions, and indexed embedding versions.
+- Post-promote theory retag:
+  - added `theory:target-qualified` and one `theory-slot:*` tag to each completed record.
+  - slot assignment: 3 serving scheduling, 2 RAG allocation, and 1 test-time budget.
+  - theory-support target-qualified count moved from 17 to 23.
+  - effective theory-support count moved from 19 to 25, including the 2 scope-borderline records.
+- Counting:
+  - B13 after retag reports candidate pool 563, discovered candidates 238, ready-for-promotion candidates 33, deferred candidates 11, promoted candidates 131, managed corpus 274, effective literature 274, incomplete 0, blocked 0, and not-started 0.
+- Next step:
+  - promote another small D45-ready theory tranche for serving/RAG if throughput remains the priority.
+  - run a narrow B10 exact-title/refill pass if the priority is to improve the post-D46 slot balance, especially test-time budget and RAG allocation.
+
+## 2026-06-08 - D47 RAG/Test-Time Theory B10 Refill
+- Goal:
+  - refill the candidate layer for the two largest direction-specific theory gaps after D46: test-time budget and RAG allocation.
+  - keep the pass narrow and source-available so any accepted candidates can move quickly through B11/B12.
+- RAG/test-time OpenAlex dry-run:
+  - track ids: `rag-aware-allocation-theory` and `test-time-compute-budgeting-theory`.
+  - source-available filter: enabled.
+  - result: 9 source-available theory-support candidates, with 3 `DISCOVERED` and 6 duplicates.
+  - new RAG hits: `Prompt-based Code Completion via Multi-Retrieval Augmented Generation`, `CARROT: A Learned Cost-Constrained Retrieval Optimization System for RAG`, and `FinCARDS`.
+  - review decision: keep only `CARROT`; the other two new RAG hits are application-tail/code-completion or domain QA/reranking rather than clean allocation theory support.
+- Test-time dry-runs:
+  - explicit arXiv theory query pass found 1 new source-available candidate, `Thinking with Imagination: Agentic Visual Spatial Reasoning with World Simulators`, but it was off-target for compute-budget theory.
+  - OpenAlex exact-title pass found only `Plan and Budget`, already in the formal corpus as `LIT-0238`.
+  - explicit arXiv exact-title pass found 0 candidates.
+  - review decision: do not write any test-time candidate in D47; existing test-time theory candidates and formal records should be handled by B11/retag or a better exact-title list rather than importing weak new hits.
+- B10 apply:
+  - batch id: `a47a8726-f3d2-467d-85e3-05cc3b82e234`.
+  - batch code: `B10-20260608T-d47-rag-theory-carrot-apply`.
+  - persisted only `DISCOVERED` rows.
+  - DB delta: 1 `LiteratureDiscoveryBatch`, 1 `LiteratureDiscoveryCandidate`.
+  - persisted candidate: `c12577e9-e76a-4dcc-b8ed-8a033f3638d4`, `CARROT: A Learned Cost-Constrained Retrieval Optimization System for RAG`.
+  - no `LiteratureRecord`, source, fulltext, key-content, embedding, or index rows were created.
+- B11 dry-run:
+  - evaluated only the new `CARROT` batch.
+  - classified the candidate as high-band `READY_FOR_PROMOTION`.
+  - no candidate status changes or `LiteratureRecord` rows were written.
+- Counting:
+  - B13 after B10 apply reports candidate pool 564, discovered candidates 239, ready-for-promotion candidates 33, deferred candidates 11, promoted candidates 131, managed corpus 274, effective literature 274, incomplete 0, blocked 0, and not-started 0.
+- Next step:
+  - either B11 apply/promote `CARROT` as the next RAG theory single-paper tranche.
+  - or run another exact-title test-time theory refill based on a curated title list, because provider search did not produce a clean new test-time candidate in D47.
+
+## 2026-06-08 - D48 CARROT And Test-Time Theory Single-Paper Tranche
+- CARROT B11 apply/promote:
+  - input batch: `a47a8726-f3d2-467d-85e3-05cc3b82e234`.
+  - input candidate: `c12577e9-e76a-4dcc-b8ed-8a033f3638d4`.
+  - B11 kept it high-band `READY_FOR_PROMOTION` and promoted it to `LIT-0461`.
+  - DB delta: 1 `LiteratureRecord` row and 1 `LiteratureSource` row.
+- CARROT B12:
+  - standard apply succeeded for citation and abstract stages, then reached the expected `FULLTEXT_SOURCE_MISSING` blocker before acquisition.
+  - arXiv acquisition succeeded for `2411.00744` and created 1 content asset.
+  - fulltext preprocessing succeeded and created a READY fulltext document.
+  - imported a source-grounded `codex_curated` key-content dossier with 0 key-content extraction provider calls.
+  - chunk/embed/index backfill succeeded; final state probe confirmed all seven standard stages `SUCCEEDED`.
+  - post-index retag added `theory-slot:rag-allocation`, `theory:target-qualified`, and RAG retrieval-optimization theory tags.
+- Test-time theory supplement:
+  - primary-source web/file review selected `A Relative-Budget Theory for Reinforcement Learning with Verifiable Rewards in Large Language Model Reasoning` as the clean source-backed test-time theory addition.
+  - exact-title B10 dry-runs did not add a new row; OpenAlex found only existing same-title candidate rows.
+  - the existing candidate pair had a same-title duplicate loop after an initial B11 duplicate attempt.
+  - D48 repaired only those two rows by restoring both to `DISCOVERED`, then promoted the DOI-bearing candidate `7b545aa0-aa50-464f-a623-f50a2926b00b` to `LIT-0462`.
+  - the sibling candidate `fae79cf6-d00c-413a-89bf-6992b9c37bd5` was then marked `DUPLICATE` against `LIT-0462` by B11 apply without promote.
+- `LIT-0462` B12:
+  - standard apply succeeded for citation and abstract stages, then reached the expected `FULLTEXT_SOURCE_MISSING` blocker before acquisition.
+  - arXiv acquisition succeeded for `2602.01523` and created 1 content asset.
+  - fulltext preprocessing succeeded and created a READY fulltext document.
+  - imported a source-grounded `codex_curated` dossier with 0 key-content extraction provider calls.
+  - chunk/embed/index backfill succeeded; final state probe confirmed all seven standard stages `SUCCEEDED`.
+- Existing test-time theory retag:
+  - verified all seven standard stages succeeded before retagging.
+  - retagged `LIT-0237`, `LIT-0238`, `LIT-0292`, and `LIT-0296` into `collection:theory-support`, `theory:target-qualified`, and `theory-slot:test-time-budget`.
+  - retagged `LIT-0462` into the same target slot with relative-budget/RLVR theory tags.
+- Counting:
+  - B13 after D48 reports candidate pool 564, discovered candidates 237, ready-for-promotion candidates 33, promoted candidates 133, managed corpus 276, effective literature 276, incomplete 0, blocked 0, and not-started 0.
+  - theory target state after D48: 31 effective `collection:theory-support` records, 29 target-qualified records, and 2 scope-borderline records.
+  - target-qualified slot counts: math foundation 10, RAG allocation 6, test-time budget 9, and serving scheduling 4.
+- Next step:
+  - prioritize serving scheduling and RAG allocation theory from the remaining source-available ready pool.
+  - keep test-time additions narrower; only 4 test-time target slots remain after D48.

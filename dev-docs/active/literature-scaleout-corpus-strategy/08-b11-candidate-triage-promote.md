@@ -644,3 +644,126 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## D45 Theory-Support B11 Status Apply
+- Input batch: `B10-20260608T-d45-theory-title-allowlist-apply`.
+- Batch id: `e4813106-7d45-4a89-ae56-472caa87e551`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d45-theory-title-allowlist-b11-dry-run-b11-candidate-triage-report.json`
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d45-theory-title-allowlist-b11-apply-b11-candidate-triage-report.json`
+- Result:
+  - evaluated 21 newly discovered theory-support candidates.
+  - marked 19 `READY_FOR_PROMOTION` and 2 `DEFERRED`.
+  - direction split across all decisions: 16 LLM-serving/resource allocation, 4 RAG-aware allocation, and 1 test-time compute budgeting.
+  - ready split: 14 LLM-serving/resource allocation, 4 RAG-aware allocation, and 1 test-time compute budgeting.
+  - deferred records: `LatencyPrism` and `Symphony`.
+  - collection role split: 21 `collection:theory-support`.
+  - triage band: 19 high, 2 medium.
+  - apply did not promote and created no `LiteratureRecord` or `LiteratureSource` rows.
+- Counting after B11 status apply:
+  - candidate pool records: 563.
+  - discovered candidates: 238.
+  - ready-for-promotion candidates: 39.
+  - deferred candidates: 11.
+  - promoted candidates: 125.
+  - managed corpus records: 268.
+  - effective literature records: 268.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.
+
+## D46 Theory-Support Ready Promote
+- Input candidates: 6 D45 `READY_FOR_PROMOTION` theory-support candidates.
+- First apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-apply-promote-b11-candidate-triage-report.json`
+- Corrected apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-ready-apply-promote-b11-candidate-triage-report.json`
+- Result:
+  - first run attempted 0 candidates because B11's default candidate status filter is `DISCOVERED`.
+  - corrected run used `B11_CANDIDATE_STATUS=READY_FOR_PROMOTION`.
+  - evaluated 6 selected candidates and kept all 6 as `READY_FOR_PROMOTION`.
+  - promoted all 6 candidates.
+  - DB delta: 6 `LiteratureRecord` rows and 6 `LiteratureSource` rows.
+  - direction split: 3 LLM-serving/resource allocation, 2 RAG-aware allocation, and 1 test-time compute budgeting.
+  - collection role split: 6 `collection:theory-support`.
+- Promoted records:
+  - `LIT-0455`: `FlowPrefill: A Resource-Efficient Prefill Scheduling for Incremental Learning in Large Language Model Serving`.
+  - `LIT-0456`: `PASCAL: Preemptive Scheduling for LLM Serving with Latency SLO Guarantees`.
+  - `LIT-0457`: `PRISM: Unleashing GPU Sharing for Cost-Efficient Multi-LLM Serving`.
+  - `LIT-0458`: `Col-Bandit: A Position-Aware Expert Selection Framework for Retrieval-Augmented Generation`.
+  - `LIT-0459`: `MAB-DQA: Multi-Armed Bandit-Based Dynamic Query Allocation for Short-Video Retrieval-Augmented Generation`.
+  - `LIT-0460`: `Not All Errors Are Equal: Learning Text Generation Metrics using Stratified Error Synthesis`.
+- Counting after B12 completion and theory retag:
+  - candidate pool records: 563.
+  - discovered candidates: 238.
+  - ready-for-promotion candidates: 33.
+  - promoted candidates: 131.
+  - managed corpus records: 274.
+  - effective literature records: 274.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.
+
+## D47 RAG Theory Refill Dry-Run
+- Input batch: `B10-20260608T-d47-rag-theory-carrot-apply`.
+- Batch id: `a47a8726-f3d2-467d-85e3-05cc3b82e234`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d47-rag-theory-carrot-b11-dry-run-b11-candidate-triage-report.json`
+- Result:
+  - evaluated the single new D47 RAG theory candidate.
+  - classified `CARROT: A Learned Cost-Constrained Retrieval Optimization System for RAG` as high-band `READY_FOR_PROMOTION`.
+  - direction split: 1 RAG-aware allocation.
+  - collection role split: 1 `collection:theory-support`.
+  - dry-run did not mutate candidate status and did not create `LiteratureRecord` or `LiteratureSource` rows.
+- Counting after B10 apply:
+  - candidate pool records: 564.
+  - discovered candidates: 239.
+  - ready-for-promotion candidates: 33.
+  - promoted candidates: 131.
+  - managed corpus records: 274.
+  - effective literature records: 274.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.
+
+## D48 CARROT RAG Theory Apply/Promote
+- Input batch: `B10-20260608T-d47-rag-theory-carrot-apply`.
+- Batch id: `a47a8726-f3d2-467d-85e3-05cc3b82e234`.
+- Candidate id: `c12577e9-e76a-4dcc-b8ed-8a033f3638d4`.
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-rag-theory-apply-promote-b11-candidate-triage-report.json`
+- Result:
+  - evaluated the single new D47 RAG theory candidate.
+  - classified `CARROT: A Learned Cost-Constrained Retrieval Optimization System for RAG` as high-band `READY_FOR_PROMOTION`.
+  - promoted the candidate to `LIT-0461`.
+  - direction split: 1 RAG-aware allocation.
+  - collection role split: 1 `collection:theory-support`.
+  - DB delta: 1 `LiteratureRecord` row and 1 `LiteratureSource` row.
+
+## D48 Test-Time Theory Duplicate Repair And Promote
+- Selected target:
+  - `A Relative-Budget Theory for Reinforcement Learning with Verifiable Rewards in Large Language Model Reasoning`.
+  - arXiv id: `2602.01523`.
+- Initial B11 attempt:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-testtime-theory-apply-promote-b11-candidate-triage-report.json`
+  - result: the candidate was classified `DUPLICATE` against the same-title sibling row, creating a same-title candidate loop.
+- Repair:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-duplicate-loop-repair.json`
+  - restored both same-title candidates to `DISCOVERED` and cleared only their duplicate-match fields.
+  - repair scope was limited to:
+    - `7b545aa0-aa50-464f-a623-f50a2926b00b`
+    - `fae79cf6-d00c-413a-89bf-6992b9c37bd5`
+- Corrected promote:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-testtime-theory-repaired-apply-promote-b11-candidate-triage-report.json`
+  - promoted DOI-bearing candidate `7b545aa0-aa50-464f-a623-f50a2926b00b` to `LIT-0462`.
+  - direction split: 1 test-time compute budgeting.
+  - collection role split: 1 `collection:strategy-support` at promote time.
+  - DB delta: 1 `LiteratureRecord` row and 1 `LiteratureSource` row.
+- Sibling duplicate cleanup:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-duplicate-sibling-apply-b11-candidate-triage-report.json`
+  - B11 apply without promote marked `fae79cf6-d00c-413a-89bf-6992b9c37bd5` as `DUPLICATE` with `matchedLiteratureId=LIT-0462`.
+- Counting after D48 B12 completion and theory retag:
+  - candidate pool records: 564.
+  - candidate discovered records: 237.
+  - promoted candidates: 133.
+  - duplicate candidates: 146.
+  - managed corpus records: 276.
+  - effective literature records: 276.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

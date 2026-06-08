@@ -413,3 +413,106 @@ TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-openalex-apply \
     - managed corpus records: 265.
     - effective literature records: 265.
     - pipeline incomplete/blocker/not-started: 0.
+
+## Theory-Support Expansion Gate
+- D44 baseline:
+  - audited effective `collection:theory-support` records: 19.
+  - target-qualified records: 17.
+  - scope-borderline records: 2, not counted toward target 50.
+  - remaining gap: 33 records.
+- Slot gaps after D44:
+  - serving scheduling: 11.
+  - RAG allocation: 10.
+  - test-time budget: 10.
+  - math foundation: 2.
+- D45 B10 priority:
+  - add a dedicated serving-scheduling theory track before using another broad mixed-catalog run. Completed in `b10-scaleout-v2d`.
+  - run narrow query/title allowlists for RAG allocation and test-time budgeting theory-support.
+  - keep math-foundation applies small and bridge-justified; do not import broad mathematics that lacks a direct allocation/budgeting bridge.
+- Apply gate:
+  - dry-run first and review new titles before writing candidates.
+  - use source-available filters when the immediate goal is B11/B12 throughput.
+  - persist only clean `DISCOVERED` rows for exact-title allowlists.
+
+## D45 Theory-Support Apply
+- Catalog:
+  - query catalog version: `b10-scaleout-v2d`.
+  - new track: `llm-serving-resource-allocation-theory`.
+- Source-available dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d45-theory-targeted-source-available-dry-run-b10-candidate-discovery-report.json`
+  - candidate count: 131.
+  - discovered: 55.
+  - duplicates: 76.
+  - collection role split: 131 `collection:theory-support`.
+- Narrow title allowlist dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d45-theory-title-allowlist-narrow-dry-run-b10-candidate-discovery-report.json`
+  - candidate count: 34.
+  - discovered: 21.
+  - duplicates: 13.
+  - source-available candidates: 34.
+  - DB delta: 0 batches, 0 candidates.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d45-theory-title-allowlist-apply-b10-candidate-discovery-report.json`
+  - batch id: `e4813106-7d45-4a89-ae56-472caa87e551`.
+  - batch code: `B10-20260608T-d45-theory-title-allowlist-apply`.
+  - persisted 21 discovered candidates and skipped duplicate rows.
+  - DB delta: 1 batch, 21 candidates.
+  - no `LiteratureRecord` rows were created.
+  - counting after B11 status apply:
+    - candidate pool records: 563.
+    - candidate discovered records: 238.
+    - candidate ready-for-promotion records: 39.
+    - managed corpus records: 268.
+    - effective literature records: 268.
+    - pipeline incomplete/blocker/not-started: 0.
+
+## D47 RAG/Test-Time Theory Refill
+- OpenAlex dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d47-rag-testtime-theory-refill-dry-run-b10-candidate-discovery-report.json`
+  - track ids: `rag-aware-allocation-theory`, `test-time-compute-budgeting-theory`.
+  - source-available filter: enabled.
+  - candidate count: 9.
+  - discovered: 3.
+  - duplicates: 6.
+  - direction split: 5 RAG-aware allocation and 4 test-time compute budgeting.
+  - collection role split: 9 `collection:theory-support`.
+  - review result: only `CARROT: A Learned Cost-Constrained Retrieval Optimization System for RAG` was clean enough to apply.
+- Test-time arXiv/query dry-run artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d47-testtime-theory-arxiv-refill-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d47-testtime-exact-title-refill-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d47-testtime-exact-title-arxiv-refill-dry-run-b10-candidate-discovery-report.json`
+  - result: no clean new test-time theory candidate was applied.
+  - `Thinking with Imagination` was treated as off-target for compute-budget theory.
+  - `Plan and Budget` was already in the formal corpus as `LIT-0238`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d47-rag-theory-carrot-apply-b10-candidate-discovery-report.json`
+  - batch id: `a47a8726-f3d2-467d-85e3-05cc3b82e234`.
+  - batch code: `B10-20260608T-d47-rag-theory-carrot-apply`.
+  - persisted 1 discovered candidate and skipped duplicate rows.
+  - persisted candidate id: `c12577e9-e76a-4dcc-b8ed-8a033f3638d4`.
+  - DB delta: 1 batch, 1 candidate.
+  - no `LiteratureRecord` rows were created.
+  - counting after apply:
+    - candidate pool records: 564.
+    - candidate discovered records: 239.
+    - managed corpus records: 274.
+    - effective literature records: 274.
+    - pipeline incomplete/blocker/not-started: 0.
+
+## D48 Test-Time Theory Source Check
+- Goal:
+  - supplement test-time theory without importing weak or duplicate candidates into the pool.
+  - prefer source-backed formal records or already-staged exact-title candidates over broad provider noise.
+- Primary-source review:
+  - selected `A Relative-Budget Theory for Reinforcement Learning with Verifiable Rewards in Large Language Model Reasoning` as a clean test-time theory target because it formalizes token budget, time-to-solution, and RLVR sample-efficiency regimes.
+  - arXiv id: `2602.01523`.
+- Exact-title B10 checks:
+  - arXiv dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-testtime-theory-exact-title-dry-run-b10-candidate-discovery-report.json`
+  - OpenAlex dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-testtime-theory-openalex-exact-title-dry-run-b10-candidate-discovery-report.json`
+  - arXiv exact-title dry-run found 0 candidates.
+  - OpenAlex exact-title dry-run found only duplicate rows for `A Relative-Budget Theory`; no new `DISCOVERED` row was written.
+- Candidate-layer decision:
+  - no D48 test-time B10 apply was needed.
+  - the existing duplicate candidate pair was repaired and adjudicated in B11 so the candidate layer ended with one `PROMOTED` row and one `DUPLICATE` row matched to the promoted literature.
+- Counting after D48 B11/B12/retag:
+  - candidate pool records: 564.
+  - candidate discovered records: 237.
+  - candidate promoted records: 133.
+  - managed corpus records: 276.
+  - effective literature records: 276.
+  - pipeline incomplete/blocker/not-started: 0.
