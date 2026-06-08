@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
-- Latest B12 run: D57 serving/resource-allocation exact-title completion.
-- Current managed corpus: 326.
-- Current effective literature: 326.
+- Latest B12 run: D58 RAG/test-time duplicate-loop rebalance completion.
+- Current managed corpus: 330.
+- Current effective literature: 330.
 - Current managed blockers: 0.
 - Default key-content method: `codex_curated`.
 
@@ -117,6 +117,7 @@
 | D54 | balanced RAG/test-time source-backed | 6 | completed |
 | D55 | source-backed exact-title | 11 | completed |
 | D57 | serving/resource-allocation exact-title | 12 | completed |
+| D58 | RAG/test-time duplicate-loop rebalance | 4 | completed |
 
 ## D55 Details
 - Input: `LIT-0490` through `LIT-0500`.
@@ -164,27 +165,50 @@
   - all 12 records have all seven standard stages `SUCCEEDED`.
   - all 12 have active and indexed embedding versions.
 
+## D58 Details
+- Input: `LIT-0513` through `LIT-0516`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 4.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 3 arXiv downloads and 1 Unpaywall acquisition with 0 blockers.
+  - apply succeeded for all 4 and created 4 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 4 and created 4 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 4.
+  - import succeeded for all 4.
+  - extraction provider calls: 0.
+  - source-ref repairs: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 4 embedding calls.
+  - apply succeeded for all 4.
+- Final state:
+  - all 4 records have all seven standard stages `SUCCEEDED`.
+  - all 4 have active and indexed embedding versions.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d57-serving.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d58-rag-testtime-cleanup.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 
 | Metric | Value |
 | --- | ---: |
 | Candidate pool records | 600 |
-| Candidate discovered records | 233 |
+| Candidate discovered records | 232 |
 | Candidate ready-for-promotion records | 23 |
-| Candidate promoted records | 183 |
+| Candidate promoted records | 187 |
 | Candidate deferred records | 11 |
-| Managed corpus records | 326 |
-| Effective literature records | 326 |
+| Managed corpus records | 330 |
+| Effective literature records | 330 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |
 | Target-qualified theory-support records | 50/50 |
 
 ## Next Gate
-- Preferred: run a RAG/test-time exact-title/source-backed B10 -> B11 -> B12 tranche to rebalance after D57.
+- Preferred: run either a broader B10 catalog expansion for fresh recall or another very small RAG/test-time cleanup tranche if exact source-backed candidates are clearly central.
 - Alternative: run broader B10 catalog expansion for recall, then gate B11/B12 on source availability and tail filters.
 - Keep `LIT-0163`, `LIT-0166`, and `LIT-0257` soft-excluded unless authenticated or user-provided fulltext becomes available.
 - Keep future `llm_gateway` key-content retries explicit and bounded.

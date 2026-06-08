@@ -2,12 +2,12 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D57 serving/resource-allocation exact-title apply/promote.
+- Latest B11 DB-writing run: D58 RAG/test-time duplicate-loop apply/promote and cleanup.
 - Current candidate state:
-  - 233 `DISCOVERED`
+  - 232 `DISCOVERED`
   - 23 `READY_FOR_PROMOTION`
-  - 183 `PROMOTED`
-  - 146 `DUPLICATE`
+  - 187 `PROMOTED`
+  - 143 `DUPLICATE`
   - 11 `DEFERRED`
   - 4 `REJECTED`
 - Current recommendation: do not direct-promote the broad `DISCOVERED` source-backed ready set; promote narrow source-backed tranches.
@@ -85,6 +85,7 @@
 | D54 | balanced RAG/test-time source-backed | 6 promoted | `LIT-0484`-`LIT-0489` | completed |
 | D55 | source-backed exact-title | 11 promoted | `LIT-0490`-`LIT-0500` | completed |
 | D57 | serving/resource-allocation exact-title | 12 promoted | `LIT-0501`-`LIT-0512` | completed |
+| D58 | RAG/test-time duplicate-loop cleanup | 4 promoted | `LIT-0513`-`LIT-0516` | completed |
 
 ## D55 Details
 - Input batch: `B10-20260608T-d55-openalex-exact-title-apply`.
@@ -146,7 +147,34 @@
 - `LIT-0511`: `ENOVA: Autoscaling towards Cost-effective and Stable Serverless LLM Serving`
 - `LIT-0512`: `No Request Left Behind: Tackling Heterogeneity in Long-Context LLM Inference with Medha`
 
+## D58 Details
+- Input:
+  - source-backed candidates already present in candidate staging.
+  - selected candidates covered `DioR`, `Query-Adaptive Semantic Chunking`, `Provable Scaling Laws`, and `Reasoning in Token Economies`.
+  - selected companion candidates were included so B11 could canonicalize early duplicate-loop pairs in one run.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d58-rag-testtime-duplicate-loop-v2-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d58-rag-testtime-duplicate-loop-b11-apply-promote-b11-candidate-triage-report.json`.
+- Dry-run classified 4 candidates as high-band `READY_FOR_PROMOTION` and 5 companions as same-run duplicates.
+- Apply/promote attempted 4 promotions and succeeded for all 4.
+- Direction split:
+  - 2 RAG-aware allocation
+  - 2 test-time compute budgeting
+- Collection role split:
+  - 2 core
+  - 2 strategy-support
+- Cleanup:
+  - after `Reasoning in Token Economies` was promoted from the arXiv-backed candidate, the leftover DOI candidate was marked `DUPLICATE`.
+- DB delta:
+  - `LiteratureRecord`: +4
+  - `LiteratureSource`: +4
+
+## D58 Promoted Records
+- `LIT-0513`: `Provable Scaling Laws for the Test-Time Compute of Large Language Models`
+- `LIT-0514`: `Reasoning in Token Economies: Budget-Aware Evaluation of LLM Reasoning Strategies`
+- `LIT-0515`: `DioR: Adaptive Cognitive Detection and Contextual Retrieval Optimization for Dynamic Retrieval-Augmented Generation`
+- `LIT-0516`: `Query-Adaptive Semantic Chunking for Retrieval-Augmented Generation: A Dynamic Strategy with Contextual Window Expansion`
+
 ## Next B11 Path
 - For immediate effective-literature growth, select the next B10 source-backed exact-title batch and run B11 dry-run before apply/promote.
-- For direction balance, prioritize RAG/test-time source-backed candidates before another serving-heavy tranche.
+- For direction balance, continue RAG/test-time cleanup only if candidates are clearly central; otherwise switch to broader B10 catalog expansion.
 - For larger scaleout, expand B10 first, then apply source availability and tail filters before B11 promotion.

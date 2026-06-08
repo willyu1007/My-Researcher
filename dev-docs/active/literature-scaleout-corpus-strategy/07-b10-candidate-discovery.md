@@ -4,7 +4,7 @@
 - State: implemented and used for local DB candidate staging.
 - Latest DB-writing B10 run: D57 OpenAlex serving exact-title source-backed apply.
 - Current candidate pool: 600 records.
-- Current recommendation: use narrow source-backed exact-title or arXiv-ID refills for promotion-bound tranches; use the next narrow run to rebalance RAG/test-time after D57's serving-heavy tranche.
+- Current recommendation: use narrow source-backed exact-title/arXiv-ID refills or clean candidate-layer duplicate-loop cleanup for promotion-bound tranches.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -80,6 +80,7 @@
 | D54 | Balanced RAG/test-time source-backed | 6 clean candidates staged | Promoted as `LIT-0484`-`LIT-0489` |
 | D55 | OpenAlex exact-title source-backed | 11 clean candidates staged | Promoted as `LIT-0490`-`LIT-0500` |
 | D57 | Serving/resource-allocation exact-title | 12 clean candidates staged | Promoted as `LIT-0501`-`LIT-0512` |
+| D58 | RAG/test-time source-backed scouting | read-only; no new candidates staged | promoted existing clean candidates as `LIT-0513`-`LIT-0516` |
 
 ## D55 Details
 - Diagnostic broad arXiv dry-run and arXiv-ID dry-run were kept read-only after arXiv HTTP 429s.
@@ -109,6 +110,16 @@
   - DB delta: 1 batch, 12 candidates.
   - no `LiteratureRecord` rows were created by B10.
 
+## D58 Details
+- Read-only scouting artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d58-rag-testtime-source-backed-scout-dry-run-b10-candidate-discovery-report.json`
+  - selected tracks: RAG core/theory and test-time strategy/search/theory.
+  - found 60 source-available candidates.
+  - status split: 6 `DISCOVERED` and 54 duplicates.
+  - newly discovered rows were mostly application-tail or off-mainline, so D58 did not apply a new B10 batch.
+- Decision:
+  - promote clean source-backed candidates already present in candidate staging but blocked by early duplicate-loop state.
+  - avoid adding weak newly discovered candidates just to raise D58 volume.
+
 ## Guardrails
 - Run a dry-run first.
 - Prefer `B10_PERSIST_STATUSES=DISCOVERED` for curated applies so duplicate rows are not persisted.
@@ -117,5 +128,5 @@
 - Keep generated artifacts out of versioned docs.
 
 ## Next B10 Path
-- Quality-first: a RAG/test-time exact-title or arXiv-ID source-backed refill to rebalance after D57.
+- Quality-first: continue source-backed exact-title/arXiv-ID refill or duplicate-loop cleanup only when candidate quality is clear.
 - Recall-first: broader B10 catalog expansion, then strict source-backed B11 selection before promotion.

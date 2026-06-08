@@ -89,22 +89,32 @@
 - B12 completed all 12 through `INDEXED` using arXiv acquisition, serving-aware source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
 - Managed/effective corpus reached 326 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
+### D58 RAG/Test-Time Duplicate-Loop Rebalance Tranche
+- Started with a read-only RAG/test-time OpenAlex source-backed scouting run.
+- Scouting found 60 source-available candidates, but only 6 new `DISCOVERED` rows and most new rows were application-tail or off-mainline.
+- Instead of writing weak new candidates, D58 promoted clean source-backed candidates already present in the candidate layer but stuck behind early duplicate-loop decisions.
+- B11 dry-run over the selected duplicate-loop candidate set produced 4 high-band `READY_FOR_PROMOTION` decisions and 5 same-run duplicate companion decisions.
+- B11 apply/promote created `LIT-0513` through `LIT-0516`.
+- D58 also marked one leftover DOI candidate for `Reasoning in Token Economies` as duplicate after the arXiv-backed canonical candidate was promoted.
+- B12 completed all 4 through `INDEXED` using acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- Managed/effective corpus reached 330 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
 | Candidate batches | 15 |
 | Candidate pool | 600 |
-| Discovered candidates | 233 |
+| Discovered candidates | 232 |
 | Ready candidates | 23 |
-| Promoted candidates | 183 |
-| Managed corpus | 326 |
-| Effective literature | 326 |
+| Promoted candidates | 187 |
+| Managed corpus | 330 |
+| Effective literature | 330 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: rebalance with a RAG/test-time source-backed exact-title or arXiv-ID tranche.
+- Preferred next collection step: either continue small RAG/test-time source-backed cleanup or run broader B10 catalog expansion for fresh recall.
 - If recall is more important than immediate effective-literature growth, run a broader B10 catalog expansion first and keep B11/B12 promotion on a smaller source-backed subset.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
