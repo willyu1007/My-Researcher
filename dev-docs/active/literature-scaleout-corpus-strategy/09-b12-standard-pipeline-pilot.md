@@ -1,33 +1,28 @@
 # 09 B12 Standard Pipeline Pilot
 
 ## Status
-- State: B12 pilot implemented through fulltext acquisition, fulltext preprocessing, content backfill, and blocker cleanup.
-- Standard pilot apply: completed for the 10 B11-promoted records.
-- Fulltext acquisition apply: completed for the same 10 records.
-- Fulltext preprocessing rerun: completed for the same 10 records.
-- Source-available scaleout tranches: completed for six RAG-aware arXiv records and twelve test-time arXiv records.
-- Full 80-120 effective-literature run: gated on source availability and curated key-content throughput; default method is now `codex_curated`, with `llm_gateway` retries explicit-only.
+- State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
+- Latest B12 run: D55 source-backed exact-title completion.
+- Current managed corpus: 314.
+- Current effective literature: 314.
+- Current managed blockers: 0.
+- Default key-content method: `codex_curated`.
 
-## Entrypoint
-- Script: `tools/b12-standard-pipeline-pilot.mjs`
+## Entrypoints
+- Standard pipeline script: `tools/b12-standard-pipeline-pilot.mjs`
 - Fulltext acquisition script: `tools/b12-fulltext-acquisition-pilot.mjs`
 - Content backfill script: `tools/b12-content-backfill-pilot.mjs`
 - Default mode: dry-run.
 - Apply mode: pass `--apply`.
-- Default trigger source: `BACKFILL`.
-- Default requested stages:
-  - `CITATION_NORMALIZED`
-  - `ABSTRACT_READY`
-  - `FULLTEXT_PREPROCESSED`
 
-## Configuration
+## Standard Pipeline Configuration
 - `B12_PIPELINE_RUN_ID`: run id used in artifacts.
 - `B12_BATCH_ID`: optional candidate batch id filter.
 - `B12_BATCH_CODE`: optional candidate batch code filter.
 - `B12_LITERATURE_IDS`: optional comma-separated explicit literature ids.
-- `B12_STAGES`: optional comma-separated standard stage list.
+- `B12_STAGES`: optional comma-separated stage list.
 - `B12_MAX_RECORDS`: maximum promoted records selected when no explicit ids are provided.
-- `B12_POLL_INTERVAL_MS`: polling interval for async content-processing runs.
+- `B12_POLL_INTERVAL_MS`: polling interval for async runs.
 - `B12_POLL_TIMEOUT_MS`: per-run terminal-status timeout.
 
 ## Fulltext Acquisition Configuration
@@ -35,13 +30,13 @@
 - `B12_BATCH_ID`: optional candidate batch id filter.
 - `B12_BATCH_CODE`: optional candidate batch code filter.
 - `B12_LITERATURE_IDS`: optional comma-separated explicit literature ids.
-- `B12_EXPLICIT_URLS`: optional comma-separated `literature_id=source_url` overrides.
+- `B12_EXPLICIT_URLS`: optional `literature_id=source_url` overrides.
 - `B12_MAX_RECORDS`: maximum promoted records selected when no explicit ids are provided.
 - `B12_ACQUISITION_MAX_PARALLEL_DOWNLOADS`: download concurrency.
 - `B12_ACQUISITION_PROVIDER_CALL_BUDGET`: provider-call budget guard.
 - `B12_ACQUISITION_MAX_BYTE_SIZE`: optional maximum raw asset byte size.
 - `B12_ACQUISITION_FORCE_REFRESH`: optionally reacquire existing assets.
-- `B12_ACQUISITION_POLL_INTERVAL_MS`: polling interval for acquisition jobs.
+- `B12_ACQUISITION_POLL_INTERVAL_MS`: polling interval.
 - `B12_ACQUISITION_POLL_TIMEOUT_MS`: terminal-status timeout.
 
 ## Content Backfill Configuration
@@ -52,20 +47,25 @@
 - `B12_BACKFILL_TARGET_STAGE`: target stage, default `INDEXED`.
 - `B12_MAX_RECORDS`: maximum promoted records selected when no explicit ids are provided.
 - `B12_BACKFILL_MAX_PARALLEL_LITERATURE_RUNS`: literature-level concurrency.
-- `B12_BACKFILL_EXTRACTION_CONCURRENCY`: stage limiter for key-content extraction.
-- `B12_BACKFILL_EMBEDDING_CONCURRENCY`: stage limiter for embedding.
-- `B12_BACKFILL_SECTION_CONCURRENCY`: local extraction override; default is 1 for the pilot runner.
-- `B12_BACKFILL_EXTRACTION_REQUEST_TIMEOUT_MS`: optional local extraction request-timeout override.
-- `B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS`: optional per-content-processing-run timeout override.
+- `B12_BACKFILL_EXTRACTION_CONCURRENCY`: key-content extraction limiter.
+- `B12_BACKFILL_EMBEDDING_CONCURRENCY`: embedding limiter.
 - `B12_BACKFILL_PROVIDER_CALL_BUDGET`: provider-call budget guard.
-- `B12_BACKFILL_POLL_INTERVAL_MS`: polling interval for backfill jobs.
+- `B12_BACKFILL_POLL_INTERVAL_MS`: polling interval.
 - `B12_BACKFILL_POLL_TIMEOUT_MS`: terminal-status timeout.
-- `LITERATURE_KEY_CONTENT_READY_METHOD`: default `KEY_CONTENT_READY` method; current environment default is `codex_curated`.
+- `LITERATURE_KEY_CONTENT_READY_METHOD`: default is `codex_curated`.
+
+## Standard Completion Sequence
+1. Run standard B12 apply for citation and abstract stages.
+2. Expect `FULLTEXT_SOURCE_MISSING` before acquisition for newly promoted source-backed records.
+3. Run acquisition dry-run and apply.
+4. Rerun standard B12 apply for fulltext preprocessing.
+5. Import source-grounded `codex_curated` dossiers.
+6. Run content backfill dry-run for `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+7. Run content backfill apply.
+8. Run a final state probe and B13 count.
 
 ## Writes
-- Dry-run writes:
-  - JSON report artifacts only.
-- Apply writes:
+- Standard apply writes:
   - `LiteraturePipelineState`
   - `LiteraturePipelineStageState`
   - `LiteraturePipelineRun`
@@ -97,885 +97,70 @@
   - `LiteratureRecord`
   - `LiteratureSource`
 
-## Pilot Dry Run
-- Artifact: `artifacts/20260606T-b12-standard-pipeline-dry-run-b12-standard-pipeline-pilot-report.json`
-- Input:
-  - batch id: `0caeeefb-735f-410d-aa88-7fedc187c6f3`
-  - max records: 10
-  - selected records: 10
-- Result:
-  - `CITATION_NORMALIZED`: 10 `NOT_STARTED`.
-  - `ABSTRACT_READY`: 10 `NOT_STARTED`.
-  - `FULLTEXT_PREPROCESSED`: 10 `NOT_STARTED`.
-  - content assets: 0.
-  - fulltext documents: 0.
-  - DB delta: 0.
+## Method Boundary
+- `codex_curated` is the default `KEY_CONTENT_READY` path.
+- Source-grounded curated dossiers are imported before chunk/embed/index backfill.
+- Completed D18-D55 curated imports used 0 key-content extraction provider calls.
+- `llm_gateway` extraction remains explicit-only and should be used only for bounded diagnostics or approved retries.
 
-## Pilot Apply
-- Artifact: `artifacts/20260606T-b12-standard-pipeline-apply-b12-standard-pipeline-pilot-report.json`
-- Command:
+## Completion Ledger
 
-```bash
-TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-apply \
-  B12_BATCH_ID=0caeeefb-735f-410d-aa88-7fedc187c6f3 \
-  B12_MAX_RECORDS=10 B12_POLL_TIMEOUT_MS=60000 \
-  node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs \
-  dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs \
-  --apply
-```
+| Run | Literature range | Count | Result |
+| --- | --- | ---: | --- |
+| D18-D20 | `LIT-0155`-`LIT-0162` subset | 6 | completed via `codex_curated` |
+| D22 | blocker cleanup plus `LIT-0252` | 4 | completed; 3 source-access records soft-excluded |
+| D25 | arXiv-ready RAG tranche | 6 | completed |
+| D29 | test-time arXiv tranche | 12 | completed |
+| D30-D40 | source-available tranches3-10 | 88 | completed |
+| D42-D43 | RAG/test-time exact-title allowlists | 5 | completed |
+| D46-D52 | theory-support target closure | 30 | completed; target reached 50/50 |
+| D54 | balanced RAG/test-time source-backed | 6 | completed |
+| D55 | source-backed exact-title | 11 | completed |
 
-- Result:
-  - selected records: 10.
-  - pipeline runs created: 10.
-  - run status: 10 `PARTIAL`.
-  - `CITATION_NORMALIZED`: 10 `SUCCEEDED`.
-  - `ABSTRACT_READY`: 10 `SUCCEEDED`.
-  - `FULLTEXT_PREPROCESSED`: 10 `BLOCKED`.
-  - blocker reason: 10 `FULLTEXT_SOURCE_MISSING`.
-  - content assets: 0.
-  - fulltext documents: 0.
-
-## Fulltext Acquisition Dry Run
-- Artifact: `artifacts/20260606T-b12-fulltext-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-- Input:
-  - batch id: `0caeeefb-735f-410d-aa88-7fedc187c6f3`
-  - max records: 10
-  - selected records: 10
-- Result:
-  - planned items: 10.
-  - blocked items: 0.
-  - source split: 8 arXiv, 2 Unpaywall.
-  - estimated provider calls: 2 Unpaywall calls and 10 download calls.
-  - DB delta: 0.
-
-## Fulltext Acquisition Apply
-- Artifact: `artifacts/20260606T-b12-fulltext-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-- Result:
-  - job status: `SUCCEEDED`.
-  - items: 10 `SUCCEEDED`.
-  - content assets created: 10.
-  - blocked items: 0.
-
-## Fulltext Preprocessing Rerun
-- First rerun artifact: `artifacts/20260606T-b12-fulltext-preprocess-after-acquisition-b12-standard-pipeline-pilot-report.json`
-- Final rerun artifact: `artifacts/20260606T-b12-fulltext-preprocess-after-settings-fix-b12-standard-pipeline-pilot-report.json`
-- Fix:
-  - `tools/b12-standard-pipeline-pilot.mjs` now instantiates `LiteratureContentProcessingSettingsService`.
-  - This makes GROBID and content-processing settings available to `LiteratureFlowService`.
-- Result:
-  - selected records: 10.
-  - pipeline runs created: 10.
-  - run status: 10 `SUCCESS`.
-  - `FULLTEXT_PREPROCESSED`: 10 `SUCCEEDED`.
-  - records with content assets: 10.
-  - records with fulltext documents: 10.
-
-## Content Backfill Dry Runs
-- Full batch artifact: `artifacts/20260606T-b12-content-backfill-dry-run-b12-content-backfill-pilot-report.json`
-- Remaining-record artifact: `artifacts/20260606T-b12-content-backfill-remaining-dry-run-b12-content-backfill-pilot-report.json`
-- Result:
-  - full batch dry-run selected 10 records and planned 10 items.
-  - remaining-record dry-run selected 8 records and planned 8 items after `LIT-0160` succeeded and `LIT-0158` failed.
-  - planned stages: `KEY_CONTENT_READY`, `CHUNKED`, `EMBEDDED`, and `INDEXED`.
-  - dry-run blockers: 0.
-  - estimated provider calls for full batch: 10 extraction calls and 10 embedding calls.
-
-## Content Backfill Applies
-- The first apply created a content-processing batch job, completed `LIT-0160` through `INDEXED`, then was stopped after `LIT-0158` exceeded the expected key-content provider progress window.
-- Cleanup result after first apply:
-  - job status: `FAILED`.
-  - items: 1 `SUCCEEDED`, 1 `FAILED`, 8 `CANCELED`.
-  - `LIT-0160`: `KEY_CONTENT_READY`, `CHUNKED`, `EMBEDDED`, and `INDEXED` all `SUCCEEDED`.
-  - `LIT-0158`: `KEY_CONTENT_READY` `FAILED` with `B12_BACKFILL_PROVIDER_TIMEOUT_INTERRUPTED`.
-- The second apply targeted the remaining 8 records with `B12_BACKFILL_SECTION_CONCURRENCY=1`, then was stopped after `LIT-0153` exceeded the expected key-content provider progress window.
-- Cleanup result after second apply:
-  - job status: `FAILED`.
-  - items: 1 `FAILED`, 7 `CANCELED`.
-  - `LIT-0153`: `KEY_CONTENT_READY` `FAILED` with `B12_BACKFILL_PROVIDER_TIMEOUT_INTERRUPTED`.
-- Apply artifacts were not produced for the interrupted content-backfill runs because the local runner process was stopped before it returned to artifact writing.
-- Current runner mitigation:
-  - `tools/b12-content-backfill-pilot.mjs` now exposes `B12_BACKFILL_CONTENT_RUN_TIMEOUT_MS`.
-  - The pilot runner defaults `B12_BACKFILL_SECTION_CONCURRENCY` to 1.
-- Timeout cleanup fix:
-  - `LIT-0153` one-record retry showed that the batch job can fail and write an artifact while the underlying pipeline run remains `RUNNING`.
-  - the pilot runner now detects timed-out content-processing runs, terminalizes the corresponding pipeline run/step/stage with `B12_BACKFILL_CONTENT_RUN_TIMEOUT`, and exits cleanly after writing artifacts.
-  - verification run artifact: `artifacts/20260606T-b12-keycontent-retry-lit0153-cleanup-fix-apply-b12-content-backfill-pilot-report.json`.
-  - verification result: `timeout_cleanup_count=1`, `timeout_cleanup_terminalized_runs=1`, and no residual running B12 job/run.
-- Non-blocker retry:
-  - `LIT-0154` was retried from `KEY_CONTENT_READY=NOT_STARTED`.
-  - dry-run artifact: `artifacts/20260606T-b12-keycontent-retry-lit0154-dry-run-b12-content-backfill-pilot-report.json`.
-  - apply artifact: `artifacts/20260606T-b12-keycontent-retry-lit0154-apply-b12-content-backfill-pilot-report.json`.
-  - apply result: `FAILED` with `B12_BACKFILL_CONTENT_RUN_TIMEOUT`; cleanup reported `timeout_cleanup_count=1` and `timeout_cleanup_terminalized_runs=1`.
-  - no residual running B12 job/run remained after the retry.
-- Provider timeout diagnosis:
-  - minimal OpenAI `gpt-5.5` gateway canary passed in 3397ms, so credentials/model/gateway minimum path is available.
-  - real `LIT-0154` max-section key-content prompt timed out at 45003ms with high reasoning and passed in 31096ms with low reasoning.
-  - section-level key-content extraction now uses low reasoning; paper-level consolidation keeps high reasoning.
-  - backfill dry-run now estimates key-content provider calls from ready fulltext sections plus consolidation.
-  - diagnostic dry-run artifact: `artifacts/20260606T-b12-provider-timeout-diagnosis-dry-run-b12-content-backfill-pilot-report.json`.
-  - diagnostic dry-run result for `LIT-0154`: 42 estimated extraction calls and 15s margin between a 45s single-section request window and a 60s content-run timeout.
-- Default method switch:
-  - code, env contract/values, local `.env.local`, OpenAPI context, and local dev DB settings now default `preferred_key_content_method` to `codex_curated`.
-  - default `KEY_CONTENT_READY` backfill should block as `KEY_CONTENT_CURATION_REQUIRED` until a curated dossier is imported.
-  - the provider timeout path applies only when `llm_gateway` is explicitly selected.
-- `codex_curated` happy-path canary:
-  - `LIT-0155` bundle export artifact: `artifacts/20260607T-b12-codex-curated-lit0155-bundle-export.json`.
-  - dossier dry-run artifact: `artifacts/20260607T-b12-codex-curated-lit0155-dossier-dry-run.json`.
-  - post-import state artifact: `artifacts/20260607T-b12-codex-curated-lit0155-post-import-state.json`.
-  - index dry-run artifact: `artifacts/20260607T-b12-codex-curated-lit0155-index-dry-run-b12-content-backfill-pilot-report.json`.
-  - index apply artifact: `artifacts/20260607T-b12-codex-curated-lit0155-index-apply-b12-content-backfill-pilot-report.json`.
-  - final state artifact: `artifacts/20260607T-after-b12-codex-curated-lit0155-index-state.json`.
-  - counting artifact: `artifacts/20260607T-after-b12-codex-curated-lit0155-index.json`.
-  - result: `KEY_CONTENT_READY`, `CHUNKED`, `EMBEDDED`, and `INDEXED` all succeeded; key-content import reported 0 LLM gateway calls.
-- `codex_curated` two-record batch:
-  - `LIT-0156` bundle export artifact: `artifacts/20260607T-b12-codex-curated-batch2-lit-0156-bundle-export.json`.
-  - `LIT-0157` bundle export artifact: `artifacts/20260607T-b12-codex-curated-batch2-lit-0157-bundle-export.json`.
-  - dossier dry-run artifact: `artifacts/20260607T-b12-codex-curated-batch2-dossier-dry-run.json`.
-  - dossier import artifact: `artifacts/20260607T-b12-codex-curated-batch2-dossier-import.json`.
-  - post-import state artifact: `artifacts/20260607T-b12-codex-curated-batch2-post-import-state.json`.
-  - index dry-run artifact: `artifacts/20260607T-b12-codex-curated-batch2-index-dry-run-b12-content-backfill-pilot-report.json`.
-  - index apply artifact: `artifacts/20260607T-b12-codex-curated-batch2-index-apply-b12-content-backfill-pilot-report.json`.
-  - final state artifact: `artifacts/20260607T-after-b12-codex-curated-batch2-index-state.json`.
-  - counting artifact: `artifacts/20260607T-after-b12-codex-curated-batch2-index.json`.
-  - result: `LIT-0156` and `LIT-0157` imported source-grounded curated dossiers with 0 key-content provider calls, then completed `CHUNKED`, `EMBEDDED`, and `INDEXED`.
-- `codex_curated` three-record batch:
-  - `LIT-0159` bundle export artifact: `artifacts/20260607T-b12-codex-curated-batch3-lit-0159-bundle-export.json`.
-  - `LIT-0161` bundle export artifact: `artifacts/20260607T-b12-codex-curated-batch3-lit-0161-bundle-export.json`.
-  - `LIT-0162` bundle export artifact: `artifacts/20260607T-b12-codex-curated-batch3-lit-0162-bundle-export.json`.
-  - dossier dry-run artifact: `artifacts/20260607T-b12-codex-curated-batch3-dossier-dry-run.json`.
-  - dossier import artifact: `artifacts/20260607T-b12-codex-curated-batch3-dossier-import.json`.
-  - post-import state artifact: `artifacts/20260607T-b12-codex-curated-batch3-post-import-state.json`.
-  - index dry-run artifact: `artifacts/20260607T-b12-codex-curated-batch3-index-dry-run-b12-content-backfill-pilot-report.json`.
-  - index apply artifact: `artifacts/20260607T-b12-codex-curated-batch3-index-apply-b12-content-backfill-pilot-report.json`.
-  - final state artifact: `artifacts/20260607T-after-b12-codex-curated-batch3-index-state.json`.
-  - counting artifact: `artifacts/20260607T-after-b12-codex-curated-batch3-index.json`.
-  - result: `LIT-0159`, `LIT-0161`, and `LIT-0162` imported source-grounded curated dossiers with 0 key-content provider calls, then completed `CHUNKED`, `EMBEDDED`, and `INDEXED`.
-- Opportunity tranche2:
-  - B11 promoted `LIT-0163` through `LIT-0166`.
-  - standard apply artifact: `artifacts/20260607T-b12-opportunity-tranche2-standard-apply-b12-standard-pipeline-pilot-report.json`.
-  - acquisition apply artifact: `artifacts/20260607T-b12-opportunity-tranche2-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`.
-  - fulltext preprocess artifact: `artifacts/20260607T-b12-opportunity-tranche2-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`.
-  - curation bundle artifacts: `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-lit-0164-bundle-export.json` and `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-lit-0165-bundle-export.json`.
-  - dossier dry-run artifact: `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-dossier-dry-run.json`.
-  - dossier import artifact: `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-dossier-import.json`.
-  - index apply artifact: `artifacts/20260607T-b12-codex-curated-opportunity-tranche2-index-apply-b12-content-backfill-pilot-report.json`.
-  - final state artifact: `artifacts/20260607T-after-b12-opportunity-tranche2-index-state.json`.
-  - counting artifact: `artifacts/20260607T-after-b12-opportunity-tranche2-index.json`.
-  - result: `LIT-0164` and `LIT-0165` completed through `INDEXED`; `LIT-0163` and `LIT-0166` became fulltext-source blockers after acquisition failures.
-- Blocker cleanup:
-  - key-content bundle artifacts:
-    - `artifacts/20260607T-b12-blocker-clear-keycontent-bundle-export-lit-0153-bundle-export.json`
-    - `artifacts/20260607T-b12-blocker-clear-keycontent-bundle-export-lit-0154-bundle-export.json`
-    - `artifacts/20260607T-b12-blocker-clear-keycontent-bundle-export-lit-0158-bundle-export.json`
-  - key-content dossier dry-run artifact: `artifacts/20260607T-b12-blocker-clear-keycontent-dossier-dry-run.json`.
-  - key-content dossier import artifact: `artifacts/20260607T-b12-blocker-clear-keycontent-dossier-import.json`.
-  - key-content index apply artifact: `artifacts/20260607T-b12-blocker-clear-keycontent-index-apply-b12-content-backfill-pilot-report.json`.
-  - result: `LIT-0153`, `LIT-0154`, and `LIT-0158` imported source-grounded `codex_curated` dossiers and completed through `INDEXED`; estimated key-content extraction calls were 0 and embedding calls were 3.
-  - `LIT-0166` wrong-source cleanup artifact: `artifacts/20260607T-b12-blocker-clear-lit0166-wrong-source-cleanup.json`.
-  - result: arXiv `2506.05871` was rejected because the PDF title/content is `BestServe`, not `WindServe`; the content asset, fulltext document, pipeline artifact, and wrong-source files were removed, and `LIT-0166` was restored to `FULLTEXT_SOURCE_MISSING`.
-  - `LIT-0252` explicit PDF acquisition dry-run/apply artifacts:
-    - `artifacts/20260607T-b12-blocker-clear-lit0252-explicit-psu-dry-run-b12-fulltext-acquisition-pilot-report.json`
-    - `artifacts/20260607T-b12-blocker-clear-lit0252-explicit-psu-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `LIT-0252` fulltext preprocess artifact: `artifacts/20260607T-b12-blocker-clear-lit0252-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`.
-  - `LIT-0252` bundle export artifact: `artifacts/20260607T-b12-blocker-clear-lit0252-bundle-export-lit-0252-bundle-export.json`.
-  - `LIT-0252` dossier dry-run/import artifacts:
-    - `artifacts/20260607T-b12-blocker-clear-lit0252-dossier-dry-run.json`
-    - `artifacts/20260607T-b12-blocker-clear-lit0252-dossier-import.json`
-  - `LIT-0252` index apply artifact: `artifacts/20260607T-b12-blocker-clear-lit0252-index-retry-apply-b12-content-backfill-pilot-report.json`.
-  - result: `LIT-0252` replaced the OCR-blocked scanned source with the public title-matched Penn State PDF, succeeded at `FULLTEXT_PREPROCESSED`, imported a 74-source-ref `codex_curated` dossier, and completed through `INDEXED`.
-  - remaining source audit artifacts:
-    - `artifacts/20260607T-b12-blocker-clear-remaining-source-audit-dry-run-b12-fulltext-acquisition-pilot-report.json`
-    - `artifacts/20260607T-b12-blocker-clear-remaining-source-audit-apply-b12-fulltext-acquisition-pilot-report.json`
-    - `artifacts/20260607T-b12-blocker-clear-remaining-source-audit.json`
-  - result: no rights-safe automatically downloadable fulltext was found for `LIT-0163`, `LIT-0166`, or `LIT-0257`.
-  - soft-exclusion artifact: `artifacts/20260607T-d23-source-blocker-soft-exclusion.json`.
-  - soft-exclusion counting artifact: `artifacts/20260607T-after-d23-source-blocker-soft-exclusion.json`.
-  - result: `LIT-0163`, `LIT-0166`, and `LIT-0257` were tagged `classification:excluded-from-corpus`, `classification:source-access-blocked`, and `b12:soft-excluded`; they no longer count in managed/effective resource-pool or blocker metrics.
-
-## Test-Time ArXiv Tranche
-- Records: `LIT-0350` through `LIT-0361`.
-- Standard/acquisition/preprocess artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-testtime-arxiv-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-testtime-arxiv-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-testtime-arxiv-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-testtime-arxiv-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-testtime-arxiv-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-- Curation/backfill artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-testtime-arxiv-dossier-dry-run.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-testtime-arxiv-dossier-dry-run-requests.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-testtime-arxiv-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-testtime-arxiv-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-testtime-arxiv-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-testtime-arxiv-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-testtime-arxiv-index.json`
-- Result:
-  - standard apply normalized citation and abstract for all 12 records, then blocked fulltext preprocessing before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition apply succeeded for all 12 records and created 12 raw fulltext assets.
-  - fulltext preprocessing succeeded for all 12 records and created 12 ready fulltext documents.
-  - dossier dry-run import returned 12 valid dossiers, 0 invalid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; LLM gateway telemetry reported 0 requests, 0 retries, and 0 timeouts.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=12`.
-  - index apply succeeded: job totals 12 succeeded, 0 failed, 0 blocked, no timeout cleanup.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 12 records.
-  - active embedding versions are all `INDEXED`, with 2021 chunks/vectors total using `text-embedding-3-large` at dimension 3072.
-
-## Source-Available Tranche3
-- Records: `LIT-0362` through `LIT-0367`.
-- Standard/acquisition/preprocess artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche3-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche3-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche3-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche3-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche3-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-- Curation/backfill artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche3-dossier-dry-run.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-source-available-tranche3-dossier-dry-run-requests.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche3-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche3-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche3-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche3-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche3-index.json`
-- Result:
-  - standard apply normalized citation and abstract for all 6 records, then blocked fulltext preprocessing before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition apply succeeded for all 6 records and created 6 raw fulltext assets.
-  - fulltext preprocessing succeeded for all 6 records and created 6 ready fulltext documents.
-  - dossier dry-run import returned 6 valid dossiers, 0 invalid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; LLM gateway telemetry reported 0 requests, 0 retries, and 0 timeouts.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=6`.
-  - index apply succeeded: job totals 6 succeeded, 0 failed, 0 blocked, no timeout cleanup.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 6 records.
-  - active embedding versions are all `INDEXED`, with 840 chunks/vectors total using `text-embedding-3-large` at dimension 3072.
-
-## Source-Available Tranche4
-- Records: `LIT-0368` through `LIT-0376`.
-- Standard/acquisition/preprocess artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche4-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche4-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche4-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche4-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche4-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-- Curation/backfill artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche4-dossier-dry-run.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260607T-b12-source-available-tranche4-dossier-dry-run-requests.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche4-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche4-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche4-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche4-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche4-index.json`
-- Result:
-  - standard apply normalized citation and abstract for all 9 records, then blocked fulltext preprocessing before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition apply succeeded for all 9 records and created 9 raw fulltext assets.
-  - fulltext preprocessing succeeded for all 9 records and created 9 ready fulltext documents.
-  - dossier dry-run import returned 9 valid dossiers, 0 invalid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; LLM gateway telemetry reported 0 requests, 0 retries, and 0 timeouts.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; `extraction_calls=0`, `embedding_calls=9`.
-  - index apply succeeded: job totals 9 succeeded, 0 failed, 0 blocked, no timeout cleanup.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 9 records.
-  - active embedding versions are all `INDEXED`, with 1664 chunks/vectors total using `text-embedding-3-large` at dimension 3072.
-
-## Processed Records
-- `LIT-0153`: BudgetThinker: Empowering Budget-aware LLM Reasoning with Control Tokens.
-- `LIT-0154`: Token-Budget-Aware LLM Reasoning.
-- `LIT-0155`: Inference Scaling Laws: An Empirical Analysis of Compute-Optimal Inference for Problem-Solving with Language Models.
-- `LIT-0156`: Cloud Native System for LLM Inference Serving.
-- `LIT-0157`: Efficient LLM Serving Under Variable Cloud Traffic Loads.
-- `LIT-0158`: ElasticMM: Efficient Multimodal LLMs Serving with Elastic Multimodal Parallelism.
-- `LIT-0159`: HexAGenT: Efficient Agentic LLM Serving via Workflow- and Heterogeneity-Aware Scheduling.
-- `LIT-0160`: Infinite-LLM: Efficient LLM Service for Long Context with DistAttention and Distributed KVCache.
-- `LIT-0161`: KVDirect: Distributed Disaggregated LLM Inference.
-- `LIT-0162`: NetKV: Network-Aware Decode Instance Selection for Disaggregated LLM Inference.
-- `LIT-0163`: NeuStream: Bridging Deep Learning Serving and Stream Processing.
-- `LIT-0164`: Observation, Not Prediction: Conversation-Level Disaggregated Scheduling for Agentic Serving.
-- `LIT-0165`: RTP-LLM: High-Performance Alibaba LLM Inference Engine.
-- `LIT-0166`: WindServe: Efficient Phase-Disaggregated LLM Serving with Stream-based Dynamic Scheduling.
-- `LIT-0252`: When Is "Nearest Neighbor" Meaningful?
-- `LIT-0167`: Adaptive Retrieval-Augmented Generation for Conversational Systems.
-- `LIT-0168`: CDF-RAG: Causal Dynamic Feedback for Adaptive Retrieval-Augmented Generation.
-- `LIT-0169`: CtrlA: Adaptive Retrieval-Augmented Generation via Inherent Control.
-- `LIT-0170`: Embedding-Informed Adaptive Retrieval-Augmented Generation of Large Language Models.
-- `LIT-0171`: MBA-RAG: a Bandit Approach for Adaptive Retrieval-Augmented Generation through Question Complexity.
-- `LIT-0172`: Vendi-RAG: Adaptively Trading-Off Diversity And Quality Significantly Improves Retrieval Augmented Generation With LLMs.
-- `LIT-0350`: Rethinking the Role of Prompting Strategies in LLM Test-Time Scaling: A Perspective of Probability Theory.
-- `LIT-0351`: Avoiding Overthinking and Underthinking: Curriculum-Aware Budget Scheduling for LLMs.
-- `LIT-0352`: Just Enough Thinking: Efficient Reasoning with Adaptive Length Penalties Reinforcement Learning.
-- `LIT-0353`: CMCTS: A Constrained Monte Carlo Tree Search Framework for Mathematical Reasoning in Large Language Model.
-- `LIT-0354`: Monte Carlo Tree Search Boosts Reasoning via Iterative Preference Learning.
-- `LIT-0355`: Rewarding Progress: Scaling Automated Process Verifiers for LLM Reasoning.
-- `LIT-0356`: rStar-Math: Small LLMs Can Master Math Reasoning with Self-Evolved Deep Thinking.
-- `LIT-0357`: Reasoning Aware Self-Consistency: Leveraging Reasoning Paths for Efficient LLM Sampling.
-- `LIT-0358`: Beyond Chinchilla-Optimal: Accounting for Inference in Language Model Scaling Laws.
-- `LIT-0359`: Optimizing Anytime Reasoning via Budget Relative Policy Optimization.
-- `LIT-0360`: Wider or Deeper? Scaling LLM Inference-Time Compute with Adaptive Branching Tree Search.
-- `LIT-0361`: Certainty-Guided Reasoning in Large Language Models: A Dynamic Thinking Budget Approach.
-- `LIT-0362`: Accelerating Adaptive Retrieval Augmented Generation via Instruction-Driven Representation Reduction of Retrieval Overlaps.
-- `LIT-0363`: DAT: Dynamic Alpha Tuning for Hybrid Retrieval in Retrieval-Augmented Generation.
-- `LIT-0364`: SeaKR: Self-aware Knowledge Retrieval for Adaptive Retrieval Augmented Generation.
-- `LIT-0365`: ZebraLogic: On the Scaling Limits of LLMs for Logical Reasoning.
-- `LIT-0366`: Evolving Deeper LLM Thinking.
-- `LIT-0367`: Entropy-Regularized Process Reward Model.
-- `LIT-0368`: Certifiably Robust RAG against Retrieval Corruption.
-- `LIT-0369`: MAO-ARAG: Multi-Agent Orchestration for Adaptive Retrieval-Augmented Generation.
-- `LIT-0370`: TAdaRAG: Task Adaptive Retrieval-Augmented Generation via On-the-Fly Knowledge Graph Construction.
-- `LIT-0371`: UltraRAG: A Modular and Automated Toolkit for Adaptive Retrieval-Augmented Generation.
-- `LIT-0372`: EconoServe: Maximizing Multi-Resource Utilization with SLO Guarantees in LLM Serving.
-- `LIT-0373`: HexGen-2: Disaggregated Generative Inference of LLMs in Heterogeneous Environment.
-- `LIT-0374`: Beyond Examples: High-level Automated Reasoning Paradigm in In-Context Learning via MCTS.
-- `LIT-0375`: General Purpose Verification for Chain of Thought Prompting.
-- `LIT-0376`: Improving the Reliability of LLMs: Combining CoT, RAG, Self-Consistency, and Self-Verification.
-- `LIT-0377`: MAIN-RAG: Multi-Agent Filtering Retrieval-Augmented Generation.
-- `LIT-0378`: RetrievalQA: Assessing Adaptive Retrieval-Augmented Generation for Short-form Open-Domain Question Answering.
-- `LIT-0379`: Rowen: Adaptive Retrieval-Augmented Generation for Hallucination Mitigation in LLMs.
-- `LIT-0380`: WeKnow-RAG: An Adaptive Approach for Retrieval-Augmented Generation Integrating Web Search and Knowledge Graphs.
-- `LIT-0381`: Does Inference Scaling Improve Reasoning Faithfulness? A Multi-Model Analysis of Self-Consistency Tradeoffs.
-- `LIT-0382`: Compute Or Load KV Cache? Why Not Both?
-- `LIT-0383`: Inference without Interference: Disaggregate LLM Inference for Mixed Downstream Workloads.
-- `LIT-0384`: Aladdin: Joint Placement and Scaling for SLO-Aware LLM Serving.
-- `LIT-0385`: No Train Still Gain. Unleash Mathematical Reasoning of Large Language Models with Monte Carlo Tree Search Guided by Energy Function.
-- `LIT-0386`: Efficient LLM Scheduling by Learning to Rank.
-- `LIT-0387`: Open-RAG: Enhanced Retrieval-Augmented Reasoning with Open-Source Large Language Models.
-- `LIT-0388`: Self-adaptive Multimodal Retrieval-Augmented Generation.
-- `LIT-0389`: Edge Intelligence Optimization for Large Language Model Inference with Batching and Quantization.
-- `LIT-0390`: You Only Cache Once: Decoder-Decoder Architectures for Language Models.
-- `LIT-0391`: Titans: Learning to Memorize at Test Time.
-- `LIT-0392`: BrownoutServe: SLO-Aware Inference Serving Under Bursty Workloads for MoE-Based LLMs.
-- `LIT-0393`: BatchLLM: Optimizing Large Batched LLM Inference with Global Prefix Sharing and Throughput-oriented Token Batching.
-- `LIT-0394`: DroidSpeak: KV Cache Sharing for Cross-LLM Communication and Multi-LLM Serving.
-- `LIT-0395`: FastDecode: High-Throughput GPU-Efficient LLM Serving using Heterogeneous Pipelines.
-- `LIT-0396`: Prompt Generate Train (PGT): Few-shot Domain Adaption of Retrieval Augmented Generation Models for Open Book Question-Answering.
-- `LIT-0397`: EdgeLoRA: An Efficient Multi-Tenant LLM Serving System on Edge Devices.
-- `LIT-0398`: UELLM: A Unified and Efficient Approach for LLM Inference Serving.
-- `LIT-0399`: CaraServe: CPU-Assisted and Rank-Aware LoRA Serving for Generative LLM Inference.
-- `LIT-0400`: Cost-Efficient Large Language Model Serving for Multi-turn Conversations with CachedAttention.
-- `LIT-0401`: Efficiently Serving Large Multimodal Models Using EPD Disaggregation.
-- `LIT-0402`: ExpertFlow: Efficient Mixture-of-Experts Inference via Predictive Expert Caching and Token Scheduling.
-- `LIT-0403`: Fast Inference for Augmented Large Language Models.
-- `LIT-0404`: FlashInfer: Efficient and Customizable Attention Engine for LLM Inference Serving.
-- `LIT-0405`: MoE-Infinity: Efficient MoE Inference on Personal Machines with Sparsity-Aware Expert Cache.
-- `LIT-0406`: NEO: Saving GPU Memory Crisis with CPU Offloading for Online LLM Inference.
-- `LIT-0407`: ProMoE: Fast MoE-based LLM Serving using Proactive Caching.
-- `LIT-0408`: Sub-SA: Strengthen In-context Learning via Submodular Selective Annotation.
-- `LIT-0409`: Submodular Ground-Set Pruning: Monotone Tightness and a Non-Monotone Separation.
-- `LIT-0410`: Keyformer: KV Cache Reduction through Key Tokens Selection for Efficient Generative Inference.
-- `LIT-0411`: TokenScale: Timely and Accurate Autoscaling for Disaggregated LLM Serving with Token Velocity.
-- `LIT-0412`: Transformer-Lite: High-efficiency Deployment of Large Language Models on Mobile Phone GPUs.
-- `LIT-0413`: EcoServe: Designing Carbon-Aware AI Inference Systems.
-- `LIT-0414`: Efficient Interactive LLM Serving with Proxy Model-based Sequence Length Prediction.
-- `LIT-0415`: FastSwitch: Optimizing Context Switching Efficiency in Fairness-aware Large Language Model Serving.
-- `LIT-0416`: Towards Greener LLMs: Bringing Energy-Efficiency to the Forefront of LLM Inference.
-- `LIT-0417`: Towards Pareto Optimal Throughput in Small Language Model Serving.
-- `LIT-0418`: SARATHI: Efficient LLM Inference by Piggybacking Decodes with Chunked Prefills.
-- `LIT-0419`: ALISA: Accelerating Large Language Model Inference via Sparsity-Aware KV Caching.
-- `LIT-0420`: Faster LLM Inference using DBMS-Inspired Preemption and Cache Replacement Policies.
-- `LIT-0421`: FastKV: Decoupling of Context Reduction and KV Cache Compression for Prefill-Decoding Acceleration.
-- `LIT-0422`: Hydragen: High-Throughput LLM Inference with Shared Prefixes.
-- `LIT-0423`: InfiniGen: Efficient Generative Inference of Large Language Models with Dynamic KV Cache Management.
-- `LIT-0424`: KV-Compress: Paged KV-Cache Compression with Variable Compression Rates per Attention Head.
-- `LIT-0425`: MemServe: Context Caching for Disaggregated LLM Serving with Elastic Memory Pool.
-- `LIT-0426`: TAPAS: Thermal- and Power-Aware Scheduling for LLM Inference in Cloud Platforms.
-
-## Current B12 Record State
-- `LIT-0153`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version was refreshed during blocker cleanup.
-- `LIT-0154`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version was refreshed during blocker cleanup.
-- `LIT-0155`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version has 153 chunks/vectors.
-- `LIT-0156`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version has 99 chunks/vectors.
-- `LIT-0157`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version has 161 chunks/vectors.
-- `LIT-0158`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version was refreshed during blocker cleanup.
-- `LIT-0159`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version has 191 chunks/vectors.
-- `LIT-0160`: all stages through `INDEXED` succeeded; active embedding version has 1037 chunks/vectors.
-- `LIT-0161`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version has 146 chunks/vectors.
-- `LIT-0162`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version has 144 chunks/vectors.
-- `LIT-0163`: citation and abstract succeeded; fulltext acquisition failed with `UNPAYWALL_NO_OA_PDF`; soft-excluded from the managed/effective resource pool.
-- `LIT-0164`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version has 154 chunks/vectors.
-- `LIT-0165`: all stages through `INDEXED` succeeded via `codex_curated`; active embedding version has 194 chunks/vectors.
-- `LIT-0166`: citation and abstract succeeded; fulltext acquisition failed with a 403 download from the OA PDF path; soft-excluded from the managed/effective resource pool.
-- `LIT-0252`: all stages through `INDEXED` succeeded via a public title-matched PDF replacement plus `codex_curated`; original scanned PDF path remains a historical failed asset.
-- `LIT-0257`: citation and abstract succeeded; no explicit URL, arXiv id, or DOI OA resolver is available; soft-excluded from the managed/effective resource pool.
-- `LIT-0167`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 82 chunks/vectors.
-- `LIT-0168`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 236 chunks/vectors.
-- `LIT-0169`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 178 chunks/vectors.
-- `LIT-0170`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 69 chunks/vectors.
-- `LIT-0171`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 75 chunks/vectors.
-- `LIT-0172`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 112 chunks/vectors.
-- `LIT-0350`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 246 chunks/vectors.
-- `LIT-0351`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 88 chunks/vectors.
-- `LIT-0352`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 77 chunks/vectors.
-- `LIT-0353`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 231 chunks/vectors.
-- `LIT-0354`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 199 chunks/vectors.
-- `LIT-0355`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 209 chunks/vectors.
-- `LIT-0356`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 111 chunks/vectors.
-- `LIT-0357`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 262 chunks/vectors.
-- `LIT-0358`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 115 chunks/vectors.
-- `LIT-0359`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 106 chunks/vectors.
-- `LIT-0360`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 224 chunks/vectors.
-- `LIT-0361`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 153 chunks/vectors.
-- `LIT-0362`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 88 chunks/vectors.
-- `LIT-0363`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 117 chunks/vectors.
-- `LIT-0364`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 171 chunks/vectors.
-- `LIT-0365`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 148 chunks/vectors.
-- `LIT-0366`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 168 chunks/vectors.
-- `LIT-0367`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 148 chunks/vectors.
-- `LIT-0368`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 222 chunks/vectors.
-- `LIT-0369`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 268 chunks/vectors.
-- `LIT-0370`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 169 chunks/vectors.
-- `LIT-0371`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 87 chunks/vectors.
-- `LIT-0372`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 153 chunks/vectors.
-- `LIT-0373`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 148 chunks/vectors.
-- `LIT-0374`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 368 chunks/vectors.
-- `LIT-0375`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 134 chunks/vectors.
-- `LIT-0376`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 115 chunks/vectors.
-- `LIT-0377`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 106 chunks/vectors.
-- `LIT-0378`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 92 chunks/vectors.
-- `LIT-0379`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 139 chunks/vectors.
-- `LIT-0380`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 125 chunks/vectors.
-- `LIT-0381`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 242 chunks/vectors.
-- `LIT-0382`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 142 chunks/vectors.
-- `LIT-0383`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 148 chunks/vectors.
-- `LIT-0384`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 161 chunks/vectors.
-- `LIT-0385`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 109 chunks/vectors.
-- `LIT-0386`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 113 chunks/vectors.
-- `LIT-0387`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 97 chunks/vectors.
-- `LIT-0388`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 95 chunks/vectors.
-- `LIT-0389`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 81 chunks/vectors.
-- `LIT-0390`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 146 chunks/vectors.
-- `LIT-0391`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 164 chunks/vectors.
-- `LIT-0392`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 132 chunks/vectors.
-- `LIT-0393`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 144 chunks/vectors.
-- `LIT-0394`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 171 chunks/vectors.
-- `LIT-0395`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 196 chunks/vectors.
-- `LIT-0396`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 72 chunks/vectors.
-- `LIT-0397`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 135 chunks/vectors.
-- `LIT-0398`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 95 chunks/vectors.
-- `LIT-0399`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 177 chunks/vectors.
-- `LIT-0400`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 177 chunks/vectors.
-- `LIT-0401`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 174 chunks/vectors.
-- `LIT-0402`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 99 chunks/vectors.
-- `LIT-0403`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 133 chunks/vectors.
-- `LIT-0404`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 157 chunks/vectors.
-- `LIT-0405`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 133 chunks/vectors.
-- `LIT-0406`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 122 chunks/vectors.
-- `LIT-0407`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 178 chunks/vectors.
-- `LIT-0408`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 113 chunks/vectors.
-- `LIT-0409`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 320 chunks/vectors.
-- `LIT-0410`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 195 chunks/vectors.
-- `LIT-0411`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 152 chunks/vectors.
-- `LIT-0412`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 115 chunks/vectors.
-- `LIT-0413`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 205 chunks/vectors.
-- `LIT-0414`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 78 chunks/vectors.
-- `LIT-0415`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 119 chunks/vectors.
-- `LIT-0416`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 75 chunks/vectors.
-- `LIT-0417`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 74 chunks/vectors.
-- `LIT-0418`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 172 chunks/vectors.
-- `LIT-0419`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 106 chunks/vectors.
-- `LIT-0420`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 181 chunks/vectors.
-- `LIT-0421`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 129 chunks/vectors.
-- `LIT-0422`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 134 chunks/vectors.
-- `LIT-0423`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 149 chunks/vectors.
-- `LIT-0424`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 183 chunks/vectors.
-- `LIT-0425`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 164 chunks/vectors.
-- `LIT-0426`: all stages through `INDEXED` succeeded via arXiv acquisition plus `codex_curated`; active embedding version has 170 chunks/vectors.
-
-## Source-Available Tranche9
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-dossier-dry-run.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche9-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche9-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche9-index.json`
-- Input:
-  - B11 promoted `LIT-0427` through `LIT-0440`.
-  - direction split: 2 RAG-aware allocation and 12 LLM-serving/resource allocation.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 14 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 14 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for all 14 records and created 14 content assets.
-  - fulltext preprocessing succeeded for all 14 records and created 14 ready fulltext documents.
-  - dossier dry-run import returned 14 valid dossiers, 0 invalid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 14 embedding calls.
-  - index apply succeeded for all 14 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 14 records.
-  - active embedding versions are all indexed; total chunks/vectors: 2483/2483.
-
-## Source-Available Tranche10
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche10-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche10-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche10-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche10-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche10-dossier-dry-run.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche10-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche10-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-source-available-tranche10-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche10-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-source-available-tranche10-index.json`
-- Input:
-  - B11 promoted `LIT-0441` through `LIT-0449`.
-  - direction split: 2 LLM-serving/resource allocation, 2 RAG-aware allocation, and 5 test-time compute.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 9 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 9 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for all 9 records and created 9 content assets.
-  - fulltext preprocessing succeeded for all 9 records and created 9 ready fulltext documents.
-  - dossier dry-run import returned 9 valid dossiers, 0 invalid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 9 embedding calls.
-  - index apply succeeded for all 9 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 9 records.
-  - active embedding versions are all indexed; total chunks/vectors: 1388/1388.
-
-## RAG Title-Allowlist Completion
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-export-lit-0450-bundle-export.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-export-lit-0451-bundle-export.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-dry-run.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-b12-rag-title-allowlist-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-rag-title-allowlist-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260607T-after-b12-rag-title-allowlist-index.json`
-- Input:
-  - B11 promoted `LIT-0450` and `LIT-0451` from the D41 RAG-core title allowlist.
-  - direction split: 2 RAG-aware allocation.
-  - collection role split: 2 `collection:core`.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on both records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 2 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for both records and created 2 content assets.
-  - fulltext preprocessing succeeded for both records and created 2 ready fulltext documents.
-  - dossier dry-run import returned 2 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 2 embedding calls.
-  - index apply succeeded for both records.
-  - final state probe found all seven standard stages `SUCCEEDED` for both records.
-  - active embedding versions are all indexed; total chunks/vectors: 281/281.
-
-## Test-Time Exact-Title Completion
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-export-lit-0452-bundle-export.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-export-lit-0453-bundle-export.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-export-lit-0454-bundle-export.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-dry-run.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-b12-testtime-title-allowlist-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-b12-testtime-title-allowlist-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-b12-testtime-title-allowlist-index.json`
-- Input:
-  - B11 promoted `LIT-0452`, `LIT-0453`, and `LIT-0454` from the D42 test-time exact-title allowlist.
-  - direction split: 3 test-time compute budgeting.
-  - collection role split: 3 `collection:strategy-support`.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 3 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 3 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for all 3 records and created 3 content assets.
-  - fulltext preprocessing succeeded for all 3 records and created 3 ready fulltext documents.
-  - dossier dry-run import returned 3 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 3 embedding calls.
-  - index apply succeeded for all 3 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 3 records.
-  - active embedding versions are all indexed; total chunks/vectors: 631/631 and token-index rows: 4853.
-
-## D46 Theory-Support Small Tranche Completion
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-dossier-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d46-theory-small-tranche-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d46-theory-small-tranche-retag.json`
-- Input:
-  - B11 promoted `LIT-0455` through `LIT-0460` from the D45 ready theory-support set.
-  - direction split: 3 serving scheduling/resource-allocation, 2 RAG-aware allocation, and 1 test-time compute budgeting.
-  - collection role split: 6 `collection:theory-support`.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 6 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 6 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for all 6 records and created 6 content assets.
-  - fulltext preprocessing succeeded for all 6 records and created 6 ready fulltext documents.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 6 embedding calls.
-  - index apply succeeded for all 6 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 6 records.
-  - post-promote theory retag raised target-qualified theory-support records from 17 to 23.
-
-## D48 CARROT And Relative-Budget Theory Completion
-- CARROT artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/2026-06-08T00-21-11-432Z-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/2026-06-08T00-21-11-470Z-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/2026-06-08T00-22-15-645Z-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-dossier-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d48-carrot-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-carrot-theory-retag.json`
-- CARROT result:
-  - B11 promoted `LIT-0461`.
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY`, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition apply succeeded for arXiv `2411.00744` and created 1 content asset.
-  - fulltext preprocessing succeeded and created 1 READY fulltext document.
-  - key-content import used `codex_curated`; extraction provider calls were 0.
-  - index apply succeeded; final state probe found all seven standard stages `SUCCEEDED`.
-  - retag added `theory-slot:rag-allocation` and `theory:target-qualified`.
-- Relative-budget artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-dossier-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-relative-budget-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d48-relative-budget-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d48-testtime-theory-retag.json`
-- Relative-budget result:
-  - B11 promoted `LIT-0462`.
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY`, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition apply succeeded for arXiv `2602.01523` and created 1 content asset.
-  - fulltext preprocessing succeeded and created 1 READY fulltext document.
-  - key-content import used `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 1 embedding call.
-  - index apply succeeded; final state probe found all seven standard stages `SUCCEEDED`, 327 chunks, and 1605 token-index rows.
-  - retag added `theory-slot:test-time-budget` and `theory:target-qualified`.
-- Existing test-time retag result:
-  - after verifying all seven standard stages succeeded, `LIT-0237`, `LIT-0238`, `LIT-0292`, and `LIT-0296` were retagged as target-qualified test-time theory support.
-  - post-D48 theory target state: 31 effective `collection:theory-support` records, 29 target-qualified records, and 2 scope-borderline records.
-
-## D49 Serving/RAG Theory Completion
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-dossier-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d49-serving-rag-theory-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d49-serving-rag-theory-retag.json`
-- Input:
-  - B11 promoted `LIT-0463` through `LIT-0468`.
-  - direction split: 4 LLM-serving/resource allocation and 2 RAG-aware allocation.
-  - collection role split: 6 `collection:theory-support`.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 6 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 6 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for all 6 records and created 6 content assets.
-  - fulltext preprocessing succeeded for all 6 records and created 6 ready fulltext documents.
-  - dossier dry-run returned 6 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 6 embedding calls.
-  - index apply succeeded for all 6 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 6 records.
-  - post-promote retag raised target-qualified theory-support records from 29 to 35.
-
-## D50 Serving Theory Completion
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-dossier-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d50-serving-theory-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-retag.json`
-- Input:
-  - B11 promoted `LIT-0469` through `LIT-0472`.
-  - direction split: 4 LLM-serving/resource allocation.
-  - collection role split: 4 `collection:theory-support`.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 4 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 4 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for all 4 records and created 4 content assets.
-  - fulltext preprocessing succeeded for all 4 records and created 4 ready fulltext documents.
-  - dossier dry-run returned 4 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 4 embedding calls.
-  - index apply succeeded for all 4 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 4 records.
-  - post-promote retag raised target-qualified theory-support records from 35 to 39 and closed the serving scheduling slot at 12/12.
-
-## D51 RAG/Test-Time/Math Theory Completion
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-acquisition-retry-lit0475-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-dossier-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d51-rag-testtime-math-theory-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d51-rag-testtime-math-theory-retag.json`
-- Input:
-  - B11 promoted `LIT-0473` through `LIT-0476`.
-  - theory-slot assignment after retag: 1 RAG allocation, 2 test-time budget, and 1 math foundation.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 4 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 4 arXiv downloads with 0 blockers.
-  - first acquisition apply succeeded for 3 records and failed retryably on `LIT-0475` with `INTERNAL_ERROR: fetch failed`.
-  - acquisition retry for `LIT-0475` succeeded and created the missing content asset.
-  - fulltext preprocessing succeeded for all 4 records and created 4 ready fulltext documents.
-  - dossier dry-run returned 4 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 4 embedding calls.
-  - index apply succeeded for all 4 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 4 records.
-  - post-promote retag raised target-qualified theory-support records from 39 to 43.
-
-## D52 Exact-Title Theory Target Closure
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-dossier-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-index-state.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d52-theory-retag.json`
-- Input:
-  - B11 promoted `LIT-0477` through `LIT-0483`.
-  - theory-slot assignment after retag: 4 RAG allocation, 2 test-time budget, and 1 math foundation.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 7 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 7 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for all 7 records and created 7 content assets.
-  - fulltext preprocessing succeeded for all 7 records and created 7 ready fulltext documents.
-  - dossier dry-run returned 7 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 7 embedding calls.
-  - index apply succeeded for all 7 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 7 records, with active and indexed embedding versions.
-  - post-promote retag raised target-qualified theory-support records from 43 to 50 and closed the 50-paper target.
-
-## D54 Balanced RAG/Test-Time Completion
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-dossier-dossier-dry-run.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-dossier-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d54-rag-testtime-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d54-rag-testtime-index-state.json`
-- Input:
-  - B11 promoted `LIT-0484` through `LIT-0489`.
-  - direction split at B11: 4 RAG-aware allocation and 2 test-time compute budgeting.
-  - collection role split at B11: 4 core and 2 strategy-support.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 6 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 6 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for all 6 records and created 6 content assets.
-  - fulltext preprocessing succeeded for all 6 records and created 6 ready fulltext documents.
-  - dossier dry-run returned 6 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 6 embedding calls.
-  - index apply succeeded for all 6 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 6 records, with active and indexed embedding versions.
-
-## D55 Source-Backed Exact-Title Completion
-- Artifacts:
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-standard-dry-run-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-standard-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-dossier-dossier-dry-run.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-dossier-dossier-import.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-index-dry-run-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-index-apply-b12-content-backfill-pilot-report.json`
-  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d55-source-backed-index-state.json`
-- Input:
-  - B11 promoted `LIT-0490` through `LIT-0500`.
-  - direction split at B11: 6 LLM-serving/resource allocation, 2 RAG-aware allocation, and 3 test-time compute budgeting.
-  - collection role split at B11: 5 system-support, 4 strategy-support, and 2 core.
-- Result:
-  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 11 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
-  - acquisition dry-run planned 11 arXiv downloads with 0 blockers.
-  - acquisition apply succeeded for all 11 records and created 11 content assets.
-  - fulltext preprocessing succeeded for all 11 records and created 11 ready fulltext documents.
-  - dossier dry-run returned 11 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
-  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
-  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 11 embedding calls.
-  - index apply succeeded for all 11 records.
-  - final state probe found all seven standard stages `SUCCEEDED` for all 11 records, with active and indexed embedding versions.
+## D55 Details
+- Input: `LIT-0490` through `LIT-0500`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 11.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 11 arXiv downloads with 0 blockers.
+  - apply succeeded for all 11 and created 11 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 11 and created 11 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 11.
+  - import succeeded for all 11.
+  - extraction provider calls: 0.
+  - source-ref repairs: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 11 embedding calls.
+  - apply succeeded for all 11.
+- Final state:
+  - all 11 records have all seven standard stages `SUCCEEDED`.
+  - all 11 have active and indexed embedding versions.
 
 ## Latest Counting
 - Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d55-source-backed.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
-- Metrics:
-  - candidate pool records: 588.
-  - candidate discovered records: 233.
-  - candidate ready-for-promotion records: 23.
-  - candidate promoted records: 171.
-  - candidate deferred records: 11.
-  - managed corpus records: 314.
-  - effective literature records: 314.
-  - pipeline incomplete records: 0.
-  - pipeline blocked records: 0.
-  - pipeline not-started records: 0.
-  - target-qualified theory-support records: 50/50.
-  - effective theory-support records: 52, including 2 scope-borderline records.
-  - target-qualified slots: math foundation 12, RAG allocation 13, test-time budget 13, serving scheduling 12.
+
+| Metric | Value |
+| --- | ---: |
+| Candidate pool records | 588 |
+| Candidate discovered records | 233 |
+| Candidate ready-for-promotion records | 23 |
+| Candidate promoted records | 171 |
+| Candidate deferred records | 11 |
+| Managed corpus records | 314 |
+| Effective literature records | 314 |
+| Pipeline incomplete records | 0 |
+| Pipeline blocked records | 0 |
+| Pipeline not-started records | 0 |
+| Target-qualified theory-support records | 50/50 |
 
 ## Next Gate
-- The 10 initial B11-promoted records have completed all standard stages through `INDEXED`.
-- `LIT-0252` has moved past OCR/fulltext source blocker and now counts as effective literature.
-- Default content backfill now expects curated key-content dossiers and should not call the provider gateway.
-- The pilot runner timeout cleanup is verified, so future small retries should not leave dangling local `RUNNING` pipeline runs.
-- Non-blocker retry evidence now shows the key-content timeout also affects `LIT-0154`.
-- Future `llm_gateway` retries must be explicit and size `provider_call_budget` to section-level fan-out, not paper count.
-- Prefer bounded diagnostic `llm_gateway` retries with `B12_BACKFILL_EXTRACTION_MAX_RETRIES=0`; avoid content-run timeouts that are lower than the single-section provider retry window.
-- Keep `LIT-0163`, `LIT-0166`, and `LIT-0257` soft-excluded unless authenticated/user-provided fulltext is available.
-- The opportunity tranche added 2 effective records and 2 soft-excluded source-access records; future opportunity tranches should prefer arXiv or verified direct-PDF candidates when the goal is high B12 completion throughput.
-- The arXiv-ready RAG tranche added 6 effective records; future B11 promotion batches should prefer candidates with explicit arXiv or verified direct-PDF sources when the goal is fast effective-literature growth.
-- The test-time arXiv tranche added 12 effective records; key-content curation stayed on the `codex_curated` path and did not call extraction providers.
-- Source-available tranche3 added 6 effective records and reverse-marked 4 duplicates before promotion.
-- Source-available tranche4 added 9 effective records and reverse-marked 1 duplicate before promotion.
-- Source-available tranche5 added 10 effective records and crossed the 200-record managed/effective checkpoint.
-- Source-available tranche6 added 10 effective records through the selector-filtered arXiv path.
-- Source-available tranche7 added 15 effective records through the selector-filtered arXiv path.
-- Source-available tranche8 added 15 effective serving/resource-allocation records through the selector-filtered arXiv path.
-- Source-available tranche9 added 14 effective records through the selector-filtered arXiv path.
-- Source-available tranche10 added 9 effective near-threshold high-signal records after rejecting the default-ready tail set.
-- D42 completed the 2 D41 RAG-core allowlist candidates through `INDEXED`.
-- D43 completed the 3 D42 test-time exact-title allowlist candidates through `INDEXED`.
-- D44 retagged the existing theory-support set and found 17 target-qualified records against the 50-paper theory-support target.
-- D45 added 21 source-available theory-support candidates and marked 19 ready for promotion without changing managed/effective counts.
-- D46 completed 6 D45-ready theory-support candidates through `INDEXED` and post-promote retag, raising target-qualified theory-support to 23/50.
-- D47 added 1 clean RAG theory candidate to staging and found no clean new test-time theory candidate in the provider dry-runs.
-- D48 completed `CARROT` as `LIT-0461`, completed `A Relative-Budget Theory` as `LIT-0462`, and retagged four already-indexed test-time records into target-qualified theory support.
-- D49 completed 6 serving/RAG theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 35/50.
-- D50 completed 4 serving theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 39/50.
-- D51 completed 4 RAG/test-time/math theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 43/50.
-- D52 completed 7 exact-title RAG/test-time/math theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 50/50.
-- At the D52 checkpoint, every currently managed corpus record is effective; the theory-support target gap is 0.
-- D53 was read-only and kept managed/effective literature at 297 with 0 incomplete, 0 blocked, and 0 not-started managed records.
-- D53 found that strict source-backed `DISCOVERED` selector output is empty after tail filtering; prefer a narrower RAG/test-time source-backed B10 refill before the next DB-writing B11/B12 tranche.
-- D54 completed 6 balanced RAG/test-time source-backed records through `INDEXED`, bringing managed/effective literature to 303 with 0 incomplete, 0 blocked, and 0 not-started managed records.
-- D55 completed 11 source-backed exact-title records through `INDEXED`, bringing managed/effective literature to 314 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+- Preferred: repeat the exact-title/source-backed B10 -> B11 -> B12 pattern for a small, clean D56/D57 tranche.
+- Alternative: run broader B10 catalog expansion for recall, then gate B11/B12 on source availability and tail filters.
+- Keep `LIT-0163`, `LIT-0166`, and `LIT-0257` soft-excluded unless authenticated or user-provided fulltext becomes available.
+- Keep future `llm_gateway` key-content retries explicit and bounded.
