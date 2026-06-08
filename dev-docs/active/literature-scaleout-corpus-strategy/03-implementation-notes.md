@@ -2,7 +2,7 @@
 
 ## Purpose
 - This file keeps the current implementation decisions readable.
-- Completed D1-D60 details are summarized in `10-scaleout-run-ledger.md`.
+- Completed D1-D63 details are summarized in `10-scaleout-run-ledger.md`.
 - Raw run outputs and detailed reports live under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 
 ## Current Architecture Decisions
@@ -140,24 +140,38 @@
 - Defer or exclude before apply: `METAL`, `TabTracer`, and `InstantBooth`, because they are chart/table/text-to-image application tails rather than central test-time compute budgeting papers.
 - Follow-up: either apply the 9-candidate clean subset or tighten test-time tail filtering before the next selector apply.
 
+### D63 RAG/Test-Time Clean9 B11/B12 Tranche
+- Used the D62 clean subset only; kept `METAL`, `TabTracer`, and `InstantBooth` out of the apply set.
+- Pre-run B13 count was managed/effective 343/343 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+- B11 dry-run over 9 explicit candidates produced 9 high-band `READY_FOR_PROMOTION` decisions.
+- B11 apply/promote created `LIT-0530` through `LIT-0538`: 6 RAG records and 3 test-time records.
+- B12 initial standard apply completed citation and abstract stages and hit the expected `FULLTEXT_SOURCE_MISSING` blocker before acquisition.
+- Acquisition dry-run planned 9 fulltexts with 0 blockers: 7 Unpaywall and 2 arXiv.
+- Acquisition apply succeeded for all 9 and created 9 content assets.
+- Fulltext preprocessing succeeded for all 9 and created 9 ready fulltext documents.
+- Source-grounded `codex_curated` dossier dry-run validated all 9; import succeeded for all 9 with 0 source-ref repairs.
+- Standard index apply completed `KEY_CONTENT_READY`, `CHUNKED`, `EMBEDDED`, and `INDEXED` for all 9.
+- Final state probe found all 9 records have all seven standard stages `SUCCEEDED`, active embedding versions, and indexed vectors.
+- Managed/effective corpus reached 352 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
 | Candidate batches | 16 |
 | Candidate pool | 608 |
-| Discovered candidates | 225 |
-| Ready candidates | 21 |
-| Promoted candidates | 200 |
+| Discovered candidates | 219 |
+| Ready candidates | 18 |
+| Promoted candidates | 209 |
 | Deferred candidates | 15 |
-| Managed corpus | 343 |
-| Effective literature | 343 |
+| Managed corpus | 352 |
+| Effective literature | 352 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: run B11/B12 apply on the 9-candidate D62 clean subset.
-- If selector quality is prioritized first, add stricter test-time tail terms for chart/table/text-to-image application papers and rerun the D62 selector.
-- If immediate effective-literature growth is prioritized, use only source-backed candidates that pass B11 high-band gating and keep medium candidates deferred.
+- Preferred next collection step: run one wider source-available selector tranche using the D61 duplicate-anchor fix and D63 cleanliness filter.
+- If direction balance is prioritized first, refill RAG/test-time candidate supply with stricter exact-title or source-backed B10 queries.
+- Keep promoting only high-band clean candidates and leave medium/application-tail candidates deferred or rejected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

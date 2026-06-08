@@ -6,10 +6,10 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D59 serving source-backed curated tranche.
+- Latest corpus checkpoint: after D63 RAG/test-time clean9 source-available tranche.
 - Candidate pool: 608.
-- Managed corpus: 334.
-- Effective literature: 334.
+- Managed corpus: 352.
+- Effective literature: 352.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 50/50 target-qualified records.
 
@@ -79,6 +79,7 @@
 | D60 | Completed 6 RAG/test-time direction-balance records and isolated mutually linked duplicate-loop candidates, reaching 340 effective records. |
 | D61 | Fixed B11 duplicate-anchor handling and completed 3 newly unblocked RAG/test-time records, reaching 343 effective records. |
 | D62 | Ran read-only RAG/test-time source-available selector dry-run; identified 9 clean next-tranche candidates and 3 test-time tail exclusions. |
+| D63 | Promoted and completed the D62 clean9 subset, reaching 352 effective records with 0 managed blockers. |
 
 ## Effective-Literature Growth Ledger
 
@@ -97,6 +98,7 @@
 | D59 serving source-backed curated tranche | 4 | 334 |
 | D60 RAG/test-time direction-balance tranche | 6 | 340 |
 | D61 duplicate-anchor clean3 tranche | 3 | 343 |
+| D63 RAG/test-time clean9 tranche | 9 | 352 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -117,10 +119,11 @@
 ## Evidence Roots
 - Current generated evidence root:
   - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`
-- Current D61 count artifact:
-  - `20260608T-d61-duplicate-anchor-fix-final-count.json`
-- Current D61 final state evidence:
-  - `20260608T-d61-duplicate-anchor-fix-clean3-b12-index-apply-b12-standard-pipeline-pilot-report.json`
+- Current D63 count artifact:
+  - `20260608T-d63-clean9-final-count.json`
+- Current D63 final state evidence:
+  - `20260608T-after-d63-clean9-index-state.json`
+  - `20260608T-d63-clean9-b12-index-apply-b12-standard-pipeline-pilot-report.json`
 - Current D62 selector evidence:
   - `20260608T-d62-rag-testtime-source-available-selector-dry-run-b11-source-available-selector.json`
 - Current D53 selector preflight:

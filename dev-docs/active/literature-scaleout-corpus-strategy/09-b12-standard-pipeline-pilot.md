@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
-- Latest B12 run: D61 duplicate-anchor clean3 completion.
-- Current managed corpus: 343.
-- Current effective literature: 343.
+- Latest B12 run: D63 RAG/test-time clean9 completion.
+- Current managed corpus: 352.
+- Current effective literature: 352.
 - Current managed blockers: 0.
 - Default key-content method: `codex_curated`.
 
@@ -100,7 +100,7 @@
 ## Method Boundary
 - `codex_curated` is the default `KEY_CONTENT_READY` path.
 - Source-grounded curated dossiers are imported before chunk/embed/index backfill.
-- Completed D18-D61 curated imports used 0 key-content extraction provider calls.
+- Completed D18-D63 curated imports used 0 key-content extraction provider calls.
 - `llm_gateway` extraction remains explicit-only and should be used only for bounded diagnostics or approved retries.
 
 ## Completion Ledger
@@ -121,6 +121,7 @@
 | D59 | serving source-backed curated expansion | 4 | completed |
 | D60 | RAG/test-time direction-balance clean6 | 6 | completed |
 | D61 | duplicate-anchor fix clean3 | 3 | completed |
+| D63 | RAG/test-time source-available clean9 | 9 | completed |
 
 ## D55 Details
 - Input: `LIT-0490` through `LIT-0500`.
@@ -258,27 +259,49 @@
   - all 3 records have all seven standard stages `SUCCEEDED`.
   - embedding chunk/vector counts: `LIT-0527` 202, `LIT-0528` 155, `LIT-0529` 180.
 
+## D63 Details
+- Input: `LIT-0530` through `LIT-0538`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 9.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 7 Unpaywall acquisitions and 2 arXiv downloads with 0 blockers.
+  - apply succeeded for all 9 and created 9 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 9 and created 9 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 9.
+  - import succeeded for all 9.
+  - extraction provider calls: 0.
+  - source-ref repairs: 0.
+- Index backfill:
+  - standard pipeline apply succeeded for `KEY_CONTENT_READY`, `CHUNKED`, `EMBEDDED`, and `INDEXED` for all 9.
+- Final state:
+  - all 9 records have all seven standard stages `SUCCEEDED`.
+  - all 9 have active embedding versions, indexed vectors, fulltext documents, and content assets.
+  - embedding chunk/vector counts: `LIT-0530` 119, `LIT-0531` 144, `LIT-0532` 96, `LIT-0533` 134, `LIT-0534` 86, `LIT-0535` 110, `LIT-0536` 71, `LIT-0537` 144, `LIT-0538` 108.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d61-duplicate-anchor-fix-final-count.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d63-clean9-final-count.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 
 | Metric | Value |
 | --- | ---: |
 | Candidate pool records | 608 |
-| Candidate discovered records | 225 |
-| Candidate ready-for-promotion records | 21 |
-| Candidate promoted records | 200 |
+| Candidate discovered records | 219 |
+| Candidate ready-for-promotion records | 18 |
+| Candidate promoted records | 209 |
 | Candidate deferred records | 15 |
-| Managed corpus records | 343 |
-| Effective literature records | 343 |
+| Managed corpus records | 352 |
+| Effective literature records | 352 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |
 | Target-qualified theory-support records | 50/50 |
 
 ## Next Gate
-- Preferred: run a broader RAG/test-time source-available selector pass with the duplicate-anchor fix enabled.
-- Alternative: continue broad B10 catalog expansion for recall, then gate B11/B12 on source availability and high-band B11 decisions.
+- Preferred: run one wider source-available selector tranche with the duplicate-anchor fix and D63 test-time tail exclusions enforced.
+- Alternative: refill RAG/test-time candidates through narrower source-backed B10 exact-title or arXiv-ID queries before the next apply.
 - Keep `LIT-0163`, `LIT-0166`, and `LIT-0257` soft-excluded unless authenticated or user-provided fulltext becomes available.
 - Keep future `llm_gateway` key-content retries explicit and bounded.
