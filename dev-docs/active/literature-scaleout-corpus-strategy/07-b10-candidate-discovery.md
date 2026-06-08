@@ -2,9 +2,10 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D65 RAG/test-time arXiv-ID source-backed refill.
-- Current candidate pool: 609 records.
-- Current recommendation: use exact-title/arXiv-ID source-backed refills for RAG/test-time; persist only curated `DISCOVERED` rows when promotion may follow.
+- Latest DB-writing B10 run: D70 test-time exact-title source-backed refill.
+- Current candidate pool: 616 records.
+- Current `DISCOVERED` candidates: 0 after the D70 promote/B12 pass.
+- Current recommendation: continue exact-title/source-backed refill or a small high-band source-available tranche; do not force tail-heavy test-time candidates.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -83,6 +84,9 @@
 | D58 | RAG/test-time source-backed scouting | read-only; no new candidates staged | promoted existing clean candidates as `LIT-0513`-`LIT-0516` |
 | D59 | Serving source-backed curated expansion | 8 clean candidates staged | 4 promoted as `LIT-0517`-`LIT-0520`, 4 deferred |
 | D65 | RAG/test-time source-backed exact-ID refill | 1 clean RAG candidate staged | Promoted as `LIT-0550` and completed |
+| D66 | Test-time exact-ID source-backed refill | 4 clean candidates staged | Promoted as `LIT-0551`-`LIT-0554` and completed |
+| D69 | Narrow RAG source-backed exact-title refill | 2 clean candidates staged | B11 dry-run: 2 high-band ready |
+| D70 | Test-time exact-title source-backed refill | 1 clean candidate staged | Promoted as `LIT-0581` and completed |
 
 ## D55 Details
 - Diagnostic broad arXiv dry-run and arXiv-ID dry-run were kept read-only after arXiv HTTP 429s.
@@ -154,6 +158,56 @@
   - no `LiteratureRecord` rows were created by B10.
   - follow-up B11 dry-run classified the candidate as high-band `READY_FOR_PROMOTION`.
   - follow-up B11/B12 completed the candidate as `LIT-0550`.
+
+## D66 Details
+- arXiv exact-ID dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d66-testtime-exact-id-refill-dry-run-b10-candidate-discovery-report.json`
+  - selected test-time strategy/search tracks.
+  - exact-ID allowlist found 5 source-backed candidates: 4 `DISCOVERED` and 1 duplicate.
+  - duplicate: `Budget-aware Test-time Scaling via Discriminative Verification`, matched existing `LIT-0452`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d66-testtime-exact-id-refill-apply-b10-candidate-discovery-report.json`
+  - batch id: `5b92ac9f-3164-4e97-a8a1-f292a85376c2`.
+  - batch code: `B10-D66-testtime-exact-id-refill`.
+  - persisted 4 `DISCOVERED` candidates with `B10_PERSIST_STATUSES=DISCOVERED`.
+  - no `LiteratureRecord` rows were created by B10.
+  - follow-up B11/B12 completed the candidates as `LIT-0551` through `LIT-0554`.
+
+## D69 Details
+- Pre-run count: candidate pool 613, `DISCOVERED` 0, managed/effective 376/376.
+- Scout artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d69-narrow-rag-testtime-sourcebacked-scout-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d69-narrow-method-gap-sourcebacked-scout-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d69-narrow-testtime-arxiv-scout-b10-candidate-discovery-report.json`
+- Exact-title dry-run artifact:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d69-narrow-rag-sourcebacked-refill-dry-run-b10-candidate-discovery-report.json`
+  - found 2 candidates, both `DISCOVERED`, source-backed, and RAG core.
+- Apply artifact:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d69-narrow-rag-sourcebacked-refill-apply-b10-candidate-discovery-report.json`
+  - batch id: `3fa6f0fb-9764-47ca-a9bf-93ae8a45361b`.
+  - batch code: `B10-D69-narrow-rag-sourcebacked-refill`.
+  - persisted 2 `DISCOVERED` candidates with `B10_PERSIST_STATUSES=DISCOVERED`.
+  - no `LiteratureRecord` rows were created by B10.
+- Staged candidates:
+  - `2712769b-65e6-4e94-945a-ddba9d6df6c5`: `MCTS-RAG: Enhancing Retrieval-Augmented Generation with Monte Carlo Tree Search`.
+  - `4c383b35-d27c-44f7-9a3a-d4f8b069255f`: `The Power of Noise: Redefining Retrieval for RAG Systems`.
+- Follow-up B11 dry-run classified both candidates as high-band `READY_FOR_PROMOTION`.
+
+## D70 Details
+- Direction-balance scout artifact:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d70-testtime-balance-sourcebacked-scout-b10-candidate-discovery-report.json`
+  - found 4 source-backed test-time candidates: 1 `DISCOVERED` and 3 duplicates.
+  - the only new scout title was a scalable-deliberation tail and was not applied.
+- Exact-title dry-run artifact:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d70-testtime-sample-compute-allocation-dry-run-b10-candidate-discovery-report.json`
+  - found 1 source-backed `DISCOVERED` test-time candidate and 0 duplicates.
+- Apply artifact:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d70-testtime-sample-compute-allocation-apply-b10-candidate-discovery-report.json`
+  - batch id: `36d3538e-3c08-4e05-bb08-e5e6d7e7b8b2`.
+  - batch code: `B10-D70-testtime-sample-compute-allocation`.
+  - persisted 1 `DISCOVERED` candidate with `B10_PERSIST_STATUSES=DISCOVERED`.
+  - no `LiteratureRecord` rows were created by B10.
+- Staged candidate:
+  - `daaa560a-d1e2-44c3-a826-b7ea8c2d6860`: `Scaling LLM Inference with Optimized Sample Compute Allocation`.
+- Follow-up B11/B12 promoted and completed the candidate as `LIT-0581`.
 
 ## Guardrails
 - Run a dry-run first.

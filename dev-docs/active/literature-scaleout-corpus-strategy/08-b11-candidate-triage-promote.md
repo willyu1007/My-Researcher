@@ -2,15 +2,16 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D65 RAG singleton apply/promote.
+- Latest B11 DB-writing run: D70 D69 RAG promote plus test-time direction-balance promote.
+- Latest B11 dry-run: D70 current balance and exact-title test-time validation.
 - Current candidate state:
-  - 216 `DISCOVERED`
-  - 14 `READY_FOR_PROMOTION`
-  - 221 `PROMOTED`
+  - 0 `DISCOVERED`
+  - 81 `READY_FOR_PROMOTION`
+  - 252 `PROMOTED`
   - 139 `DUPLICATE`
-  - 15 `DEFERRED`
-  - 4 `REJECTED`
-- Current recommendation: continue test-time exact-ID/source-backed refill before the next apply, or run another strict selector pass if immediate growth is prioritized.
+  - 126 `DEFERRED`
+  - 18 `REJECTED`
+- Current recommendation: use exact-title/source-backed inputs for the next small tranche; avoid forcing noisy READY tails.
 
 ## Entrypoint
 - Script: `tools/b11-candidate-triage-promote.mjs`
@@ -37,6 +38,7 @@
 - `B11_BATCH_ID`: optional candidate batch id filter.
 - `B11_BATCH_CODE`: optional candidate batch code filter.
 - `B11_CANDIDATE_IDS`: optional comma-separated explicit candidate id allowlist.
+- `B11_INCLUDE_CANDIDATE_IDS`: compatibility alias for `B11_CANDIDATE_IDS`.
 - `B11_CANDIDATE_STATUS`: comma-separated source statuses, default `DISCOVERED`.
 - `B11_MAX_CANDIDATES`: maximum candidates to evaluate.
 - `B11_MAX_PROMOTIONS`: maximum candidates to promote.
@@ -68,6 +70,9 @@
 - D53 strict source-backed selector selected 0 candidates from the broad pool after tail filtering.
 - D54 and D55 showed that exact-title/source-backed B10 refill produces cleaner B11 promotion input than direct broad-pool promotion.
 - D64 codified the D63 manual exclusions for chart/table/text-to-image/test-time-finetuning test-time tails in the source-available selector.
+- D67 broad selector again selected 0 from a noisy READY pool; explicit source-backed candidate-id promotion was cleaner than `assume-source-available`.
+- D68 repaired DOI source gating with `source_access`, likely PDF URL checks, blocked current-downloader hosts, and stricter hard/soft tail separation.
+- D68 showed OpenAlex/Unpaywall OA is not enough for current B12 success; default broad apply must exclude known blocked PDF hosts until downloader behavior changes.
 
 ## Recent Promotion Ledger
 
@@ -93,6 +98,11 @@
 | D63 | RAG/test-time clean9 | 9 promoted | `LIT-0530`-`LIT-0538` | completed |
 | D64 | wide source-available serving-weighted | 11 promoted | `LIT-0539`-`LIT-0549` | completed |
 | D65 | RAG singleton source-backed refill | 1 promoted | `LIT-0550` | completed |
+| D66 | test-time exact-ID source-backed refill | 4 promoted | `LIT-0551`-`LIT-0554` | completed |
+| D67 | test-time existing source-backed subset | 4 promoted | `LIT-0555`-`LIT-0558` | completed |
+| D68 | source/tail-gated broad source-available pass | 19 promoted, 15 soft-excluded | `LIT-0559`-`LIT-0577` | 4 completed |
+| D69 | narrow RAG source-backed refill validation | 2 high-band ready in dry-run | candidates only | not promoted |
+| D70 | D69 RAG plus test-time balance | 4 promoted, 1 soft-excluded | `LIT-0578`-`LIT-0581` | 3 completed |
 
 ## D55 Details
 - Input batch: `B10-20260608T-d55-openalex-exact-title-apply`.
@@ -203,8 +213,48 @@
 - `LIT-0519`: `Chameleon: Adaptive Caching and Scheduling for Many-Adapter LLM Inference Environments`
 - `LIT-0520`: `Injecting Adrenaline into LLM Serving: Boosting Resource Utilization and Throughput via Attention Disaggregation`
 
+## D67 Details
+- Input:
+  - broad read-only B11 dry-run over current `DISCOVERED` candidates.
+  - explicit candidate-id apply set selected from arXiv-backed high-band test-time candidates.
+- Broad dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d67-source-available-b11-dry-run-b11-candidate-triage-report.json`.
+- Selector artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d67-source-available-selector-dry-run-b11-source-available-selector.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260609T-d67-testtime-existing-sourcebacked-b11-apply-promote-b11-candidate-triage-report.json`.
+- Broad dry-run produced 91 high-band `READY_FOR_PROMOTION` decisions, but strict selector selected 0 candidates.
+- Apply/promote attempted 4 explicit candidate-id promotions and succeeded for all 4.
+- Direction split:
+  - 4 test-time compute budgeting.
+- Collection role split:
+  - 4 strategy-support.
+- DB delta:
+  - `LiteratureRecord`: +4
+  - `LiteratureSource`: +4
+
+## D67 Promoted Records
+- `LIT-0555`: `Expanding Performance Boundaries of Open-Source Multimodal Models with Model, Data, and Test-Time Scaling`
+- `LIT-0556`: `Test-Time Computing for Referring Multimodal Large Language Models`
+- `LIT-0557`: `TabTracer: Monte Carlo Tree Search for Complex Table Reasoning with Large Language Models`
+- `LIT-0558`: `Alpha-SQL: Zero-Shot Text-to-SQL using Monte Carlo Tree Search`
+
+## D70 Details
+- D69 RAG promote:
+  - dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d70-d69-rag-b11-dry-run-b11-candidate-triage-report.json`.
+  - apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d70-d69-rag-b11-apply-promote-b11-candidate-triage-report.json`.
+  - promoted `2712769b-65e6-4e94-945a-ddba9d6df6c5` as `LIT-0578`.
+  - promoted `4c383b35-d27c-44f7-9a3a-d4f8b069255f` as `LIT-0579`.
+- Direction-balance selector:
+  - current B11 dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d70-current-balance-b11-dry-run-b11-candidate-triage-report.json`.
+  - strict selector selected 0 test-time targets without `preprint_doi`.
+  - selector with `preprint_doi` selected a TechRxiv singleton, but B12 acquisition hit HTTP 403.
+  - `LIT-0580` was soft-excluded after the TechRxiv/Cloudflare source-access failure.
+- Clean test-time exact-title promote:
+  - B10 batch: `B10-D70-testtime-sample-compute-allocation`.
+  - dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d70-testtime-sample-compute-allocation-b11-dry-run-b11-candidate-triage-report.json`.
+  - apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d70-testtime-sample-compute-allocation-b11-apply-promote-b11-candidate-triage-report.json`.
+  - promoted `daaa560a-d1e2-44c3-a826-b7ea8c2d6860` as `LIT-0581`.
+
 ## Next B11 Path
-- For direction balance, continue stricter test-time source-backed refill before larger B11 apply.
-- For immediate clean growth, run another strict source-available selector pass with explicit direction labels.
+- For direction balance, continue stricter RAG/test-time exact-title or arXiv-ID refill before larger B11 apply.
+- For immediate clean growth, use explicit source-backed candidate-id subsets only when selector output is empty or noisy.
 - For immediate effective-literature growth, continue source-backed high-band subsets but label serving-heavy tranches explicitly.
 - For larger scaleout, expand B10 first, then apply source availability and tail filters before B11 promotion.

@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
-- Latest B12 run: D65 RAG singleton completion.
-- Current managed corpus: 364.
-- Current effective literature: 364.
+- Latest B12 run: D70 D69 RAG plus test-time direction-balance completion.
+- Current managed corpus: 379.
+- Current effective literature: 379.
 - Current managed blockers: 0.
 - Default key-content method: `codex_curated`.
 
@@ -100,7 +100,7 @@
 ## Method Boundary
 - `codex_curated` is the default `KEY_CONTENT_READY` path.
 - Source-grounded curated dossiers are imported before chunk/embed/index backfill.
-- Completed D18-D65 curated imports used 0 key-content extraction provider calls.
+- Completed D18-D70 curated imports used 0 key-content extraction provider calls.
 - `llm_gateway` extraction remains explicit-only and should be used only for bounded diagnostics or approved retries.
 
 ## Completion Ledger
@@ -124,6 +124,10 @@
 | D63 | RAG/test-time source-available clean9 | 9 | completed |
 | D64 | wide source-available serving-weighted tranche | 11 | completed |
 | D65 | RAG singleton source-backed completion | 1 | completed |
+| D66 | test-time exact-ID source-backed small tranche | 4 | completed |
+| D67 | test-time existing source-backed small tranche | 4 | completed |
+| D68 | source/tail-gated DOI source-available pass | 4 | completed; 15 promoted rows soft-excluded |
+| D70 | D69 RAG plus test-time direction-balance | 3 | completed; 1 TechRxiv row soft-excluded |
 
 ## D55 Details
 - Input: `LIT-0490` through `LIT-0500`.
@@ -329,27 +333,125 @@
   - active embedding version: `eba36415-a43d-44cd-a48a-b33d62d83133`.
   - embedding chunk/vector counts: `LIT-0550` 107.
 
+## D66 Details
+- Input: `LIT-0551` through `LIT-0554`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 4.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 4 arXiv downloads with 0 blockers.
+  - apply succeeded for all 4 and created 4 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 4 and created 4 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 4.
+  - import succeeded for all 4.
+  - extraction provider calls: 0.
+  - source-ref repairs: 0.
+- Index backfill:
+  - content backfill apply succeeded for `CHUNKED`, `EMBEDDED`, and `INDEXED` for all 4.
+  - estimated extraction calls: 0.
+  - estimated embedding calls: 4.
+- Final state:
+  - all 4 records have all seven standard stages `SUCCEEDED`.
+  - embedding chunk/vector counts: `LIT-0551` 140, `LIT-0552` 70, `LIT-0553` 118, `LIT-0554` 145.
+
+## D67 Details
+- Input: `LIT-0555` through `LIT-0558`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 4.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 4 arXiv downloads with 0 blockers.
+  - apply succeeded for all 4 and created 4 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 4 and created 4 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 4.
+  - import succeeded for all 4.
+  - extraction provider calls: 0.
+  - source-ref repairs: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated extraction calls: 0.
+  - estimated embedding calls: 4.
+  - content backfill apply succeeded for all 4.
+- Final state:
+  - all 4 records have all seven standard stages `SUCCEEDED`.
+  - embedding chunk counts: `LIT-0555` 304, `LIT-0556` 170, `LIT-0557` 178, `LIT-0558` 168.
+
+## D68 Details
+- Input:
+  - initial broad DOI apply: `LIT-0559` through `LIT-0573`.
+  - current final host-gated selected apply: `LIT-0576`.
+  - excluded after acquisition or apply hygiene: `LIT-0559`-`LIT-0563`, `LIT-0566`-`LIT-0569`, `LIT-0571`-`LIT-0575`, and `LIT-0577`.
+- Acquisition:
+  - initial 15-record acquisition succeeded for `LIT-0564`, `LIT-0565`, and `LIT-0570`; 12 records failed with non-PDF, 403, 404, or no-OA-PDF outcomes and were soft-excluded.
+  - final current selector acquisition succeeded for `LIT-0576`; `LIT-0577` failed with HTTP 403 from `direct.mit.edu` and was soft-excluded.
+- Fulltext preprocessing:
+  - succeeded for `LIT-0564`, `LIT-0565`, `LIT-0570`, and `LIT-0576`.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-runs validated all 4 completed records.
+  - imports succeeded for all 4.
+  - extraction provider calls: 0.
+- Index backfill:
+  - dry-runs planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated extraction calls: 0.
+  - estimated embedding calls: 4 total.
+  - content backfill apply succeeded for all 4 completed records.
+- Final state:
+  - managed/effective corpus reached 376/376.
+  - managed incomplete, blocked, and not-started counts are all 0.
+  - excluded non-corpus records reached 24.
+
+## D70 Details
+- Input:
+  - D69 RAG records: `LIT-0578` and `LIT-0579`.
+  - direction-balance TechRxiv singleton: `LIT-0580`.
+  - clean test-time exact-title record: `LIT-0581`.
+- Acquisition:
+  - `LIT-0578` and `LIT-0579` used arXiv acquisition and created 2 content assets.
+  - `LIT-0580` used an OpenAlex/Unpaywall TechRxiv PDF URL; acquisition failed with HTTP 403 from a Cloudflare-protected source and created no asset.
+  - `LIT-0581` used arXiv acquisition and created 1 content asset.
+- Cleanup:
+  - `LIT-0580` was soft-excluded with `classification:excluded-from-corpus`, `exclusion:source-access-403`, and `exclusion:techrxiv-cloudflare-challenge`.
+- Fulltext preprocessing:
+  - succeeded for `LIT-0578`, `LIT-0579`, and `LIT-0581`.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-runs validated all 3 completed records.
+  - imports succeeded for all 3 completed records.
+  - extraction provider calls: 0.
+- Index backfill:
+  - dry-runs planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated extraction calls: 0.
+  - estimated embedding calls: 3 total.
+  - content backfill apply succeeded for all 3 completed records.
+- Final state:
+  - managed/effective corpus reached 379/379.
+  - managed incomplete, blocked, and not-started counts are all 0.
+  - excluded non-corpus records reached 25.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d65-rag-singleton-promote-b12-count.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-after-d70-final-balanced.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 
 | Metric | Value |
 | --- | ---: |
-| Candidate pool records | 609 |
-| Candidate discovered records | 216 |
-| Candidate ready-for-promotion records | 14 |
-| Candidate promoted records | 221 |
-| Candidate deferred records | 15 |
-| Managed corpus records | 364 |
-| Effective literature records | 364 |
+| Candidate pool records | 616 |
+| Candidate discovered records | 0 |
+| Candidate ready-for-promotion records | 81 |
+| Candidate promoted records | 252 |
+| Candidate deferred records | 126 |
+| Managed corpus records | 379 |
+| Effective literature records | 379 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |
 | Target-qualified theory-support records | 50/50 |
 
 ## Next Gate
-- Preferred: continue test-time exact-ID refill before the next apply.
-- Alternative: continue source-available serving/resource-allocation tranches, explicitly tracking the direction imbalance.
-- Keep `LIT-0163`, `LIT-0166`, and `LIT-0257` soft-excluded unless authenticated or user-provided fulltext becomes available.
+- Preferred: commit D70, then run a narrow source-backed B10 refill or high-band source-available subset.
+- Keep D68 blocked hosts excluded from broad DOI selector output unless B12 acquisition/download behavior changes.
+- Keep soft-excluded records excluded unless authenticated or user-provided fulltext becomes available.
 - Keep future `llm_gateway` key-content retries explicit and bounded.

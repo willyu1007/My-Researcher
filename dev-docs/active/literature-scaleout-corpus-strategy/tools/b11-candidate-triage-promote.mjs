@@ -29,7 +29,10 @@ if (PROMOTE && !APPLY) {
 const runId = readArg('--run-id', process.env.B11_TRIAGE_RUN_ID ?? new Date().toISOString().replace(/[:.]/g, '-'));
 const batchIdFilter = readArg('--batch-id', process.env.B11_BATCH_ID ?? '');
 const batchCodeFilter = readArg('--batch-code', process.env.B11_BATCH_CODE ?? '');
-const explicitCandidateIds = readCsvArg('--candidate-ids', process.env.B11_CANDIDATE_IDS ?? '');
+const explicitCandidateIds = readCsvArg(
+  '--candidate-ids',
+  process.env.B11_CANDIDATE_IDS ?? process.env.B11_INCLUDE_CANDIDATE_IDS ?? '',
+);
 const candidateStatuses = readCsvArg('--status', process.env.B11_CANDIDATE_STATUS ?? 'DISCOVERED');
 const maxCandidates = readInteger('B11_MAX_CANDIDATES', 120, { min: 1, max: 1000 });
 const maxPromotions = readInteger('B11_MAX_PROMOTIONS', 20, { min: 0, max: 300 });
@@ -761,6 +764,25 @@ function compactDecision(decision) {
     source_provider: decision.candidate.sourceProvider,
     source_item_id: sourceItemIdForCandidate(decision.candidate),
     source_url: sourceUrlForCandidate(decision.candidate),
+    source_access: sourceAccessForCandidate(decision.candidate),
+  };
+}
+
+function sourceAccessForCandidate(candidate) {
+  const payload = asRecord(candidate.sourcePayload);
+  const providerPayload = asRecord(payload.provider_payload);
+  const source = Object.keys(providerPayload).length > 0 ? providerPayload : payload;
+  const openAccess = asRecord(source.open_access);
+  const primaryLocation = asRecord(source.primary_location);
+  const bestOaLocation = asRecord(source.best_oa_location);
+  return {
+    is_oa: Boolean(openAccess.is_oa),
+    oa_status: typeof openAccess.oa_status === 'string' ? openAccess.oa_status : null,
+    oa_url: typeof openAccess.oa_url === 'string' ? openAccess.oa_url : null,
+    primary_pdf_url: typeof primaryLocation.pdf_url === 'string' ? primaryLocation.pdf_url : null,
+    primary_landing_page_url: typeof primaryLocation.landing_page_url === 'string' ? primaryLocation.landing_page_url : null,
+    best_oa_pdf_url: typeof bestOaLocation.pdf_url === 'string' ? bestOaLocation.pdf_url : null,
+    best_oa_landing_page_url: typeof bestOaLocation.landing_page_url === 'string' ? bestOaLocation.landing_page_url : null,
   };
 }
 

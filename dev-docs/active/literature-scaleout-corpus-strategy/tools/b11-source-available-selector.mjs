@@ -12,6 +12,13 @@ const directionQuotas = readQuotas(process.env.B11_SELECTOR_DIRECTION_QUOTAS ?? 
   'llm-serving-resource-allocation=5',
   'test-time-compute-budgeting=2',
 ].join(','));
+const sourceKindAllowlist = new Set(readCsvArg('--source-kinds', process.env.B11_SELECTOR_SOURCE_KINDS ?? 'arxiv,acl,doi'));
+const blockedPdfHosts = new Set(readCsvArg(
+  '--blocked-pdf-hosts',
+  process.env.B11_SELECTOR_BLOCKED_PDF_HOSTS ?? 'direct.mit.edu,dl.acm.org,www.mdpi.com,mdpi.com',
+));
+const requireOaForDoi = process.env.B11_SELECTOR_REQUIRE_OA_FOR_DOI !== 'false';
+const requirePdfForDoi = process.env.B11_SELECTOR_REQUIRE_PDF_FOR_DOI !== 'false';
 const assumeSourceAvailable = process.env.B11_SELECTOR_ASSUME_SOURCE_AVAILABLE === 'true';
 const allowApplicationTail = process.argv.includes('--allow-application-tail');
 
@@ -19,28 +26,50 @@ if (!decisionsPath) {
   throw new Error('B11 selector requires --decisions or B11_SELECTOR_DECISIONS_PATH.');
 }
 
-const APPLICATION_TAIL_TERMS = [
+const HARD_APPLICATION_TAIL_TERMS = [
   'agriculture',
+  'aligned video captions',
+  'automated smart home',
+  'automated test generation',
+  'brain metastasis',
+  'business intelligence',
   'cancer',
   'chatbot',
   'clinical',
+  'construction engineering',
   'cyber attack',
   'dialogue agent',
   'dialogue system',
   'education',
+  'enterprise architecture',
+  'environmental control',
+  'financial analysis',
   'financial question answering',
+  'industry 5.0',
   'legal',
   'medical',
   'mental health',
+  'mri',
+  'natural language dialogue',
   'patient',
+  'post-contrast',
+  'broiler production',
   'psychological',
   'radiology',
+  'rdf/owl',
   'sentiment analysis',
-  'sql',
+  'smart home',
   'student',
   'teaching',
-  'text-to-sql',
   'tourism',
+  'video captions',
+  'video-enriched',
+];
+
+const SOFT_APPLICATION_TAIL_TERMS = [
+  'sql',
+  'table reasoning',
+  'text-to-sql',
 ];
 
 const DIRECTION_PREFERRED_TERMS = {
@@ -86,11 +115,12 @@ const DIRECTION_PREFERRED_TERMS = {
     'self-consistency',
     'test time',
     'test-time',
+    'tree search',
     'verifier',
   ],
 };
 
-const DIRECTION_TAIL_TERMS = {
+const HARD_DIRECTION_TAIL_TERMS = {
   'rag-aware-allocation': [
     'personalized dialogue',
     'text-to-speech',
@@ -105,12 +135,22 @@ const DIRECTION_TAIL_TERMS = {
     'chart generation',
     'code world',
     'dialogue agents',
-    'multimodal',
     'space',
-    'table reasoning',
     'text-to-image',
     'test-time finetuning',
     'visual reasoning',
+  ],
+};
+
+const SOFT_DIRECTION_TAIL_TERMS = {
+  'rag-aware-allocation': [
+    'personalized',
+  ],
+  'llm-serving-resource-allocation': [],
+  'test-time-compute-budgeting': [
+    'multimodal',
+    'table reasoning',
+    'text-to-sql',
   ],
 };
 
@@ -157,24 +197,159 @@ function hasAny(text, terms) {
   return terms.some((term) => text.includes(term));
 }
 
-function sourceAvailable(decision) {
-  if (assumeSourceAvailable) return true;
+function sourceKind(decision) {
   const sourceUrl = lower(decision.source_url);
   const sourceItemId = lower(decision.source_item_id);
-  return sourceUrl.includes('arxiv.org/')
+  const sourceProvider = lower(decision.source_provider);
+
+  if (
+    sourceUrl.includes('arxiv.org/')
     || sourceUrl.includes('doi.org/10.48550/arxiv')
-    || sourceItemId.startsWith('arxiv:');
+    || sourceItemId.startsWith('arxiv:')
+    || /^doi:10\.48550\/arxiv/i.test(sourceItemId)
+    || sourceProvider === 'arxiv'
+  ) {
+    return 'arxiv';
+  }
+  if (
+    sourceUrl.includes('aclanthology.org/')
+    || sourceUrl.includes('doi.org/10.18653/v1')
+    || sourceItemId.startsWith('acl:')
+  ) {
+    return 'acl';
+  }
+  if (
+    sourceUrl.includes('doi.org/10.36227/')
+    || sourceUrl.includes('doi.org/10.5281/zenodo')
+    || sourceUrl.includes('doi.org/10.20944/preprints')
+  ) {
+    return 'preprint_doi';
+  }
+  if (sourceUrl.includes('doi.org/') || sourceItemId.startsWith('doi:')) {
+    return 'doi';
+  }
+  if (/^https?:\/\//i.test(String(decision.source_url ?? ''))) {
+    return 'url';
+  }
+  return null;
+}
+
+function sourceAvailable(decision) {
+  if (assumeSourceAvailable) return true;
+  const kind = sourceKind(decision);
+  if (!kind || !sourceKindAllowlist.has(kind)) return false;
+  if (kind !== 'doi' || !requireOaForDoi) return true;
+  const access = decision.source_access && typeof decision.source_access === 'object'
+    ? decision.source_access
+    : {};
+  if (requirePdfForDoi) {
+    return sourceAccessPdfUrls(access).length > 0;
+  }
+  return Boolean(
+    access.is_oa
+    || access.oa_url
+    || access.primary_pdf_url
+    || access.best_oa_pdf_url
+    || access.best_oa_landing_page_url,
+  );
+}
+
+function sourceAccessPdfUrls(access) {
+  return [access.primary_pdf_url, access.best_oa_pdf_url]
+    .filter((url) => typeof url === 'string' && isLikelyFulltextUrl(url));
+}
+
+function isLikelyFulltextUrl(rawUrl) {
+  const value = String(rawUrl).trim().toLowerCase();
+  if (!/^https?:\/\//.test(value)) return false;
+  if (value.includes('doi.org/')) return false;
+  const hostname = urlHostname(value);
+  if (hostname && blockedPdfHosts.has(hostname)) return false;
+  return value.includes('.pdf')
+    || value.includes('/pdf')
+    || value.includes('/download')
+    || value.includes('/document')
+    || value.includes('/bitstreams/');
+}
+
+function urlHostname(value) {
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function hasDirectionCoreSignal(decision) {
+  const title = lower(decision.title);
+  const reasons = Array.isArray(decision.reasons) ? decision.reasons.join(' ').toLowerCase() : '';
+  const text = `${title} ${reasons}`;
+  if (decision.direction === 'rag-aware-allocation') {
+    return hasAny(text, [
+      'adaptive retrieval',
+      'dynamic retrieval',
+      'query-adaptive',
+      'query adaptive',
+      'retrieval policy',
+      'retrieval strategy',
+      'retrieval selection',
+      'context selection',
+      'budget',
+      'allocation',
+      'optimization',
+      'uncertainty',
+    ]);
+  }
+  if (decision.direction === 'llm-serving-resource-allocation') {
+    return hasAny(text, [
+      'serving',
+      'inference',
+      'scheduling',
+      'batch',
+      'cache',
+      'decode',
+      'prefill',
+      'kv',
+      'latency',
+      'throughput',
+      'resource',
+    ]);
+  }
+  if (decision.direction === 'test-time-compute-budgeting') {
+    return hasAny(text, [
+      'test-time',
+      'test time',
+      'compute',
+      'budget',
+      'mcts',
+      'monte carlo tree search',
+      'process reward',
+      'reasoning',
+      'self-consistency',
+      'self consistency',
+      'verifier',
+      'scaling',
+    ]);
+  }
+  return false;
 }
 
 function tailReasons(decision) {
   const title = lower(decision.title);
   const direction = decision.direction;
+  const hasCoreSignal = hasDirectionCoreSignal(decision);
   const reasons = [];
-  for (const term of APPLICATION_TAIL_TERMS) {
+  for (const term of HARD_APPLICATION_TAIL_TERMS) {
     if (title.includes(term)) reasons.push(`application_tail:${term}`);
   }
-  for (const term of DIRECTION_TAIL_TERMS[direction] ?? []) {
+  for (const term of SOFT_APPLICATION_TAIL_TERMS) {
+    if (title.includes(term) && !hasCoreSignal) reasons.push(`soft_application_tail:${term}`);
+  }
+  for (const term of HARD_DIRECTION_TAIL_TERMS[direction] ?? []) {
     if (title.includes(term)) reasons.push(`direction_tail:${term}`);
+  }
+  for (const term of SOFT_DIRECTION_TAIL_TERMS[direction] ?? []) {
+    if (title.includes(term) && !hasCoreSignal) reasons.push(`soft_direction_tail:${term}`);
   }
   return reasons;
 }
@@ -184,12 +359,19 @@ function preferredScore(decision) {
   const terms = DIRECTION_PREFERRED_TERMS[decision.direction] ?? [];
   const termScore = terms.filter((term) => title.includes(term)).length * 0.025;
   const recencyScore = Number.isFinite(decision.year) && decision.year >= 2024 ? 0.02 : 0;
+  const sourceKindScore = {
+    arxiv: 0.035,
+    acl: 0.03,
+    doi: 0.012,
+    preprint_doi: 0.003,
+    url: 0.004,
+  }[sourceKind(decision)] ?? 0;
   const roleScore = decision.collection_role === 'collection:system-support'
     ? 0.015
     : decision.collection_role === 'collection:core'
       ? 0.012
       : 0;
-  return Number(decision.triage_score ?? 0) + termScore + recencyScore + roleScore;
+  return Number(decision.triage_score ?? 0) + termScore + recencyScore + sourceKindScore + roleScore;
 }
 
 function candidateShape(decision) {
@@ -201,6 +383,8 @@ function candidateShape(decision) {
     collection_role: decision.collection_role,
     triage_score: decision.triage_score,
     selector_score: Math.round(preferredScore(decision) * 1000) / 1000,
+    source_kind: sourceKind(decision),
+    source_pdf_url: sourceAccessPdfUrls(decision.source_access ?? {})[0] ?? null,
     source_url: decision.source_url,
     source_item_id: decision.source_item_id,
   };
@@ -263,6 +447,10 @@ const report = {
     target_count: targetCount,
     statuses: [...statusAllowlist],
     direction_quotas: directionQuotas,
+    source_kinds: [...sourceKindAllowlist],
+    blocked_pdf_hosts: [...blockedPdfHosts],
+    require_oa_for_doi: requireOaForDoi,
+    require_pdf_for_doi: requirePdfForDoi,
     assume_source_available: assumeSourceAvailable,
     allow_application_tail: allowApplicationTail,
   },
@@ -277,6 +465,7 @@ const report = {
   excluded_summary: {
     by_status: countBy(excluded, (item) => item.to_status),
     by_direction: countBy(excluded, (item) => item.direction),
+    by_source_kind: countBy(excluded, (item) => sourceKind(item) ?? 'none'),
     by_tail_reason: countBy(excluded.flatMap((item) => item.tail_reasons), (item) => item),
     not_source_available: excluded.filter((item) => !item.source_available).length,
   },

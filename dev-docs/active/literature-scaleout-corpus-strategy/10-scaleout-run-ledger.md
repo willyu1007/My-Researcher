@@ -6,11 +6,11 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D65 RAG singleton B11/B12 completion.
-- Latest candidate checkpoint: after D65 narrow RAG/test-time source-backed B10 refill.
-- Candidate pool: 609.
-- Managed corpus: 364.
-- Effective literature: 364.
+- Latest corpus checkpoint: after D70 D69 RAG promote/B12 plus test-time direction-balance completion.
+- Latest candidate checkpoint: after D70 test-time exact-title source-backed B10 refill.
+- Candidate pool: 616.
+- Managed corpus: 379.
+- Effective literature: 379.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 50/50 target-qualified records.
 
@@ -83,6 +83,11 @@
 | D63 | Promoted and completed the D62 clean9 subset, reaching 352 effective records with 0 managed blockers. |
 | D64 | Enforced D63 tail exclusions in the selector and completed 11 wide source-available records, reaching 363 effective records. |
 | D65 | Refilled the candidate layer with 1 clean source-backed RAG candidate, promoted it as `LIT-0550`, and completed it through `INDEXED`. |
+| D66 | Refilled 4 clean test-time exact-ID candidates, promoted them as `LIT-0551`-`LIT-0554`, and completed them through `INDEXED`. |
+| D67 | Diagnosed an empty broad selector output, then promoted/completed 4 existing arXiv-backed test-time candidates as `LIT-0555`-`LIT-0558`. |
+| D68 | Repaired selector source/tail gating, ran a broad B11 pass, completed 4 source-backed records, and soft-excluded 15 source-failed or non-selector-selected promoted rows. |
+| D69 | Refilled the candidate layer with 2 narrow RAG source-backed candidates and validated both as high-band ready in B11 dry-run. |
+| D70 | Promoted/completed the 2 D69 RAG records, soft-excluded one TechRxiv 403 source failure, and completed one exact-title test-time balance record, reaching 379 effective records. |
 
 ## Effective-Literature Growth Ledger
 
@@ -104,6 +109,10 @@
 | D63 RAG/test-time clean9 tranche | 9 | 352 |
 | D64 wide source-available tranche | 11 | 363 |
 | D65 RAG singleton completion | 1 | 364 |
+| D66 test-time exact-ID small tranche | 4 | 368 |
+| D67 test-time existing source-backed tranche | 4 | 372 |
+| D68 source/tail-gated broad selector apply | 4 | 376 |
+| D70 RAG plus test-time direction balance | 3 | 379 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -116,6 +125,7 @@
   - promote only high-band clean candidates.
   - avoid default-ready application-tail candidates.
   - treat chart/table/text-to-image/test-time-finetuning test-time papers as tail unless explicitly needed.
+  - for DOI-heavy broad pools, require a likely PDF URL and exclude blocked hosts currently known to fail B12 acquisition: `direct.mit.edu`, `dl.acm.org`, `www.mdpi.com`, and `mdpi.com`.
 - B12:
   - acquire rights-safe fulltext.
   - preprocess fulltext.
@@ -126,19 +136,32 @@
 ## Evidence Roots
 - Current generated evidence root:
   - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`
-- Current D65 final count artifact:
-  - `20260608T-after-d65-rag-singleton-promote-b12-count.json`
-- Current D65 final state evidence:
-  - `20260608T-after-d65-rag-singleton-b12-index-state.json`
-  - `20260608T-d65-rag-singleton-b12-index-apply-b12-content-backfill-pilot-report.json`
+- Current D68 final count artifact:
+  - `20260609T-after-d68-current-sourceavailable.json`
+- Current D68 selector evidence:
+  - `20260609T-d68-current-broad-source-available-selector-final-host-gated-dry-run-b11-source-available-selector.json`
+- Current D68 B12 completion evidence:
+  - `20260609T-d68-broad-selector-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `20260609T-d68-current-sourceavailable-b12-index-apply-b12-content-backfill-pilot-report.json`
+- Current D69 B10 refill evidence:
+  - `20260609T-d69-narrow-rag-sourcebacked-refill-apply-b10-candidate-discovery-report.json`
+  - `20260609T-d69-narrow-rag-sourcebacked-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260609T-after-d69-narrow-b10-refill.json`
+- Current D70 completion evidence:
+  - `20260610T-d70-d69-rag-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d70-d69-rag-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d70-testtime-sample-compute-allocation-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d70-testtime-sample-compute-allocation-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d70-testtime-sample-compute-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-after-d70-final-balanced.json`
 - Current D64 selector evidence:
   - `20260608T-d64-wide-source-available-selector-dry-run-b11-source-available-selector.json`
 - Current D65 B10 refill evidence:
   - `20260608T-d65-rag-testtime-arxiv-id-refill-apply-b10-candidate-discovery-report.json`
   - `20260608T-d65-rag-testtime-b10-refill-b11-dry-run-b11-candidate-triage-report.json`
-- Current D65 promotion evidence:
-  - `20260608T-d65-rag-singleton-b11-apply-promote-b11-candidate-triage-report.json`
-  - `20260608T-d65-rag-singleton-dossier-key-content-curated-apply.json`
+- Recent D67 promotion evidence:
+  - `20260609T-d67-testtime-existing-sourcebacked-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260609T-d67-testtime-existing-sourcebacked-dossier-key-content-curated-key-content-curated-apply.json`
 - Current D53 selector preflight:
   - `20260608T-d53-readonly-preflight-summary.json`
 - Current theory target closure:

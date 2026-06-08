@@ -2,7 +2,7 @@
 
 ## Purpose
 - This file keeps the current implementation decisions readable.
-- Completed D1-D65 details are summarized in `10-scaleout-run-ledger.md`.
+- Completed D1-D68 details are summarized in `10-scaleout-run-ledger.md`.
 - Raw run outputs and detailed reports live under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 
 ## Current Architecture Decisions
@@ -179,24 +179,115 @@
 - Final state probe found all seven standard stages `SUCCEEDED`, 1 content asset, 1 fulltext document, 107 embedding chunks, and 107 indexed vectors.
 - Managed/effective corpus reached 364/364 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
+### D66 Test-Time Exact-ID Source-Backed Small Tranche
+- Used arXiv exact IDs to refill test-time compute budgeting candidates.
+- B10 dry-run found 5 source-available candidates: 4 `DISCOVERED` and 1 duplicate.
+- Duplicate: `Budget-aware Test-time Scaling via Discriminative Verification` matched existing `LIT-0452`.
+- B10 apply wrote 1 batch and 4 `DISCOVERED` candidates.
+- B11 dry-run classified all 4 candidates as high-band `READY_FOR_PROMOTION`.
+- B11 apply/promote created `LIT-0551` through `LIT-0554`.
+- Promoted records:
+  - `LIT-0551`: `First Finish Search: Efficient Test-Time Scaling in Large Language Models`
+  - `LIT-0552`: `Is That Your Final Answer? Test-Time Scaling Improves Selective Question Answering`
+  - `LIT-0553`: `Enhancing Test-Time Scaling of Large Language Models with Hierarchical Retrieval-Augmented MCTS`
+  - `LIT-0554`: `Steering LLM Thinking with Budget Guidance`
+- B12 completed all 4 through `INDEXED` using arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- Key-content extraction provider calls: 0.
+- Final state probe found all 4 records have all seven standard stages `SUCCEEDED`, 4 content assets, 4 fulltext documents, 473 embedding chunks, and 5167 indexed vectors.
+- Managed/effective corpus reached 368/368 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
+### D67 Test-Time Existing Source-Backed Small Tranche
+- Ran a read-only broad B11 dry-run over current `DISCOVERED` candidates before writing.
+- Broad dry-run found 91 `READY_FOR_PROMOTION`, 111 `DEFERRED`, and 14 `REJECTED` decisions across all three directions.
+- Strict source-available selector selected 0 candidates from that broad decision set, so the wide READY pool was not promoted.
+- Selected 4 existing arXiv-backed high-band test-time candidates by explicit candidate id instead of forcing broad selector output.
+- B11 apply/promote created `LIT-0555` through `LIT-0558`.
+- Promoted records:
+  - `LIT-0555`: `Expanding Performance Boundaries of Open-Source Multimodal Models with Model, Data, and Test-Time Scaling`
+  - `LIT-0556`: `Test-Time Computing for Referring Multimodal Large Language Models`
+  - `LIT-0557`: `TabTracer: Monte Carlo Tree Search for Complex Table Reasoning with Large Language Models`
+  - `LIT-0558`: `Alpha-SQL: Zero-Shot Text-to-SQL using Monte Carlo Tree Search`
+- B12 completed all 4 through `INDEXED` using arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- Key-content extraction provider calls: 0.
+- Final state probe found all 4 records have all seven standard stages `SUCCEEDED`, 4 content assets, 4 fulltext documents, and 820 embedding chunks.
+- Managed/effective corpus reached 372/372 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
+### D68 Source/Tail-Gated Broad Selector Apply
+- Repaired `b11-source-available-selector.mjs` source gating:
+  - default source kinds are `arxiv,acl,doi`;
+  - DOI candidates now require `source_access` with a likely non-DOI PDF URL;
+  - known current-downloader blocked PDF hosts default to `direct.mit.edu`, `dl.acm.org`, `www.mdpi.com`, and `mdpi.com`;
+  - source kind and source PDF URL are emitted in selector output.
+- Repaired broad-tail handling:
+  - split hard and soft application/direction tails;
+  - kept core direction signals from over-excluding MCTS, process reward, and resource-scheduling titles;
+  - added hard application tails for MRI/medical, smart home, enterprise architecture, construction, financial, agriculture/broiler, and video-caption domains.
+- B11 broad dry-run with `source_access` over 212 `DISCOVERED` candidates produced 87 ready, 111 deferred, and 14 rejected decisions.
+- Initial broad apply promoted 15 DOI candidates, but acquisition proved DOI/OA was too permissive:
+  - 3 records completed through `INDEXED`: `LIT-0564`, `LIT-0565`, and `LIT-0570`;
+  - 12 records were soft-excluded after acquisition failures: `LIT-0559`-`LIT-0563`, `LIT-0566`-`LIT-0569`, and `LIT-0571`-`LIT-0573`.
+- A follow-up current broad B11 pass moved the remaining `DISCOVERED` candidates into `READY_FOR_PROMOTION`, `DEFERRED`, or `REJECTED`.
+- One operator mistake used unsupported `B11_INCLUDE_CANDIDATE_IDS`; the script now accepts it as an alias for `B11_CANDIDATE_IDS`, and the two accidental promotions `LIT-0574`-`LIT-0575` were soft-excluded.
+- Final host-gated selector selected only `f2ce7161-0b23-4680-bfb8-e25ba157eaec`.
+- Correct selected apply promoted `LIT-0576`, which completed through `INDEXED`.
+- `LIT-0577` was promoted before `direct.mit.edu` was added to blocked hosts, then soft-excluded after acquisition returned HTTP 403.
+- Net D68 effect:
+  - `LiteratureRecord`: +19 raw rows.
+  - Effective literature: +4.
+  - Excluded non-corpus: +15.
+  - Managed/effective corpus reached 376/376 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
+### D69 Narrow RAG Source-Backed B10 Refill
+- Started from D68 final count: candidate pool 613, `DISCOVERED` 0, managed/effective 376/376, and 0 managed blockers.
+- Ran three read-only scouts:
+  - RAG/test-time source-backed scout: 6 candidates, 1 new `DISCOVERED`, 5 duplicates.
+  - method-gap scout: 5 candidates, 2 new `DISCOVERED`, 3 duplicates.
+  - arXiv-only test-time scout: 0 candidates.
+- Applied only the exact-title RAG source-backed subset:
+  - `MCTS-RAG: Enhancing Retrieval-Augmented Generation with Monte Carlo Tree Search`
+  - `The Power of Noise: Redefining Retrieval for RAG Systems`
+- B10 apply wrote 1 batch and 2 `DISCOVERED` candidates; it wrote no `LiteratureRecord` rows.
+- B11 dry-run over the D69 batch classified both candidates as high-band `READY_FOR_PROMOTION` with `db_delta=0`.
+- Post-run count: candidate pool 615, `DISCOVERED` 2, managed/effective 376/376, and 0 incomplete, blocked, or not-started managed records.
+
+### D70 D69 RAG Promote/B12 And Test-Time Balance
+- Promoted the two D69 RAG candidates by explicit candidate id:
+  - `LIT-0578`: `MCTS-RAG: Enhancing Retrieval-Augmented Generation with Monte Carlo Tree Search`.
+  - `LIT-0579`: `The Power of Noise: Redefining Retrieval for RAG Systems`.
+- B12 completed both RAG records through `INDEXED` using arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+- Direction-balance scout findings:
+  - strict test-time source-backed scout found only one new `DISCOVERED` title, but it was a scalable-deliberation tail and was not applied.
+  - source-available selector with `preprint_doi` surfaced a TechRxiv test-time singleton, promoted as `LIT-0580`, but acquisition failed with HTTP 403 from a Cloudflare-protected TechRxiv PDF.
+  - `LIT-0580` was soft-excluded with `classification:excluded-from-corpus`, `exclusion:source-access-403`, and `exclusion:techrxiv-cloudflare-challenge`.
+- Refilled a cleaner exact-title arXiv test-time target:
+  - `Scaling LLM Inference with Optimized Sample Compute Allocation`.
+  - B10 apply wrote 1 new batch and 1 `DISCOVERED` candidate.
+  - B11 promoted it as `LIT-0581`.
+  - B12 completed `LIT-0581` through `INDEXED` with arXiv acquisition and `codex_curated` key-content.
+- Net D70 effect:
+  - Effective literature: +3.
+  - Excluded non-corpus: +1.
+  - Candidate pool: +1.
+  - Final managed/effective corpus reached 379/379 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 17 |
-| Candidate pool | 609 |
-| Discovered candidates | 216 |
-| Ready candidates | 14 |
-| Promoted candidates | 221 |
-| Deferred candidates | 15 |
-| Managed corpus | 364 |
-| Effective literature | 364 |
+| Candidate batches | 20 |
+| Candidate pool | 616 |
+| Discovered candidates | 0 |
+| Ready candidates | 81 |
+| Promoted candidates | 252 |
+| Deferred candidates | 126 |
+| Managed corpus | 379 |
+| Effective literature | 379 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: continue exact-title/arXiv-ID test-time refill before the next B11 apply.
-- Alternative: run another narrow source-backed selector pass if immediate effective-literature growth is prioritized.
+- Preferred next collection step: commit D70 records, then continue with a narrow exact-title/source-backed refill or a small high-band source-available tranche.
+- Keep the repaired selector host gate active before any future DOI-heavy broad apply.
 - Keep promoting only high-band clean candidates and leave medium/application-tail candidates deferred or rejected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
