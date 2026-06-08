@@ -7,7 +7,7 @@
 - Related track: `T-121` is the pgvector/retrieval track, not the origin package.
 - Latest completed collection checkpoint: D61 duplicate-anchor hygiene plus RAG/test-time clean3 B11/B12 tranche.
 - Latest cleanup checkpoint: D56 documentation compaction, replacing append-only historical logs with compact ledgers.
-- Next decision: run a broader RAG/test-time source-available selector pass with the duplicate-anchor fix enabled.
+- Next decision: apply the D62 clean RAG/test-time subset or first tighten test-time tail filtering.
 
 ## Goal
 - Build a lightweight literature candidate layer for large-scale collection across:

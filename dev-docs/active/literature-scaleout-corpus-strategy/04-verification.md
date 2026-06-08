@@ -54,29 +54,43 @@
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 9 |
 
+## Latest Read-Only Selector Checkpoint
+- Checkpoint: D62 RAG/test-time source-available selector dry-run.
+- Status: completed read-only.
+- Evidence root: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
+- Key artifacts:
+  - `20260608T-d62-rag-testtime-source-available-pool.json`
+  - `20260608T-d62-rag-testtime-source-available-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260608T-d62-rag-testtime-source-available-selector-dry-run-b11-source-available-selector.json`
+- Result:
+  - source-available pool contained 154 RAG/test-time candidates from arXiv or ACL Anthology sources.
+  - B11 dry-run produced 31 `READY_FOR_PROMOTION` decisions with `db_delta=0`.
+  - selector selected 12 candidates from 14 eligible decisions.
+  - recommended clean next tranche is 9 candidates after excluding 3 test-time application tails.
+
 ## Latest Tool Verification
-- Status: completed after D61 documentation update.
+- Status: completed after D62 documentation update.
 - Commands:
   - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
   - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
   - `LC_ALL=C rg -n "[^\x00-\x7F]" dev-docs/active/literature-scaleout-corpus-strategy/00-overview.md dev-docs/active/literature-scaleout-corpus-strategy/03-implementation-notes.md dev-docs/active/literature-scaleout-corpus-strategy/04-verification.md dev-docs/active/literature-scaleout-corpus-strategy/07-b10-candidate-discovery.md dev-docs/active/literature-scaleout-corpus-strategy/08-b11-candidate-triage-promote.md dev-docs/active/literature-scaleout-corpus-strategy/09-b12-standard-pipeline-pilot.md dev-docs/active/literature-scaleout-corpus-strategy/10-scaleout-run-ledger.md`
   - `git ls-files --others --exclude-standard dev-docs/active/literature-scaleout-corpus-strategy/artifacts`
-  - `find dev-docs/active/literature-scaleout-corpus-strategy/artifacts -maxdepth 1 -type f -name '20260608T-d61-*' -print`
+  - `find dev-docs/active/literature-scaleout-corpus-strategy/artifacts -maxdepth 1 -type f -name '20260608T-d62-*' -print`
   - `node .ai/tests/run.mjs --suite database`
   - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
   - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
 - Result:
   - B11 script syntax check passed.
   - markdown diff whitespace check passed.
-  - no non-ASCII drift was introduced in the updated D61 docs.
-  - no D61 generated artifact remains under versioned `dev-docs/active/literature-scaleout-corpus-strategy/artifacts`.
+  - no non-ASCII drift was introduced in the updated D62 docs.
+  - no D62 generated artifact remains under versioned `dev-docs/active/literature-scaleout-corpus-strategy/artifacts`.
   - database suite passed.
   - governance sync completed.
   - governance lint passed with the existing unrelated T-115 warning.
 
 ## Governance Verification
-- Latest D61 governance sync completed after D61 documentation update.
-- Latest D61 governance lint passed with the existing unrelated T-115 warning:
+- Latest D62 governance sync completed after D62 documentation update.
+- Latest D62 governance lint passed with the existing unrelated T-115 warning:
   - `T-115 topic-selection-v1b-human-review-path` is `done` while its historical overview acceptance checklist remains unchecked.
 - Treat the T-115 warning as out of scope for T-122 literature work unless the user asks to clean that task package.
 
@@ -98,7 +112,7 @@
   - remaining warning is the existing unrelated T-115 acceptance-checkbox warning.
 
 ## Historical Verification Index
-- D1-D61 verification details have been compacted into `10-scaleout-run-ledger.md`.
+- D1-D62 verification details have been compacted into `10-scaleout-run-ledger.md`.
 - Full generated JSON evidence remains under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 - Previous expanded verification logs remain available in git history before the D56 documentation cleanup.
-- D61 verification details are captured in the latest checkpoint above and summarized in `10-scaleout-run-ledger.md`.
+- D61 corpus-writing verification and D62 read-only selector details are captured above and summarized in `10-scaleout-run-ledger.md`.

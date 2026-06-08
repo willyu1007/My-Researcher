@@ -130,6 +130,16 @@
 - B12 completed all 3 through `INDEXED` using Unpaywall-discovered ACL PDFs, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
 - Managed/effective corpus reached 343 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
+### D62 RAG/Test-Time Source-Available Selector Dry-Run
+- Kept D62 read-only; no candidate or literature rows were mutated.
+- Built a broader RAG/test-time source-available pool from arXiv and ACL Anthology-backed candidates.
+- Pool size: 154 candidates, including 87 RAG and 67 test-time candidates; source mix was 115 arXiv and 39 ACL Anthology.
+- B11 dry-run over the pool produced 31 `READY_FOR_PROMOTION`, 53 `DEFERRED`, 69 `DUPLICATE`, and 1 `REJECTED` decision.
+- Source-available selector with quotas `rag-aware-allocation=6,test-time-compute-budgeting=6` selected 12 candidates from 14 eligible decisions.
+- Immediate clean subset is 9 candidates: 6 RAG plus 3 test-time candidates focused on inference scaling, token budgets, and process rewards.
+- Defer or exclude before apply: `METAL`, `TabTracer`, and `InstantBooth`, because they are chart/table/text-to-image application tails rather than central test-time compute budgeting papers.
+- Follow-up: either apply the 9-candidate clean subset or tighten test-time tail filtering before the next selector apply.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
@@ -147,6 +157,7 @@
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: run a broader RAG/test-time source-available selector pass with the duplicate-anchor fix enabled.
+- Preferred next collection step: run B11/B12 apply on the 9-candidate D62 clean subset.
+- If selector quality is prioritized first, add stricter test-time tail terms for chart/table/text-to-image application papers and rerun the D62 selector.
 - If immediate effective-literature growth is prioritized, use only source-backed candidates that pass B11 high-band gating and keep medium candidates deferred.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

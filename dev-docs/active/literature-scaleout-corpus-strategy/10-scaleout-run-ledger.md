@@ -78,6 +78,7 @@
 | D59 | Added 8 serving source-backed candidates, promoted/completed 4 high-band records, and deferred 4 medium-band records, reaching 334 effective records. |
 | D60 | Completed 6 RAG/test-time direction-balance records and isolated mutually linked duplicate-loop candidates, reaching 340 effective records. |
 | D61 | Fixed B11 duplicate-anchor handling and completed 3 newly unblocked RAG/test-time records, reaching 343 effective records. |
+| D62 | Ran read-only RAG/test-time source-available selector dry-run; identified 9 clean next-tranche candidates and 3 test-time tail exclusions. |
 
 ## Effective-Literature Growth Ledger
 
@@ -120,6 +121,8 @@
   - `20260608T-d61-duplicate-anchor-fix-final-count.json`
 - Current D61 final state evidence:
   - `20260608T-d61-duplicate-anchor-fix-clean3-b12-index-apply-b12-standard-pipeline-pilot-report.json`
+- Current D62 selector evidence:
+  - `20260608T-d62-rag-testtime-source-available-selector-dry-run-b11-source-available-selector.json`
 - Current D53 selector preflight:
   - `20260608T-d53-readonly-preflight-summary.json`
 - Current theory target closure:
