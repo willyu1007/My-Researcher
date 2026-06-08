@@ -980,3 +980,51 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## D55 Source-Backed Exact-Title Apply/Promote
+- Input batch:
+  - `B10-20260608T-d55-openalex-exact-title-apply`: 11 persisted `DISCOVERED` candidates.
+  - apply used `B10_PERSIST_STATUSES=DISCOVERED` so same-batch duplicate rows were not persisted.
+- Input candidates:
+  - `cfe2ce12-05ce-4150-b537-a93494a7e5e2`: `An Interpretable Latency Model for Speculative Decoding in LLM Serving`.
+  - `36a61600-addf-4764-a2ec-95976954edab`: `RedKnot: Efficient Long-Context LLM Serving with Head-Aware KV Reuse and SegPagedAttention`.
+  - `9635fdc1-8c23-4de6-9fde-4ed71146731f`: `Tangram: Unlocking Non-Uniform KV Cache for Efficient Multi-turn LLM Serving`.
+  - `df1b7d15-0769-4297-be3d-a76a072d8f12`: `Uncertainty-Aware Budget Allocation for Adaptive Test-Time Reasoning`.
+  - `993162a8-7727-436f-acde-a5f54a432e68`: `CGES: Confidence-Guided Early Stopping for Efficient and Accurate Self-Consistency`.
+  - `c73b92af-9a97-42e8-a62c-32ff56800f45`: `ExpertRAG: Efficient RAG with Mixture of Experts -- Optimizing Context Retrieval for Adaptive LLM Responses`.
+  - `8753c2de-7e73-4775-8525-028581cbaf39`: `FastCache: Optimizing Multimodal LLM Serving through Lightweight KV-Cache Compression Framework`.
+  - `f25996c4-21c7-4c4c-9cd5-3203f7554ceb`: `FineServe: Precision-Aware KV Slab and Two-Level Scheduling for Heterogeneous Precision LLM Serving`.
+  - `eea1d7f4-1f43-4fc4-a931-dff52790e2ab`: `MorphServe: Efficient and Workload-Aware LLM Serving via Runtime Quantized Layer Swapping and KV Cache Resizing`.
+  - `aef2206c-56c3-4cfb-abae-6d004c0dff20`: `Self-Routing RAG: Binding Selective Retrieval with Knowledge Verbalization`.
+  - `c2a4dcd6-ac00-43be-965c-1940ac329c23`: `Stop When Enough: Adaptive Early-Stopping for Chain-of-Thought Reasoning`.
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-b11-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-b11-apply-promote-b11-candidate-triage-report.json`
+- Result:
+  - default-threshold dry-run classified all 11 as high-band `READY_FOR_PROMOTION`.
+  - apply/promote attempted 11 promotions and succeeded for all 11.
+  - direction split at B11: 6 LLM-serving/resource allocation, 2 RAG-aware allocation, and 3 test-time compute budgeting.
+  - collection role split: 5 system-support, 4 strategy-support, and 2 core.
+  - DB delta: 11 `LiteratureRecord` rows and 11 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0490`: `Uncertainty-Aware Budget Allocation for Adaptive Test-Time Reasoning`.
+  - `LIT-0491`: `FastCache: Optimizing Multimodal LLM Serving through Lightweight KV-Cache Compression Framework`.
+  - `LIT-0492`: `FineServe: Precision-Aware KV Slab and Two-Level Scheduling for Heterogeneous Precision LLM Serving`.
+  - `LIT-0493`: `MorphServe: Efficient and Workload-Aware LLM Serving via Runtime Quantized Layer Swapping and KV Cache Resizing`.
+  - `LIT-0494`: `RedKnot: Efficient Long-Context LLM Serving with Head-Aware KV Reuse and SegPagedAttention`.
+  - `LIT-0495`: `Tangram: Unlocking Non-Uniform KV Cache for Efficient Multi-turn LLM Serving`.
+  - `LIT-0496`: `ExpertRAG: Efficient RAG with Mixture of Experts -- Optimizing Context Retrieval for Adaptive LLM Responses`.
+  - `LIT-0497`: `Self-Routing RAG: Binding Selective Retrieval with Knowledge Verbalization`.
+  - `LIT-0498`: `An Interpretable Latency Model for Speculative Decoding in LLM Serving`.
+  - `LIT-0499`: `Stop When Enough: Adaptive Early-Stopping for Chain-of-Thought Reasoning`.
+  - `LIT-0500`: `CGES: Confidence-Guided Early Stopping for Efficient and Accurate Self-Consistency`.
+- Counting after B12 completion:
+  - candidate pool records: 588.
+  - discovered candidates: 233.
+  - ready-for-promotion candidates: 23.
+  - promoted candidates: 171.
+  - managed corpus records: 314.
+  - effective literature records: 314.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

@@ -2699,3 +2699,58 @@
   - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 6 embedding calls.
   - index apply succeeded for all 6; final state probe found all 6 with all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
   - B13 after D54 reports candidate pool 577, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 160, managed corpus 303, effective literature 303, incomplete 0, blocked 0, and not-started 0.
+
+### 2026-06-08 - D55 Source-Backed Exact-Title Tranche
+- Status: completed for D54 commit, B10 diagnostic dry-runs, B10 source-backed OpenAlex exact-title apply, B11 dry-run, B11 apply/promote, B12 standard pipeline, acquisition, fulltext preprocessing, `codex_curated` key-content import, index backfill, post-counting, and artifact cleanup.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-refill-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-arxiv-id-refill-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-openalex-exact-title-v3-dry-run-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-openalex-exact-title-apply-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-b11-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-b11-apply-promote-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-dossier-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d55-source-backed-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d55-source-backed.json`
+- Commands:
+  - `git commit -m "feat(literature): complete D54 source tranche" ...`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d55-source-backed-refill-dry-run ... b10-candidate-discovery.mjs --providers arxiv`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d55-arxiv-id-refill-dry-run ... b10-candidate-discovery.mjs --providers arxiv`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d55-openalex-exact-title-v3-dry-run ... b10-candidate-discovery.mjs --providers openalex`
+  - `TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260608T-d55-openalex-exact-title-apply B10_PERSIST_STATUSES=DISCOVERED ... b10-candidate-discovery.mjs --providers openalex --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d55-source-backed-b11-dry-run ... b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d55-source-backed-b11-apply-promote ... b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d55-source-backed-standard-dry-run ... b12-standard-pipeline-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d55-source-backed-standard-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d55-source-backed-acquisition-dry-run ... b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d55-source-backed-acquisition-apply ... b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d55-source-backed-fulltext-preprocess-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `20260608T-d55-source-backed-dossier` source-grounded `codex_curated` dossier export/import script.
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d55-source-backed-index-dry-run ... b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d55-source-backed-index-apply ... b12-content-backfill-pilot.mjs --apply`
+  - `20260608T-after-d55-source-backed-index-state` final state probe.
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260608T-after-d55-source-backed ... literature-scaleout-counting-report.mjs`
+- Result:
+  - D54 was committed as `f5661049`.
+  - first arXiv broad dry-run found 0 accepted candidates and 40 provider 429 errors across 60 ledger entries, so it was kept diagnostic-only.
+  - arXiv-ID exact dry-run hit HTTP 429 for all exact-ID queries, so D55 switched to OpenAlex exact-title source-backed discovery.
+  - OpenAlex v3 dry-run found 16 source-available candidates: 11 `DISCOVERED` and 5 same-batch duplicates.
+  - B10 apply wrote 1 batch and 11 new `DISCOVERED` candidates with DB delta +1 batch and +11 candidates.
+  - B11 dry-run classified all 11 as high-band `READY_FOR_PROMOTION`.
+  - B11 apply/promote created `LIT-0490` through `LIT-0500`.
+  - standard apply succeeded for citation and abstract stages and produced expected `FULLTEXT_SOURCE_MISSING` blockers before acquisition.
+  - acquisition dry-run planned 11 arXiv downloads with 0 blockers; acquisition apply succeeded for all 11 and created 11 content assets.
+  - fulltext preprocessing succeeded for all 11 records and created 11 ready fulltext documents.
+  - dossier dry-run returned 11 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 11 embedding calls.
+  - index apply succeeded for all 11; final state probe found all 11 with all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+  - B13 after D55 reports candidate pool 588, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 171, managed corpus 314, effective literature 314, incomplete 0, blocked 0, and not-started 0.

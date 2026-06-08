@@ -1462,3 +1462,36 @@
 - Next step:
   - if the priority is balanced quality, repeat a narrow source-backed B10 refill before B11.
   - if the priority is throughput, promote a small serving-heavy ready tranche separately and document the direction skew.
+
+## 2026-06-08 - D55 Source-Backed Exact-Title Tranche
+- Scope:
+  - committed D54 first as `f5661049 feat(literature): complete D54 source tranche`.
+  - kept D55 path-scoped to T-122 literature scaleout.
+  - avoided the old broad `DISCOVERED` pool after D53 showed strict source-backed selector output was tail-heavy.
+- B10 discovery:
+  - initial arXiv broad source-backed dry-run returned 0 candidates because the provider returned candidates below the B10 relevance/title filters and later hit 429s.
+  - arXiv-ID exact dry-run was diagnostic-only because arXiv returned HTTP 429 for all 10 exact-ID queries.
+  - accepted path used OpenAlex exact-title queries with `B10_REQUIRE_SOURCE_AVAILABLE=true`.
+  - v3 dry-run produced 16 source-available candidates: 11 `DISCOVERED` and 5 same-batch duplicates.
+  - apply persisted only `DISCOVERED` rows.
+  - DB delta: 1 `LiteratureDiscoveryBatch` row and 11 `LiteratureDiscoveryCandidate` rows.
+- B11:
+  - default-threshold dry-run classified all 11 candidates as high-band `READY_FOR_PROMOTION`.
+  - apply/promote created `LIT-0490` through `LIT-0500`.
+  - direction split: 6 LLM-serving/resource allocation, 2 RAG-aware allocation, and 3 test-time compute budgeting.
+  - role split: 5 system-support, 4 strategy-support, and 2 core.
+  - DB delta: 11 `LiteratureRecord` rows and 11 `LiteratureSource` rows.
+- B12:
+  - standard apply succeeded for citation and abstract stages, then blocked all 11 at `FULLTEXT_PREPROCESSED` with expected `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 11 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 11 and created 11 content assets.
+  - fulltext preprocessing rerun succeeded for all 11 and created READY fulltext documents.
+  - imported source-grounded `codex_curated` dossiers for all 11 records with 0 key-content extraction provider calls and 0 source-ref repairs.
+  - content backfill dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 11 embedding calls.
+  - content backfill apply succeeded for all 11.
+  - final state probe confirmed all 11 records have all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+- Counting:
+  - B13 after D55 reports candidate pool 588, discovered candidates 233, ready-for-promotion candidates 23, promoted candidates 171, managed corpus 314, effective literature 314, incomplete 0, blocked 0, and not-started 0.
+- Next step:
+  - D56 can repeat this exact-title/source-backed path at 10-12 papers per round.
+  - if broader growth is needed, run B10 catalog expansion separately and keep B11/B12 promotion on a clean source-backed tranche.

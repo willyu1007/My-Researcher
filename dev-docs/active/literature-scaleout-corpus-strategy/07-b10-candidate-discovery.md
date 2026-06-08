@@ -566,3 +566,48 @@ TS_NODE_TRANSPILE_ONLY=true B10_DISCOVERY_RUN_ID=20260606T-b10-openalex-apply \
   - managed corpus records: 303.
   - effective literature records: 303.
   - pipeline incomplete/blocker/not-started: 0.
+
+## D55 Source-Backed Exact-Title Refill
+- Diagnostic arXiv broad dry-run:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-refill-dry-run-b10-candidate-discovery-report.json`
+  - selected tracks: RAG core, test-time strategy/search, and LLM-serving system/strategy.
+  - result: 0 accepted candidates.
+  - provider errors: 40 HTTP 429 errors across 60 ledger entries.
+  - decision: keep diagnostic-only and avoid further broad arXiv pressure in D55.
+- Diagnostic arXiv-ID dry-run:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-arxiv-id-refill-dry-run-b10-candidate-discovery-report.json`
+  - result: 0 accepted candidates because arXiv returned HTTP 429 for every exact-ID query.
+  - decision: switch D55 to OpenAlex exact-title discovery with source-available filtering.
+- Accepted OpenAlex exact-title dry-run:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-openalex-exact-title-v3-dry-run-b10-candidate-discovery-report.json`
+  - candidate count: 16.
+  - discovered: 11.
+  - duplicates: 5.
+  - source-available candidates: 16.
+  - discovered source-available candidates: 11.
+  - direction split: 9 LLM-serving/resource allocation, 2 RAG-aware allocation, and 5 test-time compute budgeting candidates before duplicate filtering.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-openalex-exact-title-apply-b10-candidate-discovery-report.json`
+  - batch id: `763d15b8-0620-4b4a-a8d0-265f7b602578`.
+  - batch code: `B10-20260608T-d55-openalex-exact-title-apply`.
+  - persisted 11 discovered candidates and skipped same-batch duplicate rows.
+  - persisted candidates:
+    - `An Interpretable Latency Model for Speculative Decoding in LLM Serving`.
+    - `RedKnot: Efficient Long-Context LLM Serving with Head-Aware KV Reuse and SegPagedAttention`.
+    - `Tangram: Unlocking Non-Uniform KV Cache for Efficient Multi-turn LLM Serving`.
+    - `Uncertainty-Aware Budget Allocation for Adaptive Test-Time Reasoning`.
+    - `CGES: Confidence-Guided Early Stopping for Efficient and Accurate Self-Consistency`.
+    - `ExpertRAG: Efficient RAG with Mixture of Experts -- Optimizing Context Retrieval for Adaptive LLM Responses`.
+    - `FastCache: Optimizing Multimodal LLM Serving through Lightweight KV-Cache Compression Framework`.
+    - `FineServe: Precision-Aware KV Slab and Two-Level Scheduling for Heterogeneous Precision LLM Serving`.
+    - `MorphServe: Efficient and Workload-Aware LLM Serving via Runtime Quantized Layer Swapping and KV Cache Resizing`.
+    - `Self-Routing RAG: Binding Selective Retrieval with Knowledge Verbalization`.
+    - `Stop When Enough: Adaptive Early-Stopping for Chain-of-Thought Reasoning`.
+  - DB delta: 1 batch, 11 candidates.
+  - no `LiteratureRecord` rows were created by B10.
+- Counting after B11/B12 completion:
+  - candidate pool records: 588.
+  - candidate discovered records: 233.
+  - candidate promoted records: 171.
+  - managed corpus records: 314.
+  - effective literature records: 314.
+  - pipeline incomplete/blocker/not-started: 0.

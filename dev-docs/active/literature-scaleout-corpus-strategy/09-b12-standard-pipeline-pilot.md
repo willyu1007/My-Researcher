@@ -897,18 +897,45 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
   - index apply succeeded for all 6 records.
   - final state probe found all seven standard stages `SUCCEEDED` for all 6 records, with active and indexed embedding versions.
 
+## D55 Source-Backed Exact-Title Completion
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-dossier-dossier-dry-run.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d55-source-backed-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d55-source-backed-index-state.json`
+- Input:
+  - B11 promoted `LIT-0490` through `LIT-0500`.
+  - direction split at B11: 6 LLM-serving/resource allocation, 2 RAG-aware allocation, and 3 test-time compute budgeting.
+  - collection role split at B11: 5 system-support, 4 strategy-support, and 2 core.
+- Result:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 11 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 11 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 11 records and created 11 content assets.
+  - fulltext preprocessing succeeded for all 11 records and created 11 ready fulltext documents.
+  - dossier dry-run returned 11 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 11 embedding calls.
+  - index apply succeeded for all 11 records.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 11 records, with active and indexed embedding versions.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d54-rag-testtime.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d55-source-backed.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 - Metrics:
-  - candidate pool records: 577.
+  - candidate pool records: 588.
   - candidate discovered records: 233.
   - candidate ready-for-promotion records: 23.
-  - candidate promoted records: 160.
+  - candidate promoted records: 171.
   - candidate deferred records: 11.
-  - managed corpus records: 303.
-  - effective literature records: 303.
+  - managed corpus records: 314.
+  - effective literature records: 314.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
@@ -951,3 +978,4 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - D53 was read-only and kept managed/effective literature at 297 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 - D53 found that strict source-backed `DISCOVERED` selector output is empty after tail filtering; prefer a narrower RAG/test-time source-backed B10 refill before the next DB-writing B11/B12 tranche.
 - D54 completed 6 balanced RAG/test-time source-backed records through `INDEXED`, bringing managed/effective literature to 303 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+- D55 completed 11 source-backed exact-title records through `INDEXED`, bringing managed/effective literature to 314 with 0 incomplete, 0 blocked, and 0 not-started managed records.

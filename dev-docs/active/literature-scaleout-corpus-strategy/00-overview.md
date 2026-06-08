@@ -3,7 +3,7 @@
 ## Status
 - State: in-progress
 - Origin: follow-up from the adaptive LLM systems literature collection discussion.
-- Next step: D54 balanced RAG/test-time source-backed tranche is complete; choose whether D55 should repeat narrow source-backed refill or start a broader candidate expansion pass.
+- Next step: D55 source-backed exact-title tranche is complete; decide whether D56 should continue 10-12 paper exact-title source-backed rounds or run a broader B10 catalog expansion.
 
 ## Goal
 - Replace the current small-batch collection rhythm with a 5000-level literature scaleout strategy.
@@ -19,15 +19,15 @@
   - `collection:theory-support`
 
 ## Current Baseline
-- Current candidate pool: 577 records.
+- Current candidate pool: 588 records.
   - 233 discovered.
   - 23 ready for promotion.
-  - 160 promoted.
+  - 171 promoted.
   - 11 deferred.
   - 146 duplicates.
   - 4 rejected.
-- Current managed adaptive corpus: 303 records.
-- Current effective literature records: 303 records.
+- Current managed adaptive corpus: 314 records.
+- Current effective literature records: 314 records.
 - Current incomplete managed records: 0.
 - Current theory-support target state:
   - direction-qualified theory-support target: 50 records.
@@ -78,6 +78,7 @@
   - `LIT-0473` through `LIT-0476` completed the D51 RAG/test-time/math theory tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, chunk/embed/index backfill, and post-promote theory-slot retagging.
   - `LIT-0477` through `LIT-0483` completed the D52 exact-title theory tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, chunk/embed/index backfill, and post-promote theory-slot retagging.
   - `LIT-0484` through `LIT-0489` completed the D54 balanced RAG/test-time source-backed tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
+  - `LIT-0490` through `LIT-0500` completed the D55 source-backed exact-title tranche through `INDEXED` via arXiv acquisition, source-grounded `codex_curated` dossiers, and chunk/embed/index backfill.
 - Current B10 expansion state:
   - D37 added source-available and title-regex filters to B10 runtime configuration.
   - D37 wrote 2 clean RAG-core source-available candidates to staging only: `SF-RAG` and `PrefRAG`.
@@ -94,6 +95,8 @@
   - D52 exact-title source-available refill wrote seven clean theory-support candidates to staging only: four RAG allocation, two test-time budget, and one math-foundation bridge paper; duplicate rows were not persisted.
   - D54 added B10 arXiv ID allowlist support for `arxiv:<id>` or bare arXiv IDs, using `search_query=id:<id>` and exact-ID scoring to avoid noisy title searches.
   - D54 preflight skipped two exact-title targets already in the formal corpus (`LIT-0328`, `LIT-0295`), then wrote six clean source-backed candidates to staging only: four RAG-core records and two test-time compute-budgeting records.
+  - D55 first broad arXiv source-backed dry-run and arXiv-ID dry-run were diagnostic-only after arXiv API 429s; the accepted path used OpenAlex exact-title queries with source-available filtering.
+  - D55 OpenAlex exact-title apply wrote 11 clean source-backed candidates to staging only: two RAG-core records, three test-time compute-budgeting records, and six LLM-serving/resource-allocation records.
 - Current B11 selector state:
   - D38 source-available preflight found 0 source-available `READY_FOR_PROMOTION` candidates and 117 source-available `DISCOVERED` candidates.
   - D38 source-available pool dry-run found 29 `READY_FOR_PROMOTION`, 78 `DEFERRED`, 8 `DUPLICATE`, and 2 `REJECTED`.
@@ -116,6 +119,7 @@
   - D51 audited the remaining RAG/test-time/math source-available pool, kept the broad default dry-run read-only after all seven sampled candidates landed as `DEFERRED`, then used an explicit curated four-paper source-backed allowlist with `B11_READY_THRESHOLD=0.67` to promote `LIT-0473` through `LIT-0476`.
   - D52 B11 default-threshold dry-run classified all seven exact-title source-backed theory candidates as high-band `READY_FOR_PROMOTION`; apply/promote created `LIT-0477` through `LIT-0483`.
   - D54 B11 default-threshold dry-run classified all six source-backed RAG/test-time candidates as high-band `READY_FOR_PROMOTION`; apply/promote created `LIT-0484` through `LIT-0489`.
+  - D55 B11 default-threshold dry-run classified all 11 source-backed exact-title candidates as high-band `READY_FOR_PROMOTION`; apply/promote created `LIT-0490` through `LIT-0500`.
 - Current pipeline-not-started managed records: 0.
 - Raw DB includes non-corpus records used for historical system evidence, fixtures, and excluded imports; raw DB size is not a literature-progress metric.
 
