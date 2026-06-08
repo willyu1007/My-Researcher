@@ -802,3 +802,34 @@ TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260606T-b11-pilot-apply-promote 
   - pipeline incomplete records: 0.
   - pipeline not-started records: 0.
   - pipeline blocked records: 0.
+
+## D50 Serving Theory Apply/Promote
+- Input candidates:
+  - `22446a25-bcb7-4131-af99-f8bd91049aa1`: `BiScale: Energy-Efficient Disaggregated LLM Serving via Phase-Aware Placement and DVFS`.
+  - `70a639ac-058d-4fa0-a160-e633014ba2d3`: `Hierarchical Autoscaling for Large Language Model Serving with Chiron`.
+  - `1fcfa20b-d256-431e-b280-9b5877c0c477`: `Nitsum: Serving Tiered LLM Requests with Adaptive Tensor Parallelism`.
+  - `15f8bcc0-8b35-40a1-955e-7a8b8d0ca852`: `OrbitFlow: SLO-Aware Long-Context LLM Serving with Fine-Grained KV Cache Reconfiguration`.
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-apply-b11-candidate-triage-report.json`
+- Result:
+  - dry-run classified all 4 as high-band `READY_FOR_PROMOTION`.
+  - apply/promote attempted 4 promotions and succeeded for all 4.
+  - direction split: 4 LLM-serving/resource allocation.
+  - collection role split: 4 `collection:theory-support`.
+  - DB delta: 4 `LiteratureRecord` rows and 4 `LiteratureSource` rows.
+- Promoted records:
+  - `LIT-0469`: `BiScale: Energy-Efficient Disaggregated LLM Serving via Phase-Aware Placement and DVFS`.
+  - `LIT-0470`: `Hierarchical Autoscaling for Large Language Model Serving with Chiron`.
+  - `LIT-0471`: `Nitsum: Serving Tiered LLM Requests with Adaptive Tensor Parallelism`.
+  - `LIT-0472`: `OrbitFlow: SLO-Aware Long-Context LLM Serving with Fine-Grained KV Cache Reconfiguration`.
+- Counting after B12 completion and theory retag:
+  - candidate pool records: 564.
+  - discovered candidates: 237.
+  - ready-for-promotion candidates: 23.
+  - promoted candidates: 143.
+  - managed corpus records: 286.
+  - effective literature records: 286.
+  - pipeline incomplete records: 0.
+  - pipeline not-started records: 0.
+  - pipeline blocked records: 0.

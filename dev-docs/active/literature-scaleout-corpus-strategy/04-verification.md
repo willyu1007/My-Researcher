@@ -2410,3 +2410,63 @@
   - database suite passed.
   - governance sync completed.
   - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.
+
+### 2026-06-08 - D50 Serving Theory Slot Closure
+- Status: completed for B11 dry-run, B11 apply/promote, B12 standard pipeline, acquisition, fulltext preprocessing, `codex_curated` key-content import, index backfill, post-promote theory retag, post-counting, and post-verify.
+- Files:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-dry-run-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-apply-b11-candidate-triage-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d50-serving-theory-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-retag.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d50-serving-theory.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d50-theory-target-state.json`
+- Commands:
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d50-serving-theory-dry-run B11_CANDIDATE_STATUS=READY_FOR_PROMOTION ... b11-candidate-triage-promote.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B11_TRIAGE_RUN_ID=20260608T-d50-serving-theory-apply B11_CANDIDATE_STATUS=READY_FOR_PROMOTION ... b11-candidate-triage-promote.mjs --apply --promote`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d50-serving-theory-standard-dry-run ... b12-standard-pipeline-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d50-serving-theory-standard-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d50-serving-theory-acquisition-dry-run ... b12-fulltext-acquisition-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_ACQUISITION_RUN_ID=20260608T-d50-serving-theory-acquisition-apply ... b12-fulltext-acquisition-pilot.mjs --apply`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260608T-d50-serving-theory-fulltext-preprocess-apply ... b12-standard-pipeline-pilot.mjs --apply`
+  - `20260608T-d50-serving-theory-dossier` `codex_curated` dossier export/import script.
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d50-serving-theory-index-dry-run ... b12-content-backfill-pilot.mjs`
+  - `TS_NODE_TRANSPILE_ONLY=true B12_BACKFILL_RUN_ID=20260608T-d50-serving-theory-index-apply ... b12-content-backfill-pilot.mjs --apply`
+  - `20260608T-after-d50-serving-theory-index-state` final state probe.
+  - `20260608T-d50-serving-theory-retag` theory-slot retag script.
+  - `TS_NODE_TRANSPILE_ONLY=true SCALEOUT_COUNTING_RUN_ID=20260608T-after-d50-serving-theory ... literature-scaleout-counting-report.mjs`
+  - `20260608T-after-d50-theory-target-state` target-state count script.
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-standard-pipeline-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-fulltext-acquisition-pilot.mjs`
+  - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b12-content-backfill-pilot.mjs`
+  - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
+  - `git ls-files --others --exclude-standard dev-docs/active/literature-scaleout-corpus-strategy/artifacts`
+  - `node .ai/tests/run.mjs --suite database`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Result:
+  - B11 dry-run kept all 4 selected serving theory candidates at high-band `READY_FOR_PROMOTION`.
+  - B11 apply/promote created `LIT-0469` through `LIT-0472`.
+  - standard apply succeeded for citation and abstract stages and produced expected `FULLTEXT_SOURCE_MISSING` blockers before acquisition.
+  - acquisition apply succeeded for all 4 and created 4 content assets.
+  - fulltext preprocessing rerun succeeded for all 4 and created 4 READY fulltext documents.
+  - `codex_curated` dossier import succeeded for all 4 with 0 key-content extraction provider calls and 0 repaired source refs.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 4 embedding calls.
+  - index apply succeeded for all 4; final state probe found 4/4 with all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+  - post-promote retag updated 4 records and raised target-qualified theory-support from 35 to 39; slot counts are math foundation 10, RAG allocation 8, test-time budget 9, and serving scheduling 12.
+  - B13 after D50 reports candidate pool 564, discovered candidates 237, ready-for-promotion candidates 23, promoted candidates 143, managed corpus 286, effective literature 286, incomplete 0, blocked 0, and not-started 0.
+  - all five B10/B11/B12 script syntax checks passed.
+  - whitespace diff check passed.
+  - `dev-docs/active/literature-scaleout-corpus-strategy/artifacts` has no untracked files.
+  - database suite passed.
+  - governance sync completed.
+  - governance lint passed with the existing unrelated T-115 acceptance-checkbox warning.

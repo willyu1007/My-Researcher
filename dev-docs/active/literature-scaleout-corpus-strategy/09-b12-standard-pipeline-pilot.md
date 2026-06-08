@@ -786,22 +786,51 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
   - final state probe found all seven standard stages `SUCCEEDED` for all 6 records.
   - post-promote retag raised target-qualified theory-support records from 29 to 35.
 
+## D50 Serving Theory Completion
+- Artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-standard-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-fulltext-preprocess-apply-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-dossier-dossier-import.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-index-dry-run-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d50-serving-theory-index-state.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d50-serving-theory-retag.json`
+- Input:
+  - B11 promoted `LIT-0469` through `LIT-0472`.
+  - direction split: 4 LLM-serving/resource allocation.
+  - collection role split: 4 `collection:theory-support`.
+- Result:
+  - standard apply succeeded for `CITATION_NORMALIZED` and `ABSTRACT_READY` on all 4 records, then blocked `FULLTEXT_PREPROCESSED` before acquisition with `FULLTEXT_SOURCE_MISSING`.
+  - acquisition dry-run planned 4 arXiv downloads with 0 blockers.
+  - acquisition apply succeeded for all 4 records and created 4 content assets.
+  - fulltext preprocessing succeeded for all 4 records and created 4 ready fulltext documents.
+  - dossier dry-run returned 4 valid dossiers, 0 issues, and `repaired_source_ref_count=0`.
+  - key-content import succeeded with source `codex_curated`; extraction provider calls were 0.
+  - index dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`; estimated provider calls were 0 extraction calls and 4 embedding calls.
+  - index apply succeeded for all 4 records.
+  - final state probe found all seven standard stages `SUCCEEDED` for all 4 records.
+  - post-promote retag raised target-qualified theory-support records from 35 to 39 and closed the serving scheduling slot at 12/12.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d49-serving-rag-theory.json`
-- Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d49-theory-target-state.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d50-serving-theory.json`
+- Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d50-theory-target-state.json`
 - Metrics:
   - candidate pool records: 564.
   - candidate discovered records: 237.
-  - candidate ready-for-promotion records: 27.
-  - candidate promoted records: 139.
+  - candidate ready-for-promotion records: 23.
+  - candidate promoted records: 143.
   - candidate deferred records: 11.
-  - managed corpus records: 282.
-  - effective literature records: 282.
+  - managed corpus records: 286.
+  - effective literature records: 286.
   - pipeline incomplete records: 0.
   - pipeline blocked records: 0.
   - pipeline not-started records: 0.
-  - target-qualified theory-support records: 35/50.
-  - target-qualified slots: math foundation 10, RAG allocation 8, test-time budget 9, serving scheduling 8.
+  - target-qualified theory-support records: 39/50.
+  - effective theory-support records: 41, including 2 scope-borderline records.
+  - target-qualified slots: math foundation 10, RAG allocation 8, test-time budget 9, serving scheduling 12.
 
 ## Next Gate
 - The 10 initial B11-promoted records have completed all standard stages through `INDEXED`.
@@ -831,4 +860,5 @@ TS_NODE_TRANSPILE_ONLY=true B12_PIPELINE_RUN_ID=20260606T-b12-standard-pipeline-
 - D47 added 1 clean RAG theory candidate to staging and found no clean new test-time theory candidate in the provider dry-runs.
 - D48 completed `CARROT` as `LIT-0461`, completed `A Relative-Budget Theory` as `LIT-0462`, and retagged four already-indexed test-time records into target-qualified theory support.
 - D49 completed 6 serving/RAG theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 35/50.
-- At the D49 checkpoint, every currently managed corpus record is effective; the remaining theory gap is 15 records: RAG 5, serving 4, test-time 4, and math 2.
+- D50 completed 4 serving theory records through `INDEXED` and post-promote retag, raising target-qualified theory-support to 39/50.
+- At the D50 checkpoint, every currently managed corpus record is effective; the remaining theory gap is 11 records: RAG 5, test-time 4, and math 2.

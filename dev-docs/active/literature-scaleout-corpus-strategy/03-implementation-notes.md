@@ -1290,3 +1290,33 @@
   - target-qualified slot counts: math foundation 10, RAG allocation 8, test-time budget 9, and serving scheduling 8.
 - Next step:
   - close the remaining 15-paper theory gap with a balanced mix: RAG 5, serving 4, test-time 4, and math 2.
+
+## 2026-06-08 - D50 Serving Theory Slot Closure
+- Input:
+  - selected 4 source-available `READY_FOR_PROMOTION` candidates from the remaining D45 serving theory-support pool.
+  - candidates: `BiScale`, `Hierarchical Autoscaling for Large Language Model Serving with Chiron`, `Nitsum`, and `OrbitFlow`.
+- B11:
+  - dry-run kept all 4 as high-band `READY_FOR_PROMOTION`.
+  - apply/promote promoted all 4 into `LIT-0469` through `LIT-0472`.
+  - DB delta: 4 `LiteratureRecord` rows and 4 `LiteratureSource` rows.
+  - direction split: 4 LLM-serving/resource allocation.
+  - collection role split: 4 `collection:theory-support`.
+- B12:
+  - standard apply succeeded for citation and abstract stages, then blocked all 4 at `FULLTEXT_PREPROCESSED` with `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition dry-run planned 4 source downloads with 0 blockers.
+  - acquisition apply succeeded for all 4 and created 4 content assets.
+  - fulltext preprocessing rerun succeeded for all 4 and created READY fulltext documents.
+  - imported source-grounded `codex_curated` dossiers for all 4 records with 0 key-content extraction provider calls and 0 source-ref repairs.
+  - content backfill dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`, with 0 extraction calls and 4 embedding calls.
+  - content backfill apply succeeded for all 4.
+  - final state probe confirmed all 4 records have all seven standard stages `SUCCEEDED`, active embedding versions, and indexed embedding versions.
+- Post-promote theory retag:
+  - added `theory:target-qualified` and `theory-slot:serving-scheduling` to each completed record.
+  - added title-specific serving theory tags for phase-aware placement/DVFS, hierarchical autoscaling, adaptive tensor parallelism, and KV-cache reconfiguration.
+- Counting:
+  - B13 after D50 reports candidate pool 564, discovered candidates 237, ready-for-promotion candidates 23, promoted candidates 143, managed corpus 286, effective literature 286, incomplete 0, blocked 0, and not-started 0.
+  - theory target state after D50: 41 effective `collection:theory-support` records, 39 target-qualified records, and 2 scope-borderline records.
+  - target-qualified slot counts: math foundation 10, RAG allocation 8, test-time budget 9, and serving scheduling 12.
+- Next step:
+  - avoid more serving theory promotion until other slots catch up.
+  - close the remaining 11-paper theory gap with RAG 5, test-time 4, and math 2.
