@@ -6,11 +6,11 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D79 D78 serving clean2 promote/B12 completion.
-- Latest candidate checkpoint: after D78 serving clean2 source-backed B10 apply, promoted and completed in D79.
-- Candidate pool: 639.
-- Managed corpus: 402.
-- Effective literature: 402.
+- Latest corpus checkpoint: after D81 D80 test-time exact arXiv promote/B12 completion.
+- Latest candidate checkpoint: after D80 RAG/test-time exact arXiv refill, promoted and completed in D81.
+- Candidate pool: 642.
+- Managed corpus: 405.
+- Effective literature: 405.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 54/50 target-qualified records.
 
@@ -97,6 +97,8 @@
 | D77 | Test-time small refill scouts found no clean new row; staged `Atom`, promoted/completed D76 plus Atom, and lifted managed/effective corpus to 400. |
 | D78 | Ran broad source-backed B10 scaleout, curated 2 clean serving candidates into staging, and validated both as high-band in B11 dry-run. |
 | D79 | Promoted/completed the 2 D78 serving clean2 candidates as `LIT-0603`-`LIT-0604`, lifting managed/effective corpus to 402. |
+| D80 | Rejected a RAG/test-time broad-scout code-completion tail, then staged 3 exact-arXiv test-time candidates and validated all 3 as high-band in B11 dry-run. |
+| D81 | Promoted/completed the 3 D80 test-time exact arXiv candidates as `LIT-0605`-`LIT-0607`, lifting managed/effective corpus to 405. |
 
 ## Effective-Literature Growth Ledger
 
@@ -130,6 +132,8 @@
 | D77 D76 curated catalog plus Atom completion | 6 | 400 |
 | D78 candidate-layer serving clean2 expansion | 0 | 400 |
 | D79 D78 serving clean2 completion | 2 | 402 |
+| D80 candidate-layer exact-arXiv test-time expansion | 0 | 402 |
+| D81 D80 test-time exact arXiv completion | 3 | 405 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -235,6 +239,19 @@
   - `20260610T-d79-serving-clean2-final-state-probe.json`
   - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d79-serving-clean2-dossier-apply-key-content-curated-apply.json`
   - `20260610T-d79-after-serving-clean2-final-count.json`
+- Current D80 candidate-layer expansion evidence:
+  - `20260610T-d80-rag-testtime-sourcebacked-scout-b10-candidate-discovery-report.json`
+  - `20260610T-d80-rag-testtime-exact-arxiv-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d80-rag-testtime-exact-arxiv-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d80-rag-testtime-exact-arxiv-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d80-after-rag-testtime-exact-arxiv-count.json`
+- Current D81 completion evidence:
+  - `20260610T-d81-d80-testtime-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d81-d80-testtime-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d81-d80-testtime-backfill-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d81-d80-testtime-final-state-probe-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d81-d80-testtime-dossier-apply-key-content-curated-apply.json`
+  - `20260610T-d81-after-d80-testtime-completion-count.json`
 - Current D64 selector evidence:
   - `20260608T-d64-wide-source-available-selector-dry-run-b11-source-available-selector.json`
 - Current D65 B10 refill evidence:

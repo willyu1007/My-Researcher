@@ -2,16 +2,16 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D79 D78 serving clean2 promote.
-- Latest B11 dry-run: D79 D78 serving clean2 validation.
+- Latest B11 DB-writing run: D81 D80 test-time exact arXiv promote.
+- Latest B11 dry-run: D80 RAG/test-time exact arXiv validation.
 - Current candidate state:
   - 0 `DISCOVERED`
   - 81 `READY_FOR_PROMOTION`
-  - 275 `PROMOTED`
+  - 278 `PROMOTED`
   - 139 `DUPLICATE`
   - 126 `DEFERRED`
   - 18 `REJECTED`
-- Current recommendation: continue B10 scaleout, or run a narrow RAG/test-time refill before the next B11/B12 tranche.
+- Current recommendation: refill the candidate layer before the next B11/B12 tranche, unless a ready-pool selector pass is preferred.
 
 ## Entrypoint
 - Script: `tools/b11-candidate-triage-promote.mjs`
@@ -116,6 +116,46 @@
 | D77 | D76 curated catalog plus Atom promote | 6 promoted | `LIT-0597`-`LIT-0602` | completed |
 | D78 | serving clean2 validation | 2 high-band ready in dry-run | candidates only | promoted in D79 |
 | D79 | D78 serving clean2 promote | 2 promoted | `LIT-0603`-`LIT-0604` | completed |
+| D80 | RAG/test-time exact arXiv validation | 3 high-band ready in dry-run | candidates only | promoted in D81 |
+| D81 | D80 test-time exact arXiv promote | 3 promoted | `LIT-0605`-`LIT-0607` | completed |
+
+## D81 Details
+- Input candidates came from `B10-D80-rag-testtime-exact-arxiv-refill`:
+  - `5bf225f4-7090-4bda-bff6-8de03a965de5`: `ThinkBooster: A Unified Framework for Seamless Test-Time Scaling of LLM Reasoning`.
+  - `0fead777-2f24-4407-93e4-88df06885db3`: `Dual-Dimensional Consistency: Balancing Budget and Quality in Adaptive Inference-Time Scaling`.
+  - `e5b7846b-d75b-44dc-856f-fe77c029b951`: `The Shadow Price of Reasoning: Economic Perspective on Optimal Budget Allocation for LLMs`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d81-d80-testtime-b11-apply-promote-b11-candidate-triage-report.json`.
+- Apply/promote attempted 3 promotions and succeeded for all 3.
+- Direction split:
+  - 3 test-time compute budgeting.
+- Collection role split:
+  - 2 strategy-support.
+  - 1 theory-support.
+- DB delta:
+  - `LiteratureRecord`: +3.
+  - `LiteratureSource`: +3.
+
+## D81 Promoted Records
+- `LIT-0605`: `ThinkBooster: A Unified Framework for Seamless Test-Time Scaling of LLM Reasoning`.
+- `LIT-0606`: `Dual-Dimensional Consistency: Balancing Budget and Quality in Adaptive Inference-Time Scaling`.
+- `LIT-0607`: `The Shadow Price of Reasoning: Economic Perspective on Optimal Budget Allocation for LLMs`.
+
+## D80 Details
+- Input candidates came from `B10-D80-rag-testtime-exact-arxiv-refill`:
+  - `0fead777-2f24-4407-93e4-88df06885db3`: `Dual-Dimensional Consistency: Balancing Budget and Quality in Adaptive Inference-Time Scaling`.
+  - `e5b7846b-d75b-44dc-856f-fe77c029b951`: `The Shadow Price of Reasoning: Economic Perspective on Optimal Budget Allocation for LLMs`.
+  - `5bf225f4-7090-4bda-bff6-8de03a965de5`: `ThinkBooster: A Unified Framework for Seamless Test-Time Scaling of LLM Reasoning`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d80-rag-testtime-exact-arxiv-b11-dry-run-b11-candidate-triage-report.json`.
+- Dry-run classified all 3 candidates as high-band `READY_FOR_PROMOTION`.
+- Direction split:
+  - 3 test-time compute budgeting.
+- Collection role split:
+  - 2 strategy-support.
+  - 1 theory-support.
+- DB delta:
+  - `LiteratureDiscoveryCandidate`: 0.
+  - `LiteratureRecord`: 0.
+  - `LiteratureSource`: 0.
 
 ## D79 Details
 - Input candidates came from `B10-D78-serving-clean2-curated`:

@@ -5,10 +5,10 @@
 - Current task: `T-122 literature-scaleout-corpus-strategy`.
 - Origin task: `T-120`.
 - Related track: `T-121` is the pgvector/retrieval track, not the origin package.
-- Latest completed collection checkpoint: D79 D78 serving clean2 promote/B12 completion.
-- Latest candidate refill checkpoint: D78 serving clean2 source-backed B10 apply, promoted and completed in D79.
+- Latest completed collection checkpoint: D81 D80 test-time exact arXiv promote/B12 completion.
+- Latest candidate refill checkpoint: D80 RAG/test-time exact arXiv refill; all 3 test-time candidates promoted and completed in D81.
 - Latest cleanup checkpoint: D70 TechRxiv source-access soft exclusion.
-- Next decision: continue candidate-pool scaleout, or run a narrow RAG/test-time refill if direction balance is preferred.
+- Next decision: continue candidate-pool scaleout, or run another narrow RAG/test-time source-backed refill if effective-literature growth is preferred.
 
 ## Goal
 - Build a lightweight literature candidate layer for large-scale collection across:
@@ -23,24 +23,24 @@
 
 | Metric | Current value |
 | --- | ---: |
-| Candidate batches | 27 |
-| Candidate pool records | 639 |
+| Candidate batches | 28 |
+| Candidate pool records | 642 |
 | Candidate `DISCOVERED` records | 0 |
 | Candidate `READY_FOR_PROMOTION` records | 81 |
-| Candidate `PROMOTED` records | 275 |
+| Candidate `PROMOTED` records | 278 |
 | Candidate `DUPLICATE` records | 139 |
 | Candidate `DEFERRED` records | 126 |
 | Candidate `REJECTED` records | 18 |
-| Managed adaptive corpus | 402 |
-| Effective literature | 402 |
+| Managed adaptive corpus | 405 |
+| Effective literature | 405 |
 | Incomplete managed records | 0 |
 | Pipeline blockers | 0 |
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 25 |
-| Raw DB literature records | 427 |
+| Raw DB literature records | 430 |
 
 Current evidence artifact:
-- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d79-after-serving-clean2-final-count.json`
+- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d81-after-d80-testtime-completion-count.json`
 
 ## Theory-Support Target
 - Original target-qualified theory-support set is closed above target at 54/50.

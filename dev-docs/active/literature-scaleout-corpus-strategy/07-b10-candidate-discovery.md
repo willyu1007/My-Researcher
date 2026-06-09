@@ -2,10 +2,10 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D78 serving clean2 curated source-backed apply.
-- Current candidate pool: 639 records.
-- Current `DISCOVERED` candidates: 0 after D79 B11/B12 completion.
-- Current recommendation: continue B10 scaleout if candidate-pool recall is preferred, or run a narrow RAG/test-time refill for direction balance.
+- Latest DB-writing B10 run: D80 RAG/test-time exact arXiv refill.
+- Current candidate pool: 642 records.
+- Current `DISCOVERED` candidates: 0 after D81 promoted and completed the 3 D80 candidates.
+- Current recommendation: continue candidate-pool scaleout, or run another narrow RAG/test-time source-backed refill if effective-literature growth is preferred.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -97,6 +97,26 @@
 | D76 | Curated catalog expansion from broad source-backed scout | 5 clean candidates staged | Promoted with D77 as `LIT-0597`-`LIT-0602` and completed |
 | D77 | Serving Atom exact-source refill after test-time scout found no new clean rows | 1 clean serving candidate staged | Promoted with D76 and completed |
 | D78 | Broad source-backed scaleout followed by serving clean2 curated apply | 2 clean serving candidates staged | Promoted as `LIT-0603`-`LIT-0604` in D79 and completed |
+| D80 | RAG/test-time exact arXiv refill after broad scout found only a code-completion tail | 3 clean test-time candidates staged | Promoted as `LIT-0605`-`LIT-0607` in D81 and completed |
+
+## D80 Details
+- RAG/test-time source-backed scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d80-rag-testtime-sourcebacked-scout-b10-candidate-discovery-report.json`
+  - found 15 source-backed candidates: 1 `DISCOVERED`, 14 duplicates.
+  - the only new row was `Prompt-based Code Completion via Multi-Retrieval Augmented Generation`, rejected as an application tail.
+- Exact arXiv dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d80-rag-testtime-exact-arxiv-dry-run-b10-candidate-discovery-report.json`
+  - found 5 source-backed rows: 3 `DISCOVERED`, 2 duplicates.
+  - duplicates:
+    - `When Knowledge Is Not Free: Cost-Aware Evidence Selection in Retrieval-Augmented Generation` matched `LIT-0480`.
+    - `Not All Errors Are Equal: Consequence-Aware Reasoning Compute Allocation` matched `LIT-0460`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d80-rag-testtime-exact-arxiv-apply-b10-candidate-discovery-report.json`
+- Batch id: `cb0ad728-afe1-4802-8102-3ef97b1a4601`.
+- Batch code: `B10-D80-rag-testtime-exact-arxiv-refill`.
+- Persisted 3 `DISCOVERED` candidates and created no `LiteratureRecord` rows:
+  - `0fead777-2f24-4407-93e4-88df06885db3`: `Dual-Dimensional Consistency: Balancing Budget and Quality in Adaptive Inference-Time Scaling`.
+  - `e5b7846b-d75b-44dc-856f-fe77c029b951`: `The Shadow Price of Reasoning: Economic Perspective on Optimal Budget Allocation for LLMs`.
+  - `5bf225f4-7090-4bda-bff6-8de03a965de5`: `ThinkBooster: A Unified Framework for Seamless Test-Time Scaling of LLM Reasoning`.
+- These candidates were promoted and completed in D81.
 
 ## D78 Details
 - Broad source-backed OpenAlex scout:

@@ -552,24 +552,72 @@
   - Managed/effective corpus reached 402/402.
   - Incomplete, blocked, and not-started managed records remain 0/0/0.
 
+### D80 RAG/Test-Time Exact ArXiv Refill
+- Ran a RAG/test-time source-backed OpenAlex scout first:
+  - 5 RAG/test-time tracks.
+  - 60 provider queries.
+  - 15 source-backed candidates after B10 focus filters.
+  - 1 new `DISCOVERED` and 14 duplicates.
+  - The only new row was `Prompt-based Code Completion via Multi-Retrieval Augmented Generation`, treated as a code-completion application tail and not applied.
+- Switched to exact arXiv IDs from a targeted RAG/test-time search:
+  - `When Knowledge Is Not Free: Cost-Aware Evidence Selection in Retrieval-Augmented Generation` was duplicate of `LIT-0480`.
+  - `Not All Errors Are Equal: Consequence-Aware Reasoning Compute Allocation` was duplicate of `LIT-0460`.
+  - 3 clean test-time budgeting rows remained new.
+- B10 apply persisted 3 `DISCOVERED` candidates in batch `B10-D80-rag-testtime-exact-arxiv-refill`:
+  - `0fead777-2f24-4407-93e4-88df06885db3`: `Dual-Dimensional Consistency: Balancing Budget and Quality in Adaptive Inference-Time Scaling`.
+  - `e5b7846b-d75b-44dc-856f-fe77c029b951`: `The Shadow Price of Reasoning: Economic Perspective on Optimal Budget Allocation for LLMs`.
+  - `5bf225f4-7090-4bda-bff6-8de03a965de5`: `ThinkBooster: A Unified Framework for Seamless Test-Time Scaling of LLM Reasoning`.
+- B11 dry-run over the 3 D80 candidates classified all 3 as high-band `READY_FOR_PROMOTION`; no B11 status writes and no promotion were applied in D80.
+- Net D80 effect:
+  - Candidate pool: +3.
+  - `DISCOVERED` candidate count: 3.
+  - Managed/effective corpus remained 402/402.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D81 D80 Test-Time Exact ArXiv Promote And B12
+- Promoted the 3 D80 high-band test-time candidates:
+  - `LIT-0605`: `ThinkBooster: A Unified Framework for Seamless Test-Time Scaling of LLM Reasoning`.
+  - `LIT-0606`: `Dual-Dimensional Consistency: Balancing Budget and Quality in Adaptive Inference-Time Scaling`.
+  - `LIT-0607`: `The Shadow Price of Reasoning: Economic Perspective on Optimal Budget Allocation for LLMs`.
+- B11 apply/promote created 3 `LiteratureRecord` rows and 3 `LiteratureSource` rows.
+- B12 completed all 3 through `INDEXED`:
+  - standard apply completed citation and abstract, then hit expected `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition succeeded for all 3 and created 3 content assets.
+  - fulltext preprocessing succeeded for all 3.
+  - source-grounded `codex_curated` dossier import succeeded for all 3.
+  - final index backfill succeeded for all 3.
+  - key-content extraction provider calls: 0.
+  - embedding provider calls estimated by final index dry-run: 3.
+- Final state probe confirmed all 3 records have one content asset, one fulltext document, and all seven standard stages `SUCCEEDED`.
+- Embedding chunk counts:
+  - `LIT-0605`: 78.
+  - `LIT-0606`: 202.
+  - `LIT-0607`: 182.
+- Net D81 effect:
+  - Effective literature: +3.
+  - Candidate pool: unchanged after D80 apply.
+  - `DISCOVERED` candidate count: 0.
+  - Managed/effective corpus reached 405/405.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 27 |
-| Candidate pool | 639 |
+| Candidate batches | 28 |
+| Candidate pool | 642 |
 | Discovered candidates | 0 |
 | Ready candidates | 81 |
-| Promoted candidates | 275 |
+| Promoted candidates | 278 |
 | Deferred candidates | 126 |
-| Managed corpus | 402 |
-| Effective literature | 402 |
+| Managed corpus | 405 |
+| Effective literature | 405 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: continue broader B10 expansion for candidate-pool recall, or run a narrow RAG/test-time refill if direction balance is preferred.
+- Preferred next collection step: promote/B12 the 3 high-band D80 test-time candidates as a small D81 tranche, or continue B10 scaleout if candidate-pool recall is the priority.
 - Keep the repaired selector host gate active before any future DOI-heavy broad apply.
 - Keep promoting only high-band clean candidates and leave medium/application-tail candidates deferred or rejected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
