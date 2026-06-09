@@ -270,24 +270,204 @@
   - Candidate pool: +1.
   - Final managed/effective corpus reached 379/379 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
+### D71 Narrow RAG Exact-ID Source-Backed Refill
+- Committed D70 records as `6bcfd437 docs(literature): record d70 source-backed balance`.
+- Ran a narrow OpenAlex source-backed scout across RAG/test-time query overrides:
+  - 3 source-backed candidates found.
+  - 0 new `DISCOVERED` rows.
+  - duplicates matched `LIT-0155`, `LIT-0179`, and `LIT-0231`.
+- Used arXiv exact IDs for a stricter D71 refill:
+  - RAG IDs: `2511.14769`, `2511.09803`, and `2502.12145`.
+  - test-time ID: `2505.16122`.
+- B10 exact-ID dry-run found 4 source-backed candidates:
+  - 2 `DISCOVERED`.
+  - 2 duplicates.
+  - duplicate `Plan and Budget` matched `LIT-0238`.
+  - duplicate `Retrieval as a Decision` matched `LIT-0188`.
+- B10 apply wrote 1 batch and 2 new `DISCOVERED` RAG candidates:
+  - `16580c5d-e876-469c-9b33-bed96a055eec`: `Cluster-based Adaptive Retrieval: Dynamic Context Selection for RAG Applications`.
+  - `943c9d4a-e998-4471-a8dd-d1eccffef0fa`: `Fast or Better? Balancing Accuracy and Cost in Retrieval-Augmented Generation with Flexible User Control`.
+- B11 dry-run over the D71 batch classified both candidates as high-band `READY_FOR_PROMOTION` with triage score `0.922`.
+- D71 stopped at candidate-layer refill plus B11 validation; no `LiteratureRecord`, fulltext, key-content, embedding, or index rows were created.
+- Post-run count:
+  - candidate batches: 21.
+  - candidate pool: 618.
+  - `DISCOVERED`: 2.
+  - managed/effective corpus: 379/379.
+  - incomplete, blocked, and not-started managed records: 0/0/0.
+
+### D72 D71 RAG Promote/B12 And Test-Time Exact-ID Refill
+- Promoted the two D71 RAG candidates by explicit candidate id:
+  - `LIT-0582`: `Cluster-based Adaptive Retrieval: Dynamic Context Selection for RAG Applications`.
+  - `LIT-0583`: `Fast or Better? Balancing Accuracy and Cost in Retrieval-Augmented Generation with Flexible User Control`.
+- B12 completed both RAG records through `INDEXED`:
+  - arXiv acquisition succeeded for both and created 2 content assets.
+  - source-grounded `codex_curated` dossier import succeeded for both.
+  - final index backfill succeeded for both.
+  - key-content extraction provider calls: 0.
+  - embedding provider calls estimated by backfill: 2.
+- Final record state:
+  - `LIT-0582`: 1 content asset, 1 fulltext document, 127 embedding chunks, 1407 indexed tokens.
+  - `LIT-0583`: 1 content asset, 1 fulltext document, 137 embedding chunks, 1387 indexed tokens.
+- Ran a narrower test-time exact-ID/source-backed refill after RAG completion:
+  - dry-run tested arXiv IDs `2501.19393`, `2508.17196`, `2509.03581`, `2504.01317`, and `2509.15148`.
+  - `s1: Simple test-time scaling` matched existing `LIT-0347`.
+  - `BudgetThinker` matched existing `LIT-0153`.
+  - B10 apply wrote 1 batch and 3 new `DISCOVERED` test-time candidates.
+- D72 test-time candidates validated by B11 dry-run as high-band `READY_FOR_PROMOTION`:
+  - `a11bd976-fd4a-4236-a5f5-940a434e7acd`: `Learning When to Plan: Efficiently Allocating Test-Time Compute for LLM Agents`, score `0.918`.
+  - `67659b8a-6a13-4846-b4bb-9b8aa8fdc095`: `Adaptive Rectification Sampling for Test-Time Compute Scaling`, score `0.913`.
+  - `74fda4f3-4c04-473c-80f6-22c1ebbcc5ff`: `ATTS: Asynchronous Test-Time Scaling via Conformal Prediction`, score `0.913`.
+- Net D72 effect:
+  - Effective literature: +2.
+  - Candidate pool: +3.
+  - Managed/effective corpus reached 381/381.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D73 D72 Test-Time Promote/B12 And Math Theory Audit
+- Fixed the theory-support drift in `00-overview.md`: effective `collection:theory-support` is 56, not 52.
+- Promoted the three D72 test-time candidates by explicit candidate id:
+  - `LIT-0584`: `Learning When to Plan: Efficiently Allocating Test-Time Compute for LLM Agents`.
+  - `LIT-0585`: `Adaptive Rectification Sampling for Test-Time Compute Scaling`.
+  - `LIT-0586`: `ATTS: Asynchronous Test-Time Scaling via Conformal Prediction`.
+- B12 completed all three records through `INDEXED`:
+  - standard apply completed citation and abstract, then hit expected `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition succeeded for all three and created 3 content assets.
+  - fulltext preprocessing succeeded for all three.
+  - source-grounded `codex_curated` dossier import succeeded for all three.
+  - final index backfill succeeded for all three.
+  - key-content extraction provider calls: 0.
+  - embedding provider calls estimated by backfill: 3.
+- Math theory-support audit artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260610T-d73-math-theory-support-audit.json`.
+- Audit result:
+  - measure and information: 6 effective records.
+  - group/action geometry: 2 effective records, both scope-borderline.
+  - metric and high-dimensional geometry: 8 effective records.
+  - submodular and budgeted selection: 9 effective records.
+  - bandit, stopping, and online allocation: 6 effective records.
+  - queueing and serving scheduling: 12 effective records.
+- Assessment:
+  - measure/information, metric geometry, submodular/budgeted selection, and queueing/scheduling are ready to support formal framing.
+  - group/action geometry is present but thin; use a narrow exact-title refill if this line needs non-borderline theory weight.
+- Recency policy:
+  - math theory support is canonicality-first, not recency-first.
+  - use old-but-foundational papers when they provide reusable formal tools for measure, geometry, group actions, optimization, queueing, or online allocation.
+  - for math-theory B10 exact-ID refills, set `B10_MIN_YEAR=1900` or another deliberately low cutoff so pre-2018 classics are not filtered out.
+- Source-backed exact-ID candidates found for a future group/action-geometry refill:
+  - `arxiv:1811.02017`: `A General Theory of Equivariant CNNs on Homogeneous Spaces`.
+  - `arxiv:1703.06114`: `Deep Sets`.
+  - `arxiv:1911.08251`: `General E(2)-Equivariant Steerable CNNs`.
+- Net D73 effect:
+  - Effective literature: +3.
+  - `DISCOVERED` candidate count: 0.
+  - Managed/effective corpus reached 384/384.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D74 Math-Theory Group/Action Refill, Promote, And B12
+- Ran the narrow group/action-geometry refill identified in D73.
+- Initial arXiv exact-ID dry-run was kept diagnostic only because arXiv returned provider errors:
+  - `1811.02017`: HTTP 429.
+  - `1703.06114`: HTTP 429.
+  - `1911.08251`: request aborted.
+- Added opt-in math-foundation gates so regular broad B10/B11 behavior remains unchanged:
+  - `B10_ALLOW_MATH_FOUNDATION=true` lets `collection:theory-support` RAG runs pass explicit group/action and geometry foundation signals.
+  - `B11_ALLOW_MATH_FOUNDATION=true` adds a theory-role alignment bonus and emits fine-grained `theory:*` tags during promote.
+- Used OpenAlex exact-title fallback with `B10_MIN_YEAR=1900`, `B10_REQUIRE_SOURCE_AVAILABLE=true`, and `B10_ALLOW_MATH_FOUNDATION=true`.
+- B10 apply persisted 4 source-backed candidates in batch `B10-D74-math-theory-group-action-exact-title`:
+  - `A General Theory of Equivariant CNNs on Homogeneous Spaces`.
+  - `Deep Sets`.
+  - `General $E(2)$-Equivariant Steerable CNNs`.
+  - `Intertwiners between Induced Representations (with Applications to the Theory of Equivariant Neural Networks)`.
+- B11 dry-run with `B11_ALLOW_MATH_FOUNDATION=true` classified all 4 as high-band `READY_FOR_PROMOTION`.
+- B11 apply/promote created:
+  - `LIT-0587`: `Deep Sets`.
+  - `LIT-0588`: `A General Theory of Equivariant CNNs on Homogeneous Spaces`.
+  - `LIT-0589`: `Intertwiners between Induced Representations (with Applications to the Theory of Equivariant Neural Networks)`.
+  - `LIT-0590`: `General $E(2)$-Equivariant Steerable CNNs`.
+- B12 completed all 4 through `INDEXED`:
+  - standard apply completed citation and abstract, then hit expected `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition succeeded for all 4 and created 4 content assets.
+  - fulltext preprocessing succeeded for all 4.
+  - source-grounded `codex_curated` dossier import succeeded for all 4.
+  - final index backfill succeeded for all 4.
+  - key-content extraction provider calls: 0.
+  - embedding provider calls estimated by final index dry-run: 4.
+- Applied a D74-only tag backfill for the 4 new records so the math audit does not rely on title-only inference:
+  - common tags: `theory:math-foundation`, `theory:target-qualified`, `theory:rag-allocation`, and `theory:group-action`.
+  - `LIT-0588` and `LIT-0590` also received `theory:quotient-space` and `theory:metric-space`.
+- D74 math audit artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260610T-d74-math-theory-support-audit.json`.
+- Audit result:
+  - effective `collection:theory-support`: 60.
+  - target-qualified theory-support: 54.
+  - group/action geometry: 6 total, 4 non-borderline D74 records.
+  - metric and high-dimensional geometry: 10.
+  - measure and information: 6.
+  - submodular and budgeted selection: 9.
+  - bandit, stopping, and online allocation: 9.
+  - queueing and serving scheduling: 13.
+- Net D74 effect:
+  - Effective literature: +4.
+  - Candidate pool: +4.
+  - `DISCOVERED` candidate count: 0.
+  - Managed/effective corpus reached 388/388.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D75 Balanced RAG/Test-Time Exact-Title Refill, Promote, And B12
+- Returned to the default source-backed RAG/test-time path after D74; `B10_ALLOW_MATH_FOUNDATION` and `B11_ALLOW_MATH_FOUNDATION` were not used.
+- Read-only scout results:
+  - narrow RAG/test-time source-backed scout found 13 candidates, only 1 new `DISCOVERED`, and that candidate was a code-completion application tail.
+  - current READY-pool B11 dry-run had 81 high-band candidates, but strict source selector selected 0 because the pool was mostly application/direction tail or lacked confirmed source availability.
+  - wider RAG/test-time source-backed scout found 7 new candidates; test-time deep scout found 3 new candidates.
+- Added a narrow B11 test-time signal fix:
+  - recognizes `best-of-n`, `best of n`, `inference-aware`, `fast and slow`, `sampling`, and `thinking` as test-time strategy signals.
+  - keeps application-tail gates unchanged; this is not a broad READY-tail relaxation.
+- Final B10 exact-title dry-run selected 6 clean source-backed candidates:
+  - 4 RAG-aware allocation core candidates.
+  - 2 test-time compute budgeting strategy candidates.
+- B10 apply persisted 6 `DISCOVERED` candidates in batch `B10-D75-rag-testtime-exact-title-sourcebacked`.
+- B11 dry-run classified all 6 as high-band `READY_FOR_PROMOTION`.
+- B11 apply/promote created:
+  - `LIT-0591`: `Inference-Aware Fine-Tuning for Best-of-N Sampling in Large Language Models`.
+  - `LIT-0592`: `LongRAG: A Dual-Perspective Retrieval-Augmented Generation Paradigm for Long-Context Question Answering`.
+  - `LIT-0593`: `LongRAG: Enhancing Retrieval-Augmented Generation with Long-context LLMs`.
+  - `LIT-0594`: `RQ-RAG: Learning to Refine Queries for Retrieval Augmented Generation`.
+  - `LIT-0595`: `Thinking Fast and Slow in Large Language Models`.
+  - `LIT-0596`: `Fine Tuning vs. Retrieval Augmented Generation for Less Popular Knowledge`.
+- B12 completed all 6 through `INDEXED`:
+  - standard apply completed citation and abstract, then hit expected `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition succeeded for all 6 and created 6 content assets.
+  - fulltext preprocessing succeeded for all 6.
+  - source-grounded `codex_curated` dossier import succeeded for all 6.
+  - final index backfill succeeded for all 6.
+  - key-content extraction provider calls: 0.
+  - embedding provider calls estimated by final index dry-run: 6.
+- Final state probe confirmed all 6 records have one content asset, one fulltext document, embedding chunks, and all seven standard stages `SUCCEEDED`.
+- Net D75 effect:
+  - Effective literature: +6.
+  - Candidate pool: +6.
+  - `DISCOVERED` candidate count: 0.
+  - Managed/effective corpus reached 394/394.
+  - Direction counts became RAG 131, test-time 111, and serving 148.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 20 |
-| Candidate pool | 616 |
+| Candidate batches | 24 |
+| Candidate pool | 631 |
 | Discovered candidates | 0 |
 | Ready candidates | 81 |
-| Promoted candidates | 252 |
+| Promoted candidates | 267 |
 | Deferred candidates | 126 |
-| Managed corpus | 379 |
-| Effective literature | 379 |
+| Managed corpus | 394 |
+| Effective literature | 394 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: commit D70 records, then continue with a narrow exact-title/source-backed refill or a small high-band source-available tranche.
+- Preferred next collection step: continue source-backed RAG/test-time exact-title refill in small tranches, or run a broader B10 catalog expansion if candidate-pool growth becomes the priority.
 - Keep the repaired selector host gate active before any future DOI-heavy broad apply.
 - Keep promoting only high-band clean candidates and leave medium/application-tail candidates deferred or rejected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

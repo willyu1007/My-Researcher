@@ -5,10 +5,10 @@
 - Current task: `T-122 literature-scaleout-corpus-strategy`.
 - Origin task: `T-120`.
 - Related track: `T-121` is the pgvector/retrieval track, not the origin package.
-- Latest completed collection checkpoint: D70 D69 RAG promote/B12 plus test-time direction-balance completion.
-- Latest candidate refill checkpoint: D70 test-time exact-title source-backed B10 refill.
+- Latest completed collection checkpoint: D75 balanced RAG/test-time exact-title refill, promote, and B12 completion.
+- Latest candidate refill checkpoint: D75 OpenAlex exact-title source-backed B10 refill.
 - Latest cleanup checkpoint: D70 TechRxiv source-access soft exclusion.
-- Next decision: commit D70 records, then continue narrow source-backed refill or a small high-band source-available tranche.
+- Next decision: continue source-backed RAG/test-time refill in small exact-title tranches, or run a broader B10 catalog expansion if candidate-pool growth becomes the priority.
 
 ## Goal
 - Build a lightweight literature candidate layer for large-scale collection across:
@@ -23,37 +23,61 @@
 
 | Metric | Current value |
 | --- | ---: |
-| Candidate batches | 20 |
-| Candidate pool records | 616 |
+| Candidate batches | 24 |
+| Candidate pool records | 631 |
 | Candidate `DISCOVERED` records | 0 |
 | Candidate `READY_FOR_PROMOTION` records | 81 |
-| Candidate `PROMOTED` records | 252 |
+| Candidate `PROMOTED` records | 267 |
 | Candidate `DUPLICATE` records | 139 |
 | Candidate `DEFERRED` records | 126 |
 | Candidate `REJECTED` records | 18 |
-| Managed adaptive corpus | 379 |
-| Effective literature | 379 |
+| Managed adaptive corpus | 394 |
+| Effective literature | 394 |
 | Incomplete managed records | 0 |
 | Pipeline blockers | 0 |
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 25 |
-| Raw DB literature records | 404 |
+| Raw DB literature records | 419 |
 
 Current evidence artifact:
-- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-after-d70-final-balanced.json`
+- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d75-after-rag-testtime-final-count.json`
 
 ## Theory-Support Target
-- Target-qualified theory-support set is closed at 50/50.
-- Effective `collection:theory-support` records: 52.
+- Original target-qualified theory-support set is closed above target at 54/50.
+- Effective `collection:theory-support` records: 60.
 - Scope-borderline theory-support records excluded from the target count: `LIT-0259`, `LIT-0260`.
 - Target slot state:
 
 | Slot | Current |
 | --- | ---: |
-| Math foundation | 12/12 |
-| RAG allocation | 13/13 |
+| Math foundation | 16/12 |
+| RAG allocation | 17/13 |
 | Test-time budget | 13/13 |
 | Serving scheduling | 12/12 |
+
+## Math Theory Support Audit
+- Latest audit artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/20260610T-d74-math-theory-support-audit.json`.
+- Effective theory-support records: 60.
+- Target-qualified theory-support records: 54.
+- Current math-support buckets:
+
+| Bucket | Count | Representative records |
+| --- | ---: | --- |
+| Measure and information | 6 | `LIT-0250`, `LIT-0252`, `LIT-0255`, `LIT-0256`, `LIT-0258`, `LIT-0335` |
+| Group/action geometry | 6 | `LIT-0259`, `LIT-0260`, `LIT-0587`-`LIT-0590` |
+| Metric and high-dimensional geometry | 10 | `LIT-0251`, `LIT-0252`, `LIT-0253`, `LIT-0259`, `LIT-0260`, `LIT-0588`, `LIT-0590` |
+| Submodular and budgeted selection | 9 | `LIT-0249`, `LIT-0409`, `LIT-0445`, `LIT-0476`, `LIT-0483` |
+| Bandit, stopping, and online allocation | 9 | `LIT-0254`, `LIT-0458`, `LIT-0459`, `LIT-0476` subset |
+| Queueing and serving scheduling | 13 | `LIT-0261`, `LIT-0455`-`LIT-0472` subset |
+
+- Assessment: measure/information, metric geometry, group/action geometry, submodular/budgeted selection, and queueing/scheduling are usable now.
+- D74 gap closure: group/action geometry now has 6 effective records; 4 are D74 non-borderline canonical support records.
+- Recency policy: math theory support is canonicality-first, not recency-first. Classic pre-2018 papers are acceptable when they provide reusable formal tools for measure, geometry, group actions, optimization, queueing, or online allocation.
+- D74 completed group/action-geometry records:
+  - `LIT-0587`: `Deep Sets`.
+  - `LIT-0588`: `A General Theory of Equivariant CNNs on Homogeneous Spaces`.
+  - `LIT-0589`: `Intertwiners between Induced Representations (with Applications to the Theory of Equivariant Neural Networks)`.
+  - `LIT-0590`: `General $E(2)$-Equivariant Steerable CNNs`.
 
 ## Soft Exclusions
 - Soft-excluded source-access records remain out of managed/effective progress metrics:
@@ -133,7 +157,7 @@ Current evidence artifact:
 - [x] Default B12 key-content path is `codex_curated`; provider extraction is explicit-only.
 - [x] B13 counting convention separates candidate, managed, effective, blocked, not-started, and non-corpus metrics.
 - [x] Source-backed B10/B11/B12 tranches can move candidates to effective literature with 0 managed blockers.
-- [x] Theory-support target is closed at 50/50 target-qualified records.
+- [x] Theory-support target is closed above target at 54/50 target-qualified records.
 - [ ] B10 broad discovery is scaled from hundreds toward 5000-8000 candidate-pool records.
 - [ ] B11 promotion is scaled from small tranches toward 200-300 managed-corpus promotions per run.
 - [ ] B12 completion is scaled from small tranches toward 80-120 effective-literature completions per run.

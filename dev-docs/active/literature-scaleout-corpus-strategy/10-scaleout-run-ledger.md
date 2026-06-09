@@ -6,13 +6,13 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D70 D69 RAG promote/B12 plus test-time direction-balance completion.
-- Latest candidate checkpoint: after D70 test-time exact-title source-backed B10 refill.
-- Candidate pool: 616.
-- Managed corpus: 379.
-- Effective literature: 379.
+- Latest corpus checkpoint: after D75 balanced RAG/test-time exact-title promote/B12 completion.
+- Latest candidate checkpoint: after D75 OpenAlex exact-title source-backed B10 refill, fully promoted in D75.
+- Candidate pool: 631.
+- Managed corpus: 394.
+- Effective literature: 394.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
-- Theory-support target: 50/50 target-qualified records.
+- Theory-support target: 54/50 target-qualified records.
 
 ## Decision Ledger
 
@@ -88,6 +88,11 @@
 | D68 | Repaired selector source/tail gating, ran a broad B11 pass, completed 4 source-backed records, and soft-excluded 15 source-failed or non-selector-selected promoted rows. |
 | D69 | Refilled the candidate layer with 2 narrow RAG source-backed candidates and validated both as high-band ready in B11 dry-run. |
 | D70 | Promoted/completed the 2 D69 RAG records, soft-excluded one TechRxiv 403 source failure, and completed one exact-title test-time balance record, reaching 379 effective records. |
+| D71 | Refilled the candidate layer with 2 narrow RAG arXiv-backed candidates and validated both as high-band ready in B11 dry-run. |
+| D72 | Promoted/completed the 2 D71 RAG exact-ID records, then staged 3 test-time exact-ID source-backed candidates and validated all 3 as high-band ready in B11 dry-run. |
+| D73 | Promoted/completed the 3 D72 test-time exact-ID records, fixed the theory-support count drift, and audited measure/group/math theory support. |
+| D74 | Added opt-in math-foundation gates, promoted/completed 4 group/action geometry theory records, and lifted managed/effective corpus to 388. |
+| D75 | Repaired narrow test-time strategy scoring, promoted/completed 6 balanced RAG/test-time source-backed records, and lifted managed/effective corpus to 394. |
 
 ## Effective-Literature Growth Ledger
 
@@ -113,6 +118,10 @@
 | D67 test-time existing source-backed tranche | 4 | 372 |
 | D68 source/tail-gated broad selector apply | 4 | 376 |
 | D70 RAG plus test-time direction balance | 3 | 379 |
+| D72 D71 RAG exact-ID completion | 2 | 381 |
+| D73 D72 test-time exact-ID completion | 3 | 384 |
+| D74 math-theory group/action completion | 4 | 388 |
+| D75 balanced RAG/test-time exact-title completion | 6 | 394 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -154,6 +163,42 @@
   - `20260610T-d70-testtime-sample-compute-allocation-b11-apply-promote-b11-candidate-triage-report.json`
   - `20260610T-d70-testtime-sample-compute-b12-index-apply-b12-content-backfill-pilot-report.json`
   - `20260610T-after-d70-final-balanced.json`
+- Current D71 B10 refill evidence:
+  - `20260610T-d71-rag-testtime-narrow-sourcebacked-scout-b10-candidate-discovery-report.json`
+  - `20260610T-d71-rag-testtime-exact-id-sourcebacked-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d71-rag-exact-id-sourcebacked-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d71-rag-exact-id-sourcebacked-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-after-d71-rag-sourcebacked-refill.json`
+- Current D72 completion/refill evidence:
+  - `20260610T-d72-d71-rag-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d72-rag-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d72-rag-dossier-apply-key-content-curated-apply.json`
+  - `20260610T-d72-testtime-exact-id-sourcebacked-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d72-testtime-exact-id-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-after-d72-final-testtime-refill.json`
+  - `20260610T-d72-live-final-count.json`
+- Current D73 completion/math-audit evidence:
+  - `20260610T-d73-d72-testtime-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d73-testtime-b12-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d73-testtime-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d73-testtime-dossier-apply-key-content-curated-apply.json`
+  - `20260610T-d73-after-testtime-promotion-final-count.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260610T-d73-math-theory-support-audit.json`
+- Current D74 completion/math-theory evidence:
+  - `20260610T-d74-math-theory-openalex-exact-title-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d74-math-theory-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d74-math-theory-b12-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d74-math-theory-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d74-math-theory-dossier-apply-key-content-curated-apply.json`
+  - `20260610T-d74-after-math-theory-final-count.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/20260610T-d74-math-theory-support-audit.json`
+- Current D75 completion evidence:
+  - `20260610T-d75-rag-testtime-exact-title-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d75-rag-testtime-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d75-rag-testtime-b12-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d75-rag-testtime-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d75-rag-testtime-dossier-apply-key-content-curated-apply.json`
+  - `20260610T-d75-after-rag-testtime-final-count.json`
 - Current D64 selector evidence:
   - `20260608T-d64-wide-source-available-selector-dry-run-b11-source-available-selector.json`
 - Current D65 B10 refill evidence:

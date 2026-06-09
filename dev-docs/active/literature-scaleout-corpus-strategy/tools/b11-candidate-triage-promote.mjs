@@ -38,6 +38,7 @@ const maxCandidates = readInteger('B11_MAX_CANDIDATES', 120, { min: 1, max: 1000
 const maxPromotions = readInteger('B11_MAX_PROMOTIONS', 20, { min: 0, max: 300 });
 const readyThreshold = readNumber('B11_READY_THRESHOLD', 0.76, { min: 0, max: 1 });
 const deferThreshold = readNumber('B11_DEFER_THRESHOLD', 0.56, { min: 0, max: 1 });
+const allowMathFoundation = readBoolean('B11_ALLOW_MATH_FOUNDATION', false);
 
 function readArg(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -66,6 +67,12 @@ function readNumber(name, fallback, options) {
   const parsed = raw ? Number.parseFloat(raw) : fallback;
   const value = Number.isFinite(parsed) ? parsed : fallback;
   return Math.max(options.min, Math.min(options.max, value));
+}
+
+function readBoolean(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(raw.toLowerCase());
 }
 
 function normalizeText(value) {
@@ -164,10 +171,73 @@ function triageTags(candidate, decision) {
     'corpus:managed',
     directionTag(decision.direction),
     decision.collection_role,
+    ...theoryTags(candidate, decision),
     batchTag(candidate.batch.batchCode),
     `triage:${decision.triage_band}`,
     `candidate-batch:${candidate.batch.batchCode}`,
   ]);
+}
+
+function theoryTags(candidate, decision) {
+  if (
+    !allowMathFoundation
+    || decision.collection_role !== 'collection:theory-support'
+  ) {
+    return [];
+  }
+
+  const title = lower(candidate.title);
+  const text = `${title} ${lower(candidate.abstractText)}`;
+  if (!hasMathFoundationSignal(title, text)) {
+    return [];
+  }
+
+  const tags = [
+    'theory:math-foundation',
+    'theory:target-qualified',
+  ];
+  if (directionTag(decision.direction) === 'direction:rag-aware-allocation') {
+    tags.push('theory:rag-allocation');
+  }
+  if (hasAny(text, [
+    'equivariant',
+    'equivariance',
+    'group action',
+    'representation',
+    'homogeneous space',
+    'symmetry',
+    'steerable',
+    'deep sets',
+    'permutation invariant',
+    'permutation equivariant',
+    'intertwiners',
+  ])) {
+    tags.push('theory:group-action');
+  }
+  if (hasAny(text, [
+    'homogeneous space',
+    'quotient',
+    'geometric deep learning',
+    'e(2)',
+  ])) {
+    tags.push('theory:quotient-space');
+  }
+  if (hasAny(text, [
+    'metric space',
+    'homogeneous space',
+    'geometric deep learning',
+    'steerable',
+    'e(2)',
+  ])) {
+    tags.push('theory:metric-space');
+  }
+  if (hasAny(text, ['measure'])) {
+    tags.push('theory:measure');
+  }
+  if (hasAny(text, ['optimal transport'])) {
+    tags.push('theory:optimal-transport');
+  }
+  return tags;
 }
 
 function rolePriority(collectionRole) {
@@ -226,15 +296,37 @@ function targetFit(candidate, direction, collectionRole) {
       reasons.push('weak_llm_signal');
     }
   } else if (direction === 'test-time-compute-budgeting') {
-    if (hasAny(title, ['test-time', 'test time', 'inference scaling', 'token-budget', 'budget-aware', 'compute-optimal'])) {
+    if (hasAny(title, [
+      'test-time',
+      'test time',
+      'inference scaling',
+      'inference-aware',
+      'token-budget',
+      'budget-aware',
+      'compute-optimal',
+      'best-of-n',
+      'best of n',
+      'fast and slow',
+    ])) {
       bonus += 0.12;
       reasons.push('test_time_budget_title_signal');
     }
-    if (hasAny(title, ['reasoning', 'scaling laws', 'budget'])) {
+    if (hasAny(title, ['reasoning', 'scaling laws', 'budget', 'sampling', 'thinking'])) {
       bonus += 0.05;
       reasons.push('reasoning_budget_signal');
     }
-    if (!hasAny(text, ['budget', 'compute', 'token', 'scaling', 'reasoning', 'inference'])) {
+    if (!hasAny(text, [
+      'budget',
+      'compute',
+      'token',
+      'scaling',
+      'reasoning',
+      'inference',
+      'sampling',
+      'best-of-n',
+      'best of n',
+      'thinking',
+    ])) {
       penalty += 0.22;
       reasons.push('weak_compute_budget_signal');
     }
@@ -265,8 +357,43 @@ function targetFit(candidate, direction, collectionRole) {
     bonus += 0.04;
     reasons.push('theory_role_alignment');
   }
+  if (allowMathFoundation && collectionRole === 'collection:theory-support' && hasMathFoundationSignal(title, text)) {
+    bonus += 0.15;
+    reasons.push('math_foundation_role_alignment');
+  }
 
   return { bonus, penalty, reject, reasons };
+}
+
+function hasMathFoundationSignal(title, text) {
+  const hasStructuralMathSignal = hasAny(text, [
+    'equivariant',
+    'equivariance',
+    'invariant',
+    'invariance',
+    'group action',
+    'representation',
+    'homogeneous space',
+    'symmetry',
+    'steerable',
+    'deep sets',
+    'permutation invariant',
+    'permutation equivariant',
+    'geometric deep learning',
+    'metric space',
+    'measure',
+    'optimal transport',
+  ]);
+  const hasFoundationTitle = hasAny(title, [
+    'equivariant',
+    'equivariance',
+    'deep sets',
+    'steerable',
+    'geometric deep learning',
+    'intertwiners',
+    'mathematical theory',
+  ]);
+  return hasStructuralMathSignal && hasFoundationTitle;
 }
 
 function scoreCandidate(candidate) {

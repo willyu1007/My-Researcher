@@ -13,60 +13,59 @@
 - Database schema changes require the repo-prisma DB SSOT workflow and a separate scoped migration checkpoint.
 
 ## Latest Verified Corpus Checkpoint
-- Checkpoint: D70 D69 RAG promote/B12 plus test-time direction-balance completion.
+- Checkpoint: D75 balanced RAG/test-time exact-title promote/B12 completion.
 - Status: completed.
 - Evidence root: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 - Key artifacts:
-  - `20260610T-before-d70-d69-rag-promote-b12.json`
-  - `20260610T-d70-d69-rag-b11-apply-promote-b11-candidate-triage-report.json`
-  - `20260610T-d70-d69-rag-b12-index-apply-b12-content-backfill-pilot-report.json`
-  - `20260610T-d70-testtime-balance-b12-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
-  - `20260610T-d70-testtime-sample-compute-allocation-apply-b10-candidate-discovery-report.json`
-  - `20260610T-d70-testtime-sample-compute-allocation-b11-apply-promote-b11-candidate-triage-report.json`
-  - `20260610T-d70-testtime-sample-compute-b12-index-apply-b12-content-backfill-pilot-report.json`
-  - `20260610T-after-d70-final-balanced.json`
+  - `20260610T-d75-rag-testtime-exact-title-final-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d75-rag-testtime-exact-title-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d75-rag-testtime-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d75-rag-testtime-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d75-rag-testtime-b12-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d75-rag-testtime-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d75-after-rag-testtime-final-count.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d75-rag-testtime-dossier-apply-key-content-curated-apply.json`
 - Result:
-  - D70 promoted the 2 D69 RAG candidates as `LIT-0578` and `LIT-0579`; both completed through `INDEXED`.
-  - Direction-balance selector surfaced `LIT-0580`, but TechRxiv/Cloudflare PDF access returned HTTP 403, so it was soft-excluded.
-  - D70 exact-title test-time B10 refill staged `Scaling LLM Inference with Optimized Sample Compute Allocation`, promoted it as `LIT-0581`, and completed it through `INDEXED`.
-  - Final B13 count reports managed/effective corpus 379/379 with 0 incomplete, 0 blocked, and 0 not-started managed records.
+  - D75 staged, promoted, and completed `LIT-0591` through `LIT-0596`; all completed through `INDEXED`.
+  - D75 added a targeted B11 test-time strategy scoring fix for `best-of-n`, `inference-aware`, and `fast and slow` titles without relaxing application-tail gates.
+  - Final B13 count reports managed/effective corpus 394/394 with 0 incomplete, 0 blocked, and 0 not-started managed records.
 
 ## Latest Count Verification
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 20 |
-| Candidate pool records | 616 |
+| Candidate batches | 24 |
+| Candidate pool records | 631 |
 | Candidate discovered records | 0 |
 | Candidate ready-for-promotion records | 81 |
-| Candidate promoted records | 252 |
+| Candidate promoted records | 267 |
 | Candidate duplicate records | 139 |
 | Candidate deferred records | 126 |
 | Candidate rejected records | 18 |
-| Managed corpus records | 379 |
-| Effective literature records | 379 |
+| Managed corpus records | 394 |
+| Effective literature records | 394 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 25 |
 
 ## Latest B10 Candidate Refill Checkpoint
-- Checkpoint: D70 test-time exact-title source-backed B10 refill.
-- Status: completed candidate-layer write, B11 promotion, and B12 completion.
+- Checkpoint: D75 balanced RAG/test-time exact-title source-backed B10 refill.
+- Status: completed candidate-layer write, B11 apply/promote, and B12 completion.
 - Evidence root: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 - Key artifacts:
-  - `20260610T-d70-testtime-balance-sourcebacked-scout-b10-candidate-discovery-report.json`
-  - `20260610T-d70-testtime-sample-compute-allocation-dry-run-b10-candidate-discovery-report.json`
-  - `20260610T-d70-testtime-sample-compute-allocation-apply-b10-candidate-discovery-report.json`
-  - `20260610T-d70-testtime-sample-compute-allocation-b11-dry-run-b11-candidate-triage-report.json`
-  - `20260610T-d70-testtime-sample-compute-allocation-b11-apply-promote-b11-candidate-triage-report.json`
-  - `20260610T-d70-testtime-sample-compute-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d75-rag-testtime-sourcebacked-scout-b10-candidate-discovery-report.json`
+  - `20260610T-d75-rag-testtime-wide-sourcebacked-scout-b10-candidate-discovery-report.json`
+  - `20260610T-d75-testtime-deep-sourcebacked-scout-b10-candidate-discovery-report.json`
+  - `20260610T-d75-rag-testtime-exact-title-final-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d75-rag-testtime-exact-title-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d75-after-rag-testtime-final-count.json`
 - Result:
-  - broad test-time scout found no clean new non-tail candidate to apply.
-  - exact-title dry-run selected `Scaling LLM Inference with Optimized Sample Compute Allocation`.
-  - B10 apply persisted 1 `DISCOVERED` candidate; no `LiteratureRecord` rows were created by B10.
-  - B11 classified it as high-band `READY_FOR_PROMOTION`, promoted it as `LIT-0581`, and B12 completed it through `INDEXED`.
-  - Final B13 count reports candidate pool 616, `DISCOVERED` 0, managed/effective 379/379, and 0 managed blockers.
+  - strict READY-pool source selector selected 0 from existing READY candidates, so D75 used exact-title source-backed B10.
+  - OpenAlex exact-title apply persisted 6 `DISCOVERED` candidates; B10 created no `LiteratureRecord` rows.
+  - B11 classified all 6 as high-band and promoted them as `LIT-0591` through `LIT-0596`.
+  - B12 completed all 6 through `INDEXED`.
+  - Final D75 B13 count reports candidate pool 631, `DISCOVERED` 0, managed/effective 394/394, and 0 managed blockers.
 
 ## Latest Read-Only Selector Checkpoint
 - Checkpoint: D70 test-time balance selector dry-runs.
@@ -82,7 +81,7 @@
   - adding `preprint_doi` surfaced a TechRxiv singleton, but B12 acquisition later failed with HTTP 403 and the promoted record was soft-excluded.
 
 ## Latest Tool Verification
-- Status: completed after D70 promote/B12 and direction-balance update.
+- Status: completed after D75 balanced RAG/test-time completion and documentation update.
 - Commands:
   - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b10-candidate-discovery.mjs`
   - `node --check dev-docs/active/literature-scaleout-corpus-strategy/tools/b11-candidate-triage-promote.mjs`
@@ -93,8 +92,9 @@
   - `node --check dev-docs/active/adaptive-llm-systems-literature-pipeline-completion/tools/key-content-curated-dossier-runner.mjs`
   - `git diff --check -- dev-docs/active/literature-scaleout-corpus-strategy`
   - `LC_ALL=C rg -n "[^\x00-\x7F]" dev-docs/active/literature-scaleout-corpus-strategy/00-overview.md dev-docs/active/literature-scaleout-corpus-strategy/03-implementation-notes.md dev-docs/active/literature-scaleout-corpus-strategy/04-verification.md dev-docs/active/literature-scaleout-corpus-strategy/07-b10-candidate-discovery.md dev-docs/active/literature-scaleout-corpus-strategy/08-b11-candidate-triage-promote.md dev-docs/active/literature-scaleout-corpus-strategy/09-b12-standard-pipeline-pilot.md dev-docs/active/literature-scaleout-corpus-strategy/10-scaleout-run-ledger.md`
+  - `SCALEOUT_COUNTING_RUN_ID=20260610T-d75-after-rag-testtime-final-count TS_NODE_PROJECT=apps/backend/tsconfig.json TS_NODE_TRANSPILE_ONLY=1 node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs dev-docs/active/literature-scaleout-corpus-strategy/tools/literature-scaleout-counting-report.mjs`
   - `git ls-files --others --exclude-standard dev-docs/active/literature-scaleout-corpus-strategy/artifacts`
-  - `find dev-docs/active/literature-scaleout-corpus-strategy/artifacts dev-docs/active/adaptive-llm-systems-literature-pipeline-completion/artifacts -maxdepth 1 -type f \( -name '20260610T-d70*' -o -name '20260610T-after-d70*' -o -name '20260610T-before-d70*' \) -print`
+  - `find dev-docs/active/literature-scaleout-corpus-strategy/artifacts dev-docs/active/adaptive-llm-systems-literature-pipeline-completion/artifacts -maxdepth 1 -type f -name '20260610T-d75*.json' -print`
   - `node .ai/tests/run.mjs --suite database`
   - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
   - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
@@ -107,15 +107,16 @@
   - B12 content backfill syntax check passed.
   - curated dossier runner syntax check passed.
   - markdown diff whitespace check passed.
-  - no non-ASCII drift was introduced in the updated D69 docs.
-  - no D70 generated artifact remains under versioned task artifact directories.
+  - no non-ASCII drift was introduced in the updated D75 docs.
+  - fresh D75 live counting report matched the final B13 metrics.
+  - no D75 generated artifact remains under versioned task artifact directories.
   - database suite passed.
   - governance sync completed.
   - governance lint passed with the existing unrelated T-115 warning.
 
 ## Governance Verification
-- Latest D70 governance sync completed after D70 documentation update.
-- Latest D70 governance lint passed with the existing unrelated T-115 warning:
+- Latest D75 governance sync completed after D75 documentation update.
+- Latest D75 governance lint passed with the existing unrelated T-115 warning:
   - `T-115 topic-selection-v1b-human-review-path` is `done` while its historical overview acceptance checklist remains unchecked.
 - Treat the T-115 warning as out of scope for T-122 literature work unless the user asks to clean that task package.
 
@@ -137,7 +138,7 @@
   - remaining warning is the existing unrelated T-115 acceptance-checkbox warning.
 
 ## Historical Verification Index
-- D1-D70 verification details have been compacted into `10-scaleout-run-ledger.md`.
+- D1-D75 verification details have been compacted into `10-scaleout-run-ledger.md`.
 - Full generated JSON evidence remains under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.
 - Previous expanded verification logs remain available in git history before the D56 documentation cleanup.
-- D70 direction-balance details and D65-D69 refill/promotion/B12 details are captured above and summarized in `10-scaleout-run-ledger.md`.
+- D75 corpus details and D65-D74 refill/promotion/B12 details are captured above and summarized in `10-scaleout-run-ledger.md`.

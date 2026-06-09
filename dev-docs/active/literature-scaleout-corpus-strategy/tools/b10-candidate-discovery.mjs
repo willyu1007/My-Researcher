@@ -37,6 +37,7 @@ const arxivDelayMs = readInteger('B10_ARXIV_DELAY_MS', 3200, { min: 0, max: 6000
 const providerRetries = readInteger('B10_PROVIDER_RETRIES', 2, { min: 1, max: 5 });
 const minYear = readInteger('B10_MIN_YEAR', 2018, { min: 1900, max: 2100 });
 const requireSourceAvailable = readBoolean('B10_REQUIRE_SOURCE_AVAILABLE', false);
+const allowMathFoundation = readBoolean('B10_ALLOW_MATH_FOUNDATION', false);
 const queryAllowlistRegexRaw = process.env.B10_QUERY_ALLOWLIST_REGEX ?? '';
 const queryExcludeRegexRaw = process.env.B10_QUERY_EXCLUDE_REGEX ?? '';
 const titleAllowlistRegexRaw = process.env.B10_TITLE_ALLOWLIST_REGEX ?? '';
@@ -657,6 +658,7 @@ function passesTrackFocus(candidate) {
   if (candidate.direction === 'rag-aware-allocation') {
     if (isWeakRagApplicationTail(title, text)) return false;
     if (candidate.collectionRole === 'collection:theory-support') {
+      if (allowMathFoundation && hasMathFoundationSignal(title, text)) return true;
       return hasAny(text, ['retrieval', 'ranking', 'selection', 'submodular', 'budget'])
         && hasAny(text, ['allocation', 'budget', 'selection', 'adaptive', 'optimization', 'stopping']);
     }
@@ -771,6 +773,36 @@ function hasAny(text, terms) {
 function hasRagSignal(text) {
   return /\brag\b/i.test(text)
     || hasAny(text, ['retrieval augmented generation', 'retrieval-augmented generation']);
+}
+
+function hasMathFoundationSignal(title, text) {
+  const hasStructuralMathSignal = hasAny(text, [
+    'equivariant',
+    'equivariance',
+    'invariant',
+    'invariance',
+    'group action',
+    'group convolution',
+    'homogeneous space',
+    'symmetry',
+    'steerable',
+    'deep sets',
+    'permutation invariant',
+    'permutation equivariant',
+    'geometric deep learning',
+    'metric space',
+    'measure',
+    'optimal transport',
+  ]);
+  const hasFoundationTitle = hasAny(title, [
+    'equivariant',
+    'equivariance',
+    'deep sets',
+    'steerable',
+    'geometric deep learning',
+    'mathematical theory',
+  ]);
+  return hasStructuralMathSignal && hasFoundationTitle;
 }
 
 function isWeakRagApplicationTail(title, text) {

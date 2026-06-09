@@ -2,16 +2,16 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D70 D69 RAG promote plus test-time direction-balance promote.
-- Latest B11 dry-run: D70 current balance and exact-title test-time validation.
+- Latest B11 DB-writing run: D75 balanced RAG/test-time exact-title promote.
+- Latest B11 dry-run: D75 balanced RAG/test-time exact-title validation.
 - Current candidate state:
   - 0 `DISCOVERED`
   - 81 `READY_FOR_PROMOTION`
-  - 252 `PROMOTED`
+  - 267 `PROMOTED`
   - 139 `DUPLICATE`
   - 126 `DEFERRED`
   - 18 `REJECTED`
-- Current recommendation: use exact-title/source-backed inputs for the next small tranche; avoid forcing noisy READY tails.
+- Current recommendation: avoid forcing noisy READY tails; use narrow exact-title/source-backed refill for the next clean tranche.
 
 ## Entrypoint
 - Script: `tools/b11-candidate-triage-promote.mjs`
@@ -44,6 +44,7 @@
 - `B11_MAX_PROMOTIONS`: maximum candidates to promote.
 - `B11_READY_THRESHOLD`: score threshold for `READY_FOR_PROMOTION`.
 - `B11_DEFER_THRESHOLD`: score threshold for `DEFERRED` versus `REJECTED`.
+- `B11_ALLOW_MATH_FOUNDATION`: opt-in math-foundation scoring and fine-grained `theory:*` tagging for canonical theory refills; default `false`.
 
 ## Triage Rules
 - Existing `LiteratureRecord` matches are authoritative duplicates.
@@ -53,6 +54,7 @@
 - High-fit candidates become `READY_FOR_PROMOTION`.
 - Domain-specific RAG tails, benchmark/survey tails, and position papers are held as `DEFERRED` unless later rules promote them.
 - Application recipe tails are `REJECTED`.
+- Test-time strategy signals include explicit budget/compute terms plus `best-of-n`, `best of n`, `inference-aware`, `fast and slow`, `sampling`, and `thinking`; application-tail gates still apply.
 
 ## Promote Boundary
 - Promotion reuses `LiteratureService.collectionImport`.
@@ -62,6 +64,7 @@
   - one `collection:*` tag
   - one `batch:*` tag
   - one `triage:*` tag
+  - opt-in math-foundation `theory:*` tags when `B11_ALLOW_MATH_FOUNDATION=true`
 - If promotion finds an existing literature match, the candidate is marked `DUPLICATE` rather than `PROMOTED`.
 - Promotion alone does not make literature effective; B12 must complete through `INDEXED`.
 
@@ -103,6 +106,11 @@
 | D68 | source/tail-gated broad source-available pass | 19 promoted, 15 soft-excluded | `LIT-0559`-`LIT-0577` | 4 completed |
 | D69 | narrow RAG source-backed refill validation | 2 high-band ready in dry-run | candidates only | not promoted |
 | D70 | D69 RAG plus test-time balance | 4 promoted, 1 soft-excluded | `LIT-0578`-`LIT-0581` | 3 completed |
+| D71 | narrow RAG exact-ID source-backed refill validation | 2 high-band ready in dry-run | candidates only | not promoted |
+| D72 | D71 RAG promote plus test-time exact-ID validation | 2 promoted; 3 high-band ready in dry-run | `LIT-0582`-`LIT-0583` | 2 completed |
+| D73 | D72 test-time exact-ID promote | 3 promoted | `LIT-0584`-`LIT-0586` | completed |
+| D74 | math-theory group/action exact-title promote | 4 promoted | `LIT-0587`-`LIT-0590` | completed |
+| D75 | balanced RAG/test-time exact-title promote | 6 promoted | `LIT-0591`-`LIT-0596` | completed |
 
 ## D55 Details
 - Input batch: `B10-20260608T-d55-openalex-exact-title-apply`.
@@ -253,8 +261,95 @@
   - apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d70-testtime-sample-compute-allocation-b11-apply-promote-b11-candidate-triage-report.json`.
   - promoted `daaa560a-d1e2-44c3-a826-b7ea8c2d6860` as `LIT-0581`.
 
+## D71 Details
+- Input batch: `B10-D71-rag-exact-id-sourcebacked-refill`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d71-rag-exact-id-sourcebacked-b11-dry-run-b11-candidate-triage-report.json`.
+- Dry-run classified both D71 candidates as high-band `READY_FOR_PROMOTION`:
+  - `16580c5d-e876-469c-9b33-bed96a055eec`: `Cluster-based Adaptive Retrieval: Dynamic Context Selection for RAG Applications`, score `0.922`.
+  - `943c9d4a-e998-4471-a8dd-d1eccffef0fa`: `Fast or Better? Balancing Accuracy and Cost in Retrieval-Augmented Generation with Flexible User Control`, score `0.922`.
+- Dry-run only:
+  - candidate DB delta: 0.
+  - `LiteratureRecord` DB delta: 0.
+  - `LiteratureSource` DB delta: 0.
+- Promotion recommendation: use explicit `B11_CANDIDATE_IDS` for these 2 rows, then run B12 arXiv acquisition and `codex_curated` completion.
+
+## D72 Details
+- D71 RAG promote:
+  - dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d72-d71-rag-b11-dry-run-b11-candidate-triage-report.json`.
+  - apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d72-d71-rag-b11-apply-promote-b11-candidate-triage-report.json`.
+  - promoted `16580c5d-e876-469c-9b33-bed96a055eec` as `LIT-0582`.
+  - promoted `943c9d4a-e998-4471-a8dd-d1eccffef0fa` as `LIT-0583`.
+- D72 test-time exact-ID validation:
+  - B10 batch: `B10-D72-testtime-exact-id-sourcebacked-refill`.
+  - dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d72-testtime-exact-id-b11-dry-run-b11-candidate-triage-report.json`.
+  - classified all 3 D72 test-time candidates as high-band `READY_FOR_PROMOTION`.
+  - candidate ids: `a11bd976-fd4a-4236-a5f5-940a434e7acd`, `67659b8a-6a13-4846-b4bb-9b8aa8fdc095`, and `74fda4f3-4c04-473c-80f6-22c1ebbcc5ff`.
+  - dry-run only in D72; D73 later promoted and completed all 3 candidates.
+
+## D73 Details
+- Input: the 3 high-band D72 test-time candidates from `B10-D72-testtime-exact-id-sourcebacked-refill`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d73-d72-testtime-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d73-d72-testtime-b11-apply-promote-b11-candidate-triage-report.json`.
+- Dry-run classified all 3 candidates as high-band `READY_FOR_PROMOTION`.
+- Apply/promote attempted 3 promotions and succeeded for all 3:
+  - `a11bd976-fd4a-4236-a5f5-940a434e7acd` promoted as `LIT-0584`.
+  - `67659b8a-6a13-4846-b4bb-9b8aa8fdc095` promoted as `LIT-0585`.
+  - `74fda4f3-4c04-473c-80f6-22c1ebbcc5ff` promoted as `LIT-0586`.
+- Direction split:
+  - 3 test-time compute budgeting.
+- Collection role split:
+  - 3 strategy-support.
+- DB delta:
+  - `LiteratureRecord`: +3.
+  - `LiteratureSource`: +3.
+
+## D74 Details
+- Input: the 4 D74 math-theory candidates from `B10-D74-math-theory-group-action-exact-title`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d74-math-theory-b11-v2-dry-run-b11-candidate-triage-report.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d74-math-theory-b11-apply-promote-b11-candidate-triage-report.json`.
+- Dry-run with `B11_ALLOW_MATH_FOUNDATION=true` classified all 4 candidates as high-band `READY_FOR_PROMOTION`.
+- Apply/promote attempted 4 promotions and succeeded for all 4:
+  - `7b944aa7-8607-4ba3-b0e1-f26511cd892b` promoted as `LIT-0587`.
+  - `78993dd5-9162-4c66-aa7c-80cbc2e0aab0` promoted as `LIT-0588`.
+  - `1319b3d5-0da8-4c8c-98b9-54cc3ceb9dd4` promoted as `LIT-0589`.
+  - `846f809d-4514-4066-91bc-6a4338814866` promoted as `LIT-0590`.
+- Direction split:
+  - 4 RAG-aware allocation.
+- Collection role split:
+  - 4 theory-support.
+- DB delta:
+  - `LiteratureRecord`: +4.
+  - `LiteratureSource`: +4.
+- D74-only tag backfill artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d74-math-theory-tag-backfill.json`.
+
+## D75 Details
+- Input: the 6 D75 exact-title candidates from `B10-D75-rag-testtime-exact-title-sourcebacked`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d75-rag-testtime-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d75-rag-testtime-b11-apply-promote-b11-candidate-triage-report.json`.
+- Dry-run classified all 6 candidates as high-band `READY_FOR_PROMOTION`.
+- Apply/promote attempted 6 promotions and succeeded for all 6:
+  - `0d9ea04b-28eb-4c01-9c02-f50d98f1849e` promoted as `LIT-0591`.
+  - `9bd8f94b-af7b-4292-926f-a58ed355e964` promoted as `LIT-0592`.
+  - `f8cbdeef-f04e-4a58-949e-154134b8a2fd` promoted as `LIT-0593`.
+  - `42501719-c52b-4ffa-a5d6-a418049f9867` promoted as `LIT-0594`.
+  - `4a6988c0-ead8-4314-a3af-26b98a9901aa` promoted as `LIT-0595`.
+  - `f3479b44-5387-4d28-9012-020d7558f05a` promoted as `LIT-0596`.
+- Direction split:
+  - 4 RAG-aware allocation.
+  - 2 test-time compute budgeting.
+- Collection role split:
+  - 4 core.
+  - 2 strategy-support.
+- DB delta:
+  - `LiteratureRecord`: +6.
+  - `LiteratureSource`: +6.
+- D75 scoring note:
+  - added targeted test-time strategy signals for `best-of-n`, `inference-aware`, and `fast and slow` titles so source-backed sampling/reasoning papers are not misclassified solely because OpenAlex abstracts are sparse.
+  - application-tail gates were not relaxed.
+
 ## Next B11 Path
-- For direction balance, continue stricter RAG/test-time exact-title or arXiv-ID refill before larger B11 apply.
+- For direction balance, current D75 count is test-time 111, RAG 131, and serving 148 among managed records.
+- For math-theory strengthening, group/action geometry is no longer the immediate gap; add only named formal gaps before touching broad READY tails.
 - For immediate clean growth, use explicit source-backed candidate-id subsets only when selector output is empty or noisy.
 - For immediate effective-literature growth, continue source-backed high-band subsets but label serving-heavy tranches explicitly.
 - For larger scaleout, expand B10 first, then apply source availability and tail filters before B11 promotion.
