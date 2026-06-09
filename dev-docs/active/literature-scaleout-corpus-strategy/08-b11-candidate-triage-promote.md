@@ -2,16 +2,16 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D77 D76 curated catalog plus Atom promote.
-- Latest B11 dry-run: D77 D76 curated catalog plus Atom validation.
+- Latest B11 DB-writing run: D79 D78 serving clean2 promote.
+- Latest B11 dry-run: D79 D78 serving clean2 validation.
 - Current candidate state:
   - 0 `DISCOVERED`
   - 81 `READY_FOR_PROMOTION`
-  - 273 `PROMOTED`
+  - 275 `PROMOTED`
   - 139 `DUPLICATE`
   - 126 `DEFERRED`
   - 18 `REJECTED`
-- Current recommendation: resume candidate-pool scaleout, or run another narrow source-backed refill before the next B11/B12 tranche.
+- Current recommendation: continue B10 scaleout, or run a narrow RAG/test-time refill before the next B11/B12 tranche.
 
 ## Entrypoint
 - Script: `tools/b11-candidate-triage-promote.mjs`
@@ -114,6 +114,44 @@
 | D75 | balanced RAG/test-time exact-title promote | 6 promoted | `LIT-0591`-`LIT-0596` | completed |
 | D76 | curated catalog expansion validation | 5 high-band ready in dry-run | promoted with D77 as `LIT-0597`-`LIT-0602` | completed |
 | D77 | D76 curated catalog plus Atom promote | 6 promoted | `LIT-0597`-`LIT-0602` | completed |
+| D78 | serving clean2 validation | 2 high-band ready in dry-run | candidates only | promoted in D79 |
+| D79 | D78 serving clean2 promote | 2 promoted | `LIT-0603`-`LIT-0604` | completed |
+
+## D79 Details
+- Input candidates came from `B10-D78-serving-clean2-curated`:
+  - `591a5d62-6b43-4755-ad2d-ef82053c691b`: `C2CServe: Leveraging NVLink-C2C for Elastic Serverless LLM Serving on MIG`.
+  - `274d1ff4-258a-4a70-b541-99a65d21975f`: `PIM Is All You Need: A CXL-Enabled GPU-Free System for Large Language Model Inference`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d79-d78-serving-clean2-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d79-d78-serving-clean2-b11-apply-promote-b11-candidate-triage-report.json`.
+- Dry-run classified both candidates as high-band `READY_FOR_PROMOTION`.
+- Apply/promote attempted 2 promotions and succeeded for both.
+- Direction split:
+  - 2 LLM-serving/resource allocation.
+- Collection role split:
+  - 2 system-support.
+- DB delta:
+  - `LiteratureRecord`: +2.
+  - `LiteratureSource`: +2.
+
+## D79 Promoted Records
+- `LIT-0603`: `C2CServe: Leveraging NVLink-C2C for Elastic Serverless LLM Serving on MIG`.
+- `LIT-0604`: `PIM Is All You Need: A CXL-Enabled GPU-Free System for Large Language Model Inference`.
+
+## D78 Details
+- Input candidates came from `B10-D78-serving-clean2-curated`:
+  - `591a5d62-6b43-4755-ad2d-ef82053c691b`: `C2CServe: Leveraging NVLink-C2C for Elastic Serverless LLM Serving on MIG`.
+  - `274d1ff4-258a-4a70-b541-99a65d21975f`: `PIM Is All You Need: A CXL-Enabled GPU-Free System for Large Language Model Inference`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d78-serving-clean2-b11-dry-run-b11-candidate-triage-report.json`.
+- Dry-run classified both candidates as high-band `READY_FOR_PROMOTION`.
+- Direction split:
+  - 2 LLM-serving/resource allocation.
+- Collection role split:
+  - 2 system-support.
+- DB delta:
+  - `LiteratureDiscoveryCandidate`: 0.
+  - `LiteratureRecord`: 0.
+  - `LiteratureSource`: 0.
+- These candidates were promoted in D79.
 
 ## D77 Details
 - Input candidates:

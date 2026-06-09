@@ -506,24 +506,70 @@
   - Managed/effective corpus reached 400/400.
   - Incomplete, blocked, and not-started managed records remain 0/0/0.
 
+### D78 Broad Source-Backed B10 Scaleout And Clean2 Apply
+- Ran an all-track OpenAlex source-backed broad dry-run:
+  - 8 tracks.
+  - 40 executed provider queries.
+  - 0 provider errors.
+  - 800 provider results inspected.
+  - 81 source-backed candidates after B10 focus filters.
+  - 8 new `DISCOVERED` candidates and 73 duplicates.
+- Manual curation rejected 6 of the 8 new candidates as code-completion, quantitative-finance, edge-sensor, model-family, or generic ML-serving tail.
+- Accepted 2 serving/resource-allocation system candidates for clean apply:
+  - `C2CServe: Leveraging NVLink-C2C for Elastic Serverless LLM Serving on MIG`.
+  - `PIM Is All You Need: A CXL-Enabled GPU-Free System for Large Language Model Inference`.
+- Curated exact-title B10 dry-run found 3 source-backed candidates:
+  - 2 `DISCOVERED`.
+  - 1 same-title duplicate for `C2CServe`.
+- B10 apply persisted only `DISCOVERED` rows in batch `B10-D78-serving-clean2-curated`:
+  - `591a5d62-6b43-4755-ad2d-ef82053c691b`: `C2CServe: Leveraging NVLink-C2C for Elastic Serverless LLM Serving on MIG`.
+  - `274d1ff4-258a-4a70-b541-99a65d21975f`: `PIM Is All You Need: A CXL-Enabled GPU-Free System for Large Language Model Inference`.
+- B11 dry-run over the 2 D78 candidates classified both as high-band `READY_FOR_PROMOTION`; no B11 status writes and no promotion were applied in D78.
+- Net D78 effect:
+  - Candidate pool: +2.
+  - `DISCOVERED` candidate count: 2.
+  - Managed/effective corpus remained 400/400.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D79 D78 Serving Clean2 Promote And B12
+- Promoted the 2 D78 high-band serving candidates:
+  - `LIT-0603`: `C2CServe: Leveraging NVLink-C2C for Elastic Serverless LLM Serving on MIG`.
+  - `LIT-0604`: `PIM Is All You Need: A CXL-Enabled GPU-Free System for Large Language Model Inference`.
+- B11 dry-run classified both as high-band `READY_FOR_PROMOTION`; B11 apply/promote created 2 `LiteratureRecord` rows and 2 `LiteratureSource` rows.
+- B12 completed both through `INDEXED`:
+  - standard apply completed citation and abstract, then hit expected `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition succeeded for both and created 2 content assets.
+  - fulltext preprocessing succeeded for both.
+  - source-grounded `codex_curated` dossier import succeeded for both.
+  - final index backfill succeeded for both.
+  - key-content extraction provider calls: 0.
+  - embedding provider calls estimated by final index dry-run: 2.
+- Final state probe confirmed both records have one content asset, one fulltext document, 176 embedding chunks, and all seven standard stages `SUCCEEDED`.
+- Net D79 effect:
+  - Effective literature: +2.
+  - Candidate pool: unchanged after D78 apply.
+  - `DISCOVERED` candidate count: 0.
+  - Managed/effective corpus reached 402/402.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 26 |
-| Candidate pool | 637 |
+| Candidate batches | 27 |
+| Candidate pool | 639 |
 | Discovered candidates | 0 |
 | Ready candidates | 81 |
-| Promoted candidates | 273 |
+| Promoted candidates | 275 |
 | Deferred candidates | 126 |
-| Managed corpus | 400 |
-| Effective literature | 400 |
+| Managed corpus | 402 |
+| Effective literature | 402 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: pick between candidate-pool scaleout via broader B10 expansion and another narrow RAG/test-time exact-source refill; candidate-pool size is still far below the 5,000-8,000 planning range.
+- Preferred next collection step: continue broader B10 expansion for candidate-pool recall, or run a narrow RAG/test-time refill if direction balance is preferred.
 - Keep the repaired selector host gate active before any future DOI-heavy broad apply.
 - Keep promoting only high-band clean candidates and leave medium/application-tail candidates deferred or rejected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

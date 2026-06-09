@@ -2,10 +2,10 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D77 serving Atom exact-source refill.
-- Current candidate pool: 637 records.
-- Current `DISCOVERED` candidates: 0 after D77 B11/B12 completion.
-- Current recommendation: resume candidate-pool scaleout, or run another narrow RAG/test-time exact-source refill if direction balance is preferred.
+- Latest DB-writing B10 run: D78 serving clean2 curated source-backed apply.
+- Current candidate pool: 639 records.
+- Current `DISCOVERED` candidates: 0 after D79 B11/B12 completion.
+- Current recommendation: continue B10 scaleout if candidate-pool recall is preferred, or run a narrow RAG/test-time refill for direction balance.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -96,6 +96,25 @@
 | D75 | Balanced RAG/test-time exact-title refill | 6 clean candidates staged | Promoted as `LIT-0591`-`LIT-0596` and completed |
 | D76 | Curated catalog expansion from broad source-backed scout | 5 clean candidates staged | Promoted with D77 as `LIT-0597`-`LIT-0602` and completed |
 | D77 | Serving Atom exact-source refill after test-time scout found no new clean rows | 1 clean serving candidate staged | Promoted with D76 and completed |
+| D78 | Broad source-backed scaleout followed by serving clean2 curated apply | 2 clean serving candidates staged | Promoted as `LIT-0603`-`LIT-0604` in D79 and completed |
+
+## D78 Details
+- Broad source-backed OpenAlex scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d78-broad-sourcebacked-scaleout-dry-run-b10-candidate-discovery-report.json`
+  - ran 8 tracks, 40 queries, and 0 provider errors.
+  - inspected 800 provider results.
+  - found 81 source-backed B10 candidates: 8 `DISCOVERED`, 73 duplicates.
+  - direction split: 60 serving, 14 RAG, 7 test-time.
+- Manual curation rejected 6 of the 8 new rows as code-completion, quantitative-finance, edge-sensor, model-family, or generic ML-serving tail.
+- Curated exact-title dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d78-serving-clean2-curated-dry-run-b10-candidate-discovery-report.json`
+  - found 3 source-backed rows: 2 `DISCOVERED` and 1 same-title duplicate.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d78-serving-clean2-curated-apply-b10-candidate-discovery-report.json`
+- Batch id: `bf0f9bb1-5601-4cd4-be78-c8d2bf8521d9`.
+- Batch code: `B10-D78-serving-clean2-curated`.
+- Persisted 2 `DISCOVERED` candidates and created no `LiteratureRecord` rows:
+  - `591a5d62-6b43-4755-ad2d-ef82053c691b`: `C2CServe: Leveraging NVLink-C2C for Elastic Serverless LLM Serving on MIG`.
+  - `274d1ff4-258a-4a70-b541-99a65d21975f`: `PIM Is All You Need: A CXL-Enabled GPU-Free System for Large Language Model Inference`.
+- These candidates were promoted and completed in D79.
 
 ## D77 Details
 - Test-time exact-source scout:
