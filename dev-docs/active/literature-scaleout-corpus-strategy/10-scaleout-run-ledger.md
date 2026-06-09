@@ -6,11 +6,11 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D75 balanced RAG/test-time exact-title promote/B12 completion.
-- Latest candidate checkpoint: after D75 OpenAlex exact-title source-backed B10 refill, fully promoted in D75.
-- Candidate pool: 631.
-- Managed corpus: 394.
-- Effective literature: 394.
+- Latest corpus checkpoint: after D77 D76 curated catalog plus Atom promote/B12 completion.
+- Latest candidate checkpoint: after D77 serving Atom exact-source refill, promoted and completed with D76 candidates.
+- Candidate pool: 637.
+- Managed corpus: 400.
+- Effective literature: 400.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 54/50 target-qualified records.
 
@@ -93,6 +93,8 @@
 | D73 | Promoted/completed the 3 D72 test-time exact-ID records, fixed the theory-support count drift, and audited measure/group/math theory support. |
 | D74 | Added opt-in math-foundation gates, promoted/completed 4 group/action geometry theory records, and lifted managed/effective corpus to 388. |
 | D75 | Repaired narrow test-time strategy scoring, promoted/completed 6 balanced RAG/test-time source-backed records, and lifted managed/effective corpus to 394. |
+| D76 | Ran broad then narrow source-backed catalog scouts, curated 5 clean candidates into staging, and validated all 5 as high-band in B11 dry-run. |
+| D77 | Test-time small refill scouts found no clean new row; staged `Atom`, promoted/completed D76 plus Atom, and lifted managed/effective corpus to 400. |
 
 ## Effective-Literature Growth Ledger
 
@@ -122,6 +124,8 @@
 | D73 D72 test-time exact-ID completion | 3 | 384 |
 | D74 math-theory group/action completion | 4 | 388 |
 | D75 balanced RAG/test-time exact-title completion | 6 | 394 |
+| D76 candidate-layer catalog expansion | 0 | 394 |
+| D77 D76 curated catalog plus Atom completion | 6 | 400 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -199,6 +203,21 @@
   - `20260610T-d75-rag-testtime-b12-index-apply-b12-content-backfill-pilot-report.json`
   - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d75-rag-testtime-dossier-apply-key-content-curated-apply.json`
   - `20260610T-d75-after-rag-testtime-final-count.json`
+- Current D76 candidate-layer expansion evidence:
+  - `20260610T-d76-broad-catalog-expansion-scout-b10-candidate-discovery-report.json`
+  - `20260610T-d76-rag-testtime-narrow-catalog-scout-b10-candidate-discovery-report.json`
+  - `20260610T-d76-curated-catalog-expansion-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d76-curated-catalog-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d76-after-curated-catalog-count.json`
+- Current D77 refill/completion evidence:
+  - `20260610T-d77-testtime-foundation-exact-source-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d77-testtime-arxiv-search-scout-b10-candidate-discovery-report.json`
+  - `20260610T-d77-serving-atom-exact-source-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d77-d76-plus-atom-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d77-serving-rag-b12-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d77-serving-rag-b12-index-apply-b12-content-backfill-pilot-report.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d77-serving-rag-dossier-apply-key-content-curated-apply.json`
+  - `20260610T-d77-after-serving-rag-final-count.json`
 - Current D64 selector evidence:
   - `20260608T-d64-wide-source-available-selector-dry-run-b11-source-available-selector.json`
 - Current D65 B10 refill evidence:

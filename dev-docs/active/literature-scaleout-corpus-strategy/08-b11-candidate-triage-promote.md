@@ -2,16 +2,16 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D75 balanced RAG/test-time exact-title promote.
-- Latest B11 dry-run: D75 balanced RAG/test-time exact-title validation.
+- Latest B11 DB-writing run: D77 D76 curated catalog plus Atom promote.
+- Latest B11 dry-run: D77 D76 curated catalog plus Atom validation.
 - Current candidate state:
   - 0 `DISCOVERED`
   - 81 `READY_FOR_PROMOTION`
-  - 267 `PROMOTED`
+  - 273 `PROMOTED`
   - 139 `DUPLICATE`
   - 126 `DEFERRED`
   - 18 `REJECTED`
-- Current recommendation: avoid forcing noisy READY tails; use narrow exact-title/source-backed refill for the next clean tranche.
+- Current recommendation: resume candidate-pool scaleout, or run another narrow source-backed refill before the next B11/B12 tranche.
 
 ## Entrypoint
 - Script: `tools/b11-candidate-triage-promote.mjs`
@@ -76,6 +76,7 @@
 - D67 broad selector again selected 0 from a noisy READY pool; explicit source-backed candidate-id promotion was cleaner than `assume-source-available`.
 - D68 repaired DOI source gating with `source_access`, likely PDF URL checks, blocked current-downloader hosts, and stricter hard/soft tail separation.
 - D68 showed OpenAlex/Unpaywall OA is not enough for current B12 success; default broad apply must exclude known blocked PDF hosts until downloader behavior changes.
+- D76 showed broad source-backed B10 discovery still needs curated apply filtering: the full scout had 12 new rows but only 5 were clean enough for B11 high-band validation.
 
 ## Recent Promotion Ledger
 
@@ -111,6 +112,47 @@
 | D73 | D72 test-time exact-ID promote | 3 promoted | `LIT-0584`-`LIT-0586` | completed |
 | D74 | math-theory group/action exact-title promote | 4 promoted | `LIT-0587`-`LIT-0590` | completed |
 | D75 | balanced RAG/test-time exact-title promote | 6 promoted | `LIT-0591`-`LIT-0596` | completed |
+| D76 | curated catalog expansion validation | 5 high-band ready in dry-run | promoted with D77 as `LIT-0597`-`LIT-0602` | completed |
+| D77 | D76 curated catalog plus Atom promote | 6 promoted | `LIT-0597`-`LIT-0602` | completed |
+
+## D77 Details
+- Input candidates:
+  - 5 from `B10-D76-curated-catalog-expansion`.
+  - 1 from `B10-D77-serving-atom-exact-source-refill`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d77-d76-plus-atom-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d77-d76-plus-atom-b11-apply-promote-b11-candidate-triage-report.json`.
+- Dry-run classified all 6 candidates as high-band `READY_FOR_PROMOTION`.
+- Apply/promote attempted 6 promotions and succeeded for all 6.
+- Direction split:
+  - 4 LLM-serving/resource allocation.
+  - 2 RAG-aware allocation.
+- Collection role split:
+  - 4 system-support.
+  - 2 theory-support.
+- DB delta:
+  - `LiteratureRecord`: +6.
+  - `LiteratureSource`: +6.
+
+## D77 Promoted Records
+- `LIT-0597`: `EPIC: Efficient Position-Independent Caching for Serving Large Language Models`.
+- `LIT-0598`: `KunServe: Parameter-centric Memory Management for Efficient Memory Overloading Handling in LLM Serving`.
+- `LIT-0599`: `Atom: Low-bit Quantization for Efficient and Accurate LLM Serving`.
+- `LIT-0600`: `Efficient Heterogeneous Large Language Model Decoding with Model-Attention Disaggregation`.
+- `LIT-0601`: `Context Attribution with Multi-Armed Bandit Optimization`.
+- `LIT-0602`: `Retrieval-Enhanced Machine Learning`.
+
+## D76 Details
+- Input batch: `B10-D76-curated-catalog-expansion`.
+- Batch id: `a16bc1f4-36d5-4d70-a2ef-8aa65a55e085`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d76-curated-catalog-b11-dry-run-b11-candidate-triage-report.json`.
+- Dry-run classified all 5 candidates as high-band `READY_FOR_PROMOTION`.
+- Direction split:
+  - 3 LLM-serving/resource allocation.
+  - 2 RAG-aware allocation.
+- Collection role split:
+  - 3 system-support.
+  - 2 theory-support.
+- No DB writes were made by B11 in D76; the candidates were later promoted in D77.
 
 ## D55 Details
 - Input batch: `B10-20260608T-d55-openalex-exact-title-apply`.

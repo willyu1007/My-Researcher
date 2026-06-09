@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
-- Latest B12 run: D75 balanced RAG/test-time exact-title completion.
-- Current managed corpus: 394.
-- Current effective literature: 394.
+- Latest B12 run: D77 D76 curated catalog plus Atom completion.
+- Current managed corpus: 400.
+- Current effective literature: 400.
 - Current managed blockers: 0.
 - Default key-content method: `codex_curated`.
 
@@ -100,7 +100,7 @@
 ## Method Boundary
 - `codex_curated` is the default `KEY_CONTENT_READY` path.
 - Source-grounded curated dossiers are imported before chunk/embed/index backfill.
-- Completed D18-D75 curated imports used 0 key-content extraction provider calls.
+- Completed D18-D77 curated imports used 0 key-content extraction provider calls.
 - `llm_gateway` extraction remains explicit-only and should be used only for bounded diagnostics or approved retries.
 
 ## Completion Ledger
@@ -132,6 +132,7 @@
 | D73 | D72 test-time exact-ID source-backed completion | 3 | completed |
 | D74 | math-theory group/action exact-title completion | 4 | completed |
 | D75 | balanced RAG/test-time exact-title completion | 6 | completed |
+| D77 | D76 curated catalog plus Atom completion | 6 | completed |
 
 ## D55 Details
 - Input: `LIT-0490` through `LIT-0500`.
@@ -537,20 +538,46 @@
   - managed/effective corpus reached 394/394.
   - managed incomplete, blocked, and not-started counts are all 0.
 
+## D77 Details
+- Input: `LIT-0597` through `LIT-0602`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 6 records.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 6 arXiv downloads with 0 blockers.
+  - apply succeeded for all 6 and created 6 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 6 records and created 6 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 6 records.
+  - imports succeeded for all 6 records.
+  - extraction provider calls: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated extraction calls: 0.
+  - estimated embedding calls: 6 total.
+  - content backfill apply succeeded for all 6 records.
+- Final state:
+  - all 6 records have all seven standard stages `SUCCEEDED`.
+  - all 6 have one content asset and one fulltext document.
+  - embedding chunk counts: `LIT-0597` 109, `LIT-0598` 160, `LIT-0599` 126, `LIT-0600` 158, `LIT-0601` 115, `LIT-0602` 120.
+  - managed/effective corpus reached 400/400.
+  - managed incomplete, blocked, and not-started counts are all 0.
+
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d75-after-rag-testtime-final-count.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d77-after-serving-rag-final-count.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 
 | Metric | Value |
 | --- | ---: |
-| Candidate pool records | 631 |
+| Candidate pool records | 637 |
 | Candidate discovered records | 0 |
 | Candidate ready-for-promotion records | 81 |
-| Candidate promoted records | 267 |
+| Candidate promoted records | 273 |
 | Candidate deferred records | 126 |
-| Managed corpus records | 394 |
-| Effective literature records | 394 |
+| Managed corpus records | 400 |
+| Effective literature records | 400 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |

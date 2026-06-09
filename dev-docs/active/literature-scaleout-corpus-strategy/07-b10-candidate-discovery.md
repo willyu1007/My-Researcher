@@ -2,10 +2,10 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D75 balanced RAG/test-time exact-title source-backed refill.
-- Current candidate pool: 631 records.
-- Current `DISCOVERED` candidates: 0 after D75 promotion/B12 of the RAG/test-time refill candidates.
-- Current recommendation: continue small exact-title/source-backed tranches when growing effective literature; use broad B10 expansion when candidate-pool growth is the priority.
+- Latest DB-writing B10 run: D77 serving Atom exact-source refill.
+- Current candidate pool: 637 records.
+- Current `DISCOVERED` candidates: 0 after D77 B11/B12 completion.
+- Current recommendation: resume candidate-pool scaleout, or run another narrow RAG/test-time exact-source refill if direction balance is preferred.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -94,6 +94,49 @@
 | D72 | Test-time exact-ID source-backed refill | 3 clean candidates staged | Promoted as `LIT-0584`-`LIT-0586` in D73 and completed |
 | D74 | Math-theory group/action exact-title refill | 4 clean candidates staged | Promoted as `LIT-0587`-`LIT-0590` and completed |
 | D75 | Balanced RAG/test-time exact-title refill | 6 clean candidates staged | Promoted as `LIT-0591`-`LIT-0596` and completed |
+| D76 | Curated catalog expansion from broad source-backed scout | 5 clean candidates staged | Promoted with D77 as `LIT-0597`-`LIT-0602` and completed |
+| D77 | Serving Atom exact-source refill after test-time scout found no new clean rows | 1 clean serving candidate staged | Promoted with D76 and completed |
+
+## D77 Details
+- Test-time exact-source scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d77-testtime-foundation-exact-source-dry-run-b10-candidate-discovery-report.json`
+  - found 1 source-backed candidate and it was a duplicate of existing `LIT-0227`.
+- arXiv test-time foundation/search scouts:
+  - artifacts:
+    - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d77-testtime-arxiv-foundation-dry-run-b10-candidate-discovery-report.json`
+    - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d77-testtime-arxiv-search-scout-b10-candidate-discovery-report.json`
+  - returned no new clean candidates under the existing test-time focus gate.
+- Accepted small refill:
+  - dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d77-serving-atom-exact-source-dry-run-b10-candidate-discovery-report.json`
+  - apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d77-serving-atom-exact-source-apply-b10-candidate-discovery-report.json`
+  - batch id: `51492d3e-4cd1-4593-afe7-5401f747b016`.
+  - batch code: `B10-D77-serving-atom-exact-source-refill`.
+  - persisted 1 `DISCOVERED` candidate and created no `LiteratureRecord` rows:
+    - `b2184f84-b11c-4164-bc6c-a25ae8abc167`: `Atom: Low-bit Quantization for Efficient and Accurate LLM Serving`.
+
+## D76 Details
+- Broad source-backed OpenAlex scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d76-broad-catalog-expansion-scout-b10-candidate-discovery-report.json`
+  - found 87 source-backed candidates: 12 `DISCOVERED`, 75 duplicates.
+  - new rows were noisy as a full apply set: code-completion, financial-agent, foreground-segmentation, model-family, and other application tails appeared.
+- Narrow RAG/test-time scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d76-rag-testtime-narrow-catalog-scout-b10-candidate-discovery-report.json`
+  - found 11 source-backed candidates: 2 `DISCOVERED`, 9 duplicates.
+  - only `Retrieval-Enhanced Machine Learning` was clean enough from this scout; the `Polis` paper was treated as an application tail.
+- Curated dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d76-curated-catalog-expansion-dry-run-b10-candidate-discovery-report.json`
+  - candidate count: 6.
+  - discovered: 6.
+  - source-available candidates: 6.
+  - direction split: 4 serving, 2 RAG.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d76-curated-catalog-expansion-apply-b10-candidate-discovery-report.json`
+- Batch id: `a16bc1f4-36d5-4d70-a2ef-8aa65a55e085`.
+- Batch code: `B10-D76-curated-catalog-expansion`.
+- Persisted 5 `DISCOVERED` candidates and created no `LiteratureRecord` rows:
+  - `8f14f322-ede3-4b85-a1bd-4446f0314268`: `Context Attribution with Multi-Armed Bandit Optimization`.
+  - `a2c213f3-2cdc-4daf-9e32-f9bd0fe08810`: `Retrieval-Enhanced Machine Learning`.
+  - `7c471a84-a8ae-45e9-a259-fcd5bbaccfcd`: `EPIC: Efficient Position-Independent Caching for Serving Large Language Models`.
+  - `687d242a-0e2b-4b26-bfb6-0658d951a75c`: `Efficient Heterogeneous Large Language Model Decoding with Model-Attention Disaggregation`.
+  - `9b936b74-343c-4436-b2f1-117964d32d90`: `KunServe: Parameter-centric Memory Management for Efficient Memory Overloading Handling in LLM Serving`.
 
 ## D75 Details
 - Initial read-only scout:

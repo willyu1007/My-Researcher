@@ -450,24 +450,80 @@
   - Direction counts became RAG 131, test-time 111, and serving 148.
   - Incomplete, blocked, and not-started managed records remain 0/0/0.
 
+### D76 Catalog Expansion And Curated Source-Backed Apply
+- Ran a broad OpenAlex source-backed catalog scout to raise candidate supply:
+  - 87 candidate rows inspected.
+  - 12 new `DISCOVERED` candidates survived obvious duplicate checks.
+  - 75 were obvious duplicates or unsuitable for clean apply.
+- Ran a narrower RAG/test-time scout:
+  - 11 candidate rows inspected.
+  - 2 were new `DISCOVERED` candidates.
+  - `Retrieval-Enhanced Machine Learning` was the cleanest RAG theory/support candidate.
+- Final curated B10 dry-run selected 6 source-backed candidates; B10 apply persisted 5 `DISCOVERED` candidates in batch `B10-D76-curated-catalog-expansion`.
+- B11 dry-run classified all 5 as high-band `READY_FOR_PROMOTION`; promotion was intentionally deferred and processed together with the next refill.
+- D76 persisted candidate set:
+  - `Context Attribution with Multi-Armed Bandit Optimization`.
+  - `Retrieval-Enhanced Machine Learning`.
+  - `EPIC: Efficient Position-Independent Caching for Serving Large Language Models`.
+  - `Efficient Heterogeneous Large Language Model Decoding with Model-Attention Disaggregation`.
+  - `KunServe: Parameter-centric Memory Management for Efficient Memory Overloading Handling in LLM Serving`.
+- Net D76 candidate-layer effect before promote:
+  - Candidate pool: +5.
+  - `DISCOVERED` candidate count: 5.
+  - Managed/effective corpus remained 394/394.
+  - Incomplete, blocked, and not-started managed records remained 0/0/0.
+
+### D77 Small Refill, Combined Promote, And B12
+- Tried test-time source-backed refill first:
+  - exact-title OpenAlex dry-run only found `Self-Consistency Improves Chain of Thought Reasoning in Language Models`, which was already managed as `LIT-0227`.
+  - arXiv exact-ID and search scouts returned raw records but produced no clean persisted candidates under the current test-time focus gates.
+- Accepted a small serving refill from the D76 broad scout because it was source-backed and high-value:
+  - `Atom: Low-bit Quantization for Efficient and Accurate LLM Serving`.
+  - B10 apply persisted 1 `DISCOVERED` candidate in batch `B10-D77-serving-atom-exact-source-refill`.
+- Combined B11 handled the 5 deferred D76 candidates plus the D77 `Atom` candidate:
+  - dry-run classified all 6 as high-band `READY_FOR_PROMOTION`.
+  - apply/promote created `LIT-0597` through `LIT-0602`.
+- Promoted records:
+  - `LIT-0597`: `EPIC: Efficient Position-Independent Caching for Serving Large Language Models`.
+  - `LIT-0598`: `KunServe: Parameter-centric Memory Management for Efficient Memory Overloading Handling in LLM Serving`.
+  - `LIT-0599`: `Atom: Low-bit Quantization for Efficient and Accurate LLM Serving`.
+  - `LIT-0600`: `Efficient Heterogeneous Large Language Model Decoding with Model-Attention Disaggregation`.
+  - `LIT-0601`: `Context Attribution with Multi-Armed Bandit Optimization`.
+  - `LIT-0602`: `Retrieval-Enhanced Machine Learning`.
+- B12 completed all 6 through `INDEXED`:
+  - standard apply completed citation and abstract, then hit expected `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition succeeded for all 6 and created 6 content assets.
+  - fulltext preprocessing succeeded for all 6.
+  - source-grounded `codex_curated` dossier import succeeded for all 6.
+  - final index backfill succeeded for all 6.
+  - key-content extraction provider calls: 0.
+  - embedding provider calls estimated by final index dry-run: 6.
+- Final state probe confirmed all 6 records have one content asset, one fulltext document, embedding chunks, and all seven standard stages `SUCCEEDED`.
+- Net D77 effect:
+  - Effective literature: +6 from the D76/D77 combined tranche.
+  - Candidate pool: +1 after the D76 +5.
+  - `DISCOVERED` candidate count: 0.
+  - Managed/effective corpus reached 400/400.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 24 |
-| Candidate pool | 631 |
+| Candidate batches | 26 |
+| Candidate pool | 637 |
 | Discovered candidates | 0 |
 | Ready candidates | 81 |
-| Promoted candidates | 267 |
+| Promoted candidates | 273 |
 | Deferred candidates | 126 |
-| Managed corpus | 394 |
-| Effective literature | 394 |
+| Managed corpus | 400 |
+| Effective literature | 400 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: continue source-backed RAG/test-time exact-title refill in small tranches, or run a broader B10 catalog expansion if candidate-pool growth becomes the priority.
+- Preferred next collection step: pick between candidate-pool scaleout via broader B10 expansion and another narrow RAG/test-time exact-source refill; candidate-pool size is still far below the 5,000-8,000 planning range.
 - Keep the repaired selector host gate active before any future DOI-heavy broad apply.
 - Keep promoting only high-band clean candidates and leave medium/application-tail candidates deferred or rejected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

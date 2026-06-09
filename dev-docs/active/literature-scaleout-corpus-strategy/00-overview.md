@@ -5,10 +5,10 @@
 - Current task: `T-122 literature-scaleout-corpus-strategy`.
 - Origin task: `T-120`.
 - Related track: `T-121` is the pgvector/retrieval track, not the origin package.
-- Latest completed collection checkpoint: D75 balanced RAG/test-time exact-title refill, promote, and B12 completion.
-- Latest candidate refill checkpoint: D75 OpenAlex exact-title source-backed B10 refill.
+- Latest completed collection checkpoint: D77 D76 curated catalog plus Atom refill promote/B12 completion.
+- Latest candidate refill checkpoint: D77 serving Atom exact-source refill, promoted and completed with the D76 candidates.
 - Latest cleanup checkpoint: D70 TechRxiv source-access soft exclusion.
-- Next decision: continue source-backed RAG/test-time refill in small exact-title tranches, or run a broader B10 catalog expansion if candidate-pool growth becomes the priority.
+- Next decision: resume candidate-pool scaleout, or run another narrow RAG/test-time exact-source refill if direction balance is preferred.
 
 ## Goal
 - Build a lightweight literature candidate layer for large-scale collection across:
@@ -23,28 +23,28 @@
 
 | Metric | Current value |
 | --- | ---: |
-| Candidate batches | 24 |
-| Candidate pool records | 631 |
+| Candidate batches | 26 |
+| Candidate pool records | 637 |
 | Candidate `DISCOVERED` records | 0 |
 | Candidate `READY_FOR_PROMOTION` records | 81 |
-| Candidate `PROMOTED` records | 267 |
+| Candidate `PROMOTED` records | 273 |
 | Candidate `DUPLICATE` records | 139 |
 | Candidate `DEFERRED` records | 126 |
 | Candidate `REJECTED` records | 18 |
-| Managed adaptive corpus | 394 |
-| Effective literature | 394 |
+| Managed adaptive corpus | 400 |
+| Effective literature | 400 |
 | Incomplete managed records | 0 |
 | Pipeline blockers | 0 |
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 25 |
-| Raw DB literature records | 419 |
+| Raw DB literature records | 425 |
 
 Current evidence artifact:
-- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d75-after-rag-testtime-final-count.json`
+- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d77-after-serving-rag-final-count.json`
 
 ## Theory-Support Target
 - Original target-qualified theory-support set is closed above target at 54/50.
-- Effective `collection:theory-support` records: 60.
+- Effective `collection:theory-support` records: 62.
 - Scope-borderline theory-support records excluded from the target count: `LIT-0259`, `LIT-0260`.
 - Target slot state:
 
