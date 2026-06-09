@@ -6,11 +6,11 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D81 D80 test-time exact arXiv promote/B12 completion.
-- Latest candidate checkpoint: after D80 RAG/test-time exact arXiv refill, promoted and completed in D81.
-- Candidate pool: 642.
-- Managed corpus: 405.
-- Effective literature: 405.
+- Latest corpus checkpoint: after D83 D82 RAG clean2 promote/B12 completion.
+- Latest candidate checkpoint: after D82 RAG/test-time wide source-backed scout and clean2 RAG apply, promoted and completed in D83.
+- Candidate pool: 644.
+- Managed corpus: 407.
+- Effective literature: 407.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 54/50 target-qualified records.
 
@@ -99,6 +99,8 @@
 | D79 | Promoted/completed the 2 D78 serving clean2 candidates as `LIT-0603`-`LIT-0604`, lifting managed/effective corpus to 402. |
 | D80 | Rejected a RAG/test-time broad-scout code-completion tail, then staged 3 exact-arXiv test-time candidates and validated all 3 as high-band in B11 dry-run. |
 | D81 | Promoted/completed the 3 D80 test-time exact arXiv candidates as `LIT-0605`-`LIT-0607`, lifting managed/effective corpus to 405. |
+| D82 | Ran a wider RAG/test-time source-backed scout, rejected tail rows, staged 2 clean RAG core candidates, and validated both as high-band in B11 dry-run. |
+| D83 | Promoted/completed the 2 D82 RAG clean2 candidates as `LIT-0608`-`LIT-0609`, lifting managed/effective corpus to 407. |
 
 ## Effective-Literature Growth Ledger
 
@@ -134,6 +136,8 @@
 | D79 D78 serving clean2 completion | 2 | 402 |
 | D80 candidate-layer exact-arXiv test-time expansion | 0 | 402 |
 | D81 D80 test-time exact arXiv completion | 3 | 405 |
+| D82 candidate-layer RAG clean2 expansion | 0 | 405 |
+| D83 D82 RAG clean2 completion | 2 | 407 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -252,6 +256,21 @@
   - `20260610T-d81-d80-testtime-final-state-probe-b12-standard-pipeline-pilot-report.json`
   - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d81-d80-testtime-dossier-apply-key-content-curated-apply.json`
   - `20260610T-d81-after-d80-testtime-completion-count.json`
+- Current D82 candidate-layer expansion evidence:
+  - `20260610T-d82-before-rag-testtime-scaleout.json`
+  - `20260610T-d82-rag-testtime-wide-sourcebacked-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d82-rag-testtime-arxiv-curated-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d82-rag-testtime-exact-title-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d82-rag-clean2-curated-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d82-rag-clean2-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d82-after-rag-clean2-b10-refill.json`
+- Current D83 completion evidence:
+  - `20260610T-d83-d82-rag-clean2-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d83-d82-rag-clean2-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d83-d82-rag-clean2-backfill-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d83-d82-rag-clean2-final-state-probe-b12-standard-pipeline-pilot-report.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d83-d82-rag-clean2-dossier-apply-key-content-curated-apply.json`
+  - `20260610T-d83-after-d82-rag-clean2-completion-count.json`
 - Current D64 selector evidence:
   - `20260608T-d64-wide-source-available-selector-dry-run-b11-source-available-selector.json`
 - Current D65 B10 refill evidence:

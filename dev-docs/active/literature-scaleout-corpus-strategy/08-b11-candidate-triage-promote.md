@@ -2,12 +2,12 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D81 D80 test-time exact arXiv promote.
-- Latest B11 dry-run: D80 RAG/test-time exact arXiv validation.
+- Latest B11 DB-writing run: D83 D82 RAG clean2 promote.
+- Latest B11 dry-run: D82 RAG clean2 validation.
 - Current candidate state:
   - 0 `DISCOVERED`
   - 81 `READY_FOR_PROMOTION`
-  - 278 `PROMOTED`
+  - 280 `PROMOTED`
   - 139 `DUPLICATE`
   - 126 `DEFERRED`
   - 18 `REJECTED`
@@ -118,6 +118,41 @@
 | D79 | D78 serving clean2 promote | 2 promoted | `LIT-0603`-`LIT-0604` | completed |
 | D80 | RAG/test-time exact arXiv validation | 3 high-band ready in dry-run | candidates only | promoted in D81 |
 | D81 | D80 test-time exact arXiv promote | 3 promoted | `LIT-0605`-`LIT-0607` | completed |
+| D82 | RAG clean2 validation | 2 high-band ready in dry-run | candidates only | promoted in D83 |
+| D83 | D82 RAG clean2 promote | 2 promoted | `LIT-0608`-`LIT-0609` | completed |
+
+## D83 Details
+- Input candidates came from `B10-D82-rag-clean2-curated-refill`:
+  - `09da8750-752c-4765-99d3-9c3bc20cee6d`: `Learning to Filter Context for Retrieval-Augmented Generation`.
+  - `54b93423-322e-4ec3-8d10-d49167bc3faa`: `Unified Active Retrieval for Retrieval Augmented Generation`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d83-d82-rag-clean2-b11-apply-promote-b11-candidate-triage-report.json`.
+- Apply/promote attempted 2 promotions and succeeded for both.
+- Direction split:
+  - 2 RAG-aware allocation.
+- Collection role split:
+  - 2 core.
+- DB delta:
+  - `LiteratureRecord`: +2.
+  - `LiteratureSource`: +2.
+
+## D83 Promoted Records
+- `LIT-0608`: `Learning to Filter Context for Retrieval-Augmented Generation`.
+- `LIT-0609`: `Unified Active Retrieval for Retrieval Augmented Generation`.
+
+## D82 Details
+- Input candidates came from `B10-D82-rag-clean2-curated-refill`:
+  - `09da8750-752c-4765-99d3-9c3bc20cee6d`: `Learning to Filter Context for Retrieval-Augmented Generation`.
+  - `54b93423-322e-4ec3-8d10-d49167bc3faa`: `Unified Active Retrieval for Retrieval Augmented Generation`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d82-rag-clean2-b11-dry-run-b11-candidate-triage-report.json`.
+- Dry-run classified both candidates as high-band `READY_FOR_PROMOTION`.
+- Direction split:
+  - 2 RAG-aware allocation.
+- Collection role split:
+  - 2 core.
+- DB delta:
+  - `LiteratureDiscoveryCandidate`: 0.
+  - `LiteratureRecord`: 0.
+  - `LiteratureSource`: 0.
 
 ## D81 Details
 - Input candidates came from `B10-D80-rag-testtime-exact-arxiv-refill`:

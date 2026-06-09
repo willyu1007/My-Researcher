@@ -2,10 +2,10 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D80 RAG/test-time exact arXiv refill.
-- Current candidate pool: 642 records.
-- Current `DISCOVERED` candidates: 0 after D81 promoted and completed the 3 D80 candidates.
-- Current recommendation: continue candidate-pool scaleout, or run another narrow RAG/test-time source-backed refill if effective-literature growth is preferred.
+- Latest DB-writing B10 run: D82 RAG/test-time clean2 source-backed refill.
+- Current candidate pool: 644 records.
+- Current `DISCOVERED` candidates: 0 after D83 promoted and completed the 2 D82 candidates.
+- Current recommendation: continue B10 scaleout if candidate-pool recall is preferred, or run another narrow source-backed refill for fast effective-literature growth.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -98,6 +98,31 @@
 | D77 | Serving Atom exact-source refill after test-time scout found no new clean rows | 1 clean serving candidate staged | Promoted with D76 and completed |
 | D78 | Broad source-backed scaleout followed by serving clean2 curated apply | 2 clean serving candidates staged | Promoted as `LIT-0603`-`LIT-0604` in D79 and completed |
 | D80 | RAG/test-time exact arXiv refill after broad scout found only a code-completion tail | 3 clean test-time candidates staged | Promoted as `LIT-0605`-`LIT-0607` in D81 and completed |
+| D82 | Wider RAG/test-time source-backed scout followed by RAG clean2 curated apply | 2 clean RAG candidates staged | Promoted as `LIT-0608`-`LIT-0609` in D83 and completed |
+
+## D82 Details
+- Wide RAG/test-time source-backed scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d82-rag-testtime-wide-sourcebacked-dry-run-b10-candidate-discovery-report.json`
+  - ran 5 tracks, 80 queries, and 0 provider errors.
+  - inspected 2400 provider results.
+  - found 56 source-backed candidates: 11 `DISCOVERED`, 45 duplicates.
+  - direction split: 40 RAG, 16 test-time.
+- ArXiv curated dry-run:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d82-rag-testtime-arxiv-curated-dry-run-b10-candidate-discovery-report.json`
+  - found 1 new source-backed test-time candidate.
+  - rejected `Rethinking the Divergence Regularization in LLM RL` as RL-training tail.
+- Exact-title/source-backed dry-run:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d82-rag-testtime-exact-title-dry-run-b10-candidate-discovery-report.json`
+  - found 14 source-backed candidates: 3 `DISCOVERED`, 11 duplicates.
+  - accepted only 2 clean RAG core rows for apply.
+- Curated dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d82-rag-clean2-curated-dry-run-b10-candidate-discovery-report.json`
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d82-rag-clean2-curated-apply-b10-candidate-discovery-report.json`
+- Batch id: `d54f52d4-896e-4565-b98d-d1e35d6c66d6`.
+- Batch code: `B10-D82-rag-clean2-curated-refill`.
+- Persisted 2 `DISCOVERED` candidates and created no `LiteratureRecord` rows:
+  - `09da8750-752c-4765-99d3-9c3bc20cee6d`: `Learning to Filter Context for Retrieval-Augmented Generation`.
+  - `54b93423-322e-4ec3-8d10-d49167bc3faa`: `Unified Active Retrieval for Retrieval Augmented Generation`.
+- These candidates were promoted and completed in D83.
 
 ## D80 Details
 - RAG/test-time source-backed scout:

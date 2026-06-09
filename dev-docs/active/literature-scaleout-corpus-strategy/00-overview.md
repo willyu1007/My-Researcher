@@ -5,8 +5,8 @@
 - Current task: `T-122 literature-scaleout-corpus-strategy`.
 - Origin task: `T-120`.
 - Related track: `T-121` is the pgvector/retrieval track, not the origin package.
-- Latest completed collection checkpoint: D81 D80 test-time exact arXiv promote/B12 completion.
-- Latest candidate refill checkpoint: D80 RAG/test-time exact arXiv refill; all 3 test-time candidates promoted and completed in D81.
+- Latest completed collection checkpoint: D83 D82 RAG clean2 promote/B12 completion.
+- Latest candidate refill checkpoint: D82 RAG/test-time wide source-backed scout plus clean2 RAG apply; both RAG candidates promoted and completed in D83.
 - Latest cleanup checkpoint: D70 TechRxiv source-access soft exclusion.
 - Next decision: continue candidate-pool scaleout, or run another narrow RAG/test-time source-backed refill if effective-literature growth is preferred.
 
@@ -23,24 +23,24 @@
 
 | Metric | Current value |
 | --- | ---: |
-| Candidate batches | 28 |
-| Candidate pool records | 642 |
+| Candidate batches | 29 |
+| Candidate pool records | 644 |
 | Candidate `DISCOVERED` records | 0 |
 | Candidate `READY_FOR_PROMOTION` records | 81 |
-| Candidate `PROMOTED` records | 278 |
+| Candidate `PROMOTED` records | 280 |
 | Candidate `DUPLICATE` records | 139 |
 | Candidate `DEFERRED` records | 126 |
 | Candidate `REJECTED` records | 18 |
-| Managed adaptive corpus | 405 |
-| Effective literature | 405 |
+| Managed adaptive corpus | 407 |
+| Effective literature | 407 |
 | Incomplete managed records | 0 |
 | Pipeline blockers | 0 |
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 25 |
-| Raw DB literature records | 430 |
+| Raw DB literature records | 432 |
 
 Current evidence artifact:
-- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d81-after-d80-testtime-completion-count.json`
+- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d83-after-d82-rag-clean2-completion-count.json`
 
 ## Theory-Support Target
 - Original target-qualified theory-support set is closed above target at 54/50.

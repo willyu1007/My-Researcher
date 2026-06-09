@@ -600,18 +600,73 @@
   - Managed/effective corpus reached 405/405.
   - Incomplete, blocked, and not-started managed records remain 0/0/0.
 
+### D82 RAG/Test-Time Wider Source-Backed B10 Refill
+- Ran a wider RAG/test-time OpenAlex source-backed scout:
+  - 5 RAG/test-time tracks.
+  - 80 executed provider queries.
+  - 0 provider errors.
+  - 2400 provider results inspected.
+  - 56 source-backed candidates after B10 focus filters.
+  - 11 new `DISCOVERED` candidates and 45 duplicates.
+  - Direction split: 40 RAG-aware allocation, 16 test-time compute budgeting.
+- Manual curation rejected the broad-scout new rows that were code-completion, domain-chatbot, quantitative-finance, deliberation/social, network-application, graph-QA, prompt-optimization, or personalization tails.
+- Ran a curated arXiv RAG/test-time dry-run:
+  - 20 curated queries.
+  - 1 new source-backed test-time candidate.
+  - The candidate, `Rethinking the Divergence Regularization in LLM RL`, was treated as RL-training tail and not applied.
+- Ran exact-title/source-backed validation for canonical RAG/test-time targets:
+  - 14 source-backed candidates.
+  - 3 new `DISCOVERED` candidates and 11 duplicates.
+  - Duplicates included existing RAG/test-time records such as `Adaptive-RAG`, `Active Retrieval Augmented Generation`, `Self-Consistency`, `Tree of Thoughts`, and `Scaling LLM Test-Time Compute Optimally`.
+- Accepted 2 clean RAG core candidates for B10 apply:
+  - `Learning to Filter Context for Retrieval-Augmented Generation`.
+  - `Unified Active Retrieval for Retrieval Augmented Generation`.
+- B10 apply persisted 2 `DISCOVERED` candidates in batch `B10-D82-rag-clean2-curated-refill`:
+  - `09da8750-752c-4765-99d3-9c3bc20cee6d`: `Learning to Filter Context for Retrieval-Augmented Generation`.
+  - `54b93423-322e-4ec3-8d10-d49167bc3faa`: `Unified Active Retrieval for Retrieval Augmented Generation`.
+- B11 dry-run over both candidates classified both as high-band `READY_FOR_PROMOTION`; no B11 status writes and no promotion were applied in D82.
+- Net D82 effect:
+  - Candidate pool: +2.
+  - `DISCOVERED` candidate count: 2.
+  - Managed/effective corpus remained 405/405.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D83 D82 RAG Clean2 Promote And B12
+- Promoted the 2 D82 high-band RAG core candidates:
+  - `LIT-0608`: `Learning to Filter Context for Retrieval-Augmented Generation`.
+  - `LIT-0609`: `Unified Active Retrieval for Retrieval Augmented Generation`.
+- B11 apply/promote created 2 `LiteratureRecord` rows and 2 `LiteratureSource` rows.
+- B12 completed both through `INDEXED`:
+  - standard apply completed citation and abstract, then hit expected `FULLTEXT_SOURCE_MISSING`.
+  - arXiv acquisition succeeded for both and created 2 content assets.
+  - fulltext preprocessing succeeded for both.
+  - source-grounded `codex_curated` dossier import succeeded for both.
+  - final index backfill succeeded for both.
+  - key-content extraction provider calls: 0.
+  - embedding provider calls estimated by final index dry-run: 2.
+- Final state probe confirmed both records have one content asset, one fulltext document, and all seven standard stages `SUCCEEDED`.
+- Embedding chunk counts:
+  - `LIT-0608`: 146.
+  - `LIT-0609`: 111.
+- Net D83 effect:
+  - Effective literature: +2.
+  - Candidate pool: unchanged after D82 apply.
+  - `DISCOVERED` candidate count: 0.
+  - Managed/effective corpus reached 407/407.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 28 |
-| Candidate pool | 642 |
+| Candidate batches | 29 |
+| Candidate pool | 644 |
 | Discovered candidates | 0 |
 | Ready candidates | 81 |
-| Promoted candidates | 278 |
+| Promoted candidates | 280 |
 | Deferred candidates | 126 |
-| Managed corpus | 405 |
-| Effective literature | 405 |
+| Managed corpus | 407 |
+| Effective literature | 407 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
