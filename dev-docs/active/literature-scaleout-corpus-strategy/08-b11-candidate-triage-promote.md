@@ -2,16 +2,16 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D91 D90 RAG-core apply/promote.
-- Latest B11 dry-run: D91 D90 RAG-core validation.
+- Latest B11 DB-writing run: D94 existing READY source-stable apply/promote.
+- Latest B11 dry-run: D94 existing READY source-stable validation.
 - Current candidate state:
   - 0 `DISCOVERED`
-  - 81 `READY_FOR_PROMOTION`
-  - 295 `PROMOTED`
+  - 77 `READY_FOR_PROMOTION`
+  - 304 `PROMOTED`
   - 139 `DUPLICATE`
   - 134 `DEFERRED`
   - 20 `REJECTED`
-- Current recommendation: continue adjacent-topic B10 exploration for recall diversity, or audit a separate source-stable `READY_FOR_PROMOTION` subset before the next promote/B12 tranche.
+- Current recommendation: continue adjacent-topic B10 exploration for recall diversity, or run another source-stable `READY_FOR_PROMOTION` audit with strict source/tail filtering before the next promote/B12 tranche.
 
 ## Entrypoint
 - Script: `tools/b11-candidate-triage-promote.mjs`
@@ -127,6 +127,87 @@
 | D89 | D88 ready RAG/theory promote | 2 promoted | `LIT-0621`-`LIT-0622` | completed |
 | D90 | adjacent-topic clean6 status apply | 2 ready, 2 deferred | candidates only | not promoted |
 | D91 | D90 RAG-core promote | 2 promoted | `LIT-0623`-`LIT-0624` | completed |
+| D92 | adjacent-topic clean5 status apply | 5 ready | candidates only | not promoted |
+| D93 | D92 ready adjacent-topic promote | 5 promoted | `LIT-0625`-`LIT-0629` | completed |
+| D94 | existing READY source-stable tranche | 4 promoted | `LIT-0630`-`LIT-0633` | completed |
+
+## D94 Details
+- Input came from the existing 81-record `READY_FOR_PROMOTION` pool rather than a new B10 batch.
+- READY-pool dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d94-ready-pool-b11-dry-run-b11-candidate-triage-report.json`.
+- Strict source selector artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d94-source-stable-ready-selector-b11-source-available-selector.json`.
+  - arXiv/ACL-only selector selected 0 because eligible rows were application or direction tails.
+- Preprint selector artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d94-source-stable-ready-selector-preprint-b11-source-available-selector.json`.
+  - surfaced 5 candidates, but TechRxiv and no-direct-PDF rows were excluded from source-stable promotion.
+- Manual selection artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d94-source-stable-ready-manual-selection.json`.
+  - selected 4 direct `preprints.org` PDF/download candidates.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d94-source-stable-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d94-source-stable-b11-apply-promote-b11-candidate-triage-report.json`.
+- Apply/promote attempted 4 promotions and succeeded for all 4.
+- Direction split:
+  - 3 serving/resource-allocation.
+  - 1 RAG-aware allocation.
+- Collection role split:
+  - 3 system-support.
+  - 1 core.
+- DB delta:
+  - `LiteratureRecord`: +4.
+  - `LiteratureSource`: +4.
+
+## D94 Promoted Records
+- `LIT-0630`: `Adaptive Control of Retrieval-Augmented Generation for LLMs Through Reflective Tags`.
+- `LIT-0631`: `FlashServe: Cost-Efficient Serverless Inference Scheduling for Large Language Models via Tiered Memory Management and Predictive Autoscaling`.
+- `LIT-0632`: `Inference Acceleration for Large Language Models on CPUs`.
+- `LIT-0633`: `HeteroLLM: Accelerating Large Language Model Inference on Mobile SoCs with Heterogeneous AI Accelerators`.
+
+## D93 Details
+- Input candidates came from `B10-D92-adjacent-clean5-refill` and `B10-D92-adjacent-clean3-retry-refill`:
+  - `1e2250ed-859f-4a07-9d06-b1ca01966668`: `LLM-PQ: Serving LLM on Heterogeneous Clusters with Phase-Aware Partition and Adaptive Quantization`.
+  - `32c679af-73a0-4505-9d7b-0adb7a1d961d`: `PecSched: Preemptive and Efficient Cluster Scheduling for LLM Inference`.
+  - `c85f6172-03a1-48fe-abb6-bcf9d3b830ee`: `Regulating Branch Parallelism in LLM Serving`.
+  - `27fd12fd-3544-4cb3-a4f7-e28b213033b2`: `Past-Future Scheduler for LLM Serving under SLA Guarantees`.
+  - `90331e38-d197-424c-9e29-90bf9c43c9f5`: `Optimal experimental design: Formulations and computations`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d93-d92-ready-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d93-d92-ready-b11-apply-promote-b11-candidate-triage-report.json`.
+- Apply/promote attempted 5 promotions and succeeded for all 5.
+- Direction split:
+  - 4 serving/resource-allocation.
+  - 1 RAG-aware allocation.
+- Collection role split:
+  - 3 strategy-support.
+  - 2 theory-support.
+- DB delta:
+  - `LiteratureRecord`: +5.
+  - `LiteratureSource`: +5.
+
+## D93 Promoted Records
+- `LIT-0625`: `LLM-PQ: Serving LLM on Heterogeneous Clusters with Phase-Aware Partition and Adaptive Quantization`.
+- `LIT-0626`: `PecSched: Preemptive and Efficient Cluster Scheduling for LLM Inference`.
+- `LIT-0627`: `Regulating Branch Parallelism in LLM Serving`.
+- `LIT-0628`: `Past-Future Scheduler for LLM Serving under SLA Guarantees`.
+- `LIT-0629`: `Optimal experimental design: Formulations and computations`.
+
+## D92 Details
+- Input candidates came from `B10-D92-adjacent-clean5-refill` and `B10-D92-adjacent-clean3-retry-refill`:
+  - `90331e38-d197-424c-9e29-90bf9c43c9f5`: `Optimal experimental design: Formulations and computations`.
+  - `32c679af-73a0-4505-9d7b-0adb7a1d961d`: `PecSched: Preemptive and Efficient Cluster Scheduling for LLM Inference`.
+  - `c85f6172-03a1-48fe-abb6-bcf9d3b830ee`: `Regulating Branch Parallelism in LLM Serving`.
+  - `27fd12fd-3544-4cb3-a4f7-e28b213033b2`: `Past-Future Scheduler for LLM Serving under SLA Guarantees`.
+  - `1e2250ed-859f-4a07-9d06-b1ca01966668`: `LLM-PQ: Serving LLM on Heterogeneous Clusters with Phase-Aware Partition and Adaptive Quantization`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-adjacent-clean5-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-adjacent-clean5-b11-apply-b11-candidate-triage-report.json`.
+- Apply mode updated candidate statuses only; promotion was disabled.
+- Ready candidates:
+  - all 5 candidates were classified as high-band `READY_FOR_PROMOTION`.
+- Direction split:
+  - 4 serving/resource-allocation.
+  - 1 RAG-aware allocation.
+- Collection role split:
+  - 3 strategy-support.
+  - 2 theory-support.
+- DB delta:
+  - `LiteratureRecord`: +0.
+  - `LiteratureSource`: +0.
+  - Candidate state only: +5 ready.
 
 ## D91 Details
 - Input candidates came from `B10-D90-adjacent-clean6-refill`:

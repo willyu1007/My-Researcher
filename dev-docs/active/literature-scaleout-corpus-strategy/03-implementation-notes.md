@@ -870,27 +870,153 @@
   - Managed/effective corpus: 420/420 -> 422/422.
   - Incomplete, blocked, and not-started managed records remain 0/0/0.
 
+### D92 Adjacent-Topic B10 Refill
+- Started from D91 count:
+  - candidate batches: 32.
+  - candidate pool: 669.
+  - `READY_FOR_PROMOTION`: 81.
+  - managed/effective corpus: 422/422.
+- Ran a source-backed adjacent-topic OpenAlex B10 scout in dry-run mode only:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-adjacent-broad-scout-dry-run-b10-candidate-discovery-report.json`.
+  - 62 source-backed candidates surfaced.
+  - 7 were new `DISCOVERED` candidates in dry-run output.
+  - 55 were duplicate signals.
+  - Direction split: 59 serving/resource-allocation, 1 RAG-aware allocation, and 2 test-time compute-budgeting.
+  - No DB writes were made from the broad scout.
+- Ran a second RAG/test-time focused source-backed scout because the first broad run's track limit under-covered test-time theory/search overrides:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-rag-testtime-focused-scout-dry-run-b10-candidate-discovery-report.json`.
+  - 4 source-backed candidates surfaced.
+  - 1 was a new RAG/theory `DISCOVERED` candidate.
+  - 3 were duplicate signals.
+  - No DB writes were made from the focused scout.
+- Curated the scout outputs to an OpenAlex exact-source clean5 apply:
+  - `PecSched: Preemptive and Efficient Cluster Scheduling for LLM Inference`.
+  - `Regulating Branch Parallelism in LLM Serving`.
+  - `Past-Future Scheduler for LLM Serving under SLA Guarantees`.
+  - `LLM-PQ: Serving LLM on Heterogeneous Clusters with Phase-Aware Partition and Adaptive Quantization`.
+  - `Optimal experimental design: Formulations and computations`.
+- B10 dry-run result:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-adjacent-clean5-dry-run-b10-candidate-discovery-report.json`.
+  - validated 5 source-backed `DISCOVERED` candidates.
+  - duplicate count: 0.
+- B10 apply result:
+  - first apply wrote 2 candidates, then 3 exact OpenAlex calls returned transient `fetch failed` provider errors.
+  - retry apply over the failed 3 exact OpenAlex IDs succeeded.
+  - batch codes: `B10-D92-adjacent-clean5-refill` and `B10-D92-adjacent-clean3-retry-refill`.
+  - batch ids: `76761034-657a-4a59-86a6-a24a2e84c96f` and `3c3adfe2-aa8c-42ca-9a87-cb863bfbc1af`.
+  - persisted 5 `DISCOVERED` candidates total and created no `LiteratureRecord` rows.
+- D92 staged candidates:
+  - `90331e38-d197-424c-9e29-90bf9c43c9f5`: `Optimal experimental design: Formulations and computations`.
+  - `32c679af-73a0-4505-9d7b-0adb7a1d961d`: `PecSched: Preemptive and Efficient Cluster Scheduling for LLM Inference`.
+  - `c85f6172-03a1-48fe-abb6-bcf9d3b830ee`: `Regulating Branch Parallelism in LLM Serving`.
+  - `27fd12fd-3544-4cb3-a4f7-e28b213033b2`: `Past-Future Scheduler for LLM Serving under SLA Guarantees`.
+  - `1e2250ed-859f-4a07-9d06-b1ca01966668`: `LLM-PQ: Serving LLM on Heterogeneous Clusters with Phase-Aware Partition and Adaptive Quantization`.
+- B11 status apply result:
+  - dry-run and apply both classified all 5 candidates as high-band `READY_FOR_PROMOTION`.
+  - Direction split: 4 serving/resource-allocation and 1 RAG-aware allocation.
+  - Collection role split: 3 strategy-support and 2 theory-support.
+  - No promotion was run, so no `LiteratureRecord`, `LiteratureSource`, content, dossier, embedding, or index rows were written.
+- Net D92 effect:
+  - Candidate batches: 32 -> 34.
+  - Candidate pool: 669 -> 674.
+  - `READY_FOR_PROMOTION`: 81 -> 86.
+  - `DISCOVERED` stayed 0 after B11 status apply.
+  - Managed/effective corpus stayed 422/422.
+
+### D93 D92 Ready Adjacent-Topic Promote And B12
+- Promoted the 5 source-backed D92 high-band candidates:
+  - `LIT-0625`: `LLM-PQ: Serving LLM on Heterogeneous Clusters with Phase-Aware Partition and Adaptive Quantization`.
+  - `LIT-0626`: `PecSched: Preemptive and Efficient Cluster Scheduling for LLM Inference`.
+  - `LIT-0627`: `Regulating Branch Parallelism in LLM Serving`.
+  - `LIT-0628`: `Past-Future Scheduler for LLM Serving under SLA Guarantees`.
+  - `LIT-0629`: `Optimal experimental design: Formulations and computations`.
+- B11 dry-run and apply/promote result:
+  - 5/5 candidates remained high-band `READY_FOR_PROMOTION`.
+  - Direction split: 4 serving/resource-allocation and 1 RAG-aware allocation.
+  - Collection role split: 3 strategy-support and 2 theory-support.
+  - DB delta: 5 `LiteratureRecord` rows and 5 `LiteratureSource` rows.
+- B12 completed all 5 through `INDEXED`:
+  - initial standard apply succeeded for citation and abstract and produced the expected `FULLTEXT_SOURCE_MISSING` blocker on fulltext.
+  - explicit arXiv acquisition planned 5 URL downloads with 0 blockers, applied successfully for all 5, and created 5 content assets.
+  - post-acquisition standard apply created 5 ready fulltext documents.
+  - `codex_curated` key-content dry-run validated all 5 dossiers and apply imported all 5.
+  - index backfill planned 0 extraction calls and 5 embedding calls; apply succeeded for all 5.
+  - final state probe showed all seven standard stages `SUCCEEDED` for all 5 records.
+- Indexed content footprint:
+  - `LIT-0625`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 158 embedding chunks.
+  - `LIT-0626`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 149 embedding chunks.
+  - `LIT-0627`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 134 embedding chunks.
+  - `LIT-0628`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 105 embedding chunks.
+  - `LIT-0629`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 561 embedding chunks.
+- Net D93 effect:
+  - Candidate pool stayed 674.
+  - `READY_FOR_PROMOTION`: 86 -> 81.
+  - `PROMOTED`: 295 -> 300.
+  - Managed/effective corpus: 422/422 -> 427/427.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D94 Existing READY Source-Stable Tranche
+- Started from D93 count:
+  - candidate pool: 674.
+  - `READY_FOR_PROMOTION`: 81.
+  - managed/effective corpus: 427/427.
+- Ran a read-only B11 refresh over all 81 current ready candidates:
+  - 81/81 remained high-band `READY_FOR_PROMOTION`.
+  - Direction split: 56 RAG-aware allocation, 16 test-time compute budgeting, and 9 serving/resource-allocation.
+- Selector findings:
+  - strict `arxiv,acl` source-stable selector selected 0 candidates because all eligible arXiv/ACL rows were application or direction tails.
+  - widened selector with `preprint_doi` found 8 eligible candidates but surfaced TechRxiv and no-direct-PDF rows.
+  - D94 therefore used a manual source-stable selection artifact to keep only direct `preprints.org` PDF/download URLs and avoid TechRxiv/blocked-host/application-tail risk.
+- Promoted the 4 selected source-stable ready candidates:
+  - `LIT-0630`: `Adaptive Control of Retrieval-Augmented Generation for LLMs Through Reflective Tags`.
+  - `LIT-0631`: `FlashServe: Cost-Efficient Serverless Inference Scheduling for Large Language Models via Tiered Memory Management and Predictive Autoscaling`.
+  - `LIT-0632`: `Inference Acceleration for Large Language Models on CPUs`.
+  - `LIT-0633`: `HeteroLLM: Accelerating Large Language Model Inference on Mobile SoCs with Heterogeneous AI Accelerators`.
+- B11 dry-run and apply/promote result:
+  - 4/4 candidates remained high-band `READY_FOR_PROMOTION`.
+  - Direction split: 3 serving/resource-allocation and 1 RAG-aware allocation.
+  - Collection role split: 3 system-support and 1 core.
+  - DB delta: 4 `LiteratureRecord` rows and 4 `LiteratureSource` rows.
+- B12 completed all 4 through `INDEXED`:
+  - initial standard apply succeeded for citation and abstract and produced the expected `FULLTEXT_SOURCE_MISSING` blocker on fulltext.
+  - explicit `preprints.org` acquisition planned 4 URL downloads with 0 blockers, applied successfully for all 4, and created 4 content assets.
+  - post-acquisition standard apply created 4 ready fulltext documents.
+  - `codex_curated` key-content dry-run validated all 4 dossiers and apply imported all 4.
+  - index backfill planned 0 extraction calls and 4 embedding calls; apply succeeded for all 4.
+  - final state probe showed all seven standard stages `SUCCEEDED` for all 4 records.
+- Indexed content footprint:
+  - `LIT-0630`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 108 embedding chunks.
+  - `LIT-0631`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 164 embedding chunks.
+  - `LIT-0632`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 50 embedding chunks.
+  - `LIT-0633`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 146 embedding chunks.
+- Net D94 effect:
+  - Candidate pool stayed 674.
+  - `READY_FOR_PROMOTION`: 81 -> 77.
+  - `PROMOTED`: 300 -> 304.
+  - Managed/effective corpus: 427/427 -> 431/431.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 32 |
-| Candidate pool | 669 |
+| Candidate batches | 34 |
+| Candidate pool | 674 |
 | Discovered candidates | 0 |
-| Ready candidates | 81 |
-| Promoted candidates | 295 |
+| Ready candidates | 77 |
+| Promoted candidates | 304 |
 | Duplicate candidates | 139 |
 | Deferred candidates | 134 |
 | Rejected candidates | 20 |
-| Managed corpus | 422 |
-| Effective literature | 422 |
+| Managed corpus | 431 |
+| Effective literature | 431 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: run another adjacent-topic B10 refill to keep recall diversity growing after the D91 completion tranche.
-- Alternative next collection step: audit a separate source-stable `READY_FOR_PROMOTION` subset before the next B11/B12 tranche.
+- Preferred next collection step: either run another source-stable READY tranche from the remaining 77 ready candidates, or return to adjacent-topic B10 refill for recall diversity.
+- If continuing READY promotion, keep excluding TechRxiv, blocked PDF hosts, no-direct-PDF rows, and application-tail arXiv/ACL rows.
 - Keep OpenAlex-ID exact-source queries as the default for D84-style adjacent shortlist applies.
 - Keep broad exploration dry-run/read-only until a curated exact-source subset is selected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

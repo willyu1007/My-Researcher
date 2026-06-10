@@ -2,10 +2,10 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D90 adjacent-topic clean6 refill.
-- Current candidate pool: 669 records.
-- Current `DISCOVERED` candidates: 0 after D90 B11 triage applied 2 ready and 2 deferred decisions; the 2 ready RAG-core candidates were promoted/completed in D91.
-- Current recommendation: continue adjacent-topic B10 exploration for recall diversity, or audit a separate source-stable `READY_FOR_PROMOTION` subset before the next promote/B12 tranche.
+- Latest DB-writing B10 run: D92 adjacent-topic clean5 refill.
+- Current candidate pool: 674 records.
+- Current `DISCOVERED` candidates: 0 after D92 B11 triage applied 5 ready decisions; the 5 ready candidates were promoted/completed in D93, and a separate existing-READY source-stable subset was promoted/completed in D94.
+- Current recommendation: continue adjacent-topic B10 exploration for recall diversity, or run another source-stable `READY_FOR_PROMOTION` audit when the priority is quick effective-corpus growth from the remaining 77 READY candidates.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -106,6 +106,40 @@
 | D85 | RAG/test-time OpenAlex-ID theory refill | 17 clean candidates staged | B11 applied 11 ready and 6 deferred decisions |
 | D88 | Adjacent-topic broad scout followed by OpenAlex exact-source clean4 apply | 4 candidates staged | B11 applied 2 ready and 2 rejected decisions; ready subset completed in D89 |
 | D90 | Adjacent-topic broad scout followed by OpenAlex exact-source clean6 apply | 4 source-backed candidates staged | B11 applied 2 ready and 2 deferred decisions; ready subset completed in D91 |
+| D92 | Adjacent-topic broad/focused scouts followed by OpenAlex exact-source clean5 apply | 5 source-backed candidates staged | B11 applied 5 ready decisions; ready subset completed in D93 |
+
+## D92 Details
+- Adjacent-topic broad scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-adjacent-broad-scout-dry-run-b10-candidate-discovery-report.json`
+  - read-only dry-run; no DB writes.
+  - produced 62 source-backed candidates: 7 new `DISCOVERED` signals and 55 duplicates.
+  - direction split: 59 serving/resource-allocation, 1 RAG-aware allocation, and 2 test-time compute-budgeting.
+- RAG/test-time focused scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-rag-testtime-focused-scout-dry-run-b10-candidate-discovery-report.json`
+  - read-only dry-run; no DB writes.
+  - produced 4 source-backed candidates: 1 new RAG/theory signal and 3 duplicates.
+  - run was needed because the first broad scout's track limit under-covered test-time theory/search overrides.
+- Exact-source clean5 dry-run:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-adjacent-clean5-dry-run-b10-candidate-discovery-report.json`
+  - validated 5 source-backed OpenAlex exact-source entries.
+  - found 5 new candidates and 0 duplicates.
+- Apply artifacts:
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-adjacent-clean5-apply-b10-candidate-discovery-report.json`
+  - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d92-adjacent-clean3-retry-apply-b10-candidate-discovery-report.json`
+- Batch ids:
+  - `76761034-657a-4a59-86a6-a24a2e84c96f`
+  - `3c3adfe2-aa8c-42ca-9a87-cb863bfbc1af`
+- Batch codes:
+  - `B10-D92-adjacent-clean5-refill`
+  - `B10-D92-adjacent-clean3-retry-refill`
+- Persisted 5 `DISCOVERED` candidates and created no `LiteratureRecord` rows:
+  - `90331e38-d197-424c-9e29-90bf9c43c9f5`: `Optimal experimental design: Formulations and computations`.
+  - `32c679af-73a0-4505-9d7b-0adb7a1d961d`: `PecSched: Preemptive and Efficient Cluster Scheduling for LLM Inference`.
+  - `c85f6172-03a1-48fe-abb6-bcf9d3b830ee`: `Regulating Branch Parallelism in LLM Serving`.
+  - `27fd12fd-3544-4cb3-a4f7-e28b213033b2`: `Past-Future Scheduler for LLM Serving under SLA Guarantees`.
+  - `1e2250ed-859f-4a07-9d06-b1ca01966668`: `LLM-PQ: Serving LLM on Heterogeneous Clusters with Phase-Aware Partition and Adaptive Quantization`.
+- First apply wrote 2 candidates and hit transient `fetch failed` provider errors on 3 exact OpenAlex IDs; the clean3 retry apply wrote the remaining 3 candidates.
+- D92 B11 status apply later marked all 5 candidates ready; D93 promoted/completed the ready subset.
 
 ## D90 Details
 - Adjacent-topic broad scout:

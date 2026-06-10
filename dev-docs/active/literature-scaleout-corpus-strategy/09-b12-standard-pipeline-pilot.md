@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
-- Latest B12 run: D91 D90 RAG-core completion.
-- Current managed corpus: 422.
-- Current effective literature: 422.
+- Latest B12 run: D94 existing READY source-stable completion.
+- Current managed corpus: 431.
+- Current effective literature: 431.
 - Current managed blockers: 0.
 - Default key-content method: `codex_curated`.
 
@@ -100,7 +100,7 @@
 ## Method Boundary
 - `codex_curated` is the default `KEY_CONTENT_READY` path.
 - Source-grounded curated dossiers are imported before chunk/embed/index backfill.
-- Completed D18-D91 curated imports used 0 key-content extraction provider calls.
+- Completed D18-D94 curated imports used 0 key-content extraction provider calls.
 - `llm_gateway` extraction remains explicit-only and should be used only for bounded diagnostics or approved retries.
 
 ## Completion Ledger
@@ -140,6 +140,70 @@
 | D87 | D85 remaining theory source-stable completion | 5 | completed |
 | D89 | D88 ready RAG/theory completion | 2 | completed |
 | D91 | D90 RAG-core completion | 2 | completed |
+| D93 | D92 ready adjacent-topic completion | 5 | completed |
+| D94 | existing READY source-stable completion | 4 | completed |
+
+## D94 Details
+- Input: `LIT-0630` through `LIT-0633`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 4.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 4 explicit `preprints.org` PDF/download requests with 0 blockers.
+  - apply succeeded for all 4 and created 4 content assets.
+  - explicit URLs:
+    - `LIT-0630`: `https://www.preprints.org/manuscript/202408.2152/v1/download`.
+    - `LIT-0631`: `https://www.preprints.org/frontend/manuscript/7cfcfeda2393cefc241f953d6efaf27c/download_pub`.
+    - `LIT-0632`: `https://www.preprints.org/manuscript/202402.1702/v1/download`.
+    - `LIT-0633`: `https://www.preprints.org/frontend/manuscript/9467916cff347f1f274406f41e2e95b1/download_pub`.
+- Fulltext preprocessing:
+  - succeeded for all 4 and created 4 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 4 records.
+  - import succeeded for all 4.
+  - extraction provider calls: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 4 embedding calls.
+  - apply succeeded for all 4.
+- Final state:
+  - all 4 records have all seven standard stages `SUCCEEDED`.
+  - `LIT-0630` has 108 embedding chunks.
+  - `LIT-0631` has 164 embedding chunks.
+  - `LIT-0632` has 50 embedding chunks.
+  - `LIT-0633` has 146 embedding chunks.
+
+## D93 Details
+- Input: `LIT-0625` through `LIT-0629`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 5.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 5 explicit arXiv PDF downloads with 0 blockers.
+  - apply succeeded for all 5 and created 5 content assets.
+  - explicit URLs:
+    - `LIT-0625`: `https://arxiv.org/pdf/2403.01136`.
+    - `LIT-0626`: `https://arxiv.org/pdf/2409.15104`.
+    - `LIT-0627`: `https://arxiv.org/pdf/2605.06914`.
+    - `LIT-0628`: `https://arxiv.org/pdf/2507.10150`.
+    - `LIT-0629`: `https://arxiv.org/pdf/2407.16212`.
+- Fulltext preprocessing:
+  - succeeded for all 5 and created 5 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 5 records.
+  - import succeeded for all 5.
+  - extraction provider calls: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 5 embedding calls.
+  - apply succeeded for all 5.
+- Final state:
+  - all 5 records have all seven standard stages `SUCCEEDED`.
+  - `LIT-0625` has 158 embedding chunks.
+  - `LIT-0626` has 149 embedding chunks.
+  - `LIT-0627` has 134 embedding chunks.
+  - `LIT-0628` has 105 embedding chunks.
+  - `LIT-0629` has 561 embedding chunks.
 
 ## D91 Details
 - Input: `LIT-0623` and `LIT-0624`.
@@ -746,21 +810,21 @@
   - managed incomplete, blocked, and not-started counts are all 0.
 
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d91-after-b12.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d94-after-b12.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 
 | Metric | Value |
 | --- | ---: |
-| Candidate pool records | 669 |
+| Candidate pool records | 674 |
 | Candidate discovered records | 0 |
-| Candidate ready-for-promotion records | 81 |
-| Candidate promoted records | 295 |
+| Candidate ready-for-promotion records | 77 |
+| Candidate promoted records | 304 |
 | Candidate duplicate records | 139 |
 | Candidate deferred records | 134 |
 | Candidate rejected records | 20 |
-| Managed corpus records | 422 |
-| Effective literature records | 422 |
+| Managed corpus records | 431 |
+| Effective literature records | 431 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |

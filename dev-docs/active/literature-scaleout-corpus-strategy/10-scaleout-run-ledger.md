@@ -6,11 +6,12 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D91 D90 RAG-core promote/B12 completion.
-- Latest candidate checkpoint: after D90 adjacent-topic clean6 refill and B11 status apply.
-- Candidate pool: 669.
-- Managed corpus: 422.
-- Effective literature: 422.
+- Latest corpus checkpoint: after D94 existing READY source-stable promote/B12 completion.
+- Latest candidate checkpoint: after D92 adjacent-topic clean5 refill and B11 status apply.
+- Latest hygiene checkpoint: D95 generated JSON artifacts removed from versioned task docs.
+- Candidate pool: 674.
+- Managed corpus: 431.
+- Effective literature: 431.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 54/50 target-qualified records.
 
@@ -109,6 +110,10 @@
 | D89 | Promoted/completed the 2 D88 ready RAG/theory candidates as `LIT-0621`-`LIT-0622`, lifting managed/effective corpus to 420. |
 | D90 | Ran a broader adjacent-topic scout, staged 4 source-backed exact-source candidates, and applied B11 statuses: 2 ready, 2 deferred; managed/effective corpus stayed 420. |
 | D91 | Promoted/completed the 2 D90 RAG-core candidates as `LIT-0623`-`LIT-0624`, lifting managed/effective corpus to 422. |
+| D92 | Ran adjacent-topic broad/focused scouts, staged 5 source-backed exact-source candidates, and applied B11 statuses: 5 ready; managed/effective corpus stayed 422. |
+| D93 | Promoted/completed the 5 D92 ready adjacent-topic candidates as `LIT-0625`-`LIT-0629`, lifting managed/effective corpus to 427. |
+| D94 | Audited the existing 81-record READY pool, selected 4 direct source-stable `preprints.org` candidates after excluding blocked/tail rows, and completed them as `LIT-0630`-`LIT-0633`, lifting managed/effective corpus to 431. |
+| D95 | Removed generated JSON run artifacts from versioned literature scaleout docs; retained compact indexes plus DB/env markdown audit notes and ignored future artifact JSON. |
 
 ## Effective-Literature Growth Ledger
 
@@ -154,6 +159,9 @@
 | D89 D88 ready RAG/theory completion | 2 | 420 |
 | D90 adjacent-topic candidate-layer refill | 0 | 420 |
 | D91 D90 RAG-core completion | 2 | 422 |
+| D92 adjacent-topic candidate-layer refill | 0 | 422 |
+| D93 D92 ready adjacent-topic completion | 5 | 427 |
+| D94 existing READY source-stable completion | 4 | 431 |
 
 ## Source-Backed Current Pattern
 - B10:
@@ -178,6 +186,50 @@
 ## Evidence Roots
 - Current generated evidence root:
   - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`
+- Versioned artifacts policy:
+  - generated JSON run artifacts are not kept under `dev-docs/active/literature-scaleout-corpus-strategy/artifacts`.
+  - small DB/env markdown audit notes may remain versioned.
+  - historical removed JSON remains available through git history if exact old evidence is needed.
+- Current D94 completion evidence:
+  - `20260610T-d94-before-ready-tranche.json`
+  - `20260610T-d94-ready-pool-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d94-source-stable-ready-selector-b11-source-available-selector.json`
+  - `20260610T-d94-source-stable-ready-selector-preprint-b11-source-available-selector.json`
+  - `20260610T-d94-source-stable-ready-manual-selection.json`
+  - `20260610T-d94-source-stable-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d94-source-stable-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d94-source-stable-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d94-source-stable-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d94-source-stable-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d94-source-stable-post-acquisition-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d94-source-stable-indexed-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d94-source-stable-final-state-all-stages-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d94-source-stable-record-state-probe.json`
+  - `20260610T-d94-after-b12.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d94-source-stable-key-content-apply-key-content-curated-apply.json`
+- Current D93 completion evidence:
+  - `20260610T-d93-before-promote.json`
+  - `20260610T-d93-d92-ready-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d93-d92-ready-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d93-d92-ready-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d93-d92-ready-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d93-d92-ready-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d93-d92-ready-post-acquisition-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d93-d92-ready-indexed-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d93-d92-ready-final-state-all-stages-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d93-d92-ready-record-state-probe.json`
+  - `20260610T-d93-after-b12.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d93-d92-ready-key-content-apply-key-content-curated-apply.json`
+- Current D92 candidate-layer evidence:
+  - `20260610T-d92-before-b10.json`
+  - `20260610T-d92-adjacent-broad-scout-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d92-rag-testtime-focused-scout-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d92-adjacent-clean5-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d92-adjacent-clean5-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d92-adjacent-clean3-retry-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d92-adjacent-clean5-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d92-adjacent-clean5-b11-apply-b11-candidate-triage-report.json`
+  - `20260610T-d92-after-b10-b11.json`
 - Current D91 completion evidence:
   - `20260610T-d91-before-promote.json`
   - `20260610T-d91-d90-rag-core-b11-dry-run-b11-candidate-triage-report.json`
