@@ -18,6 +18,7 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import { AppError } from '../../errors/app-error.js';
 import { PrismaPaperImplementationAiWorkflowHarnessRepository } from './prisma-paper-implementation-ai-workflow-harness-repository.js';
 
 const NOW = '2026-05-21T00:00:00.000Z';
@@ -353,7 +354,7 @@ function makeFakePrismaClient(): PrismaClient {
   } as unknown as PrismaClient;
 }
 
-test('Prisma PaperImplementationAiWorkflowHarness repository round-trips harness run and queue objects', async () => {
+test('DecisionWorkQueue Prisma resolution replays terminal status and rejects terminal drift', async () => {
   const repository = new PrismaPaperImplementationAiWorkflowHarnessRepository(makeFakePrismaClient());
   const harness = await repository.createHarness(makeHarness());
   assert.equal(harness.policy_pack.trace_policy_version_id, 'trace_policy_v1');
@@ -385,8 +386,71 @@ test('Prisma PaperImplementationAiWorkflowHarness repository round-trips harness
     'decision_queue_item_001',
     { status: 'resolved', resolution_note: 'trace fixed', resolved_by: 'human', resolved_at: NOW },
   );
+  const replayed = await repository.resolveDecisionWorkQueueItem(
+    PROJECT_ID,
+    'decision_queue_item_001',
+    { status: 'resolved', resolution_note: 'same terminal replay', resolved_by: 'system', resolved_at: NOW },
+  );
+  await assert.rejects(
+    () => repository.resolveDecisionWorkQueueItem(
+      PROJECT_ID,
+      'decision_queue_item_001',
+      { status: 'dismissed', resolution_note: 'terminal drift', resolved_by: 'system', resolved_at: NOW },
+    ),
+    (error: unknown) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT',
+  );
   assert.equal(resolved.status, 'resolved');
+  assert.equal(replayed.status, 'resolved');
   assert.equal((await repository.listDecisionWorkQueueItems(PROJECT_ID))[0]?.resolved_at, NOW);
+
+  const secondRun = {
+    ...makeRun(),
+    harness_run_id: 'harness_run_002',
+    raw_output_artifact_ref: ref('artifact', 'raw_output_002'),
+    parsed_output_artifact_ref: ref('artifact', 'parsed_output_002'),
+    proposal_artifact_ids: ['proposal_artifact_002'],
+    quality_signal_ids: ['quality_signal_002'],
+    gate_result_id: 'gate_result_002',
+    transition_attempt_id: 'transition_attempt_002',
+  };
+  const reopened = await repository.createAgentWorkflowHarnessRun({
+    spec: makeSpec(),
+    harness_run: secondRun,
+    proposal_artifacts: [{
+      ...makeProposal(),
+      proposal_artifact_id: 'proposal_artifact_002',
+      harness_run_id: secondRun.harness_run_id,
+      artifact_ref: ref('artifact', 'proposal_artifact_002'),
+    }],
+    quality_signals: [{
+      ...makeQualitySignal(),
+      quality_signal_id: 'quality_signal_002',
+      harness_run_id: secondRun.harness_run_id,
+      source_refs: [ref('agent_workflow_harness_run', secondRun.harness_run_id)],
+    }],
+    gate_result: {
+      ...makeGateResult(),
+      gate_result_id: 'gate_result_002',
+    },
+    transition_attempt: {
+      ...makeTransition(),
+      transition_id: 'transition_attempt_002',
+      harness_run_refs: [ref('agent_workflow_harness_run', secondRun.harness_run_id)],
+    },
+    queue_items: [{
+      ...makeQueueItem(),
+      queue_item_id: 'decision_queue_item_002',
+      created_from_refs: [ref('agent_workflow_harness_run', secondRun.harness_run_id)],
+    }],
+  });
+
+  assert.equal(reopened.queue_items[0]?.queue_item_id, 'decision_queue_item_001');
+  assert.equal(reopened.queue_items[0]?.status, 'open');
+  assert.equal(reopened.queue_items[0]?.resolved_at, null);
+  assert.deepEqual(
+    reopened.queue_items[0]?.created_from_refs.map((item) => item.ref_id),
+    ['harness_run_001', 'harness_run_002'],
+  );
 });
 
 test('AI workflow harness migration declares queryable runtime gate and queue indexes', async () => {

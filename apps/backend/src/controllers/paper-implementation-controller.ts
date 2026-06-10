@@ -62,8 +62,15 @@ import type {
   AdmitPaperImplementationRuntimeArtifactRequestPayload,
   ListPaperImplementationRuntimeAdmissionRecordsQuery,
   ListPaperImplementationRuntimeArtifactsQuery,
+  RunPaperImplementationCrossBoardSynthesisRuntimeRequest,
+  RunPaperImplementationEvidenceBoardCurationRuntimeRequest,
   RunPaperImplementationExperimentPlanningRuntimeRequest,
+  RunPaperImplementationFeasibilityPlanningRuntimeRequest,
+  RunPaperImplementationMotiveEvolutionRuntimeRequest,
+  RunPaperImplementationMotiveDecompositionRuntimeRequest,
   RunPaperImplementationP1RuntimeReviewRequest,
+  RunPaperImplementationRoutePlanningRuntimeRequest,
+  RunPaperImplementationValidationCyclePlanningRuntimeRequest,
   RunPaperImplementationResultAnalysisRuntimeRequest,
   RunPaperImplementationTraceIntegrityDebateRuntimeRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
@@ -83,6 +90,13 @@ import { PaperImplementationTraceIntegrityDebateRuntimeService } from '../servic
 import { PaperImplementationP1RuntimeReviewService } from '../services/paper-implementation-p1-runtime-review-service.js';
 import { PaperImplementationResultAnalysisRuntimeService } from '../services/paper-implementation-result-analysis-runtime-service.js';
 import { PaperImplementationExperimentPlanningRuntimeService } from '../services/paper-implementation-experiment-planning-runtime-service.js';
+import { PaperImplementationRoutePlanningRuntimeService } from '../services/paper-implementation-route-planning-runtime-service.js';
+import { PaperImplementationValidationCyclePlanningRuntimeService } from '../services/paper-implementation-validation-cycle-planning-runtime-service.js';
+import { PaperImplementationFeasibilityPlanningRuntimeService } from '../services/paper-implementation-feasibility-planning-runtime-service.js';
+import { PaperImplementationCrossBoardSynthesisRuntimeService } from '../services/paper-implementation-cross-board-synthesis-runtime-service.js';
+import { PaperImplementationEvidenceBoardCurationRuntimeService } from '../services/paper-implementation-evidence-board-curation-runtime-service.js';
+import { PaperImplementationMotiveDecompositionRuntimeService } from '../services/paper-implementation-motive-decomposition-runtime-service.js';
+import { PaperImplementationMotiveEvolutionRuntimeService } from '../services/paper-implementation-motive-evolution-runtime-service.js';
 import { PaperImplementationRuntimeDomainGateService } from '../services/paper-implementation-runtime-domain-gate-service.js';
 
 type BodyRequest<T> = FastifyRequest<{ Body: T }>;
@@ -113,24 +127,79 @@ function handleError(reply: FastifyReply, error: unknown) {
   });
 }
 
+export interface PaperImplementationControllerDependencies {
+  intakeBootstrap: PaperImplementationIntakeBootstrapService;
+  traceKernel: PaperImplementationTraceKernelService;
+  motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
+  validationCyclePlanning: PaperImplementationValidationCyclePlanningService;
+  workOrderExperimentBridge: PaperImplementationWorkOrderExperimentBridgeService;
+  resultClaimDossier: PaperImplementationResultClaimDossierService;
+  aiWorkflowHarness: PaperImplementationAiWorkflowHarnessService;
+  runtimeAdmission: PaperImplementationRuntimeAdmissionService;
+  traceIntegrityDebateRuntime: PaperImplementationTraceIntegrityDebateRuntimeService;
+  p1RuntimeReview: PaperImplementationP1RuntimeReviewService;
+  resultAnalysisRuntime: PaperImplementationResultAnalysisRuntimeService;
+  experimentPlanningRuntime: PaperImplementationExperimentPlanningRuntimeService;
+  routePlanningRuntime: PaperImplementationRoutePlanningRuntimeService;
+  validationCyclePlanningRuntime: PaperImplementationValidationCyclePlanningRuntimeService;
+  feasibilityPlanningRuntime: PaperImplementationFeasibilityPlanningRuntimeService;
+  crossBoardSynthesisRuntime: PaperImplementationCrossBoardSynthesisRuntimeService;
+  evidenceBoardCurationRuntime: PaperImplementationEvidenceBoardCurationRuntimeService;
+  motiveDecompositionRuntime: PaperImplementationMotiveDecompositionRuntimeService;
+  motiveEvolutionRuntime: PaperImplementationMotiveEvolutionRuntimeService;
+  runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
+  liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService;
+  providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService;
+}
+
 export class PaperImplementationController {
-  constructor(
-    private readonly intakeBootstrap: PaperImplementationIntakeBootstrapService,
-    private readonly traceKernel: PaperImplementationTraceKernelService,
-    private readonly motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService,
-    private readonly validationCyclePlanning: PaperImplementationValidationCyclePlanningService,
-    private readonly workOrderExperimentBridge: PaperImplementationWorkOrderExperimentBridgeService,
-    private readonly resultClaimDossier: PaperImplementationResultClaimDossierService,
-    private readonly aiWorkflowHarness: PaperImplementationAiWorkflowHarnessService,
-    private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService,
-    private readonly traceIntegrityDebateRuntime: PaperImplementationTraceIntegrityDebateRuntimeService,
-    private readonly p1RuntimeReview: PaperImplementationP1RuntimeReviewService,
-    private readonly resultAnalysisRuntime: PaperImplementationResultAnalysisRuntimeService,
-    private readonly experimentPlanningRuntime: PaperImplementationExperimentPlanningRuntimeService,
-    private readonly runtimeDomainGate: PaperImplementationRuntimeDomainGateService,
-    private readonly liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService,
-    private readonly providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService,
-  ) {}
+  private readonly intakeBootstrap: PaperImplementationIntakeBootstrapService;
+  private readonly traceKernel: PaperImplementationTraceKernelService;
+  private readonly motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
+  private readonly validationCyclePlanning: PaperImplementationValidationCyclePlanningService;
+  private readonly workOrderExperimentBridge: PaperImplementationWorkOrderExperimentBridgeService;
+  private readonly resultClaimDossier: PaperImplementationResultClaimDossierService;
+  private readonly aiWorkflowHarness: PaperImplementationAiWorkflowHarnessService;
+  private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
+  private readonly traceIntegrityDebateRuntime: PaperImplementationTraceIntegrityDebateRuntimeService;
+  private readonly p1RuntimeReview: PaperImplementationP1RuntimeReviewService;
+  private readonly resultAnalysisRuntime: PaperImplementationResultAnalysisRuntimeService;
+  private readonly experimentPlanningRuntime: PaperImplementationExperimentPlanningRuntimeService;
+  private readonly routePlanningRuntime: PaperImplementationRoutePlanningRuntimeService;
+  private readonly validationCyclePlanningRuntime: PaperImplementationValidationCyclePlanningRuntimeService;
+  private readonly feasibilityPlanningRuntime: PaperImplementationFeasibilityPlanningRuntimeService;
+  private readonly crossBoardSynthesisRuntime: PaperImplementationCrossBoardSynthesisRuntimeService;
+  private readonly evidenceBoardCurationRuntime: PaperImplementationEvidenceBoardCurationRuntimeService;
+  private readonly motiveDecompositionRuntime: PaperImplementationMotiveDecompositionRuntimeService;
+  private readonly motiveEvolutionRuntime: PaperImplementationMotiveEvolutionRuntimeService;
+  private readonly runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
+  private readonly liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService;
+  private readonly providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService;
+
+  constructor(dependencies: PaperImplementationControllerDependencies) {
+    this.intakeBootstrap = dependencies.intakeBootstrap;
+    this.traceKernel = dependencies.traceKernel;
+    this.motiveEvidenceBoard = dependencies.motiveEvidenceBoard;
+    this.validationCyclePlanning = dependencies.validationCyclePlanning;
+    this.workOrderExperimentBridge = dependencies.workOrderExperimentBridge;
+    this.resultClaimDossier = dependencies.resultClaimDossier;
+    this.aiWorkflowHarness = dependencies.aiWorkflowHarness;
+    this.runtimeAdmission = dependencies.runtimeAdmission;
+    this.traceIntegrityDebateRuntime = dependencies.traceIntegrityDebateRuntime;
+    this.p1RuntimeReview = dependencies.p1RuntimeReview;
+    this.resultAnalysisRuntime = dependencies.resultAnalysisRuntime;
+    this.experimentPlanningRuntime = dependencies.experimentPlanningRuntime;
+    this.routePlanningRuntime = dependencies.routePlanningRuntime;
+    this.validationCyclePlanningRuntime = dependencies.validationCyclePlanningRuntime;
+    this.feasibilityPlanningRuntime = dependencies.feasibilityPlanningRuntime;
+    this.crossBoardSynthesisRuntime = dependencies.crossBoardSynthesisRuntime;
+    this.evidenceBoardCurationRuntime = dependencies.evidenceBoardCurationRuntime;
+    this.motiveDecompositionRuntime = dependencies.motiveDecompositionRuntime;
+    this.motiveEvolutionRuntime = dependencies.motiveEvolutionRuntime;
+    this.runtimeDomainGate = dependencies.runtimeDomainGate;
+    this.liveExperimentAdapter = dependencies.liveExperimentAdapter;
+    this.providerVarianceEvaluation = dependencies.providerVarianceEvaluation;
+  }
 
   bootstrapProject = async (
     request: BodyRequest<BootstrapImplementationProjectRequest>,
@@ -1470,6 +1539,150 @@ export class PaperImplementationController {
   ) => {
     try {
       const result = await this.resultAnalysisRuntime.runInterpretationScenarios(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runRouteArchitectureRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationRoutePlanningRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.routePlanningRuntime.runRouteArchitecture(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runRouteSkepticReviewRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationRoutePlanningRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.routePlanningRuntime.runRouteSkepticReview(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runValidationCyclePlanningRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationValidationCyclePlanningRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.validationCyclePlanningRuntime.runCycleCandidates(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runFeasibilityPlanningRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationFeasibilityPlanningRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.feasibilityPlanningRuntime.runProbePlanCandidates(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runCrossBoardSynthesisRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationCrossBoardSynthesisRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.crossBoardSynthesisRuntime.runMergeSplitReuseScenarios(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runEvidenceBoardCurationRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationEvidenceBoardCurationRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.evidenceBoardCurationRuntime.runBindingGapCandidates(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runMotiveDecompositionRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationMotiveDecompositionRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.motiveDecompositionRuntime.runDraftAssertionCandidates(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  runMotiveEvolutionRuntime = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: RunPaperImplementationMotiveEvolutionRuntimeRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.motiveEvolutionRuntime.runEvolutionDecisionSupport(
         request.params.implementation_project_id,
         request.body,
       );

@@ -2,8 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
 import {
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_VERSION,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+} from './paper-implementation-runtime-contracts.js';
+import {
   TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_SCHEMA_VERSION,
   TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY_SCHEMA_VERSION,
+  TOPIC_SELECTION_CONTEXT_FAMILIES,
   TOPIC_SELECTION_HUMAN_TRUST_SUMMARY_SCHEMA_VERSION,
   TOPIC_SELECTION_OPERATOR_AUDIT_SUMMARY_SCHEMA_VERSION,
   TOPIC_SELECTION_PROMPT_QUALITY_REPORT_SCHEMA_VERSION,
@@ -497,10 +505,40 @@ function humanTrustSummary(): TopicSelectionHumanTrustSummary {
 }
 
 test('topic-selection context policy profile accepts v1a N6 first-slice profile', async () => {
+  assert.equal(TOPIC_SELECTION_CONTEXT_FAMILIES.includes('paper_implementation_feasibility_planning'), true);
+  assert.equal(TOPIC_SELECTION_CONTEXT_FAMILIES.includes('paper_implementation_cross_board_synthesis'), true);
+  assert.equal(TOPIC_SELECTION_CONTEXT_FAMILIES.includes('paper_implementation_evidence_board_curation'), true);
+  assert.equal(TOPIC_SELECTION_CONTEXT_FAMILIES.includes('paper_implementation_motive_decomposition'), true);
+  assert.equal(TOPIC_SELECTION_CONTEXT_FAMILIES.includes('paper_implementation_motive_evolution'), true);
   assert.equal(
     await validatesBody(topicSelectionContextPolicyProfileSchema, contextPolicyProfile()),
     true,
   );
+});
+
+test('topic-selection runtime schemas accept PaperImplementation motive evolution prompt and context identity', async () => {
+  const key: TopicSelectionContextPacketCacheKey = {
+    ...cacheKey(),
+    node_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+    invocation_slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+    context_family: 'paper_implementation_motive_evolution',
+    prompt_template_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_ID,
+    prompt_template_version: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_VERSION,
+    model_option_id: `${PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID}.openai-balanced`,
+    output_contract: 'PaperImplementationMotiveEvolutionRoleArtifact@v1',
+  };
+  assert.equal(await validatesBody(topicSelectionContextPacketCacheKeySchema, key), true);
+
+  const promptIdentity: TopicSelectionPromptPacketIdentity = {
+    ...promptPacketIdentity(),
+    prompt_template_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_ID,
+    prompt_template_version: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_VERSION,
+    prompt_variant_key: 'evolution-option-designer.main',
+    invocation_slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+    output_contract: 'PaperImplementationMotiveEvolutionRoleArtifact@v1',
+    model_option_id: `${PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID}.openai-balanced`,
+  };
+  assert.equal(await validatesBody(topicSelectionPromptPacketIdentitySchema, promptIdentity), true);
 });
 
 test('topic-selection context policy profile registry accepts first-slice profile list', async () => {

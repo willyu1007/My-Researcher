@@ -1,0 +1,518 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS,
+  type PaperImplementationRouteCandidateProposal,
+  type PaperImplementationRoutePlanningRoleOutput,
+  type RunPaperImplementationRoutePlanningRuntimeRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import type {
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+
+import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
+import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { PaperImplementationRoutePlanningRuntimeService } from './paper-implementation-route-planning-runtime-service.js';
+import type {
+  TopicSelectionAgentInvocationResult,
+} from './topic-selection-agent-orchestrator-service.js';
+import {
+  sha256Text,
+  stableStringify,
+} from './literature-content-processing-utils.js';
+
+const PROJECT_ID = 'implementation_project_route_planning_runtime_001';
+const TITLE_CARD_ID = 'title_card_route_planning_runtime_001';
+const NOW = '2026-06-07T10:00:00.000Z';
+
+type Outcome =
+  | 'passed_architecture'
+  | 'passed_skeptic'
+  | 'schema_failed'
+  | 'incomplete_architecture'
+  | 'incomplete_skeptic';
+
+class StubRoutePlanningAgentOrchestrator {
+  readonly calls: Array<{
+    node_id: string;
+    execution_mode: string;
+    executor_kind: string;
+    feature_id?: string | null;
+    messages: Array<{ role: 'system' | 'user'; content: string }>;
+    runtime_token_budget?: unknown;
+    debate_extension?: unknown;
+  }> = [];
+
+  constructor(private readonly outcomes: Outcome[] = ['passed_architecture']) {}
+
+  async invokeStructuredOutput<T>(
+    input: {
+      node_id: string;
+      execution_mode: string;
+      executor_kind: string;
+      feature_id?: string | null;
+      messages: Array<{ role: 'system' | 'user'; content: string }>;
+      runtime_token_budget?: unknown;
+      debate_extension?: unknown;
+    },
+  ): Promise<TopicSelectionAgentInvocationResult<T>> {
+    this.calls.push(input);
+    const outcome = this.outcomes.shift() ?? 'passed_architecture';
+    if (outcome === 'schema_failed') {
+      return failedInvocationResult(input.node_id, input.execution_mode);
+    }
+    if (outcome === 'incomplete_architecture') {
+      return invocationResult(routeArchitectureRoleOutput({
+        route_candidate_proposals: [routeCandidateProposal('single_candidate', false)],
+      }) as T, input.node_id, input.execution_mode);
+    }
+    if (outcome === 'incomplete_skeptic') {
+      return invocationResult(routeSkepticRoleOutput({
+        checked_dimensions: ['compute_budget'],
+      }) as T, input.node_id, input.execution_mode);
+    }
+    if (outcome === 'passed_skeptic') {
+      return invocationResult(routeSkepticRoleOutput() as T, input.node_id, input.execution_mode);
+    }
+    return invocationResult(routeArchitectureRoleOutput() as T, input.node_id, input.execution_mode);
+  }
+}
+
+test('route architecture runtime records proposal-only artifacts without Domain Gate or route writes', async () => {
+  const { service, repository, orchestrator } = serviceFixture(['passed_architecture']);
+  const result = await service.runRouteArchitecture(PROJECT_ID, providerRequest('architecture'));
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.slot_id, PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID);
+  assert.equal(result.workflow_type, 'route_architecture');
+  assert.equal(result.provider_call_count, 1);
+  assert.equal(orchestrator.calls.length, 1);
+  assert.equal(orchestrator.calls[0]?.node_id, PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID);
+  assert.equal(orchestrator.calls[0]?.executor_kind, 'single_agent');
+  assert.equal(orchestrator.calls[0]?.feature_id, 'paper_implementation');
+  assert.equal(Boolean(orchestrator.calls[0]?.runtime_token_budget), true);
+  assert.equal(orchestrator.calls[0]?.debate_extension, null);
+  assert.match(orchestrator.calls[0]?.messages[0]?.content ?? '', /route architecture candidate proposals/);
+  assert.equal(result.runtime_artifacts.length, 2);
+  assert.equal(result.final_runtime_artifact?.artifact_scope, 'final');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.equal(
+    (result.final_runtime_artifact?.artifact_payload.route_candidate_proposals as unknown[] | undefined)?.length,
+    2,
+  );
+  assert.equal('domain_gate_request' in (result.final_runtime_artifact?.artifact_payload ?? {}), false);
+  assert.equal('technical_route_candidate_create_request' in (result.final_runtime_artifact?.artifact_payload ?? {}), false);
+  assert.equal(result.final_runtime_artifact?.artifact_payload.no_domain_gate_request, true);
+  assert.equal(result.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+  assert.equal(result.operational_telemetry.provider_call_count_consistent, true);
+  assert.equal(result.operational_telemetry.response_reuse_status_counts.miss, 2);
+
+  const storedArtifacts = await repository.listRuntimeArtifacts(PROJECT_ID, {
+    slot_id: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+  });
+  assert.equal(storedArtifacts.length, 2);
+  assert.equal(stableStringify(result).includes('raw_provider_response'), false);
+  assert.equal(stableStringify(result).includes('technical_route_candidate_create_request'), false);
+});
+
+test('route skeptic runtime records independent critique coverage against admitted route proposal', async () => {
+  const { service, orchestrator } = serviceFixture(['passed_skeptic']);
+  const result = await service.runRouteSkepticReview(PROJECT_ID, providerRequest('skeptic'));
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.slot_id, PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID);
+  assert.equal(result.workflow_type, 'route_skeptic_review');
+  assert.equal(orchestrator.calls.length, 1);
+  assert.equal(orchestrator.calls[0]?.node_id, PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID);
+  assert.equal(orchestrator.calls[0]?.executor_kind, 'single_agent');
+  assert.equal(result.runtime_artifacts[0]?.executor_kind, 'single_agent');
+  assert.deepEqual(
+    result.final_runtime_artifact?.artifact_payload.checked_dimensions,
+    [...PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS],
+  );
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+  assert.equal(result.final_runtime_artifact?.artifact_payload.no_domain_gate_request, true);
+  assert.equal('queue_action' in (result.final_runtime_artifact?.artifact_payload ?? {}), false);
+  assert.equal('domain_gate_request' in (result.final_runtime_artifact?.artifact_payload ?? {}), false);
+});
+
+test('route planning runtime records preflight blockers without provider calls', async () => {
+  const { service, orchestrator } = serviceFixture(['passed_architecture']);
+  const result = await service.runRouteArchitecture(PROJECT_ID, {
+    ...providerRequest('architecture'),
+    run_id: 'route_architecture_preflight_blocked_run_001',
+    preflight_blocker_codes: ['source_refs_missing'],
+  });
+
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.provider_call_count, 0);
+  assert.equal(orchestrator.calls.length, 0);
+  assert.deepEqual(result.blocker_codes, ['source_refs_missing']);
+  assert.equal(result.runtime_artifacts.length, 2);
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+});
+
+test('route planning runtime fails closed after same-profile semantic retry exhaustion', async () => {
+  const architecture = serviceFixture(['incomplete_architecture', 'incomplete_architecture']);
+  const architectureResult = await architecture.service.runRouteArchitecture(PROJECT_ID, {
+    ...providerRequest('architecture'),
+    run_id: 'route_architecture_missing_candidate_run_001',
+  });
+
+  assert.equal(architectureResult.status, 'failed_runtime');
+  assert.equal(architecture.orchestrator.calls.length, 2);
+  assert.equal(architectureResult.provider_call_count, 2);
+  assert.equal(architectureResult.runtime_artifacts.length, 1);
+  assert.equal(architectureResult.final_runtime_artifact, null);
+  assert.equal(
+    architectureResult.runtime_artifacts[0]?.runtime_failure_code,
+    'ROUTE_ARCHITECTURE_CANDIDATE_SET_INCOMPLETE',
+  );
+  assert.equal(architectureResult.admission_records[0]?.admission_status, 'rejected');
+
+  const skeptic = serviceFixture(['incomplete_skeptic', 'incomplete_skeptic']);
+  const skepticResult = await skeptic.service.runRouteSkepticReview(PROJECT_ID, {
+    ...providerRequest('skeptic'),
+    run_id: 'route_skeptic_missing_dimension_run_001',
+  });
+
+  assert.equal(skepticResult.status, 'failed_runtime');
+  assert.equal(skeptic.orchestrator.calls.length, 2);
+  assert.equal(skepticResult.provider_call_count, 2);
+  assert.equal(
+    skepticResult.runtime_artifacts[0]?.runtime_failure_code,
+    'ROUTE_SKEPTIC_DIMENSION_COVERAGE_INCOMPLETE',
+  );
+  assert.equal(skepticResult.admission_records[0]?.admission_status, 'rejected');
+});
+
+test('route planning runtime rejects product fixture modes and provider fixture payloads', async () => {
+  const { service, orchestrator } = serviceFixture();
+
+  await assert.rejects(
+    () => service.runRouteArchitecture(PROJECT_ID, {
+      ...providerRequest('architecture'),
+      run_id: 'route_architecture_product_mocked_mode_run_001',
+      execution_mode: 'mocked_llm',
+      model_option_id: null,
+      mocked_role_outputs: routePlanningRoleOutputs('architecture'),
+    }),
+    /product run_mode requires execution_mode=provider_llm/,
+  );
+
+  await assert.rejects(
+    () => service.runRouteSkepticReview(PROJECT_ID, {
+      ...providerRequest('skeptic'),
+      run_id: 'route_skeptic_provider_fixture_payload_run_001',
+      codex_role_outputs: routePlanningRoleOutputs('skeptic'),
+    }),
+    /provider_llm runtime requests must not include mocked_role_outputs or codex_role_outputs/,
+  );
+
+  assert.equal(orchestrator.calls.length, 0);
+});
+
+test('route skeptic runtime rejects missing admitted proposal primary input before provider calls', async () => {
+  const { service, orchestrator } = serviceFixture(['passed_skeptic']);
+
+  await assert.rejects(
+    () => service.runRouteSkepticReview(PROJECT_ID, {
+      ...providerRequest('skeptic'),
+      run_id: 'route_skeptic_missing_primary_proposal_run_001',
+      admitted_route_proposal_artifact_ref: null,
+      admitted_route_proposal_artifact_hash: null,
+    }),
+    /requires admitted_route_proposal_artifact_ref/,
+  );
+
+  assert.equal(orchestrator.calls.length, 0);
+});
+
+function serviceFixture(outcomes?: Outcome[]) {
+  const repository = new InMemoryPaperImplementationRuntimeRepository();
+  let sequence = 0;
+  const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository,
+    idFactory,
+    now: () => NOW,
+  });
+  const orchestrator = new StubRoutePlanningAgentOrchestrator(outcomes);
+  const service = new PaperImplementationRoutePlanningRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: orchestrator,
+    idFactory,
+    now: () => NOW,
+  });
+  return { service, repository, orchestrator };
+}
+
+function routePlanningRoleOutputs(
+  slot: 'architecture' | 'skeptic',
+): RunPaperImplementationRoutePlanningRuntimeRequest['mocked_role_outputs'] {
+  if (slot === 'architecture') {
+    return {
+      [PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID]: routeArchitectureRoleOutput(),
+    };
+  }
+  return {
+    [PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID]: routeSkepticRoleOutput(),
+  };
+}
+
+function providerRequest(
+  slot: 'architecture' | 'skeptic',
+): RunPaperImplementationRoutePlanningRuntimeRequest {
+  const profileId = slot === 'architecture'
+    ? PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID
+    : PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID;
+  return {
+    run_id: `${slot}_runtime_run_001`,
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    model_profile_id: profileId,
+    model_option_id: `${profileId}.openai-balanced`,
+    target_ref: ref('implementation_input_snapshot', 'input_snapshot_001'),
+    target_version_id: 'v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input_snapshot_001'),
+    input_snapshot_hash: hash('input-snapshot'),
+    source_refs: [
+      ref('implementation_input_snapshot', 'input_snapshot_001'),
+      ref('trace_manifest', 'trace_manifest_001'),
+      ref('literature_evidence', 'literature_evidence_001'),
+    ],
+    source_hashes: [hash('snapshot'), hash('trace'), hash('literature')],
+    admitted_route_proposal_artifact_ref: slot === 'skeptic'
+      ? ref('route_architecture_runtime_artifact', 'route_architecture_final_001')
+      : null,
+    admitted_route_proposal_artifact_hash: slot === 'skeptic' ? hash('route-architecture-final') : null,
+    reviewed_candidate_keys: slot === 'skeptic' ? ['exploratory_route_candidate'] : [],
+    secondary_route_candidate_refs: slot === 'skeptic'
+      ? [ref('technical_route_candidate', 'technical_route_candidate_secondary_001')]
+      : [],
+    preflight_blocker_codes: [],
+  };
+}
+
+function routeCandidateProposal(
+  candidateKey: string,
+  confirmatoryMarker: boolean,
+): PaperImplementationRouteCandidateProposal {
+  return {
+    candidate_key: candidateKey,
+    route_summary: `${candidateKey} proposes a bounded route candidate.`,
+    expected_information_gain: 'Expected to clarify whether the target method beats the baseline under bounded evidence.',
+    baseline_gap_status: confirmatoryMarker ? 'partial' : 'unknown',
+    cited_source_refs: [ref('implementation_input_snapshot', 'input_snapshot_001')],
+    trace_refs: [ref('trace_manifest', 'trace_manifest_001')],
+    validation_signal_refs: [ref('validation_signal', `${candidateKey}_signal_001`)],
+    dataset_refs: [ref('dataset_version', `${candidateKey}_dataset_001`)],
+    metric_refs: [ref('metric', `${candidateKey}_metric_001`)],
+    baseline_refs: [ref('baseline_version', `${candidateKey}_baseline_001`)],
+    code_refs: [ref('code_version', `${candidateKey}_code_001`)],
+    config_refs: [ref('config_snapshot', `${candidateKey}_config_001`)],
+    scope_boundary: 'Proposal only; deterministic validation planning owns persisted route records.',
+    confirmatory_marker: confirmatoryMarker,
+    blocker_codes: [],
+    warning_codes: [],
+  };
+}
+
+function routeArchitectureRoleOutput(
+  overrides: Partial<PaperImplementationRoutePlanningRoleOutput> = {},
+): PaperImplementationRoutePlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Route architecture proposed bounded route candidates.',
+    cited_source_refs: [ref('implementation_input_snapshot', 'input_snapshot_001')],
+    blocker_codes: [],
+    warning_codes: [],
+    route_candidate_proposals: [
+      routeCandidateProposal('exploratory_route_candidate', false),
+      routeCandidateProposal('confirmatory_route_candidate', true),
+    ],
+    ...overrides,
+  };
+}
+
+function routeSkepticRoleOutput(
+  overrides: Partial<PaperImplementationRoutePlanningRoleOutput> = {},
+): PaperImplementationRoutePlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Independent route skeptic covered route-planning risks.',
+    cited_source_refs: [ref('route_architecture_runtime_artifact', 'route_architecture_final_001')],
+    blocker_codes: [],
+    warning_codes: [],
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    reviewed_route_proposal_hash: hash('route-architecture-final'),
+    reviewed_candidate_keys: ['exploratory_route_candidate'],
+    checked_dimensions: [...PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS],
+    risk_findings: [{
+      finding_id: 'route_risk_finding_budget_001',
+      risk_dimension: 'compute_budget',
+      severity: 'warning',
+      summary: 'Budget must be confirmed before deterministic route admission proceeds.',
+      evidence_refs: [ref('validation_budget', 'budget_001')],
+      affected_candidate_keys: ['exploratory_route_candidate'],
+      required_revision_refs: [],
+      blocks_route_progression: false,
+    }],
+    recommended_disposition: 'revise',
+    no_queue_side_effect: true,
+    ...overrides,
+  };
+}
+
+function invocationResult<T>(
+  output: T,
+  nodeId: string,
+  executionMode: string,
+): TopicSelectionAgentInvocationResult<T> {
+  return baseInvocationResult({
+    output,
+    nodeId,
+    executionMode,
+    status: 'succeeded',
+    errorCode: null,
+    blockerCodes: [],
+  });
+}
+
+function failedInvocationResult<T>(
+  nodeId: string,
+  executionMode: string,
+): TopicSelectionAgentInvocationResult<T> {
+  return baseInvocationResult<T>({
+    output: null,
+    nodeId,
+    executionMode,
+    status: 'blocked',
+    errorCode: 'SCHEMA_VALIDATION_FAILED',
+    blockerCodes: ['SCHEMA_VALIDATION_FAILED'],
+  });
+}
+
+function baseInvocationResult<T>(input: {
+  output: T | null;
+  nodeId: string;
+  executionMode: string;
+  status: 'succeeded' | 'blocked';
+  errorCode: string | null;
+  blockerCodes: string[];
+}): TopicSelectionAgentInvocationResult<T> {
+  const profileId = input.nodeId === PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID
+    ? PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID
+    : PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID;
+  const outputHash = input.output ? hash(input.output) : hash(input.errorCode);
+  const provenance = {
+    workflow_run_id: 'route_planning_runtime_run_001',
+    node_id: input.nodeId,
+    node_attempt_id: `${input.nodeId}.attempt-0`,
+    invocation_attempt_id: `${input.nodeId}.call-1`,
+    execution_mode: input.executionMode,
+    executor_kind: 'single_agent',
+    source_kind: input.executionMode === 'provider_llm' ? 'provider_response' : 'mock_fixture',
+    non_provider: input.executionMode !== 'provider_llm',
+    run_mode: input.executionMode === 'provider_llm' ? 'product' : 'acceptance',
+    profile_id: profileId,
+    profile_version: 'v1',
+    profile_hash: hash('profile'),
+    model_option_id: input.executionMode === 'provider_llm'
+      ? `${profileId}.openai-balanced`
+      : null,
+    normalized_params_hash: input.executionMode === 'provider_llm' ? hash('normalized-params') : null,
+    capability_degraded: false,
+    capability_degrade_reason: null,
+    output_contract: 'PaperImplementationRoutePlanningRoleArtifact@v1',
+    prompt_template_id: input.nodeId === PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID
+      ? 'paper-implementation-route-skeptic-review-route-risk-critique'
+      : 'paper-implementation-route-architecture-route-candidates',
+    prompt_template_version: 'v1',
+    schema_name: 'paper_implementation_route_planning_role_output',
+    prompt_packet_hash: hash(`prompt:${input.nodeId}`),
+    prompt_packet_cache_status: 'miss',
+    prompt_packet_cache_result_ref: null,
+    prompt_packet_cache_result_hash: null,
+    response_hash: outputHash,
+    structured_output_hash: outputHash,
+    cache_status: 'not_applicable',
+    response_reuse_ref: null,
+    telemetry: input.executionMode === 'provider_llm' ? { request_count: 1 } : null,
+  };
+  return {
+    schema_version: 'v1',
+    node_id: input.nodeId,
+    workflow_run_id: 'route_planning_runtime_run_001',
+    node_attempt_id: `${input.nodeId}.attempt-0`,
+    status: input.status,
+    structured_output: input.output,
+    provenance,
+    validation: input.status === 'succeeded'
+      ? { valid: true, error_count: 0, errors: [] }
+      : { valid: false, error_count: 1, errors: [{ keyword: 'required' }] },
+    token_budget_gate_result: tokenBudgetGateResult(profileId),
+    warning_codes: [],
+    blocker_codes: input.blockerCodes,
+    error_code: input.errorCode,
+    audit_snapshot: {
+      schema_version: 'topic-selection-agent-invocation-audit-v1',
+      node_id: input.nodeId,
+      workflow_run_id: 'route_planning_runtime_run_001',
+      node_attempt_id: `${input.nodeId}.attempt-0`,
+      status: input.status,
+      provenance,
+      token_budget_gate_result: tokenBudgetGateResult(profileId),
+      validation: input.status === 'succeeded'
+        ? { valid: true, error_count: 0, errors: [] }
+        : { valid: false, error_count: 1, errors: [{ keyword: 'required' }] },
+      warning_codes: [],
+      blocker_codes: input.blockerCodes,
+      error_code: input.errorCode,
+      created_at: NOW,
+    },
+    created_at: NOW,
+    audit_artifact_ref: null,
+  } as unknown as TopicSelectionAgentInvocationResult<T>;
+}
+
+function tokenBudgetGateResult(profileId: string) {
+  return {
+    provider_id: null,
+    model_id: null,
+    profile_id: profileId,
+    model_option_id: null,
+    estimated_input_tokens: 1400,
+    estimated_output_tokens: 2400,
+    context_window_tokens: 128000,
+    schema_overhead_tokens: 1200,
+    decision: 'within_budget',
+    compression_strategy_ref: ref('compression_strategy', 'paper-implementation-route-planning-context-compression'),
+    blocker_codes: [],
+    warning_codes: [],
+  };
+}
+
+function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
+  return {
+    ref_type: refType,
+    ref_id: refId,
+    title_card_id: TITLE_CARD_ID,
+    version_id: 'v1',
+  };
+}
+
+function hash(value: unknown): string {
+  return sha256Text(stableStringify(value));
+}

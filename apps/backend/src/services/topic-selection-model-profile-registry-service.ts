@@ -11,11 +11,19 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID,
   PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import {
   TOPIC_SELECTION_MODEL_PROFILE_REGISTRY_SCHEMA_VERSION,
@@ -876,6 +884,198 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
             creativity: 'low',
             reasoning_depth: 'high',
             output_budget: 'medium',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID,
+      profile_function: 'paper_implementation_route_architecture_route_candidates',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_route_architecture',
+      quality_objectives: [
+        'run_fixed_role_route_architecture_without_route_or_queue_write',
+        'preserve_input_snapshot_trace_dataset_metric_baseline_code_and_config_refs',
+        'produce_admission_ready_route_candidate_proposals',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
+      output_contract: 'PaperImplementationRoutePlanningRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'large',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID,
+      profile_function: 'paper_implementation_route_skeptic_review_route_risk_critique',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_route_skeptic_review',
+      quality_objectives: [
+        'run_independent_route_skeptic_review_without_route_or_queue_write',
+        'preserve_admitted_route_proposal_as_primary_input',
+        'produce_admission_ready_route_risk_critique',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
+      output_contract: 'PaperImplementationRoutePlanningRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'medium',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
+      profile_function: 'paper_implementation_validation_cycle_planning_cycle_candidates',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_validation_cycle_planning',
+      quality_objectives: [
+        'run_fixed_role_validation_cycle_planning_without_cycle_or_queue_write',
+        'preserve_admitted_route_proposal_and_skeptic_artifact_as_primary_inputs',
+        'produce_admission_ready_validation_cycle_candidate_proposals',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
+      output_contract: 'PaperImplementationValidationCyclePlanningRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'large',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID,
+      profile_function: 'paper_implementation_feasibility_planning_probe_plan_candidates',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_feasibility_planning',
+      quality_objectives: [
+        'run_fixed_role_feasibility_planning_without_probe_plan_cycle_or_queue_write',
+        'preserve_admitted_validation_cycle_artifact_as_primary_input',
+        'produce_admission_ready_probe_plan_candidate_proposals',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
+      output_contract: 'PaperImplementationFeasibilityPlanningRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'large',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID,
+      profile_function: 'paper_implementation_cross_board_synthesis_merge_split_reuse_scenarios',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_cross_board_synthesis',
+      quality_objectives: [
+        'run_fixed_role_cross_board_synthesis_without_review_transfer_portfolio_or_queue_write',
+        'preserve_board_version_conflict_challenge_transfer_binding_and_source_locator_refs',
+        'produce_admission_ready_merge_split_reuse_park_reject_scenario_proposals',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
+      output_contract: 'PaperImplementationCrossBoardSynthesisRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'large',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID,
+      profile_function: 'paper_implementation_evidence_board_curation_binding_gap_candidates',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_evidence_board_curation',
+      quality_objectives: [
+        'run_fixed_role_evidence_board_curation_without_board_binding_citation_trace_or_queue_write',
+        'preserve_assertion_evidence_source_locator_citation_trace_board_and_existing_binding_refs',
+        'produce_admission_ready_append_only_binding_and_gap_candidate_proposals',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
+      output_contract: 'PaperImplementationEvidenceBoardCurationRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'medium',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID,
+      profile_function: 'paper_implementation_motive_decomposition_draft_assertion_candidates',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_motive_decomposition',
+      quality_objectives: [
+        'run_fixed_role_motive_decomposition_without_motive_assertion_board_trace_or_queue_write',
+        'preserve_motive_version_assertion_evidence_source_locator_citation_trace_and_source_refs',
+        'produce_admission_ready_draft_assertion_candidate_proposals',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
+      output_contract: 'PaperImplementationMotiveDecompositionRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'large',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID,
+      profile_function: 'paper_implementation_motive_evolution_evolution_decision_support',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_motive_evolution',
+      quality_objectives: [
+        'run_fixed_two_role_motive_evolution_support_without_motive_portfolio_board_trace_or_queue_write',
+        'preserve_motive_version_portfolio_board_evidence_trace_validation_result_prior_decision_accepted_risk_and_source_refs',
+        'produce_admission_ready_evolution_decision_support_options',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
+      output_contract: 'PaperImplementationMotiveEvolutionRoleArtifact@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'large',
           }),
         }),
       ),

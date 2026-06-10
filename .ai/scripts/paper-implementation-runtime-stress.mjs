@@ -11,6 +11,14 @@ const RUN_ID = normalizeOptionalString(process.env.PAPER_IMPLEMENTATION_RUNTIME_
 const ARTIFACT_DIR = path.join(REPO_ROOT, '.ai/.tmp/paper-implementation-runtime-stress', RUN_ID);
 const CHILD_TIMEOUT_MS = positiveInt(process.env.PAPER_IMPLEMENTATION_RUNTIME_STRESS_CHILD_TIMEOUT_MS, 900000);
 const L5_STEP_ID = '00-l5-stress-compression-adversarial';
+const RUNTIME_REGRESSION_STEP_ID = '01-runtime-service-and-route-regression';
+const DOMAIN_GATE_WRITER_OWNERSHIP_STEP_ID = '02-domain-gate-writer-ownership-scan';
+const DETERMINISTIC_LANE_REGRESSION_STEP_ID = '03-deterministic-lane-regression';
+const DECISION_WORK_QUEUE_REGRESSION_STEP_ID = '04-decision-work-queue-regression';
+const LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID = '05-live-experiment-adapter-operational-regression';
+const LIVE_EXPERIMENT_ADAPTER_OWNERSHIP_STEP_ID = '06-live-experiment-adapter-ownership-scan';
+const PROVIDER_VARIANCE_EVALUATION_REGRESSION_STEP_ID = '07-provider-variance-evaluation-regression';
+const PROVIDER_VARIANCE_EVALUATION_OWNERSHIP_STEP_ID = '08-provider-variance-evaluation-ownership-scan';
 
 const REQUIRED_L5_CASES = [
   {
@@ -66,6 +74,154 @@ const REQUIRED_L5_CASES = [
     subtest: 'L5 experiment critique incomplete dimension set retries once and does not create final or domain-gate payloads',
   },
   {
+    key: 'route_architecture_provider_failure_retry_exhausted_no_route_queue_or_domain_gate_payload',
+    subtest: 'L5 route architecture provider gateway failure retries once and does not create final, route, queue, or domain-gate payloads',
+  },
+  {
+    key: 'route_architecture_incomplete_candidate_set_retry_exhausted_no_route_queue_or_domain_gate_payload',
+    subtest: 'L5 route architecture incomplete candidate set retries once and does not create final, route, queue, or domain-gate payloads',
+  },
+  {
+    key: 'route_skeptic_incomplete_dimension_set_retry_exhausted_no_queue_or_domain_gate_payload',
+    subtest: 'L5 route skeptic incomplete dimension set retries once and does not create final, queue, or domain-gate payloads',
+  },
+  {
+    key: 'validation_cycle_planning_provider_failure_retry_exhausted_no_cycle_queue_or_domain_gate_payload',
+    subtest: 'L5 validation cycle planning provider gateway failure retries once and does not create final, cycle, queue, or domain-gate payloads',
+  },
+  {
+    key: 'validation_cycle_planning_incomplete_candidate_set_retry_exhausted_no_cycle_queue_or_domain_gate_payload',
+    subtest: 'L5 validation cycle planning incomplete candidate set retries once and does not create final, cycle, queue, or domain-gate payloads',
+  },
+  {
+    key: 'feasibility_planning_over_budget_zero_provider_calls',
+    subtest: 'L5 feasibility planning stress blocks over-budget source bundles before provider calls',
+  },
+  {
+    key: 'feasibility_planning_provider_failure_retry_exhausted_no_probe_plan_cycle_queue_or_domain_gate_payload',
+    subtest: 'L5 feasibility planning provider gateway failure retries once and does not create final, probe, plan-light, cycle, queue, or domain-gate payloads',
+  },
+  {
+    key: 'feasibility_planning_incomplete_candidate_set_retry_exhausted_no_probe_plan_cycle_queue_or_domain_gate_payload',
+    subtest: 'L5 feasibility planning incomplete candidate set retries once and does not create final, probe, plan-light, cycle, queue, or domain-gate payloads',
+  },
+  {
+    key: 'cross_board_synthesis_over_budget_zero_provider_calls',
+    subtest: 'L5 cross-board synthesis stress blocks over-budget board context before provider calls',
+  },
+  {
+    key: 'cross_board_synthesis_provider_failure_retry_exhausted_no_review_transfer_portfolio_queue_or_domain_gate_payload',
+    subtest: 'L5 cross-board synthesis provider gateway failure retries once and does not create final, review, transfer, portfolio, queue, or domain-gate payloads',
+  },
+  {
+    key: 'cross_board_synthesis_missing_conflict_scenario_retry_exhausted_no_review_transfer_portfolio_queue_or_domain_gate_payload',
+    subtest: 'L5 cross-board synthesis missing conflict scenario retries once and does not create final, review, transfer, portfolio, queue, or domain-gate payloads',
+  },
+  {
+    key: 'cross_board_synthesis_scenario_refs_outside_request_owned_sets_retry_exhausted_no_review_transfer_portfolio_queue_or_domain_gate_payload',
+    subtest: 'L5 cross-board synthesis scenario refs outside request-owned sets retry once and does not create final, review, transfer, portfolio, queue, or domain-gate payloads',
+  },
+  {
+    key: 'cross_board_synthesis_memo_like_evidence_zero_provider_calls',
+    subtest: 'L5 cross-board synthesis memo-like evidence ref blocks before provider calls',
+  },
+  {
+    key: 'cross_board_synthesis_viable_reuse_without_transfer_binding_retry_exhausted_no_review_transfer_portfolio_queue_or_domain_gate_payload',
+    subtest: 'L5 cross-board synthesis viable reuse without transfer binding retries once and does not create final, review, transfer, portfolio, queue, or domain-gate payloads',
+  },
+  {
+    key: 'evidence_board_curation_over_budget_zero_provider_calls',
+    subtest: 'L5 evidence-board curation stress blocks over-budget board context before provider calls',
+  },
+  {
+    key: 'evidence_board_curation_provider_failure_retry_exhausted_no_board_binding_citation_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 evidence-board curation provider gateway failure retries once and does not create final, board, binding, citation, trace-repair, queue, or domain-gate payloads',
+  },
+  {
+    key: 'evidence_board_curation_missing_challenge_check_retry_exhausted_no_board_binding_citation_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 evidence-board curation missing challenge check retries once and does not create final, board, binding, citation, trace-repair, queue, or domain-gate payloads',
+  },
+  {
+    key: 'evidence_board_curation_viable_binding_without_locator_retry_exhausted_no_board_binding_citation_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 evidence-board curation viable binding without locator retries once and does not create final, board, binding, citation, trace-repair, queue, or domain-gate payloads',
+  },
+  {
+    key: 'evidence_board_curation_duplicate_existing_binding_retry_exhausted_no_board_binding_citation_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 evidence-board curation duplicate existing binding retries once and does not create final, board, binding, citation, trace-repair, queue, or domain-gate payloads',
+  },
+  {
+    key: 'evidence_board_curation_candidate_refs_outside_request_owned_sets_retry_exhausted_no_board_binding_citation_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 evidence-board curation candidate refs outside request-owned sets retry once and does not create final, board, binding, citation, trace-repair, queue, or domain-gate payloads',
+  },
+  {
+    key: 'evidence_board_curation_memo_like_evidence_zero_provider_calls',
+    subtest: 'L5 evidence-board curation memo-like evidence ref blocks before provider calls',
+  },
+  {
+    key: 'motive_decomposition_over_budget_zero_provider_calls',
+    subtest: 'L5 motive decomposition stress blocks over-budget assertion context before provider calls',
+  },
+  {
+    key: 'motive_decomposition_provider_failure_retry_exhausted_no_motive_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive decomposition provider gateway failure retries once and does not create final, motive, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_decomposition_missing_decomposition_check_retry_exhausted_no_motive_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive decomposition missing decomposition check retries once and does not create final, motive, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_decomposition_invalid_result_status_retry_exhausted_no_motive_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive decomposition invalid result status retries once and does not create final, motive, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_decomposition_missing_reviewed_assertion_coverage_retry_exhausted_no_motive_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive decomposition missing reviewed assertion coverage retries once and does not create final, motive, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_decomposition_candidate_refs_outside_request_owned_sets_retry_exhausted_no_motive_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive decomposition candidate refs outside request-owned sets retry once and does not create final, motive, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_decomposition_new_claim_without_human_confirmation_gate_retry_exhausted_no_motive_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive decomposition new-claim risk without human-confirmation gate retries once and does not create final, motive, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_decomposition_memo_like_assertion_context_zero_provider_calls',
+    subtest: 'L5 motive decomposition memo-like assertion context blocks before provider calls',
+  },
+  {
+    key: 'motive_evolution_over_budget_zero_provider_calls',
+    subtest: 'L5 motive evolution stress blocks over-budget motive context before provider calls',
+  },
+  {
+    key: 'motive_evolution_provider_failure_retry_exhausted_no_motive_portfolio_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive evolution provider gateway failure retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_evolution_missing_challenger_coverage_retry_exhausted_no_motive_portfolio_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive evolution missing challenger coverage retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_evolution_option_set_drift_retry_exhausted_no_motive_portfolio_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive evolution option-set drift retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_evolution_writer_payload_retry_exhausted_no_motive_portfolio_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive evolution writer-shaped payload retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_evolution_portfolio_change_without_human_confirmation_gate_retry_exhausted_no_motive_portfolio_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive evolution portfolio-changing option without human-confirmation gate retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_evolution_blocked_challenge_without_reason_retry_exhausted_no_motive_portfolio_board_trace_queue_or_domain_gate_payload',
+    subtest: 'L5 motive evolution blocked challenge without reason retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    key: 'motive_evolution_memo_like_context_zero_provider_calls',
+    subtest: 'L5 motive evolution memo-like motive context blocks before provider calls',
+  },
+  {
     key: 'p1_current_role_retry_no_prior_role_rerun',
     subtest: 'L5 P1 current-role retry does not rerun admitted prior roles',
   },
@@ -74,6 +230,229 @@ const REQUIRED_L5_CASES = [
     subtest: 'L5 P1 schema-invalid provider output retries once and does not create final or domain-gate payloads',
   },
 ];
+
+const REQUIRED_RUNTIME_REGRESSION_CASES = [
+  {
+    key: 'domain_gate_claim_final_artifact_idempotency',
+    subtest: 'runtime Domain Gate materializes an admitted claim final artifact idempotently',
+  },
+  {
+    key: 'domain_gate_dossier_final_artifact_idempotency',
+    subtest: 'runtime Domain Gate materializes an admitted dossier final artifact idempotently',
+  },
+  {
+    key: 'domain_gate_result_analysis_final_artifact_idempotency',
+    subtest: 'runtime Domain Gate materializes an admitted result-analysis final artifact idempotently',
+  },
+  {
+    key: 'domain_gate_claim_dossier_same_id_drift_conflict',
+    subtest: 'runtime Domain Gate rejects same-id claim and dossier materialization drift',
+  },
+  {
+    key: 'domain_gate_role_and_blocked_final_artifact_rejection',
+    subtest: 'runtime Domain Gate rejects role and blocked final artifacts',
+  },
+  {
+    key: 'domain_gate_result_analysis_route_replay_idempotency',
+    subtest: 'PaperImplementation result-analysis runtime run route uses the production slot service path',
+  },
+  {
+    key: 'domain_gate_result_analysis_route_malformed_and_drift_rejection',
+    subtest: 'PaperImplementation result-analysis Domain Gate route rejects malformed and drifted payloads',
+  },
+  {
+    key: 'domain_gate_support_only_runtime_final_artifact_rejection_matrix',
+    subtest: 'PaperImplementation Domain Gate rejects support-only runtime final artifacts',
+  },
+  {
+    key: 'domain_gate_blocked_and_failed_runtime_final_artifact_rejection',
+    subtest: 'PaperImplementation runtime Domain Gate route rejects blocked and failed runtime artifacts',
+  },
+];
+
+const REQUIRED_DETERMINISTIC_LANE_CASES = [
+  {
+    key: 'intake_bootstrap_route_replay_stale_hash',
+    subtest: 'PaperImplementation routes expose bootstrap, idempotent duplicate, stale hash, and feedback behavior through real service',
+  },
+  {
+    key: 'intake_bootstrap_service_idempotency',
+    subtest: 'duplicate bootstrap with same bridge/hash returns existing project idempotently',
+  },
+  {
+    key: 'intake_bootstrap_stale_hash_no_mutation',
+    subtest: 'hash mismatch and changed upstream hash block without mutating admitted implementation state',
+  },
+  {
+    key: 'trace_manifest_complete_no_queue',
+    subtest: 'complete trace manifest creates no repair queue items and passes trace gate',
+  },
+  {
+    key: 'trace_manifest_stale_refs_repair_queue',
+    subtest: 'stale refs produce stale status and queryable stale count',
+  },
+  {
+    key: 'trace_manifest_immutable_id_conflict',
+    subtest: 'memory repository rejects duplicate immutable trace citation and claim ids',
+  },
+  {
+    key: 'work_order_draft_admitted_cycle_and_plan_refs',
+    subtest: 'creates ResearchWorkOrder draft from admitted validation cycle and plan refs',
+  },
+  {
+    key: 'work_order_draft_stale_trace_rejection',
+    subtest: 'blocks draft creation from non-admitted cycle and stale work-order trace',
+  },
+  {
+    key: 'work_order_admission_replay_and_drift',
+    subtest: 'work order admission replays same gate result and rejects drifted gate result',
+  },
+  {
+    key: 'work_order_harness_submission_replay_and_drift',
+    subtest: 'harness run submission replays same idempotency key and rejects drifted external job identity',
+  },
+  {
+    key: 'work_order_final_evidence_trace_identity',
+    subtest: 'trusted final run evidence requires target-specific run evidence trace manifest',
+  },
+];
+
+const DETERMINISTIC_LANE_TEST_NAME_PATTERN = REQUIRED_DETERMINISTIC_LANE_CASES
+  .map((item) => escapeRegExp(item.subtest))
+  .join('|');
+
+const REQUIRED_DECISION_WORK_QUEUE_CASES = [
+  {
+    key: 'decision_queue_dedups_equivalent_blockers_across_harness_reruns',
+    subtest: 'DecisionWorkQueue dedups equivalent blockers across harness reruns',
+  },
+  {
+    key: 'decision_queue_resolution_replay_and_terminal_drift_rejection',
+    subtest: 'DecisionWorkQueue resolution replays terminal status and rejects terminal drift without authority writes',
+  },
+  {
+    key: 'decision_queue_reopens_terminal_item_on_recurrent_blocker',
+    subtest: 'DecisionWorkQueue reopens terminal item when equivalent blocker recurs',
+  },
+  {
+    key: 'decision_queue_prisma_resolution_replay_and_terminal_drift_rejection',
+    subtest: 'DecisionWorkQueue Prisma resolution replays terminal status and rejects terminal drift',
+  },
+  {
+    key: 'runtime_admission_rejects_drift_without_queue_payloads',
+    subtest: 'PaperImplementationRuntimeAdmissionService rejects hash and schema drift without exposing queue payloads',
+  },
+];
+
+const DECISION_WORK_QUEUE_TEST_NAME_PATTERN = REQUIRED_DECISION_WORK_QUEUE_CASES
+  .map((item) => escapeRegExp(item.subtest))
+  .join('|');
+
+const REQUIRED_LIVE_EXPERIMENT_ADAPTER_CASES = [
+  {
+    key: 'live_adapter_submit_admitted_work_order_idempotent',
+    subtest: 'submits admitted WorkOrder to experiment-foundation execution idempotently',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_submit_blocks_unadmitted_before_external_call',
+    subtest: 'blocks submit before external execution when WorkOrder is not admitted or running',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_submit_blocks_missing_materialization_refs',
+    subtest: 'blocks live submit when WorkOrder lacks materialization refs',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_wrong_external_job_rejected_before_side_effects',
+    subtest: 'blocks wrong external job before sync collect or cancel side effects',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_sync_running_records_monitor_without_evidence',
+    subtest: 'sync records non-final monitor intake without trusted run evidence',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_sync_terminal_observation_without_evidence',
+    subtest: 'sync observes terminal external status without creating evidence and recommends finalization',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_collect_success_finalizes_trusted_evidence_idempotent',
+    subtest: 'collect creates target-specific trace and trusted run evidence from stored result hashes',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_cancel_nonfinal_records_monitor_without_evidence',
+    subtest: 'cancel records non-final status without trusted run evidence while external job is cancelling',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_cancel_terminal_finalizes_trusted_evidence_idempotent',
+    subtest: 'cancel finalizes trusted cancelled run evidence with target-specific trace',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_route_submit_schema_and_delegate',
+    subtest: 'route wiring validates submit payload and delegates live experiment submit',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_external_failure_no_partial_state_or_fallback',
+    subtest: 'live adapter external execution failures do not create partial state or fallback artifacts',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'live_adapter_no_runtime_admission_harness_entrypoint',
+    subtest: 'PaperImplementation live adapter ownership scan keeps runtime admission and harness out of live experiment execution',
+    source_step_id: LIVE_EXPERIMENT_ADAPTER_OWNERSHIP_STEP_ID,
+  },
+];
+
+const LIVE_EXPERIMENT_ADAPTER_TEST_NAME_PATTERN = REQUIRED_LIVE_EXPERIMENT_ADAPTER_CASES
+  .filter((item) => item.source_step_id === LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID)
+  .map((item) => escapeRegExp(item.subtest))
+  .join('|');
+
+const REQUIRED_PROVIDER_VARIANCE_EVALUATION_CASES = [
+  {
+    key: 'provider_variance_fake_replay_materializes_harness_signals',
+    subtest: 'provider variance evaluation deterministically replays fake provider cases and materializes harness signals',
+    source_step_id: PROVIDER_VARIANCE_EVALUATION_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'provider_variance_live_profiles_no_execution',
+    subtest: 'provider variance evaluation reports live provider profiles without executing live calls',
+    source_step_id: PROVIDER_VARIANCE_EVALUATION_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'provider_variance_schema_trace_authority_handoff_guardrails',
+    subtest: 'provider variance evaluation covers schema trace authority and handoff guardrails',
+    source_step_id: PROVIDER_VARIANCE_EVALUATION_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'provider_variance_evaluation_only_refs_no_runtime_admission_or_domain_gate',
+    subtest: 'provider variance evaluation exposes evaluation-only refs without runtime admission or Domain Gate authority',
+    source_step_id: PROVIDER_VARIANCE_EVALUATION_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'provider_variance_route_schema_and_delegate',
+    subtest: 'provider variance evaluation route validates payloads and returns aggregate report',
+    source_step_id: PROVIDER_VARIANCE_EVALUATION_REGRESSION_STEP_ID,
+  },
+  {
+    key: 'provider_variance_no_runtime_admission_domain_gate_or_live_entrypoint',
+    subtest: 'PaperImplementation provider variance ownership scan keeps evaluation out of runtime admission Domain Gate and live execution',
+    source_step_id: PROVIDER_VARIANCE_EVALUATION_OWNERSHIP_STEP_ID,
+  },
+];
+
+const PROVIDER_VARIANCE_EVALUATION_TEST_NAME_PATTERN = REQUIRED_PROVIDER_VARIANCE_EVALUATION_CASES
+  .filter((item) => item.source_step_id === PROVIDER_VARIANCE_EVALUATION_REGRESSION_STEP_ID)
+  .map((item) => escapeRegExp(item.subtest))
+  .join('|');
 
 const steps = [
   {
@@ -88,7 +467,7 @@ const steps = [
     ],
   },
   {
-    id: '01-runtime-service-and-route-regression',
+    id: RUNTIME_REGRESSION_STEP_ID,
     cwd: path.join(REPO_ROOT, 'apps/backend'),
     command: 'node',
     args: [
@@ -99,8 +478,96 @@ const steps = [
       'src/services/paper-implementation-p1-runtime-review-service.unit.test.ts',
       'src/services/paper-implementation-result-analysis-runtime-service.unit.test.ts',
       'src/services/paper-implementation-experiment-planning-runtime-service.unit.test.ts',
+      'src/services/paper-implementation-route-planning-runtime-service.unit.test.ts',
+      'src/services/paper-implementation-validation-cycle-planning-runtime-service.unit.test.ts',
+      'src/services/paper-implementation-feasibility-planning-runtime-service.unit.test.ts',
+      'src/services/paper-implementation-cross-board-synthesis-runtime-service.unit.test.ts',
+      'src/services/paper-implementation-evidence-board-curation-runtime-service.unit.test.ts',
+      'src/services/paper-implementation-motive-decomposition-runtime-service.unit.test.ts',
+      'src/services/paper-implementation-motive-evolution-runtime-service.unit.test.ts',
       'src/services/paper-implementation-runtime-domain-gate-service.unit.test.ts',
       'src/routes/paper-implementation-runtime-routes.integration.test.ts',
+    ],
+  },
+  {
+    id: DOMAIN_GATE_WRITER_OWNERSHIP_STEP_ID,
+    cwd: REPO_ROOT,
+    command: 'node',
+    args: [
+      '.ai/scripts/paper-implementation-domain-gate-writer-ownership-check.mjs',
+    ],
+  },
+  {
+    id: DETERMINISTIC_LANE_REGRESSION_STEP_ID,
+    cwd: path.join(REPO_ROOT, 'apps/backend'),
+    command: 'node',
+    args: [
+      '--test',
+      '--loader',
+      'ts-node/esm',
+      '--test-name-pattern',
+      DETERMINISTIC_LANE_TEST_NAME_PATTERN,
+      'src/services/paper-implementation-intake-bootstrap-service.unit.test.ts',
+      'src/services/paper-implementation-trace-kernel-service.unit.test.ts',
+      'src/services/paper-implementation-workorder-experiment-bridge-service.unit.test.ts',
+      'src/routes/paper-implementation-routes.integration.test.ts',
+    ],
+  },
+  {
+    id: DECISION_WORK_QUEUE_REGRESSION_STEP_ID,
+    cwd: path.join(REPO_ROOT, 'apps/backend'),
+    command: 'node',
+    args: [
+      '--test',
+      '--loader',
+      'ts-node/esm',
+      '--test-name-pattern',
+      DECISION_WORK_QUEUE_TEST_NAME_PATTERN,
+      'src/services/paper-implementation-ai-workflow-harness-service.unit.test.ts',
+      'src/repositories/prisma/prisma-paper-implementation-ai-workflow-harness-repository.unit.test.ts',
+      'src/services/paper-implementation-runtime-admission-service.unit.test.ts',
+    ],
+  },
+  {
+    id: LIVE_EXPERIMENT_ADAPTER_REGRESSION_STEP_ID,
+    cwd: path.join(REPO_ROOT, 'apps/backend'),
+    command: 'node',
+    args: [
+      '--test',
+      '--loader',
+      'ts-node/esm',
+      '--test-name-pattern',
+      LIVE_EXPERIMENT_ADAPTER_TEST_NAME_PATTERN,
+      'src/services/paper-implementation-live-experiment-adapter-service.unit.test.ts',
+    ],
+  },
+  {
+    id: LIVE_EXPERIMENT_ADAPTER_OWNERSHIP_STEP_ID,
+    cwd: REPO_ROOT,
+    command: 'node',
+    args: [
+      '.ai/scripts/paper-implementation-live-adapter-ownership-check.mjs',
+    ],
+  },
+  {
+    id: PROVIDER_VARIANCE_EVALUATION_REGRESSION_STEP_ID,
+    cwd: path.join(REPO_ROOT, 'apps/backend'),
+    command: 'node',
+    args: [
+      '--test',
+      '--loader',
+      'ts-node/esm',
+      '--test-name-pattern',
+      PROVIDER_VARIANCE_EVALUATION_TEST_NAME_PATTERN,
+      'src/services/paper-implementation-provider-variance-evaluation-service.unit.test.ts',
+    ],
+  },
+  {
+    id: PROVIDER_VARIANCE_EVALUATION_OWNERSHIP_STEP_ID,
+    cwd: REPO_ROOT,
+    command: 'node',
+    args: [
+      '.ai/scripts/paper-implementation-provider-variance-ownership-check.mjs',
     ],
   },
 ];
@@ -115,6 +582,10 @@ function positiveInt(raw, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function deterministicTestEnv() {
   const env = {
     ...process.env,
@@ -126,6 +597,14 @@ function deterministicTestEnv() {
     T114_RESULT_ANALYSIS_PROVIDER_CANARY_LIVE: '',
     T114_EXPERIMENT_DESIGN_PROVIDER_CANARY_LIVE: '',
     T114_EXPERIMENT_CRITIQUE_PROVIDER_CANARY_LIVE: '',
+    T114_ROUTE_ARCHITECTURE_PROVIDER_CANARY_LIVE: '',
+    T114_ROUTE_SKEPTIC_PROVIDER_CANARY_LIVE: '',
+    T114_VALIDATION_CYCLE_PROVIDER_CANARY_LIVE: '',
+    T114_FEASIBILITY_PLANNING_PROVIDER_CANARY_LIVE: '',
+    T114_CROSS_BOARD_SYNTHESIS_PROVIDER_CANARY_LIVE: '',
+    T114_EVIDENCE_BOARD_CURATION_PROVIDER_CANARY_LIVE: '',
+    T114_MOTIVE_DECOMPOSITION_PROVIDER_CANARY_LIVE: '',
+    T114_MOTIVE_EVOLUTION_PROVIDER_CANARY_LIVE: '',
     T114_PROVIDER_FAIL_CLOSED_CANARY_LIVE: '',
     T114_RUNTIME_PRISMA_SMOKE: '',
   };
@@ -174,12 +653,12 @@ function parseTapOutput(output) {
   };
 }
 
-function buildRequiredL5CaseCoverage(results) {
-  const l5Step = results.find((result) => result.id === L5_STEP_ID);
+function buildRequiredCaseCoverage(results, requiredCases, sourceStepId) {
+  const sourceStep = results.find((result) => result.id === sourceStepId);
   const subtestsByName = new Map(
-    (l5Step?.tap_summary?.subtests ?? []).map((subtest) => [subtest.name, subtest]),
+    (sourceStep?.tap_summary?.subtests ?? []).map((subtest) => [subtest.name, subtest]),
   );
-  const cases = REQUIRED_L5_CASES.map((item) => {
+  const cases = requiredCases.map((item) => {
     const subtest = subtestsByName.get(item.subtest);
     return {
       key: item.key,
@@ -190,10 +669,40 @@ function buildRequiredL5CaseCoverage(results) {
   });
   return {
     source: 'parsed_tap_subtests',
-    source_step_id: L5_STEP_ID,
+    source_step_id: sourceStepId,
     status: cases.every((item) => item.passed) ? 'passed' : 'failed',
     cases,
   };
+}
+
+function buildRequiredCaseCoverageBySource(results, requiredCases) {
+  const subtestsBySource = new Map();
+  for (const result of results) {
+    subtestsBySource.set(
+      result.id,
+      new Map((result.tap_summary?.subtests ?? []).map((subtest) => [subtest.name, subtest])),
+    );
+  }
+  const cases = requiredCases.map((item) => {
+    const subtest = subtestsBySource.get(item.source_step_id)?.get(item.subtest);
+    return {
+      key: item.key,
+      required_subtest: item.subtest,
+      source_step_id: item.source_step_id,
+      observed_status: subtest?.status ?? 'missing',
+      passed: subtest?.status === 'passed',
+    };
+  });
+  return {
+    source: 'parsed_tap_subtests_by_source_step',
+    source_step_ids: [...new Set(requiredCases.map((item) => item.source_step_id))],
+    status: cases.every((item) => item.passed) ? 'passed' : 'failed',
+    cases,
+  };
+}
+
+function buildRequiredL5CaseCoverage(results) {
+  return buildRequiredCaseCoverage(results, REQUIRED_L5_CASES, L5_STEP_ID);
 }
 
 function aggregateTapTotals(results) {
@@ -275,6 +784,29 @@ async function main() {
     }
   }
   const requiredL5Cases = buildRequiredL5CaseCoverage(results);
+  const requiredRuntimeRegressionCases = buildRequiredCaseCoverage(
+    results,
+    REQUIRED_RUNTIME_REGRESSION_CASES,
+    RUNTIME_REGRESSION_STEP_ID,
+  );
+  const requiredDeterministicLaneCases = buildRequiredCaseCoverage(
+    results,
+    REQUIRED_DETERMINISTIC_LANE_CASES,
+    DETERMINISTIC_LANE_REGRESSION_STEP_ID,
+  );
+  const requiredDecisionWorkQueueCases = buildRequiredCaseCoverage(
+    results,
+    REQUIRED_DECISION_WORK_QUEUE_CASES,
+    DECISION_WORK_QUEUE_REGRESSION_STEP_ID,
+  );
+  const requiredLiveExperimentAdapterCases = buildRequiredCaseCoverageBySource(
+    results,
+    REQUIRED_LIVE_EXPERIMENT_ADAPTER_CASES,
+  );
+  const requiredProviderVarianceEvaluationCases = buildRequiredCaseCoverageBySource(
+    results,
+    REQUIRED_PROVIDER_VARIANCE_EVALUATION_CASES,
+  );
   const stepStatus = results.every((result) => result.status === 'passed') ? 'passed' : 'failed';
   const summary = {
     schema_version: 'paper-implementation-runtime-stress-summary-v0',
@@ -283,10 +815,23 @@ async function main() {
     artifact_dir: path.relative(REPO_ROOT, ARTIFACT_DIR),
     started_at: results[0]?.started_at ?? new Date().toISOString(),
     finished_at: new Date().toISOString(),
-    status: stepStatus === 'passed' && requiredL5Cases.status === 'passed' ? 'passed' : 'failed',
+    status: stepStatus === 'passed'
+      && requiredL5Cases.status === 'passed'
+      && requiredRuntimeRegressionCases.status === 'passed'
+      && requiredDeterministicLaneCases.status === 'passed'
+      && requiredDecisionWorkQueueCases.status === 'passed'
+      && requiredLiveExperimentAdapterCases.status === 'passed'
+      && requiredProviderVarianceEvaluationCases.status === 'passed'
+      ? 'passed'
+      : 'failed',
     steps: results,
     tap_totals: aggregateTapTotals(results),
     required_l5_cases: requiredL5Cases,
+    required_runtime_regression_cases: requiredRuntimeRegressionCases,
+    required_deterministic_lane_cases: requiredDeterministicLaneCases,
+    required_decision_work_queue_cases: requiredDecisionWorkQueueCases,
+    required_live_experiment_adapter_cases: requiredLiveExperimentAdapterCases,
+    required_provider_variance_evaluation_cases: requiredProviderVarianceEvaluationCases,
     runner_guardrails: {
       source: 'runner_configuration',
       no_parallel_harness_entrypoint: 'runner only spawns node --test commands and does not create runtime artifacts itself',
@@ -298,15 +843,23 @@ async function main() {
           'DEEPSEEK_API_KEY',
         ],
         disabled_flags: [
-        'T114_TRACE_INTEGRITY_PROVIDER_CANARY_LIVE',
-        'T114_P1_CLAIM_BOUNDARY_PROVIDER_CANARY_LIVE',
-        'T114_P1_DOSSIER_READINESS_PROVIDER_CANARY_LIVE',
-        'T114_RESULT_ANALYSIS_PROVIDER_CANARY_LIVE',
-        'T114_EXPERIMENT_DESIGN_PROVIDER_CANARY_LIVE',
-        'T114_EXPERIMENT_CRITIQUE_PROVIDER_CANARY_LIVE',
-        'T114_PROVIDER_FAIL_CLOSED_CANARY_LIVE',
-        'T114_RUNTIME_PRISMA_SMOKE',
-      ],
+          'T114_TRACE_INTEGRITY_PROVIDER_CANARY_LIVE',
+          'T114_P1_CLAIM_BOUNDARY_PROVIDER_CANARY_LIVE',
+          'T114_P1_DOSSIER_READINESS_PROVIDER_CANARY_LIVE',
+          'T114_RESULT_ANALYSIS_PROVIDER_CANARY_LIVE',
+          'T114_EXPERIMENT_DESIGN_PROVIDER_CANARY_LIVE',
+          'T114_EXPERIMENT_CRITIQUE_PROVIDER_CANARY_LIVE',
+          'T114_ROUTE_ARCHITECTURE_PROVIDER_CANARY_LIVE',
+          'T114_ROUTE_SKEPTIC_PROVIDER_CANARY_LIVE',
+          'T114_VALIDATION_CYCLE_PROVIDER_CANARY_LIVE',
+          'T114_FEASIBILITY_PLANNING_PROVIDER_CANARY_LIVE',
+          'T114_CROSS_BOARD_SYNTHESIS_PROVIDER_CANARY_LIVE',
+          'T114_EVIDENCE_BOARD_CURATION_PROVIDER_CANARY_LIVE',
+          'T114_MOTIVE_DECOMPOSITION_PROVIDER_CANARY_LIVE',
+          'T114_MOTIVE_EVOLUTION_PROVIDER_CANARY_LIVE',
+          'T114_PROVIDER_FAIL_CLOSED_CANARY_LIVE',
+          'T114_RUNTIME_PRISMA_SMOKE',
+        ],
       },
     },
   };

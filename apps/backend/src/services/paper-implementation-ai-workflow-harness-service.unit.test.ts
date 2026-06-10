@@ -28,6 +28,7 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import type {
@@ -378,6 +379,98 @@ test('AI workflow harness blocks missing trace manifest instead of admitting pro
   assert.equal(result.queue_items[0]?.queue_type, 'trace_repair');
 });
 
+test('DecisionWorkQueue dedups equivalent blockers across harness reruns', async () => {
+  const { service, project } = buildService();
+  const harness = await service.createImplementationHarness(project.implementation_project_id, makeHarnessRequest());
+  const snapshot = await service.createImplementationInputSnapshot(
+    project.implementation_project_id,
+    makeSnapshotRequest(),
+  );
+
+  const first = await service.createAgentWorkflowHarnessRun(
+    project.implementation_project_id,
+    makeRunRequest({
+      harness_id: harness.harness_id,
+      input_snapshot_id: snapshot.input_snapshot_id,
+    }),
+  );
+  const second = await service.createAgentWorkflowHarnessRun(
+    project.implementation_project_id,
+    makeRunRequest({
+      harness_run_id: 'harness_run_2',
+      harness_id: harness.harness_id,
+      input_snapshot_id: snapshot.input_snapshot_id,
+      raw_output_artifact_ref: ref('artifact', 'raw_output_2'),
+      parsed_output_artifact_ref: ref('artifact', 'parsed_output_2'),
+      proposal_artifacts: [{
+        ...makeRunRequest().proposal_artifacts[0]!,
+        proposal_artifact_id: 'proposal_2',
+        artifact_ref: ref('artifact', 'proposal_artifact_2'),
+      }],
+    }),
+  );
+  const queueItems = await service.listDecisionWorkQueueItems(project.implementation_project_id);
+
+  assert.equal(first.harness_run.run_status, 'blocked');
+  assert.equal(second.harness_run.run_status, 'blocked');
+  assert.equal(first.queue_items[0]?.queue_item_id, second.queue_items[0]?.queue_item_id);
+  assert.equal(first.queue_items[0]?.dedup_key, second.queue_items[0]?.dedup_key);
+  assert.equal(queueItems.length, 1);
+  assert.equal(first.queue_items[0]?.retry_count, 0);
+  assert.equal(first.queue_items[0]?.retry_budget, 1);
+  assert.equal(first.queue_items[0]?.cooldown_until, null);
+  assert.ok(!first.queue_items[0]?.dedup_key.includes(first.harness_run.harness_run_id));
+  assert.ok(!second.queue_items[0]?.dedup_key.includes(second.harness_run.harness_run_id));
+});
+
+test('DecisionWorkQueue reopens terminal item when equivalent blocker recurs', async () => {
+  const { service, project } = buildService();
+  const harness = await service.createImplementationHarness(project.implementation_project_id, makeHarnessRequest());
+  const snapshot = await service.createImplementationInputSnapshot(
+    project.implementation_project_id,
+    makeSnapshotRequest(),
+  );
+  const first = await service.createAgentWorkflowHarnessRun(
+    project.implementation_project_id,
+    makeRunRequest({
+      harness_id: harness.harness_id,
+      input_snapshot_id: snapshot.input_snapshot_id,
+    }),
+  );
+  const queueItemId = first.queue_items[0]!.queue_item_id;
+  const resolved = await service.resolveDecisionWorkQueueItem(
+    project.implementation_project_id,
+    queueItemId,
+    { status: 'resolved', resolution_note: 'manual trace repair queued', resolved_by: 'human' },
+  );
+
+  const second = await service.createAgentWorkflowHarnessRun(
+    project.implementation_project_id,
+    makeRunRequest({
+      harness_run_id: 'harness_run_2',
+      harness_id: harness.harness_id,
+      input_snapshot_id: snapshot.input_snapshot_id,
+      raw_output_artifact_ref: ref('artifact', 'raw_output_2'),
+      parsed_output_artifact_ref: ref('artifact', 'parsed_output_2'),
+      proposal_artifacts: [{
+        ...makeRunRequest().proposal_artifacts[0]!,
+        proposal_artifact_id: 'proposal_2',
+        artifact_ref: ref('artifact', 'proposal_artifact_2'),
+      }],
+    }),
+  );
+  const reopened = second.queue_items[0]!;
+
+  assert.equal(resolved.status, 'resolved');
+  assert.equal(reopened.queue_item_id, queueItemId);
+  assert.equal(reopened.status, 'open');
+  assert.equal(reopened.resolved_at, null);
+  assert.deepEqual(
+    reopened.created_from_refs.map((item) => item.ref_id),
+    ['harness_run_1', 'harness_run_2'],
+  );
+});
+
 test('AI workflow harness blocks stale trace manifests', async () => {
   const { service, traceRepository, project } = buildService();
   const staleTrace = makeTraceManifest(project.implementation_project_id);
@@ -481,7 +574,7 @@ test('input snapshot rejects memo-like refs in evidence-bearing context', async 
   );
 });
 
-test('decision queue resolution does not mutate harness run authority', async () => {
+test('DecisionWorkQueue resolution replays terminal status and rejects terminal drift without authority writes', async () => {
   const { service, project } = buildService();
   const harness = await service.createImplementationHarness(project.implementation_project_id, makeHarnessRequest());
   const snapshot = await service.createImplementationInputSnapshot(
@@ -502,9 +595,24 @@ test('decision queue resolution does not mutate harness run authority', async ()
     queueItemId,
     { status: 'resolved', resolution_note: 'manual trace repair queued', resolved_by: 'human' },
   );
+  const replayed = await service.resolveDecisionWorkQueueItem(
+    project.implementation_project_id,
+    queueItemId,
+    { status: 'resolved', resolution_note: 'same terminal replay', resolved_by: 'system' },
+  );
+  await assert.rejects(
+    () => service.resolveDecisionWorkQueueItem(
+      project.implementation_project_id,
+      queueItemId,
+      { status: 'dismissed', resolution_note: 'conflicting terminal drift', resolved_by: 'system' },
+    ),
+    (error: unknown) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT',
+  );
   const runs = await service.listAgentWorkflowHarnessRuns(project.implementation_project_id);
 
   assert.equal(resolved.status, 'resolved');
+  assert.equal(replayed.status, 'resolved');
+  assert.equal(replayed.resolved_at, resolved.resolved_at);
   assert.equal(runs[0]?.run_status, 'blocked');
   assert.ok(runs[0]?.blocked_reasons.includes('proposal_trace_manifest_missing'));
 });

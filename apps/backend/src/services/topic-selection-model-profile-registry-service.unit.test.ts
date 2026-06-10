@@ -3,11 +3,19 @@ import test from 'node:test';
 import { AppError } from '../errors/app-error.js';
 import {
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID,
   PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import {
   createDefaultTopicSelectionModelProfileRegistry,
@@ -39,6 +47,14 @@ const PAPER_IMPLEMENTATION_PROMOTED_PROFILE_IDS = [
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
   PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID,
 ] as const;
@@ -385,6 +401,75 @@ test('model profile registry keeps PaperImplementation product mode provider-onl
     });
     assert.equal(mockedTest.selected_model_option, null);
   }
+});
+
+test('model profile registry resolves motive decomposition profile and rejects foreign model option', () => {
+  const service = new TopicSelectionModelProfileRegistryService();
+
+  const resolved = service.resolveProfile({
+    profile_id: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID,
+    execution_mode: 'provider_llm',
+    run_mode: 'product',
+    model_option_id: `${PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID}.openai-balanced`,
+  });
+  assert.equal(resolved.profile.profile_function, 'paper_implementation_motive_decomposition_draft_assertion_candidates');
+  assert.equal(resolved.profile.stage_family, 'paper_implementation_motive_decomposition');
+  assert.equal(resolved.profile.output_contract, 'PaperImplementationMotiveDecompositionRoleArtifact@v1');
+  assert.equal(resolved.selected_model_option?.provider_id, 'openai');
+  assert.equal(resolved.selected_model_option?.normalized_params.creativity, 'low');
+  assert.equal(resolved.selected_model_option?.normalized_params.reasoning_depth, 'high');
+  assert.equal(resolved.selected_model_option?.normalized_params.output_budget, 'large');
+
+  assert.throws(
+    () => service.resolveProfile({
+      profile_id: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID,
+      execution_mode: 'provider_llm',
+      run_mode: 'product',
+      model_option_id: `${PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID}.openai-balanced`,
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.errorCode === 'INVALID_PAYLOAD'
+      && error.message === 'model_option_id is not defined by model profile.',
+  );
+});
+
+test('model profile registry resolves motive evolution profile and rejects foreign model option', () => {
+  const service = new TopicSelectionModelProfileRegistryService();
+
+  const resolved = service.resolveProfile({
+    profile_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID,
+    execution_mode: 'provider_llm',
+    run_mode: 'product',
+    model_option_id: `${PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID}.openai-balanced`,
+  });
+  assert.equal(resolved.profile.profile_function, 'paper_implementation_motive_evolution_evolution_decision_support');
+  assert.equal(resolved.profile.stage_family, 'paper_implementation_motive_evolution');
+  assert.equal(resolved.profile.output_contract, 'PaperImplementationMotiveEvolutionRoleArtifact@v1');
+  assert.equal(
+    resolved.profile.quality_objectives.includes(
+      'produce_admission_ready_evolution_decision_support_options',
+    ),
+    true,
+  );
+  assert.equal(resolved.selected_model_option?.provider_id, 'openai');
+  assert.equal(resolved.selected_model_option?.normalized_params.creativity, 'low');
+  assert.equal(resolved.selected_model_option?.normalized_params.reasoning_depth, 'high');
+  assert.equal(resolved.selected_model_option?.normalized_params.output_budget, 'large');
+  assert.equal(resolved.selected_model_option?.use_when.includes('default_provider_run'), true);
+
+  assert.throws(
+    () => service.resolveProfile({
+      profile_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID,
+      execution_mode: 'provider_llm',
+      run_mode: 'product',
+      model_option_id: `${PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID}.openai-balanced`,
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.errorCode === 'INVALID_PAYLOAD'
+      && error.message === 'model_option_id is not defined by model profile.',
+  );
 });
 
 test('model profile registry enforces run-mode and role profile execution eligibility', () => {

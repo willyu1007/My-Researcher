@@ -280,6 +280,34 @@ test('provider variance evaluation covers schema trace authority and handoff gua
   assert.equal(response.recommendations[0]?.recommendation, 'demote_to_human_review');
 });
 
+test('provider variance evaluation exposes evaluation-only refs without runtime admission or Domain Gate authority', async () => {
+  const { aiWorkflowHarness, project, service } = buildService();
+  await seedHarnessContext(aiWorkflowHarness, project.implementation_project_id);
+
+  const response = await service.runProviderVarianceEvaluation(
+    project.implementation_project_id,
+    makeEvaluationRequest({
+      cases: [makeCase('case_happy', 'happy_path')],
+    }),
+  );
+
+  assert.equal(response.preflight_results[0]?.status, 'passed');
+  assert.equal(response.case_results.length, 1);
+  assert.deepEqual(
+    refTypesFromEvaluationResponse(response),
+    [
+      'agent_workflow_harness_run',
+      'implementation_proposal_artifact',
+    ],
+  );
+  assertNoRuntimeAuthorityRefs(response);
+  assert.equal(response.recommendations[0]?.recommendation, 'enable');
+  assert.match(
+    response.recommendations[0]?.reasons.join('\n') ?? '',
+    /does not satisfy product runtime\/provider canary or Domain Gate admission/,
+  );
+});
+
 test('provider variance evaluation route validates payloads and returns aggregate report', async () => {
   const { aiWorkflowHarness, project, service } = buildService();
   await seedHarnessContext(aiWorkflowHarness, project.implementation_project_id);
@@ -287,16 +315,16 @@ test('provider variance evaluation route validates payloads and returns aggregat
   const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
     repository: new InMemoryPaperImplementationRuntimeRepository(),
   });
-  const controller = new PaperImplementationController(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+  const controller = new PaperImplementationController({
+    intakeBootstrap: {} as never,
+    traceKernel: {} as never,
+    motiveEvidenceBoard: {} as never,
+    validationCyclePlanning: {} as never,
+    workOrderExperimentBridge: {} as never,
+    resultClaimDossier: {} as never,
     aiWorkflowHarness,
     runtimeAdmission,
-    new PaperImplementationTraceIntegrityDebateRuntimeService({
+    traceIntegrityDebateRuntime: new PaperImplementationTraceIntegrityDebateRuntimeService({
       runtimeAdmission,
       agentOrchestrator: {
         invokeStructuredOutput: async () => {
@@ -304,13 +332,19 @@ test('provider variance evaluation route validates payloads and returns aggregat
         },
       },
     }),
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    undefined,
-    service,
-  );
+    p1RuntimeReview: {} as never,
+    resultAnalysisRuntime: {} as never,
+    experimentPlanningRuntime: {} as never,
+    routePlanningRuntime: {} as never,
+    validationCyclePlanningRuntime: {} as never,
+    feasibilityPlanningRuntime: {} as never,
+    crossBoardSynthesisRuntime: {} as never,
+    evidenceBoardCurationRuntime: {} as never,
+    motiveDecompositionRuntime: {} as never,
+    motiveEvolutionRuntime: {} as never,
+    runtimeDomainGate: {} as never,
+    providerVarianceEvaluation: service,
+  });
   registerPaperImplementationRoutes(app, controller);
   await app.ready();
 
@@ -560,6 +594,46 @@ function requireCase(
   const result = response.case_results.find((candidate) => candidate.case_id === caseId);
   assert.ok(result, `missing case result ${caseId}`);
   return result;
+}
+
+function refTypesFromEvaluationResponse(response: RunProviderVarianceEvaluationResponse): string[] {
+  const refs = response.case_results.flatMap((result) => [
+    result.harness_run_ref,
+    ...result.proposal_artifact_refs,
+    ...result.quality_signal_refs,
+    ...result.queue_item_refs,
+  ]);
+  return [...new Set(refs
+    .filter((candidate): candidate is TopicSelectionFunctionalRef => Boolean(candidate))
+    .map((candidate) => candidate.ref_type))]
+    .sort();
+}
+
+function assertNoRuntimeAuthorityRefs(response: RunProviderVarianceEvaluationResponse): void {
+  const forbiddenRefTypes = new Set([
+    'paper_implementation_runtime_artifact',
+    'paper_implementation_runtime_admission',
+    'paper_implementation_runtime_admission_record',
+    'runtime_artifact',
+    'runtime_admission',
+    'runtime_admission_record',
+    'domain_gate_materialization',
+    'claim_candidate',
+    'implementation_dossier',
+    'result_interpretation_packet',
+    'research_work_order',
+    'experiment_run',
+    'run_evidence_unit',
+  ]);
+  const observedForbiddenRefs = response.case_results.flatMap((result) => [
+    result.harness_run_ref,
+    ...result.proposal_artifact_refs,
+    ...result.quality_signal_refs,
+    ...result.queue_item_refs,
+  ])
+    .filter((candidate): candidate is TopicSelectionFunctionalRef => Boolean(candidate))
+    .filter((candidate) => forbiddenRefTypes.has(candidate.ref_type));
+  assert.deepEqual(observedForbiddenRefs, []);
 }
 
 function ref(refType: string, refId: string, versionId: string | null = null): TopicSelectionFunctionalRef {

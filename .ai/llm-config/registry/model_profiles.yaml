@@ -180,6 +180,118 @@ profiles:
         model_id: gpt-5.5
         weight: 100
 
+  - profile_id: paper-implementation.route-architecture.route-candidates.v1
+    intent: paper_implementation_route_architecture_route_candidates_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.route-skeptic-review.route-risk-critique.v1
+    intent: paper_implementation_route_skeptic_review_route_risk_critique_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.validation-cycle-planning.cycle-candidates.v1
+    intent: paper_implementation_validation_cycle_planning_cycle_candidates_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.feasibility-planning.probe-plan-candidates.v1
+    intent: paper_implementation_feasibility_planning_probe_plan_candidates_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.cross-board-synthesis.merge-split-reuse-scenarios.v1
+    intent: paper_implementation_cross_board_synthesis_merge_split_reuse_scenarios_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.evidence-board-curation.binding-gap-candidates.v1
+    intent: paper_implementation_evidence_board_curation_binding_gap_candidates_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.motive-decomposition.draft-assertion-candidates.v1
+    intent: paper_implementation_motive_decomposition_draft_assertion_candidates_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
+  - profile_id: paper-implementation.motive-evolution.evolution-decision-support.v1
+    intent: paper_implementation_motive_evolution_evolution_decision_support_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
   - profile_id: paper-implementation.experiment-design.work-order-draft.v1
     intent: paper_implementation_experiment_design_work_order_draft_runtime
     candidates:

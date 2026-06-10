@@ -14,7 +14,32 @@ import {
   PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_ROLE_SLOT_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_SLOT_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
   PAPER_IMPLEMENTATION_P1_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCENARIO_KINDS,
@@ -26,6 +51,22 @@ import {
   paperImplementationP1RuntimeReviewRoleOutputSchema,
   paperImplementationExperimentPlanningArtifactSchema,
   paperImplementationExperimentPlanningRoleOutputSchema,
+  paperImplementationCrossBoardSynthesisArtifactSchema,
+  paperImplementationCrossBoardSynthesisRoleOutputSchema,
+  paperImplementationEvidenceBoardCurationArtifactSchema,
+  paperImplementationEvidenceBoardCurationRoleOutputSchema,
+  paperImplementationFeasibilityPlanningArtifactSchema,
+  paperImplementationFeasibilityPlanningRoleOutputSchema,
+  paperImplementationMotiveDecompositionArtifactSchema,
+  paperImplementationMotiveDecompositionRoleOutputSchema,
+  paperImplementationMotiveEvolutionArtifactSchema,
+  paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema,
+  paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema,
+  paperImplementationMotiveEvolutionRoleOutputSchema,
+  paperImplementationRoutePlanningArtifactSchema,
+  paperImplementationRoutePlanningRoleOutputSchema,
+  paperImplementationValidationCyclePlanningArtifactSchema,
+  paperImplementationValidationCyclePlanningRoleOutputSchema,
   paperImplementationResultAnalysisArtifactSchema,
   paperImplementationResultAnalysisRoleOutputSchema,
   paperImplementationRuntimeAdmissionRecordSchema,
@@ -34,10 +75,35 @@ import {
   paperImplementationTraceIntegrityRoleOutputSchema,
   runPaperImplementationP1RuntimeReviewRequestSchema,
   runPaperImplementationExperimentPlanningRuntimeRequestSchema,
+  runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema,
+  runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema,
+  runPaperImplementationFeasibilityPlanningRuntimeRequestSchema,
+  runPaperImplementationMotiveDecompositionRuntimeRequestSchema,
+  runPaperImplementationMotiveEvolutionRuntimeRequestSchema,
+  runPaperImplementationRoutePlanningRuntimeRequestSchema,
+  runPaperImplementationValidationCyclePlanningRuntimeRequestSchema,
   runPaperImplementationResultAnalysisRuntimeRequestSchema,
   runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema,
+  type PaperImplementationCrossBoardAnchor,
+  type PaperImplementationCrossBoardScenarioProposal,
+  type PaperImplementationCrossBoardSynthesisRoleOutput,
+  type PaperImplementationEvidenceBoardBindingCandidateProposal,
+  type PaperImplementationEvidenceBoardCurationRoleOutput,
+  type PaperImplementationEvidenceBoardGapCandidateProposal,
+  type PaperImplementationFeasibilityPlanningRoleOutput,
+  type PaperImplementationFeasibilityProbePlanCandidateProposal,
+  type PaperImplementationMotiveDecompositionDraftAssertionCandidate,
+  type PaperImplementationMotiveDecompositionRoleOutput,
+  type PaperImplementationMotiveEvolutionDecisionOption,
+  type PaperImplementationMotiveEvolutionDesignedOption,
+  type PaperImplementationMotiveEvolutionOptionDesignerRoleOutput,
+  type PaperImplementationMotiveEvolutionRiskChallengerRoleOutput,
+  type PaperImplementationValidationCycleCandidateProposal,
+  type PaperImplementationValidationCyclePlanningRoleOutput,
   type PaperImplementationExperimentPlanningRoleOutput,
   type PaperImplementationExperimentWorkOrderDraftCandidate,
+  type PaperImplementationRouteCandidateProposal,
+  type PaperImplementationRoutePlanningRoleOutput,
   type PaperImplementationRuntimeAdmissionRecord,
   type PaperImplementationRuntimeArtifactEnvelope,
 } from './paper-implementation-runtime-contracts.js';
@@ -50,6 +116,11 @@ const hashC = 'c'.repeat(64);
 const hashD = 'd'.repeat(64);
 const hashE = 'e'.repeat(64);
 const hashF = 'f'.repeat(64);
+
+function hash(seed: string): string {
+  const value = Array.from(seed).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 16;
+  return value.toString(16).repeat(64);
+}
 
 async function validatesBody(schema: Record<string, unknown>, body: unknown): Promise<boolean> {
   const app = Fastify({
@@ -442,6 +513,532 @@ function experimentCritiqueRoleOutput(
   };
 }
 
+function routeCandidateProposal(
+  candidateKey: string,
+  confirmatoryMarker: boolean,
+): PaperImplementationRouteCandidateProposal {
+  return {
+    candidate_key: candidateKey,
+    route_summary: `${candidateKey} proposes a bounded technical route without persistence writes.`,
+    expected_information_gain: 'Separates route feasibility signal from downstream validation admission.',
+    baseline_gap_status: confirmatoryMarker ? 'partial' : 'unknown',
+    cited_source_refs: [ref('implementation_input_snapshot', 'implementation_input_snapshot_001')],
+    trace_refs: [ref('trace_manifest', `trace_manifest_${candidateKey}`)],
+    validation_signal_refs: [ref('validation_signal', `validation_signal_${candidateKey}`)],
+    dataset_refs: [ref('dataset_version', `dataset_version_${candidateKey}`)],
+    metric_refs: [ref('metric', `metric_${candidateKey}`)],
+    baseline_refs: [ref('baseline_version', `baseline_version_${candidateKey}`)],
+    code_refs: [ref('code_version', `code_version_${candidateKey}`)],
+    config_refs: [ref('config_snapshot', `config_snapshot_${candidateKey}`)],
+    scope_boundary: 'Runtime proposal only; deterministic admission owns persisted route records.',
+    confirmatory_marker: confirmatoryMarker,
+    blocker_codes: [],
+    warning_codes: [],
+  };
+}
+
+function routeArchitectureRoleOutput(
+  overrides: Partial<PaperImplementationRoutePlanningRoleOutput> = {},
+): PaperImplementationRoutePlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Route architecture proposed bounded route candidates.',
+    cited_source_refs: [ref('implementation_input_snapshot', 'implementation_input_snapshot_001')],
+    blocker_codes: [],
+    warning_codes: [],
+    route_candidate_proposals: [
+      routeCandidateProposal('exploratory_route_candidate', false),
+      routeCandidateProposal('confirmatory_route_candidate', true),
+    ],
+    ...overrides,
+  };
+}
+
+function routeSkepticRoleOutput(
+  overrides: Partial<PaperImplementationRoutePlanningRoleOutput> = {},
+): PaperImplementationRoutePlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Independent route skeptic reviewed risk coverage.',
+    cited_source_refs: [ref('route_architecture_runtime_artifact', 'route_architecture_final_001')],
+    blocker_codes: [],
+    warning_codes: [],
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    reviewed_route_proposal_hash: hashA,
+    reviewed_candidate_keys: ['exploratory_route_candidate'],
+    checked_dimensions: [...PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS],
+    risk_findings: [{
+      finding_id: 'route_risk_finding_budget_001',
+      risk_dimension: 'compute_budget',
+      severity: 'warning',
+      summary: 'Compute budget needs explicit downstream feasibility confirmation.',
+      evidence_refs: [ref('validation_budget', 'budget_001')],
+      affected_candidate_keys: ['exploratory_route_candidate'],
+      required_revision_refs: [],
+      blocks_route_progression: false,
+    }],
+    recommended_disposition: 'revise',
+    no_queue_side_effect: true,
+    ...overrides,
+  };
+}
+
+function validationCycleCandidateProposal(
+  candidateKey: string,
+  confirmatoryMarker: boolean,
+): PaperImplementationValidationCycleCandidateProposal {
+  return {
+    candidate_key: candidateKey,
+    reviewed_route_candidate_key: 'exploratory_route_candidate',
+    target_ref: ref('technical_route_candidate', `technical_route_candidate_${candidateKey}`),
+    target_frame_summary: `${candidateKey} validates a bounded route signal before deterministic cycle admission.`,
+    cycle_type: confirmatoryMarker ? 'baseline_challenge' : 'route_feasibility',
+    trigger_refs: [ref('route_risk_finding', `route_risk_finding_${candidateKey}`)],
+    validation_question: `Can ${candidateKey} produce a useful route validation signal within the budget envelope?`,
+    assumptions_under_test: ['The route has enough trace, dataset, metric, and budget context to validate.'],
+    assertion_refs_under_test: [ref('motive_assertion', `motive_assertion_${candidateKey}`)],
+    decision_if_pass: 'Admit a deterministic validation cycle draft downstream.',
+    decision_if_fail: 'Park the candidate or send it back to route revision.',
+    decision_if_inconclusive: 'Require additional source context before deterministic validation admission.',
+    expected_information_gain: confirmatoryMarker ? 'medium' : 'high',
+    criteria: {
+      pass_conditions: ['The validation signal isolates route merit against the baseline.'],
+      fail_conditions: ['The signal cannot distinguish route merit from missing context.'],
+      inconclusive_conditions: ['Required dataset, metric, or budget facts are unavailable.'],
+      stop_conditions: ['Budget envelope is exceeded.'],
+      minimum_artifacts_required: ['route proposal artifact', 'route skeptic artifact'],
+    },
+    budget_envelope: {
+      budget_ref: ref('validation_budget', `validation_budget_${candidateKey}`),
+      iteration_budget_ref: ref('iteration_budget', `iteration_budget_${candidateKey}`),
+      retry_budget: 1,
+      max_runtime: '2h',
+      max_compute: 'single-gpu-smoke',
+      max_human_review_count: 1,
+    },
+    included_context_refs: [ref('route_architecture_runtime_artifact', 'route_architecture_final_001')],
+    trace_refs: [ref('trace_manifest', `trace_manifest_${candidateKey}`)],
+    confirmatory_marker: confirmatoryMarker,
+    blocker_codes: [],
+    warning_codes: [],
+  };
+}
+
+function validationCyclePlanningRoleOutput(
+  overrides: Partial<PaperImplementationValidationCyclePlanningRoleOutput> = {},
+): PaperImplementationValidationCyclePlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Validation-cycle planning proposed bounded candidate cycles.',
+    cited_source_refs: [ref('route_architecture_runtime_artifact', 'route_architecture_final_001')],
+    blocker_codes: [],
+    warning_codes: [],
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    reviewed_route_proposal_hash: hashA,
+    reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
+    reviewed_route_skeptic_artifact_hash: hashB,
+    reviewed_candidate_keys: ['exploratory_route_candidate'],
+    cycle_candidate_proposals: [
+      validationCycleCandidateProposal('exploratory_cycle_candidate', false),
+      validationCycleCandidateProposal('confirmatory_cycle_candidate', true),
+    ],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_validation_cycle_side_effect: true,
+    ...overrides,
+  };
+}
+
+function feasibilityProbePlanCandidateProposal(
+  candidateKey: string,
+  confirmatoryMarker: boolean,
+): PaperImplementationFeasibilityProbePlanCandidateProposal {
+  return {
+    candidate_key: candidateKey,
+    reviewed_cycle_candidate_key: 'exploratory_cycle_candidate',
+    reviewed_route_candidate_key: 'exploratory_route_candidate',
+    probe_kind: confirmatoryMarker ? 'baseline_check' : 'data_feasibility',
+    probe_question: `Can ${candidateKey} verify feasibility without creating domain state?`,
+    plan_summary: `${candidateKey} proposes ref-backed feasibility planning evidence only.`,
+    expected_information_gain: confirmatoryMarker ? 'medium' : 'high',
+    baseline_gap_status: confirmatoryMarker ? 'resolved' : 'open',
+    primary_metric_refs: [ref('metric', `metric_${candidateKey}`)],
+    dataset_version_refs: [ref('dataset_version', `dataset_version_${candidateKey}`)],
+    baseline_version_refs: [ref('baseline_version', `baseline_version_${candidateKey}`)],
+    code_version_refs: [ref('code_version', `code_version_${candidateKey}`)],
+    config_refs: [ref('config_snapshot', `config_snapshot_${candidateKey}`)],
+    budget_envelope: {
+      budget_ref: ref('validation_budget', `validation_budget_${candidateKey}`),
+      iteration_budget_ref: ref('iteration_budget', `iteration_budget_${candidateKey}`),
+      retry_budget: 1,
+      estimated_cost_class: confirmatoryMarker ? 'medium' : 'low',
+      max_runtime: '2h',
+      max_compute: 'single-gpu-smoke',
+      max_human_review_count: 1,
+    },
+    stop_condition_refs: [ref('stop_condition', `stop_condition_${candidateKey}`)],
+    trace_refs: [ref('trace_manifest', `trace_manifest_${candidateKey}`)],
+    confirmatory_marker: confirmatoryMarker,
+    blocker_codes: [],
+    warning_codes: [],
+  };
+}
+
+function feasibilityPlanningRoleOutput(
+  overrides: Partial<PaperImplementationFeasibilityPlanningRoleOutput> = {},
+): PaperImplementationFeasibilityPlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Feasibility planning proposed bounded probe and plan-light candidates.',
+    cited_source_refs: [ref('validation_cycle_planning_runtime_artifact', 'validation_cycle_final_001')],
+    blocker_codes: [],
+    warning_codes: [],
+    reviewed_validation_cycle_artifact_ref: ref('validation_cycle_planning_runtime_artifact', 'validation_cycle_final_001'),
+    reviewed_validation_cycle_artifact_hash: hashA,
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    reviewed_route_proposal_hash: hashB,
+    reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
+    reviewed_route_skeptic_artifact_hash: hashC,
+    reviewed_cycle_candidate_keys: ['exploratory_cycle_candidate'],
+    reviewed_route_candidate_keys: ['exploratory_route_candidate'],
+    probe_plan_candidate_proposals: [
+      feasibilityProbePlanCandidateProposal('lightweight_probe_candidate', false),
+      feasibilityProbePlanCandidateProposal('plan_light_readiness_candidate', true),
+    ],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_feasibility_probe_side_effect: true,
+    no_experiment_plan_light_side_effect: true,
+    no_validation_cycle_side_effect: true,
+    ...overrides,
+  };
+}
+
+function crossBoardAnchor(id: string): PaperImplementationCrossBoardAnchor {
+  return {
+    board_version_ref: ref('motive_evidence_board_version', `board_version_${id}`),
+    board_version_hash: hash(id),
+    motive_ref: ref('core_motive', `core_motive_${id}`),
+    core_motive_version_ref: ref('core_motive_version', `core_motive_version_${id}`),
+    trace_manifest_ref: ref('trace_manifest', `trace_manifest_${id}`),
+    trace_manifest_hash: hash(`trace_manifest_${id}`),
+    evidence_binding_refs: [ref('evidence_binding', `evidence_binding_${id}`)],
+    source_locator_refs: [ref('source_locator', `source_locator_${id}`)],
+    conflict_refs: id === '001' ? [ref('motive_board_conflict', 'conflict_001')] : [],
+    challenge_refs: id === '001' ? [ref('motive_board_challenge', 'challenge_001')] : [],
+    freshness_status: 'fresh',
+  };
+}
+
+function crossBoardScenarioProposal(
+  scenarioKey: string,
+  overrides: Partial<PaperImplementationCrossBoardScenarioProposal> = {},
+): PaperImplementationCrossBoardScenarioProposal {
+  return {
+    scenario_key: scenarioKey,
+    scenario_kind: 'reuse',
+    disposition: 'viable_candidate',
+    source_board_version_refs: [
+      ref('motive_evidence_board_version', 'board_version_001'),
+      ref('motive_evidence_board_version', 'board_version_002'),
+    ],
+    source_board_version_hashes: [hash('001'), hash('002')],
+    target_motive_refs: [ref('core_motive', 'core_motive_001')],
+    evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer_binding_001')],
+    conflict_refs: [ref('motive_board_conflict', 'conflict_001')],
+    challenge_refs: [ref('motive_board_challenge', 'challenge_001')],
+    freshness_blockers: [],
+    source_locator_refs: [
+      ref('source_locator', 'source_locator_001'),
+      ref('source_locator', 'source_locator_002'),
+    ],
+    expected_benefit: 'Reuse traced evidence across compatible board versions without mutating domain state.',
+    risk_codes: ['scope_transfer_risk'],
+    blocker_codes: [],
+    warning_codes: [],
+    recommended_next_gate: 'cross_board_review',
+    ...overrides,
+  };
+}
+
+function crossBoardSynthesisRoleOutput(
+  overrides: Partial<PaperImplementationCrossBoardSynthesisRoleOutput> = {},
+): PaperImplementationCrossBoardSynthesisRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Cross-board synthesis proposed bounded merge/split/reuse scenarios.',
+    cited_source_refs: [ref('motive_evidence_board_version', 'board_version_001')],
+    reviewed_board_version_refs: [
+      ref('motive_evidence_board_version', 'board_version_001'),
+      ref('motive_evidence_board_version', 'board_version_002'),
+    ],
+    reviewed_conflict_refs: [ref('motive_board_conflict', 'conflict_001')],
+    reviewed_challenge_refs: [ref('motive_board_challenge', 'challenge_001')],
+    reviewed_evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer_binding_001')],
+    scenario_proposals: [crossBoardScenarioProposal('reuse_scenario_001')],
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_cross_board_review_side_effect: true,
+    no_evidence_transfer_binding_side_effect: true,
+    no_portfolio_mutation_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    ...overrides,
+  };
+}
+
+function evidenceBoardBindingCandidateProposal(
+  candidateKey: string,
+  overrides: Partial<PaperImplementationEvidenceBoardBindingCandidateProposal> = {},
+): PaperImplementationEvidenceBoardBindingCandidateProposal {
+  return {
+    candidate_key: candidateKey,
+    target_assertion_ref: ref('motive_assertion', 'assertion_001'),
+    evidence_ref: ref('evidence_unit', 'evidence_001'),
+    source_locator_refs: [ref('source_locator', 'source_locator_001')],
+    citation_candidate_refs: [ref('citation_candidate', 'citation_candidate_001')],
+    proposed_role: 'supporting_evidence',
+    proposed_scope: 'assertion_local',
+    proposed_strength: 'moderate',
+    support_state: 'viable_binding',
+    challenge_status: 'passed',
+    freshness_status: 'fresh',
+    interpretation: 'Candidate proposes a ref-backed binding without creating board or binding state.',
+    challenge_check: {
+      memo_or_summary_rejected: true,
+      locator_quality: 'verified',
+      citation_status: 'reviewed',
+      scope_match_status: 'matched',
+      freshness_status: 'fresh',
+      should_downgrade_to_gap: false,
+      downgrade_reason_codes: [],
+      blocking_reason_codes: [],
+    },
+    blocker_codes: [],
+    warning_codes: [],
+    recommended_next_gate: 'motive_evidence_board_review',
+    ...overrides,
+  };
+}
+
+function evidenceBoardGapCandidateProposal(
+  gapKey: string,
+  overrides: Partial<PaperImplementationEvidenceBoardGapCandidateProposal> = {},
+): PaperImplementationEvidenceBoardGapCandidateProposal {
+  return {
+    gap_key: gapKey,
+    target_assertion_ref: ref('motive_assertion', 'assertion_001'),
+    gap_kind: 'missing_source_locator',
+    missing_evidence_need: 'Need a source locator before deterministic board curation can bind this evidence.',
+    source_locator_blockers: ['missing_locator'],
+    citation_blockers: [],
+    freshness_blockers: [],
+    recommended_next_gate: 'trace_repair',
+    blocker_codes: ['missing_locator'],
+    warning_codes: [],
+    ...overrides,
+  };
+}
+
+function evidenceBoardCurationRoleOutput(
+  overrides: Partial<PaperImplementationEvidenceBoardCurationRoleOutput> = {},
+): PaperImplementationEvidenceBoardCurationRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Evidence-board curation proposed append-only binding and gap candidates.',
+    cited_source_refs: [ref('source_locator', 'source_locator_001')],
+    reviewed_assertion_refs: [ref('motive_assertion', 'assertion_001')],
+    reviewed_source_locator_refs: [ref('source_locator', 'source_locator_001')],
+    reviewed_citation_candidate_refs: [ref('citation_candidate', 'citation_candidate_001')],
+    reviewed_evidence_refs: [ref('evidence_unit', 'evidence_001')],
+    reviewed_existing_evidence_binding_refs: [ref('evidence_binding', 'existing_binding_001')],
+    binding_candidate_proposals: [evidenceBoardBindingCandidateProposal('binding_candidate_001')],
+    gap_candidate_proposals: [evidenceBoardGapCandidateProposal('gap_candidate_001')],
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_evidence_transfer_binding_side_effect: true,
+    no_citation_candidate_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    ...overrides,
+  };
+}
+
+function motiveDecompositionDraftAssertionCandidate(
+  candidateKey: string,
+  overrides: Partial<PaperImplementationMotiveDecompositionDraftAssertionCandidate> = {},
+): PaperImplementationMotiveDecompositionDraftAssertionCandidate {
+  return {
+    candidate_key: candidateKey,
+    source_assertion_ref: ref('motive_assertion', 'assertion_001'),
+    candidate_kind: 'split_child',
+    draft_assertion_text: 'Draft assertion decomposes one bounded support obligation.',
+    scope_boundary_summary: 'Candidate remains within the source assertion scope.',
+    support_obligation_summary: 'Candidate requires request-owned evidence and trace refs.',
+    covered_evidence_refs: [ref('evidence_unit', 'evidence_001')],
+    covered_source_refs: [ref('source', 'source_001')],
+    covered_source_locator_refs: [ref('source_locator', 'source_locator_001')],
+    covered_citation_candidate_refs: [ref('citation_candidate', 'citation_candidate_001')],
+    covered_trace_manifest_refs: [ref('trace_manifest', 'trace_manifest_001')],
+    decomposition_check: {
+      compoundness_status: 'multiple_obligations',
+      scope_change_status: 'split',
+      evidence_coverage_status: 'partial',
+      trace_alignment_status: 'aligned',
+      new_claim_risk: false,
+      human_confirmation_required: false,
+      blocking_reason_codes: [],
+      recommended_next_gate: 'motive_assertion_review',
+    },
+    blocker_codes: [],
+    warning_codes: [],
+    recommended_next_gate: 'motive_assertion_review',
+    ...overrides,
+  };
+}
+
+function motiveDecompositionRoleOutput(
+  overrides: Partial<PaperImplementationMotiveDecompositionRoleOutput> = {},
+): PaperImplementationMotiveDecompositionRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Motive decomposition proposed draft assertion candidates.',
+    cited_source_refs: [ref('source', 'source_001')],
+    decomposition_result_status: 'candidates_proposed',
+    reviewed_assertion_refs: [ref('motive_assertion', 'assertion_001')],
+    draft_assertion_candidates: [motiveDecompositionDraftAssertionCandidate('draft_assertion_candidate_001')],
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_motive_write_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    ...overrides,
+  };
+}
+
+function motiveEvolutionDesignedOption(
+  _optionKey: string,
+  overrides: Partial<PaperImplementationMotiveEvolutionDesignedOption> = {},
+): PaperImplementationMotiveEvolutionDesignedOption {
+  return {
+    option_kind: 'supersede',
+    supporting_refs: [ref('evidence_binding', 'evidence_binding_001')],
+    challenging_refs: [ref('challenge', 'challenge_001')],
+    portfolio_impact_class: 'semantic_version_change',
+    human_confirmation_required: true,
+    recommended_next_gate: 'motive_evolution_review',
+    blocker_codes: [],
+    warning_codes: [],
+    ...overrides,
+  };
+}
+
+function motiveEvolutionDecisionOption(
+  _optionKey: string,
+  overrides: Partial<PaperImplementationMotiveEvolutionDecisionOption> = {},
+): PaperImplementationMotiveEvolutionDecisionOption {
+  return {
+    ...motiveEvolutionDesignedOption(_optionKey),
+    challenge_check: {
+      evidence_status: 'partial',
+      trace_status: 'satisfied',
+      portfolio_status: 'partial',
+      human_confirmation_status: 'blocked',
+      downstream_impact_status: 'partial',
+      blocking_reason_codes: ['human_confirmation_required'],
+    },
+    ...overrides,
+  };
+}
+
+function motiveEvolutionDesignedOptionsByKey(
+  optionKey: string,
+  overrides: Partial<PaperImplementationMotiveEvolutionDesignedOption> = {},
+): Record<string, PaperImplementationMotiveEvolutionDesignedOption> {
+  return {
+    [optionKey]: motiveEvolutionDesignedOption(optionKey, overrides),
+  };
+}
+
+function motiveEvolutionDecisionOptionsByKey(
+  optionKey: string,
+  overrides: Partial<PaperImplementationMotiveEvolutionDecisionOption> = {},
+): Record<string, PaperImplementationMotiveEvolutionDecisionOption> {
+  return {
+    [optionKey]: motiveEvolutionDecisionOption(optionKey, overrides),
+  };
+}
+
+function motiveEvolutionDesignerRoleOutput(
+  overrides: Partial<PaperImplementationMotiveEvolutionOptionDesignerRoleOutput> = {},
+): PaperImplementationMotiveEvolutionOptionDesignerRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Motive evolution option designer proposed bounded support options.',
+    cited_source_refs: [ref('source', 'source_001')],
+    support_result_status: 'options_proposed',
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_motive_write_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    no_portfolio_mutation_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    reviewed_target_motive_refs: [ref('core_motive', 'core_motive_001')],
+    reviewed_core_motive_version_refs: [ref('core_motive_version', 'core_motive_version_001')],
+    designed_options: motiveEvolutionDesignedOptionsByKey('evolution_option_001'),
+    option_set_hash: hash('motive-evolution-option-set-001'),
+    ...overrides,
+  };
+}
+
+function motiveEvolutionChallengerRoleOutput(
+  overrides: Partial<PaperImplementationMotiveEvolutionRiskChallengerRoleOutput> = {},
+): PaperImplementationMotiveEvolutionRiskChallengerRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'Motive evolution risk challenger covered every designed option.',
+    cited_source_refs: [ref('source', 'source_001')],
+    support_result_status: 'options_proposed',
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_motive_write_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    no_portfolio_mutation_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    designer_role_artifact_ref: ref('motive_evolution_role_artifact', 'designer_role_001'),
+    designer_role_artifact_hash: hash('designer-role-001'),
+    option_set_hash: hash('motive-evolution-option-set-001'),
+    challenged_option_keys: ['evolution_option_001'],
+    decision_options: motiveEvolutionDecisionOptionsByKey('evolution_option_001'),
+    ...overrides,
+  };
+}
+
 test('paper-implementation runtime schemas load through direct and aggregate exports', () => {
   assert.ok(paperImplementationRuntimeArtifactEnvelopeSchema);
   assert.ok(paperImplementationRuntimeAdmissionRecordSchema);
@@ -457,12 +1054,42 @@ test('paper-implementation runtime schemas load through direct and aggregate exp
   assert.ok(paperImplementationExperimentPlanningRoleOutputSchema);
   assert.ok(paperImplementationExperimentPlanningArtifactSchema);
   assert.ok(runPaperImplementationExperimentPlanningRuntimeRequestSchema);
+  assert.ok(paperImplementationRoutePlanningRoleOutputSchema);
+  assert.ok(paperImplementationRoutePlanningArtifactSchema);
+  assert.ok(runPaperImplementationRoutePlanningRuntimeRequestSchema);
+  assert.ok(paperImplementationValidationCyclePlanningRoleOutputSchema);
+  assert.ok(paperImplementationValidationCyclePlanningArtifactSchema);
+  assert.ok(runPaperImplementationValidationCyclePlanningRuntimeRequestSchema);
+  assert.ok(paperImplementationFeasibilityPlanningRoleOutputSchema);
+  assert.ok(paperImplementationFeasibilityPlanningArtifactSchema);
+  assert.ok(runPaperImplementationFeasibilityPlanningRuntimeRequestSchema);
+  assert.ok(paperImplementationCrossBoardSynthesisRoleOutputSchema);
+  assert.ok(paperImplementationCrossBoardSynthesisArtifactSchema);
+  assert.ok(runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema);
+  assert.ok(paperImplementationEvidenceBoardCurationRoleOutputSchema);
+  assert.ok(paperImplementationEvidenceBoardCurationArtifactSchema);
+  assert.ok(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema);
+  assert.ok(paperImplementationMotiveDecompositionRoleOutputSchema);
+  assert.ok(paperImplementationMotiveDecompositionArtifactSchema);
+  assert.ok(runPaperImplementationMotiveDecompositionRuntimeRequestSchema);
+  assert.ok(paperImplementationMotiveEvolutionRoleOutputSchema);
+  assert.ok(paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema);
+  assert.ok(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema);
+  assert.ok(paperImplementationMotiveEvolutionArtifactSchema);
+  assert.ok(runPaperImplementationMotiveEvolutionRuntimeRequestSchema);
   assert.ok(researchLifecycleContracts.paperImplementationRuntimeArtifactEnvelopeSchema);
   assert.ok(researchLifecycleContracts.paperImplementationRuntimeAdmissionRecordSchema);
   assert.ok(researchLifecycleContracts.runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema);
   assert.ok(researchLifecycleContracts.runPaperImplementationP1RuntimeReviewRequestSchema);
   assert.ok(researchLifecycleContracts.runPaperImplementationResultAnalysisRuntimeRequestSchema);
   assert.ok(researchLifecycleContracts.runPaperImplementationExperimentPlanningRuntimeRequestSchema);
+  assert.ok(researchLifecycleContracts.runPaperImplementationRoutePlanningRuntimeRequestSchema);
+  assert.ok(researchLifecycleContracts.runPaperImplementationValidationCyclePlanningRuntimeRequestSchema);
+  assert.ok(researchLifecycleContracts.runPaperImplementationFeasibilityPlanningRuntimeRequestSchema);
+  assert.ok(researchLifecycleContracts.runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema);
+  assert.ok(researchLifecycleContracts.runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema);
+  assert.ok(researchLifecycleContracts.runPaperImplementationMotiveDecompositionRuntimeRequestSchema);
+  assert.ok(researchLifecycleContracts.runPaperImplementationMotiveEvolutionRuntimeRequestSchema);
 });
 
 test('runtime artifact envelope accepts role and final scopes with slot lineage', async () => {
@@ -1279,6 +1906,1760 @@ test('experiment planning runtime request accepts controlled role output and rej
       execution_mode: 'provider_llm',
       model_profile_id: 'paper-implementation.experiment-design.work-order-draft.v1',
       model_option_id: 'paper-implementation.experiment-design.work-order-draft.v1.openai-balanced',
+      codex_role_outputs: undefined,
+      mocked_role_outputs: roleOutputs,
+    }),
+    false,
+  );
+});
+
+test('route planning role schemas require proposal set and skeptic coverage', async () => {
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningRoleOutputSchema, routeArchitectureRoleOutput()),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningRoleOutputSchema, routeArchitectureRoleOutput({
+      route_candidate_proposals: [routeCandidateProposal('single_candidate', false)],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningRoleOutputSchema, routeArchitectureRoleOutput({
+      route_candidate_proposals: [
+        {
+          ...routeCandidateProposal('bad_authority_candidate', false),
+          technical_route_candidate_create_request: { route_id: 'must_not_exist' },
+        } as unknown as PaperImplementationRouteCandidateProposal,
+        routeCandidateProposal('confirmatory_candidate', true),
+      ],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningRoleOutputSchema, routeArchitectureRoleOutput({
+      role_status: 'blocked',
+      blocker_codes: ['source_refs_missing'],
+      route_candidate_proposals: [],
+    })),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningRoleOutputSchema, routeSkepticRoleOutput()),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningRoleOutputSchema, routeSkepticRoleOutput({
+      checked_dimensions: ['compute_budget'],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningRoleOutputSchema, routeSkepticRoleOutput({
+      no_queue_side_effect: false as unknown as true,
+    })),
+    false,
+  );
+});
+
+test('route planning final artifact schemas keep route proposals critique-only', async () => {
+  const architectureArtifact = {
+    status: 'passed',
+    slot_id: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    workflow_type: 'route_architecture',
+    target_ref: ref('implementation_input_snapshot', 'implementation_input_snapshot_001'),
+    preflight_blockers: [],
+    role_summary: 'Route architecture passed.',
+    role_blocker_codes: [],
+    role_warning_codes: [],
+    blockers: [],
+    warnings: [],
+    runtime_failure_code: null,
+    route_candidate_proposals: [
+      routeCandidateProposal('exploratory_route_candidate', false),
+      routeCandidateProposal('confirmatory_route_candidate', true),
+    ],
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+    reviewed_candidate_keys: [],
+    checked_dimensions: [],
+    risk_findings: [],
+    recommended_disposition: null,
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    role_artifact_refs: [ref('route_architecture_role_artifact', 'role_payload_001')],
+    role_artifact_hashes: [hashA],
+    admitted_role_artifact_refs: [ref('route_architecture_role_artifact', 'role_payload_001')],
+    admitted_role_artifact_hashes: [hashA],
+    role_prompt_packet_refs: [ref('runtime_prompt_packet', 'prompt_packet_001')],
+    role_prompt_packet_hashes: [hashB],
+    role_token_budget_gate_result_refs: [ref('token_budget_gate_result', 'token_gate_001')],
+    role_compression_report_refs: [],
+    runtime_identity: { slot_id: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID },
+    cache_identity: { prompt_packet_cache_key_hashes: [hashB] },
+    source_refs: [ref('implementation_input_snapshot', 'implementation_input_snapshot_001')],
+    source_hash_bundle_hash: hashC,
+  };
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningArtifactSchema, architectureArtifact),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningArtifactSchema, {
+      ...architectureArtifact,
+      domain_gate_request: { route_id: 'must_not_exist' },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningArtifactSchema, {
+      ...architectureArtifact,
+      route_candidate_proposals: [routeCandidateProposal('single_candidate', false)],
+    }),
+    false,
+  );
+
+  const skepticArtifact = {
+    ...architectureArtifact,
+    slot_id: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+    workflow_type: 'route_skeptic_review',
+    route_candidate_proposals: [],
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    reviewed_route_proposal_hash: hashA,
+    reviewed_candidate_keys: ['exploratory_route_candidate'],
+    checked_dimensions: [...PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS],
+    risk_findings: routeSkepticRoleOutput().risk_findings,
+    recommended_disposition: 'revise',
+  };
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningArtifactSchema, skepticArtifact),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationRoutePlanningArtifactSchema, {
+      ...skepticArtifact,
+      workflow_type: 'route_architecture',
+    }),
+    false,
+  );
+});
+
+test('route planning runtime request accepts controlled role output and rejects provider fixtures', async () => {
+  const roleOutputs = {
+    [PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID]: routeArchitectureRoleOutput(),
+  };
+  const request = {
+    schema_version: PAPER_IMPLEMENTATION_ROUTE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    run_id: 'route-architecture-run-001',
+    run_mode: 'dry_run',
+    execution_mode: 'codex_assisted',
+    target_ref: ref('implementation_input_snapshot', 'implementation_input_snapshot_001'),
+    target_version_id: 'v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'implementation_input_snapshot_001'),
+    input_snapshot_hash: hashC,
+    source_refs: [ref('implementation_input_snapshot', 'implementation_input_snapshot_001')],
+    source_hashes: [hashD],
+    codex_role_outputs: roleOutputs,
+  };
+  assert.equal(
+    await validatesBody(runPaperImplementationRoutePlanningRuntimeRequestSchema, request),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationRoutePlanningRuntimeRequestSchema, {
+      ...request,
+      implementation_project_id: 'implementation_project_001',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationRoutePlanningRuntimeRequestSchema, {
+      ...request,
+      execution_mode: 'provider_llm',
+      model_profile_id: 'paper-implementation.route-architecture.route-candidates.v1',
+      model_option_id: 'paper-implementation.route-architecture.route-candidates.v1.openai-balanced',
+      codex_role_outputs: undefined,
+      mocked_role_outputs: roleOutputs,
+    }),
+    false,
+  );
+});
+
+test('validation cycle planning role schema requires proposal set and side-effect guards', async () => {
+  assert.equal(
+    await validatesBody(
+      paperImplementationValidationCyclePlanningRoleOutputSchema,
+      validationCyclePlanningRoleOutput(),
+    ),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationValidationCyclePlanningRoleOutputSchema, validationCyclePlanningRoleOutput({
+      cycle_candidate_proposals: [validationCycleCandidateProposal('single_cycle_candidate', false)],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationValidationCyclePlanningRoleOutputSchema, validationCyclePlanningRoleOutput({
+      cycle_candidate_proposals: [
+        {
+          ...validationCycleCandidateProposal('no_gain_cycle_candidate', false),
+          expected_information_gain: 'none',
+        } as unknown as PaperImplementationValidationCycleCandidateProposal,
+        validationCycleCandidateProposal('confirmatory_cycle_candidate', true),
+      ],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationValidationCyclePlanningRoleOutputSchema, validationCyclePlanningRoleOutput({
+      create_validation_cycle_draft_request: { validation_cycle_id: 'must_not_exist' },
+    } as unknown as Partial<PaperImplementationValidationCyclePlanningRoleOutput>)),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationValidationCyclePlanningRoleOutputSchema, validationCyclePlanningRoleOutput({
+      no_validation_cycle_side_effect: false as unknown as true,
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationValidationCyclePlanningRoleOutputSchema, validationCyclePlanningRoleOutput({
+      role_status: 'blocked',
+      blocker_codes: ['admitted_route_skeptic_artifact_missing'],
+      cycle_candidate_proposals: [],
+      no_domain_gate_request: undefined,
+      no_queue_side_effect: undefined,
+      no_validation_cycle_side_effect: undefined,
+    })),
+    true,
+  );
+});
+
+test('validation cycle planning final artifact schema remains proposal-only', async () => {
+  const artifact = {
+    status: 'passed',
+    slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+    workflow_type: 'validation_cycle_planning',
+    target_ref: ref('technical_route_candidate', 'technical_route_candidate_001'),
+    preflight_blockers: [],
+    role_summary: 'Validation-cycle planning passed.',
+    role_blocker_codes: [],
+    role_warning_codes: [],
+    blockers: [],
+    warnings: [],
+    runtime_failure_code: null,
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    reviewed_route_proposal_hash: hashA,
+    reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
+    reviewed_route_skeptic_artifact_hash: hashB,
+    reviewed_candidate_keys: ['exploratory_route_candidate'],
+    cycle_candidate_proposals: [
+      validationCycleCandidateProposal('exploratory_cycle_candidate', false),
+      validationCycleCandidateProposal('confirmatory_cycle_candidate', true),
+    ],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_validation_cycle_side_effect: true,
+    role_artifact_refs: [ref('validation_cycle_planning_role_artifact', 'role_payload_001')],
+    role_artifact_hashes: [hashA],
+    admitted_role_artifact_refs: [ref('validation_cycle_planning_role_artifact', 'role_payload_001')],
+    admitted_role_artifact_hashes: [hashA],
+    role_prompt_packet_refs: [ref('runtime_prompt_packet', 'prompt_packet_001')],
+    role_prompt_packet_hashes: [hashB],
+    role_token_budget_gate_result_refs: [ref('token_budget_gate_result', 'token_gate_001')],
+    role_compression_report_refs: [],
+    runtime_identity: { slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID },
+    cache_identity: { prompt_packet_cache_key_hashes: [hashB] },
+    source_refs: [ref('route_architecture_runtime_artifact', 'route_architecture_final_001')],
+    source_hash_bundle_hash: hashC,
+  };
+  assert.equal(
+    await validatesBody(paperImplementationValidationCyclePlanningArtifactSchema, artifact),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationValidationCyclePlanningArtifactSchema, {
+      ...artifact,
+      domain_gate_request: { validation_cycle_id: 'must_not_exist' },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationValidationCyclePlanningArtifactSchema, {
+      ...artifact,
+      validation_cycle_id: 'must_not_exist',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationValidationCyclePlanningArtifactSchema, {
+      ...artifact,
+      cycle_candidate_proposals: [validationCycleCandidateProposal('single_cycle_candidate', false)],
+    }),
+    false,
+  );
+});
+
+test('validation cycle planning runtime request requires admitted route artifacts and rejects provider fixtures', async () => {
+  const roleOutputs = {
+    [PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID]: validationCyclePlanningRoleOutput(),
+  };
+  const request = {
+    schema_version: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    run_id: 'validation-cycle-planning-run-001',
+    run_mode: 'dry_run',
+    execution_mode: 'codex_assisted',
+    target_ref: ref('technical_route_candidate', 'technical_route_candidate_001'),
+    target_version_id: 'v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'implementation_input_snapshot_001'),
+    input_snapshot_hash: hashC,
+    source_refs: [ref('route_architecture_runtime_artifact', 'route_architecture_final_001')],
+    source_hashes: [hashD],
+    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    admitted_route_proposal_artifact_hash: hashA,
+    admitted_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
+    admitted_route_skeptic_artifact_hash: hashB,
+    reviewed_candidate_keys: ['exploratory_route_candidate'],
+    codex_role_outputs: roleOutputs,
+  };
+  assert.equal(
+    await validatesBody(runPaperImplementationValidationCyclePlanningRuntimeRequestSchema, request),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationValidationCyclePlanningRuntimeRequestSchema, {
+      ...request,
+      admitted_route_skeptic_artifact_ref: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationValidationCyclePlanningRuntimeRequestSchema, {
+      ...request,
+      reviewed_candidate_keys: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationValidationCyclePlanningRuntimeRequestSchema, {
+      ...request,
+      run_mode: 'product',
+      execution_mode: 'codex_assisted',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationValidationCyclePlanningRuntimeRequestSchema, {
+      ...request,
+      execution_mode: 'provider_llm',
+      model_profile_id: 'paper-implementation.validation-cycle-planning.cycle-candidates.v1',
+      model_option_id: 'paper-implementation.validation-cycle-planning.cycle-candidates.v1.openai-balanced',
+      codex_role_outputs: undefined,
+      mocked_role_outputs: roleOutputs,
+    }),
+    false,
+  );
+});
+
+test('feasibility planning role schema requires proposal set and no-side-effect guards', async () => {
+  assert.equal(
+    await validatesBody(
+      paperImplementationFeasibilityPlanningRoleOutputSchema,
+      feasibilityPlanningRoleOutput(),
+    ),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationFeasibilityPlanningRoleOutputSchema, feasibilityPlanningRoleOutput({
+      probe_plan_candidate_proposals: [feasibilityProbePlanCandidateProposal('single_probe_candidate', false)],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationFeasibilityPlanningRoleOutputSchema, feasibilityPlanningRoleOutput({
+      probe_plan_candidate_proposals: [
+        {
+          ...feasibilityProbePlanCandidateProposal('bad_probe_kind_candidate', false),
+          probe_kind: 'lightweight_probe',
+        } as unknown as PaperImplementationFeasibilityProbePlanCandidateProposal,
+        feasibilityProbePlanCandidateProposal('plan_light_readiness_candidate', true),
+      ],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationFeasibilityPlanningRoleOutputSchema, feasibilityPlanningRoleOutput({
+      create_feasibility_probe_request: { probe_id: 'must_not_exist' },
+    } as unknown as Partial<PaperImplementationFeasibilityPlanningRoleOutput>)),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationFeasibilityPlanningRoleOutputSchema, feasibilityPlanningRoleOutput({
+      no_experiment_plan_light_side_effect: false as unknown as true,
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationFeasibilityPlanningRoleOutputSchema, feasibilityPlanningRoleOutput({
+      role_status: 'blocked',
+      blocker_codes: ['validation_cycle_candidate_not_ready'],
+      probe_plan_candidate_proposals: [],
+      no_domain_gate_request: undefined,
+      no_queue_side_effect: undefined,
+      no_feasibility_probe_side_effect: undefined,
+      no_experiment_plan_light_side_effect: undefined,
+      no_validation_cycle_side_effect: undefined,
+    })),
+    true,
+  );
+});
+
+test('feasibility planning final artifact schema remains proposal-only', async () => {
+  const artifact = {
+    status: 'passed',
+    slot_id: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+    workflow_type: 'feasibility_planning',
+    target_ref: ref('validation_cycle_candidate', 'validation_cycle_candidate_001'),
+    preflight_blockers: [],
+    role_summary: 'Feasibility planning passed.',
+    role_blocker_codes: [],
+    role_warning_codes: [],
+    blockers: [],
+    warnings: [],
+    runtime_failure_code: null,
+    reviewed_validation_cycle_artifact_ref: ref('validation_cycle_planning_runtime_artifact', 'validation_cycle_final_001'),
+    reviewed_validation_cycle_artifact_hash: hashA,
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    reviewed_route_proposal_hash: hashB,
+    reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
+    reviewed_route_skeptic_artifact_hash: hashC,
+    reviewed_cycle_candidate_keys: ['exploratory_cycle_candidate'],
+    reviewed_route_candidate_keys: ['exploratory_route_candidate'],
+    probe_plan_candidate_proposals: [
+      feasibilityProbePlanCandidateProposal('lightweight_probe_candidate', false),
+      feasibilityProbePlanCandidateProposal('plan_light_readiness_candidate', true),
+    ],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_feasibility_probe_side_effect: true,
+    no_experiment_plan_light_side_effect: true,
+    no_validation_cycle_side_effect: true,
+    role_artifact_refs: [ref('feasibility_planning_role_artifact', 'role_payload_001')],
+    role_artifact_hashes: [hashA],
+    admitted_role_artifact_refs: [ref('feasibility_planning_role_artifact', 'role_payload_001')],
+    admitted_role_artifact_hashes: [hashA],
+    role_prompt_packet_refs: [ref('runtime_prompt_packet', 'prompt_packet_001')],
+    role_prompt_packet_hashes: [hashB],
+    role_token_budget_gate_result_refs: [ref('token_budget_gate_result', 'token_gate_001')],
+    role_compression_report_refs: [],
+    runtime_identity: { slot_id: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID },
+    cache_identity: { prompt_packet_cache_key_hashes: [hashB] },
+    source_refs: [ref('validation_cycle_planning_runtime_artifact', 'validation_cycle_final_001')],
+    source_hash_bundle_hash: hashD,
+  };
+  assert.equal(
+    await validatesBody(paperImplementationFeasibilityPlanningArtifactSchema, artifact),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationFeasibilityPlanningArtifactSchema, {
+      ...artifact,
+      create_feasibility_probe_request: { probe_id: 'must_not_exist' },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationFeasibilityPlanningArtifactSchema, {
+      ...artifact,
+      experiment_plan_light_id: 'must_not_exist',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationFeasibilityPlanningArtifactSchema, {
+      ...artifact,
+      probe_plan_candidate_proposals: [feasibilityProbePlanCandidateProposal('single_probe_candidate', false)],
+    }),
+    false,
+  );
+});
+
+test('feasibility planning runtime request requires admitted lineage artifacts and rejects provider fixtures', async () => {
+  const roleOutputs = {
+    [PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID]: feasibilityPlanningRoleOutput(),
+  };
+  const request = {
+    schema_version: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    run_id: 'feasibility-planning-run-001',
+    run_mode: 'dry_run',
+    execution_mode: 'codex_assisted',
+    target_ref: ref('validation_cycle_candidate', 'validation_cycle_candidate_001'),
+    target_version_id: 'v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'implementation_input_snapshot_001'),
+    input_snapshot_hash: hashC,
+    source_refs: [ref('validation_cycle_planning_runtime_artifact', 'validation_cycle_final_001')],
+    source_hashes: [hashD],
+    admitted_validation_cycle_artifact_ref: ref('validation_cycle_planning_runtime_artifact', 'validation_cycle_final_001'),
+    admitted_validation_cycle_artifact_hash: hashA,
+    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    admitted_route_proposal_artifact_hash: hashB,
+    admitted_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
+    admitted_route_skeptic_artifact_hash: hashC,
+    reviewed_cycle_candidate_keys: ['exploratory_cycle_candidate'],
+    reviewed_route_candidate_keys: ['exploratory_route_candidate'],
+    secondary_route_candidate_refs: [ref('technical_route_candidate', 'technical_route_candidate_001')],
+    secondary_validation_cycle_refs: [ref('validation_cycle', 'validation_cycle_001')],
+    secondary_feasibility_probe_refs: [ref('feasibility_probe', 'feasibility_probe_001')],
+    secondary_experiment_plan_light_refs: [ref('experiment_plan_light', 'experiment_plan_light_001')],
+    codex_role_outputs: roleOutputs,
+  };
+  assert.equal(
+    await validatesBody(runPaperImplementationFeasibilityPlanningRuntimeRequestSchema, request),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationFeasibilityPlanningRuntimeRequestSchema, {
+      ...request,
+      admitted_validation_cycle_artifact_ref: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationFeasibilityPlanningRuntimeRequestSchema, {
+      ...request,
+      reviewed_cycle_candidate_keys: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationFeasibilityPlanningRuntimeRequestSchema, {
+      ...request,
+      agent_workflow_harness_run_ref: ref('agent_workflow_harness_run', 'harness_run_001'),
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationFeasibilityPlanningRuntimeRequestSchema, {
+      ...request,
+      run_mode: 'product',
+      execution_mode: 'codex_assisted',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationFeasibilityPlanningRuntimeRequestSchema, {
+      ...request,
+      execution_mode: 'provider_llm',
+      model_profile_id: 'paper-implementation.feasibility-planning.probe-plan-candidates.v1',
+      model_option_id: 'paper-implementation.feasibility-planning.probe-plan-candidates.v1.openai-balanced',
+      codex_role_outputs: undefined,
+      mocked_role_outputs: roleOutputs,
+    }),
+    false,
+  );
+});
+
+test('cross-board synthesis role schema remains proposal-only', async () => {
+  assert.equal(
+    await validatesBody(
+      paperImplementationCrossBoardSynthesisRoleOutputSchema,
+      crossBoardSynthesisRoleOutput(),
+    ),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationCrossBoardSynthesisRoleOutputSchema, crossBoardSynthesisRoleOutput({
+      create_cross_board_review_request: { request_id: 'must_not_exist' },
+    } as unknown as Partial<PaperImplementationCrossBoardSynthesisRoleOutput>)),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationCrossBoardSynthesisRoleOutputSchema, crossBoardSynthesisRoleOutput({
+      motive_portfolio_decision_id: 'must_not_exist',
+    } as unknown as Partial<PaperImplementationCrossBoardSynthesisRoleOutput>)),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationCrossBoardSynthesisRoleOutputSchema, crossBoardSynthesisRoleOutput({
+      no_portfolio_mutation_side_effect: false as unknown as true,
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationCrossBoardSynthesisRoleOutputSchema, crossBoardSynthesisRoleOutput({
+      scenario_proposals: [],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationCrossBoardSynthesisRoleOutputSchema, crossBoardSynthesisRoleOutput({
+      role_status: 'blocked',
+      blocker_codes: ['insufficient_board_context'],
+      reviewed_board_version_refs: undefined,
+      reviewed_conflict_refs: undefined,
+      reviewed_challenge_refs: undefined,
+      reviewed_evidence_transfer_binding_refs: undefined,
+      scenario_proposals: undefined,
+      no_domain_gate_request: undefined,
+      no_queue_side_effect: undefined,
+      no_cross_board_review_side_effect: undefined,
+      no_evidence_transfer_binding_side_effect: undefined,
+      no_portfolio_mutation_side_effect: undefined,
+      no_motive_evolution_side_effect: undefined,
+    })),
+    true,
+  );
+});
+
+test('cross-board synthesis final artifact schema remains proposal-only', async () => {
+  const artifact = {
+    status: 'passed',
+    slot_id: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+    workflow_type: 'cross_board_synthesis',
+    target_ref: ref('motive_evidence_board_version', 'board_version_001'),
+    preflight_blockers: [],
+    role_summary: 'Cross-board synthesis passed.',
+    role_blocker_codes: [],
+    role_warning_codes: [],
+    blockers: [],
+    warnings: [],
+    runtime_failure_code: null,
+    board_anchors: [
+      crossBoardAnchor('001'),
+      crossBoardAnchor('002'),
+    ],
+    reviewed_board_version_refs: [
+      ref('motive_evidence_board_version', 'board_version_001'),
+      ref('motive_evidence_board_version', 'board_version_002'),
+    ],
+    reviewed_conflict_refs: [ref('motive_board_conflict', 'conflict_001')],
+    reviewed_challenge_refs: [ref('motive_board_challenge', 'challenge_001')],
+    reviewed_evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer_binding_001')],
+    scenario_proposals: [crossBoardScenarioProposal('reuse_scenario_001')],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_cross_board_review_side_effect: true,
+    no_evidence_transfer_binding_side_effect: true,
+    no_portfolio_mutation_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    role_artifact_refs: [ref('cross_board_synthesis_role_artifact', 'role_payload_001')],
+    role_artifact_hashes: [hashA],
+    admitted_role_artifact_refs: [ref('cross_board_synthesis_role_artifact', 'role_payload_001')],
+    admitted_role_artifact_hashes: [hashA],
+    role_prompt_packet_refs: [ref('runtime_prompt_packet', 'prompt_packet_001')],
+    role_prompt_packet_hashes: [hashB],
+    role_token_budget_gate_result_refs: [ref('token_budget_gate_result', 'token_gate_001')],
+    role_compression_report_refs: [],
+    runtime_identity: { slot_id: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID },
+    cache_identity: { prompt_packet_cache_key_hashes: [hashB] },
+    source_refs: [ref('motive_evidence_board_version', 'board_version_001')],
+    source_hash_bundle_hash: hashD,
+  };
+  assert.equal(
+    await validatesBody(paperImplementationCrossBoardSynthesisArtifactSchema, artifact),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationCrossBoardSynthesisArtifactSchema, {
+      ...artifact,
+      evidence_transfer_binding_request: { request_id: 'must_not_exist' },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationCrossBoardSynthesisArtifactSchema, {
+      ...artifact,
+      cross_board_review_id: 'must_not_exist',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationCrossBoardSynthesisArtifactSchema, {
+      ...artifact,
+      scenario_proposals: [],
+    }),
+    false,
+  );
+});
+
+test('cross-board synthesis runtime request requires board anchors and rejects provider fixtures', async () => {
+  const roleOutputs = {
+    [PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID]: crossBoardSynthesisRoleOutput(),
+  };
+  const request = {
+    schema_version: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    run_id: 'cross-board-synthesis-run-001',
+    run_mode: 'dry_run',
+    execution_mode: 'codex_assisted',
+    target_ref: ref('motive_evidence_board_version', 'board_version_001'),
+    target_version_id: 'v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'implementation_input_snapshot_001'),
+    input_snapshot_hash: hashC,
+    source_refs: [
+      ref('motive_evidence_board_version', 'board_version_001'),
+      ref('motive_evidence_board_version', 'board_version_002'),
+    ],
+    source_hashes: [hashD, hashE],
+    board_anchors: [
+      crossBoardAnchor('001'),
+      crossBoardAnchor('002'),
+    ],
+    reviewed_board_version_refs: [
+      ref('motive_evidence_board_version', 'board_version_001'),
+      ref('motive_evidence_board_version', 'board_version_002'),
+    ],
+    reviewed_conflict_refs: [ref('motive_board_conflict', 'conflict_001')],
+    reviewed_challenge_refs: [ref('motive_board_challenge', 'challenge_001')],
+    evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer_binding_001')],
+    reuse_policy: {
+      require_transfer_binding_for_viable_reuse: true,
+      allow_blocked_reuse_without_transfer_binding: true,
+    },
+    secondary_cross_board_review_refs: [ref('cross_board_review', 'cross_board_review_001')],
+    secondary_evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer_binding_001')],
+    secondary_motive_assertion_refs: [ref('motive_assertion', 'motive_assertion_001')],
+    secondary_evidence_binding_refs: [ref('evidence_binding', 'evidence_binding_001')],
+    secondary_route_refs: [ref('technical_route_candidate', 'route_candidate_001')],
+    secondary_experiment_refs: [ref('experiment_run', 'experiment_run_001')],
+    codex_role_outputs: roleOutputs,
+  };
+  assert.equal(
+    await validatesBody(runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema, request),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema, {
+      ...request,
+      board_anchors: [crossBoardAnchor('001')],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema, {
+      ...request,
+      reviewed_board_version_refs: [ref('motive_evidence_board_version', 'board_version_001')],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema, {
+      ...request,
+      create_cross_board_review_request: { request_id: 'must_not_exist' },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema, {
+      ...request,
+      run_mode: 'product',
+      execution_mode: 'codex_assisted',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema, {
+      ...request,
+      execution_mode: 'provider_llm',
+      model_profile_id: 'paper-implementation.cross-board-synthesis.merge-split-reuse-scenarios.v1',
+      model_option_id: 'paper-implementation.cross-board-synthesis.merge-split-reuse-scenarios.v1.openai-balanced',
+      codex_role_outputs: undefined,
+      mocked_role_outputs: roleOutputs,
+    }),
+    false,
+  );
+});
+
+test('evidence-board curation role output requires challenge checks and side-effect guards', async () => {
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationRoleOutputSchema, evidenceBoardCurationRoleOutput()),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationRoleOutputSchema, evidenceBoardCurationRoleOutput({
+      binding_candidate_proposals: [
+        {
+          ...evidenceBoardBindingCandidateProposal('binding_candidate_without_challenge'),
+          challenge_check: undefined,
+        } as unknown as PaperImplementationEvidenceBoardBindingCandidateProposal,
+      ],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationRoleOutputSchema, evidenceBoardCurationRoleOutput({
+      no_evidence_binding_side_effect: undefined,
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationRoleOutputSchema, evidenceBoardCurationRoleOutput({
+      role_status: 'blocked',
+      blocker_codes: ['missing_locator'],
+      reviewed_assertion_refs: undefined,
+      reviewed_source_locator_refs: undefined,
+      reviewed_citation_candidate_refs: undefined,
+      reviewed_evidence_refs: undefined,
+      reviewed_existing_evidence_binding_refs: undefined,
+      binding_candidate_proposals: undefined,
+      gap_candidate_proposals: undefined,
+      no_domain_gate_request: undefined,
+      no_queue_side_effect: undefined,
+      no_board_write_side_effect: undefined,
+      no_evidence_binding_side_effect: undefined,
+      no_evidence_transfer_binding_side_effect: undefined,
+      no_citation_candidate_side_effect: undefined,
+      no_trace_repair_queue_side_effect: undefined,
+    })),
+    true,
+  );
+});
+
+test('evidence-board curation final artifact schema is append-only and no-domain-write', async () => {
+  const artifact = {
+    status: 'passed',
+    slot_id: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+    workflow_type: 'evidence_board_curation',
+    curation_mode: 'curate_existing_board',
+    target_ref: ref('motive_evidence_board_version', 'board_version_001'),
+    target_motive_ref: ref('core_motive', 'core_motive_001'),
+    target_core_motive_version_ref: ref('core_motive_version', 'core_motive_version_001'),
+    target_board_ref: ref('motive_evidence_board_version', 'board_version_001'),
+    target_board_hash: hashA,
+    target_assertion_refs: [ref('motive_assertion', 'assertion_001')],
+    preflight_blockers: [],
+    role_summary: 'Evidence-board curation passed.',
+    role_blocker_codes: [],
+    role_warning_codes: [],
+    blockers: [],
+    warnings: [],
+    runtime_failure_code: null,
+    runtime_control: null,
+    reviewed_assertion_refs: [ref('motive_assertion', 'assertion_001')],
+    reviewed_source_locator_refs: [ref('source_locator', 'source_locator_001')],
+    reviewed_citation_candidate_refs: [ref('citation_candidate', 'citation_candidate_001')],
+    reviewed_evidence_refs: [ref('evidence_unit', 'evidence_001')],
+    reviewed_existing_evidence_binding_refs: [ref('evidence_binding', 'existing_binding_001')],
+    binding_candidate_proposals: [evidenceBoardBindingCandidateProposal('binding_candidate_001')],
+    gap_candidate_proposals: [evidenceBoardGapCandidateProposal('gap_candidate_001')],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_evidence_transfer_binding_side_effect: true,
+    no_citation_candidate_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    role_artifact_refs: [ref('evidence_board_curation_role_artifact', 'role_payload_001')],
+    role_artifact_hashes: [hashA],
+    admitted_role_artifact_refs: [ref('evidence_board_curation_role_artifact', 'role_payload_001')],
+    admitted_role_artifact_hashes: [hashA],
+    role_prompt_packet_refs: [ref('runtime_prompt_packet', 'prompt_packet_001')],
+    role_prompt_packet_hashes: [hashB],
+    role_token_budget_gate_result_refs: [ref('token_budget_gate_result', 'token_gate_001')],
+    role_compression_report_refs: [],
+    runtime_identity: { slot_id: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID },
+    cache_identity: { prompt_packet_cache_key_hashes: [hashB] },
+    source_refs: [ref('source_locator', 'source_locator_001')],
+    source_hash_bundle_hash: hashD,
+  };
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationArtifactSchema, artifact),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationArtifactSchema, {
+      ...artifact,
+      binding_candidate_proposals: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationArtifactSchema, {
+      ...artifact,
+      board_draft: { must_not_exist: true },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationArtifactSchema, {
+      ...artifact,
+      create_evidence_binding_request: { must_not_exist: true },
+    }),
+    false,
+  );
+});
+
+test('evidence-board curation runtime request is mode-bound and rejects provider fixtures', async () => {
+  const roleOutputs = {
+    [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID]: evidenceBoardCurationRoleOutput(),
+  };
+  const request = {
+    schema_version: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    run_id: 'evidence-board-curation-run-001',
+    run_mode: 'dry_run',
+    execution_mode: 'codex_assisted',
+    curation_mode: 'curate_existing_board',
+    target_ref: ref('motive_evidence_board_version', 'board_version_001'),
+    target_motive_ref: ref('core_motive', 'core_motive_001'),
+    target_core_motive_version_ref: ref('core_motive_version', 'core_motive_version_001'),
+    target_board_ref: ref('motive_evidence_board_version', 'board_version_001'),
+    target_board_hash: hashA,
+    target_assertion_refs: [ref('motive_assertion', 'assertion_001')],
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input_snapshot_001'),
+    input_snapshot_hash: hashB,
+    source_refs: [ref('source_locator', 'source_locator_001')],
+    source_hashes: [hashC],
+    source_context_packets: [{
+      packet_ref: ref('source_context_packet', 'source_context_packet_001'),
+      packet_hash: hash('source-context-packet-001'),
+      source_ref: ref('source_locator', 'source_locator_001'),
+      source_hash: hashC,
+      evidence_kind: 'source_locator',
+      content_summary: 'Packet is ref/hash backed and declares covered request refs.',
+      key_facts: ['Runtime source packets are not standalone authority.'],
+      covered_evidence_refs: [],
+      covered_source_locator_refs: [ref('source_locator', 'source_locator_001')],
+      covered_citation_candidate_refs: [],
+      covered_trace_manifest_refs: [],
+    }],
+    trace_manifest_refs: [ref('trace_manifest', 'trace_manifest_001')],
+    trace_manifest_hashes: [hashD],
+    source_locator_refs: [ref('source_locator', 'source_locator_001')],
+    citation_candidate_refs: [ref('citation_candidate', 'citation_candidate_001')],
+    reviewed_citation_candidate_refs: [ref('citation_candidate', 'citation_candidate_001')],
+    evidence_refs: [
+      ref('evidence_unit', 'evidence_001'),
+      ref('evidence_unit', 'existing_bound_evidence_001'),
+    ],
+    existing_evidence_binding_refs: [ref('evidence_binding', 'existing_binding_001')],
+    existing_bound_evidence_refs: [ref('evidence_unit', 'existing_bound_evidence_001')],
+    accepted_risk_refs: [],
+    freshness_policy: {
+      stale_evidence_requires_gap_candidate: true,
+      unreviewed_citation_requires_gap_candidate: true,
+      duplicate_existing_binding_requires_gap_candidate: true,
+    },
+    codex_role_outputs: roleOutputs,
+  };
+  assert.equal(
+    await validatesBody(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema, request),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema, {
+      ...request,
+      target_board_ref: undefined,
+      target_board_hash: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema, {
+      ...request,
+      curation_mode: 'seed_initial_board_candidates',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema, {
+      ...request,
+      curation_mode: 'seed_initial_board_candidates',
+      target_ref: ref('core_motive_version', 'core_motive_version_001'),
+      target_board_ref: undefined,
+      target_board_hash: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema, {
+      ...request,
+      curation_mode: 'seed_initial_board_candidates',
+      target_ref: ref('core_motive_version', 'core_motive_version_001'),
+      target_board_ref: undefined,
+      target_board_hash: undefined,
+      existing_evidence_binding_refs: [],
+      existing_bound_evidence_refs: [],
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema, {
+      ...request,
+      board_summary_patch: { must_not_exist: true },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema, {
+      ...request,
+      run_mode: 'product',
+      execution_mode: 'codex_assisted',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema, {
+      ...request,
+      existing_bound_evidence_refs: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema, {
+      ...request,
+      execution_mode: 'provider_llm',
+      model_profile_id: 'paper-implementation.evidence-board-curation.binding-gap-candidates.v1',
+      model_option_id: 'paper-implementation.evidence-board-curation.binding-gap-candidates.v1.openai-balanced',
+      codex_role_outputs: undefined,
+      mocked_role_outputs: roleOutputs,
+    }),
+    false,
+  );
+});
+
+test('motive decomposition role output enforces result status and no-domain-write shape', async () => {
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, motiveDecompositionRoleOutput()),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, motiveDecompositionRoleOutput({
+      draft_assertion_candidates: [
+        {
+          ...motiveDecompositionDraftAssertionCandidate('candidate_without_check'),
+          decomposition_check: undefined,
+        } as unknown as PaperImplementationMotiveDecompositionDraftAssertionCandidate,
+      ],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, motiveDecompositionRoleOutput({
+      decomposition_result_status: 'no_decomposition_needed',
+      draft_assertion_candidates: [],
+      blocker_codes: [],
+    })),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, motiveDecompositionRoleOutput({
+      decomposition_result_status: 'no_decomposition_needed',
+      draft_assertion_candidates: [],
+      blocker_codes: ['unexpected_blocker'],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, motiveDecompositionRoleOutput({
+      role_status: 'blocked',
+      decomposition_result_status: 'blocked',
+      draft_assertion_candidates: [],
+      blocker_codes: ['trace_drift'],
+    })),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, motiveDecompositionRoleOutput({
+      role_status: 'passed',
+      decomposition_result_status: 'blocked',
+      draft_assertion_candidates: [],
+      blocker_codes: ['trace_drift'],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, motiveDecompositionRoleOutput({
+      role_status: 'blocked',
+      decomposition_result_status: 'candidates_proposed',
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, motiveDecompositionRoleOutput({
+      role_status: 'blocked',
+      decomposition_result_status: 'no_decomposition_needed',
+      draft_assertion_candidates: [],
+      blocker_codes: [],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, motiveDecompositionRoleOutput({
+      draft_assertion_candidates: [
+        {
+          ...motiveDecompositionDraftAssertionCandidate('candidate_invalid_kind'),
+          candidate_kind: 'new_claim',
+        } as unknown as PaperImplementationMotiveDecompositionDraftAssertionCandidate,
+      ],
+    })),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, {
+      ...motiveDecompositionRoleOutput(),
+      source_assertion_reviews: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, {
+      ...motiveDecompositionRoleOutput(),
+      CreateMotiveAssertionInput: { must_not_exist: true },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionRoleOutputSchema, {
+      ...motiveDecompositionRoleOutput(),
+      domain_gate_request: { must_not_exist: true },
+    }),
+    false,
+  );
+});
+
+test('motive decomposition final artifact remains proposal-only', async () => {
+  const artifact = {
+    status: 'passed',
+    slot_id: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID,
+    workflow_type: 'motive_decomposition',
+    decomposition_mode: 'decompose_existing_assertions',
+    target_ref: ref('core_motive_version', 'core_motive_version_001'),
+    target_motive_ref: ref('core_motive', 'core_motive_001'),
+    target_core_motive_version_ref: ref('core_motive_version', 'core_motive_version_001'),
+    target_assertion_refs: [ref('motive_assertion', 'assertion_001')],
+    preflight_blockers: [],
+    decomposition_result_status: 'candidates_proposed',
+    role_summary: 'Motive decomposition proposed candidate assertions.',
+    role_blocker_codes: [],
+    role_warning_codes: [],
+    blockers: [],
+    warnings: [],
+    runtime_failure_code: null,
+    reviewed_assertion_refs: [ref('motive_assertion', 'assertion_001')],
+    draft_assertion_candidates: [motiveDecompositionDraftAssertionCandidate('draft_candidate_001')],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_motive_write_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    role_artifact_refs: [ref('motive_decomposition_role_artifact', 'role_payload_001')],
+    role_artifact_hashes: [hashA],
+    admitted_role_artifact_refs: [ref('motive_decomposition_role_artifact', 'role_payload_001')],
+    admitted_role_artifact_hashes: [hashA],
+    role_prompt_packet_refs: [ref('runtime_prompt_packet', 'prompt_packet_001')],
+    role_prompt_packet_hashes: [hashB],
+    role_token_budget_gate_result_refs: [ref('token_budget_gate_result', 'token_gate_001')],
+    role_compression_report_refs: [],
+    runtime_identity: { slot_id: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID },
+    cache_identity: { prompt_packet_cache_key_hashes: [hashB] },
+    source_refs: [ref('source', 'source_001')],
+    source_hash_bundle_hash: hashD,
+  };
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionArtifactSchema, artifact),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionArtifactSchema, {
+      ...artifact,
+      decomposition_result_status: 'no_decomposition_needed',
+      draft_assertion_candidates: [],
+      blockers: [],
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionArtifactSchema, {
+      ...artifact,
+      decomposition_result_status: 'no_decomposition_needed',
+      draft_assertion_candidates: [motiveDecompositionDraftAssertionCandidate('unexpected_candidate')],
+      blockers: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionArtifactSchema, {
+      ...artifact,
+      decomposition_result_status: 'blocked',
+      status: 'blocked',
+      draft_assertion_candidates: [],
+      blockers: ['human_confirmation_required'],
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionArtifactSchema, {
+      ...artifact,
+      no_motive_write_side_effect: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionArtifactSchema, {
+      ...artifact,
+      candidate_assertion_ref: ref('motive_assertion', 'persisted_candidate_001'),
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveDecompositionArtifactSchema, {
+      ...artifact,
+      motive_evolution_decision_request: { must_not_exist: true },
+    }),
+    false,
+  );
+});
+
+test('motive decomposition runtime request is assertion-bound and rejects provider fixtures', async () => {
+  const roleOutputs = {
+    [PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID]: motiveDecompositionRoleOutput(),
+  };
+  const request = {
+    schema_version: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    run_id: 'motive-decomposition-run-001',
+    run_mode: 'dry_run',
+    execution_mode: 'codex_assisted',
+    decomposition_mode: 'decompose_existing_assertions',
+    target_ref: ref('core_motive_version', 'core_motive_version_001'),
+    target_motive_ref: ref('core_motive', 'core_motive_001'),
+    target_core_motive_version_ref: ref('core_motive_version', 'core_motive_version_001'),
+    target_assertion_refs: [ref('motive_assertion', 'assertion_001')],
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input_snapshot_001'),
+    input_snapshot_hash: hashB,
+    source_refs: [ref('source', 'source_001')],
+    source_hashes: [hashC],
+    assertion_context_packets: [{
+      packet_ref: ref('assertion_context_packet', 'assertion_context_packet_001'),
+      packet_hash: hash('assertion-context-packet-001'),
+      assertion_ref: ref('motive_assertion', 'assertion_001'),
+      assertion_hash: hash('assertion-001'),
+      assertion_text: 'This source assertion is ref/hash-bound for provider review.',
+      scope_boundary_summary: 'The packet is bounded to one target assertion.',
+      covered_evidence_refs: [ref('evidence_unit', 'evidence_001')],
+      covered_trace_manifest_refs: [ref('trace_manifest', 'trace_manifest_001')],
+      covered_source_refs: [ref('source', 'source_001')],
+    }],
+    trace_manifest_refs: [ref('trace_manifest', 'trace_manifest_001')],
+    trace_manifest_hashes: [hashD],
+    source_locator_refs: [ref('source_locator', 'source_locator_001')],
+    citation_candidate_refs: [ref('citation_candidate', 'citation_candidate_001')],
+    evidence_refs: [ref('evidence_unit', 'evidence_001')],
+    accepted_risk_refs: [],
+    admitted_upstream_artifact_refs: [],
+    admitted_upstream_artifact_hashes: [],
+    codex_role_outputs: roleOutputs,
+  };
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveDecompositionRuntimeRequestSchema, request),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveDecompositionRuntimeRequestSchema, {
+      ...request,
+      decomposition_mode: 'discover_missing_assertions',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveDecompositionRuntimeRequestSchema, {
+      ...request,
+      target_assertion_refs: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveDecompositionRuntimeRequestSchema, {
+      ...request,
+      assertion_context_packets: [{
+        ...request.assertion_context_packets[0],
+        packet_hash: undefined,
+      }],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveDecompositionRuntimeRequestSchema, {
+      ...request,
+      assertion_text: 'Unbound assertion text must not be accepted at request root.',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveDecompositionRuntimeRequestSchema, {
+      ...request,
+      source_assertion_reviews: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveDecompositionRuntimeRequestSchema, {
+      ...request,
+      create_motive_assertion_input: { must_not_exist: true },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveDecompositionRuntimeRequestSchema, {
+      ...request,
+      run_mode: 'product',
+      execution_mode: 'codex_assisted',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveDecompositionRuntimeRequestSchema, {
+      ...request,
+      execution_mode: 'provider_llm',
+      model_profile_id: 'paper-implementation.motive-decomposition.draft-assertion-candidates.v1',
+      model_option_id: 'paper-implementation.motive-decomposition.draft-assertion-candidates.v1.openai-balanced',
+      codex_role_outputs: undefined,
+      mocked_role_outputs: roleOutputs,
+    }),
+    false,
+  );
+});
+
+test('motive evolution role outputs enforce controlled designer and challenger shapes', async () => {
+  assert.equal(
+    await validatesBody(
+      paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema,
+      motiveEvolutionDesignerRoleOutput(),
+    ),
+    true,
+  );
+  assert.equal(
+    await validatesBody(
+      paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema,
+      motiveEvolutionChallengerRoleOutput(),
+    ),
+    true,
+  );
+  assert.equal(
+    await validatesBody(
+      paperImplementationMotiveEvolutionRoleOutputSchema,
+      motiveEvolutionDesignerRoleOutput(),
+    ),
+    true,
+  );
+  assert.equal(
+    await validatesBody(
+      paperImplementationMotiveEvolutionRoleOutputSchema,
+      motiveEvolutionChallengerRoleOutput(),
+    ),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema, {
+      ...motiveEvolutionDesignerRoleOutput(),
+      designed_options: motiveEvolutionDesignedOptionsByKey(
+        'invalid_missing_human_gate',
+        {
+          human_confirmation_required: false,
+        },
+      ),
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema, {
+      ...motiveEvolutionChallengerRoleOutput(),
+      decision_options: {
+        missing_challenge_check: {
+          ...motiveEvolutionDecisionOption('missing_challenge_check'),
+          challenge_check: undefined,
+        } as unknown as PaperImplementationMotiveEvolutionDecisionOption,
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema, {
+      ...motiveEvolutionChallengerRoleOutput(),
+      decision_options: {
+        missing_blocking_reason: motiveEvolutionDecisionOption('missing_blocking_reason', {
+          challenge_check: {
+            evidence_status: 'partial',
+            trace_status: 'satisfied',
+            portfolio_status: 'partial',
+            human_confirmation_status: 'blocked',
+            downstream_impact_status: 'partial',
+            blocking_reason_codes: [],
+          },
+        }),
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema, {
+      ...motiveEvolutionChallengerRoleOutput(),
+      challenged_option_keys: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema, {
+      ...motiveEvolutionChallengerRoleOutput(),
+      support_result_status: 'no_evolution_needed',
+      challenged_option_keys: [],
+      decision_options: {},
+      blocker_codes: [],
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema, {
+      ...motiveEvolutionChallengerRoleOutput(),
+      support_result_status: 'no_evolution_needed',
+      challenged_option_keys: [],
+      decision_options: motiveEvolutionDecisionOptionsByKey('unexpected_option'),
+      blocker_codes: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema, {
+      ...motiveEvolutionDesignerRoleOutput(),
+      designed_options: [motiveEvolutionDesignedOption('array_shape_must_not_exist')],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema, {
+      ...motiveEvolutionDesignerRoleOutput(),
+      designed_options: {
+        nested_option_key_must_not_exist: {
+          ...motiveEvolutionDesignedOption('nested_option_key_must_not_exist'),
+          option_key: 'nested_option_key_must_not_exist',
+        } as unknown as PaperImplementationMotiveEvolutionDesignedOption,
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema, {
+      ...motiveEvolutionDesignerRoleOutput(),
+      role_status: 'passed',
+      support_result_status: 'blocked',
+      designed_options: {},
+      blocker_codes: ['missing_core_context'],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRoleOutputSchema, {
+      ...motiveEvolutionDesignerRoleOutput(),
+      change_set: { must_not_exist: true },
+    }),
+    false,
+  );
+});
+
+test('motive evolution final artifact remains support-only', async () => {
+  const artifact = {
+    status: 'passed',
+    slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+    workflow_type: 'motive_evolution',
+    target_ref: ref('core_motive_version', 'core_motive_version_001'),
+    target_motive_refs: [ref('core_motive', 'core_motive_001')],
+    target_core_motive_version_refs: [ref('core_motive_version', 'core_motive_version_001')],
+    preflight_blockers: [],
+    support_result_status: 'options_proposed',
+    role_summary: 'Motive evolution support packet is ready for human/domain gate review.',
+    role_blocker_codes: [],
+    role_warning_codes: [],
+    blockers: [],
+    warnings: [],
+    runtime_failure_code: null,
+    decision_options: motiveEvolutionDecisionOptionsByKey('evolution_option_001'),
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_motive_write_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    no_portfolio_mutation_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    role_artifact_refs: [
+      ref('motive_evolution_role_artifact', 'designer_role_001'),
+      ref('motive_evolution_role_artifact', 'challenger_role_001'),
+    ],
+    role_artifact_hashes: [hash('designer-role-001'), hash('challenger-role-001')],
+    admitted_role_artifact_refs: [
+      ref('motive_evolution_role_artifact', 'designer_role_001'),
+      ref('motive_evolution_role_artifact', 'challenger_role_001'),
+    ],
+    admitted_role_artifact_hashes: [hash('designer-role-001'), hash('challenger-role-001')],
+    role_prompt_packet_refs: [ref('runtime_prompt_packet', 'prompt_packet_001')],
+    role_prompt_packet_hashes: [hashB],
+    role_token_budget_gate_result_refs: [ref('token_budget_gate_result', 'token_gate_001')],
+    role_compression_report_refs: [],
+    runtime_identity: { slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID },
+    cache_identity: { option_set_hash: hash('motive-evolution-option-set-001') },
+    source_refs: [ref('source', 'source_001')],
+    source_hash_bundle_hash: hashD,
+  };
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, artifact),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      support_result_status: 'no_evolution_needed',
+      decision_options: {},
+      blockers: [],
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      support_result_status: 'no_evolution_needed',
+      decision_options: motiveEvolutionDecisionOptionsByKey('unexpected_option'),
+      blockers: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      status: 'blocked',
+      support_result_status: 'blocked',
+      decision_options: {},
+      blockers: ['human_confirmation_required'],
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      status: 'passed',
+      support_result_status: 'blocked',
+      decision_options: {},
+      blockers: ['human_confirmation_required'],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      status: 'failed_runtime',
+      support_result_status: 'blocked',
+      decision_options: {},
+      blockers: ['provider_schema_invalid'],
+      runtime_failure_code: null,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      status: 'failed_runtime',
+      support_result_status: 'blocked',
+      decision_options: {},
+      blockers: ['provider_schema_invalid'],
+      runtime_failure_code: 'provider_schema_invalid',
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      no_portfolio_mutation_side_effect: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      decision_options: motiveEvolutionDecisionOptionsByKey(
+        'invalid_missing_human_gate',
+        {
+          human_confirmation_required: false,
+        },
+      ),
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      decision_options: [motiveEvolutionDecisionOption('array_shape_must_not_exist')],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      decision_options: {
+        nested_option_key_must_not_exist: {
+          ...motiveEvolutionDecisionOption('nested_option_key_must_not_exist'),
+          option_key: 'nested_option_key_must_not_exist',
+        } as unknown as PaperImplementationMotiveEvolutionDecisionOption,
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      runtime_identity: {
+        nested: {
+          raw_provider_output: 'must_not_exist',
+        },
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      motive_evolution_decision_request: { must_not_exist: true },
+    }),
+    false,
+  );
+});
+
+test('motive evolution runtime request is ref-hash-bound and rejects writer or harness identity', async () => {
+  const roleOutputs = {
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]:
+      motiveEvolutionDesignerRoleOutput(),
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID]:
+      motiveEvolutionChallengerRoleOutput(),
+  };
+  const request = {
+    schema_version: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    run_id: 'motive-evolution-run-001',
+    run_mode: 'dry_run',
+    execution_mode: 'codex_assisted',
+    target_ref: ref('core_motive_version', 'core_motive_version_001'),
+    target_motive_refs: [ref('core_motive', 'core_motive_001')],
+    target_motive_hashes: [hash('core-motive-001')],
+    target_core_motive_version_refs: [ref('core_motive_version', 'core_motive_version_001')],
+    target_core_motive_version_hashes: [hash('core-motive-version-001')],
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input_snapshot_001'),
+    input_snapshot_hash: hashB,
+    portfolio_snapshot_ref: ref('motive_portfolio_snapshot', 'portfolio_snapshot_001'),
+    portfolio_snapshot_hash: hash('portfolio-snapshot-001'),
+    evidence_board_refs: [ref('motive_evidence_board_version', 'board_version_001')],
+    evidence_board_hashes: [hash('board-version-001')],
+    evidence_binding_refs: [ref('evidence_binding', 'evidence_binding_001')],
+    evidence_binding_hashes: [hash('evidence-binding-001')],
+    challenge_refs: [ref('challenge', 'challenge_001')],
+    conflict_refs: [],
+    trace_manifest_refs: [ref('trace_manifest', 'trace_manifest_001')],
+    trace_manifest_hashes: [hashD],
+    human_confirmation_policy_ref: ref('human_confirmation_policy', 'policy_001'),
+    human_confirmation_policy_hash: hash('human-confirmation-policy-001'),
+    source_refs: [ref('source', 'source_001')],
+    source_hashes: [hashC],
+    motive_context_packets: [{
+      packet_ref: ref('motive_context_packet', 'motive_context_packet_001'),
+      packet_hash: hash('motive-context-packet-001'),
+      packet_kind: 'motive_version_state',
+      content_summary: 'Provider-readable motive version state summary bound to refs and hashes.',
+      key_facts: ['Current motive version has unresolved challenge evidence.'],
+      covered_target_refs: [ref('core_motive_version', 'core_motive_version_001')],
+      covered_evidence_refs: [ref('evidence_binding', 'evidence_binding_001')],
+      covered_trace_manifest_refs: [ref('trace_manifest', 'trace_manifest_001')],
+      covered_source_refs: [ref('source', 'source_001')],
+    }],
+    validation_cycle_refs: [ref('validation_cycle', 'validation_cycle_001')],
+    validation_cycle_hashes: [hash('validation-cycle-001')],
+    result_packet_refs: [ref('result_interpretation_packet', 'result_packet_001')],
+    result_packet_hashes: [hash('result-packet-001')],
+    cross_board_review_refs: [ref('cross_board_review', 'cross_board_review_001')],
+    cross_board_review_hashes: [hash('cross-board-review-001')],
+    prior_evolution_decision_refs: [ref('motive_evolution_decision', 'prior_evolution_001')],
+    prior_evolution_decision_hashes: [hash('prior-evolution-001')],
+    prior_portfolio_decision_refs: [ref('motive_portfolio_decision', 'portfolio_decision_001')],
+    prior_portfolio_decision_hashes: [hash('portfolio-decision-001')],
+    accepted_risk_refs: [ref('accepted_risk', 'accepted_risk_001')],
+    accepted_risk_hashes: [hash('accepted-risk-001')],
+    human_request_refs: [ref('human_request', 'human_request_001')],
+    human_request_hashes: [hash('human-request-001')],
+    codex_role_outputs: roleOutputs,
+  };
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, request),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      validation_cycle_hashes: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      validation_cycle_refs: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      target_core_motive_version_hashes: undefined,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      motive_context_packets: [{
+        ...request.motive_context_packets[0],
+        packet_hash: undefined,
+      }],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      validation_cycle_hashes: ['not-a-hash'],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      implementation_proposal_artifact: { must_not_exist: true },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      CreateMotiveEvolutionDecisionRequest: { must_not_exist: true },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      motive_roles_after_decision: { primary_motive_ids: ['must_not_exist'] },
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      run_mode: 'product',
+      execution_mode: 'codex_assisted',
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationMotiveEvolutionRuntimeRequestSchema, {
+      ...request,
+      execution_mode: 'provider_llm',
+      model_profile_id: 'paper-implementation.motive-evolution.evolution-decision-support.v1',
+      model_option_id: 'paper-implementation.motive-evolution.evolution-decision-support.v1.openai-balanced',
       codex_role_outputs: undefined,
       mocked_role_outputs: roleOutputs,
     }),

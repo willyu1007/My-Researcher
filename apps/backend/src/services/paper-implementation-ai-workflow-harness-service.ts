@@ -715,10 +715,11 @@ export class PaperImplementationAiWorkflowHarnessService {
     policyVersionId: string;
     createdAt: string;
   }): DecisionWorkQueueItem {
+    const queueType = this.queueTypeForBlockers(input.blockers);
     return {
       queue_item_id: this.idFactory('pi_decision_queue_item'),
       implementation_project_id: input.implementationProjectId,
-      queue_type: this.queueTypeForBlockers(input.blockers),
+      queue_type: queueType,
       stage: 'agent_workflow_harness_validation',
       target_ref: input.targetRef,
       priority: input.blockers.some((blocker) => blocker.includes('direct_authority_mutation'))
@@ -728,8 +729,10 @@ export class PaperImplementationAiWorkflowHarnessService {
       blocking_transition_keys: [input.transitionKey],
       dedup_key: [
         'agent_workflow_harness',
-        input.harnessRunId,
-        ...input.blockers,
+        input.transitionKey,
+        queueType,
+        this.refKey(input.targetRef),
+        ...[...input.blockers].sort(),
       ].join(':'),
       allowed_handlers: ['human', 'system'],
       recommended_actions: ['inspect_harness_output', 'repair_trace_or_context', 'rerun_after_gate_fix'],

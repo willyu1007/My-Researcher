@@ -141,8 +141,26 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
     request: AdmitResearchWorkOrderRequest,
   ): Promise<ResearchWorkOrder> {
     await this.requireActiveProject(implementationProjectId);
+    if (!this.hasText(request.admission_gate_result_id)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'admission_gate_result_id is required.');
+    }
     const workOrder = await this.requireWorkOrder(implementationProjectId, workOrderId);
     if (workOrder.work_order_status !== 'draft') {
+      if (workOrder.admission_gate_result_id === request.admission_gate_result_id) {
+        return workOrder;
+      }
+      if (this.hasText(workOrder.admission_gate_result_id)) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          'ResearchWorkOrder admission replay drifted from the admitted gate result.',
+          {
+            work_order_id: workOrder.work_order_id,
+            admitted_gate_result_id: workOrder.admission_gate_result_id,
+            requested_gate_result_id: request.admission_gate_result_id,
+          },
+        );
+      }
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Only draft ResearchWorkOrder objects can be admitted.');
     }
     const admittedAt = this.now();
@@ -177,6 +195,18 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
   ): Promise<ResearchWorkOrderHarnessRun> {
     await this.requireActiveProject(implementationProjectId);
     const workOrder = await this.requireWorkOrder(implementationProjectId, workOrderId);
+    if (!this.hasText(request.idempotency_key)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'idempotency_key is required.');
+    }
+    const existingRun = await this.workOrderRepository.findHarnessRunByIdempotencyKey(
+      implementationProjectId,
+      workOrderId,
+      request.idempotency_key,
+    );
+    if (existingRun) {
+      this.assertHarnessRunReplayMatches(existingRun, request);
+      return existingRun;
+    }
     if (!['admitted', 'running'].includes(workOrder.work_order_status)) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Harness runs require an admitted ResearchWorkOrder.');
     }
@@ -569,6 +599,31 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
         409,
         'GATE_CONSTRAINT_FAILED',
         'Trusted final run evidence requires external_job_ref and external_job_hash.',
+      );
+    }
+  }
+
+  private assertHarnessRunReplayMatches(
+    existingRun: ResearchWorkOrderHarnessRun,
+    request: SubmitResearchWorkOrderHarnessRunRequest,
+  ): void {
+    const requestHarnessRunId = request.harness_run_id ?? existingRun.harness_run_id;
+    const requestRunAttempt = request.run_attempt ?? existingRun.run_attempt;
+    if (
+      requestHarnessRunId !== existingRun.harness_run_id
+      || requestRunAttempt !== existingRun.run_attempt
+      || this.refKey(request.external_job_ref) !== this.refKey(existingRun.external_job_ref)
+      || request.external_job_hash !== existingRun.external_job_hash
+    ) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'ResearchWorkOrder harness run idempotency replay drifted from the submitted external job identity.',
+        {
+          work_order_id: existingRun.work_order_id,
+          idempotency_key: existingRun.idempotency_key,
+          harness_run_id: existingRun.harness_run_id,
+        },
       );
     }
   }

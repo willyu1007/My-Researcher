@@ -56,6 +56,8 @@ import { PaperImplementationMotiveEvidenceBoardService } from '../services/paper
 import { PaperImplementationP1RuntimeReviewService } from '../services/paper-implementation-p1-runtime-review-service.js';
 import { PaperImplementationResultAnalysisRuntimeService } from '../services/paper-implementation-result-analysis-runtime-service.js';
 import { PaperImplementationExperimentPlanningRuntimeService } from '../services/paper-implementation-experiment-planning-runtime-service.js';
+import { PaperImplementationRoutePlanningRuntimeService } from '../services/paper-implementation-route-planning-runtime-service.js';
+import { PaperImplementationValidationCyclePlanningRuntimeService } from '../services/paper-implementation-validation-cycle-planning-runtime-service.js';
 import { PaperImplementationResultClaimDossierService } from '../services/paper-implementation-result-claim-dossier-service.js';
 import { PaperImplementationRuntimeAdmissionService } from '../services/paper-implementation-runtime-admission-service.js';
 import { PaperImplementationRuntimeDomainGateService } from '../services/paper-implementation-runtime-domain-gate-service.js';
@@ -553,6 +555,13 @@ function makeRealService(): {
   p1RuntimeReview: PaperImplementationP1RuntimeReviewService;
   resultAnalysisRuntime: PaperImplementationResultAnalysisRuntimeService;
   experimentPlanningRuntime: PaperImplementationExperimentPlanningRuntimeService;
+  routePlanningRuntime: PaperImplementationRoutePlanningRuntimeService;
+  validationCyclePlanningRuntime: PaperImplementationValidationCyclePlanningRuntimeService;
+  feasibilityPlanningRuntime: never;
+  crossBoardSynthesisRuntime: never;
+  evidenceBoardCurationRuntime: never;
+  motiveDecompositionRuntime: never;
+  motiveEvolutionRuntime: never;
   runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
 } {
   const downstreamFeedback = new RecordingDownstreamFeedbackService();
@@ -605,6 +614,22 @@ function makeRealService(): {
     agentOrchestrator: {
       invokeStructuredOutput: async () => {
         throw new Error('experiment planning runtime is not used by this route test');
+      },
+    },
+  });
+  const routePlanningRuntime = new PaperImplementationRoutePlanningRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: {
+      invokeStructuredOutput: async () => {
+        throw new Error('route planning runtime is not used by this route test');
+      },
+    },
+  });
+  const validationCyclePlanningRuntime = new PaperImplementationValidationCyclePlanningRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: {
+      invokeStructuredOutput: async () => {
+        throw new Error('validation cycle planning runtime is not used by this route test');
       },
     },
   });
@@ -668,6 +693,13 @@ function makeRealService(): {
     p1RuntimeReview,
     resultAnalysisRuntime,
     experimentPlanningRuntime,
+    routePlanningRuntime,
+    validationCyclePlanningRuntime,
+    feasibilityPlanningRuntime: {} as never,
+    crossBoardSynthesisRuntime: {} as never,
+    evidenceBoardCurationRuntime: {} as never,
+    motiveDecompositionRuntime: {} as never,
+    motiveEvolutionRuntime: {} as never,
     runtimeDomainGate,
   };
 }
@@ -687,12 +719,19 @@ test('PaperImplementation routes expose AI workflow harness proposal-only closur
     p1RuntimeReview,
     resultAnalysisRuntime,
     experimentPlanningRuntime,
+    routePlanningRuntime,
+    validationCyclePlanningRuntime,
+    feasibilityPlanningRuntime,
+    crossBoardSynthesisRuntime,
+    evidenceBoardCurationRuntime,
+    motiveDecompositionRuntime,
+    motiveEvolutionRuntime,
     runtimeDomainGate,
   } = makeRealService();
   await registerPaperImplementationRoutes(
     app,
-    new PaperImplementationController(
-      service,
+    new PaperImplementationController({
+      intakeBootstrap: service,
       traceKernel,
       motiveEvidenceBoard,
       validationCyclePlanning,
@@ -704,8 +743,15 @@ test('PaperImplementation routes expose AI workflow harness proposal-only closur
       p1RuntimeReview,
       resultAnalysisRuntime,
       experimentPlanningRuntime,
+      routePlanningRuntime,
+      validationCyclePlanningRuntime,
+      feasibilityPlanningRuntime,
+      crossBoardSynthesisRuntime,
+      evidenceBoardCurationRuntime,
+      motiveDecompositionRuntime,
+      motiveEvolutionRuntime,
       runtimeDomainGate,
-    ),
+    }),
   );
   try {
     const bootstrap = await app.inject({
@@ -1639,12 +1685,19 @@ test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale h
     p1RuntimeReview,
     resultAnalysisRuntime,
     experimentPlanningRuntime,
+    routePlanningRuntime,
+    validationCyclePlanningRuntime,
+    feasibilityPlanningRuntime,
+    crossBoardSynthesisRuntime,
+    evidenceBoardCurationRuntime,
+    motiveDecompositionRuntime,
+    motiveEvolutionRuntime,
     runtimeDomainGate,
   } = makeRealService();
   await registerPaperImplementationRoutes(
     app,
-    new PaperImplementationController(
-      service,
+    new PaperImplementationController({
+      intakeBootstrap: service,
       traceKernel,
       motiveEvidenceBoard,
       validationCyclePlanning,
@@ -1656,8 +1709,15 @@ test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale h
       p1RuntimeReview,
       resultAnalysisRuntime,
       experimentPlanningRuntime,
+      routePlanningRuntime,
+      validationCyclePlanningRuntime,
+      feasibilityPlanningRuntime,
+      crossBoardSynthesisRuntime,
+      evidenceBoardCurationRuntime,
+      motiveDecompositionRuntime,
+      motiveEvolutionRuntime,
       runtimeDomainGate,
-    ),
+    }),
   );
   try {
     const created = await app.inject({

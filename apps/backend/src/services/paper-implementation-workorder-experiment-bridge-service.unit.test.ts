@@ -509,6 +509,59 @@ test('admits work order, submits harness run, and records failed run evidence', 
   assert.equal((await workOrderRepository.findWorkOrderById(PROJECT_ID, WORK_ORDER_ID))?.work_order_status, 'failed');
 });
 
+test('work order admission replays same gate result and rejects drifted gate result', async () => {
+  const { service } = await makeHarness();
+  await service.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());
+  const admitted = await service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
+    admission_gate_result_id: 'work_order_gate_result_001',
+  });
+
+  const replay = await service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
+    admission_gate_result_id: 'work_order_gate_result_001',
+  });
+  assert.equal(replay.work_order_status, 'admitted');
+  assert.equal(replay.work_order_id, admitted.work_order_id);
+  assert.equal(replay.admission_gate_result_id, admitted.admission_gate_result_id);
+  assert.equal(replay.admitted_at, admitted.admitted_at);
+
+  await assertRejectsWithCode(
+    () => service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
+      admission_gate_result_id: 'work_order_gate_result_drifted',
+    }),
+    'VERSION_CONFLICT',
+  );
+});
+
+test('harness run submission replays same idempotency key and rejects drifted external job identity', async () => {
+  const { service } = await makeHarness();
+  await service.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());
+  await service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
+    admission_gate_result_id: 'work_order_gate_result_001',
+  });
+  const first = await service.submitHarnessRun(PROJECT_ID, WORK_ORDER_ID, {
+    idempotency_key: 'work_order_attempt_001',
+    external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
+    external_job_hash: 'experiment_run_hash_001',
+  });
+
+  const replay = await service.submitHarnessRun(PROJECT_ID, WORK_ORDER_ID, {
+    idempotency_key: 'work_order_attempt_001',
+    external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
+    external_job_hash: 'experiment_run_hash_001',
+  });
+  assert.equal(replay.harness_run_id, first.harness_run_id);
+  assert.equal((await service.listHarnessRuns(PROJECT_ID, WORK_ORDER_ID)).length, 1);
+
+  await assertRejectsWithCode(
+    () => service.submitHarnessRun(PROJECT_ID, WORK_ORDER_ID, {
+      idempotency_key: 'work_order_attempt_001',
+      external_job_ref: ref('experiment_foundation_run', 'drifted_run_001'),
+      external_job_hash: 'drifted_run_hash_001',
+    }),
+    'VERSION_CONFLICT',
+  );
+});
+
 test('trusted final run evidence requires target-specific run evidence trace manifest', async () => {
   const { service } = await makeHarness();
   await service.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());

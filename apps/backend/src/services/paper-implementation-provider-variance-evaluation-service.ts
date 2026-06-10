@@ -331,7 +331,7 @@ export class PaperImplementationProviderVarianceEvaluationService {
         reasons.push('Repeated runs produced unstable outputs.');
         return { profile_id: profile.profile_id, recommendation: 'tune_before_use', reasons };
       }
-      reasons.push('Deterministic evaluation lane passed provider variance gates.');
+      reasons.push('Deterministic evaluation lane passed provider variance gates; this does not satisfy product runtime/provider canary or Domain Gate admission.');
       return { profile_id: profile.profile_id, recommendation: 'enable', reasons };
     });
   }

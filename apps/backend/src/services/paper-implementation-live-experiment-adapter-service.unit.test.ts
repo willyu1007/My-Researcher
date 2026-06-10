@@ -61,6 +61,8 @@ const EXPERIMENT_PLAN_ID = 'experiment_plan_light_001';
 const EXTERNAL_JOB_ID = 'external_training_job_001';
 const WRONG_EXTERNAL_JOB_ID = 'external_training_job_wrong';
 
+type FakeExperimentOperation = 'submit' | 'sync' | 'collect' | 'cancel';
+
 function ref(refType: string, refId: string, versionId: string | null = null): TopicSelectionFunctionalRef {
   return {
     ref_type: refType,
@@ -178,6 +180,7 @@ class FakeExperimentExecution {
   collectJobIds: string[] = [];
   cancelJobIds: string[] = [];
   nextSyncStatus: ExternalTrainingJob['job_status'] = 'running';
+  private readonly failingOperations = new Set<FakeExperimentOperation>();
   job: ExternalTrainingJob = {
     external_job_id: EXTERNAL_JOB_ID,
     training_task_spec_ref: experimentRef('training_task_spec', 'training_task_spec_001'),
@@ -217,7 +220,12 @@ class FakeExperimentExecution {
     external_job_hash: 'external_job_hash_wrong',
   };
 
+  failNext(operation: FakeExperimentOperation): void {
+    this.failingOperations.add(operation);
+  }
+
   async submitJob(input: SubmitExternalTrainingJobRequest) {
+    this.failIfRequested('submit');
     this.submitInputs.push(input);
     this.job = {
       ...this.job,
@@ -248,6 +256,7 @@ class FakeExperimentExecution {
   }
 
   async syncJob(externalJobId: string, _input: SyncExternalTrainingJobRequest) {
+    this.failIfRequested('sync');
     this.syncJobIds.push(externalJobId);
     this.job = {
       ...this.job,
@@ -261,6 +270,7 @@ class FakeExperimentExecution {
   }
 
   async collectJob(externalJobId: string, _input: CollectExternalTrainingJobRequest) {
+    this.failIfRequested('collect');
     this.collectJobIds.push(externalJobId);
     this.job = {
       ...this.job,
@@ -278,6 +288,7 @@ class FakeExperimentExecution {
   }
 
   async cancelJob(externalJobId: string, input: CancelExternalTrainingJobRequest) {
+    this.failIfRequested('cancel');
     this.cancelJobIds.push(externalJobId);
     this.job = {
       ...this.job,
@@ -287,6 +298,13 @@ class FakeExperimentExecution {
       adapter_metadata_hashes: [input.idempotency_key],
     };
     return { external_job: structuredClone(this.job) };
+  }
+
+  private failIfRequested(operation: FakeExperimentOperation): void {
+    if (!this.failingOperations.delete(operation)) {
+      return;
+    }
+    throw new AppError(503, 'INTERNAL_ERROR', `Injected ${operation} failure.`);
   }
 }
 
@@ -786,6 +804,60 @@ test('cancel finalizes trusted cancelled run evidence with target-specific trace
   assert.equal(execution.cancelJobIds.length, 1);
 });
 
+test('live adapter external execution failures do not create partial state or fallback artifacts', async () => {
+  const { service, execution, workOrderService } = await makeHarness();
+
+  execution.failNext('submit');
+  await assertRejectsWithCode(
+    () => service.submitLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, {
+      idempotency_key: 'work_order_attempt_submit_failure',
+    }),
+    'INTERNAL_ERROR',
+  );
+  assert.equal(execution.submitInputs.length, 0);
+  assert.equal((await workOrderService.listHarnessRuns(PROJECT_ID, WORK_ORDER_ID)).length, 0);
+  assert.equal((await workOrderService.listRunEvidenceUnits(PROJECT_ID)).length, 0);
+  assert.equal(
+    (await workOrderService.getResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID)).work_order_status,
+    'admitted',
+  );
+
+  await service.submitLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, {
+    idempotency_key: 'work_order_attempt_001',
+  });
+
+  execution.failNext('sync');
+  await assertRejectsWithCode(
+    () => service.syncLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {}),
+    'INTERNAL_ERROR',
+  );
+  assert.deepEqual(execution.syncJobIds, []);
+  assert.equal((await workOrderService.listRunEvidenceUnits(PROJECT_ID)).length, 0);
+  assert.equal(
+    (await workOrderService.getResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID)).work_order_status,
+    'running',
+  );
+
+  execution.failNext('collect');
+  await assertRejectsWithCode(
+    () => service.collectLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {}),
+    'INTERNAL_ERROR',
+  );
+  assert.deepEqual(execution.collectJobIds, []);
+  assert.equal((await workOrderService.listRunEvidenceUnits(PROJECT_ID)).length, 0);
+
+  execution.failNext('cancel');
+  await assertRejectsWithCode(
+    () => service.cancelLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {
+      reason: 'injected failure',
+      idempotency_key: 'cancel_attempt_failure',
+    }),
+    'INTERNAL_ERROR',
+  );
+  assert.deepEqual(execution.cancelJobIds, []);
+  assert.equal((await workOrderService.listRunEvidenceUnits(PROJECT_ID)).length, 0);
+});
+
 test('route wiring validates submit payload and delegates live experiment submit', async () => {
   const { service } = await makeHarness();
   const app = Fastify({ logger: false });
@@ -794,16 +866,16 @@ test('route wiring validates submit payload and delegates live experiment submit
   });
   await registerPaperImplementationRoutes(
     app,
-    new PaperImplementationController(
-      {} as PaperImplementationIntakeBootstrapService,
-      {} as PaperImplementationTraceKernelService,
-      {} as PaperImplementationMotiveEvidenceBoardService,
-      {} as PaperImplementationValidationCyclePlanningService,
-      {} as PaperImplementationWorkOrderExperimentBridgeService,
-      {} as PaperImplementationResultClaimDossierService,
-      {} as PaperImplementationAiWorkflowHarnessService,
+    new PaperImplementationController({
+      intakeBootstrap: {} as PaperImplementationIntakeBootstrapService,
+      traceKernel: {} as PaperImplementationTraceKernelService,
+      motiveEvidenceBoard: {} as PaperImplementationMotiveEvidenceBoardService,
+      validationCyclePlanning: {} as PaperImplementationValidationCyclePlanningService,
+      workOrderExperimentBridge: {} as PaperImplementationWorkOrderExperimentBridgeService,
+      resultClaimDossier: {} as PaperImplementationResultClaimDossierService,
+      aiWorkflowHarness: {} as PaperImplementationAiWorkflowHarnessService,
       runtimeAdmission,
-      new PaperImplementationTraceIntegrityDebateRuntimeService({
+      traceIntegrityDebateRuntime: new PaperImplementationTraceIntegrityDebateRuntimeService({
         runtimeAdmission,
         agentOrchestrator: {
           invokeStructuredOutput: async () => {
@@ -811,12 +883,19 @@ test('route wiring validates submit payload and delegates live experiment submit
           },
         },
       }),
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      service,
-    ),
+      p1RuntimeReview: {} as never,
+      resultAnalysisRuntime: {} as never,
+      experimentPlanningRuntime: {} as never,
+      routePlanningRuntime: {} as never,
+      validationCyclePlanningRuntime: {} as never,
+      feasibilityPlanningRuntime: {} as never,
+      crossBoardSynthesisRuntime: {} as never,
+      evidenceBoardCurationRuntime: {} as never,
+      motiveDecompositionRuntime: {} as never,
+      motiveEvolutionRuntime: {} as never,
+      runtimeDomainGate: {} as never,
+      liveExperimentAdapter: service,
+    }),
   );
   try {
     const invalid = await app.inject({

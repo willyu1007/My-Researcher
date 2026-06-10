@@ -62,8 +62,15 @@ import {
   admitPaperImplementationRuntimeArtifactRequestSchema,
   listPaperImplementationRuntimeAdmissionRecordsQuerySchema,
   listPaperImplementationRuntimeArtifactsQuerySchema,
+  runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema,
+  runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema,
   runPaperImplementationExperimentPlanningRuntimeRequestSchema,
+  runPaperImplementationFeasibilityPlanningRuntimeRequestSchema,
+  runPaperImplementationMotiveDecompositionRuntimeRequestSchema,
+  runPaperImplementationMotiveEvolutionRuntimeRequestSchema,
   runPaperImplementationP1RuntimeReviewRequestSchema,
+  runPaperImplementationRoutePlanningRuntimeRequestSchema,
+  runPaperImplementationValidationCyclePlanningRuntimeRequestSchema,
   runPaperImplementationResultAnalysisRuntimeRequestSchema,
   runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
@@ -279,6 +286,86 @@ export async function registerPaperImplementationRoutes(
       },
     },
     controller.runResultAnalysisRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/route-architecture-route-candidates/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationRoutePlanningRuntimeRequestSchema,
+      },
+    },
+    controller.runRouteArchitectureRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/route-skeptic-review-route-risk-critique/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationRoutePlanningRuntimeRequestSchema,
+      },
+    },
+    controller.runRouteSkepticReviewRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/validation-cycle-planning-cycle-candidates/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationValidationCyclePlanningRuntimeRequestSchema,
+      },
+    },
+    controller.runValidationCyclePlanningRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/feasibility-planning-probe-plan-candidates/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationFeasibilityPlanningRuntimeRequestSchema,
+      },
+    },
+    controller.runFeasibilityPlanningRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/cross-board-synthesis-merge-split-reuse-scenarios/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema,
+      },
+    },
+    controller.runCrossBoardSynthesisRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/evidence-board-curation-binding-gap-candidates/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema,
+      },
+    },
+    controller.runEvidenceBoardCurationRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/motive-decomposition-draft-assertion-candidates/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationMotiveDecompositionRuntimeRequestSchema,
+      },
+    },
+    controller.runMotiveDecompositionRuntime,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/runtime-slots/motive-evolution-decision-support/run',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: runPaperImplementationMotiveEvolutionRuntimeRequestSchema,
+      },
+    },
+    controller.runMotiveEvolutionRuntime,
   );
   fastify.post(
     '/paper-implementation/projects/:implementation_project_id/runtime-slots/experiment-design-work-order-draft/run',

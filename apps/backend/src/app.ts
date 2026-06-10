@@ -158,6 +158,13 @@ import { PaperImplementationTraceIntegrityRetrievalService } from './services/pa
 import { PaperImplementationP1RuntimeReviewService } from './services/paper-implementation-p1-runtime-review-service.js';
 import { PaperImplementationResultAnalysisRuntimeService } from './services/paper-implementation-result-analysis-runtime-service.js';
 import { PaperImplementationExperimentPlanningRuntimeService } from './services/paper-implementation-experiment-planning-runtime-service.js';
+import { PaperImplementationRoutePlanningRuntimeService } from './services/paper-implementation-route-planning-runtime-service.js';
+import { PaperImplementationValidationCyclePlanningRuntimeService } from './services/paper-implementation-validation-cycle-planning-runtime-service.js';
+import { PaperImplementationFeasibilityPlanningRuntimeService } from './services/paper-implementation-feasibility-planning-runtime-service.js';
+import { PaperImplementationCrossBoardSynthesisRuntimeService } from './services/paper-implementation-cross-board-synthesis-runtime-service.js';
+import { PaperImplementationEvidenceBoardCurationRuntimeService } from './services/paper-implementation-evidence-board-curation-runtime-service.js';
+import { PaperImplementationMotiveDecompositionRuntimeService } from './services/paper-implementation-motive-decomposition-runtime-service.js';
+import { PaperImplementationMotiveEvolutionRuntimeService } from './services/paper-implementation-motive-evolution-runtime-service.js';
 import { PaperImplementationRuntimeDomainGateService } from './services/paper-implementation-runtime-domain-gate-service.js';
 import { ResearchLifecycleService } from './services/research-lifecycle-service.js';
 import {
@@ -214,6 +221,13 @@ export type BuildAppOptions = {
   paperImplementationTraceIntegrityDebateLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationP1RuntimeReviewLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationResultAnalysisLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationRoutePlanningLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationValidationCyclePlanningLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationFeasibilityPlanningLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationCrossBoardSynthesisLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationEvidenceBoardCurationLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationMotiveDecompositionLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationMotiveEvolutionLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationExperimentPlanningLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   topicSelectionPromptPacketCacheStore?: TopicSelectionPromptPacketCacheStore;
   paperImplementationRepository?: PaperImplementationRepository;
@@ -656,9 +670,141 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationResultAnalysisAgentOrchestratorService,
     });
+  const paperImplementationRoutePlanningAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
+    controlPlane: topicSelectionControlPlaneService,
+    llmGateway: options.paperImplementationRoutePlanningLlmGateway
+      ?? options.paperImplementationResultAnalysisLlmGateway
+      ?? options.paperImplementationP1RuntimeReviewLlmGateway
+      ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+      ?? llmGateway,
+    promptPacketCache: topicSelectionPromptPacketCacheService,
+  });
+  const paperImplementationRoutePlanningRuntimeService =
+    new PaperImplementationRoutePlanningRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationRoutePlanningAgentOrchestratorService,
+    });
+  const paperImplementationValidationCyclePlanningAgentOrchestratorService =
+    new TopicSelectionAgentOrchestratorService({
+      controlPlane: topicSelectionControlPlaneService,
+      llmGateway: options.paperImplementationValidationCyclePlanningLlmGateway
+        ?? options.paperImplementationRoutePlanningLlmGateway
+        ?? options.paperImplementationResultAnalysisLlmGateway
+        ?? options.paperImplementationP1RuntimeReviewLlmGateway
+        ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+        ?? llmGateway,
+      promptPacketCache: topicSelectionPromptPacketCacheService,
+    });
+  const paperImplementationValidationCyclePlanningRuntimeService =
+    new PaperImplementationValidationCyclePlanningRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationValidationCyclePlanningAgentOrchestratorService,
+    });
+  const paperImplementationFeasibilityPlanningAgentOrchestratorService =
+    new TopicSelectionAgentOrchestratorService({
+      controlPlane: topicSelectionControlPlaneService,
+      llmGateway: options.paperImplementationFeasibilityPlanningLlmGateway
+        ?? options.paperImplementationValidationCyclePlanningLlmGateway
+        ?? options.paperImplementationRoutePlanningLlmGateway
+        ?? options.paperImplementationResultAnalysisLlmGateway
+        ?? options.paperImplementationP1RuntimeReviewLlmGateway
+        ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+        ?? llmGateway,
+      promptPacketCache: topicSelectionPromptPacketCacheService,
+    });
+  const paperImplementationFeasibilityPlanningRuntimeService =
+    new PaperImplementationFeasibilityPlanningRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationFeasibilityPlanningAgentOrchestratorService,
+    });
+  const paperImplementationCrossBoardSynthesisAgentOrchestratorService =
+    new TopicSelectionAgentOrchestratorService({
+      controlPlane: topicSelectionControlPlaneService,
+      llmGateway: options.paperImplementationCrossBoardSynthesisLlmGateway
+        ?? options.paperImplementationFeasibilityPlanningLlmGateway
+        ?? options.paperImplementationValidationCyclePlanningLlmGateway
+        ?? options.paperImplementationRoutePlanningLlmGateway
+        ?? options.paperImplementationResultAnalysisLlmGateway
+        ?? options.paperImplementationP1RuntimeReviewLlmGateway
+        ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+        ?? llmGateway,
+      promptPacketCache: topicSelectionPromptPacketCacheService,
+    });
+  const paperImplementationCrossBoardSynthesisRuntimeService =
+    new PaperImplementationCrossBoardSynthesisRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationCrossBoardSynthesisAgentOrchestratorService,
+    });
+  const paperImplementationEvidenceBoardCurationAgentOrchestratorService =
+    new TopicSelectionAgentOrchestratorService({
+      controlPlane: topicSelectionControlPlaneService,
+      llmGateway: options.paperImplementationEvidenceBoardCurationLlmGateway
+        ?? options.paperImplementationCrossBoardSynthesisLlmGateway
+        ?? options.paperImplementationFeasibilityPlanningLlmGateway
+        ?? options.paperImplementationValidationCyclePlanningLlmGateway
+        ?? options.paperImplementationRoutePlanningLlmGateway
+        ?? options.paperImplementationResultAnalysisLlmGateway
+        ?? options.paperImplementationP1RuntimeReviewLlmGateway
+        ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+        ?? llmGateway,
+      promptPacketCache: topicSelectionPromptPacketCacheService,
+    });
+  const paperImplementationEvidenceBoardCurationRuntimeService =
+    new PaperImplementationEvidenceBoardCurationRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationEvidenceBoardCurationAgentOrchestratorService,
+    });
+  const paperImplementationMotiveDecompositionAgentOrchestratorService =
+    new TopicSelectionAgentOrchestratorService({
+      controlPlane: topicSelectionControlPlaneService,
+      llmGateway: options.paperImplementationMotiveDecompositionLlmGateway
+        ?? options.paperImplementationEvidenceBoardCurationLlmGateway
+        ?? options.paperImplementationCrossBoardSynthesisLlmGateway
+        ?? options.paperImplementationFeasibilityPlanningLlmGateway
+        ?? options.paperImplementationValidationCyclePlanningLlmGateway
+        ?? options.paperImplementationRoutePlanningLlmGateway
+        ?? options.paperImplementationResultAnalysisLlmGateway
+        ?? options.paperImplementationP1RuntimeReviewLlmGateway
+        ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+        ?? llmGateway,
+      promptPacketCache: topicSelectionPromptPacketCacheService,
+    });
+  const paperImplementationMotiveDecompositionRuntimeService =
+    new PaperImplementationMotiveDecompositionRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationMotiveDecompositionAgentOrchestratorService,
+    });
+  const paperImplementationMotiveEvolutionAgentOrchestratorService =
+    new TopicSelectionAgentOrchestratorService({
+      controlPlane: topicSelectionControlPlaneService,
+      llmGateway: options.paperImplementationMotiveEvolutionLlmGateway
+        ?? options.paperImplementationMotiveDecompositionLlmGateway
+        ?? options.paperImplementationEvidenceBoardCurationLlmGateway
+        ?? options.paperImplementationCrossBoardSynthesisLlmGateway
+        ?? options.paperImplementationFeasibilityPlanningLlmGateway
+        ?? options.paperImplementationValidationCyclePlanningLlmGateway
+        ?? options.paperImplementationRoutePlanningLlmGateway
+        ?? options.paperImplementationResultAnalysisLlmGateway
+        ?? options.paperImplementationP1RuntimeReviewLlmGateway
+        ?? options.paperImplementationTraceIntegrityDebateLlmGateway
+        ?? llmGateway,
+      promptPacketCache: topicSelectionPromptPacketCacheService,
+    });
+  const paperImplementationMotiveEvolutionRuntimeService =
+    new PaperImplementationMotiveEvolutionRuntimeService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationMotiveEvolutionAgentOrchestratorService,
+    });
   const paperImplementationExperimentPlanningAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
     controlPlane: topicSelectionControlPlaneService,
     llmGateway: options.paperImplementationExperimentPlanningLlmGateway
+      ?? options.paperImplementationMotiveEvolutionLlmGateway
+      ?? options.paperImplementationMotiveDecompositionLlmGateway
+      ?? options.paperImplementationEvidenceBoardCurationLlmGateway
+      ?? options.paperImplementationCrossBoardSynthesisLlmGateway
+      ?? options.paperImplementationFeasibilityPlanningLlmGateway
+      ?? options.paperImplementationValidationCyclePlanningLlmGateway
+      ?? options.paperImplementationRoutePlanningLlmGateway
       ?? options.paperImplementationResultAnalysisLlmGateway
       ?? options.paperImplementationP1RuntimeReviewLlmGateway
       ?? options.paperImplementationTraceIntegrityDebateLlmGateway
@@ -675,23 +821,30 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       resultClaimDossier: paperImplementationResultClaimDossierService,
     });
-  const paperImplementationController = new PaperImplementationController(
-    paperImplementationIntakeBootstrapService,
-    paperImplementationTraceKernelService,
-    paperImplementationMotiveEvidenceBoardService,
-    paperImplementationValidationCyclePlanningService,
-    paperImplementationWorkOrderExperimentBridgeService,
-    paperImplementationResultClaimDossierService,
-    paperImplementationAiWorkflowHarnessService,
-    paperImplementationRuntimeAdmissionService,
-    paperImplementationTraceIntegrityDebateRuntimeService,
-    paperImplementationP1RuntimeReviewService,
-    paperImplementationResultAnalysisRuntimeService,
-    paperImplementationExperimentPlanningRuntimeService,
-    paperImplementationRuntimeDomainGateService,
-    paperImplementationLiveExperimentAdapterService,
-    paperImplementationProviderVarianceEvaluationService,
-  );
+  const paperImplementationController = new PaperImplementationController({
+    intakeBootstrap: paperImplementationIntakeBootstrapService,
+    traceKernel: paperImplementationTraceKernelService,
+    motiveEvidenceBoard: paperImplementationMotiveEvidenceBoardService,
+    validationCyclePlanning: paperImplementationValidationCyclePlanningService,
+    workOrderExperimentBridge: paperImplementationWorkOrderExperimentBridgeService,
+    resultClaimDossier: paperImplementationResultClaimDossierService,
+    aiWorkflowHarness: paperImplementationAiWorkflowHarnessService,
+    runtimeAdmission: paperImplementationRuntimeAdmissionService,
+    traceIntegrityDebateRuntime: paperImplementationTraceIntegrityDebateRuntimeService,
+    p1RuntimeReview: paperImplementationP1RuntimeReviewService,
+    resultAnalysisRuntime: paperImplementationResultAnalysisRuntimeService,
+    experimentPlanningRuntime: paperImplementationExperimentPlanningRuntimeService,
+    routePlanningRuntime: paperImplementationRoutePlanningRuntimeService,
+    validationCyclePlanningRuntime: paperImplementationValidationCyclePlanningRuntimeService,
+    feasibilityPlanningRuntime: paperImplementationFeasibilityPlanningRuntimeService,
+    crossBoardSynthesisRuntime: paperImplementationCrossBoardSynthesisRuntimeService,
+    evidenceBoardCurationRuntime: paperImplementationEvidenceBoardCurationRuntimeService,
+    motiveDecompositionRuntime: paperImplementationMotiveDecompositionRuntimeService,
+    motiveEvolutionRuntime: paperImplementationMotiveEvolutionRuntimeService,
+    runtimeDomainGate: paperImplementationRuntimeDomainGateService,
+    liveExperimentAdapter: paperImplementationLiveExperimentAdapterService,
+    providerVarianceEvaluation: paperImplementationProviderVarianceEvaluationService,
+  });
   const topicSelectionV1cController = new TopicSelectionV1cController(
     topicSelectionV1cPromotionInputService,
     topicSelectionV1cPromotionGateService,

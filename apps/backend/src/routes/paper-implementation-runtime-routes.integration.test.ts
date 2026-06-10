@@ -15,15 +15,40 @@ import type {
 import type {
   PaperImplementationExperimentPlanningRoleOutput,
   PaperImplementationExperimentWorkOrderDraftCandidate,
+  PaperImplementationCrossBoardAnchor,
+  PaperImplementationCrossBoardScenarioProposal,
+  PaperImplementationCrossBoardSynthesisRoleOutput,
+  PaperImplementationEvidenceBoardBindingCandidateProposal,
+  PaperImplementationEvidenceBoardCurationRoleOutput,
+  PaperImplementationFeasibilityPlanningRoleOutput,
+  PaperImplementationFeasibilityProbePlanCandidateProposal,
+  PaperImplementationMotiveDecompositionDraftAssertionCandidate,
+  PaperImplementationMotiveDecompositionRoleOutput,
+  PaperImplementationMotiveEvolutionChallengeCheck,
+  PaperImplementationMotiveEvolutionDecisionOption,
+  PaperImplementationMotiveEvolutionDesignedOption,
+  PaperImplementationMotiveEvolutionOptionDesignerRoleOutput,
+  PaperImplementationMotiveEvolutionRiskChallengerRoleOutput,
+  PaperImplementationMotiveEvolutionRoleOutput,
   PaperImplementationP1RuntimeReviewRoleOutput,
+  PaperImplementationRouteCandidateProposal,
+  PaperImplementationRoutePlanningRoleOutput,
   PaperImplementationResultAnalysisRoleOutput,
   PaperImplementationRuntimeAdmissionRecord,
   PaperImplementationRuntimeArtifactEnvelope,
+  PaperImplementationValidationCycleCandidateProposal,
+  PaperImplementationValidationCyclePlanningRoleOutput,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import {
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_SLOT_ID,
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_REVIEW_ROLE_SLOT_IDS,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
   PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID,
   PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_SLOT_ID,
   PAPER_IMPLEMENTATION_DOSSIER_READINESS_REVIEW_ROLE_SLOT_IDS,
@@ -34,6 +59,26 @@ import {
   PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_ROLE_SLOT_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_SLOT_ID,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCENARIO_KINDS,
@@ -140,6 +185,146 @@ class StubResultAnalysisGateway {
   ): Promise<LlmStructuredOutputResponse<T>> {
     this.calls.push(request);
     const output = this.outputs.shift() ?? resultAnalysisRoleOutput();
+    return {
+      parsed: output as T,
+      raw: { redacted_stub: true },
+      telemetry: telemetry(request),
+    };
+  }
+}
+
+class StubRoutePlanningGateway {
+  readonly calls: LlmStructuredOutputRequest[] = [];
+
+  constructor(
+    private readonly outputs: PaperImplementationRoutePlanningRoleOutput[] = [],
+  ) {}
+
+  async createStructuredOutput<T>(
+    request: LlmStructuredOutputRequest,
+  ): Promise<LlmStructuredOutputResponse<T>> {
+    this.calls.push(request);
+    const output = this.outputs.shift() ?? routePlanningRoleOutput(request.executionContext.operation);
+    return {
+      parsed: output as T,
+      raw: { redacted_stub: true },
+      telemetry: telemetry(request),
+    };
+  }
+}
+
+class StubValidationCyclePlanningGateway {
+  readonly calls: LlmStructuredOutputRequest[] = [];
+
+  constructor(
+    private readonly outputs: PaperImplementationValidationCyclePlanningRoleOutput[] = [],
+  ) {}
+
+  async createStructuredOutput<T>(
+    request: LlmStructuredOutputRequest,
+  ): Promise<LlmStructuredOutputResponse<T>> {
+    this.calls.push(request);
+    const output = this.outputs.shift() ?? validationCyclePlanningRoleOutput();
+    return {
+      parsed: output as T,
+      raw: { redacted_stub: true },
+      telemetry: telemetry(request),
+    };
+  }
+}
+
+class StubFeasibilityPlanningGateway {
+  readonly calls: LlmStructuredOutputRequest[] = [];
+
+  constructor(
+    private readonly outputs: PaperImplementationFeasibilityPlanningRoleOutput[] = [],
+  ) {}
+
+  async createStructuredOutput<T>(
+    request: LlmStructuredOutputRequest,
+  ): Promise<LlmStructuredOutputResponse<T>> {
+    this.calls.push(request);
+    const output = this.outputs.shift() ?? feasibilityPlanningRoleOutput();
+    return {
+      parsed: output as T,
+      raw: { redacted_stub: true },
+      telemetry: telemetry(request),
+    };
+  }
+}
+
+class StubCrossBoardSynthesisGateway {
+  readonly calls: LlmStructuredOutputRequest[] = [];
+
+  constructor(
+    private readonly outputs: PaperImplementationCrossBoardSynthesisRoleOutput[] = [],
+  ) {}
+
+  async createStructuredOutput<T>(
+    request: LlmStructuredOutputRequest,
+  ): Promise<LlmStructuredOutputResponse<T>> {
+    this.calls.push(request);
+    const output = this.outputs.shift() ?? crossBoardSynthesisRoleOutput();
+    return {
+      parsed: output as T,
+      raw: { redacted_stub: true },
+      telemetry: telemetry(request),
+    };
+  }
+}
+
+class StubEvidenceBoardCurationGateway {
+  readonly calls: LlmStructuredOutputRequest[] = [];
+
+  constructor(
+    private readonly outputs: PaperImplementationEvidenceBoardCurationRoleOutput[] = [],
+  ) {}
+
+  async createStructuredOutput<T>(
+    request: LlmStructuredOutputRequest,
+  ): Promise<LlmStructuredOutputResponse<T>> {
+    this.calls.push(request);
+    const output = this.outputs.shift() ?? evidenceBoardCurationRoleOutput();
+    return {
+      parsed: output as T,
+      raw: { redacted_stub: true },
+      telemetry: telemetry(request),
+    };
+  }
+}
+
+class StubMotiveDecompositionGateway {
+  readonly calls: LlmStructuredOutputRequest[] = [];
+
+  constructor(
+    private readonly outputs: PaperImplementationMotiveDecompositionRoleOutput[] = [],
+  ) {}
+
+  async createStructuredOutput<T>(
+    request: LlmStructuredOutputRequest,
+  ): Promise<LlmStructuredOutputResponse<T>> {
+    this.calls.push(request);
+    const output = this.outputs.shift() ?? motiveDecompositionRoleOutput();
+    return {
+      parsed: output as T,
+      raw: { redacted_stub: true },
+      telemetry: telemetry(request),
+    };
+  }
+}
+
+class StubMotiveEvolutionGateway {
+  readonly calls: LlmStructuredOutputRequest[] = [];
+
+  constructor(
+    private readonly outputs: PaperImplementationMotiveEvolutionRoleOutput[] = [],
+  ) {}
+
+  async createStructuredOutput<T>(
+    request: LlmStructuredOutputRequest,
+  ): Promise<LlmStructuredOutputResponse<T>> {
+    this.calls.push(request);
+    const output = this.outputs.shift() ?? motiveEvolutionRoleOutput(request);
     return {
       parsed: output as T,
       raw: { redacted_stub: true },
@@ -577,6 +762,918 @@ test('PaperImplementation result-analysis runtime run route uses the production 
   }
 });
 
+test('PaperImplementation route planning runtime routes use production slot services without route or Domain Gate writes', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubRoutePlanningGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationRoutePlanningLlmGateway: gateway,
+  });
+  try {
+    const architecture = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-architecture-route-candidates/run`,
+      payload: routePlanningRunPayload('architecture'),
+    });
+    assert.equal(architecture.statusCode, 201);
+    const architectureBody = architecture.json() as {
+      status: string;
+      provider_call_count: number;
+      runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+      operational_telemetry: PaperImplementationRuntimeOperationalTelemetry;
+    };
+    assert.equal(architectureBody.status, 'passed');
+    assert.equal(architectureBody.provider_call_count, 1);
+    assert.equal(gateway.calls[0]?.executionContext.operation, PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID);
+    assert.equal(gateway.calls[0]?.executionContext.feature, 'paper_implementation');
+    assert.equal(architectureBody.runtime_artifacts.length, 2);
+    assert.equal(architectureBody.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID), true);
+    assert.equal(
+      (architectureBody.final_runtime_artifact?.artifact_payload.route_candidate_proposals as unknown[] | undefined)?.length,
+      2,
+    );
+    assert.equal('technical_route_candidate_create_request' in (architectureBody.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('domain_gate_request' in (architectureBody.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal(architectureBody.final_runtime_artifact?.artifact_payload.no_domain_gate_request, true);
+    assert.equal(architectureBody.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+    assert.equal(architectureBody.final_admission_record?.admission_status, 'admitted');
+    assert.equal(architectureBody.operational_telemetry.provider_call_count_consistent, true);
+
+    assert.ok(architectureBody.final_runtime_artifact);
+    const rejectedMaterialize = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts/${encodeURIComponent(
+        architectureBody.final_runtime_artifact.runtime_artifact_id,
+      )}/materialize-domain-gate`,
+    });
+    assertErrorCode(rejectedMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+
+    const skeptic = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-skeptic-review-route-risk-critique/run`,
+      payload: routePlanningRunPayload('skeptic'),
+    });
+    assert.equal(skeptic.statusCode, 201);
+    const skepticBody = skeptic.json() as {
+      status: string;
+      provider_call_count: number;
+      runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+    };
+    assert.equal(skepticBody.status, 'passed');
+    assert.equal(skepticBody.provider_call_count, 1);
+    assert.equal(gateway.calls[1]?.executionContext.operation, PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID);
+    assert.equal(skepticBody.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID), true);
+    assert.deepEqual(
+      skepticBody.final_runtime_artifact?.artifact_payload.checked_dimensions,
+      [...PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS],
+    );
+    assert.equal(skepticBody.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+    assert.equal(skepticBody.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+    assert.equal('queue_action' in (skepticBody.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('domain_gate_request' in (skepticBody.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal(skepticBody.final_admission_record?.admission_status, 'admitted');
+
+    const architectureFinalArtifacts = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts?slot_id=${encodeURIComponent(
+        PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+      )}&artifact_scope=final`,
+    });
+    assert.equal(architectureFinalArtifacts.statusCode, 200);
+    assert.equal((architectureFinalArtifacts.json() as { items: unknown[] }).items.length, 1);
+
+    const skepticFinalArtifacts = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts?slot_id=${encodeURIComponent(
+        PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+      )}&artifact_scope=final`,
+    });
+    assert.equal(skepticFinalArtifacts.statusCode, 200);
+    assert.equal((skepticFinalArtifacts.json() as { items: unknown[] }).items.length, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation validation cycle planning runtime route uses admitted route artifacts without cycle or Domain Gate writes', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubValidationCyclePlanningGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationValidationCyclePlanningLlmGateway: gateway,
+  });
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
+      payload: validationCyclePlanningRunPayload(),
+    });
+    assert.equal(response.statusCode, 201);
+    const body = response.json() as {
+      status: string;
+      provider_call_count: number;
+      runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+      operational_telemetry: PaperImplementationRuntimeOperationalTelemetry;
+    };
+    assert.equal(body.status, 'passed');
+    assert.equal(body.provider_call_count, 1);
+    assert.equal(gateway.calls.length, 1);
+    assert.equal(gateway.calls[0]?.executionContext.operation, PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID);
+    assert.equal(gateway.calls[0]?.executionContext.feature, 'paper_implementation');
+    assert.equal(body.runtime_artifacts.length, 2);
+    assert.equal(body.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID), true);
+    assert.equal(
+      (body.final_runtime_artifact?.artifact_payload.cycle_candidate_proposals as unknown[] | undefined)?.length,
+      2,
+    );
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_domain_gate_request, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_validation_cycle_side_effect, true);
+    assert.equal('validation_cycle_id' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('create_validation_cycle_draft_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('queue_action' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('domain_gate_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal(body.final_admission_record?.admission_status, 'admitted');
+    assert.equal(body.operational_telemetry.provider_call_count_consistent, true);
+
+    assert.ok(body.final_runtime_artifact);
+    const rejectedMaterialize = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts/${encodeURIComponent(
+        body.final_runtime_artifact.runtime_artifact_id,
+      )}/materialize-domain-gate`,
+    });
+    assertErrorCode(rejectedMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+
+    const finalArtifacts = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts?slot_id=${encodeURIComponent(
+        PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+      )}&artifact_scope=final`,
+    });
+    assert.equal(finalArtifacts.statusCode, 200);
+    assert.equal((finalArtifacts.json() as { items: unknown[] }).items.length, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation validation cycle planning runtime route rejects route and candidate lineage drift before final admission', async () => {
+  const routeHashMismatchGateway = new StubValidationCyclePlanningGateway([
+    validationCyclePlanningRoleOutput({
+      reviewed_route_proposal_hash: hash('route-architecture-final-http-drifted'),
+    }),
+    validationCyclePlanningRoleOutput({
+      reviewed_route_proposal_hash: hash('route-architecture-final-http-drifted'),
+    }),
+  ]);
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationValidationCyclePlanningLlmGateway: routeHashMismatchGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
+    payload: {
+      ...validationCyclePlanningRunPayload(),
+      run_id: 'validation-cycle-planning-http-route-lineage-drift',
+    },
+    expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+    expectedFailureCode: 'VALIDATION_CYCLE_PLANNING_ROUTE_PROPOSAL_MISMATCH',
+  });
+  assert.equal(routeHashMismatchGateway.calls.length, 2);
+
+  const candidateMismatchOutput = validationCyclePlanningRoleOutput({
+    cycle_candidate_proposals: [
+      {
+        ...validationCycleCandidateProposal('exploratory-cycle-candidate', false),
+        reviewed_route_candidate_key: 'drifted-route-candidate',
+      },
+      validationCycleCandidateProposal('confirmatory-cycle-candidate', true),
+    ],
+  });
+  const candidateMismatchGateway = new StubValidationCyclePlanningGateway([
+    candidateMismatchOutput,
+    candidateMismatchOutput,
+  ]);
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationValidationCyclePlanningLlmGateway: candidateMismatchGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
+    payload: {
+      ...validationCyclePlanningRunPayload(),
+      run_id: 'validation-cycle-planning-http-candidate-lineage-drift',
+    },
+    expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+    expectedFailureCode: 'VALIDATION_CYCLE_PLANNING_CANDIDATE_KEY_MISMATCH',
+  });
+  assert.equal(candidateMismatchGateway.calls.length, 2);
+});
+
+test('PaperImplementation feasibility planning runtime route uses admitted validation-cycle lineage without probe, plan-light, or Domain Gate writes', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubFeasibilityPlanningGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationFeasibilityPlanningLlmGateway: gateway,
+  });
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
+      payload: feasibilityPlanningRunPayload(),
+    });
+    assert.equal(response.statusCode, 201);
+    const body = response.json() as {
+      status: string;
+      provider_call_count: number;
+      runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+      operational_telemetry: PaperImplementationRuntimeOperationalTelemetry;
+    };
+    assert.equal(body.status, 'passed');
+    assert.equal(body.provider_call_count, 1);
+    assert.equal(gateway.calls.length, 1);
+    assert.equal(gateway.calls[0]?.executionContext.operation, PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID);
+    assert.equal(gateway.calls[0]?.executionContext.feature, 'paper_implementation');
+    assert.equal(body.runtime_artifacts.length, 2);
+    assert.equal(body.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID), true);
+    assert.equal(
+      (body.final_runtime_artifact?.artifact_payload.probe_plan_candidate_proposals as unknown[] | undefined)?.length,
+      2,
+    );
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_domain_gate_request, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_feasibility_probe_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_experiment_plan_light_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_validation_cycle_side_effect, true);
+    assert.equal('feasibility_probe_id' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('experiment_plan_light_id' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('create_feasibility_probe_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('create_experiment_plan_light_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('queue_action' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('domain_gate_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal(body.final_admission_record?.admission_status, 'admitted');
+    assert.equal(body.operational_telemetry.provider_call_count_consistent, true);
+
+    assert.ok(body.final_runtime_artifact);
+    const rejectedMaterialize = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts/${encodeURIComponent(
+        body.final_runtime_artifact.runtime_artifact_id,
+      )}/materialize-domain-gate`,
+    });
+    assertErrorCode(rejectedMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+
+    const finalArtifacts = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts?slot_id=${encodeURIComponent(
+        PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+      )}&artifact_scope=final`,
+    });
+    assert.equal(finalArtifacts.statusCode, 200);
+    assert.equal((finalArtifacts.json() as { items: unknown[] }).items.length, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation feasibility planning runtime route rejects validation-cycle and candidate lineage drift before final admission', async () => {
+  const validationCycleMismatchGateway = new StubFeasibilityPlanningGateway([
+    feasibilityPlanningRoleOutput({
+      reviewed_validation_cycle_artifact_hash: hash('validation-cycle-final-http-drifted'),
+    }),
+    feasibilityPlanningRoleOutput({
+      reviewed_validation_cycle_artifact_hash: hash('validation-cycle-final-http-drifted'),
+    }),
+  ]);
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationFeasibilityPlanningLlmGateway: validationCycleMismatchGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
+    payload: {
+      ...feasibilityPlanningRunPayload(),
+      run_id: 'feasibility-planning-http-validation-cycle-lineage-drift',
+    },
+    expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+    expectedFailureCode: 'FEASIBILITY_PLANNING_VALIDATION_CYCLE_MISMATCH',
+  });
+  assert.equal(validationCycleMismatchGateway.calls.length, 2);
+
+  const routeCandidateMismatchOutput = feasibilityPlanningRoleOutput({
+    probe_plan_candidate_proposals: [
+      {
+        ...feasibilityProbePlanCandidateProposal('exploratory-probe-candidate', false),
+        reviewed_route_candidate_key: 'drifted-route-candidate',
+      },
+      feasibilityProbePlanCandidateProposal('plan-light-readiness-candidate', true),
+    ],
+  });
+  const routeCandidateMismatchGateway = new StubFeasibilityPlanningGateway([
+    routeCandidateMismatchOutput,
+    routeCandidateMismatchOutput,
+  ]);
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationFeasibilityPlanningLlmGateway: routeCandidateMismatchGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
+    payload: {
+      ...feasibilityPlanningRunPayload(),
+      run_id: 'feasibility-planning-http-route-candidate-lineage-drift',
+    },
+    expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+    expectedFailureCode: 'FEASIBILITY_PLANNING_ROUTE_CANDIDATE_KEY_MISMATCH',
+  });
+  assert.equal(routeCandidateMismatchGateway.calls.length, 2);
+});
+
+test('PaperImplementation cross-board synthesis runtime route uses board anchors without review, transfer, portfolio, queue, or Domain Gate writes', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubCrossBoardSynthesisGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationCrossBoardSynthesisLlmGateway: gateway,
+  });
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/cross-board-synthesis-merge-split-reuse-scenarios/run`,
+      payload: crossBoardSynthesisRunPayload(),
+    });
+    assert.equal(response.statusCode, 201);
+    const body = response.json() as {
+      status: string;
+      provider_call_count: number;
+      runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+      operational_telemetry: PaperImplementationRuntimeOperationalTelemetry;
+    };
+    assert.equal(body.status, 'passed');
+    assert.equal(body.provider_call_count, 1);
+    assert.equal(gateway.calls.length, 1);
+    assert.equal(gateway.calls[0]?.executionContext.operation, PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID);
+    assert.equal(gateway.calls[0]?.executionContext.feature, 'paper_implementation');
+    assert.equal(body.runtime_artifacts.length, 2);
+    assert.equal(body.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID), true);
+    assert.equal(
+      (body.final_runtime_artifact?.artifact_payload.scenario_proposals as unknown[] | undefined)?.length,
+      2,
+    );
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_domain_gate_request, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_cross_board_review_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_evidence_transfer_binding_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_portfolio_mutation_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_motive_evolution_side_effect, true);
+    assert.equal('cross_board_review_id' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('create_cross_board_review_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('evidence_transfer_binding_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('motive_portfolio_decision_id' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('queue_action' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('domain_gate_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal(body.final_admission_record?.admission_status, 'admitted');
+    assert.equal(body.operational_telemetry.provider_call_count_consistent, true);
+
+    assert.ok(body.final_runtime_artifact);
+    const rejectedMaterialize = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts/${encodeURIComponent(
+        body.final_runtime_artifact.runtime_artifact_id,
+      )}/materialize-domain-gate`,
+    });
+    assertErrorCode(rejectedMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+
+    const finalArtifacts = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts?slot_id=${encodeURIComponent(
+        PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+      )}&artifact_scope=final`,
+    });
+    assert.equal(finalArtifacts.statusCode, 200);
+    assert.equal((finalArtifacts.json() as { items: unknown[] }).items.length, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation cross-board synthesis runtime route rejects board hash drift and authority request payloads', async () => {
+  const boardHashMismatchOutput = crossBoardSynthesisRoleOutput({
+    scenario_proposals: [
+      {
+        ...crossBoardReuseScenarioProposal(),
+        source_board_version_hashes: [
+          hash('board-version-http-1'),
+          hash('board-version-http-drifted'),
+        ],
+      },
+      crossBoardParkScenarioProposal(),
+    ],
+  });
+  const boardHashMismatchGateway = new StubCrossBoardSynthesisGateway([
+    boardHashMismatchOutput,
+    boardHashMismatchOutput,
+  ]);
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationCrossBoardSynthesisLlmGateway: boardHashMismatchGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/cross-board-synthesis-merge-split-reuse-scenarios/run`,
+    payload: {
+      ...crossBoardSynthesisRunPayload(),
+      run_id: 'cross-board-synthesis-http-board-hash-drift',
+    },
+    expectedSlotId: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+    expectedFailureCode: 'CROSS_BOARD_SYNTHESIS_BOARD_HASH_MISMATCH',
+  });
+  assert.equal(boardHashMismatchGateway.calls.length, 2);
+
+  const gateway = new StubCrossBoardSynthesisGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationCrossBoardSynthesisLlmGateway: gateway,
+  });
+  try {
+    const rejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/cross-board-synthesis-merge-split-reuse-scenarios/run`,
+      payload: {
+        ...crossBoardSynthesisRunPayload(),
+        create_cross_board_review_request: { request_id: 'must_not_exist' },
+      },
+    });
+    assert.equal(rejected.statusCode, 400);
+    assert.match(rejected.body, /create_cross_board_review_request/);
+    assert.equal(gateway.calls.length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation evidence-board curation runtime route uses append-only candidates without board, binding, citation, trace-repair, queue, or Domain Gate writes', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubEvidenceBoardCurationGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationEvidenceBoardCurationLlmGateway: gateway,
+  });
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/evidence-board-curation-binding-gap-candidates/run`,
+      payload: evidenceBoardCurationRunPayload(),
+    });
+    assert.equal(response.statusCode, 201);
+    const body = response.json() as {
+      status: string;
+      provider_call_count: number;
+      runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+      operational_telemetry: PaperImplementationRuntimeOperationalTelemetry;
+    };
+    assert.equal(body.status, 'passed');
+    assert.equal(body.provider_call_count, 1);
+    assert.equal(gateway.calls.length, 1);
+    assert.equal(gateway.calls[0]?.executionContext.operation, PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID);
+    assert.equal(gateway.calls[0]?.executionContext.feature, 'paper_implementation');
+    assert.equal(body.runtime_artifacts.length, 2);
+    assert.equal(body.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID), true);
+    assert.equal(
+      (body.final_runtime_artifact?.artifact_payload.binding_candidate_proposals as unknown[] | undefined)?.length,
+      1,
+    );
+    assert.equal(
+      (body.final_runtime_artifact?.artifact_payload.gap_candidate_proposals as unknown[] | undefined)?.length,
+      0,
+    );
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_domain_gate_request, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_board_write_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_evidence_binding_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_evidence_transfer_binding_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_citation_candidate_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_trace_repair_queue_side_effect, true);
+    assert.equal('motive_evidence_board_version_id' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('board_draft' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('bindings' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('create_evidence_binding_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('citation_candidate_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('trace_repair_queue_item' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('queue_action' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('domain_gate_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal(body.final_admission_record?.admission_status, 'admitted');
+    assert.equal(body.operational_telemetry.provider_call_count_consistent, true);
+
+    assert.ok(body.final_runtime_artifact);
+    const rejectedMaterialize = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts/${encodeURIComponent(
+        body.final_runtime_artifact.runtime_artifact_id,
+      )}/materialize-domain-gate`,
+    });
+    assertErrorCode(rejectedMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+
+    const finalArtifacts = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts?slot_id=${encodeURIComponent(
+        PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+      )}&artifact_scope=final`,
+    });
+    assert.equal(finalArtifacts.statusCode, 200);
+    assert.equal((finalArtifacts.json() as { items: unknown[] }).items.length, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation evidence-board curation runtime route rejects ref drift, provider fixtures, and authority request payloads', async () => {
+  const inventedRefOutput = evidenceBoardCurationRoleOutput({
+    binding_candidate_proposals: [{
+      ...evidenceBoardBindingCandidateProposal('binding-candidate-http-1'),
+      target_assertion_ref: ref('motive_assertion', 'invented-assertion-http-1'),
+    }],
+  });
+  const inventedRefGateway = new StubEvidenceBoardCurationGateway([
+    inventedRefOutput,
+    inventedRefOutput,
+  ]);
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationEvidenceBoardCurationLlmGateway: inventedRefGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/evidence-board-curation-binding-gap-candidates/run`,
+    payload: {
+      ...evidenceBoardCurationRunPayload(),
+      run_id: 'evidence-board-curation-http-ref-drift',
+    },
+    expectedSlotId: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+    expectedFailureCode: 'EVIDENCE_BOARD_CURATION_REF_MISMATCH',
+  });
+  assert.equal(inventedRefGateway.calls.length, 2);
+
+  const gateway = new StubEvidenceBoardCurationGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationEvidenceBoardCurationLlmGateway: gateway,
+  });
+  try {
+    const authorityRejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/evidence-board-curation-binding-gap-candidates/run`,
+      payload: {
+        ...evidenceBoardCurationRunPayload(),
+        board_summary_patch: { must_not_exist: true },
+      },
+    });
+    assert.equal(authorityRejected.statusCode, 400);
+    assert.match(authorityRejected.body, /board_summary_patch/);
+
+    const productFixtureRejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/evidence-board-curation-binding-gap-candidates/run`,
+      payload: {
+        ...evidenceBoardCurationRunPayload(),
+        execution_mode: 'mocked_llm',
+        model_option_id: null,
+        mocked_role_outputs: {
+          [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID]: evidenceBoardCurationRoleOutput(),
+        },
+      },
+    });
+    assert.equal(productFixtureRejected.statusCode, 400);
+    assert.match(productFixtureRejected.body, /provider_llm/);
+
+    const modelOptionRejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/evidence-board-curation-binding-gap-candidates/run`,
+      payload: {
+        ...evidenceBoardCurationRunPayload(),
+        model_option_id: providerModelOptionId(PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID, 'openai'),
+      },
+    });
+    assert.equal(modelOptionRejected.statusCode, 400);
+    assert.match(modelOptionRejected.body, /model_option_id must belong to runtime slot profile/);
+    assert.equal(gateway.calls.length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation motive decomposition runtime route proposes draft assertion candidates without motive, board, trace, queue, or Domain Gate writes', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubMotiveDecompositionGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationMotiveDecompositionLlmGateway: gateway,
+  });
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-decomposition-draft-assertion-candidates/run`,
+      payload: motiveDecompositionRunPayload(),
+    });
+    assert.equal(response.statusCode, 201);
+    const body = response.json() as {
+      status: string;
+      provider_call_count: number;
+      workflow_type: string;
+      runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+      operational_telemetry: PaperImplementationRuntimeOperationalTelemetry;
+    };
+    assert.equal(body.status, 'passed');
+    assert.equal(body.workflow_type, 'motive_decomposition');
+    assert.equal(body.provider_call_count, 1);
+    assert.equal(gateway.calls.length, 1);
+    assert.equal(gateway.calls[0]?.executionContext.operation, PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID);
+    assert.equal(gateway.calls[0]?.executionContext.feature, 'paper_implementation');
+    assert.equal(body.runtime_artifacts.length, 2);
+    assert.equal(
+      body.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID),
+      true,
+    );
+    assert.equal(
+      (body.final_runtime_artifact?.artifact_payload.draft_assertion_candidates as unknown[] | undefined)?.length,
+      1,
+    );
+    assert.equal(body.final_runtime_artifact?.artifact_payload.decomposition_result_status, 'candidates_proposed');
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_domain_gate_request, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_motive_write_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_motive_evolution_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_board_write_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_evidence_binding_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_trace_repair_queue_side_effect, true);
+    assert.equal('assertion_id' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('candidate_assertion_ref' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('create_motive_assertion_input' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('motive_assertion_create_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('core_motive_version_patch' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('motive_evolution_decision_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('domain_gate_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('queue_action' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal(body.final_admission_record?.admission_status, 'admitted');
+    assert.equal(body.operational_telemetry.provider_call_count_consistent, true);
+
+    assert.ok(body.final_runtime_artifact);
+    const rejectedMaterialize = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts/${encodeURIComponent(
+        body.final_runtime_artifact.runtime_artifact_id,
+      )}/materialize-domain-gate`,
+    });
+    assertErrorCode(rejectedMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation motive decomposition runtime route rejects ref drift, provider fixtures, and authority request payloads', async () => {
+  const inventedRefOutput = motiveDecompositionRoleOutput({
+    cited_source_refs: [ref('source_locator', 'invented-source-locator-http-1')],
+  });
+  const inventedRefGateway = new StubMotiveDecompositionGateway([
+    inventedRefOutput,
+    inventedRefOutput,
+  ]);
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationMotiveDecompositionLlmGateway: inventedRefGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-decomposition-draft-assertion-candidates/run`,
+    payload: {
+      ...motiveDecompositionRunPayload(),
+      run_id: 'motive-decomposition-http-ref-drift',
+    },
+    expectedSlotId: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID,
+    expectedFailureCode: 'MOTIVE_DECOMPOSITION_REF_MISMATCH',
+  });
+  assert.equal(inventedRefGateway.calls.length, 2);
+
+  const gateway = new StubMotiveDecompositionGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationMotiveDecompositionLlmGateway: gateway,
+  });
+  try {
+    const authorityRejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-decomposition-draft-assertion-candidates/run`,
+      payload: {
+        ...motiveDecompositionRunPayload(),
+        create_motive_assertion_input: { must_not_exist: true },
+      },
+    });
+    assert.equal(authorityRejected.statusCode, 400);
+    assert.match(authorityRejected.body, /create_motive_assertion_input/);
+
+    const productFixtureRejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-decomposition-draft-assertion-candidates/run`,
+      payload: {
+        ...motiveDecompositionRunPayload(),
+        execution_mode: 'mocked_llm',
+        model_option_id: null,
+        mocked_role_outputs: {
+          [PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID]: motiveDecompositionRoleOutput(),
+        },
+      },
+    });
+    assert.equal(productFixtureRejected.statusCode, 400);
+    assert.match(productFixtureRejected.body, /provider_llm/);
+
+    const modelOptionRejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-decomposition-draft-assertion-candidates/run`,
+      payload: {
+        ...motiveDecompositionRunPayload(),
+        model_option_id: providerModelOptionId(PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID, 'openai'),
+      },
+    });
+    assert.equal(modelOptionRejected.statusCode, 400);
+    assert.match(modelOptionRejected.body, /model_option_id must be defined by runtime slot profile/);
+    assert.equal(gateway.calls.length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation motive evolution runtime route runs controlled two-role decision support without motive, portfolio, board, queue, or Domain Gate writes', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubMotiveEvolutionGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationMotiveEvolutionLlmGateway: gateway,
+  });
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-evolution-decision-support/run`,
+      payload: {
+        ...motiveEvolutionRunPayload(),
+        model_option_id: null,
+      },
+    });
+    assert.equal(response.statusCode, 201);
+    const body = response.json() as {
+      status: string;
+      provider_call_count: number;
+      workflow_type: string;
+      runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+      operational_telemetry: PaperImplementationRuntimeOperationalTelemetry;
+    };
+    assert.equal(body.status, 'passed');
+    assert.equal(body.workflow_type, 'motive_evolution');
+    assert.equal(body.provider_call_count, 2);
+    assert.equal(gateway.calls.length, 2);
+    assert.equal(gateway.calls[0]?.executionContext.operation, PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID);
+    assert.equal(gateway.calls[1]?.executionContext.operation, PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID);
+    assert.equal(gateway.calls[0]?.executionContext.feature, 'paper_implementation');
+    assert.equal(gateway.calls[0]?.model.providerId, 'openai');
+    assert.equal(body.runtime_artifacts.length, 3);
+    assert.equal(
+      body.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID),
+      true,
+    );
+    assert.equal(
+      body.final_runtime_artifact?.model_option_id,
+      providerModelOptionId(PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID, 'openai'),
+    );
+    assert.equal(
+      Object.keys(
+        (body.final_runtime_artifact?.artifact_payload.decision_options as Record<string, unknown> | undefined) ?? {},
+      ).length,
+      1,
+    );
+    assert.equal(body.final_runtime_artifact?.artifact_payload.support_result_status, 'options_proposed');
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_domain_gate_request, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_queue_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_motive_write_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_motive_evolution_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_portfolio_mutation_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_board_write_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_evidence_binding_side_effect, true);
+    assert.equal(body.final_runtime_artifact?.artifact_payload.no_trace_repair_queue_side_effect, true);
+    assert.equal('motive_evolution_decision_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('ApplyMotivePortfolioDecisionRequest' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('core_motive_version_patch' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('queue_action' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal('domain_gate_request' in (body.final_runtime_artifact?.artifact_payload ?? {}), false);
+    assert.equal(body.final_admission_record?.admission_status, 'admitted');
+    assert.equal(body.operational_telemetry.provider_call_count_consistent, true);
+
+    assert.ok(body.final_runtime_artifact);
+    const rejectedMaterialize = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts/${encodeURIComponent(
+        body.final_runtime_artifact.runtime_artifact_id,
+      )}/materialize-domain-gate`,
+    });
+    assertErrorCode(rejectedMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+
+    const finalArtifacts = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts?slot_id=${encodeURIComponent(
+        PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+      )}&artifact_scope=final`,
+    });
+    assert.equal(finalArtifacts.statusCode, 200);
+    assert.equal((finalArtifacts.json() as { items: unknown[] }).items.length, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation motive evolution runtime route rejects ref drift, provider fixtures, and authority request payloads', async () => {
+  const inventedRefOutput = motiveEvolutionDesignerRoleOutput({
+    designed_options: motiveEvolutionDesignedOptionsByKey('evolution-option-http-1', {
+      supporting_refs: [ref('core_motive', 'invented-core-motive-http-1')],
+    }),
+  });
+  const inventedRefGateway = new StubMotiveEvolutionGateway([
+    inventedRefOutput,
+    inventedRefOutput,
+  ]);
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationMotiveEvolutionLlmGateway: inventedRefGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-evolution-decision-support/run`,
+    payload: {
+      ...motiveEvolutionRunPayload(),
+      run_id: 'motive-evolution-http-ref-drift',
+    },
+    expectedSlotId: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+    expectedFailureCode: 'MOTIVE_EVOLUTION_REF_MISMATCH',
+  });
+  assert.equal(inventedRefGateway.calls.length, 2);
+
+  const gateway = new StubMotiveEvolutionGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationMotiveEvolutionLlmGateway: gateway,
+  });
+  try {
+    const authorityRejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-evolution-decision-support/run`,
+      payload: {
+        ...motiveEvolutionRunPayload(),
+        motive_evolution_decision_request: { must_not_exist: true },
+      },
+    });
+    assert.equal(authorityRejected.statusCode, 400);
+    assert.match(authorityRejected.body, /motive_evolution/);
+
+    const productFixtureRejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-evolution-decision-support/run`,
+      payload: {
+        ...motiveEvolutionRunPayload(),
+        execution_mode: 'mocked_llm',
+        model_option_id: null,
+        mocked_role_outputs: motiveEvolutionFixtureRoleOutputs(),
+      },
+    });
+    assert.equal(productFixtureRejected.statusCode, 400);
+    assert.match(productFixtureRejected.body, /provider_llm/);
+
+    const modelOptionRejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-evolution-decision-support/run`,
+      payload: {
+        ...motiveEvolutionRunPayload(),
+        model_option_id: providerModelOptionId(PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID, 'openai'),
+      },
+    });
+    assert.equal(modelOptionRejected.statusCode, 400);
+    assert.match(modelOptionRejected.body, /model_option_id must be defined by runtime slot profile/);
+    assert.equal(gateway.calls.length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
 test('PaperImplementation experiment planning runtime routes use production slot services without Domain Gate writes', async () => {
   const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
   const gateway = new StubExperimentPlanningGateway();
@@ -795,6 +1892,49 @@ test('PaperImplementation result-analysis Domain Gate route rejects malformed an
   }
 });
 
+test('PaperImplementation Domain Gate rejects support-only runtime final artifacts', async () => {
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationTraceIntegrityDebateLlmGateway: new StubTraceIntegrityGateway(),
+    paperImplementationRoutePlanningLlmGateway: new StubRoutePlanningGateway(),
+    paperImplementationValidationCyclePlanningLlmGateway: new StubValidationCyclePlanningGateway(),
+    paperImplementationFeasibilityPlanningLlmGateway: new StubFeasibilityPlanningGateway(),
+    paperImplementationCrossBoardSynthesisLlmGateway: new StubCrossBoardSynthesisGateway(),
+    paperImplementationEvidenceBoardCurationLlmGateway: new StubEvidenceBoardCurationGateway(),
+    paperImplementationMotiveDecompositionLlmGateway: new StubMotiveDecompositionGateway(),
+    paperImplementationMotiveEvolutionLlmGateway: new StubMotiveEvolutionGateway(),
+    paperImplementationExperimentPlanningLlmGateway: new StubExperimentPlanningGateway(),
+  });
+  try {
+    for (const scenario of supportOnlyDomainGateRejectionScenarios()) {
+      const run = await app.inject({
+        method: 'POST',
+        url: scenario.runUrl,
+        payload: scenario.payload,
+      });
+      assert.equal(run.statusCode, 201, `${scenario.key} runtime route should pass`);
+      const body = run.json() as RuntimeRunWithFinalArtifactBody;
+      assert.equal(body.status, 'passed', `${scenario.key} runtime status`);
+      assert.ok(body.final_runtime_artifact, `${scenario.key} should emit an admitted final artifact`);
+      assert.equal(body.final_runtime_artifact.slot_id, scenario.expectedSlotId);
+      assert.equal(body.final_runtime_artifact.artifact_scope, 'final');
+      assert.equal(body.final_runtime_artifact.runtime_status, 'passed');
+      assert.equal(body.final_admission_record?.admission_status, 'admitted');
+
+      const rejectedMaterialize = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts/${encodeURIComponent(
+          body.final_runtime_artifact.runtime_artifact_id,
+        )}/materialize-domain-gate`,
+      });
+      assertErrorCode(rejectedMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+      assert.match(rejectedMaterialize.body, /does not have a Domain Gate materializer/);
+    }
+  } finally {
+    await app.close();
+  }
+});
+
 test('PaperImplementation runtime routes retry once and fail closed on provider gateway failure for every product slot', async () => {
   const traceGateway = new FailingProviderGateway();
   await assertRuntimeRouteFailsClosed({
@@ -847,6 +1987,110 @@ test('PaperImplementation runtime routes retry once and fail closed on provider 
     expectedFailureCode: 'TimeoutError',
   });
   assert.equal(resultAnalysisGateway.calls.length, 2);
+
+  const routeArchitectureGateway = new FailingProviderGateway();
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRoutePlanningLlmGateway: routeArchitectureGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-architecture-route-candidates/run`,
+    payload: routePlanningRunPayload('architecture'),
+    expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    expectedFailureCode: 'TimeoutError',
+  });
+  assert.equal(routeArchitectureGateway.calls.length, 2);
+
+  const routeSkepticGateway = new FailingProviderGateway();
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRoutePlanningLlmGateway: routeSkepticGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-skeptic-review-route-risk-critique/run`,
+    payload: routePlanningRunPayload('skeptic'),
+    expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+    expectedFailureCode: 'TimeoutError',
+  });
+  assert.equal(routeSkepticGateway.calls.length, 2);
+
+  const validationCyclePlanningGateway = new FailingProviderGateway();
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationValidationCyclePlanningLlmGateway: validationCyclePlanningGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
+    payload: validationCyclePlanningRunPayload(),
+    expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+    expectedFailureCode: 'TimeoutError',
+  });
+  assert.equal(validationCyclePlanningGateway.calls.length, 2);
+
+  const feasibilityPlanningGateway = new FailingProviderGateway();
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationFeasibilityPlanningLlmGateway: feasibilityPlanningGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
+    payload: feasibilityPlanningRunPayload(),
+    expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+    expectedFailureCode: 'TimeoutError',
+  });
+  assert.equal(feasibilityPlanningGateway.calls.length, 2);
+
+  const crossBoardSynthesisGateway = new FailingProviderGateway();
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationCrossBoardSynthesisLlmGateway: crossBoardSynthesisGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/cross-board-synthesis-merge-split-reuse-scenarios/run`,
+    payload: crossBoardSynthesisRunPayload(),
+    expectedSlotId: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+    expectedFailureCode: 'TimeoutError',
+  });
+  assert.equal(crossBoardSynthesisGateway.calls.length, 2);
+
+  const evidenceBoardCurationGateway = new FailingProviderGateway();
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationEvidenceBoardCurationLlmGateway: evidenceBoardCurationGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/evidence-board-curation-binding-gap-candidates/run`,
+    payload: evidenceBoardCurationRunPayload(),
+    expectedSlotId: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+    expectedFailureCode: 'TimeoutError',
+  });
+  assert.equal(evidenceBoardCurationGateway.calls.length, 2);
+
+  const motiveDecompositionGateway = new FailingProviderGateway();
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationMotiveDecompositionLlmGateway: motiveDecompositionGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-decomposition-draft-assertion-candidates/run`,
+    payload: motiveDecompositionRunPayload(),
+    expectedSlotId: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID,
+    expectedFailureCode: 'TimeoutError',
+  });
+  assert.equal(motiveDecompositionGateway.calls.length, 2);
+
+  const motiveEvolutionGateway = new FailingProviderGateway();
+  await assertRuntimeRouteFailsClosed({
+    appOptions: {
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationMotiveEvolutionLlmGateway: motiveEvolutionGateway,
+    },
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-evolution-decision-support/run`,
+    payload: motiveEvolutionRunPayload(),
+    expectedSlotId: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+    expectedFailureCode: 'TimeoutError',
+  });
+  assert.equal(motiveEvolutionGateway.calls.length, 2);
 
   const experimentDesignGateway = new FailingProviderGateway();
   await assertRuntimeRouteFailsClosed({
@@ -1167,6 +2411,315 @@ test(
 );
 
 test(
+  'PaperImplementation route-architecture live provider canary uses the configured gateway',
+  {
+    skip: shouldRunLiveRoutePlanningCanary('architecture')
+      ? false
+      : 'set T114_ROUTE_ARCHITECTURE_PROVIDER_CANARY_LIVE=1, BACKEND_TEST_PRESERVE_REAL_ENV=1, provider id/key to run',
+    timeout: 900_000,
+  },
+  async () => {
+    const providerId = liveProviderId();
+    const app = buildApp({
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRoutePlanningLlmGateway: liveProviderGateway(),
+    });
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-architecture-route-candidates/run`,
+        payload: routePlanningRunPayload('architecture', providerId),
+      });
+
+      assertSingleRoleProposalProviderCanaryResponse(response, {
+        expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+        requiredPayloadFlags: ['no_domain_gate_request', 'no_queue_side_effect'],
+        forbiddenPayloadFields: ['technical_route_candidate_create_request'],
+      });
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test(
+  'PaperImplementation route-skeptic live provider canary uses the configured gateway',
+  {
+    skip: shouldRunLiveRoutePlanningCanary('skeptic')
+      ? false
+      : 'set T114_ROUTE_SKEPTIC_PROVIDER_CANARY_LIVE=1, BACKEND_TEST_PRESERVE_REAL_ENV=1, provider id/key to run',
+    timeout: 900_000,
+  },
+  async () => {
+    const providerId = liveProviderId();
+    const app = buildApp({
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRoutePlanningLlmGateway: liveProviderGateway(),
+    });
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-skeptic-review-route-risk-critique/run`,
+        payload: routePlanningRunPayload('skeptic', providerId),
+      });
+
+      assertSingleRoleProposalProviderCanaryResponse(response, {
+        expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+        requiredPayloadFlags: ['no_queue_side_effect'],
+        forbiddenPayloadFields: ['technical_route_candidate_create_request'],
+      });
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test(
+  'PaperImplementation validation-cycle live provider canary uses the configured gateway',
+  {
+    skip: shouldRunLiveValidationCyclePlanningCanary()
+      ? false
+      : 'set T114_VALIDATION_CYCLE_PROVIDER_CANARY_LIVE=1, BACKEND_TEST_PRESERVE_REAL_ENV=1, provider id/key to run',
+    timeout: 900_000,
+  },
+  async () => {
+    const providerId = liveProviderId();
+    const app = buildApp({
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationValidationCyclePlanningLlmGateway: liveProviderGateway(),
+    });
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
+        payload: validationCyclePlanningRunPayload(providerId),
+      });
+
+      assertSingleRoleProposalProviderCanaryResponse(response, {
+        expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+        requiredPayloadFlags: [
+          'no_domain_gate_request',
+          'no_queue_side_effect',
+          'no_validation_cycle_side_effect',
+        ],
+        forbiddenPayloadFields: ['validation_cycle_id', 'create_validation_cycle_draft_request'],
+      });
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test(
+  'PaperImplementation feasibility-planning live provider canary uses the configured gateway',
+  {
+    skip: shouldRunLiveFeasibilityPlanningCanary()
+      ? false
+      : 'set T114_FEASIBILITY_PLANNING_PROVIDER_CANARY_LIVE=1, BACKEND_TEST_PRESERVE_REAL_ENV=1, provider id/key to run',
+    timeout: 900_000,
+  },
+  async () => {
+    const providerId = liveProviderId();
+    const app = buildApp({
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationFeasibilityPlanningLlmGateway: liveProviderGateway(),
+    });
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
+        payload: feasibilityPlanningRunPayload(providerId),
+      });
+
+      assertSingleRoleProposalProviderCanaryResponse(response, {
+        expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+        requiredPayloadFlags: [
+          'no_domain_gate_request',
+          'no_queue_side_effect',
+          'no_feasibility_probe_side_effect',
+          'no_experiment_plan_light_side_effect',
+          'no_validation_cycle_side_effect',
+        ],
+        forbiddenPayloadFields: [
+          'feasibility_probe_id',
+          'experiment_plan_light_id',
+          'create_feasibility_probe_request',
+          'create_experiment_plan_light_request',
+        ],
+      });
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test(
+  'PaperImplementation cross-board-synthesis live provider canary uses the configured gateway',
+  {
+    skip: shouldRunLiveCrossBoardSynthesisCanary()
+      ? false
+      : 'set T114_CROSS_BOARD_SYNTHESIS_PROVIDER_CANARY_LIVE=1, BACKEND_TEST_PRESERVE_REAL_ENV=1, provider id/key to run',
+    timeout: 900_000,
+  },
+  async () => {
+    const providerId = liveProviderId();
+    const app = buildApp({
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationCrossBoardSynthesisLlmGateway: liveProviderGateway(),
+    });
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/cross-board-synthesis-merge-split-reuse-scenarios/run`,
+        payload: crossBoardSynthesisRunPayload(providerId),
+      });
+
+      assertSingleRoleProposalProviderCanaryResponse(response, {
+        expectedSlotId: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+        requiredPayloadFlags: [
+          'no_domain_gate_request',
+          'no_queue_side_effect',
+          'no_cross_board_review_side_effect',
+          'no_evidence_transfer_binding_side_effect',
+          'no_portfolio_mutation_side_effect',
+          'no_motive_evolution_side_effect',
+        ],
+        forbiddenPayloadFields: [
+          'cross_board_review_id',
+          'create_cross_board_review_request',
+          'evidence_transfer_binding_request',
+          'motive_portfolio_decision_id',
+        ],
+      });
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test(
+  'PaperImplementation evidence-board-curation live provider canary uses the configured gateway',
+  {
+    skip: shouldRunLiveEvidenceBoardCurationCanary()
+      ? false
+      : 'set T114_EVIDENCE_BOARD_CURATION_PROVIDER_CANARY_LIVE=1, BACKEND_TEST_PRESERVE_REAL_ENV=1, provider id/key to run',
+    timeout: 900_000,
+  },
+  async () => {
+    const providerId = liveProviderId();
+    const app = buildApp({
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationEvidenceBoardCurationLlmGateway: liveProviderGateway(),
+    });
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/evidence-board-curation-binding-gap-candidates/run`,
+        payload: evidenceBoardCurationRunPayload(providerId),
+      });
+
+      assertSingleRoleProposalProviderCanaryResponse(response, {
+        expectedSlotId: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+        requiredPayloadFlags: [
+          'no_domain_gate_request',
+          'no_queue_side_effect',
+          'no_board_write_side_effect',
+          'no_evidence_binding_side_effect',
+          'no_evidence_transfer_binding_side_effect',
+          'no_citation_candidate_side_effect',
+          'no_trace_repair_queue_side_effect',
+        ],
+        forbiddenPayloadFields: [
+          'motive_evidence_board_version_id',
+          'board_draft',
+          'bindings',
+          'create_evidence_binding_request',
+          'citation_candidate_request',
+          'trace_repair_queue_item',
+        ],
+      });
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test(
+  'PaperImplementation motive-decomposition live provider canary uses the configured gateway',
+  {
+    skip: shouldRunLiveMotiveDecompositionCanary()
+      ? false
+      : 'set T114_MOTIVE_DECOMPOSITION_PROVIDER_CANARY_LIVE=1, BACKEND_TEST_PRESERVE_REAL_ENV=1, provider id/key to run',
+    timeout: 900_000,
+  },
+  async () => {
+    const providerId = liveProviderId();
+    const app = buildApp({
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationMotiveDecompositionLlmGateway: liveProviderGateway(),
+    });
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-decomposition-draft-assertion-candidates/run`,
+        payload: motiveDecompositionRunPayload(providerId),
+      });
+
+      assertSingleRoleProposalProviderCanaryResponse(response, {
+        expectedSlotId: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID,
+        requiredPayloadFlags: [
+          'no_domain_gate_request',
+          'no_queue_side_effect',
+          'no_motive_write_side_effect',
+          'no_motive_evolution_side_effect',
+          'no_board_write_side_effect',
+          'no_evidence_binding_side_effect',
+          'no_trace_repair_queue_side_effect',
+        ],
+        forbiddenPayloadFields: [
+          'assertion_id',
+          'candidate_assertion_ref',
+          'create_motive_assertion_input',
+          'motive_assertion_create_request',
+          'core_motive_version_patch',
+          'motive_evolution_decision_request',
+        ],
+      });
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test(
+  'PaperImplementation motive-evolution live provider canary uses the configured gateway',
+  {
+    skip: shouldRunLiveMotiveEvolutionCanary()
+      ? false
+      : 'set T114_MOTIVE_EVOLUTION_PROVIDER_CANARY_LIVE=1, BACKEND_TEST_PRESERVE_REAL_ENV=1, provider id/key to run',
+    timeout: 900_000,
+  },
+  async () => {
+    const providerId = liveProviderId();
+    const app = buildApp({
+      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationMotiveEvolutionLlmGateway: liveProviderGateway(),
+    });
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-evolution-decision-support/run`,
+        payload: motiveEvolutionRunPayload(providerId),
+      });
+
+      assertMotiveEvolutionProviderCanaryResponse(response);
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test(
   'PaperImplementation live provider fail-closed canary rejects provider auth or availability failures without fallback',
   {
     skip: shouldRunLiveProviderFailClosedCanary()
@@ -1254,6 +2807,97 @@ test(
           run_id: `experiment-critique-http-live-fail-closed-${Date.now()}`,
         },
         expectedSlotId: PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_SLOT_ID,
+      });
+
+      await assertLiveProviderRuntimeRouteFailsClosed({
+        appOptions: {
+          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationRoutePlanningLlmGateway: liveFailClosedGateway(),
+        },
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-architecture-route-candidates/run`,
+        payload: {
+          ...routePlanningRunPayload('architecture', providerId),
+          run_id: `route-architecture-http-live-fail-closed-${Date.now()}`,
+        },
+        expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+      });
+
+      await assertLiveProviderRuntimeRouteFailsClosed({
+        appOptions: {
+          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationRoutePlanningLlmGateway: liveFailClosedGateway(),
+        },
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-skeptic-review-route-risk-critique/run`,
+        payload: {
+          ...routePlanningRunPayload('skeptic', providerId),
+          run_id: `route-skeptic-http-live-fail-closed-${Date.now()}`,
+        },
+        expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+      });
+
+      await assertLiveProviderRuntimeRouteFailsClosed({
+        appOptions: {
+          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationValidationCyclePlanningLlmGateway: liveFailClosedGateway(),
+        },
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
+        payload: {
+          ...validationCyclePlanningRunPayload(providerId),
+          run_id: `validation-cycle-planning-http-live-fail-closed-${Date.now()}`,
+        },
+        expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+      });
+
+      await assertLiveProviderRuntimeRouteFailsClosed({
+        appOptions: {
+          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationFeasibilityPlanningLlmGateway: liveFailClosedGateway(),
+        },
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
+        payload: {
+          ...feasibilityPlanningRunPayload(providerId),
+          run_id: `feasibility-planning-http-live-fail-closed-${Date.now()}`,
+        },
+        expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+      });
+
+      await assertLiveProviderRuntimeRouteFailsClosed({
+        appOptions: {
+          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationCrossBoardSynthesisLlmGateway: liveFailClosedGateway(),
+        },
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/cross-board-synthesis-merge-split-reuse-scenarios/run`,
+        payload: {
+          ...crossBoardSynthesisRunPayload(providerId),
+          run_id: `cross-board-synthesis-http-live-fail-closed-${Date.now()}`,
+        },
+        expectedSlotId: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+      });
+
+      await assertLiveProviderRuntimeRouteFailsClosed({
+        appOptions: {
+          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationEvidenceBoardCurationLlmGateway: liveFailClosedGateway(),
+        },
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/evidence-board-curation-binding-gap-candidates/run`,
+        payload: {
+          ...evidenceBoardCurationRunPayload(providerId),
+          run_id: `evidence-board-curation-http-live-fail-closed-${Date.now()}`,
+        },
+        expectedSlotId: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+      });
+
+      await assertLiveProviderRuntimeRouteFailsClosed({
+        appOptions: {
+          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationMotiveDecompositionLlmGateway: liveFailClosedGateway(),
+        },
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/motive-decomposition-draft-assertion-candidates/run`,
+        payload: {
+          ...motiveDecompositionRunPayload(providerId),
+          run_id: `motive-decomposition-http-live-fail-closed-${Date.now()}`,
+        },
+        expectedSlotId: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID,
       });
     } finally {
       restoreEnv(previousEnv);
@@ -1592,6 +3236,94 @@ function assertErrorCode(
   assert.equal(body.error?.code, expectedErrorCode);
 }
 
+type RuntimeRunWithFinalArtifactBody = {
+  status: string;
+  final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+  final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+};
+
+type SupportOnlyDomainGateRejectionScenario = {
+  key: string;
+  expectedSlotId: string;
+  runUrl: string;
+  payload: Record<string, unknown>;
+};
+
+function runtimeSlotRunUrl(routeSlug: string): string {
+  return `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/${routeSlug}/run`;
+}
+
+function supportOnlyDomainGateRejectionScenarios(): SupportOnlyDomainGateRejectionScenario[] {
+  return [
+    {
+      key: 'trace_integrity_review.boundary_debate',
+      expectedSlotId: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('trace-integrity-boundary-debate'),
+      payload: traceIntegrityRunPayload(),
+    },
+    {
+      key: 'route_architecture.route_candidates',
+      expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('route-architecture-route-candidates'),
+      payload: routePlanningRunPayload('architecture'),
+    },
+    {
+      key: 'route_skeptic_review.route_risk_critique',
+      expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('route-skeptic-review-route-risk-critique'),
+      payload: routePlanningRunPayload('skeptic'),
+    },
+    {
+      key: 'validation_cycle_planning.cycle_candidates',
+      expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('validation-cycle-planning-cycle-candidates'),
+      payload: validationCyclePlanningRunPayload(),
+    },
+    {
+      key: 'feasibility_planning.probe_plan_candidates',
+      expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('feasibility-planning-probe-plan-candidates'),
+      payload: feasibilityPlanningRunPayload(),
+    },
+    {
+      key: 'cross_board_synthesis.merge_split_reuse_scenarios',
+      expectedSlotId: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('cross-board-synthesis-merge-split-reuse-scenarios'),
+      payload: crossBoardSynthesisRunPayload(),
+    },
+    {
+      key: 'evidence_board_curation.binding_gap_candidates',
+      expectedSlotId: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('evidence-board-curation-binding-gap-candidates'),
+      payload: evidenceBoardCurationRunPayload(),
+    },
+    {
+      key: 'motive_decomposition.draft_assertion_candidates',
+      expectedSlotId: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('motive-decomposition-draft-assertion-candidates'),
+      payload: motiveDecompositionRunPayload(),
+    },
+    {
+      key: 'motive_evolution.evolution_decision_support',
+      expectedSlotId: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('motive-evolution-decision-support'),
+      payload: motiveEvolutionRunPayload(),
+    },
+    {
+      key: 'experiment_design.work_order_draft',
+      expectedSlotId: PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('experiment-design-work-order-draft'),
+      payload: experimentPlanningRunPayload('design'),
+    },
+    {
+      key: 'experiment_critique.plan_critique',
+      expectedSlotId: PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_SLOT_ID,
+      runUrl: runtimeSlotRunUrl('experiment-critique-plan-critique'),
+      payload: experimentPlanningRunPayload('critique'),
+    },
+  ];
+}
+
 async function resultAnalysisDomainGateFixture() {
   const projectRepository = new StaticProjectRepository();
   const traceRepository = new InMemoryPaperImplementationTraceRepository();
@@ -1760,6 +3492,38 @@ function shouldRunLiveResultAnalysisCanary(): boolean {
   return shouldRunLiveProviderCanary('T114_RESULT_ANALYSIS_PROVIDER_CANARY_LIVE');
 }
 
+function shouldRunLiveRoutePlanningCanary(kind: 'architecture' | 'skeptic'): boolean {
+  return shouldRunLiveProviderCanary(
+    kind === 'architecture'
+      ? 'T114_ROUTE_ARCHITECTURE_PROVIDER_CANARY_LIVE'
+      : 'T114_ROUTE_SKEPTIC_PROVIDER_CANARY_LIVE',
+  );
+}
+
+function shouldRunLiveValidationCyclePlanningCanary(): boolean {
+  return shouldRunLiveProviderCanary('T114_VALIDATION_CYCLE_PROVIDER_CANARY_LIVE');
+}
+
+function shouldRunLiveFeasibilityPlanningCanary(): boolean {
+  return shouldRunLiveProviderCanary('T114_FEASIBILITY_PLANNING_PROVIDER_CANARY_LIVE');
+}
+
+function shouldRunLiveCrossBoardSynthesisCanary(): boolean {
+  return shouldRunLiveProviderCanary('T114_CROSS_BOARD_SYNTHESIS_PROVIDER_CANARY_LIVE');
+}
+
+function shouldRunLiveEvidenceBoardCurationCanary(): boolean {
+  return shouldRunLiveProviderCanary('T114_EVIDENCE_BOARD_CURATION_PROVIDER_CANARY_LIVE');
+}
+
+function shouldRunLiveMotiveDecompositionCanary(): boolean {
+  return shouldRunLiveProviderCanary('T114_MOTIVE_DECOMPOSITION_PROVIDER_CANARY_LIVE');
+}
+
+function shouldRunLiveMotiveEvolutionCanary(): boolean {
+  return shouldRunLiveProviderCanary('T114_MOTIVE_EVOLUTION_PROVIDER_CANARY_LIVE');
+}
+
 function shouldRunLiveExperimentPlanningCanary(kind: 'design' | 'critique'): boolean {
   return shouldRunLiveProviderCanary(
     kind === 'design'
@@ -1819,6 +3583,13 @@ function liveProviderId(): 'openai' | 'dashscope' {
 function liveFailClosedGateway(): BackendLlmGateway {
   return new BackendLlmGateway({
     defaultTimeoutMs: 10_000,
+    defaultMaxRetries: 0,
+  });
+}
+
+function liveProviderGateway(): BackendLlmGateway {
+  return new BackendLlmGateway({
+    defaultTimeoutMs: 300_000,
     defaultMaxRetries: 0,
   });
 }
@@ -1902,6 +3673,356 @@ function resultAnalysisRunPayload(providerId: 'openai' | 'dashscope' = 'openai')
       hash('run-evidence-unit-http-1'),
       hash('result-validation-report-http-1'),
     ],
+    preflight_blocker_codes: [],
+  };
+}
+
+function routePlanningRunPayload(
+  kind: 'architecture' | 'skeptic',
+  providerId: 'openai' | 'dashscope' = 'openai',
+) {
+  const architecture = kind === 'architecture';
+  const profileId = architecture
+    ? PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID
+    : PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID;
+  return {
+    run_id: architecture ? 'route-architecture-http-run-1' : 'route-skeptic-http-run-1',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    model_profile_id: profileId,
+    model_option_id: providerModelOptionId(profileId, providerId),
+    target_ref: ref('implementation_input_snapshot', 'input-snapshot-http-1'),
+    target_version_id: 'input-snapshot-http-1@v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input-snapshot-http-1'),
+    input_snapshot_hash: hash('input-snapshot-http-1'),
+    source_refs: [
+      ref('implementation_input_snapshot', 'input-snapshot-http-1'),
+      ref('trace_manifest', 'trace-manifest-route-http-1'),
+      ref('literature_evidence', 'literature-evidence-route-http-1'),
+    ],
+    source_hashes: [
+      hash('input-snapshot-http-1'),
+      hash('trace-manifest-route-http-1'),
+      hash('literature-evidence-route-http-1'),
+    ],
+    admitted_route_proposal_artifact_ref: architecture
+      ? null
+      : ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    admitted_route_proposal_artifact_hash: architecture
+      ? null
+      : hash('route-architecture-final-http-1'),
+    reviewed_candidate_keys: architecture ? [] : ['exploratory-route-candidate'],
+    secondary_route_candidate_refs: architecture
+      ? []
+      : [ref('technical_route_candidate', 'technical-route-secondary-http-1')],
+    preflight_blocker_codes: [],
+  };
+}
+
+function validationCyclePlanningRunPayload(providerId: 'openai' | 'dashscope' = 'openai') {
+  return {
+    run_id: 'validation-cycle-planning-http-run-1',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    model_profile_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
+    model_option_id: providerModelOptionId(PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID, providerId),
+    target_ref: ref('technical_route_candidate', 'technical-route-candidate-http-1'),
+    target_version_id: 'technical-route-candidate-http-1@v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input-snapshot-http-1'),
+    input_snapshot_hash: hash('input-snapshot-http-1'),
+    source_refs: [
+      ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+      ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+      ref('trace_manifest', 'trace-manifest-route-http-1'),
+    ],
+    source_hashes: [
+      hash('route-architecture-final-http-1'),
+      hash('route-skeptic-final-http-1'),
+      hash('trace-manifest-route-http-1'),
+    ],
+    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    admitted_route_proposal_artifact_hash: hash('route-architecture-final-http-1'),
+    admitted_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+    admitted_route_skeptic_artifact_hash: hash('route-skeptic-final-http-1'),
+    reviewed_candidate_keys: ['exploratory-route-candidate'],
+    secondary_route_candidate_refs: [ref('technical_route_candidate', 'technical-route-secondary-http-1')],
+    preflight_blocker_codes: [],
+  };
+}
+
+function feasibilityPlanningRunPayload(providerId: 'openai' | 'dashscope' = 'openai') {
+  return {
+    run_id: 'feasibility-planning-http-run-1',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    model_profile_id: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID,
+    model_option_id: providerModelOptionId(PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID, providerId),
+    target_ref: ref('validation_cycle_candidate', 'validation-cycle-candidate-http-1'),
+    target_version_id: 'validation-cycle-candidate-http-1@v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input-snapshot-http-1'),
+    input_snapshot_hash: hash('input-snapshot-http-1'),
+    source_refs: [
+      ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1'),
+      ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+      ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+      ref('trace_manifest', 'trace-manifest-feasibility-http-1'),
+    ],
+    source_hashes: [
+      hash('validation-cycle-final-http-1'),
+      hash('route-architecture-final-http-1'),
+      hash('route-skeptic-final-http-1'),
+      hash('trace-manifest-feasibility-http-1'),
+    ],
+    admitted_validation_cycle_artifact_ref: ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1'),
+    admitted_validation_cycle_artifact_hash: hash('validation-cycle-final-http-1'),
+    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    admitted_route_proposal_artifact_hash: hash('route-architecture-final-http-1'),
+    admitted_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+    admitted_route_skeptic_artifact_hash: hash('route-skeptic-final-http-1'),
+    reviewed_cycle_candidate_keys: ['exploratory-cycle-candidate'],
+    reviewed_route_candidate_keys: ['exploratory-route-candidate'],
+    secondary_route_candidate_refs: [ref('technical_route_candidate', 'technical-route-secondary-http-1')],
+    secondary_validation_cycle_refs: [ref('validation_cycle', 'validation-cycle-secondary-http-1')],
+    secondary_feasibility_probe_refs: [],
+    preflight_blocker_codes: [],
+  };
+}
+
+function crossBoardSynthesisRunPayload(providerId: 'openai' | 'dashscope' = 'openai') {
+  return {
+    run_id: 'cross-board-synthesis-http-run-1',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    model_profile_id: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID,
+    model_option_id: providerModelOptionId(PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID, providerId),
+    target_ref: ref('motive_evidence_board_version', 'board-version-http-1'),
+    target_version_id: 'board-version-http-1@v1',
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input-snapshot-http-1'),
+    input_snapshot_hash: hash('input-snapshot-http-1'),
+    source_refs: [
+      ref('motive_evidence_board_version', 'board-version-http-1'),
+      ref('motive_evidence_board_version', 'board-version-http-2'),
+      ref('trace_manifest', 'trace-manifest-cross-board-http-1'),
+    ],
+    source_hashes: [
+      hash('board-version-http-1'),
+      hash('board-version-http-2'),
+      hash('trace-manifest-cross-board-http-1'),
+    ],
+    board_anchors: [
+      crossBoardAnchor('1'),
+      crossBoardAnchor('2'),
+    ],
+    reviewed_board_version_refs: [
+      ref('motive_evidence_board_version', 'board-version-http-1'),
+      ref('motive_evidence_board_version', 'board-version-http-2'),
+    ],
+    reviewed_conflict_refs: [ref('motive_board_conflict', 'conflict-http-1')],
+    reviewed_challenge_refs: [ref('motive_board_challenge', 'challenge-http-1')],
+    evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer-binding-http-1')],
+    reuse_policy: {
+      require_transfer_binding_for_viable_reuse: true,
+      allow_blocked_reuse_without_transfer_binding: true,
+    },
+    secondary_cross_board_review_refs: [ref('cross_board_review', 'cross-board-review-http-1')],
+    secondary_evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer-binding-http-1')],
+    secondary_motive_assertion_refs: [ref('motive_assertion', 'motive-assertion-http-1')],
+    secondary_evidence_binding_refs: [ref('evidence_binding', 'evidence-binding-http-1')],
+    secondary_route_refs: [ref('technical_route_candidate', 'technical-route-http-1')],
+    secondary_experiment_refs: [ref('experiment_run', 'experiment-run-http-1')],
+    preflight_blocker_codes: [],
+  };
+}
+
+function evidenceBoardCurationRunPayload(providerId: 'openai' | 'dashscope' = 'openai') {
+  return {
+    run_id: 'evidence-board-curation-http-run-1',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    model_profile_id: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID,
+    model_option_id: providerModelOptionId(PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID, providerId),
+    curation_mode: 'curate_existing_board',
+    target_ref: ref('motive_evidence_board_version', 'board-version-http-1'),
+    target_version_id: 'board-version-http-1@v1',
+    target_motive_ref: ref('core_motive', 'core-motive-http-1'),
+    target_core_motive_version_ref: ref('core_motive_version', 'core-motive-version-http-1'),
+    target_board_ref: ref('motive_evidence_board_version', 'board-version-http-1'),
+    target_board_hash: hash('board-version-http-1'),
+    target_assertion_refs: [ref('motive_assertion', 'assertion-http-1')],
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input-snapshot-http-1'),
+    input_snapshot_hash: hash('input-snapshot-http-1'),
+    source_refs: [
+      ref('source_locator', 'source-locator-http-1'),
+      ref('citation_candidate', 'citation-candidate-http-1'),
+      ref('evidence_unit', 'evidence-http-1'),
+    ],
+    source_hashes: [
+      hash('source-locator-http-1'),
+      hash('citation-candidate-http-1'),
+      hash('evidence-http-1'),
+    ],
+    source_context_packets: [{
+      packet_ref: ref('source_context_packet', 'source-context-packet-http-1'),
+      packet_hash: hash('source-context-packet-http-1'),
+      source_ref: ref('source_locator', 'source-locator-http-1'),
+      source_hash: hash('source-locator-http-1'),
+      evidence_kind: 'source_locator',
+      content_summary: 'HTTP fixture locator points to a concrete paper section and line range.',
+      key_facts: [
+        'The source locator is primary review material only.',
+        'The runtime cannot create evidence bindings.',
+      ],
+      covered_evidence_refs: [],
+      covered_source_locator_refs: [ref('source_locator', 'source-locator-http-1')],
+      covered_citation_candidate_refs: [],
+      covered_trace_manifest_refs: [],
+    }],
+    trace_manifest_refs: [ref('trace_manifest', 'trace-manifest-evidence-board-http-1')],
+    trace_manifest_hashes: [hash('trace-manifest-evidence-board-http-1')],
+    source_locator_refs: [ref('source_locator', 'source-locator-http-1')],
+    citation_candidate_refs: [ref('citation_candidate', 'citation-candidate-http-1')],
+    reviewed_citation_candidate_refs: [ref('citation_candidate', 'citation-candidate-http-1')],
+    evidence_refs: [
+      ref('evidence_unit', 'evidence-http-1'),
+      ref('evidence_unit', 'existing-bound-evidence-http-1'),
+    ],
+    existing_evidence_binding_refs: [ref('evidence_binding', 'existing-binding-http-1')],
+    existing_bound_evidence_refs: [ref('evidence_unit', 'existing-bound-evidence-http-1')],
+    accepted_risk_refs: [ref('accepted_risk', 'accepted-risk-http-1')],
+    freshness_policy: {
+      stale_evidence_requires_gap_candidate: true,
+      unreviewed_citation_requires_gap_candidate: true,
+      duplicate_existing_binding_requires_gap_candidate: true,
+    },
+    secondary_evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer-binding-http-1')],
+    secondary_cross_board_review_refs: [ref('cross_board_review', 'cross-board-review-http-1')],
+    secondary_trace_repair_queue_refs: [],
+    preflight_blocker_codes: [],
+  };
+}
+
+function motiveDecompositionRunPayload(providerId: 'openai' | 'dashscope' = 'openai') {
+  return {
+    run_id: 'motive-decomposition-http-run-1',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    model_profile_id: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID,
+    model_option_id: providerModelOptionId(PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID, providerId),
+    decomposition_mode: 'decompose_existing_assertions',
+    target_ref: ref('core_motive_version', 'core-motive-version-http-1'),
+    target_version_id: 'core-motive-version-http-1@v1',
+    target_motive_ref: ref('core_motive', 'core-motive-http-1'),
+    target_core_motive_version_ref: ref('core_motive_version', 'core-motive-version-http-1'),
+    target_assertion_refs: [ref('motive_assertion', 'assertion-http-1')],
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input-snapshot-http-1'),
+    input_snapshot_hash: hash('input-snapshot-http-1'),
+    source_refs: [
+      ref('source_locator', 'source-locator-motive-decomposition-http-1'),
+      ref('citation_candidate', 'citation-candidate-motive-decomposition-http-1'),
+      ref('evidence_unit', 'evidence-motive-decomposition-http-1'),
+    ],
+    source_hashes: [
+      hash('source-locator-motive-decomposition-http-1'),
+      hash('citation-candidate-motive-decomposition-http-1'),
+      hash('evidence-motive-decomposition-http-1'),
+    ],
+    assertion_context_packets: [{
+      packet_ref: ref('assertion_context_packet', 'assertion-context-packet-motive-decomposition-http-1'),
+      packet_hash: hash('assertion-context-packet-motive-decomposition-http-1'),
+      assertion_ref: ref('motive_assertion', 'assertion-http-1'),
+      assertion_hash: hash('assertion-http-1'),
+      assertion_text: 'The retrieval grounding component reduces unsupported generated claims.',
+      scope_boundary_summary: 'Scope is limited to source-backed retrieval grounding behavior.',
+      covered_evidence_refs: [ref('evidence_unit', 'evidence-motive-decomposition-http-1')],
+      covered_trace_manifest_refs: [ref('trace_manifest', 'trace-manifest-motive-decomposition-http-1')],
+      covered_source_refs: [ref('source_locator', 'source-locator-motive-decomposition-http-1')],
+    }],
+    trace_manifest_refs: [ref('trace_manifest', 'trace-manifest-motive-decomposition-http-1')],
+    trace_manifest_hashes: [hash('trace-manifest-motive-decomposition-http-1')],
+    source_locator_refs: [ref('source_locator', 'source-locator-motive-decomposition-http-1')],
+    citation_candidate_refs: [ref('citation_candidate', 'citation-candidate-motive-decomposition-http-1')],
+    evidence_refs: [ref('evidence_unit', 'evidence-motive-decomposition-http-1')],
+    accepted_risk_refs: [ref('accepted_risk', 'accepted-risk-motive-decomposition-http-1')],
+    admitted_upstream_artifact_refs: [
+      ref('paper_implementation_runtime_artifact', 'evidence-board-final-motive-decomposition-http-1'),
+    ],
+    admitted_upstream_artifact_hashes: [hash('evidence-board-final-motive-decomposition-http-1')],
+    preflight_blocker_codes: [],
+  };
+}
+
+function motiveEvolutionRunPayload(providerId: 'openai' | 'dashscope' = 'openai') {
+  return {
+    run_id: 'motive-evolution-http-run-1',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    model_profile_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID,
+    model_option_id: providerModelOptionId(PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID, providerId),
+    target_ref: ref('core_motive_version', 'core-motive-version-motive-evolution-http-1'),
+    target_version_id: 'core-motive-version-motive-evolution-http-1@v1',
+    target_motive_refs: [ref('core_motive', 'core-motive-motive-evolution-http-1')],
+    target_motive_hashes: [hash('core-motive-motive-evolution-http-1')],
+    target_core_motive_version_refs: [ref('core_motive_version', 'core-motive-version-motive-evolution-http-1')],
+    target_core_motive_version_hashes: [hash('core-motive-version-motive-evolution-http-1')],
+    input_snapshot_ref: ref('implementation_input_snapshot', 'input-snapshot-motive-evolution-http-1'),
+    input_snapshot_hash: hash('input-snapshot-motive-evolution-http-1'),
+    portfolio_snapshot_ref: ref('motive_portfolio_snapshot', 'portfolio-snapshot-motive-evolution-http-1'),
+    portfolio_snapshot_hash: hash('portfolio-snapshot-motive-evolution-http-1'),
+    evidence_board_refs: [ref('motive_evidence_board_version', 'board-version-motive-evolution-http-1')],
+    evidence_board_hashes: [hash('board-version-motive-evolution-http-1')],
+    evidence_binding_refs: [ref('evidence_binding', 'evidence-binding-motive-evolution-http-1')],
+    evidence_binding_hashes: [hash('evidence-binding-motive-evolution-http-1')],
+    challenge_refs: [ref('motive_challenge', 'challenge-motive-evolution-http-1')],
+    conflict_refs: [ref('motive_conflict', 'conflict-motive-evolution-http-1')],
+    trace_manifest_refs: [ref('trace_manifest', 'trace-manifest-motive-evolution-http-1')],
+    trace_manifest_hashes: [hash('trace-manifest-motive-evolution-http-1')],
+    human_confirmation_policy_ref: ref('human_confirmation_policy', 'human-confirmation-policy-motive-evolution-http-1'),
+    human_confirmation_policy_hash: hash('human-confirmation-policy-motive-evolution-http-1'),
+    source_refs: [
+      ref('source', 'source-motive-evolution-http-1'),
+      ref('motive_evidence_board_version', 'board-version-motive-evolution-http-1'),
+      ref('evidence_binding', 'evidence-binding-motive-evolution-http-1'),
+      ref('trace_manifest', 'trace-manifest-motive-evolution-http-1'),
+    ],
+    source_hashes: [
+      hash('source-motive-evolution-http-1'),
+      hash('board-version-motive-evolution-http-1'),
+      hash('evidence-binding-motive-evolution-http-1'),
+      hash('trace-manifest-motive-evolution-http-1'),
+    ],
+    motive_context_packets: [{
+      packet_ref: ref('motive_context_packet', 'motive-context-packet-motive-evolution-http-1'),
+      packet_hash: hash('motive-context-packet-motive-evolution-http-1'),
+      packet_kind: 'motive_version_state',
+      content_summary: 'HTTP fixture motive version state is bound to target, evidence, trace, and source refs.',
+      key_facts: [
+        'Current motive version has an evidence-board repair option but runtime cannot write motive decisions.',
+      ],
+      covered_target_refs: [
+        ref('core_motive_version', 'core-motive-version-motive-evolution-http-1'),
+        ref('core_motive', 'core-motive-motive-evolution-http-1'),
+      ],
+      covered_evidence_refs: [
+        ref('motive_evidence_board_version', 'board-version-motive-evolution-http-1'),
+        ref('evidence_binding', 'evidence-binding-motive-evolution-http-1'),
+      ],
+      covered_trace_manifest_refs: [ref('trace_manifest', 'trace-manifest-motive-evolution-http-1')],
+      covered_source_refs: [ref('source', 'source-motive-evolution-http-1')],
+    }],
+    validation_cycle_refs: [ref('validation_cycle', 'validation-cycle-motive-evolution-http-1')],
+    validation_cycle_hashes: [hash('validation-cycle-motive-evolution-http-1')],
+    result_packet_refs: [ref('result_interpretation_packet', 'result-packet-motive-evolution-http-1')],
+    result_packet_hashes: [hash('result-packet-motive-evolution-http-1')],
+    cross_board_review_refs: [ref('cross_board_review', 'cross-board-review-motive-evolution-http-1')],
+    cross_board_review_hashes: [hash('cross-board-review-motive-evolution-http-1')],
+    prior_evolution_decision_refs: [ref('motive_evolution_decision', 'prior-evolution-motive-evolution-http-1')],
+    prior_evolution_decision_hashes: [hash('prior-evolution-motive-evolution-http-1')],
+    prior_portfolio_decision_refs: [ref('motive_portfolio_decision', 'portfolio-decision-motive-evolution-http-1')],
+    prior_portfolio_decision_hashes: [hash('portfolio-decision-motive-evolution-http-1')],
+    accepted_risk_refs: [ref('accepted_risk', 'accepted-risk-motive-evolution-http-1')],
+    accepted_risk_hashes: [hash('accepted-risk-motive-evolution-http-1')],
+    human_request_refs: [ref('human_request', 'human-request-motive-evolution-http-1')],
+    human_request_hashes: [hash('human-request-motive-evolution-http-1')],
     preflight_blocker_codes: [],
   };
 }
@@ -2042,6 +4163,119 @@ function assertExperimentPlanningProviderCanaryResponse(
   );
   assert.equal(body.admission_records.every((record) => record.admission_status === 'admitted'), true);
   assert.equal(body.final_admission_record?.admission_status, 'admitted');
+}
+
+function assertSingleRoleProposalProviderCanaryResponse(
+  response: Awaited<ReturnType<FastifyInstance['inject']>>,
+  options: {
+    expectedSlotId: string;
+    requiredPayloadFlags: string[];
+    forbiddenPayloadFields: string[];
+  },
+): void {
+  assert.equal(response.statusCode, 201);
+  const body = response.json() as {
+    status: string;
+    provider_call_count: number;
+    runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+    admission_records: PaperImplementationRuntimeAdmissionRecord[];
+    final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+    final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+    operational_telemetry: PaperImplementationRuntimeOperationalTelemetry;
+  };
+  assert.equal(body.status, 'passed');
+  assert.equal(body.provider_call_count >= 1, true);
+  assert.equal(body.provider_call_count <= 2, true);
+  assert.equal(body.runtime_artifacts.length >= 2, true);
+  assert.equal(body.runtime_artifacts.every((artifact) => artifact.slot_id === options.expectedSlotId), true);
+  assert.equal(body.runtime_artifacts.every((artifact) => artifact.execution_mode === 'provider_llm'), true);
+  assert.equal(
+    body.runtime_artifacts.some((artifact) => artifact.runtime_status === 'failed_runtime'),
+    false,
+  );
+  assert.ok(body.final_runtime_artifact);
+  assert.equal(body.final_runtime_artifact.execution_mode, 'provider_llm');
+  assert.equal(body.final_runtime_artifact.slot_id, options.expectedSlotId);
+  assert.equal(body.final_runtime_artifact.runtime_status, 'passed');
+  const finalPayload = body.final_runtime_artifact.artifact_payload as Record<string, unknown>;
+  for (const flagName of options.requiredPayloadFlags) {
+    assert.equal(finalPayload[flagName], true, `${flagName} must stay explicit in live provider canary output`);
+  }
+  for (const fieldName of ['domain_gate_request', 'queue_action', ...options.forbiddenPayloadFields]) {
+    assert.equal(fieldName in finalPayload, false, `${fieldName} must not appear in live provider canary output`);
+  }
+  assert.equal(body.admission_records.every((record) => record.admission_status === 'admitted'), true);
+  assert.equal(body.final_admission_record?.admission_status, 'admitted');
+  assert.equal(body.operational_telemetry.status, 'passed');
+  assert.equal(body.operational_telemetry.provider_call_count_consistent, true);
+  assert.equal(body.operational_telemetry.non_provider_artifact_count, 0);
+}
+
+function assertMotiveEvolutionProviderCanaryResponse(
+  response: Awaited<ReturnType<FastifyInstance['inject']>>,
+): void {
+  assert.equal(response.statusCode, 201);
+  const body = response.json() as {
+    status: string;
+    provider_call_count: number;
+    runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+    admission_records: PaperImplementationRuntimeAdmissionRecord[];
+    final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+    final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+    operational_telemetry: PaperImplementationRuntimeOperationalTelemetry;
+  };
+  assert.equal(body.status, 'passed');
+  assert.equal(body.provider_call_count >= 2, true);
+  assert.equal(body.provider_call_count <= 4, true);
+  assert.equal(body.runtime_artifacts.length >= 3, true);
+  assert.equal(
+    body.runtime_artifacts.every((artifact) =>
+      artifact.slot_id === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID),
+    true,
+  );
+  assert.equal(body.runtime_artifacts.every((artifact) => artifact.execution_mode === 'provider_llm'), true);
+  assert.equal(
+    body.runtime_artifacts.some((artifact) => artifact.runtime_status === 'failed_runtime'),
+    false,
+  );
+  assert.ok(body.final_runtime_artifact);
+  assert.equal(body.final_runtime_artifact.execution_mode, 'provider_llm');
+  assert.equal(body.final_runtime_artifact.slot_id, PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID);
+  assert.equal(body.final_runtime_artifact.runtime_status, 'passed');
+  const finalPayload = body.final_runtime_artifact.artifact_payload as Record<string, unknown>;
+  for (const flagName of [
+    'no_domain_gate_request',
+    'no_queue_side_effect',
+    'no_motive_write_side_effect',
+    'no_motive_evolution_side_effect',
+    'no_portfolio_mutation_side_effect',
+    'no_board_write_side_effect',
+    'no_evidence_binding_side_effect',
+    'no_trace_repair_queue_side_effect',
+  ]) {
+    assert.equal(finalPayload[flagName], true, `${flagName} must stay explicit in live provider canary output`);
+  }
+  for (const fieldName of [
+    'domain_gate_request',
+    'queue_action',
+    'motive_evolution_decision_request',
+    'create_motive_evolution_decision_request',
+    'ApplyMotivePortfolioDecisionRequest',
+    'core_motive_version_patch',
+    'motive_roles_after_decision',
+    'writer_dto_payload',
+    'board_draft',
+    'create_motive_evidence_board_version_request',
+    'create_evidence_binding_request',
+    'trace_repair_queue_item',
+  ]) {
+    assert.equal(fieldName in finalPayload, false, `${fieldName} must not appear in live provider canary output`);
+  }
+  assert.equal(body.admission_records.every((record) => record.admission_status === 'admitted'), true);
+  assert.equal(body.final_admission_record?.admission_status, 'admitted');
+  assert.equal(body.operational_telemetry.status, 'passed');
+  assert.equal(body.operational_telemetry.provider_call_count_consistent, true);
+  assert.equal(body.operational_telemetry.non_provider_artifact_count, 0);
 }
 
 function p1ReviewRoleOutput(roleSlotId: string): PaperImplementationP1RuntimeReviewRoleOutput {
@@ -2337,6 +4571,610 @@ function resultAnalysisRoleOutput(
       required_followup_refs: [ref('validation_feedback_item', `${kind}-followup-http-1`)],
     })),
     domain_gate_request: structuredClone(resultAnalysisDomainGateRequest()) as unknown as Record<string, unknown>,
+    ...overrides,
+  };
+}
+
+function routePlanningRoleOutput(roleSlotId: string): PaperImplementationRoutePlanningRoleOutput {
+  if (roleSlotId === PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID) {
+    return routeSkepticRoleOutput();
+  }
+  return routeArchitectureRoleOutput();
+}
+
+function routeCandidateProposal(
+  candidateKey: string,
+  confirmatoryMarker: boolean,
+): PaperImplementationRouteCandidateProposal {
+  return {
+    candidate_key: candidateKey,
+    route_summary: `${candidateKey} proposes a bounded route candidate.`,
+    expected_information_gain: 'Clarifies route feasibility before deterministic validation admission.',
+    baseline_gap_status: confirmatoryMarker ? 'partial' : 'unknown',
+    cited_source_refs: [ref('implementation_input_snapshot', 'input-snapshot-http-1')],
+    trace_refs: [ref('trace_manifest', 'trace-manifest-route-http-1')],
+    validation_signal_refs: [ref('validation_signal', `${candidateKey}-signal-http-1`)],
+    dataset_refs: [ref('dataset_version', `${candidateKey}-dataset-http-1`)],
+    metric_refs: [ref('metric', `${candidateKey}-metric-http-1`)],
+    baseline_refs: [ref('baseline_version', `${candidateKey}-baseline-http-1`)],
+    code_refs: [ref('code_version', `${candidateKey}-code-http-1`)],
+    config_refs: [ref('config_snapshot', `${candidateKey}-config-http-1`)],
+    scope_boundary: 'Proposal only; deterministic validation planning owns persisted route records.',
+    confirmatory_marker: confirmatoryMarker,
+    blocker_codes: [],
+    warning_codes: [],
+  };
+}
+
+function routeArchitectureRoleOutput(
+  overrides: Partial<PaperImplementationRoutePlanningRoleOutput> = {},
+): PaperImplementationRoutePlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'HTTP route architecture runtime proposed bounded route candidates.',
+    cited_source_refs: [ref('implementation_input_snapshot', 'input-snapshot-http-1')],
+    blocker_codes: [],
+    warning_codes: [],
+    route_candidate_proposals: [
+      routeCandidateProposal('exploratory-route-candidate', false),
+      routeCandidateProposal('confirmatory-route-candidate', true),
+    ],
+    ...overrides,
+  };
+}
+
+function routeSkepticRoleOutput(
+  overrides: Partial<PaperImplementationRoutePlanningRoleOutput> = {},
+): PaperImplementationRoutePlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'HTTP route skeptic runtime covered all required route-risk dimensions.',
+    cited_source_refs: [ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1')],
+    blocker_codes: [],
+    warning_codes: [],
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    reviewed_route_proposal_hash: hash('route-architecture-final-http-1'),
+    reviewed_candidate_keys: ['exploratory-route-candidate'],
+    checked_dimensions: [...PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS],
+    risk_findings: [{
+      finding_id: 'route-risk-finding-budget-http-1',
+      risk_dimension: 'compute_budget',
+      severity: 'warning',
+      summary: 'Budget must be confirmed before deterministic route admission proceeds.',
+      evidence_refs: [ref('validation_budget', 'budget-http-1')],
+      affected_candidate_keys: ['exploratory-route-candidate'],
+      required_revision_refs: [],
+      blocks_route_progression: false,
+    }],
+    recommended_disposition: 'revise',
+    no_queue_side_effect: true,
+    ...overrides,
+  };
+}
+
+function validationCycleCandidateProposal(
+  candidateKey: string,
+  confirmatoryMarker: boolean,
+): PaperImplementationValidationCycleCandidateProposal {
+  return {
+    candidate_key: candidateKey,
+    reviewed_route_candidate_key: 'exploratory-route-candidate',
+    target_ref: ref('technical_route_candidate', `technical-route-candidate-${candidateKey}-http-1`),
+    target_frame_summary: `${candidateKey} validates a bounded route signal before deterministic cycle admission.`,
+    cycle_type: confirmatoryMarker ? 'baseline_challenge' : 'route_feasibility',
+    trigger_refs: [ref('route_risk_finding', `route-risk-finding-${candidateKey}-http-1`)],
+    validation_question: `Can ${candidateKey} produce a useful route validation signal within budget?`,
+    assumptions_under_test: ['Route context is sufficient to validate against the baseline.'],
+    assertion_refs_under_test: [ref('motive_assertion', `motive-assertion-${candidateKey}-http-1`)],
+    decision_if_pass: 'Admit a deterministic validation cycle draft downstream.',
+    decision_if_fail: 'Park the candidate or send it back to route revision.',
+    decision_if_inconclusive: 'Request more source context before deterministic validation admission.',
+    expected_information_gain: confirmatoryMarker ? 'medium' : 'high',
+    criteria: {
+      pass_conditions: ['The validation signal isolates route merit against the baseline.'],
+      fail_conditions: ['The signal cannot distinguish route merit from missing context.'],
+      inconclusive_conditions: ['Dataset, metric, or budget facts are unavailable.'],
+      stop_conditions: ['Budget envelope is exceeded.'],
+      minimum_artifacts_required: ['route proposal artifact', 'route skeptic artifact'],
+    },
+    budget_envelope: {
+      budget_ref: ref('validation_budget', `budget-${candidateKey}-http-1`),
+      iteration_budget_ref: ref('iteration_budget', `iteration-budget-${candidateKey}-http-1`),
+      retry_budget: 1,
+      max_runtime: '2h',
+      max_compute: 'single-gpu-smoke',
+      max_human_review_count: 1,
+    },
+    included_context_refs: [ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1')],
+    trace_refs: [ref('trace_manifest', `trace-manifest-${candidateKey}-http-1`)],
+    confirmatory_marker: confirmatoryMarker,
+    blocker_codes: [],
+    warning_codes: [],
+  };
+}
+
+function validationCyclePlanningRoleOutput(
+  overrides: Partial<PaperImplementationValidationCyclePlanningRoleOutput> = {},
+): PaperImplementationValidationCyclePlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'HTTP validation-cycle planning runtime proposed bounded cycle candidates.',
+    cited_source_refs: [ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1')],
+    blocker_codes: [],
+    warning_codes: [],
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    reviewed_route_proposal_hash: hash('route-architecture-final-http-1'),
+    reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+    reviewed_route_skeptic_artifact_hash: hash('route-skeptic-final-http-1'),
+    reviewed_candidate_keys: ['exploratory-route-candidate'],
+    cycle_candidate_proposals: [
+      validationCycleCandidateProposal('exploratory-cycle-candidate', false),
+      validationCycleCandidateProposal('confirmatory-cycle-candidate', true),
+    ],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_validation_cycle_side_effect: true,
+    ...overrides,
+  };
+}
+
+function feasibilityProbePlanCandidateProposal(
+  candidateKey: string,
+  confirmatoryMarker: boolean,
+): PaperImplementationFeasibilityProbePlanCandidateProposal {
+  return {
+    candidate_key: candidateKey,
+    reviewed_cycle_candidate_key: 'exploratory-cycle-candidate',
+    reviewed_route_candidate_key: 'exploratory-route-candidate',
+    probe_kind: confirmatoryMarker ? 'baseline_check' : 'data_feasibility',
+    probe_question: `Can ${candidateKey} produce enough feasibility signal before deterministic probe admission?`,
+    plan_summary: `${candidateKey} proposes a bounded feasibility probe or plan-light candidate without creating downstream records.`,
+    expected_information_gain: confirmatoryMarker ? 'medium' : 'high',
+    baseline_gap_status: confirmatoryMarker ? 'resolved' : 'open',
+    primary_metric_refs: [ref('metric', `${candidateKey}-metric-http-1`)],
+    dataset_version_refs: [ref('dataset_version', `${candidateKey}-dataset-http-1`)],
+    baseline_version_refs: [ref('baseline_version', `${candidateKey}-baseline-http-1`)],
+    code_version_refs: [ref('code_version', `${candidateKey}-code-http-1`)],
+    config_refs: [ref('config_snapshot', `${candidateKey}-config-http-1`)],
+    budget_envelope: {
+      budget_ref: ref('validation_budget', `${candidateKey}-budget-http-1`),
+      iteration_budget_ref: ref('iteration_budget', `${candidateKey}-iteration-budget-http-1`),
+      retry_budget: 1,
+      estimated_cost_class: confirmatoryMarker ? 'medium' : 'low',
+      max_runtime: '2h',
+      max_compute: 'single-gpu-smoke',
+      max_human_review_count: 1,
+    },
+    stop_condition_refs: [ref('stop_condition', `${candidateKey}-stop-condition-http-1`)],
+    trace_refs: [ref('trace_manifest', `${candidateKey}-trace-manifest-http-1`)],
+    confirmatory_marker: confirmatoryMarker,
+    blocker_codes: [],
+    warning_codes: [],
+  };
+}
+
+function feasibilityPlanningRoleOutput(
+  overrides: Partial<PaperImplementationFeasibilityPlanningRoleOutput> = {},
+): PaperImplementationFeasibilityPlanningRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'HTTP feasibility planning runtime proposed bounded probe and plan-light candidates.',
+    cited_source_refs: [ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1')],
+    blocker_codes: [],
+    warning_codes: [],
+    reviewed_validation_cycle_artifact_ref: ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1'),
+    reviewed_validation_cycle_artifact_hash: hash('validation-cycle-final-http-1'),
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    reviewed_route_proposal_hash: hash('route-architecture-final-http-1'),
+    reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+    reviewed_route_skeptic_artifact_hash: hash('route-skeptic-final-http-1'),
+    reviewed_cycle_candidate_keys: ['exploratory-cycle-candidate'],
+    reviewed_route_candidate_keys: ['exploratory-route-candidate'],
+    probe_plan_candidate_proposals: [
+      feasibilityProbePlanCandidateProposal('exploratory-probe-candidate', false),
+      feasibilityProbePlanCandidateProposal('plan-light-readiness-candidate', true),
+    ],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_feasibility_probe_side_effect: true,
+    no_experiment_plan_light_side_effect: true,
+    no_validation_cycle_side_effect: true,
+    ...overrides,
+  };
+}
+
+function crossBoardAnchor(id: '1' | '2'): PaperImplementationCrossBoardAnchor {
+  return {
+    board_version_ref: ref('motive_evidence_board_version', `board-version-http-${id}`),
+    board_version_hash: hash(`board-version-http-${id}`),
+    motive_ref: ref('core_motive', `core-motive-http-${id}`),
+    core_motive_version_ref: ref('core_motive_version', `core-motive-version-http-${id}`),
+    trace_manifest_ref: ref('trace_manifest', `trace-manifest-cross-board-http-${id}`),
+    trace_manifest_hash: hash(`trace-manifest-cross-board-http-${id}`),
+    evidence_binding_refs: [ref('evidence_binding', `evidence-binding-http-${id}`)],
+    source_locator_refs: [ref('source_locator', `source-locator-http-${id}`)],
+    conflict_refs: id === '1' ? [ref('motive_board_conflict', 'conflict-http-1')] : [],
+    challenge_refs: id === '1' ? [ref('motive_board_challenge', 'challenge-http-1')] : [],
+    freshness_status: 'fresh',
+  };
+}
+
+function crossBoardReuseScenarioProposal(
+  overrides: Partial<PaperImplementationCrossBoardScenarioProposal> = {},
+): PaperImplementationCrossBoardScenarioProposal {
+  return {
+    scenario_key: 'reuse-scenario-http-1',
+    scenario_kind: 'reuse',
+    disposition: 'viable_candidate',
+    source_board_version_refs: [
+      ref('motive_evidence_board_version', 'board-version-http-1'),
+      ref('motive_evidence_board_version', 'board-version-http-2'),
+    ],
+    source_board_version_hashes: [
+      hash('board-version-http-1'),
+      hash('board-version-http-2'),
+    ],
+    target_motive_refs: [ref('core_motive', 'core-motive-http-1')],
+    evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer-binding-http-1')],
+    conflict_refs: [ref('motive_board_conflict', 'conflict-http-1')],
+    challenge_refs: [ref('motive_board_challenge', 'challenge-http-1')],
+    freshness_blockers: [],
+    source_locator_refs: [
+      ref('source_locator', 'source-locator-http-1'),
+      ref('source_locator', 'source-locator-http-2'),
+    ],
+    expected_benefit: 'Reuse traced evidence across compatible board versions without mutating domain state.',
+    risk_codes: ['scope_transfer_risk'],
+    blocker_codes: [],
+    warning_codes: [],
+    recommended_next_gate: 'cross_board_review',
+    ...overrides,
+  };
+}
+
+function crossBoardParkScenarioProposal(): PaperImplementationCrossBoardScenarioProposal {
+  return {
+    ...crossBoardReuseScenarioProposal(),
+    scenario_key: 'park-conflict-scenario-http-1',
+    scenario_kind: 'park',
+    disposition: 'needs_domain_review',
+    evidence_transfer_binding_refs: [],
+    blocker_codes: [],
+    warning_codes: ['conflict_needs_review'],
+    recommended_next_gate: 'trace_repair',
+  };
+}
+
+function crossBoardSynthesisRoleOutput(
+  overrides: Partial<PaperImplementationCrossBoardSynthesisRoleOutput> = {},
+): PaperImplementationCrossBoardSynthesisRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'HTTP cross-board synthesis runtime proposed bounded cross-board scenarios.',
+    cited_source_refs: [ref('motive_evidence_board_version', 'board-version-http-1')],
+    reviewed_board_version_refs: [
+      ref('motive_evidence_board_version', 'board-version-http-1'),
+      ref('motive_evidence_board_version', 'board-version-http-2'),
+    ],
+    reviewed_conflict_refs: [ref('motive_board_conflict', 'conflict-http-1')],
+    reviewed_challenge_refs: [ref('motive_board_challenge', 'challenge-http-1')],
+    reviewed_evidence_transfer_binding_refs: [ref('evidence_transfer_binding', 'transfer-binding-http-1')],
+    scenario_proposals: [
+      crossBoardReuseScenarioProposal(),
+      crossBoardParkScenarioProposal(),
+    ],
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_cross_board_review_side_effect: true,
+    no_evidence_transfer_binding_side_effect: true,
+    no_portfolio_mutation_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    ...overrides,
+  };
+}
+
+function evidenceBoardBindingCandidateProposal(
+  candidateKey: string,
+  overrides: Partial<PaperImplementationEvidenceBoardBindingCandidateProposal> = {},
+): PaperImplementationEvidenceBoardBindingCandidateProposal {
+  return {
+    candidate_key: candidateKey,
+    target_assertion_ref: ref('motive_assertion', 'assertion-http-1'),
+    evidence_ref: ref('evidence_unit', 'evidence-http-1'),
+    source_locator_refs: [ref('source_locator', 'source-locator-http-1')],
+    citation_candidate_refs: [ref('citation_candidate', 'citation-candidate-http-1')],
+    proposed_role: 'supporting_evidence',
+    proposed_scope: 'assertion_local',
+    proposed_strength: 'moderate',
+    support_state: 'viable_binding',
+    challenge_status: 'passed',
+    freshness_status: 'fresh',
+    interpretation: 'HTTP fixture proposes an append-only evidence binding candidate without domain mutation.',
+    challenge_check: {
+      memo_or_summary_rejected: true,
+      locator_quality: 'verified',
+      citation_status: 'reviewed',
+      scope_match_status: 'matched',
+      freshness_status: 'fresh',
+      should_downgrade_to_gap: false,
+      downgrade_reason_codes: [],
+      blocking_reason_codes: [],
+    },
+    blocker_codes: [],
+    warning_codes: [],
+    recommended_next_gate: 'motive_evidence_board_review',
+    ...overrides,
+  };
+}
+
+function evidenceBoardCurationRoleOutput(
+  overrides: Partial<PaperImplementationEvidenceBoardCurationRoleOutput> = {},
+): PaperImplementationEvidenceBoardCurationRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'HTTP evidence-board curation runtime proposed append-only binding candidates.',
+    cited_source_refs: [ref('source_locator', 'source-locator-http-1')],
+    reviewed_assertion_refs: [ref('motive_assertion', 'assertion-http-1')],
+    reviewed_source_locator_refs: [ref('source_locator', 'source-locator-http-1')],
+    reviewed_citation_candidate_refs: [ref('citation_candidate', 'citation-candidate-http-1')],
+    reviewed_evidence_refs: [
+      ref('evidence_unit', 'evidence-http-1'),
+      ref('evidence_unit', 'existing-bound-evidence-http-1'),
+    ],
+    reviewed_existing_evidence_binding_refs: [ref('evidence_binding', 'existing-binding-http-1')],
+    binding_candidate_proposals: [evidenceBoardBindingCandidateProposal('binding-candidate-http-1')],
+    gap_candidate_proposals: [],
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_evidence_transfer_binding_side_effect: true,
+    no_citation_candidate_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    ...overrides,
+  };
+}
+
+function motiveDecompositionDraftAssertionCandidate(
+  overrides: Partial<PaperImplementationMotiveDecompositionDraftAssertionCandidate> = {},
+): PaperImplementationMotiveDecompositionDraftAssertionCandidate {
+  return {
+    candidate_key: 'split-child-motive-decomposition-http-1',
+    source_assertion_ref: ref('motive_assertion', 'assertion-http-1'),
+    candidate_kind: 'split_child',
+    draft_assertion_text: 'The retrieval grounding component reduces unsupported generated claims.',
+    scope_boundary_summary: 'Scope is limited to retrieval grounding behavior with request-owned evidence.',
+    support_obligation_summary: 'Requires source locator, citation candidate, evidence unit, and trace manifest coverage.',
+    covered_evidence_refs: [ref('evidence_unit', 'evidence-motive-decomposition-http-1')],
+    covered_source_refs: [ref('source_locator', 'source-locator-motive-decomposition-http-1')],
+    covered_source_locator_refs: [ref('source_locator', 'source-locator-motive-decomposition-http-1')],
+    covered_citation_candidate_refs: [ref('citation_candidate', 'citation-candidate-motive-decomposition-http-1')],
+    covered_trace_manifest_refs: [ref('trace_manifest', 'trace-manifest-motive-decomposition-http-1')],
+    decomposition_check: {
+      compoundness_status: 'multiple_obligations',
+      scope_change_status: 'split',
+      evidence_coverage_status: 'full',
+      trace_alignment_status: 'aligned',
+      new_claim_risk: false,
+      human_confirmation_required: false,
+      blocking_reason_codes: [],
+      recommended_next_gate: 'motive_assertion_review',
+    },
+    blocker_codes: [],
+    warning_codes: [],
+    recommended_next_gate: 'motive_assertion_review',
+    ...overrides,
+  };
+}
+
+function motiveDecompositionRoleOutput(
+  overrides: Partial<PaperImplementationMotiveDecompositionRoleOutput> = {},
+): PaperImplementationMotiveDecompositionRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'HTTP motive decomposition runtime proposed draft assertion candidates for deterministic review.',
+    cited_source_refs: [ref('source_locator', 'source-locator-motive-decomposition-http-1')],
+    decomposition_result_status: 'candidates_proposed',
+    reviewed_assertion_refs: [ref('motive_assertion', 'assertion-http-1')],
+    draft_assertion_candidates: [motiveDecompositionDraftAssertionCandidate()],
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_motive_write_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    ...overrides,
+  };
+}
+
+interface MotiveEvolutionPriorRoleMaterial {
+  designer_role_artifact_ref: TopicSelectionFunctionalRef;
+  designer_role_artifact_hash: string;
+  option_set_hash: string;
+}
+
+function motiveEvolutionRoleOutput(request: LlmStructuredOutputRequest): PaperImplementationMotiveEvolutionRoleOutput {
+  if (request.executionContext.operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
+    return motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request));
+  }
+  return motiveEvolutionDesignerRoleOutput();
+}
+
+function motiveEvolutionPriorFromGatewayRequest(
+  request: LlmStructuredOutputRequest,
+): MotiveEvolutionPriorRoleMaterial {
+  const fallback = motiveEvolutionFallbackPrior();
+  const userMessage = request.messages.find((message) => message.role === 'user')?.content;
+  if (!userMessage) {
+    return fallback;
+  }
+  try {
+    const parsed = JSON.parse(userMessage) as {
+      prior_role_artifacts?: Array<{
+        artifact_ref?: TopicSelectionFunctionalRef;
+        artifact_hash?: string;
+        option_set_hash?: string | null;
+      }>;
+    };
+    const prior = parsed.prior_role_artifacts?.[0];
+    return {
+      designer_role_artifact_ref: prior?.artifact_ref ?? fallback.designer_role_artifact_ref,
+      designer_role_artifact_hash: prior?.artifact_hash ?? fallback.designer_role_artifact_hash,
+      option_set_hash: prior?.option_set_hash ?? fallback.option_set_hash,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function motiveEvolutionFallbackPrior(): MotiveEvolutionPriorRoleMaterial {
+  return {
+    designer_role_artifact_ref: ref('motive_evolution_role_artifact', 'designer-role-motive-evolution-http-1'),
+    designer_role_artifact_hash: hash('designer-role-motive-evolution-http-1'),
+    option_set_hash: hash('motive-evolution-option-set-http-1'),
+  };
+}
+
+function motiveEvolutionFixtureRoleOutputs() {
+  const prior = motiveEvolutionFallbackPrior();
+  return {
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: motiveEvolutionDesignerRoleOutput(),
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID]:
+      motiveEvolutionRiskChallengerRoleOutput(prior),
+  };
+}
+
+function motiveEvolutionChallengeCheck(
+  overrides: Partial<PaperImplementationMotiveEvolutionChallengeCheck> = {},
+): PaperImplementationMotiveEvolutionChallengeCheck {
+  return {
+    evidence_status: 'partial',
+    trace_status: 'satisfied',
+    portfolio_status: 'satisfied',
+    human_confirmation_status: 'not_applicable',
+    downstream_impact_status: 'partial',
+    blocking_reason_codes: [],
+    ...overrides,
+  };
+}
+
+function motiveEvolutionDesignedOption(
+  overrides: Partial<PaperImplementationMotiveEvolutionDesignedOption> = {},
+): PaperImplementationMotiveEvolutionDesignedOption {
+  return {
+    option_kind: 'repair_evidence_board_first',
+    supporting_refs: [
+      ref('core_motive_version', 'core-motive-version-motive-evolution-http-1'),
+      ref('motive_evidence_board_version', 'board-version-motive-evolution-http-1'),
+      ref('evidence_binding', 'evidence-binding-motive-evolution-http-1'),
+    ],
+    challenging_refs: [
+      ref('motive_challenge', 'challenge-motive-evolution-http-1'),
+      ref('trace_manifest', 'trace-manifest-motive-evolution-http-1'),
+    ],
+    portfolio_impact_class: 'evidence_board_only',
+    human_confirmation_required: false,
+    recommended_next_gate: 'evidence_board_curation',
+    blocker_codes: [],
+    warning_codes: [],
+    ...overrides,
+  };
+}
+
+function motiveEvolutionDecisionOption(
+  overrides: Partial<PaperImplementationMotiveEvolutionDecisionOption> = {},
+): PaperImplementationMotiveEvolutionDecisionOption {
+  return {
+    ...motiveEvolutionDesignedOption(),
+    challenge_check: motiveEvolutionChallengeCheck(),
+    ...overrides,
+  };
+}
+
+function motiveEvolutionDesignedOptionsByKey(
+  optionKey: string,
+  overrides: Partial<PaperImplementationMotiveEvolutionDesignedOption> = {},
+): Record<string, PaperImplementationMotiveEvolutionDesignedOption> {
+  return {
+    [optionKey]: motiveEvolutionDesignedOption(overrides),
+  };
+}
+
+function motiveEvolutionDecisionOptionsByKey(
+  optionKey: string,
+  overrides: Partial<PaperImplementationMotiveEvolutionDecisionOption> = {},
+): Record<string, PaperImplementationMotiveEvolutionDecisionOption> {
+  return {
+    [optionKey]: motiveEvolutionDecisionOption(overrides),
+  };
+}
+
+function motiveEvolutionDesignerRoleOutput(
+  overrides: Partial<PaperImplementationMotiveEvolutionOptionDesignerRoleOutput> = {},
+): PaperImplementationMotiveEvolutionOptionDesignerRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'HTTP motive evolution runtime designed support options for deterministic review.',
+    cited_source_refs: [ref('source', 'source-motive-evolution-http-1')],
+    support_result_status: 'options_proposed',
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_motive_write_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    no_portfolio_mutation_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    reviewed_target_motive_refs: [ref('core_motive', 'core-motive-motive-evolution-http-1')],
+    reviewed_core_motive_version_refs: [ref('core_motive_version', 'core-motive-version-motive-evolution-http-1')],
+    designed_options: motiveEvolutionDesignedOptionsByKey('evolution-option-http-1'),
+    option_set_hash: hash('motive-evolution-option-set-http-1'),
+    ...overrides,
+  };
+}
+
+function motiveEvolutionRiskChallengerRoleOutput(
+  prior: MotiveEvolutionPriorRoleMaterial,
+  overrides: Partial<PaperImplementationMotiveEvolutionRiskChallengerRoleOutput> = {},
+): PaperImplementationMotiveEvolutionRiskChallengerRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'HTTP motive evolution runtime challenged every support option for deterministic review.',
+    cited_source_refs: [ref('source', 'source-motive-evolution-http-1')],
+    support_result_status: 'options_proposed',
+    blocker_codes: [],
+    warning_codes: [],
+    no_domain_gate_request: true,
+    no_queue_side_effect: true,
+    no_motive_write_side_effect: true,
+    no_motive_evolution_side_effect: true,
+    no_portfolio_mutation_side_effect: true,
+    no_board_write_side_effect: true,
+    no_evidence_binding_side_effect: true,
+    no_trace_repair_queue_side_effect: true,
+    designer_role_artifact_ref: prior.designer_role_artifact_ref,
+    designer_role_artifact_hash: prior.designer_role_artifact_hash,
+    option_set_hash: prior.option_set_hash,
+    challenged_option_keys: ['evolution-option-http-1'],
+    decision_options: motiveEvolutionDecisionOptionsByKey('evolution-option-http-1'),
     ...overrides,
   };
 }

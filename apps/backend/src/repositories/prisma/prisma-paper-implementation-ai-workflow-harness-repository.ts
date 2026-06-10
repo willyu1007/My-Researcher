@@ -35,6 +35,7 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import { AppError } from '../../errors/app-error.js';
 import type {
   AgentWorkflowHarnessRunPersistence,
   PaperImplementationAiWorkflowHarnessRepository,
@@ -75,6 +76,10 @@ function refId(ref: TopicSelectionFunctionalRef): string {
 
 function refVersion(ref: TopicSelectionFunctionalRef): string | null {
   return ref.version_id ?? null;
+}
+
+function functionalRefKey(ref: TopicSelectionFunctionalRef): string {
+  return [ref.ref_type, ref.ref_id, ref.version_id ?? ''].join(':');
 }
 
 function toHarness(row: HarnessRow): ImplementationHarness {
@@ -247,6 +252,12 @@ function toQueueItem(row: DecisionWorkQueueItemRow): DecisionWorkQueueItem {
   };
 }
 
+const TERMINAL_DECISION_QUEUE_STATUSES = new Set<DecisionWorkQueueItem['status']>([
+  'resolved',
+  'dismissed',
+  'superseded',
+]);
+
 export class PrismaPaperImplementationAiWorkflowHarnessRepository
 implements PaperImplementationAiWorkflowHarnessRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -333,6 +344,13 @@ implements PaperImplementationAiWorkflowHarnessRepository {
           },
         });
         if (existing) {
+          if (TERMINAL_DECISION_QUEUE_STATUSES.has(existing.status as DecisionWorkQueueItem['status'])) {
+            queueRows.push(await tx.paperImplementationDecisionWorkQueueItem.update({
+              where: { id: existing.id },
+              data: this.toQueueReopenUpdateInput(existing, item),
+            }));
+            continue;
+          }
           queueRows.push(existing);
           continue;
         }
@@ -387,8 +405,25 @@ implements PaperImplementationAiWorkflowHarnessRepository {
     queueItemId: string,
     resolution: ResolveDecisionWorkQueueItemRequest & { resolved_at: string },
   ): Promise<DecisionWorkQueueItem> {
-    const row = await this.prisma.paperImplementationDecisionWorkQueueItem.update({
+    const existingRow = await this.prisma.paperImplementationDecisionWorkQueueItem.findFirst({
       where: { id: queueItemId, implementationProjectId },
+    });
+    if (!existingRow) {
+      throw new AppError(404, 'NOT_FOUND', `DecisionWorkQueueItem ${queueItemId} not found.`);
+    }
+    const existing = toQueueItem(existingRow);
+    if (TERMINAL_DECISION_QUEUE_STATUSES.has(existing.status)) {
+      if (existing.status === resolution.status) {
+        return existing;
+      }
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `DecisionWorkQueueItem ${queueItemId} is already ${existing.status}.`,
+      );
+    }
+    const row = await this.prisma.paperImplementationDecisionWorkQueueItem.update({
+      where: { id: queueItemId },
       data: {
         status: resolution.status,
         resolutionNote: resolution.resolution_note ?? null,
@@ -609,5 +644,54 @@ implements PaperImplementationAiWorkflowHarnessRepository {
       createdAt: new Date(item.created_at),
       updatedAt: new Date(item.updated_at),
     };
+  }
+
+  private toQueueReopenUpdateInput(
+    existing: DecisionWorkQueueItemRow,
+    item: DecisionWorkQueueItem,
+  ): Prisma.PaperImplementationDecisionWorkQueueItemUpdateInput {
+    return {
+      queueType: item.queue_type,
+      stage: item.stage,
+      targetRefType: refType(item.target_ref),
+      targetRefId: refId(item.target_ref),
+      targetVersionId: refVersion(item.target_ref),
+      targetRef: toJsonValue(item.target_ref),
+      priority: item.priority,
+      status: 'open',
+      blockingTransitionKeys: this.uniqueStrings([
+        ...existing.blockingTransitionKeys,
+        ...item.blocking_transition_keys,
+      ]),
+      allowedHandlers: item.allowed_handlers,
+      recommendedActions: item.recommended_actions,
+      createdFromRefPayloads: toJsonValue(this.mergeCreatedFromRefs(existing, item)),
+      policyVersionId: item.policy_version_id ?? null,
+      retryCount: item.retry_count,
+      retryBudget: item.retry_budget,
+      cooldownUntil: item.cooldown_until ? new Date(item.cooldown_until) : null,
+      resolutionNote: null,
+      resolvedBy: null,
+      resolvedAt: null,
+      updatedAt: new Date(item.updated_at),
+    };
+  }
+
+  private mergeCreatedFromRefs(
+    existing: DecisionWorkQueueItemRow,
+    item: DecisionWorkQueueItem,
+  ): TopicSelectionFunctionalRef[] {
+    const refs = new Map<string, TopicSelectionFunctionalRef>();
+    for (const ref of [
+      ...asArray<TopicSelectionFunctionalRef>(existing.createdFromRefPayloads),
+      ...item.created_from_refs,
+    ]) {
+      refs.set(functionalRefKey(ref), ref);
+    }
+    return [...refs.values()];
+  }
+
+  private uniqueStrings(values: string[]): string[] {
+    return [...new Set(values)];
   }
 }

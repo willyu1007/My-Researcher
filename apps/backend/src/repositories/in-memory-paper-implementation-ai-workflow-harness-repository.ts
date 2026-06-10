@@ -17,6 +17,12 @@ import type {
   PaperImplementationAiWorkflowHarnessRepository,
 } from './paper-implementation-ai-workflow-harness.repository.js';
 
+const TERMINAL_DECISION_QUEUE_STATUSES = new Set<DecisionWorkQueueItem['status']>([
+  'resolved',
+  'dismissed',
+  'superseded',
+]);
+
 export class InMemoryPaperImplementationAiWorkflowHarnessRepository
 implements PaperImplementationAiWorkflowHarnessRepository {
   private readonly harnesses = new Map<string, ImplementationHarness>();
@@ -181,6 +187,16 @@ implements PaperImplementationAiWorkflowHarnessRepository {
     if (!existing || existing.implementation_project_id !== implementationProjectId) {
       throw new AppError(404, 'NOT_FOUND', `DecisionWorkQueueItem ${queueItemId} not found.`);
     }
+    if (TERMINAL_DECISION_QUEUE_STATUSES.has(existing.status)) {
+      if (existing.status === resolution.status) {
+        return structuredClone(existing);
+      }
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `DecisionWorkQueueItem ${queueItemId} is already ${existing.status}.`,
+      );
+    }
     const updated: DecisionWorkQueueItem = {
       ...existing,
       status: resolution.status,
@@ -196,6 +212,31 @@ implements PaperImplementationAiWorkflowHarnessRepository {
     const existingId = this.queueItemIdByProjectDedupKey.get(dedupKey);
     const existing = existingId ? this.queueItems.get(existingId) : null;
     if (existing) {
+      if (TERMINAL_DECISION_QUEUE_STATUSES.has(existing.status)) {
+        const reopened: DecisionWorkQueueItem = {
+          ...existing,
+          queue_type: item.queue_type,
+          stage: item.stage,
+          target_ref: item.target_ref,
+          priority: item.priority,
+          status: 'open',
+          blocking_transition_keys: this.uniqueStrings([
+            ...existing.blocking_transition_keys,
+            ...item.blocking_transition_keys,
+          ]),
+          allowed_handlers: item.allowed_handlers,
+          recommended_actions: item.recommended_actions,
+          created_from_refs: this.mergeCreatedFromRefs(existing, item),
+          policy_version_id: item.policy_version_id,
+          retry_count: item.retry_count,
+          retry_budget: item.retry_budget,
+          cooldown_until: item.cooldown_until ?? null,
+          resolved_at: null,
+          updated_at: item.updated_at,
+        };
+        this.queueItems.set(existing.queue_item_id, structuredClone(reopened));
+        return structuredClone(reopened);
+      }
       return structuredClone(existing);
     }
     this.assertNewId(this.queueItems, item.queue_item_id, 'DecisionWorkQueueItem');
@@ -229,5 +270,24 @@ implements PaperImplementationAiWorkflowHarnessRepository {
 
   private queueDedupKey(implementationProjectId: string, dedupKey: string): string {
     return `${implementationProjectId}:${dedupKey}`;
+  }
+
+  private mergeCreatedFromRefs(
+    existing: DecisionWorkQueueItem,
+    item: DecisionWorkQueueItem,
+  ): DecisionWorkQueueItem['created_from_refs'] {
+    const refs = new Map<string, DecisionWorkQueueItem['created_from_refs'][number]>();
+    for (const ref of [...existing.created_from_refs, ...item.created_from_refs]) {
+      refs.set(this.refKey(ref), ref);
+    }
+    return [...refs.values()];
+  }
+
+  private uniqueStrings(values: string[]): string[] {
+    return [...new Set(values)];
+  }
+
+  private refKey(ref: DecisionWorkQueueItem['created_from_refs'][number]): string {
+    return [ref.ref_type, ref.ref_id, ref.version_id ?? ''].join(':');
   }
 }

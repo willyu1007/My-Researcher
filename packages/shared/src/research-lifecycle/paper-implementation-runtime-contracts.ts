@@ -19,9 +19,19 @@ import {
   type PaperImplementationWorkOrderRunType,
 } from './paper-implementation-workorder-contracts.js';
 import {
+  PAPER_IMPLEMENTATION_BASELINE_GAP_STATUSES,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PROBE_KINDS,
   PAPER_IMPLEMENTATION_VALIDATION_COST_CLASSES,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_TYPES,
+  type PaperImplementationBaselineGapStatus,
+  type PaperImplementationFeasibilityProbeKind,
   type PaperImplementationValidationCostClass,
+  type PaperImplementationValidationCycleType,
 } from './paper-implementation-validation-contracts.js';
+import {
+  PAPER_IMPLEMENTATION_MOTIVE_FRESHNESS_STATUSES,
+  type PaperImplementationMotiveFreshnessStatus,
+} from './paper-implementation-motive-contracts.js';
 
 export const PAPER_IMPLEMENTATION_RUNTIME_ARTIFACT_ENVELOPE_SCHEMA_VERSION =
   'PaperImplementationRuntimeArtifactEnvelope@v1' as const;
@@ -172,6 +182,38 @@ export const PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROFILE_ID =
   'paper-implementation.experiment-design.work-order-draft.v1' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROFILE_ID =
   'paper-implementation.experiment-critique.plan-critique.v1' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID =
+  'route_architecture.route_candidates' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID =
+  'route_skeptic_review.route_risk_critique' as const;
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID =
+  'validation_cycle_planning.cycle_candidates' as const;
+export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID =
+  'feasibility_planning.probe_plan_candidates' as const;
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID =
+  'cross_board_synthesis.merge_split_reuse_scenarios' as const;
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID =
+  'evidence_board_curation.binding_gap_candidates' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID =
+  'motive_decomposition.draft_assertion_candidates' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID =
+  'motive_evolution.evolution_decision_support' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID =
+  'paper-implementation.route-architecture.route-candidates.v1' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID =
+  'paper-implementation.route-skeptic-review.route-risk-critique.v1' as const;
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID =
+  'paper-implementation.validation-cycle-planning.cycle-candidates.v1' as const;
+export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID =
+  'paper-implementation.feasibility-planning.probe-plan-candidates.v1' as const;
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID =
+  'paper-implementation.cross-board-synthesis.merge-split-reuse-scenarios.v1' as const;
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID =
+  'paper-implementation.evidence-board-curation.binding-gap-candidates.v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID =
+  'paper-implementation.motive-decomposition.draft-assertion-candidates.v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID =
+  'paper-implementation.motive-evolution.evolution-decision-support.v1' as const;
 
 export const PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROMPT_TEMPLATE_ID =
   'paper-implementation-claim-boundary-debate' as const;
@@ -183,9 +225,32 @@ export const PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_PROMPT_TEMPLATE_ID =
   'paper-implementation-experiment-design-work-order-draft' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_PROMPT_TEMPLATE_ID =
   'paper-implementation-experiment-critique-plan-critique' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROMPT_TEMPLATE_ID =
+  'paper-implementation-route-architecture-route-candidates' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROMPT_TEMPLATE_ID =
+  'paper-implementation-route-skeptic-review-route-risk-critique' as const;
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROMPT_TEMPLATE_ID =
+  'paper-implementation-validation-cycle-planning-cycle-candidates' as const;
+export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROMPT_TEMPLATE_ID =
+  'paper-implementation-feasibility-planning-probe-plan-candidates' as const;
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROMPT_TEMPLATE_ID =
+  'paper-implementation-cross-board-synthesis-merge-split-reuse-scenarios' as const;
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROMPT_TEMPLATE_ID =
+  'paper-implementation-evidence-board-curation-binding-gap-candidates' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROMPT_TEMPLATE_ID =
+  'paper-implementation-motive-decomposition-draft-assertion-candidates' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_ID =
+  'paper-implementation-motive-evolution-decision-support' as const;
 export const PAPER_IMPLEMENTATION_P1_REVIEW_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 
 export const PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_REVIEW_ROLE_SLOT_IDS = [
   'claim_boundary_review.boundary_critic',
@@ -215,12 +280,42 @@ export const PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_ROLE_SLOT_ID =
   'experiment_design.work_order_designer' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_ROLE_SLOT_ID =
   'experiment_critique.independent_critic' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID =
+  'route_architecture.route_candidate_designer' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID =
+  'route_skeptic_review.independent_route_critic' as const;
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID =
+  'validation_cycle_planning.cycle_candidate_designer' as const;
+export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID =
+  'feasibility_planning.probe_plan_designer' as const;
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID =
+  'cross_board_synthesis.merge_split_reuse_scenario_designer' as const;
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID =
+  'evidence_board_curation.binding_gap_candidate_curator' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID =
+  'motive_decomposition.draft_assertion_candidate_designer' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID =
+  'motive_evolution.evolution_option_designer' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID =
+  'motive_evolution.evolution_risk_challenger' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_ROLE_SLOT_IDS = [
   PAPER_IMPLEMENTATION_EXPERIMENT_DESIGN_ROLE_SLOT_ID,
   PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_ROLE_SLOT_ID,
 ] as const;
 export type PaperImplementationExperimentPlanningRoleSlotId =
   (typeof PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_ROLE_SLOT_IDS)[number];
+export const PAPER_IMPLEMENTATION_ROUTE_PLANNING_ROLE_SLOT_IDS = [
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID,
+] as const;
+export type PaperImplementationRoutePlanningRoleSlotId =
+  (typeof PAPER_IMPLEMENTATION_ROUTE_PLANNING_ROLE_SLOT_IDS)[number];
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_ROLE_SLOT_IDS = [
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
+] as const;
+export type PaperImplementationMotiveEvolutionRoleSlotId =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_ROLE_SLOT_IDS)[number];
 export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_OUTPUT_SCHEMA_ID =
   'PaperImplementationResultAnalysisRoleArtifact@v1' as const;
 export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_FINAL_OUTPUT_SCHEMA_ID =
@@ -233,6 +328,48 @@ export const PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_FINAL_OUTPUT_SCHEMA_ID =
   'PaperImplementationExperimentPlanningArtifact@v1' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION =
   'RunPaperImplementationExperimentPlanningRuntimeRequest@v1' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_PLANNING_ROLE_OUTPUT_SCHEMA_ID =
+  'PaperImplementationRoutePlanningRoleArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_PLANNING_FINAL_OUTPUT_SCHEMA_ID =
+  'PaperImplementationRoutePlanningArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_ROUTE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION =
+  'RunPaperImplementationRoutePlanningRuntimeRequest@v1' as const;
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_OUTPUT_SCHEMA_ID =
+  'PaperImplementationValidationCyclePlanningRoleArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_FINAL_OUTPUT_SCHEMA_ID =
+  'PaperImplementationValidationCyclePlanningArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION =
+  'RunPaperImplementationValidationCyclePlanningRuntimeRequest@v1' as const;
+export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_OUTPUT_SCHEMA_ID =
+  'PaperImplementationFeasibilityPlanningRoleArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_FINAL_OUTPUT_SCHEMA_ID =
+  'PaperImplementationFeasibilityPlanningArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION =
+  'RunPaperImplementationFeasibilityPlanningRuntimeRequest@v1' as const;
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_OUTPUT_SCHEMA_ID =
+  'PaperImplementationCrossBoardSynthesisRoleArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_FINAL_OUTPUT_SCHEMA_ID =
+  'PaperImplementationCrossBoardSynthesisArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_RUNTIME_RUN_REQUEST_SCHEMA_VERSION =
+  'RunPaperImplementationCrossBoardSynthesisRuntimeRequest@v1' as const;
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_OUTPUT_SCHEMA_ID =
+  'PaperImplementationEvidenceBoardCurationRoleArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_FINAL_OUTPUT_SCHEMA_ID =
+  'PaperImplementationEvidenceBoardCurationArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION =
+  'RunPaperImplementationEvidenceBoardCurationRuntimeRequest@v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_OUTPUT_SCHEMA_ID =
+  'PaperImplementationMotiveDecompositionRoleArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_FINAL_OUTPUT_SCHEMA_ID =
+  'PaperImplementationMotiveDecompositionArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION =
+  'RunPaperImplementationMotiveDecompositionRuntimeRequest@v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_ROLE_OUTPUT_SCHEMA_ID =
+  'PaperImplementationMotiveEvolutionRoleArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_FINAL_OUTPUT_SCHEMA_ID =
+  'PaperImplementationMotiveEvolutionArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION =
+  'RunPaperImplementationMotiveEvolutionRuntimeRequest@v1' as const;
 
 export const PAPER_IMPLEMENTATION_RUNTIME_ADMISSION_STATUSES = [
   'admitted',
@@ -846,6 +983,1351 @@ export interface RunPaperImplementationExperimentPlanningRuntimeRequest {
   >>;
 }
 
+export type PaperImplementationRoutePlanningSlotId =
+  | typeof PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID
+  | typeof PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID;
+
+export const PAPER_IMPLEMENTATION_ROUTE_BASELINE_GAP_STATUSES = [
+  'satisfied',
+  'partial',
+  'missing',
+  'unknown',
+] as const;
+export type PaperImplementationRouteBaselineGapStatus =
+  (typeof PAPER_IMPLEMENTATION_ROUTE_BASELINE_GAP_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS = [
+  'scope_boundary',
+  'compute_budget',
+  'dataset_metric_alignment',
+  'baseline_control',
+  'traceability',
+  'confirmatory_exploratory_separation',
+] as const;
+export type PaperImplementationRouteSkepticRiskDimension =
+  (typeof PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS)[number];
+
+export const PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_DISPOSITIONS = [
+  'proceed',
+  'revise',
+  'park',
+  'abandon',
+] as const;
+export type PaperImplementationRouteSkepticDisposition =
+  (typeof PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_DISPOSITIONS)[number];
+
+export interface PaperImplementationRouteCandidateProposal {
+  candidate_key: string;
+  route_summary: string;
+  expected_information_gain: string;
+  baseline_gap_status: PaperImplementationRouteBaselineGapStatus;
+  cited_source_refs: TopicSelectionFunctionalRef[];
+  trace_refs: TopicSelectionFunctionalRef[];
+  validation_signal_refs: TopicSelectionFunctionalRef[];
+  dataset_refs: TopicSelectionFunctionalRef[];
+  metric_refs: TopicSelectionFunctionalRef[];
+  baseline_refs: TopicSelectionFunctionalRef[];
+  code_refs: TopicSelectionFunctionalRef[];
+  config_refs: TopicSelectionFunctionalRef[];
+  scope_boundary: string;
+  confirmatory_marker: boolean;
+  blocker_codes: string[];
+  warning_codes: string[];
+}
+
+export interface PaperImplementationRouteSkepticFinding {
+  finding_id: string;
+  risk_dimension: PaperImplementationRouteSkepticRiskDimension;
+  severity: 'info' | 'warning' | 'blocking' | 'critical';
+  summary: string;
+  evidence_refs: TopicSelectionFunctionalRef[];
+  affected_candidate_keys: string[];
+  required_revision_refs: TopicSelectionFunctionalRef[];
+  blocks_route_progression: boolean;
+}
+
+export interface PaperImplementationRoutePlanningSourceContextPacket {
+  source_ref: TopicSelectionFunctionalRef;
+  evidence_kind: string;
+  content_summary: string;
+  key_facts: string[];
+}
+
+export interface PaperImplementationRoutePlanningRoleOutput {
+  role_slot_id: PaperImplementationRoutePlanningRoleSlotId;
+  role_status: 'passed' | 'blocked';
+  summary: string;
+  cited_source_refs: TopicSelectionFunctionalRef[];
+  blocker_codes: string[];
+  warning_codes: string[];
+  route_candidate_proposals?: PaperImplementationRouteCandidateProposal[];
+  reviewed_route_proposal_ref?: TopicSelectionFunctionalRef | null;
+  reviewed_route_proposal_hash?: string | null;
+  reviewed_candidate_keys?: string[];
+  checked_dimensions?: PaperImplementationRouteSkepticRiskDimension[];
+  risk_findings?: PaperImplementationRouteSkepticFinding[];
+  recommended_disposition?: PaperImplementationRouteSkepticDisposition | null;
+  no_queue_side_effect?: true;
+}
+
+export interface PaperImplementationRoutePlanningArtifact {
+  status: 'passed' | 'blocked' | 'failed_runtime';
+  slot_id: PaperImplementationRoutePlanningSlotId;
+  workflow_type: 'route_architecture' | 'route_skeptic_review';
+  target_ref: TopicSelectionFunctionalRef;
+  preflight_blockers: string[];
+  role_summary: string | null;
+  role_blocker_codes: string[];
+  role_warning_codes: string[];
+  blockers: string[];
+  warnings: string[];
+  runtime_failure_code: string | null;
+  route_candidate_proposals: PaperImplementationRouteCandidateProposal[];
+  reviewed_route_proposal_ref: TopicSelectionFunctionalRef | null;
+  reviewed_route_proposal_hash: string | null;
+  reviewed_candidate_keys: string[];
+  checked_dimensions: PaperImplementationRouteSkepticRiskDimension[];
+  risk_findings: PaperImplementationRouteSkepticFinding[];
+  recommended_disposition: PaperImplementationRouteSkepticDisposition | null;
+  no_domain_gate_request: true;
+  no_queue_side_effect: true;
+  role_artifact_refs: TopicSelectionFunctionalRef[];
+  role_artifact_hashes: string[];
+  admitted_role_artifact_refs: TopicSelectionFunctionalRef[];
+  admitted_role_artifact_hashes: string[];
+  role_prompt_packet_refs: TopicSelectionFunctionalRef[];
+  role_prompt_packet_hashes: string[];
+  role_token_budget_gate_result_refs: TopicSelectionFunctionalRef[];
+  role_compression_report_refs: TopicSelectionFunctionalRef[];
+  runtime_identity: Record<string, unknown>;
+  cache_identity: Record<string, unknown>;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hash_bundle_hash: string;
+}
+
+export interface RunPaperImplementationRoutePlanningRuntimeRequest {
+  schema_version?: typeof PAPER_IMPLEMENTATION_ROUTE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
+  run_id?: string | null;
+  run_mode: PaperImplementationAgentRunMode;
+  execution_mode: PaperImplementationAgentExecutionMode;
+  model_profile_id?: string | null;
+  model_option_id?: string | null;
+  target_ref: TopicSelectionFunctionalRef;
+  target_version_id?: string | null;
+  input_snapshot_ref: TopicSelectionFunctionalRef;
+  input_snapshot_hash: string;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hashes: string[];
+  source_context_packets?: PaperImplementationRoutePlanningSourceContextPacket[];
+  admitted_route_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  admitted_route_proposal_artifact_hash?: string | null;
+  reviewed_candidate_keys?: string[];
+  secondary_route_candidate_refs?: TopicSelectionFunctionalRef[];
+  preflight_blocker_codes?: string[];
+  mocked_role_outputs?: Partial<Record<
+    PaperImplementationRoutePlanningRoleSlotId,
+    PaperImplementationRoutePlanningRoleOutput
+  >>;
+  codex_role_outputs?: Partial<Record<
+    PaperImplementationRoutePlanningRoleSlotId,
+    PaperImplementationRoutePlanningRoleOutput
+  >>;
+}
+
+export type PaperImplementationValidationCyclePlanningSlotId =
+  typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID;
+export type PaperImplementationValidationCyclePlanningRoleSlotId =
+  typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID;
+
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_INFORMATION_GAIN_LEVELS = [
+  'low',
+  'medium',
+  'high',
+] as const;
+export type PaperImplementationValidationCyclePlanningInformationGainLevel =
+  (typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_INFORMATION_GAIN_LEVELS)[number];
+
+export interface PaperImplementationValidationCyclePlanningSourceContextPacket {
+  source_ref: TopicSelectionFunctionalRef;
+  evidence_kind: string;
+  content_summary: string;
+  key_facts: string[];
+}
+
+export interface PaperImplementationValidationCycleCandidateCriteria {
+  pass_conditions: string[];
+  fail_conditions: string[];
+  inconclusive_conditions: string[];
+  stop_conditions: string[];
+  minimum_artifacts_required: string[];
+}
+
+export interface PaperImplementationValidationCycleCandidateBudgetEnvelope {
+  budget_ref?: TopicSelectionFunctionalRef | null;
+  iteration_budget_ref?: TopicSelectionFunctionalRef | null;
+  retry_budget: number;
+  max_runtime?: string | null;
+  max_compute?: string | null;
+  max_human_review_count?: number | null;
+}
+
+export interface PaperImplementationValidationCycleCandidateProposal {
+  candidate_key: string;
+  reviewed_route_candidate_key: string;
+  target_ref: TopicSelectionFunctionalRef;
+  target_frame_summary: string;
+  cycle_type: PaperImplementationValidationCycleType;
+  trigger_refs: TopicSelectionFunctionalRef[];
+  validation_question: string;
+  assumptions_under_test: string[];
+  assertion_refs_under_test: TopicSelectionFunctionalRef[];
+  decision_if_pass: string;
+  decision_if_fail: string;
+  decision_if_inconclusive: string;
+  expected_information_gain: PaperImplementationValidationCyclePlanningInformationGainLevel;
+  criteria: PaperImplementationValidationCycleCandidateCriteria;
+  budget_envelope: PaperImplementationValidationCycleCandidateBudgetEnvelope;
+  included_context_refs: TopicSelectionFunctionalRef[];
+  trace_refs: TopicSelectionFunctionalRef[];
+  confirmatory_marker: boolean;
+  blocker_codes: string[];
+  warning_codes: string[];
+}
+
+export interface PaperImplementationValidationCyclePlanningRoleOutput {
+  role_slot_id: PaperImplementationValidationCyclePlanningRoleSlotId;
+  role_status: 'passed' | 'blocked';
+  summary: string;
+  cited_source_refs: TopicSelectionFunctionalRef[];
+  blocker_codes: string[];
+  warning_codes: string[];
+  reviewed_route_proposal_ref?: TopicSelectionFunctionalRef | null;
+  reviewed_route_proposal_hash?: string | null;
+  reviewed_route_skeptic_artifact_ref?: TopicSelectionFunctionalRef | null;
+  reviewed_route_skeptic_artifact_hash?: string | null;
+  reviewed_candidate_keys?: string[];
+  cycle_candidate_proposals?: PaperImplementationValidationCycleCandidateProposal[];
+  no_domain_gate_request?: true;
+  no_queue_side_effect?: true;
+  no_validation_cycle_side_effect?: true;
+}
+
+export interface PaperImplementationValidationCyclePlanningArtifact {
+  status: 'passed' | 'blocked' | 'failed_runtime';
+  slot_id: PaperImplementationValidationCyclePlanningSlotId;
+  workflow_type: 'validation_cycle_planning';
+  target_ref: TopicSelectionFunctionalRef;
+  preflight_blockers: string[];
+  role_summary: string | null;
+  role_blocker_codes: string[];
+  role_warning_codes: string[];
+  blockers: string[];
+  warnings: string[];
+  runtime_failure_code: string | null;
+  reviewed_route_proposal_ref: TopicSelectionFunctionalRef | null;
+  reviewed_route_proposal_hash: string | null;
+  reviewed_route_skeptic_artifact_ref: TopicSelectionFunctionalRef | null;
+  reviewed_route_skeptic_artifact_hash: string | null;
+  reviewed_candidate_keys: string[];
+  cycle_candidate_proposals: PaperImplementationValidationCycleCandidateProposal[];
+  no_domain_gate_request: true;
+  no_queue_side_effect: true;
+  no_validation_cycle_side_effect: true;
+  role_artifact_refs: TopicSelectionFunctionalRef[];
+  role_artifact_hashes: string[];
+  admitted_role_artifact_refs: TopicSelectionFunctionalRef[];
+  admitted_role_artifact_hashes: string[];
+  role_prompt_packet_refs: TopicSelectionFunctionalRef[];
+  role_prompt_packet_hashes: string[];
+  role_token_budget_gate_result_refs: TopicSelectionFunctionalRef[];
+  role_compression_report_refs: TopicSelectionFunctionalRef[];
+  runtime_identity: Record<string, unknown>;
+  cache_identity: Record<string, unknown>;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hash_bundle_hash: string;
+}
+
+export interface RunPaperImplementationValidationCyclePlanningRuntimeRequest {
+  schema_version?: typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
+  run_id?: string | null;
+  run_mode: PaperImplementationAgentRunMode;
+  execution_mode: PaperImplementationAgentExecutionMode;
+  model_profile_id?: string | null;
+  model_option_id?: string | null;
+  target_ref: TopicSelectionFunctionalRef;
+  target_version_id?: string | null;
+  input_snapshot_ref: TopicSelectionFunctionalRef;
+  input_snapshot_hash: string;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hashes: string[];
+  source_context_packets?: PaperImplementationValidationCyclePlanningSourceContextPacket[];
+  admitted_route_proposal_artifact_ref: TopicSelectionFunctionalRef;
+  admitted_route_proposal_artifact_hash: string;
+  admitted_route_skeptic_artifact_ref: TopicSelectionFunctionalRef;
+  admitted_route_skeptic_artifact_hash: string;
+  reviewed_candidate_keys: string[];
+  secondary_route_candidate_refs?: TopicSelectionFunctionalRef[];
+  preflight_blocker_codes?: string[];
+  mocked_role_outputs?: Partial<Record<
+    PaperImplementationValidationCyclePlanningRoleSlotId,
+    PaperImplementationValidationCyclePlanningRoleOutput
+  >>;
+  codex_role_outputs?: Partial<Record<
+    PaperImplementationValidationCyclePlanningRoleSlotId,
+    PaperImplementationValidationCyclePlanningRoleOutput
+  >>;
+}
+
+export type PaperImplementationFeasibilityPlanningSlotId =
+  typeof PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID;
+export type PaperImplementationFeasibilityPlanningRoleSlotId =
+  typeof PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID;
+
+export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_INFORMATION_GAIN_LEVELS = [
+  'low',
+  'medium',
+  'high',
+] as const;
+export type PaperImplementationFeasibilityPlanningInformationGainLevel =
+  (typeof PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_INFORMATION_GAIN_LEVELS)[number];
+
+export interface PaperImplementationFeasibilityPlanningSourceContextPacket {
+  source_ref: TopicSelectionFunctionalRef;
+  evidence_kind: string;
+  content_summary: string;
+  key_facts: string[];
+}
+
+export interface PaperImplementationFeasibilityBudgetEnvelope {
+  budget_ref: TopicSelectionFunctionalRef;
+  iteration_budget_ref?: TopicSelectionFunctionalRef | null;
+  retry_budget: number;
+  estimated_cost_class: PaperImplementationValidationCostClass;
+  max_runtime?: string | null;
+  max_compute?: string | null;
+  max_human_review_count?: number | null;
+}
+
+export interface PaperImplementationFeasibilityProbePlanCandidateProposal {
+  candidate_key: string;
+  reviewed_cycle_candidate_key: string;
+  reviewed_route_candidate_key: string;
+  probe_kind: PaperImplementationFeasibilityProbeKind;
+  probe_question: string;
+  plan_summary: string;
+  expected_information_gain: PaperImplementationFeasibilityPlanningInformationGainLevel;
+  baseline_gap_status: PaperImplementationBaselineGapStatus;
+  primary_metric_refs: TopicSelectionFunctionalRef[];
+  dataset_version_refs: TopicSelectionFunctionalRef[];
+  baseline_version_refs: TopicSelectionFunctionalRef[];
+  code_version_refs: TopicSelectionFunctionalRef[];
+  config_refs: TopicSelectionFunctionalRef[];
+  budget_envelope: PaperImplementationFeasibilityBudgetEnvelope;
+  stop_condition_refs: TopicSelectionFunctionalRef[];
+  trace_refs: TopicSelectionFunctionalRef[];
+  confirmatory_marker: boolean;
+  blocker_codes: string[];
+  warning_codes: string[];
+}
+
+export interface PaperImplementationFeasibilityPlanningRoleOutput {
+  role_slot_id: PaperImplementationFeasibilityPlanningRoleSlotId;
+  role_status: 'passed' | 'blocked';
+  summary: string;
+  cited_source_refs: TopicSelectionFunctionalRef[];
+  blocker_codes: string[];
+  warning_codes: string[];
+  reviewed_validation_cycle_artifact_ref?: TopicSelectionFunctionalRef | null;
+  reviewed_validation_cycle_artifact_hash?: string | null;
+  reviewed_route_proposal_ref?: TopicSelectionFunctionalRef | null;
+  reviewed_route_proposal_hash?: string | null;
+  reviewed_route_skeptic_artifact_ref?: TopicSelectionFunctionalRef | null;
+  reviewed_route_skeptic_artifact_hash?: string | null;
+  reviewed_cycle_candidate_keys?: string[];
+  reviewed_route_candidate_keys?: string[];
+  probe_plan_candidate_proposals?: PaperImplementationFeasibilityProbePlanCandidateProposal[];
+  no_domain_gate_request?: true;
+  no_queue_side_effect?: true;
+  no_feasibility_probe_side_effect?: true;
+  no_experiment_plan_light_side_effect?: true;
+  no_validation_cycle_side_effect?: true;
+}
+
+export interface PaperImplementationFeasibilityPlanningArtifact {
+  status: 'passed' | 'blocked' | 'failed_runtime';
+  slot_id: PaperImplementationFeasibilityPlanningSlotId;
+  workflow_type: 'feasibility_planning';
+  target_ref: TopicSelectionFunctionalRef;
+  preflight_blockers: string[];
+  role_summary: string | null;
+  role_blocker_codes: string[];
+  role_warning_codes: string[];
+  blockers: string[];
+  warnings: string[];
+  runtime_failure_code: string | null;
+  reviewed_validation_cycle_artifact_ref: TopicSelectionFunctionalRef | null;
+  reviewed_validation_cycle_artifact_hash: string | null;
+  reviewed_route_proposal_ref: TopicSelectionFunctionalRef | null;
+  reviewed_route_proposal_hash: string | null;
+  reviewed_route_skeptic_artifact_ref: TopicSelectionFunctionalRef | null;
+  reviewed_route_skeptic_artifact_hash: string | null;
+  reviewed_cycle_candidate_keys: string[];
+  reviewed_route_candidate_keys: string[];
+  probe_plan_candidate_proposals: PaperImplementationFeasibilityProbePlanCandidateProposal[];
+  no_domain_gate_request: true;
+  no_queue_side_effect: true;
+  no_feasibility_probe_side_effect: true;
+  no_experiment_plan_light_side_effect: true;
+  no_validation_cycle_side_effect: true;
+  role_artifact_refs: TopicSelectionFunctionalRef[];
+  role_artifact_hashes: string[];
+  admitted_role_artifact_refs: TopicSelectionFunctionalRef[];
+  admitted_role_artifact_hashes: string[];
+  role_prompt_packet_refs: TopicSelectionFunctionalRef[];
+  role_prompt_packet_hashes: string[];
+  role_token_budget_gate_result_refs: TopicSelectionFunctionalRef[];
+  role_compression_report_refs: TopicSelectionFunctionalRef[];
+  runtime_identity: Record<string, unknown>;
+  cache_identity: Record<string, unknown>;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hash_bundle_hash: string;
+}
+
+export interface RunPaperImplementationFeasibilityPlanningRuntimeRequest {
+  schema_version?: typeof PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
+  run_id?: string | null;
+  run_mode: PaperImplementationAgentRunMode;
+  execution_mode: PaperImplementationAgentExecutionMode;
+  model_profile_id?: string | null;
+  model_option_id?: string | null;
+  target_ref: TopicSelectionFunctionalRef;
+  target_version_id?: string | null;
+  input_snapshot_ref: TopicSelectionFunctionalRef;
+  input_snapshot_hash: string;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hashes: string[];
+  source_context_packets?: PaperImplementationFeasibilityPlanningSourceContextPacket[];
+  admitted_validation_cycle_artifact_ref: TopicSelectionFunctionalRef;
+  admitted_validation_cycle_artifact_hash: string;
+  admitted_route_proposal_artifact_ref: TopicSelectionFunctionalRef;
+  admitted_route_proposal_artifact_hash: string;
+  admitted_route_skeptic_artifact_ref: TopicSelectionFunctionalRef;
+  admitted_route_skeptic_artifact_hash: string;
+  reviewed_cycle_candidate_keys: string[];
+  reviewed_route_candidate_keys: string[];
+  secondary_route_candidate_refs?: TopicSelectionFunctionalRef[];
+  secondary_validation_cycle_refs?: TopicSelectionFunctionalRef[];
+  secondary_feasibility_probe_refs?: TopicSelectionFunctionalRef[];
+  secondary_experiment_plan_light_refs?: TopicSelectionFunctionalRef[];
+  preflight_blocker_codes?: string[];
+  mocked_role_outputs?: Partial<Record<
+    PaperImplementationFeasibilityPlanningRoleSlotId,
+    PaperImplementationFeasibilityPlanningRoleOutput
+  >>;
+  codex_role_outputs?: Partial<Record<
+    PaperImplementationFeasibilityPlanningRoleSlotId,
+    PaperImplementationFeasibilityPlanningRoleOutput
+  >>;
+}
+
+export type PaperImplementationCrossBoardSynthesisSlotId =
+  typeof PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID;
+export type PaperImplementationCrossBoardSynthesisRoleSlotId =
+  typeof PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID;
+
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SCENARIO_KINDS = [
+  'merge',
+  'split',
+  'reuse',
+  'park',
+  'reject',
+] as const;
+export type PaperImplementationCrossBoardScenarioKind =
+  (typeof PAPER_IMPLEMENTATION_CROSS_BOARD_SCENARIO_KINDS)[number];
+
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_SCENARIO_DISPOSITIONS = [
+  'viable_candidate',
+  'blocked_missing_transfer_binding',
+  'blocked_conflict_unresolved',
+  'blocked_stale_or_untraced_context',
+  'needs_domain_review',
+] as const;
+export type PaperImplementationCrossBoardScenarioDisposition =
+  (typeof PAPER_IMPLEMENTATION_CROSS_BOARD_SCENARIO_DISPOSITIONS)[number];
+
+export const PAPER_IMPLEMENTATION_CROSS_BOARD_RECOMMENDED_NEXT_GATES = [
+  'cross_board_review',
+  'evidence_transfer_binding_review',
+  'motive_evolution_review',
+  'portfolio_decision_review',
+  'evidence_board_curation',
+  'trace_repair',
+  'none',
+] as const;
+export type PaperImplementationCrossBoardRecommendedNextGate =
+  (typeof PAPER_IMPLEMENTATION_CROSS_BOARD_RECOMMENDED_NEXT_GATES)[number];
+
+export interface PaperImplementationCrossBoardSourceContextPacket {
+  source_ref: TopicSelectionFunctionalRef;
+  evidence_kind: string;
+  content_summary: string;
+  key_facts: string[];
+}
+
+export interface PaperImplementationCrossBoardAnchor {
+  board_version_ref: TopicSelectionFunctionalRef;
+  board_version_hash: string;
+  motive_ref: TopicSelectionFunctionalRef;
+  core_motive_version_ref: TopicSelectionFunctionalRef;
+  trace_manifest_ref: TopicSelectionFunctionalRef;
+  trace_manifest_hash: string;
+  evidence_binding_refs: TopicSelectionFunctionalRef[];
+  source_locator_refs: TopicSelectionFunctionalRef[];
+  conflict_refs: TopicSelectionFunctionalRef[];
+  challenge_refs: TopicSelectionFunctionalRef[];
+  freshness_status: PaperImplementationMotiveFreshnessStatus;
+}
+
+export interface PaperImplementationCrossBoardReusePolicy {
+  require_transfer_binding_for_viable_reuse: boolean;
+  allow_blocked_reuse_without_transfer_binding: boolean;
+}
+
+export interface PaperImplementationCrossBoardScenarioProposal {
+  scenario_key: string;
+  scenario_kind: PaperImplementationCrossBoardScenarioKind;
+  disposition: PaperImplementationCrossBoardScenarioDisposition;
+  source_board_version_refs: TopicSelectionFunctionalRef[];
+  source_board_version_hashes: string[];
+  target_motive_refs: TopicSelectionFunctionalRef[];
+  evidence_transfer_binding_refs: TopicSelectionFunctionalRef[];
+  conflict_refs: TopicSelectionFunctionalRef[];
+  challenge_refs: TopicSelectionFunctionalRef[];
+  freshness_blockers: string[];
+  source_locator_refs: TopicSelectionFunctionalRef[];
+  expected_benefit: string;
+  risk_codes: string[];
+  blocker_codes: string[];
+  warning_codes: string[];
+  recommended_next_gate: PaperImplementationCrossBoardRecommendedNextGate;
+}
+
+export interface PaperImplementationCrossBoardSynthesisRoleOutput {
+  role_slot_id: PaperImplementationCrossBoardSynthesisRoleSlotId;
+  role_status: 'passed' | 'blocked';
+  summary: string;
+  cited_source_refs: TopicSelectionFunctionalRef[];
+  reviewed_board_version_refs?: TopicSelectionFunctionalRef[];
+  reviewed_conflict_refs?: TopicSelectionFunctionalRef[];
+  reviewed_challenge_refs?: TopicSelectionFunctionalRef[];
+  reviewed_evidence_transfer_binding_refs?: TopicSelectionFunctionalRef[];
+  scenario_proposals?: PaperImplementationCrossBoardScenarioProposal[];
+  blocker_codes: string[];
+  warning_codes: string[];
+  no_domain_gate_request?: true;
+  no_queue_side_effect?: true;
+  no_cross_board_review_side_effect?: true;
+  no_evidence_transfer_binding_side_effect?: true;
+  no_portfolio_mutation_side_effect?: true;
+  no_motive_evolution_side_effect?: true;
+}
+
+export interface PaperImplementationCrossBoardSynthesisArtifact {
+  status: 'passed' | 'blocked' | 'failed_runtime';
+  slot_id: PaperImplementationCrossBoardSynthesisSlotId;
+  workflow_type: 'cross_board_synthesis';
+  target_ref: TopicSelectionFunctionalRef;
+  preflight_blockers: string[];
+  role_summary: string | null;
+  role_blocker_codes: string[];
+  role_warning_codes: string[];
+  blockers: string[];
+  warnings: string[];
+  runtime_failure_code: string | null;
+  board_anchors: PaperImplementationCrossBoardAnchor[];
+  reviewed_board_version_refs: TopicSelectionFunctionalRef[];
+  reviewed_conflict_refs: TopicSelectionFunctionalRef[];
+  reviewed_challenge_refs: TopicSelectionFunctionalRef[];
+  reviewed_evidence_transfer_binding_refs: TopicSelectionFunctionalRef[];
+  scenario_proposals: PaperImplementationCrossBoardScenarioProposal[];
+  no_domain_gate_request: true;
+  no_queue_side_effect: true;
+  no_cross_board_review_side_effect: true;
+  no_evidence_transfer_binding_side_effect: true;
+  no_portfolio_mutation_side_effect: true;
+  no_motive_evolution_side_effect: true;
+  role_artifact_refs: TopicSelectionFunctionalRef[];
+  role_artifact_hashes: string[];
+  admitted_role_artifact_refs: TopicSelectionFunctionalRef[];
+  admitted_role_artifact_hashes: string[];
+  role_prompt_packet_refs: TopicSelectionFunctionalRef[];
+  role_prompt_packet_hashes: string[];
+  role_token_budget_gate_result_refs: TopicSelectionFunctionalRef[];
+  role_compression_report_refs: TopicSelectionFunctionalRef[];
+  runtime_identity: Record<string, unknown>;
+  cache_identity: Record<string, unknown>;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hash_bundle_hash: string;
+}
+
+export interface RunPaperImplementationCrossBoardSynthesisRuntimeRequest {
+  schema_version?: typeof PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
+  run_id?: string | null;
+  run_mode: PaperImplementationAgentRunMode;
+  execution_mode: PaperImplementationAgentExecutionMode;
+  model_profile_id?: string | null;
+  model_option_id?: string | null;
+  target_ref: TopicSelectionFunctionalRef;
+  target_version_id?: string | null;
+  input_snapshot_ref: TopicSelectionFunctionalRef;
+  input_snapshot_hash: string;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hashes: string[];
+  source_context_packets?: PaperImplementationCrossBoardSourceContextPacket[];
+  board_anchors: PaperImplementationCrossBoardAnchor[];
+  reviewed_board_version_refs: TopicSelectionFunctionalRef[];
+  reviewed_conflict_refs: TopicSelectionFunctionalRef[];
+  reviewed_challenge_refs: TopicSelectionFunctionalRef[];
+  evidence_transfer_binding_refs: TopicSelectionFunctionalRef[];
+  reuse_policy: PaperImplementationCrossBoardReusePolicy;
+  secondary_cross_board_review_refs?: TopicSelectionFunctionalRef[];
+  secondary_evidence_transfer_binding_refs?: TopicSelectionFunctionalRef[];
+  secondary_motive_assertion_refs?: TopicSelectionFunctionalRef[];
+  secondary_evidence_binding_refs?: TopicSelectionFunctionalRef[];
+  secondary_route_refs?: TopicSelectionFunctionalRef[];
+  secondary_experiment_refs?: TopicSelectionFunctionalRef[];
+  preflight_blocker_codes?: string[];
+  mocked_role_outputs?: Partial<Record<
+    PaperImplementationCrossBoardSynthesisRoleSlotId,
+    PaperImplementationCrossBoardSynthesisRoleOutput
+  >>;
+  codex_role_outputs?: Partial<Record<
+    PaperImplementationCrossBoardSynthesisRoleSlotId,
+    PaperImplementationCrossBoardSynthesisRoleOutput
+  >>;
+}
+
+export type PaperImplementationEvidenceBoardCurationSlotId =
+  typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID;
+export type PaperImplementationEvidenceBoardCurationRoleSlotId =
+  typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID;
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_MODES = [
+  'curate_existing_board',
+  'seed_initial_board_candidates',
+] as const;
+export type PaperImplementationEvidenceBoardCurationMode =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_MODES)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CANDIDATE_ROLES = [
+  'supporting_evidence',
+  'contradicting_evidence',
+  'scope_context',
+  'method_context',
+  'dataset_context',
+  'baseline_context',
+  'limitation_context',
+] as const;
+export type PaperImplementationEvidenceBoardCandidateRole =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CANDIDATE_ROLES)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CANDIDATE_SCOPES = [
+  'assertion_local',
+  'motive_level',
+  'board_level',
+] as const;
+export type PaperImplementationEvidenceBoardCandidateScope =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CANDIDATE_SCOPES)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CANDIDATE_STRENGTHS = [
+  'strong',
+  'moderate',
+  'weak',
+  'blocked',
+] as const;
+export type PaperImplementationEvidenceBoardCandidateStrength =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CANDIDATE_STRENGTHS)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_SUPPORT_STATES = [
+  'viable_binding',
+  'blocked_missing_locator',
+  'blocked_citation_unreviewed',
+  'blocked_stale',
+  'blocked_duplicate_existing',
+  'gap_only',
+] as const;
+export type PaperImplementationEvidenceBoardSupportState =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_SUPPORT_STATES)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CHALLENGE_STATUSES = [
+  'passed',
+  'downgrade_to_gap',
+  'blocked',
+] as const;
+export type PaperImplementationEvidenceBoardChallengeStatus =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CHALLENGE_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_FRESHNESS_STATUSES = [
+  'fresh',
+  'stale',
+  'unreviewed',
+  'unknown',
+] as const;
+export type PaperImplementationEvidenceBoardFreshnessStatus =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_FRESHNESS_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_GAP_KINDS = [
+  'missing_source_locator',
+  'missing_citation_candidate',
+  'stale_evidence',
+  'duplicate_existing_binding',
+  'scope_or_trace_gap',
+  'unsupported_assertion',
+  'downstream_review_required',
+] as const;
+export type PaperImplementationEvidenceBoardGapKind =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_GAP_KINDS)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_RECOMMENDED_NEXT_GATES = [
+  'motive_evidence_board_review',
+  'citation_candidate_review',
+  'trace_repair',
+  'stale_evidence_recheck',
+  'evidence_transfer_binding_review',
+  'none',
+] as const;
+export type PaperImplementationEvidenceBoardRecommendedNextGate =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_RECOMMENDED_NEXT_GATES)[number];
+
+export interface PaperImplementationEvidenceBoardRuntimeControl {
+  terminal_code: 'preflight_blocked' | 'runtime_retry_exhausted' | 'admission_rejected' | 'admitted_blocked';
+  reason_kind: string;
+  details: Record<string, unknown>;
+}
+
+export interface PaperImplementationEvidenceBoardSourceContextPacket {
+  packet_ref: TopicSelectionFunctionalRef;
+  packet_hash: string;
+  source_ref: TopicSelectionFunctionalRef;
+  source_hash: string;
+  evidence_kind: string;
+  content_summary: string;
+  key_facts: string[];
+  covered_evidence_refs: TopicSelectionFunctionalRef[];
+  covered_source_locator_refs: TopicSelectionFunctionalRef[];
+  covered_citation_candidate_refs: TopicSelectionFunctionalRef[];
+  covered_trace_manifest_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface PaperImplementationEvidenceBoardFreshnessPolicy {
+  stale_evidence_requires_gap_candidate: boolean;
+  unreviewed_citation_requires_gap_candidate: boolean;
+  duplicate_existing_binding_requires_gap_candidate: boolean;
+}
+
+export interface PaperImplementationEvidenceBoardChallengeCheck {
+  memo_or_summary_rejected: boolean;
+  locator_quality: 'verified' | 'missing' | 'weak';
+  citation_status: 'reviewed' | 'unreviewed' | 'missing';
+  scope_match_status: 'matched' | 'partial' | 'mismatch';
+  freshness_status: PaperImplementationEvidenceBoardFreshnessStatus;
+  should_downgrade_to_gap: boolean;
+  downgrade_reason_codes: string[];
+  blocking_reason_codes: string[];
+}
+
+export interface PaperImplementationEvidenceBoardBindingCandidateProposal {
+  candidate_key: string;
+  target_assertion_ref: TopicSelectionFunctionalRef;
+  evidence_ref: TopicSelectionFunctionalRef;
+  source_locator_refs: TopicSelectionFunctionalRef[];
+  citation_candidate_refs: TopicSelectionFunctionalRef[];
+  proposed_role: PaperImplementationEvidenceBoardCandidateRole;
+  proposed_scope: PaperImplementationEvidenceBoardCandidateScope;
+  proposed_strength: PaperImplementationEvidenceBoardCandidateStrength;
+  support_state: PaperImplementationEvidenceBoardSupportState;
+  challenge_status: PaperImplementationEvidenceBoardChallengeStatus;
+  freshness_status: PaperImplementationEvidenceBoardFreshnessStatus;
+  interpretation: string;
+  challenge_check: PaperImplementationEvidenceBoardChallengeCheck;
+  blocker_codes: string[];
+  warning_codes: string[];
+  recommended_next_gate: PaperImplementationEvidenceBoardRecommendedNextGate;
+}
+
+export interface PaperImplementationEvidenceBoardGapCandidateProposal {
+  gap_key: string;
+  target_assertion_ref: TopicSelectionFunctionalRef;
+  gap_kind: PaperImplementationEvidenceBoardGapKind;
+  missing_evidence_need: string;
+  source_locator_blockers: string[];
+  citation_blockers: string[];
+  freshness_blockers: string[];
+  recommended_next_gate: PaperImplementationEvidenceBoardRecommendedNextGate;
+  blocker_codes: string[];
+  warning_codes: string[];
+}
+
+export interface PaperImplementationEvidenceBoardCurationRoleOutput {
+  role_slot_id: PaperImplementationEvidenceBoardCurationRoleSlotId;
+  role_status: 'passed' | 'blocked';
+  summary: string;
+  cited_source_refs: TopicSelectionFunctionalRef[];
+  reviewed_assertion_refs?: TopicSelectionFunctionalRef[];
+  reviewed_source_locator_refs?: TopicSelectionFunctionalRef[];
+  reviewed_citation_candidate_refs?: TopicSelectionFunctionalRef[];
+  reviewed_evidence_refs?: TopicSelectionFunctionalRef[];
+  reviewed_existing_evidence_binding_refs?: TopicSelectionFunctionalRef[];
+  binding_candidate_proposals?: PaperImplementationEvidenceBoardBindingCandidateProposal[];
+  gap_candidate_proposals?: PaperImplementationEvidenceBoardGapCandidateProposal[];
+  blocker_codes: string[];
+  warning_codes: string[];
+  no_domain_gate_request?: true;
+  no_queue_side_effect?: true;
+  no_board_write_side_effect?: true;
+  no_evidence_binding_side_effect?: true;
+  no_evidence_transfer_binding_side_effect?: true;
+  no_citation_candidate_side_effect?: true;
+  no_trace_repair_queue_side_effect?: true;
+}
+
+export interface PaperImplementationEvidenceBoardCurationArtifact {
+  status: 'passed' | 'blocked' | 'failed_runtime';
+  slot_id: PaperImplementationEvidenceBoardCurationSlotId;
+  workflow_type: 'evidence_board_curation';
+  curation_mode: PaperImplementationEvidenceBoardCurationMode;
+  target_ref: TopicSelectionFunctionalRef;
+  target_motive_ref: TopicSelectionFunctionalRef;
+  target_core_motive_version_ref: TopicSelectionFunctionalRef;
+  target_board_ref: TopicSelectionFunctionalRef | null;
+  target_board_hash: string | null;
+  target_assertion_refs: TopicSelectionFunctionalRef[];
+  preflight_blockers: string[];
+  role_summary: string | null;
+  role_blocker_codes: string[];
+  role_warning_codes: string[];
+  blockers: string[];
+  warnings: string[];
+  runtime_failure_code: string | null;
+  runtime_control: PaperImplementationEvidenceBoardRuntimeControl | null;
+  reviewed_assertion_refs: TopicSelectionFunctionalRef[];
+  reviewed_source_locator_refs: TopicSelectionFunctionalRef[];
+  reviewed_citation_candidate_refs: TopicSelectionFunctionalRef[];
+  reviewed_evidence_refs: TopicSelectionFunctionalRef[];
+  reviewed_existing_evidence_binding_refs: TopicSelectionFunctionalRef[];
+  binding_candidate_proposals: PaperImplementationEvidenceBoardBindingCandidateProposal[];
+  gap_candidate_proposals: PaperImplementationEvidenceBoardGapCandidateProposal[];
+  no_domain_gate_request: true;
+  no_queue_side_effect: true;
+  no_board_write_side_effect: true;
+  no_evidence_binding_side_effect: true;
+  no_evidence_transfer_binding_side_effect: true;
+  no_citation_candidate_side_effect: true;
+  no_trace_repair_queue_side_effect: true;
+  role_artifact_refs: TopicSelectionFunctionalRef[];
+  role_artifact_hashes: string[];
+  admitted_role_artifact_refs: TopicSelectionFunctionalRef[];
+  admitted_role_artifact_hashes: string[];
+  role_prompt_packet_refs: TopicSelectionFunctionalRef[];
+  role_prompt_packet_hashes: string[];
+  role_token_budget_gate_result_refs: TopicSelectionFunctionalRef[];
+  role_compression_report_refs: TopicSelectionFunctionalRef[];
+  runtime_identity: Record<string, unknown>;
+  cache_identity: Record<string, unknown>;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hash_bundle_hash: string;
+}
+
+export interface RunPaperImplementationEvidenceBoardCurationRuntimeRequest {
+  schema_version?: typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
+  run_id?: string | null;
+  run_mode: PaperImplementationAgentRunMode;
+  execution_mode: PaperImplementationAgentExecutionMode;
+  model_profile_id?: string | null;
+  model_option_id?: string | null;
+  curation_mode: PaperImplementationEvidenceBoardCurationMode;
+  target_ref: TopicSelectionFunctionalRef;
+  target_version_id?: string | null;
+  target_motive_ref: TopicSelectionFunctionalRef;
+  target_core_motive_version_ref: TopicSelectionFunctionalRef;
+  target_board_ref?: TopicSelectionFunctionalRef | null;
+  target_board_hash?: string | null;
+  target_assertion_refs: TopicSelectionFunctionalRef[];
+  input_snapshot_ref: TopicSelectionFunctionalRef;
+  input_snapshot_hash: string;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hashes: string[];
+  source_context_packets?: PaperImplementationEvidenceBoardSourceContextPacket[];
+  trace_manifest_refs: TopicSelectionFunctionalRef[];
+  trace_manifest_hashes: string[];
+  source_locator_refs: TopicSelectionFunctionalRef[];
+  citation_candidate_refs: TopicSelectionFunctionalRef[];
+  reviewed_citation_candidate_refs: TopicSelectionFunctionalRef[];
+  evidence_refs: TopicSelectionFunctionalRef[];
+  existing_evidence_binding_refs: TopicSelectionFunctionalRef[];
+  existing_bound_evidence_refs: TopicSelectionFunctionalRef[];
+  accepted_risk_refs?: TopicSelectionFunctionalRef[];
+  freshness_policy: PaperImplementationEvidenceBoardFreshnessPolicy;
+  secondary_evidence_transfer_binding_refs?: TopicSelectionFunctionalRef[];
+  secondary_cross_board_review_refs?: TopicSelectionFunctionalRef[];
+  secondary_trace_repair_queue_refs?: TopicSelectionFunctionalRef[];
+  preflight_blocker_codes?: string[];
+  mocked_role_outputs?: Partial<Record<
+    PaperImplementationEvidenceBoardCurationRoleSlotId,
+    PaperImplementationEvidenceBoardCurationRoleOutput
+  >>;
+  codex_role_outputs?: Partial<Record<
+    PaperImplementationEvidenceBoardCurationRoleSlotId,
+    PaperImplementationEvidenceBoardCurationRoleOutput
+  >>;
+}
+
+export type PaperImplementationMotiveDecompositionSlotId =
+  typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID;
+export type PaperImplementationMotiveDecompositionRoleSlotId =
+  typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID;
+
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_MODES = [
+  'decompose_existing_assertions',
+] as const;
+export type PaperImplementationMotiveDecompositionMode =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_MODES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RESULT_STATUSES = [
+  'candidates_proposed',
+  'no_decomposition_needed',
+  'blocked',
+] as const;
+export type PaperImplementationMotiveDecompositionResultStatus =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RESULT_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_CANDIDATE_KINDS = [
+  'split_child',
+  'scope_clarification',
+  'support_obligation',
+] as const;
+export type PaperImplementationMotiveDecompositionCandidateKind =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_CANDIDATE_KINDS)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_COMPOUNDNESS_STATUSES = [
+  'single_obligation',
+  'multiple_obligations',
+  'unclear',
+] as const;
+export type PaperImplementationMotiveDecompositionCompoundnessStatus =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_COMPOUNDNESS_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SCOPE_CHANGE_STATUSES = [
+  'clarification',
+  'split',
+  'merge_like_change',
+  'new_claim_risk',
+] as const;
+export type PaperImplementationMotiveDecompositionScopeChangeStatus =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SCOPE_CHANGE_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_EVIDENCE_COVERAGE_STATUSES = [
+  'full',
+  'partial',
+  'missing',
+] as const;
+export type PaperImplementationMotiveDecompositionEvidenceCoverageStatus =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_EVIDENCE_COVERAGE_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_TRACE_ALIGNMENT_STATUSES = [
+  'aligned',
+  'partial',
+  'drift',
+] as const;
+export type PaperImplementationMotiveDecompositionTraceAlignmentStatus =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_TRACE_ALIGNMENT_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RECOMMENDED_NEXT_GATES = [
+  'motive_assertion_review',
+  'motive_evolution_review',
+  'evidence_board_curation',
+  'trace_repair',
+  'human_confirmation',
+  'none',
+] as const;
+export type PaperImplementationMotiveDecompositionRecommendedNextGate =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RECOMMENDED_NEXT_GATES)[number];
+
+export interface PaperImplementationMotiveDecompositionAssertionContextPacket {
+  packet_ref: TopicSelectionFunctionalRef;
+  packet_hash: string;
+  assertion_ref: TopicSelectionFunctionalRef;
+  assertion_hash: string;
+  assertion_text: string;
+  scope_boundary_summary: string;
+  covered_evidence_refs: TopicSelectionFunctionalRef[];
+  covered_trace_manifest_refs: TopicSelectionFunctionalRef[];
+  covered_source_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface PaperImplementationMotiveDecompositionCheck {
+  compoundness_status: PaperImplementationMotiveDecompositionCompoundnessStatus;
+  scope_change_status: PaperImplementationMotiveDecompositionScopeChangeStatus;
+  evidence_coverage_status: PaperImplementationMotiveDecompositionEvidenceCoverageStatus;
+  trace_alignment_status: PaperImplementationMotiveDecompositionTraceAlignmentStatus;
+  new_claim_risk: boolean;
+  human_confirmation_required: boolean;
+  blocking_reason_codes: string[];
+  recommended_next_gate: PaperImplementationMotiveDecompositionRecommendedNextGate;
+}
+
+export interface PaperImplementationMotiveDecompositionDraftAssertionCandidate {
+  candidate_key: string;
+  source_assertion_ref: TopicSelectionFunctionalRef;
+  candidate_kind: PaperImplementationMotiveDecompositionCandidateKind;
+  draft_assertion_text: string;
+  scope_boundary_summary: string;
+  support_obligation_summary: string;
+  covered_evidence_refs: TopicSelectionFunctionalRef[];
+  covered_source_refs: TopicSelectionFunctionalRef[];
+  covered_source_locator_refs: TopicSelectionFunctionalRef[];
+  covered_citation_candidate_refs: TopicSelectionFunctionalRef[];
+  covered_trace_manifest_refs: TopicSelectionFunctionalRef[];
+  decomposition_check: PaperImplementationMotiveDecompositionCheck;
+  blocker_codes: string[];
+  warning_codes: string[];
+  recommended_next_gate: PaperImplementationMotiveDecompositionRecommendedNextGate;
+}
+
+export interface PaperImplementationMotiveDecompositionRoleOutput {
+  role_slot_id: PaperImplementationMotiveDecompositionRoleSlotId;
+  role_status: 'passed' | 'blocked';
+  summary: string;
+  cited_source_refs: TopicSelectionFunctionalRef[];
+  decomposition_result_status: PaperImplementationMotiveDecompositionResultStatus;
+  reviewed_assertion_refs: TopicSelectionFunctionalRef[];
+  draft_assertion_candidates: PaperImplementationMotiveDecompositionDraftAssertionCandidate[];
+  blocker_codes: string[];
+  warning_codes: string[];
+  no_domain_gate_request: true;
+  no_queue_side_effect: true;
+  no_motive_write_side_effect: true;
+  no_motive_evolution_side_effect: true;
+  no_board_write_side_effect: true;
+  no_evidence_binding_side_effect: true;
+  no_trace_repair_queue_side_effect: true;
+}
+
+export interface PaperImplementationMotiveDecompositionArtifact {
+  status: 'passed' | 'blocked' | 'failed_runtime';
+  slot_id: PaperImplementationMotiveDecompositionSlotId;
+  workflow_type: 'motive_decomposition';
+  decomposition_mode: PaperImplementationMotiveDecompositionMode;
+  target_ref: TopicSelectionFunctionalRef;
+  target_motive_ref: TopicSelectionFunctionalRef;
+  target_core_motive_version_ref: TopicSelectionFunctionalRef;
+  target_assertion_refs: TopicSelectionFunctionalRef[];
+  preflight_blockers: string[];
+  decomposition_result_status: PaperImplementationMotiveDecompositionResultStatus;
+  role_summary: string | null;
+  role_blocker_codes: string[];
+  role_warning_codes: string[];
+  blockers: string[];
+  warnings: string[];
+  runtime_failure_code: string | null;
+  reviewed_assertion_refs: TopicSelectionFunctionalRef[];
+  draft_assertion_candidates: PaperImplementationMotiveDecompositionDraftAssertionCandidate[];
+  no_domain_gate_request: true;
+  no_queue_side_effect: true;
+  no_motive_write_side_effect: true;
+  no_motive_evolution_side_effect: true;
+  no_board_write_side_effect: true;
+  no_evidence_binding_side_effect: true;
+  no_trace_repair_queue_side_effect: true;
+  role_artifact_refs: TopicSelectionFunctionalRef[];
+  role_artifact_hashes: string[];
+  admitted_role_artifact_refs: TopicSelectionFunctionalRef[];
+  admitted_role_artifact_hashes: string[];
+  role_prompt_packet_refs: TopicSelectionFunctionalRef[];
+  role_prompt_packet_hashes: string[];
+  role_token_budget_gate_result_refs: TopicSelectionFunctionalRef[];
+  role_compression_report_refs: TopicSelectionFunctionalRef[];
+  runtime_identity: Record<string, unknown>;
+  cache_identity: Record<string, unknown>;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hash_bundle_hash: string;
+}
+
+export interface RunPaperImplementationMotiveDecompositionRuntimeRequest {
+  schema_version?: typeof PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
+  run_id?: string | null;
+  run_mode: PaperImplementationAgentRunMode;
+  execution_mode: PaperImplementationAgentExecutionMode;
+  model_profile_id?: string | null;
+  model_option_id?: string | null;
+  decomposition_mode: PaperImplementationMotiveDecompositionMode;
+  target_ref: TopicSelectionFunctionalRef;
+  target_version_id?: string | null;
+  target_motive_ref: TopicSelectionFunctionalRef;
+  target_core_motive_version_ref: TopicSelectionFunctionalRef;
+  target_assertion_refs: TopicSelectionFunctionalRef[];
+  input_snapshot_ref: TopicSelectionFunctionalRef;
+  input_snapshot_hash: string;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hashes: string[];
+  assertion_context_packets: PaperImplementationMotiveDecompositionAssertionContextPacket[];
+  trace_manifest_refs: TopicSelectionFunctionalRef[];
+  trace_manifest_hashes: string[];
+  source_locator_refs: TopicSelectionFunctionalRef[];
+  citation_candidate_refs: TopicSelectionFunctionalRef[];
+  evidence_refs: TopicSelectionFunctionalRef[];
+  accepted_risk_refs?: TopicSelectionFunctionalRef[];
+  admitted_upstream_artifact_refs?: TopicSelectionFunctionalRef[];
+  admitted_upstream_artifact_hashes?: string[];
+  preflight_blocker_codes?: string[];
+  mocked_role_outputs?: Partial<Record<
+    PaperImplementationMotiveDecompositionRoleSlotId,
+    PaperImplementationMotiveDecompositionRoleOutput
+  >>;
+  codex_role_outputs?: Partial<Record<
+    PaperImplementationMotiveDecompositionRoleSlotId,
+    PaperImplementationMotiveDecompositionRoleOutput
+  >>;
+}
+
+export type PaperImplementationMotiveEvolutionSlotId =
+  typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID;
+
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RESULT_STATUSES = [
+  'options_proposed',
+  'no_evolution_needed',
+  'blocked',
+] as const;
+export type PaperImplementationMotiveEvolutionResultStatus =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RESULT_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_KINDS = [
+  'keep_current',
+  'repair_evidence_board_first',
+  'supersede',
+  'merge',
+  'split',
+  'park',
+  'abandon',
+] as const;
+export type PaperImplementationMotiveEvolutionOptionKind =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_KINDS)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PORTFOLIO_IMPACT_CLASSES = [
+  'none',
+  'evidence_board_only',
+  'semantic_version_change',
+  'portfolio_role_change',
+  'primary_or_active_set_change',
+  'lineage_change',
+] as const;
+export type PaperImplementationMotiveEvolutionPortfolioImpactClass =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PORTFOLIO_IMPACT_CLASSES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_CHECK_STATUSES = [
+  'satisfied',
+  'partial',
+  'blocked',
+  'not_applicable',
+] as const;
+export type PaperImplementationMotiveEvolutionCheckStatus =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_CHECK_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RECOMMENDED_NEXT_GATES = [
+  'motive_evolution_review',
+  'portfolio_decision_review',
+  'evidence_board_curation',
+  'trace_repair',
+  'validation_repair',
+  'human_confirmation',
+  'none',
+] as const;
+export type PaperImplementationMotiveEvolutionRecommendedNextGate =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RECOMMENDED_NEXT_GATES)[number];
+
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_CONTEXT_PACKET_KINDS = [
+  'motive_contract',
+  'motive_version_state',
+  'portfolio_snapshot',
+  'evidence_board',
+  'trace_summary',
+  'trigger_context',
+  'prior_decision',
+  'accepted_risk',
+] as const;
+export type PaperImplementationMotiveEvolutionContextPacketKind =
+  (typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_CONTEXT_PACKET_KINDS)[number];
+
+export interface PaperImplementationMotiveEvolutionContextPacket {
+  packet_ref: TopicSelectionFunctionalRef;
+  packet_hash: string;
+  packet_kind: PaperImplementationMotiveEvolutionContextPacketKind;
+  content_summary: string;
+  key_facts: string[];
+  covered_target_refs: TopicSelectionFunctionalRef[];
+  covered_evidence_refs: TopicSelectionFunctionalRef[];
+  covered_trace_manifest_refs: TopicSelectionFunctionalRef[];
+  covered_source_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface PaperImplementationMotiveEvolutionChallengeCheck {
+  evidence_status: PaperImplementationMotiveEvolutionCheckStatus;
+  trace_status: PaperImplementationMotiveEvolutionCheckStatus;
+  portfolio_status: PaperImplementationMotiveEvolutionCheckStatus;
+  human_confirmation_status: PaperImplementationMotiveEvolutionCheckStatus;
+  downstream_impact_status: PaperImplementationMotiveEvolutionCheckStatus;
+  blocking_reason_codes: string[];
+}
+
+export interface PaperImplementationMotiveEvolutionDesignedOption {
+  option_kind: PaperImplementationMotiveEvolutionOptionKind;
+  supporting_refs: TopicSelectionFunctionalRef[];
+  challenging_refs: TopicSelectionFunctionalRef[];
+  portfolio_impact_class: PaperImplementationMotiveEvolutionPortfolioImpactClass;
+  human_confirmation_required: boolean;
+  recommended_next_gate: PaperImplementationMotiveEvolutionRecommendedNextGate;
+  blocker_codes: string[];
+  warning_codes: string[];
+}
+
+export interface PaperImplementationMotiveEvolutionDecisionOption
+  extends PaperImplementationMotiveEvolutionDesignedOption {
+  challenge_check: PaperImplementationMotiveEvolutionChallengeCheck;
+}
+
+interface PaperImplementationMotiveEvolutionRoleOutputBase {
+  role_status: 'passed' | 'blocked';
+  summary: string;
+  cited_source_refs: TopicSelectionFunctionalRef[];
+  support_result_status: PaperImplementationMotiveEvolutionResultStatus;
+  blocker_codes: string[];
+  warning_codes: string[];
+  no_domain_gate_request: true;
+  no_queue_side_effect: true;
+  no_motive_write_side_effect: true;
+  no_motive_evolution_side_effect: true;
+  no_portfolio_mutation_side_effect: true;
+  no_board_write_side_effect: true;
+  no_evidence_binding_side_effect: true;
+  no_trace_repair_queue_side_effect: true;
+}
+
+export interface PaperImplementationMotiveEvolutionOptionDesignerRoleOutput
+  extends PaperImplementationMotiveEvolutionRoleOutputBase {
+  role_slot_id: typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID;
+  reviewed_target_motive_refs: TopicSelectionFunctionalRef[];
+  reviewed_core_motive_version_refs: TopicSelectionFunctionalRef[];
+  designed_options: Record<string, PaperImplementationMotiveEvolutionDesignedOption>;
+  option_set_hash: string;
+}
+
+export interface PaperImplementationMotiveEvolutionRiskChallengerRoleOutput
+  extends PaperImplementationMotiveEvolutionRoleOutputBase {
+  role_slot_id: typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID;
+  designer_role_artifact_ref: TopicSelectionFunctionalRef;
+  designer_role_artifact_hash: string;
+  option_set_hash: string;
+  challenged_option_keys: string[];
+  decision_options: Record<string, PaperImplementationMotiveEvolutionDecisionOption>;
+}
+
+export type PaperImplementationMotiveEvolutionRoleOutput =
+  | PaperImplementationMotiveEvolutionOptionDesignerRoleOutput
+  | PaperImplementationMotiveEvolutionRiskChallengerRoleOutput;
+
+export interface PaperImplementationMotiveEvolutionArtifact {
+  status: 'passed' | 'blocked' | 'failed_runtime';
+  slot_id: PaperImplementationMotiveEvolutionSlotId;
+  workflow_type: 'motive_evolution';
+  target_ref: TopicSelectionFunctionalRef;
+  target_motive_refs: TopicSelectionFunctionalRef[];
+  target_core_motive_version_refs: TopicSelectionFunctionalRef[];
+  preflight_blockers: string[];
+  support_result_status: PaperImplementationMotiveEvolutionResultStatus;
+  role_summary: string | null;
+  role_blocker_codes: string[];
+  role_warning_codes: string[];
+  blockers: string[];
+  warnings: string[];
+  runtime_failure_code: string | null;
+  decision_options: Record<string, PaperImplementationMotiveEvolutionDecisionOption>;
+  no_domain_gate_request: true;
+  no_queue_side_effect: true;
+  no_motive_write_side_effect: true;
+  no_motive_evolution_side_effect: true;
+  no_portfolio_mutation_side_effect: true;
+  no_board_write_side_effect: true;
+  no_evidence_binding_side_effect: true;
+  no_trace_repair_queue_side_effect: true;
+  role_artifact_refs: TopicSelectionFunctionalRef[];
+  role_artifact_hashes: string[];
+  admitted_role_artifact_refs: TopicSelectionFunctionalRef[];
+  admitted_role_artifact_hashes: string[];
+  role_prompt_packet_refs: TopicSelectionFunctionalRef[];
+  role_prompt_packet_hashes: string[];
+  role_token_budget_gate_result_refs: TopicSelectionFunctionalRef[];
+  role_compression_report_refs: TopicSelectionFunctionalRef[];
+  runtime_identity: Record<string, unknown>;
+  cache_identity: Record<string, unknown>;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hash_bundle_hash: string;
+}
+
+export interface RunPaperImplementationMotiveEvolutionRuntimeRequest {
+  schema_version?: typeof PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
+  run_id?: string | null;
+  run_mode: PaperImplementationAgentRunMode;
+  execution_mode: PaperImplementationAgentExecutionMode;
+  model_profile_id?: string | null;
+  model_option_id?: string | null;
+  target_ref: TopicSelectionFunctionalRef;
+  target_version_id?: string | null;
+  target_motive_refs: TopicSelectionFunctionalRef[];
+  target_motive_hashes: string[];
+  target_core_motive_version_refs: TopicSelectionFunctionalRef[];
+  target_core_motive_version_hashes: string[];
+  input_snapshot_ref: TopicSelectionFunctionalRef;
+  input_snapshot_hash: string;
+  portfolio_snapshot_ref: TopicSelectionFunctionalRef;
+  portfolio_snapshot_hash: string;
+  evidence_board_refs: TopicSelectionFunctionalRef[];
+  evidence_board_hashes: string[];
+  evidence_binding_refs: TopicSelectionFunctionalRef[];
+  evidence_binding_hashes: string[];
+  challenge_refs: TopicSelectionFunctionalRef[];
+  conflict_refs: TopicSelectionFunctionalRef[];
+  trace_manifest_refs: TopicSelectionFunctionalRef[];
+  trace_manifest_hashes: string[];
+  human_confirmation_policy_ref: TopicSelectionFunctionalRef;
+  human_confirmation_policy_hash: string;
+  source_refs: TopicSelectionFunctionalRef[];
+  source_hashes: string[];
+  motive_context_packets?: PaperImplementationMotiveEvolutionContextPacket[];
+  validation_cycle_refs?: TopicSelectionFunctionalRef[];
+  validation_cycle_hashes?: string[];
+  result_packet_refs?: TopicSelectionFunctionalRef[];
+  result_packet_hashes?: string[];
+  cross_board_review_refs?: TopicSelectionFunctionalRef[];
+  cross_board_review_hashes?: string[];
+  prior_evolution_decision_refs?: TopicSelectionFunctionalRef[];
+  prior_evolution_decision_hashes?: string[];
+  prior_portfolio_decision_refs?: TopicSelectionFunctionalRef[];
+  prior_portfolio_decision_hashes?: string[];
+  accepted_risk_refs?: TopicSelectionFunctionalRef[];
+  accepted_risk_hashes?: string[];
+  human_request_refs?: TopicSelectionFunctionalRef[];
+  human_request_hashes?: string[];
+  preflight_blocker_codes?: string[];
+  mocked_role_outputs?: Partial<Record<
+    PaperImplementationMotiveEvolutionRoleSlotId,
+    PaperImplementationMotiveEvolutionRoleOutput
+  >>;
+  codex_role_outputs?: Partial<Record<
+    PaperImplementationMotiveEvolutionRoleSlotId,
+    PaperImplementationMotiveEvolutionRoleOutput
+  >>;
+}
+
 const stringId = { type: 'string', minLength: 1 } as const;
 const hashString = { type: 'string', pattern: '^[a-f0-9]{64}$' } as const;
 const nonNegativeInteger = { type: 'integer', minimum: 0 } as const;
@@ -880,6 +2362,13 @@ const nonEmptyNonLegacyFunctionalRefArray = {
   items: nonLegacyFunctionalRef,
 } as const;
 const stringArray = { type: 'array', items: stringId } as const;
+const uniqueStringArray = { type: 'array', uniqueItems: true, items: stringId } as const;
+const nonEmptyUniqueStringArray = {
+  type: 'array',
+  minItems: 1,
+  uniqueItems: true,
+  items: stringId,
+} as const;
 const hashArray = { type: 'array', items: hashString } as const;
 const nonEmptyHashArray = { type: 'array', minItems: 1, items: hashString } as const;
 const objectArray = { type: 'array', items: { type: 'object' } } as const;
@@ -1008,13 +2497,232 @@ const experimentPlanningSlotSchema = {
 const experimentPlanningWorkflowTypeSchema = {
   enum: ['experiment_design', 'experiment_critique'],
 } as const;
+const routePlanningRoleSlotSchema = {
+  enum: [...PAPER_IMPLEMENTATION_ROUTE_PLANNING_ROLE_SLOT_IDS],
+} as const;
+const routePlanningRoleOutputsBySlotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: Object.fromEntries(
+    PAPER_IMPLEMENTATION_ROUTE_PLANNING_ROLE_SLOT_IDS.map((slotId) => [
+      slotId,
+      { $ref: '#/$defs/paperImplementationRoutePlanningRoleOutput' },
+    ]),
+  ),
+} as const;
+const validationCyclePlanningRoleSlotSchema = {
+  const: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID,
+} as const;
+const validationCyclePlanningRoleOutputsBySlotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    [PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID]: {
+      $ref: '#/$defs/paperImplementationValidationCyclePlanningRoleOutput',
+    },
+  },
+} as const;
+const feasibilityPlanningRoleSlotSchema = {
+  const: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID,
+} as const;
+const feasibilityPlanningRoleOutputsBySlotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    [PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID]: {
+      $ref: '#/$defs/paperImplementationFeasibilityPlanningRoleOutput',
+    },
+  },
+} as const;
+const crossBoardSynthesisRoleSlotSchema = {
+  const: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID,
+} as const;
+const crossBoardSynthesisRoleOutputsBySlotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    [PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID]: {
+      $ref: '#/$defs/paperImplementationCrossBoardSynthesisRoleOutput',
+    },
+  },
+} as const;
+const evidenceBoardCurationRoleSlotSchema = {
+  const: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID,
+} as const;
+const evidenceBoardCurationRoleOutputsBySlotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID]: {
+      $ref: '#/$defs/paperImplementationEvidenceBoardCurationRoleOutput',
+    },
+  },
+} as const;
+const motiveDecompositionRoleSlotSchema = {
+  const: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID,
+} as const;
+const motiveDecompositionRoleOutputsBySlotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    [PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_ROLE_SLOT_ID]: {
+      $ref: '#/$defs/paperImplementationMotiveDecompositionRoleOutput',
+    },
+  },
+} as const;
+const motiveEvolutionOptionDesignerRoleSlotSchema = {
+  const: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+} as const;
+const motiveEvolutionRiskChallengerRoleSlotSchema = {
+  const: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
+} as const;
+const motiveEvolutionRoleOutputsBySlotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: {
+      $ref: '#/$defs/paperImplementationMotiveEvolutionOptionDesignerRoleOutput',
+    },
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID]: {
+      $ref: '#/$defs/paperImplementationMotiveEvolutionRiskChallengerRoleOutput',
+    },
+  },
+} as const;
+const routePlanningSlotSchema = {
+  enum: [
+    PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+  ],
+} as const;
+const routePlanningWorkflowTypeSchema = {
+  enum: ['route_architecture', 'route_skeptic_review'],
+} as const;
+const validationCyclePlanningSlotSchema = {
+  const: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+} as const;
+const feasibilityPlanningSlotSchema = {
+  const: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
+} as const;
+const crossBoardSynthesisSlotSchema = {
+  const: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
+} as const;
+const evidenceBoardCurationSlotSchema = {
+  const: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+} as const;
+const motiveDecompositionSlotSchema = {
+  const: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID,
+} as const;
+const motiveEvolutionSlotSchema = {
+  const: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+} as const;
 const workOrderRunTypeSchema = { enum: [...PAPER_IMPLEMENTATION_WORK_ORDER_RUN_TYPES] } as const;
 const validationCostClassSchema = { enum: [...PAPER_IMPLEMENTATION_VALIDATION_COST_CLASSES] } as const;
+const validationCycleTypeSchema = { enum: [...PAPER_IMPLEMENTATION_VALIDATION_CYCLE_TYPES] } as const;
+const validationBaselineGapStatusSchema = { enum: [...PAPER_IMPLEMENTATION_BASELINE_GAP_STATUSES] } as const;
+const validationCyclePlanningInformationGainSchema = {
+  enum: [...PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_INFORMATION_GAIN_LEVELS],
+} as const;
+const feasibilityPlanningInformationGainSchema = {
+  enum: [...PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_INFORMATION_GAIN_LEVELS],
+} as const;
+const feasibilityProbeKindSchema = {
+  enum: [...PAPER_IMPLEMENTATION_FEASIBILITY_PROBE_KINDS],
+} as const;
+const motiveFreshnessStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_FRESHNESS_STATUSES],
+} as const;
+const crossBoardScenarioKindSchema = {
+  enum: [...PAPER_IMPLEMENTATION_CROSS_BOARD_SCENARIO_KINDS],
+} as const;
+const crossBoardScenarioDispositionSchema = {
+  enum: [...PAPER_IMPLEMENTATION_CROSS_BOARD_SCENARIO_DISPOSITIONS],
+} as const;
+const crossBoardRecommendedNextGateSchema = {
+  enum: [...PAPER_IMPLEMENTATION_CROSS_BOARD_RECOMMENDED_NEXT_GATES],
+} as const;
+const evidenceBoardCurationModeSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_MODES],
+} as const;
+const motiveDecompositionModeSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_MODES],
+} as const;
+const motiveDecompositionResultStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RESULT_STATUSES],
+} as const;
+const motiveDecompositionCandidateKindSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_CANDIDATE_KINDS],
+} as const;
+const motiveDecompositionCompoundnessStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_COMPOUNDNESS_STATUSES],
+} as const;
+const motiveDecompositionScopeChangeStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SCOPE_CHANGE_STATUSES],
+} as const;
+const motiveDecompositionEvidenceCoverageStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_EVIDENCE_COVERAGE_STATUSES],
+} as const;
+const motiveDecompositionTraceAlignmentStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_TRACE_ALIGNMENT_STATUSES],
+} as const;
+const motiveDecompositionRecommendedNextGateSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RECOMMENDED_NEXT_GATES],
+} as const;
+const motiveEvolutionResultStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RESULT_STATUSES],
+} as const;
+const motiveEvolutionOptionKindSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_KINDS],
+} as const;
+const motiveEvolutionPortfolioImpactClassSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PORTFOLIO_IMPACT_CLASSES],
+} as const;
+const motiveEvolutionCheckStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_CHECK_STATUSES],
+} as const;
+const motiveEvolutionRecommendedNextGateSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RECOMMENDED_NEXT_GATES],
+} as const;
+const motiveEvolutionContextPacketKindSchema = {
+  enum: [...PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_CONTEXT_PACKET_KINDS],
+} as const;
+const evidenceBoardCandidateRoleSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CANDIDATE_ROLES],
+} as const;
+const evidenceBoardCandidateScopeSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CANDIDATE_SCOPES],
+} as const;
+const evidenceBoardCandidateStrengthSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CANDIDATE_STRENGTHS],
+} as const;
+const evidenceBoardSupportStateSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_SUPPORT_STATES],
+} as const;
+const evidenceBoardChallengeStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CHALLENGE_STATUSES],
+} as const;
+const evidenceBoardFreshnessStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_FRESHNESS_STATUSES],
+} as const;
+const evidenceBoardGapKindSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_GAP_KINDS],
+} as const;
+const evidenceBoardRecommendedNextGateSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_RECOMMENDED_NEXT_GATES],
+} as const;
 const experimentCritiqueDimensionSchema = {
   enum: [...PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_DIMENSIONS],
 } as const;
 const experimentCritiqueDecisionSchema = {
   enum: [...PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_DECISIONS],
+} as const;
+const routeBaselineGapStatusSchema = {
+  enum: [...PAPER_IMPLEMENTATION_ROUTE_BASELINE_GAP_STATUSES],
+} as const;
+const routeSkepticRiskDimensionSchema = {
+  enum: [...PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS],
+} as const;
+const routeSkepticDispositionSchema = {
+  enum: [...PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_DISPOSITIONS],
 } as const;
 const traceIntegritySourceFamilySchema = {
   enum: [...PAPER_IMPLEMENTATION_TRACE_INTEGRITY_RETRIEVAL_SOURCE_FAMILIES],
@@ -1366,6 +3074,734 @@ export const paperImplementationExperimentPlanningRoleOutputSchema = {
             items: paperImplementationExperimentCritiqueFindingSchema,
           },
           critique_decision: paperImplementationExperimentCritiqueDecisionSchema,
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationRouteCandidateProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'candidate_key',
+    'route_summary',
+    'expected_information_gain',
+    'baseline_gap_status',
+    'cited_source_refs',
+    'trace_refs',
+    'validation_signal_refs',
+    'dataset_refs',
+    'metric_refs',
+    'baseline_refs',
+    'code_refs',
+    'config_refs',
+    'scope_boundary',
+    'confirmatory_marker',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    candidate_key: stringId,
+    route_summary: stringId,
+    expected_information_gain: stringId,
+    baseline_gap_status: routeBaselineGapStatusSchema,
+    cited_source_refs: nonLegacyFunctionalRefArray,
+    trace_refs: nonLegacyFunctionalRefArray,
+    validation_signal_refs: nonLegacyFunctionalRefArray,
+    dataset_refs: nonLegacyFunctionalRefArray,
+    metric_refs: nonLegacyFunctionalRefArray,
+    baseline_refs: nonLegacyFunctionalRefArray,
+    code_refs: nonLegacyFunctionalRefArray,
+    config_refs: nonLegacyFunctionalRefArray,
+    scope_boundary: stringId,
+    confirmatory_marker: { type: 'boolean' },
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+  },
+} as const;
+
+export const paperImplementationRouteSkepticFindingSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'finding_id',
+    'risk_dimension',
+    'severity',
+    'summary',
+    'evidence_refs',
+    'affected_candidate_keys',
+    'required_revision_refs',
+    'blocks_route_progression',
+  ],
+  properties: {
+    finding_id: stringId,
+    risk_dimension: routeSkepticRiskDimensionSchema,
+    severity: { enum: ['info', 'warning', 'blocking', 'critical'] },
+    summary: stringId,
+    evidence_refs: nonLegacyFunctionalRefArray,
+    affected_candidate_keys: stringArray,
+    required_revision_refs: nonLegacyFunctionalRefArray,
+    blocks_route_progression: { type: 'boolean' },
+  },
+} as const;
+
+export const paperImplementationRoutePlanningSourceContextPacketSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'source_ref',
+    'evidence_kind',
+    'content_summary',
+    'key_facts',
+  ],
+  properties: {
+    source_ref: nonLegacyFunctionalRef,
+    evidence_kind: stringId,
+    content_summary: stringId,
+    key_facts: stringArray,
+  },
+} as const;
+
+const completeRouteSkepticRiskDimensionsSchema = {
+  type: 'array',
+  minItems: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS.length,
+  items: routeSkepticRiskDimensionSchema,
+  allOf: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS.map((dimension) => ({
+    contains: { const: dimension },
+  })),
+} as const;
+
+export const paperImplementationRoutePlanningRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    'role_status',
+    'summary',
+    'cited_source_refs',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    role_slot_id: routePlanningRoleSlotSchema,
+    role_status: { enum: ['passed', 'blocked'] },
+    summary: stringId,
+    cited_source_refs: nonLegacyFunctionalRefArray,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    route_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationRouteCandidateProposalSchema,
+    },
+    reviewed_route_proposal_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_proposal_hash: nullableHashString,
+    reviewed_candidate_keys: stringArray,
+    checked_dimensions: {
+      type: 'array',
+      items: routeSkepticRiskDimensionSchema,
+    },
+    risk_findings: {
+      type: 'array',
+      items: paperImplementationRouteSkepticFindingSchema,
+    },
+    recommended_disposition: {
+      anyOf: [routeSkepticDispositionSchema, { type: 'null' }],
+    },
+    no_queue_side_effect: { const: true },
+  },
+  allOf: [
+    {
+      if: {
+        properties: {
+          role_slot_id: { const: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID },
+          role_status: { const: 'passed' },
+        },
+        required: ['role_slot_id', 'role_status'],
+      },
+      then: {
+        required: ['route_candidate_proposals'],
+        properties: {
+          route_candidate_proposals: {
+            type: 'array',
+            minItems: 2,
+            items: paperImplementationRouteCandidateProposalSchema,
+          },
+        },
+      },
+    },
+    {
+      if: {
+        properties: {
+          role_slot_id: { const: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID },
+          role_status: { const: 'passed' },
+        },
+        required: ['role_slot_id', 'role_status'],
+      },
+      then: {
+        required: [
+          'reviewed_route_proposal_ref',
+          'reviewed_route_proposal_hash',
+          'reviewed_candidate_keys',
+          'checked_dimensions',
+          'risk_findings',
+          'recommended_disposition',
+          'no_queue_side_effect',
+        ],
+        properties: {
+          reviewed_route_proposal_ref: nonLegacyFunctionalRef,
+          reviewed_route_proposal_hash: hashString,
+          reviewed_candidate_keys: {
+            type: 'array',
+            minItems: 1,
+            items: stringId,
+          },
+          checked_dimensions: completeRouteSkepticRiskDimensionsSchema,
+          risk_findings: {
+            type: 'array',
+            minItems: 1,
+            items: paperImplementationRouteSkepticFindingSchema,
+          },
+          recommended_disposition: routeSkepticDispositionSchema,
+          no_queue_side_effect: { const: true },
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationValidationCyclePlanningSourceContextPacketSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'source_ref',
+    'evidence_kind',
+    'content_summary',
+    'key_facts',
+  ],
+  properties: {
+    source_ref: nonLegacyFunctionalRef,
+    evidence_kind: stringId,
+    content_summary: stringId,
+    key_facts: stringArray,
+  },
+} as const;
+
+export const paperImplementationValidationCycleCandidateCriteriaSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'pass_conditions',
+    'fail_conditions',
+    'inconclusive_conditions',
+    'stop_conditions',
+    'minimum_artifacts_required',
+  ],
+  properties: {
+    pass_conditions: {
+      type: 'array',
+      minItems: 1,
+      items: stringId,
+    },
+    fail_conditions: {
+      type: 'array',
+      minItems: 1,
+      items: stringId,
+    },
+    inconclusive_conditions: stringArray,
+    stop_conditions: stringArray,
+    minimum_artifacts_required: {
+      type: 'array',
+      minItems: 1,
+      items: stringId,
+    },
+  },
+} as const;
+
+export const paperImplementationValidationCycleCandidateBudgetEnvelopeSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['retry_budget'],
+  properties: {
+    budget_ref: nullableNonLegacyFunctionalRef,
+    iteration_budget_ref: nullableNonLegacyFunctionalRef,
+    retry_budget: nonNegativeInteger,
+    max_runtime: nullableStringId,
+    max_compute: nullableStringId,
+    max_human_review_count: {
+      anyOf: [nonNegativeInteger, { type: 'null' }],
+    },
+  },
+} as const;
+
+export const paperImplementationValidationCycleCandidateProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'candidate_key',
+    'reviewed_route_candidate_key',
+    'target_ref',
+    'target_frame_summary',
+    'cycle_type',
+    'trigger_refs',
+    'validation_question',
+    'assumptions_under_test',
+    'assertion_refs_under_test',
+    'decision_if_pass',
+    'decision_if_fail',
+    'decision_if_inconclusive',
+    'expected_information_gain',
+    'criteria',
+    'budget_envelope',
+    'included_context_refs',
+    'trace_refs',
+    'confirmatory_marker',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    candidate_key: stringId,
+    reviewed_route_candidate_key: stringId,
+    target_ref: nonLegacyFunctionalRef,
+    target_frame_summary: stringId,
+    cycle_type: validationCycleTypeSchema,
+    trigger_refs: nonLegacyFunctionalRefArray,
+    validation_question: stringId,
+    assumptions_under_test: {
+      type: 'array',
+      minItems: 1,
+      items: stringId,
+    },
+    assertion_refs_under_test: nonLegacyFunctionalRefArray,
+    decision_if_pass: stringId,
+    decision_if_fail: stringId,
+    decision_if_inconclusive: stringId,
+    expected_information_gain: validationCyclePlanningInformationGainSchema,
+    criteria: paperImplementationValidationCycleCandidateCriteriaSchema,
+    budget_envelope: paperImplementationValidationCycleCandidateBudgetEnvelopeSchema,
+    included_context_refs: nonLegacyFunctionalRefArray,
+    trace_refs: nonLegacyFunctionalRefArray,
+    confirmatory_marker: { type: 'boolean' },
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+  },
+} as const;
+
+export const paperImplementationValidationCyclePlanningRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    'role_status',
+    'summary',
+    'cited_source_refs',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    role_slot_id: validationCyclePlanningRoleSlotSchema,
+    role_status: { enum: ['passed', 'blocked'] },
+    summary: stringId,
+    cited_source_refs: nonLegacyFunctionalRefArray,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    reviewed_route_proposal_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_proposal_hash: nullableHashString,
+    reviewed_route_skeptic_artifact_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_skeptic_artifact_hash: nullableHashString,
+    reviewed_candidate_keys: stringArray,
+    cycle_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationValidationCycleCandidateProposalSchema,
+    },
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_validation_cycle_side_effect: { const: true },
+  },
+  allOf: [
+    {
+      if: {
+        properties: {
+          role_status: { const: 'passed' },
+        },
+        required: ['role_status'],
+      },
+      then: {
+        required: [
+          'reviewed_route_proposal_ref',
+          'reviewed_route_proposal_hash',
+          'reviewed_route_skeptic_artifact_ref',
+          'reviewed_route_skeptic_artifact_hash',
+          'reviewed_candidate_keys',
+          'cycle_candidate_proposals',
+          'no_domain_gate_request',
+          'no_queue_side_effect',
+          'no_validation_cycle_side_effect',
+        ],
+        properties: {
+          reviewed_route_proposal_ref: nonLegacyFunctionalRef,
+          reviewed_route_proposal_hash: hashString,
+          reviewed_route_skeptic_artifact_ref: nonLegacyFunctionalRef,
+          reviewed_route_skeptic_artifact_hash: hashString,
+          reviewed_candidate_keys: {
+            type: 'array',
+            minItems: 1,
+            items: stringId,
+          },
+          cycle_candidate_proposals: {
+            type: 'array',
+            minItems: 2,
+            items: paperImplementationValidationCycleCandidateProposalSchema,
+          },
+          no_domain_gate_request: { const: true },
+          no_queue_side_effect: { const: true },
+          no_validation_cycle_side_effect: { const: true },
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationFeasibilityPlanningSourceContextPacketSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'source_ref',
+    'evidence_kind',
+    'content_summary',
+    'key_facts',
+  ],
+  properties: {
+    source_ref: nonLegacyFunctionalRef,
+    evidence_kind: stringId,
+    content_summary: stringId,
+    key_facts: stringArray,
+  },
+} as const;
+
+export const paperImplementationFeasibilityBudgetEnvelopeSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['budget_ref', 'retry_budget', 'estimated_cost_class'],
+  properties: {
+    budget_ref: nonLegacyFunctionalRef,
+    iteration_budget_ref: nullableNonLegacyFunctionalRef,
+    retry_budget: nonNegativeInteger,
+    estimated_cost_class: validationCostClassSchema,
+    max_runtime: nullableStringId,
+    max_compute: nullableStringId,
+    max_human_review_count: {
+      anyOf: [nonNegativeInteger, { type: 'null' }],
+    },
+  },
+} as const;
+
+export const paperImplementationFeasibilityProbePlanCandidateProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'candidate_key',
+    'reviewed_cycle_candidate_key',
+    'reviewed_route_candidate_key',
+    'probe_kind',
+    'probe_question',
+    'plan_summary',
+    'expected_information_gain',
+    'baseline_gap_status',
+    'primary_metric_refs',
+    'dataset_version_refs',
+    'baseline_version_refs',
+    'code_version_refs',
+    'config_refs',
+    'budget_envelope',
+    'stop_condition_refs',
+    'trace_refs',
+    'confirmatory_marker',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    candidate_key: stringId,
+    reviewed_cycle_candidate_key: stringId,
+    reviewed_route_candidate_key: stringId,
+    probe_kind: feasibilityProbeKindSchema,
+    probe_question: stringId,
+    plan_summary: stringId,
+    expected_information_gain: feasibilityPlanningInformationGainSchema,
+    baseline_gap_status: validationBaselineGapStatusSchema,
+    primary_metric_refs: nonEmptyNonLegacyFunctionalRefArray,
+    dataset_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+    baseline_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+    code_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+    config_refs: nonEmptyNonLegacyFunctionalRefArray,
+    budget_envelope: paperImplementationFeasibilityBudgetEnvelopeSchema,
+    stop_condition_refs: nonEmptyNonLegacyFunctionalRefArray,
+    trace_refs: nonEmptyNonLegacyFunctionalRefArray,
+    confirmatory_marker: { type: 'boolean' },
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+  },
+} as const;
+
+export const paperImplementationFeasibilityPlanningRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    'role_status',
+    'summary',
+    'cited_source_refs',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    role_slot_id: feasibilityPlanningRoleSlotSchema,
+    role_status: { enum: ['passed', 'blocked'] },
+    summary: stringId,
+    cited_source_refs: nonLegacyFunctionalRefArray,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    reviewed_validation_cycle_artifact_ref: nullableNonLegacyFunctionalRef,
+    reviewed_validation_cycle_artifact_hash: nullableHashString,
+    reviewed_route_proposal_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_proposal_hash: nullableHashString,
+    reviewed_route_skeptic_artifact_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_skeptic_artifact_hash: nullableHashString,
+    reviewed_cycle_candidate_keys: stringArray,
+    reviewed_route_candidate_keys: stringArray,
+    probe_plan_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationFeasibilityProbePlanCandidateProposalSchema,
+    },
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_feasibility_probe_side_effect: { const: true },
+    no_experiment_plan_light_side_effect: { const: true },
+    no_validation_cycle_side_effect: { const: true },
+  },
+  allOf: [
+    {
+      if: {
+        properties: {
+          role_status: { const: 'passed' },
+        },
+        required: ['role_status'],
+      },
+      then: {
+        required: [
+          'reviewed_validation_cycle_artifact_ref',
+          'reviewed_validation_cycle_artifact_hash',
+          'reviewed_route_proposal_ref',
+          'reviewed_route_proposal_hash',
+          'reviewed_route_skeptic_artifact_ref',
+          'reviewed_route_skeptic_artifact_hash',
+          'reviewed_cycle_candidate_keys',
+          'reviewed_route_candidate_keys',
+          'probe_plan_candidate_proposals',
+          'no_domain_gate_request',
+          'no_queue_side_effect',
+          'no_feasibility_probe_side_effect',
+          'no_experiment_plan_light_side_effect',
+          'no_validation_cycle_side_effect',
+        ],
+        properties: {
+          reviewed_validation_cycle_artifact_ref: nonLegacyFunctionalRef,
+          reviewed_validation_cycle_artifact_hash: hashString,
+          reviewed_route_proposal_ref: nonLegacyFunctionalRef,
+          reviewed_route_proposal_hash: hashString,
+          reviewed_route_skeptic_artifact_ref: nonLegacyFunctionalRef,
+          reviewed_route_skeptic_artifact_hash: hashString,
+          reviewed_cycle_candidate_keys: {
+            type: 'array',
+            minItems: 1,
+            items: stringId,
+          },
+          reviewed_route_candidate_keys: {
+            type: 'array',
+            minItems: 1,
+            items: stringId,
+          },
+          probe_plan_candidate_proposals: {
+            type: 'array',
+            minItems: 2,
+            items: paperImplementationFeasibilityProbePlanCandidateProposalSchema,
+          },
+          no_domain_gate_request: { const: true },
+          no_queue_side_effect: { const: true },
+          no_feasibility_probe_side_effect: { const: true },
+          no_experiment_plan_light_side_effect: { const: true },
+          no_validation_cycle_side_effect: { const: true },
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationCrossBoardSourceContextPacketSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['source_ref', 'evidence_kind', 'content_summary', 'key_facts'],
+  properties: {
+    source_ref: nonLegacyFunctionalRef,
+    evidence_kind: stringId,
+    content_summary: stringId,
+    key_facts: stringArray,
+  },
+} as const;
+
+export const paperImplementationCrossBoardAnchorSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'board_version_ref',
+    'board_version_hash',
+    'motive_ref',
+    'core_motive_version_ref',
+    'trace_manifest_ref',
+    'trace_manifest_hash',
+    'evidence_binding_refs',
+    'source_locator_refs',
+    'conflict_refs',
+    'challenge_refs',
+    'freshness_status',
+  ],
+  properties: {
+    board_version_ref: nonLegacyFunctionalRef,
+    board_version_hash: hashString,
+    motive_ref: nonLegacyFunctionalRef,
+    core_motive_version_ref: nonLegacyFunctionalRef,
+    trace_manifest_ref: nonLegacyFunctionalRef,
+    trace_manifest_hash: hashString,
+    evidence_binding_refs: nonLegacyFunctionalRefArray,
+    source_locator_refs: nonLegacyFunctionalRefArray,
+    conflict_refs: nonLegacyFunctionalRefArray,
+    challenge_refs: nonLegacyFunctionalRefArray,
+    freshness_status: motiveFreshnessStatusSchema,
+  },
+} as const;
+
+export const paperImplementationCrossBoardReusePolicySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'require_transfer_binding_for_viable_reuse',
+    'allow_blocked_reuse_without_transfer_binding',
+  ],
+  properties: {
+    require_transfer_binding_for_viable_reuse: { type: 'boolean' },
+    allow_blocked_reuse_without_transfer_binding: { type: 'boolean' },
+  },
+} as const;
+
+export const paperImplementationCrossBoardScenarioProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'scenario_key',
+    'scenario_kind',
+    'disposition',
+    'source_board_version_refs',
+    'source_board_version_hashes',
+    'target_motive_refs',
+    'evidence_transfer_binding_refs',
+    'conflict_refs',
+    'challenge_refs',
+    'freshness_blockers',
+    'source_locator_refs',
+    'expected_benefit',
+    'risk_codes',
+    'blocker_codes',
+    'warning_codes',
+    'recommended_next_gate',
+  ],
+  properties: {
+    scenario_key: stringId,
+    scenario_kind: crossBoardScenarioKindSchema,
+    disposition: crossBoardScenarioDispositionSchema,
+    source_board_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_board_version_hashes: nonEmptyHashArray,
+    target_motive_refs: nonEmptyNonLegacyFunctionalRefArray,
+    evidence_transfer_binding_refs: nonLegacyFunctionalRefArray,
+    conflict_refs: nonLegacyFunctionalRefArray,
+    challenge_refs: nonLegacyFunctionalRefArray,
+    freshness_blockers: stringArray,
+    source_locator_refs: nonLegacyFunctionalRefArray,
+    expected_benefit: stringId,
+    risk_codes: stringArray,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    recommended_next_gate: crossBoardRecommendedNextGateSchema,
+  },
+} as const;
+
+export const paperImplementationCrossBoardSynthesisRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    'role_status',
+    'summary',
+    'cited_source_refs',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    role_slot_id: crossBoardSynthesisRoleSlotSchema,
+    role_status: { enum: ['passed', 'blocked'] },
+    summary: stringId,
+    cited_source_refs: nonLegacyFunctionalRefArray,
+    reviewed_board_version_refs: nonLegacyFunctionalRefArray,
+    reviewed_conflict_refs: nonLegacyFunctionalRefArray,
+    reviewed_challenge_refs: nonLegacyFunctionalRefArray,
+    reviewed_evidence_transfer_binding_refs: nonLegacyFunctionalRefArray,
+    scenario_proposals: {
+      type: 'array',
+      items: paperImplementationCrossBoardScenarioProposalSchema,
+    },
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_cross_board_review_side_effect: { const: true },
+    no_evidence_transfer_binding_side_effect: { const: true },
+    no_portfolio_mutation_side_effect: { const: true },
+    no_motive_evolution_side_effect: { const: true },
+  },
+  allOf: [
+    {
+      if: {
+        properties: {
+          role_status: { const: 'passed' },
+        },
+        required: ['role_status'],
+      },
+      then: {
+        required: [
+          'reviewed_board_version_refs',
+          'reviewed_conflict_refs',
+          'reviewed_challenge_refs',
+          'reviewed_evidence_transfer_binding_refs',
+          'scenario_proposals',
+          'no_domain_gate_request',
+          'no_queue_side_effect',
+          'no_cross_board_review_side_effect',
+          'no_evidence_transfer_binding_side_effect',
+          'no_portfolio_mutation_side_effect',
+          'no_motive_evolution_side_effect',
+        ],
+        properties: {
+          reviewed_board_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+          scenario_proposals: {
+            type: 'array',
+            minItems: 1,
+            items: paperImplementationCrossBoardScenarioProposalSchema,
+          },
+          no_domain_gate_request: { const: true },
+          no_queue_side_effect: { const: true },
+          no_cross_board_review_side_effect: { const: true },
+          no_evidence_transfer_binding_side_effect: { const: true },
+          no_portfolio_mutation_side_effect: { const: true },
+          no_motive_evolution_side_effect: { const: true },
         },
       },
     },
@@ -1845,6 +4281,1189 @@ export const paperImplementationExperimentPlanningArtifactSchema = {
             items: paperImplementationExperimentCritiqueFindingSchema,
           },
           critique_decision: paperImplementationExperimentCritiqueDecisionSchema,
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationRoutePlanningArtifactSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'status',
+    'slot_id',
+    'workflow_type',
+    'target_ref',
+    'preflight_blockers',
+    'role_summary',
+    'role_blocker_codes',
+    'role_warning_codes',
+    'blockers',
+    'warnings',
+    'runtime_failure_code',
+    'route_candidate_proposals',
+    'reviewed_route_proposal_ref',
+    'reviewed_route_proposal_hash',
+    'reviewed_candidate_keys',
+    'checked_dimensions',
+    'risk_findings',
+    'recommended_disposition',
+    'no_domain_gate_request',
+    'no_queue_side_effect',
+    'role_artifact_refs',
+    'role_artifact_hashes',
+    'admitted_role_artifact_refs',
+    'admitted_role_artifact_hashes',
+    'role_prompt_packet_refs',
+    'role_prompt_packet_hashes',
+    'role_token_budget_gate_result_refs',
+    'role_compression_report_refs',
+    'runtime_identity',
+    'cache_identity',
+    'source_refs',
+    'source_hash_bundle_hash',
+  ],
+  properties: {
+    status: { enum: ['passed', 'blocked', 'failed_runtime'] },
+    slot_id: routePlanningSlotSchema,
+    workflow_type: routePlanningWorkflowTypeSchema,
+    target_ref: nonLegacyFunctionalRef,
+    preflight_blockers: stringArray,
+    role_summary: nullableStringId,
+    role_blocker_codes: stringArray,
+    role_warning_codes: stringArray,
+    blockers: stringArray,
+    warnings: stringArray,
+    runtime_failure_code: nullableStringId,
+    route_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationRouteCandidateProposalSchema,
+    },
+    reviewed_route_proposal_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_proposal_hash: nullableHashString,
+    reviewed_candidate_keys: stringArray,
+    checked_dimensions: {
+      type: 'array',
+      items: routeSkepticRiskDimensionSchema,
+    },
+    risk_findings: {
+      type: 'array',
+      items: paperImplementationRouteSkepticFindingSchema,
+    },
+    recommended_disposition: {
+      anyOf: [routeSkepticDispositionSchema, { type: 'null' }],
+    },
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_artifact_hashes: nonEmptyHashArray,
+    admitted_role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    admitted_role_artifact_hashes: nonEmptyHashArray,
+    role_prompt_packet_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_prompt_packet_hashes: nonEmptyHashArray,
+    role_token_budget_gate_result_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_compression_report_refs: nonLegacyFunctionalRefArray,
+    runtime_identity: traceIntegrityIdentityObject,
+    cache_identity: traceIntegrityIdentityObject,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hash_bundle_hash: hashString,
+  },
+  allOf: [
+    {
+      if: { properties: { slot_id: { const: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID } }, required: ['slot_id'] },
+      then: {
+        properties: {
+          workflow_type: { const: 'route_architecture' },
+        },
+      },
+    },
+    {
+      if: { properties: { slot_id: { const: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID } }, required: ['slot_id'] },
+      then: {
+        properties: {
+          workflow_type: { const: 'route_skeptic_review' },
+        },
+      },
+    },
+    {
+      if: {
+        properties: {
+          status: { const: 'passed' },
+          slot_id: { const: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID },
+        },
+        required: ['status', 'slot_id'],
+      },
+      then: {
+        properties: {
+          route_candidate_proposals: {
+            type: 'array',
+            minItems: 2,
+            items: paperImplementationRouteCandidateProposalSchema,
+          },
+        },
+      },
+    },
+    {
+      if: {
+        properties: {
+          status: { const: 'passed' },
+          slot_id: { const: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID },
+        },
+        required: ['status', 'slot_id'],
+      },
+      then: {
+        properties: {
+          reviewed_route_proposal_ref: nonLegacyFunctionalRef,
+          reviewed_route_proposal_hash: hashString,
+          reviewed_candidate_keys: {
+            type: 'array',
+            minItems: 1,
+            items: stringId,
+          },
+          checked_dimensions: completeRouteSkepticRiskDimensionsSchema,
+          risk_findings: {
+            type: 'array',
+            minItems: 1,
+            items: paperImplementationRouteSkepticFindingSchema,
+          },
+          recommended_disposition: routeSkepticDispositionSchema,
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationValidationCyclePlanningArtifactSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'status',
+    'slot_id',
+    'workflow_type',
+    'target_ref',
+    'preflight_blockers',
+    'role_summary',
+    'role_blocker_codes',
+    'role_warning_codes',
+    'blockers',
+    'warnings',
+    'runtime_failure_code',
+    'reviewed_route_proposal_ref',
+    'reviewed_route_proposal_hash',
+    'reviewed_route_skeptic_artifact_ref',
+    'reviewed_route_skeptic_artifact_hash',
+    'reviewed_candidate_keys',
+    'cycle_candidate_proposals',
+    'no_domain_gate_request',
+    'no_queue_side_effect',
+    'no_validation_cycle_side_effect',
+    'role_artifact_refs',
+    'role_artifact_hashes',
+    'admitted_role_artifact_refs',
+    'admitted_role_artifact_hashes',
+    'role_prompt_packet_refs',
+    'role_prompt_packet_hashes',
+    'role_token_budget_gate_result_refs',
+    'role_compression_report_refs',
+    'runtime_identity',
+    'cache_identity',
+    'source_refs',
+    'source_hash_bundle_hash',
+  ],
+  properties: {
+    status: { enum: ['passed', 'blocked', 'failed_runtime'] },
+    slot_id: validationCyclePlanningSlotSchema,
+    workflow_type: { const: 'validation_cycle_planning' },
+    target_ref: nonLegacyFunctionalRef,
+    preflight_blockers: stringArray,
+    role_summary: {
+      anyOf: [stringId, { type: 'null' }],
+    },
+    role_blocker_codes: stringArray,
+    role_warning_codes: stringArray,
+    blockers: stringArray,
+    warnings: stringArray,
+    runtime_failure_code: nullableStringId,
+    reviewed_route_proposal_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_proposal_hash: nullableHashString,
+    reviewed_route_skeptic_artifact_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_skeptic_artifact_hash: nullableHashString,
+    reviewed_candidate_keys: stringArray,
+    cycle_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationValidationCycleCandidateProposalSchema,
+    },
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_validation_cycle_side_effect: { const: true },
+    role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_artifact_hashes: nonEmptyHashArray,
+    admitted_role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    admitted_role_artifact_hashes: nonEmptyHashArray,
+    role_prompt_packet_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_prompt_packet_hashes: nonEmptyHashArray,
+    role_token_budget_gate_result_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_compression_report_refs: nonLegacyFunctionalRefArray,
+    runtime_identity: traceIntegrityIdentityObject,
+    cache_identity: traceIntegrityIdentityObject,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hash_bundle_hash: hashString,
+  },
+  allOf: [
+    {
+      if: {
+        properties: {
+          status: { const: 'passed' },
+        },
+        required: ['status'],
+      },
+      then: {
+        properties: {
+          reviewed_route_proposal_ref: nonLegacyFunctionalRef,
+          reviewed_route_proposal_hash: hashString,
+          reviewed_route_skeptic_artifact_ref: nonLegacyFunctionalRef,
+          reviewed_route_skeptic_artifact_hash: hashString,
+          reviewed_candidate_keys: {
+            type: 'array',
+            minItems: 1,
+            items: stringId,
+          },
+          cycle_candidate_proposals: {
+            type: 'array',
+            minItems: 2,
+            items: paperImplementationValidationCycleCandidateProposalSchema,
+          },
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationFeasibilityPlanningArtifactSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'status',
+    'slot_id',
+    'workflow_type',
+    'target_ref',
+    'preflight_blockers',
+    'role_summary',
+    'role_blocker_codes',
+    'role_warning_codes',
+    'blockers',
+    'warnings',
+    'runtime_failure_code',
+    'reviewed_validation_cycle_artifact_ref',
+    'reviewed_validation_cycle_artifact_hash',
+    'reviewed_route_proposal_ref',
+    'reviewed_route_proposal_hash',
+    'reviewed_route_skeptic_artifact_ref',
+    'reviewed_route_skeptic_artifact_hash',
+    'reviewed_cycle_candidate_keys',
+    'reviewed_route_candidate_keys',
+    'probe_plan_candidate_proposals',
+    'no_domain_gate_request',
+    'no_queue_side_effect',
+    'no_feasibility_probe_side_effect',
+    'no_experiment_plan_light_side_effect',
+    'no_validation_cycle_side_effect',
+    'role_artifact_refs',
+    'role_artifact_hashes',
+    'admitted_role_artifact_refs',
+    'admitted_role_artifact_hashes',
+    'role_prompt_packet_refs',
+    'role_prompt_packet_hashes',
+    'role_token_budget_gate_result_refs',
+    'role_compression_report_refs',
+    'runtime_identity',
+    'cache_identity',
+    'source_refs',
+    'source_hash_bundle_hash',
+  ],
+  properties: {
+    status: { enum: ['passed', 'blocked', 'failed_runtime'] },
+    slot_id: feasibilityPlanningSlotSchema,
+    workflow_type: { const: 'feasibility_planning' },
+    target_ref: nonLegacyFunctionalRef,
+    preflight_blockers: stringArray,
+    role_summary: {
+      anyOf: [stringId, { type: 'null' }],
+    },
+    role_blocker_codes: stringArray,
+    role_warning_codes: stringArray,
+    blockers: stringArray,
+    warnings: stringArray,
+    runtime_failure_code: nullableStringId,
+    reviewed_validation_cycle_artifact_ref: nullableNonLegacyFunctionalRef,
+    reviewed_validation_cycle_artifact_hash: nullableHashString,
+    reviewed_route_proposal_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_proposal_hash: nullableHashString,
+    reviewed_route_skeptic_artifact_ref: nullableNonLegacyFunctionalRef,
+    reviewed_route_skeptic_artifact_hash: nullableHashString,
+    reviewed_cycle_candidate_keys: stringArray,
+    reviewed_route_candidate_keys: stringArray,
+    probe_plan_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationFeasibilityProbePlanCandidateProposalSchema,
+    },
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_feasibility_probe_side_effect: { const: true },
+    no_experiment_plan_light_side_effect: { const: true },
+    no_validation_cycle_side_effect: { const: true },
+    role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_artifact_hashes: nonEmptyHashArray,
+    admitted_role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    admitted_role_artifact_hashes: nonEmptyHashArray,
+    role_prompt_packet_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_prompt_packet_hashes: nonEmptyHashArray,
+    role_token_budget_gate_result_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_compression_report_refs: nonLegacyFunctionalRefArray,
+    runtime_identity: traceIntegrityIdentityObject,
+    cache_identity: traceIntegrityIdentityObject,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hash_bundle_hash: hashString,
+  },
+  allOf: [
+    {
+      if: {
+        properties: {
+          status: { const: 'passed' },
+        },
+        required: ['status'],
+      },
+      then: {
+        properties: {
+          reviewed_validation_cycle_artifact_ref: nonLegacyFunctionalRef,
+          reviewed_validation_cycle_artifact_hash: hashString,
+          reviewed_route_proposal_ref: nonLegacyFunctionalRef,
+          reviewed_route_proposal_hash: hashString,
+          reviewed_route_skeptic_artifact_ref: nonLegacyFunctionalRef,
+          reviewed_route_skeptic_artifact_hash: hashString,
+          reviewed_cycle_candidate_keys: {
+            type: 'array',
+            minItems: 1,
+            items: stringId,
+          },
+          reviewed_route_candidate_keys: {
+            type: 'array',
+            minItems: 1,
+            items: stringId,
+          },
+          probe_plan_candidate_proposals: {
+            type: 'array',
+            minItems: 2,
+            items: paperImplementationFeasibilityProbePlanCandidateProposalSchema,
+          },
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationCrossBoardSynthesisArtifactSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'status',
+    'slot_id',
+    'workflow_type',
+    'target_ref',
+    'preflight_blockers',
+    'role_summary',
+    'role_blocker_codes',
+    'role_warning_codes',
+    'blockers',
+    'warnings',
+    'runtime_failure_code',
+    'board_anchors',
+    'reviewed_board_version_refs',
+    'reviewed_conflict_refs',
+    'reviewed_challenge_refs',
+    'reviewed_evidence_transfer_binding_refs',
+    'scenario_proposals',
+    'no_domain_gate_request',
+    'no_queue_side_effect',
+    'no_cross_board_review_side_effect',
+    'no_evidence_transfer_binding_side_effect',
+    'no_portfolio_mutation_side_effect',
+    'no_motive_evolution_side_effect',
+    'role_artifact_refs',
+    'role_artifact_hashes',
+    'admitted_role_artifact_refs',
+    'admitted_role_artifact_hashes',
+    'role_prompt_packet_refs',
+    'role_prompt_packet_hashes',
+    'role_token_budget_gate_result_refs',
+    'role_compression_report_refs',
+    'runtime_identity',
+    'cache_identity',
+    'source_refs',
+    'source_hash_bundle_hash',
+  ],
+  properties: {
+    status: { enum: ['passed', 'blocked', 'failed_runtime'] },
+    slot_id: crossBoardSynthesisSlotSchema,
+    workflow_type: { const: 'cross_board_synthesis' },
+    target_ref: nonLegacyFunctionalRef,
+    preflight_blockers: stringArray,
+    role_summary: {
+      anyOf: [stringId, { type: 'null' }],
+    },
+    role_blocker_codes: stringArray,
+    role_warning_codes: stringArray,
+    blockers: stringArray,
+    warnings: stringArray,
+    runtime_failure_code: nullableStringId,
+    board_anchors: {
+      type: 'array',
+      minItems: 2,
+      items: paperImplementationCrossBoardAnchorSchema,
+    },
+    reviewed_board_version_refs: nonLegacyFunctionalRefArray,
+    reviewed_conflict_refs: nonLegacyFunctionalRefArray,
+    reviewed_challenge_refs: nonLegacyFunctionalRefArray,
+    reviewed_evidence_transfer_binding_refs: nonLegacyFunctionalRefArray,
+    scenario_proposals: {
+      type: 'array',
+      items: paperImplementationCrossBoardScenarioProposalSchema,
+    },
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_cross_board_review_side_effect: { const: true },
+    no_evidence_transfer_binding_side_effect: { const: true },
+    no_portfolio_mutation_side_effect: { const: true },
+    no_motive_evolution_side_effect: { const: true },
+    role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_artifact_hashes: nonEmptyHashArray,
+    admitted_role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    admitted_role_artifact_hashes: nonEmptyHashArray,
+    role_prompt_packet_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_prompt_packet_hashes: nonEmptyHashArray,
+    role_token_budget_gate_result_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_compression_report_refs: nonLegacyFunctionalRefArray,
+    runtime_identity: traceIntegrityIdentityObject,
+    cache_identity: traceIntegrityIdentityObject,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hash_bundle_hash: hashString,
+  },
+  allOf: [
+    {
+      if: {
+        properties: {
+          status: { const: 'passed' },
+        },
+        required: ['status'],
+      },
+      then: {
+        properties: {
+          reviewed_board_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+          scenario_proposals: {
+            type: 'array',
+            minItems: 1,
+            items: paperImplementationCrossBoardScenarioProposalSchema,
+          },
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationEvidenceBoardRuntimeControlSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['terminal_code', 'reason_kind', 'details'],
+  properties: {
+    terminal_code: {
+      enum: [
+        'preflight_blocked',
+        'runtime_retry_exhausted',
+        'admission_rejected',
+        'admitted_blocked',
+      ],
+    },
+    reason_kind: stringId,
+    details: traceIntegrityIdentityObject,
+  },
+} as const;
+
+export const paperImplementationEvidenceBoardSourceContextPacketSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'packet_ref',
+    'packet_hash',
+    'source_ref',
+    'source_hash',
+    'evidence_kind',
+    'content_summary',
+    'key_facts',
+    'covered_evidence_refs',
+    'covered_source_locator_refs',
+    'covered_citation_candidate_refs',
+    'covered_trace_manifest_refs',
+  ],
+  properties: {
+    packet_ref: nonLegacyFunctionalRef,
+    packet_hash: hashString,
+    source_ref: nonLegacyFunctionalRef,
+    source_hash: hashString,
+    evidence_kind: stringId,
+    content_summary: stringId,
+    key_facts: stringArray,
+    covered_evidence_refs: nonLegacyFunctionalRefArray,
+    covered_source_locator_refs: nonLegacyFunctionalRefArray,
+    covered_citation_candidate_refs: nonLegacyFunctionalRefArray,
+    covered_trace_manifest_refs: nonLegacyFunctionalRefArray,
+  },
+} as const;
+
+export const paperImplementationEvidenceBoardFreshnessPolicySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'stale_evidence_requires_gap_candidate',
+    'unreviewed_citation_requires_gap_candidate',
+    'duplicate_existing_binding_requires_gap_candidate',
+  ],
+  properties: {
+    stale_evidence_requires_gap_candidate: { type: 'boolean' },
+    unreviewed_citation_requires_gap_candidate: { type: 'boolean' },
+    duplicate_existing_binding_requires_gap_candidate: { type: 'boolean' },
+  },
+} as const;
+
+export const paperImplementationEvidenceBoardChallengeCheckSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'memo_or_summary_rejected',
+    'locator_quality',
+    'citation_status',
+    'scope_match_status',
+    'freshness_status',
+    'should_downgrade_to_gap',
+    'downgrade_reason_codes',
+    'blocking_reason_codes',
+  ],
+  properties: {
+    memo_or_summary_rejected: { type: 'boolean' },
+    locator_quality: { enum: ['verified', 'missing', 'weak'] },
+    citation_status: { enum: ['reviewed', 'unreviewed', 'missing'] },
+    scope_match_status: { enum: ['matched', 'partial', 'mismatch'] },
+    freshness_status: evidenceBoardFreshnessStatusSchema,
+    should_downgrade_to_gap: { type: 'boolean' },
+    downgrade_reason_codes: stringArray,
+    blocking_reason_codes: stringArray,
+  },
+} as const;
+
+export const paperImplementationEvidenceBoardBindingCandidateProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'candidate_key',
+    'target_assertion_ref',
+    'evidence_ref',
+    'source_locator_refs',
+    'citation_candidate_refs',
+    'proposed_role',
+    'proposed_scope',
+    'proposed_strength',
+    'support_state',
+    'challenge_status',
+    'freshness_status',
+    'interpretation',
+    'challenge_check',
+    'blocker_codes',
+    'warning_codes',
+    'recommended_next_gate',
+  ],
+  properties: {
+    candidate_key: stringId,
+    target_assertion_ref: nonLegacyFunctionalRef,
+    evidence_ref: nonLegacyFunctionalRef,
+    source_locator_refs: nonLegacyFunctionalRefArray,
+    citation_candidate_refs: nonLegacyFunctionalRefArray,
+    proposed_role: evidenceBoardCandidateRoleSchema,
+    proposed_scope: evidenceBoardCandidateScopeSchema,
+    proposed_strength: evidenceBoardCandidateStrengthSchema,
+    support_state: evidenceBoardSupportStateSchema,
+    challenge_status: evidenceBoardChallengeStatusSchema,
+    freshness_status: evidenceBoardFreshnessStatusSchema,
+    interpretation: stringId,
+    challenge_check: paperImplementationEvidenceBoardChallengeCheckSchema,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    recommended_next_gate: evidenceBoardRecommendedNextGateSchema,
+  },
+} as const;
+
+export const paperImplementationEvidenceBoardGapCandidateProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'gap_key',
+    'target_assertion_ref',
+    'gap_kind',
+    'missing_evidence_need',
+    'source_locator_blockers',
+    'citation_blockers',
+    'freshness_blockers',
+    'recommended_next_gate',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    gap_key: stringId,
+    target_assertion_ref: nonLegacyFunctionalRef,
+    gap_kind: evidenceBoardGapKindSchema,
+    missing_evidence_need: stringId,
+    source_locator_blockers: stringArray,
+    citation_blockers: stringArray,
+    freshness_blockers: stringArray,
+    recommended_next_gate: evidenceBoardRecommendedNextGateSchema,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+  },
+} as const;
+
+export const paperImplementationEvidenceBoardCurationRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    'role_status',
+    'summary',
+    'cited_source_refs',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    role_slot_id: evidenceBoardCurationRoleSlotSchema,
+    role_status: { enum: ['passed', 'blocked'] },
+    summary: stringId,
+    cited_source_refs: nonLegacyFunctionalRefArray,
+    reviewed_assertion_refs: nonLegacyFunctionalRefArray,
+    reviewed_source_locator_refs: nonLegacyFunctionalRefArray,
+    reviewed_citation_candidate_refs: nonLegacyFunctionalRefArray,
+    reviewed_evidence_refs: nonLegacyFunctionalRefArray,
+    reviewed_existing_evidence_binding_refs: nonLegacyFunctionalRefArray,
+    binding_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationEvidenceBoardBindingCandidateProposalSchema,
+    },
+    gap_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationEvidenceBoardGapCandidateProposalSchema,
+    },
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_board_write_side_effect: { const: true },
+    no_evidence_binding_side_effect: { const: true },
+    no_evidence_transfer_binding_side_effect: { const: true },
+    no_citation_candidate_side_effect: { const: true },
+    no_trace_repair_queue_side_effect: { const: true },
+  },
+  allOf: [
+    {
+      if: {
+        properties: {
+          role_status: { const: 'passed' },
+        },
+        required: ['role_status'],
+      },
+      then: {
+        required: [
+          'reviewed_assertion_refs',
+          'reviewed_source_locator_refs',
+          'reviewed_citation_candidate_refs',
+          'reviewed_evidence_refs',
+          'reviewed_existing_evidence_binding_refs',
+          'binding_candidate_proposals',
+          'gap_candidate_proposals',
+          'no_domain_gate_request',
+          'no_queue_side_effect',
+          'no_board_write_side_effect',
+          'no_evidence_binding_side_effect',
+          'no_evidence_transfer_binding_side_effect',
+          'no_citation_candidate_side_effect',
+          'no_trace_repair_queue_side_effect',
+        ],
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationEvidenceBoardCurationArtifactSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'status',
+    'slot_id',
+    'workflow_type',
+    'curation_mode',
+    'target_ref',
+    'target_motive_ref',
+    'target_core_motive_version_ref',
+    'target_board_ref',
+    'target_board_hash',
+    'target_assertion_refs',
+    'preflight_blockers',
+    'role_summary',
+    'role_blocker_codes',
+    'role_warning_codes',
+    'blockers',
+    'warnings',
+    'runtime_failure_code',
+    'runtime_control',
+    'reviewed_assertion_refs',
+    'reviewed_source_locator_refs',
+    'reviewed_citation_candidate_refs',
+    'reviewed_evidence_refs',
+    'reviewed_existing_evidence_binding_refs',
+    'binding_candidate_proposals',
+    'gap_candidate_proposals',
+    'no_domain_gate_request',
+    'no_queue_side_effect',
+    'no_board_write_side_effect',
+    'no_evidence_binding_side_effect',
+    'no_evidence_transfer_binding_side_effect',
+    'no_citation_candidate_side_effect',
+    'no_trace_repair_queue_side_effect',
+    'role_artifact_refs',
+    'role_artifact_hashes',
+    'admitted_role_artifact_refs',
+    'admitted_role_artifact_hashes',
+    'role_prompt_packet_refs',
+    'role_prompt_packet_hashes',
+    'role_token_budget_gate_result_refs',
+    'role_compression_report_refs',
+    'runtime_identity',
+    'cache_identity',
+    'source_refs',
+    'source_hash_bundle_hash',
+  ],
+  properties: {
+    status: { enum: ['passed', 'blocked', 'failed_runtime'] },
+    slot_id: evidenceBoardCurationSlotSchema,
+    workflow_type: { const: 'evidence_board_curation' },
+    curation_mode: evidenceBoardCurationModeSchema,
+    target_ref: nonLegacyFunctionalRef,
+    target_motive_ref: nonLegacyFunctionalRef,
+    target_core_motive_version_ref: nonLegacyFunctionalRef,
+    target_board_ref: nullableNonLegacyFunctionalRef,
+    target_board_hash: {
+      anyOf: [hashString, { type: 'null' }],
+    },
+    target_assertion_refs: nonEmptyNonLegacyFunctionalRefArray,
+    preflight_blockers: stringArray,
+    role_summary: {
+      anyOf: [stringId, { type: 'null' }],
+    },
+    role_blocker_codes: stringArray,
+    role_warning_codes: stringArray,
+    blockers: stringArray,
+    warnings: stringArray,
+    runtime_failure_code: nullableStringId,
+    runtime_control: {
+      anyOf: [paperImplementationEvidenceBoardRuntimeControlSchema, { type: 'null' }],
+    },
+    reviewed_assertion_refs: nonLegacyFunctionalRefArray,
+    reviewed_source_locator_refs: nonLegacyFunctionalRefArray,
+    reviewed_citation_candidate_refs: nonLegacyFunctionalRefArray,
+    reviewed_evidence_refs: nonLegacyFunctionalRefArray,
+    reviewed_existing_evidence_binding_refs: nonLegacyFunctionalRefArray,
+    binding_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationEvidenceBoardBindingCandidateProposalSchema,
+    },
+    gap_candidate_proposals: {
+      type: 'array',
+      items: paperImplementationEvidenceBoardGapCandidateProposalSchema,
+    },
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_board_write_side_effect: { const: true },
+    no_evidence_binding_side_effect: { const: true },
+    no_evidence_transfer_binding_side_effect: { const: true },
+    no_citation_candidate_side_effect: { const: true },
+    no_trace_repair_queue_side_effect: { const: true },
+    role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_artifact_hashes: nonEmptyHashArray,
+    admitted_role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    admitted_role_artifact_hashes: nonEmptyHashArray,
+    role_prompt_packet_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_prompt_packet_hashes: nonEmptyHashArray,
+    role_token_budget_gate_result_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_compression_report_refs: nonLegacyFunctionalRefArray,
+    runtime_identity: traceIntegrityIdentityObject,
+    cache_identity: traceIntegrityIdentityObject,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hash_bundle_hash: hashString,
+  },
+  allOf: [
+    {
+      if: {
+        properties: {
+          status: { const: 'passed' },
+        },
+        required: ['status'],
+      },
+      then: {
+        properties: {
+          binding_candidate_proposals: {
+            type: 'array',
+            minItems: 1,
+            items: paperImplementationEvidenceBoardBindingCandidateProposalSchema,
+          },
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationMotiveDecompositionAssertionContextPacketSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'packet_ref',
+    'packet_hash',
+    'assertion_ref',
+    'assertion_hash',
+    'assertion_text',
+    'scope_boundary_summary',
+    'covered_evidence_refs',
+    'covered_trace_manifest_refs',
+    'covered_source_refs',
+  ],
+  properties: {
+    packet_ref: nonLegacyFunctionalRef,
+    packet_hash: hashString,
+    assertion_ref: nonLegacyFunctionalRef,
+    assertion_hash: hashString,
+    assertion_text: stringId,
+    scope_boundary_summary: stringId,
+    covered_evidence_refs: nonLegacyFunctionalRefArray,
+    covered_trace_manifest_refs: nonLegacyFunctionalRefArray,
+    covered_source_refs: nonLegacyFunctionalRefArray,
+  },
+} as const;
+
+export const paperImplementationMotiveDecompositionCheckSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'compoundness_status',
+    'scope_change_status',
+    'evidence_coverage_status',
+    'trace_alignment_status',
+    'new_claim_risk',
+    'human_confirmation_required',
+    'blocking_reason_codes',
+    'recommended_next_gate',
+  ],
+  properties: {
+    compoundness_status: motiveDecompositionCompoundnessStatusSchema,
+    scope_change_status: motiveDecompositionScopeChangeStatusSchema,
+    evidence_coverage_status: motiveDecompositionEvidenceCoverageStatusSchema,
+    trace_alignment_status: motiveDecompositionTraceAlignmentStatusSchema,
+    new_claim_risk: { type: 'boolean' },
+    human_confirmation_required: { type: 'boolean' },
+    blocking_reason_codes: stringArray,
+    recommended_next_gate: motiveDecompositionRecommendedNextGateSchema,
+  },
+} as const;
+
+export const paperImplementationMotiveDecompositionDraftAssertionCandidateSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'candidate_key',
+    'source_assertion_ref',
+    'candidate_kind',
+    'draft_assertion_text',
+    'scope_boundary_summary',
+    'support_obligation_summary',
+    'covered_evidence_refs',
+    'covered_source_refs',
+    'covered_source_locator_refs',
+    'covered_citation_candidate_refs',
+    'covered_trace_manifest_refs',
+    'decomposition_check',
+    'blocker_codes',
+    'warning_codes',
+    'recommended_next_gate',
+  ],
+  properties: {
+    candidate_key: stringId,
+    source_assertion_ref: nonLegacyFunctionalRef,
+    candidate_kind: motiveDecompositionCandidateKindSchema,
+    draft_assertion_text: stringId,
+    scope_boundary_summary: stringId,
+    support_obligation_summary: stringId,
+    covered_evidence_refs: nonLegacyFunctionalRefArray,
+    covered_source_refs: nonLegacyFunctionalRefArray,
+    covered_source_locator_refs: nonLegacyFunctionalRefArray,
+    covered_citation_candidate_refs: nonLegacyFunctionalRefArray,
+    covered_trace_manifest_refs: nonLegacyFunctionalRefArray,
+    decomposition_check: paperImplementationMotiveDecompositionCheckSchema,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    recommended_next_gate: motiveDecompositionRecommendedNextGateSchema,
+  },
+} as const;
+
+const motiveDecompositionResultStatusInvariants = [
+  {
+    if: {
+      properties: {
+        decomposition_result_status: { const: 'candidates_proposed' },
+      },
+      required: ['decomposition_result_status'],
+    },
+    then: {
+      properties: {
+        draft_assertion_candidates: {
+          type: 'array',
+          minItems: 1,
+          items: paperImplementationMotiveDecompositionDraftAssertionCandidateSchema,
+        },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        decomposition_result_status: { const: 'no_decomposition_needed' },
+      },
+      required: ['decomposition_result_status'],
+    },
+    then: {
+      properties: {
+        draft_assertion_candidates: {
+          type: 'array',
+          maxItems: 0,
+          items: paperImplementationMotiveDecompositionDraftAssertionCandidateSchema,
+        },
+        blocker_codes: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
+        },
+        blockers: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
+        },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        decomposition_result_status: { const: 'blocked' },
+      },
+      required: ['decomposition_result_status'],
+    },
+    then: {
+      properties: {
+        blocker_codes: {
+          type: 'array',
+          minItems: 1,
+          items: stringId,
+        },
+        blockers: {
+          type: 'array',
+          minItems: 1,
+          items: stringId,
+        },
+      },
+    },
+  },
+] as const;
+
+const motiveDecompositionRoleStatusInvariants = [
+  {
+    if: {
+      properties: {
+        decomposition_result_status: { const: 'blocked' },
+      },
+      required: ['decomposition_result_status'],
+    },
+    then: {
+      properties: {
+        role_status: { const: 'blocked' },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        decomposition_result_status: {
+          enum: ['candidates_proposed', 'no_decomposition_needed'],
+        },
+      },
+      required: ['decomposition_result_status'],
+    },
+    then: {
+      properties: {
+        role_status: { const: 'passed' },
+      },
+    },
+  },
+] as const;
+
+export const paperImplementationMotiveDecompositionRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    'role_status',
+    'summary',
+    'cited_source_refs',
+    'decomposition_result_status',
+    'reviewed_assertion_refs',
+    'draft_assertion_candidates',
+    'blocker_codes',
+    'warning_codes',
+    'no_domain_gate_request',
+    'no_queue_side_effect',
+    'no_motive_write_side_effect',
+    'no_motive_evolution_side_effect',
+    'no_board_write_side_effect',
+    'no_evidence_binding_side_effect',
+    'no_trace_repair_queue_side_effect',
+  ],
+  properties: {
+    role_slot_id: motiveDecompositionRoleSlotSchema,
+    role_status: { enum: ['passed', 'blocked'] },
+    summary: stringId,
+    cited_source_refs: nonLegacyFunctionalRefArray,
+    decomposition_result_status: motiveDecompositionResultStatusSchema,
+    reviewed_assertion_refs: nonEmptyNonLegacyFunctionalRefArray,
+    draft_assertion_candidates: {
+      type: 'array',
+      items: paperImplementationMotiveDecompositionDraftAssertionCandidateSchema,
+    },
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_motive_write_side_effect: { const: true },
+    no_motive_evolution_side_effect: { const: true },
+    no_board_write_side_effect: { const: true },
+    no_evidence_binding_side_effect: { const: true },
+    no_trace_repair_queue_side_effect: { const: true },
+  },
+  allOf: [
+    ...motiveDecompositionResultStatusInvariants,
+    ...motiveDecompositionRoleStatusInvariants,
+  ],
+} as const;
+
+export const paperImplementationMotiveDecompositionArtifactSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'status',
+    'slot_id',
+    'workflow_type',
+    'decomposition_mode',
+    'target_ref',
+    'target_motive_ref',
+    'target_core_motive_version_ref',
+    'target_assertion_refs',
+    'preflight_blockers',
+    'decomposition_result_status',
+    'role_summary',
+    'role_blocker_codes',
+    'role_warning_codes',
+    'blockers',
+    'warnings',
+    'runtime_failure_code',
+    'reviewed_assertion_refs',
+    'draft_assertion_candidates',
+    'no_domain_gate_request',
+    'no_queue_side_effect',
+    'no_motive_write_side_effect',
+    'no_motive_evolution_side_effect',
+    'no_board_write_side_effect',
+    'no_evidence_binding_side_effect',
+    'no_trace_repair_queue_side_effect',
+    'role_artifact_refs',
+    'role_artifact_hashes',
+    'admitted_role_artifact_refs',
+    'admitted_role_artifact_hashes',
+    'role_prompt_packet_refs',
+    'role_prompt_packet_hashes',
+    'role_token_budget_gate_result_refs',
+    'role_compression_report_refs',
+    'runtime_identity',
+    'cache_identity',
+    'source_refs',
+    'source_hash_bundle_hash',
+  ],
+  properties: {
+    status: { enum: ['passed', 'blocked', 'failed_runtime'] },
+    slot_id: motiveDecompositionSlotSchema,
+    workflow_type: { const: 'motive_decomposition' },
+    decomposition_mode: motiveDecompositionModeSchema,
+    target_ref: nonLegacyFunctionalRef,
+    target_motive_ref: nonLegacyFunctionalRef,
+    target_core_motive_version_ref: nonLegacyFunctionalRef,
+    target_assertion_refs: nonEmptyNonLegacyFunctionalRefArray,
+    preflight_blockers: stringArray,
+    decomposition_result_status: motiveDecompositionResultStatusSchema,
+    role_summary: {
+      anyOf: [stringId, { type: 'null' }],
+    },
+    role_blocker_codes: stringArray,
+    role_warning_codes: stringArray,
+    blockers: stringArray,
+    warnings: stringArray,
+    runtime_failure_code: nullableStringId,
+    reviewed_assertion_refs: nonEmptyNonLegacyFunctionalRefArray,
+    draft_assertion_candidates: {
+      type: 'array',
+      items: paperImplementationMotiveDecompositionDraftAssertionCandidateSchema,
+    },
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_motive_write_side_effect: { const: true },
+    no_motive_evolution_side_effect: { const: true },
+    no_board_write_side_effect: { const: true },
+    no_evidence_binding_side_effect: { const: true },
+    no_trace_repair_queue_side_effect: { const: true },
+    role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_artifact_hashes: nonEmptyHashArray,
+    admitted_role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    admitted_role_artifact_hashes: nonEmptyHashArray,
+    role_prompt_packet_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_prompt_packet_hashes: nonEmptyHashArray,
+    role_token_budget_gate_result_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_compression_report_refs: nonLegacyFunctionalRefArray,
+    runtime_identity: traceIntegrityIdentityObject,
+    cache_identity: traceIntegrityIdentityObject,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hash_bundle_hash: hashString,
+  },
+  allOf: [
+    ...motiveDecompositionResultStatusInvariants,
+    {
+      if: {
+        properties: {
+          decomposition_result_status: { const: 'blocked' },
+        },
+        required: ['decomposition_result_status'],
+      },
+      then: {
+        properties: {
+          status: { const: 'blocked' },
         },
       },
     },
@@ -2559,6 +6178,1493 @@ export const runPaperImplementationExperimentPlanningRuntimeRequestSchema = {
   },
   allOf: [
     productRunModeRequiresProviderExecution,
+    {
+      if: { properties: { execution_mode: { const: 'mocked_llm' } }, required: ['execution_mode'] },
+      then: {
+        required: ['mocked_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'codex_assisted' } }, required: ['execution_mode'] },
+      then: {
+        required: ['codex_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'provider_llm' } }, required: ['execution_mode'] },
+      then: {
+        properties: {
+          mocked_role_outputs: false,
+          codex_role_outputs: false,
+        },
+      },
+    },
+  ],
+} as const;
+
+export const runPaperImplementationRoutePlanningRuntimeRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  $defs: {
+    paperImplementationRoutePlanningRoleOutput:
+      paperImplementationRoutePlanningRoleOutputSchema,
+  },
+  required: [
+    'run_mode',
+    'execution_mode',
+    'target_ref',
+    'input_snapshot_ref',
+    'input_snapshot_hash',
+    'source_refs',
+    'source_hashes',
+  ],
+  properties: {
+    implementation_project_id: false,
+    runtime_artifact_id: false,
+    schema_version: {
+      const: PAPER_IMPLEMENTATION_ROUTE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    },
+    run_id: nullableStringId,
+    run_mode: runModeSchema,
+    execution_mode: executionModeSchema,
+    model_profile_id: nullableStringId,
+    model_option_id: nullableStringId,
+    target_ref: nonLegacyFunctionalRef,
+    target_version_id: nullableStringId,
+    input_snapshot_ref: nonLegacyFunctionalRef,
+    input_snapshot_hash: hashString,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hashes: nonEmptyHashArray,
+    source_context_packets: {
+      type: 'array',
+      items: paperImplementationRoutePlanningSourceContextPacketSchema,
+    },
+    admitted_route_proposal_artifact_ref: nullableNonLegacyFunctionalRef,
+    admitted_route_proposal_artifact_hash: nullableHashString,
+    reviewed_candidate_keys: stringArray,
+    secondary_route_candidate_refs: nonLegacyFunctionalRefArray,
+    preflight_blocker_codes: stringArray,
+    mocked_role_outputs: routePlanningRoleOutputsBySlotSchema,
+    codex_role_outputs: routePlanningRoleOutputsBySlotSchema,
+  },
+  allOf: [
+    productRunModeRequiresProviderExecution,
+    {
+      if: { properties: { execution_mode: { const: 'mocked_llm' } }, required: ['execution_mode'] },
+      then: {
+        required: ['mocked_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'codex_assisted' } }, required: ['execution_mode'] },
+      then: {
+        required: ['codex_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'provider_llm' } }, required: ['execution_mode'] },
+      then: {
+        properties: {
+          mocked_role_outputs: false,
+          codex_role_outputs: false,
+        },
+      },
+    },
+  ],
+} as const;
+
+export const runPaperImplementationValidationCyclePlanningRuntimeRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  $defs: {
+    paperImplementationValidationCyclePlanningRoleOutput:
+      paperImplementationValidationCyclePlanningRoleOutputSchema,
+  },
+  required: [
+    'run_mode',
+    'execution_mode',
+    'target_ref',
+    'input_snapshot_ref',
+    'input_snapshot_hash',
+    'source_refs',
+    'source_hashes',
+    'admitted_route_proposal_artifact_ref',
+    'admitted_route_proposal_artifact_hash',
+    'admitted_route_skeptic_artifact_ref',
+    'admitted_route_skeptic_artifact_hash',
+    'reviewed_candidate_keys',
+  ],
+  properties: {
+    implementation_project_id: false,
+    runtime_artifact_id: false,
+    schema_version: {
+      const: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    },
+    run_id: nullableStringId,
+    run_mode: runModeSchema,
+    execution_mode: executionModeSchema,
+    model_profile_id: nullableStringId,
+    model_option_id: nullableStringId,
+    target_ref: nonLegacyFunctionalRef,
+    target_version_id: nullableStringId,
+    input_snapshot_ref: nonLegacyFunctionalRef,
+    input_snapshot_hash: hashString,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hashes: nonEmptyHashArray,
+    source_context_packets: {
+      type: 'array',
+      items: paperImplementationValidationCyclePlanningSourceContextPacketSchema,
+    },
+    admitted_route_proposal_artifact_ref: nonLegacyFunctionalRef,
+    admitted_route_proposal_artifact_hash: hashString,
+    admitted_route_skeptic_artifact_ref: nonLegacyFunctionalRef,
+    admitted_route_skeptic_artifact_hash: hashString,
+    reviewed_candidate_keys: {
+      type: 'array',
+      minItems: 1,
+      items: stringId,
+    },
+    secondary_route_candidate_refs: nonLegacyFunctionalRefArray,
+    preflight_blocker_codes: stringArray,
+    mocked_role_outputs: validationCyclePlanningRoleOutputsBySlotSchema,
+    codex_role_outputs: validationCyclePlanningRoleOutputsBySlotSchema,
+  },
+  allOf: [
+    productRunModeRequiresProviderExecution,
+    {
+      if: { properties: { execution_mode: { const: 'mocked_llm' } }, required: ['execution_mode'] },
+      then: {
+        required: ['mocked_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'codex_assisted' } }, required: ['execution_mode'] },
+      then: {
+        required: ['codex_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'provider_llm' } }, required: ['execution_mode'] },
+      then: {
+        properties: {
+          mocked_role_outputs: false,
+          codex_role_outputs: false,
+        },
+      },
+    },
+  ],
+} as const;
+
+export const runPaperImplementationFeasibilityPlanningRuntimeRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  $defs: {
+    paperImplementationFeasibilityPlanningRoleOutput:
+      paperImplementationFeasibilityPlanningRoleOutputSchema,
+  },
+  required: [
+    'run_mode',
+    'execution_mode',
+    'target_ref',
+    'input_snapshot_ref',
+    'input_snapshot_hash',
+    'source_refs',
+    'source_hashes',
+    'admitted_validation_cycle_artifact_ref',
+    'admitted_validation_cycle_artifact_hash',
+    'admitted_route_proposal_artifact_ref',
+    'admitted_route_proposal_artifact_hash',
+    'admitted_route_skeptic_artifact_ref',
+    'admitted_route_skeptic_artifact_hash',
+    'reviewed_cycle_candidate_keys',
+    'reviewed_route_candidate_keys',
+  ],
+  properties: {
+    implementation_project_id: false,
+    runtime_artifact_id: false,
+    schema_version: {
+      const: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    },
+    run_id: nullableStringId,
+    run_mode: runModeSchema,
+    execution_mode: executionModeSchema,
+    model_profile_id: nullableStringId,
+    model_option_id: nullableStringId,
+    target_ref: nonLegacyFunctionalRef,
+    target_version_id: nullableStringId,
+    input_snapshot_ref: nonLegacyFunctionalRef,
+    input_snapshot_hash: hashString,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hashes: nonEmptyHashArray,
+    source_context_packets: {
+      type: 'array',
+      items: paperImplementationFeasibilityPlanningSourceContextPacketSchema,
+    },
+    admitted_validation_cycle_artifact_ref: nonLegacyFunctionalRef,
+    admitted_validation_cycle_artifact_hash: hashString,
+    admitted_route_proposal_artifact_ref: nonLegacyFunctionalRef,
+    admitted_route_proposal_artifact_hash: hashString,
+    admitted_route_skeptic_artifact_ref: nonLegacyFunctionalRef,
+    admitted_route_skeptic_artifact_hash: hashString,
+    reviewed_cycle_candidate_keys: {
+      type: 'array',
+      minItems: 1,
+      items: stringId,
+    },
+    reviewed_route_candidate_keys: {
+      type: 'array',
+      minItems: 1,
+      items: stringId,
+    },
+    secondary_route_candidate_refs: nonLegacyFunctionalRefArray,
+    secondary_validation_cycle_refs: nonLegacyFunctionalRefArray,
+    secondary_feasibility_probe_refs: nonLegacyFunctionalRefArray,
+    secondary_experiment_plan_light_refs: nonLegacyFunctionalRefArray,
+    preflight_blocker_codes: stringArray,
+    mocked_role_outputs: feasibilityPlanningRoleOutputsBySlotSchema,
+    codex_role_outputs: feasibilityPlanningRoleOutputsBySlotSchema,
+  },
+  allOf: [
+    productRunModeRequiresProviderExecution,
+    {
+      if: { properties: { execution_mode: { const: 'mocked_llm' } }, required: ['execution_mode'] },
+      then: {
+        required: ['mocked_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'codex_assisted' } }, required: ['execution_mode'] },
+      then: {
+        required: ['codex_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'provider_llm' } }, required: ['execution_mode'] },
+      then: {
+        properties: {
+          mocked_role_outputs: false,
+          codex_role_outputs: false,
+        },
+      },
+    },
+  ],
+} as const;
+
+export const runPaperImplementationCrossBoardSynthesisRuntimeRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  $defs: {
+    paperImplementationCrossBoardSynthesisRoleOutput:
+      paperImplementationCrossBoardSynthesisRoleOutputSchema,
+  },
+  required: [
+    'run_mode',
+    'execution_mode',
+    'target_ref',
+    'input_snapshot_ref',
+    'input_snapshot_hash',
+    'source_refs',
+    'source_hashes',
+    'board_anchors',
+    'reviewed_board_version_refs',
+    'reviewed_conflict_refs',
+    'reviewed_challenge_refs',
+    'evidence_transfer_binding_refs',
+    'reuse_policy',
+  ],
+  properties: {
+    implementation_project_id: false,
+    runtime_artifact_id: false,
+    cross_board_review_id: false,
+    create_cross_board_review_request: false,
+    evidence_transfer_binding_request: false,
+    motive_portfolio_decision_id: false,
+    motive_roles_after_decision: false,
+    merged_motives: false,
+    split_motives: false,
+    motive_evolution_decision_request: false,
+    domain_gate_request: false,
+    queue_action: false,
+    schema_version: {
+      const: PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    },
+    run_id: nullableStringId,
+    run_mode: runModeSchema,
+    execution_mode: executionModeSchema,
+    model_profile_id: nullableStringId,
+    model_option_id: nullableStringId,
+    target_ref: nonLegacyFunctionalRef,
+    target_version_id: nullableStringId,
+    input_snapshot_ref: nonLegacyFunctionalRef,
+    input_snapshot_hash: hashString,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hashes: nonEmptyHashArray,
+    source_context_packets: {
+      type: 'array',
+      items: paperImplementationCrossBoardSourceContextPacketSchema,
+    },
+    board_anchors: {
+      type: 'array',
+      minItems: 2,
+      items: paperImplementationCrossBoardAnchorSchema,
+    },
+    reviewed_board_version_refs: {
+      type: 'array',
+      minItems: 2,
+      items: nonLegacyFunctionalRef,
+    },
+    reviewed_conflict_refs: nonLegacyFunctionalRefArray,
+    reviewed_challenge_refs: nonLegacyFunctionalRefArray,
+    evidence_transfer_binding_refs: nonLegacyFunctionalRefArray,
+    reuse_policy: paperImplementationCrossBoardReusePolicySchema,
+    secondary_cross_board_review_refs: nonLegacyFunctionalRefArray,
+    secondary_evidence_transfer_binding_refs: nonLegacyFunctionalRefArray,
+    secondary_motive_assertion_refs: nonLegacyFunctionalRefArray,
+    secondary_evidence_binding_refs: nonLegacyFunctionalRefArray,
+    secondary_route_refs: nonLegacyFunctionalRefArray,
+    secondary_experiment_refs: nonLegacyFunctionalRefArray,
+    preflight_blocker_codes: stringArray,
+    mocked_role_outputs: crossBoardSynthesisRoleOutputsBySlotSchema,
+    codex_role_outputs: crossBoardSynthesisRoleOutputsBySlotSchema,
+  },
+  allOf: [
+    productRunModeRequiresProviderExecution,
+    {
+      if: { properties: { execution_mode: { const: 'mocked_llm' } }, required: ['execution_mode'] },
+      then: {
+        required: ['mocked_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'codex_assisted' } }, required: ['execution_mode'] },
+      then: {
+        required: ['codex_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'provider_llm' } }, required: ['execution_mode'] },
+      then: {
+        properties: {
+          mocked_role_outputs: false,
+          codex_role_outputs: false,
+        },
+      },
+    },
+  ],
+} as const;
+
+export const runPaperImplementationEvidenceBoardCurationRuntimeRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  $defs: {
+    paperImplementationEvidenceBoardCurationRoleOutput:
+      paperImplementationEvidenceBoardCurationRoleOutputSchema,
+  },
+  required: [
+    'run_mode',
+    'execution_mode',
+    'curation_mode',
+    'target_ref',
+    'target_motive_ref',
+    'target_core_motive_version_ref',
+    'target_assertion_refs',
+    'input_snapshot_ref',
+    'input_snapshot_hash',
+    'source_refs',
+    'source_hashes',
+    'trace_manifest_refs',
+    'trace_manifest_hashes',
+    'source_locator_refs',
+    'citation_candidate_refs',
+    'reviewed_citation_candidate_refs',
+    'evidence_refs',
+    'existing_evidence_binding_refs',
+    'existing_bound_evidence_refs',
+    'freshness_policy',
+  ],
+  properties: {
+    implementation_project_id: false,
+    runtime_artifact_id: false,
+    agent_workflow_harness_run_id: false,
+    implementation_proposal_artifact: false,
+    motive_evidence_board_version_id: false,
+    board_draft: false,
+    board_summary: false,
+    board_state: false,
+    bindings: false,
+    create_board_request: false,
+    create_motive_evidence_board_version_request: false,
+    create_evidence_binding_request: false,
+    evidence_binding_id: false,
+    update_existing_binding_proposals: false,
+    remove_binding_proposals: false,
+    board_summary_patch: false,
+    board_state_patch: false,
+    evidence_transfer_binding_request: false,
+    citation_candidate_request: false,
+    trace_repair_queue_item: false,
+    domain_gate_request: false,
+    queue_action: false,
+    schema_version: {
+      const: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    },
+    run_id: nullableStringId,
+    run_mode: runModeSchema,
+    execution_mode: executionModeSchema,
+    model_profile_id: nullableStringId,
+    model_option_id: nullableStringId,
+    curation_mode: evidenceBoardCurationModeSchema,
+    target_ref: nonLegacyFunctionalRef,
+    target_version_id: nullableStringId,
+    target_motive_ref: nonLegacyFunctionalRef,
+    target_core_motive_version_ref: nonLegacyFunctionalRef,
+    target_board_ref: nullableNonLegacyFunctionalRef,
+    target_board_hash: {
+      anyOf: [hashString, { type: 'null' }],
+    },
+    target_assertion_refs: nonEmptyNonLegacyFunctionalRefArray,
+    input_snapshot_ref: nonLegacyFunctionalRef,
+    input_snapshot_hash: hashString,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hashes: nonEmptyHashArray,
+    source_context_packets: {
+      type: 'array',
+      items: paperImplementationEvidenceBoardSourceContextPacketSchema,
+    },
+    trace_manifest_refs: nonEmptyNonLegacyFunctionalRefArray,
+    trace_manifest_hashes: nonEmptyHashArray,
+    source_locator_refs: nonLegacyFunctionalRefArray,
+    citation_candidate_refs: nonLegacyFunctionalRefArray,
+    reviewed_citation_candidate_refs: nonLegacyFunctionalRefArray,
+    evidence_refs: nonEmptyNonLegacyFunctionalRefArray,
+    existing_evidence_binding_refs: nonLegacyFunctionalRefArray,
+    existing_bound_evidence_refs: nonLegacyFunctionalRefArray,
+    accepted_risk_refs: nonLegacyFunctionalRefArray,
+    freshness_policy: paperImplementationEvidenceBoardFreshnessPolicySchema,
+    secondary_evidence_transfer_binding_refs: nonLegacyFunctionalRefArray,
+    secondary_cross_board_review_refs: nonLegacyFunctionalRefArray,
+    secondary_trace_repair_queue_refs: nonLegacyFunctionalRefArray,
+    preflight_blocker_codes: stringArray,
+    mocked_role_outputs: evidenceBoardCurationRoleOutputsBySlotSchema,
+    codex_role_outputs: evidenceBoardCurationRoleOutputsBySlotSchema,
+  },
+  allOf: [
+    productRunModeRequiresProviderExecution,
+    {
+      if: { properties: { execution_mode: { const: 'mocked_llm' } }, required: ['execution_mode'] },
+      then: {
+        required: ['mocked_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'codex_assisted' } }, required: ['execution_mode'] },
+      then: {
+        required: ['codex_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'provider_llm' } }, required: ['execution_mode'] },
+      then: {
+        properties: {
+          mocked_role_outputs: false,
+          codex_role_outputs: false,
+        },
+      },
+    },
+    {
+      if: { properties: { curation_mode: { const: 'curate_existing_board' } }, required: ['curation_mode'] },
+      then: {
+        required: ['target_board_ref', 'target_board_hash'],
+      },
+    },
+    {
+      if: { properties: { curation_mode: { const: 'seed_initial_board_candidates' } }, required: ['curation_mode'] },
+      then: {
+        properties: {
+          target_board_ref: false,
+          target_board_hash: false,
+          existing_evidence_binding_refs: {
+            type: 'array',
+            maxItems: 0,
+          },
+          existing_bound_evidence_refs: {
+            type: 'array',
+            maxItems: 0,
+          },
+        },
+      },
+    },
+  ],
+} as const;
+
+export const runPaperImplementationMotiveDecompositionRuntimeRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  $defs: {
+    paperImplementationMotiveDecompositionRoleOutput:
+      paperImplementationMotiveDecompositionRoleOutputSchema,
+  },
+  required: [
+    'run_mode',
+    'execution_mode',
+    'decomposition_mode',
+    'target_ref',
+    'target_motive_ref',
+    'target_core_motive_version_ref',
+    'target_assertion_refs',
+    'input_snapshot_ref',
+    'input_snapshot_hash',
+    'source_refs',
+    'source_hashes',
+    'assertion_context_packets',
+    'trace_manifest_refs',
+    'trace_manifest_hashes',
+    'source_locator_refs',
+    'citation_candidate_refs',
+    'evidence_refs',
+  ],
+  properties: {
+    implementation_project_id: false,
+    runtime_artifact_id: false,
+    agent_workflow_harness_run_id: false,
+    implementation_proposal_artifact: false,
+    source_assertion_reviews: false,
+    assertion_id: false,
+    candidate_assertion_ref: false,
+    create_motive_assertion_input: false,
+    CreateMotiveAssertionInput: false,
+    motive_assertion_create_request: false,
+    core_motive_version_patch: false,
+    motive_evolution_decision_request: false,
+    domain_gate_request: false,
+    queue_action: false,
+    board_draft: false,
+    create_evidence_binding_request: false,
+    trace_repair_queue_item: false,
+    rendered_prompt_text: false,
+    raw_provider_output: false,
+    schema_version: {
+      const: PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    },
+    run_id: nullableStringId,
+    run_mode: runModeSchema,
+    execution_mode: executionModeSchema,
+    model_profile_id: nullableStringId,
+    model_option_id: nullableStringId,
+    decomposition_mode: motiveDecompositionModeSchema,
+    target_ref: nonLegacyFunctionalRef,
+    target_version_id: nullableStringId,
+    target_motive_ref: nonLegacyFunctionalRef,
+    target_core_motive_version_ref: nonLegacyFunctionalRef,
+    target_assertion_refs: nonEmptyNonLegacyFunctionalRefArray,
+    input_snapshot_ref: nonLegacyFunctionalRef,
+    input_snapshot_hash: hashString,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hashes: nonEmptyHashArray,
+    assertion_context_packets: {
+      type: 'array',
+      minItems: 1,
+      items: paperImplementationMotiveDecompositionAssertionContextPacketSchema,
+    },
+    trace_manifest_refs: nonEmptyNonLegacyFunctionalRefArray,
+    trace_manifest_hashes: nonEmptyHashArray,
+    source_locator_refs: nonLegacyFunctionalRefArray,
+    citation_candidate_refs: nonLegacyFunctionalRefArray,
+    evidence_refs: nonEmptyNonLegacyFunctionalRefArray,
+    accepted_risk_refs: nonLegacyFunctionalRefArray,
+    admitted_upstream_artifact_refs: nonLegacyFunctionalRefArray,
+    admitted_upstream_artifact_hashes: hashArray,
+    preflight_blocker_codes: stringArray,
+    mocked_role_outputs: motiveDecompositionRoleOutputsBySlotSchema,
+    codex_role_outputs: motiveDecompositionRoleOutputsBySlotSchema,
+  },
+  allOf: [
+    productRunModeRequiresProviderExecution,
+    {
+      if: { properties: { execution_mode: { const: 'mocked_llm' } }, required: ['execution_mode'] },
+      then: {
+        required: ['mocked_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'codex_assisted' } }, required: ['execution_mode'] },
+      then: {
+        required: ['codex_role_outputs'],
+      },
+    },
+    {
+      if: { properties: { execution_mode: { const: 'provider_llm' } }, required: ['execution_mode'] },
+      then: {
+        properties: {
+          mocked_role_outputs: false,
+          codex_role_outputs: false,
+        },
+      },
+    },
+  ],
+} as const;
+
+export const paperImplementationMotiveEvolutionContextPacketSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'packet_ref',
+    'packet_hash',
+    'packet_kind',
+    'content_summary',
+    'key_facts',
+    'covered_target_refs',
+    'covered_evidence_refs',
+    'covered_trace_manifest_refs',
+    'covered_source_refs',
+  ],
+  properties: {
+    packet_ref: nonLegacyFunctionalRef,
+    packet_hash: hashString,
+    packet_kind: motiveEvolutionContextPacketKindSchema,
+    content_summary: stringId,
+    key_facts: stringArray,
+    covered_target_refs: nonEmptyNonLegacyFunctionalRefArray,
+    covered_evidence_refs: nonLegacyFunctionalRefArray,
+    covered_trace_manifest_refs: nonLegacyFunctionalRefArray,
+    covered_source_refs: nonLegacyFunctionalRefArray,
+  },
+} as const;
+
+export const paperImplementationMotiveEvolutionChallengeCheckSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'evidence_status',
+    'trace_status',
+    'portfolio_status',
+    'human_confirmation_status',
+    'downstream_impact_status',
+    'blocking_reason_codes',
+  ],
+  properties: {
+    evidence_status: motiveEvolutionCheckStatusSchema,
+    trace_status: motiveEvolutionCheckStatusSchema,
+    portfolio_status: motiveEvolutionCheckStatusSchema,
+    human_confirmation_status: motiveEvolutionCheckStatusSchema,
+    downstream_impact_status: motiveEvolutionCheckStatusSchema,
+    blocking_reason_codes: stringArray,
+  },
+  anyOf: [
+    {
+      properties: {
+        evidence_status: { const: 'blocked' },
+      },
+      required: ['evidence_status'],
+    },
+    {
+      properties: {
+        trace_status: { const: 'blocked' },
+      },
+      required: ['trace_status'],
+    },
+    {
+      properties: {
+        portfolio_status: { const: 'blocked' },
+      },
+      required: ['portfolio_status'],
+    },
+    {
+      properties: {
+        human_confirmation_status: { const: 'blocked' },
+      },
+      required: ['human_confirmation_status'],
+    },
+    {
+      properties: {
+        downstream_impact_status: { const: 'blocked' },
+      },
+      required: ['downstream_impact_status'],
+    },
+    {
+      properties: {
+        blocking_reason_codes: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
+        },
+      },
+      required: ['blocking_reason_codes'],
+    },
+  ],
+  if: {
+    anyOf: [
+      {
+        properties: {
+          evidence_status: { const: 'blocked' },
+        },
+        required: ['evidence_status'],
+      },
+      {
+        properties: {
+          trace_status: { const: 'blocked' },
+        },
+        required: ['trace_status'],
+      },
+      {
+        properties: {
+          portfolio_status: { const: 'blocked' },
+        },
+        required: ['portfolio_status'],
+      },
+      {
+        properties: {
+          human_confirmation_status: { const: 'blocked' },
+        },
+        required: ['human_confirmation_status'],
+      },
+      {
+        properties: {
+          downstream_impact_status: { const: 'blocked' },
+        },
+        required: ['downstream_impact_status'],
+      },
+    ],
+  },
+  then: {
+    properties: {
+      blocking_reason_codes: {
+        type: 'array',
+        minItems: 1,
+        items: stringId,
+      },
+    },
+  },
+} as const;
+
+const motiveEvolutionPortfolioChangingOptionKinds = [
+  'supersede',
+  'merge',
+  'split',
+  'park',
+  'abandon',
+] as const;
+const motiveEvolutionPortfolioChangingImpactClasses = [
+  'semantic_version_change',
+  'portfolio_role_change',
+  'primary_or_active_set_change',
+  'lineage_change',
+] as const;
+const motiveEvolutionHumanConfirmationGateSchema = {
+  enum: ['motive_evolution_review', 'portfolio_decision_review', 'human_confirmation'],
+} as const;
+const motiveEvolutionOptionHumanGateInvariants = [
+  {
+    if: {
+      properties: {
+        option_kind: {
+          enum: [...motiveEvolutionPortfolioChangingOptionKinds],
+        },
+      },
+      required: ['option_kind'],
+    },
+    then: {
+      properties: {
+        human_confirmation_required: { const: true },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        portfolio_impact_class: {
+          enum: [...motiveEvolutionPortfolioChangingImpactClasses],
+        },
+      },
+      required: ['portfolio_impact_class'],
+    },
+    then: {
+      properties: {
+        human_confirmation_required: { const: true },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        human_confirmation_required: { const: true },
+      },
+      required: ['human_confirmation_required'],
+    },
+    then: {
+      properties: {
+        recommended_next_gate: motiveEvolutionHumanConfirmationGateSchema,
+      },
+    },
+  },
+] as const;
+
+export const paperImplementationMotiveEvolutionDesignedOptionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'option_kind',
+    'supporting_refs',
+    'challenging_refs',
+    'portfolio_impact_class',
+    'human_confirmation_required',
+    'recommended_next_gate',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    option_kind: motiveEvolutionOptionKindSchema,
+    supporting_refs: nonLegacyFunctionalRefArray,
+    challenging_refs: nonLegacyFunctionalRefArray,
+    portfolio_impact_class: motiveEvolutionPortfolioImpactClassSchema,
+    human_confirmation_required: { type: 'boolean' },
+    recommended_next_gate: motiveEvolutionRecommendedNextGateSchema,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+  },
+  allOf: [...motiveEvolutionOptionHumanGateInvariants],
+} as const;
+
+export const paperImplementationMotiveEvolutionDecisionOptionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'option_kind',
+    'supporting_refs',
+    'challenging_refs',
+    'portfolio_impact_class',
+    'human_confirmation_required',
+    'recommended_next_gate',
+    'blocker_codes',
+    'warning_codes',
+    'challenge_check',
+  ],
+  properties: {
+    option_kind: motiveEvolutionOptionKindSchema,
+    supporting_refs: nonLegacyFunctionalRefArray,
+    challenging_refs: nonLegacyFunctionalRefArray,
+    portfolio_impact_class: motiveEvolutionPortfolioImpactClassSchema,
+    human_confirmation_required: { type: 'boolean' },
+    recommended_next_gate: motiveEvolutionRecommendedNextGateSchema,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    challenge_check: paperImplementationMotiveEvolutionChallengeCheckSchema,
+  },
+  allOf: [...motiveEvolutionOptionHumanGateInvariants],
+} as const;
+
+const paperImplementationMotiveEvolutionDesignedOptionsByKeySchema = {
+  type: 'object',
+  propertyNames: stringId,
+  additionalProperties: paperImplementationMotiveEvolutionDesignedOptionSchema,
+} as const;
+
+const paperImplementationMotiveEvolutionDecisionOptionsByKeySchema = {
+  type: 'object',
+  propertyNames: stringId,
+  additionalProperties: paperImplementationMotiveEvolutionDecisionOptionSchema,
+} as const;
+
+const motiveEvolutionRoleStatusInvariants = [
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'blocked' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        role_status: { const: 'blocked' },
+        blocker_codes: {
+          type: 'array',
+          minItems: 1,
+          items: stringId,
+        },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        support_result_status: {
+          enum: ['options_proposed', 'no_evolution_needed'],
+        },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        role_status: { const: 'passed' },
+      },
+    },
+  },
+] as const;
+
+const motiveEvolutionDesignedOptionResultInvariants = [
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'options_proposed' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        designed_options: {
+          ...paperImplementationMotiveEvolutionDesignedOptionsByKeySchema,
+          minProperties: 1,
+        },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'no_evolution_needed' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        designed_options: {
+          ...paperImplementationMotiveEvolutionDesignedOptionsByKeySchema,
+          maxProperties: 0,
+        },
+        blocker_codes: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
+        },
+      },
+    },
+  },
+] as const;
+
+const motiveEvolutionDecisionOptionResultInvariants = [
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'options_proposed' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        challenged_option_keys: nonEmptyUniqueStringArray,
+        decision_options: {
+          ...paperImplementationMotiveEvolutionDecisionOptionsByKeySchema,
+          minProperties: 1,
+        },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'no_evolution_needed' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        challenged_option_keys: {
+          type: 'array',
+          maxItems: 0,
+          uniqueItems: true,
+          items: stringId,
+        },
+        decision_options: {
+          ...paperImplementationMotiveEvolutionDecisionOptionsByKeySchema,
+          maxProperties: 0,
+        },
+        blocker_codes: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
+        },
+        blockers: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
+        },
+      },
+    },
+  },
+] as const;
+
+const motiveEvolutionFinalStatusInvariants = [
+  {
+    if: {
+      properties: {
+        status: { const: 'passed' },
+      },
+      required: ['status'],
+    },
+    then: {
+      properties: {
+        support_result_status: {
+          enum: ['options_proposed', 'no_evolution_needed'],
+        },
+        runtime_failure_code: { type: 'null' },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        status: { const: 'blocked' },
+      },
+      required: ['status'],
+    },
+    then: {
+      properties: {
+        support_result_status: { const: 'blocked' },
+        runtime_failure_code: { type: 'null' },
+        blockers: {
+          type: 'array',
+          minItems: 1,
+          items: stringId,
+        },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        status: { const: 'failed_runtime' },
+      },
+      required: ['status'],
+    },
+    then: {
+      properties: {
+        support_result_status: { const: 'blocked' },
+        runtime_failure_code: stringId,
+        decision_options: {
+          ...paperImplementationMotiveEvolutionDecisionOptionsByKeySchema,
+          maxProperties: 0,
+        },
+        blockers: {
+          type: 'array',
+          minItems: 1,
+          items: stringId,
+        },
+      },
+    },
+  },
+] as const;
+
+const motiveEvolutionIdentityJsonValue = {
+  $ref: '#/$defs/paperImplementationMotiveEvolutionIdentityJsonValue',
+} as const;
+const motiveEvolutionForbiddenIdentityPayloadKeyGuard = {
+  not: {
+    enum: [
+      ...PAPER_IMPLEMENTATION_RUNTIME_FORBIDDEN_PAYLOAD_KEYS,
+      'raw_provider_output',
+      'cached_prior_output',
+      'writer_dto_payload',
+      'domain_gate_request',
+      'queue_action',
+      'CreateMotiveEvolutionDecisionRequest',
+      'create_motive_evolution_decision_request',
+      'motive_evolution_decision_request',
+      'ApplyMotivePortfolioDecisionRequest',
+      'apply_motive_portfolio_decision_request',
+      'motive_roles_after_decision',
+      'change_set',
+      'core_motive_version_patch',
+      'application_status',
+      'debate_transcript',
+      'source_by_source_reviews',
+    ],
+  },
+} as const;
+const motiveEvolutionIdentityObject = {
+  type: 'object',
+  propertyNames: motiveEvolutionForbiddenIdentityPayloadKeyGuard,
+  additionalProperties: motiveEvolutionIdentityJsonValue,
+} as const;
+
+const motiveEvolutionRoleOutputBaseRequired = [
+  'role_status',
+  'summary',
+  'cited_source_refs',
+  'support_result_status',
+  'blocker_codes',
+  'warning_codes',
+  'no_domain_gate_request',
+  'no_queue_side_effect',
+  'no_motive_write_side_effect',
+  'no_motive_evolution_side_effect',
+  'no_portfolio_mutation_side_effect',
+  'no_board_write_side_effect',
+  'no_evidence_binding_side_effect',
+  'no_trace_repair_queue_side_effect',
+] as const;
+const motiveEvolutionRoleOutputBaseProperties = {
+  role_status: { enum: ['passed', 'blocked'] },
+  summary: stringId,
+  cited_source_refs: nonLegacyFunctionalRefArray,
+  support_result_status: motiveEvolutionResultStatusSchema,
+  blocker_codes: stringArray,
+  warning_codes: stringArray,
+  no_domain_gate_request: { const: true },
+  no_queue_side_effect: { const: true },
+  no_motive_write_side_effect: { const: true },
+  no_motive_evolution_side_effect: { const: true },
+  no_portfolio_mutation_side_effect: { const: true },
+  no_board_write_side_effect: { const: true },
+  no_evidence_binding_side_effect: { const: true },
+  no_trace_repair_queue_side_effect: { const: true },
+} as const;
+
+export const paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    ...motiveEvolutionRoleOutputBaseRequired,
+    'reviewed_target_motive_refs',
+    'reviewed_core_motive_version_refs',
+    'designed_options',
+    'option_set_hash',
+  ],
+  properties: {
+    role_slot_id: motiveEvolutionOptionDesignerRoleSlotSchema,
+    ...motiveEvolutionRoleOutputBaseProperties,
+    reviewed_target_motive_refs: nonEmptyNonLegacyFunctionalRefArray,
+    reviewed_core_motive_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+    designed_options: paperImplementationMotiveEvolutionDesignedOptionsByKeySchema,
+    option_set_hash: hashString,
+  },
+  allOf: [
+    ...motiveEvolutionRoleStatusInvariants,
+    ...motiveEvolutionDesignedOptionResultInvariants,
+  ],
+} as const;
+
+export const paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    ...motiveEvolutionRoleOutputBaseRequired,
+    'designer_role_artifact_ref',
+    'designer_role_artifact_hash',
+    'option_set_hash',
+    'challenged_option_keys',
+    'decision_options',
+  ],
+  properties: {
+    role_slot_id: motiveEvolutionRiskChallengerRoleSlotSchema,
+    ...motiveEvolutionRoleOutputBaseProperties,
+    designer_role_artifact_ref: nonLegacyFunctionalRef,
+    designer_role_artifact_hash: hashString,
+    option_set_hash: hashString,
+    challenged_option_keys: uniqueStringArray,
+    decision_options: paperImplementationMotiveEvolutionDecisionOptionsByKeySchema,
+  },
+  allOf: [
+    ...motiveEvolutionRoleStatusInvariants,
+    ...motiveEvolutionDecisionOptionResultInvariants,
+  ],
+} as const;
+
+export const paperImplementationMotiveEvolutionRoleOutputSchema = {
+  oneOf: [
+    paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema,
+    paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema,
+  ],
+} as const;
+
+export const paperImplementationMotiveEvolutionArtifactSchema = {
+  type: 'object',
+  additionalProperties: false,
+  $defs: {
+    paperImplementationMotiveEvolutionIdentityJsonValue: {
+      anyOf: [
+        { type: 'null' },
+        { type: 'boolean' },
+        { type: 'number' },
+        { type: 'string' },
+        {
+          type: 'array',
+          items: motiveEvolutionIdentityJsonValue,
+        },
+        motiveEvolutionIdentityObject,
+      ],
+    },
+  },
+  required: [
+    'status',
+    'slot_id',
+    'workflow_type',
+    'target_ref',
+    'target_motive_refs',
+    'target_core_motive_version_refs',
+    'preflight_blockers',
+    'support_result_status',
+    'role_summary',
+    'role_blocker_codes',
+    'role_warning_codes',
+    'blockers',
+    'warnings',
+    'runtime_failure_code',
+    'decision_options',
+    'no_domain_gate_request',
+    'no_queue_side_effect',
+    'no_motive_write_side_effect',
+    'no_motive_evolution_side_effect',
+    'no_portfolio_mutation_side_effect',
+    'no_board_write_side_effect',
+    'no_evidence_binding_side_effect',
+    'no_trace_repair_queue_side_effect',
+    'role_artifact_refs',
+    'role_artifact_hashes',
+    'admitted_role_artifact_refs',
+    'admitted_role_artifact_hashes',
+    'role_prompt_packet_refs',
+    'role_prompt_packet_hashes',
+    'role_token_budget_gate_result_refs',
+    'role_compression_report_refs',
+    'runtime_identity',
+    'cache_identity',
+    'source_refs',
+    'source_hash_bundle_hash',
+  ],
+  properties: {
+    status: { enum: ['passed', 'blocked', 'failed_runtime'] },
+    slot_id: motiveEvolutionSlotSchema,
+    workflow_type: { const: 'motive_evolution' },
+    target_ref: nonLegacyFunctionalRef,
+    target_motive_refs: nonEmptyNonLegacyFunctionalRefArray,
+    target_core_motive_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+    preflight_blockers: stringArray,
+    support_result_status: motiveEvolutionResultStatusSchema,
+    role_summary: {
+      anyOf: [stringId, { type: 'null' }],
+    },
+    role_blocker_codes: stringArray,
+    role_warning_codes: stringArray,
+    blockers: stringArray,
+    warnings: stringArray,
+    runtime_failure_code: nullableStringId,
+    decision_options: paperImplementationMotiveEvolutionDecisionOptionsByKeySchema,
+    no_domain_gate_request: { const: true },
+    no_queue_side_effect: { const: true },
+    no_motive_write_side_effect: { const: true },
+    no_motive_evolution_side_effect: { const: true },
+    no_portfolio_mutation_side_effect: { const: true },
+    no_board_write_side_effect: { const: true },
+    no_evidence_binding_side_effect: { const: true },
+    no_trace_repair_queue_side_effect: { const: true },
+    role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_artifact_hashes: nonEmptyHashArray,
+    admitted_role_artifact_refs: nonEmptyNonLegacyFunctionalRefArray,
+    admitted_role_artifact_hashes: nonEmptyHashArray,
+    role_prompt_packet_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_prompt_packet_hashes: nonEmptyHashArray,
+    role_token_budget_gate_result_refs: nonEmptyNonLegacyFunctionalRefArray,
+    role_compression_report_refs: nonLegacyFunctionalRefArray,
+    runtime_identity: motiveEvolutionIdentityObject,
+    cache_identity: motiveEvolutionIdentityObject,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hash_bundle_hash: hashString,
+  },
+  allOf: [
+    ...motiveEvolutionFinalStatusInvariants,
+    ...motiveEvolutionDecisionOptionResultInvariants,
+    {
+      if: {
+        properties: {
+          support_result_status: { const: 'blocked' },
+        },
+        required: ['support_result_status'],
+      },
+      then: {
+        properties: {
+          blockers: {
+            type: 'array',
+            minItems: 1,
+            items: stringId,
+          },
+        },
+      },
+    },
+  ],
+} as const;
+
+const motiveEvolutionOptionalRefHashPairInvariants = [
+  {
+    if: { required: ['validation_cycle_refs'] },
+    then: { required: ['validation_cycle_hashes'] },
+  },
+  {
+    if: { required: ['validation_cycle_hashes'] },
+    then: { required: ['validation_cycle_refs'] },
+  },
+  {
+    if: { required: ['result_packet_refs'] },
+    then: { required: ['result_packet_hashes'] },
+  },
+  {
+    if: { required: ['result_packet_hashes'] },
+    then: { required: ['result_packet_refs'] },
+  },
+  {
+    if: { required: ['cross_board_review_refs'] },
+    then: { required: ['cross_board_review_hashes'] },
+  },
+  {
+    if: { required: ['cross_board_review_hashes'] },
+    then: { required: ['cross_board_review_refs'] },
+  },
+  {
+    if: { required: ['prior_evolution_decision_refs'] },
+    then: { required: ['prior_evolution_decision_hashes'] },
+  },
+  {
+    if: { required: ['prior_evolution_decision_hashes'] },
+    then: { required: ['prior_evolution_decision_refs'] },
+  },
+  {
+    if: { required: ['prior_portfolio_decision_refs'] },
+    then: { required: ['prior_portfolio_decision_hashes'] },
+  },
+  {
+    if: { required: ['prior_portfolio_decision_hashes'] },
+    then: { required: ['prior_portfolio_decision_refs'] },
+  },
+  {
+    if: { required: ['accepted_risk_refs'] },
+    then: { required: ['accepted_risk_hashes'] },
+  },
+  {
+    if: { required: ['accepted_risk_hashes'] },
+    then: { required: ['accepted_risk_refs'] },
+  },
+  {
+    if: { required: ['human_request_refs'] },
+    then: { required: ['human_request_hashes'] },
+  },
+  {
+    if: { required: ['human_request_hashes'] },
+    then: { required: ['human_request_refs'] },
+  },
+] as const;
+
+export const runPaperImplementationMotiveEvolutionRuntimeRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  $defs: {
+    paperImplementationMotiveEvolutionOptionDesignerRoleOutput:
+      paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema,
+    paperImplementationMotiveEvolutionRiskChallengerRoleOutput:
+      paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema,
+  },
+  required: [
+    'run_mode',
+    'execution_mode',
+    'target_ref',
+    'target_motive_refs',
+    'target_motive_hashes',
+    'target_core_motive_version_refs',
+    'target_core_motive_version_hashes',
+    'input_snapshot_ref',
+    'input_snapshot_hash',
+    'portfolio_snapshot_ref',
+    'portfolio_snapshot_hash',
+    'evidence_board_refs',
+    'evidence_board_hashes',
+    'evidence_binding_refs',
+    'evidence_binding_hashes',
+    'challenge_refs',
+    'conflict_refs',
+    'trace_manifest_refs',
+    'trace_manifest_hashes',
+    'human_confirmation_policy_ref',
+    'human_confirmation_policy_hash',
+    'source_refs',
+    'source_hashes',
+  ],
+  properties: {
+    implementation_project_id: false,
+    runtime_artifact_id: false,
+    agent_workflow_harness_run_id: false,
+    implementation_proposal_artifact: false,
+    CreateMotiveEvolutionDecisionRequest: false,
+    create_motive_evolution_decision_request: false,
+    motive_evolution_decision_request: false,
+    ApplyMotivePortfolioDecisionRequest: false,
+    apply_motive_portfolio_decision_request: false,
+    motive_roles_after_decision: false,
+    change_set: false,
+    core_motive_version_patch: false,
+    application_status: false,
+    domain_gate_request: false,
+    queue_action: false,
+    writer_dto_payload: false,
+    rendered_prompt_text: false,
+    raw_provider_output: false,
+    cached_prior_output: false,
+    debate_transcript: false,
+    source_by_source_reviews: false,
+    schema_version: {
+      const: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
+    },
+    run_id: nullableStringId,
+    run_mode: runModeSchema,
+    execution_mode: executionModeSchema,
+    model_profile_id: nullableStringId,
+    model_option_id: nullableStringId,
+    target_ref: nonLegacyFunctionalRef,
+    target_version_id: nullableStringId,
+    target_motive_refs: nonEmptyNonLegacyFunctionalRefArray,
+    target_motive_hashes: nonEmptyHashArray,
+    target_core_motive_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+    target_core_motive_version_hashes: nonEmptyHashArray,
+    input_snapshot_ref: nonLegacyFunctionalRef,
+    input_snapshot_hash: hashString,
+    portfolio_snapshot_ref: nonLegacyFunctionalRef,
+    portfolio_snapshot_hash: hashString,
+    evidence_board_refs: nonEmptyNonLegacyFunctionalRefArray,
+    evidence_board_hashes: nonEmptyHashArray,
+    evidence_binding_refs: nonLegacyFunctionalRefArray,
+    evidence_binding_hashes: hashArray,
+    challenge_refs: nonLegacyFunctionalRefArray,
+    conflict_refs: nonLegacyFunctionalRefArray,
+    trace_manifest_refs: nonEmptyNonLegacyFunctionalRefArray,
+    trace_manifest_hashes: nonEmptyHashArray,
+    human_confirmation_policy_ref: nonLegacyFunctionalRef,
+    human_confirmation_policy_hash: hashString,
+    source_refs: nonEmptyNonLegacyFunctionalRefArray,
+    source_hashes: nonEmptyHashArray,
+    motive_context_packets: {
+      type: 'array',
+      items: paperImplementationMotiveEvolutionContextPacketSchema,
+    },
+    validation_cycle_refs: nonLegacyFunctionalRefArray,
+    validation_cycle_hashes: hashArray,
+    result_packet_refs: nonLegacyFunctionalRefArray,
+    result_packet_hashes: hashArray,
+    cross_board_review_refs: nonLegacyFunctionalRefArray,
+    cross_board_review_hashes: hashArray,
+    prior_evolution_decision_refs: nonLegacyFunctionalRefArray,
+    prior_evolution_decision_hashes: hashArray,
+    prior_portfolio_decision_refs: nonLegacyFunctionalRefArray,
+    prior_portfolio_decision_hashes: hashArray,
+    accepted_risk_refs: nonLegacyFunctionalRefArray,
+    accepted_risk_hashes: hashArray,
+    human_request_refs: nonLegacyFunctionalRefArray,
+    human_request_hashes: hashArray,
+    preflight_blocker_codes: stringArray,
+    mocked_role_outputs: motiveEvolutionRoleOutputsBySlotSchema,
+    codex_role_outputs: motiveEvolutionRoleOutputsBySlotSchema,
+  },
+  allOf: [
+    productRunModeRequiresProviderExecution,
+    ...motiveEvolutionOptionalRefHashPairInvariants,
     {
       if: { properties: { execution_mode: { const: 'mocked_llm' } }, required: ['execution_mode'] },
       then: {
