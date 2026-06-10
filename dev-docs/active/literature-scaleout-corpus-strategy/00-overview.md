@@ -5,10 +5,10 @@
 - Current task: `T-122 literature-scaleout-corpus-strategy`.
 - Origin task: `T-120`.
 - Related track: `T-121` is the pgvector/retrieval track, not the origin package.
-- Latest completed collection checkpoint: D83 D82 RAG clean2 promote/B12 completion.
-- Latest candidate refill checkpoint: D82 RAG/test-time wide source-backed scout plus clean2 RAG apply; both RAG candidates promoted and completed in D83.
+- Latest completed collection checkpoint: D91 D90 RAG-core promote/B12 completion.
+- Latest candidate refill checkpoint: D90 adjacent-topic clean6 refill; 4 candidates staged, 2 ready candidates later promoted/completed in D91, and 2 deferred by B11.
 - Latest cleanup checkpoint: D70 TechRxiv source-access soft exclusion.
-- Next decision: continue candidate-pool scaleout, or run another narrow RAG/test-time source-backed refill if effective-literature growth is preferred.
+- Next decision: run another adjacent-topic B10 refill for recall diversity, or audit a separate source-stable `READY_FOR_PROMOTION` subset before the next B11/B12 tranche.
 
 ## Goal
 - Build a lightweight literature candidate layer for large-scale collection across:
@@ -23,24 +23,24 @@
 
 | Metric | Current value |
 | --- | ---: |
-| Candidate batches | 29 |
-| Candidate pool records | 644 |
+| Candidate batches | 32 |
+| Candidate pool records | 669 |
 | Candidate `DISCOVERED` records | 0 |
 | Candidate `READY_FOR_PROMOTION` records | 81 |
-| Candidate `PROMOTED` records | 280 |
+| Candidate `PROMOTED` records | 295 |
 | Candidate `DUPLICATE` records | 139 |
-| Candidate `DEFERRED` records | 126 |
-| Candidate `REJECTED` records | 18 |
-| Managed adaptive corpus | 407 |
-| Effective literature | 407 |
+| Candidate `DEFERRED` records | 134 |
+| Candidate `REJECTED` records | 20 |
+| Managed adaptive corpus | 422 |
+| Effective literature | 422 |
 | Incomplete managed records | 0 |
 | Pipeline blockers | 0 |
 | Pipeline not-started records | 0 |
 | Excluded non-corpus records | 25 |
-| Raw DB literature records | 432 |
+| Raw DB literature records | 447 |
 
 Current evidence artifact:
-- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d83-after-d82-rag-clean2-completion-count.json`
+- `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d91-after-b12.json`
 
 ## Theory-Support Target
 - Original target-qualified theory-support set is closed above target at 54/50.

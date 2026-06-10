@@ -655,24 +655,242 @@
   - Managed/effective corpus reached 407/407.
   - Incomplete, blocked, and not-started managed records remain 0/0/0.
 
+### D84 Exploration-Only Broad Scout
+- Ran an exploration-only broad scout with no DB writes, no B11 promotion, and no B12 processing.
+- Standard B10 all-track dry-run found 70 new `DISCOVERED` signals but skewed toward serving and produced only limited source-available signal under the built-in source detector.
+- Raw OpenAlex adjacent-topic scout found a large mostly-new surface across:
+  - test-time metareasoning, adaptive computation, early exit, anytime/contract algorithms, and bounded rationality.
+  - RAG budgeted selection, submodular/bandit selection, active learning, and information foraging.
+  - lower-priority serving online resource allocation and admission/queueing theory.
+- Curated D84 shortlist contained 22 high-confidence adjacent candidates:
+  - test-time: 9.
+  - RAG: 10.
+  - serving: 3.
+  - source-available hints: 21.
+- Net D84 effect:
+  - Candidate pool unchanged.
+  - Managed/effective corpus remained 407/407.
+
+### D85 RAG/Test-Time OpenAlex-ID Theory Refill
+- Added an opt-in B10 exact-title focus override for manually curated adjacent-theory refills:
+  - env: `B10_ALLOW_TITLE_ALLOWLIST_FOCUS_OVERRIDE=true`.
+  - default remains `false`, so broad B10 gates are unchanged.
+- Added B10 OpenAlex exact-source queries:
+  - accepted forms: `openalex:W...` and `https://openalex.org/W...`.
+  - D85 used the D84 shortlist OpenAlex IDs rather than DOI search to avoid noisy same-title variants.
+- Extended B11 test-time fit scoring for adjacent foundations:
+  - metareasoning.
+  - adaptive/conditional computation.
+  - early exit.
+  - anytime/contract algorithms.
+  - bounded rationality.
+- B10 OpenAlex-ID dry-run found 17 clean candidates:
+  - 9 test-time compute-budgeting candidates.
+  - 8 RAG-aware allocation candidates.
+  - 0 duplicates.
+  - all 17 had D84 source-available hints.
+- B10 apply persisted 17 `DISCOVERED` candidates in batch `B10-D85-rag-testtime-openalex-id-theory-refill`.
+- B11 v2 dry-run classified:
+  - 11 `READY_FOR_PROMOTION`.
+  - 6 `DEFERRED`.
+  - 0 `REJECTED`.
+- B11 apply wrote candidate statuses only; no candidates were promoted in D85.
+- Net D85 effect:
+  - Candidate pool: +17.
+  - `READY_FOR_PROMOTION`: +11.
+  - `DEFERRED`: +6.
+  - `DISCOVERED` candidate count: 0.
+  - Managed/effective corpus remained 407/407.
+
+### D86 D85 Theory/Strategy Promote And B12
+- Promoted a source-stable 6-record subset from the D85 `READY_FOR_PROMOTION` pool:
+  - `LIT-0610`: `Rational metareasoning and the plasticity of cognitive control`.
+  - `LIT-0611`: `BERxiT: Early Exiting for BERT with Better Fine-Tuning and Extension to Regression`.
+  - `LIT-0612`: `PCEE-BERT: Accelerating BERT Inference via Patient and Confident Early Exiting`.
+  - `LIT-0613`: `Adaptive Computation Time for Recurrent Neural Networks`.
+  - `LIT-0614`: `Knapsack Constrained Contextual Submodular List Prediction with Application to Multi-document Summarization`.
+  - `LIT-0615`: `GLISTER: Generalization based Data Subset Selection for Efficient and Robust Learning`.
+- B11 apply/promote result:
+  - 6/6 candidates promoted.
+  - Direction split: 4 test-time compute-budgeting and 2 RAG-aware allocation.
+  - Collection role split: 3 strategy-support and 3 theory-support.
+  - DB delta: 6 `LiteratureRecord` rows and 6 `LiteratureSource` rows.
+- B12 completed all 6 through `INDEXED`:
+  - initial standard apply succeeded for citation and abstract and produced the expected `FULLTEXT_SOURCE_MISSING` blocker on fulltext.
+  - explicit fulltext acquisition planned 6 items with 0 blockers, applied successfully for 6/6, and created 6 content assets.
+  - post-acquisition standard apply created 6 ready fulltext documents.
+  - `codex_curated` key-content dry-run validated 6/6 dossiers and apply imported 6/6.
+  - index backfill planned 0 extraction calls and 6 embedding calls; apply succeeded for 6/6.
+  - final state probe showed all seven standard stages `SUCCEEDED` for all 6 records.
+- Net D86 effect:
+  - Candidate pool stayed 661.
+  - `READY_FOR_PROMOTION`: 92 -> 86.
+  - `PROMOTED`: 280 -> 286.
+  - Managed/effective corpus: 407/407 -> 413/413.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D87 D85 Remaining Theory Promote And B12
+- Promoted the remaining source-stable D85 high-band tranche:
+  - `LIT-0616`: `Metareasoning for Interleaved Planning and Execution`.
+  - `LIT-0617`: `Situated Temporal Planning Using Deadline-aware Metareasoning`.
+  - `LIT-0618`: `Bounded Rationality, Abstraction, and Hierarchical Decision-Making: An Information-Theoretic Optimality Principle`.
+  - `LIT-0619`: `Optimal Scheduling of Contract Algorithms for Anytime Problem-Solving`.
+  - `LIT-0620`: `Single-Document Summarization as a Tree Knapsack Problem`.
+- B11 dry-run and apply/promote result:
+  - 5/5 candidates remained high-band `READY_FOR_PROMOTION`.
+  - Direction split: 4 test-time compute-budgeting and 1 RAG-aware allocation.
+  - Collection role split: 5 theory-support.
+  - DB delta: 5 `LiteratureRecord` rows and 5 `LiteratureSource` rows.
+- B12 completed all 5 through `INDEXED`:
+  - initial standard apply succeeded for citation and abstract and produced the expected `FULLTEXT_SOURCE_MISSING` blocker on fulltext.
+  - explicit fulltext acquisition planned 5 items with 0 blockers, applied successfully for 5/5, and created 5 content assets.
+  - post-acquisition standard apply created 5 ready fulltext documents.
+  - `codex_curated` key-content dry-run validated 5/5 dossiers and apply imported 5/5.
+  - index backfill planned 0 extraction calls and 5 embedding calls; apply succeeded for 5/5.
+  - final state probe showed all seven standard stages `SUCCEEDED` for all 5 records.
+- Net D87 effect:
+  - Candidate pool stayed 661.
+  - `READY_FOR_PROMOTION`: 86 -> 81.
+  - `PROMOTED`: 286 -> 291.
+  - Managed/effective corpus: 413/413 -> 418/418.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D88 Adjacent-Topic B10 Refill
+- Ran an adjacent-topic broad OpenAlex B10 scout in dry-run mode only:
+  - 12 candidates surfaced.
+  - 10 were new `DISCOVERED` candidates in dry-run output.
+  - 2 were duplicate signals.
+  - No DB writes were made from the broad scout.
+- Curated the broad/adjacent shortlist to an OpenAlex exact-source clean4 apply:
+  - `Active Example Selection for In-Context Learning`.
+  - `Linear Submodular Bandits with a Knapsack Constraint`.
+  - `An Online Convex Optimization Approach to Proactive Network Resource Allocation`.
+  - `Diffusion Limit of Fair Resource Control--Stationarity and Interchange of Limits`.
+- B10 apply result:
+  - batch code: `B10-D88-adjacent-clean4-refill`.
+  - batch id: `d0139ede-eda8-4e62-9957-6f85da96acaf`.
+  - persisted 4 `DISCOVERED` candidates.
+  - DB delta: +1 `LiteratureDiscoveryBatch`, +4 `LiteratureDiscoveryCandidate`, and 0 `LiteratureRecord` rows.
+- B11 status apply result:
+  - 2 candidates marked `READY_FOR_PROMOTION`:
+    - `370fed21-7c5b-4912-9b10-2a320b4ae982`: `Linear Submodular Bandits with a Knapsack Constraint` (`0.768`, high).
+    - `43bc02e3-b029-406a-8689-164138359912`: `Active Example Selection for In-Context Learning` (`0.761`, high).
+  - 2 candidates marked `REJECTED` for `weak_llm_signal`:
+    - `6598b1f3-5a5c-4415-9df9-05591f25b3b0`: `An Online Convex Optimization Approach to Proactive Network Resource Allocation`.
+    - `cb6943b8-13a7-42b3-9f1e-61aa29e1b486`: `Diffusion Limit of Fair Resource Control--Stationarity and Interchange of Limits`.
+  - No promotion was run, so no `LiteratureRecord`, `LiteratureSource`, content, dossier, embedding, or index rows were written.
+- Net D88 effect:
+  - Candidate pool: 661 -> 665.
+  - `READY_FOR_PROMOTION`: 81 -> 83.
+  - `REJECTED`: 18 -> 20.
+  - `DISCOVERED` stayed 0 after B11 status apply.
+  - Managed/effective corpus stayed 418/418.
+
+### D89 D88 Ready RAG/Theory Promote And B12
+- Promoted the 2 source-audited D88 high-band RAG/theory candidates:
+  - `LIT-0621`: `Linear Submodular Bandits with a Knapsack Constraint`.
+  - `LIT-0622`: `Active Example Selection for In-Context Learning`.
+- B11 dry-run and apply/promote result:
+  - 2/2 candidates remained high-band `READY_FOR_PROMOTION`.
+  - Direction split: 2 RAG-aware allocation.
+  - Collection role split: 2 theory-support.
+  - DB delta: 2 `LiteratureRecord` rows and 2 `LiteratureSource` rows.
+- B12 completed both through `INDEXED`:
+  - initial standard apply succeeded for citation and abstract and produced the expected `FULLTEXT_SOURCE_MISSING` blocker on fulltext.
+  - explicit fulltext acquisition planned 2 URL downloads with 0 blockers, applied successfully for both, and created 2 content assets.
+  - post-acquisition standard apply created 2 ready fulltext documents.
+  - `codex_curated` key-content dry-run validated both dossiers and apply imported both.
+  - index backfill planned 0 extraction calls and 2 embedding calls; apply succeeded for both.
+  - final state probe showed all seven standard stages `SUCCEEDED` for both records.
+- Indexed content footprint:
+  - `LIT-0621`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 112 embedding chunks.
+  - `LIT-0622`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 105 embedding chunks.
+- Net D89 effect:
+  - Candidate pool stayed 665.
+  - `READY_FOR_PROMOTION`: 83 -> 81.
+  - `PROMOTED`: 291 -> 293.
+  - Managed/effective corpus: 418/418 -> 420/420.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
+### D90 Adjacent-Topic B10 Refill
+- Ran a broader adjacent-topic OpenAlex B10 scout in dry-run mode only:
+  - 32 candidates surfaced.
+  - 12 were new `DISCOVERED` candidates in dry-run output.
+  - 20 were duplicate signals.
+  - Direction split: 26 serving/resource-allocation, 4 RAG-aware allocation, and 2 test-time compute-budgeting.
+  - No DB writes were made from the broad scout.
+- Curated the broad/manual adjacent list to an OpenAlex exact-source clean6 dry-run:
+  - 4 source-backed new candidates.
+  - 2 duplicates:
+    - `Fast Distributed Inference Serving for Large Language Models` matched existing `LIT-0209`.
+    - `Training Verifiers to Solve Math Word Problems` matched an existing candidate.
+- B10 apply result:
+  - batch code: `B10-D90-adjacent-clean6-refill`.
+  - batch id: `98231799-9925-4c20-a19e-106b7f6c6fb8`.
+  - persisted 4 `DISCOVERED` candidates.
+  - DB delta: +1 `LiteratureDiscoveryBatch`, +4 `LiteratureDiscoveryCandidate`, and 0 `LiteratureRecord` rows.
+- B11 status apply result:
+  - 2 candidates marked `READY_FOR_PROMOTION`:
+    - `57ccd301-216d-44c7-92cc-dbcda30727af`: `Demonstrate-Search-Predict: Composing retrieval and language models for knowledge-intensive NLP` (`0.834`, high).
+    - `e4f2333c-83d4-4d1b-a626-6cdfcdc1ab1b`: `Retrieval-Augmented Multimodal Language Modeling` (`0.834`, high).
+  - 2 candidates marked `DEFERRED` for serving-system signal but weak LLM-specific signal:
+    - `a0d02a3c-012d-4165-819b-88ea2f548c19`: `Serving DNNs like Clockwork: Performance Predictability from the Bottom Up`.
+    - `41f2367e-abaf-4725-a84e-f8efb18ff337`: `Clipper: A Low-Latency Online Prediction Serving System`.
+  - No promotion was run, so no `LiteratureRecord`, `LiteratureSource`, content, dossier, embedding, or index rows were written.
+- Net D90 effect:
+  - Candidate pool: 665 -> 669.
+  - `READY_FOR_PROMOTION`: 81 -> 83.
+  - `DEFERRED`: 132 -> 134.
+  - `DISCOVERED` stayed 0 after B11 status apply.
+  - Managed/effective corpus stayed 420/420.
+
+### D91 D90 RAG-Core Promote And B12
+- Promoted the 2 source-backed D90 RAG-core candidates:
+  - `LIT-0623`: `Demonstrate-Search-Predict: Composing retrieval and language models for knowledge-intensive NLP`.
+  - `LIT-0624`: `Retrieval-Augmented Multimodal Language Modeling`.
+- B11 dry-run and apply/promote result:
+  - 2/2 candidates remained high-band `READY_FOR_PROMOTION`.
+  - Direction split: 2 RAG-aware allocation.
+  - Collection role split: 2 core.
+  - DB delta: 2 `LiteratureRecord` rows and 2 `LiteratureSource` rows.
+- B12 completed both through `INDEXED`:
+  - initial standard apply succeeded for citation and abstract and produced the expected `FULLTEXT_SOURCE_MISSING` blocker on fulltext.
+  - explicit arXiv acquisition planned 2 URL downloads with 0 blockers, applied successfully for both, and created 2 content assets.
+  - post-acquisition standard apply created 2 ready fulltext documents.
+  - `codex_curated` key-content dry-run validated both dossiers and apply imported both.
+  - index backfill planned 0 extraction calls and 2 embedding calls; apply succeeded for both.
+  - final state probe showed all seven standard stages `SUCCEEDED` for both records.
+- Indexed content footprint:
+  - `LIT-0623`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 147 embedding chunks.
+  - `LIT-0624`: 1 content asset, 1 fulltext document, 5 pipeline artifacts, and 154 embedding chunks.
+- Net D91 effect:
+  - Candidate pool stayed 669.
+  - `READY_FOR_PROMOTION`: 83 -> 81.
+  - `PROMOTED`: 293 -> 295.
+  - Managed/effective corpus: 420/420 -> 422/422.
+  - Incomplete, blocked, and not-started managed records remain 0/0/0.
+
 ## Latest Count Snapshot
 
 | Metric | Value |
 | --- | ---: |
-| Candidate batches | 29 |
-| Candidate pool | 644 |
+| Candidate batches | 32 |
+| Candidate pool | 669 |
 | Discovered candidates | 0 |
 | Ready candidates | 81 |
-| Promoted candidates | 280 |
-| Deferred candidates | 126 |
-| Managed corpus | 407 |
-| Effective literature | 407 |
+| Promoted candidates | 295 |
+| Duplicate candidates | 139 |
+| Deferred candidates | 134 |
+| Rejected candidates | 20 |
+| Managed corpus | 422 |
+| Effective literature | 422 |
 | Pipeline incomplete | 0 |
 | Pipeline blocked | 0 |
 | Pipeline not started | 0 |
 
 ## Next Implementation Step
-- Preferred next collection step: promote/B12 the 3 high-band D80 test-time candidates as a small D81 tranche, or continue B10 scaleout if candidate-pool recall is the priority.
-- Keep the repaired selector host gate active before any future DOI-heavy broad apply.
-- Keep promoting only high-band clean candidates and leave medium/application-tail candidates deferred or rejected.
+- Preferred next collection step: run another adjacent-topic B10 refill to keep recall diversity growing after the D91 completion tranche.
+- Alternative next collection step: audit a separate source-stable `READY_FOR_PROMOTION` subset before the next B11/B12 tranche.
+- Keep OpenAlex-ID exact-source queries as the default for D84-style adjacent shortlist applies.
+- Keep broad exploration dry-run/read-only until a curated exact-source subset is selected.
 - Keep generated artifacts out of versioned docs and under `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`.

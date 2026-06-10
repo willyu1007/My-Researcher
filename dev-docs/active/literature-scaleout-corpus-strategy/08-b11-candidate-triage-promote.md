@@ -2,16 +2,16 @@
 
 ## Status
 - State: implemented and used for local DB promotion.
-- Latest B11 DB-writing run: D83 D82 RAG clean2 promote.
-- Latest B11 dry-run: D82 RAG clean2 validation.
+- Latest B11 DB-writing run: D91 D90 RAG-core apply/promote.
+- Latest B11 dry-run: D91 D90 RAG-core validation.
 - Current candidate state:
   - 0 `DISCOVERED`
   - 81 `READY_FOR_PROMOTION`
-  - 280 `PROMOTED`
+  - 295 `PROMOTED`
   - 139 `DUPLICATE`
-  - 126 `DEFERRED`
-  - 18 `REJECTED`
-- Current recommendation: refill the candidate layer before the next B11/B12 tranche, unless a ready-pool selector pass is preferred.
+  - 134 `DEFERRED`
+  - 20 `REJECTED`
+- Current recommendation: continue adjacent-topic B10 exploration for recall diversity, or audit a separate source-stable `READY_FOR_PROMOTION` subset before the next promote/B12 tranche.
 
 ## Entrypoint
 - Script: `tools/b11-candidate-triage-promote.mjs`
@@ -54,7 +54,7 @@
 - High-fit candidates become `READY_FOR_PROMOTION`.
 - Domain-specific RAG tails, benchmark/survey tails, and position papers are held as `DEFERRED` unless later rules promote them.
 - Application recipe tails are `REJECTED`.
-- Test-time strategy signals include explicit budget/compute terms plus `best-of-n`, `best of n`, `inference-aware`, `fast and slow`, `sampling`, and `thinking`; application-tail gates still apply.
+- Test-time strategy/theory signals include explicit budget/compute terms plus `best-of-n`, `best of n`, `inference-aware`, `fast and slow`, `sampling`, `thinking`, `metareasoning`, `adaptive computation`, `conditional computation`, `early exit`, `anytime`/contract algorithms, and `bounded rationality`; application-tail gates still apply.
 
 ## Promote Boundary
 - Promotion reuses `LiteratureService.collectionImport`.
@@ -120,6 +120,145 @@
 | D81 | D80 test-time exact arXiv promote | 3 promoted | `LIT-0605`-`LIT-0607` | completed |
 | D82 | RAG clean2 validation | 2 high-band ready in dry-run | candidates only | promoted in D83 |
 | D83 | D82 RAG clean2 promote | 2 promoted | `LIT-0608`-`LIT-0609` | completed |
+| D85 | RAG/test-time OpenAlex-ID theory triage | 11 ready, 6 deferred | candidates only | not promoted |
+| D86 | D85 theory/strategy source-stable tranche | 6 promoted | `LIT-0610`-`LIT-0615` | completed |
+| D87 | D85 remaining theory source-stable tranche | 5 promoted | `LIT-0616`-`LIT-0620` | completed |
+| D88 | adjacent-topic clean4 status apply | 2 ready, 2 rejected | candidates only | not promoted |
+| D89 | D88 ready RAG/theory promote | 2 promoted | `LIT-0621`-`LIT-0622` | completed |
+| D90 | adjacent-topic clean6 status apply | 2 ready, 2 deferred | candidates only | not promoted |
+| D91 | D90 RAG-core promote | 2 promoted | `LIT-0623`-`LIT-0624` | completed |
+
+## D91 Details
+- Input candidates came from `B10-D90-adjacent-clean6-refill`:
+  - `57ccd301-216d-44c7-92cc-dbcda30727af`: `Demonstrate-Search-Predict: Composing retrieval and language models for knowledge-intensive NLP`.
+  - `e4f2333c-83d4-4d1b-a626-6cdfcdc1ab1b`: `Retrieval-Augmented Multimodal Language Modeling`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d91-d90-rag-core-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d91-d90-rag-core-b11-apply-promote-b11-candidate-triage-report.json`.
+- Apply/promote attempted 2 promotions and succeeded for both.
+- Direction split:
+  - 2 RAG-aware allocation.
+- Collection role split:
+  - 2 core.
+- DB delta:
+  - `LiteratureRecord`: +2.
+  - `LiteratureSource`: +2.
+
+## D91 Promoted Records
+- `LIT-0623`: `Demonstrate-Search-Predict: Composing retrieval and language models for knowledge-intensive NLP`.
+- `LIT-0624`: `Retrieval-Augmented Multimodal Language Modeling`.
+
+## D90 Details
+- Input candidates came from `B10-D90-adjacent-clean6-refill`:
+  - `57ccd301-216d-44c7-92cc-dbcda30727af`: `Demonstrate-Search-Predict: Composing retrieval and language models for knowledge-intensive NLP`.
+  - `e4f2333c-83d4-4d1b-a626-6cdfcdc1ab1b`: `Retrieval-Augmented Multimodal Language Modeling`.
+  - `a0d02a3c-012d-4165-819b-88ea2f548c19`: `Serving DNNs like Clockwork: Performance Predictability from the Bottom Up`.
+  - `41f2367e-abaf-4725-a84e-f8efb18ff337`: `Clipper: A Low-Latency Online Prediction Serving System`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d90-adjacent-clean6-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d90-adjacent-clean6-b11-apply-b11-candidate-triage-report.json`.
+- Apply mode updated candidate statuses only; promotion was disabled.
+- Ready candidates:
+  - `57ccd301-216d-44c7-92cc-dbcda30727af`: `Demonstrate-Search-Predict: Composing retrieval and language models for knowledge-intensive NLP`, score `0.834`, high band.
+  - `e4f2333c-83d4-4d1b-a626-6cdfcdc1ab1b`: `Retrieval-Augmented Multimodal Language Modeling`, score `0.834`, high band.
+- Deferred candidates:
+  - `a0d02a3c-012d-4165-819b-88ea2f548c19`: `Serving DNNs like Clockwork: Performance Predictability from the Bottom Up`, medium band, `serving_system_signal|weak_llm_signal|metadata_rich`.
+  - `41f2367e-abaf-4725-a84e-f8efb18ff337`: `Clipper: A Low-Latency Online Prediction Serving System`, medium band, `serving_system_signal|weak_llm_signal|metadata_rich`.
+- DB delta:
+  - `LiteratureRecord`: +0.
+  - `LiteratureSource`: +0.
+  - Candidate state only: +2 ready and +2 deferred.
+
+## D89 Details
+- Input candidates came from `B10-D88-adjacent-clean4-refill`:
+  - `370fed21-7c5b-4912-9b10-2a320b4ae982`: `Linear Submodular Bandits with a Knapsack Constraint`.
+  - `43bc02e3-b029-406a-8689-164138359912`: `Active Example Selection for In-Context Learning`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d89-d88-ready-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d89-d88-ready-b11-apply-promote-b11-candidate-triage-report.json`.
+- Apply/promote attempted 2 promotions and succeeded for both.
+- Direction split:
+  - 2 RAG-aware allocation.
+- Collection role split:
+  - 2 theory-support.
+- DB delta:
+  - `LiteratureRecord`: +2.
+  - `LiteratureSource`: +2.
+
+## D89 Promoted Records
+- `LIT-0621`: `Linear Submodular Bandits with a Knapsack Constraint`.
+- `LIT-0622`: `Active Example Selection for In-Context Learning`.
+
+## D88 Details
+- Input candidates came from `B10-D88-adjacent-clean4-refill`:
+  - `370fed21-7c5b-4912-9b10-2a320b4ae982`: `Linear Submodular Bandits with a Knapsack Constraint`.
+  - `43bc02e3-b029-406a-8689-164138359912`: `Active Example Selection for In-Context Learning`.
+  - `6598b1f3-5a5c-4415-9df9-05591f25b3b0`: `An Online Convex Optimization Approach to Proactive Network Resource Allocation`.
+  - `cb6943b8-13a7-42b3-9f1e-61aa29e1b486`: `Diffusion Limit of Fair Resource Control--Stationarity and Interchange of Limits`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d88-adjacent-clean4-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d88-adjacent-clean4-b11-apply-b11-candidate-triage-report.json`.
+- Apply mode updated candidate statuses only; promotion was disabled.
+- Ready candidates:
+  - `370fed21-7c5b-4912-9b10-2a320b4ae982`: `Linear Submodular Bandits with a Knapsack Constraint`, score `0.768`, high band.
+  - `43bc02e3-b029-406a-8689-164138359912`: `Active Example Selection for In-Context Learning`, score `0.761`, high band.
+- Rejected candidates:
+  - `6598b1f3-5a5c-4415-9df9-05591f25b3b0`: `An Online Convex Optimization Approach to Proactive Network Resource Allocation`, low band, `weak_llm_signal`.
+  - `cb6943b8-13a7-42b3-9f1e-61aa29e1b486`: `Diffusion Limit of Fair Resource Control--Stationarity and Interchange of Limits`, low band, `weak_llm_signal`.
+- DB delta:
+  - `LiteratureRecord`: +0.
+  - `LiteratureSource`: +0.
+  - Candidate state only: +2 ready and +2 rejected.
+
+## D87 Details
+- Input candidates came from `B10-D85-rag-testtime-openalex-id-theory-refill`:
+  - `1042ad45-457f-43eb-81e2-ee50b5235b80`: `Metareasoning for Interleaved Planning and Execution`.
+  - `2122bce4-24c9-4236-8f01-b8e2baf47757`: `Situated Temporal Planning Using Deadline-aware Metareasoning`.
+  - `c5d1913c-17fd-4a6b-b015-c6c0a1c3c8df`: `Bounded Rationality, Abstraction, and Hierarchical Decision-Making: An Information-Theoretic Optimality Principle`.
+  - `d7795c94-5c96-4105-843a-bba3107eb084`: `Optimal Scheduling of Contract Algorithms for Anytime Problem-Solving`.
+  - `56adc861-4d40-4bb0-bbbd-85b0f6a36c24`: `Single-Document Summarization as a Tree Knapsack Problem`.
+- Dry-run artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d87-d85-theory-b11-dry-run-b11-candidate-triage-report.json`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d87-d85-theory-b11-apply-promote-b11-candidate-triage-report.json`.
+- Apply/promote attempted 5 promotions and succeeded for all 5.
+- Direction split:
+  - 4 test-time compute budgeting.
+  - 1 RAG-aware allocation.
+- Collection role split:
+  - 5 theory-support.
+- DB delta:
+  - `LiteratureRecord`: +5.
+  - `LiteratureSource`: +5.
+
+## D87 Promoted Records
+- `LIT-0616`: `Metareasoning for Interleaved Planning and Execution`.
+- `LIT-0617`: `Situated Temporal Planning Using Deadline-aware Metareasoning`.
+- `LIT-0618`: `Bounded Rationality, Abstraction, and Hierarchical Decision-Making: An Information-Theoretic Optimality Principle`.
+- `LIT-0619`: `Optimal Scheduling of Contract Algorithms for Anytime Problem-Solving`.
+- `LIT-0620`: `Single-Document Summarization as a Tree Knapsack Problem`.
+
+## D86 Details
+- Input candidates came from `B10-D85-rag-testtime-openalex-id-theory-refill`:
+  - `401a57c9-7d4f-4a1d-85ca-acf5dad76a94`: `Adaptive Computation Time for Recurrent Neural Networks`.
+  - `1e68004e-0980-41ea-a85a-9fbc4d049d30`: `BERxiT: Early Exiting for BERT with Better Fine-Tuning and Extension to Regression`.
+  - `37340065-35fa-440e-a228-5b43fdc32f03`: `PCEE-BERT: Accelerating BERT Inference via Patient and Confident Early Exiting`.
+  - `fac40533-3549-4094-a5f2-f5042c921b2d`: `Rational metareasoning and the plasticity of cognitive control`.
+  - `a9e0c341-945d-409b-a6e5-410d30a047a3`: `Knapsack Constrained Contextual Submodular List Prediction with Application to Multi-document Summarization`.
+  - `bd31d78a-c07f-40dd-80bd-71579987c4c1`: `GLISTER: Generalization based Data Subset Selection for Efficient and Robust Learning`.
+- Apply/promote artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d86-d85-theory-b11-apply-promote-b11-candidate-triage-report.json`.
+- Apply/promote attempted 6 promotions and succeeded for all 6.
+- Direction split:
+  - 4 test-time compute budgeting.
+  - 2 RAG-aware allocation.
+- Collection role split:
+  - 3 strategy-support.
+  - 3 theory-support.
+- DB delta:
+  - `LiteratureRecord`: +6.
+  - `LiteratureSource`: +6.
+
+## D86 Promoted Records
+- `LIT-0610`: `Rational metareasoning and the plasticity of cognitive control`.
+- `LIT-0611`: `BERxiT: Early Exiting for BERT with Better Fine-Tuning and Extension to Regression`.
+- `LIT-0612`: `PCEE-BERT: Accelerating BERT Inference via Patient and Confident Early Exiting`.
+- `LIT-0613`: `Adaptive Computation Time for Recurrent Neural Networks`.
+- `LIT-0614`: `Knapsack Constrained Contextual Submodular List Prediction with Application to Multi-document Summarization`.
+- `LIT-0615`: `GLISTER: Generalization based Data Subset Selection for Efficient and Robust Learning`.
 
 ## D83 Details
 - Input candidates came from `B10-D82-rag-clean2-curated-refill`:

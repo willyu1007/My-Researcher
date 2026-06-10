@@ -6,11 +6,11 @@
 - Expanded historical logs remain available in git history before the D56 documentation cleanup.
 
 ## Current Checkpoint
-- Latest corpus checkpoint: after D83 D82 RAG clean2 promote/B12 completion.
-- Latest candidate checkpoint: after D82 RAG/test-time wide source-backed scout and clean2 RAG apply, promoted and completed in D83.
-- Candidate pool: 644.
-- Managed corpus: 407.
-- Effective literature: 407.
+- Latest corpus checkpoint: after D91 D90 RAG-core promote/B12 completion.
+- Latest candidate checkpoint: after D90 adjacent-topic clean6 refill and B11 status apply.
+- Candidate pool: 669.
+- Managed corpus: 422.
+- Effective literature: 422.
 - Managed pipeline incomplete/blocker/not-started: 0/0/0.
 - Theory-support target: 54/50 target-qualified records.
 
@@ -101,6 +101,14 @@
 | D81 | Promoted/completed the 3 D80 test-time exact arXiv candidates as `LIT-0605`-`LIT-0607`, lifting managed/effective corpus to 405. |
 | D82 | Ran a wider RAG/test-time source-backed scout, rejected tail rows, staged 2 clean RAG core candidates, and validated both as high-band in B11 dry-run. |
 | D83 | Promoted/completed the 2 D82 RAG clean2 candidates as `LIT-0608`-`LIT-0609`, lifting managed/effective corpus to 407. |
+| D84 | Ran exploration-only broad scout; no DB writes; produced adjacent-topic shortlist for test-time metareasoning/adaptive compute and RAG budgeted-selection expansion. |
+| D85 | Added OpenAlex-ID exact-source B10 and adjacent-theory B11 scoring, staged 17 RAG/test-time candidates, and applied B11 statuses: 11 ready, 6 deferred. |
+| D86 | Promoted/completed 6 source-stable D85 theory/strategy records as `LIT-0610`-`LIT-0615`, lifting managed/effective corpus to 413. |
+| D87 | Promoted/completed the 5 remaining source-stable D85 theory records as `LIT-0616`-`LIT-0620`, lifting managed/effective corpus to 418. |
+| D88 | Ran adjacent-topic broad scout, staged 4 OpenAlex exact-source candidates, and applied B11 statuses: 2 ready, 2 rejected; managed/effective corpus stayed 418. |
+| D89 | Promoted/completed the 2 D88 ready RAG/theory candidates as `LIT-0621`-`LIT-0622`, lifting managed/effective corpus to 420. |
+| D90 | Ran a broader adjacent-topic scout, staged 4 source-backed exact-source candidates, and applied B11 statuses: 2 ready, 2 deferred; managed/effective corpus stayed 420. |
+| D91 | Promoted/completed the 2 D90 RAG-core candidates as `LIT-0623`-`LIT-0624`, lifting managed/effective corpus to 422. |
 
 ## Effective-Literature Growth Ledger
 
@@ -138,10 +146,19 @@
 | D81 D80 test-time exact arXiv completion | 3 | 405 |
 | D82 candidate-layer RAG clean2 expansion | 0 | 405 |
 | D83 D82 RAG clean2 completion | 2 | 407 |
+| D84 exploration-only broad scout | 0 | 407 |
+| D85 candidate-layer RAG/test-time theory refill | 0 | 407 |
+| D86 D85 theory/strategy source-stable completion | 6 | 413 |
+| D87 D85 remaining theory source-stable completion | 5 | 418 |
+| D88 adjacent-topic candidate-layer refill | 0 | 418 |
+| D89 D88 ready RAG/theory completion | 2 | 420 |
+| D90 adjacent-topic candidate-layer refill | 0 | 420 |
+| D91 D90 RAG-core completion | 2 | 422 |
 
 ## Source-Backed Current Pattern
 - B10:
   - use exact-title, source-backed, or exact arXiv-ID query overrides.
+  - use OpenAlex-ID exact-source queries for curated adjacent-topic shortlist applies.
   - persist only `DISCOVERED` rows for curated applies.
   - keep broad provider failures diagnostic.
   - treat B10 refill as candidate-layer growth unless B11/B12 subsequently promotes and indexes the records.
@@ -161,6 +178,63 @@
 ## Evidence Roots
 - Current generated evidence root:
   - `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts`
+- Current D91 completion evidence:
+  - `20260610T-d91-before-promote.json`
+  - `20260610T-d91-d90-rag-core-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d91-d90-rag-core-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d91-d90-rag-core-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d91-d90-rag-core-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d91-d90-rag-core-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d91-d90-rag-core-post-acquisition-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d91-d90-rag-core-indexed-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d91-d90-rag-core-final-state-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d91-after-b12.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d91-d90-rag-core-key-content-apply-key-content-curated-apply.json`
+- Current D90 candidate-layer evidence:
+  - `20260610T-d90-before-b10.json`
+  - `20260610T-d90-adjacent-broad-scout-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d90-adjacent-clean6-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d90-adjacent-clean6-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d90-adjacent-clean6-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d90-adjacent-clean6-b11-apply-b11-candidate-triage-report.json`
+  - `20260610T-d90-after-b10-b11.json`
+- Current D89 completion evidence:
+  - `20260610T-d89-before-promote.json`
+  - `20260610T-d89-d88-ready-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d89-d88-ready-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d89-d88-ready-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d89-d88-ready-acquisition-dry-run-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d89-d88-ready-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d89-d88-ready-post-acquisition-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d89-d88-ready-indexed-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d89-d88-ready-final-state-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d89-after-b12.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d89-d88-ready-key-content-apply-key-content-curated-apply.json`
+- Current D88 candidate-layer evidence:
+  - `20260610T-d88-adjacent-broad-scout-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d88-adjacent-clean4-source-audit.json`
+  - `20260610T-d88-adjacent-clean4-dry-run-b10-candidate-discovery-report.json`
+  - `20260610T-d88-adjacent-clean4-apply-b10-candidate-discovery-report.json`
+  - `20260610T-d88-adjacent-clean4-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d88-adjacent-clean4-b11-apply-b11-candidate-triage-report.json`
+  - `20260610T-d88-after-b10-b11.json`
+- Current D87 completion evidence:
+  - `20260610T-d87-d85-theory-b11-dry-run-b11-candidate-triage-report.json`
+  - `20260610T-d87-d85-theory-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d87-d85-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d87-d85-theory-post-acquisition-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d87-d85-theory-indexed-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d87-d85-theory-final-state-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d87-after-b12.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d87-d85-theory-key-content-apply-key-content-curated-apply.json`
+- Current D86 completion evidence:
+  - `20260610T-d86-d85-theory-b11-apply-promote-b11-candidate-triage-report.json`
+  - `20260610T-d86-d85-theory-acquisition-apply-b12-fulltext-acquisition-pilot-report.json`
+  - `20260610T-d86-d85-theory-post-acquisition-standard-apply-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d86-d85-theory-indexed-apply-b12-content-backfill-pilot-report.json`
+  - `20260610T-d86-d85-theory-final-state-dry-run-b12-standard-pipeline-pilot-report.json`
+  - `20260610T-d86-after-b12.json`
+  - `.ai/.tmp/adaptive-llm-systems-literature-pipeline-completion/artifacts/20260610T-d86-d85-theory-key-content-apply-key-content-curated-apply.json`
 - Current D68 final count artifact:
   - `20260609T-after-d68-current-sourceavailable.json`
 - Current D68 selector evidence:

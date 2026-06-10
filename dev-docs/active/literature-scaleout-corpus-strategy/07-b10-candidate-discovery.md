@@ -2,10 +2,10 @@
 
 ## Status
 - State: implemented and used for local DB candidate staging.
-- Latest DB-writing B10 run: D82 RAG/test-time clean2 source-backed refill.
-- Current candidate pool: 644 records.
-- Current `DISCOVERED` candidates: 0 after D83 promoted and completed the 2 D82 candidates.
-- Current recommendation: continue B10 scaleout if candidate-pool recall is preferred, or run another narrow source-backed refill for fast effective-literature growth.
+- Latest DB-writing B10 run: D90 adjacent-topic clean6 refill.
+- Current candidate pool: 669 records.
+- Current `DISCOVERED` candidates: 0 after D90 B11 triage applied 2 ready and 2 deferred decisions; the 2 ready RAG-core candidates were promoted/completed in D91.
+- Current recommendation: continue adjacent-topic B10 exploration for recall diversity, or audit a separate source-stable `READY_FOR_PROMOTION` subset before the next promote/B12 tranche.
 
 ## Entrypoint
 - Script: `tools/b10-candidate-discovery.mjs`
@@ -52,6 +52,7 @@
 - `B10_ARXIV_DELAY_MS`: arXiv provider delay.
 - `B10_MIN_YEAR`: minimum publication year; default is frontier-oriented, but math-theory refills should set a deliberately low cutoff such as `1900`.
 - `B10_ALLOW_MATH_FOUNDATION`: opt-in gate for canonical math-foundation refills; default `false`.
+- `B10_ALLOW_TITLE_ALLOWLIST_FOCUS_OVERRIDE`: opt-in exact-title override for manually curated allowlist refills; default `false`.
 - `B10_REQUIRE_SOURCE_AVAILABLE`: when true, keep only candidates with an arXiv/source path.
 - `B10_TITLE_ALLOWLIST_REGEX`: optional case-insensitive curated title filter.
 - `B10_TITLE_EXCLUDE_REGEX`: optional case-insensitive title/abstract exclusion filter.
@@ -65,9 +66,11 @@
 - Broad OpenAlex catalog discovery.
 - Direction-targeted track runs with `B10_TRACK_IDS`.
 - Exact-title/query override allowlists with `B10_QUERY_OVERRIDES_JSON`.
+- Manually curated exact-title allowlists can opt into `B10_ALLOW_TITLE_ALLOWLIST_FOCUS_OVERRIDE=true` when the paper is an adjacent theory/method foundation that should not be admitted by broad-track focus gates.
 - Clean apply filtering with `B10_PERSIST_STATUSES=DISCOVERED`.
 - Source-backed filtering with `B10_REQUIRE_SOURCE_AVAILABLE=true`.
 - arXiv ID allowlists using `arxiv:<id>` or bare arXiv IDs.
+- OpenAlex exact-source allowlists using `openalex:W...` or `https://openalex.org/W...`.
 - Math-theory exact-ID refills can intentionally relax recency with `B10_MIN_YEAR=1900`; selection should prefer canonical formal relevance over publication recency.
 - Math-theory group/action refills require `B10_ALLOW_MATH_FOUNDATION=true`; keep it off for broad frontier runs.
 
@@ -99,6 +102,53 @@
 | D78 | Broad source-backed scaleout followed by serving clean2 curated apply | 2 clean serving candidates staged | Promoted as `LIT-0603`-`LIT-0604` in D79 and completed |
 | D80 | RAG/test-time exact arXiv refill after broad scout found only a code-completion tail | 3 clean test-time candidates staged | Promoted as `LIT-0605`-`LIT-0607` in D81 and completed |
 | D82 | Wider RAG/test-time source-backed scout followed by RAG clean2 curated apply | 2 clean RAG candidates staged | Promoted as `LIT-0608`-`LIT-0609` in D83 and completed |
+| D84 | Exploration-only broad scout | No DB writes; produced adjacent-topic shortlist | D85 used OpenAlex-ID exact-source subset |
+| D85 | RAG/test-time OpenAlex-ID theory refill | 17 clean candidates staged | B11 applied 11 ready and 6 deferred decisions |
+| D88 | Adjacent-topic broad scout followed by OpenAlex exact-source clean4 apply | 4 candidates staged | B11 applied 2 ready and 2 rejected decisions; ready subset completed in D89 |
+| D90 | Adjacent-topic broad scout followed by OpenAlex exact-source clean6 apply | 4 source-backed candidates staged | B11 applied 2 ready and 2 deferred decisions; ready subset completed in D91 |
+
+## D90 Details
+- Adjacent-topic broad scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d90-adjacent-broad-scout-dry-run-b10-candidate-discovery-report.json`
+  - read-only dry-run; no DB writes.
+  - produced 32 candidates: 12 new `DISCOVERED` signals and 20 duplicates.
+  - direction split: 26 serving/resource-allocation, 4 RAG-aware allocation, and 2 test-time compute-budgeting.
+  - broad output was intentionally treated as scouting because many serving/edge/medical tails were not clean enough for direct apply.
+- Exact-source clean6 dry-run:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d90-adjacent-clean6-dry-run-b10-candidate-discovery-report.json`
+  - validated 6 source-backed OpenAlex exact-source entries.
+  - found 4 new candidates and 2 duplicates:
+    - `Fast Distributed Inference Serving for Large Language Models` matched existing `LIT-0209`.
+    - `Training Verifiers to Solve Math Word Problems` matched an existing candidate.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d90-adjacent-clean6-apply-b10-candidate-discovery-report.json`
+- Batch id: `98231799-9925-4c20-a19e-106b7f6c6fb8`.
+- Batch code: `B10-D90-adjacent-clean6-refill`.
+- Persisted 4 `DISCOVERED` candidates and created no `LiteratureRecord` rows:
+  - `57ccd301-216d-44c7-92cc-dbcda30727af`: `Demonstrate-Search-Predict: Composing retrieval and language models for knowledge-intensive NLP`.
+  - `e4f2333c-83d4-4d1b-a626-6cdfcdc1ab1b`: `Retrieval-Augmented Multimodal Language Modeling`.
+  - `a0d02a3c-012d-4165-819b-88ea2f548c19`: `Serving DNNs like Clockwork: Performance Predictability from the Bottom Up`.
+  - `41f2367e-abaf-4725-a84e-f8efb18ff337`: `Clipper: A Low-Latency Online Prediction Serving System`.
+- D90 B11 status apply later marked the two RAG-core candidates ready and deferred the two serving-foundation candidates; D91 promoted/completed the ready subset.
+
+## D88 Details
+- Adjacent-topic broad scout:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d88-adjacent-broad-scout-dry-run-b10-candidate-discovery-report.json`
+  - read-only dry-run; no DB writes.
+  - produced 12 candidates: 10 new `DISCOVERED` candidates and 2 duplicate signals.
+  - mainly surfaced RAG allocation theory plus a smaller serving/allocation tail.
+- Exact-source clean4 dry-run:
+  - artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d88-adjacent-clean4-dry-run-b10-candidate-discovery-report.json`
+  - source-audit artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d88-adjacent-clean4-source-audit.json`
+  - validated 4 OpenAlex exact-source candidates before apply.
+- Apply artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d88-adjacent-clean4-apply-b10-candidate-discovery-report.json`
+- Batch id: `d0139ede-eda8-4e62-9957-6f85da96acaf`.
+- Batch code: `B10-D88-adjacent-clean4-refill`.
+- Persisted 4 `DISCOVERED` candidates and created no `LiteratureRecord` rows:
+  - `43bc02e3-b029-406a-8689-164138359912`: `Active Example Selection for In-Context Learning`.
+  - `370fed21-7c5b-4912-9b10-2a320b4ae982`: `Linear Submodular Bandits with a Knapsack Constraint`.
+  - `6598b1f3-5a5c-4415-9df9-05591f25b3b0`: `An Online Convex Optimization Approach to Proactive Network Resource Allocation`.
+  - `cb6943b8-13a7-42b3-9f1e-61aa29e1b486`: `Diffusion Limit of Fair Resource Control--Stationarity and Interchange of Limits`.
+- D88 B11 status apply later marked the two RAG/theory candidates ready and rejected the two weak-signal serving/allocation tails; D89 promoted and completed the ready subset.
 
 ## D82 Details
 - Wide RAG/test-time source-backed scout:

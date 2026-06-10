@@ -307,6 +307,14 @@ function targetFit(candidate, direction, collectionRole) {
       'best-of-n',
       'best of n',
       'fast and slow',
+      'adaptive computation',
+      'conditional computation',
+      'early exiting',
+      'early exit',
+      'metareasoning',
+      'anytime',
+      'contract algorithms',
+      'bounded rationality',
     ])) {
       bonus += 0.12;
       reasons.push('test_time_budget_title_signal');
@@ -326,6 +334,15 @@ function targetFit(candidate, direction, collectionRole) {
       'best-of-n',
       'best of n',
       'thinking',
+      'computation',
+      'adaptive computation',
+      'conditional computation',
+      'early exiting',
+      'early exit',
+      'metareasoning',
+      'anytime',
+      'contract algorithm',
+      'bounded rationality',
     ])) {
       penalty += 0.22;
       reasons.push('weak_compute_budget_signal');
@@ -353,7 +370,20 @@ function targetFit(candidate, direction, collectionRole) {
     reasons.push('application_recipe_tail');
   }
 
-  if (collectionRole === 'collection:theory-support' && hasAny(title, ['submodular', 'scaling laws', 'inference scaling', 'compute-optimal'])) {
+  if (collectionRole === 'collection:theory-support' && hasAny(title, [
+    'submodular',
+    'scaling laws',
+    'inference scaling',
+    'compute-optimal',
+    'bandit',
+    'knapsack',
+    'active learning',
+    'uncertainty',
+    'metareasoning',
+    'anytime',
+    'bounded rationality',
+    'contract algorithms',
+  ])) {
     bonus += 0.04;
     reasons.push('theory_role_alignment');
   }

@@ -38,6 +38,7 @@ const providerRetries = readInteger('B10_PROVIDER_RETRIES', 2, { min: 1, max: 5 
 const minYear = readInteger('B10_MIN_YEAR', 2018, { min: 1900, max: 2100 });
 const requireSourceAvailable = readBoolean('B10_REQUIRE_SOURCE_AVAILABLE', false);
 const allowMathFoundation = readBoolean('B10_ALLOW_MATH_FOUNDATION', false);
+const allowTitleAllowlistFocusOverride = readBoolean('B10_ALLOW_TITLE_ALLOWLIST_FOCUS_OVERRIDE', false);
 const queryAllowlistRegexRaw = process.env.B10_QUERY_ALLOWLIST_REGEX ?? '';
 const queryExcludeRegexRaw = process.env.B10_QUERY_EXCLUDE_REGEX ?? '';
 const titleAllowlistRegexRaw = process.env.B10_TITLE_ALLOWLIST_REGEX ?? '';
@@ -537,6 +538,12 @@ function arxivIdFromQuery(query) {
   return null;
 }
 
+function openAlexWorkIdFromQuery(query) {
+  const raw = normalizeText(query).trim();
+  const match = raw.match(/^(?:openalex:|https?:\/\/openalex\.org\/)?(W\d+)$/i);
+  return match ? `W${match[1].slice(1)}` : null;
+}
+
 function toDirectionScores(track, relevanceScore) {
   return {
     'rag-aware-allocation': track.direction === 'rag-aware-allocation' ? relevanceScore : 0,
@@ -605,7 +612,7 @@ function scoreCandidate(candidate, track, query) {
   const text = `${candidate.title} ${candidate.abstractText}`.toLowerCase();
   const queryTerms = query.toLowerCase().split(/\s+/).filter((term) => term.length > 3);
   const matchedTerms = queryTerms.filter((term) => text.includes(term)).length;
-  const queryScore = arxivIdFromQuery(query)
+  const queryScore = arxivIdFromQuery(query) || openAlexWorkIdFromQuery(query)
     ? 1
     : queryTerms.length
       ? matchedTerms / queryTerms.length
@@ -627,7 +634,7 @@ function shouldKeepCandidate(candidate) {
     && (!candidate.year || candidate.year >= minYear)
     && candidate.relevanceScore !== null
     && candidate.relevanceScore >= 0.42
-    && passesTrackFocus(candidate);
+    && passesFocusGate(candidate);
 }
 
 function passesRunFilters(candidate) {
@@ -647,6 +654,13 @@ function hasSourceAvailablePath(candidate) {
   return Boolean(candidate.arxivId)
     || /^10\.48550\/arxiv\./i.test(candidate.doiNormalized ?? '')
     || /arxiv\.org\/(?:abs|pdf)\//i.test(candidate.sourceUrl ?? '');
+}
+
+function passesFocusGate(candidate) {
+  if (allowTitleAllowlistFocusOverride && titleAllowlistRegex?.test(candidate.title)) {
+    return true;
+  }
+  return passesTrackFocus(candidate);
 }
 
 function passesTrackFocus(candidate) {
@@ -882,16 +896,23 @@ async function requestWithRetry(url, options = {}) {
 }
 
 async function fetchOpenAlex(track, query) {
-  const url = new URL('https://api.openalex.org/works');
-  url.searchParams.set('search', query);
-  url.searchParams.set('filter', `from_publication_date:${minYear}-01-01`);
-  url.searchParams.set('per-page', String(providerResultLimit));
-  url.searchParams.set('sort', 'relevance_score:desc');
+  const exactWorkId = openAlexWorkIdFromQuery(query);
+  const url = exactWorkId
+    ? new URL(`https://api.openalex.org/works/${exactWorkId}`)
+    : new URL('https://api.openalex.org/works');
+  if (!exactWorkId) {
+    url.searchParams.set('search', query);
+    url.searchParams.set('filter', `from_publication_date:${minYear}-01-01`);
+    url.searchParams.set('per-page', String(providerResultLimit));
+    url.searchParams.set('sort', 'relevance_score:desc');
+  }
   if (openAlexMailto) url.searchParams.set('mailto', openAlexMailto);
   if (openAlexApiKey) url.searchParams.set('api_key', openAlexApiKey);
   const response = await requestWithRetry(url);
   const payload = await response.json();
-  const rawResults = Array.isArray(payload.results) ? payload.results : [];
+  const rawResults = exactWorkId
+    ? payload?.id ? [payload] : []
+    : Array.isArray(payload.results) ? payload.results : [];
   const candidates = rawResults.map((work) => {
     const locations = [
       ...(Array.isArray(work.locations) ? work.locations : []),
@@ -1509,6 +1530,7 @@ const artifact = await writeArtifacts({
         query_allowlist_regex: queryAllowlistRegexRaw || null,
         query_exclude_regex: queryExcludeRegexRaw || null,
         require_source_available: requireSourceAvailable,
+        allow_title_allowlist_focus_override: allowTitleAllowlistFocusOverride,
         title_allowlist_regex: titleAllowlistRegexRaw || null,
         title_exclude_regex: titleExcludeRegexRaw || null,
       },

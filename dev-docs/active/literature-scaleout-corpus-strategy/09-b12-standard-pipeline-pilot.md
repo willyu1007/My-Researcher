@@ -2,9 +2,9 @@
 
 ## Status
 - State: implemented through fulltext acquisition, fulltext preprocessing, curated key-content import, chunking, embedding, and indexing.
-- Latest B12 run: D83 D82 RAG clean2 completion.
-- Current managed corpus: 407.
-- Current effective literature: 407.
+- Latest B12 run: D91 D90 RAG-core completion.
+- Current managed corpus: 422.
+- Current effective literature: 422.
 - Current managed blockers: 0.
 - Default key-content method: `codex_curated`.
 
@@ -100,7 +100,7 @@
 ## Method Boundary
 - `codex_curated` is the default `KEY_CONTENT_READY` path.
 - Source-grounded curated dossiers are imported before chunk/embed/index backfill.
-- Completed D18-D83 curated imports used 0 key-content extraction provider calls.
+- Completed D18-D91 curated imports used 0 key-content extraction provider calls.
 - `llm_gateway` extraction remains explicit-only and should be used only for bounded diagnostics or approved retries.
 
 ## Completion Ledger
@@ -136,6 +136,106 @@
 | D79 | D78 serving clean2 completion | 2 | completed |
 | D81 | D80 test-time exact arXiv completion | 3 | completed |
 | D83 | D82 RAG clean2 completion | 2 | completed |
+| D86 | D85 theory/strategy source-stable completion | 6 | completed |
+| D87 | D85 remaining theory source-stable completion | 5 | completed |
+| D89 | D88 ready RAG/theory completion | 2 | completed |
+| D91 | D90 RAG-core completion | 2 | completed |
+
+## D91 Details
+- Input: `LIT-0623` and `LIT-0624`.
+- Standard apply:
+  - citation and abstract stages succeeded for both.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 2 explicit arXiv PDF downloads with 0 blockers.
+  - apply succeeded for both and created 2 content assets.
+  - explicit URLs:
+    - `LIT-0623`: `https://arxiv.org/pdf/2212.14024`.
+    - `LIT-0624`: `https://arxiv.org/pdf/2211.12561`.
+- Fulltext preprocessing:
+  - succeeded for both and created 2 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated both records.
+  - import succeeded for both.
+  - extraction provider calls: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 2 embedding calls.
+  - apply succeeded for both.
+- Final state:
+  - both records have all seven standard stages `SUCCEEDED`.
+  - `LIT-0623` has 147 embedding chunks.
+  - `LIT-0624` has 154 embedding chunks.
+
+## D89 Details
+- Input: `LIT-0621` and `LIT-0622`.
+- Standard apply:
+  - citation and abstract stages succeeded for both.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 2 explicit URL downloads with 0 blockers.
+  - apply succeeded for both and created 2 content assets.
+  - explicit URLs:
+    - `LIT-0621`: `https://ojs.aaai.org/index.php/AAAI/article/download/10154/10013`.
+    - `LIT-0622`: `https://aclanthology.org/2022.emnlp-main.622.pdf`.
+- Fulltext preprocessing:
+  - succeeded for both and created 2 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated both records.
+  - import succeeded for both.
+  - extraction provider calls: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 2 embedding calls.
+  - apply succeeded for both.
+- Final state:
+  - both records have all seven standard stages `SUCCEEDED`.
+  - `LIT-0621` has 112 embedding chunks.
+  - `LIT-0622` has 105 embedding chunks.
+
+## D87 Details
+- Input: `LIT-0616` through `LIT-0620`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 5.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 5 explicit URL downloads with 0 blockers.
+  - apply succeeded for all 5 and created 5 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 5 and created 5 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 5.
+  - import succeeded for all 5.
+  - extraction provider calls: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 5 embedding calls.
+  - apply succeeded for all 5.
+- Final state:
+  - all 5 records have all seven standard stages `SUCCEEDED`.
+  - all 5 have active indexed content.
+
+## D86 Details
+- Input: `LIT-0610` through `LIT-0615`.
+- Standard apply:
+  - citation and abstract stages succeeded for all 6.
+  - fulltext preprocessing initially blocked with expected `FULLTEXT_SOURCE_MISSING`.
+- Acquisition:
+  - dry-run planned 6 explicit URL downloads with 0 blockers.
+  - apply succeeded for all 6 and created 6 content assets.
+- Fulltext preprocessing:
+  - succeeded for all 6 and created 6 ready fulltext documents.
+- Key-content:
+  - source-grounded `codex_curated` dossier dry-run validated all 6.
+  - import succeeded for all 6.
+  - extraction provider calls: 0.
+- Index backfill:
+  - dry-run planned only `CHUNKED`, `EMBEDDED`, and `INDEXED`.
+  - estimated calls: 0 extraction calls and 6 embedding calls.
+  - apply succeeded for all 6.
+- Final state:
+  - all 6 records have all seven standard stages `SUCCEEDED`.
+  - all 6 have active indexed content.
 
 ## D55 Details
 - Input: `LIT-0490` through `LIT-0500`.
@@ -646,19 +746,21 @@
   - managed incomplete, blocked, and not-started counts are all 0.
 
 ## Latest Counting
-- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d83-after-d82-rag-clean2-completion-count.json`
+- Artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260610T-d91-after-b12.json`
 - D53 preflight summary: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-d53-readonly-preflight-summary.json`
 - Theory target artifact: `.ai/.tmp/literature-scaleout-corpus-strategy/artifacts/20260608T-after-d52-theory-target-state.json`
 
 | Metric | Value |
 | --- | ---: |
-| Candidate pool records | 644 |
+| Candidate pool records | 669 |
 | Candidate discovered records | 0 |
 | Candidate ready-for-promotion records | 81 |
-| Candidate promoted records | 280 |
-| Candidate deferred records | 126 |
-| Managed corpus records | 407 |
-| Effective literature records | 407 |
+| Candidate promoted records | 295 |
+| Candidate duplicate records | 139 |
+| Candidate deferred records | 134 |
+| Candidate rejected records | 20 |
+| Managed corpus records | 422 |
+| Effective literature records | 422 |
 | Pipeline incomplete records | 0 |
 | Pipeline blocked records | 0 |
 | Pipeline not-started records | 0 |
