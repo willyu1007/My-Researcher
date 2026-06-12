@@ -123,7 +123,7 @@ Project: `main`
 | T-111 topic-selection-v1a-production-orchestration | done | F-000 | dev-docs/active/topic-selection-v1a-production-orchestration |
 | T-112 topic-selection-llm-context-cache-runtime | done | F-001 | dev-docs/active/topic-selection-llm-context-cache-runtime |
 | T-113 paper-implementation-legacy-authority-cleanup | done | F-001 | dev-docs/active/paper-implementation-legacy-authority-cleanup |
-| T-114 paper-implementation-runtime-orchestration-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
+| T-114 paper-implementation-runtime-orchestration-hardening | done | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
 | T-115 topic-selection-v1b-human-review-path | done | F-001 | dev-docs/active/topic-selection-v1b-human-review-path |
 | T-116 adaptive-llm-systems-literature-collection-ingestion | done | F-000 | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
 | T-117 adaptive-llm-systems-readiness-followup | done | F-000 | dev-docs/active/adaptive-llm-systems-readiness-followup |
@@ -132,4 +132,7 @@ Project: `main`
 | T-120 adaptive-llm-systems-literature-pipeline-completion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-literature-pipeline-completion |
 | T-121 literature-retrieval-pgvector-index-design | archived | F-000 | dev-docs/archive/literature-retrieval-pgvector-index-design |
 | T-122 literature-scaleout-corpus-strategy | in-progress | F-000 | dev-docs/active/literature-scaleout-corpus-strategy |
+| T-123 topic-selection-productization-hardening | in-progress | F-001 | dev-docs/active/topic-selection-productization-hardening |
+| T-124 paper-implementation-productization-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-productization-hardening |
+| T-125 literature-balanced-corpus-scaleout-v2 | in-progress | F-000 | dev-docs/active/literature-balanced-corpus-scaleout-v2 |
 <!-- AUTO-GENERATED:END task-index -->

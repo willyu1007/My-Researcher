@@ -1886,3 +1886,9 @@ error_code: string | null
 - v1a can become richer without forcing v1b/v1c to consume unstable internal artifacts.
 - The handoff boundary preserves existing domain authority objects and avoids dual-track DTOs.
 - v1b/v1c can be deepened later against their own node policies without reopening the v1a `generate-need-candidate` contract.
+
+## D-T123-01 (2026-06-12) — T-123 Phase 4 对 harness 的加法式改动（联合决策登记）
+- 范围：`topic-selection-v1b-workflow-harness-service.ts` 新增 ① N6 确定性 gate 的 decision-memory dedup warning（新 helper + `validateAndBuildN6Candidates` 处一个调用点 + 契约 N6 `warning_codes` 增加 `decision_memory_duplicate_candidate`）；② N6/N8 runtime service（harness 内部构造）经 frozen_input.source_refs 解析可选的 decision-memory packet artifact（镜像既有 projection 解析模式）。
+- 不改动：`invokeNode` 生命周期、节点策略语义、route edges、replay key 组成规则（memory ref 经 frozen_input 自然参与 frozen_input_hash）。
+- 设计要点：memory packet 是预先持久化的 control-plane artifact、由调用方放入 frozen_input.source_refs（与 N7 loopback projection 同构），保证生成/准入 expected-identity 恒等与 replay 确定性；不做活查询注入。
+- 归属：T-123 Phase 4（dev-docs/active/topic-selection-productization-hardening/）。冲突面评估：纯加法、不与 T-088 Phase 2 runtime primitives 重叠。

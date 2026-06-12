@@ -8,12 +8,16 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 122 (planned: 2, in-progress: 8, blocked: 0, done: 41, archived: 71)
+- Tasks: 125 (planned: 2, in-progress: 10, blocked: 0, done: 42, archived: 71)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-125 literature-balanced-corpus-scaleout-v2 | in-progress | F-000 | dev-docs/active/literature-balanced-corpus-scaleout-v2 |
+| T-114 paper-implementation-runtime-orchestration-hardening | done | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
+| T-123 topic-selection-productization-hardening | in-progress | F-001 | dev-docs/active/topic-selection-productization-hardening |
+| T-124 paper-implementation-productization-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-productization-hardening |
 | T-115 topic-selection-v1b-human-review-path | done | F-001 | dev-docs/active/topic-selection-v1b-human-review-path |
 | T-121 literature-retrieval-pgvector-index-design | archived | F-000 | dev-docs/archive/literature-retrieval-pgvector-index-design |
 | T-122 literature-scaleout-corpus-strategy | in-progress | F-000 | dev-docs/active/literature-scaleout-corpus-strategy |
@@ -22,7 +26,6 @@ Project: `main`
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
 | T-119 adaptive-llm-systems-standard-pipeline-expansion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-standard-pipeline-expansion |
 | T-120 adaptive-llm-systems-literature-pipeline-completion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-literature-pipeline-completion |
-| T-114 paper-implementation-runtime-orchestration-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
 | T-112 topic-selection-llm-context-cache-runtime | done | F-001 | dev-docs/active/topic-selection-llm-context-cache-runtime |
 | T-023 research-argument-control-plane-v1 | archived | F-001 | dev-docs/archive/research-argument-control-plane-v1 |
 | T-086 research-argument-writing-entry-bridge-acceptance | archived | F-001 | dev-docs/archive/research-argument-writing-entry-bridge-acceptance |
@@ -31,7 +34,4 @@ Project: `main`
 | T-110 experiment-foundation-research-workbench | archived | F-001 | dev-docs/archive/experiment-foundation-research-workbench |
 | T-111 topic-selection-v1a-production-orchestration | done | F-000 | dev-docs/active/topic-selection-v1a-production-orchestration |
 | T-107 topic-selection-v1b-workflow-hardening | done | F-001 | dev-docs/active/topic-selection-v1b-workflow-hardening |
-| T-109 paper-implementation-v1-runnable-closure | done | F-001 | dev-docs/active/paper-implementation-v1-runnable-closure |
-| T-106 experiment-foundation-real-interaction-hardening | in-progress | F-001 | dev-docs/active/experiment-foundation-real-interaction-hardening |
-| T-090 experiment-foundation-capability-validation | done | F-001 | dev-docs/active/experiment-foundation-capability-validation |
 <!-- AUTO-GENERATED:END dashboard -->

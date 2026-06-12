@@ -3,6 +3,15 @@
 ## Pending
 - Remaining implementation work is limited to the next runtime/debate slices recorded in T-088/T-089 below.
 
+## 2026-06-11 Matrix migrated & implementation-aligned (by T-123 Phase 0)
+- `06-workflow-matrix.md` 内容迁移至永久 SSOT `docs/context/process/topic-selection-workflow-matrix.md`（原文件改为指针存根）。
+- 对齐范围（由 T-123 代为修订，理由与决策见 `dev-docs/active/topic-selection-productization-hardening/03-implementation-notes.md` §Phase 0 决策 DP-0.1~0.8）：
+  - v1b 行由旧 8 节点 ID 重写为实现的 11 节点 ID（含 N2/N5 human surface、N7 product-mechanical 注记、N6 debate reserved、N8 conditional bounded_sequence planned）。
+  - v1c 命名漂移修正（`record-human-promotion-decision`、`v1c.downstream-feedback-recheck`），权威源固化为 shared 常量 `TOPIC_SELECTION_V1C_NODE_IDS`。
+  - 新增 `human_delegated_allowed` / `debate_primitive` 列；slot map 扩为完整清单（v1b 10 槽 + v1c 6 槽）。
+  - 一致性脚本接入 backend 测试套件，矩阵 node_id/slot_id 与代码权威源不一致即失败。
+- T-089 职责不变：未来新增 debate 节点的语义裁决仍在本任务域，修订落在 docs/context 新址。
+
 ## 2026-05-23 v1a Generate-Need-Candidate Mixed Debate Runtime Check
 - The executable v1a generate-need-candidate debate contract is now exercised by a real harness E2E, not only mocked unit coverage.
 - Accepted mixed slot shape for this run:

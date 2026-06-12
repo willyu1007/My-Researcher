@@ -1065,13 +1065,13 @@ tasks:
     updated: 2026-06-01
   - id: T-114
     slug: paper-implementation-runtime-orchestration-hardening
-    status: in-progress
+    status: done
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
     dev_docs_path: dev-docs/active/paper-implementation-runtime-orchestration-hardening
-    updated: 2026-06-03
+    updated: 2026-06-11
   - id: T-115
     slug: topic-selection-v1b-human-review-path
     status: done
@@ -1130,3 +1130,26 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/literature-scaleout-corpus-strategy
     updated: 2026-06-06
+  - id: T-123
+    slug: topic-selection-productization-hardening
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-009
+    dev_docs_path: dev-docs/active/topic-selection-productization-hardening
+    updated: 2026-06-11
+  - id: T-124
+    slug: paper-implementation-productization-hardening
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-001
+    dev_docs_path: dev-docs/active/paper-implementation-productization-hardening
+    updated: 2026-06-11
+  - id: T-125
+    slug: literature-balanced-corpus-scaleout-v2
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-balanced-corpus-scaleout-v2
+    updated: 2026-06-12
