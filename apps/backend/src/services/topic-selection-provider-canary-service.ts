@@ -16,6 +16,7 @@ import {
   topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema,
   topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
 import {
   type TopicSelectionResourceSamplingLlmOutput,
   topicSelectionResourceSamplingLlmOutputSchema,
@@ -727,7 +728,7 @@ export class TopicSelectionProviderCanaryService {
     return {
       workspace_id: 'workspace_provider_canary',
       title_card_id: 'title_card_provider_canary',
-      node_id: 'topic-selection.v1c.generate-promotion-support.v1',
+      node_id: TOPIC_SELECTION_V1C_NODE_ID.n2_generate_promotion_support,
       workflow_run_id: `provider_canary_v1c_n2_${slotKey}_${providerId}_workflow_run_001`,
       node_attempt_id: `provider_canary_v1c_n2_${slotKey}_${providerId}_node_attempt_001`,
       invocation_attempt_id: `provider_canary_v1c_n2_${slotKey}_${providerId}_runtime_role`,
@@ -1021,7 +1022,7 @@ export class TopicSelectionProviderCanaryService {
     return {
       workspace_id: 'workspace_provider_canary',
       title_card_id: 'title_card_provider_canary',
-      node_id: 'topic-selection.v1c.record-human-promotion-decision.v1',
+      node_id: TOPIC_SELECTION_V1C_NODE_ID.n4_record_human_promotion_decision,
       workflow_run_id: `provider_canary_v1c_n4_${providerId}_workflow_run_001`,
       node_attempt_id: `provider_canary_v1c_n4_${providerId}_node_attempt_001`,
       invocation_attempt_id: `provider_canary_v1c_n4_${providerId}_delegated_promotion_decision`,
@@ -1093,7 +1094,7 @@ export class TopicSelectionProviderCanaryService {
     return {
       workspace_id: 'workspace_provider_canary',
       title_card_id: 'title_card_provider_canary',
-      node_id: 'topic-selection.v1c.downstream-feedback-recheck.v1',
+      node_id: TOPIC_SELECTION_V1C_NODE_ID.n6_downstream_feedback_recheck,
       workflow_run_id: `provider_canary_v1c_n6_${providerId}_workflow_run_001`,
       node_attempt_id: `provider_canary_v1c_n6_${providerId}_node_attempt_001`,
       invocation_attempt_id: `provider_canary_v1c_n6_${providerId}_downstream_feedback_normalization`,

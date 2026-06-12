@@ -32,6 +32,10 @@ import {
 } from './literature-content-processing-utils.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
+  resolveDecisionMemoryPacketFromSourceRefs,
+  type ResolvedTopicSelectionDecisionMemoryPacket,
+} from './topic-selection-decision-memory-projection-service.js';
+import {
   TOPIC_SELECTION_CONTEXT_RUNTIME_REDACTION_POLICY,
   TOPIC_SELECTION_V1B_N8_CONTEXT_RUNTIME_PROFILE_IDS,
   TOPIC_SELECTION_V1B_N8_INVOCATION_SLOT_IDS,
@@ -107,6 +111,9 @@ export type TopicSelectionV1bN8ValueAssessmentRuntimeContextPacket = {
   n7_to_n8_projection_hash: string;
   n7_to_n8_projection: TopicSelectionV1bN7ToN8TopicQuestionContractContextProjection;
   required_structure_manifest: TopicSelectionV1bN8RequiredStructureManifest;
+  decision_memory_packet_ref: TopicSelectionFunctionalRef | null;
+  decision_memory_packet_hash: string | null;
+  decision_memory: ResolvedTopicSelectionDecisionMemoryPacket['packet'] | null;
 };
 
 export type TopicSelectionV1bN8RuntimeTokenBudgetOverrides = {
@@ -187,7 +194,8 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     const binding = this.slotBinding();
     const runMode = input.run_mode ?? input.request.run_mode ?? this.defaultRunMode(input.execution_mode);
     const projection = await this.resolveN7ToN8Projection(input.request, frozenPayload);
-    const sourceHashes = this.sourceHashes(input.request, frozenPayload, projection.hash, projection.payload);
+    const decisionMemory = await this.resolveDecisionMemoryPacket(input.request);
+    const sourceHashes = this.sourceHashes(input.request, frozenPayload, projection.hash, projection.payload, decisionMemory?.hash ?? null);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const requiredStructureManifest = this.requiredStructureManifest(sourceHashes);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
@@ -204,6 +212,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       sourceHashes,
       projection,
       requiredStructureManifest,
+      decisionMemory,
     });
     this.assertRequiredStructureManifest(contextPacket);
     const contextPacketHash = this.hash(contextPacket);
@@ -302,7 +311,8 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'v1b N8 value draft first slice does not allow provider model options.');
     }
     const projection = await this.resolveN7ToN8Projection(input.request, input.frozenPayload);
-    const sourceHashes = this.sourceHashes(input.request, input.frozenPayload, projection.hash, projection.payload);
+    const decisionMemory = await this.resolveDecisionMemoryPacket(input.request);
+    const sourceHashes = this.sourceHashes(input.request, input.frozenPayload, projection.hash, projection.payload, decisionMemory?.hash ?? null);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const requiredStructureManifest = this.requiredStructureManifest(sourceHashes);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
@@ -319,6 +329,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       sourceHashes,
       projection,
       requiredStructureManifest,
+      decisionMemory,
     });
     this.assertRequiredStructureManifest(contextPacket);
     const modelProfile = this.resolveModelProfile(binding, input.executionMode, input.runMode);
@@ -444,6 +455,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       payload: TopicSelectionV1bN7ToN8TopicQuestionContractContextProjection;
     };
     requiredStructureManifest: TopicSelectionV1bN8RequiredStructureManifest;
+    decisionMemory: ResolvedTopicSelectionDecisionMemoryPacket | null;
   }): TopicSelectionV1bN8ValueAssessmentRuntimeContextPacket {
     return {
       schema_version: 'TopicSelectionV1bN8ValueAssessmentRuntimeContextPacket@v1',
@@ -467,6 +479,9 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       n7_to_n8_projection_hash: input.projection.hash,
       n7_to_n8_projection: input.projection.payload,
       required_structure_manifest: input.requiredStructureManifest,
+      decision_memory_packet_ref: input.decisionMemory?.ref ?? null,
+      decision_memory_packet_hash: input.decisionMemory?.hash ?? null,
+      decision_memory: input.decisionMemory?.packet ?? null,
     };
   }
 
@@ -483,7 +498,9 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
           'Do not create TopicValueAssessment, N8ToN9 handoff, N8ToN7 feedback, route decisions, trial ledger changes, candidate changes, package, recheck, or authority records.',
           'Do not override deterministic N8 gates, feedback boundaries, executable prompts, or ref/hash lineage.',
           'Return only JSON matching TopicValueAssessmentDraft@v1.',
-        ].join(' '),
+        ].join(' ') + (contextPacket.decision_memory
+          ? ' context_packet.decision_memory lists this title card\'s historical negative decisions (rejections, parks, drops, accepted risks); ground the negative_memory_check dimension and reviewer-risk reasoning in these entries and cite conflicts in risk_notes.'
+          : ''),
       },
       {
         role: 'user',
@@ -638,6 +655,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     payload: TopicSelectionV1bN8HarnessFrozenInputPayload,
     projectionHash: string,
     projection: TopicSelectionV1bN7ToN8TopicQuestionContractContextProjection,
+    decisionMemoryPacketHash: string | null,
   ): Record<string, string> {
     const sourceHashes: Record<string, string> = {
       frozen_input_hash: request.frozen_input.frozen_input_hash ?? this.hash(request.frozen_input),
@@ -657,6 +675,9 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     };
     if (payload.candidate_grouping_hash) {
       sourceHashes.candidate_grouping_hash = payload.candidate_grouping_hash;
+    }
+    if (decisionMemoryPacketHash) {
+      sourceHashes.decision_memory_packet_hash = decisionMemoryPacketHash;
     }
     return sourceHashes;
   }
@@ -831,6 +852,16 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       execution_mode: input.executionMode,
       executor_kind: input.executorKind,
       run_mode: input.runMode,
+    });
+  }
+
+  private async resolveDecisionMemoryPacket(
+    request: TopicSelectionV1bWorkflowHarnessRunRequest,
+  ): Promise<ResolvedTopicSelectionDecisionMemoryPacket | null> {
+    return resolveDecisionMemoryPacketFromSourceRefs({
+      sourceRefs: request.frozen_input.source_refs,
+      getArtifactRef: (refId) => this.controlPlane.getArtifactRef(refId),
+      expectedTitleCardId: request.title_card_id ?? null,
     });
   }
 

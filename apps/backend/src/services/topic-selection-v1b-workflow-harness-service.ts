@@ -165,6 +165,11 @@ import type { TopicSelectionV1bValueAssessmentRepository } from '../repositories
 import type { TopicSelectionV1bTopicPackageRepository } from '../repositories/topic-selection-v1b-topic-package.repository.js';
 import { AppError } from '../errors/app-error.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import {
+  computeDecisionMemoryDedupWarnings,
+  resolveDecisionMemoryPacketFromSourceRefs,
+  type ResolvedTopicSelectionDecisionMemoryPacket,
+} from './topic-selection-decision-memory-projection-service.js';
 import { assertTopicSelectionAcceptedRiskUsableForTarget } from './topic-selection-recheck-risk-memory-service.js';
 import {
   type TopicSelectionResolvedModelProfile,
@@ -3019,8 +3024,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const candidateSetRef = this.ref('topic_question_candidate_set', candidateSetId, loaded.value.researchSlice.title_card_id);
     const runRef = this.ref('form_topic_question_run', runId, loaded.value.researchSlice.title_card_id);
     const frameRef = this.ref('topic_question_frame', questionFrameId, loaded.value.researchSlice.title_card_id);
+    const decisionMemory = await resolveDecisionMemoryPacketFromSourceRefs({
+      sourceRefs: input.frozen_input.source_refs,
+      getArtifactRef: (refId) => this.controlPlane.getArtifactRef(refId),
+      expectedTitleCardId: input.title_card_id ?? null,
+    });
     const validation = this.validateAndBuildN6Candidates({
       candidateSetId,
+      decisionMemory,
       draft: draftResolution.draft,
       draftHash: draftResolution.draftHash,
       input,
@@ -10183,6 +10194,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private validateAndBuildN6Candidates(input: {
+    decisionMemory: ResolvedTopicSelectionDecisionMemoryPacket | null;
     candidateSetId: string;
     draft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload;
     draftHash: string;
@@ -10367,6 +10379,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const warnings = qualityFlags.map((flag) =>
       this.warning(flag, `N6 TopicQuestion candidate generation emitted ${flag}.`, [payload.research_slice_ref]),
     );
+    if (input.decisionMemory) {
+      for (const dedup of computeDecisionMemoryDedupWarnings(input.decisionMemory.packet, candidates)) {
+        warnings.push(this.warning(dedup.code, dedup.message, dedup.refs));
+      }
+    }
     const candidateSet: TopicSelectionTopicQuestionCandidateSetRecord = {
       topic_question_candidate_set_id: input.candidateSetId,
       workspace_id: workspaceId,

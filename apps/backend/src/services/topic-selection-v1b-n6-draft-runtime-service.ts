@@ -32,6 +32,10 @@ import {
 } from './literature-content-processing-utils.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
+  resolveDecisionMemoryPacketFromSourceRefs,
+  type ResolvedTopicSelectionDecisionMemoryPacket,
+} from './topic-selection-decision-memory-projection-service.js';
+import {
   TOPIC_SELECTION_CONTEXT_RUNTIME_REDACTION_POLICY,
   TOPIC_SELECTION_V1B_N6_CONTEXT_RUNTIME_PROFILE_IDS,
   TOPIC_SELECTION_V1B_N6_INVOCATION_SLOT_IDS,
@@ -100,6 +104,9 @@ export type TopicSelectionV1bN6DraftRuntimeContextPacket = {
   source_hashes: Record<string, string>;
   frozen_input_payload: TopicSelectionV1bN6HarnessFrozenInputPayload;
   mode_context: TopicSelectionV1bN6DraftRuntimeModeContext;
+  decision_memory_packet_ref: TopicSelectionFunctionalRef | null;
+  decision_memory_packet_hash: string | null;
+  decision_memory: ResolvedTopicSelectionDecisionMemoryPacket['packet'] | null;
 };
 
 export type GenerateTopicSelectionV1bN6RuntimeDraftInput = {
@@ -176,7 +183,8 @@ export class TopicSelectionV1bN6DraftRuntimeService {
     const binding = this.slotBinding(input.generation_mode);
     const runMode = input.run_mode ?? input.request.run_mode ?? this.defaultRunMode(input.execution_mode);
     const modeContext = await this.resolveModeContext(input.request, frozenPayload, input.generation_mode);
-    const sourceHashes = this.sourceHashes(input.request, frozenPayload, modeContext);
+    const decisionMemory = await this.resolveDecisionMemoryPacket(input.request);
+    const sourceHashes = this.sourceHashes(input.request, frozenPayload, modeContext, decisionMemory?.hash ?? null);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(binding, sourceHashes, modeContext);
     const contextPacket = this.buildContextPacket({
@@ -187,6 +195,7 @@ export class TopicSelectionV1bN6DraftRuntimeService {
       runtimeInvocationContextHash,
       sourceHashes,
       modeContext,
+      decisionMemory,
     });
     const contextPacketHash = this.hash(contextPacket);
     const contextArtifact = await this.controlPlane.recordArtifactRef({
@@ -284,7 +293,8 @@ export class TopicSelectionV1bN6DraftRuntimeService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'v1b N6 draft first slice does not allow provider model options.');
     }
     const modeContext = await this.resolveModeContext(input.request, input.frozenPayload, input.generationMode);
-    const sourceHashes = this.sourceHashes(input.request, input.frozenPayload, modeContext);
+    const decisionMemory = await this.resolveDecisionMemoryPacket(input.request);
+    const sourceHashes = this.sourceHashes(input.request, input.frozenPayload, modeContext, decisionMemory?.hash ?? null);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(binding, sourceHashes, modeContext);
     const contextPacket = this.buildContextPacket({
@@ -295,6 +305,7 @@ export class TopicSelectionV1bN6DraftRuntimeService {
       runtimeInvocationContextHash,
       sourceHashes,
       modeContext,
+      decisionMemory,
     });
     const modelProfile = this.resolveModelProfile(binding, input.executionMode, input.runMode);
     const promptPacket = this.promptPacketRuntime.buildPromptPacket({
@@ -413,6 +424,7 @@ export class TopicSelectionV1bN6DraftRuntimeService {
     runtimeInvocationContextHash: string;
     sourceHashes: Record<string, string>;
     modeContext: TopicSelectionV1bN6DraftRuntimeModeContext;
+    decisionMemory: ResolvedTopicSelectionDecisionMemoryPacket | null;
   }): TopicSelectionV1bN6DraftRuntimeContextPacket {
     return {
       schema_version: 'TopicSelectionV1bN6DraftRuntimeContextPacket@v1',
@@ -433,6 +445,9 @@ export class TopicSelectionV1bN6DraftRuntimeService {
       source_hashes: input.sourceHashes,
       frozen_input_payload: input.frozenPayload,
       mode_context: input.modeContext,
+      decision_memory_packet_ref: input.decisionMemory?.ref ?? null,
+      decision_memory_packet_hash: input.decisionMemory?.hash ?? null,
+      decision_memory: input.decisionMemory?.packet ?? null,
     };
   }
 
@@ -449,7 +464,9 @@ export class TopicSelectionV1bN6DraftRuntimeService {
           'Do not create QuestionFrame, TopicQuestionCandidate, CandidateSet, N6ToN7 handoff, package, recheck, or authority records.',
           'Do not override deterministic N6 gates, route policy, executable prompts, or ref/hash lineage.',
           'Return only JSON matching TopicQuestionCandidateSetDraft@v1.',
-        ].join(' '),
+        ].join(' ') + (contextPacket.decision_memory
+          ? ' context_packet.decision_memory lists previously rejected/parked/duplicate directions for this title card; do not regenerate equivalent candidates, and if intentionally revisiting one, justify it explicitly in the candidate rationale.'
+          : ''),
       },
       {
         role: 'user',
@@ -468,6 +485,7 @@ export class TopicSelectionV1bN6DraftRuntimeService {
     request: TopicSelectionV1bWorkflowHarnessRunRequest,
     payload: TopicSelectionV1bN6HarnessFrozenInputPayload,
     modeContext: TopicSelectionV1bN6DraftRuntimeModeContext,
+    decisionMemoryPacketHash: string | null,
   ): Record<string, string> {
     const sourceHashes: Record<string, string> = {
       frozen_input_hash: request.frozen_input.frozen_input_hash ?? this.hash(request.frozen_input),
@@ -504,6 +522,9 @@ export class TopicSelectionV1bN6DraftRuntimeService {
       if (projection.triage_payload_hash) {
         sourceHashes.n6_gate_failure_triage_payload_hash = projection.triage_payload_hash;
       }
+    }
+    if (decisionMemoryPacketHash) {
+      sourceHashes.decision_memory_packet_hash = decisionMemoryPacketHash;
     }
     return sourceHashes;
   }
@@ -701,6 +722,16 @@ export class TopicSelectionV1bN6DraftRuntimeService {
       n6_gate_failure_projection_hash: n6GateFailureProjection.hash,
       n6_gate_failure_projection_ref: n6GateFailureProjection.ref,
     };
+  }
+
+  private async resolveDecisionMemoryPacket(
+    request: TopicSelectionV1bWorkflowHarnessRunRequest,
+  ): Promise<ResolvedTopicSelectionDecisionMemoryPacket | null> {
+    return resolveDecisionMemoryPacketFromSourceRefs({
+      sourceRefs: request.frozen_input.source_refs,
+      getArtifactRef: (refId) => this.controlPlane.getArtifactRef(refId),
+      expectedTitleCardId: request.title_card_id ?? null,
+    });
   }
 
   private async resolveN7LoopbackProjection(

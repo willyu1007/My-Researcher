@@ -48,6 +48,7 @@ import {
   type TopicSelectionResolvedContextPolicyProfile,
 } from './topic-selection-context-policy-profile-registry-service.js';
 import {
+  TopicSelectionModelProfileRegistryService,
   TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
 } from './topic-selection-model-profile-registry-service.js';
 import {
@@ -69,13 +70,6 @@ export const TOPIC_SELECTION_RESOURCE_SAMPLING_OUTPUT_CONTRACT =
   'TopicSelectionResourceSamplingLlmOutput@v1' as const;
 const DEFAULT_POLICY_VERSION = 'topic-resource-sampling-v1';
 const DEFAULT_SAMPLE_SIZE = 16;
-const DEFAULT_OPENAI_MODEL_ID = 'gpt-5.5' as const;
-const DEFAULT_DASHSCOPE_MODEL_ID = 'qwen3.6-plus' as const;
-const DEFAULT_MODEL: LlmModelRef = {
-  providerId: 'openai',
-  modelId: DEFAULT_OPENAI_MODEL_ID,
-  profileId: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
-};
 const TARGET_ROLES = [...TOPIC_SELECTION_RESOURCE_SAMPLE_TARGET_ROLES];
 
 type IdFactory = (prefix: string) => string;
@@ -91,6 +85,7 @@ type ServiceOptions = {
   controlPlaneService: TopicSelectionControlPlaneService;
   agentOrchestrator: TopicSelectionAgentOrchestratorService;
   contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
+  modelProfileRegistry?: Pick<TopicSelectionModelProfileRegistryService, 'resolveProfile'>;
   idFactory?: IdFactory;
   now?: () => string;
 };
@@ -238,12 +233,14 @@ export class TopicSelectionResourceSamplingService {
   private readonly now: () => string;
   private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
+  private readonly modelProfileRegistry: Pick<TopicSelectionModelProfileRegistryService, 'resolveProfile'>;
 
   constructor(private readonly options: ServiceOptions) {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
     this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
       ?? new TopicSelectionContextPolicyProfileRegistryService();
+    this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
     this.agentOrchestrator = options.agentOrchestrator;
   }
 
@@ -791,17 +788,38 @@ export class TopicSelectionResourceSamplingService {
   }
 
   private modelOptionIdForModel(model: LlmModelRef): string {
-    if (model.providerId === 'openai') {
-      return `${TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID}.openai-balanced`;
+    if (model.providerId !== 'openai' && model.providerId !== 'dashscope') {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'resource sampling model.provider_id must match a registered runtime model option.',
+      );
     }
-    if (model.providerId === 'dashscope') {
-      return `${TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID}.dashscope-thinking-budget`;
+    return this.modelOptionIdForProvider(model.providerId);
+  }
+
+  private modelOptionIdForProvider(providerId: 'openai' | 'dashscope'): string {
+    return providerId === 'dashscope'
+      ? `${TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID}.dashscope-thinking-budget`
+      : `${TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID}.openai-balanced`;
+  }
+
+  private registeredModelForProvider(providerId: 'openai' | 'dashscope'): LlmModelRef {
+    const resolved = this.modelProfileRegistry.resolveProfile({
+      profile_id: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
+      execution_mode: 'provider_llm',
+      run_mode: 'product',
+      model_option_id: this.modelOptionIdForProvider(providerId),
+    });
+    const option = resolved.selected_model_option;
+    if (!option) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'resource sampling model profile did not resolve a provider model option.');
     }
-    throw new AppError(
-      400,
-      'INVALID_PAYLOAD',
-      'resource sampling model.provider_id must match a registered runtime model option.',
-    );
+    return {
+      providerId: option.provider_id,
+      modelId: option.model_id,
+      profileId: resolved.profile.profile_id,
+    };
   }
 
   private invocationError(
@@ -1514,7 +1532,7 @@ export class TopicSelectionResourceSamplingService {
 
   private normalizeModel(raw: CreateTopicSelectionResourceSampleInput['model']): LlmModelRef {
     if (!raw) {
-      return DEFAULT_MODEL;
+      return this.registeredModelForProvider('openai');
     }
     const record = raw as Record<string, unknown>;
     const providerId = record.providerId ?? record.provider_id;
@@ -1545,21 +1563,15 @@ export class TopicSelectionResourceSamplingService {
       );
     }
     const normalizedProviderId = normalizedProviderInput === 'dashscope' ? 'dashscope' : 'openai';
-    const registeredModelId = normalizedProviderId === 'dashscope'
-      ? DEFAULT_DASHSCOPE_MODEL_ID
-      : DEFAULT_OPENAI_MODEL_ID;
-    if (typeof modelId === 'string' && modelId && modelId !== registeredModelId) {
+    const registeredModel = this.registeredModelForProvider(normalizedProviderId);
+    if (typeof modelId === 'string' && modelId && modelId !== registeredModel.modelId) {
       throw new AppError(
         400,
         'INVALID_PAYLOAD',
         'resource sampling model.model_id must match a registered runtime model option.',
       );
     }
-    return {
-      providerId: normalizedProviderId,
-      modelId: registeredModelId,
-      profileId: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
-    };
+    return registeredModel;
   }
 
   private modelRef(model: LlmModelRef): TopicSelectionResourceSamplingModelRef {

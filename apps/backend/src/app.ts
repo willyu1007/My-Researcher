@@ -193,7 +193,6 @@ import { TopicSelectionRecheckRiskMemoryService } from './services/topic-selecti
 import { TopicSelectionResourceSamplingService } from './services/topic-selection-resource-sampling-service.js';
 import { TopicSelectionSearchResourceService } from './services/topic-selection-search-resource-service.js';
 import { TopicSelectionWorkflowHarnessService } from './services/topic-selection-workflow-harness-service.js';
-import { TopicSelectionV1bIntakeService } from './services/topic-selection-v1b-intake-service.js';
 import { TopicSelectionV1bResearchSliceService } from './services/topic-selection-v1b-research-slice-service.js';
 import { TopicSelectionV1bTopicPackageService } from './services/topic-selection-v1b-topic-package-service.js';
 import { TopicSelectionV1bTopicQuestionService } from './services/topic-selection-v1b-topic-question-service.js';
@@ -216,7 +215,6 @@ type RepositoryStrategy = 'memory' | 'prisma';
 
 export type BuildAppOptions = {
   topicSelectionV1aLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
-  topicSelectionV1bLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   topicSelectionV1cPromotionGateLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationTraceIntegrityDebateLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationP1RuntimeReviewLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
@@ -493,34 +491,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const topicSelectionResourceSamplingController = new TopicSelectionResourceSamplingController(
     topicSelectionResourceSamplingService,
   );
-  const topicSelectionV1bLlmGateway = options.topicSelectionV1bLlmGateway ?? llmGateway;
   const topicSelectionV1cPromotionGateLlmGateway = options.topicSelectionV1cPromotionGateLlmGateway ?? llmGateway;
-  const topicSelectionV1bIntakeService = new TopicSelectionV1bIntakeService(
-    topicSelectionV1bIntakeRepository,
-    topicSelectionControlPlaneService,
-    topicSelectionNeedValidationRepository,
-    topicSelectionEvidenceMapRepository,
-    topicSelectionSearchResourceRepository,
-    topicSelectionRecheckRiskMemoryRepository,
-  );
   const topicSelectionV1bResearchSliceService = new TopicSelectionV1bResearchSliceService({
     repository: topicSelectionV1bResearchSliceRepository,
-    intakeService: topicSelectionV1bIntakeService,
-    controlPlaneService: topicSelectionControlPlaneService,
-    llmGateway: topicSelectionV1bLlmGateway,
   });
   const topicSelectionV1bTopicQuestionService = new TopicSelectionV1bTopicQuestionService({
     repository: topicSelectionV1bTopicQuestionRepository,
-    researchSliceService: topicSelectionV1bResearchSliceService,
-    controlPlaneService: topicSelectionControlPlaneService,
-    llmGateway: topicSelectionV1bLlmGateway,
   });
   const topicSelectionV1bValueAssessmentService = new TopicSelectionV1bValueAssessmentService({
     repository: topicSelectionV1bValueAssessmentRepository,
-    topicQuestionService: topicSelectionV1bTopicQuestionService,
-    researchSliceService: topicSelectionV1bResearchSliceService,
-    controlPlaneService: topicSelectionControlPlaneService,
-    llmGateway: topicSelectionV1bLlmGateway,
   });
   const topicSelectionV1bTopicPackageService = new TopicSelectionV1bTopicPackageService({
     repository: topicSelectionV1bTopicPackageRepository,

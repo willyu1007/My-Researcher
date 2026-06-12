@@ -96,6 +96,9 @@ export interface TopicSelectionNeedValidationRepository {
   listAdjudicationResultsByNeedCandidateId(
     needCandidateId: string,
   ): Promise<TopicSelectionValidateNeedAdjudicationResultRecord[]>;
+  listAdjudicationResultsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionValidateNeedAdjudicationResultRecord[]>;
 
   findValidatedNeedById(validatedNeedId: string): Promise<TopicSelectionValidatedNeedRecord | null>;
   confirmValidatedNeed(

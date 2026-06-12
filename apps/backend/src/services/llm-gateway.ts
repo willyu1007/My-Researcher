@@ -1,8 +1,15 @@
 import { spawn } from 'node:child_process';
 import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
+import {
+  computeLlmCostUsd,
+  loadDefaultLlmPricingTable,
+  type LlmPricingTable,
+} from './llm-pricing-table.js';
+import { assertTopicSelectionLlmInvocationRegistered } from './topic-selection-llm-invocation-registry.js';
 import type {
   TopicSelectionModelProfileNormalizedParams,
   TopicSelectionModelProfileReasoningDepth,
+  TopicSelectionProviderOverrides,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 
 export type LlmGatewayErrorCode =
@@ -107,7 +114,7 @@ export type LlmStructuredOutputRequest = {
   schema: Record<string, unknown>;
   policy?: LlmRequestPolicy;
   normalizedParams?: TopicSelectionModelProfileNormalizedParams | object;
-  providerOverrides?: Record<string, unknown>;
+  providerOverrides?: TopicSelectionProviderOverrides | Record<string, unknown>;
 };
 
 export type LlmStructuredOutputResponse<T> = {
@@ -255,18 +262,30 @@ function withJsonObjectInstruction(
 }
 
 export class BackendLlmGateway {
+  private resolvedPricingTable: LlmPricingTable | null = null;
+
   constructor(
     private readonly options: {
       settingsService?: LiteratureContentProcessingSettingsService;
       fetchImpl?: typeof fetch;
       defaultTimeoutMs?: number;
       defaultMaxRetries?: number;
+      pricingTable?: LlmPricingTable;
     } = {},
   ) {}
+
+  private pricingTable(): LlmPricingTable {
+    this.resolvedPricingTable ??= this.options.pricingTable ?? loadDefaultLlmPricingTable();
+    return this.resolvedPricingTable;
+  }
 
   async createStructuredOutput<T>(
     request: LlmStructuredOutputRequest,
   ): Promise<LlmStructuredOutputResponse<T>> {
+    assertTopicSelectionLlmInvocationRegistered({
+      promptTemplateId: request.prompt.promptTemplateId,
+      version: request.prompt.version,
+    });
     const apiKey = await this.resolveProviderApiKey(request.model.providerId);
     const startedAt = Date.now();
     const state: RetryTelemetryState = {
@@ -977,7 +996,13 @@ export class BackendLlmGateway {
       output_tokens: usage.outputTokens,
       embedding_input_tokens: prompt === null ? usage.inputTokens ?? usage.totalTokens : null,
       total_tokens: usage.totalTokens,
-      cost_usd: null,
+      cost_usd: computeLlmCostUsd(
+        this.pricingTable(),
+        model.providerId,
+        model.modelId,
+        usage.inputTokens,
+        usage.outputTokens,
+      ),
       provider_side_cache_hit: usage.providerSideCacheReadTokens === null
         ? null
         : usage.providerSideCacheReadTokens > 0,

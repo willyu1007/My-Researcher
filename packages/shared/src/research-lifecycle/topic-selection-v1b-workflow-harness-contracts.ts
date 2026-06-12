@@ -821,7 +821,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       },
     ],
     blocker_codes: ['weak_topic_question_candidate_set', 'duplicate_or_overlapping_candidates', 'missing_value_axis'],
-    warning_codes: ['candidate_overlap_preserved', 'debate_escalation_recommended'],
+    warning_codes: ['candidate_overlap_preserved', 'debate_escalation_recommended', 'decision_memory_duplicate_candidate'],
     loopback_target_codes: [...TOPIC_SELECTION_V1B_N6_LOOPBACK_TARGET_CODES],
     replay_hash_components: [...DEFAULT_REPLAY_HASH_COMPONENTS, 'selected_candidate_hash'],
   },

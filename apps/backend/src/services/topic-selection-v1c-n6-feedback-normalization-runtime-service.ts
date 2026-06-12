@@ -2,6 +2,7 @@ import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
 import type {
   TopicSelectionAgentExecutionMode,
   TopicSelectionArtifactFunctionalRef,
@@ -163,7 +164,7 @@ type N6RuntimeSlotBinding = {
   schema: Record<string, unknown>;
 };
 
-const NODE_ID = 'topic-selection.v1c.downstream-feedback-recheck.v1' as const;
+const NODE_ID = TOPIC_SELECTION_V1C_NODE_ID.n6_downstream_feedback_recheck;
 const SLOT_ID = TOPIC_SELECTION_V1C_N6_INVOCATION_SLOT_IDS.downstream_feedback_normalization;
 const OUTPUT_CONTRACT = 'TopicSelectionV1cDownstreamFeedbackCandidate@v1' as const;
 const PROMPT_TEMPLATE_ID = 'topic-selection-v1c-downstream-feedback-normalization' as const;

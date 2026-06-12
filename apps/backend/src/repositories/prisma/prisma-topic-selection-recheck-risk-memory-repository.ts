@@ -523,6 +523,26 @@ export class PrismaTopicSelectionRecheckRiskMemoryRepository implements TopicSel
     return row ? this.toDecisionMemoryEntryRecord(row) : null;
   }
 
+  async listDecisionMemoryEntriesByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionDecisionMemoryEntryRecord[]> {
+    const rows = await this.prisma.topicSelectionDecisionMemoryEntry.findMany({
+      where: { titleCardId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => this.toDecisionMemoryEntryRecord(row));
+  }
+
+  async listCandidateDecisionMemoriesByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionCandidateDecisionMemoryRecord[]> {
+    const rows = await this.prisma.topicSelectionCandidateDecisionMemory.findMany({
+      where: { titleCardId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => this.toCandidateDecisionMemoryRecord(row));
+  }
+
   async createCandidateDecisionMemory(
     record: TopicSelectionCandidateDecisionMemoryRecord,
   ): Promise<TopicSelectionCandidateDecisionMemoryRecord> {

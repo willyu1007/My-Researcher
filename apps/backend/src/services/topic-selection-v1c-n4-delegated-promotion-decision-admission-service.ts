@@ -2,6 +2,7 @@ import type {
   TopicSelectionActorRef,
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
 import type {
   TopicSelectionAgentExecutionMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
@@ -243,7 +244,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService {
     const admissionIdentity: TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionIdentity = {
       schema_version: 'topic-selection-v1c-n4-delegated-promotion-decision-admission-identity-v1',
       admission_policy_id: 'topic-selection.v1c.n4.delegated-promotion-decision.admission.v1',
-      node_id: 'topic-selection.v1c.record-human-promotion-decision.v1',
+      node_id: TOPIC_SELECTION_V1C_NODE_ID.n4_record_human_promotion_decision,
       allowed_effect: 'human_review_input_candidate_only',
       promotion_gate_check_id: input.gate_handoff.promotion_gate_check_id,
       promotion_gate_check_ref: input.gate_handoff.promotion_gate_check_ref,

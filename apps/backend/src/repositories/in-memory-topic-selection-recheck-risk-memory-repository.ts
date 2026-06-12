@@ -162,6 +162,22 @@ export class InMemoryTopicSelectionRecheckRiskMemoryRepository implements TopicS
     return this.memoryEntries.get(decisionMemoryEntryId) ?? null;
   }
 
+  async listDecisionMemoryEntriesByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionDecisionMemoryEntryRecord[]> {
+    return [...this.memoryEntries.values()]
+      .filter((record) => record.title_card_id === titleCardId)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at));
+  }
+
+  async listCandidateDecisionMemoriesByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionCandidateDecisionMemoryRecord[]> {
+    return [...this.candidateMemories.values()]
+      .filter((record) => record.title_card_id === titleCardId)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at));
+  }
+
   async createCandidateDecisionMemory(
     record: TopicSelectionCandidateDecisionMemoryRecord,
   ): Promise<TopicSelectionCandidateDecisionMemoryRecord> {

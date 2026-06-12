@@ -1989,7 +1989,6 @@ try {
   const workflowHarness = makeWorkflowHarness(prisma, makeV1aGenerateLlmGateway());
   app = buildApp({
     topicSelectionResourceSamplingLlmGateway: makeRealFlowLlmGateway(),
-    topicSelectionV1bLlmGateway: makeRealFlowLlmGateway(),
   });
 
   currentStage = EXISTING_RESOURCE_SAMPLE_SET_ID ? 'load existing resource sample set' : 'create resource sample set';

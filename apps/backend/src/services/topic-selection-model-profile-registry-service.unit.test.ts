@@ -541,9 +541,27 @@ test('model profile registry catches DMP policy drift in valid-shaped profiles',
 
 test('model profile registry rejects unknown provider and explicit unknown model option', () => {
   const registry = createDefaultTopicSelectionModelProfileRegistry();
-  registry.profiles[0]!.model_options[0]!.provider_id = 'unknown-provider';
+  registry.profiles[0]!.model_options[0]!.provider_id =
+    'unknown-provider' as (typeof registry.profiles)[number]['model_options'][number]['provider_id'];
   const invalidProvider = new TopicSelectionModelProfileRegistryService({ registry });
-  assert.equal(invalidProvider.validateRegistry().issues.some((issue) => issue.code === 'UNKNOWN_PROVIDER_ID'), true);
+  // Since provider_id is enum-constrained in the contract schema (T-123 Phase 1.3), an unknown
+  // provider is rejected at schema level before the semantic provider check runs.
+  assert.equal(
+    invalidProvider.validateRegistry().issues.some(
+      (issue) => issue.code === 'SCHEMA_VALIDATION_FAILED' || issue.code === 'UNKNOWN_PROVIDER_ID',
+    ),
+    true,
+  );
+
+  // The semantic UNKNOWN_PROVIDER_ID layer still guards schema-valid providers that are not
+  // registered for this service instance (custom registeredProviderIds subset).
+  const narrowedProviders = new TopicSelectionModelProfileRegistryService({
+    registeredProviderIds: ['openai'],
+  });
+  assert.equal(
+    narrowedProviders.validateRegistry().issues.some((issue) => issue.code === 'UNKNOWN_PROVIDER_ID'),
+    true,
+  );
 
   const service = new TopicSelectionModelProfileRegistryService();
   assert.throws(
@@ -557,5 +575,31 @@ test('model profile registry rejects unknown provider and explicit unknown model
       error instanceof AppError
       && error.errorCode === 'INVALID_PAYLOAD'
       && error.message === 'model_option_id is not defined by model profile.',
+  );
+});
+
+test('model profile registry validates provider_overrides keys per provider (T-123 Phase 1.3)', () => {
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const openAiOption = registry.profiles
+    .flatMap((profile) => profile.model_options)
+    .find((option) => option.provider_id === 'openai');
+  assert.ok(openAiOption);
+  openAiOption!.provider_overrides = { enable_thinking: true };
+  const service = new TopicSelectionModelProfileRegistryService({ registry });
+  assert.equal(
+    service.validateRegistry().issues.some((issue) => issue.code === 'PROVIDER_OVERRIDES_INVALID'),
+    true,
+  );
+
+  const badShape = createDefaultTopicSelectionModelProfileRegistry();
+  const dashOption = badShape.profiles
+    .flatMap((profile) => profile.model_options)
+    .find((option) => option.provider_id === 'dashscope');
+  assert.ok(dashOption);
+  dashOption!.provider_overrides = { enable_thinking: 'yes' } as unknown as typeof dashOption.provider_overrides;
+  const badShapeService = new TopicSelectionModelProfileRegistryService({ registry: badShape });
+  assert.equal(
+    badShapeService.validateRegistry().issues.some((issue) => issue.code === 'SCHEMA_VALIDATION_FAILED'),
+    true,
   );
 });

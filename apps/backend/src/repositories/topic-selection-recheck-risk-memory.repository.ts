@@ -86,6 +86,12 @@ export interface TopicSelectionRecheckRiskMemoryRepository {
     decisionMemoryEntryId: string,
   ): Promise<TopicSelectionDecisionMemoryEntryRecord | null>;
 
+  listDecisionMemoryEntriesByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionDecisionMemoryEntryRecord[]>;
+  listCandidateDecisionMemoriesByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionCandidateDecisionMemoryRecord[]>;
   createCandidateDecisionMemory(
     record: TopicSelectionCandidateDecisionMemoryRecord,
   ): Promise<TopicSelectionCandidateDecisionMemoryRecord>;

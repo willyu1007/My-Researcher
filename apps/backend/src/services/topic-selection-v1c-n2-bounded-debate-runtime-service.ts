@@ -2,6 +2,7 @@ import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
 import type {
   TopicSelectionAgentExecutionMode,
   TopicSelectionArtifactFunctionalRef,
@@ -155,7 +156,7 @@ type N2RuntimeSlotBinding = {
   schema: Record<string, unknown>;
 };
 
-const NODE_ID = 'topic-selection.v1c.generate-promotion-support.v1' as const;
+const NODE_ID = TOPIC_SELECTION_V1C_NODE_ID.n2_generate_promotion_support;
 const OUTPUT_CONTRACT = 'TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1' as const;
 const PROMPT_TEMPLATE_ID = 'topic-selection-v1c-promotion-support-bounded-micro-debate' as const;
 const PROMPT_TEMPLATE_VERSION = '1' as const;

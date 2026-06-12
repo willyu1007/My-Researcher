@@ -177,6 +177,14 @@ export class InMemoryTopicSelectionNeedValidationRepository implements TopicSele
       .sort((left, right) => right.created_at.localeCompare(left.created_at));
   }
 
+  async listAdjudicationResultsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionValidateNeedAdjudicationResultRecord[]> {
+    return [...this.adjudicationResults.values()]
+      .filter((record) => record.title_card_id === titleCardId)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at));
+  }
+
   async findValidatedNeedById(validatedNeedId: string): Promise<TopicSelectionValidatedNeedRecord | null> {
     return this.validatedNeeds.get(validatedNeedId) ?? null;
   }

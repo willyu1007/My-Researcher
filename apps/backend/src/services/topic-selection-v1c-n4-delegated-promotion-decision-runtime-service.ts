@@ -2,6 +2,7 @@ import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
 import type {
   TopicSelectionAgentExecutionMode,
   TopicSelectionArtifactFunctionalRef,
@@ -166,7 +167,7 @@ type N4RuntimeSlotBinding = {
   schema: Record<string, unknown>;
 };
 
-const NODE_ID = 'topic-selection.v1c.record-human-promotion-decision.v1' as const;
+const NODE_ID = TOPIC_SELECTION_V1C_NODE_ID.n4_record_human_promotion_decision;
 const SLOT_ID = TOPIC_SELECTION_V1C_N4_INVOCATION_SLOT_IDS.delegated_promotion_decision_candidate;
 const OUTPUT_CONTRACT = 'TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1' as const;
 const PROMPT_TEMPLATE_ID = 'topic-selection-v1c-delegated-promotion-decision' as const;

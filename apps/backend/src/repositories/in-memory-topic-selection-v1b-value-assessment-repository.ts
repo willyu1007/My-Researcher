@@ -146,6 +146,14 @@ implements TopicSelectionV1bValueAssessmentRepository {
     return this.decisions.get(decisionId) ?? null;
   }
 
+  async listDispositionDecisionsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionValueDispositionDecisionRecord[]> {
+    return [...this.decisions.values()]
+      .filter((record) => record.title_card_id === titleCardId)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at));
+  }
+
   async patchDispositionDecisionOutputTopicPackage(
     decisionId: string,
     outputTopicPackageId: string,

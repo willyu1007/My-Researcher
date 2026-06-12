@@ -33,19 +33,10 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1a-workflow-harness-contracts';
 import type {
   TopicSelectionResearchSliceOptionRecord,
-  TopicSelectionResearchSliceOptionDraft,
-  TopicSelectionResearchSliceOptionSetLlmOutput,
-  TopicSelectionV1bTopicQuestionFormationInput,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-research-slice-contracts';
-import type {
-  TopicSelectionFormTopicQuestionLlmOutput,
-  TopicSelectionTopicQuestionAnswerabilityPlanDraft,
-  TopicSelectionTopicQuestionCandidateDraft,
-} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-question-contracts';
 import {
   TOPIC_SELECTION_VALUE_DIMENSIONS,
   TOPIC_SELECTION_VALUE_GATE_KEYS,
-  type TopicSelectionAssessTopicValueLlmOutput,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-value-assessment-contracts';
 import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
@@ -85,12 +76,6 @@ import {
   TOPIC_SELECTION_NEED_ADJUDICATION_SINGLE_AGENT_PROFILE_ID,
 } from '../services/topic-selection-model-profile-registry-service.js';
 
-type ValueAssessmentFixtureMode =
-  | 'ready'
-  | 'needs_refinement'
-  | 'refine_slice'
-  | 'refine_question'
-  | 'recheck_required';
 
 function uniqueId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -1088,56 +1073,6 @@ function telemetry(schemaName: string): LlmCallTelemetry {
   };
 }
 
-class FakeTopicSelectionV1bLlmGateway {
-  readonly calls: LlmStructuredOutputRequest[] = [];
-  private valueAssessmentCallCount = 0;
-
-  constructor(
-    private readonly options: {
-      valueAssessmentSequence?: ValueAssessmentFixtureMode[];
-    } = {},
-  ) {}
-
-  async createStructuredOutput<T>(request: LlmStructuredOutputRequest) {
-    this.calls.push(request);
-    const parsedUserPayload = JSON.parse(request.messages.find((message) => message.role === 'user')?.content ?? '{}') as {
-      planning_input_json?: Record<string, unknown>;
-      topic_question_formation_input_json?: TopicSelectionV1bTopicQuestionFormationInput;
-      topic_value_assessment_input_json?: Record<string, unknown>;
-      research_slice_snapshot_json?: TopicSelectionV1bTopicQuestionFormationInput;
-    };
-    const parsed = this.outputFor(request.schemaName, parsedUserPayload);
-    return {
-      parsed: parsed as T,
-      raw: { schemaName: request.schemaName, parsed },
-      telemetry: telemetry(request.schemaName),
-    };
-  }
-
-  private outputFor(schemaName: string, payload: {
-    planning_input_json?: Record<string, unknown>;
-    topic_question_formation_input_json?: TopicSelectionV1bTopicQuestionFormationInput;
-    topic_value_assessment_input_json?: Record<string, unknown>;
-    research_slice_snapshot_json?: TopicSelectionV1bTopicQuestionFormationInput;
-  }) {
-    if (schemaName === 'topic_selection_research_slice_option_set') {
-      return makeSliceOutput(payload.planning_input_json ?? {});
-    }
-    if (schemaName === 'topic_selection_topic_question_candidate_set') {
-      return makeQuestionOutput(payload.topic_question_formation_input_json);
-    }
-    if (schemaName === 'topic_selection_topic_value_assessment') {
-      const mode = this.options.valueAssessmentSequence?.[this.valueAssessmentCallCount] ?? 'ready';
-      this.valueAssessmentCallCount += 1;
-      return makeValueOutput(
-        payload.topic_value_assessment_input_json ?? {},
-        payload.research_slice_snapshot_json,
-        mode,
-      );
-    }
-    throw new Error(`Unexpected structured output schema ${schemaName}.`);
-  }
-}
 
 type V1aNativeHarnessHttpResult = {
   route_decision: string;
@@ -1457,350 +1392,14 @@ function buildV1aNativeArbiterPayload(input: {
   };
 }
 
-function firstFunctionalRef(value: unknown, fallback: TopicSelectionFunctionalRef): TopicSelectionFunctionalRef {
-  return isFunctionalRef(value) ? value : fallback;
-}
 
-function isFunctionalRef(value: unknown): value is TopicSelectionFunctionalRef {
-  return Boolean(
-    value
-    && typeof value === 'object'
-    && !Array.isArray(value)
-    && typeof (value as { ref_type?: unknown }).ref_type === 'string'
-    && typeof (value as { ref_id?: unknown }).ref_id === 'string',
-  );
-}
 
-function refArray(value: unknown): TopicSelectionFunctionalRef[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter(isFunctionalRef);
-}
 
-function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-}
 
-function titleCardIdFromRef(value: TopicSelectionFunctionalRef | undefined, fallback: string): string {
-  return typeof value?.title_card_id === 'string' && value.title_card_id.length > 0
-    ? value.title_card_id
-    : fallback;
-}
 
-function makeSliceOutput(planningInput: Record<string, unknown>): TopicSelectionResearchSliceOptionSetLlmOutput {
-  const titleCardId =
-    isFunctionalRef(planningInput.validated_need_ref)
-      ? titleCardIdFromRef(planningInput.validated_need_ref, 'title_card_v1b_route')
-      : 'title_card_v1b_route';
-  const roleBundle = (planningInput.evidence_role_bundle ?? {}) as Record<string, unknown>;
-  const supportRefs = refArray(roleBundle.support_unit_refs);
-  const challengeRefs = refArray(roleBundle.challenge_unit_refs);
-  const baselineRefs = refArray(roleBundle.baseline_unit_refs);
-  const contextRefs = refArray(roleBundle.context_unit_refs);
-  const nonGoals = stringArray(planningInput.non_goals);
-  const draft: TopicSelectionResearchSliceOptionDraft = {
-    option_key: 'slice-a',
-    source_validated_need_refs: [
-      firstFunctionalRef(planningInput.validated_need_ref, ref('validated_need', 'validated_need_route', titleCardId)),
-    ],
-    slice_statement: 'Bound the work to offline reviewer-aligned evidence planning.',
-    problem_space: 'Reviewer-aligned evidence workflows for paper engineering.',
-    target_setting: 'Local-first research assistant.',
-    target_community: String(planningInput.target_community ?? 'LLM systems researchers'),
-    included_boundaries: ['Offline evidence planning for reviewer-aligned topic decisions.'],
-    excluded_boundaries: nonGoals.length > 0 ? nonGoals : ['Do not target production deployment.'],
-    contribution_type_candidate: String(planningInput.intended_contribution_style ?? 'workflow system'),
-    support_evidence_refs: supportRefs,
-    challenge_evidence_refs: challengeRefs,
-    baseline_evidence_refs: baselineRefs,
-    context_evidence_refs: contextRefs,
-    resource_assumptions: ['Use the existing local corpus.'],
-    data_assumptions: ['Replay traces are available.'],
-    evaluation_path: 'Offline replay plus reviewer rubric scoring.',
-    baseline_assumptions: ['Compare against manual spreadsheet planning.'],
-    hard_blockers: [],
-    dependency_risks: ['Evidence freshness can drift.'],
-    slice_budget: { person_weeks: 2 },
-    expected_claim: 'The workflow improves trace completeness in offline replay.',
-    fallback_claim: 'The workflow exposes trace gaps earlier than manual planning.',
-    observable_success_criteria: ['Trace completeness exceeds baseline.'],
-    main_risks: ['Scope creep.'],
-    baseline_risk: 'medium',
-    execution_risk: 'medium',
-    scope_risk: 'low',
-    claim_ceiling_alignment: {
-      status: 'aligned',
-      rationale: 'Expected and fallback claims stay within the supplied claim ceiling.',
-      confidence: 0.82,
-    },
-    confidence: 0.82,
-    requires_human_review: false,
-    human_review_triggers: [],
-    details_payload: {},
-  };
-  return {
-    recommended_option_key: draft.option_key,
-    comparison_axes: ['traceability', 'feasibility'],
-    comparison_summary: 'slice-a is the most bounded option.',
-    missing_option_types: [],
-    unresolved_disagreements: [],
-    human_review_triggers: [],
-    options: [draft],
-  };
-}
 
-function makeAnswerabilityPlan(
-  formationInput: TopicSelectionV1bTopicQuestionFormationInput,
-): TopicSelectionTopicQuestionAnswerabilityPlanDraft {
-  const requiredEvidenceRefs = formationInput.evidence_refs.map((record) => record.evidence_ref).slice(0, 2);
-  return {
-    datasets_or_resources: ['Local paper corpus', 'Replay traces'],
-    metrics: ['trace completeness', 'rubric agreement'],
-    baselines: ['manual spreadsheet planning'],
-    ablations_or_comparisons: ['with and without boundary check'],
-    evaluation_setting: 'Offline replay on historical planning traces.',
-    dependency_risks: formationInput.dependency_risks.length > 0
-      ? formationInput.dependency_risks
-      : ['Corpus freshness can drift.'],
-    open_dependencies: ['Freeze replay snapshot.'],
-    known_gaps: ['Limited venue diversity.'],
-    required_evidence_refs: requiredEvidenceRefs,
-  };
-}
 
-function makeQuestionOutput(
-  formationInput: TopicSelectionV1bTopicQuestionFormationInput | undefined,
-): TopicSelectionFormTopicQuestionLlmOutput {
-  assert.ok(formationInput, 'fake T-059 output requires formation input');
-  const evidenceByRole = new Map(
-    formationInput.evidence_refs.map((record) => [record.evidence_role, record.evidence_ref]),
-  );
-  const supportRef = evidenceByRole.get('support') ?? formationInput.evidence_refs[0]?.evidence_ref;
-  assert.ok(supportRef, 'fake T-059 output requires at least one evidence ref');
-  const candidate: TopicSelectionTopicQuestionCandidateDraft = {
-    candidate_key: 'question-a',
-    main_question: 'Can a local-first assistant improve trace completeness for reviewer-aligned evidence planning?',
-    sub_questions: ['Which trace boundary failures are reduced?'],
-    question_type: 'system',
-    contribution_hypothesis: 'system',
-    source_validated_need_refs: [formationInput.validated_need_ref],
-    answerability_plan: makeAnswerabilityPlan(formationInput),
-    answerability_verdict: 'answerable',
-    expected_claim: formationInput.expected_claim,
-    fallback_claim: formationInput.fallback_claim,
-    max_claim_strength: 'Reviewer-aligned planning feasibility in offline replay.',
-    observable_success_criteria: formationInput.observable_success_criteria,
-    boundary_check: {
-      preserved_boundary_refs: formationInput.boundaries
-        .filter((boundary) => boundary.boundary_kind === 'included')
-        .map((boundary) => ref('research_slice_boundary', boundary.research_slice_boundary_id, boundary.title_card_id)),
-      excluded_boundary_refs: formationInput.boundaries
-        .filter((boundary) => boundary.boundary_kind === 'excluded')
-        .map((boundary) => ref('research_slice_boundary', boundary.research_slice_boundary_id, boundary.title_card_id)),
-      boundary_violations: [],
-      prohibited_claims: ['production deployment', 'production superiority'],
-      allowed_refinements: ['narrow target venue class'],
-    },
-    traceability_check: {
-      support_evidence_refs: formationInput.evidence_refs
-        .filter((record) => record.evidence_role === 'support')
-        .map((record) => record.evidence_ref),
-      challenge_evidence_refs: formationInput.evidence_refs
-        .filter((record) => record.evidence_role === 'challenge')
-        .map((record) => record.evidence_ref),
-      baseline_evidence_refs: formationInput.evidence_refs
-        .filter((record) => record.evidence_role === 'baseline')
-        .map((record) => record.evidence_ref),
-      context_evidence_refs: formationInput.evidence_refs
-        .filter((record) => record.evidence_role === 'context')
-        .map((record) => record.evidence_ref),
-      mapped_evidence_refs: formationInput.evidence_refs.map((record) => record.evidence_ref),
-      unmapped_assumptions: ['Replay snapshot availability remains unverified.'],
-    },
-    falsification_conditions: [
-      {
-        condition_type: 'solved_by_baseline',
-        severity: 'hard',
-        statement: 'Manual spreadsheet planning matches trace completeness.',
-        trigger_evidence_refs: [supportRef],
-        trigger_source_refs: [supportRef],
-        related_contract_fields: ['expected_claim'],
-        expected_action: 'lower_claim_strength',
-        check_timing: 'before_value_assessment',
-        confidence: 'medium',
-      },
-    ],
-    risk_notes: ['Replay corpus freshness can drift.'],
-    blockers: [],
-    objections: [],
-    human_review_triggers: [],
-    confidence: 0.82,
-  };
-  return {
-    question_frame: {
-      target_setting: 'Local-first research assistant.',
-      target_community: formationInput.target_community,
-      object_scope: 'Reviewer-aligned evidence planning workflow.',
-      task_scope: 'Offline trace completeness evaluation.',
-      intervention_or_approach: 'Local-first assistant workflow.',
-      comparison_baseline: 'Manual spreadsheet planning.',
-      observable_outcome: 'Trace completeness and rubric agreement.',
-      assumption_refs: formationInput.assumptions.map((assumption) =>
-        ref('research_slice_assumption', assumption.research_slice_assumption_id, assumption.title_card_id)
-      ),
-      evidence_refs: formationInput.evidence_refs.map((record) => record.evidence_ref),
-      frame_payload: { source: 'route-test' },
-    },
-    recommended_candidate_keys: [candidate.candidate_key],
-    generation_notes: ['Route-test candidate set.'],
-    human_review_triggers: [],
-    candidates: [candidate],
-  };
-}
 
-function makeValueOutput(
-  valueInput: Record<string, unknown>,
-  formationInput: TopicSelectionV1bTopicQuestionFormationInput | undefined,
-  mode: ValueAssessmentFixtureMode = 'ready',
-): TopicSelectionAssessTopicValueLlmOutput {
-  const evidenceRecord = Array.isArray(valueInput.evidence_refs)
-    ? valueInput.evidence_refs.find((record) => Boolean(record && typeof record === 'object'))
-    : null;
-  const evidenceRef = isFunctionalRef((evidenceRecord as { evidence_ref?: unknown } | null)?.evidence_ref)
-    ? (evidenceRecord as { evidence_ref: TopicSelectionFunctionalRef }).evidence_ref
-    : formationInput?.evidence_refs[0]?.evidence_ref;
-  assert.ok(evidenceRef, 'fake T-060 output requires at least one inherited evidence ref');
-  const contract = (valueInput.question_contract ?? {}) as Record<string, unknown>;
-  const titleCardId = titleCardIdFromRef(evidenceRef, 'title_card_v1b_route');
-  const assessmentRef = firstFunctionalRef(
-    valueInput.topic_question_contract_ref,
-    ref('topic_question_contract', 'topic_question_contract_route', titleCardId),
-  );
-  const readyOutput: TopicSelectionAssessTopicValueLlmOutput = {
-    readiness_status: 'ready',
-    strongest_claim_if_success: 'The workflow improves trace completeness in offline replay.',
-    fallback_claim_if_success: 'The workflow exposes trace gaps earlier than manual planning.',
-    hard_gates: TOPIC_SELECTION_VALUE_GATE_KEYS.map((gateKey) => ({
-      gate_key: gateKey,
-      verdict: 'pass',
-      severity: 'info',
-      overridable_with_risk: false,
-      rationale: `${gateKey} passed.`,
-      refs: [assessmentRef],
-    })),
-    dimension_scores: TOPIC_SELECTION_VALUE_DIMENSIONS.map((dimensionKey) => ({
-      dimension_key: dimensionKey,
-      score: 82,
-      rationale: `${dimensionKey} rationale.`,
-      evidence_refs: [evidenceRef],
-      uncertainty: 'Moderate sample-size uncertainty.',
-    })),
-    risk_penalty: { freshness: 4 },
-    reviewer_objections: ['Replay traces may be too narrow.'],
-    ceiling_case: String(contract.max_claim_strength ?? 'Reviewer-aligned planning feasibility in offline replay.'),
-    base_case: 'Trace completeness improves over manual planning.',
-    floor_case: 'Trace boundary gaps are surfaced earlier.',
-    recommended_disposition: 'advance_to_package',
-    total_score: 84,
-    value_summary: 'Strong bounded value for offline reviewer-aligned evidence planning.',
-    confidence: 0.82,
-    accepted_risk_refs: refArray(valueInput.accepted_risk_refs),
-    blocker_refs: [],
-    risk_notes: ['Evidence freshness can drift.'],
-    reasoning_memo: {
-      recommendation: 'advance_to_package',
-      value_thesis: 'The topic is valuable because trace completeness is a reviewer-visible bottleneck.',
-      significance: 'The workflow targets a common planning failure.',
-      originality: 'It combines local-first trace contracts with reviewer-aligned replay.',
-      claim_leverage: 'The claim is bounded to offline replay feasibility.',
-      reviewer_risks: ['Venue specificity may be questioned.'],
-      effort_to_value: 'The evidence can be collected within the slice budget.',
-      strategic_fit: 'It advances the paper-engineering assistant roadmap.',
-      negative_memory_check: 'No negative memory ref blocks this exact slice.',
-      evidence_backed_rationale: 'Support evidence and baseline refs justify a bounded assessment.',
-      top_objections: ['Manual planning may already be sufficient.'],
-      uncertainty: 'Replay diversity remains uncertain.',
-      disposition_bridge: 'Advance only to draft package, not promotion.',
-      requires_critic_review: false,
-      critic_triggers: [],
-      cited_refs: [evidenceRef],
-    },
-  };
-  if (mode === 'ready') {
-    return readyOutput;
-  }
-  const effectiveMode = mode === 'needs_refinement' ? 'refine_slice' : mode;
-  const recommendedDisposition = effectiveMode === 'refine_question'
-    ? 'refine_question'
-    : effectiveMode === 'recheck_required'
-      ? 'recheck_evidence_or_search'
-      : 'refine_slice';
-  const failedGateKey = effectiveMode === 'refine_question' ? 'answerability_sanity' : 'evidence_sanity';
-  const readinessStatus = effectiveMode === 'recheck_required' ? 'recheck_required' : 'needs_refinement';
-  const failedGateRationale = effectiveMode === 'refine_question'
-    ? 'The question mixes workflow value and metric scope, so it must be reframed before package drafting.'
-    : effectiveMode === 'recheck_required'
-      ? 'Evidence freshness must be rechecked before package drafting.'
-      : 'Baseline and challenge evidence must be refreshed before package drafting.';
-  const weakDimension = effectiveMode === 'refine_question' ? 'claim_ceiling_fit' : 'reviewer_risk';
-  const summary = effectiveMode === 'refine_question'
-    ? 'The slice is promising, but the question contract must be refined before package drafting.'
-    : effectiveMode === 'recheck_required'
-      ? 'The topic is promising, but evidence/search freshness must be rechecked before package drafting.'
-      : 'The topic is promising but the current slice needs refinement before package drafting.';
-  return {
-    ...readyOutput,
-    readiness_status: readinessStatus,
-    hard_gates: readyOutput.hard_gates.map((gate) =>
-      gate.gate_key === failedGateKey
-        ? {
-          ...gate,
-          verdict: 'fail',
-          severity: 'blocking',
-          rationale: failedGateRationale,
-          refs: [evidenceRef],
-        }
-        : gate,
-    ),
-    dimension_scores: readyOutput.dimension_scores.map((score) =>
-      score.dimension_key === 'answerability' || score.dimension_key === weakDimension
-        ? {
-          ...score,
-          score: 56,
-          uncertainty: 'The current value path leaves too much uncertainty for package drafting.',
-        }
-        : score,
-    ),
-    recommended_disposition: recommendedDisposition,
-    total_score: 62,
-    value_summary: summary,
-    blocker_refs: [evidenceRef],
-    risk_notes: [
-      effectiveMode === 'recheck_required'
-        ? 'Refresh or recheck evidence before advancing.'
-        : 'Refine the value path before advancing.',
-    ],
-    reasoning_memo: {
-      ...readyOutput.reasoning_memo,
-      recommendation: recommendedDisposition,
-      evidence_backed_rationale: effectiveMode === 'refine_question'
-        ? 'The inherited evidence supports the slice but not the current question framing.'
-        : effectiveMode === 'recheck_required'
-          ? 'The inherited evidence must be rechecked before it can support package drafting.'
-          : 'The inherited evidence shows the slice needs a narrower baseline/challenge frame.',
-      uncertainty: effectiveMode === 'recheck_required'
-        ? 'Evidence freshness may invalidate the current value path.'
-        : 'The current value path may overstate answerability.',
-      disposition_bridge: effectiveMode === 'refine_question'
-        ? 'Return to TopicQuestionContract refinement before producing package input.'
-        : effectiveMode === 'recheck_required'
-          ? 'Return to evidence/search recheck before producing package input.'
-          : 'Return to ResearchSlice refinement before producing package input.',
-      cited_refs: [evidenceRef],
-    },
-  };
-}
 
 async function createLiterature(app: FastifyInstance, suffix: string): Promise<string> {
   const safeSuffix = suffix.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
@@ -2262,7 +1861,6 @@ const removedLegacyWriteRoutes = [
 test('topic-selection v1b legacy write routes are not registered', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
-    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
   });
   try {
     for (const route of removedLegacyWriteRoutes) {
@@ -2295,7 +1893,6 @@ test('topic-selection v1b legacy write routes are not registered', async () => {
 test('topic-selection v1b offline replay routes reject invalid payloads', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
-    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
   });
   try {
     const invalidReplayCaseTypeRes = await app.inject({
@@ -2340,7 +1937,6 @@ test('topic-selection v1b offline replay routes reject invalid payloads', async 
 test('topic-selection v1b workflow harness HTTP route invokes N1 without legacy write headers', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
-    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
   });
   try {
     const suffix = uniqueId('v1b-harness-http');
@@ -2405,7 +2001,6 @@ test('topic-selection v1b workflow harness HTTP route invokes N1 without legacy 
 test('topic-selection v1b workflow harness HTTP route drives N1-N11 without legacy writes', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
-    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
   });
   try {
     const { bundle, n11 } = await runV1bHarnessHttpN1ToN11(app, uniqueId('v1b-harness-http-full'));
@@ -2429,7 +2024,6 @@ test('topic-selection v1b workflow harness HTTP route drives N1-N11 without lega
 test('topic-selection v1b human N5 selection (T-115) produces a ResearchSlice through the harness', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
-    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
   });
   try {
     const suffix = uniqueId('v1b-human-n5');
@@ -2499,7 +2093,6 @@ test('topic-selection v1b human N5 selection (T-115) produces a ResearchSlice th
 test('topic-selection v1b human N2 constraint profile (T-115) is admitted through the harness', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
-    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
   });
   try {
     const suffix = uniqueId('v1b-human-n2');
@@ -2550,7 +2143,6 @@ test('topic-selection v1b human N2 constraint profile (T-115) is admitted throug
 test('topic-selection v1b offline replay HTTP routes calculate metrics and expose diffs', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
-    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
   });
   try {
     const datasetRes = await app.inject({
@@ -2647,7 +2239,6 @@ test('T-054 Prisma HTTP smoke requires DATABASE_URL and drives v1b harness HTTP 
 
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
-    topicSelectionV1bLlmGateway: new FakeTopicSelectionV1bLlmGateway(),
   });
   try {
     const result = await runV1bHarnessHttpN1ToN11(app, uniqueId('v1b-prisma-harness'));
@@ -2663,5 +2254,115 @@ test('T-054 Prisma HTTP smoke requires DATABASE_URL and drives v1b harness HTTP 
         process.env[key as keyof NodeJS.ProcessEnv] = value;
       }
     }
+  }
+});
+
+test('v1b harness HTTP N6 emits decision-memory dedup warning when frozen input references a memory packet', async () => {
+  const app = buildApp({
+    topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
+  });
+  try {
+    const suffix = uniqueId('v1b-harness-memory');
+    const bundleResult = await createV1bInputBundle(app, suffix);
+    const n1Input = v1bHarnessN1Request(bundleResult.v1bInputBundle, suffix);
+    const n1 = await invokeV1bHarnessNode(app, n1Input);
+    const acceptedProfile = acceptedConstraintProfilePayload();
+    const n2 = await invokeV1bHarnessNode(app, v1bHarnessN2Request(bundleResult.v1bInputBundle, n1, suffix, acceptedProfile));
+    const n3 = await invokeV1bHarnessNode(app, v1bHarnessN3Request(n1, n2, suffix));
+    const n4Input = v1bHarnessN4Request(n1, n2, n3, suffix);
+    const n4 = await invokeV1bHarnessNode(app, {
+      ...n4Input,
+      semantic_artifacts: [
+        await recordWorkflowHarnessSemanticArtifact(app, n4Input, {
+          slot_id: 'n4_research_slice_option_draft',
+          allowed_effect: 'model_draft_for_gate',
+          output_contract: 'ResearchSliceOptionSetDraft@v1',
+          profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent,
+        }, v1bHarnessN4Draft(bundleResult.v1bInputBundle) as unknown as Record<string, unknown>),
+      ],
+    });
+    assert.ok(n4.authority_ref, JSON.stringify(n4));
+    const selectedOption = await selectedV1bHarnessOption(app, n4);
+    const n5 = await invokeV1bHarnessNode(
+      app,
+      v1bHarnessN5Request(n4, acceptedV1bHarnessSliceSelectionPayload(selectedOption), suffix),
+    );
+    const baseN6Input = await v1bHarnessN6Request(app, n5, suffix);
+    const titleCardId = baseN6Input.title_card_id;
+    assert.ok(titleCardId);
+
+    // The fixture draft regenerates exactly this previously-parked question.
+    const memoryPacket = {
+      schema_version: 'TopicSelectionDecisionMemoryPacket@v1',
+      title_card_id: titleCardId,
+      scope: 'title_card',
+      entries: [{
+        source_type: 'prior_topic_question_candidate',
+        source_ref: { ref_type: 'topic_question_candidate', ref_id: `tqc_prior_${suffix}`, title_card_id: titleCardId },
+        title_card_id: titleCardId,
+        summary: 'How can a WorkflowHarness-native candidate gate improve replayable v1b topic selection?',
+        reason: 'previously generated and parked in an earlier N6 run',
+        decision_kind: 'prior_generation',
+        severity: null,
+        status: 'parked',
+        created_at: '2026-06-01T00:00:00.000Z',
+        normalized_text_key: 'how can a workflowharness native candidate gate improve replayable v1b topic selection',
+        related_refs: [],
+      }],
+      entry_counts_by_source: { prior_topic_question_candidate: 1 },
+      truncated: false,
+      non_authority: true,
+      evidence_policy: 'not_evidence',
+    };
+    const memoryArtifactResponse = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1b/workflow-harness/artifacts',
+      payload: {
+        title_card_id: titleCardId,
+        artifact_kind: 'diagnostic',
+        storage_kind: 'inline',
+        workflow_run_id: baseN6Input.workflow_run_id,
+        payload: memoryPacket,
+        created_by: 'system',
+      },
+    });
+    assertStatus(memoryArtifactResponse, 201);
+    const memoryArtifact = memoryArtifactResponse.json() as TopicSelectionArtifactRefRecord;
+
+    const frozenWithMemory: TopicSelectionV1bWorkflowHarnessRunRequest['frozen_input'] = {
+      input_contract: baseN6Input.frozen_input.input_contract,
+      snapshot_kind: baseN6Input.frozen_input.snapshot_kind,
+      source_refs: [
+        ...baseN6Input.frozen_input.source_refs,
+        ref('artifact_ref', memoryArtifact.artifact_ref_id, titleCardId),
+      ],
+      payload: baseN6Input.frozen_input.payload,
+    };
+    const n6Input: TopicSelectionV1bWorkflowHarnessRunRequest = {
+      ...baseN6Input,
+      frozen_input: {
+        ...frozenWithMemory,
+        frozen_input_hash: frozenInputHash(frozenWithMemory),
+      },
+    };
+    const n6 = await invokeV1bHarnessNode(app, {
+      ...n6Input,
+      semantic_artifacts: [
+        await recordWorkflowHarnessSemanticArtifact(app, n6Input, {
+          slot_id: 'n6_question_candidate_draft',
+          allowed_effect: 'model_draft_for_gate',
+          output_contract: 'TopicQuestionCandidateSetDraft@v1',
+          profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent,
+        }, v1bHarnessN6Draft(bundleResult.v1bInputBundle, n6Input) as unknown as Record<string, unknown>),
+      ],
+    });
+    assert.ok(n6.handoff_ref, JSON.stringify(n6));
+    const handoff = await getWorkflowHarnessHandoff(app, n6.handoff_ref);
+    assert.ok(
+      handoff.envelope.warning_codes.includes('decision_memory_duplicate_candidate'),
+      `expected decision_memory_duplicate_candidate in ${JSON.stringify(handoff.envelope.warning_codes)}`,
+    );
+  } finally {
+    await app.close();
   }
 });

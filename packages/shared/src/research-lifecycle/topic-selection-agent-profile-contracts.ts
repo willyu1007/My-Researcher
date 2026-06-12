@@ -77,6 +77,28 @@ export interface TopicSelectionAgentExecutionSpec {
   model_option_id?: string | null;
 }
 
+export const TOPIC_SELECTION_REGISTERED_PROVIDER_IDS = ['openai', 'dashscope', 'deepseek'] as const;
+export type TopicSelectionRegisteredProviderId =
+  (typeof TOPIC_SELECTION_REGISTERED_PROVIDER_IDS)[number];
+
+export interface TopicSelectionOpenAiProviderOverrides {
+  reasoning?: { effort: 'low' | 'medium' | 'high' };
+}
+
+export interface TopicSelectionDashScopeProviderOverrides {
+  enable_thinking?: boolean;
+}
+
+export interface TopicSelectionDeepSeekProviderOverrides {
+  thinking?: { type: 'enabled' | 'disabled' };
+  reasoning_effort?: 'high' | 'max';
+}
+
+export type TopicSelectionProviderOverrides =
+  | TopicSelectionOpenAiProviderOverrides
+  | TopicSelectionDashScopeProviderOverrides
+  | TopicSelectionDeepSeekProviderOverrides;
+
 export interface TopicSelectionModelProfileRequestPolicy {
   timeout_ms?: number;
 }
@@ -88,12 +110,12 @@ export interface TopicSelectionModelProfileCapabilityDegradePolicy {
 export interface TopicSelectionModelOption {
   option_id: string;
   option_purpose: string;
-  provider_id: string;
+  provider_id: TopicSelectionRegisteredProviderId;
   model_id: string;
   use_when: string[];
   request_policy?: TopicSelectionModelProfileRequestPolicy;
   normalized_params: TopicSelectionModelProfileNormalizedParams;
-  provider_overrides: Record<string, unknown>;
+  provider_overrides: TopicSelectionProviderOverrides;
   capability_degrade_policy?: TopicSelectionModelProfileCapabilityDegradePolicy;
 }
 
@@ -233,7 +255,7 @@ export const topicSelectionModelOptionSchema = {
   properties: {
     option_id: stringId,
     option_purpose: stringId,
-    provider_id: stringId,
+    provider_id: { enum: [...TOPIC_SELECTION_REGISTERED_PROVIDER_IDS] },
     model_id: stringId,
     use_when: stringArray,
     request_policy: {
@@ -245,8 +267,38 @@ export const topicSelectionModelOptionSchema = {
     },
     normalized_params: topicSelectionModelProfileNormalizedParamsSchema,
     provider_overrides: {
-      type: 'object',
-      additionalProperties: true,
+      anyOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            reasoning: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['effort'],
+              properties: { effort: { enum: ['low', 'medium', 'high'] } },
+            },
+          },
+        },
+        {
+          type: 'object',
+          additionalProperties: false,
+          properties: { enable_thinking: { type: 'boolean' } },
+        },
+        {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            thinking: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['type'],
+              properties: { type: { enum: ['enabled', 'disabled'] } },
+            },
+            reasoning_effort: { enum: ['high', 'max'] },
+          },
+        },
+      ],
     },
     capability_degrade_policy: {
       type: 'object',

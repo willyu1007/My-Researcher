@@ -54,6 +54,10 @@ function makeIdFactory() {
 }
 
 class StubValueAssessmentRepository implements TopicSelectionV1bValueAssessmentRepository {
+  async listDispositionDecisionsByTitleCardId(): Promise<TopicSelectionValueDispositionDecisionRecord[]> {
+    return [];
+  }
+
   readonly decisions = new Map<string, TopicSelectionValueDispositionDecisionRecord>();
 
   constructor(decisions: TopicSelectionValueDispositionDecisionRecord[]) {

@@ -12,6 +12,7 @@ import type {
   TopicSelectionTraceSnapshotRecord,
   TopicSelectionTransitionResult,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
 import type {
   TopicSelectionAgentInvocationAuditSnapshot,
   TopicSelectionAgentInvocationProvenance,
@@ -80,11 +81,6 @@ const WORKFLOW_PROFILE_KEY = TOPIC_SELECTION_V1C_PROMOTION_DECISION_SUPPORT_PROF
 const PROMPT_TEMPLATE_ID = 'topic-selection-promotion-decision-support';
 const DEFAULT_PROMPT_TEMPLATE_VERSION = '1';
 const DEFAULT_WORKFLOW_PROFILE_VERSION = '1';
-const DEFAULT_MODEL: LlmModelRef = {
-  providerId: 'openai',
-  modelId: 'gpt-5.5',
-  profileId: WORKFLOW_PROFILE_KEY,
-};
 
 type IdFactory = (prefix: string) => string;
 
@@ -183,6 +179,7 @@ export class TopicSelectionV1cPromotionGateService {
   private readonly promotionInputService: TopicSelectionPromotionInputHandoffProvider;
   private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService | null;
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
+  private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
@@ -190,6 +187,7 @@ export class TopicSelectionV1cPromotionGateService {
     this.repository = options.repository;
     this.promotionInputService = options.promotionInputService;
     const modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
+    this.modelProfileRegistry = modelProfileRegistry;
     this.contextPolicyProfileRegistry =
       options.contextPolicyProfileRegistry ?? new TopicSelectionContextPolicyProfileRegistryService();
     this.agentOrchestrator = options.agentOrchestrator
@@ -245,7 +243,7 @@ export class TopicSelectionV1cPromotionGateService {
     const mode = input.support_generation_mode ?? 'deterministic';
     const promptTemplateVersion = input.prompt_template_version ?? DEFAULT_PROMPT_TEMPLATE_VERSION;
     const workflowProfileVersion = input.workflow_profile_version ?? DEFAULT_WORKFLOW_PROFILE_VERSION;
-    const model = input.model ?? DEFAULT_MODEL;
+    const model = input.model ?? this.defaultPromotionSupportModel();
     const supportRunKey = this.computeSupportRunKey({
       promotionInputSnapshotId: handoff.promotion_input_snapshot_id,
       promotionInputSnapshotHash: handoff.snapshot_hashes.promotion_input_snapshot_hash,
@@ -600,7 +598,7 @@ export class TopicSelectionV1cPromotionGateService {
       const response = await this.agentOrchestrator.invokeStructuredOutput<TopicSelectionPromotionDecisionSupportLlmDraft>({
         workspace_id: input.handoff.snapshot.workspace_id ?? null,
         title_card_id: input.handoff.snapshot.title_card_id,
-        node_id: 'topic-selection.v1c.generate-promotion-support.v1',
+        node_id: TOPIC_SELECTION_V1C_NODE_ID.n2_generate_promotion_support,
         workflow_run_id: input.workflowRunId,
         node_attempt_id: `node_attempt_${input.supportRunKey}`,
         invocation_attempt_id: `${input.supportRunKey}.promotion_support_generation.llm_draft`,
@@ -796,6 +794,24 @@ export class TopicSelectionV1cPromotionGateService {
         dynamic_material_refs_hash: null,
       },
     }));
+  }
+
+  private defaultPromotionSupportModel(): LlmModelRef {
+    const resolved = this.modelProfileRegistry.resolveProfile({
+      profile_id: WORKFLOW_PROFILE_KEY,
+      execution_mode: 'provider_llm',
+      run_mode: 'product',
+      model_option_id: null,
+    });
+    const option = resolved.selected_model_option;
+    if (!option) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'promotion support model profile did not resolve a provider model option.');
+    }
+    return {
+      providerId: option.provider_id,
+      modelId: option.model_id,
+      profileId: resolved.profile.profile_id,
+    };
   }
 
   private promotionSupportModelOptionId(model: LlmModelRef): string {

@@ -1,6 +1,7 @@
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
 import type {
   TopicSelectionAgentExecutionMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
@@ -236,7 +237,7 @@ export class TopicSelectionV1cN6FeedbackNormalizationAdmissionService {
     const admissionIdentity: TopicSelectionV1cN6FeedbackNormalizationAdmissionIdentity = {
       schema_version: 'topic-selection-v1c-n6-feedback-normalization-admission-identity-v1',
       admission_policy_id: 'topic-selection.v1c.n6.feedback-normalization.admission.v1',
-      node_id: 'topic-selection.v1c.downstream-feedback-recheck.v1',
+      node_id: TOPIC_SELECTION_V1C_NODE_ID.n6_downstream_feedback_recheck,
       allowed_effect: 'record_only_feedback_candidate',
       paper_project_bridge_id: input.bridge_handoff.paper_project_bridge_id,
       paper_project_bridge_ref: input.bridge_handoff.paper_project_bridge_ref,

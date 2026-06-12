@@ -672,6 +672,16 @@ export class PrismaTopicSelectionNeedValidationRepository implements TopicSelect
     return rows.map(toAdjudicationRecord);
   }
 
+  async listAdjudicationResultsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionValidateNeedAdjudicationResultRecord[]> {
+    const rows = await this.prisma.topicSelectionValidateNeedAdjudicationResult.findMany({
+      where: { titleCardId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map(toAdjudicationRecord);
+  }
+
   async findValidatedNeedById(validatedNeedId: string): Promise<TopicSelectionValidatedNeedRecord | null> {
     const row = await this.prisma.topicSelectionValidatedNeed.findUnique({ where: { id: validatedNeedId } });
     return row ? toValidatedNeedRecord(row) : null;

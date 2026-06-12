@@ -506,6 +506,16 @@ implements TopicSelectionV1bValueAssessmentRepository {
     return row ? toDecisionRecord(row) : null;
   }
 
+  async listDispositionDecisionsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionValueDispositionDecisionRecord[]> {
+    const rows = await this.prisma.topicSelectionValueDispositionDecision.findMany({
+      where: { titleCardId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => toDecisionRecord(row));
+  }
+
   async patchDispositionDecisionOutputTopicPackage(
     decisionId: string,
     outputTopicPackageId: string,

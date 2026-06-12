@@ -33,6 +33,8 @@
     "./research-lifecycle/topic-selection-v1b-topic-package-contracts": "./src/research-lifecycle/topic-selection-v1b-topic-package-contracts.ts",
     "./research-lifecycle/topic-selection-v1b-node-policy-contracts": "./src/research-lifecycle/topic-selection-v1b-node-policy-contracts.ts",
     "./research-lifecycle/topic-selection-v1b-workflow-harness-contracts": "./src/research-lifecycle/topic-selection-v1b-workflow-harness-contracts.ts",
+    "./research-lifecycle/topic-selection-decision-memory-packet-contracts": "./src/research-lifecycle/topic-selection-decision-memory-packet-contracts.ts",
+    "./research-lifecycle/topic-selection-v1c-node-ids": "./src/research-lifecycle/topic-selection-v1c-node-ids.ts",
     "./research-lifecycle/topic-selection-v1c-promotion-input-contracts": "./src/research-lifecycle/topic-selection-v1c-promotion-input-contracts.ts",
     "./research-lifecycle/topic-selection-v1c-promotion-gate-contracts": "./src/research-lifecycle/topic-selection-v1c-promotion-gate-contracts.ts",
     "./research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts": "./src/research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts.ts",

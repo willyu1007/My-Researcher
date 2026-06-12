@@ -59,6 +59,7 @@
     "topic-selection:v1b-provider-canary": "cd apps/backend && BACKEND_TEST_PRESERVE_REAL_ENV=1 T112_V1B_N4_PROVIDER_CANARY_LIVE=1 T112_V1B_N6_PROVIDER_CANARY_LIVE=1 T112_V1B_N8_PROVIDER_CANARY_LIVE=1 node --env-file=../../.env.local --test --loader ts-node/esm src/services/topic-selection-provider-canary-service.unit.test.ts",
     "topic-selection:v1a-harness-negative-e2e": "node --env-file=.env.local .ai/scripts/topic-selection-v1a-harness-negative-e2e.mjs",
     "topic-selection:workflow-scenario": "node --env-file=.env.local .ai/scripts/topic-selection-workflow-scenario-runner.mjs",
+    "topic-selection:workflow-matrix-consistency": "node .ai/scripts/topic-selection-workflow-matrix-consistency.mjs",
     "topic-selection:real-e2e:quality-gate": "node --env-file=.env.local .ai/scripts/topic-selection-workflow-scenario-runner.mjs --scenario topic-selection.real-e2e.scale-quality.v1",
     "typecheck": "pnpm --filter @paper-engineering-assistant/shared typecheck && pnpm --filter @paper-engineering-assistant/backend typecheck && pnpm --filter @paper-engineering-assistant/desktop typecheck"
   },

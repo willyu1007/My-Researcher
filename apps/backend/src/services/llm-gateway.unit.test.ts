@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import test from 'node:test';
 import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 import { BackendLlmGateway, LlmGatewayError } from './llm-gateway.js';
+import { AppError } from '../errors/app-error.js';
+import type { LlmPricingTable } from './llm-pricing-table.js';
 
 function createSettingsService(): LiteratureContentProcessingSettingsService {
   return {
@@ -674,4 +676,64 @@ test('LLM gateway maps timeout failures', async () => {
       return true;
     },
   );
+});
+
+test('rejects unregistered topic-selection prompt template before any provider call', async () => {
+  let fetchCount = 0;
+  const gateway = new BackendLlmGateway({
+    settingsService: createSettingsService(),
+    fetchImpl: (async () => {
+      fetchCount += 1;
+      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }) as typeof fetch,
+  });
+
+  await assert.rejects(
+    () => gateway.createStructuredOutput({
+      executionContext: { feature: 'test', operation: 'structured' },
+      model: { providerId: 'openai', modelId: 'gpt-test', profileId: 'test-profile' },
+      prompt: { promptTemplateId: 'topic-selection-not-a-registered-template', version: '1' },
+      messages: [{ role: 'user', content: 'x' }],
+      schemaName: 'ok_schema',
+      schema: { type: 'object', additionalProperties: false, properties: {} },
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && /not registered in topic-selection-llm-invocation-registry/.test(error.message),
+  );
+  assert.equal(fetchCount, 0);
+});
+
+test('computes telemetry cost_usd from the pricing table and degrades to null when unpriced', async () => {
+  const makeGateway = (pricingTable: LlmPricingTable) =>
+    new BackendLlmGateway({
+      settingsService: createSettingsService(),
+      pricingTable,
+      fetchImpl: (async () => new Response(JSON.stringify({
+        output_text: JSON.stringify({ ok: true }),
+        usage: { input_tokens: 1_000_000, output_tokens: 500_000, total_tokens: 1_500_000 },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as typeof fetch,
+    });
+
+  const priced = await makeGateway({
+    openai: { 'gpt-test': { input_usd_per_mtok: 2, output_usd_per_mtok: 10 } },
+  }).createStructuredOutput<{ ok: boolean }>({
+    executionContext: { feature: 'test', operation: 'structured' },
+    model: { providerId: 'openai', modelId: 'gpt-test', profileId: 'test-profile' },
+    prompt: { promptTemplateId: 'test-prompt', version: 'v1' },
+    messages: [{ role: 'user', content: 'x' }],
+    schemaName: 'ok_schema',
+    schema: { type: 'object', additionalProperties: false, required: ['ok'], properties: { ok: { type: 'boolean' } } },
+  });
+  assert.equal(priced.telemetry.cost_usd, 7);
+
+  const unpriced = await makeGateway({}).createStructuredOutput<{ ok: boolean }>({
+    executionContext: { feature: 'test', operation: 'structured' },
+    model: { providerId: 'openai', modelId: 'gpt-test', profileId: 'test-profile' },
+    prompt: { promptTemplateId: 'test-prompt', version: 'v1' },
+    messages: [{ role: 'user', content: 'x' }],
+    schemaName: 'ok_schema',
+    schema: { type: 'object', additionalProperties: false, required: ['ok'], properties: { ok: { type: 'boolean' } } },
+  });
+  assert.equal(unpriced.telemetry.cost_usd, null);
 });

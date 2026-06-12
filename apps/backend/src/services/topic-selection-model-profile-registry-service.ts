@@ -26,6 +26,8 @@ import {
   PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import {
+  TOPIC_SELECTION_REGISTERED_PROVIDER_IDS,
+  type TopicSelectionRegisteredProviderId,
   TOPIC_SELECTION_MODEL_PROFILE_REGISTRY_SCHEMA_VERSION,
   topicSelectionModelProfileRegistrySchema,
   type TopicSelectionAgentRunMode,
@@ -45,6 +47,7 @@ export type TopicSelectionModelProfileRegistryValidationIssueCode =
   | 'DUPLICATE_PROFILE_ID'
   | 'DUPLICATE_MODEL_OPTION_ID'
   | 'UNKNOWN_PROVIDER_ID'
+  | 'PROVIDER_OVERRIDES_INVALID'
   | 'PROVIDER_MODE_REQUIRES_MODEL_OPTION'
   | 'AUTOMATIC_PROVIDER_FALLBACK_FORBIDDEN'
   | 'SEMANTIC_RETRY_FORBIDDEN'
@@ -85,9 +88,15 @@ export interface ResolveTopicSelectionModelProfileInput {
   model_option_id?: string | null;
 }
 
-type RegisteredProviderId = 'openai' | 'dashscope' | 'deepseek';
+type RegisteredProviderId = TopicSelectionRegisteredProviderId;
 
-const REGISTERED_PROVIDER_IDS: RegisteredProviderId[] = ['openai', 'dashscope', 'deepseek'];
+const REGISTERED_PROVIDER_IDS: RegisteredProviderId[] = [...TOPIC_SELECTION_REGISTERED_PROVIDER_IDS];
+
+const PROVIDER_OVERRIDE_ALLOWED_KEYS: Record<RegisteredProviderId, ReadonlySet<string>> = {
+  openai: new Set(['reasoning']),
+  dashscope: new Set(['enable_thinking']),
+  deepseek: new Set(['thinking', 'reasoning_effort']),
+};
 
 const DEFAULT_RUN_MODE_ELIGIBILITY: TopicSelectionModelProfileRunModeEligibility = {
   mocked_llm: ['test', 'acceptance'],
@@ -1301,6 +1310,20 @@ export class TopicSelectionModelProfileRegistryService {
       seenOptionIds.add(option.option_id);
       if (!this.registeredProviderIds.has(option.provider_id)) {
         this.pushIssue(issues, 'UNKNOWN_PROVIDER_ID', 'model option references an unknown provider.', profile.profile_id, option.option_id);
+      }
+      const allowedOverrideKeys = PROVIDER_OVERRIDE_ALLOWED_KEYS[option.provider_id as RegisteredProviderId];
+      if (allowedOverrideKeys) {
+        for (const overrideKey of Object.keys(option.provider_overrides)) {
+          if (!allowedOverrideKeys.has(overrideKey)) {
+            this.pushIssue(
+              issues,
+              'PROVIDER_OVERRIDES_INVALID',
+              `provider_overrides key "${overrideKey}" is not allowed for provider ${option.provider_id}.`,
+              profile.profile_id,
+              option.option_id,
+            );
+          }
+        }
       }
       if (option.normalized_params.structured_output_required
         && !profile.required_capabilities.includes('structured_output')) {
