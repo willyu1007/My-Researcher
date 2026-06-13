@@ -15,3 +15,11 @@
 ## 约定登记（2026-06-12 代码审查 #8/#10）
 - **invocation lint 的正则只识别单引号字面量**：prompt 模板 id / schema 名必须写成 `'topic-selection…'` 单引号字面量（不要用反引号模板串或跨行拼接），否则 lint 静默放行、问题推迟到运行时 gateway 强校验才暴露。该约定已写入本条；如出现合法的反引号场景，先扩 lint 正则再写代码。
 - **两套文本归一化器的作用域**：`normalizeDecisionMemoryTextKey`（decision-memory dedup，Unicode 字母数字+空格折叠）与 v1a admission 的 `normalizedCandidateKey`（候选池比对）算法不同。跨面判重行为可能不一致——若未来需要对齐，统一到一个共享 normalizer 并同步迁移两侧已存 key；在此之前不要混用两者的输出做比对。
+
+## Promise 链身份与 void-finally（2026-06-13，Phase 2 审查）
+- `promise.catch(fn)` 每次调用**新建**派生 promise——把 `p.catch(...)` 存进 Map 后再用第二次 `p.catch(...)` 做身份比较恒 false（清理永不执行）。要比较就先存变量。
+- `void promise.finally(...)` 在源 promise reject 时产生**无 handler 的派生 reject** → Node ≥15 默认 unhandledRejection 直接崩进程，即使调用方已 catch 源 promise。守卫链一律从"已 catch 化"的 promise 派生（`const guarded = p.catch(() => undefined)`）。
+- 测试盲区教训：所有停驻路径都正常 return 时，throw 路径（400/500）一次都没走到——崩溃缺陷在 7/7 绿的单测下潜伏。为 throw 路径补一条专用单测。
+
+## harness run_mode 守卫（2026-06-13）
+- `run_mode`/`profile_id` 只在携带语义工件/execution_spec 的请求上合法；对裸确定性节点下发会触发 `RUNTIME_FIELDS_REQUIRE_SEMANTIC_ARTIFACT` blocked。组装方按"有 caller 输入才设 run_mode"处理。

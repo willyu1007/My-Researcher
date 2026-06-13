@@ -6,7 +6,9 @@
 - Progress: **Phase 1 DONE（2026-06-11）**——F-02/F-03/F-07/F-08/F-09 关闭（F-09 价目待人工填入）。要点：审计修正（harness 路径原生 registry 驱动，硬编码在遗留双轨）；5 个 service 去硬编码改 registry 解析 + `@deprecated` 围栏；契约层 provider union + typed overrides + 两层校验；invocation registry（30 模板/19 schema）+ gateway 运行时强校验 + lint 四守卫；cost_usd 机制接通。验证：backend 1375/0 fail、v1b e2e、n8 smoke 全绿。遗留生成路径全量移除（~5.8k 行）超预算未做，留待 Phase 5 或独立任务。
 - Progress: **Phase 1 补充收口（2026-06-12）**——①遗留双轨**全量移除**（用户指令"不留技术债务"）：trio 重写为读投影（~5.6k 行删除）+ 死代码 IntakeService 整体删除 + 注入缝/Fake/孤儿全清 + registry 修剪（27 模板/16 schema）；backend 1291/0 fail、v1b e2e、N8 smoke 全绿。②牌价已核实填入，cost_usd 实际点亮。③ **D1/D2 用户签核锁定**（D1 后端薄服务分阶交付；D2 = N6 同形 gate/loopback 触发，零新引擎，详见 03 决策记录）。
 - Progress: **Phase 4 DONE（2026-06-12）**——F-06 关闭。投影 service（六类来源）+ packet 契约 + 4 个仓储 list 方法（零迁移）+ N6/N8 注入（frozen_input artifact 引用同构 projection 模式，准入恒等式安全）+ N6 gate dedup warning（D-T123-01 加法式 harness 改动）。验证：单测 8/8、e2e dedup warning 绿、N6/N8 smoke 绿、v1b harness e2e 绿。偏差：v1a N6 注入显式缓（admission 已有池 dedup）、压缩专项以设计注记代替。
-- Next: Phase 2（Coordinator）→ Phase 3（N8 debate）→ Phase 5 收尾。
+- Progress: **Phase 2 审查修复收口（2026-06-13）**——第二轮 /code-review high 发现 10 项（1 崩溃级 withRunLock unhandledRejection/锁泄漏、超时孤儿同 attempt_id 双发、loopback 上游重入缺口、路由 schema 缺失、人审绑定无校验、retype 门禁失效、投影三处脆弱、draft+spec 组合、双写、SSOT 手抄）；9 项当轮修复 + loopback 缺口记录为 Phase 3 前置。验证：单测 12/12、e2e ok（含 404/400/409 新断言）、套件 1279/0 fail、v1b e2e + stress 绿。
+- Progress: **Phase 2 DONE（2026-06-12）**——F-04 关闭。2.0 并发实锤+方案 B 裁决（零 harness 触碰）；coordinator（投影/advance/预算/超时/互斥/retry）+ 2 HTTP 路由 + 人审路由 run-id 透传；recipe 表四类扩展（跨级哈希/payload authority/snapshot retype/projection 扫描）。验证：单测 7/7、全链 e2e（双人审续跑+幂等重推进）、v1b e2e、runtime-stress、backend 套件 1309/0 fail 全绿。
+- Next: Phase 3（N8 debate）→ Phase 5 收尾。
 - Task ID: `T-123`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-009`
 - Depends on: `T-088`（workflow-runtime-foundation，in-progress——harness 周边改动需联合决策，见 `02-architecture.md` §协调）

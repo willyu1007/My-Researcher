@@ -22,30 +22,36 @@
 - DMP-10 单路径：debate / memory / coordinator 均不得新建第二条 LLM 调用路径、第二个 hash 实现、第二套 trace 模型。
 
 ## Run Coordinator 设计（Phase 2）
-### 接口草案
+### 实现接口（2026-06-13 收口形态，`topic-selection-v1b-run-coordinator-service.ts`）
 ```ts
-interface TopicSelectionRunCoordinatorService {
-  getRunState(workflowRunId): RunStateProjection;        // 2.1 读侧投影
+interface TopicSelectionV1bRunCoordinatorService {
+  getRunState(workflowRunId): RunStateProjection;        // 读侧投影（per-node latest + latest_admitted + seq）
+  runExclusive(workflowRunId, fn);                       // 人审路由同 run 写入共用的 per-run 互斥
   advanceUntilBlocked(input: {
-    workflow_run_id: string;
-    max_steps: number;                                    // 步数上限，防失控
-    execution_profile?: string;                           // 命名 profile（DMP-12 形态）解析各节点默认 execution_spec
-    stop_before_node_ids?: string[];                      // 显式断点
-  }): AdvanceReport;                                      // 每步的 node_id/route_decision/停驻原因
+    workflow_run_id; retry_node_id?; bootstrap_request?;
+    node_inputs?: { [node]: { draft_payload? | execution_spec? } };  // 二选一，组合 400
+    max_steps?; loopback_budget_per_node?; node_timeout_ms?; run_timeout_ms?;
+    created_by?; run_mode?;                              // run_mode 仅随草稿/spec 下发
+  }): AdvanceReport;                                     // steps + halt(reason/node/blockers) + run_state
 }
 ```
+原草案的 `execution_profile`（DMP-12 命名 profile 注入）与 `stop_before_node_ids`（显式断点）未实现——execution_spec 当前由 caller 逐节点提供（D1 人在环），命名 profile 注入留作后续增量。
 ### 推进规则表
 | harness route_decision | coordinator 行为 |
 |---|---|
 | `invoke_next` | 由 handoff_ref 组装下一节点 frozen_input，继续 |
-| `loopback` | loopback 计数 +1；≤预算 → 按 loopback context projection 组装重入；>预算 → 停驻 `LOOPBACK_BUDGET_EXHAUSTED` |
+| `loopback` | 停驻 `harness_loopback`（消息标注 harness 回路目标）；caller 以 `retry_node_id`+新 node_inputs 重试**源节点**，预算内放行、超额停驻 `loopback_budget_exhausted`。上游重入（N7 feedback 模式等）coordinator 暂不可组装——Phase 3 前置项（见 03 §2026-06-13 #3） |
 | `retry` | 仅技术类重试且次数受限（对齐 DMP-08 窄重试） |
 | `blocked` / `requires_human_review` / `wait` | 停驻并返回原因 + blockers |
 | `stop_v1b_complete` | 停驻，提示 v1c 入口 |
-- 节点 execution_spec 解析顺序遵循 DMP-11 优先级（instance > slot > call-site > scenario default > profile default），coordinator 只在 call-site 层注入命名 profile 的默认值。
-- frozen_input 组装复用 T-115 已验证的路径（N4 handoff hash 等 lineage 均可从持久化状态取回，无需重算上游）。
+- execution_spec 当前由 caller 经 `node_inputs[node].execution_spec` 逐节点提供（DMP-11 instance 层）；coordinator 不注入默认值——命名 profile 的 call-site 注入未实现（见上节实现接口注记）。
+- frozen_input 组装：contract/snapshot/handoff kind 读自 node policies（SSOT），lineage 哈希与上游 authority 从投影的 `latest_admitted` 取回，无需重算上游。
 
-### 并发与幂等方案（2.0 先核实再定）
+### 并发与幂等方案（2.0 已核实并裁决，2026-06-12）
+**核实结果**：harness 对同 `(workflow_run_id, node_id, node_attempt_id)` **无任何防护**——`findReplay` 是查询后执行（无锁窗口），prisma artifact 表无组合唯一约束，runner 的 authority 写入无 upsert → 并发双发会产生**双份 authority 记录**与双份 trace。
+**裁决：方案 B**（coordinator 进程内 per-run 互斥串行化），理由：单进程 local-first 部署、coordinator 是产品推进入口、零 harness 本体改动（D3 合规）。**2026-06-13 审查后扩展**：① 命中 run id 的 N2/N5 人审写入经 `runExclusive` 共用同一把锁（人审与 advance 不再可交错）；② 超时仍在飞行的调用进 `inFlight` 注册表，重推先停驻 `node_in_flight`（消除同 attempt_id 双发窗口）。残余风险收窄为：**仅**绕过 coordinator 直打 harness 裸路由的并发无防护；方案 A（DB 唯一约束）需触碰 harness 持久化 + 迁移，列为 Phase 5/后续联合决策候选。
+
+### 并发与幂等方案（原 2.0 预案，留档）
 - 现状：v1b invocation trace 为 control-plane artifact，prisma 无 v1b invocation 模型；replay 探测是查询-后-执行，存在双发窗口。
 - **方案 A（倾向）**：新增 prisma 表（或在 artifact 索引表上）对 `(workflow_run_id, node_id, node_attempt_id)` 加 unique constraint，invokeNode 持久化前先占位（insert-or-conflict）；冲突方收到 `CONCURRENT_ATTEMPT` blocker 或既有结果。迁移走 `sync-db-schema-from-code`。
 - **方案 B**：coordinator 层 advisory lock（per workflow_run_id 串行化推进）。实现快但只约束走 coordinator 的调用，挡不住直接打 harness 路由的并发——作为 A 的补充而非替代。

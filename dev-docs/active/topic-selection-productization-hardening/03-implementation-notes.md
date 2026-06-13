@@ -8,7 +8,7 @@
 | F-01 SSOT 漂移 | 0 | **closed (2026-06-11)** | 新 SSOT `docs/context/process/topic-selection-workflow-matrix.md` + 一致性脚本进默认套件；验证见 `04-verification.md` Phase 0 |
 | F-02 N8 参数硬编码 | 1.1 | **closed (2026-06-12)** | 实为 DMP-10 双轨。2026-06-11 先 registry 化清零 DEFAULT_MODEL；2026-06-12 按用户指令**全量移除遗留生成路径**（trio 重写为读投影 + IntakeService 整体删除），双轨不复存在；见 §2026-06-12 补充 |
 | F-03 N4/N6 profile 未注册 | 1.2 | **closed (2026-06-11)** | 审计结论修正：三个 single-agent profiles 实际已注册（registry `:147-151`），矩阵 slot map 状态过期。已对账更新矩阵；harness provenance 哈希断言已存在（orchestrator 单测 :282-283） |
-| F-04 编排层缺位 | 2 | open | |
+| F-04 编排层缺位 | 2 | **closed (2026-06-12)** | `TopicSelectionV1bRunCoordinatorService`（投影/advance-until-blocked/预算/超时/互斥）+ 2 条 HTTP 路由；全链 e2e 含双人审续跑绿；见 §Phase 2 实施 |
 | F-05 N8 debate 仅政策 | 3 | open | |
 | F-06 跨 run 决策记忆缺失 | 4 | **closed (2026-06-12)** | `TopicSelectionDecisionMemoryProjectionService`（六类来源投影）+ `TopicSelectionDecisionMemoryPacket@v1` artifact 注入 v1b N6/N8 runtime context + N6 gate `decision_memory_duplicate_candidate` warning；e2e 绿；见 §Phase 4 实施 |
 | F-07 provider_overrides 无类型 | 1.3 | **closed (2026-06-11)** | 契约层 `TopicSelectionProviderOverrides` 三 provider union + `provider_id` enum 收紧 + schema anyOf 严格化 + registry 加载期键校验（`PROVIDER_OVERRIDES_INVALID`）；见 §Phase 1 实施 |
@@ -39,6 +39,33 @@
 
 ## 实施记录
 - 2026-06-11：任务包创建（T-123）。来源：全链产品化审计（节点 debate / 复杂度 / 编排-harness / 压缩-上下文-记忆 / 参数规范化 五维）。
+
+### 2026-06-13 Phase 2 代码审查（/code-review high 第二轮）与修复
+7 路并行审查（3 正确性 + 3 清理 + 1 层级）对 Phase 2 全部 diff。正面结论：8 个 recipe 与 harness 精确键集解析器全等、草稿三件套哈希与 admission 三重校验一致、route_decision 全枚举覆盖（跨文件追踪角 50 次工具调用反向核实）。发现并**全部修复**以下问题：
+1. **withRunLock 双缺陷（崩溃级）**：`void next.finally(...)` 派生链在 advance 抛错时无 handler → Node 默认策略 unhandledRejection 崩进程；`next.catch()` 每次新建 promise 身份比较恒 false → 锁表永不收缩。修复：单 `guarded` 变量（永不 reject）入表+比较。单测："a thrown advance neither crashes…nor leaks the run lock"。
+2. **超时孤儿双发**：node_timeout 后锁释放但 harness 调用仍在飞，attempt_count 未变 → 重推会以**同 attempt_id** 并发重 invoke（harness 无唯一性守卫）。修复：`inFlight` 注册表 + 新停驻原因 `node_in_flight`（孤儿落地自清除）。单测覆盖（恰一次执行断言）。
+3. **loopback 死端（设计缺口，部分缓解 + 记录）**：harness 规定的回路目标是上游（N8→N7 feedback 模式、N7→N6），coordinator 只能 retry 源节点；N7 的 `N8ToN7Feedback@v1` 入参契约 coordinator 不可组装。本轮：loopback 停驻消息如实标注回路目标与边界（"upstream re-entry 走 harness 路由"）；完整组装留作 **Phase 3 前置项**（feedback 模式 recipe）。
+4. **/advance、/state 无 schema**：补 body schema（budgets 数值域、created_by/run_mode 枚举、bootstrap_request 复用直调路由同一契约 schema、node_inputs 形状）+ params schema；/state 对无 trace 的 run 返回 404（对齐本文件 GET-by-id 惯例）。e2e 断言 max_steps:0→400、未知 run→404。
+5. **人审路由 run-id 绑定无校验 + 不经互斥**：controller 增加 `assertHumanRunBinding`（run 存在性 + 等待节点检查 + **路由目标必须源自该 run 上游 authority**——N5 的 optionSetId 必须等于该 run N4 authority ref，N2 的 intakeSnapshotId 必须等于 N1 authority ref）；命中 run id 的人审写入走 coordinator `runExclusive`（同一把 per-run 锁）。`node_attempt_id` 从 HTTP 面移除（coordinator 从不发它，纯 footgun；service 层仍支持测试直传）。e2e 断言错误绑定→409。
+6. **retype-unshift 门禁失效**：兜底从"全节点无条件"收紧为 recipe 表显式 `retype_authority_as_snapshot` 仅 N6 开启（N5 authority 即 selection decision 快照的已记录形态）；其余节点缺匹配引用将如实 blocked。e2e 全链通过证明无其他节点依赖兜底。
+7. **fixture_replay 语义（决策记录）**：维持 caller 草稿 = `fixture_replay` 类（现有 enum 无 human-curated 类），但 ① `run_mode` 可由 caller 透传（默认 acceptance；传 product 时 harness 将如实拒绝 fixture_replay——诚实失败而非静默混类）；② 仅在携带草稿/execution_spec 时下发 run_mode（裸确定性节点会触发 harness `RUNTIME_FIELDS_REQUIRE_SEMANTIC_ARTIFACT` 守卫——实测发现）；③ **新增 provenance 类（如 human_curated_draft）为 shared contracts 级改动，列入 Phase 3/5 候选**，在此之前产品路径草稿审计按 fixture_replay+acceptance 识别。
+8. **投影三处脆弱**：created_at 毫秒平手 → 以 artifact 列表序 `seq` 决胜（latest/pendingHalt 全切换）；新增 `latest_admitted`（最近 admitted invoke_next/stop 尝试）——完成扫描与 lineage 组装全部改读它，后续 blocked 重试不再抹除已完成 lineage（修复 prev 选择回退错节点 → 500 级联）；run_complete 检查移到 max_steps 之前（恰好最后一步完成不再误报）。单测：同毫秒平手、blocked 重试不抹 lineage。
+9. **draft+execution_spec 组合**：显式 400 拒绝（草稿固定 codex_assisted 与 provider spec 必然 admission 失配）；草稿**单工件**双引用（support/normalized 本就同 payload 同 checksum）+ provenance 并行写。
+10. **SSOT 收编**：trace schema 字面量 → 契约常量+类型；`MODEL_DRAFT_SLOT_TABLE` 删除 → 槽位元数据从 `POLICY_BY_NODE_ID.semantic_support_slots`（model_draft_for_gate）解析；recipe 表删 input_contract/snapshot_kind 列 → 从 policy `input_contract`/`required_frozen_snapshot_kind` 取；handoff kind 校验 → 上游 policy `output_handoff_kind`（消灭 `.replace('@v1','')` 字符串手术）；模块加载期**节点覆盖断言**（每个 policy 节点必属 bootstrap/human/recipe 三类之一，N7 auto-driven 例外注记 DP-0.5）；halt 复用在手投影（减一次全量扫描）；execution_spec 用契约类型（去 cast）；语义工件返回值去 `as`（暴露并修复 checksum 可空洞）。
+**留 5.3 backlog**：advance 循环增量投影（O(S×K)→O(K)）、loadTraces kind 过滤仓储查询、uniqueRefs/占位哈希/POLICY_VERSION 共享常量收编（跨 6/3/4 文件）。
+
+### 2026-06-12 Phase 2 实施（M2 Run Coordinator + 鲁棒性）
+**2.0 并发核实与裁决**：harness 零防护实锤（无锁/无唯一约束/authority 无 upsert，双发=双 authority）。裁决方案 B：coordinator 进程内 per-run promise-chain 互斥；残余风险（直打 harness 路由）与方案 A 候选记入 02-architecture。
+**2.1 RunStateProjection**：复用既有 `listArtifactRefsByWorkflowRunId`（零新仓储方法），从 trace artifacts 重建——per-node attempt_count/loopback_count/latest（gate/route/authority+handoff ref&hash/trace_snapshot_ref/blockers/replayed）+ frontier/next/run_complete。持久化 checkpoint **未做**（投影即时计算自权威 trace，确定可重建；偏差记录）。
+**2.2 advance-until-blocked**（`topic-selection-v1b-run-coordinator-service.ts` + GET `/workflow-runs/:id/state` + POST `/workflow-runs/:id/advance`）：
+- 只经 `harness.invokeNode`；bootstrap_request 启动；后继节点 frozen_input 由 **recipe 表**从上游 handoff artifact 通用组装（移植验收套件配方），实施中按 gate 反馈补齐四类扩展：跨级 lineage 哈希（N4 需 n2_handoff_hash）、上游 authority 进 payload（N4 需 N1 的 intake_snapshot_ref/hash，hasOnlyKeys 精确键集）、snapshot_kind 引用 retype 保证（N5 authority ref_type ≠ N6 snapshot_kind）、runtime projection 引用扫描（N8 需 N7→N8 projection artifact）。
+- 停驻分类：human_node（N2/N5 一律停，人经既有人审路由以**同 run id** 续接——路由/控制器补了 workflow_run_id/node_attempt_id 透传，service 本就支持）、model_input_required（N4/N6/N8 无 caller 输入即停，D1 人在环）、harness_blocked/wait/requires_human_review/retryable/loopback（透出 latest blockers）、run_complete。
+- model 节点输入：`node_inputs[node].draft_payload`（coordinator 服务端复刻语义工件三件套记录，fixture_replay 类）或 `execution_spec`（provider 路径直通）。
+- `retry_node_id`：loopback/blocked 后显式重试入口（预算检查先行）。
+**2.3 预算/超时**：per-node loopback 预算（超额 → `loopback_budget_exhausted` 停驻，不触碰 harness）；节点级 Promise.race 超时（提示 replay 幂等可重推进收敛）；run 级推进超时；max_steps。
+**2.4 HTTP 入口**：两条路由（controller 第 8 依赖位注入）；桌面按钮未做（可选项，留待 UI 批次）。
+**AC 映射**：并发双发→互斥单测（同 run 双 advance 串行、N1 仅执行一次）；崩溃恢复→多次 advance 续跑 + run_complete 幂等重推进（e2e §8）+ harness replay 既有语义；loopback 超额→单测（预算 2、第 3 次重试停驻、harness 仅 2 次调用）；超时→单测；全链 auto-advance e2e（mocked acceptance：N1→N2 人审→N3→N4 草稿→N5 人审→N6 草稿→N7→N8 草稿→N9..N11 → run_complete）✅。
+**测试**：coordinator 单测 7/7；集成新 e2e 1 条（文件 9 pass / 1 fail=既有 T-054 环境项）；v1b harness e2e ✅；runtime-stress ✅；backend 套件后台中。
 
 ### 2026-06-12 代码审查（/code-review high）与处置
 - 7 路审查（3 正确性 + 3 清理 + 1 抽象层级）对 T-123 全部 diff：**正确性零硬伤**（删除行为审计零缺口、契约收紧全构造点合法、跨文件追踪全通过）。10 项清理/层级 findings，处置：

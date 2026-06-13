@@ -75,6 +75,39 @@ pnpm topic-selection:v1a-harness-replay-smoke
 
 ## 运行记录
 
+### 2026-06-13 Phase 2 审查修复后再验证
+| 检查 | 结果 |
+|---|---|
+| coordinator 单测（原 7 项 + **5 新增**：draft+spec 组合 400 / 抛错不崩进程且锁不泄漏 / 超时孤儿 in-flight 守卫（恰一次执行）/ 同毫秒平手按事件序 / blocked 重试不抹 admitted lineage） | ✅ 12/12 |
+| 全链 coordinator e2e（含新断言：未知 run `/state`→404、`max_steps:0`→400、错误绑定人审→**409**） | ✅ ok 10 |
+| 集成文件全量 | ✅ 9 pass / 1 fail（仅既有 T-054 standalone 缺 DATABASE_URL 项） |
+| backend 全套件 | ✅ **1279 pass / 0 fail / 35 skipped**（净增 5 = 新增单测；零回归） |
+| v1b harness e2e 回归 | ✅ V1B_E2E_OK |
+| v1b runtime-stress 回归 | ✅ STRESS_OK |
+| typecheck | ✅ 0 error |
+
+审查发现 10 项处置：9 项当轮修复（含 1 崩溃级 withRunLock、超时孤儿双发、retype 门禁、人审绑定校验+互斥、schema 缺失、投影三处脆弱、组合拒绝、单工件草稿、SSOT 收编），1 项设计缺口（loopback 上游重入）缓解+记录为 Phase 3 前置项；效率三项入 Phase 5.3 backlog。详见 03 §2026-06-13。
+
+### 2026-06-12 Phase 2 收口验证（Run Coordinator）
+| 检查 | 结果 |
+|---|---|
+| coordinator 单测（bootstrap→human 停驻 / 续跑+N3 组装断言 / 草稿三件套记录 / loopback 停驻+retry+预算耗尽 / **并发双发互斥（N1 恰执行一次）** / **节点超时** / 投影计数与完成态） | ✅ 7/7 |
+| **全链 auto-advance e2e**（HTTP：bootstrap N1 → human N2（同 run id 续接）→ N3 → N4 草稿 → human N5 → N6 草稿 → N7 → N8 草稿 → N9/N10/N11 → run_complete → **幂等重推进 0 步** → state 路由投影） | ✅ |
+| v1b harness e2e 回归 | ✅ exit 0 |
+| v1b runtime-stress 回归（AC 指定） | ✅ exit 0 |
+| 集成测试文件全量 | ✅ 9 pass / 1 fail（仅既有 T-054 standalone 缺 DATABASE_URL 项） |
+| typecheck | ✅ 0 error（多轮） |
+| backend 全套件 | ✅ **1309 tests / 1274 pass / 0 fail / 35 skipped**（较 Phase 4 基线 1300 净增 9 = 本阶段新增测试；零回归） |
+
+Phase 2 AC 勾验：
+- [x] 并发双发 → 恰一次执行（coordinator 互斥单测；方案 B 裁决与残余风险记录于 02-architecture）。
+- [x] 崩溃恢复语义 → 多次 advance 从投影续跑 + run_complete 幂等重推进（e2e）+ harness replay 既有幂等。
+- [x] loopback 超额 → `loopback_budget_exhausted` 停驻（单测：预算 2、第三次重试不调用 harness）。
+- [x] 节点/run 超时 → 单测覆盖节点级（含收敛提示）；run 级与 max_steps 实现并默认生效。
+- [x] 全链 auto-advance e2e（mocked acceptance，含两次人审同 run 续接）。
+- [x] 回归：`v1b-harness-e2e` + `v1b-runtime-stress` 绿。
+- [△] 偏差：RunState 持久化 checkpoint 未做（投影可从权威 trace 即时重建，确定性）；桌面"推进"按钮未做（2.4 可选项）；coordinator 停驻不自动跟随 loopback 目标（由 retry_node_id 显式驱动——记入设计注记）。
+
 ### 2026-06-12 Phase 4 收口验证（Decision Memory）
 | 检查 | 结果 |
 |---|---|
