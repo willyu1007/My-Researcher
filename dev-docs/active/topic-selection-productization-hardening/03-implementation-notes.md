@@ -37,6 +37,54 @@
 - **Phase 4 设计修正（实施中发现）**：注入方式从"runtime 活查询投影"修正为"**预持久化 artifact + frozen_input.source_refs 引用**"（与 N7 loopback projection 同构）。原因：N6/N8 的 admission `buildAdmissionExpectedIdentity` 会在准入时从 frozen input 全量重算 context packet 与 source_hashes（精确键集全等比对）——活查询的时变记忆会破坏生成↔准入恒等式。修正后三方（生成/准入/gate）从同一冻结引用解析，replay 确定；packet 时效性由 frozen-input 组装方负责（Phase 2 coordinator 是未来的天然组装者）。
 - **追加指令（2026-06-12 用户）**：不留双轨/语义漂移技术债务——遗留直调生成路径**全量移除**（升级 Phase 1.1 的 C 方案为 A 方案），三个遗留 service 收缩为读投影 service。
 
+### Phase 3 决策（2026-06-13 全部对齐，DP-3.1~3.6 用户签核锁定）
+**勘察修正的起点**（三路审计，详见本节末"现状基线"）：触发/准入/回路的契约层 ~80% 已预埋（N8 loopback 边+码+`N8ToN7Feedback@v1`、N7 `feedback_from_n8` 解析器、`n7_n8_debate_admission_review` 槽全规格+已注册 profile+N7 runner 已织 ref 进 handoff、`trial_ledger_ref/hash` 已在 N7→N8 投影、矩阵 N8 行已是 `bounded_sequence`）；真正要建：N8 debate 运行时、N8 gate T1/T3 + runner 回路选择（harness 本体）、N7 warning 发射、coordinator feedback recipe、DMP-13/矩阵/profiles。
+- **DP-3.1 共享执行器形态**：**骨架共享 + 版本注入**。抽取角色循环骨架（角色序走表、prior-artifact 线程、token 预算/压缩脚手架、debate provenance hash 组装）为共享核心；context packet 构建、输出契约、preserved facts 由 v1c/v1b 各自注入（strategy 接口）。v1c N2 改薄适配（行为不变，`v1c-n2-runtime-smoke` 钉死，基线已核实绿）；v1b N8 实现自己的 builder。否决项：完全通用抽取（v1c 回归风险过大）、独立双实现（违背"不留技术债务"指令）。
+- **DP-3.2 触发形态**：**首评回路、复评告警**。首评（frozen payload 无 `n8_debate_admission_ref`）命中 T1/T3 → loopback blocker（`n8_feedback_to_n7`，自动升级）；debate 复评（feedback 重入的 handoff 已携带 admission ref——零新字段的确定性判据）仍命中 → warning 准入，不再回路。coordinator loopback 预算为二重保险。
+- **DP-3.3 阈值标定**：**临时值落 node policy + 挖历史**。provisional 初值（T1: total_score∈[60,72) 或 confidence<0.55；T3: 维度分差≥40 或 单维<35 且 total≥60）显式标注 provisional 落 N8 node policy；解析既有 near-prod deep-test 工件提取 N8 分数分布复核；历史不可用则记偏差、标定跑列独立小任务（不阻断收口）。
+- **DP-3.4 范围**：**N8-only**。N9 维持现状（其 loopback 目标码 declared-unused，矩阵注记）；N9 是 N8 输出的确定性分发器，重判 borderline 属重复检测。D2 原文"N8/N9"按审计收窄，记录在案。
+- **DP-3.5 角色 profile 模式**（用户追问"codex 1 profile / provider 独立 profile 是否都要支持"后精化锁定）：**4 角色槽位 + 1 共享多-option model profile + 4 context-policy profiles**；多样性与注册面解耦——`provider_diverse_deep_debate` 级 = DMP-12 named-profile 把 per-role `model_option_id` 映射进 execution_plan slot 覆盖（如 critic→deepseek option），非独立 profile×4。codex_assisted / provider-compact / provider-diverse 三情景全覆盖；未来升格某角色为独立 profile 是纯加法。
+- **DP-3.6 coordinator 回路闭环**：**本阶段做，含 coordinator e2e**。HANDOFF_BUILDER_TABLE 增 N7 feedback 变体（读 N8 blocked trace + `N8ToN7Feedback` 工件组装 `feedback_from_n8` frozen input）；`retry_node_id=N7` 走升级回路；e2e 覆盖全闭环（N8 首评 T1 回路 → N7 feedback 重入+admission → N8 debate 复评 → admit）。同时关闭上轮审查的 loopback 死端（03 §2026-06-13 #3）。
+- **D3 程序**：✅ 已登记（2026-06-13）——T-088 `06-joint-decisions.md` D-T123-02（N8 gate T1/T3 + runner 回路实装 + N7 warning 发射 + N8 debate 路径消费，全加法；不改 invokeNode 生命周期/replay key/N9）。
+- **现状基线**：`v1c-n2-runtime-smoke` ✅（2026-06-13 实测，.ai/.tmp 旧失败 manifest 为陈旧产物）；`v1b-n8-runtime-smoke` 为单 agent 基线门；v1c N2 实际角色序 `supporter_draft → critic_review → supporter_repair → synthesizer_final`（计划文档 assessor_* 命名系 v1b 侧新命名，二者并存各自注册）。
+
+### 2026-06-13 Phase 3 代码审查（/code-review high，7 路）与修复
+7 路并行审查（3 正确性 + 3 清理 + 1 层级）对 Phase 3 全部 diff。**byte-identity 审计零漂移**（与差分探针互证）；v1c facade 公共签名/编排 envelope/坐标 coordinator 分类全过。发现 10 项，用户裁定**全部就地修复，保持单 slice**：
+1. **`n8_bounded_debate` model profile 未注册**（4 角色槽引用却无注册 → 任何提交触发 `RUNTIME_PROFILE_REGISTRY_REJECTED`）：在 registry 注册（仿 v1c bounded-micro-debate，输出 `TopicSelectionV1bN8BoundedDebateRoleOutput@v1`，provider options + low/high/large 归一参数）+ 导出常量。
+2. **N8 反馈重入语义澄清**：harness 只做触发检测 + N6 同形 loopback 门；4 角色 debate 执行是**调用方侧**（v1b N8 debate 运行时，与 v1c N2 同构）——代码注释明示，避免"debate 已跑"误读。
+3. **反环加固**：loopback 仅由**显式** `input_mode === 'initial_from_n6'` 武装；缺失/未知模式 → 降级 warning，绝不 re-arm 无界 N8↔N7 振荡（原 `!== 'feedback_from_n8'` 的默认会在缺字段时 re-arm）。
+4. **T3 floor 对称**：spread 分支也受 `t3_total_score_min` 约束（原仅 weak-dim 分支受约束）；低总分高分差不再误触发；+3 单测边界用例。
+5. **feedback `n8_gate_result_hash`**：digest 计入 `loopback_target_code: n8_feedback_to_n7`（与该尝试记录的路由决策一致）；注释澄清它是触发决策 digest（因循环依赖无法等于尝试最终 gate_result_hash）。
+6. **producer/validator 同构守卫**：`persistN8DebateLoopback` 写入前 `isN8ToN7FeedbackPayload(feedbackPayload)` 断言（N7 重入用同一谓词），17 键形 producer/predicate/schema 漂移在源头响亮失败。
+7. **canonicalHash 收编**：core + v1c strategy 内联 `hash` 改用 D1 共识的 `canonicalHash`（核实 byte-equal → 安全）；消除潜在跨服务漂移。
+8. **provisional 阈值 tripwire**：`provisional && run_mode==='product'` → 发 `n8_debate_thresholds_provisional` warning（DP-3.3 未标定守卫）；契约 warning_codes 增该码。
+9. **binding/profile per-turn 一次解析**：v1c strategy 按 slotId memo（原 3-6×/角色，放大未缓存 resolveProfile）；只读、byte-identical。
+10. **runLoop 加固 + 删死代码**：空 roleOrder / 重复 slot 抛错；删除 zero-reader 的 `step` 字段 + 编排 `topicSelectionBoundedDebateStepContext` 调用 + 整个 orphan shared `bounded-debate-loop-contracts.ts`（含 exports map 条目）。另：n8Warnings 三元映射改穷举 map（未知触发码抛错而非静默误标）；删 `n8DebateTriggerIssues` 转发壳。
+**验证**：shared+backend tsc 0；n8 触发单测 8/8；v1c 单测 7/7 + smoke pass（canonicalHash/memo 后 byte-identity 保持）；model-profile-registry 单测 10/10；矩阵一致；n8 smoke / harness e2e / backend 全套件（运行中补记）。
+
+### 2026-06-13 Phase 3 实施进度
+**架构定调**：debate 运行时是**调用方侧 service**（与 v1c N2 同构，非 harness 内部）——4 角色序列由调用方/coordinator 在 N7 handoff 标示 debate 时调用，synthesizer 产出 `TopicValueAssessmentDraft@v1` 同时记录为 `n8_value_assessment_draft` 语义工件（model_draft_for_gate）+ 4 个角色工件（support_only）；harness 只做确定性 gate（触发检测/loopback）。harness 不跑 debate（DMP-10 单实现，D-07 调用边界）。
+- **3.0 ✅** D-T123-02 联合决策登记（T-088 `06-joint-decisions.md`）。
+- **3.1 ✅** 契约层（`topic-selection-v1b-workflow-harness-contracts.ts`）：
+  - 4 角色槽位 id（`n8_debate_assessor_draft/value_critic/assessor_repair/synthesizer_final`）+ 4 槽位 spec（support_only，输出 `TopicSelectionV1bN8BoundedDebateRoleOutput@v1`，共用 `n8_bounded_debate` profile）。
+  - `TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER` 角色序常量 + `TopicSelectionV1bN8BoundedDebateRolePayload` 角色输出契约。
+  - `TopicSelectionV1bN8DebateTriggerThresholds`（provisional 初值）落 N8 node policy；N8 blocker/warning codes 增 T1/T3 触发码与 after-debate 告警码。
+  - 矩阵 slot map +4 行（一致性脚本动态解析槽集合，无需改脚本）。
+- **3.2 ✅** harness gate/runner（`topic-selection-v1b-workflow-harness-service.ts`，加法）：
+  - `computeTopicSelectionV1bN8DebateTriggers`（导出纯函数，边界值可单测）+ `n8DebateTriggerIssues`（读 node policy 阈值）。
+  - `resolveN8DebateAdmission`（读 N7 handoff 钉的 admission 工件，`input_mode` 作首评/复评判别）。
+  - `persistN8DebateLoopback`（首评 T1/T3 命中 → route `RB_N8_N7` + `loopback_target_code: n8_feedback_to_n7` + 组装 `N8ToN7Feedback@v1` 工件，零 authority 写入，镜像 N7→N6 exhaustion 形态）。
+  - `n8Warnings` 增 postDebateTriggers 参数（复评仍命中 → after-debate 告警，不再回路）。
+  - N7 `n7Warnings` 已发射 `n8_debate_level_selected`（既有，核实保留）。
+  - **验证**：backend tsc 0、shared tsc 0、矩阵一致、`v1b-n8-runtime-smoke` exit 0、`v1b-harness-e2e` exit 0（既有单 agent 路径不变——provisional 阈值对现有 fixture total 83/conf 0.82/spread 12 不触发）。
+- **3.6（docs 部分）✅** DMP-13 锁定（`11-debate-model-invocation-policy.md`：原语二分 + N8 N6-同形触发/准入语义 + 命名 N8 profiles，locked marker DMP-12→13）；矩阵 N8 行 planned→implemented + 触发码 + DMP-13 引用，一致性脚本绿。
+- **3.3 设计 ✅** 共享骨架抽取方案经设计 workflow（3 候选评审，按真实行号核实）。winning：HYBRID middle-template-method core + loop_transcript_hash + **gate bridge**。关键修正（所有评审 agent 标记）：既有 N8 gate 把 expected identity 钉死到单 agent runtime 的 `buildAdmissionExpectedIdentity`，debate synthesizer 工件若直接记录会被 block；bridge = synthesizer 的 `assessment_draft` 经**既有单 agent `generateDraftArtifact()`** 重新记录为 `n8_value_assessment_draft`（携单 agent identity），零 gate 改动。spec 持久化于 `07-phase3-debate-skeleton-spec.md`。
+- **3.3 STEP 1–4 ✅（v1c 抽取，byte-identical 已验证）**：
+  - 新建 `topic-selection-bounded-debate-loop-contracts.ts`（shared StepContext）+ `topic-selection-bounded-debate-core-service.ts`（generateRoleArtifact 单轮 + runLoop + loop_transcript_hash）+ `topic-selection-bounded-debate-strategy.ts`（版本注入 strategy 接口）。
+  - v1c runtime 重写为 core 薄 facade + 私有 `V1cN2BoundedDebateStrategy`（所有 v1c byte-bearing 逻辑 + buildAdmissionExpectedIdentity 逐字搬迁）。
+  - **验证方法修正**：smoke 的 prompt_packet_hash 依赖 `workflow_run_id`（来自 RUN_KEY）且 smoke DB 有状态（断言 fresh 缓存行），跨 run 绝对哈希不可比——故采用对**纯函数 `buildAdmissionExpectedIdentity`**（固定 id）的 old-vs-new 差分探针：4 角色的 prompt_packet_hash / runtime_invocation_context_hash / context_policy_profile_hash / source_hashes **全 byte-identical**。v1c 单测 7/7、smoke pass、backend tsc 0。
+- **3.3 STEP 5–11 进行中**：抽取 v1b N8 单 agent helpers 为共享模块 → 注册 4 context-policy profiles + 4 invocation slots → v1b N8 debate 运行时 + admission → gate bridge → v1b debate smoke + 回归 → coordinator feedback recipe（3.5）。
+
 ## 实施记录
 - 2026-06-11：任务包创建（T-123）。来源：全链产品化审计（节点 debate / 复杂度 / 编排-harness / 压缩-上下文-记忆 / 参数规范化 五维）。
 

@@ -1892,3 +1892,13 @@ error_code: string | null
 - 不改动：`invokeNode` 生命周期、节点策略语义、route edges、replay key 组成规则（memory ref 经 frozen_input 自然参与 frozen_input_hash）。
 - 设计要点：memory packet 是预先持久化的 control-plane artifact、由调用方放入 frozen_input.source_refs（与 N7 loopback projection 同构），保证生成/准入 expected-identity 恒等与 replay 确定性；不做活查询注入。
 - 归属：T-123 Phase 4（dev-docs/active/topic-selection-productization-hardening/）。冲突面评估：纯加法、不与 T-088 Phase 2 runtime primitives 重叠。
+
+## D-T123-02 (2026-06-13) — T-123 Phase 3 对 harness 的加法式改动（联合决策登记）
+- 范围：`topic-selection-v1b-workflow-harness-service.ts` + v1b harness contracts 新增：
+  ① N8 确定性 gate 增加 T1 borderline / T3 维度冲突触发检查——首评（frozen payload 无 `n8_debate_admission_ref`）命中 → 新 blocker 码（loopback 路径）；debate 复评（payload 携带 admission ref）仍命中 → 新 warning 码（准入）。阈值以 provisional 标注进 N8 node policy（契约层数据，非服务内常量）。
+  ② N8 runner 实装既已声明的 loopback 路由选择（route edge `RB_N8_N7`、目标码 `n8_feedback_to_n7`，均为既有声明）+ 组装 `N8ToN7Feedback@v1` 工件（既有契约）。
+  ③ N7 gate 在 `n7_n8_debate_admission_review` 支持工件存在时发射既已声明的 `n8_debate_level_selected` warning。
+  ④ N8 runtime（harness 内部构造）按 handoff 携带的 `n8_debate_admission_ref/hash`（N7 runner 既有织入）选择 debate 草稿生成路径。
+- 不改动：`invokeNode` 生命周期、replay key 组成规则、既有 N8 三类 blocker 语义、route edges 集合（仅启用既有声明边）、N9（DP-3.4 收窄为 N8-only，其 loopback 码保持 declared-unused）。
+- 设计要点：零新触发引擎（D2）——T1/T3 是纯确定性编码，复用 N6 同形 gate→loopback 机制；复评防环判据用既有 handoff 字段，零新契约字段；debate 运行时本体在 harness 外（共享骨架 + v1b builder，DMP-10 单实现）。
+- 归属：T-123 Phase 3（dev-docs/active/topic-selection-productization-hardening/，决策 DP-3.1~3.6 见其 03 §Phase 3 决策）。冲突面评估：纯加法、不与 T-088 runtime primitives 重叠；N8/N7 gate 改动与 T-088 Phase 2 无共享改动点。

@@ -75,6 +75,24 @@ pnpm topic-selection:v1a-harness-replay-smoke
 
 ## 运行记录
 
+### 2026-06-13 Phase 3 代码审查修复后验证（7 路审查 → 10 项全修）
+| 检查 | 结果 |
+|---|---|
+| shared + backend typecheck | ✅ 0 error |
+| N8 触发器边界单测（T1 band 含/排端点、confidence floor、T3 spread 含端点、**T3 floor 对称新增 3 例**、组合、null） | ✅ 8/8 |
+| v1c N2 runtime+admission 单测（canonicalHash + per-slot memo + step 删除后 byte-identity 保持） | ✅ 7/7 |
+| v1c-n2-runtime-smoke（canonicalHash/memo 后） | ✅ pass |
+| model-profile-registry 单测（新 `n8_bounded_debate` profile 注册 + 校验） | ✅ 10/10 |
+| 矩阵一致性 | ✅ ok |
+| v1b-n8-runtime-smoke | ✅ exit 0 |
+| v1b-harness-e2e | ✅ exit 0 |
+| backend 全套件 | ✅ **1322 tests / 1287 pass / 0 fail / 35 skipped**（较修复前 1314 净增 8 = 新增触发器边界用例；零回归） |
+
+10 项修复对应：#1 profile 注册（registry 10/10）｜#2 重入语义注释｜#3 反环显式 firstPass（n8 smoke 覆盖首评路径）｜#4 T3 floor 对称（触发单测 +3 例）｜#5 feedback gate-hash 计入 loopback 码｜#6 producer 写入前 isN8ToN7FeedbackPayload 断言｜#7 canonicalHash 收编（v1c byte-identity 保持）｜#8 provisional×product tripwire（warning 码入契约）｜#9 binding/profile per-turn memo（byte-identical）｜#10 runLoop 空/重复 slot 守卫 + 删 step/orphan 文件。
+**遗留（STEP 7 验证项）**：N8 debate loopback 触发→feedback→N7 重入→debate 复评的全闭环 e2e 随 v1b debate 运行时（STEP 5-9）落地（当前 fixtures 不触发 loopback，#3/#5/#6 由代码 + 写入断言保障）。
+
+
+
 ### 2026-06-13 Phase 2 审查修复后再验证
 | 检查 | 结果 |
 |---|---|

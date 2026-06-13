@@ -43,8 +43,8 @@ Phase 5 (M5 复杂度治理) 最后，且 5.1 需 D3 联合决策
 - **2.4**（可选，最小增量）HTTP 触发路由 + 桌面工作台"推进"按钮；不做新工作台。
 - **AC**：故障注入三件套（并发双发 → 恰好单次执行/另一次得到 replay 或冲突；推进中崩溃 → 重新触发经 replay 恢复且无重复副作用；loopback 超额 → budget_exhausted blocked）；全链 auto-advance e2e（mocked acceptance 隔离，N1→人审停驻→human_delegated 续→N11）；既有 `topic-selection:v1b-harness-e2e` / `v1b-runtime-stress` 回归绿。
 
-## Phase 3 — v1b N8 有界对抗 debate（M3，依赖 1.1；D2 已锁定：N6 同形 gate/loopback 触发）
-> D2 终态（2026-06-12 签核）：零新触发引擎，全部复用既有机制。详见 `03-implementation-notes.md` §整包决策。
+## Phase 3 — v1b N8 有界对抗 debate（M3，依赖 1.1；D2 + DP-3.1~3.6 已全部锁定）
+> D2 终态（2026-06-12 签核）：零新触发引擎，全部复用既有机制。Phase 3 细化决策 DP-3.1~3.6（2026-06-13 签核）：骨架共享+版本注入 / 首评回路复评告警 / provisional 阈值+挖历史 / N8-only / 共享 profile+option 映射 / coordinator 回路闭环本阶段做。详见 `03-implementation-notes.md` §Phase 3 决策。实施顺序：**3.0 D-T123-02 联合决策（T-088）先行** → 3.1 契约+槽位+阈值 → 3.2 harness gate/runner（加法）→ 3.3 共享骨架+v1b 运行时+v1c 薄适配 → 3.4 profiles → 3.5 coordinator feedback recipe + 全闭环 e2e → 3.6 DMP-13+矩阵+治理。
 - **3.1** 复用 v1c N2 bounded-debate runtime：抽取角色表驱动的共享有界辩论执行器（或参数化现 service），禁止新建第二套 debate 实现（DMP-10）。
 - **3.2** 触发与准入（N6 同形）：
   - T1 borderline / T3 维度冲突 = N8/N9 确定性 gate 新增 warning/blocker 编码（阈值进 node policy）；

@@ -7,7 +7,7 @@ Business decisions still belong to node policies, deterministic validators, and 
 
 ## Status
 - Policy version: `v1`
-- Current locked decision: `DMP-12`
+- Current locked decision: `DMP-13`
 - Pending decisions: none
 
 ## DMP-01 Execution Mode And Provider Boundary
@@ -929,5 +929,74 @@ The compatibility id suffix `dashscope-budget` remains as a legacy alias, but it
 ### Rationale
 The system should use Codex heavily where it improves project-aware exploration and critique, but it must preserve a provider-backed quality anchor for external final synthesis and provider-quality debate claims. Named profiles give the harness deterministic behavior while still allowing cost-control and high-quality canary modes.
 
+## DMP-13 Debate Primitive Dichotomy And N8 Bounded-Sequence Trigger Semantics
+- Status: locked
+- Date: 2026-06-13
+- Source: T-123 Phase 3 (DP-3.1~3.6); harness change registered as T-088 `06-joint-decisions.md` D-T123-02.
+
+### Decision
+Multi-agent debate in topic selection has exactly two primitives. Every debate-eligible node MUST bind to one of them; no third shape may be introduced without a new DMP decision.
+
+| Primitive | Shape | Nodes | Reference |
+| --- | --- | --- | --- |
+| `divergent_loop` | Arbiter-led iterative fan-out: variable rounds, explorer/deep_critic multiplicity, arbiter frames/routes/synthesizes, bounded `max_rounds`. | resource-sampling, v1a need discovery | `D-16`, `D-17` |
+| `bounded_sequence` | Fixed single-pass role order for evaluation nodes; the final synthesizer is the sole external structured output (arbiter semantics, `D-07`/`DMP-03`). | v1c N2 promotion support, v1b N8 value assessment | this decision |
+
+`bounded_sequence` role order is fixed and single-pass:
+- v1c N2: `promotion_supporter_draft -> reviewer_critic_review -> promotion_supporter_repair -> synthesizer_final`.
+- v1b N8: `n8_debate_assessor_draft -> n8_debate_value_critic -> n8_debate_assessor_repair -> n8_debate_synthesizer_final`.
+
+Both primitives share ONE runtime implementation (`DMP-10`): the bounded-sequence skeleton is a single shared executor; v1c N2 and v1b N8 inject version-specific context-packet construction, output contract, and preserved facts. No second debate engine, LLM path, or hash implementation is created.
+
+### N8 Bounded-Sequence Trigger Semantics (N6-Isomorphic, Zero New Engine)
+N8 debate is `conditional`. Activation reuses the existing deterministic gate + loopback mechanism (same form as N6 loopback triage) — there is NO new trigger engine:
+
+| Trigger | Mechanism | Code / Source |
+| --- | --- | --- |
+| T1 borderline | Deterministic N8 gate check over the draft: `total_score` inside the policy band, or `confidence` below the policy floor. | `N8_VALUE_BORDERLINE_DEBATE_TRIGGER` (blocker, first pass) / `N8_VALUE_BORDERLINE_AFTER_DEBATE` (warning, post-debate) |
+| T3 dimension conflict | Deterministic N8 gate check: dimension-score spread at/above threshold, or a single dimension below floor while total is admissible. | `N8_DIMENSION_CONFLICT_DEBATE_TRIGGER` (blocker) / `N8_DIMENSION_CONFLICT_AFTER_DEBATE` (warning) |
+| T2 rerun drift | NOT an independent detector. The `n7_n8_debate_admission_review` slot reads the frozen `trial_ledger_hash` as reference input when recommending debate level. | trial ledger (existing N7->N8 projection) |
+| T4 operator force | `DMP-11` execution-plan explicit selection of a debate level; no new field. | execution_plan slot override |
+
+Escalation flow (N6-isomorphic):
+1. First-pass N8 (frozen payload's debate-admission `input_mode != feedback_from_n8`) hits T1/T3 -> gate emits the blocker, route `loopback` (`RB_N8_N7`, `loopback_target_code: n8_feedback_to_n7`), and records an `N8ToN7Feedback@v1` artifact. No authority is written.
+2. N7 re-enters in `feedback_from_n8` mode, runs `n7_n8_debate_admission_review` -> selects `debate_level` (compact vs provider-diverse-deep) -> emits `n8_debate_level_selected` warning -> pins the admission ref into the N7->N8 handoff.
+3. The N8 debate runtime (caller-side, like v1c N2) runs the 4-role bounded sequence; the synthesizer's `TopicValueAssessmentDraft@v1` is recorded into `n8_value_assessment_draft` for the same deterministic gate.
+4. Post-debate re-assessment still inside a trigger band -> admit with the `*_AFTER_DEBATE` warning (no further loopback): debate already ran for this contract. The coordinator loopback budget is a second safeguard.
+
+Thresholds are PROVISIONAL (`debate_trigger_thresholds` on the N8 node policy) and MUST be calibrated against near-prod deep-test score distributions; they are node-policy data, not service constants. Scope is N8-only: N9 remains a deterministic dispatcher; its declared loopback codes stay unused.
+
+### Named V1b N8 Debate Profiles
+The four N8 role slots share ONE model profile (`topic-selection.v1b.n8-bounded-debate.v1`) plus four per-role context-policy profiles. Per-role provider diversity is expressed as `model_option_id` overrides in the `DMP-11` execution plan on this one profile — NOT separate model profiles.
+
+`compact_assessment_debate` is the default daily local profile:
+
+| Role slot | Execution |
+| --- | --- |
+| `n8_debate_assessor_draft` | `codex_assisted` |
+| `n8_debate_value_critic` | `codex_assisted` |
+| `n8_debate_assessor_repair` | `codex_assisted` |
+| `n8_debate_synthesizer_final` | `codex_assisted` |
+
+`provider_diverse_deep_debate` is the high-conflict canary/review profile:
+
+| Role slot | Execution |
+| --- | --- |
+| `n8_debate_assessor_draft` | `codex_assisted` |
+| `n8_debate_value_critic` | `provider_llm` with OpenAI `openai-deep-reasoning` |
+| `n8_debate_assessor_repair` | `codex_assisted` |
+| `n8_debate_synthesizer_final` | `provider_llm` with OpenAI `openai-deep-reasoning` |
+
+Consistent with the `DMP-12` Codex participation boundary: Codex MUST NOT be the only deep-critique anchor nor perform final synthesis in a run claiming provider-quality debate evidence — hence the critic and synthesizer are provider-backed in `provider_diverse_deep_debate`.
+
+### Boundary
+- `DMP-13` defines the debate-primitive dichotomy and N8 trigger/admission semantics. The deterministic threshold VALUES live in the N8 node policy (calibratable data), not in this policy or in service code.
+- The shared bounded-sequence skeleton is the single implementation (`DMP-10`); v1c N2 and v1b N8 provide version strategies only.
+- `DMP-11` remains the override-shape/precedence rule; `DMP-12` remains the v1a named-profile SSOT; the model profile registry remains the implementation SSOT for option ids and timeouts.
+- Workflow-matrix N8 row references this decision for the conditional-debate mechanism.
+
+### Rationale
+Forcing debate into exactly two primitives prevents a third ad-hoc shape from drifting in, and binding N8 activation to the existing gate+loopback mechanism keeps "conditional debate" deterministic and replayable instead of a heuristic. Provider-backing the critic and synthesizer in the deep profile preserves an external quality anchor, matching the `DMP-12` Codex boundary.
+
 ## Pending Decisions
-- None. Debate Model Invocation Policy v1 is fully locked by `DMP-01` through `DMP-12`.
+- None. Debate Model Invocation Policy v1 is fully locked by `DMP-01` through `DMP-13`.
