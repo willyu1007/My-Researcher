@@ -14,6 +14,12 @@ import {
   topicSelectionOfflineFrozenInputBundleSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-offline-evaluation-replay-contracts';
 import {
+  TOPIC_SELECTION_AGENT_RUN_MODES,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
+import {
+  TOPIC_SELECTION_AGENT_EXECUTION_MODES,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
+import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS,
   topicSelectionV1bWorkflowHarnessRunRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
@@ -85,6 +91,7 @@ const sliceHumanSelectionSchema = {
     decision_basis: recordPayload,
     required_actions: stringArray,
     accepted_risk_refs: { type: 'array', items: recordPayload },
+    workflow_run_id: nullableStringId,
   }),
   ...paramsSchema({ optionSetId: stringId }),
 };
@@ -93,6 +100,7 @@ const sliceHumanSelectionSchema = {
 const constraintProfileHumanSchema = {
   ...bodySchema(['actor', 'profile'], {
     actor: actorRefSchema,
+    workflow_run_id: nullableStringId,
     profile: {
       type: 'object',
       additionalProperties: true,
@@ -184,6 +192,48 @@ const workflowHarnessRunBody = {
   ...workflowHarnessNodeParams,
   body: topicSelectionV1bWorkflowHarnessRunRequestSchema,
 };
+// T-123 Phase 2 — run-coordinator routes. The advance body validates budgets/enums at
+// the schema layer (the coordinator trusts numeric budgets), and bootstrap_request
+// reuses the SAME contract schema the direct harness-invocation route enforces.
+const workflowRunStateSchema = paramsSchema({ workflowRunId: stringId });
+const coordinatorExecutionSpecSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['execution_mode'],
+  properties: {
+    execution_mode: { enum: [...TOPIC_SELECTION_AGENT_EXECUTION_MODES] },
+    model_option_id: nullableStringId,
+  },
+} as const;
+const workflowRunAdvanceSchema = {
+  ...paramsSchema({ workflowRunId: stringId }),
+  ...bodySchema([], {
+    retry_node_id: nullableStringId,
+    bootstrap_request: { anyOf: [topicSelectionV1bWorkflowHarnessRunRequestSchema, { type: 'null' }] },
+    node_inputs: {
+      anyOf: [
+        {
+          type: 'object',
+          additionalProperties: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              execution_spec: { anyOf: [coordinatorExecutionSpecSchema, { type: 'null' }] },
+              draft_payload: { anyOf: [recordPayload, { type: 'null' }] },
+            },
+          },
+        },
+        { type: 'null' },
+      ],
+    },
+    max_steps: { type: 'integer', minimum: 1, maximum: 100 },
+    loopback_budget_per_node: { type: 'integer', minimum: 0, maximum: 10 },
+    node_timeout_ms: { type: 'integer', minimum: 1_000, maximum: 3_600_000 },
+    run_timeout_ms: { type: 'integer', minimum: 1_000, maximum: 7_200_000 },
+    created_by: actorType,
+    run_mode: { anyOf: [{ enum: [...TOPIC_SELECTION_AGENT_RUN_MODES] }, { type: 'null' }] },
+  }),
+};
 const workflowHarnessArtifactParams = paramsSchema({ artifactRefId: stringId });
 const workflowHarnessTraceSnapshotParams = paramsSchema({ traceSnapshotId: stringId });
 const workflowHarnessArtifactBody = bodySchema(['artifact_kind'], {
@@ -209,6 +259,16 @@ export async function registerTopicSelectionV1bRoutes(
     '/topic-selection/v1b/workflow-harness/nodes/:nodeId/invocations',
     { schema: workflowHarnessRunBody },
     controller.invokeWorkflowHarnessNode,
+  );
+  fastify.get<{ Params: { workflowRunId: string } }>(
+    '/topic-selection/v1b/workflow-runs/:workflowRunId/state',
+    { schema: workflowRunStateSchema },
+    controller.getWorkflowRunState,
+  );
+  fastify.post<{ Params: { workflowRunId: string }; Body: Record<string, unknown> }>(
+    '/topic-selection/v1b/workflow-runs/:workflowRunId/advance',
+    { schema: workflowRunAdvanceSchema, preValidation: normalizeOptionalBody },
+    controller.advanceWorkflowRun,
   );
   fastify.post<{ Body: WorkflowHarnessArtifactBody }>(
     '/topic-selection/v1b/workflow-harness/artifacts',

@@ -1,0 +1,487 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import type {
+  TopicSelectionArtifactRefRecord,
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import {
+  TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
+  type TopicSelectionV1bWorkflowHarnessRunRequest,
+  type TopicSelectionV1bWorkflowHarnessRunResult,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+
+import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
+import { TopicSelectionV1bRunCoordinatorService } from './topic-selection-v1b-run-coordinator-service.js';
+
+const RUN = 'workflow_run_coord_test';
+const CARD = 'title_card_coord_test';
+
+const N1 = 'topic-selection.v1b.create-intake-snapshot.v1';
+const N2 = 'topic-selection.v1b.record-research-constraint-profile.v1';
+const N3 = 'topic-selection.v1b.assess-intake-readiness.v1';
+const N4 = 'topic-selection.v1b.generate-research-slice-options.v1';
+const N6 = 'topic-selection.v1b.generate-topic-question-candidates.v1';
+
+function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
+  return { ref_type: refType, ref_id: refId, title_card_id: CARD };
+}
+
+class StubControlPlane {
+  readonly artifacts = new Map<string, TopicSelectionArtifactRefRecord>();
+  private counter = 0;
+
+  async listArtifactRefsByWorkflowRunId(workflowRunId: string): Promise<TopicSelectionArtifactRefRecord[]> {
+    return [...this.artifacts.values()].filter((artifact) => artifact.workflow_run_id === workflowRunId);
+  }
+
+  async getArtifactRef(artifactRefId: string): Promise<TopicSelectionArtifactRefRecord | null> {
+    return this.artifacts.get(artifactRefId) ?? null;
+  }
+
+  async recordArtifactRef(input: {
+    artifact_kind: string;
+    workflow_run_id?: string | null;
+    payload?: Record<string, unknown> | null;
+    title_card_id?: string | null;
+  } & Record<string, unknown>): Promise<TopicSelectionArtifactRefRecord> {
+    this.counter += 1;
+    const record = {
+      artifact_ref_id: `artifact_${this.counter}`,
+      artifact_kind: input.artifact_kind,
+      storage_kind: 'inline',
+      workflow_run_id: input.workflow_run_id ?? null,
+      title_card_id: input.title_card_id ?? CARD,
+      payload: input.payload ?? null,
+      checksum: input.payload ? sha256Text(stableStringify(input.payload)) : null,
+      created_at: `2026-06-12T00:00:${String(this.counter).padStart(2, '0')}.000Z`,
+      created_by: 'system',
+    } as unknown as TopicSelectionArtifactRefRecord;
+    this.artifacts.set(record.artifact_ref_id, record);
+    return record;
+  }
+}
+
+type ScriptedResult = Partial<TopicSelectionV1bWorkflowHarnessRunResult> & {
+  gate_status: string;
+  route_decision: string;
+  handoff_kind_for_test?: string;
+};
+
+class StubHarness {
+  readonly invocations: TopicSelectionV1bWorkflowHarnessRunRequest[] = [];
+  readonly script = new Map<string, ScriptedResult[]>();
+  hangNodes = new Set<string>();
+  private readonly hangWaiters = new Map<string, Array<() => void>>();
+
+  constructor(private readonly controlPlane: StubControlPlane) {}
+
+  on(nodeId: string, result: ScriptedResult): void {
+    const queue = this.script.get(nodeId) ?? [];
+    queue.push(result);
+    this.script.set(nodeId, queue);
+  }
+
+  /** Let a hanging invocation continue into its scripted result (orphan settles). */
+  releaseHangs(nodeId: string): void {
+    const waiters = this.hangWaiters.get(nodeId) ?? [];
+    this.hangWaiters.set(nodeId, []);
+    this.hangNodes.delete(nodeId);
+    for (const release of waiters) {
+      release();
+    }
+  }
+
+  async invokeNode(
+    request: TopicSelectionV1bWorkflowHarnessRunRequest,
+  ): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    if (this.hangNodes.has(request.node_id)) {
+      await new Promise<void>((resolve) => {
+        const waiters = this.hangWaiters.get(request.node_id) ?? [];
+        waiters.push(resolve);
+        this.hangWaiters.set(request.node_id, waiters);
+      });
+    }
+    this.invocations.push(request);
+    const queue = this.script.get(request.node_id) ?? [];
+    const scripted = queue.length > 1 ? queue.shift()! : queue[0];
+    if (!scripted) {
+      throw new Error(`no scripted result for ${request.node_id}`);
+    }
+    const result = {
+      schema_version: 'TopicSelectionV1bWorkflowHarnessRunResult@v1',
+      node_id: request.node_id,
+      workflow_run_id: request.workflow_run_id,
+      node_attempt_id: request.node_attempt_id,
+      failure_class: null,
+      replay_identity: {
+        workflow_run_id: request.workflow_run_id,
+        node_attempt_id: request.node_attempt_id,
+        attempt_family_key: request.node_attempt_id,
+        node_replay_key: `replay_${request.node_attempt_id}`,
+      },
+      hashes: {
+        frozen_input_hash: request.frozen_input.frozen_input_hash ?? 'fih',
+        execution_spec_hash: 'esh',
+        semantic_artifact_hash: null,
+        runtime_admission_hash: null,
+        gate_result_hash: 'grh',
+        authority_hash: `auth_hash_${request.node_id}`,
+        handoff_hash: `handoff_hash_${request.node_id}`,
+        route_hash: 'rh',
+      },
+      blockers: [],
+      warnings: [],
+      authority_ref: ref('authority', `auth_${request.node_id}_${this.invocations.length}`),
+      handoff_ref: null as TopicSelectionFunctionalRef | null,
+      gate_result_ref: null,
+      transition_attempt_ref: null,
+      trace_snapshot_ref: null,
+      harness_trace_artifact_ref: null,
+      replay_provenance: null,
+      error_code: null,
+      error_message: null,
+      ...scripted,
+    } as TopicSelectionV1bWorkflowHarnessRunResult;
+
+    // mimic the harness: persist a handoff artifact + the trace artifact
+    if (result.route_decision === 'invoke_next' || result.route_decision === 'stop_v1b_complete') {
+      const handoffKind = scripted.handoff_kind_for_test as string | undefined;
+      if (handoffKind) {
+        const handoffArtifact = await this.controlPlane.recordArtifactRef({
+          artifact_kind: 'structured_output',
+          workflow_run_id: request.workflow_run_id,
+          payload: {
+            envelope: { handoff_kind: handoffKind },
+            payload: { from_node: request.node_id },
+            required_refs: [ref('upstream_required', `req_${request.node_id}`)],
+          },
+        });
+        result.handoff_ref = ref('artifact_ref', handoffArtifact.artifact_ref_id);
+      }
+    }
+    await this.controlPlane.recordArtifactRef({
+      artifact_kind: 'trace',
+      workflow_run_id: request.workflow_run_id,
+      payload: {
+        payload_schema: 'TopicSelectionV1bWorkflowHarnessTracePayload@v1',
+        node_id: request.node_id,
+        workflow_run_id: request.workflow_run_id,
+        node_attempt_id: request.node_attempt_id,
+        node_replay_key: `replay_${request.node_attempt_id}`,
+        request,
+        result,
+        created_at: `2026-06-12T01:00:${String(this.invocations.length).padStart(2, '0')}.000Z`,
+      },
+    });
+    return result;
+  }
+}
+
+function makeSubject() {
+  const controlPlane = new StubControlPlane();
+  const harness = new StubHarness(controlPlane);
+  const coordinator = new TopicSelectionV1bRunCoordinatorService({
+    harness,
+    controlPlane: controlPlane as never,
+  });
+  return { controlPlane, harness, coordinator };
+}
+
+function bootstrapRequest(): TopicSelectionV1bWorkflowHarnessRunRequest {
+  const frozen = {
+    input_contract: 'V1aToV1bInputBundleFrozenRef@v1',
+    snapshot_kind: 'v1a_valid_need_bundle',
+    source_refs: [ref('v1a_valid_need_bundle', 'bundle_1')],
+    payload: { v1b_input_bundle_id: 'bundle_1' },
+  };
+  return {
+    schema_version: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
+    title_card_id: CARD,
+    workflow_run_id: RUN,
+    node_attempt_id: 'node_attempt_n1_1',
+    node_id: N1,
+    policy_version: 'topic-selection-v1b-node-policy-v1',
+    frozen_input: { ...frozen, frozen_input_hash: sha256Text(stableStringify(frozen)) },
+    created_by: 'system',
+  };
+}
+
+test('advance bootstraps N1 then halts at the N2 human node', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, {
+    gate_status: 'admitted',
+    route_decision: 'invoke_next',
+    handoff_kind_for_test: 'N1ToN2Handoff',
+  });
+
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    bootstrap_request: bootstrapRequest(),
+  });
+
+  assert.equal(report.steps.length, 1);
+  assert.equal(report.steps[0]!.node_id, N1);
+  assert.equal(report.halt.reason, 'human_node');
+  assert.equal(report.halt.node_id, N2);
+  assert.equal(report.run_state.last_completed_node_id, N1);
+  assert.equal(report.run_state.next_node_id, N2);
+});
+
+test('advance resumes after human N2, builds N3 from the N2 handoff, and halts at model-like N4', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted_with_warnings', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  // human acts through the human route — simulated by invoking N2 via the harness directly:
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN });
+  assert.deepEqual(report.steps.map((step) => step.node_id), [N3]);
+  assert.equal(report.halt.reason, 'model_input_required');
+  assert.equal(report.halt.node_id, N4);
+
+  const n3Request = harness.invocations.find((request) => request.node_id === N3)!;
+  assert.equal(n3Request.frozen_input.input_contract, 'N2ToN3Handoff@v1');
+  assert.equal(n3Request.frozen_input.snapshot_kind, 'research_constraint_profile');
+  assert.equal((n3Request.frozen_input.payload as Record<string, unknown>).n2_handoff_hash, `handoff_hash_${N2}`);
+  assert.ok(n3Request.frozen_input.frozen_input_hash);
+  const refKeys = n3Request.frozen_input.source_refs.map((item) => `${item.ref_type}:${item.ref_id}`);
+  assert.ok(refKeys.some((key) => key.startsWith('artifact_ref:')), 'handoff ref must be in source_refs');
+  assert.ok(refKeys.includes('upstream_required:req_' + N2), 'handoff required_refs must be propagated');
+});
+
+test('caller-supplied draft_payload is recorded as a semantic artifact for N4', async () => {
+  const { harness, coordinator, controlPlane } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: { [N4]: { draft_payload: { candidates: ['draft'] } } },
+  });
+
+  assert.deepEqual(report.steps.map((step) => step.node_id), [N3, N4]);
+  assert.equal(report.halt.reason, 'human_node'); // N5
+  const n4Request = harness.invocations.find((request) => request.node_id === N4)!;
+  assert.equal(n4Request.semantic_artifacts?.length, 1);
+  const artifactRef = n4Request.semantic_artifacts![0]!;
+  assert.equal(artifactRef.slot_id, 'n4_research_slice_option_draft');
+  assert.equal(artifactRef.input_hash, n4Request.frozen_input.frozen_input_hash);
+  assert.equal(artifactRef.run_mode, 'acceptance');
+  // one artifact backs both refs — the caller draft IS the normalized output
+  assert.equal(artifactRef.normalized_output_ref?.ref_id, artifactRef.support_artifact_ref.ref_id);
+  assert.equal(artifactRef.normalized_output_hash, artifactRef.support_artifact_hash);
+  const supportArtifact = await controlPlane.getArtifactRef(artifactRef.support_artifact_ref.ref_id);
+  assert.deepEqual(supportArtifact?.payload, { candidates: ['draft'] });
+});
+
+test('draft_payload and execution_spec together are rejected before any harness call', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      node_inputs: {
+        [N4]: {
+          draft_payload: { candidates: ['draft'] },
+          execution_spec: { execution_mode: 'provider_llm', model_option_id: 'm1' },
+        },
+      },
+    }),
+    /not both/,
+  );
+  assert.equal(harness.invocations.filter((request) => request.node_id === N4).length, 0);
+});
+
+test('loopback halts, retry_node_id resumes, and the per-node budget exhausts', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  // N4 keeps looping back (e.g. gate failure)
+  harness.on(N4, { gate_status: 'blocked', route_decision: 'loopback' });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+
+  const first = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: { [N4]: { draft_payload: { try: 1 } } },
+  });
+  assert.equal(first.halt.reason, 'harness_loopback');
+  assert.equal(first.halt.node_id, N4);
+
+  const retry = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N4,
+    node_inputs: { [N4]: { draft_payload: { try: 2 } } },
+    loopback_budget_per_node: 2,
+  });
+  assert.equal(retry.halt.reason, 'harness_loopback');
+
+  const exhausted = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N4,
+    node_inputs: { [N4]: { draft_payload: { try: 3 } } },
+    loopback_budget_per_node: 2,
+  });
+  assert.equal(exhausted.halt.reason, 'loopback_budget_exhausted');
+  assert.equal(exhausted.halt.node_id, N4);
+  assert.equal(harness.invocations.filter((request) => request.node_id === N4).length, 2);
+});
+
+test('concurrent advance calls are serialized per run (no duplicate node execution)', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+
+  const [first, second] = await Promise.all([
+    coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() }),
+    coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() }),
+  ]);
+
+  assert.equal(harness.invocations.filter((request) => request.node_id === N1).length, 1);
+  const reasons = [first.halt.reason, second.halt.reason].sort();
+  assert.deepEqual(reasons, ['human_node', 'human_node']);
+  assert.equal(first.steps.length + second.steps.length, 1);
+});
+
+test('node timeout halts the advance with a convergence hint', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.hangNodes.add(N1);
+
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    bootstrap_request: bootstrapRequest(),
+    node_timeout_ms: 50,
+  });
+  assert.equal(report.halt.reason, 'node_timeout');
+  assert.equal(report.halt.node_id, N1);
+  assert.match(report.halt.message, /replay-idempotent/);
+});
+
+test('a thrown advance neither crashes the process nor poisons or leaks the run lock', async () => {
+  const { harness, coordinator } = makeSubject();
+  // mismatched bootstrap run id → AppError before any harness call (with the old
+  // void-finally lock chain this raised an unhandledRejection and killed the runner)
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      bootstrap_request: { ...bootstrapRequest(), workflow_run_id: 'workflow_run_other' },
+    }),
+    /does not match the run/,
+  );
+  // give the lock-cleanup microtasks a tick, then the same run must advance normally
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  assert.equal(report.halt.reason, 'human_node');
+});
+
+test('a timed-out invocation still in flight blocks re-advance until it settles (no duplicate attempt)', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.hangNodes.add(N1);
+
+  const first = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    bootstrap_request: bootstrapRequest(),
+    node_timeout_ms: 30,
+  });
+  assert.equal(first.halt.reason, 'node_timeout');
+
+  // the orphaned invocation has not landed its trace — re-advancing must NOT re-invoke
+  const second = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    bootstrap_request: bootstrapRequest(),
+    node_timeout_ms: 30,
+  });
+  assert.equal(second.halt.reason, 'node_in_flight');
+  assert.equal(second.halt.node_id, N1);
+  assert.equal(harness.invocations.filter((request) => request.node_id === N1).length, 0);
+
+  // let the orphan settle (trace lands), then advance converges from the projection
+  harness.releaseHangs(N1);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const third = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  assert.equal(third.halt.reason, 'human_node');
+  assert.equal(harness.invocations.filter((request) => request.node_id === N1).length, 1);
+});
+
+test('same-millisecond traces resolve by event order, not created_at ties', async () => {
+  const { controlPlane, coordinator } = makeSubject();
+  const tracePayload = (attemptId: string, result: Record<string, unknown>) => ({
+    payload_schema: 'TopicSelectionV1bWorkflowHarnessTracePayload@v1',
+    node_id: N6,
+    workflow_run_id: RUN,
+    node_attempt_id: attemptId,
+    node_replay_key: `replay_${attemptId}`,
+    request: {},
+    result,
+    created_at: '2026-06-12T02:00:00.000Z', // identical ms timestamp on both traces
+  });
+  await controlPlane.recordArtifactRef({
+    artifact_kind: 'trace',
+    workflow_run_id: RUN,
+    payload: tracePayload('node_attempt_n6_first', { gate_status: 'blocked', route_decision: 'loopback' }),
+  });
+  await controlPlane.recordArtifactRef({
+    artifact_kind: 'trace',
+    workflow_run_id: RUN,
+    payload: tracePayload('node_attempt_n6_second', { gate_status: 'admitted', route_decision: 'invoke_next' }),
+  });
+
+  const state = await coordinator.getRunState(RUN);
+  const n6 = state.nodes.find((node) => node.node_id === N6)!;
+  assert.equal(n6.latest?.node_attempt_id, 'node_attempt_n6_second');
+  assert.equal(n6.latest?.route_decision, 'invoke_next');
+  assert.equal(n6.latest_admitted?.node_attempt_id, 'node_attempt_n6_second');
+});
+
+test('a later blocked re-attempt does not erase admitted lineage (latest_admitted survives)', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+
+  // someone re-invokes N1 outside the coordinator and the attempt blocks (e.g. replay drift)
+  harness.script.set(N1, [{ gate_status: 'blocked', route_decision: 'blocked' }]);
+  await harness.invokeNode({ ...bootstrapRequest(), node_attempt_id: 'node_attempt_n1_drift' });
+
+  const state = await coordinator.getRunState(RUN);
+  const n1 = state.nodes.find((node) => node.node_id === N1)!;
+  assert.equal(n1.latest?.gate_status, 'blocked');
+  assert.equal(n1.latest_admitted?.gate_status, 'admitted');
+  // completion/lineage still derive from the admitted attempt
+  assert.equal(state.last_completed_node_id, N1);
+  assert.equal(state.next_node_id, N2);
+});
+
+test('projection counts attempts and loopbacks and surfaces run completion', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  // synthetic N6 loopbacks recorded directly through the stub harness
+  harness.on(N6, { gate_status: 'blocked', route_decision: 'loopback' });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N6, node_attempt_id: 'node_attempt_n6_a' });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N6, node_attempt_id: 'node_attempt_n6_b' });
+
+  const state = await coordinator.getRunState(RUN);
+  const n6 = state.nodes.find((node) => node.node_id === N6)!;
+  assert.equal(n6.attempt_count, 2);
+  assert.equal(n6.loopback_count, 2);
+  assert.equal(state.run_complete, false);
+  const n1 = state.nodes.find((node) => node.node_id === N1)!;
+  assert.equal(n1.latest?.route_decision, 'invoke_next');
+});

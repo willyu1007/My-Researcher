@@ -2366,3 +2366,205 @@ test('v1b harness HTTP N6 emits decision-memory dedup warning when frozen input 
     await app.close();
   }
 });
+
+test('v1b run coordinator advances N1→N11 with human halts, caller drafts, and idempotent re-advance', async () => {
+  const app = buildApp({
+    topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
+  });
+  try {
+    const suffix = uniqueId('v1b-coordinator');
+    const bundleResult = await createV1bInputBundle(app, suffix);
+    const n1Input = v1bHarnessN1Request(bundleResult.v1bInputBundle, suffix);
+    const runId = n1Input.workflow_run_id;
+    const N2_ID = 'topic-selection.v1b.record-research-constraint-profile.v1';
+    const N4_ID = 'topic-selection.v1b.generate-research-slice-options.v1';
+    const N5_ID = 'topic-selection.v1b.select-research-slice.v1';
+    const N6_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1';
+    const N7_ID = 'topic-selection.v1b.materialize-topic-question-contract.v1';
+    const N8_ID = 'topic-selection.v1b.assess-topic-value.v1';
+
+    type CoordinatorState = {
+      nodes: Array<{
+        node_id: string;
+        latest: {
+          gate_status: string;
+          route_decision: string;
+          authority_ref: TopicSelectionFunctionalRef | null;
+          handoff_ref: TopicSelectionFunctionalRef | null;
+          trace_snapshot_ref: TopicSelectionFunctionalRef | null;
+          authority_hash: string | null;
+          handoff_hash: string | null;
+        } | null;
+      }>;
+      run_complete: boolean;
+    };
+    type AdvanceReport = {
+      steps: Array<{ node_id: string; gate_status: string }>;
+      halt: { reason: string; node_id: string | null };
+      run_state: CoordinatorState;
+    };
+    const advance = async (body: Record<string, unknown>): Promise<AdvanceReport> => {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(runId)}/advance`,
+        payload: body,
+      });
+      assertStatus(response, 200);
+      return response.json() as AdvanceReport;
+    };
+    // TAP suppresses assert messages — dump the report on the failing path only.
+    const dumpUnless = (condition: boolean, label: string, payload: unknown): void => {
+      if (!condition) {
+        console.error(label, JSON.stringify(payload, null, 2).slice(0, 6000));
+      }
+    };
+    const fabricateResult = (state: CoordinatorState, nodeId: string): WorkflowHarnessHttpResult => {
+      const latest = state.nodes.find((node) => node.node_id === nodeId)?.latest;
+      assert.ok(latest, `expected latest result for ${nodeId}`);
+      return {
+        gate_status: latest.gate_status,
+        route_decision: latest.route_decision,
+        failure_class: null,
+        authority_ref: latest.authority_ref,
+        handoff_ref: latest.handoff_ref,
+        trace_snapshot_ref: latest.trace_snapshot_ref,
+        transition_attempt_ref: null,
+        hashes: {
+          authority_hash: latest.authority_hash,
+          handoff_hash: latest.handoff_hash,
+        },
+      };
+    };
+
+    // 0) guard surfaces: unknown run id is a 404, schema rejects malformed budgets
+    const missingState = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(`${runId}_missing`)}/state`,
+    });
+    assert.equal(missingState.statusCode, 404);
+    const badBudget = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(runId)}/advance`,
+      payload: { max_steps: 0 },
+    });
+    assert.equal(badBudget.statusCode, 400);
+
+    // 1) bootstrap N1 → halt at the N2 human decision point
+    const afterN1 = await advance({ bootstrap_request: n1Input });
+    assert.deepEqual(afterN1.steps.map((step) => step.node_id), [n1Input.node_id]);
+    dumpUnless(afterN1.halt.reason === 'human_node', 'COORD_DEBUG_AFTER_N1', afterN1);
+    assert.equal(afterN1.halt.reason, 'human_node');
+    assert.equal(afterN1.halt.node_id, N2_ID);
+
+    // 2) human authors the N2 constraint profile, joining the SAME workflow run
+    const intakeSnapshotId = afterN1.run_state.nodes.find(
+      (node) => node.node_id === n1Input.node_id,
+    )!.latest!.authority_ref!.ref_id;
+    const n2Human = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/intake-snapshots/${encodeURIComponent(intakeSnapshotId)}/constraint-profile/human`,
+      payload: {
+        actor: { actor_type: 'human', actor_id: 'reviewer_coordinator_e2e' },
+        workflow_run_id: runId,
+        profile: acceptedConstraintProfilePayload(),
+      },
+    });
+    assertStatus(n2Human, 201);
+
+    // 3) advance → deterministic N3 runs, halts at model-like N4 (human-in-loop per D1)
+    const afterN3 = await advance({});
+    dumpUnless(afterN3.halt.reason === 'model_input_required', 'COORD_DEBUG_AFTER_N3', afterN3.halt);
+    assert.equal(afterN3.halt.reason, 'model_input_required');
+    assert.equal(afterN3.halt.node_id, N4_ID);
+
+    // 4) caller supplies the N4 draft → coordinator records the semantic artifact and runs N4
+    const afterN4 = await advance({
+      node_inputs: {
+        [N4_ID]: { draft_payload: v1bHarnessN4Draft(bundleResult.v1bInputBundle) as unknown as Record<string, unknown> },
+      },
+    });
+    dumpUnless(afterN4.halt.reason === 'human_node', 'COORD_DEBUG_AFTER_N4', afterN4);
+    assert.deepEqual(afterN4.steps.map((step) => step.node_id), [N4_ID]);
+    assert.equal(afterN4.halt.reason, 'human_node');
+    assert.equal(afterN4.halt.node_id, N5_ID);
+
+    // 5) human picks the slice (same run id)
+    const n4Like = fabricateResult(afterN4.run_state, N4_ID);
+    const selectedOption = await selectedV1bHarnessOption(app, n4Like);
+    // Binding guard: a route target that does not descend from THIS run's N4 authority
+    // is rejected before any harness write (cross-run contamination protection).
+    const wrongTarget = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/research-slice-option-sets/${encodeURIComponent(intakeSnapshotId)}/human-selection`,
+      payload: {
+        selected_option_id: selectedOption.research_slice_option_id,
+        selection_rationale: 'wrong target must not bind',
+        actor: { actor_type: 'human', actor_id: 'reviewer_coordinator_e2e' },
+        workflow_run_id: runId,
+      },
+    });
+    assert.equal(wrongTarget.statusCode, 409);
+    const n5Human = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/research-slice-option-sets/${encodeURIComponent(n4Like.authority_ref!.ref_id)}/human-selection`,
+      payload: {
+        selected_option_id: selectedOption.research_slice_option_id,
+        selection_rationale: 'Coordinator e2e: strongest bounded fit.',
+        actor: { actor_type: 'human', actor_id: 'reviewer_coordinator_e2e' },
+        workflow_run_id: runId,
+      },
+    });
+    assertStatus(n5Human, 201);
+
+    // 6) advance with the N6 draft → N6 + mechanical N7 run, halt at N8
+    const stateAfterN5 = (await advance({})).run_state; // surfaces fresh projection (halts at N6 input)
+    const n6Input = await v1bHarnessN6Request(app, fabricateResult(stateAfterN5, N5_ID), suffix);
+    const afterN7 = await advance({
+      node_inputs: {
+        [N6_ID]: {
+          draft_payload: v1bHarnessN6Draft(bundleResult.v1bInputBundle, n6Input) as unknown as Record<string, unknown>,
+        },
+      },
+    });
+    dumpUnless(afterN7.steps.length === 2, 'COORD_DEBUG_AFTER_N7', { steps: afterN7.steps, halt: afterN7.halt });
+    assert.deepEqual(afterN7.steps.map((step) => step.node_id), [N6_ID, N7_ID]);
+    assert.equal(afterN7.halt.reason, 'model_input_required');
+    assert.equal(afterN7.halt.node_id, N8_ID);
+
+    // 7) N8 draft from the materialized contract → chain completes through N9/N10/N11
+    const n8Input = await v1bHarnessN8Request(app, fabricateResult(afterN7.run_state, N7_ID), suffix);
+    const finalReport = await advance({
+      node_inputs: {
+        [N8_ID]: { draft_payload: v1bHarnessN8ValueDraft(n8Input) as unknown as Record<string, unknown> },
+      },
+    });
+    dumpUnless(finalReport.steps.length === 4, 'COORD_DEBUG_FINAL', { steps: finalReport.steps, halt: finalReport.halt });
+    assert.deepEqual(
+      finalReport.steps.map((step) => step.node_id),
+      [
+        N8_ID,
+        'topic-selection.v1b.decide-value-disposition.v1',
+        'topic-selection.v1b.create-draft-topic-package.v1',
+        'topic-selection.v1b.publish-v1c-input-bundle.v1',
+      ],
+    );
+    assert.equal(finalReport.halt.reason, 'run_complete');
+    assert.equal(finalReport.run_state.run_complete, true);
+
+    // 8) idempotent re-advance: nothing executes, completion is stable (crash-resume semantics)
+    const again = await advance({});
+    assert.equal(again.halt.reason, 'run_complete');
+    assert.equal(again.steps.length, 0);
+
+    // 9) run-state route exposes the projection
+    const stateResponse = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(runId)}/state`,
+    });
+    assertStatus(stateResponse, 200);
+    const state = stateResponse.json() as CoordinatorState;
+    assert.equal(state.run_complete, true);
+  } finally {
+    await app.close();
+  }
+});

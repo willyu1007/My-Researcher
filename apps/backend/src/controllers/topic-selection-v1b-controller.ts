@@ -7,6 +7,10 @@ import { TopicSelectionV1bTopicPackageService } from '../services/topic-selectio
 import { TopicSelectionV1bTopicQuestionService } from '../services/topic-selection-v1b-topic-question-service.js';
 import { TopicSelectionV1bValueAssessmentService } from '../services/topic-selection-v1b-value-assessment-service.js';
 import { TopicSelectionV1bWorkflowHarnessService } from '../services/topic-selection-v1b-workflow-harness-service.js';
+import {
+  TopicSelectionV1bRunCoordinatorService,
+  type AdvanceTopicSelectionV1bRunInput,
+} from '../services/topic-selection-v1b-run-coordinator-service.js';
 import { V1bSliceHumanSelectionService } from '../services/topic-selection-v1b-slice-human-selection-service.js';
 import {
   V1bConstraintProfileHumanService,
@@ -32,11 +36,15 @@ export type SliceHumanSelectionBody = {
   decision_basis?: Record<string, unknown>;
   required_actions?: string[];
   accepted_risk_refs?: TopicSelectionFunctionalRef[];
+  /** Join an existing coordinator-driven run; the attempt id is always service-generated
+   * (a caller-supplied stale id would replay or drift-block the run's frontier). */
+  workflow_run_id?: string | null;
 };
 
 export type ConstraintProfileHumanBody = {
   actor: TopicSelectionActorRef;
   profile: V1bHumanConstraintProfileContent;
+  workflow_run_id?: string | null;
 };
 
 export type OfflineDatasetBody = Parameters<TopicSelectionOfflineEvaluationReplayService['createDataset']>[0];
@@ -80,7 +88,43 @@ export class TopicSelectionV1bController {
     private readonly offlineReplay: TopicSelectionOfflineEvaluationReplayService,
     private readonly workflowHarness: TopicSelectionV1bWorkflowHarnessService,
     private readonly controlPlane: TopicSelectionControlPlaneService,
+    private readonly runCoordinator: TopicSelectionV1bRunCoordinatorService,
   ) {}
+
+  getWorkflowRunState = async (
+    request: { params: { workflowRunId: string } },
+    reply: FastifyReply,
+  ) => {
+    try {
+      const state = await this.runCoordinator.getRunState(request.params.workflowRunId);
+      if (!state.nodes.some((node) => node.latest)) {
+        // A v1b run exists only as its recorded attempts — an all-empty projection is a
+        // 404, not a legitimate "not started yet" state (matches the file's GET-by-id convention).
+        throw new AppError(404, 'NOT_FOUND', `workflow run ${request.params.workflowRunId} has no recorded attempts.`);
+      }
+      return reply.status(200).send(state);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  advanceWorkflowRun = async (
+    request: {
+      params: { workflowRunId: string };
+      body: Omit<AdvanceTopicSelectionV1bRunInput, 'workflow_run_id'>;
+    },
+    reply: FastifyReply,
+  ) => {
+    try {
+      const report = await this.runCoordinator.advanceUntilBlocked({
+        ...(request.body ?? {}),
+        workflow_run_id: request.params.workflowRunId,
+      });
+      return reply.status(200).send(report);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
 
   invokeWorkflowHarnessNode = async (
     request: BodyParamsRequest<WorkflowHarnessRunBody, { nodeId: string }>,
@@ -108,8 +152,17 @@ export class TopicSelectionV1bController {
     reply: FastifyReply,
   ) => {
     try {
+      const workflowRunId = request.body.workflow_run_id ?? undefined;
+      if (workflowRunId) {
+        await this.assertHumanRunBinding(workflowRunId, {
+          human_node_id: 'topic-selection.v1b.select-research-slice.v1',
+          upstream_node_id: 'topic-selection.v1b.generate-research-slice-options.v1',
+          route_target_ref_id: request.params.optionSetId,
+          route_target_label: 'research_slice_option_set_id',
+        });
+      }
       const service = new V1bSliceHumanSelectionService(this.workflowHarness, this.researchSlice);
-      const result = await service.selectSlice({
+      const invoke = () => service.selectSlice({
         research_slice_option_set_id: request.params.optionSetId,
         selected_option_id: request.body.selected_option_id,
         selection_rationale: request.body.selection_rationale,
@@ -118,7 +171,13 @@ export class TopicSelectionV1bController {
         decision_basis: request.body.decision_basis,
         required_actions: request.body.required_actions,
         accepted_risk_refs: request.body.accepted_risk_refs,
+        workflow_run_id: workflowRunId,
       });
+      // Same-run human writes share the coordinator's per-run mutex so they cannot
+      // interleave with an in-progress advance on this run.
+      const result = workflowRunId
+        ? await this.runCoordinator.runExclusive(workflowRunId, invoke)
+        : await invoke();
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -135,17 +194,68 @@ export class TopicSelectionV1bController {
     reply: FastifyReply,
   ) => {
     try {
+      const workflowRunId = request.body.workflow_run_id ?? undefined;
+      if (workflowRunId) {
+        await this.assertHumanRunBinding(workflowRunId, {
+          human_node_id: 'topic-selection.v1b.record-research-constraint-profile.v1',
+          upstream_node_id: 'topic-selection.v1b.create-intake-snapshot.v1',
+          route_target_ref_id: request.params.intakeSnapshotId,
+          route_target_label: 'intake_snapshot_id',
+        });
+      }
       const service = new V1bConstraintProfileHumanService(this.workflowHarness);
-      const result = await service.recordConstraintProfile({
+      const invoke = () => service.recordConstraintProfile({
         intake_snapshot_id: request.params.intakeSnapshotId,
         profile: request.body.profile,
         actor: request.body.actor,
+        workflow_run_id: workflowRunId,
       });
+      const result = workflowRunId
+        ? await this.runCoordinator.runExclusive(workflowRunId, invoke)
+        : await invoke();
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
     }
   };
+
+  /**
+   * A caller-supplied workflow_run_id binds a human decision into that run's timeline —
+   * validate the binding before invoking the harness: the run must exist, the human node
+   * must plausibly be its frontier, and the route target must descend from THIS run's
+   * upstream authority (a wrong/stale run id would otherwise contaminate a foreign run).
+   */
+  private async assertHumanRunBinding(
+    workflowRunId: string,
+    binding: {
+      human_node_id: string;
+      upstream_node_id: string;
+      route_target_ref_id: string;
+      route_target_label: string;
+    },
+  ): Promise<void> {
+    const state = await this.runCoordinator.getRunState(workflowRunId);
+    if (!state.nodes.some((node) => node.latest)) {
+      throw new AppError(404, 'NOT_FOUND', `workflow run ${workflowRunId} has no recorded attempts.`);
+    }
+    const humanNode = state.nodes.find((node) => node.node_id === binding.human_node_id);
+    if (state.next_node_id !== binding.human_node_id && !humanNode?.latest) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `workflow run ${workflowRunId} is not awaiting ${binding.human_node_id} (next: ${state.next_node_id ?? 'none'}).`,
+      );
+    }
+    const upstreamAuthority = state.nodes.find((node) => node.node_id === binding.upstream_node_id)
+      ?.latest_admitted?.authority_ref;
+    if (upstreamAuthority?.ref_id && upstreamAuthority.ref_id !== binding.route_target_ref_id) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `${binding.route_target_label} ${binding.route_target_ref_id} does not belong to workflow run ${workflowRunId} (its ${binding.upstream_node_id} authority is ${upstreamAuthority.ref_id}).`,
+      );
+    }
+  }
 
   /** T-115 — read-only projection: intake snapshots for a title-card, so the
    * constraint-profile authoring surface can offer a snapshot picker. */

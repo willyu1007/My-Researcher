@@ -198,6 +198,7 @@ import { TopicSelectionV1bTopicPackageService } from './services/topic-selection
 import { TopicSelectionV1bTopicQuestionService } from './services/topic-selection-v1b-topic-question-service.js';
 import { TopicSelectionV1bValueAssessmentService } from './services/topic-selection-v1b-value-assessment-service.js';
 import { TopicSelectionV1bWorkflowHarnessService } from './services/topic-selection-v1b-workflow-harness-service.js';
+import { TopicSelectionV1bRunCoordinatorService } from './services/topic-selection-v1b-run-coordinator-service.js';
 import {
   TopicSelectionV1cDownstreamFeedbackRecheckService,
   type TopicSelectionPaperProjectBridgeHandoffProvider,
@@ -521,6 +522,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       },
     },
   );
+  const topicSelectionV1bRunCoordinatorService = new TopicSelectionV1bRunCoordinatorService({
+    harness: topicSelectionV1bWorkflowHarnessService,
+    controlPlane: topicSelectionControlPlaneService,
+  });
   const topicSelectionV1bController = new TopicSelectionV1bController(
     topicSelectionV1bResearchSliceService,
     topicSelectionV1bTopicQuestionService,
@@ -529,6 +534,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     topicSelectionOfflineEvaluationReplayService,
     topicSelectionV1bWorkflowHarnessService,
     topicSelectionControlPlaneService,
+    topicSelectionV1bRunCoordinatorService,
   );
   const topicSelectionV1cPromotionInputService = new TopicSelectionV1cPromotionInputService({
     repository: topicSelectionV1cPromotionInputRepository,
