@@ -173,6 +173,8 @@ export const TOPIC_SELECTION_V1B_N7_FAILED_TRIAL_SYNTHESIS_SUPPORT_PROFILE_ID =
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_failed_trial_synthesis_support;
 export const TOPIC_SELECTION_V1B_N7_N8_DEBATE_ADMISSION_SUPPORT_PROFILE_ID =
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support;
+export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_PROFILE_ID =
+  TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate;
 
 const DEBATE_WORKER_DEEPSEEK_ELIGIBLE_PROFILE_IDS = new Set<string>([
   TOPIC_SELECTION_NEED_DISCOVERY_EXPLORER_PROFILE_ID,
@@ -716,6 +718,33 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
       run_mode_eligibility: SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY,
       output_contract: 'N8DebateAdmissionReviewSupport@v1',
       model_options: [],
+    }),
+    profileBase({
+      // T-123 Phase 3 (DP-3.5) — shared by all 4 N8 bounded-debate role slots
+      // (n8_debate_assessor_draft/value_critic/assessor_repair/synthesizer_final). Per-role
+      // provider diversity (provider_diverse_deep_debate) is expressed as model_option overrides
+      // on THIS one profile via the DMP-11 execution plan, not separate profiles.
+      profile_id: TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_PROFILE_ID,
+      profile_function: 'v1b_topic_value_assessment_bounded_micro_debate',
+      role_family: 'single_agent',
+      stage_family: 'v1b_topic_value_assessment',
+      quality_objectives: [
+        'run_fixed_role_value_assessment_debate_without_gate_authority',
+        'preserve_n7_frozen_context_refs_and_prior_role_hashes',
+        'prepare_synthesizer_final_for_n8_deterministic_value_gate',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'TopicSelectionV1bN8BoundedDebateRoleOutput@v1',
+      model_options: providerOptions(TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'large',
+          }),
+        }),
+      ),
     }),
     profileBase({
       profile_id: TOPIC_SELECTION_V1C_PROMOTION_DECISION_SUPPORT_PROFILE_ID,

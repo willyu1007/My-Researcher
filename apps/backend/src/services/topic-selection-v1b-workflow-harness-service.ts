@@ -123,6 +123,7 @@ import {
   type TopicSelectionV1bN7ToN6FailedTrialLoopbackContextProjection,
   type TopicSelectionV1bCandidateGroupingSupportPayload,
   type TopicSelectionV1bN8DebateAdmissionReviewSupportPayload,
+  type TopicSelectionV1bN8DebateTriggerThresholds,
   type TopicSelectionV1bN8FailedTrialSynthesisSupportPayload,
   type TopicSelectionV1bN8HarnessFrozenInputPayload,
   type TopicSelectionV1bN8ToN7FeedbackPayload,
@@ -507,6 +508,50 @@ const SEMANTIC_SLOT_ID_SET = new Set<string>(TOPIC_SELECTION_V1B_WORKFLOW_HARNES
 const RUNTIME_PROVENANCE_CLASS_SET = new Set<string>(
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUNTIME_PROVENANCE_CLASSES,
 );
+
+/**
+ * T-123 Phase 3 (D2) — deterministic T1 borderline / T3 dimension-conflict debate
+ * triggers. Pure code over node-policy thresholds (provisional values, DP-3.3); no
+ * engine. Exported for direct boundary-value unit testing.
+ */
+export function computeTopicSelectionV1bN8DebateTriggers(
+  draft: {
+    total_score: number;
+    confidence: number;
+    dimension_scores: ReadonlyArray<{ dimension_key: string; score: number }>;
+  },
+  thresholds: TopicSelectionV1bN8DebateTriggerThresholds | null,
+): Array<{ code: string; message: string }> {
+  if (!thresholds) {
+    return [];
+  }
+  const issues: Array<{ code: string; message: string }> = [];
+  const t1Band = draft.total_score >= thresholds.t1_total_score_min
+    && draft.total_score < thresholds.t1_total_score_max_exclusive;
+  const t1Confidence = draft.confidence < thresholds.t1_confidence_min;
+  if (t1Band || t1Confidence) {
+    issues.push({
+      code: 'N8_VALUE_BORDERLINE_DEBATE_TRIGGER',
+      message: `N8 value signal is borderline (total_score=${draft.total_score}, confidence=${draft.confidence}); bounded debate re-assessment is required (T1).`,
+    });
+  }
+  // T3 only applies to a draft that is otherwise value-admissible (total_score >= floor):
+  // a low-total draft is handled by the readiness/score gate, not by debate. Both the spread
+  // and the weak-single-dimension branches respect the floor so the trigger is symmetric.
+  const t3Admissible = draft.total_score >= thresholds.t3_total_score_min;
+  const scores = draft.dimension_scores.map((score) => score.score);
+  const spread = scores.length > 0 ? Math.max(...scores) - Math.min(...scores) : 0;
+  const weakDimension = t3Admissible
+    ? draft.dimension_scores.find((score) => score.score < thresholds.t3_single_dimension_floor)
+    : undefined;
+  if (t3Admissible && (spread >= thresholds.t3_dimension_spread_min || weakDimension)) {
+    issues.push({
+      code: 'N8_DIMENSION_CONFLICT_DEBATE_TRIGGER',
+      message: `N8 dimension scores conflict (spread=${spread}${weakDimension ? `, ${weakDimension.dimension_key}=${weakDimension.score}` : ''}); bounded debate re-assessment is required (T3).`,
+    });
+  }
+  return issues;
+}
 
 export class TopicSelectionV1bWorkflowHarnessService {
   private readonly idFactory: IdFactory;
@@ -5270,6 +5315,31 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: draftBlocker.message,
       });
     }
+    // T-123 Phase 3 (D2/DP-3.2): deterministic debate triggers. The harness does trigger
+    // DETECTION + the N6-isomorphic loopback gate; the bounded-debate EXECUTION (the 4-role
+    // re-assessment that produces a better draft) is caller-side (the v1b N8 debate runtime),
+    // exactly as v1c N2 runs its debate caller-side before its gate. On a first pass that hits
+    // T1/T3 we loop back to N7 for debate admission; on any non-first-pass the trigger is
+    // downgraded to a warning (DP-3.2 anti-oscillation).
+    const debateAdmission = await this.resolveN8DebateAdmission(payload.value);
+    if (!debateAdmission.ok) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: debateAdmission.code,
+        message: debateAdmission.message,
+      });
+    }
+    const debateThresholds = this.getNodePolicy('topic-selection.v1b.assess-topic-value.v1').debate_trigger_thresholds ?? null;
+    const debateTriggers = computeTopicSelectionV1bN8DebateTriggers(draftResolution.value.draft, debateThresholds);
+    // Anti-loop: only the EXPLICIT first-pass marker arms the loopback. A missing/unknown
+    // input_mode (stale/older-schema/hand-built admission) falls through to warnings, never
+    // re-arming an N8<->N7 oscillation. The intended feedback re-entry carries 'feedback_from_n8'.
+    const firstPass = debateAdmission.value.input_mode === 'initial_from_n6';
+    if (debateTriggers.length > 0 && firstPass) {
+      return this.persistN8DebateLoopback(input, hashContext, payload.value, draftResolution.value, debateTriggers);
+    }
+    const postDebateTriggerWarnings = firstPass ? [] : debateTriggers;
+    // DP-3.3 tripwire: provisional, un-calibrated thresholds must not silently govern a product run.
+    const provisionalThresholdsInProduct = Boolean(debateThresholds?.provisional) && input.run_mode === 'product';
 
     const now = this.now();
     const runId = this.idFactory('assess_topic_value_run');
@@ -5392,11 +5462,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
       updated_at: now,
     };
     const assessmentHash = this.hashN8ValueAssessmentAuthority(assessment);
+    const warnings = this.n8Warnings(
+      draftResolution.value.draft,
+      loaded.value,
+      postDebateTriggerWarnings,
+      provisionalThresholdsInProduct,
+    );
     const gateStatus: TopicSelectionV1bWorkflowHarnessGateStatus =
-      this.n8Warnings(draftResolution.value.draft, loaded.value).length > 0
+      warnings.length > 0
         ? 'admitted_with_warnings'
         : 'admitted';
-    const warnings = this.n8Warnings(draftResolution.value.draft, loaded.value);
     const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
       authorityHash: assessmentHash,
       blockerCodes: [],
@@ -6634,6 +6709,153 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return null;
   }
 
+  /**
+   * T-123 Phase 3 (D-T123-02) — resolve the frozen debate-admission artifact the N7
+   * handoff pinned. Its `input_mode` is the deterministic first-pass vs post-feedback
+   * discriminator (DP-3.2): N7 records it from its own frozen input on both paths.
+   */
+  private async resolveN8DebateAdmission(
+    payload: TopicSelectionV1bN8HarnessFrozenInputPayload,
+  ): Promise<
+    | { ok: true; value: { input_mode: string; debate_level: string; recommended_profile_id: string } }
+    | { ok: false; code: string; message: string }
+  > {
+    const artifact = await this.controlPlane.getArtifactRef(payload.n8_debate_admission_ref.ref_id);
+    const admission = artifact?.payload;
+    if (!artifact || !this.isRecord(admission) || this.hash(admission) !== payload.n8_debate_admission_hash) {
+      return {
+        ok: false,
+        code: 'N8_DEBATE_ADMISSION_UNRESOLVED',
+        message: 'N8 frozen debate-admission ref does not resolve to the hashed admission artifact.',
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        input_mode: String(admission.input_mode ?? 'initial_from_n6'),
+        debate_level: String(admission.debate_level ?? 'compact_assessment_debate'),
+        recommended_profile_id: String(admission.recommended_profile_id ?? ''),
+      },
+    };
+  }
+
+  /**
+   * T-123 Phase 3 — first-pass T1/T3 hit: persist a loopback result (route RB_N8_N7,
+   * declared loopback_target_code n8_feedback_to_n7) and record the N8ToN7Feedback
+   * artifact the N7 feedback_from_n8 re-entry consumes. Mirrors the N7→N6 exhaustion
+   * loopback form; no authority is written (the feedback packet is this attempt's record).
+   */
+  private async persistN8DebateLoopback(
+    input: TopicSelectionV1bWorkflowHarnessRunRequest,
+    hashContext: HashContext,
+    payload: TopicSelectionV1bN8HarnessFrozenInputPayload,
+    draftResolution: N8DraftResolution,
+    triggers: Array<{ code: string; message: string }>,
+  ): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    let previousN7HandoffRef: TopicSelectionFunctionalRef | null = null;
+    for (const sourceRef of input.frozen_input.source_refs) {
+      if (sourceRef.ref_type !== 'artifact_ref') {
+        continue;
+      }
+      const artifact = await this.controlPlane.getArtifactRef(sourceRef.ref_id);
+      if (this.isHandoffArtifactPayload(artifact?.payload, 'N7ToN8Handoff')
+        && this.hash(artifact!.payload) === payload.n7_handoff_hash) {
+        previousN7HandoffRef = sourceRef;
+        break;
+      }
+    }
+    if (!previousN7HandoffRef) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N8_DEBATE_LOOPBACK_HANDOFF_REF_MISSING',
+        message: 'N8 debate loopback requires the persisted N7ToN8 handoff artifact in frozen source_refs.',
+      });
+    }
+    // n8_gate_result_hash is a digest of THIS loopback gate decision (route + trigger codes),
+    // so it includes loopback_target_code to match the decision the attempt actually records.
+    // It is a triggering-decision digest, not the attempt's final gate_result_hash (that hash
+    // takes the feedback artifact as authority, so it can't be embedded in the feedback itself).
+    const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
+      authorityHash: draftResolution.draftHash,
+      blockerCodes: triggers.map((trigger) => trigger.code),
+      gateStatus: 'blocked',
+      loopbackTargetCode: 'n8_feedback_to_n7',
+      routeDecision: 'loopback',
+      warningCodes: [],
+    });
+    const feedbackPayload: TopicSelectionV1bN8ToN7FeedbackPayload = {
+      feedback_class: 'gate_rejected',
+      failure_reason_code: triggers[0]!.code,
+      feedback_summary: triggers.map((trigger) => trigger.message).join(' '),
+      affected_refs: this.uniqueRefs([
+        payload.topic_question_contract_ref,
+        payload.active_candidate_ref,
+        payload.topic_question_candidate_set_ref,
+      ]),
+      previous_n7_handoff_ref: previousN7HandoffRef,
+      previous_n7_handoff_hash: payload.n7_handoff_hash,
+      previous_trial_ledger_ref: payload.trial_ledger_ref,
+      previous_trial_ledger_hash: payload.trial_ledger_hash,
+      failed_topic_question_contract_ref: payload.topic_question_contract_ref,
+      failed_topic_question_contract_hash: payload.topic_question_contract_hash,
+      failed_candidate_ref: payload.active_candidate_ref,
+      failed_candidate_hash: payload.active_candidate_hash,
+      topic_question_candidate_set_ref: payload.topic_question_candidate_set_ref,
+      topic_question_candidate_set_hash: payload.topic_question_candidate_set_hash,
+      n8_gate_result_hash: gateResultHash,
+      value_assessment_ref: null,
+      value_assessment_hash: null,
+    };
+    // Validate the producer against the SAME predicate N7's feedback_from_n8 re-entry uses
+    // (resolveN7FeedbackPayload -> isN8ToN7FeedbackPayload), so a producer/validator key-set
+    // drift fails loudly here at write time instead of silently dead-ending the loopback at N7.
+    if (!this.isN8ToN7FeedbackPayload(feedbackPayload)) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'N8 debate loopback feedback payload does not satisfy the N8ToN7Feedback contract.');
+    }
+    const feedbackPayloadHash = this.hash(feedbackPayload);
+    const artifact = await this.controlPlane.recordArtifactRef({
+      workspace_id: input.workspace_id ?? null,
+      title_card_id: input.title_card_id ?? payload.topic_question_contract_ref.title_card_id ?? null,
+      artifact_kind: 'structured_output',
+      storage_kind: 'inline',
+      workflow_run_id: input.workflow_run_id,
+      payload: feedbackPayload as unknown as Record<string, unknown>,
+      created_by: input.created_by ?? 'system',
+    });
+    const feedbackRef = this.ref('artifact_ref', artifact.artifact_ref_id, artifact.title_card_id ?? input.title_card_id ?? null);
+    return this.persistAdmittedResult(input, hashContext, {
+      additionalAuthorityRefs: [],
+      authorityHash: feedbackPayloadHash,
+      authorityRef: feedbackRef,
+      blockers: triggers.map((trigger) => this.blocker(
+        trigger.code,
+        trigger.message,
+        [payload.topic_question_contract_ref, payload.active_candidate_ref],
+      )),
+      errorCode: triggers[0]!.code,
+      errorMessage: triggers[0]!.message,
+      failureClass: 'semantic_non_pass',
+      gateStatus: 'blocked',
+      handoff: null,
+      handoffHash: null,
+      loopbackTargetCode: 'n8_feedback_to_n7',
+      routeDecision: 'loopback',
+      sourceRef: payload.topic_question_contract_ref,
+      targetRef: feedbackRef,
+      tracePhase: 'T-123 N8 debate trigger loopback',
+      tracePayload: {
+        loopback_target_code: 'n8_feedback_to_n7',
+        n8_feedback_ref: feedbackRef,
+        n8_feedback_record_hash: this.hash(artifact),
+        n8_feedback_payload_hash: feedbackPayloadHash,
+        trigger_codes: triggers.map((trigger) => trigger.code),
+      },
+      transitionKey: 'topic-selection.v1b.harness.n8-debate-trigger-loopback',
+      warnings: [],
+    }, {
+      writeAuthority: async () => {},
+    });
+  }
+
   private isN8ValueGateResult(value: unknown): boolean {
     if (!this.isRecord(value)) {
       return false;
@@ -6690,11 +6912,35 @@ export class TopicSelectionV1bWorkflowHarnessService {
     ]);
   }
 
+  /** Maps a debate-trigger code to its post-debate warning code; exhaustive (no catch-all). */
+  private static readonly N8_AFTER_DEBATE_WARNING_BY_TRIGGER: Record<string, string> = {
+    N8_VALUE_BORDERLINE_DEBATE_TRIGGER: 'N8_VALUE_BORDERLINE_AFTER_DEBATE',
+    N8_DIMENSION_CONFLICT_DEBATE_TRIGGER: 'N8_DIMENSION_CONFLICT_AFTER_DEBATE',
+  };
+
   private n8Warnings(
     draft: TopicSelectionAssessTopicValueLlmOutput,
     loaded: N8LoadedContext,
+    postDebateTriggers: Array<{ code: string; message: string }> = [],
+    provisionalThresholdsInProduct = false,
   ): TopicSelectionGateIssue[] {
     const warnings: TopicSelectionGateIssue[] = [];
+    if (provisionalThresholdsInProduct) {
+      warnings.push(this.warning(
+        'N8_DEBATE_THRESHOLDS_PROVISIONAL',
+        'N8 debate-trigger thresholds are still provisional (DP-3.3) and governed a product run; calibrate against near-prod deep-test data.',
+      ));
+    }
+    // DP-3.2: a non-first-pass re-assessment still inside a trigger band admits with a warning
+    // (no further loopback). Exhaustive code map — an unknown trigger throws rather than being
+    // silently relabeled as a dimension-conflict warning.
+    for (const trigger of postDebateTriggers) {
+      const warningCode = TopicSelectionV1bWorkflowHarnessService.N8_AFTER_DEBATE_WARNING_BY_TRIGGER[trigger.code];
+      if (!warningCode) {
+        throw new AppError(500, 'INTERNAL_ERROR', `N8 has no after-debate warning code for trigger ${trigger.code}.`);
+      }
+      warnings.push(this.warning(warningCode, trigger.message));
+    }
     if (draft.accepted_risk_refs.length > 0 || loaded.contract.accepted_risk_refs.length > 0) {
       warnings.push(this.warning('N8_RESIDUAL_RISK_CARRIED_FORWARD', 'N8 value assessment carries accepted risk refs forward.', draft.accepted_risk_refs));
     }

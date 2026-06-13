@@ -1,5 +1,4 @@
 import type {
-  TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
@@ -22,10 +21,8 @@ import type {
   TopicSelectionPromotionInputSnapshotHandoff,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-input-contracts';
 import { AppError } from '../errors/app-error.js';
-import {
-  sha256Text,
-  stableStringify,
-} from './literature-content-processing-utils.js';
+import { stableStringify } from './literature-content-processing-utils.js';
+import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   TOPIC_SELECTION_CONTEXT_RUNTIME_REDACTION_POLICY,
@@ -53,6 +50,14 @@ import {
 import type {
   TopicSelectionCompressionFactInventory,
 } from './topic-selection-compression-runtime-service.js';
+import {
+  TopicSelectionBoundedDebateCoreService,
+} from './topic-selection-bounded-debate-core-service.js';
+import type {
+  BoundedDebateRoleContext,
+  BoundedDebateStrategy,
+  BoundedDebateInvocationEnvelope,
+} from './topic-selection-bounded-debate-strategy.js';
 import {
   TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER,
   type TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity,
@@ -156,11 +161,27 @@ type N2RuntimeSlotBinding = {
   schema: Record<string, unknown>;
 };
 
+/** Per-invocation bag the strategy threads through the shared core (codex/mock + compression). */
+type V1cN2InvocationInputs = {
+  compression_attempt: TopicSelectionV1cN2RuntimeCompressionAttempt | null;
+  overrides: TopicSelectionV1cN2RuntimeTokenBudgetOverrides | null;
+  codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1cN2BoundedDebateRoleOutput> | null;
+  mocked_output: TopicSelectionMockedAgentOutput<TopicSelectionV1cN2BoundedDebateRoleOutput> | null;
+};
+
+type V1cN2RoleContext = BoundedDebateRoleContext<
+  TopicSelectionPromotionInputSnapshotHandoff,
+  TopicSelectionV1cN2BoundedDebateRoleSlotId,
+  TopicSelectionV1cN2BoundedDebateRoleArtifact,
+  V1cN2InvocationInputs
+>;
+
 const NODE_ID = TOPIC_SELECTION_V1C_NODE_ID.n2_generate_promotion_support;
 const OUTPUT_CONTRACT = 'TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1' as const;
 const PROMPT_TEMPLATE_ID = 'topic-selection-v1c-promotion-support-bounded-micro-debate' as const;
 const PROMPT_TEMPLATE_VERSION = '1' as const;
 const DEFAULT_POLICY_VERSION = 'topic-selection-v1c-n2-bounded-debate-runtime-v1' as const;
+const DEBATE_LOOP_ID = 'v1c_n2_bounded_micro_debate' as const;
 
 const ROLE_OUTPUT_SCHEMA = {
   type: 'object',
@@ -172,80 +193,112 @@ const ROLE_OUTPUT_SCHEMA = {
   },
 } as const;
 
-export class TopicSelectionV1cN2BoundedDebateRuntimeService {
-  private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
-  private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
-  private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService;
-  private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
+/**
+ * T-123 Phase 3 (DP-3.1) — v1c N2 bounded-debate strategy: owns ALL v1c-specific byte-bearing
+ * computation (source hashes, runtime-invocation-context literal, context packet, messages,
+ * token budget/compression, role-artifact + admission-identity literals). Relocated VERBATIM from
+ * the former runtime-service private methods so the v1c-n2-runtime-smoke prompt_packet_hashes and
+ * the N2_BOUNDED_DEBATE_ARTIFACT_PROMPT_DRIFT block stay byte-identical. The shared core drives the
+ * role turn; the smoke continues to drive roles via the runtime service's own loop.
+ */
+class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
+  TopicSelectionPromotionInputSnapshotHandoff,
+  TopicSelectionV1cN2BoundedDebateRoleSlotId,
+  TopicSelectionV1cN2BoundedDebateRoleOutput,
+  TopicSelectionV1cN2BoundedDebateRoleArtifact,
+  V1cN2InvocationInputs
+> {
+  readonly roleOrder = TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER;
+  readonly debateLoopId = DEBATE_LOOP_ID;
+
+  // binding + runtime profile depend only on slot_id (pure registry lookups), so memoize
+  // per slot — the shared core calls buildContextPacket/runtimeTokenBudget/assembleRoleArtifact
+  // within one turn, each resolving the same slot; caching avoids 2 redundant AJV registry
+  // validations + 2 profile hashes per role (8 per 4-role debate). Read-only, byte-identical.
+  private readonly bindingCache = new Map<TopicSelectionV1cN2BoundedDebateRoleSlotId, N2RuntimeSlotBinding>();
+  private readonly runtimeProfileCache = new Map<TopicSelectionV1cN2BoundedDebateRoleSlotId, TopicSelectionResolvedContextPolicyProfile>();
 
   constructor(
-    private readonly controlPlane: TopicSelectionControlPlaneService,
-    options: {
-      agentOrchestrator?: TopicSelectionAgentOrchestratorService;
-      contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
-      modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
-      promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
-    } = {},
-  ) {
-    this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
-      ?? new TopicSelectionContextPolicyProfileRegistryService();
-    this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
-    this.promptPacketRuntime = options.promptPacketRuntime ?? new TopicSelectionPromptPacketRuntimeService();
-    this.agentOrchestrator = options.agentOrchestrator ?? new TopicSelectionAgentOrchestratorService({
-      controlPlane,
-      modelProfileRegistry: this.modelProfileRegistry,
-    });
+    private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService,
+    private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService,
+    private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService,
+  ) {}
+
+  // ---------------------------------------------------------------- shared-core hooks
+
+  assertInput(ctx: V1cN2RoleContext): void {
+    this.assertHandoff(ctx.handoff);
   }
 
-  async generateRoleArtifact(
-    input: GenerateTopicSelectionV1cN2BoundedDebateRoleInput,
-  ): Promise<TopicSelectionV1cN2BoundedDebateRoleGenerationResult> {
-    this.assertHandoff(input.handoff);
-    const binding = this.slotBinding(input.slot_id);
-    const runMode = input.run_mode ?? this.defaultRunMode(input.execution_mode);
-    const priorRoleArtifactHashes = this.priorRoleArtifactHashes(input.prior_role_artifacts ?? []);
-    const sourceHashes = this.sourceHashes(input.handoff, priorRoleArtifactHashes);
+  sourceHashes(ctx: V1cN2RoleContext): Record<string, string> {
+    return this.sourceHashesFor(ctx.handoff, ctx.priorRoleArtifactHashes);
+  }
+
+  runtimeInvocationContextObject(ctx: V1cN2RoleContext, sourceHashes: Record<string, string>): unknown {
+    return this.runtimeInvocationContextObjectFor(this.slotBinding(ctx.slotId), sourceHashes, ctx.priorRoleArtifactHashes);
+  }
+
+  buildContextPacket(args: {
+    ctx: V1cN2RoleContext;
+    runtimeInvocationContextHash: string;
+    sourceHashes: Record<string, string>;
+  }): Record<string, unknown> {
+    const binding = this.slotBinding(args.ctx.slotId);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
-    const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
-      binding,
-      sourceHashes,
-      priorRoleArtifactHashes,
-    );
-    const contextPacket = this.buildContextPacket({
-      input,
+    return this.buildContextPacketFor({
+      handoff: args.ctx.handoff,
+      workflowRunId: args.ctx.workflowRunId,
+      nodeAttemptId: args.ctx.nodeAttemptId,
+      policyVersion: args.ctx.policyVersion,
       binding,
       runtimeProfile,
-      runtimeInvocationContextHash,
-      sourceHashes,
-      priorRoleArtifactHashes,
-    });
-    const contextPacketHash = this.hash(contextPacket);
-    const contextArtifact = await this.controlPlane.recordArtifactRef({
-      workspace_id: input.handoff.snapshot.workspace_id ?? null,
-      title_card_id: input.handoff.snapshot.title_card_id,
-      artifact_kind: 'diagnostic',
-      storage_kind: 'inline',
-      workflow_run_id: input.workflow_run_id,
-      payload: contextPacket as unknown as Record<string, unknown>,
-      checksum: contextPacketHash,
-      created_by: input.created_by ?? 'system',
-    });
-    const contextPacketRef = this.toArtifactFunctionalRef(contextArtifact);
-    const dynamicMaterialRefs = this.dynamicMaterialRefs(input.prior_role_artifacts ?? []);
+      sourceHashes: args.sourceHashes,
+      priorRoleArtifactHashes: args.ctx.priorRoleArtifactHashes,
+    }) as unknown as Record<string, unknown>;
+  }
 
-    const invocation = await this.agentOrchestrator.invokeStructuredOutput<TopicSelectionV1cN2BoundedDebateRoleOutput>({
-      workspace_id: input.handoff.snapshot.workspace_id ?? null,
-      title_card_id: input.handoff.snapshot.title_card_id,
+  contextArtifactScope(ctx: V1cN2RoleContext): { workspace_id: string | null; title_card_id: string | null } {
+    return {
+      workspace_id: ctx.handoff.snapshot.workspace_id ?? null,
+      title_card_id: ctx.handoff.snapshot.title_card_id,
+    };
+  }
+
+  outputArtifactScope(ctx: V1cN2RoleContext): { workspace_id: string | null; title_card_id: string | null } {
+    return this.contextArtifactScope(ctx);
+  }
+
+  messages(
+    ctx: V1cN2RoleContext,
+    contextPacket: Record<string, unknown>,
+  ): Array<{ role: 'system' | 'user'; content: string }> {
+    return this.messagesFor(
+      this.slotBinding(ctx.slotId),
+      contextPacket as unknown as TopicSelectionV1cN2BoundedDebateContextPacket,
+    );
+  }
+
+  sourceRefs(contextPacket: Record<string, unknown>): TopicSelectionFunctionalRef[] {
+    return (contextPacket as unknown as TopicSelectionV1cN2BoundedDebateContextPacket).source_refs;
+  }
+
+  invocationEnvelope(args: {
+    ctx: V1cN2RoleContext;
+  }): BoundedDebateInvocationEnvelope<TopicSelectionV1cN2BoundedDebateRoleOutput> {
+    const binding = this.slotBinding(args.ctx.slotId);
+    return {
+      workspace_id: args.ctx.handoff.snapshot.workspace_id ?? null,
+      title_card_id: args.ctx.handoff.snapshot.title_card_id,
       node_id: NODE_ID,
-      workflow_run_id: input.workflow_run_id,
-      node_attempt_id: input.node_attempt_id,
-      invocation_attempt_id: `${input.node_attempt_id}.${input.slot_id}.runtime_role`,
-      execution_mode: input.execution_mode,
-      executor_kind: this.executorKind(input.execution_mode),
-      run_mode: runMode,
+      workflow_run_id: args.ctx.workflowRunId,
+      node_attempt_id: args.ctx.nodeAttemptId,
+      invocation_attempt_id: `${args.ctx.nodeAttemptId}.${args.ctx.slotId}.runtime_role`,
+      execution_mode: args.ctx.executionMode,
+      executor_kind: this.executorKind(args.ctx.executionMode),
+      run_mode: args.ctx.runMode,
       profile_id: binding.model_profile_id,
       output_contract: binding.output_contract,
-      model_option_id: input.model_option_id ?? null,
+      model_option_id: args.ctx.modelOptionId,
       prompt: {
         promptTemplateId: binding.prompt_template_id,
         version: binding.prompt_template_version,
@@ -253,52 +306,93 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
       prompt_variant_key: binding.invocation_slot_id,
       schema_name: binding.output_contract,
       schema: binding.schema,
-      messages: this.messages(binding, contextPacket),
-      input_refs: contextPacket.source_refs,
-      context_packet_refs: [contextPacketRef],
-      context_packet_hashes: [contextPacketHash],
-      runtime_token_budget: this.runtimeTokenBudget({
-        runtimeProfile,
-        runtimeInvocationContextHash,
-        contextPacket,
-        dynamicMaterialRefs,
-        compressionAttempt: input.compression_attempt ?? null,
-        overrides: input.runtime_token_budget_overrides ?? null,
-      }),
-      codex_response: input.codex_response ?? null,
-      mocked_output: input.mocked_output ?? null,
-      created_by: input.created_by ?? 'system',
-    });
-
-    if (invocation.status !== 'succeeded' || !invocation.structured_output) {
-      return {
-        status: 'blocked',
-        invocation_result: invocation,
-        context_packet_ref: contextPacketRef,
-        context_packet_hash: contextPacketHash,
-      };
-    }
-
-    const roleArtifact = await this.recordRoleArtifact({
-      input,
-      binding,
-      runMode,
-      structuredOutput: invocation.structured_output,
-      invocation,
-      runtimeProfile,
-      runtimeInvocationContextHash,
-      sourceHashes,
-      priorRoleArtifactHashes,
-    });
-    return {
-      status: 'succeeded',
-      role_artifact: roleArtifact,
-      structured_output: invocation.structured_output,
-      invocation_result: invocation,
-      context_packet_ref: contextPacketRef,
-      context_packet_hash: contextPacketHash,
+      created_by: args.ctx.createdBy,
     };
   }
+
+  runtimeTokenBudget(args: {
+    ctx: V1cN2RoleContext;
+    runtimeInvocationContextHash: string;
+    contextPacket: Record<string, unknown>;
+  }): TopicSelectionAgentRuntimeTokenBudgetInput {
+    const binding = this.slotBinding(args.ctx.slotId);
+    const runtimeProfile = this.resolveRuntimeProfile(binding);
+    const dynamicMaterialRefs = this.dynamicMaterialRefs(args.ctx.priorRoleArtifacts);
+    return this.runtimeTokenBudgetFor({
+      runtimeProfile,
+      runtimeInvocationContextHash: args.runtimeInvocationContextHash,
+      contextPacket: args.contextPacket as unknown as TopicSelectionV1cN2BoundedDebateContextPacket,
+      dynamicMaterialRefs,
+      compressionAttempt: args.ctx.invocationInputs.compression_attempt,
+      overrides: args.ctx.invocationInputs.overrides,
+    });
+  }
+
+  invocationPassthrough(ctx: V1cN2RoleContext): {
+    codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1cN2BoundedDebateRoleOutput> | null;
+    mocked_output: TopicSelectionMockedAgentOutput<TopicSelectionV1cN2BoundedDebateRoleOutput> | null;
+  } {
+    return {
+      codex_response: ctx.invocationInputs.codex_response ?? null,
+      mocked_output: ctx.invocationInputs.mocked_output ?? null,
+    };
+  }
+
+  assembleRoleArtifact(args: {
+    ctx: V1cN2RoleContext;
+    structuredOutput: TopicSelectionV1cN2BoundedDebateRoleOutput;
+    invocation: TopicSelectionAgentInvocationResult<TopicSelectionV1cN2BoundedDebateRoleOutput>;
+    runtimeInvocationContextHash: string;
+    sourceHashes: Record<string, string>;
+    outputRef: TopicSelectionArtifactFunctionalRef;
+    outputHash: string;
+    auditHash: string;
+  }): TopicSelectionV1cN2BoundedDebateRoleArtifact {
+    const binding = this.slotBinding(args.ctx.slotId);
+    const runtimeProfile = this.resolveRuntimeProfile(binding);
+    return {
+      slot_id: binding.slot_id,
+      node_id: NODE_ID,
+      workflow_run_id: args.ctx.workflowRunId,
+      node_attempt_id: args.ctx.nodeAttemptId,
+      policy_version: args.ctx.policyVersion ?? DEFAULT_POLICY_VERSION,
+      execution_mode: args.ctx.executionMode,
+      run_mode: args.ctx.runMode,
+      allowed_effect: 'support_only',
+      role_artifact_ref: args.outputRef,
+      role_artifact_hash: args.outputHash,
+      normalized_output_ref: args.outputRef,
+      normalized_output_hash: args.outputHash,
+      output_contract: binding.output_contract,
+      profile_id: binding.model_profile_id,
+      model_option_id: args.invocation.provenance.model_option_id,
+      prompt_packet_hash: args.invocation.provenance.prompt_packet_hash,
+      structured_output_hash: args.outputHash,
+      context_policy_profile_id: runtimeProfile.profile.context_policy_profile_id,
+      context_policy_profile_version: runtimeProfile.profile.context_policy_profile_version,
+      context_policy_profile_hash: runtimeProfile.profile_hash,
+      prompt_variant_key: binding.invocation_slot_id,
+      runtime_invocation_context_hash: args.runtimeInvocationContextHash,
+      redaction_policy: runtimeProfile.profile.redaction_policy,
+      source_hashes: args.sourceHashes,
+      prior_role_artifact_hashes: args.ctx.priorRoleArtifactHashes,
+      runtime_audit_ref: args.invocation.audit_artifact_ref!,
+      runtime_audit_hash: args.auditHash,
+      provenance_ref: args.invocation.audit_artifact_ref!,
+      runtime_provenance_class: 'runtime_verified',
+      compression_report_ref: args.invocation.provenance.compression_report_ref ?? null,
+      compression_report_hash: args.invocation.provenance.compression_report_hash ?? null,
+      compressed_context_hash: args.invocation.provenance.compressed_context_hash ?? null,
+    };
+  }
+
+  priorRoleArtifactHashOf(
+    artifact: TopicSelectionV1cN2BoundedDebateRoleArtifact,
+  ): { slotId: TopicSelectionV1cN2BoundedDebateRoleSlotId; hash: string } {
+    return { slotId: artifact.slot_id, hash: artifact.role_artifact_hash };
+  }
+
+  // ---------------------------------------------------------------- admission identity (v1c)
 
   buildAdmissionExpectedIdentity(input: {
     handoff: TopicSelectionPromotionInputSnapshotHandoff;
@@ -314,23 +408,18 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
   }): TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity {
     const binding = this.slotBinding(input.slot_id);
     const priorRoleArtifactHashes = this.priorRoleArtifactHashes(input.prior_role_artifacts ?? []);
-    const sourceHashes = this.sourceHashes(input.handoff, priorRoleArtifactHashes);
+    const sourceHashes = this.sourceHashesFor(input.handoff, priorRoleArtifactHashes);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
-    const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
-      binding,
-      sourceHashes,
-      priorRoleArtifactHashes,
+    const runtimeInvocationContextHash = this.hash(
+      this.runtimeInvocationContextObjectFor(binding, sourceHashes, priorRoleArtifactHashes),
     );
-    const contextPacket = this.buildContextPacket({
-      input: {
-        handoff: input.handoff,
-        workflow_run_id: input.workflow_run_id,
-        node_attempt_id: input.node_attempt_id,
-        policy_version: input.policy_version,
-      },
+    const contextPacket = this.buildContextPacketFor({
+      handoff: input.handoff,
+      workflowRunId: input.workflow_run_id,
+      nodeAttemptId: input.node_attempt_id,
+      policyVersion: input.policy_version,
       binding,
       runtimeProfile,
-      runtimeInvocationContextHash,
       sourceHashes,
       priorRoleArtifactHashes,
     });
@@ -350,7 +439,7 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
       prompt_variant_key: binding.invocation_slot_id,
       invocation_slot_id: binding.invocation_slot_id,
       runtime_invocation_context_hash: runtimeInvocationContextHash,
-      messages: this.messages(binding, contextPacket),
+      messages: this.messagesFor(binding, contextPacket),
       source_refs: contextPacket.source_refs,
       context_packet_hashes: [this.hash(contextPacket)],
       dynamic_material_refs: this.dynamicMaterialRefs(input.prior_role_artifacts ?? []),
@@ -383,93 +472,30 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
     };
   }
 
-  private async recordRoleArtifact(input: {
-    input: GenerateTopicSelectionV1cN2BoundedDebateRoleInput;
-    binding: N2RuntimeSlotBinding;
-    runMode: TopicSelectionAgentRunMode;
-    structuredOutput: TopicSelectionV1cN2BoundedDebateRoleOutput;
-    invocation: TopicSelectionAgentInvocationResult<TopicSelectionV1cN2BoundedDebateRoleOutput>;
-    runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
-    runtimeInvocationContextHash: string;
-    sourceHashes: Record<string, string>;
-    priorRoleArtifactHashes: Partial<Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, string>>;
-  }): Promise<TopicSelectionV1cN2BoundedDebateRoleArtifact> {
-    if (!input.invocation.audit_artifact_ref) {
-      throw new AppError(500, 'INTERNAL_ERROR', 'runtime-verified N2 bounded debate role requires an audit artifact ref.');
-    }
-    const auditArtifact = await this.controlPlane.getArtifactRef(input.invocation.audit_artifact_ref.ref_id);
-    const auditHash = this.requiredChecksum(auditArtifact, 'runtime audit artifact');
-    const outputHash = this.hash(input.structuredOutput);
-    if (input.invocation.provenance.structured_output_hash !== outputHash) {
-      throw new AppError(500, 'INTERNAL_ERROR', 'N2 bounded debate structured output hash drift detected.');
-    }
-    const outputArtifact = await this.controlPlane.recordArtifactRef({
-      workspace_id: input.input.handoff.snapshot.workspace_id ?? null,
-      title_card_id: input.input.handoff.snapshot.title_card_id,
-      artifact_kind: 'structured_output',
-      storage_kind: 'inline',
-      workflow_run_id: input.input.workflow_run_id,
-      payload: input.structuredOutput,
-      checksum: outputHash,
-      created_by: input.input.created_by ?? 'system',
-    });
-    const outputRef = this.toArtifactFunctionalRef(outputArtifact);
-    return {
-      slot_id: input.binding.slot_id,
-      node_id: NODE_ID,
-      workflow_run_id: input.input.workflow_run_id,
-      node_attempt_id: input.input.node_attempt_id,
-      policy_version: input.input.policy_version ?? DEFAULT_POLICY_VERSION,
-      execution_mode: input.input.execution_mode,
-      run_mode: input.runMode,
-      allowed_effect: 'support_only',
-      role_artifact_ref: outputRef,
-      role_artifact_hash: outputHash,
-      normalized_output_ref: outputRef,
-      normalized_output_hash: outputHash,
-      output_contract: input.binding.output_contract,
-      profile_id: input.binding.model_profile_id,
-      model_option_id: input.invocation.provenance.model_option_id,
-      prompt_packet_hash: input.invocation.provenance.prompt_packet_hash,
-      structured_output_hash: outputHash,
-      context_policy_profile_id: input.runtimeProfile.profile.context_policy_profile_id,
-      context_policy_profile_version: input.runtimeProfile.profile.context_policy_profile_version,
-      context_policy_profile_hash: input.runtimeProfile.profile_hash,
-      prompt_variant_key: input.binding.invocation_slot_id,
-      runtime_invocation_context_hash: input.runtimeInvocationContextHash,
-      redaction_policy: input.runtimeProfile.profile.redaction_policy,
-      source_hashes: input.sourceHashes,
-      prior_role_artifact_hashes: input.priorRoleArtifactHashes,
-      runtime_audit_ref: input.invocation.audit_artifact_ref,
-      runtime_audit_hash: auditHash,
-      provenance_ref: input.invocation.audit_artifact_ref,
-      runtime_provenance_class: 'runtime_verified',
-      compression_report_ref: input.invocation.provenance.compression_report_ref ?? null,
-      compression_report_hash: input.invocation.provenance.compression_report_hash ?? null,
-      compressed_context_hash: input.invocation.provenance.compressed_context_hash ?? null,
-    };
-  }
+  // ---------------------------------------------------------------- relocated v1c bodies (verbatim)
 
-  private buildContextPacket(input: {
-    input: Pick<GenerateTopicSelectionV1cN2BoundedDebateRoleInput, 'handoff' | 'workflow_run_id' | 'node_attempt_id' | 'policy_version'>;
+  private buildContextPacketFor(input: {
+    handoff: TopicSelectionPromotionInputSnapshotHandoff;
+    workflowRunId: string;
+    nodeAttemptId: string;
+    policyVersion: string | null | undefined;
     binding: N2RuntimeSlotBinding;
     runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
-    runtimeInvocationContextHash: string;
     sourceHashes: Record<string, string>;
     priorRoleArtifactHashes: Partial<Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, string>>;
   }): TopicSelectionV1cN2BoundedDebateContextPacket {
-    const handoff = input.input.handoff;
+    const handoff = input.handoff;
     const selectedEvidenceRefs = handoff.evidence_refs.map((item) => item.evidence_ref);
     const allowedRefs = this.allowedRefs(handoff);
     return {
       schema_version: 'TopicSelectionV1cN2BoundedDebateContextPacket@v1',
       node_id: NODE_ID,
-      workflow_run_id: input.input.workflow_run_id,
-      node_attempt_id: input.input.node_attempt_id,
+      workflow_run_id: input.workflowRunId,
+      node_attempt_id: input.nodeAttemptId,
       slot_id: input.binding.slot_id,
       invocation_slot_id: input.binding.invocation_slot_id,
       context_family: 'v1c_n2_bounded_promotion_support',
-      policy_version: input.input.policy_version ?? DEFAULT_POLICY_VERSION,
+      policy_version: input.policyVersion ?? DEFAULT_POLICY_VERSION,
       context_policy_profile_id: input.runtimeProfile.profile.context_policy_profile_id,
       context_policy_profile_version: input.runtimeProfile.profile.context_policy_profile_version,
       context_policy_profile_hash: input.runtimeProfile.profile_hash,
@@ -498,7 +524,7 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
     };
   }
 
-  private messages(
+  private messagesFor(
     binding: N2RuntimeSlotBinding,
     contextPacket: TopicSelectionV1cN2BoundedDebateContextPacket,
   ): Array<{ role: 'system' | 'user'; content: string }> {
@@ -525,7 +551,7 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
     ];
   }
 
-  private sourceHashes(
+  private sourceHashesFor(
     handoff: TopicSelectionPromotionInputSnapshotHandoff,
     priorRoleArtifactHashes: Partial<Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, string>>,
   ): Record<string, string> {
@@ -564,7 +590,7 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
     };
   }
 
-  private runtimeTokenBudget(input: {
+  private runtimeTokenBudgetFor(input: {
     runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
     runtimeInvocationContextHash: string;
     contextPacket: TopicSelectionV1cN2BoundedDebateContextPacket;
@@ -700,12 +726,12 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
     return this.uniqueStrings(values.filter((value): value is string => Boolean(value?.trim())));
   }
 
-  private runtimeInvocationContextHash(
+  private runtimeInvocationContextObjectFor(
     binding: N2RuntimeSlotBinding,
     sourceHashes: Record<string, string>,
     priorRoleArtifactHashes: Partial<Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, string>>,
-  ): string {
-    return this.hash({
+  ): unknown {
+    return {
       schema_version: TOPIC_SELECTION_RUNTIME_INVOCATION_CONTEXT_SCHEMA_VERSION,
       invocation_slot_id: binding.invocation_slot_id,
       scenario_context: {
@@ -736,7 +762,7 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
         parent_invocation_attempt_ids_hash: this.hash(priorRoleArtifactHashes),
         dynamic_material_refs_hash: this.hash(priorRoleArtifactHashes),
       },
-    });
+    };
   }
 
   private runtimeModifiersHash(input: {
@@ -781,10 +807,16 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
   }
 
   private resolveRuntimeProfile(binding: N2RuntimeSlotBinding): TopicSelectionResolvedContextPolicyProfile {
-    return this.contextPolicyProfileRegistry.resolveProfile({
+    const cached = this.runtimeProfileCache.get(binding.slot_id);
+    if (cached) {
+      return cached;
+    }
+    const profile = this.contextPolicyProfileRegistry.resolveProfile({
       context_policy_profile_id: binding.context_policy_profile_id,
       invocation_slot_id: binding.invocation_slot_id,
     });
+    this.runtimeProfileCache.set(binding.slot_id, profile);
+    return profile;
   }
 
   private resolveModelProfile(
@@ -801,7 +833,17 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
     });
   }
 
-  private slotBinding(slotId: TopicSelectionV1cN2BoundedDebateRoleSlotId): N2RuntimeSlotBinding {
+  slotBinding(slotId: TopicSelectionV1cN2BoundedDebateRoleSlotId): N2RuntimeSlotBinding {
+    const cached = this.bindingCache.get(slotId);
+    if (cached) {
+      return cached;
+    }
+    const binding = this.computeSlotBinding(slotId);
+    this.bindingCache.set(slotId, binding);
+    return binding;
+  }
+
+  private computeSlotBinding(slotId: TopicSelectionV1cN2BoundedDebateRoleSlotId): N2RuntimeSlotBinding {
     if (slotId === TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.promotion_supporter_draft) {
       return {
         slot_id: slotId,
@@ -907,30 +949,11 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
     }
   }
 
-  private defaultRunMode(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionAgentRunMode {
-    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
-  }
-
-  private executorKind(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionExecutorKind {
+  executorKind(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionExecutorKind {
     if (executionMode === 'codex_assisted') {
       return 'codex_assisted';
     }
     return 'single_agent';
-  }
-
-  private toArtifactFunctionalRef(record: TopicSelectionArtifactRefRecord): TopicSelectionArtifactFunctionalRef {
-    return {
-      ref_type: 'artifact_ref',
-      ref_id: record.artifact_ref_id,
-      title_card_id: record.title_card_id ?? null,
-    };
-  }
-
-  private requiredChecksum(record: TopicSelectionArtifactRefRecord | null, label: string): string {
-    if (!record?.checksum) {
-      throw new AppError(500, 'INTERNAL_ERROR', `${label} checksum is required.`);
-    }
-    return record.checksum;
   }
 
   private uniqueRefs(values: Array<TopicSelectionFunctionalRef | null | undefined>): TopicSelectionFunctionalRef[] {
@@ -959,7 +982,98 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
     return [...new Set(values.filter((value) => value.trim().length > 0))];
   }
 
+  // Single-source with the harness + human-path services (D1 consolidation) so the v1c
+  // runtime and admission identities can never drift from the rest of the pipeline.
   private hash(value: unknown): string {
-    return sha256Text(stableStringify(value));
+    return canonicalHash(value);
+  }
+}
+
+export class TopicSelectionV1cN2BoundedDebateRuntimeService {
+  private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
+  private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
+  private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService;
+  private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
+  private readonly core: TopicSelectionBoundedDebateCoreService;
+  private readonly strategy: V1cN2BoundedDebateStrategy;
+
+  constructor(
+    private readonly controlPlane: TopicSelectionControlPlaneService,
+    options: {
+      agentOrchestrator?: TopicSelectionAgentOrchestratorService;
+      contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
+      modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
+      promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
+    } = {},
+  ) {
+    this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
+      ?? new TopicSelectionContextPolicyProfileRegistryService();
+    this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
+    this.promptPacketRuntime = options.promptPacketRuntime ?? new TopicSelectionPromptPacketRuntimeService();
+    this.agentOrchestrator = options.agentOrchestrator ?? new TopicSelectionAgentOrchestratorService({
+      controlPlane,
+      modelProfileRegistry: this.modelProfileRegistry,
+    });
+    this.core = new TopicSelectionBoundedDebateCoreService({
+      controlPlane: this.controlPlane,
+      agentOrchestrator: this.agentOrchestrator,
+    });
+    this.strategy = new V1cN2BoundedDebateStrategy(
+      this.contextPolicyProfileRegistry,
+      this.modelProfileRegistry,
+      this.promptPacketRuntime,
+    );
+  }
+
+  async generateRoleArtifact(
+    input: GenerateTopicSelectionV1cN2BoundedDebateRoleInput,
+  ): Promise<TopicSelectionV1cN2BoundedDebateRoleGenerationResult> {
+    return this.core.generateRoleArtifact(this.strategy, this.toRoleContext(input));
+  }
+
+  buildAdmissionExpectedIdentity(input: {
+    handoff: TopicSelectionPromotionInputSnapshotHandoff;
+    slot_id: TopicSelectionV1cN2BoundedDebateRoleSlotId;
+    prior_role_artifacts?: TopicSelectionV1cN2BoundedDebateRoleArtifact[];
+    workflow_run_id: string;
+    node_attempt_id: string;
+    policy_version?: string | null;
+    execution_mode: TopicSelectionAgentExecutionMode;
+    run_mode: TopicSelectionAgentRunMode;
+    model_option_id?: string | null;
+    normalized_payload_hash: string;
+  }): TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity {
+    return this.strategy.buildAdmissionExpectedIdentity(input);
+  }
+
+  private toRoleContext(input: GenerateTopicSelectionV1cN2BoundedDebateRoleInput): V1cN2RoleContext {
+    const priorRoleArtifacts = input.prior_role_artifacts ?? [];
+    const priorRoleArtifactHashes: Partial<Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, string>> = {};
+    for (const artifact of priorRoleArtifacts) {
+      priorRoleArtifactHashes[artifact.slot_id] = artifact.role_artifact_hash;
+    }
+    return {
+      handoff: input.handoff,
+      slotId: input.slot_id,
+      priorRoleArtifacts,
+      priorRoleArtifactHashes,
+      invocationInputs: {
+        compression_attempt: input.compression_attempt ?? null,
+        overrides: input.runtime_token_budget_overrides ?? null,
+        codex_response: input.codex_response ?? null,
+        mocked_output: input.mocked_output ?? null,
+      },
+      workflowRunId: input.workflow_run_id,
+      nodeAttemptId: input.node_attempt_id,
+      executionMode: input.execution_mode,
+      runMode: input.run_mode ?? this.defaultRunMode(input.execution_mode),
+      policyVersion: input.policy_version ?? null,
+      modelOptionId: input.model_option_id ?? null,
+      createdBy: input.created_by ?? 'system',
+    };
+  }
+
+  private defaultRunMode(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionAgentRunMode {
+    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
   }
 }

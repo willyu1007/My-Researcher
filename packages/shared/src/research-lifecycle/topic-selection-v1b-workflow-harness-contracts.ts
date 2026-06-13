@@ -179,6 +179,10 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SLOT_IDS = [
   'n7_failed_trial_synthesis',
   'n7_n8_debate_admission_review',
   'n8_value_assessment_draft',
+  'n8_debate_assessor_draft',
+  'n8_debate_value_critic',
+  'n8_debate_assessor_repair',
+  'n8_debate_synthesizer_final',
 ] as const;
 export type TopicSelectionV1bWorkflowHarnessSemanticSlotId =
   (typeof TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SLOT_IDS)[number];
@@ -194,6 +198,9 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS = {
   n7_failed_trial_synthesis_support: 'topic-selection.v1b.failed-trial-synthesis-support.codex.v1',
   n7_n8_debate_admission_support: 'topic-selection.v1b.n8-debate-admission-support.codex.v1',
   topic_value_assessment_single_agent: 'topic-selection.v1b.topic-value-assessment.single-agent.v1',
+  /** Shared by all four N8 bounded-debate role slots (DP-3.5): per-role diversity is
+   * expressed as model_option overrides on this ONE profile, not separate profiles. */
+  n8_bounded_debate: 'topic-selection.v1b.n8-bounded-debate.v1',
 } as const;
 export type TopicSelectionV1bWorkflowHarnessProfileId =
   (typeof TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS)[keyof typeof TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS];
@@ -494,7 +501,97 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     allowed_run_modes: ['test', 'acceptance', 'product'],
     slot_policy_version: 'topic-selection-v1b-node-policy-v1',
   },
+  // T-123 Phase 3 (D2 / DP-3.1~3.6) — N8 bounded-debate role slots. All four are
+  // support_only debate lineage; the synthesizer's final assessment is additionally
+  // recorded into the existing n8_value_assessment_draft slot (model_draft_for_gate),
+  // so the deterministic gate consumes ONE draft surface regardless of debate.
+  {
+    slot_id: 'n8_debate_assessor_draft',
+    node_id: 'topic-selection.v1b.assess-topic-value.v1',
+    allowed_effect: 'support_only',
+    output_contract: 'TopicSelectionV1bN8BoundedDebateRoleOutput@v1',
+    target_gate_id: 'N8TopicValueAssessmentGate',
+    required_for_progress: false,
+    fallback_policy: 'technical_retry_or_block',
+    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
+    allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
+    allowed_run_modes: ['test', 'acceptance', 'product'],
+    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+  },
+  {
+    slot_id: 'n8_debate_value_critic',
+    node_id: 'topic-selection.v1b.assess-topic-value.v1',
+    allowed_effect: 'support_only',
+    output_contract: 'TopicSelectionV1bN8BoundedDebateRoleOutput@v1',
+    target_gate_id: 'N8TopicValueAssessmentGate',
+    required_for_progress: false,
+    fallback_policy: 'technical_retry_or_block',
+    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
+    allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
+    allowed_run_modes: ['test', 'acceptance', 'product'],
+    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+  },
+  {
+    slot_id: 'n8_debate_assessor_repair',
+    node_id: 'topic-selection.v1b.assess-topic-value.v1',
+    allowed_effect: 'support_only',
+    output_contract: 'TopicSelectionV1bN8BoundedDebateRoleOutput@v1',
+    target_gate_id: 'N8TopicValueAssessmentGate',
+    required_for_progress: false,
+    fallback_policy: 'technical_retry_or_block',
+    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
+    allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
+    allowed_run_modes: ['test', 'acceptance', 'product'],
+    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+  },
+  {
+    slot_id: 'n8_debate_synthesizer_final',
+    node_id: 'topic-selection.v1b.assess-topic-value.v1',
+    allowed_effect: 'support_only',
+    output_contract: 'TopicSelectionV1bN8BoundedDebateRoleOutput@v1',
+    target_gate_id: 'N8TopicValueAssessmentGate',
+    required_for_progress: false,
+    fallback_policy: 'technical_retry_or_block',
+    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
+    allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
+    allowed_run_modes: ['test', 'acceptance', 'product'],
+    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+  },
 ] as const satisfies readonly TopicSelectionV1bWorkflowHarnessSemanticSupportSlotSpec[];
+
+/** N8 bounded-debate role order (DP-3.1/3.5) — fixed single pass, synthesizer is the
+ * sole producer of the gate-facing assessment (DMP-03 arbiter semantics). */
+export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER = [
+  'n8_debate_assessor_draft',
+  'n8_debate_value_critic',
+  'n8_debate_assessor_repair',
+  'n8_debate_synthesizer_final',
+] as const;
+export type TopicSelectionV1bN8BoundedDebateRoleSlotId =
+  (typeof TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER)[number];
+
+/**
+ * Deterministic debate-trigger thresholds for the N8 gate (D2: T1 borderline / T3
+ * dimension conflict). Values are PROVISIONAL until deep-test calibration (DP-3.3);
+ * they live in the node policy so the gate stays a pure code-over-policy check.
+ */
+export interface TopicSelectionV1bN8DebateTriggerThresholds {
+  provisional: boolean;
+  /** T1: total_score in [min, max) counts as borderline. */
+  t1_total_score_min: number;
+  t1_total_score_max_exclusive: number;
+  /** T1: confidence strictly below this counts as borderline. */
+  t1_confidence_min: number;
+  /** T3: (max - min) dimension score spread at/above this conflicts. */
+  t3_dimension_spread_min: number;
+  /** T3: any dimension below this while total_score >= t3_total_score_min conflicts. */
+  t3_single_dimension_floor: number;
+  t3_total_score_min: number;
+}
 
 const slotsFor = (
   nodeId: TopicSelectionV1bWorkflowHarnessNodeId,
@@ -533,6 +630,8 @@ export interface TopicSelectionV1bWorkflowHarnessNodePolicy {
   warning_codes: readonly string[];
   loopback_target_codes: readonly string[];
   replay_hash_components: readonly TopicSelectionV1bWorkflowHarnessReplayHashComponent[];
+  /** N8 only (T-123 Phase 3): deterministic T1/T3 debate-trigger thresholds. */
+  debate_trigger_thresholds?: TopicSelectionV1bN8DebateTriggerThresholds;
 }
 
 export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
@@ -911,10 +1010,34 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
         allowed_gate_statuses: ['blocked', 'retryable_failure'],
       },
     ],
-    blocker_codes: ['value_assessment_drops_risks', 'method_evidence_value_gap', 'value_not_supported'],
-    warning_codes: ['residual_risk_carried_forward', 'value_gap_carried_forward'],
+    blocker_codes: [
+      'value_assessment_drops_risks',
+      'method_evidence_value_gap',
+      'value_not_supported',
+      // T-123 Phase 3 (D2): first-pass T1/T3 hits route loopback to N7 for debate admission.
+      'value_borderline_debate_trigger',
+      'dimension_conflict_debate_trigger',
+    ],
+    warning_codes: [
+      'residual_risk_carried_forward',
+      'value_gap_carried_forward',
+      // T-123 Phase 3 (DP-3.2): post-debate re-assessment still in band → admit with warning.
+      'value_borderline_after_debate',
+      'dimension_conflict_after_debate',
+      // T-123 Phase 3 (DP-3.3): provisional thresholds governed a product run (calibration tripwire).
+      'n8_debate_thresholds_provisional',
+    ],
     loopback_target_codes: ['n8_feedback_to_n7', 'n8_retry_same_contract'],
     replay_hash_components: [...DEFAULT_REPLAY_HASH_COMPONENTS, 'authority_hash'],
+    debate_trigger_thresholds: {
+      provisional: true, // DP-3.3: calibrate against near-prod deep-test distribution
+      t1_total_score_min: 60,
+      t1_total_score_max_exclusive: 72,
+      t1_confidence_min: 0.55,
+      t3_dimension_spread_min: 40,
+      t3_single_dimension_floor: 35,
+      t3_total_score_min: 60,
+    },
   },
   {
     node_index: 9,
@@ -1525,6 +1648,37 @@ export interface TopicSelectionV1bN8DebateAdmissionReviewSupportPayload {
   high_value_signal_codes: string[];
   risk_signal_codes: string[];
   rationale: string;
+}
+
+export type TopicSelectionV1bN8DebateLevel =
+  TopicSelectionV1bN8DebateAdmissionReviewSupportPayload['debate_level'];
+
+export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION =
+  'TopicSelectionV1bN8BoundedDebateRoleOutput@v1' as const;
+
+/**
+ * T-123 Phase 3 — one bounded-debate role turn for N8 (support_only lineage).
+ * assessor_draft / assessor_repair / synthesizer_final carry the working assessment in
+ * `assessment_draft` (TopicValueAssessmentDraft@v1 shape — validated by the existing
+ * draft gate when the synthesizer's final is recorded into n8_value_assessment_draft);
+ * value_critic carries `critic_findings`; repair additionally answers via `repair_actions`.
+ */
+export interface TopicSelectionV1bN8BoundedDebateRolePayload {
+  schema_version: typeof TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
+  role_slot: TopicSelectionV1bN8BoundedDebateRoleSlotId;
+  assessment_draft?: Record<string, unknown> | null;
+  critic_findings?: Array<{
+    finding_code: string;
+    severity: 'note' | 'material' | 'blocking';
+    dimension_key?: string | null;
+    statement: string;
+  }> | null;
+  repair_actions?: Array<{
+    finding_code: string;
+    action: string;
+    resolved: boolean;
+  }> | null;
+  debate_summary?: string | null;
 }
 
 export interface TopicSelectionV1bN8FailedTrialSynthesisSupportPayload {
