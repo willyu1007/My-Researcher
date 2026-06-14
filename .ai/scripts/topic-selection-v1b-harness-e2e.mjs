@@ -3363,6 +3363,96 @@ async function runN7RuntimeReadmissionVariant(app, setup, n7SupportRuntime, suff
   };
 }
 
+// T-123 P3 / DP-3.6: the FULL N8 debate loop end-to-end through the real harness — a first-pass
+// borderline value draft (total_score in [60,72) -> T1) loops back to N7; the N7 feedback_from_n8
+// re-entry (the SAME frozen-input format the coordinator assembles — validated here against the real
+// N7 feedback parser) + the n7_n8_debate_admission_review support readmits; the (still borderline)
+// re-eval re-enters N8, which now admits with an after-debate WARNING instead of looping again.
+async function runN8DebateTriggerLoopVariant(app, setup, n7SupportRuntime, suffix) {
+  const ready = await runReadyN6Fixture(app, setup, `${suffix}_n6_ready`);
+  const n7InitialInput = await v1bHarnessN7Request(app, ready.n6, `${suffix}_n7_initial`);
+  const n7Initial = await invokeV1bHarnessNode(app, n7InitialInput);
+  assert.equal(n7Initial.route_decision, 'invoke_next');
+
+  // First N8 eval with a BORDERLINE value draft. total_score 66 is gate-valid (advance_to_package
+  // floor is 60) yet trips T1; the first-pass admission (initial_from_n6) arms the loopback.
+  const n8FirstInput = await v1bHarnessN8Request(app, n7Initial, `${suffix}_n8_first`);
+  const n8FirstSemantic = await recordCodexAssistedSemanticDraft(
+    app,
+    n8FirstInput,
+    n8DraftSlot(),
+    { ...v1bHarnessN8ValueDraft(n8FirstInput), total_score: 66 },
+  );
+  const n8Loopback = await invokeV1bHarnessNode(app, {
+    ...n8FirstSemantic.invocationInput,
+    semantic_artifacts: [n8FirstSemantic.semanticArtifact],
+  });
+  assert.equal(n8Loopback.route_decision, 'loopback');
+  assert.ok(
+    (n8Loopback.blockers ?? []).some((issue) => issue.code === 'N8_VALUE_BORDERLINE_DEBATE_TRIGGER'),
+    'first-pass borderline value draft must trip the T1 debate-trigger loopback',
+  );
+
+  // N7 feedback re-entry (feedback_from_n8) + the n7_n8_debate_admission_review support -> readmit.
+  const feedbackInput = {
+    ...(await v1bHarnessN7FeedbackRequest(
+      app,
+      n7InitialInput,
+      n7Initial,
+      'gate_rejected',
+      n8Loopback.hashes.gate_result_hash,
+      `${suffix}_n7_feedback`,
+    )),
+    run_mode: 'product',
+  };
+  const debateSupport = await generateN7RuntimeSupportArtifact(
+    app,
+    n7SupportRuntime,
+    feedbackInput,
+    n7DebateAdmissionSlot(),
+    n7DebateAdmissionPayload(),
+    { runMode: 'product', operatorLabel: 'v1b-n8-debate-loop-admission' },
+  );
+  const readmitted = await invokeV1bHarnessNode(app, {
+    ...feedbackInput,
+    semantic_artifacts: [debateSupport.semanticArtifact],
+  });
+  assert.equal(readmitted.gate_status, 'admitted_with_warnings');
+  assert.equal(readmitted.route_decision, 'invoke_next');
+
+  // N8 RE-EVAL: the readmitted handoff carries the feedback_from_n8 debate admission, so the SAME
+  // borderline trigger downgrades to an after-debate warning and N8 admits — the loop is closed.
+  const n8ReevalInput = await v1bHarnessN8Request(app, readmitted, `${suffix}_n8_reeval`);
+  const n8ReevalSemantic = await recordCodexAssistedSemanticDraft(
+    app,
+    n8ReevalInput,
+    n8DraftSlot(),
+    { ...v1bHarnessN8ValueDraft(n8ReevalInput), total_score: 66 },
+  );
+  const n8Reeval = await invokeV1bHarnessNode(app, {
+    ...n8ReevalSemantic.invocationInput,
+    semantic_artifacts: [n8ReevalSemantic.semanticArtifact],
+  });
+  assert.equal(n8Reeval.gate_status, 'admitted_with_warnings');
+  assert.equal(n8Reeval.route_decision, 'invoke_next');
+  assert.ok(
+    (n8Reeval.warnings ?? []).some((issue) => issue.code === 'N8_VALUE_BORDERLINE_AFTER_DEBATE'),
+    'N8 re-eval after debate must carry the after-debate borderline warning (not a re-loop)',
+  );
+
+  return {
+    case_id: 'n8_debate_trigger_loop',
+    semantic_artifacts: [...ready.semanticSummaries, debateSupport.summary],
+    nodes: {
+      n6: summarizeNode(ready.n6),
+      n7_initial: summarizeNode(n7Initial),
+      n8_first_loopback: summarizeNode(n8Loopback),
+      n7_readmitted: summarizeNode(readmitted),
+      n8_reeval: summarizeNode(n8Reeval),
+    },
+  };
+}
+
 async function runN7RuntimeExhaustionVariant(app, setup, n7SupportRuntime, suffix) {
   const ready = await runReadyN6Fixture(
     app,
@@ -3476,6 +3566,7 @@ async function runN7RuntimeSmoke(app, suffix, existingBundle = null) {
     const cases = [
       await runN7RuntimeForwardVariant(app, setup, n7SupportRuntime, `${suffix}_forward`),
       await runN7RuntimeReadmissionVariant(app, setup, n7SupportRuntime, `${suffix}_readmission`),
+      await runN8DebateTriggerLoopVariant(app, setup, n7SupportRuntime, `${suffix}_debate_loop`),
       await runN7RuntimeExhaustionVariant(app, setup, n7SupportRuntime, `${suffix}_exhaustion`),
     ];
     const promptIndexAfter = await promptPacketIndexSnapshot(prisma);

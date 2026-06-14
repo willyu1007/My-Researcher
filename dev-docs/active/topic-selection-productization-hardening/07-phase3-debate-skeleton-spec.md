@@ -347,6 +347,15 @@ Resume point: build `topic-selection-v1b-n8-bounded-debate-runtime-service.ts` (
 
 So the full coordinator-driven loop needs a SECOND coordinator capability beyond the feedback recipe: **supplying the N7 debate-admission-review support for the feedback re-entry** (a support_only model input, only required in feedback mode; N7 stays auto-driven in the initial mode). This is beyond DP-3.6's one-line scope ("HANDOFF_BUILDER_TABLE feedback variant") and carries a small design choice (how the coordinator accepts/records support_only node inputs). The draft e2e was reverted (not committed broken); the borderline-draft fixture + the N1→N8-loopback drive are proven and ready to reuse once the support-input path lands.
 
-**Next increment (3.5 continuation):** add the coordinator N7 debate-admission-review support-input path, then complete the full-loop e2e (N7 readmits → caller-side debate draft → N8 re-eval admits with `N8_VALUE_BORDERLINE_AFTER_DEBATE`).
+**Increment B — harness-level full-loop e2e — DONE + verified (user chose harness-level over the coordinator support-input extension).** New `runN8DebateTriggerLoopVariant` in `.ai/scripts/topic-selection-v1b-harness-e2e.mjs` (under the `n7_runtime_smoke` scenario, DB-backed), driving the real harness directly:
+1. N6→N7 initial → invoke_next.
+2. First N8 eval with a borderline draft (`total_score:66`) → `route_decision='loopback'` + `N8_VALUE_BORDERLINE_DEBATE_TRIGGER` blocker (first-pass T1).
+3. N7 feedback re-entry via `v1bHarnessN7FeedbackRequest` (the SAME `feedback_from_n8` frozen-input format the coordinator's increment-A recipe assembles — so this validates that format against the REAL N7 feedback parser) + the `n7_n8_debate_admission_review` support → `admitted_with_warnings`.
+4. N8 re-eval (still borderline, readmitted handoff carries the `feedback_from_n8` debate admission) → `admitted_with_warnings` + `N8_VALUE_BORDERLINE_AFTER_DEBATE` warning, **not** a re-loop.
+Verified: `pnpm run topic-selection:v1b-n7-runtime-smoke` exit 0; the full result tree shows `case_id:"n8_debate_trigger_loop"` with `n8_first_loopback`(loopback) → `n7_readmitted` → `n8_reeval`, 0 assertion errors, and the other 3 N7 variants still green.
+
+The COORDINATOR's role in the loop is increment A (the feedback recipe, unit-proven byte-correct); the harness-level e2e proves the harness debate machinery + the feedback format end-to-end. (A fully coordinator-DRIVEN e2e additionally needs the N7 debate-admission-review support-input path on the coordinator — deferred per the chosen scope.)
+
+**3.5 status:** coordinator feedback recipe (A) + harness-level full-loop e2e (B) both DONE + verified. Remaining Phase-3 items: the deferred STEP-7 compression-facts builder; (optional) the coordinator N7 support-input path for a fully coordinator-driven loop.
 
 **Also remaining:** the deferred STEP-7 compression-facts builder above.
