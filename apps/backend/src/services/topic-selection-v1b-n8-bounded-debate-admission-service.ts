@@ -15,6 +15,7 @@ import type {
   TopicSelectionAgentRunMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 import {
+  TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   type TopicSelectionV1bN8BoundedDebateRolePayload,
   type TopicSelectionV1bN8BoundedDebateRoleSlotId,
@@ -260,8 +261,10 @@ export class TopicSelectionV1bN8BoundedDebateAdmissionService {
     }
 
     // The runtime folds the loop transcript over the ordered role hashes; admission re-folds and compares.
+    // The loop id is single-sourced from the shared contract (same SSOT pattern as the role order) so
+    // this drift-check fold can never silently disagree with the core's fold over a stale literal.
     const expectedTranscript = this.hash([
-      'v1b_n8_bounded_micro_debate',
+      TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID,
       [...TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER],
       TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER.map((slot) => bySlot.get(slot)!.artifact.role_artifact_hash),
     ]);
@@ -367,11 +370,17 @@ export class TopicSelectionV1bN8BoundedDebateAdmissionService {
         resolved.add(code);
       }
     }
-    const unresolved = findings
-      .filter((finding) => {
-        const severity = this.stringValue(finding.severity);
-        return severity === 'material' || severity === 'blocking';
-      })
+    const blockingFindings = findings.filter((finding) => {
+      const severity = this.stringValue(finding.severity);
+      return severity === 'material' || severity === 'blocking';
+    });
+    // A material/blocking finding with no usable finding_code can never be matched to a repair
+    // action; dropping it (rather than blocking) would let an unidentifiable material finding pass
+    // unresolved — defeating the sole purpose of this gate. So treat a missing code as unresolved.
+    if (blockingFindings.some((finding) => this.stringValue(finding.finding_code) === null)) {
+      return this.block('N8_BOUNDED_DEBATE_CRITIC_FINDING_UNRESOLVED', 'N8 bounded debate critic emitted a material/blocking finding without a finding_code, so its repair resolution cannot be verified.');
+    }
+    const unresolved = blockingFindings
       .map((finding) => this.stringValue(finding.finding_code))
       .filter((code): code is string => Boolean(code))
       .filter((code) => !resolved.has(code));

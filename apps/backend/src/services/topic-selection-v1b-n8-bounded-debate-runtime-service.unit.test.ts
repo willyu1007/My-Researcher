@@ -73,25 +73,49 @@ const SHARED_CONTEXT = {
   },
 };
 
+type BridgeCall = {
+  execution_mode: string;
+  run_mode: string | null;
+  codex_output: Record<string, unknown> | null;
+  mocked_output: Record<string, unknown> | null;
+};
+
 // Stub single-agent runtime: reuse seam for the (already-tested) N7→N8 resolution + gate bridge.
 function makeStubSingleAgent(): {
   runtime: TopicSelectionV1bN8ValueAssessmentRuntimeService;
   sharedContextCalls: number;
   gateBridgeDrafts: Record<string, unknown>[];
+  bridgeCalls: BridgeCall[];
 } {
-  const state = { sharedContextCalls: 0, gateBridgeDrafts: [] as Record<string, unknown>[] };
+  const state = {
+    sharedContextCalls: 0,
+    gateBridgeDrafts: [] as Record<string, unknown>[],
+    bridgeCalls: [] as BridgeCall[],
+  };
   const stub = {
     async resolveSharedN8RuntimeContext() {
       state.sharedContextCalls += 1;
       // Return a fresh structural clone so the runtime cannot mutate the shared fixture across runs.
       return JSON.parse(JSON.stringify(SHARED_CONTEXT));
     },
-    async generateDraftArtifact(input: { mocked_output?: { output?: Record<string, unknown> } | null }) {
-      state.gateBridgeDrafts.push(input.mocked_output?.output ?? {});
+    async generateDraftArtifact(input: {
+      execution_mode?: string;
+      run_mode?: string | null;
+      codex_response?: { output?: Record<string, unknown> } | null;
+      mocked_output?: { output?: Record<string, unknown> } | null;
+    }) {
+      const output = input.codex_response?.output ?? input.mocked_output?.output ?? {};
+      state.gateBridgeDrafts.push(output);
+      state.bridgeCalls.push({
+        execution_mode: input.execution_mode ?? '',
+        run_mode: input.run_mode ?? null,
+        codex_output: input.codex_response?.output ?? null,
+        mocked_output: input.mocked_output?.output ?? null,
+      });
       return {
         status: 'succeeded',
         semantic_artifact: { kind: 'stub' },
-        structured_output: input.mocked_output?.output ?? {},
+        structured_output: output,
         invocation_result: { status: 'succeeded' },
         context_packet_ref: ref('diagnostic', 'stub_context_packet'),
         context_packet_hash: 'e'.repeat(64),
@@ -102,6 +126,7 @@ function makeStubSingleAgent(): {
     runtime: stub,
     get sharedContextCalls() { return state.sharedContextCalls; },
     get gateBridgeDrafts() { return state.gateBridgeDrafts; },
+    get bridgeCalls() { return state.bridgeCalls; },
   } as never;
 }
 
@@ -188,20 +213,24 @@ function roleOutput(
 
 function debateInput(
   request: TopicSelectionV1bWorkflowHarnessRunRequest,
-  options: { unresolvedFinding?: boolean } = {},
+  options: { unresolvedFinding?: boolean; executionMode?: 'mocked_llm' | 'codex_assisted' } = {},
 ): GenerateTopicSelectionV1bN8DebateInput {
+  const executionMode = options.executionMode ?? 'mocked_llm';
   const role_outputs: GenerateTopicSelectionV1bN8DebateInput['role_outputs'] = {};
   for (const slot of TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER) {
     const output = roleOutput(slot, options);
-    role_outputs[slot] = {
-      codex_response: null,
-      mocked_output: {
-        fixture_id: `n8_debate_${slot}`,
-        output: output as never,
-      },
-    };
+    role_outputs[slot] = executionMode === 'codex_assisted'
+      ? { codex_response: { output: output as never, operator_label: 'unit-test' }, mocked_output: null }
+      : { codex_response: null, mocked_output: { fixture_id: `n8_debate_${slot}`, output: output as never } };
   }
-  return { request, execution_mode: 'mocked_llm', role_outputs };
+  return {
+    request,
+    execution_mode: executionMode,
+    // codex_assisted role invocations require an acceptance/product run mode on the model profile;
+    // mocked_llm uses the request's 'test' mode.
+    run_mode: executionMode === 'codex_assisted' ? 'acceptance' : null,
+    role_outputs,
+  };
 }
 
 test('v1b N8 bounded debate runtime drives the 4-role loop, admits, and bridges the gate draft', async () => {
@@ -228,9 +257,32 @@ test('v1b N8 bounded debate runtime drives the 4-role loop, admits, and bridges 
   assert.equal((stub as unknown as { gateBridgeDrafts: unknown[] }).gateBridgeDrafts.length, 1);
   assert.deepEqual((stub as unknown as { gateBridgeDrafts: Record<string, unknown>[] }).gateBridgeDrafts[0], ASSESSMENT_DRAFT);
   assert.equal(result.gate_draft.status, 'succeeded');
+  // The bridge funnels through the single-agent path with the debate's REAL execution mode: a
+  // mocked_llm debate bridges as mocked_output (not codex_response).
+  const mockedBridge = (stub as unknown as { bridgeCalls: BridgeCall[] }).bridgeCalls;
+  assert.equal(mockedBridge.length, 1);
+  assert.equal(mockedBridge[0]!.execution_mode, 'mocked_llm');
+  assert.deepEqual(mockedBridge[0]!.mocked_output, ASSESSMENT_DRAFT);
+  assert.equal(mockedBridge[0]!.codex_output, null);
 
   // The expensive N7→N8 resolution runs exactly ONCE per debate (resolved then threaded as handoff).
   assert.equal((stub as unknown as { sharedContextCalls: number }).sharedContextCalls, 1);
+});
+
+test('v1b N8 bounded debate runtime bridges a codex_assisted debate as codex_response (not a mock fixture)', async () => {
+  const { runtime, stub } = makeSubject();
+  const result = await runtime.runDebate(debateInput(makeRequest(), { executionMode: 'codex_assisted' }));
+  assert.equal(result.status, 'completed');
+  if (result.status !== 'completed') {
+    throw new Error('Expected the codex_assisted debate to complete.');
+  }
+  // The gate bridge must thread the REAL execution_mode so the gate-facing draft carries
+  // codex provenance — not silently re-record it as a mock fixture (the previous hardcoded bug).
+  const bridgeCalls = (stub as unknown as { bridgeCalls: BridgeCall[] }).bridgeCalls;
+  assert.equal(bridgeCalls.length, 1);
+  assert.equal(bridgeCalls[0]!.execution_mode, 'codex_assisted');
+  assert.deepEqual(bridgeCalls[0]!.codex_output, ASSESSMENT_DRAFT);
+  assert.equal(bridgeCalls[0]!.mocked_output, null);
 });
 
 test('v1b N8 bounded debate runtime is byte-stable across runs with identical fixed ids', async () => {

@@ -573,6 +573,13 @@ export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER = [
 ] as const;
 export type TopicSelectionV1bN8BoundedDebateRoleSlotId =
   (typeof TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER)[number];
+/**
+ * The debate-loop identity folded into loop_transcript_hash. It is a byte-bearing input to BOTH the
+ * core's fold (runtime side) and the admission re-fold (drift check), so it must be single-sourced —
+ * exactly like TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER above — or a rename in one place would
+ * silently fail every admission with a transcript-drift error.
+ */
+export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID = 'v1b_n8_bounded_micro_debate' as const;
 
 /**
  * Deterministic debate-trigger thresholds for the N8 gate (D2: T1 borderline / T3

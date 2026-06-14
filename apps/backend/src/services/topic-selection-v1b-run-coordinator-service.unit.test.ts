@@ -12,6 +12,7 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
+import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { TopicSelectionV1bRunCoordinatorService } from './topic-selection-v1b-run-coordinator-service.js';
 
 const RUN = 'workflow_run_coord_test';
@@ -380,8 +381,13 @@ async function driveToN8DebateLoopback(): Promise<{
     payload: feedbackPayload,
   });
   const feedbackRef = ref('artifact_ref', feedbackArtifact.artifact_ref_id);
-  const feedbackPayloadHash = sha256Text(stableStringify(feedbackPayload));
-  const feedbackRecordHash = sha256Text(stableStringify(feedbackArtifact));
+  // Payload hash is a DISTINCT sentinel (deliberately NOT hash(feedbackPayload)) so the re-entry
+  // assertion proves the coordinator threads the loopback's authority_hash verbatim into
+  // n8_feedback_payload_hash, rather than coincidentally matching a value the test pinned twice.
+  const feedbackPayloadHash = 'sentinel_authority_hash_distinct_from_payload_hash';
+  // Record hash is reproduced via canonicalHash — the SAME single source the coordinator (and the
+  // harness validator) use — over the persisted record, so the test binds to the canonical formula.
+  const feedbackRecordHash = canonicalHash(feedbackArtifact);
   // The N8 recipe requires N7's N7->N8 context projection artifact (required_projection_kind);
   // the real N7 runner records it — simulate that so the N8 request can be assembled.
   await controlPlane.recordArtifactRef({

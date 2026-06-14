@@ -3363,11 +3363,17 @@ async function runN7RuntimeReadmissionVariant(app, setup, n7SupportRuntime, suff
   };
 }
 
-// T-123 P3 / DP-3.6: the FULL N8 debate loop end-to-end through the real harness — a first-pass
-// borderline value draft (total_score in [60,72) -> T1) loops back to N7; the N7 feedback_from_n8
-// re-entry (the SAME frozen-input format the coordinator assembles — validated here against the real
-// N7 feedback parser) + the n7_n8_debate_admission_review support readmits; the (still borderline)
-// re-eval re-enters N8, which now admits with an after-debate WARNING instead of looping again.
+// T-123 P3 / DP-3.6: the N8 debate trigger->loopback->feedback-readmit->after-debate loop, end-to-end
+// through the real harness. Scope note: this exercises the harness's DETERMINISTIC machinery (T1 trigger
+// detection, first-pass loopback, the N7 feedback_from_n8 readmission + n7_n8_debate_admission_review
+// support, and the after-debate warning) on the single-agent value draft. The 4-role bounded-debate
+// runDebate runtime is NOT driven here — it is covered by its own unit test
+// (topic-selection-v1b-n8-bounded-debate-runtime-service.unit.test.ts) and is intentionally caller-side.
+// The feedback frozen input is built by v1bHarnessN7FeedbackRequest in the SHAPE the coordinator's
+// feedback_from_n8 recipe assembles and is validated here against the real N7 feedback parser, but it is
+// NOT byte-asserted against the coordinator's buildNextRequest output (the coordinator recipe has its own
+// unit coverage). Flow: borderline draft (total_score in [60,72) -> T1) loops back to N7; N7 readmits in
+// feedback mode; the still-borderline re-eval re-enters N8, which admits with an after-debate WARNING.
 async function runN8DebateTriggerLoopVariant(app, setup, n7SupportRuntime, suffix) {
   const ready = await runReadyN6Fixture(app, setup, `${suffix}_n6_ready`);
   const n7InitialInput = await v1bHarnessN7Request(app, ready.n6, `${suffix}_n7_initial`);

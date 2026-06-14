@@ -23,6 +23,7 @@ import type {
   TopicSelectionExecutorKind,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import {
+  TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
@@ -76,7 +77,7 @@ import {
 } from './topic-selection-v1b-n8-bounded-debate-admission-service.js';
 
 const N8_NODE_ID = 'topic-selection.v1b.assess-topic-value.v1' as const;
-const DEBATE_LOOP_ID = 'v1b_n8_bounded_micro_debate' as const;
+const DEBATE_LOOP_ID = TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID;
 const DEBATE_POLICY_ID = 'topic-selection.v1b.n8.bounded-micro-debate.v1' as const;
 const OUTPUT_CONTRACT = TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
 const PROMPT_TEMPLATE_ID = 'topic-selection.v1b.n8.bounded-micro-debate.runtime-role' as const;
@@ -248,16 +249,30 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
 
     // STEP 9 gate bridge: funnel the synthesizer's assessment_draft through the EXISTING single-agent
     // draft path so the gate-facing n8_value_assessment_draft artifact carries single-agent identity.
+    // Thread the debate's REAL execution_mode (07-spec STEP 9) so a codex_assisted debate is bridged
+    // as codex_response (correct provenance), not silently re-recorded as a mock fixture; only a
+    // mocked_llm debate uses mocked_output. (A mocked_llm debate in product run_mode is rejected by the
+    // orchestrator by design — the honest mocked-cannot-run-in-product invariant, DMP-09.)
     const draftPayload = admissionResult.assessment_draft as unknown as TopicSelectionV1bTopicValueAssessmentDraftPayload;
+    const bridgeFixtureId = `n8_debate_bridge_${input.request.node_attempt_id}`;
     const gateDraft = await this.singleAgent.generateDraftArtifact({
       request: input.request,
-      execution_mode: 'mocked_llm',
+      execution_mode: input.execution_mode,
       run_mode: runMode,
-      mocked_output: {
-        output: draftPayload,
-        fixture_id: `n8_debate_bridge_${input.request.node_attempt_id}`,
-        fixture_hash: canonicalHash(draftPayload),
-      } as unknown as TopicSelectionMockedAgentOutput<TopicSelectionV1bTopicValueAssessmentDraftPayload>,
+      codex_response: input.execution_mode === 'codex_assisted'
+        ? {
+          output: draftPayload,
+          operator_label: bridgeFixtureId,
+          response_hash: canonicalHash(draftPayload),
+        } as unknown as TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicValueAssessmentDraftPayload>
+        : null,
+      mocked_output: input.execution_mode === 'mocked_llm'
+        ? {
+          output: draftPayload,
+          fixture_id: bridgeFixtureId,
+          fixture_hash: canonicalHash(draftPayload),
+        } as unknown as TopicSelectionMockedAgentOutput<TopicSelectionV1bTopicValueAssessmentDraftPayload>
+        : null,
       created_by: input.created_by ?? input.request.created_by ?? 'system',
     });
     return {
@@ -279,6 +294,16 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
  * builder (spec STEP-7 obligation) is deferred to a compression-capable debate input — it only
  * affects the compression-triggered path and does NOT perturb the byte-verified no-compression
  * identity (see the runtimeTokenBudget note below).
+ *
+ * Prior-role binding: unlike v1c's debate strategy, this path deliberately does NOT thread a
+ * prompt-packet-level dynamic_material_refs (so the prompt packet records dynamic_material_refs_hash:
+ * null + a PROMPT_DYNAMIC_MATERIAL_NOT_APPLICABLE note). The prior-role chain is still fully
+ * identity-bound three other ways — the RIC's debate_context.dynamic_material_refs_hash and
+ * parent_invocation_attempt_ids_hash (both folded from priorRoleArtifactHashes), the source_hashes
+ * prior_role_artifact_hashes_hash, and admission's validatePriorRoleHashes chain check — so the
+ * omission is an intentional identity-shape divergence from v1c, not a copy-paste gap. Adding the
+ * prompt-packet refs would be a byte-bearing change (re-baselines every v1b N8 debate prompt_packet_hash)
+ * and is only warranted if prompt-packet parity with v1c becomes a product requirement.
  */
 class V1bN8DebateStrategy implements BoundedDebateStrategy<
   V1bN8DebateHandoff,

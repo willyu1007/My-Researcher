@@ -17,10 +17,7 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 
 import { AppError } from '../errors/app-error.js';
-import {
-  sha256Text,
-  stableStringify,
-} from './literature-content-processing-utils.js';
+import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import type { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 
 // T-123 Phase 2 — thin Run Coordinator above the v1b WorkflowHarness (decision D1).
@@ -713,9 +710,10 @@ export class TopicSelectionV1bRunCoordinatorService {
       payloadHashKey: cfg.feedback_payload_hash_key,
       feedbackRef: loopback.authority_ref,
       // The harness re-entry validates n8_feedback_hash === hash(artifact record) and
-      // n8_feedback_payload_hash === hash(payload); reproduce the first via the same canonicalHash,
-      // and reuse the loopback's authority_hash (which IS hash(feedback payload)) for the second.
-      recordHash: sha256Text(stableStringify(artifact)),
+      // n8_feedback_payload_hash === hash(payload); reproduce the first via canonicalHash — the exact
+      // single source the harness `hash()` delegates to — and reuse the loopback's authority_hash
+      // (which IS hash(feedback payload)) for the second.
+      recordHash: canonicalHash(artifact),
       payloadHash: loopback.authority_hash,
     };
   }
@@ -860,7 +858,7 @@ export class TopicSelectionV1bRunCoordinatorService {
       policy_version: POLICY_VERSION,
       frozen_input: {
         ...frozenInput,
-        frozen_input_hash: sha256Text(stableStringify(frozenInput)),
+        frozen_input_hash: canonicalHash(frozenInput),
       },
       created_by: input.created_by ?? 'system',
     };

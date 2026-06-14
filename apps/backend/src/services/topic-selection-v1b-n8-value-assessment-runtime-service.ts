@@ -214,13 +214,14 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
   }
 
   // NOTE (STEP 7): the bounded-debate strategy reuses resolveSharedN8RuntimeContext (above) for
-  // the expensive N7→N8 projection / decision-memory / source-hash / manifest resolution, but
-  // builds its OWN sourceRefs and requiredCompressionFacts inline (like v1c N2's debate runtime):
-  // the latter = the single-agent base facts + critic_finding/critic_resolution_map derived from
-  // prior-role artifacts (the single-agent path has no prior-role hashes, so it cannot produce
-  // those). Per-version source-refs/fact builders are NOT shared — only the debate executor core
-  // and the costly resolution are (DMP-10). No premature wrapper seams are exposed here; STEP 7
-  // introduces any it needs with the consumer that fixes their exact signature.
+  // the expensive N7→N8 projection / decision-memory / source-hash / manifest resolution, and builds
+  // its OWN sourceRefs inline (like v1c N2's debate runtime). The debate path's requiredCompressionFacts
+  // (= the single-agent base facts + critic_finding/critic_resolution_map from prior-role artifacts)
+  // is a DEFERRED STEP-7 obligation: the shipped debate runtime passes compression_attempt: null (the
+  // single-agent default when no compression is requested) and exposes no compression input, so the
+  // fact builder is not yet wired — see the V1bN8DebateStrategy header in the debate runtime. Per-version
+  // source-refs/fact builders are NOT shared — only the debate executor core and the costly resolution
+  // are (DMP-10). No premature wrapper seams are exposed here.
 
   async generateDraftArtifact(
     input: GenerateTopicSelectionV1bN8RuntimeDraftInput,
