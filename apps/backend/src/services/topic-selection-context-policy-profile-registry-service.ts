@@ -147,6 +147,24 @@ export const TOPIC_SELECTION_V1B_N8_INVOCATION_SLOT_IDS = {
   value_assessment_draft: 'n8_value_assessment_draft',
 } as const;
 
+export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS = {
+  assessor_draft:
+    'topic-selection.v1b.n8.bounded-debate.assessor-draft.context-runtime@v1',
+  value_critic:
+    'topic-selection.v1b.n8.bounded-debate.value-critic.context-runtime@v1',
+  assessor_repair:
+    'topic-selection.v1b.n8.bounded-debate.assessor-repair.context-runtime@v1',
+  synthesizer_final:
+    'topic-selection.v1b.n8.bounded-debate.synthesizer-final.context-runtime@v1',
+} as const;
+
+export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS = {
+  assessor_draft: 'n8_debate_assessor_draft',
+  value_critic: 'n8_debate_value_critic',
+  assessor_repair: 'n8_debate_assessor_repair',
+  synthesizer_final: 'n8_debate_synthesizer_final',
+} as const;
+
 export const TOPIC_SELECTION_V1C_N2_CONTEXT_RUNTIME_PROFILE_IDS = {
   promotion_support_llm_draft:
     'topic-selection.v1c.n2.promotion-support-llm-draft.context-runtime@v1',
@@ -326,6 +344,46 @@ const V1C_N2_BOUNDED_DEBATE_POST_RUNTIME_GATES = [
   'dynamic_material_boundary',
   'promotion_support_admission',
   'deterministic_gate',
+  'authority_boundary',
+] as const;
+
+// v1b N8 value-assessment context facts (beyond COMMON). Single-sourced so the single-agent
+// draft profile and the bounded-debate roles preserve an identical N8 context — the synthesizer's
+// final draft must satisfy the SAME gate as the single-agent draft it substitutes for.
+const V1B_N8_BASE_PRESERVED_FACT_KINDS = [
+  'n7_handoff',
+  'n7_to_n8_projection',
+  'topic_question',
+  'topic_question_contract',
+  'active_candidate_identity',
+  'answerability_plan',
+  'trial_ledger',
+  'selected_slice_identity',
+  'candidate_set_identity',
+  'value_rationale',
+  'support_quality',
+  'reviewer_uncertainty',
+  'risk_gap_blocker_fact',
+  'feedback_recheck_hint',
+] as const;
+
+// Bounded-debate roles add the debate-threading facts. NOTE: critic_finding / critic_resolution_map
+// are NOT in the single-agent fact builder — the STEP-7 debate strategy must emit them from the
+// prior-role artifacts (as v1c N2 does); the single-agent base builder cannot produce them.
+const V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS = [
+  ...COMMON_PRESERVED_FACT_KINDS,
+  ...V1B_N8_BASE_PRESERVED_FACT_KINDS,
+  'critic_finding',
+  'critic_resolution_map',
+] as const;
+
+const V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES = [
+  'schema_validation',
+  'role_artifact_admission',
+  'dynamic_material_boundary',
+  'draft_admission',
+  'deterministic_gate',
+  'feedback_boundary',
   'authority_boundary',
 ] as const;
 
@@ -921,20 +979,7 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         estimated_output_token_budget: 4096,
         preserved_fact_kinds: [
           ...COMMON_PRESERVED_FACT_KINDS,
-          'n7_handoff',
-          'n7_to_n8_projection',
-          'topic_question',
-          'topic_question_contract',
-          'active_candidate_identity',
-          'answerability_plan',
-          'trial_ledger',
-          'selected_slice_identity',
-          'candidate_set_identity',
-          'value_rationale',
-          'support_quality',
-          'reviewer_uncertainty',
-          'risk_gap_blocker_fact',
-          'feedback_recheck_hint',
+          ...V1B_N8_BASE_PRESERVED_FACT_KINDS,
         ],
         post_reuse_gates: [
           'schema_validation',
@@ -952,6 +997,58 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
           'feedback_boundary',
           'authority_boundary',
         ],
+      }),
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.assessor_draft,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.assessor_draft,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n8_topic_value_assessment',
+        estimated_input_token_target: 22000,
+        estimated_output_token_budget: 1800,
+        preserved_fact_kinds: [...V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
+      }),
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.value_critic,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.value_critic,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n8_topic_value_assessment',
+        estimated_input_token_target: 24000,
+        estimated_output_token_budget: 2000,
+        preserved_fact_kinds: [...V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
+      }),
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.assessor_repair,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.assessor_repair,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n8_topic_value_assessment',
+        estimated_input_token_target: 24000,
+        estimated_output_token_budget: 2000,
+        preserved_fact_kinds: [...V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
+      }),
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.synthesizer_final,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.synthesizer_final,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n8_topic_value_assessment',
+        estimated_input_token_target: 26000,
+        estimated_output_token_budget: 4096,
+        preserved_fact_kinds: [...V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
       }),
       contextPolicyProfile({
         context_policy_profile_id:
@@ -1090,6 +1187,15 @@ export class TopicSelectionContextPolicyProfileRegistryService {
   });
   private readonly registry: TopicSelectionContextPolicyProfileRegistry;
   private readonly validator: ValidateFunction;
+  // The instance registry is deep-cloned at construction and never mutated afterward (no method
+  // writes or exposes it), so both its full validation and every profile's content hash are fixed
+  // for the service's lifetime. resolveProfile() is called once per role turn across every
+  // topic-selection runtime, and previously re-ran a full validateRegistry() (AJV schema pass +
+  // per-profile invariant loop) plus a sha256(stableStringify(profile)) on EVERY call. Memoize
+  // both: the cached values are byte-identical to the uncached path (pure functions of an
+  // immutable registry), so prompt_packet_hash / profile_hash drift checks are unchanged.
+  private cachedRegistryValidation: TopicSelectionContextPolicyProfileRegistryValidationResult | null = null;
+  private readonly profileHashCache = new Map<string, string>();
 
   constructor(options: {
     registry?: TopicSelectionContextPolicyProfileRegistry;
@@ -1100,6 +1206,20 @@ export class TopicSelectionContextPolicyProfileRegistryService {
 
   validateRegistry(
     registry: TopicSelectionContextPolicyProfileRegistry = this.registry,
+  ): TopicSelectionContextPolicyProfileRegistryValidationResult {
+    // Only the immutable instance registry is cached; an explicitly-passed registry (external
+    // caller validating some other registry) always validates fresh.
+    if (registry !== this.registry) {
+      return this.computeRegistryValidation(registry);
+    }
+    if (!this.cachedRegistryValidation) {
+      this.cachedRegistryValidation = this.computeRegistryValidation(registry);
+    }
+    return this.cachedRegistryValidation;
+  }
+
+  private computeRegistryValidation(
+    registry: TopicSelectionContextPolicyProfileRegistry,
   ): TopicSelectionContextPolicyProfileRegistryValidationResult {
     const issues: TopicSelectionContextPolicyProfileRegistryValidationIssue[] = [];
     const schemaValid = this.validator(registry);
@@ -1142,7 +1262,7 @@ export class TopicSelectionContextPolicyProfileRegistryService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'invocation_slot_id does not match context policy profile.');
     }
 
-    const profileHash = this.hash(profile);
+    const profileHash = this.profileHashFor(profile);
     if (input.expected_profile_hash && input.expected_profile_hash !== profileHash) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'context policy profile hash drift detected.');
     }
@@ -1318,6 +1438,19 @@ export class TopicSelectionContextPolicyProfileRegistryService {
       issue_count: issues.length,
       issues,
     };
+  }
+
+  // Memoized per profile id. resolveProfile() only reaches here after validateRegistry() passes,
+  // which enforces unique context_policy_profile_id (DUPLICATE_PROFILE_ID), so the id uniquely
+  // identifies an immutable profile object — the cached hash is byte-identical to recomputing it.
+  private profileHashFor(profile: TopicSelectionContextPolicyProfile): string {
+    const cached = this.profileHashCache.get(profile.context_policy_profile_id);
+    if (cached) {
+      return cached;
+    }
+    const profileHash = this.hash(profile);
+    this.profileHashCache.set(profile.context_policy_profile_id, profileHash);
+    return profileHash;
   }
 
   private hash(value: unknown): string {

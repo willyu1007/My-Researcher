@@ -187,17 +187,49 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     });
   }
 
+  /**
+   * T-123 Phase 3 (STEP 5 reuse seam) — resolve the shared v1b N8 runtime context (frozen
+   * payload, N7→N8 projection, decision memory, source hashes, required-structure manifest)
+   * that BOTH the single-agent draft path and the bounded-debate roles consume, so the two
+   * paths share ONE implementation of the (complex, heavily-validated) resolution (DMP-10).
+   * Behavior-preserving: generateDraftArtifact / buildAdmissionExpectedIdentity call it with
+   * the exact same computations in the same order they used inline before.
+   */
+  async resolveSharedN8RuntimeContext(
+    request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    frozenPayloadOverride?: TopicSelectionV1bN8HarnessFrozenInputPayload,
+  ): Promise<{
+    frozenPayload: TopicSelectionV1bN8HarnessFrozenInputPayload;
+    projection: { ref: TopicSelectionFunctionalRef; hash: string; payload: TopicSelectionV1bN7ToN8TopicQuestionContractContextProjection };
+    decisionMemory: ResolvedTopicSelectionDecisionMemoryPacket | null;
+    sourceHashes: Record<string, string>;
+    requiredStructureManifest: TopicSelectionV1bN8RequiredStructureManifest;
+  }> {
+    const frozenPayload = frozenPayloadOverride ?? this.assertN8FrozenPayload(request);
+    const projection = await this.resolveN7ToN8Projection(request, frozenPayload);
+    const decisionMemory = await this.resolveDecisionMemoryPacket(request);
+    const sourceHashes = this.sourceHashes(request, frozenPayload, projection.hash, projection.payload, decisionMemory?.hash ?? null);
+    const requiredStructureManifest = this.requiredStructureManifest(sourceHashes);
+    return { frozenPayload, projection, decisionMemory, sourceHashes, requiredStructureManifest };
+  }
+
+  // NOTE (STEP 7): the bounded-debate strategy reuses resolveSharedN8RuntimeContext (above) for
+  // the expensive N7→N8 projection / decision-memory / source-hash / manifest resolution, but
+  // builds its OWN sourceRefs and requiredCompressionFacts inline (like v1c N2's debate runtime):
+  // the latter = the single-agent base facts + critic_finding/critic_resolution_map derived from
+  // prior-role artifacts (the single-agent path has no prior-role hashes, so it cannot produce
+  // those). Per-version source-refs/fact builders are NOT shared — only the debate executor core
+  // and the costly resolution are (DMP-10). No premature wrapper seams are exposed here; STEP 7
+  // introduces any it needs with the consumer that fixes their exact signature.
+
   async generateDraftArtifact(
     input: GenerateTopicSelectionV1bN8RuntimeDraftInput,
   ): Promise<TopicSelectionV1bN8RuntimeDraftGenerationResult> {
-    const frozenPayload = this.assertN8FrozenPayload(input.request);
     const binding = this.slotBinding();
     const runMode = input.run_mode ?? input.request.run_mode ?? this.defaultRunMode(input.execution_mode);
-    const projection = await this.resolveN7ToN8Projection(input.request, frozenPayload);
-    const decisionMemory = await this.resolveDecisionMemoryPacket(input.request);
-    const sourceHashes = this.sourceHashes(input.request, frozenPayload, projection.hash, projection.payload, decisionMemory?.hash ?? null);
+    const { frozenPayload, projection, decisionMemory, sourceHashes, requiredStructureManifest } =
+      await this.resolveSharedN8RuntimeContext(input.request);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
-    const requiredStructureManifest = this.requiredStructureManifest(sourceHashes);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
       binding,
       sourceHashes,
@@ -310,11 +342,9 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     if (input.modelOptionId) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'v1b N8 value draft first slice does not allow provider model options.');
     }
-    const projection = await this.resolveN7ToN8Projection(input.request, input.frozenPayload);
-    const decisionMemory = await this.resolveDecisionMemoryPacket(input.request);
-    const sourceHashes = this.sourceHashes(input.request, input.frozenPayload, projection.hash, projection.payload, decisionMemory?.hash ?? null);
+    const { projection, decisionMemory, sourceHashes, requiredStructureManifest } =
+      await this.resolveSharedN8RuntimeContext(input.request, input.frozenPayload);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
-    const requiredStructureManifest = this.requiredStructureManifest(sourceHashes);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
       binding,
       sourceHashes,
