@@ -92,7 +92,7 @@
 - **5.3 非 harness 收口（已做）**：① **POLICY_VERSION 收编**——`'topic-selection-v1b-node-policy-v1'` 原散落 4 个 backend service const + 14 处 contracts `slot_policy_version` 字面量，统一为 shared `TOPIC_SELECTION_V1B_NODE_POLICY_VERSION`（byte-identical）。② **S5 并行化**——decision-memory `buildPacket` 的 per-candidate-set 加载由 O(S) 顺序 await 改 `Promise.all`（保序，packet byte-identical——它进 N6/N8 frozen-input lineage）。验证：tsc 0、套件 1308/0。
 - **5.3 剩余项评估（低实际价值，记 backlog）**：validateRegistry 缓存（仅加载期一次）、loadTraces kind 仓储过滤（仓储契约改动换边际收益）、advance-loop 投影增量化（典型 run T 小、可变 checkpoint 引入风险）、gateway 校验钩子化（多 gateway 实现不存在，YAGNI）——均为非热路径 perf/思辨性 hygiene，change-risk 高于边际收益，暂不做。
 - **5.3 harness 本体项 → 5.1 窗口**：3 个 artifact 解析器收编（resolveN7SemanticPayload/resolveN8DraftPayload/resolveDecisionMemoryPacketFromSourceRefs）+ N6 单次解析——触碰 harness 本体（D3），并入 5.1 拆分窗口处理。
-- **5.1（F-11）= 待签核门**：harness 单文件 12,929 行拆分，D3 敏感 + replay byte-identity 关键；起草 D-T123-03 联合决策 + replay-identity 守卫、方案签核后再动手（多 session 重构）。
+- **5.1（F-11）进行中**：harness 单文件 12,929 行**纯机械拆分**（抽纯函数簇：parse-and-resolve / hash-authority / ref builder）。**D-T123-03 已登记**（T-088 `06-joint-decisions.md`，2026-06-15，用户签核拆分范式）；先落 **replay-identity 守卫单测**（钉死 hashContext / authority hashes / outcomeGateResultHash / frozen_input_hash 具体值），每 slice 前后守卫 + 全套件保持绿。增量推进、多 session。byte-identity 范式复用 v1c debate-core 抽取（逐字搬迁 + 差分核验）。
 
 - 2026-06-11：任务包创建（T-123）。来源：全链产品化审计（节点 debate / 复杂度 / 编排-harness / 压缩-上下文-记忆 / 参数规范化 五维）。
 
