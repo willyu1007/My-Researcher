@@ -14,7 +14,7 @@
 | F-07 provider_overrides 无类型 | 1.3 | **closed (2026-06-11)** | 契约层 `TopicSelectionProviderOverrides` 三 provider union + `provider_id` enum 收紧 + schema anyOf 严格化 + registry 加载期键校验（`PROVIDER_OVERRIDES_INVALID`）；见 §Phase 1 实施 |
 | F-08 prompt/schema 无 registry | 1.4 | **closed (2026-06-11)** | `topic-selection-llm-invocation-registry.ts`（30 模板 + 19 schema）+ gateway 运行时强校验（topic-selection 前缀必须注册）+ lint 静态守卫；见 §Phase 1 实施 |
 | F-09 cost_usd 恒 null | 1.5 | **closed (2026-06-12)** | 机制（价格表+telemetry 计算+fail-soft）验证通过；2026-06-12 已填入核实牌价（gpt-5.5 $5/$30、qwen3.6-plus $0.325/$1.95、deepseek-v4-pro $1.74/$3.48），来源记于 config $comment |
-| F-10 压缩/token 估计未规范化 | 5.2 | open | |
+| F-10 压缩/token 估计未规范化 | 5.2 | **partial (2026-06-15)** | 压缩策略去硬编码：executor kind 改从 profile `compression_policy.allowed_executor_kinds` 主项解析（SSOT，byte-identical——现所有 profile 主项均 `deterministic_structural`），不再写死字面量。**per-provider token 估计延期**（数据依赖，同 DP-3.3）：保守统一估计是安全设计（高估→提前压缩），per-provider 比率需真实分词器测量（gpt-5.5/qwen3.6-plus/deepseek-v4-pro），无测量数据时改 per-provider 猜值可能低估→运行期超预算，反劣于现状——已开独立标定任务。**debate 压缩 facts（STEP-7）延期**（消费者依赖）：仅压缩触发路径生效，需 compression-capable debate input + 触发场景（当前不存在），无真实消费者时构建 fact builder 即重蹈"过早 seam"债务。验证：tsc 0、backend 套件 1308/0、debate byte-identity 保持。 |
 | F-11 harness 单文件复杂度 | 5.1 | open | |
 
 ## 决策记录

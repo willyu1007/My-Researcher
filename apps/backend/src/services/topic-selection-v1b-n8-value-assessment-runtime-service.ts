@@ -590,7 +590,12 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       input_context: input.contextPacket,
       compressed_context: attempt?.compressed_context ?? defaultAttempt.compressed_context,
       summary: attempt?.summary ?? defaultAttempt.summary,
-      compression_executor_kind: attempt?.compression_executor_kind ?? 'deterministic_structural',
+      // F-10 normalization: the default executor kind comes from the profile's compression policy
+      // (SSOT, allowed_executor_kinds primary) rather than a hardcoded literal — byte-identical today
+      // (every profile declares deterministic_structural primary) but now profile-configurable.
+      compression_executor_kind: attempt?.compression_executor_kind
+        ?? input.runtimeProfile.profile.compression_policy.allowed_executor_kinds[0]
+        ?? 'deterministic_structural',
       required_preserved_facts: requiredPreservedFacts,
       compressed_preserved_facts: attempt
         ? attempt.compressed_preserved_facts ?? null
