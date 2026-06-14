@@ -6766,3 +6766,37 @@ test('v1b workflow harness validates every node id through the shell without aut
     ].includes(result.error_code ?? ''));
   }
 });
+
+// T-123 Phase 5.1 (F-11) REPLAY-IDENTITY GUARD: the harness split is a pure mechanical refactor that
+// must keep every byte-bearing hash identical. The chain tests above thread hashes node-to-node, so a
+// CONSISTENT shift in the hash machinery (hashContext / outcomeGateResultHash / authority+handoff
+// hashing) would still pass them. This test pins GOLDEN literal values for a fully deterministic
+// N1->N3 chain (fixed idFactory counter + fixed NOW), so any extraction that perturbs the hashing
+// drifts these and fails. Re-baseline ONLY for an intentional, separately-justified hash change.
+// N1 is the fully deterministic node (no semantic-support artifact generation, which on N2/N3 pulls a
+// non-idFactory random element). Its byte-bearing hashes therefore pin the SHARED hash machinery the
+// split most endangers: hashContext (-> node_replay_key), outcomeGateResultHash (-> gate_result_hash /
+// route_hash), frozen_input_hash, the N1 authority hash, and the handoff hashing.
+const GUARD_GOLDEN_N1: Record<string, string | null> = {
+  frozen_input_hash: 'bd34adc0946b45ba010dea78d44b946fb36503a8cd9bf2a35710dd933c175211',
+  gate_result_hash: '50587f791937d5a5beafb2c8a3804f8ebe62f41eed9052c0def921ae65554d06',
+  route_hash: '15dbf67aef2d370873c6d1606f4977ef1701097494ade5bd1588ced2d4fe18dd',
+  authority_hash: 'b07db403253f032c67edc21a47bb717cd48fd36e44df63d6ba7310d5de95dbab',
+  handoff_hash: '64d38ce4c1056bd65fa3bceaa19ec50bb91b69c120fbaeddc38b43fd2ee95dba',
+  node_replay_key: '1068d98fb5cd1fe59159384b1e98a3458872ba9e9c498e0acd078cb402a79534',
+};
+test('replay-identity guard: deterministic N1 pins golden byte-bearing hashes (F-11 split safety net)', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const n1 = await ctx.service.invokeNode(n1Request(ctx.bundle));
+  const actual = {
+    frozen_input_hash: n1.hashes.frozen_input_hash,
+    gate_result_hash: n1.hashes.gate_result_hash,
+    route_hash: n1.hashes.route_hash,
+    authority_hash: n1.hashes.authority_hash,
+    handoff_hash: n1.hashes.handoff_hash,
+    node_replay_key: n1.replay_identity.node_replay_key,
+  };
+  // Re-baseline ONLY for an intentional, separately-justified hash change — NEVER for a Phase-5.1
+  // extraction, which is pure mechanical relocation and must preserve every value byte-for-byte.
+  assert.deepEqual(actual, GUARD_GOLDEN_N1);
+});
