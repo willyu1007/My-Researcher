@@ -9,7 +9,7 @@
 | F-02 N8 参数硬编码 | 1.1 | **closed (2026-06-12)** | 实为 DMP-10 双轨。2026-06-11 先 registry 化清零 DEFAULT_MODEL；2026-06-12 按用户指令**全量移除遗留生成路径**（trio 重写为读投影 + IntakeService 整体删除），双轨不复存在；见 §2026-06-12 补充 |
 | F-03 N4/N6 profile 未注册 | 1.2 | **closed (2026-06-11)** | 审计结论修正：三个 single-agent profiles 实际已注册（registry `:147-151`），矩阵 slot map 状态过期。已对账更新矩阵；harness provenance 哈希断言已存在（orchestrator 单测 :282-283） |
 | F-04 编排层缺位 | 2 | **closed (2026-06-12)** | `TopicSelectionV1bRunCoordinatorService`（投影/advance-until-blocked/预算/超时/互斥）+ 2 条 HTTP 路由；全链 e2e 含双人审续跑绿；见 §Phase 2 实施 |
-| F-05 N8 debate 仅政策 | 3 | open | |
+| F-05 N8 debate 仅政策 | 3 | **closed (2026-06-14)** | 信号触发有界对抗 debate 全链交付：共享骨架 core + v1b N8 debate 运行时/admission（byte-match 准入 + 13 例 drift 负测）+ gate bridge（synthesizer draft 经单 agent 路径重记，零 gate 改动）+ harness T1/T3 gate/loopback + coordinator feedback recipe + N7 debate-admission 支撑输入；harness 级与 coordinator 驱动两条全闭环 e2e 均绿。延期项（非阻断，记 spec 07）：STEP-7 压缩 facts→Phase 5.2、DP-3.3 阈值标定（独立任务，provisional tripwire 守 product）、DP-3.5 provider-diverse 角色 profile（加法）。详见 `07-phase3-debate-skeleton-spec.md` |
 | F-06 跨 run 决策记忆缺失 | 4 | **closed (2026-06-12)** | `TopicSelectionDecisionMemoryProjectionService`（六类来源投影）+ `TopicSelectionDecisionMemoryPacket@v1` artifact 注入 v1b N6/N8 runtime context + N6 gate `decision_memory_duplicate_candidate` warning；e2e 绿；见 §Phase 4 实施 |
 | F-07 provider_overrides 无类型 | 1.3 | **closed (2026-06-11)** | 契约层 `TopicSelectionProviderOverrides` 三 provider union + `provider_id` enum 收紧 + schema anyOf 严格化 + registry 加载期键校验（`PROVIDER_OVERRIDES_INVALID`）；见 §Phase 1 实施 |
 | F-08 prompt/schema 无 registry | 1.4 | **closed (2026-06-11)** | `topic-selection-llm-invocation-registry.ts`（30 模板 + 19 schema）+ gateway 运行时强校验（topic-selection 前缀必须注册）+ lint 静态守卫；见 §Phase 1 实施 |
@@ -83,7 +83,7 @@
   - 新建 `topic-selection-bounded-debate-loop-contracts.ts`（shared StepContext）+ `topic-selection-bounded-debate-core-service.ts`（generateRoleArtifact 单轮 + runLoop + loop_transcript_hash）+ `topic-selection-bounded-debate-strategy.ts`（版本注入 strategy 接口）。
   - v1c runtime 重写为 core 薄 facade + 私有 `V1cN2BoundedDebateStrategy`（所有 v1c byte-bearing 逻辑 + buildAdmissionExpectedIdentity 逐字搬迁）。
   - **验证方法修正**：smoke 的 prompt_packet_hash 依赖 `workflow_run_id`（来自 RUN_KEY）且 smoke DB 有状态（断言 fresh 缓存行），跨 run 绝对哈希不可比——故采用对**纯函数 `buildAdmissionExpectedIdentity`**（固定 id）的 old-vs-new 差分探针：4 角色的 prompt_packet_hash / runtime_invocation_context_hash / context_policy_profile_hash / source_hashes **全 byte-identical**。v1c 单测 7/7、smoke pass、backend tsc 0。
-- **3.3 STEP 5–11 进行中**：抽取 v1b N8 单 agent helpers 为共享模块 → 注册 4 context-policy profiles + 4 invocation slots → v1b N8 debate 运行时 + admission → gate bridge → v1b debate smoke + 回归 → coordinator feedback recipe（3.5）。
+- **3.3 STEP 5–11 ✅ + 3.5 ✅ + 收口（2026-06-14）**：v1b N8 单 agent helpers 共享缝 → 4 context-policy profiles + 4 invocation slots → debate 运行时 + admission（13 例 drift 负测）→ gate bridge → debate smoke + 回归 → coordinator feedback recipe + N7 debate-admission 支撑输入（**全闭环 coordinator 驱动**）。两条全闭环 e2e（harness 级 `n7_runtime_smoke` 变体 + coordinator 驱动集成测试）均绿。一轮多角度审查（9 项修复：gate-bridge execution_mode 穿线、critic-resolution 守卫、loop-id/canonicalHash 单源、若干文档/测试）。F-05 关闭，详见 `07-phase3-debate-skeleton-spec.md`。
 
 ## 实施记录
 - 2026-06-11：任务包创建（T-123）。来源：全链产品化审计（节点 debate / 复杂度 / 编排-harness / 压缩-上下文-记忆 / 参数规范化 五维）。

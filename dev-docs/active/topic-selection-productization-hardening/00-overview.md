@@ -8,7 +8,8 @@
 - Progress: **Phase 4 DONE（2026-06-12）**——F-06 关闭。投影 service（六类来源）+ packet 契约 + 4 个仓储 list 方法（零迁移）+ N6/N8 注入（frozen_input artifact 引用同构 projection 模式，准入恒等式安全）+ N6 gate dedup warning（D-T123-01 加法式 harness 改动）。验证：单测 8/8、e2e dedup warning 绿、N6/N8 smoke 绿、v1b harness e2e 绿。偏差：v1a N6 注入显式缓（admission 已有池 dedup）、压缩专项以设计注记代替。
 - Progress: **Phase 2 审查修复收口（2026-06-13）**——第二轮 /code-review high 发现 10 项（1 崩溃级 withRunLock unhandledRejection/锁泄漏、超时孤儿同 attempt_id 双发、loopback 上游重入缺口、路由 schema 缺失、人审绑定无校验、retype 门禁失效、投影三处脆弱、draft+spec 组合、双写、SSOT 手抄）；9 项当轮修复 + loopback 缺口记录为 Phase 3 前置。验证：单测 12/12、e2e ok（含 404/400/409 新断言）、套件 1279/0 fail、v1b e2e + stress 绿。
 - Progress: **Phase 2 DONE（2026-06-12）**——F-04 关闭。2.0 并发实锤+方案 B 裁决（零 harness 触碰）；coordinator（投影/advance/预算/超时/互斥/retry）+ 2 HTTP 路由 + 人审路由 run-id 透传；recipe 表四类扩展（跨级哈希/payload authority/snapshot retype/projection 扫描）。验证：单测 7/7、全链 e2e（双人审续跑+幂等重推进）、v1b e2e、runtime-stress、backend 套件 1309/0 fail 全绿。
-- Next: Phase 3（N8 debate）→ Phase 5 收尾。
+- Progress: **Phase 3 DONE（2026-06-14）**——F-05 关闭。信号触发有界对抗 debate 全链：共享骨架 core + v1b N8 运行时/admission（13 例 byte-match drift 负测）+ gate bridge（零 gate 改动）+ harness T1/T3 gate/loopback + coordinator feedback recipe + N7 debate-admission 支撑输入（全闭环 coordinator 驱动）。两条全闭环 e2e 绿；一轮多角度审查 9 项修复（含 gate-bridge execution_mode 穿线、critic-resolution 守卫、loop-id/canonicalHash 单源）。验证：tsc 0、backend 套件 1308/0 fail、harness e2e 绿。延期项（非阻断，记 spec 07）：STEP-7 压缩 facts→Phase 5.2、DP-3.3 阈值标定（独立任务）、DP-3.5 provider-diverse（加法）。
+- Next: **Phase 5 收尾**（M5 复杂度治理）：5.1 harness 单文件拆分（F-11，D3 敏感——触碰 harness 本体先记联合决策）+ 5.2 压缩/token 估计规范化（F-10，含 STEP-7 debate 压缩 facts）+ 5.3 backlog（gateway 校验钩子化 / artifact 解析器收编 / 投影增量化 等）+ 遗留生成路径全量移除（~5.8k 行，Phase 1 超预算遗留）。
 - Task ID: `T-123`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-009`
 - Depends on: `T-088`（workflow-runtime-foundation，in-progress——harness 周边改动需联合决策，见 `02-architecture.md` §协调）
