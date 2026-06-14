@@ -38,6 +38,7 @@ export const TOPIC_SELECTION_PROMPT_TEMPLATE_IDS = new Set<string>([
   'topic-selection.v1b.n7.failed-trial-synthesis.runtime-support',
   'topic-selection.v1b.n7.n8-debate-admission-review.runtime-support',
   'topic-selection.v1b.n8.topic-value-assessment.runtime-draft',
+  'topic-selection.v1b.n8.bounded-micro-debate.runtime-role',
   // v1c
   'topic-selection-promotion-decision-support',
   'topic-selection-v1c-promotion-support-bounded-micro-debate',
@@ -60,6 +61,8 @@ export const TOPIC_SELECTION_OUTPUT_SCHEMA_NAMES = new Set<string>([
   // resource sampling
   'topic_selection_resource_sampling_classification',
   'topic_selection_resource_sampling_canary',
+  // v1b harness runtime slots
+  'TopicSelectionV1bN8BoundedDebateRoleOutput@v1',
   // v1c
   'TopicSelectionPromotionDecisionSupportLlmDraft',
   'TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1',
