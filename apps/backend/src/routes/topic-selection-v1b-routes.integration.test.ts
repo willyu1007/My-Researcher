@@ -2568,3 +2568,101 @@ test('v1b run coordinator advances N1→N11 with human halts, caller drafts, and
     await app.close();
   }
 });
+
+// T-123 P3 / DP-3.6: the FULLY coordinator-driven N8 debate loop, end-to-end through the REAL harness.
+// A borderline value draft (total_score in [60,72) -> T1) loops back first-pass; the coordinator
+// assembles the N7 feedback_from_n8 frozen input AND records the caller-supplied
+// n7_n8_debate_admission_review support (the piece the harness readmission requires); N7 readmits;
+// the still-borderline re-eval re-enters N8, which admits with an after-debate warning. This proves the
+// coordinator can drive the whole loop (not just the harness-level e2e) through the real N7 parser.
+test('v1b run coordinator drives the full N8 debate loop: borderline T1 loopback → N7 feedback re-entry (with debate-admission support) → re-eval admits', async () => {
+  const app = buildApp({ topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway() });
+  try {
+    const suffix = uniqueId('v1b-coord-debate-loop');
+    const bundleResult = await createV1bInputBundle(app, suffix);
+    const n1Input = v1bHarnessN1Request(bundleResult.v1bInputBundle, suffix);
+    const runId = n1Input.workflow_run_id;
+    const N4_ID = 'topic-selection.v1b.generate-research-slice-options.v1';
+    const N5_ID = 'topic-selection.v1b.select-research-slice.v1';
+    const N6_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1';
+    const N7_ID = 'topic-selection.v1b.materialize-topic-question-contract.v1';
+    const N8_ID = 'topic-selection.v1b.assess-topic-value.v1';
+
+    type CoordinatorState = {
+      nodes: Array<{ node_id: string; latest: {
+        gate_status: string; route_decision: string;
+        authority_ref: TopicSelectionFunctionalRef | null; handoff_ref: TopicSelectionFunctionalRef | null;
+        trace_snapshot_ref: TopicSelectionFunctionalRef | null; authority_hash: string | null; handoff_hash: string | null;
+      } | null }>;
+      run_complete: boolean;
+    };
+    type AdvanceReport = { steps: Array<{ node_id: string; gate_status: string }>; halt: { reason: string; node_id: string | null; message?: string }; run_state: CoordinatorState };
+    const advance = async (body: Record<string, unknown>): Promise<AdvanceReport> => {
+      const response = await app.inject({ method: 'POST', url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(runId)}/advance`, payload: body });
+      assertStatus(response, 200);
+      return response.json() as AdvanceReport;
+    };
+    const fabricate = (s: CoordinatorState, nodeId: string): WorkflowHarnessHttpResult => {
+      const latest = s.nodes.find((node) => node.node_id === nodeId)?.latest;
+      assert.ok(latest, `expected latest for ${nodeId}`);
+      return {
+        gate_status: latest.gate_status, route_decision: latest.route_decision, failure_class: null,
+        authority_ref: latest.authority_ref, handoff_ref: latest.handoff_ref, trace_snapshot_ref: latest.trace_snapshot_ref,
+        transition_attempt_ref: null, hashes: { authority_hash: latest.authority_hash, handoff_hash: latest.handoff_hash },
+      };
+    };
+    const borderline = (draft: Record<string, unknown>): Record<string, unknown> => ({ ...draft, total_score: 66 });
+    const debateAdmissionSupport = {
+      debate_level: 'compact_assessment_debate',
+      recommended_profile_id: 'topic-selection.v1b.harness.n7_n8_debate_admission_support',
+      high_value_signal_codes: [],
+      risk_signal_codes: ['N8_VALUE_BORDERLINE_DEBATE_TRIGGER'],
+      rationale: 'Borderline total_score warrants a compact value debate.',
+    };
+
+    // Drive N1 -> N7 frontier (N2/N5 human, N4/N6 drafts).
+    const afterN1 = await advance({ bootstrap_request: n1Input });
+    const intakeSnapshotId = afterN1.run_state.nodes.find((n) => n.node_id === n1Input.node_id)!.latest!.authority_ref!.ref_id;
+    assertStatus(await app.inject({
+      method: 'POST', url: `/topic-selection/v1b/intake-snapshots/${encodeURIComponent(intakeSnapshotId)}/constraint-profile/human`,
+      payload: { actor: { actor_type: 'human', actor_id: 'reviewer_coord_debate' }, workflow_run_id: runId, profile: acceptedConstraintProfilePayload() },
+    }), 201);
+    await advance({});
+    const afterN4 = await advance({ node_inputs: { [N4_ID]: { draft_payload: v1bHarnessN4Draft(bundleResult.v1bInputBundle) as unknown as Record<string, unknown> } } });
+    const n4Like = fabricate(afterN4.run_state, N4_ID);
+    const selectedOption = await selectedV1bHarnessOption(app, n4Like);
+    assertStatus(await app.inject({
+      method: 'POST', url: `/topic-selection/v1b/research-slice-option-sets/${encodeURIComponent(n4Like.authority_ref!.ref_id)}/human-selection`,
+      payload: { selected_option_id: selectedOption.research_slice_option_id, selection_rationale: 'Coordinator debate-loop e2e.', actor: { actor_type: 'human', actor_id: 'reviewer_coord_debate' }, workflow_run_id: runId },
+    }), 201);
+    const stateAfterN5 = (await advance({})).run_state;
+    const n6Input = await v1bHarnessN6Request(app, fabricate(stateAfterN5, N5_ID), suffix);
+    const afterN7 = await advance({ node_inputs: { [N6_ID]: { draft_payload: v1bHarnessN6Draft(bundleResult.v1bInputBundle, n6Input) as unknown as Record<string, unknown> } } });
+    assert.equal(afterN7.halt.node_id, N8_ID);
+
+    // First N8 eval with a borderline draft -> T1 first-pass loopback.
+    const n8Input = await v1bHarnessN8Request(app, fabricate(afterN7.run_state, N7_ID), suffix);
+    const loopbackReport = await advance({ node_inputs: { [N8_ID]: { draft_payload: borderline(v1bHarnessN8ValueDraft(n8Input) as unknown as Record<string, unknown>) } } });
+    assert.equal(loopbackReport.halt.reason, 'harness_loopback');
+    assert.equal(loopbackReport.run_state.nodes.find((n) => n.node_id === N8_ID)!.latest!.route_decision, 'loopback');
+
+    // Feedback re-entry: coordinator assembles the feedback frozen input + records the debate-admission
+    // support; the REAL N7 readmission parser accepts both and admits.
+    const reentryReport = await advance({ retry_node_id: N7_ID, node_inputs: { [N7_ID]: { draft_payload: { ...debateAdmissionSupport } } } });
+    assert.deepEqual(reentryReport.steps.map((s) => s.node_id), [N7_ID]);
+    const n7Reentry = reentryReport.run_state.nodes.find((n) => n.node_id === N7_ID)!.latest!;
+    assert.ok(n7Reentry.gate_status === 'admitted' || n7Reentry.gate_status === 'admitted_with_warnings', 'N7 feedback re-entry admits through the real harness');
+    assert.equal(n7Reentry.route_decision, 'invoke_next');
+    assert.equal(reentryReport.halt.node_id, N8_ID);
+
+    // N8 re-eval (still borderline; admission ref now feedback_from_n8) -> after-debate warning admit.
+    const n8Reentry = await v1bHarnessN8Request(app, fabricate(reentryReport.run_state, N7_ID), `${suffix}_reeval`);
+    const reevalReport = await advance({ node_inputs: { [N8_ID]: { draft_payload: borderline(v1bHarnessN8ValueDraft(n8Reentry) as unknown as Record<string, unknown>) } } });
+    const n8Reeval = reevalReport.run_state.nodes.find((n) => n.node_id === N8_ID)!.latest!;
+    assert.equal(n8Reeval.gate_status, 'admitted_with_warnings');
+    assert.equal(n8Reeval.route_decision, 'invoke_next');
+    assert.equal(reevalReport.steps[0]!.node_id, N8_ID);
+  } finally {
+    await app.close();
+  }
+});

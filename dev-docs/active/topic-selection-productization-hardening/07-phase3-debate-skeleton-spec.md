@@ -359,3 +359,38 @@ The COORDINATOR's role in the loop is increment A (the feedback recipe, unit-pro
 **3.5 status:** coordinator feedback recipe (A) + harness-level full-loop e2e (B) both DONE + verified. Remaining Phase-3 items: the deferred STEP-7 compression-facts builder; (optional) the coordinator N7 support-input path for a fully coordinator-driven loop.
 
 **Also remaining:** the deferred STEP-7 compression-facts builder above.
+
+## 3.5 close-out — fully coordinator-driven debate loop (DONE + verified)
+
+The deferred coordinator N7 support-input path (the gap increment B surfaced) is now built, so the
+coordinator drives the WHOLE debate loop, not just the harness-level e2e:
+- `HANDOFF_BUILDER_TABLE` N7 `feedback_reentry` gains `support_slot_id: 'n7_n8_debate_admission_review'`.
+- The unconsumed-loopback detection is factored into one sync `pendingFeedbackLoopback` predicate shared
+  by `resolveFeedbackReentry` (frozen-input assembly) and `feedbackReentrySupportSlotId` (the advance
+  loop's support requirement) — so the two can never disagree on whether N7 is a feedback re-entry.
+- The advance loop treats an N7 feedback re-entry like a model-like node: it requires
+  `node_inputs[N7].draft_payload` (the debate-admission review) and `recordDraftSemanticArtifact`
+  (now slot-parameterized) records it under the `support_only` `n7_n8_debate_admission_review` slot and
+  attaches it to the request; absent it, the coordinator halts `model_input_required` at N7 with a
+  pointed message instead of letting the harness block with `N7_REQUIRED_SUPPORT_ARTIFACT_MISSING`.
+- Verified: coordinator unit 15/15 (feedback re-entry now asserts the support is recorded under the right
+  support_only slot + a missing-support negative); NEW in-memory **coordinator-driven** full-loop
+  integration test (`topic-selection-v1b-routes.integration.test.ts`) drives borderline T1 loopback → N7
+  feedback re-entry **admitted by the REAL harness** (with the coordinator-supplied support) → N8 re-eval
+  `admitted_with_warnings`; tsc 0, full backend suite green.
+
+**F-05 (N8 debate) — CLOSED.** Signal-triggered bounded value debate is delivered end-to-end: runtime +
+admission + gate bridge + harness T1/T3 gate + loopback + coordinator feedback recipe + N7 support-input
++ both harness-level and coordinator-driven full-loop e2es.
+
+**Documented Phase-3 deferrals (non-blocking, tracked):**
+- **STEP-7 compression-facts builder** → folded into Phase 5.2 (compression/token normalization); the
+  debate path emits `compression_attempt: null` (matches the single-agent default) and exposes no
+  compression input, so it only affects the compression-triggered path.
+- **DP-3.3 threshold calibration** → standalone analysis task: the T1/T3 thresholds ship `provisional`
+  with the `n8_debate_thresholds_provisional` product tripwire guarding any product run; recalibration
+  needs mined N8 value-score distributions (the existing `.ai/.tmp` deep-test data is T-112-era
+  runtime-stress, not N8 score distributions).
+- **DP-3.5 provider-diverse role profiles** → additive/future per the locked decision; the registry
+  infrastructure exists (`DEBATE_WORKER_DEEPSEEK_ELIGIBLE_PROFILE_IDS`); codex / provider-compact are
+  covered. Threading per-role `model_option_id` into `runDebate` is a pure addition when needed.

@@ -426,10 +426,23 @@ async function driveToN8DebateLoopback(): Promise<{
   return { harness, coordinator, controlPlane, feedbackRef, feedbackPayloadHash, feedbackRecordHash };
 }
 
-test('N8 debate loopback re-enters N7 in feedback_from_n8 mode with the feedback artifact threaded', async () => {
+const DEBATE_ADMISSION_SUPPORT = {
+  debate_level: 'compact_assessment_debate',
+  recommended_profile_id: 'topic-selection.v1b.harness.n7_n8_debate_admission_support',
+  high_value_signal_codes: [],
+  risk_signal_codes: ['N8_VALUE_BORDERLINE_DEBATE_TRIGGER'],
+  rationale: 'Borderline total_score warrants a compact value debate.',
+};
+
+test('N8 debate loopback re-enters N7 in feedback_from_n8 mode with the feedback artifact + debate-admission support', async () => {
   const { harness, coordinator, feedbackRef, feedbackPayloadHash, feedbackRecordHash } = await driveToN8DebateLoopback();
 
-  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, retry_node_id: N7 });
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N7,
+    // The feedback re-entry requires the caller-supplied debate-admission review support.
+    node_inputs: { [N7]: { draft_payload: { ...DEBATE_ADMISSION_SUPPORT } } },
+  });
   // After the feedback re-entry admits, N8 (model-like) becomes the frontier again and needs a draft.
   assert.deepEqual(report.steps.map((step) => step.node_id), [N7]);
   assert.equal(report.halt.reason, 'model_input_required');
@@ -441,13 +454,31 @@ test('N8 debate loopback re-enters N7 in feedback_from_n8 mode with the feedback
   assert.equal(initialPayload.input_mode, 'initial_from_n6');
   assert.equal(initialPayload.n8_feedback_ref, undefined, 'initial N7 carries no feedback refs');
 
-  const feedbackPayload = n7Requests[1]!.frozen_input.payload as Record<string, unknown>;
+  const feedbackRequest = n7Requests[1]!;
+  const feedbackPayload = feedbackRequest.frozen_input.payload as Record<string, unknown>;
   assert.equal(feedbackPayload.input_mode, 'feedback_from_n8');
   assert.deepEqual(feedbackPayload.n8_feedback_ref, feedbackRef);
   assert.equal(feedbackPayload.n8_feedback_hash, feedbackRecordHash);
   assert.equal(feedbackPayload.n8_feedback_payload_hash, feedbackPayloadHash);
-  const refKeys = n7Requests[1]!.frozen_input.source_refs.map((item) => `${item.ref_type}:${item.ref_id}`);
+  const refKeys = feedbackRequest.frozen_input.source_refs.map((item) => `${item.ref_type}:${item.ref_id}`);
   assert.ok(refKeys.includes(`artifact_ref:${feedbackRef.ref_id}`), 'feedback artifact ref must be in source_refs');
+
+  // The coordinator recorded the debate-admission support under the right support_only slot and
+  // attached it to the feedback re-entry request (so the real harness readmission can resolve it).
+  const support = feedbackRequest.semantic_artifacts?.[0];
+  assert.equal(support?.slot_id, 'n7_n8_debate_admission_review');
+  assert.equal(support?.allowed_effect, 'support_only');
+  assert.equal(support?.output_contract, 'N8DebateAdmissionReviewSupport@v1');
+});
+
+test('N8 debate loopback re-entry of N7 halts for the debate-admission support when the caller omits it', async () => {
+  const { coordinator } = await driveToN8DebateLoopback();
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, retry_node_id: N7 });
+  // N7 is normally auto-driven, but the feedback re-entry needs the support — so it halts asking for it.
+  assert.equal(report.steps.length, 0);
+  assert.equal(report.halt.reason, 'model_input_required');
+  assert.equal(report.halt.node_id, N7);
+  assert.match(report.halt.message, /n7_n8_debate_admission_review support/);
 });
 
 test('N8 debate loopback can still re-invoke the source (N8) with a fresh draft instead of re-entering N7', async () => {

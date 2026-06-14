@@ -97,6 +97,13 @@ const HANDOFF_BUILDER_TABLE: Record<string, {
     feedback_ref_key: string;
     feedback_record_hash_key: string;
     feedback_payload_hash_key: string;
+    /**
+     * The support_only semantic-support slot the node REQUIRES on the feedback re-entry (the N7
+     * gate-rejected readmission needs a frozen n7_n8_debate_admission_review support deciding the
+     * debate level). On a feedback re-entry the coordinator records node_inputs[node].draft_payload
+     * under this slot and attaches it to the request — without it the harness blocks the readmission.
+     */
+    support_slot_id?: string;
   };
 }> = {
   'topic-selection.v1b.assess-intake-readiness.v1': {
@@ -132,6 +139,7 @@ const HANDOFF_BUILDER_TABLE: Record<string, {
       feedback_ref_key: 'n8_feedback_ref',
       feedback_record_hash_key: 'n8_feedback_hash',
       feedback_payload_hash_key: 'n8_feedback_payload_hash',
+      support_slot_id: 'n7_n8_debate_admission_review',
     },
   },
   'topic-selection.v1b.assess-topic-value.v1': {
@@ -443,12 +451,18 @@ export class TopicSelectionV1bRunCoordinatorService {
           `${nextNodeId}: provide either draft_payload or execution_spec, not both — the recorded draft pins execution_mode=codex_assisted, which always mismatches a provider execution_spec at admission.`,
         );
       }
+      // A feedback re-entry (N7 <- N8 debate loopback) is otherwise auto-driven, but the harness
+      // readmission requires a caller-supplied support_only artifact (the debate-admission review),
+      // so it needs caller input exactly like a model-like node.
+      const feedbackSupportSlotId = this.feedbackReentrySupportSlotId(projection, nextNodeId);
       const isModelLike = policy.execution_kind === 'model_like';
-      if (isModelLike && !nodeInput?.draft_payload && !nodeInput?.execution_spec) {
+      if ((isModelLike || feedbackSupportSlotId != null) && !nodeInput?.draft_payload && !nodeInput?.execution_spec) {
         return halt(
           'model_input_required',
           nextNodeId,
-          `${nextNodeId} is model-like; supply node_inputs[...].draft_payload (caller-curated draft) or execution_spec (provider run) — auto-advance stays human-in-loop per D1.`,
+          feedbackSupportSlotId != null
+            ? `${nextNodeId} is re-entering in feedback mode; supply node_inputs[...].draft_payload carrying the ${feedbackSupportSlotId} support (the debate-admission review the readmission requires).`
+            : `${nextNodeId} is model-like; supply node_inputs[...].draft_payload (caller-curated draft) or execution_spec (provider run) — auto-advance stays human-in-loop per D1.`,
           [],
           projection,
         );
@@ -462,8 +476,10 @@ export class TopicSelectionV1bRunCoordinatorService {
         request.run_mode = input.run_mode ?? 'acceptance';
       }
       if (nodeInput?.draft_payload) {
+        // On a feedback re-entry the draft_payload IS the required support_only artifact, recorded
+        // under that slot; otherwise it is the node's model-draft-for-gate.
         request.semantic_artifacts = [
-          await this.recordDraftSemanticArtifact(request, nextNodeId, nodeInput.draft_payload, input.created_by),
+          await this.recordDraftSemanticArtifact(request, nextNodeId, nodeInput.draft_payload, input.created_by, feedbackSupportSlotId ?? undefined),
         ];
       }
       if (nodeInput?.execution_spec) {
@@ -664,14 +680,38 @@ export class TopicSelectionV1bRunCoordinatorService {
    * ref + the record/payload hashes the node's feedback parser validates against, or null when no
    * such loopback is pending (the normal forward/initial recipe then applies).
    */
+  /** An UNCONSUMED downstream loopback that re-enters targetNodeId in feedback mode (or null). Sync,
+   *  artifact-free — the single detection shared by buildNextRequest's frozen-input assembly and the
+   *  advance loop's support-input requirement, so the two can never disagree on whether N7 is a
+   *  feedback re-entry. */
+  private pendingFeedbackLoopback(
+    projection: TopicSelectionV1bRunStateProjection,
+    targetNodeId: string,
+  ): { cfg: NonNullable<(typeof HANDOFF_BUILDER_TABLE)[string]['feedback_reentry']>; loopback: TopicSelectionV1bRunNodeAttemptSnapshot } | null {
+    const cfg = HANDOFF_BUILDER_TABLE[targetNodeId]?.feedback_reentry;
+    if (!cfg) {
+      return null;
+    }
+    const loopback = projection.nodes.find((node) => node.node_id === cfg.loopback_source_node_id)?.latest;
+    if (!loopback || loopback.route_decision !== 'loopback') {
+      return null;
+    }
+    const lastAdmittedSeq = projection.nodes.find((node) => node.node_id === targetNodeId)?.latest_admitted?.seq ?? -1;
+    if (loopback.seq <= lastAdmittedSeq) {
+      return null;
+    }
+    return { cfg, loopback };
+  }
+
+  /** The support_only slot a feedback re-entry of targetNodeId requires from the caller (or null). */
+  private feedbackReentrySupportSlotId(
+    projection: TopicSelectionV1bRunStateProjection,
+    targetNodeId: string,
+  ): string | null {
+    return this.pendingFeedbackLoopback(projection, targetNodeId)?.cfg.support_slot_id ?? null;
+  }
+
   private async resolveFeedbackReentry(
-    recipe: { feedback_reentry?: {
-      loopback_source_node_id: string;
-      input_mode: string;
-      feedback_ref_key: string;
-      feedback_record_hash_key: string;
-      feedback_payload_hash_key: string;
-    } },
     projection: TopicSelectionV1bRunStateProjection,
     targetNodeId: string,
   ): Promise<{
@@ -683,19 +723,11 @@ export class TopicSelectionV1bRunCoordinatorService {
     recordHash: string;
     payloadHash: string;
   } | null> {
-    const cfg = recipe.feedback_reentry;
-    if (!cfg) {
+    const pending = this.pendingFeedbackLoopback(projection, targetNodeId);
+    if (!pending) {
       return null;
     }
-    const source = projection.nodes.find((node) => node.node_id === cfg.loopback_source_node_id);
-    const loopback = source?.latest;
-    if (!loopback || loopback.route_decision !== 'loopback') {
-      return null;
-    }
-    const lastAdmittedSeq = projection.nodes.find((node) => node.node_id === targetNodeId)?.latest_admitted?.seq ?? -1;
-    if (loopback.seq <= lastAdmittedSeq) {
-      return null;
-    }
+    const { cfg, loopback } = pending;
     if (!loopback.authority_ref || !loopback.authority_hash) {
       throw new AppError(500, 'INTERNAL_ERROR', `feedback loopback from ${cfg.loopback_source_node_id} is missing its feedback artifact ref/hash for ${targetNodeId} re-entry.`);
     }
@@ -771,7 +803,7 @@ export class TopicSelectionV1bRunCoordinatorService {
     // DP-3.6 upstream feedback re-entry: when an unconsumed downstream loopback targets this node,
     // override input_mode and thread the loopback's feedback artifact refs/hashes into the payload
     // (the rest of the frozen input stays the forward N6 lineage the feedback parser also requires).
-    const feedbackReentry = await this.resolveFeedbackReentry(recipe, projection, nextNodeId);
+    const feedbackReentry = await this.resolveFeedbackReentry(projection, nextNodeId);
     if (feedbackReentry) {
       payload.input_mode = feedbackReentry.inputMode;
       payload[feedbackReentry.refKey] = feedbackReentry.feedbackRef;
@@ -876,13 +908,20 @@ export class TopicSelectionV1bRunCoordinatorService {
     nodeId: string,
     draftPayload: Record<string, unknown>,
     createdBy: AdvanceTopicSelectionV1bRunInput['created_by'],
+    targetSlotId?: string,
   ): Promise<TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef> {
-    // Slot metadata comes from the node policy (SSOT) — exactly one model-draft slot per
-    // model-like node; a node without one does not accept caller drafts.
-    const slot = POLICY_BY_NODE_ID.get(nodeId)
-      ?.semantic_support_slots.find((candidate) => candidate.allowed_effect === 'model_draft_for_gate');
+    // Slot metadata comes from the node policy (SSOT). Default: the single model-draft-for-gate slot
+    // (a node without one does not accept caller drafts). targetSlotId selects a specific support
+    // slot instead — used for the feedback re-entry's required support_only artifact (the recorded
+    // ref carries that slot's allowed_effect, so a support_only slot is recorded as support_only).
+    const slots = POLICY_BY_NODE_ID.get(nodeId)?.semantic_support_slots;
+    const slot = targetSlotId
+      ? slots?.find((candidate) => candidate.slot_id === targetSlotId)
+      : slots?.find((candidate) => candidate.allowed_effect === 'model_draft_for_gate');
     if (!slot) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${nodeId} does not accept caller-supplied drafts.`);
+      throw new AppError(400, 'INVALID_PAYLOAD', targetSlotId
+        ? `${nodeId} has no semantic support slot ${targetSlotId}.`
+        : `${nodeId} does not accept caller-supplied drafts.`);
     }
     const record = async (payload: Record<string, unknown>, kind: 'structured_output' | 'diagnostic') =>
       this.deps.controlPlane.recordArtifactRef({
@@ -913,7 +952,7 @@ export class TopicSelectionV1bRunCoordinatorService {
       node_id: request.node_id,
       run_mode: request.run_mode ?? 'acceptance',
       slot_id: slot.slot_id,
-      allowed_effect: 'model_draft_for_gate',
+      allowed_effect: slot.allowed_effect,
       output_contract: slot.output_contract,
       execution_mode: 'codex_assisted',
       profile_id: slot.default_profile_id,
