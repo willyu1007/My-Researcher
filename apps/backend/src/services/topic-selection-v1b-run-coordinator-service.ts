@@ -84,6 +84,23 @@ const HANDOFF_BUILDER_TABLE: Record<string, {
    * silently nullify it for every node, masking real recipe wiring errors.
    */
   retype_authority_as_snapshot?: boolean;
+  /**
+   * Upstream feedback re-entry (T-123 DP-3.6). When this node is re-entered because a
+   * downstream node looped back to it (the N8 -> N7 debate-trigger loopback), the
+   * coordinator builds the SAME forward (initial) recipe but overrides input_mode and
+   * threads the loopback's feedback artifact ref + record/payload hashes into the frozen
+   * payload — matching the node's feedback_from_* parser — instead of the initial recipe.
+   * The feedback ref + payload hash come from the loopback attempt's authority_ref /
+   * authority_hash; the record hash is reproduced from the (immutable) feedback artifact
+   * via the same canonicalHash the harness validates with.
+   */
+  feedback_reentry?: {
+    loopback_source_node_id: string;
+    input_mode: string;
+    feedback_ref_key: string;
+    feedback_record_hash_key: string;
+    feedback_payload_hash_key: string;
+  };
 }> = {
   'topic-selection.v1b.assess-intake-readiness.v1': {
     handoff_hash_key: 'n2_handoff_hash',
@@ -112,6 +129,13 @@ const HANDOFF_BUILDER_TABLE: Record<string, {
   'topic-selection.v1b.materialize-topic-question-contract.v1': {
     handoff_hash_key: 'n6_handoff_hash',
     payload_extras: { input_mode: 'initial_from_n6' },
+    feedback_reentry: {
+      loopback_source_node_id: 'topic-selection.v1b.assess-topic-value.v1',
+      input_mode: 'feedback_from_n8',
+      feedback_ref_key: 'n8_feedback_ref',
+      feedback_record_hash_key: 'n8_feedback_hash',
+      feedback_payload_hash_key: 'n8_feedback_payload_hash',
+    },
   },
   'topic-selection.v1b.assess-topic-value.v1': {
     handoff_hash_key: 'n7_handoff_hash',
@@ -360,7 +384,12 @@ export class TopicSelectionV1bRunCoordinatorService {
         const retryable = pending.reason === 'harness_loopback'
           || pending.reason === 'harness_blocked'
           || pending.reason === 'harness_retryable_failure';
-        if (retryRequested && retryable && pending.node_id === retryRequested && steps.length === 0) {
+        // A loopback resumes two ways: re-invoke the SOURCE with a fresh draft, or — for an
+        // upstream feedback loopback (N8 -> N7 debate trigger, DP-3.6) — RE-ENTER the loopback
+        // target in its feedback input mode (buildNextRequest assembles that frozen input).
+        const isRetryTarget = pending.node_id === retryRequested
+          || (pending.loopback_target_node_id != null && pending.loopback_target_node_id === retryRequested);
+        if (retryRequested && retryable && isRetryTarget && steps.length === 0) {
           retryNodeId = retryRequested;
         } else {
           return halt(pending.reason, pending.node_id, pending.message, pending.blockers, projection);
@@ -457,6 +486,8 @@ export class TopicSelectionV1bRunCoordinatorService {
     node_id: string;
     message: string;
     blockers: Array<{ code: string; message: string }>;
+    /** For a loopback frontier: the upstream node the caller can re-enter (in feedback mode). */
+    loopback_target_node_id?: string | null;
   } | null {
     // Inspect the latest trace across all nodes: a frontier in blocked/wait/loopback/review
     // is a halt the caller must resolve (often by supplying a new draft and advancing again).
@@ -488,21 +519,27 @@ export class TopicSelectionV1bRunCoordinatorService {
       ? 'harness_requires_human_review'
       : map[route] ?? 'harness_blocked';
     let message = `latest attempt of ${node.node_id} ended with route_decision=${route}, gate_status=${node.latest!.gate_status}; resolve and advance again.`;
+    let loopbackTargetNodeId: string | null = null;
     if (route === 'loopback') {
-      // Known gap (T-123 Phase 3 precursor): the coordinator can only re-invoke the
-      // loopback SOURCE with fresh node_inputs. Harness-prescribed upstream re-entry
-      // (e.g. N7's feedback_from_n8 input mode) is not assemblable here yet — drive
-      // that path via the harness route if the retry cannot converge.
       const target = POLICY_BY_NODE_ID.get(node.node_id)
         ?.route_edges.find((edge) => edge.route_decision === 'loopback')?.next_node_id ?? null;
+      // The loopback target re-enters in feedback mode only if its recipe declares how to
+      // assemble that frozen input from this source's loopback (DP-3.6). Otherwise the only
+      // resume is re-invoking the source itself with a fresh draft.
+      const feedbackReentry = target != null
+        && HANDOFF_BUILDER_TABLE[target]?.feedback_reentry?.loopback_source_node_id === node.node_id;
+      loopbackTargetNodeId = feedbackReentry ? target : null;
       message = `latest attempt of ${node.node_id} ended with route_decision=loopback (harness loopback target: ${target ?? 'unknown'}). `
-        + `retry_node_id=${node.node_id} re-invokes the source with fresh node_inputs; upstream re-entry (e.g. feedback input modes) is not assemblable by the coordinator yet — use the harness route for that path.`;
+        + (feedbackReentry
+          ? `advance again with retry_node_id=${target} to re-enter ${target} in feedback mode (the coordinator assembles its feedback_from_* frozen input), or retry_node_id=${node.node_id} to re-invoke the source with a fresh draft.`
+          : `retry_node_id=${node.node_id} re-invokes the source with fresh node_inputs; this loopback target has no coordinator feedback recipe — drive upstream re-entry via the harness route.`);
     }
     return {
       reason,
       node_id: node.node_id,
       message,
       blockers,
+      loopback_target_node_id: loopbackTargetNodeId,
     };
   }
 
@@ -623,6 +660,66 @@ export class TopicSelectionV1bRunCoordinatorService {
 
   // ---------------------------------------------------------------- request assembly
 
+  /**
+   * DP-3.6: resolve the upstream feedback re-entry for a node whose recipe declares one, when the
+   * configured loopback source has an UNCONSUMED loopback (a loopback newer than this node's last
+   * admission — a consumed one would have advanced this node past it). Returns the feedback artifact
+   * ref + the record/payload hashes the node's feedback parser validates against, or null when no
+   * such loopback is pending (the normal forward/initial recipe then applies).
+   */
+  private async resolveFeedbackReentry(
+    recipe: { feedback_reentry?: {
+      loopback_source_node_id: string;
+      input_mode: string;
+      feedback_ref_key: string;
+      feedback_record_hash_key: string;
+      feedback_payload_hash_key: string;
+    } },
+    projection: TopicSelectionV1bRunStateProjection,
+    targetNodeId: string,
+  ): Promise<{
+    inputMode: string;
+    refKey: string;
+    recordHashKey: string;
+    payloadHashKey: string;
+    feedbackRef: TopicSelectionFunctionalRef;
+    recordHash: string;
+    payloadHash: string;
+  } | null> {
+    const cfg = recipe.feedback_reentry;
+    if (!cfg) {
+      return null;
+    }
+    const source = projection.nodes.find((node) => node.node_id === cfg.loopback_source_node_id);
+    const loopback = source?.latest;
+    if (!loopback || loopback.route_decision !== 'loopback') {
+      return null;
+    }
+    const lastAdmittedSeq = projection.nodes.find((node) => node.node_id === targetNodeId)?.latest_admitted?.seq ?? -1;
+    if (loopback.seq <= lastAdmittedSeq) {
+      return null;
+    }
+    if (!loopback.authority_ref || !loopback.authority_hash) {
+      throw new AppError(500, 'INTERNAL_ERROR', `feedback loopback from ${cfg.loopback_source_node_id} is missing its feedback artifact ref/hash for ${targetNodeId} re-entry.`);
+    }
+    const artifact = await this.deps.controlPlane.getArtifactRef(loopback.authority_ref.ref_id);
+    if (!artifact) {
+      throw new AppError(500, 'INTERNAL_ERROR', `feedback artifact ${loopback.authority_ref.ref_id} for ${targetNodeId} re-entry not found.`);
+    }
+    return {
+      inputMode: cfg.input_mode,
+      refKey: cfg.feedback_ref_key,
+      recordHashKey: cfg.feedback_record_hash_key,
+      payloadHashKey: cfg.feedback_payload_hash_key,
+      feedbackRef: loopback.authority_ref,
+      // The harness re-entry validates n8_feedback_hash === hash(artifact record) and
+      // n8_feedback_payload_hash === hash(payload); reproduce the first via the same canonicalHash,
+      // and reuse the loopback's authority_hash (which IS hash(feedback payload)) for the second.
+      recordHash: sha256Text(stableStringify(artifact)),
+      payloadHash: loopback.authority_hash,
+    };
+  }
+
   private async buildNextRequest(
     input: AdvanceTopicSelectionV1bRunInput,
     projection: TopicSelectionV1bRunStateProjection,
@@ -673,6 +770,16 @@ export class TopicSelectionV1bRunCoordinatorService {
       ...(recipe.payload_extras ?? {}),
       [recipe.handoff_hash_key]: prev.handoff_hash,
     };
+    // DP-3.6 upstream feedback re-entry: when an unconsumed downstream loopback targets this node,
+    // override input_mode and thread the loopback's feedback artifact refs/hashes into the payload
+    // (the rest of the frozen input stays the forward N6 lineage the feedback parser also requires).
+    const feedbackReentry = await this.resolveFeedbackReentry(recipe, projection, nextNodeId);
+    if (feedbackReentry) {
+      payload.input_mode = feedbackReentry.inputMode;
+      payload[feedbackReentry.refKey] = feedbackReentry.feedbackRef;
+      payload[feedbackReentry.recordHashKey] = feedbackReentry.recordHash;
+      payload[feedbackReentry.payloadHashKey] = feedbackReentry.payloadHash;
+    }
     for (const extra of recipe.extra_payload_authorities ?? []) {
       const upstream = projection.nodes.find((node) => node.node_id === extra.node_id)?.latest_admitted;
       if (!upstream?.authority_ref || !upstream.authority_hash) {
@@ -696,6 +803,7 @@ export class TopicSelectionV1bRunCoordinatorService {
       prev.handoff_ref,
       ...extraAuthorityRefs,
       ...(handoff.required_refs ?? []),
+      ...(feedbackReentry ? [feedbackReentry.feedbackRef] : []),
     ]);
     if (recipe.required_projection_kind) {
       const artifacts = await this.deps.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);

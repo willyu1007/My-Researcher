@@ -21,7 +21,10 @@ const N1 = 'topic-selection.v1b.create-intake-snapshot.v1';
 const N2 = 'topic-selection.v1b.record-research-constraint-profile.v1';
 const N3 = 'topic-selection.v1b.assess-intake-readiness.v1';
 const N4 = 'topic-selection.v1b.generate-research-slice-options.v1';
+const N5 = 'topic-selection.v1b.select-research-slice.v1';
 const N6 = 'topic-selection.v1b.generate-topic-question-candidates.v1';
+const N7 = 'topic-selection.v1b.materialize-topic-question-contract.v1';
+const N8 = 'topic-selection.v1b.assess-topic-value.v1';
 
 function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
   return { ref_type: refType, ref_id: refId, title_card_id: CARD };
@@ -341,6 +344,121 @@ test('loopback halts, retry_node_id resumes, and the per-node budget exhausts', 
   assert.equal(exhausted.halt.reason, 'loopback_budget_exhausted');
   assert.equal(exhausted.halt.node_id, N4);
   assert.equal(harness.invocations.filter((request) => request.node_id === N4).length, 2);
+});
+
+// T-123 DP-3.6: an N8 debate-trigger loopback re-enters N7 in feedback_from_n8 mode. The
+// coordinator must assemble that frozen input from the N8 loopback's N8ToN7Feedback artifact
+// (input_mode override + n8_feedback_ref / record hash / payload hash + the ref in source_refs).
+async function driveToN8DebateLoopback(): Promise<{
+  harness: StubHarness;
+  coordinator: ReturnType<typeof makeSubject>['coordinator'];
+  controlPlane: StubControlPlane;
+  feedbackRef: TopicSelectionFunctionalRef;
+  feedbackPayloadHash: string;
+  feedbackRecordHash: string;
+}> {
+  const { harness, coordinator, controlPlane } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+  harness.on(N5, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N5ToN6Handoff' });
+  harness.on(N6, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N6ToN7Handoff' });
+  // N7 first trial (initial_from_n6) -> N7ToN8 handoff; the second trial is the feedback re-entry.
+  harness.on(N7, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N7ToN8Handoff' });
+
+  // Pre-record the N8ToN7Feedback artifact the way persistN8DebateLoopback would, then point the
+  // scripted N8 loopback's authority at it (ref = n8_feedback_ref, authority_hash = payload hash).
+  const feedbackPayload = {
+    feedback_class: 'gate_rejected',
+    failure_reason_code: 'N8_VALUE_BORDERLINE_DEBATE_TRIGGER',
+    feedback_summary: 'Borderline total_score requires bounded value debate.',
+  };
+  const feedbackArtifact = await controlPlane.recordArtifactRef({
+    artifact_kind: 'structured_output',
+    workflow_run_id: RUN,
+    payload: feedbackPayload,
+  });
+  const feedbackRef = ref('artifact_ref', feedbackArtifact.artifact_ref_id);
+  const feedbackPayloadHash = sha256Text(stableStringify(feedbackPayload));
+  const feedbackRecordHash = sha256Text(stableStringify(feedbackArtifact));
+  // The N8 recipe requires N7's N7->N8 context projection artifact (required_projection_kind);
+  // the real N7 runner records it — simulate that so the N8 request can be assembled.
+  await controlPlane.recordArtifactRef({
+    artifact_kind: 'diagnostic',
+    workflow_run_id: RUN,
+    payload: { projection_kind: 'v1b_n7_to_n8_topic_question_contract_context' },
+  });
+  harness.on(N8, {
+    gate_status: 'blocked',
+    route_decision: 'loopback',
+    authority_ref: feedbackRef,
+    hashes: {
+      frozen_input_hash: 'fih',
+      execution_spec_hash: 'esh',
+      semantic_artifact_hash: null,
+      runtime_admission_hash: null,
+      gate_result_hash: 'grh',
+      authority_hash: feedbackPayloadHash,
+      handoff_hash: null,
+      route_hash: 'rh',
+    },
+  });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+  const loopbackReport = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: { [N6]: { draft_payload: { candidates: ['c'] } }, [N8]: { draft_payload: { total_score: 66 } } },
+  });
+  assert.equal(loopbackReport.halt.reason, 'harness_loopback');
+  assert.equal(loopbackReport.halt.node_id, N8);
+  assert.match(loopbackReport.halt.message, /retry_node_id=topic-selection\.v1b\.materialize-topic-question-contract\.v1 to re-enter/);
+
+  return { harness, coordinator, controlPlane, feedbackRef, feedbackPayloadHash, feedbackRecordHash };
+}
+
+test('N8 debate loopback re-enters N7 in feedback_from_n8 mode with the feedback artifact threaded', async () => {
+  const { harness, coordinator, feedbackRef, feedbackPayloadHash, feedbackRecordHash } = await driveToN8DebateLoopback();
+
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, retry_node_id: N7 });
+  // After the feedback re-entry admits, N8 (model-like) becomes the frontier again and needs a draft.
+  assert.deepEqual(report.steps.map((step) => step.node_id), [N7]);
+  assert.equal(report.halt.reason, 'model_input_required');
+  assert.equal(report.halt.node_id, N8);
+
+  const n7Requests = harness.invocations.filter((request) => request.node_id === N7);
+  assert.equal(n7Requests.length, 2, 'N7 ran twice: initial then feedback re-entry');
+  const initialPayload = n7Requests[0]!.frozen_input.payload as Record<string, unknown>;
+  assert.equal(initialPayload.input_mode, 'initial_from_n6');
+  assert.equal(initialPayload.n8_feedback_ref, undefined, 'initial N7 carries no feedback refs');
+
+  const feedbackPayload = n7Requests[1]!.frozen_input.payload as Record<string, unknown>;
+  assert.equal(feedbackPayload.input_mode, 'feedback_from_n8');
+  assert.deepEqual(feedbackPayload.n8_feedback_ref, feedbackRef);
+  assert.equal(feedbackPayload.n8_feedback_hash, feedbackRecordHash);
+  assert.equal(feedbackPayload.n8_feedback_payload_hash, feedbackPayloadHash);
+  const refKeys = n7Requests[1]!.frozen_input.source_refs.map((item) => `${item.ref_type}:${item.ref_id}`);
+  assert.ok(refKeys.includes(`artifact_ref:${feedbackRef.ref_id}`), 'feedback artifact ref must be in source_refs');
+});
+
+test('N8 debate loopback can still re-invoke the source (N8) with a fresh draft instead of re-entering N7', async () => {
+  const { harness, coordinator } = await driveToN8DebateLoopback();
+  // Retry the SOURCE (N8) — the existing resume path must still work alongside the new N7 re-entry.
+  // Replace N8's scripted loopback with an admit so the source re-invocation converges.
+  harness.script.set(N8, [{ gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N8ToN9Handoff' }]);
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N8,
+    node_inputs: { [N8]: { draft_payload: { total_score: 88 } } },
+    max_steps: 1, // stop after the N8 re-invocation (don't run on into N9)
+  });
+  assert.equal(report.steps[0]!.node_id, N8);
+  // The source was re-invoked; no second N7 feedback trial was assembled.
+  assert.equal(harness.invocations.filter((request) => request.node_id === N7).length, 1);
+  assert.equal(harness.invocations.filter((request) => request.node_id === N8).length, 2);
 });
 
 test('concurrent advance calls are serialized per run (no duplicate node execution)', async () => {
