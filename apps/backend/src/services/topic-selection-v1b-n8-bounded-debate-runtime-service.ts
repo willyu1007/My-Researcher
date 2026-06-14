@@ -23,6 +23,7 @@ import type {
   TopicSelectionExecutorKind,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import {
+  TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
@@ -82,7 +83,7 @@ const DEBATE_POLICY_ID = 'topic-selection.v1b.n8.bounded-micro-debate.v1' as con
 const OUTPUT_CONTRACT = TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
 const PROMPT_TEMPLATE_ID = 'topic-selection.v1b.n8.bounded-micro-debate.runtime-role' as const;
 const PROMPT_TEMPLATE_VERSION = 'v1' as const;
-const DEFAULT_POLICY_VERSION = 'topic-selection-v1b-node-policy-v1' as const;
+const DEFAULT_POLICY_VERSION = TOPIC_SELECTION_V1B_NODE_POLICY_VERSION;
 
 const ROLE_OUTPUT_SCHEMA = {
   type: 'object',

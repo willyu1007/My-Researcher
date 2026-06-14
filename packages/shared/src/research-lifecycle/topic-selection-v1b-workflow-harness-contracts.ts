@@ -40,6 +40,9 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_RESULT_SCHEMA_VERSION =
   'TopicSelectionV1bWorkflowHarnessRunResult@v1' as const;
 export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_TRACE_PAYLOAD_SCHEMA_VERSION =
   'TopicSelectionV1bWorkflowHarnessTracePayload@v1' as const;
+/** Single source for the v1b node-policy version — referenced by the node-policy slot specs below
+ *  and imported by the coordinator + the N2/N5/N8-debate services (was duplicated as 4 local consts). */
+export const TOPIC_SELECTION_V1B_NODE_POLICY_VERSION = 'topic-selection-v1b-node-policy-v1' as const;
 
 export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS = [
   'topic-selection.v1b.create-intake-snapshot.v1',
@@ -373,7 +376,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.constraint_profile_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.constraint_profile_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n3_readiness_classification',
@@ -387,7 +390,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.intake_readiness_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.intake_readiness_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n4_research_slice_option_draft',
@@ -401,7 +404,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n5_slice_selection_review',
@@ -415,7 +418,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.slice_selection_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.slice_selection_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n6_question_candidate_draft',
@@ -429,7 +432,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n6_loopback_triage',
@@ -443,7 +446,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n6_loopback_triage_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n6_loopback_triage_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n7_candidate_grouping',
@@ -457,7 +460,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_candidate_grouping_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_candidate_grouping_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n7_failed_trial_synthesis',
@@ -471,7 +474,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_failed_trial_synthesis_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_failed_trial_synthesis_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n7_n8_debate_admission_review',
@@ -485,7 +488,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n8_value_assessment_draft',
@@ -499,7 +502,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   // T-123 Phase 3 (D2 / DP-3.1~3.6) — N8 bounded-debate role slots. All four are
   // support_only debate lineage; the synthesizer's final assessment is additionally
@@ -517,7 +520,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n8_debate_value_critic',
@@ -531,7 +534,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n8_debate_assessor_repair',
@@ -545,7 +548,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
     slot_id: 'n8_debate_synthesizer_final',
@@ -559,7 +562,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
     allowed_run_modes: ['test', 'acceptance', 'product'],
-    slot_policy_version: 'topic-selection-v1b-node-policy-v1',
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
 ] as const satisfies readonly TopicSelectionV1bWorkflowHarnessSemanticSupportSlotSpec[];
 
@@ -3056,6 +3059,31 @@ export const topicSelectionV1bWorkflowHarnessNodePolicySchema = {
       items: replayHashComponent,
       minItems: 1,
       uniqueItems: true,
+    },
+    // N8 only (T-123 Phase 3): deterministic T1/T3 debate-trigger thresholds carried on
+    // the node policy so the gate stays a pure code-over-policy check. Optional because
+    // only the assess-topic-value node declares it.
+    debate_trigger_thresholds: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'provisional',
+        't1_total_score_min',
+        't1_total_score_max_exclusive',
+        't1_confidence_min',
+        't3_dimension_spread_min',
+        't3_single_dimension_floor',
+        't3_total_score_min',
+      ],
+      properties: {
+        provisional: { type: 'boolean' },
+        t1_total_score_min: { type: 'number' },
+        t1_total_score_max_exclusive: { type: 'number' },
+        t1_confidence_min: { type: 'number' },
+        t3_dimension_spread_min: { type: 'number' },
+        t3_single_dimension_floor: { type: 'number' },
+        t3_total_score_min: { type: 'number' },
+      },
     },
   },
 } as const;

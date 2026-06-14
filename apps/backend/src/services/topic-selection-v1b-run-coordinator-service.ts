@@ -6,6 +6,7 @@ import type {
   TopicSelectionAgentRunMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 import {
+  TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_TRACE_PAYLOAD_SCHEMA_VERSION,
@@ -43,7 +44,7 @@ import type { TopicSelectionControlPlaneService } from './topic-selection-contro
 // the attempt. Direct calls to the raw harness route remain the one unguarded path; a
 // DB-level guard (scheme A) would touch the harness body and is deferred (D3).
 
-const POLICY_VERSION = 'topic-selection-v1b-node-policy-v1';
+const POLICY_VERSION = TOPIC_SELECTION_V1B_NODE_POLICY_VERSION;
 
 type NodePolicy = (typeof TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES)[number];
 

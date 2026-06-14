@@ -86,6 +86,14 @@
 - **3.3 STEP 5–11 ✅ + 3.5 ✅ + 收口（2026-06-14）**：v1b N8 单 agent helpers 共享缝 → 4 context-policy profiles + 4 invocation slots → debate 运行时 + admission（13 例 drift 负测）→ gate bridge → debate smoke + 回归 → coordinator feedback recipe + N7 debate-admission 支撑输入（**全闭环 coordinator 驱动**）。两条全闭环 e2e（harness 级 `n7_runtime_smoke` 变体 + coordinator 驱动集成测试）均绿。一轮多角度审查（9 项修复：gate-bridge execution_mode 穿线、critic-resolution 守卫、loop-id/canonicalHash 单源、若干文档/测试）。F-05 关闭，详见 `07-phase3-debate-skeleton-spec.md`。
 
 ## 实施记录
+
+### 2026-06-15 Phase 5 实施（M5 复杂度治理，进行中）
+- **5.2（F-10）partial**：压缩策略去硬编码（profile `allowed_executor_kinds` 主项 SSOT，byte-identical）；per-provider token 估计 + STEP-7 debate 压缩 facts 延期（数据/消费者依赖，已开 task）。见 F-10 行。
+- **5.3 非 harness 收口（已做）**：① **POLICY_VERSION 收编**——`'topic-selection-v1b-node-policy-v1'` 原散落 4 个 backend service const + 14 处 contracts `slot_policy_version` 字面量，统一为 shared `TOPIC_SELECTION_V1B_NODE_POLICY_VERSION`（byte-identical）。② **S5 并行化**——decision-memory `buildPacket` 的 per-candidate-set 加载由 O(S) 顺序 await 改 `Promise.all`（保序，packet byte-identical——它进 N6/N8 frozen-input lineage）。验证：tsc 0、套件 1308/0。
+- **5.3 剩余项评估（低实际价值，记 backlog）**：validateRegistry 缓存（仅加载期一次）、loadTraces kind 仓储过滤（仓储契约改动换边际收益）、advance-loop 投影增量化（典型 run T 小、可变 checkpoint 引入风险）、gateway 校验钩子化（多 gateway 实现不存在，YAGNI）——均为非热路径 perf/思辨性 hygiene，change-risk 高于边际收益，暂不做。
+- **5.3 harness 本体项 → 5.1 窗口**：3 个 artifact 解析器收编（resolveN7SemanticPayload/resolveN8DraftPayload/resolveDecisionMemoryPacketFromSourceRefs）+ N6 单次解析——触碰 harness 本体（D3），并入 5.1 拆分窗口处理。
+- **5.1（F-11）= 待签核门**：harness 单文件 12,929 行拆分，D3 敏感 + replay byte-identity 关键；起草 D-T123-03 联合决策 + replay-identity 守卫、方案签核后再动手（多 session 重构）。
+
 - 2026-06-11：任务包创建（T-123）。来源：全链产品化审计（节点 debate / 复杂度 / 编排-harness / 压缩-上下文-记忆 / 参数规范化 五维）。
 
 ### 2026-06-13 Phase 2 代码审查（/code-review high 第二轮）与修复

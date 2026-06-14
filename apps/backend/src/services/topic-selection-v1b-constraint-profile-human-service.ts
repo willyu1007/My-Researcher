@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AppError } from '../errors/app-error.js';
 import {
+  TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   type TopicSelectionV1bAcceptedConstraintProfilePayload,
   type TopicSelectionV1bN2HarnessFrozenInputPayload,
@@ -22,7 +23,7 @@ import { canonicalHash, hashV1bFrozenInput } from './topic-selection-v1b-harness
 const N2_NODE_ID = 'topic-selection.v1b.record-research-constraint-profile.v1' as const;
 const N2_INPUT_CONTRACT = 'N1ToN2Handoff@v1' as const;
 const N2_SNAPSHOT_KIND = 'v1b_intake_snapshot' as const;
-const N2_POLICY_VERSION = 'topic-selection-v1b-node-policy-v1' as const;
+const N2_POLICY_VERSION = TOPIC_SELECTION_V1B_NODE_POLICY_VERSION;
 
 /**
  * The harness surface this service reuses (decision B — reuse, don't replicate).

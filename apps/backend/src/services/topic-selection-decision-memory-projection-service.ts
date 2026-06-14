@@ -224,12 +224,17 @@ export class TopicSelectionDecisionMemoryProjectionService {
     }
 
     // S5 — previously generated topic-question candidates (dedup material for v1b N6).
+    // Batch the per-set candidate loads (was O(S) sequential awaits). Promise.all preserves array
+    // order, so the set + candidate iteration order is unchanged — the packet stays byte-identical
+    // (it is part of the N6/N8 frozen-input lineage; order feeds the stable created_at sort below).
     const candidateSets = await this.deps.topicQuestionRepository.listCandidateSetsByTitleCardId(titleCardId);
-    for (const set of candidateSets) {
-      const priorCandidates = await this.deps.topicQuestionRepository.listCandidatesByCandidateSetId(
+    const priorCandidatesBySet = await Promise.all(
+      candidateSets.map((set) => this.deps.topicQuestionRepository.listCandidatesByCandidateSetId(
         set.topic_question_candidate_set_id,
-      );
-      for (const prior of priorCandidates) {
+      )),
+    );
+    for (const [setIndex, set] of candidateSets.entries()) {
+      for (const prior of priorCandidatesBySet[setIndex]!) {
         entries.push({
           source_type: 'prior_topic_question_candidate',
           source_ref: this.ref('topic_question_candidate', prior.topic_question_candidate_id, titleCardId),

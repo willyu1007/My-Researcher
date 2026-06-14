@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AppError } from '../errors/app-error.js';
 import {
+  TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   type TopicSelectionV1bAcceptedSliceSelectionPayload,
   type TopicSelectionV1bN5HarnessFrozenInputPayload,
@@ -25,7 +26,7 @@ import {
 const N5_NODE_ID = 'topic-selection.v1b.select-research-slice.v1' as const;
 const N5_INPUT_CONTRACT = 'N4ToN5Handoff@v1' as const;
 const N5_SNAPSHOT_KIND = 'research_slice_option_set' as const;
-const N5_POLICY_VERSION = 'topic-selection-v1b-node-policy-v1' as const;
+const N5_POLICY_VERSION = TOPIC_SELECTION_V1B_NODE_POLICY_VERSION;
 
 /** Minimal harness surface this service depends on; the real
  * `TopicSelectionV1bWorkflowHarnessService` satisfies it. */
