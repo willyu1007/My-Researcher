@@ -215,6 +215,11 @@ import {
   hashResearchSliceOptionAuthority as sharedHashResearchSliceOptionAuthority,
   hashV1bFrozenInput,
 } from './topic-selection-v1b-harness-authority-hash.js';
+import {
+  uniqueIssues,
+  uniqueRefs,
+  uniqueStrings,
+} from './topic-selection-v1b-harness-dedup-utils.js';
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const ALLOWED_REQUEST_KEYS = new Set([
@@ -1149,7 +1154,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }
     }
 
-    for (const ref of this.uniqueRefs(refsToVerify)) {
+    for (const ref of uniqueRefs(refsToVerify)) {
       const exists = await this.authorityRefExists(ref);
       if (exists === false) {
         return {
@@ -2075,7 +2080,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           gate_result_id: prepared.gateResultRef.ref_id,
           transition_attempt_id: null,
           trace_snapshot_id: null,
-          artifact_refs: this.uniqueRefs([prepared.handoffRef]),
+          artifact_refs: uniqueRefs([prepared.handoffRef]),
           created_by: createdBy,
           created_at: this.now(),
         });
@@ -2266,7 +2271,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           gate_result_id: prepared.gateResultRef.ref_id,
           transition_attempt_id: null,
           trace_snapshot_id: null,
-          artifact_refs: this.uniqueRefs([prepared.handoffRef]),
+          artifact_refs: uniqueRefs([prepared.handoffRef]),
           created_by: createdBy,
           created_at: this.now(),
         });
@@ -2616,7 +2621,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings: validation.value.warnings,
     }, {
       writeAuthority: async (prepared) => {
-        const artifactRefs = this.uniqueRefs([
+        const artifactRefs = uniqueRefs([
           ...resolvedDraft.artifactRefs,
           prepared.handoffRef,
         ]);
@@ -2669,7 +2674,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           v1b_intake_snapshot_id: snapshot.v1b_intake_snapshot_id,
           research_constraint_profile_id: profile.research_constraint_profile_id,
           v1b_input_bundle_id: snapshot.v1b_input_bundle_id,
-          validated_need_ids: this.uniqueStrings([
+          validated_need_ids: uniqueStrings([
             snapshot.validated_need_id,
             ...validation.value.options.flatMap((option) =>
               option.source_validated_need_refs.map((sourceRef) => sourceRef.ref_id),
@@ -2926,7 +2931,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         loaded.value.planRun.research_constraint_profile_ref,
         loaded.value.planRun.readiness_assessment_ref,
       ],
-      residualRiskRefs: this.uniqueRefs([
+      residualRiskRefs: uniqueRefs([
         ...loaded.value.planRun.accepted_risk_refs,
         ...accepted.accepted_risk_refs,
       ]),
@@ -2946,7 +2951,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
     const handoffHash = this.hash(handoff);
     const result = await this.persistAdmittedResult(input, hashContext, {
-      acceptedRiskRefs: this.uniqueRefs([
+      acceptedRiskRefs: uniqueRefs([
         ...loaded.value.planRun.accepted_risk_refs,
         ...accepted.accepted_risk_refs,
       ]),
@@ -2975,7 +2980,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings,
     }, {
       writeAuthority: async (prepared) => {
-        const finalArtifactRefs = this.uniqueRefs([
+        const finalArtifactRefs = uniqueRefs([
           ...artifactRefs,
           prepared.handoffRef,
         ]);
@@ -3243,7 +3248,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings: validation.value.warnings,
     }, {
       writeAuthority: async (prepared) => {
-        const artifactRefs = this.uniqueRefs([
+        const artifactRefs = uniqueRefs([
           ...draftResolution.artifactRefs,
           prepared.handoffRef,
         ]);
@@ -3587,7 +3592,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           workflow_run_id: input.workflow_run_id,
           gate_result_id: prepared.gate.readiness_gate_result_id,
           transition_attempt_id: null,
-          artifact_refs: this.uniqueRefs([
+          artifact_refs: uniqueRefs([
             ...loaded.value.run.artifact_refs,
             prepared.handoffRef,
             debateAdmission.ref,
@@ -3759,7 +3764,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     prepared: PreparedAdmittedControlPlane,
   ): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
     const createdBy = prepared.createdBy;
-    const createdAuthorityRefs = this.uniqueRefs([outcome.authorityRef, ...(outcome.additionalAuthorityRefs ?? [])]);
+    const createdAuthorityRefs = uniqueRefs([outcome.authorityRef, ...(outcome.additionalAuthorityRefs ?? [])]);
     const transition = await this.controlPlane.attemptTransition({
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? outcome.targetRef.title_card_id ?? null,
@@ -3784,14 +3789,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? outcome.targetRef.title_card_id ?? null,
       target_ref: outcome.targetRef,
-      object_refs: this.uniqueRefs([
+      object_refs: uniqueRefs([
         outcome.targetRef,
         outcome.sourceRef,
         outcome.authorityRef,
         ...(outcome.additionalAuthorityRefs ?? []),
         ...input.frozen_input.source_refs,
       ]),
-      artifact_refs: this.uniqueRefs([prepared.handoffRef, prepared.runtimeContextProjectionRef]),
+      artifact_refs: uniqueRefs([prepared.handoffRef, prepared.runtimeContextProjectionRef]),
       transition_attempt_refs: [transitionRef],
       payload: {
         ...outcome.tracePayload,
@@ -4848,7 +4853,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       },
     ]));
     const failedCandidateIds = loaded.feedback
-      ? this.uniqueStrings([
+      ? uniqueStrings([
         loaded.feedback.failed_candidate_ref.ref_id,
         ...this.n7FailedCandidateIdsFromCurrentState(loaded.candidates),
       ])
@@ -4936,11 +4941,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (support.grouping) {
       const groupingIds = support.grouping.payload.priority_order.map((candidateRef) => candidateRef.ref_id);
       const selectedId = support.grouping.payload.selected_candidate_ref.ref_id;
-      return this.uniqueStrings([selectedId, ...groupingIds, ...payload.admissible_candidate_refs.map((ref) => ref.ref_id)]);
+      return uniqueStrings([selectedId, ...groupingIds, ...payload.admissible_candidate_refs.map((ref) => ref.ref_id)]);
     }
     const recommendedIds = loaded.candidateSet.recommended_candidate_ids
       .filter((candidateId) => payload.admissible_candidate_refs.some((candidateRef) => candidateRef.ref_id === candidateId));
-    return this.uniqueStrings([
+    return uniqueStrings([
       ...recommendedIds,
       ...payload.admissible_candidate_refs.map((candidateRef) => candidateRef.ref_id),
     ]);
@@ -4980,7 +4985,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const admissibleRefKeys = new Set(payload.admissible_candidate_refs.map((candidateRef) => this.refKey(candidateRef)));
     const unknownExhaustedRef = synthesis.payload.exhausted_candidate_refs
       .find((candidateRef) => !admissibleRefKeys.has(this.refKey(candidateRef)));
-    const knownAffectedRefKeys = new Set(this.uniqueRefs([
+    const knownAffectedRefKeys = new Set(uniqueRefs([
       ...input.frozen_input.source_refs,
       payload.topic_question_candidate_set_ref,
       ...payload.admissible_candidate_refs,
@@ -5098,7 +5103,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           workflow_run_id: input.workflow_run_id,
           gate_result_id: prepared.gate.readiness_gate_result_id,
           transition_attempt_id: null,
-          artifact_refs: this.uniqueRefs([
+          artifact_refs: uniqueRefs([
             prepared.handoffRef,
             synthesis.artifact.normalized_output_ref,
           ]),
@@ -5372,7 +5377,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     );
     const assessmentRef = this.ref('topic_value_assessment', assessmentId, titleCardId);
     const memoRef = this.ref('value_reasoning_memo', memoId, titleCardId);
-    const artifactRefs = this.uniqueRefs([
+    const artifactRefs = uniqueRefs([
       ...draftResolution.value.artifactRefs,
       payload.value.n8_debate_admission_ref,
       payload.value.candidate_grouping_ref,
@@ -5532,7 +5537,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings,
     }, {
       writeAuthority: async (prepared) => {
-        const persistedArtifactRefs = this.uniqueRefs([...artifactRefs, prepared.handoffRef]);
+        const persistedArtifactRefs = uniqueRefs([...artifactRefs, prepared.handoffRef]);
         await this.runnerDependencies.valueAssessmentRepository!.createAssessmentWithMemo({
           assess_topic_value_run: {
             assess_topic_value_run_id: runId,
@@ -5677,7 +5682,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       workflow_run_id: input.workflow_run_id,
       gate_result_id: null,
       transition_attempt_id: null,
-      artifact_refs: this.uniqueRefs([input.frozen_input.source_refs.find((ref) => ref.ref_type === 'artifact_ref')]),
+      artifact_refs: uniqueRefs([input.frozen_input.source_refs.find((ref) => ref.ref_type === 'artifact_ref')]),
       created_at: now,
     };
     const packageDraftInput = advanceBlocker ? null : this.buildN9PackageDraftInput({
@@ -5952,7 +5957,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
     return this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: built.value.topicPackage.accepted_risk_refs,
-      additionalAuthorityRefs: this.uniqueRefs([
+      additionalAuthorityRefs: uniqueRefs([
         this.ref('package_trace_boundary_check', built.value.traceCheck.package_trace_boundary_check_id, built.value.topicPackage.title_card_id),
         this.ref('topic_package_readiness_assessment', built.value.readiness.package_readiness_assessment_id, built.value.topicPackage.title_card_id),
         built.value.v1cInputBundle
@@ -5979,7 +5984,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings,
     }, {
       writeAuthority: async (prepared) => {
-        const artifactRefs = this.uniqueRefs([prepared.handoffRef]);
+        const artifactRefs = uniqueRefs([prepared.handoffRef]);
         const topicPackage = {
           ...built.value.topicPackage,
           input_snapshot_id: prepared.inputSnapshot.input_snapshot_id,
@@ -6057,7 +6062,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const packageRef = loaded.value.packageRecord.topic_package_ref;
     const bundleHash = this.hashN10V1cInputBundleAuthority(loaded.value.bundle);
     const packageHash = this.hashN10PackageAuthority(loaded.value.packageRecord);
-    const warnings = this.uniqueIssues([
+    const warnings = uniqueIssues([
       ...(loaded.value.bundle.accepted_risk_refs.length > 0
         ? [this.warning('N11_RESIDUAL_RISK_CARRIED_FORWARD', 'N11 v1c input bundle carries residual risk refs.', loaded.value.bundle.accepted_risk_refs)]
         : []),
@@ -6517,7 +6522,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return {
       ok: true,
       value: {
-        artifactRefs: this.uniqueRefs([
+        artifactRefs: uniqueRefs([
           semanticArtifact.support_artifact_ref,
           semanticArtifact.normalized_output_ref,
           semanticArtifact.provenance_ref,
@@ -6786,7 +6791,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       feedback_class: 'gate_rejected',
       failure_reason_code: triggers[0]!.code,
       feedback_summary: triggers.map((trigger) => trigger.message).join(' '),
-      affected_refs: this.uniqueRefs([
+      affected_refs: uniqueRefs([
         payload.topic_question_contract_ref,
         payload.active_candidate_ref,
         payload.topic_question_candidate_set_ref,
@@ -6885,7 +6890,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private n8KnownRefs(loaded: N8LoadedContext): TopicSelectionFunctionalRef[] {
-    return this.uniqueRefs([
+    return uniqueRefs([
       this.ref('topic_question', loaded.question.topic_question_id, loaded.question.title_card_id),
       this.ref('topic_question_contract', loaded.contract.topic_question_contract_id, loaded.contract.title_card_id, loaded.contract.version),
       this.ref('topic_question_answerability_plan', loaded.answerabilityPlan.topic_question_answerability_plan_id, loaded.answerabilityPlan.title_card_id),
@@ -6903,7 +6908,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private n8DraftRefs(draft: TopicSelectionAssessTopicValueLlmOutput): TopicSelectionFunctionalRef[] {
-    return this.uniqueRefs([
+    return uniqueRefs([
       ...draft.accepted_risk_refs,
       ...draft.blocker_refs,
       ...draft.hard_gates.flatMap((gate) => gate.refs),
@@ -6953,11 +6958,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (draft.reasoning_memo.requires_critic_review || draft.reasoning_memo.critic_triggers.length > 0) {
       warnings.push(this.warning('N8_CRITIC_REVIEW_TRIGGERED', 'N8 value memo requested critic review.', draft.reasoning_memo.cited_refs));
     }
-    return this.uniqueIssues(warnings);
+    return uniqueIssues(warnings);
   }
 
   private n8QualityFlags(draft: TopicSelectionAssessTopicValueLlmOutput): string[] {
-    return this.uniqueStrings([
+    return uniqueStrings([
       draft.readiness_status !== 'ready' ? `readiness:${draft.readiness_status}` : '',
       draft.recommended_disposition !== 'advance_to_package' ? `disposition:${draft.recommended_disposition}` : '',
       ...draft.hard_gates.filter((gate) => gate.verdict !== 'pass').map((gate) => `gate:${gate.gate_key}:${gate.verdict}`),
@@ -7321,7 +7326,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const bundleId = this.idFactory('v1b_to_v1c_input_bundle');
     const packageVersion = 'v1';
     const packageRef = this.ref('topic_package', topicPackageId, titleCardId, packageVersion);
-    const selectedEvidenceRefs = this.uniqueRefs(packageInput.evidence_refs.map((record) => record.evidence_ref));
+    const selectedEvidenceRefs = uniqueRefs(packageInput.evidence_refs.map((record) => record.evidence_ref));
     const narrative = this.n10Narrative(packageInput);
     const topicPackage: TopicSelectionTopicPackageRecord = {
       topic_package_id: topicPackageId,
@@ -7504,7 +7509,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     titleCandidates: string[];
   } {
     return {
-      titleCandidates: this.uniqueStrings([
+      titleCandidates: uniqueStrings([
         input.question_contract.main_question.replace(/\?$/u, ''),
         `${input.question_contract.contribution_hypothesis}: ${input.question_contract.expected_claim}`,
       ]).slice(0, 3),
@@ -7521,7 +7526,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           ? `Fallback claim: ${input.topic_value_assessment.fallback_claim_if_success}.`
           : '',
       ].filter(Boolean).join(' '),
-      candidateMethods: this.uniqueStrings([
+      candidateMethods: uniqueStrings([
         ...input.answerability_plan.datasets_or_resources.map((item) => `Resource: ${item}`),
         ...input.answerability_plan.metrics.map((item) => `Metric: ${item}`),
         ...input.answerability_plan.baselines.map((item) => `Baseline: ${item}`),
@@ -7540,7 +7545,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           ? `Baselines: ${input.answerability_plan.baselines.join('; ')}.`
           : '',
       ].filter(Boolean).join(' '),
-      keyRisks: this.uniqueStrings([
+      keyRisks: uniqueStrings([
         ...input.topic_value_assessment.risk_notes,
         ...input.value_reasoning_memo.reviewer_risks,
         ...input.value_reasoning_memo.top_objections,
@@ -7549,7 +7554,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         ...input.answerability_plan.known_gaps,
         ...input.falsification_conditions.map((condition) => `${condition.condition_type}: ${condition.statement}`),
       ]),
-      nonGoals: this.uniqueStrings(input.question_contract.prohibited_claims),
+      nonGoals: uniqueStrings(input.question_contract.prohibited_claims),
     };
   }
 
@@ -7928,7 +7933,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       max_claim_strength: candidate.max_claim_strength,
       evaluation_route: candidate.answerability_plan_payload.evaluation_setting,
       claim_ceiling: this.n7FrameClaimCeiling(frame),
-      prohibited_claims: this.uniqueStrings([
+      prohibited_claims: uniqueStrings([
         ...candidate.boundary_check_payload.prohibited_claims,
         ...this.n7FrameStringArray(frame, 'inherited_non_goals'),
       ]),
@@ -8025,7 +8030,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const byRole = [
       ['support', input.candidate.traceability_check_payload.support_evidence_refs],
       ['challenge', input.candidate.traceability_check_payload.challenge_evidence_refs],
-      ['claim', this.uniqueRefs([
+      ['claim', uniqueRefs([
         ...input.candidate.answerability_plan_payload.required_evidence_refs,
         ...input.candidate.traceability_check_payload.mapped_evidence_refs,
       ])],
@@ -8247,7 +8252,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       non_authority: true,
       context_cache_scope: 'process_local_runtime_only',
       context_authority: 'non_authority_runtime_context',
-      source_refs: this.uniqueRefs([
+      source_refs: uniqueRefs([
         ...input.request.frozen_input.source_refs,
         input.handoffRef,
         input.handoffPayload.topic_question_ref,
@@ -8353,7 +8358,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       non_authority: true,
       context_cache_scope: 'process_local_runtime_only',
       context_authority: 'non_authority_runtime_context',
-      source_refs: this.uniqueRefs([
+      source_refs: uniqueRefs([
         ...input.request.frozen_input.source_refs,
         input.candidateSetRef,
         input.frozenPayload.selected_research_slice_ref,
@@ -8431,7 +8436,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       non_authority: true,
       context_cache_scope: 'process_local_runtime_only',
       context_authority: 'non_authority_runtime_context',
-      source_refs: this.uniqueRefs([
+      source_refs: uniqueRefs([
         ...input.request.frozen_input.source_refs,
         input.frozenPayload.research_slice_ref,
         input.frozenPayload.research_slice_selection_ref,
@@ -8442,7 +8447,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         ...input.loopbackPlan.affectedRefs,
       ]),
       source_hashes: sourceHashes,
-      support_refs: this.uniqueRefs([
+      support_refs: uniqueRefs([
         input.draftArtifact.normalized_output_ref,
         triageArtifactRef,
       ]),
@@ -8482,7 +8487,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private n7SupportRefs(support: N7SupportContext): TopicSelectionFunctionalRef[] {
-    return this.uniqueRefs([
+    return uniqueRefs([
       support.grouping?.artifact.normalized_output_ref,
       support.debateAdmission?.artifact.normalized_output_ref,
       support.failedTrialSynthesis?.artifact.normalized_output_ref,
@@ -9178,7 +9183,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         [this.optionSetRef(loaded.optionSet)],
       ));
     }
-    return this.uniqueIssues(warnings);
+    return uniqueIssues(warnings);
   }
 
   private buildN5DecisionRecord(input: {
@@ -9299,7 +9304,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       topic_question_guardrails: this.topicQuestionGuardrails(input.selectedOption, inherited),
       value_assessment_inputs: this.valueAssessmentInputs(input.selectedOption),
       must_preserve_boundaries: this.mustPreserveBoundaries(input.selectedOption, inherited),
-      accepted_risk_refs: this.uniqueRefs([
+      accepted_risk_refs: uniqueRefs([
         ...input.loaded.planRun.accepted_risk_refs,
         ...input.accepted.accepted_risk_refs,
       ]),
@@ -9821,7 +9826,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     return {
       ok: true,
-      artifactRefs: this.uniqueRefs([
+      artifactRefs: uniqueRefs([
         semanticArtifact.support_artifact_ref,
         semanticArtifact.normalized_output_ref,
         semanticArtifact.provenance_ref,
@@ -10287,7 +10292,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     payload: TopicSelectionV1bN6LoopbackTriageSupportPayload,
     frozenPayload: TopicSelectionV1bN6HarnessFrozenInputPayload,
   ): { ok: false; code: string; message: string } | null {
-    const allowedLineageRefs = this.uniqueRefs([
+    const allowedLineageRefs = uniqueRefs([
       frozenPayload.constraint_profile_ref,
       frozenPayload.intake_readiness_ref,
       frozenPayload.research_slice_ref,
@@ -10345,7 +10350,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private n6LoopbackReasonCodes(blockedCandidateContexts: Record<string, unknown>[]): string[] {
-    return this.uniqueStrings(
+    return uniqueStrings(
       blockedCandidateContexts
         .map((context) => typeof context.dominant_reason === 'string' ? context.dominant_reason : null)
         .filter((reason): reason is string => Boolean(reason)),
@@ -10613,7 +10618,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const recommendedCandidateIds = draft.recommended_candidate_keys
       .map((key) => candidates.find((candidate) => candidate.candidate_key === key)?.topic_question_candidate_id)
       .filter((candidateId): candidateId is string => Boolean(candidateId));
-    const qualityFlags = this.uniqueStrings([
+    const qualityFlags = uniqueStrings([
       ...(blockedCandidateContexts.length > 0 ? ['BLOCKED_CANDIDATES_PRESENT'] : []),
       ...(recommendedCandidateIds.length === 0 ? ['NO_RECOMMENDED_TOPIC_QUESTION_CANDIDATE'] : []),
       ...(draft.human_review_triggers.length > 0 || candidates.some((candidate) => candidate.human_review_triggers.length > 0)
@@ -10649,7 +10654,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         selected_research_slice_hash: payload.research_slice_hash,
       },
       hard_blockers: [],
-      human_review_triggers: this.uniqueStrings([
+      human_review_triggers: uniqueStrings([
         ...draft.human_review_triggers,
         ...candidates.flatMap((candidate) => candidate.human_review_triggers),
       ]),
@@ -10687,7 +10692,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       this.ref('research_slice_assumption', assumption.research_slice_assumption_id, assumption.title_card_id),
     );
     const evidenceRefs = loaded.evidenceRefs.map((evidenceRef) => evidenceRef.evidence_ref);
-    const sourceRefs = this.uniqueRefs([
+    const sourceRefs = uniqueRefs([
       payload.research_slice_ref,
       payload.research_slice_selection_ref,
       payload.research_slice_option_set_ref,
@@ -11203,7 +11208,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return {
       ok: true,
       value: {
-        artifactRefs: this.uniqueRefs([
+        artifactRefs: uniqueRefs([
           semanticArtifact.support_artifact_ref,
           semanticArtifact.normalized_output_ref,
           semanticArtifact.provenance_ref,
@@ -11610,7 +11615,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         claim_ceiling_alignment: draft.claim_ceiling_alignment,
         confidence: draft.confidence ?? null,
         requires_human_review: requiresHumanReview,
-        human_review_triggers: this.uniqueStrings([
+        human_review_triggers: uniqueStrings([
           ...draft.human_review_triggers,
           ...(isHighRisk ? ['high_risk_option'] : []),
           ...(uncertainClaimAlignment ? ['uncertain_claim_ceiling_alignment'] : []),
@@ -11687,10 +11692,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
       value: {
         highRiskOptionCount,
         options,
-        qualityFlags: this.uniqueStrings(qualityFlags),
+        qualityFlags: uniqueStrings(qualityFlags),
         recommendedOptionId: recommendedOption?.research_slice_option_id ?? null,
         requiresHumanReview: options.some((option) => option.requires_human_review),
-        warnings: this.uniqueIssues(warnings),
+        warnings: uniqueIssues(warnings),
       },
     };
   }
@@ -11783,7 +11788,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         covered.search_plan_recheck_request_id === request.search_plan_recheck_request_id
       )
     );
-    const staleRefCodes = this.uniqueStrings([
+    const staleRefCodes = uniqueStrings([
       ...snapshot.trace_issues.map((issue) => issue.code),
       ...rechecks.missing_recheck_refs.map((ref) => `MISSING_RECHECK_REF:${ref.ref_id}`),
       ...(snapshot.evidence_map_freshness_status && snapshot.evidence_map_freshness_status !== 'current'
@@ -11994,7 +11999,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     snapshot: TopicSelectionV1bIntakeSnapshotRecord,
   ): boolean {
     const recheckRef = this.ref('search_plan_recheck_request', recheck.search_plan_recheck_request_id, recheck.title_card_id);
-    const coverageRefs = this.uniqueRefs([
+    const coverageRefs = uniqueRefs([
       risk.source_ref ?? null,
       risk.target_ref,
       ...risk.scope_refs,
@@ -12102,7 +12107,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return this.hash({
       bundle_ref: snapshot.v1b_input_bundle_ref,
       evidence_map_freshness_status: snapshot.evidence_map_freshness_status ?? null,
-      source_refs_hash: this.hash(this.uniqueRefs([
+      source_refs_hash: this.hash(uniqueRefs([
         snapshot.v1b_input_bundle_ref,
         snapshot.validated_need_ref,
         snapshot.source_need_candidate_ref,
@@ -12208,7 +12213,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     bundle: TopicSelectionV1aToV1bInputBundleRecord,
     bundleRef: TopicSelectionFunctionalRef,
   ): TopicSelectionFunctionalRef[] {
-    return this.uniqueRefs([
+    return uniqueRefs([
       bundleRef,
       bundle.validated_need_ref,
       bundle.source_need_candidate_ref,
@@ -12587,7 +12592,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private n5ArtifactRefs(input: TopicSelectionV1bWorkflowHarnessRunRequest): TopicSelectionFunctionalRef[] {
-    return this.uniqueRefs((input.semantic_artifacts ?? []).flatMap((artifact) => [
+    return uniqueRefs((input.semantic_artifacts ?? []).flatMap((artifact) => [
       artifact.support_artifact_ref,
       artifact.normalized_output_ref,
       artifact.provenance_ref,
@@ -12676,7 +12681,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     option: TopicSelectionResearchSliceOptionRecord,
     inherited: InheritedConstraints,
   ): string[] {
-    return this.uniqueStrings([
+    return uniqueStrings([
       `Do not exceed claim ceiling: ${inherited.claim_ceiling}`,
       ...option.excluded_boundaries.map((boundary) => `Exclude: ${boundary}`),
       ...inherited.non_goals.map((nonGoal) => `Non-goal: ${nonGoal}`),
@@ -12684,7 +12689,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private valueAssessmentInputs(option: TopicSelectionResearchSliceOptionRecord): string[] {
-    return this.uniqueStrings([
+    return uniqueStrings([
       option.expected_claim,
       option.fallback_claim,
       option.evaluation_path,
@@ -12696,7 +12701,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     option: TopicSelectionResearchSliceOptionRecord,
     inherited: InheritedConstraints,
   ): string[] {
-    return this.uniqueStrings([
+    return uniqueStrings([
       inherited.claim_ceiling,
       ...option.included_boundaries,
       ...option.excluded_boundaries,
@@ -12708,7 +12713,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!option.requires_human_review) {
       return null;
     }
-    return this.uniqueStrings(option.human_review_triggers).join('; ') || 'ResearchSlice option requires human review.';
+    return uniqueStrings(option.human_review_triggers).join('; ') || 'ResearchSlice option requires human review.';
   }
 
   private defaultN5Loopback(
@@ -12833,44 +12838,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     ].join(':');
   }
 
-  private uniqueRefs(refs: Array<TopicSelectionFunctionalRef | null | undefined>): TopicSelectionFunctionalRef[] {
-    const seen = new Set<string>();
-    const result: TopicSelectionFunctionalRef[] = [];
-    for (const ref of refs) {
-      if (!ref) {
-        continue;
-      }
-      const key = [
-        ref.ref_type,
-        ref.ref_id,
-        ref.version_id ?? '',
-        ref.title_card_id ?? '',
-      ].join(':');
-      if (seen.has(key)) {
-        continue;
-      }
-      seen.add(key);
-      result.push(ref);
-    }
-    return result;
-  }
-
-  private uniqueStrings(values: string[]): string[] {
-    return [...new Set(values)];
-  }
-
-  private uniqueIssues(values: TopicSelectionGateIssue[]): TopicSelectionGateIssue[] {
-    const seen = new Set<string>();
-    const result: TopicSelectionGateIssue[] = [];
-    for (const value of values) {
-      if (seen.has(value.code)) {
-        continue;
-      }
-      seen.add(value.code);
-      result.push(value);
-    }
-    return result;
-  }
+  // uniqueRefs / uniqueStrings / uniqueIssues relocated to topic-selection-v1b-harness-dedup-utils.ts
+  // (Phase 5.1 split, D-T123-03) — imported above; call sites unchanged except dropping `this.`.
 
   private versionFromId(id: string): string {
     return `v_${id.split('_').at(-1) ?? '1'}`;
