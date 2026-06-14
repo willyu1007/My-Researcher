@@ -9,13 +9,13 @@
 | F-02 N8 参数硬编码 | 1.1 | **closed (2026-06-12)** | 实为 DMP-10 双轨。2026-06-11 先 registry 化清零 DEFAULT_MODEL；2026-06-12 按用户指令**全量移除遗留生成路径**（trio 重写为读投影 + IntakeService 整体删除），双轨不复存在；见 §2026-06-12 补充 |
 | F-03 N4/N6 profile 未注册 | 1.2 | **closed (2026-06-11)** | 审计结论修正：三个 single-agent profiles 实际已注册（registry `:147-151`），矩阵 slot map 状态过期。已对账更新矩阵；harness provenance 哈希断言已存在（orchestrator 单测 :282-283） |
 | F-04 编排层缺位 | 2 | **closed (2026-06-12)** | `TopicSelectionV1bRunCoordinatorService`（投影/advance-until-blocked/预算/超时/互斥）+ 2 条 HTTP 路由；全链 e2e 含双人审续跑绿；见 §Phase 2 实施 |
-| F-05 N8 debate 仅政策 | 3 | **closed (2026-06-14)** | 信号触发有界对抗 debate 全链交付：共享骨架 core + v1b N8 debate 运行时/admission（byte-match 准入 + 13 例 drift 负测）+ gate bridge（synthesizer draft 经单 agent 路径重记，零 gate 改动）+ harness T1/T3 gate/loopback + coordinator feedback recipe + N7 debate-admission 支撑输入；harness 级与 coordinator 驱动两条全闭环 e2e 均绿。延期项（非阻断，记 spec 07）：STEP-7 压缩 facts→Phase 5.2、DP-3.3 阈值标定（独立任务，provisional tripwire 守 product）、DP-3.5 provider-diverse 角色 profile（加法）。详见 `07-phase3-debate-skeleton-spec.md` |
+| F-05 N8 debate 仅政策 | 3 | **closed (2026-06-14)** | 信号触发有界对抗 debate 全链交付：共享骨架 core + v1b N8 debate 运行时/admission（byte-match 准入 + 13 例 drift 负测）+ gate bridge（synthesizer draft 经单 agent 路径重记，零 gate 改动）+ harness T1/T3 gate/loopback + coordinator feedback recipe + N7 debate-admission 支撑输入；harness 级与 coordinator 驱动两条全闭环 e2e 均绿。延期项（非阻断，记 spec 07）：STEP-7 压缩 facts→Phase 5.2、DP-3.3 阈值标定（2026-06-15 标定执行：真实分布不可用→维持 provisional，tripwire 续守 product；见实施记录 §2026-06-15 DP-3.3）、DP-3.5 provider-diverse 角色 profile（加法）。详见 `07-phase3-debate-skeleton-spec.md` |
 | F-06 跨 run 决策记忆缺失 | 4 | **closed (2026-06-12)** | `TopicSelectionDecisionMemoryProjectionService`（六类来源投影）+ `TopicSelectionDecisionMemoryPacket@v1` artifact 注入 v1b N6/N8 runtime context + N6 gate `decision_memory_duplicate_candidate` warning；e2e 绿；见 §Phase 4 实施 |
 | F-07 provider_overrides 无类型 | 1.3 | **closed (2026-06-11)** | 契约层 `TopicSelectionProviderOverrides` 三 provider union + `provider_id` enum 收紧 + schema anyOf 严格化 + registry 加载期键校验（`PROVIDER_OVERRIDES_INVALID`）；见 §Phase 1 实施 |
 | F-08 prompt/schema 无 registry | 1.4 | **closed (2026-06-11)** | `topic-selection-llm-invocation-registry.ts`（30 模板 + 19 schema）+ gateway 运行时强校验（topic-selection 前缀必须注册）+ lint 静态守卫；见 §Phase 1 实施 |
 | F-09 cost_usd 恒 null | 1.5 | **closed (2026-06-12)** | 机制（价格表+telemetry 计算+fail-soft）验证通过；2026-06-12 已填入核实牌价（gpt-5.5 $5/$30、qwen3.6-plus $0.325/$1.95、deepseek-v4-pro $1.74/$3.48），来源记于 config $comment |
 | F-10 压缩/token 估计未规范化 | 5.2 | **partial (2026-06-15)** | 压缩策略去硬编码：executor kind 改从 profile `compression_policy.allowed_executor_kinds` 主项解析（SSOT，byte-identical——现所有 profile 主项均 `deterministic_structural`），不再写死字面量。**per-provider token 估计延期**（数据依赖，同 DP-3.3）：保守统一估计是安全设计（高估→提前压缩），per-provider 比率需真实分词器测量（gpt-5.5/qwen3.6-plus/deepseek-v4-pro），无测量数据时改 per-provider 猜值可能低估→运行期超预算，反劣于现状——已开独立标定任务。**debate 压缩 facts（STEP-7）延期**（消费者依赖）：仅压缩触发路径生效，需 compression-capable debate input + 触发场景（当前不存在），无真实消费者时构建 fact builder 即重蹈"过早 seam"债务。验证：tsc 0、backend 套件 1308/0、debate byte-identity 保持。 |
-| F-11 harness 单文件复杂度 | 5.1 | open | |
+| F-11 harness 单文件复杂度 | 5.1 | **in-progress (2026-06-15)** | 基础就绪：**D-T123-03** 联合决策登记（T-088 `06-joint-decisions.md`，用户签核拆分范式）+ **replay-identity 守卫**（钉死确定性 N1 的 6 个 byte-bearing 哈希；N2/N3 因 semantic-support 生成含非 idFactory 随机不可钉）。**slice 1 已交付**：dedup 工具（uniqueRefs/uniqueStrings/uniqueIssues，63 调用点）逐字搬迁至 `topic-selection-v1b-harness-dedup-utils.ts`，守卫金值不变（byte-identical 实证）、套件 1313/0。剩余簇（parse-and-resolve / hash-authority / ref-builder）按同一守卫保护逐 slice 推进，多 session。 |
 
 ## 决策记录
 
@@ -41,7 +41,7 @@
 **勘察修正的起点**（三路审计，详见本节末"现状基线"）：触发/准入/回路的契约层 ~80% 已预埋（N8 loopback 边+码+`N8ToN7Feedback@v1`、N7 `feedback_from_n8` 解析器、`n7_n8_debate_admission_review` 槽全规格+已注册 profile+N7 runner 已织 ref 进 handoff、`trial_ledger_ref/hash` 已在 N7→N8 投影、矩阵 N8 行已是 `bounded_sequence`）；真正要建：N8 debate 运行时、N8 gate T1/T3 + runner 回路选择（harness 本体）、N7 warning 发射、coordinator feedback recipe、DMP-13/矩阵/profiles。
 - **DP-3.1 共享执行器形态**：**骨架共享 + 版本注入**。抽取角色循环骨架（角色序走表、prior-artifact 线程、token 预算/压缩脚手架、debate provenance hash 组装）为共享核心；context packet 构建、输出契约、preserved facts 由 v1c/v1b 各自注入（strategy 接口）。v1c N2 改薄适配（行为不变，`v1c-n2-runtime-smoke` 钉死，基线已核实绿）；v1b N8 实现自己的 builder。否决项：完全通用抽取（v1c 回归风险过大）、独立双实现（违背"不留技术债务"指令）。
 - **DP-3.2 触发形态**：**首评回路、复评告警**。首评（frozen payload 无 `n8_debate_admission_ref`）命中 T1/T3 → loopback blocker（`n8_feedback_to_n7`，自动升级）；debate 复评（feedback 重入的 handoff 已携带 admission ref——零新字段的确定性判据）仍命中 → warning 准入，不再回路。coordinator loopback 预算为二重保险。
-- **DP-3.3 阈值标定**：**临时值落 node policy + 挖历史**。provisional 初值（T1: total_score∈[60,72) 或 confidence<0.55；T3: 维度分差≥40 或 单维<35 且 total≥60）显式标注 provisional 落 N8 node policy；解析既有 near-prod deep-test 工件提取 N8 分数分布复核；历史不可用则记偏差、标定跑列独立小任务（不阻断收口）。
+- **DP-3.3 阈值标定**：**临时值落 node policy + 挖历史**。provisional 初值（T1: total_score∈[60,72) 或 confidence<0.55；T3: 维度分差≥40 或 单维<35 且 total≥60）显式标注 provisional 落 N8 node policy；解析既有 near-prod deep-test 工件提取 N8 分数分布复核；历史不可用则记偏差、标定跑列独立小任务（不阻断收口）。**标定执行（2026-06-15）**：挖掘判定**真实分布不可用**——既有 N8 工件全是单一 fixture（total 83/conf 0.82/spread 12）或循环/价值中性探针，非真实评估分布；按本条"历史不可用则记偏差"维持 provisional、不猜值、保留 tripwire，列出 provider_llm 标定语料采集需求。详见本文件实施记录 §2026-06-15 DP-3.3。
 - **DP-3.4 范围**：**N8-only**。N9 维持现状（其 loopback 目标码 declared-unused，矩阵注记）；N9 是 N8 输出的确定性分发器，重判 borderline 属重复检测。D2 原文"N8/N9"按审计收窄，记录在案。
 - **DP-3.5 角色 profile 模式**（用户追问"codex 1 profile / provider 独立 profile 是否都要支持"后精化锁定）：**4 角色槽位 + 1 共享多-option model profile + 4 context-policy profiles**；多样性与注册面解耦——`provider_diverse_deep_debate` 级 = DMP-12 named-profile 把 per-role `model_option_id` 映射进 execution_plan slot 覆盖（如 critic→deepseek option），非独立 profile×4。codex_assisted / provider-compact / provider-diverse 三情景全覆盖；未来升格某角色为独立 profile 是纯加法。
 - **DP-3.6 coordinator 回路闭环**：**本阶段做，含 coordinator e2e**。HANDOFF_BUILDER_TABLE 增 N7 feedback 变体（读 N8 blocked trace + `N8ToN7Feedback` 工件组装 `feedback_from_n8` frozen input）；`retry_node_id=N7` 走升级回路；e2e 覆盖全闭环（N8 首评 T1 回路 → N7 feedback 重入+admission → N8 debate 复评 → admit）。同时关闭上轮审查的 loopback 死端（03 §2026-06-13 #3）。
@@ -93,6 +93,38 @@
 - **5.3 剩余项评估（低实际价值，记 backlog）**：validateRegistry 缓存（仅加载期一次）、loadTraces kind 仓储过滤（仓储契约改动换边际收益）、advance-loop 投影增量化（典型 run T 小、可变 checkpoint 引入风险）、gateway 校验钩子化（多 gateway 实现不存在，YAGNI）——均为非热路径 perf/思辨性 hygiene，change-risk 高于边际收益，暂不做。
 - **5.3 harness 本体项 → 5.1 窗口**：3 个 artifact 解析器收编（resolveN7SemanticPayload/resolveN8DraftPayload/resolveDecisionMemoryPacketFromSourceRefs）+ N6 单次解析——触碰 harness 本体（D3），并入 5.1 拆分窗口处理。
 - **5.1（F-11）进行中**：harness 单文件 12,929 行**纯机械拆分**（抽纯函数簇：parse-and-resolve / hash-authority / ref builder）。**D-T123-03 已登记**（T-088 `06-joint-decisions.md`，2026-06-15，用户签核拆分范式）；先落 **replay-identity 守卫单测**（钉死 hashContext / authority hashes / outcomeGateResultHash / frozen_input_hash 具体值），每 slice 前后守卫 + 全套件保持绿。增量推进、多 session。byte-identity 范式复用 v1c debate-core 抽取（逐字搬迁 + 差分核验）。
+
+### 2026-06-15 DP-3.3 N8 debate 阈值标定（数据挖掘 → 真实分布不可用 → 维持 provisional）
+**结论先行**：现有数据**无法**标定 T1/T3 阈值；按 DP-3.3 / 本任务第 3 项**维持 provisional、不猜值、保留 `n8_debate_thresholds_provisional` product tripwire**，并记录所需数据采集。阈值常量与 `provisional: true` **零改动**（仅把 contract 内联注释从误导性的"calibrate against near-prod deep-test distribution"更正为本发现的指针——comment-only，不动值/flag/行为）。
+
+**数据挖掘范围与发现（全量扫 `.ai/.tmp`）**
+- 带完整 N8 分数（`total_score`/`confidence`/9 维 `dimension_scores`）的工件**只存在于** `external-codex-n8-variance` 样本组：`t107-external-codex-n8-variance-20260528d/.../sample-{1,2,3}/last-message.json` + `t112-v1b-deep-review-external-codex-n8-20260601/.../sample-{1,2,3}/last-message.json`，**共 6 个文件**。
+- 这 6 个样本在数值轴上**逐字相同**：`total_score=83`、`confidence=0.82`、9 维全 84 唯 `reviewer_risk=72`（→ spread=12，单维 floor 72），`readiness=ready`、`disposition=advance_to_package`。
+- 全 `.ai/.tmp` 中**唯一**被持久化的 N8 `total_score` 值就是 **83**（36 处 file-occurrence），无任何其他值。
+- 根因：`external_codex_n8_variance` 探针的 prompt **显式钉死** "total_score must stay 83" 且 "you may vary only natural-language wording"（`topic-selection-v1b-harness-e2e.mjs:4429-4433`）——它是**散文非决定性**的方差探针，不是分数分布。
+- harness / deep-test 的 N8 路径全程 `semantic_mode: fixture`，用的是**手写固定 fixture**：
+  - `v1bHarnessN8ValueDraft`（happy/advance）：total 83 / conf 0.82 / dims 84·reviewer_risk 72（`:1120-1135`）。
+  - `v1bHarnessN8NonAdvanceDraft`（refine）：total 55 / dims ≤55·58（`:1203-1210`）。
+  - `v1bHarnessN8BlockingGateDraft`：与 happy 同分 + 一个 blocking hard_gate（**门级**否决，非分数级）。
+  - debate-loop e2e（`runN8DebateTriggerLoopVariant`）：`total_score:66` 在 e2e 内**内联写死**专为落入 [60,72) 触发 T1（`:3390`,`:3436`）——相对阈值**循环自证**。
+  - provider canary（`v1bN8CanaryOutput`，`provider-canary-service.unit.test.ts:584-617`）：total 76 / conf 0.78 / dims 80·reviewer_risk 72，但**显式声明价值中性**（"shows provider-live runtime semantics, not topic value"），且即便 live 标志开，gateway 仍是 fake 返回该 canned 值。
+- `n8_runtime_smoke` / `full-chain` 的 `result.json` **完全不含** `dimension_scores`/`total_score`/`confidence`——它们记的是 gate/route/hash provenance，不是 assessment payload。证实任务提示的告诫：这些 T-112-era 产物是 runtime-stress/harness 溯源，**不是 N8 分数分布**。
+
+**为何不能据此标定**：6 个样本是**同一个固定 topic 的 n≈1**（且数值轴还被探针钉死），fixture 分数要么循环（66 borderline 是为匹配 T1 band 构造的）、要么价值中性（canary）。fixture 模式重跑 deep-test 只会复现同样 fixtures；**唯一**能产真实分布的是 `provider_llm` 模式跑**真实** N8 value-assessment prompt over 一个有标注的多样 topic 语料——该语料**不存在**，且现有脚本在 fixture 模式下**不可能**产出它。
+
+**真要标定所需的数据采集（留给后续独立标定跑）**
+1. 一个**有标注**的语料：N 个**不同的**真实候选 topic，覆盖价值谱（clear-advance / borderline / clear-refine·drop / 维度冲突），每个带人工/已知 ground-truth disposition。
+2. 用 `topic_value_assessment_single_agent` profile 在 `provider_llm` 模式跑真实 N8 prompt over 该语料；最好**跨已注册 provider**（gpt-5.5 / qwen3.6-plus / deepseek-v4-pro）以捕捉跨 provider 的分数标度差异。
+3. 持久化每 topic 完整 `TopicValueAssessmentDraft`（total_score、confidence、9 维 dimension_scores）。
+4. 分析 borderline/冲突样本相对 clear pass/fail 在 (a) total_score、(b) confidence、(c) 维度 spread、(d) 单维 floor 上的实际落点；据此设 T1/T3 使其以可接受的 precision/recall 分离"真 borderline/冲突"与"清晰 pass/fail"。
+5. 每 band 样本量需足以非轶事级（当前 6 个同分样本 ≈ n=1，远不足）。
+
+**验证（无运行时/契约值改动 → 仅相关测试，full 套件无需重跑）**
+- N8 debate-trigger 单测（钉死 T1/T3 边界，含 provisional 阈值副本）：**8/8 绿**。
+- coordinator feedback recipe 单测：**15/15 绿**。
+- coordinator 驱动全 debate-loop 集成（borderline T1 loopback → N7 feedback 重入＋debate-admission 支撑 → 复评 `admitted_with_warnings`）：**绿**；同文件唯一 fail = 既有 **T-054 Prisma-smoke 环境门**（缺 `DATABASE_URL`），与本任务无关。
+- shared tsc 0、矩阵一致性绿（comment-only 改动不动 node_id/slot_id 正则面）。
+- **未改阈值常量与 `provisional` flag** → 零 replay-identity / 行为影响，故 docs+comment-only 收口不触发 full 1308 套件重跑义务（相关三测已直接覆盖触发逻辑与全闭环）。
 
 - 2026-06-11：任务包创建（T-123）。来源：全链产品化审计（节点 debate / 复杂度 / 编排-harness / 压缩-上下文-记忆 / 参数规范化 五维）。
 
