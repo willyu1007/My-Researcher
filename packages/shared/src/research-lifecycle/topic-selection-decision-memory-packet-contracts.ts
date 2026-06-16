@@ -6,6 +6,19 @@ import type { TopicSelectionFunctionalRef } from './topic-selection-control-plan
 // NON-AUTHORITY context material into generation/assessment LLM slots (v1b N6 question
 // generation dedup material, v1b N8 negative-memory input). The packet never participates
 // in authority writes; deterministic gates may use it only to emit warning codes.
+//
+// Persistence / query SSOT (T-127 W-03): the packet is NOT persisted as its own record — it is a
+// build-on-read projection. The authority SSOT is the underlying source objects, each owned and
+// persisted by its producing node's repository: need candidates + adjudications
+// (topic-selection-need-validation), value-disposition decisions
+// (topic-selection-v1b-value-assessment), accepted risks / decision-memory entries / candidate
+// decision memories (topic-selection-recheck-risk-memory), and prior topic-question candidates
+// (topic-selection-v1b-topic-question). The single read/query path is
+// TopicSelectionDecisionMemoryProjectionService.buildPacket({ title_card_id, max_entries }), which
+// aggregates those repositories by title_card_id, orders entries newest-first, caps to max_entries
+// (default 24), and computes exact-match dedup keys. It creates no new authority and performs no
+// writes (an optional controlPlaneService.recordArtifactRef only records a diagnostic projection
+// trace). v1 matching is exact normalized-text only — no semantic similarity.
 
 export const TOPIC_SELECTION_DECISION_MEMORY_PACKET_SCHEMA_VERSION =
   'TopicSelectionDecisionMemoryPacket@v1' as const;

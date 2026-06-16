@@ -26,6 +26,9 @@ const N5 = 'topic-selection.v1b.select-research-slice.v1';
 const N6 = 'topic-selection.v1b.generate-topic-question-candidates.v1';
 const N7 = 'topic-selection.v1b.materialize-topic-question-contract.v1';
 const N8 = 'topic-selection.v1b.assess-topic-value.v1';
+const N9 = 'topic-selection.v1b.decide-value-disposition.v1';
+const N10 = 'topic-selection.v1b.create-draft-topic-package.v1';
+const N11 = 'topic-selection.v1b.publish-v1c-input-bundle.v1';
 
 function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
   return { ref_type: refType, ref_id: refId, title_card_id: CARD };
@@ -639,4 +642,70 @@ test('projection counts attempts and loopbacks and surfaces run completion', asy
   assert.equal(state.run_complete, false);
   const n1 = state.nodes.find((node) => node.node_id === N1)!;
   assert.equal(n1.latest?.route_decision, 'invoke_next');
+});
+
+// W-02: the terminal-node coverage the existing suite lacked. The N11 recipe entry
+// (publish-v1c-input-bundle -> n10_handoff_hash) is present in HANDOFF_BUILDER_TABLE and
+// passes the module-load coverage assertion, but nothing drove the chain THROUGH N11 to
+// stop_v1b_complete. This drives the full clean (no-debate) N1->N11 happy path and asserts
+// the deterministic tail (N9/N10/N11) auto-advances off the recipe and the run completes.
+test('drives the full N1..N11 chain to stop_v1b_complete and reports run completion', async () => {
+  const { harness, coordinator, controlPlane } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+  harness.on(N5, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N5ToN6Handoff' });
+  harness.on(N6, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N6ToN7Handoff' });
+  harness.on(N7, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N7ToN8Handoff' });
+  harness.on(N8, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N8ToN9Handoff' });
+  harness.on(N9, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N9ToN10Handoff' });
+  harness.on(N10, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N10ToN11Handoff' });
+  // N11 publishes the v1c input bundle and is terminal: it routes stop_v1b_complete.
+  harness.on(N11, { gate_status: 'admitted', route_decision: 'stop_v1b_complete' });
+
+  // N1 bootstrap -> human halt at N2
+  const n1Report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  assert.equal(n1Report.halt.node_id, N2);
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+
+  // N3 (auto) -> N4 (model draft) -> human halt at N5
+  const n4Report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } },
+  });
+  assert.equal(n4Report.halt.node_id, N5);
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+
+  // The N8 recipe requires N7's N7->N8 context projection artifact (required_projection_kind);
+  // the real N7 runner records it — simulate that so the N8 request can be assembled.
+  await controlPlane.recordArtifactRef({
+    artifact_kind: 'diagnostic',
+    workflow_run_id: RUN,
+    payload: { projection_kind: 'v1b_n7_to_n8_topic_question_contract_context' },
+  });
+
+  // N6 (model draft) -> N7 (auto) -> N8 (model draft) -> N9/N10/N11 (deterministic auto) -> complete
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: {
+      [N6]: { draft_payload: { candidates: ['c'] } },
+      [N8]: { draft_payload: { total_score: 80 } },
+    },
+  });
+
+  assert.deepEqual(report.steps.map((step) => step.node_id), [N6, N7, N8, N9, N10, N11]);
+  assert.equal(report.halt.reason, 'run_complete');
+  assert.equal(report.halt.node_id, N11);
+  assert.match(report.halt.message, /stop_v1b_complete/);
+  assert.equal(report.run_state.run_complete, true);
+  assert.equal(report.run_state.last_completed_node_id, N11);
+  assert.equal(report.run_state.next_node_id, null);
+
+  // N11 was auto-driven exactly once and assembled its frozen input from the N10 handoff hash —
+  // exercising the W-02 recipe entry (handoff_hash_key: 'n10_handoff_hash').
+  const n11Requests = harness.invocations.filter((request) => request.node_id === N11);
+  assert.equal(n11Requests.length, 1);
+  const n11Payload = n11Requests[0]!.frozen_input.payload as Record<string, unknown>;
+  assert.equal(n11Payload.n10_handoff_hash, `handoff_hash_${N10}`);
 });

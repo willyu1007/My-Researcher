@@ -110,7 +110,7 @@ export class TopicSelectionV1bEarlySemanticSupportAdmissionService {
     if (artifact.runtime_provenance_class === 'legacy_unverified') {
       return this.block(
         'V1B_EARLY_SUPPORT_ARTIFACT_LEGACY_UNVERIFIED',
-        'legacy_unverified early semantic support artifacts cannot enter promoted v1b N2/N3/N5 admission.',
+        'legacy_unverified early semantic support artifacts cannot enter promoted v1b N2/N3/N5 admission: the artifact has no runtime-verified v1b provenance (it predates promotion or was produced outside the v1b runtime). Re-produce it through the v1b harness so it is admitted as runtime_verified — a v1a or legacy artifact cannot be reused directly; v1a outputs must re-enter via v1b N1 (create-intake-snapshot).',
       );
     }
 

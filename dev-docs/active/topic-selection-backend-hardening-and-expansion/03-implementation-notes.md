@@ -4,8 +4,8 @@
 | Work Item | Phase | 段 | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | W-01 落地 T-123 工作树残留（F-10 estimator + DP-3.3 6-file scaffold + evidence/） | 0 | 核心 | done | 见 Phase 0 记录（backend 1332/0/35skip · shared 255/0 · tsc 0） |
-| W-02 校验/补 N11 handoff recipe | 0 | 核心 | planned（重定标） | 核验：recipe 条目已在 `coordinator:156–158`、覆盖断言通过；唯缺 N11 终端穿越测试 |
-| W-03 代码卫生（去 @deprecated / legacy_unverified 消息 / memory 持久化注记） | 0 | 核心 | planned（重定标） | 核验：① 已 moot（无 @deprecated、投影三件套 T-123 P1.1 已删）；仅 ②/③ 有落点 |
+| W-02 校验/补 N11 handoff recipe | 0 | 核心 | done | recipe 条目已在 `coordinator:156–158`；补 N11 终端穿越单测（N1..N11→stop_v1b_complete），coordinator 16/0 |
+| W-03 代码卫生（去 @deprecated / legacy_unverified 消息 / memory 持久化注记） | 0 | 核心 | done | ① moot；② 6 处 admission legacy_unverified 消息已丰富（码不变）；③ decision-memory SSOT 注记入 contracts |
 | W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | planned | 待 |
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | planned | 待 |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | planned | 待 |
@@ -32,7 +32,7 @@
 ## Phase 实施记录
 > 各 Phase 收口时在此追加：变更摘要、关键决策、测试证据（套件名 + 计数 + commit hash）、延期项与理由。
 
-### Phase 0 — 后端夯实（进行中）
+### Phase 0 — 后端夯实（已完成 2026-06-16）
 
 **W-01 落地 T-123 工作树残留 — done（2026-06-16）**
 - 提交内容（path-scoped，**未用 `git add -A`**）：F-10 `topic-selection-conservative-token-estimator-service`(+test) / `topic-selection-token-budget-gate-service`(+test)；DP-3.3 6-file scaffold `topic-selection-v1b-n8-calibration-{analysis,materializer,runner}`(+test)；comment-only `topic-selection-v1b-workflow-harness-contracts.ts`（仅追加 N8 provisional 说明注释，常量未变）；T-123 闭包文档 `04-verification.md` / `07-phase3-debate-skeleton-spec.md` + `evidence/{f10-token-calibration,dp33-n8-threshold-calibration}/`（2 个 `*.tokenizer.json` 受 `.gitignore` 自动排除）。
@@ -41,6 +41,18 @@
 - 核验副产物（**重定标**，待对应 W 项落地）：
   - **W-02** — coordinator `HANDOFF_BUILDER_TABLE` 的 N11（`topic-selection.v1b.publish-v1c-input-bundle.v1` → `handoff_hash_key:'n10_handoff_hash'`）条目**已存在**（行 156–158），且模块加载覆盖断言（行 164–169）通过；§30 调查里"N11 recipe 疑缺"前提作废。W-02 实际只剩 `advanceLocked()` 的 **N11 终端穿越单测**（当前测试无 `run_complete=true` / `stop_v1b_complete` 终端断言）。
   - **W-03 ①** — 全 topic-selection service `@deprecated` 计数为 **0**，`research-slice`/`topic-question`/`value-assessment` 只读投影三件套已于 T-123 Phase 1.1 随生成路径删除 → W-03 ① **moot**；仅 ②（12 处 `legacy_unverified` 消息）/③（decision-memory 文档注记）有落点。
+
+**W-02 N11 handoff recipe — done（2026-06-16，重定标）**
+- 核验结论：coordinator `HANDOFF_BUILDER_TABLE` 的 N11（`publish-v1c-input-bundle.v1` → `handoff_hash_key:'n10_handoff_hash'`）条目已存在（`topic-selection-v1b-run-coordinator-service.ts:156-158`），模块加载覆盖断言（164-169）通过——00 §W-02 / §30 的「N11 条目缺失」前提作废。
+- 落地：补 coordinator `advanceUntilBlocked` 的 N11 终端穿越单测「drives the full N1..N11 chain to stop_v1b_complete and reports run completion」——驱动 N1→N11 全清洁链（N4/N6/N8 model draft、N2/N5 人审、N9/N10/N11 确定性自驱），断言 `run_complete=true` / `halt.reason='run_complete'` / `last_completed_node_id=N11` / `next_node_id=null`，并校验 N11 frozen payload 自 N10 handoff 组装（`n10_handoff_hash`）。coordinator 单测 **16/0**。
+
+**W-03 代码卫生 — done（2026-06-16，重定标）**
+- ① **moot**：全 topic-selection service 无 `@deprecated` 标记；`research-slice`/`topic-question`/`value-assessment` 只读投影三件套已于 T-123 Phase 1.1 随生成路径删除——无对象可去。
+- ② 丰富 **6 处** admission `legacy_unverified` 拒绝消息（early-semantic-support / n4-research-slice / n6-draft / n6-loopback-triage / n7-support / n8-value-assessment），指明根因（无 runtime-verified v1b provenance）+ 恢复指引（经 v1b N1 intake 重产、v1a/legacy 工件不可直接复用）；**错误码不变**（零行为变化——测试仅断言 `code`）。
+- ③ decision-memory packet **持久化/查询 SSOT** 注记写入 `packages/shared/.../topic-selection-decision-memory-packet-contracts.ts`：packet 为 build-on-read 投影、无独立持久化，持久化 SSOT 为各来源 authority 仓储（need-validation / value-assessment / recheck-risk-memory / topic-question），唯一查询路径 `TopicSelectionDecisionMemoryProjectionService.buildPacket({title_card_id, max_entries})`。
+- 证据：affected admission + projection 单测 **32/0**；backend 全套件 **1333/0/35skip**、shared **255/0**、`tsc` **0**。
+
+**Phase 0 收口（M0）**：W-01 / W-02 / W-03 全部 done；工作树仅余并行 session 文件；进入 Phase 1。
 
 ### Phase 1 — 后端鲁棒性（待开工）
 ### Phase 2 — harness 一次拆透 / 选项 A（待开工）

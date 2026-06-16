@@ -114,7 +114,7 @@ export class TopicSelectionV1bN7SupportAdmissionService {
     if (artifact.runtime_provenance_class === 'legacy_unverified') {
       return this.block(
         'N7_SUPPORT_ARTIFACT_LEGACY_UNVERIFIED',
-        'legacy_unverified support artifacts cannot enter promoted v1b N7 admission.',
+        'legacy_unverified support artifacts cannot enter promoted v1b N7 admission: the artifact has no runtime-verified v1b provenance (it predates promotion or was produced outside the v1b runtime). Re-produce it through the v1b harness so it is admitted as runtime_verified — a v1a or legacy artifact cannot be reused directly; v1a outputs must re-enter via v1b N1 (create-intake-snapshot).',
       );
     }
 

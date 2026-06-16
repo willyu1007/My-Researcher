@@ -98,7 +98,7 @@ export class TopicSelectionV1bN6LoopbackTriageAdmissionService {
     if (artifact.runtime_provenance_class === 'legacy_unverified') {
       return this.block(
         'N6_LOOPBACK_TRIAGE_ARTIFACT_LEGACY_UNVERIFIED',
-        'legacy_unverified loopback triage artifacts cannot enter promoted v1b N6 admission.',
+        'legacy_unverified loopback triage artifacts cannot enter promoted v1b N6 admission: the artifact has no runtime-verified v1b provenance (it predates promotion or was produced outside the v1b runtime). Re-run the triage through the v1b harness so it is admitted as runtime_verified — a v1a or legacy artifact cannot be reused directly; v1a outputs must re-enter via v1b N1 (create-intake-snapshot).',
       );
     }
 

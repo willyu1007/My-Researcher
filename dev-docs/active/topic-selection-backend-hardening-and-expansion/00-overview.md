@@ -1,8 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: planned
-- Progress: **任务包创建 + 顶层决策对齐（2026-06-16）**——承接 T-123（选题管理产品化加固）**收尾关闭后移交**的 F-11 拆分线、DP-3.3 标定线，并新建本伞型包统一推进。**用户对齐的修订相位序：先夯实后端 → 拆透 harness（选项 A）→ 选项 B（能力扩展）→ 选项 C（工作台收口）→ 选项 D（N8 标定，延期）**。工作项 W-01..W-13 见下；顶层决策 D1..D6 经 2026-06-16 两轮对齐锁定。状态盘点基于 2026-06-16 全链 ground-truth 调查（backend-solidity / Option-B / Option-C / 约定与依赖四路并行）。各 Phase 未开工。
+- State: in-progress（Phase 0 / M0 已收口 2026-06-16；Phase 1+ 待开工）
+- Progress: **任务包创建 + 顶层决策对齐（2026-06-16）**——承接 T-123（选题管理产品化加固）**收尾关闭后移交**的 F-11 拆分线、DP-3.3 标定线，并新建本伞型包统一推进。**用户对齐的修订相位序：先夯实后端 → 拆透 harness（选项 A）→ 选项 B（能力扩展）→ 选项 C（工作台收口）→ 选项 D（N8 标定，延期）**。工作项 W-01..W-13 见下；顶层决策 D1..D6 经 2026-06-16 两轮对齐锁定。状态盘点基于 2026-06-16 全链 ground-truth 调查（backend-solidity / Option-B / Option-C / 约定与依赖四路并行）。**Phase 0（M0）已于 2026-06-16 收口**：W-01 残留落地（commit `bfe5ae31`）、W-02 N11 终端穿越单测、W-03 ②/③ 代码卫生；其中 W-02/W-03 经代码核验**重定标**（W-02 N11 条目实已存在、W-03 ① moot，详见 03/04）。Phase 1+ 待开工。
 - Task ID: `T-127`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-009`
 - Depends on / 承接: `T-123`（topic-selection-productization-hardening，**done，已关闭归档**——其 F-11 拆分线与 DP-3.3 标定线**所有权移交本包 W-12 / W-13**；本包复用其 coordinator / debate-core / decision-memory / token-estimator / 校准 scaffold）；`T-088`（workflow-runtime-foundation，in-progress——凡触碰 harness 本体的改动按 D6 先在 `06-joint-decisions.md` 登记联合决策）
@@ -22,8 +22,8 @@
 ## Work Items（本任务包的工作清单,as-scoped 2026-06-16；W-ID 稳定,相位为对齐后次序）
 ### Phase 0 — 后端夯实（M0,核心段）
 - **W-01 落地 T-123 工作树残留**:提交当前未落地的 F-10 per-provider token estimator / budget-gate 改动 + 6 个未跟踪的 DP-3.3 标定 scaffold 文件（`topic-selection-v1b-n8-calibration-{analysis,materializer,runner}.ts(+.unit.test.ts)`）+ 其 `evidence/` 证据目录。提交**必须排除**并行 session 文件（`paper-implementation-*`、`literature-*`、`topic-selection-v1b-human-review-path/00-overview.md`、`title-card-management-contracts.schema.test.ts`、`registry.yaml` 的并行 timestamp 改动）。
-- **W-02 校验 N11 handoff recipe**:coordinator `HANDOFF_BUILDER_TABLE` 经核 N11 条目缺失。确认 N11（`package-topic.v1b`）执行类,若为 deterministic gate 补 `handoff_hash_key: 'n10_handoff_hash'` 最小条目并加 advance() 穿越单测;若 model-like 则补完整 recipe。
-- **W-03 代码卫生收口**:① 移除三处只读投影 service 的 `@deprecated` 双轨标记并加澄清注释（`research-slice` / `topic-question` / `value-assessment` service,生成路径已于 T-123 Phase 1.1 删除,DMP-10 单路径）;② 丰富 5 处 admission 的 `legacy_unverified` 拒绝消息（指明 v1a→v1b 须经 N1 intake、不可直接复用 v1a 工件）;③ 为 decision-memory packet 持久化/查询路径补 SSOT 文档注记。
+- **W-02 校验 N11 handoff recipe**:coordinator `HANDOFF_BUILDER_TABLE` 经核 N11 条目缺失。确认 N11（`package-topic.v1b`）执行类,若为 deterministic gate 补 `handoff_hash_key: 'n10_handoff_hash'` 最小条目并加 advance() 穿越单测;若 model-like 则补完整 recipe。 **【实施修正 2026-06-16，done】** 经核 N11 条目实际已存在（`topic-selection-v1b-run-coordinator-service.ts:156-158`，N11 为 deterministic、覆盖断言 164-169 通过）——"条目缺失"前提作废；W-02 落地 = 仅补 N11 终端穿越单测（coordinator 16/0）。
+- **W-03 代码卫生收口**:① 移除三处只读投影 service 的 `@deprecated` 双轨标记并加澄清注释（`research-slice` / `topic-question` / `value-assessment` service,生成路径已于 T-123 Phase 1.1 删除,DMP-10 单路径）;② 丰富 5 处 admission 的 `legacy_unverified` 拒绝消息（指明 v1a→v1b 须经 N1 intake、不可直接复用 v1a 工件）;③ 为 decision-memory packet 持久化/查询路径补 SSOT 文档注记。 **【实施修正 2026-06-16，done】** ① **moot**（全 topic-selection service 无 `@deprecated`、三件套已于 T-123 P1.1 随生成路径删除）；②实为 **6 处** admission（含 n6-loopback-triage）已丰富、错误码不变（零行为变化）；③ 已写入 `topic-selection-decision-memory-packet-contracts.ts`。
 
 ### Phase 1 — 后端鲁棒性（M1,核心段）
 - **W-04 Coordinator 故障恢复补强**:① feedback 工件 pre-flight 校验（`loopback.authority_ref/hash` 缺失→明确报错而非 500）;② upstream-blocked 检测（recipe 需上游 hash/ref 但上游 blocked/replayed → `halt('upstream_blocked')` 而非 500 'missing lineage'）;③ node_timeout halt 附带 retry 指引;④ 人审路由 node_attempt nonce 守卫。

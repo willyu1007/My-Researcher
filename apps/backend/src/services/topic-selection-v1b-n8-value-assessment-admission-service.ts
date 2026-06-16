@@ -107,7 +107,7 @@ export class TopicSelectionV1bN8ValueAssessmentAdmissionService {
     if (artifact.runtime_provenance_class === 'legacy_unverified') {
       return this.block(
         'N8_DRAFT_ARTIFACT_LEGACY_UNVERIFIED',
-        'legacy_unverified value draft artifacts cannot enter promoted v1b N8 admission.',
+        'legacy_unverified value draft artifacts cannot enter promoted v1b N8 admission: the draft has no runtime-verified v1b provenance (it predates promotion or was produced outside the v1b runtime). Re-run N8 through the v1b harness so the draft is admitted as runtime_verified — a v1a or legacy artifact cannot be reused directly; v1a outputs must re-enter via v1b N1 (create-intake-snapshot).',
       );
     }
 

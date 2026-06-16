@@ -46,5 +46,6 @@
 > 各 Phase 收口验证在此追加（日期 + 套件计数 + commit hash + 结论）。
 
 - **2026-06-16 · Phase 0 / W-01 预检 + 落地**：backend 全套件 `apps/backend pnpm test` = **1367 tests / 1332 pass / 0 fail / 35 skip**（基线吻合）；`pnpm --filter @paper-engineering-assistant/shared test` = **255/0**；backend & shared `tsc --noEmit` = **0**；W-01 文件单测 32/0、coordinator 单测 47/0。结论：W-01 残留落地、双绿，工作树仅余并行 session 文件。重定标：W-02 N11 recipe 条目已存在→仅缺终端穿越测试；W-03 ① 已 moot。
+- **2026-06-16 · Phase 0 收口 / W-02 + W-03**：W-02 补 N11 终端穿越单测（coordinator 16/0）；W-03 ② 丰富 6 处 admission `legacy_unverified` 消息（码不变）+ ③ decision-memory SSOT 注记入 contracts。证据：affected admission+projection 单测 32/0；backend 全套件 **1367 tests / 1333 pass / 0 fail / 35 skip**；shared **255/0**；backend & shared `tsc --noEmit` **0**。结论：**Phase 0（M0）收口** —— W-01/02/03 全 done，核心段进入 Phase 1。
 
 ### （待开工）
