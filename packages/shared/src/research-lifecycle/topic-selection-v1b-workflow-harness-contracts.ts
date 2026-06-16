@@ -644,6 +644,35 @@ export interface TopicSelectionV1bWorkflowHarnessNodePolicy {
   debate_trigger_thresholds?: TopicSelectionV1bN8DebateTriggerThresholds;
 }
 
+/**
+ * W-06 (T-127): the N8 provisional-thresholds PRODUCT GATE — the formal semantics of the
+ * `n8_debate_thresholds_provisional` tripwire.
+ *
+ * While the N8 node policy's `debate_trigger_thresholds.provisional` is true (see below), the harness
+ * emits the `N8_DEBATE_THRESHOLDS_PROVISIONAL` warning whenever a PRODUCT run (`run_mode: 'product'`)
+ * is governed by these un-calibrated thresholds. That warning is intentionally NON-BLOCKING at the
+ * harness layer: the harness threshold judgment is unchanged (DMP-10 / T-088 D6), N8 still admits.
+ *
+ * The PRODUCT-LEVEL contract is: a real topic may proceed past N8 carrying this warning ONLY with an
+ * explicit, recorded stakeholder sign-off acknowledging that N8 ran under provisional thresholds. That
+ * sign-off record IS the production-gated override entry; absent it, advancing a real topic past a
+ * provisional-threshold N8 is out of policy.
+ *
+ * The gate is HELD until W-13 calibration meets its bar (>=100 multi-provider labeled samples with a
+ * false-positive rate < 5%). Until then `provisional` MUST NOT be set to false and this tripwire MUST
+ * NOT be removed (T-127 D8 record-and-defer).
+ */
+export const N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
+  warning_code: 'N8_DEBATE_THRESHOLDS_PROVISIONAL',
+  /** Non-blocking at the harness layer — the node still admits; the gate is a product-level policy. */
+  harness_blocking: false,
+  /** A real topic may pass N8 carrying the warning only with a recorded stakeholder sign-off. */
+  requires_stakeholder_sign_off: true,
+  applies_when: { run_mode: 'product', thresholds_provisional: true },
+  /** Calibration bar that releases the gate (flips provisional:false and removes the tripwire). */
+  released_by: 'W-13 calibration: >=100 multi-provider labeled samples, false-positive rate < 5%',
+} as const;
+
 export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
   {
     node_index: 1,
@@ -1046,6 +1075,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       // not a spread of real assessments. Changing the constants would be guessing (prohibited), so the
       // provisional values hold and the n8_debate_thresholds_provisional tripwire keeps guarding product.
       // Evidence + the data-collection plan: 03-implementation-notes DP-3.3 + 07-phase3-debate-skeleton-spec.
+      // Product-gate semantics for this flag: see N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE (T-127 W-06).
       provisional: true,
       t1_total_score_min: 60,
       t1_total_score_max_exclusive: 72,

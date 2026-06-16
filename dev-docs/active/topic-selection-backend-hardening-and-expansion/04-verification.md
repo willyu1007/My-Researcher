@@ -47,5 +47,6 @@
 
 - **2026-06-16 · Phase 0 / W-01 预检 + 落地**：backend 全套件 `apps/backend pnpm test` = **1367 tests / 1332 pass / 0 fail / 35 skip**（基线吻合）；`pnpm --filter @paper-engineering-assistant/shared test` = **255/0**；backend & shared `tsc --noEmit` = **0**；W-01 文件单测 32/0、coordinator 单测 47/0。结论：W-01 残留落地、双绿，工作树仅余并行 session 文件。重定标：W-02 N11 recipe 条目已存在→仅缺终端穿越测试；W-03 ① 已 moot。
 - **2026-06-16 · Phase 0 收口 / W-02 + W-03**：W-02 补 N11 终端穿越单测（coordinator 16/0）；W-03 ② 丰富 6 处 admission `legacy_unverified` 消息（码不变）+ ③ decision-memory SSOT 注记入 contracts。证据：affected admission+projection 单测 32/0；backend 全套件 **1367 tests / 1333 pass / 0 fail / 35 skip**；shared **255/0**；backend & shared `tsc --noEmit` **0**。结论：**Phase 0（M0）收口** —— W-01/02/03 全 done，核心段进入 Phase 1。
+- **2026-06-16 · Phase 1 收口 / W-04 + W-05 + W-06**：W-04 coordinator 故障恢复（upstream_blocked / feedback_artifact_missing 结构化 halt + 人审 nonce 守卫；timeout 指引核验已存在）+ 3 负例（coordinator 19/0）；W-05 为 12 个 admission/runtime service 各补单测（66/0）；W-06 形式化 N8 provisional 产品门禁常量 + 守卫单测。证据：backend 全套件 **1402 pass / 0 fail / 35 skip**；shared **256/0**；backend & shared `tsc --noEmit` **0**。结论：**Phase 1（M1）收口** —— 进入 Phase 2（选项 A：harness 一次拆透，先登记 D-T127-01）。
 
 ### （待开工）

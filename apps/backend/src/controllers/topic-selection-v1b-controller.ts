@@ -28,6 +28,17 @@ type BodyRequest<T> = FastifyRequest<{ Body: T }>;
 type ParamsRequest<T> = FastifyRequest<{ Params: T }>;
 type BodyParamsRequest<TBody, TParams> = FastifyRequest<{ Body: TBody; Params: TParams }>;
 
+/**
+ * W-04: opt-in human-submission idempotency key. The N2/N5 human routes accept an
+ * `X-Coordinator-Attempt-Nonce` header; when present, a same-(run, nonce) resubmission is rejected
+ * with 409 instead of recording a duplicate human attempt. Absent/blank → no guard (unchanged).
+ */
+function readAttemptNonce(request: FastifyRequest): string | null {
+  const raw = request.headers['x-coordinator-attempt-nonce'];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
 export type SliceHumanSelectionBody = {
   selected_option_id: string;
   selection_rationale: string;
@@ -173,10 +184,10 @@ export class TopicSelectionV1bController {
         accepted_risk_refs: request.body.accepted_risk_refs,
         workflow_run_id: workflowRunId,
       });
-      // Same-run human writes share the coordinator's per-run mutex so they cannot
-      // interleave with an in-progress advance on this run.
+      // Same-run human writes share the coordinator's per-run mutex so they cannot interleave with
+      // an in-progress advance; an optional X-Coordinator-Attempt-Nonce guards double-submits (W-04).
       const result = workflowRunId
-        ? await this.runCoordinator.runExclusive(workflowRunId, invoke)
+        ? await this.runCoordinator.runHumanSubmissionExclusive(workflowRunId, readAttemptNonce(request), invoke)
         : await invoke();
       return reply.status(201).send(result);
     } catch (error) {
@@ -210,8 +221,9 @@ export class TopicSelectionV1bController {
         actor: request.body.actor,
         workflow_run_id: workflowRunId,
       });
+      // Per-run mutex + opt-in X-Coordinator-Attempt-Nonce double-submit guard (W-04).
       const result = workflowRunId
-        ? await this.runCoordinator.runExclusive(workflowRunId, invoke)
+        ? await this.runCoordinator.runHumanSubmissionExclusive(workflowRunId, readAttemptNonce(request), invoke)
         : await invoke();
       return reply.status(201).send(result);
     } catch (error) {

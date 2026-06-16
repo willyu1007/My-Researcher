@@ -6,9 +6,9 @@
 | W-01 落地 T-123 工作树残留（F-10 estimator + DP-3.3 6-file scaffold + evidence/） | 0 | 核心 | done | 见 Phase 0 记录（backend 1332/0/35skip · shared 255/0 · tsc 0） |
 | W-02 校验/补 N11 handoff recipe | 0 | 核心 | done | recipe 条目已在 `coordinator:156–158`；补 N11 终端穿越单测（N1..N11→stop_v1b_complete），coordinator 16/0 |
 | W-03 代码卫生（去 @deprecated / legacy_unverified 消息 / memory 持久化注记） | 0 | 核心 | done | ① moot；② 6 处 admission legacy_unverified 消息已丰富（码不变）；③ decision-memory SSOT 注记入 contracts |
-| W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | planned | 待 |
-| W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | planned | 待 |
-| W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | planned | 待 |
+| W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | done | 见 Phase 1 记录（coordinator 19/0；upstream_blocked / feedback_artifact_missing / nonce 负例） |
+| W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
+| W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
 | W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | planned | 待 |
 | W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | planned | 待 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
@@ -54,7 +54,26 @@
 
 **Phase 0 收口（M0）**：W-01 / W-02 / W-03 全部 done；工作树仅余并行 session 文件；进入 Phase 1。
 
-### Phase 1 — 后端鲁棒性（待开工）
+### Phase 1 — 后端鲁棒性（已完成 2026-06-16）
+
+**W-04 Coordinator 故障恢复 — done（2026-06-16）**
+- 全部落在 coordinator/controller 层，**未触碰 harness 本体**（无需 D-record）。
+- ① feedback pre-flight + ② upstream-blocked：`buildNextRequest` / `resolveFeedbackReentry` 中「上游 lineage / 反馈工件缺失」的裸 500 改为**结构化 halt**——新增 `HaltReason` `upstream_blocked` / `feedback_artifact_missing`，经内部 `CoordinatorPreconditionHalt` 在 `advanceLocked` 转 halt（指名缺失工件）。
+- ③ timeout retry 指引：`node_timeout` halt 消息**本就含** retry 指引（「harness is replay-idempotent, advance again to converge」，`invokeWithTimeout`）——核验已满足，未改（与 W-02/W-03 同属「计划前提部分已实现」）。
+- ④ 人审 nonce 守卫：新增 `runHumanSubmissionExclusive(runId, nonce, fn)`——N2/N5 路由读 `X-Coordinator-Attempt-Nonce` 头；同 (run, nonce) 重复提交 → 409（**成功后才记录** nonce，失败可同 nonce 重试，null 不守卫；in-process，同 run-lock/in-flight 映射）。
+- 负例单测（coordinator **19/0**）：`upstream_blocked`（缺 N7→N8 projection）、`feedback_artifact_missing`（反馈工件被删）、nonce 守卫（重复 409 / 失败可重试 / null 不守卫）。
+
+**W-05 准入/运行时单测补齐 — done（2026-06-16）**
+- 12 个无独立单测的 service 各补 co-located `.unit.test.ts`（5 admission + 7 runtime），共 **66 测试 / 0 fail**：early-semantic-support-runtime、n4-research-slice-{admission,runtime}、n6-draft-runtime、n6-loopback-triage-{admission,runtime}、n7-support-runtime、n8-value-assessment-{admission,runtime}、v1c-n2-bounded-debate-admission、v1c-n4-delegated-promotion-decision-admission、v1c-n6-feedback-normalization-admission。
+- 每个含 happy path + 负例（admission：`legacy_unverified`/provenance/drift 拒绝码；runtime：lineage/输入不变量拒绝 + byte-stability）。
+- 注：计划提到的「N6 dedup-warning / N8 阈值应用」断言**不适用于这 12 个 service**——dedup-warning 属 n6-draft-admission（已有单测）、N8 阈值属确定性 harness gate；这 12 个是 provenance/identity 准入与 draft 生成 runtime，据实未强加无关断言。
+
+**W-06 N8 provisional 产品门禁形式化 — done（2026-06-16）**
+- shared `topic-selection-v1b-workflow-harness-contracts.ts` 新增 `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE`：把 `n8_debate_thresholds_provisional` tripwire 形式化为产品门禁——harness 层 non-blocking（**阈值判定不变、不动 harness 本体**），产品层「真选题过 N8 须有记录的 stakeholder sign-off」；门禁保留至 W-13 标定达标（≥100 多 provider 标注 + FP<5%），其间不翻 `provisional:false`、不撤 tripwire。
+- 守卫单测（shared **256/0**）：断言 N8 policy `provisional===true`（防早翻 tripwire）+ 门禁常量形状。
+
+**Phase 1 收口（M1）**：W-04 / W-05 / W-06 全 done；backend 全套件 **1402/0/35skip**、shared **256/0**、`tsc` 0。进入 Phase 2（harness 一次拆透 / 选项 A）。
+
 ### Phase 2 — harness 一次拆透 / 选项 A（待开工）
 ### Phase 3 — 能力扩展 / 选项 B（待开工）
 ### Phase 4 — 工作台收口 / 选项 C（待开工）

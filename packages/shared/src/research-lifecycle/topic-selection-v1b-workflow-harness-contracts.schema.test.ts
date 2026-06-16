@@ -7,6 +7,7 @@ import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_RESULT_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
+  N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
   topicSelectionV1bN1HarnessFrozenInputPayloadSchema,
   topicSelectionV1bN2HarnessFrozenInputPayloadSchema,
@@ -1656,4 +1657,21 @@ test('topic-selection v1b workflow harness request schema rejects non-provider m
   };
 
   assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, request), false);
+});
+
+// W-06 (T-127): the N8 provisional-thresholds product gate is held + formalized. This doubles as a
+// tripwire — if anyone flips `provisional` to false before W-13 calibration, this fails.
+test('N8 provisional-thresholds product gate (W-06) is held and formalized', () => {
+  const n8 = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES.find(
+    (policy) => policy.node_id === 'topic-selection.v1b.assess-topic-value.v1',
+  );
+  assert.ok(n8, 'N8 assess-topic-value policy exists');
+  // Held until W-13 calibration — provisional must NOT be flipped early (T-127 D8).
+  assert.equal(n8!.debate_trigger_thresholds?.provisional, true);
+  // The harness emits the tripwire the gate names.
+  assert.ok(n8!.warning_codes.includes('n8_debate_thresholds_provisional'));
+  // The formalized product-gate contract: non-blocking at the harness, requires a recorded sign-off.
+  assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code, 'N8_DEBATE_THRESHOLDS_PROVISIONAL');
+  assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.harness_blocking, false);
+  assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.requires_stakeholder_sign_off, true);
 });

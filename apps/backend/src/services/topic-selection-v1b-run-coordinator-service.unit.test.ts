@@ -709,3 +709,82 @@ test('drives the full N1..N11 chain to stop_v1b_complete and reports run complet
   const n11Payload = n11Requests[0]!.frozen_input.payload as Record<string, unknown>;
   assert.equal(n11Payload.n10_handoff_hash, `handoff_hash_${N10}`);
 });
+
+// W-04 fault-recovery: a recipe whose required upstream lineage is not ready must surface as a
+// structured upstream_blocked halt (named artifact) rather than a raw 500 from request assembly.
+test('W-04: a missing required upstream projection halts with upstream_blocked, not a 500', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+  harness.on(N5, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N5ToN6Handoff' });
+  harness.on(N6, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N6ToN7Handoff' });
+  harness.on(N7, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N7ToN8Handoff' });
+  harness.on(N8, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N8ToN9Handoff' });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+  // Deliberately DO NOT record the N7->N8 runtime projection the N8 recipe requires.
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: { [N6]: { draft_payload: { candidates: ['c'] } }, [N8]: { draft_payload: { total_score: 80 } } },
+  });
+
+  assert.equal(report.halt.reason, 'upstream_blocked');
+  assert.equal(report.halt.node_id, N8);
+  assert.match(report.halt.message, /runtime projection/);
+  // N6 and N7 advanced; N8 was never invoked (assembly failed before the harness call).
+  assert.deepEqual(report.steps.map((step) => step.node_id), [N6, N7]);
+  assert.equal(harness.invocations.filter((request) => request.node_id === N8).length, 0);
+});
+
+// W-04 fault-recovery: an N8->N7 feedback re-entry whose feedback artifact is gone halts with a
+// named feedback_artifact_missing instead of a raw 500.
+test('W-04: an N8 feedback re-entry whose feedback artifact is gone halts with feedback_artifact_missing', async () => {
+  const { coordinator, controlPlane, feedbackRef } = await driveToN8DebateLoopback();
+  // The feedback artifact the N7 re-entry must thread is no longer resolvable.
+  controlPlane.artifacts.delete(feedbackRef.ref_id);
+
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N7,
+    node_inputs: { [N7]: { draft_payload: { ...DEBATE_ADMISSION_SUPPORT } } },
+  });
+
+  assert.equal(report.halt.reason, 'feedback_artifact_missing');
+  assert.equal(report.halt.node_id, N7);
+  assert.match(report.halt.message, /not found/);
+});
+
+// W-04 fault-recovery: the opt-in human-submission nonce guard.
+test('W-04: human-submission nonce guard rejects a duplicate (run, nonce), allows retry after failure, ignores null', async () => {
+  const { coordinator } = makeSubject();
+  let calls = 0;
+
+  const first = await coordinator.runHumanSubmissionExclusive(RUN, 'nonce-1', async () => { calls += 1; return 'ok'; });
+  assert.equal(first, 'ok');
+
+  // Same (run, nonce) → 409, and the submission body is NOT re-run.
+  await assert.rejects(
+    coordinator.runHumanSubmissionExclusive(RUN, 'nonce-1', async () => { calls += 1; return 'dup'; }),
+    /already accepted/,
+  );
+  assert.equal(calls, 1);
+
+  // A different nonce runs normally.
+  assert.equal(await coordinator.runHumanSubmissionExclusive(RUN, 'nonce-2', async () => 'two'), 'two');
+
+  // A FAILED attempt does not consume the nonce — the same nonce can be retried.
+  await assert.rejects(
+    coordinator.runHumanSubmissionExclusive(RUN, 'nonce-3', async () => { throw new Error('boom'); }),
+    /boom/,
+  );
+  assert.equal(await coordinator.runHumanSubmissionExclusive(RUN, 'nonce-3', async () => 'recovered'), 'recovered');
+
+  // A null nonce never guards (the route stays exactly as before).
+  assert.equal(await coordinator.runHumanSubmissionExclusive(RUN, null, async () => 'a'), 'a');
+  assert.equal(await coordinator.runHumanSubmissionExclusive(RUN, null, async () => 'b'), 'b');
+});

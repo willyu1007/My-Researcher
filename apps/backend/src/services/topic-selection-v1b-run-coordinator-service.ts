@@ -180,6 +180,12 @@ export type TopicSelectionV1bRunCoordinatorHaltReason =
   | 'loopback_budget_exhausted'
   | 'node_in_flight'
   | 'node_timeout'
+  // W-04: upstream lineage a recipe requires is not ready (predecessor handoff / authority /
+  // required projection missing) — a structured fail-fast instead of a deep raw 500.
+  | 'upstream_blocked'
+  // W-04: a downstream loopback re-enters a node in feedback mode but its feedback artifact
+  // ref/hash (or the artifact itself) is missing — named so the operator can locate it.
+  | 'feedback_artifact_missing'
   | 'run_timeout'
   | 'max_steps_reached'
   | 'no_frontier';
@@ -299,8 +305,28 @@ type ControlPlanePort = Pick<
   'listArtifactRefsByWorkflowRunId' | 'getArtifactRef' | 'recordArtifactRef'
 >;
 
+/**
+ * W-04: a coordinator-detected precondition failure during request assembly that should surface
+ * as a structured advance halt (with the named upstream/feedback artifact) rather than a raw 500
+ * bubbling out of buildNextRequest. advanceLocked catches it and converts it into a halt.
+ */
+class CoordinatorPreconditionHalt extends Error {
+  constructor(
+    readonly haltReason: TopicSelectionV1bRunCoordinatorHaltReason,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'CoordinatorPreconditionHalt';
+  }
+}
+
 export class TopicSelectionV1bRunCoordinatorService {
   private readonly runLocks = new Map<string, Promise<unknown>>();
+
+  /** W-04 opt-in human-submission idempotency: accepted (run, nonce) pairs. In-process like the
+   * run-lock / in-flight maps (the coordinator is a per-process singleton); committed only after a
+   * submission succeeds so a failed attempt can be retried with the same nonce. */
+  private readonly usedAttemptNonces = new Map<string, Set<string>>();
 
   /** Timed-out harness invocations still executing — re-invoking the same node before they
    * land would duplicate the attempt id (the harness has no uniqueness guard). */
@@ -331,6 +357,38 @@ export class TopicSelectionV1bRunCoordinatorService {
    */
   runExclusive<T>(workflowRunId: string, fn: () => Promise<T>): Promise<T> {
     return this.withRunLock(workflowRunId, fn);
+  }
+
+  /**
+   * W-04: per-run-mutex human submission (N2/N5 routes) with opt-in attempt-nonce idempotency.
+   * When the caller passes an X-Coordinator-Attempt-Nonce, replaying the same (run, nonce) — a
+   * double-submit, or a client retry after the response was lost — is rejected with a 409 so it
+   * cannot record a duplicate human attempt. The nonce is committed only after the submission
+   * succeeds (a failed attempt can be retried with the same nonce), and the check + commit run
+   * inside the per-run mutex, so it is race-safe against concurrent submissions on the same run.
+   * A null/absent nonce never guards (the route stays exactly as before — zero behavior change).
+   */
+  runHumanSubmissionExclusive<T>(
+    workflowRunId: string,
+    attemptNonce: string | null | undefined,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    return this.withRunLock(workflowRunId, async () => {
+      if (attemptNonce && this.usedAttemptNonces.get(workflowRunId)?.has(attemptNonce)) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `attempt nonce "${attemptNonce}" was already accepted for workflow run ${workflowRunId}; the prior submission is authoritative — fetch the run state instead of resubmitting.`,
+        );
+      }
+      const result = await fn();
+      if (attemptNonce) {
+        const seen = this.usedAttemptNonces.get(workflowRunId) ?? new Set<string>();
+        seen.add(attemptNonce);
+        this.usedAttemptNonces.set(workflowRunId, seen);
+      }
+      return result;
+    });
   }
 
   // ---------------------------------------------------------------- advance core
@@ -469,7 +527,17 @@ export class TopicSelectionV1bRunCoordinatorService {
         );
       }
 
-      const request = await this.buildNextRequest(input, projection, nextNodeId);
+      let request: TopicSelectionV1bWorkflowHarnessRunRequest;
+      try {
+        request = await this.buildNextRequest(input, projection, nextNodeId);
+      } catch (error) {
+        // W-04: a missing upstream/feedback precondition surfaces as a structured halt (named
+        // artifact) the operator can resolve, instead of a raw 500 from deep in request assembly.
+        if (error instanceof CoordinatorPreconditionHalt) {
+          return halt(error.haltReason, nextNodeId, error.message, [], projection);
+        }
+        throw error;
+      }
       if (nodeInput?.draft_payload || nodeInput?.execution_spec) {
         // run_mode is only meaningful alongside a semantic artifact / execution spec —
         // the harness blocks it on bare deterministic invocations
@@ -730,11 +798,13 @@ export class TopicSelectionV1bRunCoordinatorService {
     }
     const { cfg, loopback } = pending;
     if (!loopback.authority_ref || !loopback.authority_hash) {
-      throw new AppError(500, 'INTERNAL_ERROR', `feedback loopback from ${cfg.loopback_source_node_id} is missing its feedback artifact ref/hash for ${targetNodeId} re-entry.`);
+      // W-04 feedback pre-flight: the loopback carries no feedback artifact ref/hash — fail-fast
+      // with a structured halt naming the source node, not a raw 500.
+      throw new CoordinatorPreconditionHalt('feedback_artifact_missing', `feedback loopback from ${cfg.loopback_source_node_id} is missing its feedback artifact ref/hash for ${targetNodeId} re-entry; re-run ${cfg.loopback_source_node_id} so it records the feedback artifact, then advance again.`);
     }
     const artifact = await this.deps.controlPlane.getArtifactRef(loopback.authority_ref.ref_id);
     if (!artifact) {
-      throw new AppError(500, 'INTERNAL_ERROR', `feedback artifact ${loopback.authority_ref.ref_id} for ${targetNodeId} re-entry not found.`);
+      throw new CoordinatorPreconditionHalt('feedback_artifact_missing', `feedback artifact ${loopback.authority_ref.ref_id} for ${targetNodeId} re-entry was not found in the run; it must be persisted before the feedback re-entry can be assembled.`);
     }
     return {
       inputMode: cfg.input_mode,
@@ -778,7 +848,9 @@ export class TopicSelectionV1bRunCoordinatorService {
       .sort((left, right) => right.node_index - left.node_index)[0] ?? null;
     const prev = prevNode?.latest_admitted ?? null;
     if (!prevNode || !prev?.handoff_ref || !prev.handoff_hash) {
-      throw new AppError(500, 'INTERNAL_ERROR', `previous node result for ${nextNodeId} is missing handoff lineage.`);
+      // W-04 upstream-blocked: the recipe needs the predecessor's admitted handoff lineage, but no
+      // admitted upstream node carries it yet — structured halt instead of a raw 500.
+      throw new CoordinatorPreconditionHalt('upstream_blocked', `cannot assemble ${nextNodeId}: its upstream predecessor has no admitted handoff lineage yet — re-admit the upstream node, then advance again.`);
     }
     const expectedHandoffKind = POLICY_BY_NODE_ID.get(prevNode.node_id)?.output_handoff_kind ?? null;
     const handoffArtifact = await this.deps.controlPlane.getArtifactRef(prev.handoff_ref.ref_id);
@@ -814,7 +886,8 @@ export class TopicSelectionV1bRunCoordinatorService {
     for (const extra of recipe.extra_payload_authorities ?? []) {
       const upstream = projection.nodes.find((node) => node.node_id === extra.node_id)?.latest_admitted;
       if (!upstream?.authority_ref || !upstream.authority_hash) {
-        throw new AppError(500, 'INTERNAL_ERROR', `missing upstream authority ${extra.ref_key} (from ${extra.node_id}) for ${nextNodeId}.`);
+        // W-04 upstream-blocked: the recipe needs an upstream authority that is not admitted yet.
+        throw new CoordinatorPreconditionHalt('upstream_blocked', `cannot assemble ${nextNodeId}: required upstream authority ${extra.ref_key} from ${extra.node_id} is not admitted yet — drive ${extra.node_id}, then advance again.`);
       }
       payload[extra.ref_key] = upstream.authority_ref;
       payload[extra.hash_key] = upstream.authority_hash;
@@ -822,7 +895,8 @@ export class TopicSelectionV1bRunCoordinatorService {
     for (const extra of recipe.extra_handoff_hashes ?? []) {
       const upstream = projection.nodes.find((node) => node.node_id === extra.node_id)?.latest_admitted;
       if (!upstream?.handoff_hash) {
-        throw new AppError(500, 'INTERNAL_ERROR', `missing upstream handoff hash ${extra.key} (from ${extra.node_id}) for ${nextNodeId}.`);
+        // W-04 upstream-blocked: the recipe needs an upstream handoff hash that is not admitted yet.
+        throw new CoordinatorPreconditionHalt('upstream_blocked', `cannot assemble ${nextNodeId}: required upstream handoff hash ${extra.key} from ${extra.node_id} is not admitted yet — drive ${extra.node_id}, then advance again.`);
       }
       payload[extra.key] = upstream.handoff_hash;
     }
@@ -849,10 +923,11 @@ export class TopicSelectionV1bRunCoordinatorService {
         }
       }
       if (!projectionArtifact) {
-        throw new AppError(
-          500,
-          'INTERNAL_ERROR',
-          `required runtime projection ${recipe.required_projection_kind} not found in workflow run for ${nextNodeId}.`,
+        // W-04 upstream-blocked: the upstream node's required runtime-context projection has not
+        // been recorded yet — structured halt naming the projection kind instead of a raw 500.
+        throw new CoordinatorPreconditionHalt(
+          'upstream_blocked',
+          `cannot assemble ${nextNodeId}: required runtime projection ${recipe.required_projection_kind} has not been recorded by its upstream node yet — drive the upstream node, then advance again.`,
         );
       }
       sourceRefs.push({
