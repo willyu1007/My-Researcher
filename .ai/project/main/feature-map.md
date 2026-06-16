@@ -48,6 +48,7 @@ Project: `main`
 | T-121 literature-retrieval-pgvector-index-design | archived | dev-docs/archive/literature-retrieval-pgvector-index-design |
 | T-122 literature-scaleout-corpus-strategy | in-progress | dev-docs/active/literature-scaleout-corpus-strategy |
 | T-125 literature-balanced-corpus-scaleout-v2 | in-progress | dev-docs/active/literature-balanced-corpus-scaleout-v2 |
+| T-126 literature-rag-frontier-tech-radar | in-progress | dev-docs/active/literature-rag-frontier-tech-radar |
 
 ### F-001 Research Lifecycle Governance Core
 
@@ -137,8 +138,9 @@ Project: `main`
 | T-113 paper-implementation-legacy-authority-cleanup | done | dev-docs/active/paper-implementation-legacy-authority-cleanup |
 | T-114 paper-implementation-runtime-orchestration-hardening | done | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
 | T-115 topic-selection-v1b-human-review-path | done | dev-docs/active/topic-selection-v1b-human-review-path |
-| T-123 topic-selection-productization-hardening | in-progress | dev-docs/active/topic-selection-productization-hardening |
+| T-123 topic-selection-productization-hardening | done | dev-docs/active/topic-selection-productization-hardening |
 | T-124 paper-implementation-productization-hardening | in-progress | dev-docs/active/paper-implementation-productization-hardening |
+| T-127 topic-selection-backend-hardening-and-expansion | planned | dev-docs/active/topic-selection-backend-hardening-and-expansion |
 
 ### F-002 Desktop Frontend Foundation
 

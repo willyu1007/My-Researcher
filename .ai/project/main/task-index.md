@@ -132,7 +132,9 @@ Project: `main`
 | T-120 adaptive-llm-systems-literature-pipeline-completion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-literature-pipeline-completion |
 | T-121 literature-retrieval-pgvector-index-design | archived | F-000 | dev-docs/archive/literature-retrieval-pgvector-index-design |
 | T-122 literature-scaleout-corpus-strategy | in-progress | F-000 | dev-docs/active/literature-scaleout-corpus-strategy |
-| T-123 topic-selection-productization-hardening | in-progress | F-001 | dev-docs/active/topic-selection-productization-hardening |
+| T-123 topic-selection-productization-hardening | done | F-001 | dev-docs/active/topic-selection-productization-hardening |
 | T-124 paper-implementation-productization-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-productization-hardening |
 | T-125 literature-balanced-corpus-scaleout-v2 | in-progress | F-000 | dev-docs/active/literature-balanced-corpus-scaleout-v2 |
+| T-126 literature-rag-frontier-tech-radar | in-progress | F-000 | dev-docs/active/literature-rag-frontier-tech-radar |
+| T-127 topic-selection-backend-hardening-and-expansion | planned | F-001 | dev-docs/active/topic-selection-backend-hardening-and-expansion |
 <!-- AUTO-GENERATED:END task-index -->

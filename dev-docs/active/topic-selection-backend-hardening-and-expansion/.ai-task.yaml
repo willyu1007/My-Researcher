@@ -1,0 +1,23 @@
+version: 1
+task_id: T-127
+project: main
+slug: topic-selection-backend-hardening-and-expansion
+status: planned
+updated: "2026-06-16"
+keywords:
+  - topic-selection
+  - backend-hardening
+  - feature-expansion
+  - n6-debate
+  - recheck-emission
+  - provider-diverse-debate
+  - workbench-closeout
+  - harness-split
+  - threshold-calibration
+  - run-coordinator
+  - workflow-harness
+  - R-009
+  - depends:T-123
+  - depends:T-088
+  - writes-into:T-089
+  - coordinates-with:T-124

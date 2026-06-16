@@ -8,15 +8,17 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 125 (planned: 2, in-progress: 10, blocked: 0, done: 42, archived: 71)
+- Tasks: 127 (planned: 3, in-progress: 10, blocked: 0, done: 43, archived: 71)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-123 topic-selection-productization-hardening | done | F-001 | dev-docs/active/topic-selection-productization-hardening |
+| T-126 literature-rag-frontier-tech-radar | in-progress | F-000 | dev-docs/active/literature-rag-frontier-tech-radar |
+| T-127 topic-selection-backend-hardening-and-expansion | planned | F-001 | dev-docs/active/topic-selection-backend-hardening-and-expansion |
 | T-125 literature-balanced-corpus-scaleout-v2 | in-progress | F-000 | dev-docs/active/literature-balanced-corpus-scaleout-v2 |
 | T-114 paper-implementation-runtime-orchestration-hardening | done | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
-| T-123 topic-selection-productization-hardening | in-progress | F-001 | dev-docs/active/topic-selection-productization-hardening |
 | T-124 paper-implementation-productization-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-productization-hardening |
 | T-115 topic-selection-v1b-human-review-path | done | F-001 | dev-docs/active/topic-selection-v1b-human-review-path |
 | T-121 literature-retrieval-pgvector-index-design | archived | F-000 | dev-docs/archive/literature-retrieval-pgvector-index-design |
@@ -32,6 +34,4 @@ Project: `main`
 | T-113 paper-implementation-legacy-authority-cleanup | done | F-001 | dev-docs/active/paper-implementation-legacy-authority-cleanup |
 | T-108 topic-selection-v1c-workflow-hardening | done | F-001 | dev-docs/active/topic-selection-v1c-workflow-hardening |
 | T-110 experiment-foundation-research-workbench | archived | F-001 | dev-docs/archive/experiment-foundation-research-workbench |
-| T-111 topic-selection-v1a-production-orchestration | done | F-000 | dev-docs/active/topic-selection-v1a-production-orchestration |
-| T-107 topic-selection-v1b-workflow-hardening | done | F-001 | dev-docs/active/topic-selection-v1b-workflow-hardening |
 <!-- AUTO-GENERATED:END dashboard -->
