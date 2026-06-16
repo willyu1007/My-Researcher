@@ -78,6 +78,35 @@ test('token budget gate returns within_budget for first-slice profile under targ
   assert.match(String(evaluation.result.estimated_input_tokens), /^[1-9][0-9]*$/);
 });
 
+test('token budget gate threads provider_id into the estimator so CJK estimates are provider-calibrated', () => {
+  const service = new TopicSelectionTokenBudgetGateService();
+  const cjkPayload = {
+    messages: [
+      { role: 'system', content: '生成有据的研究需求候选，保留阻断项与残余风险。' },
+      { role: 'user', content: '需要保留阻断项、残余风险、方法族缺口，并记录跨轮否决候选与失败试验。' },
+    ],
+    context_payloads: [{ 阻断项: ['缺少纵向评估'], 残余风险: ['伪缺口框定'], 方法族缺口: ['长上下文鲁棒性'] }],
+    schema: undefined,
+  };
+
+  const unknownProvider = service.evaluate(gateInput({ ...cjkPayload, provider_id: null }));
+  const openai = service.evaluate(gateInput({ ...cjkPayload, provider_id: 'openai' }));
+  const deepseek = service.evaluate(gateInput({ ...cjkPayload, provider_id: 'deepseek' }));
+
+  // Known providers tighten the CJK estimate relative to the uniform default; deepseek tightest.
+  assert.equal(
+    (openai.result.estimated_input_tokens ?? 0) < (unknownProvider.result.estimated_input_tokens ?? 0),
+    true,
+  );
+  assert.equal(
+    (deepseek.result.estimated_input_tokens ?? 0) <= (openai.result.estimated_input_tokens ?? 0),
+    true,
+  );
+  // Provenance is preserved on the gate result.
+  assert.equal(openai.result.provider_id, 'openai');
+  assert.equal(deepseek.result.provider_id, 'deepseek');
+});
+
 test('token budget gate requires compression when input exceeds target and profile allows compression', () => {
   const service = new TopicSelectionTokenBudgetGateService();
   const evaluation = service.evaluate(gateInput({

@@ -65,6 +65,7 @@ export class TopicSelectionTokenBudgetGateService {
         schema: input.schema,
         extra_payloads: input.extra_payloads,
         safety_margin: input.safety_margin ?? policy.token_estimate_safety_margin,
+        provider_id: input.provider_id,
       });
     const estimatedInputTokens = input.estimated_input_tokens_override === undefined
       ? estimate?.estimated_input_tokens ?? null

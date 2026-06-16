@@ -387,10 +387,47 @@ admission + gate bridge + harness T1/T3 gate + loopback + coordinator feedback r
 - **STEP-7 compression-facts builder** → folded into Phase 5.2 (compression/token normalization); the
   debate path emits `compression_attempt: null` (matches the single-agent default) and exposes no
   compression input, so it only affects the compression-triggered path.
-- **DP-3.3 threshold calibration** → standalone analysis task: the T1/T3 thresholds ship `provisional`
-  with the `n8_debate_thresholds_provisional` product tripwire guarding any product run; recalibration
-  needs mined N8 value-score distributions (the existing `.ai/.tmp` deep-test data is T-112-era
-  runtime-stress, not N8 score distributions).
+- **DP-3.3 threshold calibration** → standalone analysis task **DONE (2026-06-15): real distribution
+  unavailable → thresholds stay `provisional`, tripwire retained.** The mining pass swept all of
+  `.ai/.tmp`: the only artifacts carrying full N8 scores (`total_score`/`confidence`/9-dim
+  `dimension_scores`) are 6 `external-codex-n8-variance` samples (`t107-…-20260528d` + `t112-…-20260601`),
+  and they are **byte-identical on every numeric axis** (total 83 / conf 0.82 / dims 84 except
+  `reviewer_risk` 72 → spread 12). Across all of `.ai/.tmp` the **only** persisted N8 `total_score` is 83
+  (36 occurrences). Cause: the `external_codex_n8_variance` probe prompt **pins** "total_score must stay
+  83" and varies only prose (`topic-selection-v1b-harness-e2e.mjs:4429-4433`); every other N8 score in the
+  suite is a hand-authored fixture — happy/advance (83), refine (55), the debate-loop borderline (66,
+  inlined to land in [60,72) → **circular** w.r.t. T1), or the value-neutral provider canary (76, "not
+  topic value"). `n8_runtime_smoke`/`full-chain` `result.json` carry **no** score fields at all (gate/route
+  provenance only) — confirming the existing data is harness-provenance, not an N8 score distribution.
+  Changing the constants would be **guessing** (prohibited by DP-3.3), so the provisional values + the
+  `n8_debate_thresholds_provisional` product tripwire hold. **Real calibration needs:** a labeled corpus of
+  N *distinct* topics spanning the value spectrum (clear-advance / borderline / clear-refine·drop /
+  dimension-conflicted), the **real** N8 prompt run in `provider_llm` mode (`topic_value_assessment_single_agent`,
+  ideally across gpt-5.5 / qwen3.6-plus / deepseek-v4-pro for cross-provider scale), full
+  `TopicValueAssessmentDraft` payloads persisted per topic, then setting T1/T3 to separate genuinely
+  borderline/conflicted from clear pass/fail — none of which the fixture-mode scripts can produce today.
+  Verified green: N8 trigger unit 8/8, coordinator unit 15/15, coordinator-driven full debate-loop
+  integration (the only co-located fail is the pre-existing T-054 Prisma-smoke `DATABASE_URL` env gate).
+  Full evidence: `03-implementation-notes.md` §2026-06-15 DP-3.3.
+  **2026-06-15 follow-up (credentials present, deeper blocker found):** the standalone calibration run was
+  started; credentials exist for all 3 providers but a code-verified scout found a blocker beneath "no corpus":
+  the N8 model prompt inlines **only refs + content-hashes + the decision-memory packet — never the topic
+  bodies**, and production N8 draft generation is **`codex_assisted | mocked_llm` only (never `provider_llm`)**,
+  so content-grounding is delegated to the external Codex agent's out-of-band file access (a raw `provider_llm`
+  API is content-blind, and `provider_llm` is canary-only). The earlier "provider_llm sweep across
+  gpt-5.5/qwen3.6-plus/deepseek-v4-pro" plan is therefore invalid (content-blind + not N8's production path;
+  deepseek isn't even a registered N8 option). The content-visibility property was ruled a **gap** (joint
+  decision) whose fix is **D3-sensitive** (inlining bodies changes `prompt_packet_hash`/replay identity → joint
+  decision with T-088). Full investigation, the corpus-entry schema, and the analysis-algorithm spec live in
+  `evidence/dp33-n8-threshold-calibration/README.md`. Thresholds stay provisional; tripwire retained.
+  **2026-06-15: STEP-1 DECIDED = A; full A code path BUILT** (calibration tooling, not wired into product, does not
+  change thresholds). Pieces: analysis harness (`…-calibration-analysis.ts`, reuses the deployed trigger fn) +
+  mock-verified materialize utility (`…-calibration-materializer.ts`, hand-constructs a gate-passing N8 RunRequest;
+  mirrors the D3-sensitive projection builder rather than touching it, with a real-`generateDraftArtifact` mocked
+  drift guardrail) + option-A runner (`…-calibration-runner.ts`, corpus → materialize+pre-flight → pluggable assessor
+  → capture → analyze; rejects placeholder corpora) + a placeholder `corpus-template.json`. 26/26 N8 unit tests green;
+  backend tsc 0; zero edits to existing production code. **B shelved** (would need a T-088 joint decision). Calibration
+  now blocked on exactly two human/operator inputs: a labeled corpus + running an independent content-grounded assessor.
 - **DP-3.5 provider-diverse role profiles** → additive/future per the locked decision; the registry
   infrastructure exists (`DEBATE_WORKER_DEEPSEEK_ELIGIBLE_PROFILE_IDS`); codex / provider-compact are
   covered. Threading per-role `model_option_id` into `runDebate` is a pure addition when needed.

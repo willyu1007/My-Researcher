@@ -1040,7 +1040,13 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
     loopback_target_codes: ['n8_feedback_to_n7', 'n8_retry_same_contract'],
     replay_hash_components: [...DEFAULT_REPLAY_HASH_COMPONENTS, 'authority_hash'],
     debate_trigger_thresholds: {
-      provisional: true, // DP-3.3: calibrate against near-prod deep-test distribution
+      // DP-3.3: stays PROVISIONAL. The 2026-06-15 calibration pass found NO empirical N8 score
+      // distribution to calibrate against — every N8 score in every deep-test artifact is a single
+      // hand-authored fixture (total_score 83, conf 0.82, spread 12) or a circular/value-neutral probe,
+      // not a spread of real assessments. Changing the constants would be guessing (prohibited), so the
+      // provisional values hold and the n8_debate_thresholds_provisional tripwire keeps guarding product.
+      // Evidence + the data-collection plan: 03-implementation-notes DP-3.3 + 07-phase3-debate-skeleton-spec.
+      provisional: true,
       t1_total_score_min: 60,
       t1_total_score_max_exclusive: 72,
       t1_confidence_min: 0.55,

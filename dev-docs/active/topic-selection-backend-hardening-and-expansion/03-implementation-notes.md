@@ -3,9 +3,9 @@
 ## Work Items 关闭追踪（相位为 2026-06-16 对齐后次序；W-ID 稳定）
 | Work Item | Phase | 段 | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| W-01 落地 T-123 工作树残留（F-10 estimator + DP-3.3 6-file scaffold + evidence/） | 0 | 核心 | planned | 待 |
-| W-02 校验/补 N11 handoff recipe | 0 | 核心 | planned | 待 |
-| W-03 代码卫生（去 @deprecated / legacy_unverified 消息 / memory 持久化注记） | 0 | 核心 | planned | 待 |
+| W-01 落地 T-123 工作树残留（F-10 estimator + DP-3.3 6-file scaffold + evidence/） | 0 | 核心 | done | 见 Phase 0 记录（backend 1332/0/35skip · shared 255/0 · tsc 0） |
+| W-02 校验/补 N11 handoff recipe | 0 | 核心 | planned（重定标） | 核验：recipe 条目已在 `coordinator:156–158`、覆盖断言通过；唯缺 N11 终端穿越测试 |
+| W-03 代码卫生（去 @deprecated / legacy_unverified 消息 / memory 持久化注记） | 0 | 核心 | planned（重定标） | 核验：① 已 moot（无 @deprecated、投影三件套 T-123 P1.1 已删）；仅 ②/③ 有落点 |
 | W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | planned | 待 |
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | planned | 待 |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | planned | 待 |
@@ -32,7 +32,16 @@
 ## Phase 实施记录
 > 各 Phase 收口时在此追加：变更摘要、关键决策、测试证据（套件名 + 计数 + commit hash）、延期项与理由。
 
-### Phase 0 — 后端夯实（待开工）
+### Phase 0 — 后端夯实（进行中）
+
+**W-01 落地 T-123 工作树残留 — done（2026-06-16）**
+- 提交内容（path-scoped，**未用 `git add -A`**）：F-10 `topic-selection-conservative-token-estimator-service`(+test) / `topic-selection-token-budget-gate-service`(+test)；DP-3.3 6-file scaffold `topic-selection-v1b-n8-calibration-{analysis,materializer,runner}`(+test)；comment-only `topic-selection-v1b-workflow-harness-contracts.ts`（仅追加 N8 provisional 说明注释，常量未变）；T-123 闭包文档 `04-verification.md` / `07-phase3-debate-skeleton-spec.md` + `evidence/{f10-token-calibration,dp33-n8-threshold-calibration}/`（2 个 `*.tokenizer.json` 受 `.gitignore` 自动排除）。
+- 排除（并行 session，未提交）：`paper-implementation-runtime-orchestration-hardening/*`、`topic-selection-v1b-human-review-path/00-overview.md`、`title-card-management-contracts.schema.test.ts`、`adaptive-llm-systems-*` T-126 artifacts、`literature-*`、`paper-implementation-productization-hardening/`。
+- 回归证据：backend 全套件 **1332 pass / 0 fail / 35 skip**（与基线吻合）、shared **255/0**、backend+shared `tsc --noEmit` **0**；W-01 文件单测 **32/0**、coordinator 单测 **47/0**。
+- 核验副产物（**重定标**，待对应 W 项落地）：
+  - **W-02** — coordinator `HANDOFF_BUILDER_TABLE` 的 N11（`topic-selection.v1b.publish-v1c-input-bundle.v1` → `handoff_hash_key:'n10_handoff_hash'`）条目**已存在**（行 156–158），且模块加载覆盖断言（行 164–169）通过；§30 调查里"N11 recipe 疑缺"前提作废。W-02 实际只剩 `advanceLocked()` 的 **N11 终端穿越单测**（当前测试无 `run_complete=true` / `stop_v1b_complete` 终端断言）。
+  - **W-03 ①** — 全 topic-selection service `@deprecated` 计数为 **0**，`research-slice`/`topic-question`/`value-assessment` 只读投影三件套已于 T-123 Phase 1.1 随生成路径删除 → W-03 ① **moot**；仅 ②（12 处 `legacy_unverified` 消息）/③（decision-memory 文档注记）有落点。
+
 ### Phase 1 — 后端鲁棒性（待开工）
 ### Phase 2 — harness 一次拆透 / 选项 A（待开工）
 ### Phase 3 — 能力扩展 / 选项 B（待开工）

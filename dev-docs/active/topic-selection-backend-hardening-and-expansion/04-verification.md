@@ -45,4 +45,6 @@
 ## 运行记录
 > 各 Phase 收口验证在此追加（日期 + 套件计数 + commit hash + 结论）。
 
+- **2026-06-16 · Phase 0 / W-01 预检 + 落地**：backend 全套件 `apps/backend pnpm test` = **1367 tests / 1332 pass / 0 fail / 35 skip**（基线吻合）；`pnpm --filter @paper-engineering-assistant/shared test` = **255/0**；backend & shared `tsc --noEmit` = **0**；W-01 文件单测 32/0、coordinator 单测 47/0。结论：W-01 残留落地、双绿，工作树仅余并行 session 文件。重定标：W-02 N11 recipe 条目已存在→仅缺终端穿越测试；W-03 ① 已 moot。
+
 ### （待开工）

@@ -44,7 +44,7 @@
 - [ ] debate e2e（mocked acceptance）：四角色顺序执行、prior_role_artifacts 传递、`synthesizer_final` 唯一外部输出、`debate_extension` 字段完整（role/stage/round/agent_instance_id/lineage）。
 - [ ] 不触发回归：触发器全 false 时与 Phase 1 后的单 agent 基线输出一致（同 mocked fixture 比对）。
 - [ ] 共享 bounded-debate 执行器：v1c N2 既有路径回归（`pnpm topic-selection:v1c-n2-runtime-smoke`）——抽取不破坏原实现。
-- [ ] 阈值标定证据：用 near-prod deep-test 历史数据说明 borderline 区间取值，记录于此。
+- [x] 阈值标定证据（DP-3.3，2026-06-15）：挖掘判定**真实 N8 分数分布不可用**（全 `.ai/.tmp` 仅单一 fixture total 83，详见 03 §2026-06-15 DP-3.3 + 07-spec），故**维持 provisional、不改阈值、保留 tripwire**；阈值带内部自洽（8 例触发器边界单测背书），翻 false 才属被禁猜测。所需 provider_llm 标定语料采集已列 03 计划。见下 §2026-06-15 DP-3.3 运行记录。
 
 ### Phase 4（Decision Memory）
 - [ ] 投影单测：来源对象齐全性（六类来源各至少一例）、title-card 范围隔离（不串卡）、空历史降级、packet hash 稳定性。
@@ -56,8 +56,8 @@
 ### Phase 5（复杂度治理）
 - [ ] 拆分前基线：录制 v1b 全套件结果 + 代表性 replay key/结果对。
 - [ ] 拆分后：同套件全绿 + replay 幂等对比（同输入同 replay key 同 gate_status）。
-- [ ] token 估计函数单测：三 provider 样本载荷误差界断言；保守估计 fallback 路径。
-- [ ] 压缩 profile 化：profile 指定策略生效、未指定时默认策略行为不变。
+- [x] token 估计函数单测（F-10）：三 provider 校准收紧 CJK + deepseek 最省、unknown/Latin-only byte-identical、校准表金值钉死、newline 每行 1 token。real-tokenizer 误差界由 `evidence/f10-token-calibration/measure.py` 800-输入验证背书（见 §2026-06-15 F-10 运行记录）。
+- [x] 压缩 profile 化：profile 指定策略生效、未指定时默认策略行为不变（Phase 5.2 partial，已收）。
 
 ## 回归清单（每个 Phase 收口必跑）
 ```
@@ -74,6 +74,40 @@ pnpm topic-selection:v1a-harness-replay-smoke
 - v1a/v1c 既有 harness/acceptance 套件
 
 ## 运行记录
+
+### 2026-06-15 F-10 per-provider token 校准收口验证
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| 真实分词器实测 + 1200-输入验证 | `python3 dev-docs/active/topic-selection-productization-hardening/evidence/f10-token-calibration/measure.py` | ✅ default byte-identity 断言通过；CJK 实测均值 0.842/0.730/0.669；病态 newline-dense CJK safe；1200 输入（12 seed，33% newline-heavy + 25% CJK-heavy）×1.25 **0/1200 低估**，最差 est/actual ≈1.04（o200k 1.075 / qwen 1.044 / deepseek 1.054；exact 随 doc 派生语料漂移，0 低估为不变量） |
+| backend typecheck | `pnpm --filter @paper-engineering-assistant/backend typecheck` | ✅ 0 error |
+| estimator + gate 单测 | `node --test ... topic-selection-conservative-token-estimator-service.unit.test.ts topic-selection-token-budget-gate-service.unit.test.ts` | ✅ 14/14（含 provider 收紧 CJK、unknown/Latin byte-identical、校准表金值、newline 每行 1 token、gate 透传 provider_id） |
+| backend 全套件 | `pnpm --filter @paper-engineering-assistant/backend test` | ✅ 1349 tests / 1314 pass / 0 fail / 35 skipped（skip 为既有 env-gated；改动后重跑确认 newline 修复无回归） |
+| 对抗性复核 | 4-lens workflow + skeptic 复核（14 agent） | ✅ 1 真回归（newline-dense CJK 低估）当场修 + 重验；2 误报核证安全；余既有/范围外限制已记 03 §F-10 |
+
+不变量复核：default / unknown provider 估计 byte-identical（估计不入 prompt-packet/admission/replay 哈希；replay 返回存储结果）；debate byte-stability 单测绿（loop_transcript / role_artifact / role_prompt_packet 哈希不含估计）。
+
+### 2026-06-15 DP-3.3 N8 debate 阈值标定收口验证（数据不可用 → 维持 provisional）
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| N8 触发器单测（T1/T3 边界，含 provisional 阈值副本） | `node --test ... topic-selection-v1b-n8-debate-triggers.unit.test.ts` | ✅ 8/8（83/0.82/spread12 不触发；T1 band 含/斥端点；conf 地板；T3 spread/单维 floor 均门控 total≥60；T1+T3 共触发） |
+| coordinator feedback recipe 单测 | `node --test ... topic-selection-v1b-run-coordinator-service.unit.test.ts` | ✅ 15/15 |
+| coordinator 驱动全 debate-loop 集成 | `node --test ... topic-selection-v1b-routes.integration.test.ts` | ✅ borderline T1 loopback→N7 feedback 重入（debate-admission 支撑）→复评 admitted_with_warnings；DB-free（InMemory repo）；同文件唯一 fail = 既有 T-054 Prisma-smoke 环境门（缺 `DATABASE_URL`），与本任务无关 |
+| shared typecheck + 矩阵一致性 | `tsc --noEmit` / `node .ai/scripts/topic-selection-workflow-matrix-consistency.mjs` | ✅ 0 error / ok（contract 仅 comment 改动，不动 node_id/slot_id 正则面、不动阈值常量与 `provisional` flag） |
+| 对抗性自审（5-lens workflow + per-finding verify，13 agent） | — | ✅ 核心结论"真实分布不可用→维持 provisional"5 维独立复证、0 反驳；修 1 major（canary live-gateway 误述）+ 2 minor 文档精度（"36 行匹配"措辞、band 自洽框定）；详见 03 §2026-06-15 DP-3.3 |
+| 标定路径勘察（understand-phase workflow，3 agent，代码核证） | — | ✅ 凭据齐备但发现更深阻塞：N8 prompt 只含 refs/hash+decision_memory（不内联体）；production N8 = `codex_assisted|mocked_llm`（runtime `:136`），provider_llm 仅 canary；纠正上版 provider_llm 跨 3-provider 计划（deepseek 未注册 N8 option）。内容可见性裁为 gap（D3 敏感，需与 T-088 联合决策）。document-only **不建代码**（无可运行数据源→过早 seam）；blocker+corpus schema+analysis spec 落 `evidence/dp33-n8-threshold-calibration/README.md`。零阈值改动、tripwire 保留 |
+
+### 2026-06-15 DP-3.3 scaffold 构建验证（STEP-1 锁定 A + full scaffold；标定工具，不接产品）
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| 分析仪单测（纯函数，复用 production trigger fn） | `node --test ... topic-selection-v1b-n8-calibration-analysis.unit.test.ts` | ✅ 8/8（clean separation / 漏 borderline→leaky / 多余 debate→precision 降 / cross-misfire / 排除 blocked / insufficient-data / per-provider skew / 精确阈值敏感） |
+| 物化器单测（过**真实** N8 门，mock executor 验证） | `node --test ... topic-selection-v1b-n8-calibration-materializer.unit.test.ts` | ✅ 5/5（valid 过真 lineage 门 + capture 读 draft 分数；3 负例 篡改 hash/错 node_id/丢 projection → `INVALID_PAYLOAD`） |
+| 物化器 runner 单测（corpus→assessor→分析 端到端） | `node --test ... topic-selection-v1b-n8-calibration-runner.unit.test.ts` | ✅ 5/5（全 corpus→separating 裁决 + band 接线正确 / blocked 排除 / placeholder 拒收含真实模板 / 重复+畸形拒收） |
+| 既有 N8 触发器单测（无回归） | `node --test ... topic-selection-v1b-n8-debate-triggers.unit.test.ts` | ✅ 8/8 |
+| backend typecheck | `pnpm --filter @paper-engineering-assistant/backend exec tsc --noEmit` | ✅ 0 error |
+| corpus 模板 JSON | `node -e require(corpus-template.json)` | ✅ 2 entries，全 `__placeholder:true`（runner loader 拒收防误标定） |
+| backend 全套件（确认新增 6 文件零回归） | `pnpm --filter @paper-engineering-assistant/backend test` | ✅ 1367 tests / 1332 pass / 0 fail / 35 skipped（较 F-10 收口 +18 = analysis 8 + materializer 5 + runner 5；skip 为既有 env-gated；零改既有 production 代码、零回归） |
+| mock-corpus 端到端演示（**仅验管线，非标定**） | 10-entry mock corpus（含 1 漏 borderline + 1 误触 clear_fail）过 `runN8Calibration` + mock assessor | ✅ 返 `leaky`（非 trivial separates）：TP4/FP1/FN1/TN4、precision/recall 0.80、正确点名 FP(`clear_fail_b_LEAK`)+FN(`borderline_c_LEAK`)+给可执行调参建议。演示脚本 throwaway 已删；常驻证据 = runner 单测（含拒收 placeholder 模板）。**mock 不能标定阈值**（分数+标签皆捏造→循环），仅证管线 |
+不变量：scaffold 是纯工具——不接任何产品路由、不改 node policy、不改阈值常量、不动 `provisional` flag/tripwire；物化器**镜像**（非 import）D3 敏感的 projection builder，verify 跑真实 `generateDraftArtifact`(mocked) 作漂移守卫；runner loader 拒收 placeholder corpus。**STEP-1 决策：A（codex_assisted，无 harness 改动）；B 不推进。** 剩余仅 2 人/operator 门：标注 corpus + 跑独立 assessor。
 
 ### 2026-06-13 Phase 3 代码审查修复后验证（7 路审查 → 10 项全修）
 | 检查 | 结果 |
