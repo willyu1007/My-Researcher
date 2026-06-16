@@ -9,7 +9,7 @@
 | W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | done | 见 Phase 1 记录（coordinator 19/0；upstream_blocked / feedback_artifact_missing / nonce 负例） |
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
-| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | planned | 待 |
+| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01 已登记；slice: N8/N9/N10 authority-hash 簇已抽（harness 12898→12829，golden 守卫绿） |
 | W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | planned | 待 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
@@ -74,7 +74,15 @@
 
 **Phase 1 收口（M1）**：W-04 / W-05 / W-06 全 done；backend 全套件 **1402/0/35skip**、shared **256/0**、`tsc` 0。进入 Phase 2（harness 一次拆透 / 选项 A）。
 
-### Phase 2 — harness 一次拆透 / 选项 A（待开工）
+### Phase 2 — harness 一次拆透 / 选项 A（进行中）
+
+**2.0 D-T127-01 登记 — done（2026-06-17）**：在 T-088 `06-joint-decisions.md` 续 D-T123-03 登记 **D-T127-01**（一次拆透 b1 至壳：parse-and-resolve / hash-authority〔`hashContext` 外〕/ ref-issue builder 三簇逐字搬迁；不改 byte-bearing 哈希与 `invokeNode` 生命周期；逐 slice N1 golden 守卫 + 全套件兜底；拆透期间 T-088 改 harness 本体先在此协调）。
+
+**W-12 slice — N8/N9/N10 authority-hash 簇 — done（2026-06-17）**
+- 把 `hashN8ValueAssessmentAuthority` / `hashN8ValueReasoningMemoAuthority` / `hashN9DispositionAuthority` / `hashN10PackageAuthority` / `hashN10V1cInputBundleAuthority` 5 个纯函数**逐字搬迁**到 `topic-selection-v1b-harness-authority-hash.ts`（`this.hash` → `canonicalHash`，同一单源），harness 16 处调用点改模块调用、移除 5 个私有方法。
+- harness **12,898 → 12,829 行**（−69）；`tsc` 0；harness 单测 **97/0**（含 `GUARD_GOLDEN_N1` + `OPTION_AUTHORITY_GOLDEN` replay-identity 守卫绿，N1 byte-identical）；backend 全套件 **1402/0/35**（N8/N9/N10 authority hash byte-identical 兜底）。
+- 续接：parse-and-resolve 簇（`parseN1..parseN11` / `resolveN*Payload`，体量最大）、剩余 `hashN*Authority`（N5/N6/N7）、ref/issue builder 簇——后续 slice 逐个推进至壳。
+
 ### Phase 3 — 能力扩展 / 选项 B（待开工）
 ### Phase 4 — 工作台收口 / 选项 C（待开工）
 ### Phase 5 — 阈值标定 / 选项 D（延期尾巴，待语料）

@@ -212,6 +212,11 @@ import {
 import { TopicSelectionV1bN8ValueAssessmentRuntimeService } from './topic-selection-v1b-n8-value-assessment-runtime-service.js';
 import {
   canonicalHash,
+  hashN8ValueAssessmentAuthority,
+  hashN8ValueReasoningMemoAuthority,
+  hashN9DispositionAuthority,
+  hashN10PackageAuthority,
+  hashN10V1cInputBundleAuthority,
   hashResearchSliceOptionAuthority as sharedHashResearchSliceOptionAuthority,
   hashV1bFrozenInput,
 } from './topic-selection-v1b-harness-authority-hash.js';
@@ -5466,7 +5471,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       created_at: now,
       updated_at: now,
     };
-    const assessmentHash = this.hashN8ValueAssessmentAuthority(assessment);
+    const assessmentHash = hashN8ValueAssessmentAuthority(assessment);
     const warnings = this.n8Warnings(
       draftResolution.value.draft,
       loaded.value,
@@ -5490,7 +5495,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       topic_question_contract_ref: contractRef,
       topic_question_contract_hash: payload.value.topic_question_contract_hash,
       value_reasoning_memo_ref: memoRef,
-      value_reasoning_memo_hash: this.hashN8ValueReasoningMemoAuthority(memo),
+      value_reasoning_memo_hash: hashN8ValueReasoningMemoAuthority(memo),
       recommended_disposition: draftResolution.value.draft.recommended_disposition,
     };
     const handoff = this.buildHandoff(input, {
@@ -5531,7 +5536,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         draft_hash: draftResolution.value.draftHash,
         recommended_disposition: draftResolution.value.draft.recommended_disposition,
         topic_value_assessment_hash: assessmentHash,
-        value_reasoning_memo_hash: this.hashN8ValueReasoningMemoAuthority(memo),
+        value_reasoning_memo_hash: hashN8ValueReasoningMemoAuthority(memo),
       },
       transitionKey: 'topic-selection.v1b.harness.n8-topic-value-assessment',
       warnings,
@@ -5695,7 +5700,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ...decisionWithoutDraft,
       package_draft_input: packageDraftInput,
     };
-    const decisionHash = this.hashN9DispositionAuthority(decision);
+    const decisionHash = hashN9DispositionAuthority(decision);
     const warnings = this.n9Warnings(decision, loaded.value);
     if (advanceBlocker) {
       const blocker = this.blocker(advanceBlocker.code, advanceBlocker.message, [assessmentRef, memoRef]);
@@ -5841,7 +5846,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       .findPackageByValueDispositionDecisionId(loaded.value.decision.value_disposition_decision_id);
     if (existing) {
       const packageRef = this.ref('topic_package', existing.topic_package_id, existing.title_card_id, existing.package_version);
-      const packageHash = this.hashN10PackageAuthority(existing);
+      const packageHash = hashN10PackageAuthority(existing);
       const existingBundle = await this.runnerDependencies.topicPackageRepository!
         .findV1cInputBundleByPackageId(existing.topic_package_id);
       if (!existingBundle) {
@@ -5855,7 +5860,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         existingBundle.v1b_to_v1c_input_bundle_id,
         existingBundle.title_card_id,
       );
-      const v1cInputBundleHash = this.hashN10V1cInputBundleAuthority(existingBundle);
+      const v1cInputBundleHash = hashN10V1cInputBundleAuthority(existingBundle);
       const warning = this.warning('N10_PACKAGE_EXISTING_RETURNED', 'N10 returned the existing package for this disposition decision.', [packageRef]);
       const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
         authorityHash: packageHash,
@@ -5914,7 +5919,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: built.message,
       });
     }
-    const packageHash = this.hashN10PackageAuthority(built.value.topicPackage);
+    const packageHash = hashN10PackageAuthority(built.value.topicPackage);
     const warnings = this.n10Warnings(built.value.topicPackage);
     const gateStatus: TopicSelectionV1bWorkflowHarnessGateStatus =
       warnings.length > 0 ? 'admitted_with_warnings' : 'admitted';
@@ -5931,7 +5936,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       built.value.v1cInputBundle!.v1b_to_v1c_input_bundle_id,
       built.value.topicPackage.title_card_id,
     );
-    const v1cInputBundleHash = this.hashN10V1cInputBundleAuthority(built.value.v1cInputBundle!);
+    const v1cInputBundleHash = hashN10V1cInputBundleAuthority(built.value.v1cInputBundle!);
     const handoffPayload: TopicSelectionV1bWorkflowHarnessHandoffPayload = {
       draft_topic_package_ref: packageRef,
       draft_topic_package_hash: packageHash,
@@ -5978,7 +5983,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       tracePayload: {
         draft_topic_package_hash: packageHash,
         n9_handoff_hash: payload.value.n9_handoff_hash,
-        v1c_input_bundle_hash: built.value.v1cInputBundle ? this.hashN10V1cInputBundleAuthority(built.value.v1cInputBundle) : null,
+        v1c_input_bundle_hash: built.value.v1cInputBundle ? hashN10V1cInputBundleAuthority(built.value.v1cInputBundle) : null,
       },
       transitionKey: 'topic-selection.v1b.harness.n10-draft-topic-package',
       warnings,
@@ -6060,8 +6065,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       loaded.value.bundle.title_card_id,
     );
     const packageRef = loaded.value.packageRecord.topic_package_ref;
-    const bundleHash = this.hashN10V1cInputBundleAuthority(loaded.value.bundle);
-    const packageHash = this.hashN10PackageAuthority(loaded.value.packageRecord);
+    const bundleHash = hashN10V1cInputBundleAuthority(loaded.value.bundle);
+    const packageHash = hashN10PackageAuthority(loaded.value.packageRecord);
     const warnings = uniqueIssues([
       ...(loaded.value.bundle.accepted_risk_refs.length > 0
         ? [this.warning('N11_RESIDUAL_RISK_CARRIED_FORWARD', 'N11 v1c input bundle carries residual risk refs.', loaded.value.bundle.accepted_risk_refs)]
@@ -7096,13 +7101,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N9 frozen payload does not match the persisted N8-to-N9 handoff artifact.',
       };
     }
-    if (this.hashN8ValueAssessmentAuthority(loaded.assessment) !== payload.topic_value_assessment_hash) {
+    if (hashN8ValueAssessmentAuthority(loaded.assessment) !== payload.topic_value_assessment_hash) {
       return {
         code: 'N9_VALUE_ASSESSMENT_HASH_MISMATCH',
         message: 'N9 assessment hash does not match persisted TopicValueAssessment authority.',
       };
     }
-    if (this.hashN8ValueReasoningMemoAuthority(loaded.memo) !== payload.value_reasoning_memo_hash) {
+    if (hashN8ValueReasoningMemoAuthority(loaded.memo) !== payload.value_reasoning_memo_hash) {
       return {
         code: 'N9_VALUE_REASONING_MEMO_HASH_MISMATCH',
         message: 'N9 value memo hash does not match persisted memo authority.',
@@ -7290,7 +7295,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N10 can only create a draft package from an advance_to_package disposition with package draft input.',
       };
     }
-    if (this.hashN9DispositionAuthority(loaded.decision) !== payload.value_disposition_hash) {
+    if (hashN9DispositionAuthority(loaded.decision) !== payload.value_disposition_hash) {
       return {
         code: 'N10_VALUE_DISPOSITION_HASH_MISMATCH',
         message: 'N10 value disposition hash does not match persisted authority.',
@@ -7659,13 +7664,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N11 can only publish ready draft packages and ready v1c input bundles.',
       };
     }
-    if (this.hashN10PackageAuthority(loaded.packageRecord) !== payload.draft_topic_package_hash) {
+    if (hashN10PackageAuthority(loaded.packageRecord) !== payload.draft_topic_package_hash) {
       return {
         code: 'N11_DRAFT_TOPIC_PACKAGE_HASH_MISMATCH',
         message: 'N11 draft topic package hash does not match persisted authority.',
       };
     }
-    if (this.hashN10V1cInputBundleAuthority(loaded.bundle) !== payload.v1c_input_bundle_hash) {
+    if (hashN10V1cInputBundleAuthority(loaded.bundle) !== payload.v1c_input_bundle_hash) {
       return {
         code: 'N11_V1C_INPUT_BUNDLE_HASH_MISMATCH',
         message: 'N11 v1c input bundle hash does not match persisted authority.',
@@ -7735,80 +7740,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       case 'drop':
         return 'drop';
     }
-  }
-
-  private hashN8ValueAssessmentAuthority(assessment: TopicSelectionTopicValueAssessmentRecord): string {
-    return this.hash({
-      accepted_risk_refs: assessment.accepted_risk_refs,
-      blocker_refs: assessment.blocker_refs,
-      confidence: assessment.confidence,
-      dimension_scores: assessment.dimension_scores,
-      freshness_status: assessment.freshness_status,
-      hard_gates: assessment.hard_gates,
-      readiness_status: assessment.readiness_status,
-      source_research_slice_id: assessment.source_research_slice_id,
-      source_research_slice_version: assessment.source_research_slice_version,
-      strongest_claim_if_success: assessment.strongest_claim_if_success,
-      topic_question_contract_id: assessment.topic_question_contract_id,
-      topic_value_assessment_id: assessment.topic_value_assessment_id,
-      total_score: assessment.total_score,
-      value_reasoning_memo_id: assessment.value_reasoning_memo_id,
-      value_summary: assessment.value_summary,
-    });
-  }
-
-  private hashN8ValueReasoningMemoAuthority(memo: TopicSelectionValueReasoningMemoRecord): string {
-    return this.hash({
-      cited_refs: memo.cited_refs,
-      recommendation: memo.recommendation,
-      requires_critic_review: memo.requires_critic_review,
-      topic_question_contract_id: memo.topic_question_contract_id,
-      topic_value_assessment_id: memo.topic_value_assessment_id,
-      value_reasoning_memo_id: memo.value_reasoning_memo_id,
-      value_thesis: memo.value_thesis,
-    });
-  }
-
-  private hashN9DispositionAuthority(decision: TopicSelectionValueDispositionDecisionRecord): string {
-    return this.hash({
-      accepted_risk_refs: decision.accepted_risk_refs,
-      blocker_refs: decision.blocker_refs,
-      decision: decision.decision,
-      is_current: decision.is_current,
-      package_draft_input_hash: decision.package_draft_input ? this.hash(decision.package_draft_input) : null,
-      status: decision.status,
-      topic_question_contract_id: decision.topic_question_contract_id,
-      topic_value_assessment_id: decision.topic_value_assessment_id,
-      value_disposition_decision_id: decision.value_disposition_decision_id,
-      value_reasoning_memo_id: decision.value_reasoning_memo_id,
-    });
-  }
-
-  private hashN10PackageAuthority(pkg: TopicSelectionTopicPackageRecord): string {
-    return this.hash({
-      package_payload: pkg.package_payload,
-      package_readiness_status: pkg.package_readiness_status,
-      package_version: pkg.package_version,
-      research_slice_id: pkg.research_slice_id,
-      selected_evidence_refs: pkg.selected_evidence_refs,
-      title_candidates: pkg.title_candidates,
-      topic_package_id: pkg.topic_package_id,
-      topic_question_contract_id: pkg.topic_question_contract_id,
-      topic_value_assessment_id: pkg.topic_value_assessment_id,
-      value_disposition_decision_id: pkg.value_disposition_decision_id,
-      v1c_input_bundle_id: pkg.v1c_input_bundle_id,
-    });
-  }
-
-  private hashN10V1cInputBundleAuthority(bundle: TopicSelectionV1bToV1cInputBundleRecord): string {
-    return this.hash({
-      bundle_hash: bundle.bundle_hash,
-      bundle_status: bundle.bundle_status,
-      package_readiness_status: bundle.package_readiness_status,
-      package_version: bundle.package_version,
-      topic_package_id: bundle.topic_package_id,
-      v1b_to_v1c_input_bundle_id: bundle.v1b_to_v1c_input_bundle_id,
-    });
   }
 
   private n7CandidateAdmissionBlocker(

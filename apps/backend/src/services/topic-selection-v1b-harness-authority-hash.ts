@@ -21,6 +21,15 @@ import { sha256Text, stableStringify } from './literature-content-processing-uti
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type { TopicSelectionResearchSliceOptionRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-research-slice-contracts';
 import type { TopicSelectionV1bWorkflowHarnessRunRequest } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import type {
+  TopicSelectionTopicValueAssessmentRecord,
+  TopicSelectionValueReasoningMemoRecord,
+  TopicSelectionValueDispositionDecisionRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-value-assessment-contracts';
+import type {
+  TopicSelectionTopicPackageRecord,
+  TopicSelectionV1bToV1cInputBundleRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-package-contracts';
 
 /** `sha256(stableStringify(value))` — matches the harness service's private `hash()`. */
 export function canonicalHash(value: unknown): string {
@@ -90,5 +99,85 @@ export function hashV1bFrozenInput(
     payload: frozenInput.payload,
     snapshot_kind: frozenInput.snapshot_kind,
     source_refs: frozenInput.source_refs,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// W-12 / D-T127-01: N8/N9/N10 authority-hash cluster, relocated VERBATIM from the
+// harness (this.hash -> canonicalHash, the same single source). Byte-identical;
+// the v1b full suite + replay-identity guards backstop these N8+ hashes.
+// ---------------------------------------------------------------------------
+
+export function hashN8ValueAssessmentAuthority(assessment: TopicSelectionTopicValueAssessmentRecord): string {
+  return canonicalHash({
+    accepted_risk_refs: assessment.accepted_risk_refs,
+    blocker_refs: assessment.blocker_refs,
+    confidence: assessment.confidence,
+    dimension_scores: assessment.dimension_scores,
+    freshness_status: assessment.freshness_status,
+    hard_gates: assessment.hard_gates,
+    readiness_status: assessment.readiness_status,
+    source_research_slice_id: assessment.source_research_slice_id,
+    source_research_slice_version: assessment.source_research_slice_version,
+    strongest_claim_if_success: assessment.strongest_claim_if_success,
+    topic_question_contract_id: assessment.topic_question_contract_id,
+    topic_value_assessment_id: assessment.topic_value_assessment_id,
+    total_score: assessment.total_score,
+    value_reasoning_memo_id: assessment.value_reasoning_memo_id,
+    value_summary: assessment.value_summary,
+  });
+}
+
+export function hashN8ValueReasoningMemoAuthority(memo: TopicSelectionValueReasoningMemoRecord): string {
+  return canonicalHash({
+    cited_refs: memo.cited_refs,
+    recommendation: memo.recommendation,
+    requires_critic_review: memo.requires_critic_review,
+    topic_question_contract_id: memo.topic_question_contract_id,
+    topic_value_assessment_id: memo.topic_value_assessment_id,
+    value_reasoning_memo_id: memo.value_reasoning_memo_id,
+    value_thesis: memo.value_thesis,
+  });
+}
+
+export function hashN9DispositionAuthority(decision: TopicSelectionValueDispositionDecisionRecord): string {
+  return canonicalHash({
+    accepted_risk_refs: decision.accepted_risk_refs,
+    blocker_refs: decision.blocker_refs,
+    decision: decision.decision,
+    is_current: decision.is_current,
+    package_draft_input_hash: decision.package_draft_input ? canonicalHash(decision.package_draft_input) : null,
+    status: decision.status,
+    topic_question_contract_id: decision.topic_question_contract_id,
+    topic_value_assessment_id: decision.topic_value_assessment_id,
+    value_disposition_decision_id: decision.value_disposition_decision_id,
+    value_reasoning_memo_id: decision.value_reasoning_memo_id,
+  });
+}
+
+export function hashN10PackageAuthority(pkg: TopicSelectionTopicPackageRecord): string {
+  return canonicalHash({
+    package_payload: pkg.package_payload,
+    package_readiness_status: pkg.package_readiness_status,
+    package_version: pkg.package_version,
+    research_slice_id: pkg.research_slice_id,
+    selected_evidence_refs: pkg.selected_evidence_refs,
+    title_candidates: pkg.title_candidates,
+    topic_package_id: pkg.topic_package_id,
+    topic_question_contract_id: pkg.topic_question_contract_id,
+    topic_value_assessment_id: pkg.topic_value_assessment_id,
+    value_disposition_decision_id: pkg.value_disposition_decision_id,
+    v1c_input_bundle_id: pkg.v1c_input_bundle_id,
+  });
+}
+
+export function hashN10V1cInputBundleAuthority(bundle: TopicSelectionV1bToV1cInputBundleRecord): string {
+  return canonicalHash({
+    bundle_hash: bundle.bundle_hash,
+    bundle_status: bundle.bundle_status,
+    package_readiness_status: bundle.package_readiness_status,
+    package_version: bundle.package_version,
+    topic_package_id: bundle.topic_package_id,
+    v1b_to_v1c_input_bundle_id: bundle.v1b_to_v1c_input_bundle_id,
   });
 }

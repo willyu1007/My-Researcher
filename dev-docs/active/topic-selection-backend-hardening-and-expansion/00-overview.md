@@ -1,7 +1,7 @@
 # 00 Overview
 
 ## Status
-- State: in-progress（Phase 0–1 / M0–M1 已收口 2026-06-16；Phase 2+ 待开工）
+- State: in-progress（Phase 0–1 / M0–M1 已收口 2026-06-16；**Phase 2 / W-12 进行中** 2026-06-17——D-T127-01 已登记 + 首个拆分 slice〔N8/N9/N10 authority-hash〕落地）
 - Progress: **任务包创建 + 顶层决策对齐（2026-06-16）**——承接 T-123（选题管理产品化加固）**收尾关闭后移交**的 F-11 拆分线、DP-3.3 标定线，并新建本伞型包统一推进。**用户对齐的修订相位序：先夯实后端 → 拆透 harness（选项 A）→ 选项 B（能力扩展）→ 选项 C（工作台收口）→ 选项 D（N8 标定，延期）**。工作项 W-01..W-13 见下；顶层决策 D1..D6 经 2026-06-16 两轮对齐锁定。状态盘点基于 2026-06-16 全链 ground-truth 调查（backend-solidity / Option-B / Option-C / 约定与依赖四路并行）。**Phase 0（M0）已于 2026-06-16 收口**：W-01 残留落地（commit `bfe5ae31`）、W-02 N11 终端穿越单测、W-03 ②/③ 代码卫生；其中 W-02/W-03 经代码核验**重定标**（W-02 N11 条目实已存在、W-03 ① moot，详见 03/04）。**Phase 1（M1）亦于 2026-06-16 收口**：W-04 coordinator 故障恢复（`upstream_blocked`/`feedback_artifact_missing` 结构化 halt + 人审 nonce 守卫；timeout 指引核验已存在）、W-05 12 个 admission/runtime service 单测（66/0）、W-06 N8 provisional 产品门禁形式化（`N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE`）。基线 backend 1402/0/35、shared 256/0、tsc 0。Phase 2+ 待开工。
 - Task ID: `T-127`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-009`
