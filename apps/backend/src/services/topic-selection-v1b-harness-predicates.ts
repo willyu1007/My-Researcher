@@ -9,17 +9,29 @@ import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/s
 import type {
   TopicSelectionRejectedSliceOptionReason,
   TopicSelectionResearchSliceOptionDraft,
+  TopicSelectionResearchSliceOptionRecord,
   TopicSelectionSliceLoopbackTarget,
   TopicSelectionSliceSelectionDecision,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-research-slice-contracts';
 import type {
+  TopicSelectionTopicQuestionFalsificationConditionDraft,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-question-contracts';
+import {
+  TOPIC_SELECTION_VALUE_DIMENSIONS,
+  TOPIC_SELECTION_VALUE_GATE_KEYS,
+  TOPIC_SELECTION_VALUE_GATE_VERDICTS,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-value-assessment-contracts';
+import type {
   TopicSelectionV1bCandidateGroupingSupportPayload,
+  TopicSelectionV1bN6LoopbackTriageSupportPayload,
   TopicSelectionV1bN8DebateAdmissionReviewSupportPayload,
   TopicSelectionV1bN8FailedTrialSynthesisSupportPayload,
   TopicSelectionV1bN8ToN7FeedbackPayload,
   TopicSelectionV1bWorkflowHarnessHandoff,
+  TopicSelectionV1bWorkflowHarnessHandoffKind,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import { hasOnlyKeys, isHash, isRecord } from './topic-selection-v1b-harness-pure-utils.js';
+import type { TopicSelectionV1bIntakeReadinessClassificationSupportPayload } from './topic-selection-v1b-early-semantic-support-runtime-service.js';
 
 export function isNullableHash(value: unknown): value is string | null | undefined {
   return value === undefined || value === null || isHash(value);
@@ -211,4 +223,423 @@ export function isN7FailedTrialSynthesisSupportPayload(value: unknown): value is
     && isStringArray(value.n6_regeneration_hints)
     && isFunctionalRefArray(value.affected_refs)
     && (value.affected_refs as unknown[]).length > 0;
+}
+
+
+/**
+ * W-12 / D-T127-01 (slice 11): the v1b harness node-payload / draft / risk / human type-guard cluster,
+ * relocated VERBATIM from the harness. Pure, `this`-free `value is T` (and boolean) guards. Intra-cluster
+ * calls resolve within this module; isRecord / hasOnlyKeys come from pure-utils; isStringArray /
+ * isFunctionalRefArray / isRiskLevel / isClaimCeilingAlignment are defined above in this module. The
+ * VALUE constants and the N3 readiness-classification support payload type back the N8/N3 guards.
+ * Behavior is identical.
+ */
+
+export function isN8ReasoningMemoDraft(value: unknown): boolean {
+  return isRecord(value)
+    && hasOnlyKeys(value, [
+      'cited_refs',
+      'claim_leverage',
+      'critic_triggers',
+      'disposition_bridge',
+      'effort_to_value',
+      'evidence_backed_rationale',
+      'negative_memory_check',
+      'originality',
+      'recommendation',
+      'requires_critic_review',
+      'reviewer_risks',
+      'significance',
+      'strategic_fit',
+      'top_objections',
+      'uncertainty',
+      'value_thesis',
+    ])
+    && ['advance_to_package', 'refine_question', 'refine_slice', 'recheck_evidence_or_search', 'park', 'drop']
+      .includes(value.recommendation as string)
+    && typeof value.value_thesis === 'string'
+    && typeof value.significance === 'string'
+    && typeof value.originality === 'string'
+    && typeof value.claim_leverage === 'string'
+    && isStringArray(value.reviewer_risks)
+    && typeof value.effort_to_value === 'string'
+    && typeof value.strategic_fit === 'string'
+    && typeof value.negative_memory_check === 'string'
+    && typeof value.evidence_backed_rationale === 'string'
+    && isStringArray(value.top_objections)
+    && typeof value.uncertainty === 'string'
+    && typeof value.disposition_bridge === 'string'
+    && typeof value.requires_critic_review === 'boolean'
+    && isStringArray(value.critic_triggers)
+    && isFunctionalRefArray(value.cited_refs);
+}
+
+export function isN8ValueGateResult(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return hasOnlyKeys(value, ['gate_key', 'verdict', 'severity', 'overridable_with_risk', 'rationale', 'refs'])
+    && (TOPIC_SELECTION_VALUE_GATE_KEYS as readonly string[]).includes(value.gate_key as string)
+    && (TOPIC_SELECTION_VALUE_GATE_VERDICTS as readonly string[]).includes(value.verdict as string)
+    && ['info', 'warning', 'blocking'].includes(value.severity as string)
+    && typeof value.overridable_with_risk === 'boolean'
+    && typeof value.rationale === 'string'
+    && isFunctionalRefArray(value.refs);
+}
+
+export function isN8ValueDimensionScore(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return hasOnlyKeys(value, ['dimension_key', 'score', 'rationale', 'evidence_refs', 'uncertainty'])
+    && (TOPIC_SELECTION_VALUE_DIMENSIONS as readonly string[]).includes(value.dimension_key as string)
+    && typeof value.score === 'number'
+    && Number.isFinite(value.score)
+    && value.score >= 0
+    && value.score <= 100
+    && typeof value.rationale === 'string'
+    && isFunctionalRefArray(value.evidence_refs)
+    && typeof value.uncertainty === 'string';
+}
+
+export function isHandoffArtifactPayload(
+  value: unknown,
+  handoffKind: TopicSelectionV1bWorkflowHarnessHandoffKind,
+): value is TopicSelectionV1bWorkflowHarnessHandoff {
+  return isRecord(value)
+    && isRecord(value.envelope)
+    && value.envelope.handoff_kind === handoffKind
+    && isRecord(value.payload);
+}
+
+export function isN3ReadinessClassificationSupportPayload(
+  value: unknown,
+): value is TopicSelectionV1bIntakeReadinessClassificationSupportPayload {
+  return isRecord(value)
+    && hasOnlyKeys(value, [
+      'blocker_codes',
+      'cited_refs',
+      'loopback_target_code',
+      'no_authority_write_confirmed',
+      'rationale',
+      'readiness_recommendation',
+      'schema_version',
+      'warning_codes',
+    ])
+    && value.schema_version === 'IntakeReadinessClassificationSupport@v1'
+    && ['ready', 'needs_refinement', 'blocked'].includes(value.readiness_recommendation as string)
+    && isStringArray(value.blocker_codes)
+    && isStringArray(value.warning_codes)
+    && (
+      value.loopback_target_code === null
+      || value.loopback_target_code === 'n3_snapshot_refresh'
+      || value.loopback_target_code === 'n3_profile_repair'
+    )
+    && isFunctionalRefArray(value.cited_refs)
+    && typeof value.rationale === 'string'
+    && value.rationale.trim().length > 0
+    && value.no_authority_write_confirmed === true;
+}
+
+export function isN5ToN6HandoffArtifactPayload(value: unknown): value is TopicSelectionV1bWorkflowHarnessHandoff {
+  if (!isRecord(value) || !isRecord(value.envelope) || !isRecord(value.payload)) {
+    return false;
+  }
+  return value.envelope.handoff_kind === 'N5ToN6Handoff'
+    && value.envelope.source_node_id === 'topic-selection.v1b.select-research-slice.v1'
+    && value.target_node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1';
+}
+
+export function isN6CandidateRetryScope(
+  failureScope: TopicSelectionV1bN6LoopbackTriageSupportPayload['failure_scope'],
+): boolean {
+  return failureScope === 'candidate_level' || failureScope === 'question_frame_level';
+}
+
+export function isN6UpstreamRollbackScope(
+  failureScope: TopicSelectionV1bN6LoopbackTriageSupportPayload['failure_scope'],
+): boolean {
+  return failureScope === 'slice_level' || failureScope === 'upstream_context_level';
+}
+
+export function isN6DebateEscalationPayload(
+  value: unknown,
+): value is TopicSelectionV1bN6LoopbackTriageSupportPayload['debate_escalation'] {
+  return value === null || (
+    isRecord(value)
+    && hasOnlyKeys(value, ['debate_level', 'recommended_profile_id', 'sticky', 'rationale'])
+    && ['mixed_cost_control', 'provider_diverse_deep'].includes(value.debate_level as string)
+    && typeof value.recommended_profile_id === 'string'
+    && value.recommended_profile_id.trim().length > 0
+    && typeof value.sticky === 'boolean'
+    && typeof value.rationale === 'string'
+    && value.rationale.trim().length > 0
+  );
+}
+
+export function isN6UpstreamRollbackPayload(
+  value: unknown,
+): value is TopicSelectionV1bN6LoopbackTriageSupportPayload['upstream_rollback'] {
+  return value === null || (
+    isRecord(value)
+    && hasOnlyKeys(value, ['target_node_id', 'repair_action', 'rationale'])
+    && value.target_node_id === 'topic-selection.v1b.select-research-slice.v1'
+    && value.repair_action === 'select_different_slice'
+    && typeof value.rationale === 'string'
+    && value.rationale.trim().length > 0
+  );
+}
+
+export function isN6DraftPayload(value: Record<string, unknown>): boolean {
+  return hasOnlyKeys(value, [
+    'candidates',
+    'generation_notes',
+    'human_review_triggers',
+    'question_frame',
+    'recommended_candidate_keys',
+  ])
+    && isRecord(value.question_frame)
+    && isStringArray(value.recommended_candidate_keys)
+    && isStringArray(value.generation_notes)
+    && isStringArray(value.human_review_triggers)
+    && Array.isArray(value.candidates);
+}
+
+export function isN6QuestionFrameDraft(value: unknown): boolean {
+  return isRecord(value)
+    && hasOnlyKeys(value, [
+      'assumption_refs',
+      'comparison_baseline',
+      'evidence_refs',
+      'frame_payload',
+      'intervention_or_approach',
+      'object_scope',
+      'observable_outcome',
+      'target_community',
+      'target_setting',
+      'task_scope',
+    ])
+    && typeof value.target_setting === 'string'
+    && typeof value.target_community === 'string'
+    && typeof value.object_scope === 'string'
+    && typeof value.task_scope === 'string'
+    && typeof value.intervention_or_approach === 'string'
+    && typeof value.comparison_baseline === 'string'
+    && typeof value.observable_outcome === 'string'
+    && isFunctionalRefArray(value.assumption_refs)
+    && isFunctionalRefArray(value.evidence_refs)
+    && isRecord(value.frame_payload);
+}
+
+export function isN6AnswerabilityPlanDraft(value: unknown): boolean {
+  return isRecord(value)
+    && hasOnlyKeys(value, [
+      'ablations_or_comparisons',
+      'baselines',
+      'datasets_or_resources',
+      'dependency_risks',
+      'evaluation_setting',
+      'known_gaps',
+      'metrics',
+      'open_dependencies',
+      'required_evidence_refs',
+    ])
+    && isStringArray(value.datasets_or_resources)
+    && isStringArray(value.metrics)
+    && isStringArray(value.baselines)
+    && isStringArray(value.ablations_or_comparisons)
+    && typeof value.evaluation_setting === 'string'
+    && isStringArray(value.dependency_risks)
+    && isStringArray(value.open_dependencies)
+    && isStringArray(value.known_gaps)
+    && isFunctionalRefArray(value.required_evidence_refs);
+}
+
+export function isN6BoundaryCheckDraft(value: unknown): boolean {
+  return isRecord(value)
+    && hasOnlyKeys(value, [
+      'allowed_refinements',
+      'boundary_violations',
+      'excluded_boundary_refs',
+      'preserved_boundary_refs',
+      'prohibited_claims',
+    ])
+    && isFunctionalRefArray(value.preserved_boundary_refs)
+    && isFunctionalRefArray(value.excluded_boundary_refs)
+    && isStringArray(value.boundary_violations)
+    && isStringArray(value.prohibited_claims)
+    && isStringArray(value.allowed_refinements);
+}
+
+export function isN6TraceabilityCheckDraft(value: unknown): boolean {
+  return isRecord(value)
+    && hasOnlyKeys(value, [
+      'baseline_evidence_refs',
+      'challenge_evidence_refs',
+      'context_evidence_refs',
+      'mapped_evidence_refs',
+      'support_evidence_refs',
+      'unmapped_assumptions',
+    ])
+    && isFunctionalRefArray(value.support_evidence_refs)
+    && isFunctionalRefArray(value.challenge_evidence_refs)
+    && isFunctionalRefArray(value.baseline_evidence_refs)
+    && isFunctionalRefArray(value.context_evidence_refs)
+    && isFunctionalRefArray(value.mapped_evidence_refs)
+    && isStringArray(value.unmapped_assumptions);
+}
+
+export function isN6FalsificationConditionDraft(value: unknown): value is TopicSelectionTopicQuestionFalsificationConditionDraft {
+  return isRecord(value)
+    && hasOnlyKeys(value, [
+      'check_timing',
+      'condition_type',
+      'confidence',
+      'expected_action',
+      'related_contract_fields',
+      'severity',
+      'statement',
+      'trigger_evidence_refs',
+      'trigger_source_refs',
+    ])
+    && [
+      'solved_by_baseline',
+      'contradicted_by_evidence',
+      'out_of_boundary',
+      'data_unavailable',
+      'baseline_unreproducible',
+      'metric_invalid',
+      'evaluation_infeasible',
+      'claim_overstrong',
+      'resource_blocked',
+      'need_invalidated',
+    ].includes(value.condition_type as string)
+    && ['hard', 'soft', 'answerability'].includes(value.severity as string)
+    && typeof value.statement === 'string'
+    && isFunctionalRefArray(value.trigger_evidence_refs)
+    && isFunctionalRefArray(value.trigger_source_refs)
+    && isStringArray(value.related_contract_fields)
+    && ['revise_question', 'revise_slice', 'recheck_evidence', 'lower_claim_strength', 'park', 'drop'].includes(value.expected_action as string)
+    && [
+      'before_value_assessment',
+      'during_value_assessment',
+      'before_package',
+      'before_promotion',
+      'on_new_evidence',
+    ].includes(value.check_timing as string)
+    && ['low', 'medium', 'high'].includes(value.confidence as string);
+}
+
+export function isSpecificQuestion(question: string): boolean {
+  const normalized = question.trim().toLowerCase();
+  if (normalized.length < 40 || !normalized.endsWith('?')) {
+    return false;
+  }
+  const broadPatterns = [
+    /^how can (ai|llms?|rag|systems?) (help|improve|impact|benefit)\b/u,
+    /^what is the (impact|effect|role|future) of\b/u,
+    /^can (ai|llms?|rag|systems?) improve\b/u,
+  ];
+  return !broadPatterns.some((pattern) => pattern.test(normalized));
+}
+
+export function isN4DraftOption(value: unknown): value is TopicSelectionResearchSliceOptionDraft {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return hasOnlyKeys(value, [
+    'baseline_assumptions',
+    'baseline_evidence_refs',
+    'baseline_risk',
+    'challenge_evidence_refs',
+    'claim_ceiling_alignment',
+    'confidence',
+    'context_evidence_refs',
+    'contribution_type_candidate',
+    'data_assumptions',
+    'dependency_risks',
+    'details_payload',
+    'evaluation_path',
+    'excluded_boundaries',
+    'execution_risk',
+    'expected_claim',
+    'fallback_claim',
+    'hard_blockers',
+    'human_review_triggers',
+    'included_boundaries',
+    'main_risks',
+    'observable_success_criteria',
+    'option_key',
+    'problem_space',
+    'requires_human_review',
+    'resource_assumptions',
+    'scope_risk',
+    'slice_budget',
+    'slice_statement',
+    'source_validated_need_refs',
+    'support_evidence_refs',
+    'target_community',
+    'target_setting',
+  ])
+    && typeof value.option_key === 'string'
+    && value.option_key.trim().length > 0
+    && isFunctionalRefArray(value.source_validated_need_refs)
+    && typeof value.slice_statement === 'string'
+    && value.slice_statement.trim().length > 0
+    && typeof value.problem_space === 'string'
+    && value.problem_space.trim().length > 0
+    && typeof value.target_setting === 'string'
+    && value.target_setting.trim().length > 0
+    && typeof value.target_community === 'string'
+    && value.target_community.trim().length > 0
+    && isStringArray(value.included_boundaries)
+    && isStringArray(value.excluded_boundaries)
+    && typeof value.contribution_type_candidate === 'string'
+    && value.contribution_type_candidate.trim().length > 0
+    && isFunctionalRefArray(value.support_evidence_refs)
+    && isFunctionalRefArray(value.challenge_evidence_refs)
+    && isFunctionalRefArray(value.baseline_evidence_refs)
+    && isFunctionalRefArray(value.context_evidence_refs)
+    && isStringArray(value.resource_assumptions)
+    && isStringArray(value.data_assumptions)
+    && typeof value.evaluation_path === 'string'
+    && value.evaluation_path.trim().length > 0
+    && isStringArray(value.baseline_assumptions)
+    && isStringArray(value.hard_blockers)
+    && isStringArray(value.dependency_risks)
+    && isRecord(value.slice_budget)
+    && typeof value.expected_claim === 'string'
+    && value.expected_claim.trim().length > 0
+    && typeof value.fallback_claim === 'string'
+    && value.fallback_claim.trim().length > 0
+    && isStringArray(value.observable_success_criteria)
+    && isStringArray(value.main_risks)
+    && isRiskLevel(value.baseline_risk)
+    && isRiskLevel(value.execution_risk)
+    && isRiskLevel(value.scope_risk)
+    && isClaimCeilingAlignment(value.claim_ceiling_alignment)
+    && (value.confidence === null || value.confidence === undefined || typeof value.confidence === 'number')
+    && typeof value.requires_human_review === 'boolean'
+    && isStringArray(value.human_review_triggers)
+    && isRecord(value.details_payload);
+}
+
+export function isHumanDecisionRef(ref: TopicSelectionFunctionalRef): boolean {
+  return ref.ref_type === 'human_confirmed_decision' || ref.ref_type === 'human_decision';
+}
+
+export function isHumanActor(actorType: string): boolean {
+  return actorType === 'human' || actorType === 'hybrid';
+}
+
+export function isHighRiskDraft(draft: TopicSelectionResearchSliceOptionDraft): boolean {
+  return draft.baseline_risk === 'high'
+    || draft.execution_risk === 'high'
+    || draft.scope_risk === 'high';
+}
+
+export function isHighRiskOption(option: TopicSelectionResearchSliceOptionRecord): boolean {
+  return option.baseline_risk === 'high'
+    || option.execution_risk === 'high'
+    || option.scope_risk === 'high';
 }
