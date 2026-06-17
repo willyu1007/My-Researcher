@@ -788,3 +788,18 @@ test('W-04: human-submission nonce guard rejects a duplicate (run, nonce), allow
   assert.equal(await coordinator.runHumanSubmissionExclusive(RUN, null, async () => 'a'), 'a');
   assert.equal(await coordinator.runHumanSubmissionExclusive(RUN, null, async () => 'b'), 'b');
 });
+
+// W-04: the race the nonce guard actually defends — two CONCURRENT same-(run, nonce) submissions
+// fired without an intervening await. The per-run mutex must serialize them so exactly one is
+// accepted (this is the regression a future withRunLock refactor could silently break).
+test('W-04: concurrent same-(run, nonce) submissions accept exactly one (race-safe)', async () => {
+  const { coordinator } = makeSubject();
+  let ran = 0;
+  const submit = () => coordinator.runHumanSubmissionExclusive(RUN, 'nonce-race', async () => { ran += 1; return 'ok'; });
+  // Both promises are created before either is awaited — they contend for the same run lock.
+  const [a, b] = await Promise.allSettled([submit(), submit()]);
+  assert.deepEqual([a.status, b.status].sort(), ['fulfilled', 'rejected']);
+  const rejected = (a.status === 'rejected' ? a : b) as PromiseRejectedResult;
+  assert.match(String((rejected.reason as Error)?.message ?? rejected.reason), /already accepted/);
+  assert.equal(ran, 1, 'only one submission body ran');
+});

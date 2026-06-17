@@ -1668,7 +1668,8 @@ test('N8 provisional-thresholds product gate (W-06) is held and formalized', () 
   assert.ok(n8, 'N8 assess-topic-value policy exists');
   // Held until W-13 calibration — provisional must NOT be flipped early (T-127 D8).
   assert.equal(n8!.debate_trigger_thresholds?.provisional, true);
-  // The harness emits the tripwire the gate names.
+  // The node policy declares the tripwire code (lowercase policy convention); the harness emits its
+  // uppercase form, pinned by the const assertion below.
   assert.ok(n8!.warning_codes.includes('n8_debate_thresholds_provisional'));
   // The formalized product-gate contract: non-blocking at the harness, requires a recorded sign-off.
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code, 'N8_DEBATE_THRESHOLDS_PROVISIONAL');

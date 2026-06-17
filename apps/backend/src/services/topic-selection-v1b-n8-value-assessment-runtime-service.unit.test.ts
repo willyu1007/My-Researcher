@@ -407,7 +407,7 @@ test('v1b N8 value runtime rejects more than one N7-to-N8 projection in the froz
     (error: unknown) => {
       assert.ok(error instanceof AppError);
       assert.equal(error.errorCode, 'INVALID_PAYLOAD');
-      assert.match(error.message, /exactly one N7-to-N8 runtime context projection/);
+      assert.match(error.message, /accepts exactly one N7-to-N8/);
       return true;
     },
   );
