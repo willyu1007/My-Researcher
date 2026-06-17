@@ -9,7 +9,7 @@
 | W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | done | 见 Phase 1 记录（coordinator 19/0；upstream_blocked / feedback_artifact_missing / nonce 负例） |
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
-| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01 已登记；slice: N8/N9/N10 authority-hash 簇已抽（harness 12898→12829，golden 守卫绿） |
+| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01 登记；hash-authority 簇抽出 N8/N9/N10 + N7/N5（harness 12898→12753，golden 守卫绿） |
 | W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | planned | 待 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
@@ -82,6 +82,12 @@
 - 把 `hashN8ValueAssessmentAuthority` / `hashN8ValueReasoningMemoAuthority` / `hashN9DispositionAuthority` / `hashN10PackageAuthority` / `hashN10V1cInputBundleAuthority` 5 个纯函数**逐字搬迁**到 `topic-selection-v1b-harness-authority-hash.ts`（`this.hash` → `canonicalHash`，同一单源），harness 16 处调用点改模块调用、移除 5 个私有方法。
 - harness **12,898 → 12,829 行**（−69）；`tsc` 0；harness 单测 **97/0**（含 `GUARD_GOLDEN_N1` + `OPTION_AUTHORITY_GOLDEN` replay-identity 守卫绿，N1 byte-identical）；backend 全套件 **1402/0/35**（N8/N9/N10 authority hash byte-identical 兜底）。
 - 续接：parse-and-resolve 簇（`parseN1..parseN11` / `resolveN*Payload`，体量最大）、剩余 `hashN*Authority`（N5/N6/N7）、ref/issue builder 簇——后续 slice 逐个推进至壳。
+
+**W-12 slice 2 — N7 + N5 authority-hash — done（2026-06-17）**
+- 续抽 5 个纯函数到 `topic-selection-v1b-harness-authority-hash.ts`：`hashN7TopicQuestionAuthority` / `hashN7ContractAuthority` / `hashN7AnswerabilityPlanAuthority` / `hashN5DecisionAuthority` / `hashN5ResearchSliceAuthority`（`this.hash`→`canonicalHash`，逐字），harness 11 调用点改模块调用、移除 5 私有方法。
+- 自检副产物：原 purity 扫描把 `hashN7AnswerabilityPlanAuthority` 误判为依赖 `this.ref`（实为扫描越界读到下一个函数 `recordN7DebateAdmissionArtifact` 的 `this.ref`），核对函数体确认纯函数后纳入本 slice。
+- harness **12,829 → 12,753 行**；`tsc` 0；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（抽取前后一致 → byte-identical；1402→1403 的 +1 是 nits commit `d2df3f7a` 的并发 nonce 竞态测试，非本 slice）。
+- 剩余 hash-authority：`hashN6CandidateAuthority`（依赖 `this.hasOnlyKeys`/`isRecord`/`ref`）+ `hashN7AnswerabilityPlanAuthority` 之外凡用 `this.ref`/`hasOnlyKeys` 者，需先抽 `ref`/`isRecord`/`hasOnlyKeys` 小工具簇方可搬迁；下一刀转 parse-and-resolve（体量主体）或先抽 ref/isRecord 工具簇解耦 N6。
 
 ### Phase 3 — 能力扩展 / 选项 B（待开工）
 ### Phase 4 — 工作台收口 / 选项 C（待开工）

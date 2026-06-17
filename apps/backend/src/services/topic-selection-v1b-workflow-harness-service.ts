@@ -212,6 +212,11 @@ import {
 import { TopicSelectionV1bN8ValueAssessmentRuntimeService } from './topic-selection-v1b-n8-value-assessment-runtime-service.js';
 import {
   canonicalHash,
+  hashN5DecisionAuthority,
+  hashN5ResearchSliceAuthority,
+  hashN7TopicQuestionAuthority,
+  hashN7ContractAuthority,
+  hashN7AnswerabilityPlanAuthority,
   hashN8ValueAssessmentAuthority,
   hashN8ValueReasoningMemoAuthority,
   hashN9DispositionAuthority,
@@ -2825,7 +2830,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const decidedBy = this.n5CreatedBy(input.created_by, payload.value.authority_input_provider);
     const decisionId = this.idFactory('slice_selection_decision');
     const decisionRef = this.ref('slice_selection_decision', decisionId, loaded.value.optionSet.title_card_id);
-    const decisionHash = this.hashN5DecisionAuthority({
+    const decisionHash = hashN5DecisionAuthority({
       acceptedPayloadHash,
       decisionRef,
       n4HandoffHash: payload.value.n4_handoff_hash,
@@ -2893,7 +2898,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const sliceId = this.idFactory('research_slice');
     const sliceVersion = this.versionFromId(sliceId);
     const sliceRef = this.ref('research_slice', sliceId, loaded.value.optionSet.title_card_id, sliceVersion);
-    const researchSliceHash = this.hashN5ResearchSliceAuthority({
+    const researchSliceHash = hashN5ResearchSliceAuthority({
       acceptedPayloadHash,
       decisionHash,
       n4HandoffHash: payload.value.n4_handoff_hash,
@@ -3422,9 +3427,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       materialization.answerability_plan.topic_question_answerability_plan_id,
       materialization.answerability_plan.title_card_id,
     );
-    const questionHash = this.hashN7TopicQuestionAuthority(materialization.topic_question);
-    const contractHash = this.hashN7ContractAuthority(materialization.topic_question_contract);
-    const answerabilityPlanHash = this.hashN7AnswerabilityPlanAuthority(materialization.answerability_plan);
+    const questionHash = hashN7TopicQuestionAuthority(materialization.topic_question);
+    const contractHash = hashN7ContractAuthority(materialization.topic_question_contract);
+    const answerabilityPlanHash = hashN7AnswerabilityPlanAuthority(materialization.answerability_plan);
     const debateAdmission = await this.recordN7DebateAdmissionArtifact(input, payload.value, choice.value, support.value);
     const trialLedgerHash = this.hash({
       active_candidate_hash: choice.value.candidateHash,
@@ -5186,7 +5191,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     );
     const decisionRef = this.ref('topic_question_selection_decision', decision.topic_question_selection_decision_id, decision.title_card_id);
     const candidateSetRef = this.ref('topic_question_candidate_set', loaded.candidateSet.topic_question_candidate_set_id, loaded.candidateSet.title_card_id);
-    const contractHash = this.hashN7ContractAuthority(contract);
+    const contractHash = hashN7ContractAuthority(contract);
     const warnings = this.n7Warnings(choice, support);
     const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
       authorityHash: contractHash,
@@ -5197,11 +5202,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
     const handoffPayload: TopicSelectionV1bWorkflowHarnessHandoffPayload = {
       topic_question_ref: questionRef,
-      topic_question_hash: this.hashN7TopicQuestionAuthority(question),
+      topic_question_hash: hashN7TopicQuestionAuthority(question),
       topic_question_contract_ref: contractRef,
       topic_question_contract_hash: contractHash,
       answerability_plan_ref: answerabilityPlanRef,
-      answerability_plan_hash: this.hashN7AnswerabilityPlanAuthority(answerabilityPlan),
+      answerability_plan_hash: hashN7AnswerabilityPlanAuthority(answerabilityPlan),
       trial_ledger_ref: decisionRef,
       trial_ledger_hash: feedback.previous_trial_ledger_hash,
       topic_question_candidate_set_ref: candidateSetRef,
@@ -6262,19 +6267,19 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N8 frozen payload does not match the persisted N7-to-N8 handoff artifact.',
       };
     }
-    if (this.hashN7TopicQuestionAuthority(loaded.question) !== payload.topic_question_hash) {
+    if (hashN7TopicQuestionAuthority(loaded.question) !== payload.topic_question_hash) {
       return {
         code: 'N8_TOPIC_QUESTION_HASH_MISMATCH',
         message: 'N8 topic question hash does not match persisted TopicQuestion authority.',
       };
     }
-    if (this.hashN7ContractAuthority(loaded.contract) !== payload.topic_question_contract_hash) {
+    if (hashN7ContractAuthority(loaded.contract) !== payload.topic_question_contract_hash) {
       return {
         code: 'N8_TOPIC_QUESTION_CONTRACT_HASH_MISMATCH',
         message: 'N8 contract hash does not match persisted TopicQuestionContract authority.',
       };
     }
-    if (this.hashN7AnswerabilityPlanAuthority(loaded.answerabilityPlan) !== payload.answerability_plan_hash) {
+    if (hashN7AnswerabilityPlanAuthority(loaded.answerabilityPlan) !== payload.answerability_plan_hash) {
       return {
         code: 'N8_ANSWERABILITY_PLAN_HASH_MISMATCH',
         message: 'N8 answerability plan hash does not match persisted plan authority.',
@@ -8079,53 +8084,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const roles = new Set(evidenceRefs.map((ref) => ref.evidence_role));
     return ['support', 'challenge', 'claim', 'baseline', 'context'].filter((role) =>
       roles.has(role as TopicSelectionTopicQuestionEvidenceRefRecord['evidence_role']));
-  }
-
-  private hashN7TopicQuestionAuthority(question: TopicSelectionTopicQuestionRecord): string {
-    return this.hash({
-      active_question_contract_id: question.active_question_contract_id,
-      main_question: question.main_question,
-      research_slice_id: question.research_slice_id,
-      research_slice_version: question.research_slice_version,
-      selection_decision_id: question.selection_decision_id,
-      source_candidate_id: question.source_candidate_id,
-      source_candidate_set_id: question.source_candidate_set_id,
-      status: question.status,
-      sub_questions: question.sub_questions,
-      topic_question_id: question.topic_question_id,
-    });
-  }
-
-  private hashN7ContractAuthority(contract: TopicSelectionTopicQuestionContractRecord): string {
-    return this.hash({
-      accepted_risk_refs: contract.accepted_risk_refs,
-      answerability_plan_id: contract.answerability_plan_id,
-      contract_hash: contract.contract_hash,
-      expected_claim: contract.expected_claim,
-      fallback_claim: contract.fallback_claim,
-      main_question: contract.main_question,
-      max_claim_strength: contract.max_claim_strength,
-      required_evidence_categories: contract.required_evidence_categories,
-      source_candidate_id: contract.source_candidate_id,
-      source_research_slice_id: contract.source_research_slice_id,
-      source_research_slice_version: contract.source_research_slice_version,
-      status: contract.status,
-      topic_question_contract_id: contract.topic_question_contract_id,
-      version: contract.version,
-    });
-  }
-
-  private hashN7AnswerabilityPlanAuthority(plan: TopicSelectionTopicQuestionAnswerabilityPlanRecord): string {
-    return this.hash({
-      answerability_verdict: plan.answerability_verdict,
-      baselines: plan.baselines,
-      datasets_or_resources: plan.datasets_or_resources,
-      evaluation_setting: plan.evaluation_setting,
-      metrics: plan.metrics,
-      required_evidence_refs: plan.required_evidence_refs,
-      topic_question_answerability_plan_id: plan.topic_question_answerability_plan_id,
-      topic_question_contract_id: plan.topic_question_contract_id,
-    });
   }
 
   private async recordN7DebateAdmissionArtifact(
@@ -12543,40 +12501,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     // topic-selection-v1b-harness-authority-hash so the human N5 path
     // (V1bSliceHumanSelectionService) and this harness re-derivation cannot drift.
     return sharedHashResearchSliceOptionAuthority(option);
-  }
-
-  private hashN5DecisionAuthority(input: {
-    acceptedPayloadHash: string;
-    decisionRef: TopicSelectionFunctionalRef;
-    n4HandoffHash: string;
-    optionSetHash: string;
-    selectedOptionHash: string | null;
-  }): string {
-    return this.hash({
-      accepted_selection_payload_hash: input.acceptedPayloadHash,
-      decision_ref: input.decisionRef,
-      n4_handoff_hash: input.n4HandoffHash,
-      option_set_hash: input.optionSetHash,
-      selected_option_hash: input.selectedOptionHash,
-    });
-  }
-
-  private hashN5ResearchSliceAuthority(input: {
-    acceptedPayloadHash: string;
-    decisionHash: string;
-    n4HandoffHash: string;
-    optionSetHash: string;
-    researchSliceRef: TopicSelectionFunctionalRef;
-    selectedOptionHash: string;
-  }): string {
-    return this.hash({
-      accepted_selection_payload_hash: input.acceptedPayloadHash,
-      decision_hash: input.decisionHash,
-      n4_handoff_hash: input.n4HandoffHash,
-      option_set_hash: input.optionSetHash,
-      research_slice_ref: input.researchSliceRef,
-      selected_option_hash: input.selectedOptionHash,
-    });
   }
 
   private defaultRejectedReasons(

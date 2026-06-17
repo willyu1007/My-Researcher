@@ -30,6 +30,11 @@ import type {
   TopicSelectionTopicPackageRecord,
   TopicSelectionV1bToV1cInputBundleRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-package-contracts';
+import type {
+  TopicSelectionTopicQuestionRecord,
+  TopicSelectionTopicQuestionContractRecord,
+  TopicSelectionTopicQuestionAnswerabilityPlanRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-question-contracts';
 
 /** `sha256(stableStringify(value))` — matches the harness service's private `hash()`. */
 export function canonicalHash(value: unknown): string {
@@ -179,5 +184,92 @@ export function hashN10V1cInputBundleAuthority(bundle: TopicSelectionV1bToV1cInp
     package_version: bundle.package_version,
     topic_package_id: bundle.topic_package_id,
     v1b_to_v1c_input_bundle_id: bundle.v1b_to_v1c_input_bundle_id,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// W-12 / D-T127-01 (slice 2): N7 (topic-question / contract / answerability-plan)
+// + N5 (decision / research-slice) authority hashes, relocated VERBATIM from the
+// harness (this.hash -> canonicalHash). Byte-identical; full-suite + golden guards backstop.
+// ---------------------------------------------------------------------------
+
+export function hashN7TopicQuestionAuthority(question: TopicSelectionTopicQuestionRecord): string {
+  return canonicalHash({
+    active_question_contract_id: question.active_question_contract_id,
+    main_question: question.main_question,
+    research_slice_id: question.research_slice_id,
+    research_slice_version: question.research_slice_version,
+    selection_decision_id: question.selection_decision_id,
+    source_candidate_id: question.source_candidate_id,
+    source_candidate_set_id: question.source_candidate_set_id,
+    status: question.status,
+    sub_questions: question.sub_questions,
+    topic_question_id: question.topic_question_id,
+  });
+}
+
+export function hashN7ContractAuthority(contract: TopicSelectionTopicQuestionContractRecord): string {
+  return canonicalHash({
+    accepted_risk_refs: contract.accepted_risk_refs,
+    answerability_plan_id: contract.answerability_plan_id,
+    contract_hash: contract.contract_hash,
+    expected_claim: contract.expected_claim,
+    fallback_claim: contract.fallback_claim,
+    main_question: contract.main_question,
+    max_claim_strength: contract.max_claim_strength,
+    required_evidence_categories: contract.required_evidence_categories,
+    source_candidate_id: contract.source_candidate_id,
+    source_research_slice_id: contract.source_research_slice_id,
+    source_research_slice_version: contract.source_research_slice_version,
+    status: contract.status,
+    topic_question_contract_id: contract.topic_question_contract_id,
+    version: contract.version,
+  });
+}
+
+export function hashN7AnswerabilityPlanAuthority(plan: TopicSelectionTopicQuestionAnswerabilityPlanRecord): string {
+  return canonicalHash({
+    answerability_verdict: plan.answerability_verdict,
+    baselines: plan.baselines,
+    datasets_or_resources: plan.datasets_or_resources,
+    evaluation_setting: plan.evaluation_setting,
+    metrics: plan.metrics,
+    required_evidence_refs: plan.required_evidence_refs,
+    topic_question_answerability_plan_id: plan.topic_question_answerability_plan_id,
+    topic_question_contract_id: plan.topic_question_contract_id,
+  });
+}
+
+export function hashN5DecisionAuthority(input: {
+  acceptedPayloadHash: string;
+  decisionRef: TopicSelectionFunctionalRef;
+  n4HandoffHash: string;
+  optionSetHash: string;
+  selectedOptionHash: string | null;
+}): string {
+  return canonicalHash({
+    accepted_selection_payload_hash: input.acceptedPayloadHash,
+    decision_ref: input.decisionRef,
+    n4_handoff_hash: input.n4HandoffHash,
+    option_set_hash: input.optionSetHash,
+    selected_option_hash: input.selectedOptionHash,
+  });
+}
+
+export function hashN5ResearchSliceAuthority(input: {
+  acceptedPayloadHash: string;
+  decisionHash: string;
+  n4HandoffHash: string;
+  optionSetHash: string;
+  researchSliceRef: TopicSelectionFunctionalRef;
+  selectedOptionHash: string;
+}): string {
+  return canonicalHash({
+    accepted_selection_payload_hash: input.acceptedPayloadHash,
+    decision_hash: input.decisionHash,
+    n4_handoff_hash: input.n4HandoffHash,
+    option_set_hash: input.optionSetHash,
+    research_slice_ref: input.researchSliceRef,
+    selected_option_hash: input.selectedOptionHash,
   });
 }
