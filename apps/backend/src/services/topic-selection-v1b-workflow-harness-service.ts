@@ -265,6 +265,21 @@ import {
   parseN10Payload,
   parseN11Payload,
 } from './topic-selection-v1b-harness-parsers.js';
+import {
+  blocker,
+  warning,
+  refsEqual,
+  nullableRefsEqual,
+  refArraysEqual,
+  stringArraysEqual,
+  refKey,
+  normalize,
+  versionFromId,
+  nodeAttemptRef,
+  firstDuplicate,
+  effectiveRunMode,
+  requiredModelLikeSlot,
+} from './topic-selection-v1b-harness-gate-utils.js';
 
 const ALLOWED_REQUEST_KEYS = new Set([
   'schema_version',
@@ -1077,7 +1092,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (value.runtime_audit_ref.ref_type !== 'artifact_ref') {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.runtime_audit_ref must be an artifact_ref for runtime_verified.`);
     }
-    if (!this.refsEqual(value.provenance_ref, value.runtime_audit_ref)) {
+    if (!refsEqual(value.provenance_ref, value.runtime_audit_ref)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.provenance_ref must match runtime_audit_ref for runtime_verified.`);
     }
     this.assertHash(value.runtime_audit_hash, `${fieldName}.runtime_audit_hash`);
@@ -1448,7 +1463,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return null;
     }
 
-    const requiredSlot = this.requiredModelLikeSlot(policy);
+    const requiredSlot = requiredModelLikeSlot(policy);
     if (!requiredSlot) {
       return {
         code: 'MISSING_INVOCATION_SLOT_POLICY',
@@ -1466,7 +1481,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return null;
     }
 
-    const runMode = this.effectiveRunMode(input.run_mode ?? null, input.execution_spec.execution_mode);
+    const runMode = effectiveRunMode(input.run_mode ?? null, input.execution_spec.execution_mode);
     const profileId = input.profile_id ?? requiredSlot.default_profile_id;
     return this.resolveSlotProfileAdmission(requiredSlot, {
       executionMode: input.execution_spec.execution_mode,
@@ -1688,24 +1703,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
       return null;
     }
-  }
-
-  private requiredModelLikeSlot(
-    policy: TopicSelectionV1bWorkflowHarnessNodePolicy,
-  ): TopicSelectionV1bWorkflowHarnessSemanticSupportSlotSpec | null {
-    return policy.semantic_support_slots.find((slot) => (
-      slot.required_for_progress && slot.allowed_effect === 'model_draft_for_gate'
-    )) ?? null;
-  }
-
-  private effectiveRunMode(
-    runMode: TopicSelectionAgentRunMode | null,
-    executionMode: TopicSelectionAgentExecutionMode,
-  ): TopicSelectionAgentRunMode {
-    if (runMode) {
-      return runMode;
-    }
-    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
   }
 
   private isRegistryExecutionMode(
@@ -2027,7 +2024,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
     const createdBy = input.created_by ?? 'system';
     const snapshotId = this.idFactory('v1b_intake_snapshot');
-    const snapshotVersion = this.versionFromId(snapshotId);
+    const snapshotVersion = versionFromId(snapshotId);
     const snapshotRef = buildRef('v1b_intake_snapshot', snapshotId, bundle.title_card_id, snapshotVersion);
     const snapshotAuthoritySeed = {
       bundle_ref: bundleRef,
@@ -2184,14 +2181,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const expectedSnapshotRef = this.snapshotRef(snapshot);
     const expectedSnapshotHash = this.hashSnapshotAuthority(snapshot);
-    if (!this.refsEqual(payload.value.intake_snapshot_ref, expectedSnapshotRef)
+    if (!refsEqual(payload.value.intake_snapshot_ref, expectedSnapshotRef)
       || payload.value.intake_snapshot_hash !== expectedSnapshotHash) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N2_INTAKE_SNAPSHOT_HASH_MISMATCH',
         message: 'N2 frozen intake snapshot ref/hash does not match persisted N1 authority.',
       });
     }
-    if (!this.refsEqual(payload.value.v1a_bundle_ref, snapshot.v1b_input_bundle_ref)
+    if (!refsEqual(payload.value.v1a_bundle_ref, snapshot.v1b_input_bundle_ref)
       || payload.value.v1a_bundle_hash !== this.hash(await this.runnerDependencies.needValidationRepository!.findV1aToV1bInputBundleById(snapshot.v1b_input_bundle_id))) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N2_V1A_BUNDLE_HASH_MISMATCH',
@@ -2222,7 +2219,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
 
     const profileId = this.idFactory('research_constraint_profile');
-    const profileVersion = this.versionFromId(profileId);
+    const profileVersion = versionFromId(profileId);
     const profileRef = buildRef('research_constraint_profile', profileId, snapshot.title_card_id, profileVersion);
     const authorityHash = this.hash({
       accepted_profile_payload_hash: acceptedPayloadHash,
@@ -2369,14 +2366,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const snapshotHash = this.hashSnapshotAuthority(snapshot);
     const profileHash = this.hashProfileAuthority(profile);
-    if (!this.refsEqual(payload.value.intake_snapshot_ref, this.snapshotRef(snapshot))
+    if (!refsEqual(payload.value.intake_snapshot_ref, this.snapshotRef(snapshot))
       || payload.value.intake_snapshot_hash !== snapshotHash) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N3_INTAKE_SNAPSHOT_HASH_MISMATCH',
         message: 'N3 frozen intake snapshot ref/hash does not match persisted N1 authority.',
       });
     }
-    if (!this.refsEqual(payload.value.constraint_profile_ref, this.profileRef(profile))
+    if (!refsEqual(payload.value.constraint_profile_ref, this.profileRef(profile))
       || payload.value.constraint_profile_hash !== profileHash) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N3_CONSTRAINT_PROFILE_HASH_MISMATCH',
@@ -2816,7 +2813,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
     const optionSetRef = this.optionSetRef(loaded.value.optionSet);
-    if (!this.refsEqual(payload.value.research_slice_option_set_ref, optionSetRef)) {
+    if (!refsEqual(payload.value.research_slice_option_set_ref, optionSetRef)) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N5_OPTION_SET_REF_MISMATCH',
         message: 'N5 frozen ResearchSliceOptionSet ref does not match the persisted option set.',
@@ -2926,7 +2923,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
     const sliceId = this.idFactory('research_slice');
-    const sliceVersion = this.versionFromId(sliceId);
+    const sliceVersion = versionFromId(sliceId);
     const sliceRef = buildRef('research_slice', sliceId, loaded.value.optionSet.title_card_id, sliceVersion);
     const researchSliceHash = hashN5ResearchSliceAuthority({
       acceptedPayloadHash,
@@ -3148,7 +3145,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         return this.persistAdmittedResult(input, hashContext, {
           authorityHash: null,
           authorityRef: null,
-          blockers: [this.blocker(validation.code, validation.message, input.frozen_input.source_refs)],
+          blockers: [blocker(validation.code, validation.message, input.frozen_input.source_refs)],
           errorCode: validation.code,
           failureClass: 'semantic_non_pass',
           gateStatus: 'blocked',
@@ -3158,7 +3155,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           routeDecision: 'loopback',
           routeTargetNodeId: loopbackPlan.value.routeTargetNodeId,
           sourceRef: payload.value.research_slice_ref,
-          targetRef: this.nodeAttemptRef(input),
+          targetRef: nodeAttemptRef(input),
           tracePhase: 'T-107 N6 topic question candidate runner',
           tracePayload: {
             blocked_candidate_context: validation.blockedCandidateContexts ?? [],
@@ -4388,7 +4385,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       !artifact.runtime_audit_ref
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
-      || !this.refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
+      || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
     ) {
       return this.earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support provenance must point to its audit artifact_ref.');
     }
@@ -4568,7 +4565,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       !artifact.runtime_audit_ref
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
-      || !this.refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
+      || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
     ) {
       return this.n7RuntimeAuditDrift('N7 runtime support provenance must point to its audit artifact_ref.');
     }
@@ -4632,7 +4629,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N7 frozen payload does not match the persisted N6-to-N7 handoff artifact.',
       };
     }
-    if (!this.refsEqual(payload.topic_question_candidate_set_ref, buildRef(
+    if (!refsEqual(payload.topic_question_candidate_set_ref, buildRef(
       'topic_question_candidate_set',
       loaded.candidateSet.topic_question_candidate_set_id,
       loaded.candidateSet.title_card_id,
@@ -4643,12 +4640,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
       };
     }
     const candidateHashByRef = new Map(loaded.candidates.map((candidate) => [
-      this.refKey(buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id)),
+      refKey(buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id)),
       hashN6CandidateAuthority(candidate),
     ]));
     for (const [index, candidateRef] of payload.admissible_candidate_refs.entries()) {
       const frozenHash = payload.admissible_candidate_hashes[index];
-      const currentHash = candidateHashByRef.get(this.refKey(candidateRef));
+      const currentHash = candidateHashByRef.get(refKey(candidateRef));
       if (!currentHash) {
         return {
           code: 'N7_ADMISSIBLE_CANDIDATE_NOT_FOUND',
@@ -4664,7 +4661,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const feedback = loaded.feedback;
     if (feedback) {
-      if (!this.refsEqual(feedback.topic_question_candidate_set_ref, payload.topic_question_candidate_set_ref)
+      if (!refsEqual(feedback.topic_question_candidate_set_ref, payload.topic_question_candidate_set_ref)
         || feedback.topic_question_candidate_set_hash !== payload.topic_question_candidate_set_hash) {
         return {
           code: 'N7_FEEDBACK_CANDIDATE_SET_MISMATCH',
@@ -4672,7 +4669,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         };
       }
       if (!payload.admissible_candidate_refs.some((candidateRef) =>
-        this.refsEqual(candidateRef, feedback.failed_candidate_ref))) {
+        refsEqual(candidateRef, feedback.failed_candidate_ref))) {
         return {
           code: 'N7_FEEDBACK_FAILED_CANDIDATE_NOT_IN_FROZEN_SET',
           message: 'N8 feedback failed_candidate_ref is not in the frozen admissible candidate set.',
@@ -4691,12 +4688,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
       && payload.generation_artifact_hash === handoffPayload.generation_artifact_hash
       && payload.candidate_gate_hash === handoffPayload.candidate_gate_hash
       && payload.candidate_grouping_hash === handoffPayload.candidate_grouping_hash
-      && this.refsEqual(payload.topic_question_candidate_set_ref, handoffPayload.topic_question_candidate_set_ref)
-      && this.refsEqual(payload.selected_research_slice_ref, handoffPayload.selected_research_slice_ref)
-      && this.refsEqual(payload.generation_artifact_ref, handoffPayload.generation_artifact_ref)
-      && this.nullableRefsEqual(payload.candidate_grouping_ref, handoffPayload.candidate_grouping_ref)
-      && this.refArraysEqual(payload.admissible_candidate_refs, handoffPayload.admissible_candidate_refs)
-      && this.stringArraysEqual(payload.admissible_candidate_hashes, handoffPayload.admissible_candidate_hashes);
+      && refsEqual(payload.topic_question_candidate_set_ref, handoffPayload.topic_question_candidate_set_ref)
+      && refsEqual(payload.selected_research_slice_ref, handoffPayload.selected_research_slice_ref)
+      && refsEqual(payload.generation_artifact_ref, handoffPayload.generation_artifact_ref)
+      && nullableRefsEqual(payload.candidate_grouping_ref, handoffPayload.candidate_grouping_ref)
+      && refArraysEqual(payload.admissible_candidate_refs, handoffPayload.admissible_candidate_refs)
+      && stringArraysEqual(payload.admissible_candidate_hashes, handoffPayload.admissible_candidate_hashes);
   }
 
   private chooseN7Candidate(
@@ -4725,7 +4722,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const failedSet = new Set(failedCandidateIds);
     const candidatesById = new Map(loaded.candidates.map((candidate) => [candidate.topic_question_candidate_id, candidate]));
     if (support.grouping) {
-      const groupingDuplicate = this.firstDuplicate(
+      const groupingDuplicate = firstDuplicate(
         support.grouping.payload.priority_order.map((candidateRef) => candidateRef.ref_id),
       );
       if (groupingDuplicate) {
@@ -4738,7 +4735,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }
     }
     const priorityOrder = this.n7PriorityOrder(payload, loaded, support);
-    const duplicate = this.firstDuplicate(priorityOrder);
+    const duplicate = firstDuplicate(priorityOrder);
     if (duplicate) {
       return {
         ok: false,
@@ -4846,9 +4843,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N7 failed-trial synthesis does not cover all failed candidate trials.',
       });
     }
-    const admissibleRefKeys = new Set(payload.admissible_candidate_refs.map((candidateRef) => this.refKey(candidateRef)));
+    const admissibleRefKeys = new Set(payload.admissible_candidate_refs.map((candidateRef) => refKey(candidateRef)));
     const unknownExhaustedRef = synthesis.payload.exhausted_candidate_refs
-      .find((candidateRef) => !admissibleRefKeys.has(this.refKey(candidateRef)));
+      .find((candidateRef) => !admissibleRefKeys.has(refKey(candidateRef)));
     const knownAffectedRefKeys = new Set(uniqueRefs([
       ...input.frozen_input.source_refs,
       payload.topic_question_candidate_set_ref,
@@ -4857,9 +4854,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       payload.generation_artifact_ref,
       payload.candidate_grouping_ref,
       payload.input_mode === 'feedback_from_n8' ? payload.n8_feedback_ref : null,
-    ]).map((ref) => this.refKey(ref)));
+    ]).map((ref) => refKey(ref)));
     const unknownAffectedRef = synthesis.payload.affected_refs
-      .find((affectedRef) => !knownAffectedRefKeys.has(this.refKey(affectedRef)));
+      .find((affectedRef) => !knownAffectedRefKeys.has(refKey(affectedRef)));
     if (unknownExhaustedRef || unknownAffectedRef) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N7_FAILED_TRIAL_SYNTHESIS_UNKNOWN_REF',
@@ -4881,7 +4878,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       n8_feedback_hash: payload.input_mode === 'feedback_from_n8' ? payload.n8_feedback_hash : null,
       synthesis_hash: synthesis.payloadHash,
     });
-    const blocker = this.blocker(choice.code, choice.message, [
+    const gateBlocker = blocker(choice.code, choice.message, [
       candidateSetRef,
       ...payload.admissible_candidate_refs,
       synthesis.artifact.normalized_output_ref!,
@@ -4890,7 +4887,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       additionalAuthorityRefs: [],
       authorityHash: trialLedgerHash,
       authorityRef: decisionRef,
-      blockers: [blocker],
+      blockers: [gateBlocker],
       errorCode: choice.code,
       errorMessage: choice.message,
       failureClass: 'semantic_non_pass',
@@ -4918,7 +4915,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       },
       transitionKey: 'topic-selection.v1b.harness.n7-topic-question-contract-loopback',
       warnings: [
-        this.warning(
+        warning(
           'N7_FAILED_TRIAL_SYNTHESIS_CARRIED_TO_N6',
           'N7 preserved failed-candidate synthesis for N6 regeneration.',
           [synthesis.artifact.normalized_output_ref!],
@@ -5562,12 +5559,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const decisionHash = hashN9DispositionAuthority(decision);
     const warnings = this.n9Warnings(decision, loaded.value);
     if (advanceBlocker) {
-      const blocker = this.blocker(advanceBlocker.code, advanceBlocker.message, [assessmentRef, memoRef]);
+      const gateBlocker = blocker(advanceBlocker.code, advanceBlocker.message, [assessmentRef, memoRef]);
       return this.persistAdmittedResult(input, hashContext, {
         acceptedRiskRefs: decision.accepted_risk_refs,
         authorityHash: decisionHash,
         authorityRef: decisionRef,
-        blockers: [blocker],
+        blockers: [gateBlocker],
         errorCode: advanceBlocker.code,
         errorMessage: advanceBlocker.message,
         failureClass: 'terminal_no_advance',
@@ -5720,13 +5717,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
         existingBundle.title_card_id,
       );
       const v1cInputBundleHash = hashN10V1cInputBundleAuthority(existingBundle);
-      const warning = this.warning('N10_PACKAGE_EXISTING_RETURNED', 'N10 returned the existing package for this disposition decision.', [packageRef]);
+      const gateWarning = warning('N10_PACKAGE_EXISTING_RETURNED', 'N10 returned the existing package for this disposition decision.', [packageRef]);
       const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
         authorityHash: packageHash,
         blockerCodes: [],
         gateStatus: 'admitted_with_warnings',
         routeDecision: 'invoke_next',
-        warningCodes: [warning.code],
+        warningCodes: [gateWarning.code],
       });
       const handoffPayload: TopicSelectionV1bWorkflowHarnessHandoffPayload = {
         draft_topic_package_ref: packageRef,
@@ -5749,7 +5746,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           n9_handoff_hash: payload.value.n9_handoff_hash,
           value_disposition_hash: payload.value.value_disposition_hash,
         }),
-        warningCodes: [warning.code],
+        warningCodes: [gateWarning.code],
       });
       return this.persistAdmittedResult(input, hashContext, {
         acceptedRiskRefs: existing.accepted_risk_refs,
@@ -5765,7 +5762,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         targetRef: packageRef,
         tracePhase: 'T-107 v1b N10 existing draft topic package',
         transitionKey: 'topic-selection.v1b.harness.n10-draft-topic-package-existing',
-        warnings: [warning],
+        warnings: [gateWarning],
       }, {
         writeAuthority: async () => {},
       });
@@ -5928,10 +5925,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const packageHash = hashN10PackageAuthority(loaded.value.packageRecord);
     const warnings = uniqueIssues([
       ...(loaded.value.bundle.accepted_risk_refs.length > 0
-        ? [this.warning('N11_RESIDUAL_RISK_CARRIED_FORWARD', 'N11 v1c input bundle carries residual risk refs.', loaded.value.bundle.accepted_risk_refs)]
+        ? [warning('N11_RESIDUAL_RISK_CARRIED_FORWARD', 'N11 v1c input bundle carries residual risk refs.', loaded.value.bundle.accepted_risk_refs)]
         : []),
       ...(loaded.value.bundle.package_snapshot.key_risks.length > 0
-        ? [this.warning('N11_PACKAGE_RISKS_CARRIED_FORWARD', 'N11 v1c input bundle carries package key risks forward.', [loaded.value.bundle.topic_value_assessment_ref])]
+        ? [warning('N11_PACKAGE_RISKS_CARRIED_FORWARD', 'N11 v1c input bundle carries package key risks forward.', [loaded.value.bundle.topic_value_assessment_ref])]
         : []),
     ]);
     const gateStatus: TopicSelectionV1bWorkflowHarnessGateStatus =
@@ -6129,15 +6126,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
       && payload.selected_research_slice_hash === handoffPayload.selected_research_slice_hash
       && payload.n8_debate_admission_hash === handoffPayload.n8_debate_admission_hash
       && payload.candidate_grouping_hash === handoffPayload.candidate_grouping_hash
-      && this.refsEqual(payload.topic_question_ref, handoffPayload.topic_question_ref)
-      && this.refsEqual(payload.topic_question_contract_ref, handoffPayload.topic_question_contract_ref)
-      && this.refsEqual(payload.answerability_plan_ref, handoffPayload.answerability_plan_ref)
-      && this.refsEqual(payload.trial_ledger_ref, handoffPayload.trial_ledger_ref)
-      && this.refsEqual(payload.topic_question_candidate_set_ref, handoffPayload.topic_question_candidate_set_ref)
-      && this.refsEqual(payload.active_candidate_ref, handoffPayload.active_candidate_ref)
-      && this.refsEqual(payload.selected_research_slice_ref, handoffPayload.selected_research_slice_ref)
-      && this.refsEqual(payload.n8_debate_admission_ref, handoffPayload.n8_debate_admission_ref)
-      && this.nullableRefsEqual(payload.candidate_grouping_ref, handoffPayload.candidate_grouping_ref);
+      && refsEqual(payload.topic_question_ref, handoffPayload.topic_question_ref)
+      && refsEqual(payload.topic_question_contract_ref, handoffPayload.topic_question_contract_ref)
+      && refsEqual(payload.answerability_plan_ref, handoffPayload.answerability_plan_ref)
+      && refsEqual(payload.trial_ledger_ref, handoffPayload.trial_ledger_ref)
+      && refsEqual(payload.topic_question_candidate_set_ref, handoffPayload.topic_question_candidate_set_ref)
+      && refsEqual(payload.active_candidate_ref, handoffPayload.active_candidate_ref)
+      && refsEqual(payload.selected_research_slice_ref, handoffPayload.selected_research_slice_ref)
+      && refsEqual(payload.n8_debate_admission_ref, handoffPayload.n8_debate_admission_ref)
+      && nullableRefsEqual(payload.candidate_grouping_ref, handoffPayload.candidate_grouping_ref);
   }
 
   private async verifyN8RuntimeVerifiedDraftAuditArtifact(
@@ -6147,7 +6144,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       !artifact.runtime_audit_ref
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
-      || !this.refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
+      || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
     ) {
       return this.n8RuntimeAuditDrift('N8 runtime value draft provenance must point to its audit artifact_ref.');
     }
@@ -6454,7 +6451,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       gateKeys.length !== TOPIC_SELECTION_VALUE_GATE_KEYS.length
       || missingGate
-      || this.firstDuplicate(gateKeys)
+      || firstDuplicate(gateKeys)
       || draft.hard_gates.some((gate) => !this.isN8ValueGateResult(gate))
     ) {
       return {
@@ -6465,7 +6462,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       dimensionKeys.length !== TOPIC_SELECTION_VALUE_DIMENSIONS.length
       || missingDimension
-      || this.firstDuplicate(dimensionKeys)
+      || firstDuplicate(dimensionKeys)
       || draft.dimension_scores.some((score) => !this.isN8ValueDimensionScore(score))
     ) {
       return {
@@ -6480,16 +6477,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
       };
     }
     const missingAcceptedRisk = loaded.contract.accepted_risk_refs
-      .find((riskRef) => !draft.accepted_risk_refs.some((draftRiskRef) => this.refsEqual(riskRef, draftRiskRef)));
+      .find((riskRef) => !draft.accepted_risk_refs.some((draftRiskRef) => refsEqual(riskRef, draftRiskRef)));
     if (missingAcceptedRisk) {
       return {
         code: 'N8_VALUE_ASSESSMENT_DROPS_RISKS',
         message: 'N8 TopicValueAssessmentDraft dropped an accepted risk inherited from the TopicQuestionContract.',
       };
     }
-    const knownRefKeys = new Set(this.n8KnownRefs(loaded).map((ref) => this.refKey(ref)));
+    const knownRefKeys = new Set(this.n8KnownRefs(loaded).map((ref) => refKey(ref)));
     const unknownRef = this.n8DraftRefs(draft)
-      .find((ref) => !knownRefKeys.has(this.refKey(ref)));
+      .find((ref) => !knownRefKeys.has(refKey(ref)));
     if (unknownRef) {
       return {
         code: 'N8_UNKNOWN_VALUE_TRACE_REF',
@@ -6643,7 +6640,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       additionalAuthorityRefs: [],
       authorityHash: feedbackPayloadHash,
       authorityRef: feedbackRef,
-      blockers: triggers.map((trigger) => this.blocker(
+      blockers: triggers.map((trigger) => blocker(
         trigger.code,
         trigger.message,
         [payload.topic_question_contract_ref, payload.active_candidate_ref],
@@ -6743,7 +6740,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   ): TopicSelectionGateIssue[] {
     const warnings: TopicSelectionGateIssue[] = [];
     if (provisionalThresholdsInProduct) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'N8_DEBATE_THRESHOLDS_PROVISIONAL',
         'N8 debate-trigger thresholds are still provisional (DP-3.3) and governed a product run; calibrate against near-prod deep-test data.',
       ));
@@ -6756,19 +6753,19 @@ export class TopicSelectionV1bWorkflowHarnessService {
       if (!warningCode) {
         throw new AppError(500, 'INTERNAL_ERROR', `N8 has no after-debate warning code for trigger ${trigger.code}.`);
       }
-      warnings.push(this.warning(warningCode, trigger.message));
+      warnings.push(warning(warningCode, trigger.message));
     }
     if (draft.accepted_risk_refs.length > 0 || loaded.contract.accepted_risk_refs.length > 0) {
-      warnings.push(this.warning('N8_RESIDUAL_RISK_CARRIED_FORWARD', 'N8 value assessment carries accepted risk refs forward.', draft.accepted_risk_refs));
+      warnings.push(warning('N8_RESIDUAL_RISK_CARRIED_FORWARD', 'N8 value assessment carries accepted risk refs forward.', draft.accepted_risk_refs));
     }
     if (draft.hard_gates.some((gate) => gate.verdict !== 'pass') || !['ready', 'ready_with_accepted_risk'].includes(draft.readiness_status)) {
-      warnings.push(this.warning('N8_VALUE_GAP_CARRIED_FORWARD', 'N8 value assessment carries value gate gaps or non-ready readiness forward.'));
+      warnings.push(warning('N8_VALUE_GAP_CARRIED_FORWARD', 'N8 value assessment carries value gate gaps or non-ready readiness forward.'));
     }
     if (draft.risk_notes.length > 0 || draft.reasoning_memo.reviewer_risks.length > 0) {
-      warnings.push(this.warning('N8_VALUE_RISK_NOTES_CARRIED_FORWARD', 'N8 value assessment carries risk notes forward.', draft.reasoning_memo.cited_refs));
+      warnings.push(warning('N8_VALUE_RISK_NOTES_CARRIED_FORWARD', 'N8 value assessment carries risk notes forward.', draft.reasoning_memo.cited_refs));
     }
     if (draft.reasoning_memo.requires_critic_review || draft.reasoning_memo.critic_triggers.length > 0) {
-      warnings.push(this.warning('N8_CRITIC_REVIEW_TRIGGERED', 'N8 value memo requested critic review.', draft.reasoning_memo.cited_refs));
+      warnings.push(warning('N8_CRITIC_REVIEW_TRIGGERED', 'N8 value memo requested critic review.', draft.reasoning_memo.cited_refs));
     }
     return uniqueIssues(warnings);
   }
@@ -6869,8 +6866,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       handoffPayload.topic_value_assessment_hash !== payload.topic_value_assessment_hash
       || handoffPayload.topic_question_contract_hash !== payload.topic_question_contract_hash
-      || !this.refsEqual(handoffPayload.topic_value_assessment_ref, payload.topic_value_assessment_ref)
-      || !this.refsEqual(handoffPayload.topic_question_contract_ref, payload.topic_question_contract_ref)
+      || !refsEqual(handoffPayload.topic_value_assessment_ref, payload.topic_value_assessment_ref)
+      || !refsEqual(handoffPayload.topic_question_contract_ref, payload.topic_question_contract_ref)
     ) {
       return {
         code: 'N9_N8_HANDOFF_PAYLOAD_MISMATCH',
@@ -6987,13 +6984,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
   ): TopicSelectionGateIssue[] {
     const warnings: TopicSelectionGateIssue[] = [];
     if (decision.accepted_risk_refs.length > 0) {
-      warnings.push(this.warning('N9_ACCEPTED_RISK_CARRIED_FORWARD', 'N9 disposition carries accepted risk refs forward.', decision.accepted_risk_refs));
+      warnings.push(warning('N9_ACCEPTED_RISK_CARRIED_FORWARD', 'N9 disposition carries accepted risk refs forward.', decision.accepted_risk_refs));
     }
     if (loaded.assessment.hard_gates.some((gate) => gate.verdict === 'pass_with_risk')) {
-      warnings.push(this.warning('N9_ADVANCE_WITH_VALUE_GATE_RISK', 'N9 disposition advances with pass_with_risk value gates.'));
+      warnings.push(warning('N9_ADVANCE_WITH_VALUE_GATE_RISK', 'N9 disposition advances with pass_with_risk value gates.'));
     }
     if (loaded.assessment.risk_notes.length > 0 || loaded.memo.reviewer_risks.length > 0) {
-      warnings.push(this.warning('N9_VALUE_RISK_NOTES_CARRIED_FORWARD', 'N9 disposition carries value risk notes forward.', decision.accepted_risk_refs));
+      warnings.push(warning('N9_VALUE_RISK_NOTES_CARRIED_FORWARD', 'N9 disposition carries value risk notes forward.', decision.accepted_risk_refs));
     }
     return warnings;
   }
@@ -7031,8 +7028,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       handoffPayload.value_disposition_hash !== payload.value_disposition_hash
       || handoffPayload.topic_value_assessment_hash !== payload.topic_value_assessment_hash
       || handoffPayload.advance_disposition !== true
-      || !this.refsEqual(handoffPayload.value_disposition_ref, payload.value_disposition_ref)
-      || !this.refsEqual(handoffPayload.topic_value_assessment_ref, payload.topic_value_assessment_ref)
+      || !refsEqual(handoffPayload.value_disposition_ref, payload.value_disposition_ref)
+      || !refsEqual(handoffPayload.topic_value_assessment_ref, payload.topic_value_assessment_ref)
     ) {
       return {
         code: 'N10_N9_HANDOFF_PAYLOAD_MISMATCH',
@@ -7324,13 +7321,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private n10Warnings(pkg: TopicSelectionTopicPackageRecord): TopicSelectionGateIssue[] {
     const warnings: TopicSelectionGateIssue[] = [];
     if (pkg.accepted_risk_refs.length > 0) {
-      warnings.push(this.warning('N10_ACCEPTED_RISK_CARRIED_FORWARD', 'N10 package carries accepted risk refs forward.', pkg.accepted_risk_refs));
+      warnings.push(warning('N10_ACCEPTED_RISK_CARRIED_FORWARD', 'N10 package carries accepted risk refs forward.', pkg.accepted_risk_refs));
     }
     if (pkg.recheck_request_refs.length > 0) {
-      warnings.push(this.warning('N10_RECHECK_REFS_CARRIED_FORWARD', 'N10 package carries recheck request refs forward.', pkg.recheck_request_refs));
+      warnings.push(warning('N10_RECHECK_REFS_CARRIED_FORWARD', 'N10 package carries recheck request refs forward.', pkg.recheck_request_refs));
     }
     if (pkg.key_risks.length > 0) {
-      warnings.push(this.warning('N10_PACKAGE_RISKS_CARRIED_FORWARD', 'N10 package carries key risks forward.', pkg.topic_value_assessment_ref ? [pkg.topic_value_assessment_ref] : []));
+      warnings.push(warning('N10_PACKAGE_RISKS_CARRIED_FORWARD', 'N10 package carries key risks forward.', pkg.topic_value_assessment_ref ? [pkg.topic_value_assessment_ref] : []));
     }
     return warnings;
   }
@@ -7371,8 +7368,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       handoffPayload.draft_topic_package_hash !== payload.draft_topic_package_hash
       || handoffPayload.value_disposition_hash !== payload.value_disposition_hash
-      || !this.refsEqual(handoffPayload.draft_topic_package_ref, payload.draft_topic_package_ref)
-      || !this.refsEqual(handoffPayload.value_disposition_ref, payload.value_disposition_ref)
+      || !refsEqual(handoffPayload.draft_topic_package_ref, payload.draft_topic_package_ref)
+      || !refsEqual(handoffPayload.value_disposition_ref, payload.value_disposition_ref)
     ) {
       return {
         code: 'N11_N10_HANDOFF_PAYLOAD_MISMATCH',
@@ -7527,7 +7524,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const researchRecordId = this.idFactory('topic_record');
     const contractId = this.idFactory('topic_question_contract');
     const answerabilityPlanId = this.idFactory('topic_question_answerability_plan');
-    const contractVersion = this.versionFromId(contractId);
+    const contractVersion = versionFromId(contractId);
     const question: TopicSelectionTopicQuestionRecord = {
       topic_question_id: questionId,
       workspace_id: candidate.workspace_id ?? null,
@@ -7746,14 +7743,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
     workspaceId: string | null;
   }): TopicSelectionTopicQuestionAssumptionRefRecord[] {
     const now = this.now();
-    const selectedAssumptionKeys = new Set(input.frame.assumption_refs.map((ref) => this.refKey(ref)));
+    const selectedAssumptionKeys = new Set(input.frame.assumption_refs.map((ref) => refKey(ref)));
     const inheritedAssumptions = Array.isArray(input.frame.frame_payload.inherited_assumptions)
       ? input.frame.frame_payload.inherited_assumptions
       : [];
     const inheritedRefs = inheritedAssumptions
       .filter((value): value is TopicSelectionResearchSliceAssumptionRecord => isRecord(value)
         && typeof value.research_slice_assumption_id === 'string')
-      .filter((assumption) => selectedAssumptionKeys.has(this.refKey(
+      .filter((assumption) => selectedAssumptionKeys.has(refKey(
         buildRef('research_slice_assumption', assumption.research_slice_assumption_id, assumption.title_card_id),
       )))
       .map((assumption) => ({
@@ -7936,7 +7933,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const exhaustedCandidateHashes = synthesis.payload.exhausted_candidate_refs.map((candidateRef) => {
       const index = input.frozenPayload.admissible_candidate_refs.findIndex((ref) =>
-        this.refsEqual(ref, candidateRef));
+        refsEqual(ref, candidateRef));
       const candidateHash = input.frozenPayload.admissible_candidate_hashes[index];
       if (!candidateHash) {
         throw new AppError(500, 'INTERNAL_ERROR', 'N7 loopback projection cannot hash an unknown exhausted candidate ref.');
@@ -8114,28 +8111,28 @@ export class TopicSelectionV1bWorkflowHarnessService {
   ): TopicSelectionGateIssue[] {
     const warnings: TopicSelectionGateIssue[] = [];
     if (support.grouping) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'candidate_grouping_preserved',
         'N7 consumed frozen candidate grouping support before deterministic selection.',
         [support.grouping.artifact.normalized_output_ref!],
       ));
     }
     if (support.debateAdmission) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'n8_debate_level_selected',
         'N7 consumed frozen N8 debate-admission support.',
         [support.debateAdmission.artifact.normalized_output_ref!],
       ));
     }
     for (const trigger of choice.candidate.human_review_triggers) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         trigger,
         `N7 active candidate carries human review trigger ${trigger}.`,
         [buildRef('topic_question_candidate', choice.candidate.topic_question_candidate_id, choice.candidate.title_card_id)],
       ));
     }
     for (const risk of choice.candidate.risk_notes) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'N7_ACTIVE_CANDIDATE_RISK_NOTE',
         risk,
         [buildRef('topic_question_candidate', choice.candidate.topic_question_candidate_id, choice.candidate.title_card_id)],
@@ -8205,7 +8202,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     expectedBundleHash: string,
     expectedSourceRefsHash: string,
   ): { code: string; message: string } | null {
-    if (!this.refsEqual(payload.v1a_bundle_ref, bundleRef)) {
+    if (!refsEqual(payload.v1a_bundle_ref, bundleRef)) {
       return {
         code: 'N1_V1A_BUNDLE_REF_MISMATCH',
         message: 'N1 v1a_bundle_ref does not match the explicit persisted v1a bundle.',
@@ -8392,7 +8389,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N5 selected option belongs to a different ResearchSliceOptionSet.',
       };
     }
-    if (!this.refsEqual(accepted.selected_option_ref, this.optionRef(selectedOption))) {
+    if (!refsEqual(accepted.selected_option_ref, this.optionRef(selectedOption))) {
       return {
         code: 'N5_SELECTED_OPTION_REF_MISMATCH',
         message: 'N5 selected_option_ref does not match the persisted ResearchSliceOption.',
@@ -8449,21 +8446,21 @@ export class TopicSelectionV1bWorkflowHarnessService {
   ): TopicSelectionGateIssue[] {
     const warnings: TopicSelectionGateIssue[] = [];
     if (accepted.accepted_risk_refs.length > 0) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'SELECTION_RISK_ACCEPTED',
         'N5 selection carries accepted risk refs forward.',
         accepted.accepted_risk_refs,
       ));
     }
     if (selectedOption?.requires_human_review) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'SELECTION_HUMAN_REVIEW_CONTEXT_CARRIED_FORWARD',
         'N5 selected option carries human-review context into downstream generation.',
         [this.optionRef(selectedOption)],
       ));
     }
     if (accepted.decision === 'select' && loaded.options.some((option) => option.research_slice_option_id !== selectedOption?.research_slice_option_id)) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'DEFERRED_CANDIDATE_PRESERVED',
         'N5 leaves non-selected ResearchSlice options preserved for explicit loopback instead of mutating them.',
         [this.optionSetRef(loaded.optionSet)],
@@ -8794,25 +8791,25 @@ export class TopicSelectionV1bWorkflowHarnessService {
       loaded.selectionDecision.slice_selection_decision_id,
       loaded.selectionDecision.title_card_id,
     );
-    if (!this.refsEqual(payload.research_slice_ref, researchSliceRef)) {
+    if (!refsEqual(payload.research_slice_ref, researchSliceRef)) {
       return {
         code: 'N6_RESEARCH_SLICE_REF_MISMATCH',
         message: 'N6 frozen ResearchSlice ref does not match the persisted selected ResearchSlice.',
       };
     }
-    if (!this.refsEqual(payload.research_slice_option_set_ref, optionSetRef)) {
+    if (!refsEqual(payload.research_slice_option_set_ref, optionSetRef)) {
       return {
         code: 'N6_OPTION_SET_REF_MISMATCH',
         message: 'N6 frozen option-set ref does not match the persisted option set.',
       };
     }
-    if (!this.refsEqual(payload.selected_slice_option_ref, selectedOptionRef)) {
+    if (!refsEqual(payload.selected_slice_option_ref, selectedOptionRef)) {
       return {
         code: 'N6_SELECTED_OPTION_REF_MISMATCH',
         message: 'N6 frozen selected option ref does not match the persisted selected option.',
       };
     }
-    if (!this.refsEqual(payload.research_slice_selection_ref, selectionRef)) {
+    if (!refsEqual(payload.research_slice_selection_ref, selectionRef)) {
       return {
         code: 'N6_SELECTION_DECISION_REF_MISMATCH',
         message: 'N6 frozen selection decision ref does not match the persisted selection decision.',
@@ -8837,12 +8834,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N6 requires a selected ResearchSlice and selected source option set in the frozen N5 lineage.',
       };
     }
-    if (!this.refsEqual(loaded.researchSlice.source_option_set_ref, optionSetRef)
-      || !this.refsEqual(loaded.researchSlice.source_option_ref, selectedOptionRef)
+    if (!refsEqual(loaded.researchSlice.source_option_set_ref, optionSetRef)
+      || !refsEqual(loaded.researchSlice.source_option_ref, selectedOptionRef)
       || loaded.optionSet.selected_option_id !== loaded.selectedOption.research_slice_option_id
       || loaded.selectionDecision.selected_option_id !== loaded.selectedOption.research_slice_option_id
       || !loaded.selectionDecision.output_research_slice_ref
-      || !this.refsEqual(loaded.selectionDecision.output_research_slice_ref, researchSliceRef)) {
+      || !refsEqual(loaded.selectionDecision.output_research_slice_ref, researchSliceRef)) {
       return {
         code: 'N6_SELECTED_SLICE_LINEAGE_MISMATCH',
         message: 'N6 ResearchSlice, selected option, option set, and selection decision lineage do not match.',
@@ -8867,8 +8864,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N6 selected option hash does not match the frozen N5 selected-option authority.',
       };
     }
-    if (!this.refsEqual(loaded.researchSlice.research_constraint_profile_ref, payload.constraint_profile_ref)
-      || !this.refsEqual(loaded.researchSlice.readiness_assessment_ref, payload.intake_readiness_ref)) {
+    if (!refsEqual(loaded.researchSlice.research_constraint_profile_ref, payload.constraint_profile_ref)
+      || !refsEqual(loaded.researchSlice.readiness_assessment_ref, payload.intake_readiness_ref)) {
       return {
         code: 'N6_UPSTREAM_REF_MISMATCH',
         message: 'N6 ResearchSlice upstream profile/readiness refs do not match the frozen N5 handoff.',
@@ -8939,12 +8936,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
       && payload.research_slice_selection_hash === handoffPayload.research_slice_selection_hash
       && payload.research_slice_option_set_hash === handoffPayload.research_slice_option_set_hash
       && payload.selected_slice_option_hash === handoffPayload.selected_slice_option_hash
-      && this.refsEqual(payload.constraint_profile_ref, handoffPayload.constraint_profile_ref)
-      && this.refsEqual(payload.intake_readiness_ref, handoffPayload.intake_readiness_ref)
-      && this.refsEqual(payload.research_slice_ref, handoffPayload.research_slice_ref)
-      && this.refsEqual(payload.research_slice_selection_ref, handoffPayload.research_slice_selection_ref)
-      && this.refsEqual(payload.research_slice_option_set_ref, handoffPayload.research_slice_option_set_ref)
-      && this.refsEqual(payload.selected_slice_option_ref, handoffPayload.selected_slice_option_ref);
+      && refsEqual(payload.constraint_profile_ref, handoffPayload.constraint_profile_ref)
+      && refsEqual(payload.intake_readiness_ref, handoffPayload.intake_readiness_ref)
+      && refsEqual(payload.research_slice_ref, handoffPayload.research_slice_ref)
+      && refsEqual(payload.research_slice_selection_ref, handoffPayload.research_slice_selection_ref)
+      && refsEqual(payload.research_slice_option_set_ref, handoffPayload.research_slice_option_set_ref)
+      && refsEqual(payload.selected_slice_option_ref, handoffPayload.selected_slice_option_ref);
   }
 
   private async verifyN6RuntimeVerifiedDraftAuditArtifact(
@@ -8954,7 +8951,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       !artifact.runtime_audit_ref
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
-      || !this.refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
+      || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
     ) {
       return this.n6RuntimeAuditDrift('N6 runtime draft provenance must point to its audit artifact_ref.');
     }
@@ -9511,7 +9508,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       !artifact.runtime_audit_ref
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
-      || !this.refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
+      || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
     ) {
       return this.n6LoopbackTriageRuntimeAuditDrift(
         'N6 loopback triage runtime provenance must point to its audit artifact_ref.',
@@ -9586,11 +9583,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       frozenPayload.research_slice_option_set_ref,
       frozenPayload.selected_slice_option_ref,
     ]);
-    const allowedLineageRefKeys = new Set(allowedLineageRefs.map((ref) => this.refKey(ref)));
+    const allowedLineageRefKeys = new Set(allowedLineageRefs.map((ref) => refKey(ref)));
     const outsideLineageRef = payload.affected_refs
-      .find((affectedRef) => !allowedLineageRefKeys.has(this.refKey(affectedRef)));
+      .find((affectedRef) => !allowedLineageRefKeys.has(refKey(affectedRef)));
     const includesSelectedSlice = payload.affected_refs
-      .some((affectedRef) => this.refsEqual(affectedRef, frozenPayload.research_slice_ref));
+      .some((affectedRef) => refsEqual(affectedRef, frozenPayload.research_slice_ref));
     if (outsideLineageRef || !includesSelectedSlice) {
       return {
         ok: false,
@@ -9627,7 +9624,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return [];
     }
     return [
-      this.warning(
+      warning(
         'N6_DEBATE_ESCALATION_RECOMMENDED',
         'N6 loopback triage recommends debate escalation before retrying candidate generation.',
         plan.affectedRefs,
@@ -9765,7 +9762,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         routeDecision: 'blocked',
       };
     }
-    const duplicateKey = this.firstDuplicate(draft.candidates.map((candidate) => candidate.candidate_key));
+    const duplicateKey = firstDuplicate(draft.candidates.map((candidate) => candidate.candidate_key));
     if (duplicateKey) {
       return {
         ok: false,
@@ -9889,7 +9886,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N6 deterministic gate found no admissible TopicQuestion candidates.',
         routeDecision: 'loopback',
         warnings: [
-          this.warning(
+          warning(
             'N6_BLOCKED_CANDIDATES_PRESERVED_FOR_LOOPBACK',
             'N6 preserved compact blocked-candidate context for loopback routing.',
             [payload.research_slice_ref],
@@ -9914,11 +9911,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ...(candidates.some((candidate) => (candidate.confidence ?? 1) < 0.6) ? ['LOW_CONFIDENCE_CANDIDATE_PRESENT'] : []),
     ]);
     const warnings = qualityFlags.map((flag) =>
-      this.warning(flag, `N6 TopicQuestion candidate generation emitted ${flag}.`, [payload.research_slice_ref]),
+      warning(flag, `N6 TopicQuestion candidate generation emitted ${flag}.`, [payload.research_slice_ref]),
     );
     if (input.decisionMemory) {
       for (const dedup of computeDecisionMemoryDedupWarnings(input.decisionMemory.packet, candidates)) {
-        warnings.push(this.warning(dedup.code, dedup.message, dedup.refs));
+        warnings.push(warning(dedup.code, dedup.message, dedup.refs));
       }
     }
     const candidateSet: TopicSelectionTopicQuestionCandidateSetRecord = {
@@ -9993,13 +9990,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ...assumptionRefs,
     ]);
     return {
-      assumptionRefKeys: new Set(assumptionRefs.map((ref) => this.refKey(ref))),
-      boundaryRefKeys: new Set(boundaryRefs.map((ref) => this.refKey(ref))),
+      assumptionRefKeys: new Set(assumptionRefs.map((ref) => refKey(ref))),
+      boundaryRefKeys: new Set(boundaryRefs.map((ref) => refKey(ref))),
       claimCeiling: loaded.researchSlice.claim_ceiling,
-      evidenceRefKeys: new Set(evidenceRefs.map((ref) => this.refKey(ref))),
-      sourceRefKeys: new Set(sourceRefs.map((ref) => this.refKey(ref))),
+      evidenceRefKeys: new Set(evidenceRefs.map((ref) => refKey(ref))),
+      sourceRefKeys: new Set(sourceRefs.map((ref) => refKey(ref))),
       targetCommunity: loaded.researchSlice.target_community,
-      validatedNeedRefKey: this.refKey(loaded.researchSlice.validated_need_ref),
+      validatedNeedRefKey: refKey(loaded.researchSlice.validated_need_ref),
     };
   }
 
@@ -10013,14 +10010,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N6 QuestionFrame target community drifts from the frozen selected ResearchSlice.',
       };
     }
-    const unknownEvidence = draft.question_frame.evidence_refs.find((ref) => !context.evidenceRefKeys.has(this.refKey(ref)));
+    const unknownEvidence = draft.question_frame.evidence_refs.find((ref) => !context.evidenceRefKeys.has(refKey(ref)));
     if (unknownEvidence) {
       return {
         code: 'N6_UNKNOWN_EVIDENCE_REF',
         message: `N6 QuestionFrame cites unknown evidence ref ${unknownEvidence.ref_id}.`,
       };
     }
-    const unknownAssumption = draft.question_frame.assumption_refs.find((ref) => !context.assumptionRefKeys.has(this.refKey(ref)));
+    const unknownAssumption = draft.question_frame.assumption_refs.find((ref) => !context.assumptionRefKeys.has(refKey(ref)));
     if (unknownAssumption) {
       return {
         code: 'N6_UNKNOWN_ASSUMPTION_REF',
@@ -10037,7 +10034,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   ): { code: string; message: string } | null {
     const ordinal = index + 1;
     if (candidate.source_validated_need_refs.length === 0
-      || candidate.source_validated_need_refs.some((ref) => this.refKey(ref) !== context.validatedNeedRefKey)) {
+      || candidate.source_validated_need_refs.some((ref) => refKey(ref) !== context.validatedNeedRefKey)) {
       return {
         code: 'N6_VALIDATED_NEED_REF_MISMATCH',
         message: `N6 TopicQuestion candidate ${ordinal} must inherit only the frozen selected ResearchSlice ValidatedNeed ref.`,
@@ -10046,7 +10043,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const unknownBoundary = [
       ...candidate.boundary_check.preserved_boundary_refs,
       ...candidate.boundary_check.excluded_boundary_refs,
-    ].find((ref) => !context.boundaryRefKeys.has(this.refKey(ref)));
+    ].find((ref) => !context.boundaryRefKeys.has(refKey(ref)));
     if (unknownBoundary) {
       return {
         code: 'N6_UNKNOWN_BOUNDARY_REF',
@@ -10054,7 +10051,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       };
     }
     const unknownEvidence = this.n6CandidateEvidenceRefs(candidate)
-      .find((ref) => !context.evidenceRefKeys.has(this.refKey(ref)));
+      .find((ref) => !context.evidenceRefKeys.has(refKey(ref)));
     if (unknownEvidence) {
       return {
         code: 'N6_UNKNOWN_EVIDENCE_REF',
@@ -10063,7 +10060,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const unknownSource = candidate.falsification_conditions
       .flatMap((condition) => condition.trigger_source_refs)
-      .find((ref) => !context.sourceRefKeys.has(this.refKey(ref)));
+      .find((ref) => !context.sourceRefKeys.has(refKey(ref)));
     if (unknownSource) {
       return {
         code: 'N6_UNKNOWN_SOURCE_REF',
@@ -10175,17 +10172,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       )
       || condition.related_contract_fields.length === 0
       || condition.expected_action.trim().length === 0;
-  }
-
-  private firstDuplicate(values: string[]): string | null {
-    const seen = new Set<string>();
-    for (const value of values) {
-      if (seen.has(value)) {
-        return value;
-      }
-      seen.add(value);
-    }
-    return null;
   }
 
   private isN6QuestionFrameDraft(value: unknown): boolean {
@@ -10497,7 +10483,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (
       !artifact.runtime_audit_ref
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
-      || !this.refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
+      || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
     ) {
       return this.n4RuntimeAuditDrift('N4 runtime research-slice draft provenance must point to its audit artifact_ref.');
     }
@@ -10714,21 +10700,21 @@ export class TopicSelectionV1bWorkflowHarnessService {
       snapshotHash: string;
     },
   ): { code: string; message: string } | null {
-    if (!this.refsEqual(payload.intake_snapshot_ref, this.snapshotRef(snapshot))
+    if (!refsEqual(payload.intake_snapshot_ref, this.snapshotRef(snapshot))
       || payload.intake_snapshot_hash !== hashes.snapshotHash) {
       return {
         code: 'N4_INTAKE_SNAPSHOT_HASH_MISMATCH',
         message: 'N4 frozen intake snapshot ref/hash does not match persisted N1 authority.',
       };
     }
-    if (!this.refsEqual(payload.constraint_profile_ref, this.profileRef(profile))
+    if (!refsEqual(payload.constraint_profile_ref, this.profileRef(profile))
       || payload.constraint_profile_hash !== hashes.profileHash) {
       return {
         code: 'N4_CONSTRAINT_PROFILE_HASH_MISMATCH',
         message: 'N4 frozen constraint profile ref/hash does not match persisted N2 authority.',
       };
     }
-    if (!this.refsEqual(payload.intake_readiness_ref, this.readinessRef(readiness))
+    if (!refsEqual(payload.intake_readiness_ref, this.readinessRef(readiness))
       || payload.intake_readiness_hash !== hashes.readinessHash) {
       return {
         code: 'N4_INTAKE_READINESS_HASH_MISMATCH',
@@ -10932,27 +10918,27 @@ export class TopicSelectionV1bWorkflowHarnessService {
       };
     }
     if (input.draft.missing_option_types.length > 0) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'MISSING_OPTION_TYPE_CARRIED_FORWARD',
         'N4 ResearchSliceOptionSetDraft carries missing option type notes for N5.',
       ));
       qualityFlags.push('MISSING_OPTION_TYPE_CARRIED_FORWARD');
     }
     if (input.draft.unresolved_disagreements.length > 0) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'UNRESOLVED_OPTION_DISAGREEMENT_CARRIED_FORWARD',
         'N4 ResearchSliceOptionSetDraft carries unresolved disagreements for N5.',
       ));
       qualityFlags.push('UNRESOLVED_OPTION_DISAGREEMENT_CARRIED_FORWARD');
     }
     if (highRiskOptionCount > 0) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'HIGH_RISK_OPTION_PRESENT',
         'N4 generated at least one high-risk ResearchSlice option.',
       ));
     }
     if (options.some((option) => option.requires_human_review)) {
-      warnings.push(this.warning(
+      warnings.push(warning(
         'HUMAN_REVIEW_REQUIRED',
         'N4 generated ResearchSlice options that require downstream review before selection.',
       ));
@@ -10977,7 +10963,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     index: number,
   ): { ok: false; code: string; message: string } | null {
     const ordinal = index + 1;
-    if (draft.source_validated_need_refs.every((ref) => !this.refsEqual(ref, planningInput.validated_need_ref))) {
+    if (draft.source_validated_need_refs.every((ref) => !refsEqual(ref, planningInput.validated_need_ref))) {
       return {
         ok: false,
         code: 'N4_VALIDATED_NEED_REF_MISSING',
@@ -11072,7 +11058,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       buildRef('accepted_risk', risk.accepted_risk_id, risk.title_card_id ?? snapshot.title_card_id)
     );
     const warnings = acceptedRiskRefs.length > 0
-      ? [this.warning('ACCEPTED_RISK_CARRIED_FORWARD', 'v1b intake carries active accepted risk refs.', acceptedRiskRefs)]
+      ? [warning('ACCEPTED_RISK_CARRIED_FORWARD', 'v1b intake carries active accepted risk refs.', acceptedRiskRefs)]
       : [];
     return {
       acceptedRiskRefs,
@@ -11109,7 +11095,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const issues: TopicSelectionGateIssue[] = [];
     const { bundle, validatedNeed, needCandidate, supportPacket, adjudication, humanDecision, traceRefResolution } = input;
     if (!needCandidate) {
-      issues.push(this.blocker('SOURCE_NEED_CANDIDATE_NOT_FOUND', 'v1b intake requires the source NeedCandidate.', [bundle.source_need_candidate_ref]));
+      issues.push(blocker('SOURCE_NEED_CANDIDATE_NOT_FOUND', 'v1b intake requires the source NeedCandidate.', [bundle.source_need_candidate_ref]));
     } else {
       this.pushRefMismatchIssue(issues, 'SOURCE_NEED_CANDIDATE_REF_MISMATCH', bundle.source_need_candidate_ref, buildRef('need_candidate', needCandidate.need_candidate_id, needCandidate.title_card_id, needCandidate.candidate_version));
       this.pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, needCandidate.evidence_map_ref);
@@ -11118,7 +11104,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       this.pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_LITERATURE_SNAPSHOT_REF_MISMATCH', bundle.literature_snapshot_ref, needCandidate.literature_snapshot_ref);
     }
     if (!validatedNeed) {
-      issues.push(this.blocker('VALIDATED_NEED_NOT_FOUND', 'v1b intake requires a persisted ValidatedNeed.', [bundle.validated_need_ref]));
+      issues.push(blocker('VALIDATED_NEED_NOT_FOUND', 'v1b intake requires a persisted ValidatedNeed.', [bundle.validated_need_ref]));
     } else {
       this.pushRefMismatchIssue(issues, 'VALIDATED_NEED_REF_MISMATCH', bundle.validated_need_ref, buildRef('validated_need', validatedNeed.validated_need_id, validatedNeed.title_card_id));
       this.pushRefMismatchIssue(issues, 'HUMAN_DECISION_REF_MISMATCH', bundle.human_decision_ref, validatedNeed.human_decision_ref);
@@ -11130,20 +11116,20 @@ export class TopicSelectionV1bWorkflowHarnessService {
       this.pushRefMismatchIssue(issues, 'LITERATURE_SNAPSHOT_REF_MISMATCH', bundle.literature_snapshot_ref, validatedNeed.literature_snapshot_ref);
     }
     if (!this.isHumanDecisionRef(bundle.human_decision_ref)) {
-      issues.push(this.blocker('HUMAN_DECISION_REF_TYPE_INVALID', 'v1b intake requires a human confirmed decision ref.', [bundle.human_decision_ref]));
+      issues.push(blocker('HUMAN_DECISION_REF_TYPE_INVALID', 'v1b intake requires a human confirmed decision ref.', [bundle.human_decision_ref]));
     } else if (!humanDecision) {
-      issues.push(this.blocker('HUMAN_DECISION_NOT_FOUND', 'v1b intake requires the persisted human confirmed decision.', [bundle.human_decision_ref]));
+      issues.push(blocker('HUMAN_DECISION_NOT_FOUND', 'v1b intake requires the persisted human confirmed decision.', [bundle.human_decision_ref]));
     } else {
       this.pushRefMismatchIssue(issues, 'HUMAN_DECISION_TARGET_MISMATCH', humanDecision.target_ref, bundle.validated_need_ref);
       if (humanDecision.decision_type !== 'confirm') {
-        issues.push(this.blocker('HUMAN_DECISION_CONFIRM_REQUIRED', 'v1b intake requires a confirming human decision.', [bundle.human_decision_ref]));
+        issues.push(blocker('HUMAN_DECISION_CONFIRM_REQUIRED', 'v1b intake requires a confirming human decision.', [bundle.human_decision_ref]));
       }
       if (!this.isHumanActor(humanDecision.actor.actor_type)) {
-        issues.push(this.blocker('HUMAN_DECISION_HUMAN_ACTOR_REQUIRED', 'v1b intake requires a human or hybrid decision actor.', [bundle.human_decision_ref]));
+        issues.push(blocker('HUMAN_DECISION_HUMAN_ACTOR_REQUIRED', 'v1b intake requires a human or hybrid decision actor.', [bundle.human_decision_ref]));
       }
     }
     if (!supportPacket) {
-      issues.push(this.blocker('SUPPORT_PACKET_NOT_FOUND', 'v1b intake requires the v1a validation support packet.', [bundle.support_packet_ref]));
+      issues.push(blocker('SUPPORT_PACKET_NOT_FOUND', 'v1b intake requires the v1a validation support packet.', [bundle.support_packet_ref]));
     } else {
       this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_REF_MISMATCH', bundle.support_packet_ref, buildRef('validation_decision_support_packet', supportPacket.validation_support_packet_id, supportPacket.title_card_id));
       this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, supportPacket.evidence_map_ref);
@@ -11152,39 +11138,39 @@ export class TopicSelectionV1bWorkflowHarnessService {
       this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_LITERATURE_SNAPSHOT_REF_MISMATCH', bundle.literature_snapshot_ref, supportPacket.literature_snapshot_ref);
     }
     if (!adjudication) {
-      issues.push(this.blocker('ADJUDICATION_RESULT_NOT_FOUND', 'v1b intake requires the v1a adjudication result.', [bundle.adjudication_result_ref]));
+      issues.push(blocker('ADJUDICATION_RESULT_NOT_FOUND', 'v1b intake requires the v1a adjudication result.', [bundle.adjudication_result_ref]));
     } else {
       this.pushRefMismatchIssue(issues, 'ADJUDICATION_RESULT_REF_MISMATCH', bundle.adjudication_result_ref, buildRef('validate_need_adjudication_result', adjudication.adjudication_result_id, adjudication.title_card_id));
       if (adjudication.final_decision !== 'validate') {
-        issues.push(this.blocker('ADJUDICATION_NOT_VALIDATED', 'v1b only accepts validated need adjudications.', [bundle.adjudication_result_ref]));
+        issues.push(blocker('ADJUDICATION_NOT_VALIDATED', 'v1b only accepts validated need adjudications.', [bundle.adjudication_result_ref]));
       }
       if (adjudication.output_validated_need_id !== bundle.validated_need_id) {
-        issues.push(this.blocker('ADJUDICATION_OUTPUT_MISMATCH', 'Adjudication output does not match the bundle ValidatedNeed.', [bundle.adjudication_result_ref, bundle.validated_need_ref]));
+        issues.push(blocker('ADJUDICATION_OUTPUT_MISMATCH', 'Adjudication output does not match the bundle ValidatedNeed.', [bundle.adjudication_result_ref, bundle.validated_need_ref]));
       }
     }
     if (!input.evidenceMapExists) {
-      issues.push(this.blocker('EVIDENCE_MAP_NOT_FOUND', 'v1b intake requires a traceable EvidenceMap.', [bundle.evidence_map_ref]));
+      issues.push(blocker('EVIDENCE_MAP_NOT_FOUND', 'v1b intake requires a traceable EvidenceMap.', [bundle.evidence_map_ref]));
     }
     if (input.evidenceMapFreshnessStatus && input.evidenceMapFreshnessStatus !== 'current') {
-      issues.push(this.blocker('EVIDENCE_MAP_CURRENT_REQUIRED', 'v1b intake requires a current EvidenceMap.', [bundle.evidence_map_ref]));
+      issues.push(blocker('EVIDENCE_MAP_CURRENT_REQUIRED', 'v1b intake requires a current EvidenceMap.', [bundle.evidence_map_ref]));
     }
     if (!input.searchRunExists) {
-      issues.push(this.blocker('SEARCH_RUN_NOT_FOUND', 'v1b intake requires a traceable SearchRun.', [bundle.search_run_ref]));
+      issues.push(blocker('SEARCH_RUN_NOT_FOUND', 'v1b intake requires a traceable SearchRun.', [bundle.search_run_ref]));
     }
     if (!input.searchPlanExists) {
-      issues.push(this.blocker('SEARCH_PLAN_NOT_FOUND', 'v1b intake requires a traceable SearchPlan.', [bundle.search_plan_ref]));
+      issues.push(blocker('SEARCH_PLAN_NOT_FOUND', 'v1b intake requires a traceable SearchPlan.', [bundle.search_plan_ref]));
     }
     if (!input.literatureSnapshotExists) {
-      issues.push(this.blocker('LITERATURE_SNAPSHOT_NOT_FOUND', 'v1b intake requires a traceable literature resource pool snapshot.', [bundle.literature_snapshot_ref]));
+      issues.push(blocker('LITERATURE_SNAPSHOT_NOT_FOUND', 'v1b intake requires a traceable literature resource pool snapshot.', [bundle.literature_snapshot_ref]));
     }
     if (bundle.trace_refs.length === 0) {
-      issues.push(this.blocker('TRACE_REFS_REQUIRED', 'v1b intake requires inherited v1a trace refs.', [bundle.validated_need_ref]));
+      issues.push(blocker('TRACE_REFS_REQUIRED', 'v1b intake requires inherited v1a trace refs.', [bundle.validated_need_ref]));
     }
     if (traceRefResolution.invalid_trace_refs.length > 0) {
-      issues.push(this.blocker('TRACE_REF_TYPE_INVALID', 'v1b intake trace refs must reference trace snapshots.', traceRefResolution.invalid_trace_refs));
+      issues.push(blocker('TRACE_REF_TYPE_INVALID', 'v1b intake trace refs must reference trace snapshots.', traceRefResolution.invalid_trace_refs));
     }
     if (traceRefResolution.missing_trace_refs.length > 0) {
-      issues.push(this.blocker('TRACE_REF_NOT_FOUND', 'v1b intake requires persisted inherited trace snapshots.', traceRefResolution.missing_trace_refs));
+      issues.push(blocker('TRACE_REF_NOT_FOUND', 'v1b intake requires persisted inherited trace snapshots.', traceRefResolution.missing_trace_refs));
     }
     return issues;
   }
@@ -11276,10 +11262,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ...risk.affected_object_refs,
     ]);
     return coverageRefs.some((ref) =>
-      this.refsEqual(ref, recheckRef)
-      || this.refsEqual(ref, recheck.target_search_plan_ref)
-      || this.refsEqual(ref, snapshot.search_plan_ref)
-      || this.refsEqual(ref, snapshot.validated_need_ref)
+      refsEqual(ref, recheckRef)
+      || refsEqual(ref, recheck.target_search_plan_ref)
+      || refsEqual(ref, snapshot.search_plan_ref)
+      || refsEqual(ref, snapshot.validated_need_ref)
     );
   }
 
@@ -11312,13 +11298,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
   ): TopicSelectionGateIssue[] {
     const blockers: TopicSelectionGateIssue[] = [];
     if (snapshot.trace_status !== 'passed' || staleRefCodes.length > 0) {
-      blockers.push(this.blocker('STALE_OR_INVALID_V1A_TRACE', 'v1b intake has stale, missing, or mismatched upstream trace refs.', [
+      blockers.push(blocker('STALE_OR_INVALID_V1A_TRACE', 'v1b intake has stale, missing, or mismatched upstream trace refs.', [
         snapshot.v1b_input_bundle_ref,
         snapshot.validated_need_ref,
       ]));
     }
     if (uncoveredRechecks.length > 0) {
-      blockers.push(this.blocker(
+      blockers.push(blocker(
         'OPEN_HIGH_PRIORITY_RECHECK',
         'Open SearchPlan recheck must be resolved or covered by active accepted risk before slice planning.',
         uncoveredRechecks.map((request) =>
@@ -11327,12 +11313,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ));
     }
     if (parkReason) {
-      blockers.push(this.blocker('INTAKE_PARKED', 'v1b intake is explicitly parked before ResearchSlice planning.', [
+      blockers.push(blocker('INTAKE_PARKED', 'v1b intake is explicitly parked before ResearchSlice planning.', [
         snapshot.v1b_input_bundle_ref,
       ]));
     }
     if (missingConstraintCodes.length > 0) {
-      blockers.push(this.blocker(
+      blockers.push(blocker(
         'RESEARCH_CONSTRAINT_PROFILE_INCOMPLETE',
         'ResearchConstraintProfile is missing fields required to bound ResearchSlice planning.',
         [snapshot.validated_need_ref],
@@ -11521,12 +11507,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private async persistBlockedResult(
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
     hashContext: HashContext,
-    blocker: { blockerCode: string; message: string },
+    blockerInput: { blockerCode: string; message: string },
   ): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
     const createdBy = input.created_by ?? 'system';
-    const targetRef = this.nodeAttemptRef(input);
+    const targetRef = nodeAttemptRef(input);
     const sourceRef = input.frozen_input.source_refs[0] ?? targetRef;
-    const blockerIssue = this.blocker(blocker.blockerCode, blocker.message, input.frozen_input.source_refs);
+    const blockerIssue = blocker(blockerInput.blockerCode, blockerInput.message, input.frozen_input.source_refs);
     const inputSnapshot = await this.controlPlane.compileInputSnapshot({
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? null,
@@ -11558,7 +11544,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       workflow_run_id: input.workflow_run_id,
       policy_version_id: input.policy_version,
       blockers: [blockerIssue],
-      required_actions: [blocker.blockerCode],
+      required_actions: [blockerInput.blockerCode],
       created_by: createdBy,
     });
     const transition = await this.controlPlane.attemptTransition({
@@ -11587,7 +11573,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       object_refs: [targetRef, ...input.frozen_input.source_refs],
       transition_attempt_refs: [transitionRef],
       payload: {
-        blocker_codes: [blocker.blockerCode],
+        blocker_codes: [blockerInput.blockerCode],
         gate_status: 'blocked',
         node_id: input.node_id,
         node_replay_key: hashContext.nodeReplayKey,
@@ -11606,7 +11592,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       attempt_family_key: hashContext.attemptFamilyKey,
       node_replay_key: hashContext.nodeReplayKey,
     };
-    const hashes = this.resultHashes(input, hashContext, blocker.blockerCode);
+    const hashes = this.resultHashes(input, hashContext, blockerInput.blockerCode);
     const resultWithoutTraceArtifact: TopicSelectionV1bWorkflowHarnessRunResult = {
       schema_version: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_RESULT_SCHEMA_VERSION,
       node_id: input.node_id,
@@ -11626,8 +11612,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       trace_snapshot_ref: traceSnapshotRef,
       harness_trace_artifact_ref: null,
       replay_provenance: null,
-      error_code: blocker.blockerCode,
-      error_message: blocker.message,
+      error_code: blockerInput.blockerCode,
+      error_message: blockerInput.message,
     };
     const tracePayload = {
       payload_schema: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_TRACE_PAYLOAD_SCHEMA_VERSION,
@@ -11709,8 +11695,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     actual: TopicSelectionFunctionalRef,
     expected: TopicSelectionFunctionalRef,
   ): void {
-    if (!this.refsEqual(actual, expected)) {
-      issues.push(this.blocker(code, `${code} blocks v1b intake readiness.`, [actual, expected]));
+    if (!refsEqual(actual, expected)) {
+      issues.push(blocker(code, `${code} blocks v1b intake readiness.`, [actual, expected]));
     }
   }
 
@@ -11916,13 +11902,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
     draft: TopicSelectionResearchSliceOptionDraft,
     nonGoals: string[],
   ): boolean {
-    const excludedText = draft.excluded_boundaries.map((value) => this.normalize(value)).join(' ');
-    return nonGoals.every((nonGoal) => excludedText.includes(this.normalize(nonGoal)));
+    const excludedText = draft.excluded_boundaries.map((value) => normalize(value)).join(' ');
+    return nonGoals.every((nonGoal) => excludedText.includes(normalize(nonGoal)));
   }
 
   private explicitClaimCeilingViolations(claimCeiling: string, claims: string[]): string[] {
-    const claimText = claims.map((claim) => this.normalize(claim)).join(' ');
-    const ceilingText = this.normalize(claimCeiling);
+    const claimText = claims.map((claim) => normalize(claim)).join(' ');
+    const ceilingText = normalize(claimCeiling);
     const blockedPhrases = [
       ...ceilingText.matchAll(/\b(?:not|cannot|can't|do not|should not)\s+([^.;,]+)/g),
     ]
@@ -11932,91 +11918,18 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private aligns(left: string, right: string): boolean {
-    const normalizedLeft = this.normalize(left);
-    const normalizedRight = this.normalize(right);
+    const normalizedLeft = normalize(left);
+    const normalizedRight = normalize(right);
     return normalizedLeft === normalizedRight
       || normalizedLeft.includes(normalizedRight)
       || normalizedRight.includes(normalizedLeft);
   }
 
-  private normalize(value: string): string {
-    return value.trim().toLowerCase().replace(/\s+/g, ' ');
-  }
-
-  private refsEqual(left: TopicSelectionFunctionalRef, right: TopicSelectionFunctionalRef): boolean {
-    return left.ref_type === right.ref_type
-      && left.ref_id === right.ref_id
-      && (left.version_id ?? null) === (right.version_id ?? null)
-      && (left.title_card_id ?? null) === (right.title_card_id ?? null);
-  }
-
-  private nullableRefsEqual(
-    left: TopicSelectionFunctionalRef | null | undefined,
-    right: TopicSelectionFunctionalRef | null | undefined,
-  ): boolean {
-    if (!left && !right) {
-      return true;
-    }
-    if (!left || !right) {
-      return false;
-    }
-    return this.refsEqual(left, right);
-  }
-
-  private refArraysEqual(left: TopicSelectionFunctionalRef[], right: TopicSelectionFunctionalRef[]): boolean {
-    return left.length === right.length
-      && left.every((leftRef, index) => this.refsEqual(leftRef, right[index]!));
-  }
-
-  private stringArraysEqual(left: string[], right: string[]): boolean {
-    return left.length === right.length && left.every((value, index) => value === right[index]);
-  }
-
-  private refKey(ref: TopicSelectionFunctionalRef): string {
-    return [
-      ref.ref_type,
-      ref.ref_id,
-      ref.version_id ?? '',
-      ref.title_card_id ?? '',
-    ].join(':');
-  }
-
   // uniqueRefs / uniqueStrings / uniqueIssues relocated to topic-selection-v1b-harness-dedup-utils.ts
   // (Phase 5.1 split, D-T123-03) — imported above; call sites unchanged except dropping `this.`.
-
-  private versionFromId(id: string): string {
-    return `v_${id.split('_').at(-1) ?? '1'}`;
-  }
-
-  private nodeAttemptRef(input: TopicSelectionV1bWorkflowHarnessRunRequest): TopicSelectionFunctionalRef {
-    return buildRef('v1b_workflow_harness_node_attempt', input.node_attempt_id, input.title_card_id ?? null);
-  }
-
-  private blocker(
-    code: string,
-    message: string,
-    refs: TopicSelectionFunctionalRef[],
-  ): TopicSelectionGateIssue {
-    return {
-      code,
-      message,
-      severity: 'blocking',
-      refs,
-    };
-  }
-
-  private warning(
-    code: string,
-    message: string,
-    refs?: TopicSelectionFunctionalRef[],
-  ): TopicSelectionGateIssue {
-    return {
-      code,
-      message,
-      severity: 'warning',
-      refs,
-    };
-  }
+  // blocker / warning / refsEqual / nullableRefsEqual / refArraysEqual / stringArraysEqual / refKey /
+  // normalize / versionFromId / nodeAttemptRef relocated to topic-selection-v1b-harness-gate-utils.ts
+  // (W-12 slice 10) — imported above; behavior identical.
 
   private hash(value: unknown): string {
     // Single-source with the human-path services + frozen-input hashing: both
