@@ -230,8 +230,15 @@ import {
   uniqueRefs,
   uniqueStrings,
 } from './topic-selection-v1b-harness-dedup-utils.js';
+import {
+  HASH_PATTERN,
+  buildRef,
+  isRecord,
+  hasOnlyKeys,
+  isHash,
+  recordString,
+} from './topic-selection-v1b-harness-pure-utils.js';
 
-const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const ALLOWED_REQUEST_KEYS = new Set([
   'schema_version',
   'workspace_id',
@@ -675,7 +682,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private assertRequest(input: TopicSelectionV1bWorkflowHarnessRunRequest): void {
-    if (!this.isRecord(input)) {
+    if (!isRecord(input)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'TopicSelection v1b workflow harness request must be an object.');
     }
     const record = input as unknown as Record<string, unknown>;
@@ -725,7 +732,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     input.frozen_input.source_refs.forEach((sourceRef, index) => {
       this.assertFunctionalRef(sourceRef, `frozen_input.source_refs[${index}]`);
     });
-    if (!this.isRecord(input.frozen_input.payload)) {
+    if (!isRecord(input.frozen_input.payload)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'frozen_input.payload must be an object.');
     }
     const declaredHash = input.frozen_input.frozen_input_hash?.trim() || null;
@@ -733,7 +740,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'frozen_input_hash must be a sha256 hex hash.');
     }
     if (input.execution_spec) {
-      if (!this.isRecord(input.execution_spec)) {
+      if (!isRecord(input.execution_spec)) {
         throw new AppError(400, 'INVALID_PAYLOAD', 'execution_spec must be an object.');
       }
       const specRecord = input.execution_spec as unknown as Record<string, unknown>;
@@ -828,7 +835,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     fieldName: string,
     options: { allowLegacyRef?: boolean } = {},
   ): asserts value is TopicSelectionFunctionalRef {
-    if (!this.isRecord(value)) {
+    if (!isRecord(value)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} must be an object.`);
     }
     const allowLegacyRef = options.allowLegacyRef ?? true;
@@ -850,14 +857,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       allowLegacyRef
       && value.legacy_ref !== undefined
       && value.legacy_ref !== null
-      && !this.isRecord(value.legacy_ref)
+      && !isRecord(value.legacy_ref)
     ) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.legacy_ref must be an object or null.`);
     }
   }
 
   private assertActorRef(value: unknown, fieldName: string): void {
-    if (!this.isRecord(value)) {
+    if (!isRecord(value)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} must be an object.`);
     }
     const unknownKeys = Object.keys(value).filter((key) => key !== 'actor_type' && key !== 'actor_id');
@@ -876,7 +883,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     value: unknown,
     fieldName: string,
   ): asserts value is TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef {
-    if (!this.isRecord(value)) {
+    if (!isRecord(value)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} must be an object.`);
     }
     const allowedKeys = new Set([
@@ -1015,7 +1022,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private assertSourceHashMap(value: unknown, fieldName: string): void {
-    if (!this.isRecord(value)) {
+    if (!isRecord(value)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} must be an object.`);
     }
     for (const [key, hash] of Object.entries(value)) {
@@ -1047,10 +1054,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.provenance_ref must match runtime_audit_ref for runtime_verified.`);
     }
     this.assertHash(value.runtime_audit_hash, `${fieldName}.runtime_audit_hash`);
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
   }
 
   private hashContext(
@@ -1114,7 +1117,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       if (payload.node_replay_key !== nodeReplayKey) {
         continue;
       }
-      const traceArtifactRef = this.ref(
+      const traceArtifactRef = buildRef(
         'artifact_ref',
         artifact.artifact_ref_id,
         artifact.title_card_id ?? input.title_card_id ?? null,
@@ -1159,7 +1162,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           message: 'Replay trace references a handoff artifact that no longer exists.',
         };
       }
-      if (this.isRecord(handoffArtifact.payload) && this.isFunctionalRefArray(handoffArtifact.payload.required_refs)) {
+      if (isRecord(handoffArtifact.payload) && this.isFunctionalRefArray(handoffArtifact.payload.required_refs)) {
         refsToVerify.push(...handoffArtifact.payload.required_refs);
       }
     }
@@ -1998,7 +2001,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const createdBy = input.created_by ?? 'system';
     const snapshotId = this.idFactory('v1b_intake_snapshot');
     const snapshotVersion = this.versionFromId(snapshotId);
-    const snapshotRef = this.ref('v1b_intake_snapshot', snapshotId, bundle.title_card_id, snapshotVersion);
+    const snapshotRef = buildRef('v1b_intake_snapshot', snapshotId, bundle.title_card_id, snapshotVersion);
     const snapshotAuthoritySeed = {
       bundle_ref: bundleRef,
       evidence_map_freshness_status: evidenceMap?.freshness_status ?? null,
@@ -2135,7 +2138,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       input,
       'n2_constraint_profile_semantic_support',
       (value): value is TopicSelectionV1bAcceptedConstraintProfilePayload =>
-        this.isRecord(value) && this.acceptedConstraintProfilePayloadIsValid(value),
+        isRecord(value) && this.acceptedConstraintProfilePayloadIsValid(value),
     );
     if (!semanticSupport.ok) {
       return this.persistBlockedResult(input, hashContext, {
@@ -2193,7 +2196,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
     const profileId = this.idFactory('research_constraint_profile');
     const profileVersion = this.versionFromId(profileId);
-    const profileRef = this.ref('research_constraint_profile', profileId, snapshot.title_card_id, profileVersion);
+    const profileRef = buildRef('research_constraint_profile', profileId, snapshot.title_card_id, profileVersion);
     const authorityHash = this.hash({
       accepted_profile_payload_hash: acceptedPayloadHash,
       intake_snapshot_hash: this.hash({
@@ -2356,7 +2359,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
     const readiness = await this.computeReadiness(snapshot, profile);
     const readinessId = this.idFactory('v1b_intake_readiness');
-    const readinessRef = this.ref('v1b_intake_readiness_assessment', readinessId, snapshot.title_card_id);
+    const readinessRef = buildRef('v1b_intake_readiness_assessment', readinessId, snapshot.title_card_id);
     const authorityHash = this.hash({
       accepted_risk_refs: readiness.acceptedRiskRefs,
       blocker_codes: readiness.blockers.map((blocker) => blocker.code),
@@ -2454,11 +2457,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
           search_plan_ref: snapshot.search_plan_ref,
           literature_snapshot_ref: snapshot.literature_snapshot_ref,
           open_recheck_request_refs: readiness.openRechecks.map((request) =>
-            this.ref('search_plan_recheck_request', request.search_plan_recheck_request_id, request.title_card_id)
+            buildRef('search_plan_recheck_request', request.search_plan_recheck_request_id, request.title_card_id)
           ),
           accepted_risk_refs: readiness.acceptedRiskRefs,
           uncovered_recheck_request_refs: readiness.uncoveredOpenRechecks.map((request) =>
-            this.ref('search_plan_recheck_request', request.search_plan_recheck_request_id, request.title_card_id)
+            buildRef('search_plan_recheck_request', request.search_plan_recheck_request_id, request.title_card_id)
           ),
           stale_ref_codes: readiness.staleRefCodes,
           missing_constraint_codes: readiness.missingConstraintCodes,
@@ -2544,8 +2547,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
     const planRunId = this.idFactory('plan_research_slice_run');
     const optionSetId = this.idFactory('research_slice_option_set');
-    const optionSetRef = this.ref('research_slice_option_set', optionSetId, snapshot.title_card_id);
-    const planRunRef = this.ref('plan_research_slice_run', planRunId, snapshot.title_card_id);
+    const optionSetRef = buildRef('research_slice_option_set', optionSetId, snapshot.title_card_id);
+    const planRunRef = buildRef('plan_research_slice_run', planRunId, snapshot.title_card_id);
     const validation = this.validateAndBuildN4Options({
       draft: resolvedDraft.draft,
       optionSetId,
@@ -2769,7 +2772,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       input,
       'n5_slice_selection_review',
       (value): value is TopicSelectionV1bAcceptedSliceSelectionPayload =>
-        this.isRecord(value) && this.acceptedSliceSelectionPayloadIsValid(value),
+        isRecord(value) && this.acceptedSliceSelectionPayloadIsValid(value),
     );
     if (!semanticSupport.ok) {
       return this.persistBlockedResult(input, hashContext, {
@@ -2792,7 +2795,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N5 frozen ResearchSliceOptionSet ref does not match the persisted option set.',
       });
     }
-    const storedOptionSetHash = this.recordString(loaded.value.optionSet.comparison_payload.authority_hash);
+    const storedOptionSetHash = recordString(loaded.value.optionSet.comparison_payload.authority_hash);
     if (!storedOptionSetHash || storedOptionSetHash !== payload.value.research_slice_option_set_hash) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N5_OPTION_SET_HASH_MISMATCH',
@@ -2829,7 +2832,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const now = this.now();
     const decidedBy = this.n5CreatedBy(input.created_by, payload.value.authority_input_provider);
     const decisionId = this.idFactory('slice_selection_decision');
-    const decisionRef = this.ref('slice_selection_decision', decisionId, loaded.value.optionSet.title_card_id);
+    const decisionRef = buildRef('slice_selection_decision', decisionId, loaded.value.optionSet.title_card_id);
     const decisionHash = hashN5DecisionAuthority({
       acceptedPayloadHash,
       decisionRef,
@@ -2897,7 +2900,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const sliceId = this.idFactory('research_slice');
     const sliceVersion = this.versionFromId(sliceId);
-    const sliceRef = this.ref('research_slice', sliceId, loaded.value.optionSet.title_card_id, sliceVersion);
+    const sliceRef = buildRef('research_slice', sliceId, loaded.value.optionSet.title_card_id, sliceVersion);
     const researchSliceHash = hashN5ResearchSliceAuthority({
       acceptedPayloadHash,
       decisionHash,
@@ -3081,9 +3084,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const runId = this.idFactory('form_topic_question_run');
     const questionFrameId = this.idFactory('topic_question_frame');
     const candidateSetId = this.idFactory('topic_question_candidate_set');
-    const candidateSetRef = this.ref('topic_question_candidate_set', candidateSetId, loaded.value.researchSlice.title_card_id);
-    const runRef = this.ref('form_topic_question_run', runId, loaded.value.researchSlice.title_card_id);
-    const frameRef = this.ref('topic_question_frame', questionFrameId, loaded.value.researchSlice.title_card_id);
+    const candidateSetRef = buildRef('topic_question_candidate_set', candidateSetId, loaded.value.researchSlice.title_card_id);
+    const runRef = buildRef('form_topic_question_run', runId, loaded.value.researchSlice.title_card_id);
+    const frameRef = buildRef('topic_question_frame', questionFrameId, loaded.value.researchSlice.title_card_id);
     const decisionMemory = await resolveDecisionMemoryPacketFromSourceRefs({
       sourceRefs: input.frozen_input.source_refs,
       getArtifactRef: (refId) => this.controlPlane.getArtifactRef(refId),
@@ -3401,7 +3404,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
 
     const decisionId = this.idFactory('topic_question_selection_decision');
-    const decisionRef = this.ref('topic_question_selection_decision', decisionId, loaded.value.candidateSet.title_card_id);
+    const decisionRef = buildRef('topic_question_selection_decision', decisionId, loaded.value.candidateSet.title_card_id);
     const materialization = this.materializeN7TopicQuestion({
       acceptedRiskRefs: loaded.value.run.accepted_risk_refs,
       candidate: choice.value.candidate,
@@ -3411,18 +3414,18 @@ export class TopicSelectionV1bWorkflowHarnessService {
       run: loaded.value.run,
       workflowRunId: input.workflow_run_id,
     });
-    const questionRef = this.ref(
+    const questionRef = buildRef(
       'topic_question',
       materialization.topic_question.topic_question_id,
       materialization.topic_question.title_card_id,
     );
-    const contractRef = this.ref(
+    const contractRef = buildRef(
       'topic_question_contract',
       materialization.topic_question_contract.topic_question_contract_id,
       materialization.topic_question_contract.title_card_id,
       materialization.topic_question_contract.version,
     );
-    const answerabilityPlanRef = this.ref(
+    const answerabilityPlanRef = buildRef(
       'topic_question_answerability_plan',
       materialization.answerability_plan.topic_question_answerability_plan_id,
       materialization.answerability_plan.title_card_id,
@@ -3457,7 +3460,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       routeDecision: 'invoke_next',
       warningCodes: warnings.map((warning) => warning.code),
     });
-    const candidateSetRef = this.ref(
+    const candidateSetRef = buildRef(
       'topic_question_candidate_set',
       loaded.value.candidateSet.topic_question_candidate_set_id,
       loaded.value.candidateSet.title_card_id,
@@ -3473,7 +3476,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       trial_ledger_hash: trialLedgerHash,
       topic_question_candidate_set_ref: candidateSetRef,
       topic_question_candidate_set_hash: payload.value.topic_question_candidate_set_hash,
-      active_candidate_ref: this.ref(
+      active_candidate_ref: buildRef(
         'topic_question_candidate',
         choice.value.candidate.topic_question_candidate_id,
         choice.value.candidate.title_card_id,
@@ -3491,7 +3494,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       payload: handoffPayload,
       requiredRefs: [
         candidateSetRef,
-        this.ref('topic_question_candidate', choice.value.candidate.topic_question_candidate_id, choice.value.candidate.title_card_id),
+        buildRef('topic_question_candidate', choice.value.candidate.topic_question_candidate_id, choice.value.candidate.title_card_id),
         questionRef,
         contractRef,
         answerabilityPlanRef,
@@ -3567,7 +3570,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           form_topic_question_run_id: loaded.value.candidateSet.form_topic_question_run_id,
           research_slice_id: loaded.value.candidateSet.research_slice_id,
           research_slice_version: loaded.value.candidateSet.research_slice_version,
-          input_snapshot_ref: this.ref('input_snapshot', prepared.inputSnapshot.input_snapshot_id, loaded.value.candidateSet.title_card_id),
+          input_snapshot_ref: buildRef('input_snapshot', prepared.inputSnapshot.input_snapshot_id, loaded.value.candidateSet.title_card_id),
           decision: 'admit',
           decided_by: input.created_by ?? 'system',
           selection_policy_version: input.policy_version,
@@ -3696,7 +3699,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       })
       : null;
     const handoffRef = handoffArtifact
-      ? this.ref('artifact_ref', handoffArtifact.artifact_ref_id, handoffArtifact.title_card_id ?? input.title_card_id ?? null)
+      ? buildRef('artifact_ref', handoffArtifact.artifact_ref_id, handoffArtifact.title_card_id ?? input.title_card_id ?? null)
       : null;
     const gate = await this.controlPlane.runDeterministicGate({
       workspace_id: input.workspace_id ?? null,
@@ -3713,7 +3716,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       accepted_risk_refs: outcome.acceptedRiskRefs ?? [],
       created_by: createdBy,
     });
-    const gateResultRef = this.ref(
+    const gateResultRef = buildRef(
       'readiness_gate_result',
       gate.readiness_gate_result_id,
       gate.title_card_id ?? input.title_card_id ?? null,
@@ -3759,7 +3762,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ...prepared,
       runtimeContextProjectionArtifact,
       runtimeContextProjectionHash,
-      runtimeContextProjectionRef: this.ref(
+      runtimeContextProjectionRef: buildRef(
         'artifact_ref',
         runtimeContextProjectionArtifact.artifact_ref_id,
         runtimeContextProjectionArtifact.title_card_id ?? input.title_card_id ?? null,
@@ -3790,7 +3793,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       created_authority_refs: createdAuthorityRefs,
       allow_audit_authority_refs_on_blocked: outcome.gateStatus === 'blocked',
     });
-    const transitionRef = this.ref(
+    const transitionRef = buildRef(
       'chain_transition_attempt',
       transition.chain_transition_attempt_id,
       transition.title_card_id ?? input.title_card_id ?? null,
@@ -3826,7 +3829,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       },
       created_by: createdBy,
     });
-    const traceSnapshotRef = this.ref(
+    const traceSnapshotRef = buildRef(
       'trace_snapshot',
       traceSnapshot.trace_snapshot_id,
       traceSnapshot.title_card_id ?? input.title_card_id ?? null,
@@ -3893,7 +3896,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
     const result: TopicSelectionV1bWorkflowHarnessRunResult = {
       ...resultWithoutTraceArtifact,
-      harness_trace_artifact_ref: this.ref(
+      harness_trace_artifact_ref: buildRef(
         'artifact_ref',
         traceArtifact.artifact_ref_id,
         traceArtifact.title_card_id ?? input.title_card_id ?? null,
@@ -4173,21 +4176,21 @@ export class TopicSelectionV1bWorkflowHarnessService {
     ];
     const mode = payload.input_mode;
     const allowedKeys = mode === 'feedback_from_n8' ? feedbackKeys : baseKeys;
-    if (!this.hasOnlyKeys(payload, allowedKeys)
+    if (!hasOnlyKeys(payload, allowedKeys)
       || (mode !== 'initial_from_n6' && mode !== 'feedback_from_n8')
-      || !this.isHash(payload.n6_handoff_hash)
+      || !isHash(payload.n6_handoff_hash)
       || !this.isFunctionalRefValue(payload.topic_question_candidate_set_ref)
-      || !this.isHash(payload.topic_question_candidate_set_hash)
+      || !isHash(payload.topic_question_candidate_set_hash)
       || !this.isFunctionalRefArray(payload.admissible_candidate_refs)
       || (payload.admissible_candidate_refs as unknown[]).length === 0
       || !this.isStringArray(payload.admissible_candidate_hashes)
-      || !(payload.admissible_candidate_hashes as string[]).every((hash) => this.isHash(hash))
+      || !(payload.admissible_candidate_hashes as string[]).every((hash) => isHash(hash))
       || (payload.admissible_candidate_hashes as string[]).length !== (payload.admissible_candidate_refs as unknown[]).length
       || !this.isFunctionalRefValue(payload.selected_research_slice_ref)
-      || !this.isHash(payload.selected_research_slice_hash)
+      || !isHash(payload.selected_research_slice_hash)
       || !this.isFunctionalRefValue(payload.generation_artifact_ref)
-      || !this.isHash(payload.generation_artifact_hash)
-      || !this.isHash(payload.candidate_gate_hash)
+      || !isHash(payload.generation_artifact_hash)
+      || !isHash(payload.candidate_gate_hash)
       || !this.isNullableFunctionalRefValue(payload.candidate_grouping_ref)
       || !this.isNullableHash(payload.candidate_grouping_hash)) {
       return {
@@ -4198,8 +4201,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     if (mode === 'feedback_from_n8'
       && (!this.isFunctionalRefValue(payload.n8_feedback_ref)
-        || !this.isHash(payload.n8_feedback_hash)
-        || !this.isHash(payload.n8_feedback_payload_hash))) {
+        || !isHash(payload.n8_feedback_hash)
+        || !isHash(payload.n8_feedback_payload_hash))) {
       return {
         ok: false,
         code: 'N7_FEEDBACK_PAYLOAD_INVALID',
@@ -4308,10 +4311,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN6ToN7HandoffArtifactPayload(value: unknown): value is TopicSelectionV1bWorkflowHarnessHandoff {
-    return this.isRecord(value)
-      && this.isRecord(value.envelope)
+    return isRecord(value)
+      && isRecord(value.envelope)
       && value.envelope.handoff_kind === 'N6ToN7Handoff'
-      && this.isRecord(value.payload);
+      && isRecord(value.payload);
   }
 
   private async resolveN7FeedbackPayload(
@@ -4329,8 +4332,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN8ToN7FeedbackPayload(value: unknown): value is TopicSelectionV1bN8ToN7FeedbackPayload {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'affected_refs',
         'failed_candidate_hash',
         'failed_candidate_ref',
@@ -4357,16 +4360,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
       && this.isFunctionalRefArray(value.affected_refs)
       && (value.affected_refs as unknown[]).length > 0
       && this.isFunctionalRefValue(value.previous_n7_handoff_ref)
-      && this.isHash(value.previous_n7_handoff_hash)
+      && isHash(value.previous_n7_handoff_hash)
       && this.isFunctionalRefValue(value.previous_trial_ledger_ref)
-      && this.isHash(value.previous_trial_ledger_hash)
+      && isHash(value.previous_trial_ledger_hash)
       && this.isFunctionalRefValue(value.failed_topic_question_contract_ref)
-      && this.isHash(value.failed_topic_question_contract_hash)
+      && isHash(value.failed_topic_question_contract_hash)
       && this.isFunctionalRefValue(value.failed_candidate_ref)
-      && this.isHash(value.failed_candidate_hash)
+      && isHash(value.failed_candidate_hash)
       && this.isFunctionalRefValue(value.topic_question_candidate_set_ref)
-      && this.isHash(value.topic_question_candidate_set_hash)
-      && this.isHash(value.n8_gate_result_hash)
+      && isHash(value.topic_question_candidate_set_hash)
+      && isHash(value.n8_gate_result_hash)
       && this.isNullableFunctionalRefValue(value.value_assessment_ref)
       && this.isNullableHash(value.value_assessment_hash);
   }
@@ -4487,7 +4490,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return this.earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support audit artifact is missing or checksum-drifted.');
     }
     const auditPayload = auditArtifact.payload;
-    if (!this.isRecord(auditPayload) || !this.isRecord(auditPayload.provenance)) {
+    if (!isRecord(auditPayload) || !isRecord(auditPayload.provenance)) {
       return this.earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
@@ -4667,7 +4670,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return this.n7RuntimeAuditDrift('N7 runtime support audit artifact is missing or checksum-drifted.');
     }
     const auditPayload = auditArtifact.payload;
-    if (!this.isRecord(auditPayload) || !this.isRecord(auditPayload.provenance)) {
+    if (!isRecord(auditPayload) || !isRecord(auditPayload.provenance)) {
       return this.n7RuntimeAuditDrift('N7 runtime support audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
@@ -4707,7 +4710,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN7CandidateGroupingSupportPayload(value: unknown): value is TopicSelectionV1bCandidateGroupingSupportPayload {
-    if (!this.isRecord(value) || !this.hasOnlyKeys(value, [
+    if (!isRecord(value) || !hasOnlyKeys(value, [
       'candidate_relationships',
       'duplicate_or_overlap_groups',
       'grouping_summary',
@@ -4719,23 +4722,23 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const groups = value.duplicate_or_overlap_groups;
     return this.isFunctionalRefValue(value.selected_candidate_ref)
-      && this.isHash(value.selected_candidate_hash)
+      && isHash(value.selected_candidate_hash)
       && this.isFunctionalRefArray(value.priority_order)
       && (value.priority_order as unknown[]).length > 0
       && Array.isArray(groups)
-      && groups.every((group) => this.isRecord(group)
-        && this.hasOnlyKeys(group, ['group_key', 'candidate_refs', 'canonical_candidate_ref', 'rationale'])
+      && groups.every((group) => isRecord(group)
+        && hasOnlyKeys(group, ['group_key', 'candidate_refs', 'canonical_candidate_ref', 'rationale'])
         && typeof group.group_key === 'string'
         && this.isFunctionalRefArray(group.candidate_refs)
         && this.isFunctionalRefValue(group.canonical_candidate_ref)
         && typeof group.rationale === 'string')
-      && this.isRecord(value.candidate_relationships)
+      && isRecord(value.candidate_relationships)
       && typeof value.grouping_summary === 'string';
   }
 
   private isN7DebateAdmissionSupportPayload(value: unknown): value is TopicSelectionV1bN8DebateAdmissionReviewSupportPayload {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'debate_level',
         'high_value_signal_codes',
         'rationale',
@@ -4750,8 +4753,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN7FailedTrialSynthesisSupportPayload(value: unknown): value is TopicSelectionV1bN8FailedTrialSynthesisSupportPayload {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'affected_refs',
         'exhausted_candidate_refs',
         'failure_reason_codes',
@@ -4778,7 +4781,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N7 frozen payload does not match the persisted N6-to-N7 handoff artifact.',
       };
     }
-    if (!this.refsEqual(payload.topic_question_candidate_set_ref, this.ref(
+    if (!this.refsEqual(payload.topic_question_candidate_set_ref, buildRef(
       'topic_question_candidate_set',
       loaded.candidateSet.topic_question_candidate_set_id,
       loaded.candidateSet.title_card_id,
@@ -4789,7 +4792,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       };
     }
     const candidateHashByRef = new Map(loaded.candidates.map((candidate) => [
-      this.refKey(this.ref('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id)),
+      this.refKey(buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id)),
       this.hashN6CandidateAuthority(candidate),
     ]));
     for (const [index, candidateRef] of payload.admissible_candidate_refs.entries()) {
@@ -5012,13 +5015,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N7 failed-trial synthesis references context outside the frozen N7/N8 handoff boundary.',
       });
     }
-    const candidateSetRef = this.ref(
+    const candidateSetRef = buildRef(
       'topic_question_candidate_set',
       loaded.candidateSet.topic_question_candidate_set_id,
       loaded.candidateSet.title_card_id,
     );
     const decisionId = this.idFactory('topic_question_selection_decision');
-    const decisionRef = this.ref('topic_question_selection_decision', decisionId, loaded.candidateSet.title_card_id);
+    const decisionRef = buildRef('topic_question_selection_decision', decisionId, loaded.candidateSet.title_card_id);
     const trialLedgerHash = this.hash({
       candidate_set_hash: payload.topic_question_candidate_set_hash,
       decision: 'no_admissible_candidate',
@@ -5081,7 +5084,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           form_topic_question_run_id: loaded.candidateSet.form_topic_question_run_id,
           research_slice_id: loaded.candidateSet.research_slice_id,
           research_slice_version: loaded.candidateSet.research_slice_version,
-          input_snapshot_ref: this.ref('input_snapshot', prepared.inputSnapshot.input_snapshot_id, loaded.candidateSet.title_card_id),
+          input_snapshot_ref: buildRef('input_snapshot', prepared.inputSnapshot.input_snapshot_id, loaded.candidateSet.title_card_id),
           decision: 'no_admissible_candidate',
           decided_by: input.created_by ?? 'system',
           selection_policy_version: input.policy_version,
@@ -5182,15 +5185,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
       routeNote: 'gate_rejected_reemit_same_contract_with_updated_debate_admission',
     };
     const debateAdmission = await this.recordN7DebateAdmissionArtifact(input, payload, choice, support);
-    const questionRef = this.ref('topic_question', question.topic_question_id, question.title_card_id);
-    const contractRef = this.ref('topic_question_contract', contract.topic_question_contract_id, contract.title_card_id, contract.version);
-    const answerabilityPlanRef = this.ref(
+    const questionRef = buildRef('topic_question', question.topic_question_id, question.title_card_id);
+    const contractRef = buildRef('topic_question_contract', contract.topic_question_contract_id, contract.title_card_id, contract.version);
+    const answerabilityPlanRef = buildRef(
       'topic_question_answerability_plan',
       answerabilityPlan.topic_question_answerability_plan_id,
       answerabilityPlan.title_card_id,
     );
-    const decisionRef = this.ref('topic_question_selection_decision', decision.topic_question_selection_decision_id, decision.title_card_id);
-    const candidateSetRef = this.ref('topic_question_candidate_set', loaded.candidateSet.topic_question_candidate_set_id, loaded.candidateSet.title_card_id);
+    const decisionRef = buildRef('topic_question_selection_decision', decision.topic_question_selection_decision_id, decision.title_card_id);
+    const candidateSetRef = buildRef('topic_question_candidate_set', loaded.candidateSet.topic_question_candidate_set_id, loaded.candidateSet.title_card_id);
     const contractHash = hashN7ContractAuthority(contract);
     const warnings = this.n7Warnings(choice, support);
     const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
@@ -5362,31 +5365,31 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const assessmentId = this.idFactory('topic_value_assessment');
     const memoId = this.idFactory('value_reasoning_memo');
     const titleCardId = loaded.value.contract.title_card_id;
-    const questionRef = this.ref('topic_question', loaded.value.question.topic_question_id, titleCardId);
-    const contractRef = this.ref(
+    const questionRef = buildRef('topic_question', loaded.value.question.topic_question_id, titleCardId);
+    const contractRef = buildRef(
       'topic_question_contract',
       loaded.value.contract.topic_question_contract_id,
       titleCardId,
       loaded.value.contract.version,
     );
-    const answerabilityPlanRef = this.ref(
+    const answerabilityPlanRef = buildRef(
       'topic_question_answerability_plan',
       loaded.value.answerabilityPlan.topic_question_answerability_plan_id,
       titleCardId,
     );
-    const researchSliceRef = this.ref(
+    const researchSliceRef = buildRef(
       'research_slice',
       loaded.value.researchSlice.research_slice_id,
       titleCardId,
       loaded.value.researchSlice.slice_version,
     );
-    const selectionDecisionRef = this.ref(
+    const selectionDecisionRef = buildRef(
       'topic_question_selection_decision',
       loaded.value.selectionDecision.topic_question_selection_decision_id,
       titleCardId,
     );
-    const assessmentRef = this.ref('topic_value_assessment', assessmentId, titleCardId);
-    const memoRef = this.ref('value_reasoning_memo', memoId, titleCardId);
+    const assessmentRef = buildRef('topic_value_assessment', assessmentId, titleCardId);
+    const memoRef = buildRef('value_reasoning_memo', memoId, titleCardId);
     const artifactRefs = uniqueRefs([
       ...draftResolution.value.artifactRefs,
       payload.value.n8_debate_admission_ref,
@@ -5522,8 +5525,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: assessment.accepted_risk_refs,
       additionalAuthorityRefs: [
-        this.ref('assess_topic_value_run', runId, titleCardId),
-        this.ref('topic_value_input_snapshot', snapshotId, titleCardId),
+        buildRef('assess_topic_value_run', runId, titleCardId),
+        buildRef('topic_value_input_snapshot', snapshotId, titleCardId),
         memoRef,
       ],
       authorityHash: assessmentHash,
@@ -5648,13 +5651,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
     const now = this.now();
     const decisionId = this.idFactory('value_disposition_decision');
-    const decisionRef = this.ref('value_disposition_decision', decisionId, loaded.value.assessment.title_card_id);
-    const assessmentRef = this.ref(
+    const decisionRef = buildRef('value_disposition_decision', decisionId, loaded.value.assessment.title_card_id);
+    const assessmentRef = buildRef(
       'topic_value_assessment',
       loaded.value.assessment.topic_value_assessment_id,
       loaded.value.assessment.title_card_id,
     );
-    const memoRef = this.ref(
+    const memoRef = buildRef(
       'value_reasoning_memo',
       loaded.value.memo.value_reasoning_memo_id,
       loaded.value.memo.title_card_id,
@@ -5850,7 +5853,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const existing = await this.runnerDependencies.topicPackageRepository!
       .findPackageByValueDispositionDecisionId(loaded.value.decision.value_disposition_decision_id);
     if (existing) {
-      const packageRef = this.ref('topic_package', existing.topic_package_id, existing.title_card_id, existing.package_version);
+      const packageRef = buildRef('topic_package', existing.topic_package_id, existing.title_card_id, existing.package_version);
       const packageHash = hashN10PackageAuthority(existing);
       const existingBundle = await this.runnerDependencies.topicPackageRepository!
         .findV1cInputBundleByPackageId(existing.topic_package_id);
@@ -5860,7 +5863,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           message: 'N10 existing package is missing its v1c input bundle authority.',
         });
       }
-      const v1cInputBundleRef = this.ref(
+      const v1cInputBundleRef = buildRef(
         'v1b_to_v1c_input_bundle',
         existingBundle.v1b_to_v1c_input_bundle_id,
         existingBundle.title_card_id,
@@ -5936,7 +5939,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warningCodes: warnings.map((warning) => warning.code),
     });
     const packageRef = built.value.topicPackage.topic_package_ref;
-    const v1cInputBundleRef = this.ref(
+    const v1cInputBundleRef = buildRef(
       'v1b_to_v1c_input_bundle',
       built.value.v1cInputBundle!.v1b_to_v1c_input_bundle_id,
       built.value.topicPackage.title_card_id,
@@ -5968,10 +5971,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: built.value.topicPackage.accepted_risk_refs,
       additionalAuthorityRefs: uniqueRefs([
-        this.ref('package_trace_boundary_check', built.value.traceCheck.package_trace_boundary_check_id, built.value.topicPackage.title_card_id),
-        this.ref('topic_package_readiness_assessment', built.value.readiness.package_readiness_assessment_id, built.value.topicPackage.title_card_id),
+        buildRef('package_trace_boundary_check', built.value.traceCheck.package_trace_boundary_check_id, built.value.topicPackage.title_card_id),
+        buildRef('topic_package_readiness_assessment', built.value.readiness.package_readiness_assessment_id, built.value.topicPackage.title_card_id),
         built.value.v1cInputBundle
-          ? this.ref('v1b_to_v1c_input_bundle', built.value.v1cInputBundle.v1b_to_v1c_input_bundle_id, built.value.topicPackage.title_card_id)
+          ? buildRef('v1b_to_v1c_input_bundle', built.value.v1cInputBundle.v1b_to_v1c_input_bundle_id, built.value.topicPackage.title_card_id)
           : null,
       ]),
       authorityHash: packageHash,
@@ -6064,7 +6067,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: lineageBlocker.message,
       });
     }
-    const bundleRef = this.ref(
+    const bundleRef = buildRef(
       'v1b_to_v1c_input_bundle',
       loaded.value.bundle.v1b_to_v1c_input_bundle_id,
       loaded.value.bundle.title_card_id,
@@ -6138,7 +6141,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private parseN8Payload(
     payload: Record<string, unknown>,
   ): { ok: true; value: TopicSelectionV1bN8HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    if (!this.hasOnlyKeys(payload, [
+    if (!hasOnlyKeys(payload, [
       'n7_handoff_hash',
       'topic_question_ref',
       'topic_question_hash',
@@ -6159,23 +6162,23 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'candidate_grouping_ref',
       'candidate_grouping_hash',
     ])
-      || !this.isHash(payload.n7_handoff_hash)
+      || !isHash(payload.n7_handoff_hash)
       || !this.isFunctionalRefValue(payload.topic_question_ref)
-      || !this.isHash(payload.topic_question_hash)
+      || !isHash(payload.topic_question_hash)
       || !this.isFunctionalRefValue(payload.topic_question_contract_ref)
-      || !this.isHash(payload.topic_question_contract_hash)
+      || !isHash(payload.topic_question_contract_hash)
       || !this.isFunctionalRefValue(payload.answerability_plan_ref)
-      || !this.isHash(payload.answerability_plan_hash)
+      || !isHash(payload.answerability_plan_hash)
       || !this.isFunctionalRefValue(payload.trial_ledger_ref)
-      || !this.isHash(payload.trial_ledger_hash)
+      || !isHash(payload.trial_ledger_hash)
       || !this.isFunctionalRefValue(payload.topic_question_candidate_set_ref)
-      || !this.isHash(payload.topic_question_candidate_set_hash)
+      || !isHash(payload.topic_question_candidate_set_hash)
       || !this.isFunctionalRefValue(payload.active_candidate_ref)
-      || !this.isHash(payload.active_candidate_hash)
+      || !isHash(payload.active_candidate_hash)
       || !this.isFunctionalRefValue(payload.selected_research_slice_ref)
-      || !this.isHash(payload.selected_research_slice_hash)
+      || !isHash(payload.selected_research_slice_hash)
       || !this.isFunctionalRefValue(payload.n8_debate_admission_ref)
-      || !this.isHash(payload.n8_debate_admission_hash)
+      || !isHash(payload.n8_debate_admission_hash)
       || !this.isNullableFunctionalRefValue(payload.candidate_grouping_ref)
       || !this.isNullableHash(payload.candidate_grouping_hash)) {
       return {
@@ -6359,7 +6362,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return this.n8RuntimeAuditDrift('N8 runtime value draft audit artifact is missing or checksum-drifted.');
     }
     const auditPayload = auditArtifact.payload;
-    if (!this.isRecord(auditPayload) || !this.isRecord(auditPayload.provenance)) {
+    if (!isRecord(auditPayload) || !isRecord(auditPayload.provenance)) {
       return this.n8RuntimeAuditDrift('N8 runtime value draft audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
@@ -6547,10 +6550,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private extractN8DraftPayload(
     payload: Record<string, unknown> | null | undefined,
   ): TopicSelectionV1bTopicValueAssessmentDraftPayload | null {
-    if (!this.isRecord(payload)) {
+    if (!isRecord(payload)) {
       return null;
     }
-    const candidate = this.isRecord(payload.normalized_output)
+    const candidate = isRecord(payload.normalized_output)
       ? payload.normalized_output
       : payload;
     return this.isN8DraftPayload(candidate)
@@ -6559,7 +6562,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN8DraftPayload(value: Record<string, unknown>): boolean {
-    return this.hasOnlyKeys(value, [
+    return hasOnlyKeys(value, [
       'accepted_risk_refs',
       'base_case',
       'blocker_refs',
@@ -6585,7 +6588,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       && (value.fallback_claim_if_success === null || value.fallback_claim_if_success === undefined || typeof value.fallback_claim_if_success === 'string')
       && Array.isArray(value.hard_gates)
       && Array.isArray(value.dimension_scores)
-      && this.isRecord(value.risk_penalty)
+      && isRecord(value.risk_penalty)
       && this.isStringArray(value.reviewer_objections)
       && typeof value.ceiling_case === 'string'
       && typeof value.base_case === 'string'
@@ -6602,8 +6605,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN8ReasoningMemoDraft(value: unknown): boolean {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'cited_refs',
         'claim_leverage',
         'critic_triggers',
@@ -6737,7 +6740,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   > {
     const artifact = await this.controlPlane.getArtifactRef(payload.n8_debate_admission_ref.ref_id);
     const admission = artifact?.payload;
-    if (!artifact || !this.isRecord(admission) || this.hash(admission) !== payload.n8_debate_admission_hash) {
+    if (!artifact || !isRecord(admission) || this.hash(admission) !== payload.n8_debate_admission_hash) {
       return {
         ok: false,
         code: 'N8_DEBATE_ADMISSION_UNRESOLVED',
@@ -6836,7 +6839,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       payload: feedbackPayload as unknown as Record<string, unknown>,
       created_by: input.created_by ?? 'system',
     });
-    const feedbackRef = this.ref('artifact_ref', artifact.artifact_ref_id, artifact.title_card_id ?? input.title_card_id ?? null);
+    const feedbackRef = buildRef('artifact_ref', artifact.artifact_ref_id, artifact.title_card_id ?? input.title_card_id ?? null);
     return this.persistAdmittedResult(input, hashContext, {
       additionalAuthorityRefs: [],
       authorityHash: feedbackPayloadHash,
@@ -6872,10 +6875,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN8ValueGateResult(value: unknown): boolean {
-    if (!this.isRecord(value)) {
+    if (!isRecord(value)) {
       return false;
     }
-    return this.hasOnlyKeys(value, ['gate_key', 'verdict', 'severity', 'overridable_with_risk', 'rationale', 'refs'])
+    return hasOnlyKeys(value, ['gate_key', 'verdict', 'severity', 'overridable_with_risk', 'rationale', 'refs'])
       && (TOPIC_SELECTION_VALUE_GATE_KEYS as readonly string[]).includes(value.gate_key as string)
       && (TOPIC_SELECTION_VALUE_GATE_VERDICTS as readonly string[]).includes(value.verdict as string)
       && ['info', 'warning', 'blocking'].includes(value.severity as string)
@@ -6885,10 +6888,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN8ValueDimensionScore(value: unknown): boolean {
-    if (!this.isRecord(value)) {
+    if (!isRecord(value)) {
       return false;
     }
-    return this.hasOnlyKeys(value, ['dimension_key', 'score', 'rationale', 'evidence_refs', 'uncertainty'])
+    return hasOnlyKeys(value, ['dimension_key', 'score', 'rationale', 'evidence_refs', 'uncertainty'])
       && (TOPIC_SELECTION_VALUE_DIMENSIONS as readonly string[]).includes(value.dimension_key as string)
       && typeof value.score === 'number'
       && Number.isFinite(value.score)
@@ -6901,16 +6904,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
   private n8KnownRefs(loaded: N8LoadedContext): TopicSelectionFunctionalRef[] {
     return uniqueRefs([
-      this.ref('topic_question', loaded.question.topic_question_id, loaded.question.title_card_id),
-      this.ref('topic_question_contract', loaded.contract.topic_question_contract_id, loaded.contract.title_card_id, loaded.contract.version),
-      this.ref('topic_question_answerability_plan', loaded.answerabilityPlan.topic_question_answerability_plan_id, loaded.answerabilityPlan.title_card_id),
-      this.ref('topic_question_selection_decision', loaded.selectionDecision.topic_question_selection_decision_id, loaded.selectionDecision.title_card_id),
-      this.ref('topic_question_candidate_set', loaded.candidateSet.topic_question_candidate_set_id, loaded.candidateSet.title_card_id),
-      this.ref('topic_question_candidate', loaded.candidate.topic_question_candidate_id, loaded.candidate.title_card_id),
-      this.ref('research_slice', loaded.researchSlice.research_slice_id, loaded.researchSlice.title_card_id, loaded.researchSlice.slice_version),
+      buildRef('topic_question', loaded.question.topic_question_id, loaded.question.title_card_id),
+      buildRef('topic_question_contract', loaded.contract.topic_question_contract_id, loaded.contract.title_card_id, loaded.contract.version),
+      buildRef('topic_question_answerability_plan', loaded.answerabilityPlan.topic_question_answerability_plan_id, loaded.answerabilityPlan.title_card_id),
+      buildRef('topic_question_selection_decision', loaded.selectionDecision.topic_question_selection_decision_id, loaded.selectionDecision.title_card_id),
+      buildRef('topic_question_candidate_set', loaded.candidateSet.topic_question_candidate_set_id, loaded.candidateSet.title_card_id),
+      buildRef('topic_question_candidate', loaded.candidate.topic_question_candidate_id, loaded.candidate.title_card_id),
+      buildRef('research_slice', loaded.researchSlice.research_slice_id, loaded.researchSlice.title_card_id, loaded.researchSlice.slice_version),
       ...loaded.needRefs.map((record) => record.validated_need_ref),
       ...loaded.evidenceRefs.map((record) => record.evidence_ref),
-      ...loaded.evidenceRefs.map((record) => this.ref('topic_question_evidence_ref', record.topic_question_evidence_ref_id, record.title_card_id)),
+      ...loaded.evidenceRefs.map((record) => buildRef('topic_question_evidence_ref', record.topic_question_evidence_ref_id, record.title_card_id)),
       ...loaded.contract.accepted_risk_refs,
       ...loaded.researchSlice.memory_suggestion_refs,
       ...loaded.researchSlice.recheck_request_refs,
@@ -7021,7 +7024,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private parseN9Payload(
     payload: Record<string, unknown>,
   ): { ok: true; value: TopicSelectionV1bN9HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    if (!this.hasOnlyKeys(payload, [
+    if (!hasOnlyKeys(payload, [
       'n8_handoff_hash',
       'topic_value_assessment_ref',
       'topic_value_assessment_hash',
@@ -7031,13 +7034,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'value_reasoning_memo_hash',
       'recommended_disposition',
     ])
-      || !this.isHash(payload.n8_handoff_hash)
+      || !isHash(payload.n8_handoff_hash)
       || !this.isFunctionalRefValue(payload.topic_value_assessment_ref)
-      || !this.isHash(payload.topic_value_assessment_hash)
+      || !isHash(payload.topic_value_assessment_hash)
       || !this.isFunctionalRefValue(payload.topic_question_contract_ref)
-      || !this.isHash(payload.topic_question_contract_hash)
+      || !isHash(payload.topic_question_contract_hash)
       || !this.isFunctionalRefValue(payload.value_reasoning_memo_ref)
-      || !this.isHash(payload.value_reasoning_memo_hash)
+      || !isHash(payload.value_reasoning_memo_hash)
       || !['advance_to_package', 'refine_question', 'refine_slice', 'recheck_evidence_or_search', 'park', 'drop']
         .includes(payload.recommended_disposition as string)) {
       return {
@@ -7186,7 +7189,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }): TopicSelectionV1bPackageDraftInput {
     const { decision, loaded } = input;
     return {
-      topic_value_assessment_ref: this.ref('topic_value_assessment', loaded.assessment.topic_value_assessment_id, loaded.assessment.title_card_id),
+      topic_value_assessment_ref: buildRef('topic_value_assessment', loaded.assessment.topic_value_assessment_id, loaded.assessment.title_card_id),
       value_reasoning_memo_ref: input.memoRef,
       value_disposition_decision_ref: input.decisionRef,
       topic_question_ref: loaded.inputSnapshot.topic_question_ref,
@@ -7230,7 +7233,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private parseN10Payload(
     payload: Record<string, unknown>,
   ): { ok: true; value: TopicSelectionV1bN10HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    if (!this.hasOnlyKeys(payload, [
+    if (!hasOnlyKeys(payload, [
       'n9_handoff_hash',
       'value_disposition_ref',
       'value_disposition_hash',
@@ -7238,12 +7241,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'topic_value_assessment_ref',
       'topic_value_assessment_hash',
     ])
-      || !this.isHash(payload.n9_handoff_hash)
+      || !isHash(payload.n9_handoff_hash)
       || !this.isFunctionalRefValue(payload.value_disposition_ref)
-      || !this.isHash(payload.value_disposition_hash)
+      || !isHash(payload.value_disposition_hash)
       || payload.advance_disposition !== true
       || !this.isFunctionalRefValue(payload.topic_value_assessment_ref)
-      || !this.isHash(payload.topic_value_assessment_hash)) {
+      || !isHash(payload.topic_value_assessment_hash)) {
       return {
         ok: false,
         code: 'N10_FROZEN_PAYLOAD_INVALID',
@@ -7335,7 +7338,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const readinessId = this.idFactory('package_readiness_assessment');
     const bundleId = this.idFactory('v1b_to_v1c_input_bundle');
     const packageVersion = 'v1';
-    const packageRef = this.ref('topic_package', topicPackageId, titleCardId, packageVersion);
+    const packageRef = buildRef('topic_package', topicPackageId, titleCardId, packageVersion);
     const selectedEvidenceRefs = uniqueRefs(packageInput.evidence_refs.map((record) => record.evidence_ref));
     const narrative = this.n10Narrative(packageInput);
     const topicPackage: TopicSelectionTopicPackageRecord = {
@@ -7393,8 +7396,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       created_at: now,
       updated_at: now,
     };
-    const packageTraceRef = this.ref('package_trace_boundary_check', traceCheckId, titleCardId);
-    const readinessRef = this.ref('topic_package_readiness_assessment', readinessId, titleCardId);
+    const packageTraceRef = buildRef('package_trace_boundary_check', traceCheckId, titleCardId);
+    const readinessRef = buildRef('topic_package_readiness_assessment', readinessId, titleCardId);
     const traceCheck: TopicSelectionPackageTraceBoundaryCheckRecord = {
       package_trace_boundary_check_id: traceCheckId,
       workspace_id: workspaceId,
@@ -7593,7 +7596,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private parseN11Payload(
     payload: Record<string, unknown>,
   ): { ok: true; value: TopicSelectionV1bN11HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    if (!this.hasOnlyKeys(payload, [
+    if (!hasOnlyKeys(payload, [
       'n10_handoff_hash',
       'draft_topic_package_ref',
       'draft_topic_package_hash',
@@ -7602,13 +7605,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'v1c_input_bundle_ref',
       'v1c_input_bundle_hash',
     ])
-      || !this.isHash(payload.n10_handoff_hash)
+      || !isHash(payload.n10_handoff_hash)
       || !this.isFunctionalRefValue(payload.draft_topic_package_ref)
-      || !this.isHash(payload.draft_topic_package_hash)
+      || !isHash(payload.draft_topic_package_hash)
       || !this.isFunctionalRefValue(payload.value_disposition_ref)
-      || !this.isHash(payload.value_disposition_hash)
+      || !isHash(payload.value_disposition_hash)
       || !this.isFunctionalRefValue(payload.v1c_input_bundle_ref)
-      || !this.isHash(payload.v1c_input_bundle_hash)) {
+      || !isHash(payload.v1c_input_bundle_hash)) {
       return {
         ok: false,
         code: 'N11_FROZEN_PAYLOAD_INVALID',
@@ -7726,10 +7729,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
     value: unknown,
     handoffKind: TopicSelectionV1bWorkflowHarnessHandoffKind,
   ): value is TopicSelectionV1bWorkflowHarnessHandoff {
-    return this.isRecord(value)
-      && this.isRecord(value.envelope)
+    return isRecord(value)
+      && isRecord(value.envelope)
       && value.envelope.handoff_kind === handoffKind
-      && this.isRecord(value.payload);
+      && isRecord(value.payload);
   }
 
   private legacyValueVerdict(disposition: TopicSelectionValueDisposition): TopicSelectionTopicValueAssessmentRecord['legacy_verdict'] {
@@ -7857,7 +7860,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       source_research_slice_version: candidate.research_slice_version,
       source_candidate_id: candidate.topic_question_candidate_id,
       selection_decision_id: decisionId,
-      input_snapshot_ref: this.ref('input_snapshot', run.input_snapshot_id ?? run.form_topic_question_run_id, candidate.title_card_id),
+      input_snapshot_ref: buildRef('input_snapshot', run.input_snapshot_id ?? run.form_topic_question_run_id, candidate.title_card_id),
       contract_hash: this.hash(contractPayload),
       main_question: candidate.main_question,
       question_type: candidate.question_type,
@@ -8034,10 +8037,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ? input.frame.frame_payload.inherited_assumptions
       : [];
     const inheritedRefs = inheritedAssumptions
-      .filter((value): value is TopicSelectionResearchSliceAssumptionRecord => this.isRecord(value)
+      .filter((value): value is TopicSelectionResearchSliceAssumptionRecord => isRecord(value)
         && typeof value.research_slice_assumption_id === 'string')
       .filter((assumption) => selectedAssumptionKeys.has(this.refKey(
-        this.ref('research_slice_assumption', assumption.research_slice_assumption_id, assumption.title_card_id),
+        buildRef('research_slice_assumption', assumption.research_slice_assumption_id, assumption.title_card_id),
       )))
       .map((assumption) => ({
         topic_question_assumption_ref_id: this.idFactory('topic_question_assumption_ref'),
@@ -8095,7 +8098,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const review = support.debateAdmission?.payload;
     const admissionPayload = {
       active_candidate_hash: choice.candidateHash,
-      active_candidate_ref: this.ref('topic_question_candidate', choice.candidate.topic_question_candidate_id, choice.candidate.title_card_id),
+      active_candidate_ref: buildRef('topic_question_candidate', choice.candidate.topic_question_candidate_id, choice.candidate.title_card_id),
       debate_level: review?.debate_level ?? 'compact_assessment_debate',
       high_value_signal_codes: review?.high_value_signal_codes ?? [],
       input_mode: payload.input_mode,
@@ -8118,7 +8121,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return {
       hash,
       payload: admissionPayload,
-      ref: this.ref('artifact_ref', artifact.artifact_ref_id, artifact.title_card_id ?? input.title_card_id ?? null),
+      ref: buildRef('artifact_ref', artifact.artifact_ref_id, artifact.title_card_id ?? input.title_card_id ?? null),
     };
   }
 
@@ -8414,14 +8417,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings.push(this.warning(
         trigger,
         `N7 active candidate carries human review trigger ${trigger}.`,
-        [this.ref('topic_question_candidate', choice.candidate.topic_question_candidate_id, choice.candidate.title_card_id)],
+        [buildRef('topic_question_candidate', choice.candidate.topic_question_candidate_id, choice.candidate.title_card_id)],
       ));
     }
     for (const risk of choice.candidate.risk_notes) {
       warnings.push(this.warning(
         'N7_ACTIVE_CANDIDATE_RISK_NOTE',
         risk,
-        [this.ref('topic_question_candidate', choice.candidate.topic_question_candidate_id, choice.candidate.title_card_id)],
+        [buildRef('topic_question_candidate', choice.candidate.topic_question_candidate_id, choice.candidate.title_card_id)],
       ));
     }
     return warnings;
@@ -8457,11 +8460,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     payload: Record<string, unknown>,
   ): { ok: true; value: TopicSelectionV1bN1HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
     const allowedKeys = ['v1b_input_bundle_id', 'v1a_bundle_ref', 'v1a_bundle_hash', 'source_refs_hash'];
-    if (!this.hasOnlyKeys(payload, allowedKeys)
+    if (!hasOnlyKeys(payload, allowedKeys)
       || typeof payload.v1b_input_bundle_id !== 'string'
       || !payload.v1b_input_bundle_id.trim()
-      || !this.isHash(payload.v1a_bundle_hash)
-      || !this.isHash(payload.source_refs_hash)
+      || !isHash(payload.v1a_bundle_hash)
+      || !isHash(payload.source_refs_hash)
       || !this.isFunctionalRefValue(payload.v1a_bundle_ref)) {
       return {
         ok: false,
@@ -8490,14 +8493,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'v1a_bundle_hash',
       'v1a_bundle_ref',
     ];
-    if (!this.hasOnlyKeys(payload, allowedKeys)
+    if (!hasOnlyKeys(payload, allowedKeys)
       || !this.isFunctionalRefValue(payload.intake_snapshot_ref)
-      || !this.isHash(payload.intake_snapshot_hash)
+      || !isHash(payload.intake_snapshot_hash)
       || !this.isFunctionalRefValue(payload.v1a_bundle_ref)
-      || !this.isHash(payload.v1a_bundle_hash)
+      || !isHash(payload.v1a_bundle_hash)
       || !['human_delegated', 'codex_delegated', 'fixture'].includes(payload.authority_input_provider as string)
-      || !this.isRecord(payload.accepted_constraint_profile_payload)
-      || !this.isHash(payload.accepted_constraint_profile_payload_hash)
+      || !isRecord(payload.accepted_constraint_profile_payload)
+      || !isHash(payload.accepted_constraint_profile_payload_hash)
       || !this.isNullableHash(payload.delegation_artifact_hash)
       || !this.isNullableFunctionalRefValue(payload.previous_profile_ref)
       || !this.isNullableHash(payload.previous_profile_hash)) {
@@ -8515,7 +8518,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N2 accepted ResearchConstraintProfile payload is malformed.',
       };
     }
-    if (payload.authority_input_provider === 'codex_delegated' && !this.isHash(payload.delegation_artifact_hash)) {
+    if (payload.authority_input_provider === 'codex_delegated' && !isHash(payload.delegation_artifact_hash)) {
       return {
         ok: false,
         code: 'N2_CODEX_DELEGATION_ARTIFACT_REQUIRED',
@@ -8545,12 +8548,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'intake_snapshot_ref',
       'n2_handoff_hash',
     ];
-    if (!this.hasOnlyKeys(payload, allowedKeys)
+    if (!hasOnlyKeys(payload, allowedKeys)
       || !this.isFunctionalRefValue(payload.intake_snapshot_ref)
-      || !this.isHash(payload.intake_snapshot_hash)
+      || !isHash(payload.intake_snapshot_hash)
       || !this.isFunctionalRefValue(payload.constraint_profile_ref)
-      || !this.isHash(payload.constraint_profile_hash)
-      || !this.isHash(payload.n2_handoff_hash)) {
+      || !isHash(payload.constraint_profile_hash)
+      || !isHash(payload.n2_handoff_hash)) {
       return {
         ok: false,
         code: 'N3_FROZEN_PAYLOAD_INVALID',
@@ -8576,15 +8579,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'n2_handoff_hash',
       'n3_handoff_hash',
     ];
-    if (!this.hasOnlyKeys(payload, allowedKeys)
+    if (!hasOnlyKeys(payload, allowedKeys)
       || !this.isFunctionalRefValue(payload.intake_snapshot_ref)
-      || !this.isHash(payload.intake_snapshot_hash)
+      || !isHash(payload.intake_snapshot_hash)
       || !this.isFunctionalRefValue(payload.constraint_profile_ref)
-      || !this.isHash(payload.constraint_profile_hash)
+      || !isHash(payload.constraint_profile_hash)
       || !this.isFunctionalRefValue(payload.intake_readiness_ref)
-      || !this.isHash(payload.intake_readiness_hash)
-      || !this.isHash(payload.n2_handoff_hash)
-      || !this.isHash(payload.n3_handoff_hash)) {
+      || !isHash(payload.intake_readiness_hash)
+      || !isHash(payload.n2_handoff_hash)
+      || !isHash(payload.n3_handoff_hash)) {
       return {
         ok: false,
         code: 'N4_FROZEN_PAYLOAD_INVALID',
@@ -8609,13 +8612,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'research_slice_option_set_hash',
       'research_slice_option_set_ref',
     ];
-    if (!this.hasOnlyKeys(payload, allowedKeys)
+    if (!hasOnlyKeys(payload, allowedKeys)
       || !this.isFunctionalRefValue(payload.research_slice_option_set_ref)
-      || !this.isHash(payload.research_slice_option_set_hash)
-      || !this.isHash(payload.n4_handoff_hash)
+      || !isHash(payload.research_slice_option_set_hash)
+      || !isHash(payload.n4_handoff_hash)
       || !['human_delegated', 'codex_delegated', 'fixture'].includes(payload.authority_input_provider as string)
-      || !this.isRecord(payload.accepted_selection_payload)
-      || !this.isHash(payload.accepted_selection_payload_hash)
+      || !isRecord(payload.accepted_selection_payload)
+      || !isHash(payload.accepted_selection_payload_hash)
       || !this.isNullableHash(payload.delegation_artifact_hash)) {
       return {
         ok: false,
@@ -8630,7 +8633,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N5 accepted ResearchSlice selection payload is malformed.',
       };
     }
-    if (payload.authority_input_provider === 'codex_delegated' && !this.isHash(payload.delegation_artifact_hash)) {
+    if (payload.authority_input_provider === 'codex_delegated' && !isHash(payload.delegation_artifact_hash)) {
       return {
         ok: false,
         code: 'N5_CODEX_DELEGATION_ARTIFACT_REQUIRED',
@@ -8668,20 +8671,20 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'selected_slice_option_hash',
       'selected_slice_option_ref',
     ];
-    if (!this.hasOnlyKeys(payload, allowedKeys)
-      || !this.isHash(payload.n5_handoff_hash)
+    if (!hasOnlyKeys(payload, allowedKeys)
+      || !isHash(payload.n5_handoff_hash)
       || !this.isFunctionalRefValue(payload.constraint_profile_ref)
-      || !this.isHash(payload.constraint_profile_hash)
+      || !isHash(payload.constraint_profile_hash)
       || !this.isFunctionalRefValue(payload.intake_readiness_ref)
-      || !this.isHash(payload.intake_readiness_hash)
+      || !isHash(payload.intake_readiness_hash)
       || !this.isFunctionalRefValue(payload.research_slice_ref)
-      || !this.isHash(payload.research_slice_hash)
+      || !isHash(payload.research_slice_hash)
       || !this.isFunctionalRefValue(payload.research_slice_selection_ref)
-      || !this.isHash(payload.research_slice_selection_hash)
+      || !isHash(payload.research_slice_selection_hash)
       || !this.isFunctionalRefValue(payload.research_slice_option_set_ref)
-      || !this.isHash(payload.research_slice_option_set_hash)
+      || !isHash(payload.research_slice_option_set_hash)
       || !this.isFunctionalRefValue(payload.selected_slice_option_ref)
-      || !this.isHash(payload.selected_slice_option_hash)) {
+      || !isHash(payload.selected_slice_option_hash)) {
       return {
         ok: false,
         code: 'N6_FROZEN_PAYLOAD_INVALID',
@@ -8695,7 +8698,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private acceptedConstraintProfilePayloadIsValid(value: Record<string, unknown>): boolean {
-    return this.hasOnlyKeys(value, [
+    return hasOnlyKeys(value, [
       'available_assets',
       'claim_ceiling',
       'constraint_payload',
@@ -8714,15 +8717,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
       && this.isStringArray(value.method_constraints)
       && this.isStringArray(value.resource_constraints)
       && this.isStringArray(value.available_assets)
-      && this.isRecord(value.feasibility_budget)
+      && isRecord(value.feasibility_budget)
       && this.isStringArray(value.non_goals)
       && typeof value.claim_ceiling === 'string'
       && this.isNullableString(value.human_constraint_notes)
-      && this.isRecord(value.constraint_payload);
+      && isRecord(value.constraint_payload);
   }
 
   private acceptedSliceSelectionPayloadIsValid(value: Record<string, unknown>): boolean {
-    if (!this.hasOnlyKeys(value, [
+    if (!hasOnlyKeys(value, [
       'accepted_risk_refs',
       'confidence',
       'decision',
@@ -8743,7 +8746,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || !this.isNullableHash(value.selected_option_hash)
       || typeof value.selection_rationale !== 'string'
       || value.selection_rationale.trim().length === 0
-      || !this.isRecord(value.decision_basis)
+      || !isRecord(value.decision_basis)
       || !this.isRejectedOptionReasonArray(value.rejected_option_reasons)
       || !this.isStringArray(value.required_actions)
       || !this.isFunctionalRefArray(value.accepted_risk_refs)
@@ -8757,7 +8760,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     if (value.decision === 'select') {
       return this.isFunctionalRefValue(value.selected_option_ref)
-        && this.isHash(value.selected_option_hash)
+        && isHash(value.selected_option_hash)
         && value.loopback_target === null
         && value.loopback_target_ref === null
         && value.loopback_reason_code === null;
@@ -8776,8 +8779,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private isN3ReadinessClassificationSupportPayload(
     value: unknown,
   ): value is TopicSelectionV1bIntakeReadinessClassificationSupportPayload {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'blocker_codes',
         'cited_refs',
         'loopback_target_code',
@@ -8946,7 +8949,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   ): { ok: true; value: { constraintProfileHash: string; readinessHash: string } } | { ok: false; code: string; message: string } {
     const constraintProfileHash = optionSet.comparison_payload.constraint_profile_hash;
     const readinessHash = optionSet.comparison_payload.intake_readiness_hash;
-    if (!this.isHash(constraintProfileHash) || !this.isHash(readinessHash)) {
+    if (!isHash(constraintProfileHash) || !isHash(readinessHash)) {
       return {
         ok: false,
         code: 'N5_OPTION_SET_LINEAGE_HASH_MISSING',
@@ -9384,7 +9387,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: handoff.message,
       };
     }
-    const researchSliceRef = this.ref(
+    const researchSliceRef = buildRef(
       'research_slice',
       loaded.researchSlice.research_slice_id,
       loaded.researchSlice.title_card_id,
@@ -9392,7 +9395,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     );
     const optionSetRef = this.optionSetRef(loaded.optionSet);
     const selectedOptionRef = this.optionRef(loaded.selectedOption);
-    const selectionRef = this.ref(
+    const selectionRef = buildRef(
       'slice_selection_decision',
       loaded.selectionDecision.slice_selection_decision_id,
       loaded.selectionDecision.title_card_id,
@@ -9451,7 +9454,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N6 ResearchSlice, selected option, option set, and selection decision lineage do not match.',
       };
     }
-    const storedOptionSetHash = this.recordString(loaded.optionSet.comparison_payload.authority_hash);
+    const storedOptionSetHash = recordString(loaded.optionSet.comparison_payload.authority_hash);
     if (storedOptionSetHash !== payload.research_slice_option_set_hash) {
       return {
         code: 'N6_OPTION_SET_HASH_MISMATCH',
@@ -9478,8 +9481,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       };
     }
     if (
-      this.recordString(loaded.optionSet.comparison_payload.constraint_profile_hash) !== payload.constraint_profile_hash
-      || this.recordString(loaded.optionSet.comparison_payload.intake_readiness_hash) !== payload.intake_readiness_hash
+      recordString(loaded.optionSet.comparison_payload.constraint_profile_hash) !== payload.constraint_profile_hash
+      || recordString(loaded.optionSet.comparison_payload.intake_readiness_hash) !== payload.intake_readiness_hash
     ) {
       return {
         code: 'N6_UPSTREAM_HASH_MISMATCH',
@@ -9524,7 +9527,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN5ToN6HandoffArtifactPayload(value: unknown): value is TopicSelectionV1bWorkflowHarnessHandoff {
-    if (!this.isRecord(value) || !this.isRecord(value.envelope) || !this.isRecord(value.payload)) {
+    if (!isRecord(value) || !isRecord(value.envelope) || !isRecord(value.payload)) {
       return false;
     }
     return value.envelope.handoff_kind === 'N5ToN6Handoff'
@@ -9571,7 +9574,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return this.n6RuntimeAuditDrift('N6 runtime draft audit artifact is missing or checksum-drifted.');
     }
     const auditPayload = auditArtifact.payload;
-    if (!this.isRecord(auditPayload) || !this.isRecord(auditPayload.provenance)) {
+    if (!isRecord(auditPayload) || !isRecord(auditPayload.provenance)) {
       return this.n6RuntimeAuditDrift('N6 runtime draft audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
@@ -9817,7 +9820,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }
       const artifact = await this.controlPlane.getArtifactRef(sourceRef.ref_id);
       if (
-        !this.isRecord(artifact?.payload)
+        !isRecord(artifact?.payload)
         || artifact.payload.projection_kind !== 'v1b_n7_to_n6_failed_trial_loopback_context'
       ) {
         continue;
@@ -9851,7 +9854,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }
       const artifact = await this.controlPlane.getArtifactRef(sourceRef.ref_id);
       if (
-        !this.isRecord(artifact?.payload)
+        !isRecord(artifact?.payload)
         || artifact.payload.projection_kind !== 'v1b_n6_gate_failure_retry_context'
       ) {
         continue;
@@ -10132,7 +10135,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       );
     }
     const auditPayload = auditArtifact.payload;
-    if (!this.isRecord(auditPayload) || !this.isRecord(auditPayload.provenance)) {
+    if (!isRecord(auditPayload) || !isRecord(auditPayload.provenance)) {
       return this.n6LoopbackTriageRuntimeAuditDrift(
         'N6 loopback triage runtime audit payload is not a valid invocation audit snapshot.',
       );
@@ -10247,7 +10250,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN6LoopbackTriageSupportPayload(value: unknown): value is TopicSelectionV1bN6LoopbackTriageSupportPayload {
-    if (!this.isRecord(value) || !this.hasOnlyKeys(value, [
+    if (!isRecord(value) || !hasOnlyKeys(value, [
       'affected_refs',
       'debate_escalation',
       'dominant_reason_codes',
@@ -10280,8 +10283,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     value: unknown,
   ): value is TopicSelectionV1bN6LoopbackTriageSupportPayload['debate_escalation'] {
     return value === null || (
-      this.isRecord(value)
-      && this.hasOnlyKeys(value, ['debate_level', 'recommended_profile_id', 'sticky', 'rationale'])
+      isRecord(value)
+      && hasOnlyKeys(value, ['debate_level', 'recommended_profile_id', 'sticky', 'rationale'])
       && ['mixed_cost_control', 'provider_diverse_deep'].includes(value.debate_level as string)
       && typeof value.recommended_profile_id === 'string'
       && value.recommended_profile_id.trim().length > 0
@@ -10295,8 +10298,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     value: unknown,
   ): value is TopicSelectionV1bN6LoopbackTriageSupportPayload['upstream_rollback'] {
     return value === null || (
-      this.isRecord(value)
-      && this.hasOnlyKeys(value, ['target_node_id', 'repair_action', 'rationale'])
+      isRecord(value)
+      && hasOnlyKeys(value, ['target_node_id', 'repair_action', 'rationale'])
       && value.target_node_id === 'topic-selection.v1b.select-research-slice.v1'
       && value.repair_action === 'select_different_slice'
       && typeof value.rationale === 'string'
@@ -10307,10 +10310,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private extractN6DraftPayload(
     payload: Record<string, unknown> | null | undefined,
   ): TopicSelectionV1bTopicQuestionCandidateSetDraftPayload | null {
-    if (!this.isRecord(payload)) {
+    if (!isRecord(payload)) {
       return null;
     }
-    const candidate = this.isRecord(payload.normalized_output)
+    const candidate = isRecord(payload.normalized_output)
       ? payload.normalized_output
       : payload;
     return this.isN6DraftPayload(candidate)
@@ -10319,14 +10322,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN6DraftPayload(value: Record<string, unknown>): boolean {
-    return this.hasOnlyKeys(value, [
+    return hasOnlyKeys(value, [
       'candidates',
       'generation_notes',
       'human_review_triggers',
       'question_frame',
       'recommended_candidate_keys',
     ])
-      && this.isRecord(value.question_frame)
+      && isRecord(value.question_frame)
       && this.isStringArray(value.recommended_candidate_keys)
       && this.isStringArray(value.generation_notes)
       && this.isStringArray(value.human_review_triggers)
@@ -10501,7 +10504,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       };
     }
     const candidateRefs = candidates.map((candidate) =>
-      this.ref('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id),
+      buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id),
     );
     const candidateHashes = candidates.map((candidate) => this.hashN6CandidateAuthority(candidate));
     const recommendedCandidateIds = draft.recommended_candidate_keys
@@ -10575,10 +10578,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
     payload: TopicSelectionV1bN6HarnessFrozenInputPayload,
   ): N6KnownContext {
     const boundaryRefs = loaded.boundaries.map((boundary) =>
-      this.ref('research_slice_boundary', boundary.research_slice_boundary_id, boundary.title_card_id),
+      buildRef('research_slice_boundary', boundary.research_slice_boundary_id, boundary.title_card_id),
     );
     const assumptionRefs = loaded.assumptions.map((assumption) =>
-      this.ref('research_slice_assumption', assumption.research_slice_assumption_id, assumption.title_card_id),
+      buildRef('research_slice_assumption', assumption.research_slice_assumption_id, assumption.title_card_id),
     );
     const evidenceRefs = loaded.evidenceRefs.map((evidenceRef) => evidenceRef.evidence_ref);
     const sourceRefs = uniqueRefs([
@@ -10785,7 +10788,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       answerability_verdict: candidate.answerability_verdict,
       boundary_check_payload: candidate.boundary_check_payload,
       candidate_key: candidate.candidate_key,
-      candidate_ref: this.ref('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id),
+      candidate_ref: buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id),
       expected_claim: candidate.expected_claim,
       falsification_conditions_payload: candidate.falsification_conditions_payload,
       main_question: candidate.main_question,
@@ -10808,8 +10811,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN6QuestionFrameDraft(value: unknown): boolean {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'assumption_refs',
         'comparison_baseline',
         'evidence_refs',
@@ -10830,11 +10833,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       && typeof value.observable_outcome === 'string'
       && this.isFunctionalRefArray(value.assumption_refs)
       && this.isFunctionalRefArray(value.evidence_refs)
-      && this.isRecord(value.frame_payload);
+      && isRecord(value.frame_payload);
   }
 
   private isN6CandidateDraft(value: unknown): value is TopicSelectionTopicQuestionCandidateDraft {
-    if (!this.isRecord(value) || !this.hasOnlyKeys(value, [
+    if (!isRecord(value) || !hasOnlyKeys(value, [
       'answerability_plan',
       'answerability_verdict',
       'blockers',
@@ -10882,8 +10885,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN6AnswerabilityPlanDraft(value: unknown): boolean {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'ablations_or_comparisons',
         'baselines',
         'datasets_or_resources',
@@ -10906,8 +10909,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN6BoundaryCheckDraft(value: unknown): boolean {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'allowed_refinements',
         'boundary_violations',
         'excluded_boundary_refs',
@@ -10922,8 +10925,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN6TraceabilityCheckDraft(value: unknown): boolean {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'baseline_evidence_refs',
         'challenge_evidence_refs',
         'context_evidence_refs',
@@ -10940,8 +10943,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN6FalsificationConditionDraft(value: unknown): value is TopicSelectionTopicQuestionFalsificationConditionDraft {
-    return this.isRecord(value)
-      && this.hasOnlyKeys(value, [
+    return isRecord(value)
+      && hasOnlyKeys(value, [
         'check_timing',
         'condition_type',
         'confidence',
@@ -11130,7 +11133,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return this.n4RuntimeAuditDrift('N4 runtime research-slice draft audit artifact is missing or checksum-drifted.');
     }
     const auditPayload = auditArtifact.payload;
-    if (!this.isRecord(auditPayload) || !this.isRecord(auditPayload.provenance)) {
+    if (!isRecord(auditPayload) || !isRecord(auditPayload.provenance)) {
       return this.n4RuntimeAuditDrift('N4 runtime research-slice draft audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
@@ -11208,10 +11211,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private extractN4DraftPayload(
     payload: Record<string, unknown> | null | undefined,
   ): TopicSelectionV1bResearchSliceOptionSetDraftPayload | null {
-    if (!this.isRecord(payload)) {
+    if (!isRecord(payload)) {
       return null;
     }
-    const candidate = this.isRecord(payload.normalized_output)
+    const candidate = isRecord(payload.normalized_output)
       ? payload.normalized_output
       : payload;
     return this.isN4DraftPayload(candidate)
@@ -11220,7 +11223,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN4DraftPayload(value: Record<string, unknown>): boolean {
-    return this.hasOnlyKeys(value, [
+    return hasOnlyKeys(value, [
       'comparison_axes',
       'comparison_summary',
       'human_review_triggers',
@@ -11242,10 +11245,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isN4DraftOption(value: unknown): value is TopicSelectionResearchSliceOptionDraft {
-    if (!this.isRecord(value)) {
+    if (!isRecord(value)) {
       return false;
     }
-    return this.hasOnlyKeys(value, [
+    return hasOnlyKeys(value, [
       'baseline_assumptions',
       'baseline_evidence_refs',
       'baseline_risk',
@@ -11305,7 +11308,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       && this.isStringArray(value.baseline_assumptions)
       && this.isStringArray(value.hard_blockers)
       && this.isStringArray(value.dependency_risks)
-      && this.isRecord(value.slice_budget)
+      && isRecord(value.slice_budget)
       && typeof value.expected_claim === 'string'
       && value.expected_claim.trim().length > 0
       && typeof value.fallback_claim === 'string'
@@ -11319,7 +11322,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       && (value.confidence === null || value.confidence === undefined || typeof value.confidence === 'number')
       && typeof value.requires_human_review === 'boolean'
       && this.isStringArray(value.human_review_triggers)
-      && this.isRecord(value.details_payload);
+      && isRecord(value.details_payload);
   }
 
   private n4LineageBlocker(
@@ -11688,7 +11691,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const parkReason = this.profileParkReason(profile);
     const blockers = this.readinessBlockers(snapshot, staleRefCodes, missingConstraintCodes, uncoveredOpenRechecks, parkReason);
     const acceptedRiskRefs = acceptedRisks.map((risk) =>
-      this.ref('accepted_risk', risk.accepted_risk_id, risk.title_card_id ?? snapshot.title_card_id)
+      buildRef('accepted_risk', risk.accepted_risk_id, risk.title_card_id ?? snapshot.title_card_id)
     );
     const warnings = acceptedRiskRefs.length > 0
       ? [this.warning('ACCEPTED_RISK_CARRIED_FORWARD', 'v1b intake carries active accepted risk refs.', acceptedRiskRefs)]
@@ -11730,7 +11733,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!needCandidate) {
       issues.push(this.blocker('SOURCE_NEED_CANDIDATE_NOT_FOUND', 'v1b intake requires the source NeedCandidate.', [bundle.source_need_candidate_ref]));
     } else {
-      this.pushRefMismatchIssue(issues, 'SOURCE_NEED_CANDIDATE_REF_MISMATCH', bundle.source_need_candidate_ref, this.ref('need_candidate', needCandidate.need_candidate_id, needCandidate.title_card_id, needCandidate.candidate_version));
+      this.pushRefMismatchIssue(issues, 'SOURCE_NEED_CANDIDATE_REF_MISMATCH', bundle.source_need_candidate_ref, buildRef('need_candidate', needCandidate.need_candidate_id, needCandidate.title_card_id, needCandidate.candidate_version));
       this.pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, needCandidate.evidence_map_ref);
       this.pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_SEARCH_RUN_REF_MISMATCH', bundle.search_run_ref, needCandidate.search_run_ref);
       this.pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_SEARCH_PLAN_REF_MISMATCH', bundle.search_plan_ref, needCandidate.search_plan_ref);
@@ -11739,7 +11742,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!validatedNeed) {
       issues.push(this.blocker('VALIDATED_NEED_NOT_FOUND', 'v1b intake requires a persisted ValidatedNeed.', [bundle.validated_need_ref]));
     } else {
-      this.pushRefMismatchIssue(issues, 'VALIDATED_NEED_REF_MISMATCH', bundle.validated_need_ref, this.ref('validated_need', validatedNeed.validated_need_id, validatedNeed.title_card_id));
+      this.pushRefMismatchIssue(issues, 'VALIDATED_NEED_REF_MISMATCH', bundle.validated_need_ref, buildRef('validated_need', validatedNeed.validated_need_id, validatedNeed.title_card_id));
       this.pushRefMismatchIssue(issues, 'HUMAN_DECISION_REF_MISMATCH', bundle.human_decision_ref, validatedNeed.human_decision_ref);
       this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_REF_MISMATCH', bundle.support_packet_ref, validatedNeed.support_packet_ref);
       this.pushRefMismatchIssue(issues, 'ADJUDICATION_RESULT_REF_MISMATCH', bundle.adjudication_result_ref, validatedNeed.adjudication_result_ref);
@@ -11764,7 +11767,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!supportPacket) {
       issues.push(this.blocker('SUPPORT_PACKET_NOT_FOUND', 'v1b intake requires the v1a validation support packet.', [bundle.support_packet_ref]));
     } else {
-      this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_REF_MISMATCH', bundle.support_packet_ref, this.ref('validation_decision_support_packet', supportPacket.validation_support_packet_id, supportPacket.title_card_id));
+      this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_REF_MISMATCH', bundle.support_packet_ref, buildRef('validation_decision_support_packet', supportPacket.validation_support_packet_id, supportPacket.title_card_id));
       this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, supportPacket.evidence_map_ref);
       this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_SEARCH_RUN_REF_MISMATCH', bundle.search_run_ref, supportPacket.search_run_ref);
       this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_SEARCH_PLAN_REF_MISMATCH', bundle.search_plan_ref, supportPacket.search_plan_ref);
@@ -11773,7 +11776,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!adjudication) {
       issues.push(this.blocker('ADJUDICATION_RESULT_NOT_FOUND', 'v1b intake requires the v1a adjudication result.', [bundle.adjudication_result_ref]));
     } else {
-      this.pushRefMismatchIssue(issues, 'ADJUDICATION_RESULT_REF_MISMATCH', bundle.adjudication_result_ref, this.ref('validate_need_adjudication_result', adjudication.adjudication_result_id, adjudication.title_card_id));
+      this.pushRefMismatchIssue(issues, 'ADJUDICATION_RESULT_REF_MISMATCH', bundle.adjudication_result_ref, buildRef('validate_need_adjudication_result', adjudication.adjudication_result_id, adjudication.title_card_id));
       if (adjudication.final_decision !== 'validate') {
         issues.push(this.blocker('ADJUDICATION_NOT_VALIDATED', 'v1b only accepts validated need adjudications.', [bundle.adjudication_result_ref]));
       }
@@ -11887,7 +11890,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     recheck: TopicSelectionSearchPlanRecheckRequestRecord,
     snapshot: TopicSelectionV1bIntakeSnapshotRecord,
   ): boolean {
-    const recheckRef = this.ref('search_plan_recheck_request', recheck.search_plan_recheck_request_id, recheck.title_card_id);
+    const recheckRef = buildRef('search_plan_recheck_request', recheck.search_plan_recheck_request_id, recheck.title_card_id);
     const coverageRefs = uniqueRefs([
       risk.source_ref ?? null,
       risk.target_ref,
@@ -11941,7 +11944,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         'OPEN_HIGH_PRIORITY_RECHECK',
         'Open SearchPlan recheck must be resolved or covered by active accepted risk before slice planning.',
         uncoveredRechecks.map((request) =>
-          this.ref('search_plan_recheck_request', request.search_plan_recheck_request_id, request.title_card_id)
+          buildRef('search_plan_recheck_request', request.search_plan_recheck_request_id, request.title_card_id)
         ),
       ));
     }
@@ -12095,7 +12098,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private bundleRef(bundle: TopicSelectionV1aToV1bInputBundleRecord): TopicSelectionFunctionalRef {
-    return this.ref('v1a_to_v1b_input_bundle', bundle.v1b_input_bundle_id, bundle.title_card_id, bundle.bundle_version);
+    return buildRef('v1a_to_v1b_input_bundle', bundle.v1b_input_bundle_id, bundle.title_card_id, bundle.bundle_version);
   }
 
   private v1aBundleSourceRefs(
@@ -12193,8 +12196,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       actor: input.actor ?? { actor_type: createdBy },
       created_authority_refs: [],
     });
-    const gateResultRef = this.ref('readiness_gate_result', gate.readiness_gate_result_id, gate.title_card_id ?? input.title_card_id ?? null);
-    const transitionRef = this.ref(
+    const gateResultRef = buildRef('readiness_gate_result', gate.readiness_gate_result_id, gate.title_card_id ?? input.title_card_id ?? null);
+    const transitionRef = buildRef(
       'chain_transition_attempt',
       transition.chain_transition_attempt_id,
       transition.title_card_id ?? input.title_card_id ?? null,
@@ -12214,7 +12217,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       },
       created_by: createdBy,
     });
-    const traceSnapshotRef = this.ref(
+    const traceSnapshotRef = buildRef(
       'trace_snapshot',
       traceSnapshot.trace_snapshot_id,
       traceSnapshot.title_card_id ?? input.title_card_id ?? null,
@@ -12271,7 +12274,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
     const result: TopicSelectionV1bWorkflowHarnessRunResult = {
       ...resultWithoutTraceArtifact,
-      harness_trace_artifact_ref: this.ref(
+      harness_trace_artifact_ref: buildRef(
         'artifact_ref',
         traceArtifact.artifact_ref_id,
         traceArtifact.title_card_id ?? input.title_card_id ?? null,
@@ -12322,21 +12325,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     };
   }
 
-  private hasOnlyKeys(value: Record<string, unknown>, allowedKeys: string[]): boolean {
-    const allowed = new Set(allowedKeys);
-    return Object.keys(value).every((key) => allowed.has(key));
-  }
-
-  private isHash(value: unknown): value is string {
-    return typeof value === 'string' && HASH_PATTERN.test(value);
-  }
-
-  private recordString(value: unknown): string | null {
-    return typeof value === 'string' && value.trim().length > 0 ? value : null;
-  }
-
   private isNullableHash(value: unknown): value is string | null | undefined {
-    return value === undefined || value === null || this.isHash(value);
+    return value === undefined || value === null || isHash(value);
   }
 
   private isStringArray(value: unknown): value is string[] {
@@ -12372,7 +12362,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isRejectedOptionReasonArray(value: unknown): value is TopicSelectionRejectedSliceOptionReason[] {
-    return Array.isArray(value) && value.every((item) => this.isRecord(item)
+    return Array.isArray(value) && value.every((item) => isRecord(item)
       && typeof item.option_id === 'string'
       && item.option_id.trim().length > 0
       && typeof item.reason === 'string'
@@ -12391,10 +12381,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isClaimCeilingAlignment(value: unknown): value is TopicSelectionResearchSliceOptionDraft['claim_ceiling_alignment'] {
-    if (!this.isRecord(value)) {
+    if (!isRecord(value)) {
       return false;
     }
-    return this.hasOnlyKeys(value, ['confidence', 'rationale', 'status'])
+    return hasOnlyKeys(value, ['confidence', 'rationale', 'status'])
       && (value.status === 'aligned' || value.status === 'uncertain' || value.status === 'exceeds')
       && typeof value.rationale === 'string'
       && value.rationale.trim().length > 0
@@ -12402,7 +12392,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private isFunctionalRefValue(value: unknown): value is TopicSelectionFunctionalRef {
-    return this.isRecord(value)
+    return isRecord(value)
       && typeof value.ref_type === 'string'
       && value.ref_type.trim().length > 0
       && typeof value.ref_id === 'string'
@@ -12435,7 +12425,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private snapshotRef(snapshot: TopicSelectionV1bIntakeSnapshotRecord): TopicSelectionFunctionalRef {
-    return this.ref(
+    return buildRef(
       'v1b_intake_snapshot',
       snapshot.v1b_intake_snapshot_id,
       snapshot.title_card_id,
@@ -12444,7 +12434,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private profileRef(profile: TopicSelectionResearchConstraintProfileRecord): TopicSelectionFunctionalRef {
-    return this.ref(
+    return buildRef(
       'research_constraint_profile',
       profile.research_constraint_profile_id,
       profile.title_card_id,
@@ -12453,7 +12443,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private readinessRef(readiness: TopicSelectionV1bIntakeReadinessAssessmentRecord): TopicSelectionFunctionalRef {
-    return this.ref(
+    return buildRef(
       'v1b_intake_readiness_assessment',
       readiness.v1b_intake_readiness_assessment_id,
       readiness.title_card_id,
@@ -12489,11 +12479,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private optionSetRef(optionSet: TopicSelectionResearchSliceOptionSetRecord): TopicSelectionFunctionalRef {
-    return this.ref('research_slice_option_set', optionSet.research_slice_option_set_id, optionSet.title_card_id);
+    return buildRef('research_slice_option_set', optionSet.research_slice_option_set_id, optionSet.title_card_id);
   }
 
   private optionRef(option: TopicSelectionResearchSliceOptionRecord): TopicSelectionFunctionalRef {
-    return this.ref('research_slice_option', option.research_slice_option_id, option.title_card_id);
+    return buildRef('research_slice_option', option.research_slice_option_id, option.title_card_id);
   }
 
   private hashResearchSliceOptionAuthority(option: TopicSelectionResearchSliceOptionRecord): string {
@@ -12519,7 +12509,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private inheritedConstraints(option: TopicSelectionResearchSliceOptionRecord): InheritedConstraints {
-    const inherited = this.isRecord(option.details_payload.inherited_constraints)
+    const inherited = isRecord(option.details_payload.inherited_constraints)
       ? option.details_payload.inherited_constraints
       : {};
     const claimCeiling = typeof inherited.claim_ceiling === 'string'
@@ -12701,7 +12691,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private nodeAttemptRef(input: TopicSelectionV1bWorkflowHarnessRunRequest): TopicSelectionFunctionalRef {
-    return this.ref('v1b_workflow_harness_node_attempt', input.node_attempt_id, input.title_card_id ?? null);
+    return buildRef('v1b_workflow_harness_node_attempt', input.node_attempt_id, input.title_card_id ?? null);
   }
 
   private blocker(
@@ -12727,20 +12717,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       message,
       severity: 'warning',
       refs,
-    };
-  }
-
-  private ref(
-    refType: string,
-    refId: string,
-    titleCardId?: string | null,
-    versionId?: string | null,
-  ): TopicSelectionFunctionalRef {
-    return {
-      ref_type: refType,
-      ref_id: refId,
-      version_id: versionId ?? null,
-      title_card_id: titleCardId ?? null,
     };
   }
 
