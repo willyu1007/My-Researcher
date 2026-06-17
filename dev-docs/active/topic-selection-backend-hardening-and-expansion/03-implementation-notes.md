@@ -9,7 +9,7 @@
 | W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | done | 见 Phase 1 记录（coordinator 19/0；upstream_blocked / feedback_artifact_missing / nonce 负例） |
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
-| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01；hash-authority + pure-utils + predicates + parsers(N1/N3/N4/N6) 已出壳（harness 12898→12526，golden 守卫绿）；续抽 N7–N11 parsers + N2/N5 validators + resolvers |
+| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01；hash-authority + pure-utils + predicates + parsers(N1/N3/N4/N6/N7–N11) 已出壳（harness 12898→12328，golden 守卫绿）；仅余 N2/N5 parsers(+validators) + resolvers |
 | W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | planned | 待 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
@@ -112,6 +112,11 @@
 - 依赖核查：9/11 parser（N1/N3/N4/N6/N7/N8/N9/N10/N11）经 slice 5 后已 PURE；仅 N2/N5 仍依赖 `accepted*PayloadIsValid` 验证器（待 slice 7 先抽验证器）。
 - 移除 4 私有方法 + harness 内 N3 类型孤立 import（`tsc` 报 TS6133 后清理）。harness **12,648 → 12,526 行**；`tsc` 0；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。
 - 下一刀：N7/N8/N9/N10/N11 parser（较大、纯）；再 N2/N5 验证器 + N2/N5 parser；最后 resolveN*Payload + resolver 簇 → 收壳。
+
+**W-12 slice 7 — parser 簇 batch 2（N7–N11）— done（2026-06-17）**
+- 续抽 5 个纯 frozen-input 解析器（`parseN7..parseN11Payload`，各 1 调用点，逐字）到 `harness-parsers.ts`；模块补 import `isFunctionalRefArray`/`isStringArray`/`isNullableFunctionalRefValue`/`isNullableHash`（predicates）+ N7–N11 frozen-payload 类型。移除 5 私有方法。
+- harness **12,526 → 12,328 行**；`tsc` 0（N7–N11 类型仍他处使用，无孤立 import）；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。
+- **parser 簇仅余 N2/N5**——二者依赖 `acceptedConstraintProfilePayloadIsValid`/`acceptedSliceSelectionPayloadIsValid` 验证器（下一刀先抽这两个验证器〔查纯度〕，再抽 N2/N5 parser）；之后 resolveN*Payload/resolver 簇收壳。
 
 ### Phase 3 — 能力扩展 / 选项 B（待开工）
 ### Phase 4 — 工作台收口 / 选项 C（待开工）

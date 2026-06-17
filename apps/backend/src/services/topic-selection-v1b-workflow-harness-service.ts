@@ -257,6 +257,11 @@ import {
   parseN3Payload,
   parseN4Payload,
   parseN6Payload,
+  parseN7Payload,
+  parseN8Payload,
+  parseN9Payload,
+  parseN10Payload,
+  parseN11Payload,
 } from './topic-selection-v1b-harness-parsers.js';
 
 const ALLOWED_REQUEST_KEYS = new Set([
@@ -3361,7 +3366,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN7Payload(input.frozen_input.payload);
+    const payload = parseN7Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -4168,71 +4173,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return 'topic-selection.v1b.materialize-topic-question-contract.v1';
     }
     return null;
-  }
-
-  private parseN7Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN7HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    const baseKeys = [
-      'input_mode',
-      'n6_handoff_hash',
-      'topic_question_candidate_set_ref',
-      'topic_question_candidate_set_hash',
-      'admissible_candidate_refs',
-      'admissible_candidate_hashes',
-      'selected_research_slice_ref',
-      'selected_research_slice_hash',
-      'generation_artifact_ref',
-      'generation_artifact_hash',
-      'candidate_gate_hash',
-      'candidate_grouping_ref',
-      'candidate_grouping_hash',
-    ];
-    const feedbackKeys = [
-      ...baseKeys,
-      'n8_feedback_ref',
-      'n8_feedback_hash',
-      'n8_feedback_payload_hash',
-    ];
-    const mode = payload.input_mode;
-    const allowedKeys = mode === 'feedback_from_n8' ? feedbackKeys : baseKeys;
-    if (!hasOnlyKeys(payload, allowedKeys)
-      || (mode !== 'initial_from_n6' && mode !== 'feedback_from_n8')
-      || !isHash(payload.n6_handoff_hash)
-      || !isFunctionalRefValue(payload.topic_question_candidate_set_ref)
-      || !isHash(payload.topic_question_candidate_set_hash)
-      || !isFunctionalRefArray(payload.admissible_candidate_refs)
-      || (payload.admissible_candidate_refs as unknown[]).length === 0
-      || !isStringArray(payload.admissible_candidate_hashes)
-      || !(payload.admissible_candidate_hashes as string[]).every((hash) => isHash(hash))
-      || (payload.admissible_candidate_hashes as string[]).length !== (payload.admissible_candidate_refs as unknown[]).length
-      || !isFunctionalRefValue(payload.selected_research_slice_ref)
-      || !isHash(payload.selected_research_slice_hash)
-      || !isFunctionalRefValue(payload.generation_artifact_ref)
-      || !isHash(payload.generation_artifact_hash)
-      || !isHash(payload.candidate_gate_hash)
-      || !isNullableFunctionalRefValue(payload.candidate_grouping_ref)
-      || !isNullableHash(payload.candidate_grouping_hash)) {
-      return {
-        ok: false,
-        code: 'N7_FROZEN_PAYLOAD_INVALID',
-        message: 'N7 requires frozen N6 candidate-set lineage refs, hashes, and candidate hash pairs.',
-      };
-    }
-    if (mode === 'feedback_from_n8'
-      && (!isFunctionalRefValue(payload.n8_feedback_ref)
-        || !isHash(payload.n8_feedback_hash)
-        || !isHash(payload.n8_feedback_payload_hash))) {
-      return {
-        ok: false,
-        code: 'N7_FEEDBACK_PAYLOAD_INVALID',
-        message: 'N7 feedback mode requires frozen N8 feedback refs and hashes.',
-      };
-    }
-    return {
-      ok: true,
-      value: payload as unknown as TopicSelectionV1bN7HarnessFrozenInputPayload,
-    };
   }
 
   private async loadN7Context(
@@ -5318,7 +5258,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN8Payload(input.frozen_input.payload);
+    const payload = parseN8Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -5647,7 +5587,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN9Payload(input.frozen_input.payload);
+    const payload = parseN9Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -5849,7 +5789,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN10Payload(input.frozen_input.payload);
+    const payload = parseN10Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -6066,7 +6006,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN11Payload(input.frozen_input.payload);
+    const payload = parseN11Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -6156,58 +6096,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }, {
       writeAuthority: async () => {},
     });
-  }
-
-  private parseN8Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN8HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    if (!hasOnlyKeys(payload, [
-      'n7_handoff_hash',
-      'topic_question_ref',
-      'topic_question_hash',
-      'topic_question_contract_ref',
-      'topic_question_contract_hash',
-      'answerability_plan_ref',
-      'answerability_plan_hash',
-      'trial_ledger_ref',
-      'trial_ledger_hash',
-      'topic_question_candidate_set_ref',
-      'topic_question_candidate_set_hash',
-      'active_candidate_ref',
-      'active_candidate_hash',
-      'selected_research_slice_ref',
-      'selected_research_slice_hash',
-      'n8_debate_admission_ref',
-      'n8_debate_admission_hash',
-      'candidate_grouping_ref',
-      'candidate_grouping_hash',
-    ])
-      || !isHash(payload.n7_handoff_hash)
-      || !isFunctionalRefValue(payload.topic_question_ref)
-      || !isHash(payload.topic_question_hash)
-      || !isFunctionalRefValue(payload.topic_question_contract_ref)
-      || !isHash(payload.topic_question_contract_hash)
-      || !isFunctionalRefValue(payload.answerability_plan_ref)
-      || !isHash(payload.answerability_plan_hash)
-      || !isFunctionalRefValue(payload.trial_ledger_ref)
-      || !isHash(payload.trial_ledger_hash)
-      || !isFunctionalRefValue(payload.topic_question_candidate_set_ref)
-      || !isHash(payload.topic_question_candidate_set_hash)
-      || !isFunctionalRefValue(payload.active_candidate_ref)
-      || !isHash(payload.active_candidate_hash)
-      || !isFunctionalRefValue(payload.selected_research_slice_ref)
-      || !isHash(payload.selected_research_slice_hash)
-      || !isFunctionalRefValue(payload.n8_debate_admission_ref)
-      || !isHash(payload.n8_debate_admission_hash)
-      || !isNullableFunctionalRefValue(payload.candidate_grouping_ref)
-      || !isNullableHash(payload.candidate_grouping_hash)) {
-      return {
-        ok: false,
-        code: 'N8_FROZEN_PAYLOAD_INVALID',
-        message: 'N8 requires a frozen N7-to-N8 handoff payload with contract, candidate, and debate admission hashes.',
-      };
-    }
-    return { ok: true, value: payload as unknown as TopicSelectionV1bN8HarnessFrozenInputPayload };
   }
 
   private async loadN8Context(
@@ -7041,37 +6929,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     };
   }
 
-  private parseN9Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN9HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    if (!hasOnlyKeys(payload, [
-      'n8_handoff_hash',
-      'topic_value_assessment_ref',
-      'topic_value_assessment_hash',
-      'topic_question_contract_ref',
-      'topic_question_contract_hash',
-      'value_reasoning_memo_ref',
-      'value_reasoning_memo_hash',
-      'recommended_disposition',
-    ])
-      || !isHash(payload.n8_handoff_hash)
-      || !isFunctionalRefValue(payload.topic_value_assessment_ref)
-      || !isHash(payload.topic_value_assessment_hash)
-      || !isFunctionalRefValue(payload.topic_question_contract_ref)
-      || !isHash(payload.topic_question_contract_hash)
-      || !isFunctionalRefValue(payload.value_reasoning_memo_ref)
-      || !isHash(payload.value_reasoning_memo_hash)
-      || !['advance_to_package', 'refine_question', 'refine_slice', 'recheck_evidence_or_search', 'park', 'drop']
-        .includes(payload.recommended_disposition as string)) {
-      return {
-        ok: false,
-        code: 'N9_FROZEN_PAYLOAD_INVALID',
-        message: 'N9 requires frozen N8 assessment, memo, and disposition hashes.',
-      };
-    }
-    return { ok: true, value: payload as unknown as TopicSelectionV1bN9HarnessFrozenInputPayload };
-  }
-
   private async loadN9Context(
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
     payload: TopicSelectionV1bN9HarnessFrozenInputPayload,
@@ -7248,32 +7105,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings.push(this.warning('N9_VALUE_RISK_NOTES_CARRIED_FORWARD', 'N9 disposition carries value risk notes forward.', decision.accepted_risk_refs));
     }
     return warnings;
-  }
-
-  private parseN10Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN10HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    if (!hasOnlyKeys(payload, [
-      'n9_handoff_hash',
-      'value_disposition_ref',
-      'value_disposition_hash',
-      'advance_disposition',
-      'topic_value_assessment_ref',
-      'topic_value_assessment_hash',
-    ])
-      || !isHash(payload.n9_handoff_hash)
-      || !isFunctionalRefValue(payload.value_disposition_ref)
-      || !isHash(payload.value_disposition_hash)
-      || payload.advance_disposition !== true
-      || !isFunctionalRefValue(payload.topic_value_assessment_ref)
-      || !isHash(payload.topic_value_assessment_hash)) {
-      return {
-        ok: false,
-        code: 'N10_FROZEN_PAYLOAD_INVALID',
-        message: 'N10 requires frozen advance disposition and value assessment lineage.',
-      };
-    }
-    return { ok: true, value: payload as unknown as TopicSelectionV1bN10HarnessFrozenInputPayload };
   }
 
   private async loadN10Context(
@@ -7611,34 +7442,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings.push(this.warning('N10_PACKAGE_RISKS_CARRIED_FORWARD', 'N10 package carries key risks forward.', pkg.topic_value_assessment_ref ? [pkg.topic_value_assessment_ref] : []));
     }
     return warnings;
-  }
-
-  private parseN11Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN11HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    if (!hasOnlyKeys(payload, [
-      'n10_handoff_hash',
-      'draft_topic_package_ref',
-      'draft_topic_package_hash',
-      'value_disposition_ref',
-      'value_disposition_hash',
-      'v1c_input_bundle_ref',
-      'v1c_input_bundle_hash',
-    ])
-      || !isHash(payload.n10_handoff_hash)
-      || !isFunctionalRefValue(payload.draft_topic_package_ref)
-      || !isHash(payload.draft_topic_package_hash)
-      || !isFunctionalRefValue(payload.value_disposition_ref)
-      || !isHash(payload.value_disposition_hash)
-      || !isFunctionalRefValue(payload.v1c_input_bundle_ref)
-      || !isHash(payload.v1c_input_bundle_hash)) {
-      return {
-        ok: false,
-        code: 'N11_FROZEN_PAYLOAD_INVALID',
-        message: 'N11 requires frozen package, disposition, and v1c input bundle refs and hashes.',
-      };
-    }
-    return { ok: true, value: payload as unknown as TopicSelectionV1bN11HarnessFrozenInputPayload };
   }
 
   private async loadN11Context(
