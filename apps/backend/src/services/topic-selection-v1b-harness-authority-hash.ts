@@ -34,7 +34,9 @@ import type {
   TopicSelectionTopicQuestionRecord,
   TopicSelectionTopicQuestionContractRecord,
   TopicSelectionTopicQuestionAnswerabilityPlanRecord,
+  TopicSelectionTopicQuestionCandidateRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-question-contracts';
+import { buildRef } from './topic-selection-v1b-harness-pure-utils.js';
 
 /** `sha256(stableStringify(value))` — matches the harness service's private `hash()`. */
 export function canonicalHash(value: unknown): string {
@@ -271,5 +273,23 @@ export function hashN5ResearchSliceAuthority(input: {
     option_set_hash: input.optionSetHash,
     research_slice_ref: input.researchSliceRef,
     selected_option_hash: input.selectedOptionHash,
+  });
+}
+
+// W-12 / D-T127-01 (slice 4): the last hash-authority fn, relocated verbatim. It uses buildRef (now
+// the pure-utils helper) — unblocked by slice 3 — and canonicalHash (the harness this.hash source).
+export function hashN6CandidateAuthority(candidate: TopicSelectionTopicQuestionCandidateRecord): string {
+  return canonicalHash({
+    answerability_verdict: candidate.answerability_verdict,
+    boundary_check_payload: candidate.boundary_check_payload,
+    candidate_key: candidate.candidate_key,
+    candidate_ref: buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id),
+    expected_claim: candidate.expected_claim,
+    falsification_conditions_payload: candidate.falsification_conditions_payload,
+    main_question: candidate.main_question,
+    max_claim_strength: candidate.max_claim_strength,
+    research_slice_id: candidate.research_slice_id,
+    status: candidate.status,
+    traceability_check_payload: candidate.traceability_check_payload,
   });
 }

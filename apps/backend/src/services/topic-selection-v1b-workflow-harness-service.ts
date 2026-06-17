@@ -214,6 +214,7 @@ import {
   canonicalHash,
   hashN5DecisionAuthority,
   hashN5ResearchSliceAuthority,
+  hashN6CandidateAuthority,
   hashN7TopicQuestionAuthority,
   hashN7ContractAuthority,
   hashN7AnswerabilityPlanAuthority,
@@ -4793,7 +4794,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const candidateHashByRef = new Map(loaded.candidates.map((candidate) => [
       this.refKey(buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id)),
-      this.hashN6CandidateAuthority(candidate),
+      hashN6CandidateAuthority(candidate),
     ]));
     for (const [index, candidateRef] of payload.admissible_candidate_refs.entries()) {
       const frozenHash = payload.admissible_candidate_hashes[index];
@@ -7844,7 +7845,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const contractPayload = {
       accepted_risk_refs: acceptedRiskRefs,
       answerability_plan_id: answerabilityPlanId,
-      candidate_hash: this.hashN6CandidateAuthority(candidate),
+      candidate_hash: hashN6CandidateAuthority(candidate),
       contract_id: contractId,
       frame_hash: this.hash(frame),
       selection_decision_id: decisionId,
@@ -10506,7 +10507,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const candidateRefs = candidates.map((candidate) =>
       buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id),
     );
-    const candidateHashes = candidates.map((candidate) => this.hashN6CandidateAuthority(candidate));
+    const candidateHashes = candidates.map((candidate) => hashN6CandidateAuthority(candidate));
     const recommendedCandidateIds = draft.recommended_candidate_keys
       .map((key) => candidates.find((candidate) => candidate.candidate_key === key)?.topic_question_candidate_id)
       .filter((candidateId): candidateId is string => Boolean(candidateId));
@@ -10781,22 +10782,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       )
       || condition.related_contract_fields.length === 0
       || condition.expected_action.trim().length === 0;
-  }
-
-  private hashN6CandidateAuthority(candidate: TopicSelectionTopicQuestionCandidateRecord): string {
-    return this.hash({
-      answerability_verdict: candidate.answerability_verdict,
-      boundary_check_payload: candidate.boundary_check_payload,
-      candidate_key: candidate.candidate_key,
-      candidate_ref: buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id),
-      expected_claim: candidate.expected_claim,
-      falsification_conditions_payload: candidate.falsification_conditions_payload,
-      main_question: candidate.main_question,
-      max_claim_strength: candidate.max_claim_strength,
-      research_slice_id: candidate.research_slice_id,
-      status: candidate.status,
-      traceability_check_payload: candidate.traceability_check_payload,
-    });
   }
 
   private firstDuplicate(values: string[]): string | null {
