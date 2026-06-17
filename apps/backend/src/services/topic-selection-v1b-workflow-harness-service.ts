@@ -999,15 +999,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
       throw new AppError(409, 'VERSION_CONFLICT', 'frozen_input_hash does not match frozen_input payload.');
     }
     const frozenInputHash = declaredFrozenInputHash ?? computedFrozenInputHash;
-    const executionSpecHash = this.hash(input.execution_spec ?? null);
+    const executionSpecHash = canonicalHash(input.execution_spec ?? null);
     const semanticArtifacts = input.semantic_artifacts ?? [];
-    const semanticArtifactHash = semanticArtifacts.length > 0 ? this.hash(semanticArtifacts) : null;
-    const attemptFamilyKey = input.attempt_family_key?.trim() || this.hash({
+    const semanticArtifactHash = semanticArtifacts.length > 0 ? canonicalHash(semanticArtifacts) : null;
+    const attemptFamilyKey = input.attempt_family_key?.trim() || canonicalHash({
       node_id: input.node_id,
       policy_version: input.policy_version,
       source_refs: input.frozen_input.source_refs,
     });
-    const nodeReplayKey = this.hash({
+    const nodeReplayKey = canonicalHash({
       attempt_family_key: attemptFamilyKey,
       execution_spec_hash: executionSpecHash,
       frozen_input_hash: frozenInputHash,
@@ -1304,7 +1304,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
     return {
       runtimeAdmissionHash: runtimeSurfacePresent
-        ? this.hash({
+        ? canonicalHash({
           node_id: input.node_id,
           policy_version: input.policy_version,
           requested_profile_id: input.profile_id ?? null,
@@ -1855,9 +1855,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
 
     const bundleRef = buildBundleRef(bundle);
-    const expectedBundleHash = this.hash(bundle);
+    const expectedBundleHash = canonicalHash(bundle);
     const sourceRefs = v1aBundleSourceRefs(bundle, bundleRef);
-    const expectedSourceRefsHash = this.hash(sourceRefs);
+    const expectedSourceRefsHash = canonicalHash(sourceRefs);
     const metadataBlocker = this.n1MetadataBlocker(payload.value, bundleRef, expectedBundleHash, expectedSourceRefsHash);
     if (metadataBlocker) {
       return this.persistBlockedResult(input, hashContext, {
@@ -1922,7 +1922,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       trace_issue_codes: [],
       trace_status: 'passed',
     };
-    const authorityHash = this.hash(snapshotAuthoritySeed);
+    const authorityHash = canonicalHash(snapshotAuthoritySeed);
     const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
       authorityHash,
       blockerCodes: [],
@@ -1944,13 +1944,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: authorityHash,
       sourceAuthorityRef: snapshotRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         bundle_hash: expectedBundleHash,
         source_refs_hash: expectedSourceRefsHash,
       }),
       warningCodes: [],
     });
-    const handoffHash = this.hash(handoff);
+    const handoffHash = canonicalHash(handoff);
     const result = await this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: [],
       authorityHash,
@@ -2033,7 +2033,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: payload.message,
       });
     }
-    const acceptedPayloadHash = this.hash(payload.value.accepted_constraint_profile_payload);
+    const acceptedPayloadHash = canonicalHash(payload.value.accepted_constraint_profile_payload);
     if (acceptedPayloadHash !== payload.value.accepted_constraint_profile_payload_hash) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N2_ACCEPTED_PROFILE_PAYLOAD_HASH_MISMATCH',
@@ -2078,7 +2078,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
     if (!refsEqual(payload.value.v1a_bundle_ref, snapshot.v1b_input_bundle_ref)
-      || payload.value.v1a_bundle_hash !== this.hash(await this.runnerDependencies.needValidationRepository!.findV1aToV1bInputBundleById(snapshot.v1b_input_bundle_id))) {
+      || payload.value.v1a_bundle_hash !== canonicalHash(await this.runnerDependencies.needValidationRepository!.findV1aToV1bInputBundleById(snapshot.v1b_input_bundle_id))) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N2_V1A_BUNDLE_HASH_MISMATCH',
         message: 'N2 frozen v1a bundle ref/hash does not match the snapshot lineage.',
@@ -2110,9 +2110,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const profileId = this.idFactory('research_constraint_profile');
     const profileVersion = versionFromId(profileId);
     const profileRef = buildRef('research_constraint_profile', profileId, snapshot.title_card_id, profileVersion);
-    const authorityHash = this.hash({
+    const authorityHash = canonicalHash({
       accepted_profile_payload_hash: acceptedPayloadHash,
-      intake_snapshot_hash: this.hash({
+      intake_snapshot_hash: canonicalHash({
         intake_snapshot_ref: expectedSnapshotRef,
         v1b_input_bundle_ref: snapshot.v1b_input_bundle_ref,
       }),
@@ -2140,13 +2140,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: authorityHash,
       sourceAuthorityRef: profileRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         accepted_profile_payload_hash: acceptedPayloadHash,
         intake_snapshot_hash: expectedSnapshotHash,
       }),
       warningCodes: [],
     });
-    const handoffHash = this.hash(handoff);
+    const handoffHash = canonicalHash(handoff);
     const createdBy = this.n2CreatedBy(input.created_by, payload.value.authority_input_provider);
     const result = await this.persistAdmittedResult(input, hashContext, {
       authorityHash,
@@ -2273,7 +2273,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const readiness = await this.computeReadiness(snapshot, profile);
     const readinessId = this.idFactory('v1b_intake_readiness');
     const readinessRef = buildRef('v1b_intake_readiness_assessment', readinessId, snapshot.title_card_id);
-    const authorityHash = this.hash({
+    const authorityHash = canonicalHash({
       accepted_risk_refs: readiness.acceptedRiskRefs,
       blocker_codes: readiness.blockers.map((blocker) => blocker.code),
       constraint_profile_hash: profileHash,
@@ -2314,7 +2314,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         sourceAuthorityHash: authorityHash,
         sourceAuthorityRef: readinessRef,
         sourceGateResultHash: gateResultHash,
-        upstreamLineageHash: this.hash({
+        upstreamLineageHash: canonicalHash({
           constraint_profile_hash: profileHash,
           n2_handoff_hash: payload.value.n2_handoff_hash,
           snapshot_hash: snapshotHash,
@@ -2322,7 +2322,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         warningCodes: readiness.warnings.map((warning) => warning.code),
       })
       : null;
-    const handoffHash = handoff ? this.hash(handoff) : null;
+    const handoffHash = handoff ? canonicalHash(handoff) : null;
     const result = await this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: readiness.acceptedRiskRefs,
       authorityHash,
@@ -2476,7 +2476,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
 
-    const authorityHash = this.hash({
+    const authorityHash = canonicalHash({
       draft_hash: resolvedDraft.draftHash,
       intake_readiness_hash: readinessHash,
       n3_handoff_hash: payload.value.n3_handoff_hash,
@@ -2514,7 +2514,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: authorityHash,
       sourceAuthorityRef: optionSetRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         constraint_profile_hash: profileHash,
         draft_hash: resolvedDraft.draftHash,
         intake_readiness_hash: readinessHash,
@@ -2523,7 +2523,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }),
       warningCodes: validation.value.warnings.map((warning) => warning.code),
     });
-    const handoffHash = this.hash(handoff);
+    const handoffHash = canonicalHash(handoff);
     const result = await this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: readiness.accepted_risk_refs,
       authorityHash,
@@ -2667,7 +2667,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: payload.message,
       });
     }
-    const acceptedPayloadHash = this.hash(payload.value.accepted_selection_payload);
+    const acceptedPayloadHash = canonicalHash(payload.value.accepted_selection_payload);
     if (acceptedPayloadHash !== payload.value.accepted_selection_payload_hash) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N5_ACCEPTED_SELECTION_PAYLOAD_HASH_MISMATCH',
@@ -2864,7 +2864,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: decisionHash,
       sourceAuthorityRef: decisionRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         accepted_selection_payload_hash: acceptedPayloadHash,
         constraint_profile_hash: lineageHashes.value.constraintProfileHash,
         intake_readiness_hash: lineageHashes.value.readinessHash,
@@ -2875,7 +2875,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }),
       warningCodes: warnings.map((warning) => warning.code),
     });
-    const handoffHash = this.hash(handoff);
+    const handoffHash = canonicalHash(handoff);
     const result = await this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: uniqueRefs([
         ...loaded.value.planRun.accepted_risk_refs,
@@ -3089,7 +3089,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
 
-    const candidateSetHash = this.hash({
+    const candidateSetHash = canonicalHash({
       candidate_hashes: validation.value.candidateHashes,
       candidate_set_ref: candidateSetRef,
       draft_hash: draftResolution.draftHash,
@@ -3135,7 +3135,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: candidateSetHash,
       sourceAuthorityRef: candidateSetRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         candidate_hashes: validation.value.candidateHashes,
         draft_hash: draftResolution.draftHash,
         n5_handoff_hash: payload.value.n5_handoff_hash,
@@ -3144,7 +3144,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }),
       warningCodes: validation.value.warnings.map((warning) => warning.code),
     });
-    const handoffHash = this.hash(handoff);
+    const handoffHash = canonicalHash(handoff);
     const result = await this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: loaded.value.researchSlice.accepted_risk_refs,
       additionalAuthorityRefs: [
@@ -3347,7 +3347,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const contractHash = hashN7ContractAuthority(materialization.topic_question_contract);
     const answerabilityPlanHash = hashN7AnswerabilityPlanAuthority(materialization.answerability_plan);
     const debateAdmission = await this.recordN7DebateAdmissionArtifact(input, payload.value, choice.value, support.value);
-    const trialLedgerHash = this.hash({
+    const trialLedgerHash = canonicalHash({
       active_candidate_hash: choice.value.candidateHash,
       candidate_set_hash: payload.value.topic_question_candidate_set_hash,
       decision_id: decisionId,
@@ -3419,7 +3419,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: contractHash,
       sourceAuthorityRef: contractRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         active_candidate_hash: choice.value.candidateHash,
         candidate_set_hash: payload.value.topic_question_candidate_set_hash,
         n6_handoff_hash: payload.value.n6_handoff_hash,
@@ -3428,7 +3428,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }),
       warningCodes: warnings.map((warning) => warning.code),
     });
-    const handoffHash = this.hash(handoff);
+    const handoffHash = canonicalHash(handoff);
     return this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: loaded.value.run.accepted_risk_refs,
       additionalAuthorityRefs: [
@@ -3659,7 +3659,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!runtimeContextProjection) {
       return prepared;
     }
-    const runtimeContextProjectionHash = this.hash(runtimeContextProjection);
+    const runtimeContextProjectionHash = canonicalHash(runtimeContextProjection);
     const runtimeContextProjectionArtifact = await this.controlPlane.recordArtifactRef({
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? outcome.targetRef.title_card_id ?? null,
@@ -3841,7 +3841,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       routeDecision: outcome.routeDecision,
       warningCodes: outcome.warningCodes,
     });
-    const routeHash = this.hash({
+    const routeHash = canonicalHash({
       gate_result_hash: gateResultHash,
       handoff_hash: outcome.handoffHash,
       next_action: outcome.routeDecision,
@@ -3877,7 +3877,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warningCodes: string[];
     },
   ): string {
-    return this.hash({
+    return canonicalHash({
       authority_hash: outcome.authorityHash,
       authority_kind: this.getNodePolicy(input.node_id).authority_kind,
       blocker_codes: outcome.blockerCodes,
@@ -3910,7 +3910,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     },
   ): TopicSelectionV1bWorkflowHarnessHandoff {
     const edge = this.handoffEdge(options.handoffKind);
-    const payloadHash = this.hash(options.payload);
+    const payloadHash = canonicalHash(options.payload);
     return {
       envelope: {
         handoff_kind: options.handoffKind,
@@ -4142,7 +4142,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       if (!handoff) {
         continue;
       }
-      if (this.hash(handoff) !== payload.n6_handoff_hash) {
+      if (canonicalHash(handoff) !== payload.n6_handoff_hash) {
         return {
           ok: false,
           code: 'N7_N6_HANDOFF_HASH_MISMATCH',
@@ -4162,11 +4162,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     payload: TopicSelectionV1bN7HarnessFeedbackFrozenInputPayload,
   ): Promise<TopicSelectionV1bN8ToN7FeedbackPayload | null> {
     const artifact = await this.controlPlane.getArtifactRef(payload.n8_feedback_ref.ref_id);
-    if (!artifact || this.hash(artifact) !== payload.n8_feedback_hash || !isN8ToN7FeedbackPayload(artifact.payload)) {
+    if (!artifact || canonicalHash(artifact) !== payload.n8_feedback_hash || !isN8ToN7FeedbackPayload(artifact.payload)) {
       return null;
     }
     const feedback = artifact.payload as unknown as TopicSelectionV1bN8ToN7FeedbackPayload;
-    if (this.hash(feedback) !== payload.n8_feedback_payload_hash) {
+    if (canonicalHash(feedback) !== payload.n8_feedback_payload_hash) {
       return null;
     }
     return feedback;
@@ -4206,7 +4206,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'v1b N2/N3/N5 semantic support artifact normalized payload does not match its output contract.',
       };
     }
-    const payloadHash = this.hash(normalized.payload);
+    const payloadHash = canonicalHash(normalized.payload);
     if (
       payloadHash !== artifact.normalized_output_hash
       || payloadHash !== artifact.structured_output_hash
@@ -4397,7 +4397,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N7 semantic support artifact normalized payload does not match its output contract.',
       };
     }
-    const payloadHash = this.hash(normalized.payload);
+    const payloadHash = canonicalHash(normalized.payload);
     if (
       payloadHash !== artifact.normalized_output_hash
       || payloadHash !== artifact.structured_output_hash
@@ -4759,7 +4759,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     );
     const decisionId = this.idFactory('topic_question_selection_decision');
     const decisionRef = buildRef('topic_question_selection_decision', decisionId, loaded.candidateSet.title_card_id);
-    const trialLedgerHash = this.hash({
+    const trialLedgerHash = canonicalHash({
       candidate_set_hash: payload.topic_question_candidate_set_hash,
       decision: 'no_admissible_candidate',
       failed_candidate_ids: choice.failedCandidateIds,
@@ -4890,7 +4890,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       this.controlPlane.getArtifactRef(feedback.previous_n7_handoff_ref.ref_id),
     ]);
     const previousHandoff = previousHandoffArtifact?.payload as TopicSelectionV1bWorkflowHarnessHandoff | null;
-    if (!contract || !decision || !previousHandoff || this.hash(previousHandoff) !== feedback.previous_n7_handoff_hash) {
+    if (!contract || !decision || !previousHandoff || canonicalHash(previousHandoff) !== feedback.previous_n7_handoff_hash) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N7_GATE_READMISSION_CONTEXT_MISSING',
         message: 'N7 gate-rejected feedback references missing previous contract, ledger, or handoff context.',
@@ -4976,14 +4976,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: contractHash,
       sourceAuthorityRef: contractRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         n8_feedback_hash: payload.input_mode === 'feedback_from_n8' ? payload.n8_feedback_hash : null,
         previous_n7_handoff_hash: feedback.previous_n7_handoff_hash,
         readmission: true,
       }),
       warningCodes: warnings.map((warning) => warning.code),
     });
-    const handoffHash = this.hash(handoff);
+    const handoffHash = canonicalHash(handoff);
     return this.persistAdmittedResult(input, hashContext, {
       additionalAuthorityRefs: [decisionRef, questionRef, answerabilityPlanRef],
       authorityHash: contractHash,
@@ -5156,7 +5156,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       question_contract: loaded.value.contract,
       answerability_plan: loaded.value.answerabilityPlan,
       research_slice_snapshot: this.n8ResearchSliceSnapshot(loaded.value.researchSlice),
-      snapshot_hash: this.hash({
+      snapshot_hash: canonicalHash({
         answerability_plan_hash: payload.value.answerability_plan_hash,
         contract_hash: payload.value.topic_question_contract_hash,
         evidence_ref_count: loaded.value.evidenceRefs.length,
@@ -5251,14 +5251,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: assessmentHash,
       sourceAuthorityRef: assessmentRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         draft_hash: draftResolution.value.draftHash,
         n7_handoff_hash: payload.value.n7_handoff_hash,
         topic_question_contract_hash: payload.value.topic_question_contract_hash,
       }),
       warningCodes: warnings.map((warning) => warning.code),
     });
-    const handoffHash = this.hash(handoff);
+    const handoffHash = canonicalHash(handoff);
     return this.persistAdmittedResult(input, hashContext, {
       acceptedRiskRefs: assessment.accepted_risk_refs,
       additionalAuthorityRefs: [
@@ -5511,7 +5511,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: decisionHash,
       sourceAuthorityRef: decisionRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         n8_handoff_hash: payload.value.n8_handoff_hash,
         topic_value_assessment_hash: payload.value.topic_value_assessment_hash,
         value_reasoning_memo_hash: payload.value.value_reasoning_memo_hash,
@@ -5526,7 +5526,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       failureClass: null,
       gateStatus,
       handoff,
-      handoffHash: this.hash(handoff),
+      handoffHash: canonicalHash(handoff),
       routeDecision: 'invoke_next',
       sourceRef: assessmentRef,
       targetRef: decisionRef,
@@ -5630,7 +5630,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         sourceAuthorityHash: packageHash,
         sourceAuthorityRef: packageRef,
         sourceGateResultHash: gateResultHash,
-        upstreamLineageHash: this.hash({
+        upstreamLineageHash: canonicalHash({
           existing_package: true,
           n9_handoff_hash: payload.value.n9_handoff_hash,
           value_disposition_hash: payload.value.value_disposition_hash,
@@ -5645,7 +5645,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         failureClass: null,
         gateStatus: 'admitted_with_warnings',
         handoff,
-        handoffHash: this.hash(handoff),
+        handoffHash: canonicalHash(handoff),
         routeDecision: 'invoke_next',
         sourceRef: payload.value.value_disposition_ref,
         targetRef: packageRef,
@@ -5698,7 +5698,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: packageHash,
       sourceAuthorityRef: packageRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         n9_handoff_hash: payload.value.n9_handoff_hash,
         topic_value_assessment_hash: payload.value.topic_value_assessment_hash,
         value_disposition_hash: payload.value.value_disposition_hash,
@@ -5720,7 +5720,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       failureClass: null,
       gateStatus,
       handoff,
-      handoffHash: this.hash(handoff),
+      handoffHash: canonicalHash(handoff),
       routeDecision: 'invoke_next',
       sourceRef: payload.value.value_disposition_ref,
       targetRef: packageRef,
@@ -5843,7 +5843,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       sourceAuthorityHash: bundleHash,
       sourceAuthorityRef: bundleRef,
       sourceGateResultHash: gateResultHash,
-      upstreamLineageHash: this.hash({
+      upstreamLineageHash: canonicalHash({
         draft_topic_package_hash: payload.value.draft_topic_package_hash,
         n10_handoff_hash: payload.value.n10_handoff_hash,
         v1c_input_bundle_hash: payload.value.v1c_input_bundle_hash,
@@ -5858,7 +5858,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       failureClass: null,
       gateStatus,
       handoff,
-      handoffHash: this.hash(handoff),
+      handoffHash: canonicalHash(handoff),
       routeDecision: 'stop_v1b_complete',
       sourceRef: packageRef,
       targetRef: bundleRef,
@@ -6164,7 +6164,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N8 normalized semantic artifact must contain a TopicValueAssessmentDraft payload.',
       };
     }
-    const draftHash = this.hash(draftPayload);
+    const draftHash = canonicalHash(draftPayload);
     if (
       draftHash !== semanticArtifact.normalized_output_hash
       || draftHash !== semanticArtifact.structured_output_hash
@@ -6386,7 +6386,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   > {
     const artifact = await this.controlPlane.getArtifactRef(payload.n8_debate_admission_ref.ref_id);
     const admission = artifact?.payload;
-    if (!artifact || !isRecord(admission) || this.hash(admission) !== payload.n8_debate_admission_hash) {
+    if (!artifact || !isRecord(admission) || canonicalHash(admission) !== payload.n8_debate_admission_hash) {
       return {
         ok: false,
         code: 'N8_DEBATE_ADMISSION_UNRESOLVED',
@@ -6423,7 +6423,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }
       const artifact = await this.controlPlane.getArtifactRef(sourceRef.ref_id);
       if (isHandoffArtifactPayload(artifact?.payload, 'N7ToN8Handoff')
-        && this.hash(artifact!.payload) === payload.n7_handoff_hash) {
+        && canonicalHash(artifact!.payload) === payload.n7_handoff_hash) {
         previousN7HandoffRef = sourceRef;
         break;
       }
@@ -6475,7 +6475,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!isN8ToN7FeedbackPayload(feedbackPayload)) {
       throw new AppError(500, 'INTERNAL_ERROR', 'N8 debate loopback feedback payload does not satisfy the N8ToN7Feedback contract.');
     }
-    const feedbackPayloadHash = this.hash(feedbackPayload);
+    const feedbackPayloadHash = canonicalHash(feedbackPayload);
     const artifact = await this.controlPlane.recordArtifactRef({
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? payload.topic_question_contract_ref.title_card_id ?? null,
@@ -6509,7 +6509,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       tracePayload: {
         loopback_target_code: 'n8_feedback_to_n7',
         n8_feedback_ref: feedbackRef,
-        n8_feedback_record_hash: this.hash(artifact),
+        n8_feedback_record_hash: canonicalHash(artifact),
         n8_feedback_payload_hash: feedbackPayloadHash,
         trigger_codes: triggers.map((trigger) => trigger.code),
       },
@@ -6931,7 +6931,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       selected_literature_evidence_ids: selectedEvidenceRefs.map((ref) => ref.ref_id),
       package_payload: {
         deterministic_source: 'topic_selection_v1b_harness_n10',
-        package_draft_input_hash: this.hash(packageInput),
+        package_draft_input_hash: canonicalHash(packageInput),
         workflow_run_id: input.workflow_run_id,
       },
       trace_boundary_check_id: traceCheckId,
@@ -7039,7 +7039,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       readiness_check_refs: [packageTraceRef, readinessRef],
       package_snapshot: topicPackage,
       package_draft_input_snapshot: packageInput,
-      bundle_hash: this.hash({
+      bundle_hash: canonicalHash({
         package_ref: packageRef,
         package_readiness_assessment_ref: readinessRef,
         package_trace_boundary_check_ref: packageTraceRef,
@@ -7232,7 +7232,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         continue;
       }
       const handoff = artifact.payload as unknown as TopicSelectionV1bWorkflowHarnessHandoff;
-      if (this.hash(handoff) !== expectedHash) {
+      if (canonicalHash(handoff) !== expectedHash) {
         return {
           ok: false,
           code: `${codePrefix}_${handoffKind.toUpperCase()}_HASH_MISMATCH`,
@@ -7359,7 +7359,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       answerability_plan_id: answerabilityPlanId,
       candidate_hash: hashN6CandidateAuthority(candidate),
       contract_id: contractId,
-      frame_hash: this.hash(frame),
+      frame_hash: canonicalHash(frame),
       selection_decision_id: decisionId,
     };
     const contract: TopicSelectionTopicQuestionContractRecord = {
@@ -7374,7 +7374,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       source_candidate_id: candidate.topic_question_candidate_id,
       selection_decision_id: decisionId,
       input_snapshot_ref: buildRef('input_snapshot', run.input_snapshot_id ?? run.form_topic_question_run_id, candidate.title_card_id),
-      contract_hash: this.hash(contractPayload),
+      contract_hash: canonicalHash(contractPayload),
       main_question: candidate.main_question,
       question_type: candidate.question_type,
       contribution_hypothesis: candidate.contribution_hypothesis,
@@ -7621,7 +7621,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       risk_signal_codes: review?.risk_signal_codes ?? [],
       source_support_hash: support.debateAdmission?.payloadHash ?? null,
     };
-    const hash = this.hash(admissionPayload);
+    const hash = canonicalHash(admissionPayload);
     const artifact = await this.controlPlane.recordArtifactRef({
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? choice.candidate.title_card_id,
@@ -7671,7 +7671,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         input.handoffPayload.candidate_grouping_ref,
       ]),
       source_hashes: {
-        frozen_input_hash: input.request.frozen_input.frozen_input_hash ?? this.hash(input.request.frozen_input),
+        frozen_input_hash: input.request.frozen_input.frozen_input_hash ?? canonicalHash(input.request.frozen_input),
         n6_handoff_hash: input.frozenPayload.n6_handoff_hash,
         n7_handoff_hash: input.handoffHash,
         topic_question_hash: input.handoffPayload.topic_question_hash,
@@ -7743,7 +7743,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return candidateHash;
     });
     const sourceHashes: Record<string, string> = {
-      frozen_input_hash: input.request.frozen_input.frozen_input_hash ?? this.hash(input.request.frozen_input),
+      frozen_input_hash: input.request.frozen_input.frozen_input_hash ?? canonicalHash(input.request.frozen_input),
       n6_handoff_hash: input.frozenPayload.n6_handoff_hash,
       topic_question_candidate_set_hash: input.frozenPayload.topic_question_candidate_set_hash,
       failed_trial_synthesis_hash: synthesis.payloadHash,
@@ -7812,20 +7812,20 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!input.draftArtifact.normalized_output_ref) {
       throw new AppError(500, 'INTERNAL_ERROR', 'N6 gate-failure retry projection requires a failed draft output ref.');
     }
-    const blockedCandidateContextHash = this.hash(input.blockedCandidateContexts);
-    const failedDraftSourceHashesHash = this.hash(input.draftArtifact.source_hashes);
+    const blockedCandidateContextHash = canonicalHash(input.blockedCandidateContexts);
+    const failedDraftSourceHashesHash = canonicalHash(input.draftArtifact.source_hashes);
     const triageArtifactRef = input.loopbackPlan.triageArtifact?.normalized_output_ref ?? null;
     const triageArtifactHash = input.loopbackPlan.triageArtifact?.normalized_output_hash ?? null;
     const sourceHashes: Record<string, string> = {
-      frozen_input_hash: input.request.frozen_input.frozen_input_hash ?? this.hash(input.request.frozen_input),
+      frozen_input_hash: input.request.frozen_input.frozen_input_hash ?? canonicalHash(input.request.frozen_input),
       n5_handoff_hash: input.frozenPayload.n5_handoff_hash,
       selected_research_slice_hash: input.frozenPayload.research_slice_hash,
       failed_draft_hash: input.draftHash,
       failed_draft_prompt_packet_hash: input.draftArtifact.prompt_packet_hash,
       failed_draft_source_hashes_hash: failedDraftSourceHashesHash,
       blocked_candidate_context_hash: blockedCandidateContextHash,
-      failure_reason_codes_hash: this.hash(input.loopbackPlan.reasonCodes),
-      regeneration_hints_hash: this.hash(input.loopbackPlan.regenerationHints),
+      failure_reason_codes_hash: canonicalHash(input.loopbackPlan.reasonCodes),
+      regeneration_hints_hash: canonicalHash(input.loopbackPlan.regenerationHints),
     };
     if (input.loopbackPlan.triagePayloadHash) {
       sourceHashes.triage_payload_hash = input.loopbackPlan.triagePayloadHash;
@@ -8168,7 +8168,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N5 selected_option_ref does not match the persisted ResearchSliceOption.',
       };
     }
-    const selectedOptionHash = this.hashResearchSliceOptionAuthority(selectedOption);
+    const selectedOptionHash = sharedHashResearchSliceOptionAuthority(selectedOption);
     if (accepted.selected_option_hash !== selectedOptionHash) {
       return {
         code: 'N5_SELECTED_OPTION_HASH_MISMATCH',
@@ -8625,7 +8625,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N6 option-set hash does not match the persisted N4 option-set authority hash.',
       };
     }
-    const selectedOptionHash = this.hashResearchSliceOptionAuthority({
+    const selectedOptionHash = sharedHashResearchSliceOptionAuthority({
       ...loaded.selectedOption,
       status: loaded.optionSet.recommended_option_id === loaded.selectedOption.research_slice_option_id
         ? 'recommended'
@@ -8671,7 +8671,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       if (!handoff) {
         continue;
       }
-      if (this.hash(handoff) !== payload.n5_handoff_hash) {
+      if (canonicalHash(handoff) !== payload.n5_handoff_hash) {
         return {
           ok: false,
           code: 'N6_N5_HANDOFF_HASH_MISMATCH',
@@ -8813,7 +8813,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N6 normalized semantic artifact must contain a TopicQuestionCandidateSetDraft payload.',
       };
     }
-    const draftHash = this.hash(draftPayload);
+    const draftHash = canonicalHash(draftPayload);
     if (
       draftHash !== semanticArtifact.normalized_output_hash
       || draftHash !== semanticArtifact.structured_output_hash
@@ -8981,7 +8981,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         continue;
       }
       projectionCount += 1;
-      if (!artifact.checksum || artifact.checksum !== this.hash(artifact.payload)) {
+      if (!artifact.checksum || artifact.checksum !== canonicalHash(artifact.payload)) {
         return {
           ok: false,
           code: 'N6_N7_LOOPBACK_PROJECTION_HASH_MISMATCH',
@@ -9015,7 +9015,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         continue;
       }
       projectionCount += 1;
-      if (!artifact.checksum || artifact.checksum !== this.hash(artifact.payload)) {
+      if (!artifact.checksum || artifact.checksum !== canonicalHash(artifact.payload)) {
         return {
           ok: false,
           code: 'N6_GATE_FAILURE_RETRY_PROJECTION_HASH_MISMATCH',
@@ -9140,7 +9140,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N6 loopback triage normalized payload does not match N6LoopbackTriageSupport@v1.',
       };
     }
-    const payloadHash = this.hash(normalized.payload);
+    const payloadHash = canonicalHash(normalized.payload);
     if (
       payloadHash !== artifact.normalized_output_hash
       || payloadHash !== artifact.structured_output_hash
@@ -9527,7 +9527,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         n5_handoff_hash: payload.n5_handoff_hash,
         value_assessment_inputs: loaded.researchSlice.value_assessment_inputs,
       },
-      checksum: this.hash(draft.question_frame),
+      checksum: canonicalHash(draft.question_frame),
       created_at: now,
     };
     const blockedCandidateContexts: Record<string, unknown>[] = [];
@@ -9965,7 +9965,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N4 normalized semantic artifact must contain a ResearchSliceOptionSetDraft payload.',
       };
     }
-    const draftHash = this.hash(draftPayload);
+    const draftHash = canonicalHash(draftPayload);
     if (
       draftHash !== semanticArtifact.normalized_output_hash
       || draftHash !== semanticArtifact.structured_output_hash
@@ -10838,10 +10838,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private hashSnapshotAuthority(snapshot: TopicSelectionV1bIntakeSnapshotRecord): string {
-    return this.hash({
+    return canonicalHash({
       bundle_ref: snapshot.v1b_input_bundle_ref,
       evidence_map_freshness_status: snapshot.evidence_map_freshness_status ?? null,
-      source_refs_hash: this.hash(uniqueRefs([
+      source_refs_hash: canonicalHash(uniqueRefs([
         snapshot.v1b_input_bundle_ref,
         snapshot.validated_need_ref,
         snapshot.source_need_candidate_ref,
@@ -10893,8 +10893,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private hashProfileAuthority(profile: TopicSelectionResearchConstraintProfileRecord): string {
-    return this.hash({
-      accepted_profile_payload_hash: this.hash({
+    return canonicalHash({
+      accepted_profile_payload_hash: canonicalHash({
         available_assets: profile.available_assets,
         claim_ceiling: profile.claim_ceiling,
         constraint_payload: profile.constraint_payload,
@@ -10907,7 +10907,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         target_community: profile.target_community,
         target_venue_class: profile.target_venue_class ?? null,
       }),
-      intake_snapshot_hash: this.hash({
+      intake_snapshot_hash: canonicalHash({
         intake_snapshot_ref: profile.v1b_intake_snapshot_ref,
         v1b_input_bundle_ref: profile.v1b_input_bundle_ref,
       }),
@@ -10924,7 +10924,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       snapshotHash: string;
     },
   ): string {
-    return this.hash({
+    return canonicalHash({
       accepted_risk_refs: readiness.accepted_risk_refs,
       blocker_codes: readiness.blockers.map((blocker) => blocker.code),
       constraint_profile_hash: hashes.constraintProfileHash,
@@ -11104,7 +11104,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     hashContext: HashContext,
     blockerCode: string,
   ): TopicSelectionV1bWorkflowHarnessHashes {
-    const gateResultHash = this.hash({
+    const gateResultHash = canonicalHash({
       authority_kind: null,
       blocker_codes: [blockerCode],
       frozen_input_hash: hashContext.frozenInputHash,
@@ -11118,7 +11118,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       semantic_artifact_hash: hashContext.semanticArtifactHash,
       warning_codes: [],
     });
-    const routeHash = this.hash({
+    const routeHash = canonicalHash({
       gate_result_hash: gateResultHash,
       handoff_hash: null,
       next_action: 'blocked',
@@ -11150,13 +11150,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!refsEqual(actual, expected)) {
       issues.push(blocker(code, `${code} blocks v1b intake readiness.`, [actual, expected]));
     }
-  }
-
-  private hashResearchSliceOptionAuthority(option: TopicSelectionResearchSliceOptionRecord): string {
-    // Single source of truth (T-115): the option-authority hash shape lives in
-    // topic-selection-v1b-harness-authority-hash so the human N5 path
-    // (V1bSliceHumanSelectionService) and this harness re-derivation cannot drift.
-    return sharedHashResearchSliceOptionAuthority(option);
   }
 
   private defaultRejectedReasons(
@@ -11301,10 +11294,4 @@ export class TopicSelectionV1bWorkflowHarnessService {
   // normalize / versionFromId / nodeAttemptRef relocated to topic-selection-v1b-harness-gate-utils.ts
   // (W-12 slice 10) — imported above; behavior identical.
 
-  private hash(value: unknown): string {
-    // Single-source with the human-path services + frozen-input hashing: both
-    // derive from `canonicalHash` (sha256(stableStringify)) so the harness and
-    // the N2/N5 human services can never drift apart. (D1 consolidation.)
-    return canonicalHash(value);
-  }
 }
