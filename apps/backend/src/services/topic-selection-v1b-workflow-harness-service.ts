@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import {
-  TOPIC_SELECTION_AGENT_RUN_MODES,
   type TopicSelectionAgentRunMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 import type {
@@ -90,7 +89,6 @@ import type {
   TopicSelectionV1bToV1cInputBundleRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-package-contracts';
 import {
-  TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_GATE_STATUSES,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUNTIME_PROVENANCE_CLASSES,
@@ -312,6 +310,18 @@ import {
   effectiveRunMode,
   requiredModelLikeSlot,
 } from './topic-selection-v1b-harness-gate-utils.js';
+import {
+  assertResult,
+  assertNonEmpty,
+  assertOptionalStringId,
+  assertOptionalRunMode,
+  assertFunctionalRef,
+  assertActorRef,
+  assertHash,
+  assertOptionalHash,
+  assertSourceHashMap,
+  assertRuntimeVerifiedSupportArtifact,
+} from './topic-selection-v1b-harness-asserts.js';
 
 const ALLOWED_REQUEST_KEYS = new Set([
   'schema_version',
@@ -595,7 +605,6 @@ type InheritedConstraints = {
 };
 
 const ACTOR_TYPE_SET = new Set<string>(TOPIC_SELECTION_ACTOR_TYPES);
-const AGENT_RUN_MODE_SET = new Set<string>(TOPIC_SELECTION_AGENT_RUN_MODES);
 const SEMANTIC_ARTIFACT_EXECUTION_MODE_SET = new Set<string>(
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_EXECUTION_MODES.filter((mode) => mode !== 'none'),
 );
@@ -728,7 +737,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           message: replayAuthorityBlocker.message,
         });
       }
-      return this.assertResult(replay.exact);
+      return assertResult(replay.exact);
     }
 
     if (replay.driftBlocker) {
@@ -769,14 +778,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (input.schema_version !== TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'schema_version is invalid.');
     }
-    this.assertNonEmpty(input.workflow_run_id, 'workflow_run_id');
-    this.assertNonEmpty(input.node_attempt_id, 'node_attempt_id');
-    this.assertNonEmpty(input.policy_version, 'policy_version');
-    this.assertOptionalStringId(input.workspace_id, 'workspace_id');
-    this.assertOptionalStringId(input.title_card_id, 'title_card_id');
-    this.assertOptionalStringId(input.attempt_family_key, 'attempt_family_key');
-    this.assertOptionalRunMode(input.run_mode, 'run_mode');
-    this.assertOptionalStringId(input.profile_id, 'profile_id');
+    assertNonEmpty(input.workflow_run_id, 'workflow_run_id');
+    assertNonEmpty(input.node_attempt_id, 'node_attempt_id');
+    assertNonEmpty(input.policy_version, 'policy_version');
+    assertOptionalStringId(input.workspace_id, 'workspace_id');
+    assertOptionalStringId(input.title_card_id, 'title_card_id');
+    assertOptionalStringId(input.attempt_family_key, 'attempt_family_key');
+    assertOptionalRunMode(input.run_mode, 'run_mode');
+    assertOptionalStringId(input.profile_id, 'profile_id');
     this.getNodePolicy(input.node_id);
     if (!input.frozen_input || typeof input.frozen_input !== 'object') {
       throw new AppError(400, 'INVALID_PAYLOAD', 'frozen_input is required.');
@@ -795,8 +804,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
         unsupported_fields: unknownFrozenInputKeys,
       });
     }
-    this.assertNonEmpty(input.frozen_input.input_contract, 'frozen_input.input_contract');
-    this.assertNonEmpty(input.frozen_input.snapshot_kind, 'frozen_input.snapshot_kind');
+    assertNonEmpty(input.frozen_input.input_contract, 'frozen_input.input_contract');
+    assertNonEmpty(input.frozen_input.snapshot_kind, 'frozen_input.snapshot_kind');
     if (!Array.isArray(input.frozen_input.source_refs)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'frozen_input.source_refs must be an array.');
     }
@@ -804,7 +813,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'frozen_input.source_refs must include at least one frozen source ref.');
     }
     input.frozen_input.source_refs.forEach((sourceRef, index) => {
-      this.assertFunctionalRef(sourceRef, `frozen_input.source_refs[${index}]`);
+      assertFunctionalRef(sourceRef, `frozen_input.source_refs[${index}]`);
     });
     if (!isRecord(input.frozen_input.payload)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'frozen_input.payload must be an object.');
@@ -828,7 +837,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       if (!['mocked_llm', 'codex_assisted', 'provider_llm'].includes(input.execution_spec.execution_mode)) {
         throw new AppError(400, 'INVALID_PAYLOAD', 'execution_spec.execution_mode is invalid.');
       }
-      this.assertOptionalStringId(input.execution_spec.model_option_id, 'execution_spec.model_option_id');
+      assertOptionalStringId(input.execution_spec.model_option_id, 'execution_spec.model_option_id');
       if (input.execution_spec.model_option_id && input.execution_spec.execution_mode !== 'provider_llm') {
         throw new AppError(400, 'INVALID_PAYLOAD', 'model_option_id requires execution_mode=provider_llm.');
       }
@@ -842,115 +851,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
     if (input.actor !== undefined && input.actor !== null) {
-      this.assertActorRef(input.actor, 'actor');
+      assertActorRef(input.actor, 'actor');
     }
     if (input.created_by !== undefined && !ACTOR_TYPE_SET.has(input.created_by)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'created_by is invalid.');
     }
-  }
-
-  private assertResult(
-    result: TopicSelectionV1bWorkflowHarnessRunResult,
-  ): TopicSelectionV1bWorkflowHarnessRunResult {
-    if (
-      result.schema_version !== TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_RESULT_SCHEMA_VERSION
-      || !TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_GATE_STATUSES.includes(result.gate_status)
-      || !HASH_PATTERN.test(result.replay_identity.node_replay_key)
-      || !HASH_PATTERN.test(result.hashes.frozen_input_hash)
-      || !HASH_PATTERN.test(result.hashes.execution_spec_hash)
-      || (
-        result.hashes.runtime_admission_hash != null
-        && !HASH_PATTERN.test(result.hashes.runtime_admission_hash)
-      )
-      || !HASH_PATTERN.test(result.hashes.gate_result_hash)
-      || !HASH_PATTERN.test(result.hashes.route_hash)
-      || (
-        result.replay_provenance?.node_replay_key != null
-        && !HASH_PATTERN.test(result.replay_provenance.node_replay_key)
-      )
-    ) {
-      throw new AppError(500, 'INTERNAL_ERROR', 'TopicSelection v1b workflow harness result is invalid.', {
-        node_id: result.node_id,
-        node_attempt_id: result.node_attempt_id,
-      });
-    }
-    return result;
-  }
-
-  private assertNonEmpty(value: string | null | undefined, fieldName: string): void {
-    if (typeof value !== 'string' || !value.trim()) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} cannot be empty.`);
-    }
-  }
-
-  private assertOptionalStringId(value: string | null | undefined, fieldName: string): void {
-    if (value === undefined || value === null) {
-      return;
-    }
-    if (typeof value !== 'string' || !value.trim()) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} must be a non-empty string or null.`);
-    }
-  }
-
-  private assertOptionalRunMode(
-    value: TopicSelectionAgentRunMode | null | undefined,
-    fieldName: string,
-  ): void {
-    if (value === undefined || value === null) {
-      return;
-    }
-    if (!AGENT_RUN_MODE_SET.has(value)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} is invalid.`);
-    }
-  }
-
-  private assertFunctionalRef(
-    value: unknown,
-    fieldName: string,
-    options: { allowLegacyRef?: boolean } = {},
-  ): asserts value is TopicSelectionFunctionalRef {
-    if (!isRecord(value)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} must be an object.`);
-    }
-    const allowLegacyRef = options.allowLegacyRef ?? true;
-    const allowedKeys = allowLegacyRef
-      ? ['ref_type', 'ref_id', 'version_id', 'title_card_id', 'legacy_ref']
-      : ['ref_type', 'ref_id', 'version_id', 'title_card_id'];
-    const unknownKeys = Object.keys(value)
-      .filter((key) => !allowedKeys.includes(key));
-    if (unknownKeys.length > 0) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} contains unsupported fields.`, {
-        unsupported_fields: unknownKeys,
-      });
-    }
-    this.assertNonEmpty(value.ref_type as string | null | undefined, `${fieldName}.ref_type`);
-    this.assertNonEmpty(value.ref_id as string | null | undefined, `${fieldName}.ref_id`);
-    this.assertOptionalStringId(value.version_id as string | null | undefined, `${fieldName}.version_id`);
-    this.assertOptionalStringId(value.title_card_id as string | null | undefined, `${fieldName}.title_card_id`);
-    if (
-      allowLegacyRef
-      && value.legacy_ref !== undefined
-      && value.legacy_ref !== null
-      && !isRecord(value.legacy_ref)
-    ) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.legacy_ref must be an object or null.`);
-    }
-  }
-
-  private assertActorRef(value: unknown, fieldName: string): void {
-    if (!isRecord(value)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} must be an object.`);
-    }
-    const unknownKeys = Object.keys(value).filter((key) => key !== 'actor_type' && key !== 'actor_id');
-    if (unknownKeys.length > 0) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} contains unsupported fields.`, {
-        unsupported_fields: unknownKeys,
-      });
-    }
-    if (!ACTOR_TYPE_SET.has(value.actor_type as string)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.actor_type is invalid.`);
-    }
-    this.assertOptionalStringId(value.actor_id as string | null | undefined, `${fieldName}.actor_id`);
   }
 
   private assertSemanticSupportArtifact(
@@ -1009,125 +914,77 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (value.run_mode === undefined || value.run_mode === null) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.run_mode is required.`);
     }
-    this.assertOptionalRunMode(value.run_mode as TopicSelectionAgentRunMode | null | undefined, `${fieldName}.run_mode`);
+    assertOptionalRunMode(value.run_mode as TopicSelectionAgentRunMode | null | undefined, `${fieldName}.run_mode`);
     if (!SEMANTIC_ALLOWED_EFFECT_SET.has(value.allowed_effect as string)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.allowed_effect is invalid.`);
     }
-    this.assertFunctionalRef(value.support_artifact_ref, `${fieldName}.support_artifact_ref`, { allowLegacyRef: false });
-    this.assertHash(value.support_artifact_hash as string | null | undefined, `${fieldName}.support_artifact_hash`);
+    assertFunctionalRef(value.support_artifact_ref, `${fieldName}.support_artifact_ref`, { allowLegacyRef: false });
+    assertHash(value.support_artifact_hash as string | null | undefined, `${fieldName}.support_artifact_hash`);
     if (value.normalized_output_ref !== null) {
-      this.assertFunctionalRef(value.normalized_output_ref, `${fieldName}.normalized_output_ref`, { allowLegacyRef: false });
+      assertFunctionalRef(value.normalized_output_ref, `${fieldName}.normalized_output_ref`, { allowLegacyRef: false });
     }
-    this.assertHash(value.normalized_output_hash as string | null | undefined, `${fieldName}.normalized_output_hash`);
-    this.assertNonEmpty(value.output_contract as string | null | undefined, `${fieldName}.output_contract`);
-    this.assertNonEmpty(value.profile_id as string | null | undefined, `${fieldName}.profile_id`);
+    assertHash(value.normalized_output_hash as string | null | undefined, `${fieldName}.normalized_output_hash`);
+    assertNonEmpty(value.output_contract as string | null | undefined, `${fieldName}.output_contract`);
+    assertNonEmpty(value.profile_id as string | null | undefined, `${fieldName}.profile_id`);
     if (value.model_option_id === undefined) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.model_option_id is required.`);
     }
-    this.assertOptionalStringId(value.model_option_id as string | null | undefined, `${fieldName}.model_option_id`);
+    assertOptionalStringId(value.model_option_id as string | null | undefined, `${fieldName}.model_option_id`);
     if (value.execution_mode === 'provider_llm' && !value.model_option_id) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.model_option_id is required for provider_llm.`);
     }
     if (value.execution_mode !== 'provider_llm' && value.model_option_id) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.model_option_id requires execution_mode=provider_llm.`);
     }
-    this.assertHash(value.input_hash as string | null | undefined, `${fieldName}.input_hash`);
-    this.assertHash(value.prompt_packet_hash as string | null | undefined, `${fieldName}.prompt_packet_hash`);
-    this.assertHash(value.structured_output_hash as string | null | undefined, `${fieldName}.structured_output_hash`);
-    this.assertNonEmpty(value.adapter_policy_version as string | null | undefined, `${fieldName}.adapter_policy_version`);
-    this.assertHash(value.slot_spec_hash as string | null | undefined, `${fieldName}.slot_spec_hash`);
-    this.assertFunctionalRef(value.provenance_ref, `${fieldName}.provenance_ref`, { allowLegacyRef: false });
+    assertHash(value.input_hash as string | null | undefined, `${fieldName}.input_hash`);
+    assertHash(value.prompt_packet_hash as string | null | undefined, `${fieldName}.prompt_packet_hash`);
+    assertHash(value.structured_output_hash as string | null | undefined, `${fieldName}.structured_output_hash`);
+    assertNonEmpty(value.adapter_policy_version as string | null | undefined, `${fieldName}.adapter_policy_version`);
+    assertHash(value.slot_spec_hash as string | null | undefined, `${fieldName}.slot_spec_hash`);
+    assertFunctionalRef(value.provenance_ref, `${fieldName}.provenance_ref`, { allowLegacyRef: false });
     if (!RUNTIME_PROVENANCE_CLASS_SET.has(value.runtime_provenance_class as string)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.runtime_provenance_class is invalid.`);
     }
-    this.assertOptionalStringId(
+    assertOptionalStringId(
       value.context_policy_profile_id as string | null | undefined,
       `${fieldName}.context_policy_profile_id`,
     );
-    this.assertOptionalStringId(
+    assertOptionalStringId(
       value.context_policy_profile_version as string | null | undefined,
       `${fieldName}.context_policy_profile_version`,
     );
-    this.assertOptionalHash(
+    assertOptionalHash(
       value.context_policy_profile_hash as string | null | undefined,
       `${fieldName}.context_policy_profile_hash`,
     );
-    this.assertOptionalStringId(value.prompt_variant_key as string | null | undefined, `${fieldName}.prompt_variant_key`);
-    this.assertOptionalHash(
+    assertOptionalStringId(value.prompt_variant_key as string | null | undefined, `${fieldName}.prompt_variant_key`);
+    assertOptionalHash(
       value.runtime_invocation_context_hash as string | null | undefined,
       `${fieldName}.runtime_invocation_context_hash`,
     );
-    this.assertOptionalStringId(value.redaction_policy as string | null | undefined, `${fieldName}.redaction_policy`);
-    this.assertSourceHashMap(value.source_hashes, `${fieldName}.source_hashes`);
+    assertOptionalStringId(value.redaction_policy as string | null | undefined, `${fieldName}.redaction_policy`);
+    assertSourceHashMap(value.source_hashes, `${fieldName}.source_hashes`);
     if (value.runtime_audit_ref !== null) {
-      this.assertFunctionalRef(value.runtime_audit_ref, `${fieldName}.runtime_audit_ref`, { allowLegacyRef: false });
+      assertFunctionalRef(value.runtime_audit_ref, `${fieldName}.runtime_audit_ref`, { allowLegacyRef: false });
     }
-    this.assertOptionalHash(value.runtime_audit_hash as string | null | undefined, `${fieldName}.runtime_audit_hash`);
+    assertOptionalHash(value.runtime_audit_hash as string | null | undefined, `${fieldName}.runtime_audit_hash`);
     if (value.compression_report_ref !== null) {
-      this.assertFunctionalRef(value.compression_report_ref, `${fieldName}.compression_report_ref`, { allowLegacyRef: false });
+      assertFunctionalRef(value.compression_report_ref, `${fieldName}.compression_report_ref`, { allowLegacyRef: false });
     }
-    this.assertOptionalHash(
+    assertOptionalHash(
       value.compression_report_hash as string | null | undefined,
       `${fieldName}.compression_report_hash`,
     );
-    this.assertOptionalHash(
+    assertOptionalHash(
       value.compressed_context_hash as string | null | undefined,
       `${fieldName}.compressed_context_hash`,
     );
     if (value.runtime_provenance_class === 'runtime_verified') {
-      this.assertRuntimeVerifiedSupportArtifact(
+      assertRuntimeVerifiedSupportArtifact(
         value as unknown as TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
         fieldName,
       );
     }
-  }
-
-  private assertHash(value: string | null | undefined, fieldName: string): void {
-    if (typeof value !== 'string' || !HASH_PATTERN.test(value)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} must be a sha256 hex hash.`);
-    }
-  }
-
-  private assertOptionalHash(value: string | null | undefined, fieldName: string): void {
-    if (value === null || value === undefined) {
-      return;
-    }
-    this.assertHash(value, fieldName);
-  }
-
-  private assertSourceHashMap(value: unknown, fieldName: string): void {
-    if (!isRecord(value)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} must be an object.`);
-    }
-    for (const [key, hash] of Object.entries(value)) {
-      this.assertNonEmpty(key, `${fieldName} key`);
-      this.assertHash(hash as string | null | undefined, `${fieldName}.${key}`);
-    }
-  }
-
-  private assertRuntimeVerifiedSupportArtifact(
-    value: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
-    fieldName: string,
-  ): void {
-    this.assertNonEmpty(value.context_policy_profile_id, `${fieldName}.context_policy_profile_id`);
-    this.assertNonEmpty(value.context_policy_profile_version, `${fieldName}.context_policy_profile_version`);
-    this.assertHash(value.context_policy_profile_hash, `${fieldName}.context_policy_profile_hash`);
-    this.assertNonEmpty(value.prompt_variant_key, `${fieldName}.prompt_variant_key`);
-    this.assertHash(value.runtime_invocation_context_hash, `${fieldName}.runtime_invocation_context_hash`);
-    this.assertNonEmpty(value.redaction_policy, `${fieldName}.redaction_policy`);
-    if (Object.keys(value.source_hashes).length === 0) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.source_hashes must not be empty for runtime_verified.`);
-    }
-    if (!value.runtime_audit_ref) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.runtime_audit_ref is required for runtime_verified.`);
-    }
-    if (value.runtime_audit_ref.ref_type !== 'artifact_ref') {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.runtime_audit_ref must be an artifact_ref for runtime_verified.`);
-    }
-    if (!refsEqual(value.provenance_ref, value.runtime_audit_ref)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.provenance_ref must match runtime_audit_ref for runtime_verified.`);
-    }
-    this.assertHash(value.runtime_audit_hash, `${fieldName}.runtime_audit_hash`);
   }
 
   private hashContext(
@@ -3958,7 +3815,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         traceArtifact.title_card_id ?? input.title_card_id ?? null,
       ),
     };
-    return this.assertResult(result);
+    return assertResult(result);
   }
 
   private resultHashesForOutcome(
@@ -11239,7 +11096,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         traceArtifact.title_card_id ?? input.title_card_id ?? null,
       ),
     };
-    return this.assertResult(result);
+    return assertResult(result);
   }
 
   private resultHashes(
