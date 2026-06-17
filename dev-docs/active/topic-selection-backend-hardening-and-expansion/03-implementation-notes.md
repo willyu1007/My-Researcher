@@ -9,7 +9,7 @@
 | W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | done | 见 Phase 1 记录（coordinator 19/0；upstream_blocked / feedback_artifact_missing / nonce 负例） |
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
-| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01 登记；**hash-authority 簇全抽完(N5–N10)** + pure-utils 工具簇（harness 12898→12714，golden 守卫绿）；下转 parse-and-resolve 主体 |
+| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01；已抽 hash-authority(N5–N10) + pure-utils + predicates 工具簇（harness 12898→12648，golden 守卫绿）；续抽 parsers |
 | W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | planned | 待 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
@@ -100,6 +100,12 @@
 - harness **12,729 → 12,714 行**；harness 内 `private hashN*Authority` 计数归 **0 ——hash-authority 簇（N5–N10）全部出壳**；`tsc` 0；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。
 - 对抗式评审（slice 2+3，3 维）**0 确认缺陷**；唯一 nit 是 commit message 计数偏差（已在上方 slice 3 记录订正）。
 - 下一刀：**parse-and-resolve 簇**（`parseN1..parseN11` / `resolveN*Payload` / `resolveN7SupportContext` / `resolveEarlySemanticSupportPayload`）——拆到壳的体量主体，逐个/分组 slice 推进。
+
+**W-12 slice 5 — predicate（类型守卫）工具簇 — done（2026-06-17）**
+- 新建 `topic-selection-v1b-harness-predicates.ts`，逐字搬迁 12 个纯类型守卫（连续块 12313–12391：`isNullableHash`/`isStringArray`/`isFunctionalRefArray`/`isNullableString`/`isRiskLevel`/`isSliceSelectionDecision`/`isSliceLoopbackTarget`/`isNullableSliceLoopbackTarget`/`isRejectedOptionReasonArray`/`isClaimCeilingAlignment`/`isFunctionalRefValue`/`isNullableFunctionalRefValue`）。簇内互调（`isFunctionalRefArray→isFunctionalRefValue` 等）模块内解析；`isRecord`/`isHash`/`hasOnlyKeys` 由 pure-utils import。注：`pushRefMismatchIssue`（非纯，用 `this.refsEqual`/`blocker`）夹在块后，未动。
+- **161 调用点**改模块调用（`isStringArray`55 / `isFunctionalRefValue`45 / `isFunctionalRefArray`33 等）；移除 12 私有方法。裸名 import，`tsc` 0 确认无遮蔽/无孤立类型 import。
+- harness **12,714 → 12,648 行**；harness 单测 **97/0**（golden 守卫绿——守卫喂入 parser→frozen_input_hash，byte-identical）；backend 全套件 **1403/0/35**。
+- 解锁：parseN* 现可逐个搬迁（其依赖的类型守卫已出壳）。下一刀起拆 parsers。
 
 ### Phase 3 — 能力扩展 / 选项 B（待开工）
 ### Phase 4 — 工作台收口 / 选项 C（待开工）
