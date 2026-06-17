@@ -134,6 +134,11 @@
 - 移除 5 私有方法；harness 3 个 predicate import 变孤立（`tsc` TS6133 清理：`isFunctionalRefValue`/`isNullableFunctionalRefValue`/`isNullableHash`——其 harness 内用途已随 parsers/guards 全部出壳）。
 - harness **12,140 → 12,030 行**；`tsc` 0；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。
 
+**W-12 slices 4–9 对抗式评审 + 覆盖补强 — done（2026-06-17）**
+- 评审（3 维 + 验证，slices 4–9 = hashN6 / predicates / parsers / N7 guards）：**byte-identity 0 缺陷**（32 个搬迁函数逐字 diff 为空 + mutation 验证）；模块依赖 DAG 无环、无孤立 import、无死导出、无重复定义、contracts 类型 import 皆 type-only。
+- 唯一确认项（medium，**非搬迁缺陷、属既有覆盖盲点**）：搬迁后的 parser 9/11 与 3 个 N7 guard 的 `{ok:false}`/false 分支**无任何测试断言**——评审用 mutation 证明（删 parseN9 的 `isHash` 检查让坏 payload ADMIT 仍全绿）。
+- **补强**：新增 `topic-selection-v1b-harness-parsers.unit.test.ts`（41 测试：每个 parser happy + 精确 `*_INVALID` 码负例 + 2 validator）与 `topic-selection-v1b-harness-predicates.unit.test.ts`（25 测试：17 guard 各 true/false，复杂/N7 guard 多负例）。独立 mutation 复验：削弱 parseN9 `isHash` → parsers 测试转红（40/1），git 还原干净。覆盖盲点**已闭合**。
+
 ### Phase 3 — 能力扩展 / 选项 B（待开工）
 ### Phase 4 — 工作台收口 / 选项 C（待开工）
 ### Phase 5 — 阈值标定 / 选项 D（延期尾巴，待语料）
