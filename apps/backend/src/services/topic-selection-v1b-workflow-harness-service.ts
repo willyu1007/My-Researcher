@@ -322,6 +322,10 @@ import {
   assertSourceHashMap,
   assertRuntimeVerifiedSupportArtifact,
 } from './topic-selection-v1b-harness-asserts.js';
+import {
+  buildHandoff,
+  routeTargetNode,
+} from './topic-selection-v1b-harness-route-handoff.js';
 
 const ALLOWED_REQUEST_KEYS = new Set([
   'schema_version',
@@ -1936,7 +1940,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       v1a_bundle_ref: bundleRef,
       v1a_bundle_hash: expectedBundleHash,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N1ToN2Handoff',
       payload: handoffPayload,
       requiredRefs: [snapshotRef, bundleRef],
@@ -2132,7 +2136,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       intake_snapshot_ref: expectedSnapshotRef,
       intake_snapshot_hash: expectedSnapshotHash,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N2ToN3Handoff',
       payload: handoffPayload,
       requiredRefs: [profileRef, expectedSnapshotRef],
@@ -2301,7 +2305,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warningCodes: readiness.warnings.map((warning) => warning.code),
     });
     const handoff = ready
-      ? this.buildHandoff(input, {
+      ? buildHandoff(input, {
         handoffKind: 'N3ToN4Handoff',
         payload: {
           intake_readiness_ref: readinessRef,
@@ -2500,7 +2504,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       research_slice_option_set_ref: optionSetRef,
       research_slice_option_set_hash: authorityHash,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N4ToN5Handoff',
       payload: handoffPayload,
       requiredRefs: [
@@ -2846,7 +2850,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       selected_slice_option_ref: accepted.selected_option_ref,
       selected_slice_option_hash: accepted.selected_option_hash,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N5ToN6Handoff',
       payload: handoffPayload,
       requiredRefs: [
@@ -3121,7 +3125,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       candidate_grouping_ref: null,
       candidate_grouping_hash: null,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N6ToN7Handoff',
       payload: handoffPayload,
       requiredRefs: [
@@ -3402,7 +3406,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       candidate_grouping_ref: support.value.grouping?.artifact.normalized_output_ref ?? null,
       candidate_grouping_hash: support.value.grouping?.payloadHash ?? null,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N7ToN8Handoff',
       payload: handoffPayload,
       requiredRefs: [
@@ -3588,7 +3592,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         policy_version: input.policy_version,
         profile_id: input.profile_id ?? null,
         route_decision: outcome.routeDecision,
-        route_target_node_id: outcome.routeTargetNodeId ?? this.routeTargetNode(input.node_id, outcome.routeDecision),
+        route_target_node_id: outcome.routeTargetNodeId ?? routeTargetNode(input.node_id, outcome.routeDecision),
         run_mode: input.run_mode ?? null,
         runtime_admission_hash: hashContext.runtimeAdmissionHash,
         semantic_artifact_count: input.semantic_artifacts?.length ?? 0,
@@ -3737,7 +3741,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         node_replay_key: hashContext.nodeReplayKey,
         phase: outcome.tracePhase,
         route_decision: outcome.routeDecision,
-        route_target_node_id: outcome.routeTargetNodeId ?? this.routeTargetNode(input.node_id, outcome.routeDecision),
+        route_target_node_id: outcome.routeTargetNodeId ?? routeTargetNode(input.node_id, outcome.routeDecision),
         warning_codes: outcome.warnings.map((warning) => warning.code),
       },
       created_by: createdBy,
@@ -3851,7 +3855,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       loopback_target_code: outcome.loopbackTargetCode,
       route_policy_version: input.policy_version,
       route_reason_code: outcome.routeReasonCode,
-      target_node_id: outcome.routeTargetNodeId ?? this.routeTargetNode(input.node_id, outcome.routeDecision),
+      target_node_id: outcome.routeTargetNodeId ?? routeTargetNode(input.node_id, outcome.routeDecision),
     });
     return {
       frozen_input_hash: hashContext.frozenInputHash,
@@ -3893,174 +3897,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       semantic_artifact_hash: hashContext.semanticArtifactHash,
       warning_codes: outcome.warningCodes,
     });
-  }
-
-  private buildHandoff(
-    input: TopicSelectionV1bWorkflowHarnessRunRequest,
-    options: {
-      handoffKind: TopicSelectionV1bWorkflowHarnessHandoffKind;
-      payload: TopicSelectionV1bWorkflowHarnessHandoffPayload;
-      requiredRefs: TopicSelectionFunctionalRef[];
-      residualRiskRefs: TopicSelectionFunctionalRef[];
-      sourceAuthorityHash: string;
-      sourceAuthorityRef: TopicSelectionFunctionalRef;
-      sourceGateResultHash: string;
-      upstreamLineageHash: string;
-      warningCodes: string[];
-    },
-  ): TopicSelectionV1bWorkflowHarnessHandoff {
-    const edge = this.handoffEdge(options.handoffKind);
-    const payloadHash = canonicalHash(options.payload);
-    return {
-      envelope: {
-        handoff_kind: options.handoffKind,
-        source_node_id: input.node_id,
-        source_node_attempt_id: input.node_attempt_id,
-        source_authority_ref: options.sourceAuthorityRef,
-        source_authority_hash: options.sourceAuthorityHash,
-        source_gate_result_hash: options.sourceGateResultHash,
-        upstream_lineage_hash: options.upstreamLineageHash,
-        policy_version: input.policy_version,
-        schema_version: edge.payload_schema_version,
-        warning_codes: options.warningCodes,
-        residual_risk_refs: options.residualRiskRefs,
-      },
-      target_node_id: edge.target_node_id,
-      route_signal: edge.route_signal,
-      payload_hash: payloadHash,
-      required_refs: options.requiredRefs,
-      payload: options.payload,
-    };
-  }
-
-  private handoffEdge(
-    handoffKind: TopicSelectionV1bWorkflowHarnessHandoffKind,
-  ): {
-    target_node_id: TopicSelectionV1bWorkflowHarnessNodeId | 'v1c.entry';
-    route_signal: string;
-    payload_schema_version: string;
-  } {
-    switch (handoffKind) {
-      case 'N1ToN2Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.record-research-constraint-profile.v1',
-          route_signal: 'snapshot_created',
-          payload_schema_version: 'N1ToN2Handoff@v1',
-        };
-      case 'N2ToN3Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.assess-intake-readiness.v1',
-          route_signal: 'constraint_profile_recorded',
-          payload_schema_version: 'N2ToN3Handoff@v1',
-        };
-      case 'N3ToN4Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.generate-research-slice-options.v1',
-          route_signal: 'intake_ready_for_slice_generation',
-          payload_schema_version: 'N3ToN4Handoff@v1',
-        };
-      case 'N4ToN5Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.select-research-slice.v1',
-          route_signal: 'slice_options_generated',
-          payload_schema_version: 'N4ToN5Handoff@v1',
-        };
-      case 'N5ToN6Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.generate-topic-question-candidates.v1',
-          route_signal: 'slice_selected',
-          payload_schema_version: 'N5ToN6Handoff@v1',
-        };
-      case 'N6ToN7Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1',
-          route_signal: 'question_candidates_generated',
-          payload_schema_version: 'N6ToN7Handoff@v1',
-        };
-      case 'N7ToN8Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.assess-topic-value.v1',
-          route_signal: 'topic_question_contract_materialized',
-          payload_schema_version: 'N7ToN8Handoff@v1',
-        };
-      case 'N8ToN9Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.decide-value-disposition.v1',
-          route_signal: 'topic_value_assessed',
-          payload_schema_version: 'N8ToN9Handoff@v1',
-        };
-      case 'N9ToN10Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.create-draft-topic-package.v1',
-          route_signal: 'advance_to_package_candidate',
-          payload_schema_version: 'N9ToN10Handoff@v1',
-        };
-      case 'N10ToN11Handoff':
-        return {
-          target_node_id: 'topic-selection.v1b.publish-v1c-input-bundle.v1',
-          route_signal: 'package_created',
-          payload_schema_version: 'N10ToN11Handoff@v1',
-        };
-      case 'V1cInputBundle':
-        return {
-          target_node_id: 'v1c.entry',
-          route_signal: 'v1c_bundle_published',
-          payload_schema_version: 'V1cInputBundle@v1',
-        };
-      default:
-        throw new AppError(500, 'INTERNAL_ERROR', `T-107 harness closure cannot build handoff kind ${handoffKind}.`);
-    }
-  }
-
-  private nextNodeForImplementedHandoff(
-    nodeId: TopicSelectionV1bWorkflowHarnessNodeId,
-  ): TopicSelectionV1bWorkflowHarnessNodeId | null {
-    switch (nodeId) {
-      case 'topic-selection.v1b.create-intake-snapshot.v1':
-        return 'topic-selection.v1b.record-research-constraint-profile.v1';
-      case 'topic-selection.v1b.record-research-constraint-profile.v1':
-        return 'topic-selection.v1b.assess-intake-readiness.v1';
-      case 'topic-selection.v1b.assess-intake-readiness.v1':
-        return 'topic-selection.v1b.generate-research-slice-options.v1';
-      case 'topic-selection.v1b.generate-research-slice-options.v1':
-        return 'topic-selection.v1b.select-research-slice.v1';
-      case 'topic-selection.v1b.select-research-slice.v1':
-        return 'topic-selection.v1b.generate-topic-question-candidates.v1';
-      case 'topic-selection.v1b.generate-topic-question-candidates.v1':
-        return 'topic-selection.v1b.materialize-topic-question-contract.v1';
-      case 'topic-selection.v1b.materialize-topic-question-contract.v1':
-        return 'topic-selection.v1b.assess-topic-value.v1';
-      case 'topic-selection.v1b.assess-topic-value.v1':
-        return 'topic-selection.v1b.decide-value-disposition.v1';
-      case 'topic-selection.v1b.decide-value-disposition.v1':
-        return 'topic-selection.v1b.create-draft-topic-package.v1';
-      case 'topic-selection.v1b.create-draft-topic-package.v1':
-        return 'topic-selection.v1b.publish-v1c-input-bundle.v1';
-      default:
-        return null;
-    }
-  }
-
-  private routeTargetNode(
-    nodeId: TopicSelectionV1bWorkflowHarnessNodeId,
-    routeDecision: TopicSelectionV1bWorkflowHarnessRouteDecision,
-  ): TopicSelectionV1bWorkflowHarnessNodeId | null {
-    if (routeDecision === 'invoke_next') {
-      return this.nextNodeForImplementedHandoff(nodeId);
-    }
-    if (nodeId === 'topic-selection.v1b.select-research-slice.v1' && routeDecision === 'loopback') {
-      return 'topic-selection.v1b.generate-research-slice-options.v1';
-    }
-    if (nodeId === 'topic-selection.v1b.generate-topic-question-candidates.v1' && routeDecision === 'loopback') {
-      return 'topic-selection.v1b.generate-topic-question-candidates.v1';
-    }
-    if (nodeId === 'topic-selection.v1b.materialize-topic-question-contract.v1' && routeDecision === 'loopback') {
-      return 'topic-selection.v1b.generate-topic-question-candidates.v1';
-    }
-    if (nodeId === 'topic-selection.v1b.assess-topic-value.v1' && routeDecision === 'loopback') {
-      return 'topic-selection.v1b.materialize-topic-question-contract.v1';
-    }
-    return null;
   }
 
   private async loadN7Context(
@@ -4960,7 +4796,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       candidate_grouping_ref: support.grouping?.artifact.normalized_output_ref ?? null,
       candidate_grouping_hash: support.grouping?.payloadHash ?? null,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N7ToN8Handoff',
       payload: handoffPayload,
       requiredRefs: [
@@ -5243,7 +5079,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       value_reasoning_memo_hash: hashN8ValueReasoningMemoAuthority(memo),
       recommended_disposition: draftResolution.value.draft.recommended_disposition,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N8ToN9Handoff',
       payload: handoffPayload,
       requiredRefs: [assessmentRef, contractRef],
@@ -5503,7 +5339,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       topic_value_assessment_ref: assessmentRef,
       topic_value_assessment_hash: payload.value.topic_value_assessment_hash,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N9ToN10Handoff',
       payload: handoffPayload,
       requiredRefs: [decisionRef, assessmentRef],
@@ -5622,7 +5458,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         v1c_input_bundle_ref: v1cInputBundleRef,
         v1c_input_bundle_hash: v1cInputBundleHash,
       };
-      const handoff = this.buildHandoff(input, {
+      const handoff = buildHandoff(input, {
         handoffKind: 'N10ToN11Handoff',
         payload: handoffPayload,
         requiredRefs: [packageRef, payload.value.value_disposition_ref],
@@ -5690,7 +5526,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       v1c_input_bundle_ref: v1cInputBundleRef,
       v1c_input_bundle_hash: v1cInputBundleHash,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'N10ToN11Handoff',
       payload: handoffPayload,
       requiredRefs: [packageRef, payload.value.value_disposition_ref],
@@ -5835,7 +5671,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       draft_topic_package_ref: packageRef,
       draft_topic_package_hash: packageHash,
     };
-    const handoff = this.buildHandoff(input, {
+    const handoff = buildHandoff(input, {
       handoffKind: 'V1cInputBundle',
       payload: handoffPayload,
       requiredRefs: [bundleRef, packageRef],
