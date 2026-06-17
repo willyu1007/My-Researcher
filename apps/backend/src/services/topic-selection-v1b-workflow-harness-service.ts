@@ -241,9 +241,11 @@ import {
 import {
   isClaimCeilingAlignment,
   isFunctionalRefArray,
-  isFunctionalRefValue,
-  isNullableFunctionalRefValue,
-  isNullableHash,
+  isN6ToN7HandoffArtifactPayload,
+  isN7CandidateGroupingSupportPayload,
+  isN7DebateAdmissionSupportPayload,
+  isN7FailedTrialSynthesisSupportPayload,
+  isN8ToN7FeedbackPayload,
   isNullableString,
   isRiskLevel,
   isStringArray,
@@ -4248,7 +4250,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         continue;
       }
       const artifact = await this.controlPlane.getArtifactRef(sourceRef.ref_id);
-      const handoff = this.isN6ToN7HandoffArtifactPayload(artifact?.payload)
+      const handoff = isN6ToN7HandoffArtifactPayload(artifact?.payload)
         ? artifact.payload as unknown as TopicSelectionV1bWorkflowHarnessHandoff
         : null;
       if (!handoff) {
@@ -4270,18 +4272,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     };
   }
 
-  private isN6ToN7HandoffArtifactPayload(value: unknown): value is TopicSelectionV1bWorkflowHarnessHandoff {
-    return isRecord(value)
-      && isRecord(value.envelope)
-      && value.envelope.handoff_kind === 'N6ToN7Handoff'
-      && isRecord(value.payload);
-  }
-
   private async resolveN7FeedbackPayload(
     payload: TopicSelectionV1bN7HarnessFeedbackFrozenInputPayload,
   ): Promise<TopicSelectionV1bN8ToN7FeedbackPayload | null> {
     const artifact = await this.controlPlane.getArtifactRef(payload.n8_feedback_ref.ref_id);
-    if (!artifact || this.hash(artifact) !== payload.n8_feedback_hash || !this.isN8ToN7FeedbackPayload(artifact.payload)) {
+    if (!artifact || this.hash(artifact) !== payload.n8_feedback_hash || !isN8ToN7FeedbackPayload(artifact.payload)) {
       return null;
     }
     const feedback = artifact.payload as unknown as TopicSelectionV1bN8ToN7FeedbackPayload;
@@ -4289,49 +4284,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return null;
     }
     return feedback;
-  }
-
-  private isN8ToN7FeedbackPayload(value: unknown): value is TopicSelectionV1bN8ToN7FeedbackPayload {
-    return isRecord(value)
-      && hasOnlyKeys(value, [
-        'affected_refs',
-        'failed_candidate_hash',
-        'failed_candidate_ref',
-        'failed_topic_question_contract_hash',
-        'failed_topic_question_contract_ref',
-        'failure_reason_code',
-        'feedback_class',
-        'feedback_summary',
-        'n8_gate_result_hash',
-        'previous_n7_handoff_hash',
-        'previous_n7_handoff_ref',
-        'previous_trial_ledger_hash',
-        'previous_trial_ledger_ref',
-        'topic_question_candidate_set_hash',
-        'topic_question_candidate_set_ref',
-        'value_assessment_hash',
-        'value_assessment_ref',
-      ])
-      && ['semantic_candidate_failure', 'gate_rejected', 'technical_failure'].includes(value.feedback_class as string)
-      && typeof value.failure_reason_code === 'string'
-      && value.failure_reason_code.trim().length > 0
-      && typeof value.feedback_summary === 'string'
-      && value.feedback_summary.trim().length > 0
-      && isFunctionalRefArray(value.affected_refs)
-      && (value.affected_refs as unknown[]).length > 0
-      && isFunctionalRefValue(value.previous_n7_handoff_ref)
-      && isHash(value.previous_n7_handoff_hash)
-      && isFunctionalRefValue(value.previous_trial_ledger_ref)
-      && isHash(value.previous_trial_ledger_hash)
-      && isFunctionalRefValue(value.failed_topic_question_contract_ref)
-      && isHash(value.failed_topic_question_contract_hash)
-      && isFunctionalRefValue(value.failed_candidate_ref)
-      && isHash(value.failed_candidate_hash)
-      && isFunctionalRefValue(value.topic_question_candidate_set_ref)
-      && isHash(value.topic_question_candidate_set_hash)
-      && isHash(value.n8_gate_result_hash)
-      && isNullableFunctionalRefValue(value.value_assessment_ref)
-      && isNullableHash(value.value_assessment_hash);
   }
 
   private async resolveEarlySemanticSupportPayload<T extends TopicSelectionV1bEarlySemanticSupportPayload>(
@@ -4497,21 +4449,21 @@ export class TopicSelectionV1bWorkflowHarnessService {
       input,
       payload,
       'n7_candidate_grouping',
-      this.isN7CandidateGroupingSupportPayload.bind(this),
+      isN7CandidateGroupingSupportPayload,
     );
     if (!grouping.ok) return grouping;
     const debateAdmission = await this.resolveN7SemanticPayload<TopicSelectionV1bN8DebateAdmissionReviewSupportPayload>(
       input,
       payload,
       'n7_n8_debate_admission_review',
-      this.isN7DebateAdmissionSupportPayload.bind(this),
+      isN7DebateAdmissionSupportPayload,
     );
     if (!debateAdmission.ok) return debateAdmission;
     const failedTrialSynthesis = await this.resolveN7SemanticPayload<TopicSelectionV1bN8FailedTrialSynthesisSupportPayload>(
       input,
       payload,
       'n7_failed_trial_synthesis',
-      this.isN7FailedTrialSynthesisSupportPayload.bind(this),
+      isN7FailedTrialSynthesisSupportPayload,
     );
     if (!failedTrialSynthesis.ok) return failedTrialSynthesis;
     if (payload.input_mode === 'initial_from_n6' && failedTrialSynthesis.value) {
@@ -4667,67 +4619,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       code: 'N7_SUPPORT_ARTIFACT_RUNTIME_CONTEXT_DRIFT',
       message,
     };
-  }
-
-  private isN7CandidateGroupingSupportPayload(value: unknown): value is TopicSelectionV1bCandidateGroupingSupportPayload {
-    if (!isRecord(value) || !hasOnlyKeys(value, [
-      'candidate_relationships',
-      'duplicate_or_overlap_groups',
-      'grouping_summary',
-      'priority_order',
-      'selected_candidate_hash',
-      'selected_candidate_ref',
-    ])) {
-      return false;
-    }
-    const groups = value.duplicate_or_overlap_groups;
-    return isFunctionalRefValue(value.selected_candidate_ref)
-      && isHash(value.selected_candidate_hash)
-      && isFunctionalRefArray(value.priority_order)
-      && (value.priority_order as unknown[]).length > 0
-      && Array.isArray(groups)
-      && groups.every((group) => isRecord(group)
-        && hasOnlyKeys(group, ['group_key', 'candidate_refs', 'canonical_candidate_ref', 'rationale'])
-        && typeof group.group_key === 'string'
-        && isFunctionalRefArray(group.candidate_refs)
-        && isFunctionalRefValue(group.canonical_candidate_ref)
-        && typeof group.rationale === 'string')
-      && isRecord(value.candidate_relationships)
-      && typeof value.grouping_summary === 'string';
-  }
-
-  private isN7DebateAdmissionSupportPayload(value: unknown): value is TopicSelectionV1bN8DebateAdmissionReviewSupportPayload {
-    return isRecord(value)
-      && hasOnlyKeys(value, [
-        'debate_level',
-        'high_value_signal_codes',
-        'rationale',
-        'recommended_profile_id',
-        'risk_signal_codes',
-      ])
-      && ['compact_assessment_debate', 'provider_diverse_deep_debate'].includes(value.debate_level as string)
-      && typeof value.recommended_profile_id === 'string'
-      && isStringArray(value.high_value_signal_codes)
-      && isStringArray(value.risk_signal_codes)
-      && typeof value.rationale === 'string';
-  }
-
-  private isN7FailedTrialSynthesisSupportPayload(value: unknown): value is TopicSelectionV1bN8FailedTrialSynthesisSupportPayload {
-    return isRecord(value)
-      && hasOnlyKeys(value, [
-        'affected_refs',
-        'exhausted_candidate_refs',
-        'failure_reason_codes',
-        'n6_regeneration_hints',
-        'synthesis_summary',
-      ])
-      && isFunctionalRefArray(value.exhausted_candidate_refs)
-      && (value.exhausted_candidate_refs as unknown[]).length > 0
-      && isStringArray(value.failure_reason_codes)
-      && typeof value.synthesis_summary === 'string'
-      && isStringArray(value.n6_regeneration_hints)
-      && isFunctionalRefArray(value.affected_refs)
-      && (value.affected_refs as unknown[]).length > 0;
   }
 
   private n7LineageBlocker(
@@ -6734,7 +6625,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     // Validate the producer against the SAME predicate N7's feedback_from_n8 re-entry uses
     // (resolveN7FeedbackPayload -> isN8ToN7FeedbackPayload), so a producer/validator key-set
     // drift fails loudly here at write time instead of silently dead-ending the loopback at N7.
-    if (!this.isN8ToN7FeedbackPayload(feedbackPayload)) {
+    if (!isN8ToN7FeedbackPayload(feedbackPayload)) {
       throw new AppError(500, 'INTERNAL_ERROR', 'N8 debate loopback feedback payload does not satisfy the N8ToN7Feedback contract.');
     }
     const feedbackPayloadHash = this.hash(feedbackPayload);

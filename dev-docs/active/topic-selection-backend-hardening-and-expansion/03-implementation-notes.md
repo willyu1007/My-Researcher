@@ -9,7 +9,7 @@
 | W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | done | 见 Phase 1 记录（coordinator 19/0；upstream_blocked / feedback_artifact_missing / nonce 负例） |
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
-| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01；hash-authority + pure-utils + predicates + **parser 簇全抽完(N1–N11 + 2 validators)** 已出壳（harness 12898→12140，golden 守卫绿）；余 resolver 簇收壳 |
+| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01；major 簇(dedup/hash-authority/pure-utils/predicates/parsers) 全出壳 + N7 support-payload guards（harness 12898→12030，golden 守卫绿）。**核查：`resolve*` 均 async/stateful → 留壳（D-T123-03 范式）；余 ~100 个节点纯助手用户定继续 grind 至壳** |
 | W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | planned | 待 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
@@ -123,6 +123,16 @@
 - 6 调用点改模块调用；移除连续 4 方法块。harness 内 4 个 predicate import 变孤立（`tsc` TS6133 后清理：`isNullableSliceLoopbackTarget`/`isRejectedOptionReasonArray`/`isSliceLoopbackTarget`/`isSliceSelectionDecision`）。
 - harness **12,328 → 12,140 行**；harness 内 `private parseN*Payload` 计数归 **0 —— parser 簇（N1–N11 + 2 validators）全部出壳**；`tsc` 0；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。
 - 仅余 **resolver 簇**（`resolveN*Payload` / `resolveN7SupportContext` / `resolveEarlySemanticSupportPayload` 等）→ 收壳。
+
+**W-12 收壳核查 + 范围决策（2026-06-17）**
+- **关键核查**：计划名义的 `resolveN*Payload` 纯簇**不存在**——harness 所有 `resolve*` 均为 `private async` **有状态**（await 控制面/仓储/工件解析、互调 this runner）；按 D-T123-03/D-T127-01「有状态 per-node runner 留壳」，它们**不出壳**。
+- 到「字面壳」（仅生命周期 8 步 + 持久化 + 有状态 runner）尚余 **~107 个纯（非 async、无 this）节点助手**：support-payload guards（`isN*…SupportPayload`/`isN8ReasoningMemoDraft`…）、节点 ref/issue builders（`n7SupportRefs`/`n8KnownRefs`…）、`assert*` 校验器、`policyBlocker`/`handoffEdge` 等。
+- **用户范围决策**：grind 至壳——逐个 coherent 子簇继续搬迁（每刀 verbatim + golden + 全套件守卫）。
+
+**W-12 slice 9 — N7 support-payload guards — done（2026-06-17）**
+- 把 5 个 N7 输入/支撑 payload 类型守卫（`isN6ToN7HandoffArtifactPayload`/`isN8ToN7FeedbackPayload`/`isN7CandidateGroupingSupportPayload`/`isN7DebateAdmissionSupportPayload`/`isN7FailedTrialSynthesisSupportPayload`）逐字并入 `harness-predicates.ts`（簇内调既有 predicates + pure-utils；补 5 个 harness-contracts 类型）。调用点含 `this.X(` 与 `this.X.bind(this)` 两形（bind 形 → 裸函数引用，无需 bind）。
+- 移除 5 私有方法；harness 3 个 predicate import 变孤立（`tsc` TS6133 清理：`isFunctionalRefValue`/`isNullableFunctionalRefValue`/`isNullableHash`——其 harness 内用途已随 parsers/guards 全部出壳）。
+- harness **12,140 → 12,030 行**；`tsc` 0；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。
 
 ### Phase 3 — 能力扩展 / 选项 B（待开工）
 ### Phase 4 — 工作台收口 / 选项 C（待开工）
