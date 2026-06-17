@@ -9,7 +9,7 @@
 | W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | done | 见 Phase 1 记录（coordinator 19/0；upstream_blocked / feedback_artifact_missing / nonce 负例） |
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
-| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01；hash-authority + pure-utils + predicates + parsers(N1/N3/N4/N6/N7–N11) 已出壳（harness 12898→12328，golden 守卫绿）；仅余 N2/N5 parsers(+validators) + resolvers |
+| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01；hash-authority + pure-utils + predicates + **parser 簇全抽完(N1–N11 + 2 validators)** 已出壳（harness 12898→12140，golden 守卫绿）；余 resolver 簇收壳 |
 | W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | planned | 待 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
@@ -117,6 +117,12 @@
 - 续抽 5 个纯 frozen-input 解析器（`parseN7..parseN11Payload`，各 1 调用点，逐字）到 `harness-parsers.ts`；模块补 import `isFunctionalRefArray`/`isStringArray`/`isNullableFunctionalRefValue`/`isNullableHash`（predicates）+ N7–N11 frozen-payload 类型。移除 5 私有方法。
 - harness **12,526 → 12,328 行**；`tsc` 0（N7–N11 类型仍他处使用，无孤立 import）；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。
 - **parser 簇仅余 N2/N5**——二者依赖 `acceptedConstraintProfilePayloadIsValid`/`acceptedSliceSelectionPayloadIsValid` 验证器（下一刀先抽这两个验证器〔查纯度〕，再抽 N2/N5 parser）；之后 resolveN*Payload/resolver 簇收壳。
+
+**W-12 slice 8 — parser 簇收口（N2/N5 + 2 validators）— done（2026-06-17）**
+- 把 `acceptedConstraintProfilePayloadIsValid`/`acceptedSliceSelectionPayloadIsValid`（纯）+ `parseN2Payload`/`parseN5Payload` 逐字搬迁到 `harness-parsers.ts`（验证器 export，N2/N5 parser 模块内调用；二验证器各另有 1 harness gate 调用点也改模块调用）。模块补 import `isRecord`(pure-utils) + `isNullableString`/`isSliceSelectionDecision`/`isRejectedOptionReasonArray`/`isNullableSliceLoopbackTarget`/`isSliceLoopbackTarget`(predicates) + N2/N5 类型。
+- 6 调用点改模块调用；移除连续 4 方法块。harness 内 4 个 predicate import 变孤立（`tsc` TS6133 后清理：`isNullableSliceLoopbackTarget`/`isRejectedOptionReasonArray`/`isSliceLoopbackTarget`/`isSliceSelectionDecision`）。
+- harness **12,328 → 12,140 行**；harness 内 `private parseN*Payload` 计数归 **0 —— parser 簇（N1–N11 + 2 validators）全部出壳**；`tsc` 0；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。
+- 仅余 **resolver 簇**（`resolveN*Payload` / `resolveN7SupportContext` / `resolveEarlySemanticSupportPayload` 等）→ 收壳。
 
 ### Phase 3 — 能力扩展 / 选项 B（待开工）
 ### Phase 4 — 工作台收口 / 选项 C（待开工）

@@ -244,18 +244,18 @@ import {
   isFunctionalRefValue,
   isNullableFunctionalRefValue,
   isNullableHash,
-  isNullableSliceLoopbackTarget,
   isNullableString,
-  isRejectedOptionReasonArray,
   isRiskLevel,
-  isSliceLoopbackTarget,
-  isSliceSelectionDecision,
   isStringArray,
 } from './topic-selection-v1b-harness-predicates.js';
 import {
+  acceptedConstraintProfilePayloadIsValid,
+  acceptedSliceSelectionPayloadIsValid,
   parseN1Payload,
+  parseN2Payload,
   parseN3Payload,
   parseN4Payload,
+  parseN5Payload,
   parseN6Payload,
   parseN7Payload,
   parseN8Payload,
@@ -2138,7 +2138,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN2Payload(input.frozen_input.payload);
+    const payload = parseN2Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -2163,7 +2163,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       input,
       'n2_constraint_profile_semantic_support',
       (value): value is TopicSelectionV1bAcceptedConstraintProfilePayload =>
-        isRecord(value) && this.acceptedConstraintProfilePayloadIsValid(value),
+        isRecord(value) && acceptedConstraintProfilePayloadIsValid(value),
     );
     if (!semanticSupport.ok) {
       return this.persistBlockedResult(input, hashContext, {
@@ -2772,7 +2772,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN5Payload(input.frozen_input.payload);
+    const payload = parseN5Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -2797,7 +2797,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       input,
       'n5_slice_selection_review',
       (value): value is TopicSelectionV1bAcceptedSliceSelectionPayload =>
-        isRecord(value) && this.acceptedSliceSelectionPayloadIsValid(value),
+        isRecord(value) && acceptedSliceSelectionPayloadIsValid(value),
     );
     if (!semanticSupport.ok) {
       return this.persistBlockedResult(input, hashContext, {
@@ -8277,198 +8277,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
           ? 'Rejected by frozen N8 feedback.'
           : 'Preserved for possible later trial.',
       }));
-  }
-
-  private parseN2Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN2HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    const allowedKeys = [
-      'accepted_constraint_profile_payload',
-      'accepted_constraint_profile_payload_hash',
-      'authority_input_provider',
-      'delegation_artifact_hash',
-      'intake_snapshot_hash',
-      'intake_snapshot_ref',
-      'previous_profile_hash',
-      'previous_profile_ref',
-      'v1a_bundle_hash',
-      'v1a_bundle_ref',
-    ];
-    if (!hasOnlyKeys(payload, allowedKeys)
-      || !isFunctionalRefValue(payload.intake_snapshot_ref)
-      || !isHash(payload.intake_snapshot_hash)
-      || !isFunctionalRefValue(payload.v1a_bundle_ref)
-      || !isHash(payload.v1a_bundle_hash)
-      || !['human_delegated', 'codex_delegated', 'fixture'].includes(payload.authority_input_provider as string)
-      || !isRecord(payload.accepted_constraint_profile_payload)
-      || !isHash(payload.accepted_constraint_profile_payload_hash)
-      || !isNullableHash(payload.delegation_artifact_hash)
-      || !isNullableFunctionalRefValue(payload.previous_profile_ref)
-      || !isNullableHash(payload.previous_profile_hash)) {
-      return {
-        ok: false,
-        code: 'N2_ACCEPTED_PROFILE_PAYLOAD_INVALID',
-        message: 'N2 requires a frozen accepted ResearchConstraintProfile payload with refs and hashes.',
-      };
-    }
-    const accepted = payload.accepted_constraint_profile_payload;
-    if (!this.acceptedConstraintProfilePayloadIsValid(accepted)) {
-      return {
-        ok: false,
-        code: 'N2_ACCEPTED_PROFILE_PAYLOAD_INVALID',
-        message: 'N2 accepted ResearchConstraintProfile payload is malformed.',
-      };
-    }
-    if (payload.authority_input_provider === 'codex_delegated' && !isHash(payload.delegation_artifact_hash)) {
-      return {
-        ok: false,
-        code: 'N2_CODEX_DELEGATION_ARTIFACT_REQUIRED',
-        message: 'N2 codex_delegated authority input requires frozen matching semantic artifact provenance.',
-      };
-    }
-    if (payload.authority_input_provider !== 'codex_delegated' && payload.delegation_artifact_hash !== null) {
-      return {
-        ok: false,
-        code: 'N2_DELEGATION_ARTIFACT_NOT_ALLOWED',
-        message: 'N2 non-Codex delegated authority input must not carry delegation_artifact_hash.',
-      };
-    }
-    return {
-      ok: true,
-      value: payload as unknown as TopicSelectionV1bN2HarnessFrozenInputPayload,
-    };
-  }
-
-  private parseN5Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN5HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    const allowedKeys = [
-      'accepted_selection_payload',
-      'accepted_selection_payload_hash',
-      'authority_input_provider',
-      'delegation_artifact_hash',
-      'n4_handoff_hash',
-      'research_slice_option_set_hash',
-      'research_slice_option_set_ref',
-    ];
-    if (!hasOnlyKeys(payload, allowedKeys)
-      || !isFunctionalRefValue(payload.research_slice_option_set_ref)
-      || !isHash(payload.research_slice_option_set_hash)
-      || !isHash(payload.n4_handoff_hash)
-      || !['human_delegated', 'codex_delegated', 'fixture'].includes(payload.authority_input_provider as string)
-      || !isRecord(payload.accepted_selection_payload)
-      || !isHash(payload.accepted_selection_payload_hash)
-      || !isNullableHash(payload.delegation_artifact_hash)) {
-      return {
-        ok: false,
-        code: 'N5_ACCEPTED_SELECTION_PAYLOAD_INVALID',
-        message: 'N5 requires a frozen accepted ResearchSlice selection payload with option-set refs and hashes.',
-      };
-    }
-    if (!this.acceptedSliceSelectionPayloadIsValid(payload.accepted_selection_payload)) {
-      return {
-        ok: false,
-        code: 'N5_ACCEPTED_SELECTION_PAYLOAD_INVALID',
-        message: 'N5 accepted ResearchSlice selection payload is malformed.',
-      };
-    }
-    if (payload.authority_input_provider === 'codex_delegated' && !isHash(payload.delegation_artifact_hash)) {
-      return {
-        ok: false,
-        code: 'N5_CODEX_DELEGATION_ARTIFACT_REQUIRED',
-        message: 'N5 codex_delegated authority input requires frozen matching semantic artifact provenance.',
-      };
-    }
-    if (payload.authority_input_provider !== 'codex_delegated' && payload.delegation_artifact_hash !== null) {
-      return {
-        ok: false,
-        code: 'N5_DELEGATION_ARTIFACT_NOT_ALLOWED',
-        message: 'N5 non-Codex delegated authority input must not carry delegation_artifact_hash.',
-      };
-    }
-    return {
-      ok: true,
-      value: payload as unknown as TopicSelectionV1bN5HarnessFrozenInputPayload,
-    };
-  }
-
-  private acceptedConstraintProfilePayloadIsValid(value: Record<string, unknown>): boolean {
-    return hasOnlyKeys(value, [
-      'available_assets',
-      'claim_ceiling',
-      'constraint_payload',
-      'feasibility_budget',
-      'human_constraint_notes',
-      'intended_contribution_style',
-      'method_constraints',
-      'non_goals',
-      'resource_constraints',
-      'target_community',
-      'target_venue_class',
-    ])
-      && typeof value.target_community === 'string'
-      && isNullableString(value.target_venue_class)
-      && isNullableString(value.intended_contribution_style)
-      && isStringArray(value.method_constraints)
-      && isStringArray(value.resource_constraints)
-      && isStringArray(value.available_assets)
-      && isRecord(value.feasibility_budget)
-      && isStringArray(value.non_goals)
-      && typeof value.claim_ceiling === 'string'
-      && isNullableString(value.human_constraint_notes)
-      && isRecord(value.constraint_payload);
-  }
-
-  private acceptedSliceSelectionPayloadIsValid(value: Record<string, unknown>): boolean {
-    if (!hasOnlyKeys(value, [
-      'accepted_risk_refs',
-      'confidence',
-      'decision',
-      'decision_basis',
-      'human_review_reason',
-      'loopback_reason_code',
-      'loopback_target',
-      'loopback_target_ref',
-      'rejected_option_reasons',
-      'required_actions',
-      'requires_human_review',
-      'selected_option_hash',
-      'selected_option_ref',
-      'selection_rationale',
-    ])
-      || !isSliceSelectionDecision(value.decision)
-      || !isNullableFunctionalRefValue(value.selected_option_ref)
-      || !isNullableHash(value.selected_option_hash)
-      || typeof value.selection_rationale !== 'string'
-      || value.selection_rationale.trim().length === 0
-      || !isRecord(value.decision_basis)
-      || !isRejectedOptionReasonArray(value.rejected_option_reasons)
-      || !isStringArray(value.required_actions)
-      || !isFunctionalRefArray(value.accepted_risk_refs)
-      || !(value.confidence === null || typeof value.confidence === 'number')
-      || typeof value.requires_human_review !== 'boolean'
-      || !isNullableString(value.human_review_reason)
-      || !isNullableSliceLoopbackTarget(value.loopback_target)
-      || !isNullableFunctionalRefValue(value.loopback_target_ref)
-      || !isNullableString(value.loopback_reason_code)) {
-      return false;
-    }
-    if (value.decision === 'select') {
-      return isFunctionalRefValue(value.selected_option_ref)
-        && isHash(value.selected_option_hash)
-        && value.loopback_target === null
-        && value.loopback_target_ref === null
-        && value.loopback_reason_code === null;
-    }
-    if (value.selected_option_ref !== null || value.selected_option_hash !== null) {
-      return false;
-    }
-    if (value.decision === 'request_more_options') {
-      return isSliceLoopbackTarget(value.loopback_target)
-        && typeof value.loopback_reason_code === 'string'
-        && value.loopback_reason_code.trim().length > 0;
-    }
-    return true;
   }
 
   private isN3ReadinessClassificationSupportPayload(

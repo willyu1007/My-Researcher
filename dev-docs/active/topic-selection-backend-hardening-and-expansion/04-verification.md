@@ -55,5 +55,6 @@
 - **2026-06-17 · Phase 2 / W-12 slice 5 — predicate 类型守卫簇**：新建 `harness-predicates.ts`，抽 12 个纯守卫（`isFunctionalRefValue`/`isStringArray`/`isFunctionalRefArray`/… 连续块），161 调用点改模块调用；簇内互调模块内解析，`isRecord`/`isHash`/`hasOnlyKeys` 由 pure-utils import。证据：harness **12,714→12,648 行**；`tsc` 0（无遮蔽/孤立 import）；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。意义：解锁 `parseN1..parseN11` 搬迁。
 - **2026-06-17 · Phase 2 / W-12 slice 6 — parser batch 1（N1/N3/N4/N6）**：新建 `harness-parsers.ts`，抽 4 个纯 frozen-input 解析器（依赖核查：9/11 parser 已 PURE，仅 N2/N5 待验证器先抽）。证据：harness **12,648→12,526 行**；`tsc` 0（清理了 1 个孤立类型 import）；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。
 - **2026-06-17 · Phase 2 / W-12 slice 7 — parser batch 2（N7–N11）**：续抽 5 个纯解析器到 `harness-parsers.ts`（模块补 4 个 predicate import + N7–N11 类型）。证据：harness **12,526→12,328 行**；`tsc` 0；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。parser 簇仅余 N2/N5（依赖验证器，待下一刀）。
+- **2026-06-17 · Phase 2 / W-12 slice 8 — parser 簇收口（N2/N5 + 2 validators）**：抽 2 个 accepted-payload 验证器 + parseN2/parseN5 到 `harness-parsers.ts`（6 调用点改模块调用；清理 4 个孤立 predicate import）。证据：harness **12,328→12,140 行**、`private parseN*` 计数归 0（**parser 簇 N1–N11 全出壳**）；`tsc` 0；harness 单测 **97/0**（golden 守卫绿）；backend 全套件 **1403/0/35**（byte-identical）。仅余 resolver 簇收壳。
 
 ### （待开工）
