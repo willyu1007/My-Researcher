@@ -107,7 +107,6 @@ import {
   type TopicSelectionV1bN6GateFailureRetryContextProjection,
   type TopicSelectionV1bN1HarnessFrozenInputPayload,
   type TopicSelectionV1bN2HarnessFrozenInputPayload,
-  type TopicSelectionV1bN3HarnessFrozenInputPayload,
   type TopicSelectionV1bN4HarnessFrozenInputPayload,
   type TopicSelectionV1bN5HarnessFrozenInputPayload,
   type TopicSelectionV1bN5ToN6HandoffPayload,
@@ -253,6 +252,12 @@ import {
   isSliceSelectionDecision,
   isStringArray,
 } from './topic-selection-v1b-harness-predicates.js';
+import {
+  parseN1Payload,
+  parseN3Payload,
+  parseN4Payload,
+  parseN6Payload,
+} from './topic-selection-v1b-harness-parsers.js';
 
 const ALLOWED_REQUEST_KEYS = new Set([
   'schema_version',
@@ -1936,7 +1941,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN1Payload(input.frozen_input.payload);
+    const payload = parseN1Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -2319,7 +2324,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN3Payload(input.frozen_input.payload);
+    const payload = parseN3Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -2504,7 +2509,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN4Payload(input.frozen_input.payload);
+    const payload = parseN4Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -3067,7 +3072,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: dependencyBlocker.message,
       });
     }
-    const payload = this.parseN6Payload(input.frozen_input.payload);
+    const payload = parseN6Payload(input.frozen_input.payload);
     if (!payload.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: payload.code,
@@ -8471,28 +8476,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }));
   }
 
-  private parseN1Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN1HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    const allowedKeys = ['v1b_input_bundle_id', 'v1a_bundle_ref', 'v1a_bundle_hash', 'source_refs_hash'];
-    if (!hasOnlyKeys(payload, allowedKeys)
-      || typeof payload.v1b_input_bundle_id !== 'string'
-      || !payload.v1b_input_bundle_id.trim()
-      || !isHash(payload.v1a_bundle_hash)
-      || !isHash(payload.source_refs_hash)
-      || !isFunctionalRefValue(payload.v1a_bundle_ref)) {
-      return {
-        ok: false,
-        code: 'N1_FROZEN_PAYLOAD_INVALID',
-        message: 'N1 requires frozen v1b input bundle id and expected bundle/source hash metadata.',
-      };
-    }
-    return {
-      ok: true,
-      value: payload as unknown as TopicSelectionV1bN1HarnessFrozenInputPayload,
-    };
-  }
-
   private parseN2Payload(
     payload: Record<string, unknown>,
   ): { ok: true; value: TopicSelectionV1bN2HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
@@ -8553,68 +8536,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     };
   }
 
-  private parseN3Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN3HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    const allowedKeys = [
-      'constraint_profile_hash',
-      'constraint_profile_ref',
-      'intake_snapshot_hash',
-      'intake_snapshot_ref',
-      'n2_handoff_hash',
-    ];
-    if (!hasOnlyKeys(payload, allowedKeys)
-      || !isFunctionalRefValue(payload.intake_snapshot_ref)
-      || !isHash(payload.intake_snapshot_hash)
-      || !isFunctionalRefValue(payload.constraint_profile_ref)
-      || !isHash(payload.constraint_profile_hash)
-      || !isHash(payload.n2_handoff_hash)) {
-      return {
-        ok: false,
-        code: 'N3_FROZEN_PAYLOAD_INVALID',
-        message: 'N3 requires frozen N1/N2 authority refs and hashes.',
-      };
-    }
-    return {
-      ok: true,
-      value: payload as unknown as TopicSelectionV1bN3HarnessFrozenInputPayload,
-    };
-  }
-
-  private parseN4Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN4HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    const allowedKeys = [
-      'constraint_profile_hash',
-      'constraint_profile_ref',
-      'intake_readiness_hash',
-      'intake_readiness_ref',
-      'intake_snapshot_hash',
-      'intake_snapshot_ref',
-      'n2_handoff_hash',
-      'n3_handoff_hash',
-    ];
-    if (!hasOnlyKeys(payload, allowedKeys)
-      || !isFunctionalRefValue(payload.intake_snapshot_ref)
-      || !isHash(payload.intake_snapshot_hash)
-      || !isFunctionalRefValue(payload.constraint_profile_ref)
-      || !isHash(payload.constraint_profile_hash)
-      || !isFunctionalRefValue(payload.intake_readiness_ref)
-      || !isHash(payload.intake_readiness_hash)
-      || !isHash(payload.n2_handoff_hash)
-      || !isHash(payload.n3_handoff_hash)) {
-      return {
-        ok: false,
-        code: 'N4_FROZEN_PAYLOAD_INVALID',
-        message: 'N4 requires frozen N1/N2/N3 authority refs and replay lineage hashes.',
-      };
-    }
-    return {
-      ok: true,
-      value: payload as unknown as TopicSelectionV1bN4HarnessFrozenInputPayload,
-    };
-  }
-
   private parseN5Payload(
     payload: Record<string, unknown>,
   ): { ok: true; value: TopicSelectionV1bN5HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
@@ -8665,50 +8586,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return {
       ok: true,
       value: payload as unknown as TopicSelectionV1bN5HarnessFrozenInputPayload,
-    };
-  }
-
-  private parseN6Payload(
-    payload: Record<string, unknown>,
-  ): { ok: true; value: TopicSelectionV1bN6HarnessFrozenInputPayload } | { ok: false; code: string; message: string } {
-    const allowedKeys = [
-      'constraint_profile_hash',
-      'constraint_profile_ref',
-      'intake_readiness_hash',
-      'intake_readiness_ref',
-      'n5_handoff_hash',
-      'research_slice_hash',
-      'research_slice_option_set_hash',
-      'research_slice_option_set_ref',
-      'research_slice_ref',
-      'research_slice_selection_hash',
-      'research_slice_selection_ref',
-      'selected_slice_option_hash',
-      'selected_slice_option_ref',
-    ];
-    if (!hasOnlyKeys(payload, allowedKeys)
-      || !isHash(payload.n5_handoff_hash)
-      || !isFunctionalRefValue(payload.constraint_profile_ref)
-      || !isHash(payload.constraint_profile_hash)
-      || !isFunctionalRefValue(payload.intake_readiness_ref)
-      || !isHash(payload.intake_readiness_hash)
-      || !isFunctionalRefValue(payload.research_slice_ref)
-      || !isHash(payload.research_slice_hash)
-      || !isFunctionalRefValue(payload.research_slice_selection_ref)
-      || !isHash(payload.research_slice_selection_hash)
-      || !isFunctionalRefValue(payload.research_slice_option_set_ref)
-      || !isHash(payload.research_slice_option_set_hash)
-      || !isFunctionalRefValue(payload.selected_slice_option_ref)
-      || !isHash(payload.selected_slice_option_hash)) {
-      return {
-        ok: false,
-        code: 'N6_FROZEN_PAYLOAD_INVALID',
-        message: 'N6 requires a frozen N5 selected ResearchSlice handoff payload with explicit refs and hashes.',
-      };
-    }
-    return {
-      ok: true,
-      value: payload as unknown as TopicSelectionV1bN6HarnessFrozenInputPayload,
     };
   }
 
