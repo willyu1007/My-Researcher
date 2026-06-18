@@ -36,7 +36,6 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-intake-contracts';
 import type {
   TopicSelectionPlanResearchSliceRunRecord,
-  TopicSelectionRejectedSliceOptionReason,
   TopicSelectionResearchSliceAssumptionType,
   TopicSelectionResearchSliceAssumptionRecord,
   TopicSelectionResearchSliceBoundaryKind,
@@ -48,7 +47,6 @@ import type {
   TopicSelectionResearchSliceOptionSetLlmOutput,
   TopicSelectionResearchSliceOptionSetRecord,
   TopicSelectionResearchSliceRecord,
-  TopicSelectionSliceLoopbackTarget,
   TopicSelectionSliceSelectionDecision,
   TopicSelectionSliceSelectionDecisionRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-research-slice-contracts';
@@ -245,7 +243,6 @@ import {
   buildRef,
   isRecord,
   hasOnlyKeys,
-  isHash,
   recordString,
 } from './topic-selection-v1b-harness-pure-utils.js';
 import {
@@ -336,6 +333,18 @@ import {
   readinessRecommendation,
   riskCoversRecheck,
 } from './topic-selection-v1b-harness-intake-readiness.js';
+import {
+  defaultN5Loopback,
+  defaultRejectedReasons,
+  humanReviewReason,
+  n5CodexDelegationBlocker,
+  n5CreatedBy,
+  n5NonSelectGateBlocker,
+  n5OptionSetLineageHashes,
+  n5OptionSetStatusForNonSelectDecision,
+  n5SelectedOption,
+  valueAssessmentInputs,
+} from './topic-selection-v1b-harness-n5.js';
 
 const ALLOWED_REQUEST_KEYS = new Set([
   'schema_version',
@@ -2688,7 +2697,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N5 accepted selection payload hash does not match the frozen payload.',
       });
     }
-    const codexBlocker = this.n5CodexDelegationBlocker(input, payload.value, acceptedPayloadHash);
+    const codexBlocker = n5CodexDelegationBlocker(input, payload.value, acceptedPayloadHash);
     if (codexBlocker) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: codexBlocker.code,
@@ -2738,7 +2747,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
     const accepted = payload.value.accepted_selection_payload;
     const selectedOption = accepted.decision === 'select'
-      ? this.n5SelectedOption(accepted, loaded.value.options)
+      ? n5SelectedOption(accepted, loaded.value.options)
       : null;
     const selectionBlocker = this.n5SelectionGateBlocker(payload.value, loaded.value, selectedOption);
     if (selectionBlocker) {
@@ -2747,7 +2756,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: selectionBlocker.message,
       });
     }
-    const lineageHashes = this.n5OptionSetLineageHashes(loaded.value.optionSet);
+    const lineageHashes = n5OptionSetLineageHashes(loaded.value.optionSet);
     if (!lineageHashes.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: lineageHashes.code,
@@ -2757,7 +2766,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
     const repository = this.runnerDependencies.researchSliceRepository!;
     const now = this.now();
-    const decidedBy = this.n5CreatedBy(input.created_by, payload.value.authority_input_provider);
+    const decidedBy = n5CreatedBy(input.created_by, payload.value.authority_input_provider);
     const decisionId = this.idFactory('slice_selection_decision');
     const decisionRef = buildRef('slice_selection_decision', decisionId, loaded.value.optionSet.title_card_id);
     const decisionHash = hashN5DecisionAuthority({
@@ -2810,7 +2819,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
             sliceRef: null,
           }));
           await repository.updateOptionSet(loaded.value.optionSet.research_slice_option_set_id, {
-            status: this.n5OptionSetStatusForNonSelectDecision(nonSelectDecision),
+            status: n5OptionSetStatusForNonSelectDecision(nonSelectDecision),
             selected_option_id: null,
             updated_at: now,
           });
@@ -7878,42 +7887,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return null;
   }
 
-  private n5CodexDelegationBlocker(
-    input: TopicSelectionV1bWorkflowHarnessRunRequest,
-    payload: TopicSelectionV1bN5HarnessFrozenInputPayload,
-    acceptedPayloadHash: string,
-  ): { code: string; message: string } | null {
-    if (payload.authority_input_provider !== 'codex_delegated') {
-      return null;
-    }
-    if (payload.delegation_artifact_hash !== acceptedPayloadHash) {
-      return {
-        code: 'N5_CODEX_DELEGATION_ARTIFACT_MISMATCH',
-        message: 'N5 codex_delegated payload must bind delegation_artifact_hash to accepted selection payload hash.',
-      };
-    }
-    const artifact = (input.semantic_artifacts ?? []).find((item) =>
-      item.slot_id === 'n5_slice_selection_review'
-      && item.allowed_effect === 'delegated_payload_candidate'
-    );
-    if (!artifact) {
-      return {
-        code: 'N5_CODEX_DELEGATION_ARTIFACT_REQUIRED',
-        message: 'N5 codex_delegated payload requires matching frozen semantic support artifact provenance.',
-      };
-    }
-    if (
-      artifact.normalized_output_hash !== payload.delegation_artifact_hash
-      && artifact.structured_output_hash !== payload.delegation_artifact_hash
-    ) {
-      return {
-        code: 'N5_CODEX_DELEGATION_ARTIFACT_MISMATCH',
-        message: 'N5 Codex semantic artifact hash does not match the accepted authority payload hash.',
-      };
-    }
-    return null;
-  }
-
   private async loadN5OptionSet(
     optionSetId: string,
   ): Promise<{ ok: true; value: N5LoadedOptionSet } | { ok: false; code: string; message: string }> {
@@ -7954,39 +7927,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     };
   }
 
-  private n5OptionSetLineageHashes(
-    optionSet: TopicSelectionResearchSliceOptionSetRecord,
-  ): { ok: true; value: { constraintProfileHash: string; readinessHash: string } } | { ok: false; code: string; message: string } {
-    const constraintProfileHash = optionSet.comparison_payload.constraint_profile_hash;
-    const readinessHash = optionSet.comparison_payload.intake_readiness_hash;
-    if (!isHash(constraintProfileHash) || !isHash(readinessHash)) {
-      return {
-        ok: false,
-        code: 'N5_OPTION_SET_LINEAGE_HASH_MISSING',
-        message: 'N5 requires N4 option set lineage hashes for constraint profile and readiness authorities.',
-      };
-    }
-    return {
-      ok: true,
-      value: {
-        constraintProfileHash,
-        readinessHash,
-      },
-    };
-  }
-
-  private n5SelectedOption(
-    accepted: TopicSelectionV1bAcceptedSliceSelectionPayload,
-    options: TopicSelectionResearchSliceOptionRecord[],
-  ): TopicSelectionResearchSliceOptionRecord | null {
-    if (!accepted.selected_option_ref) {
-      return null;
-    }
-    return options.find((option) =>
-      option.research_slice_option_id === accepted.selected_option_ref?.ref_id
-    ) ?? null;
-  }
-
   private n5SelectionGateBlocker(
     payload: TopicSelectionV1bN5HarnessFrozenInputPayload,
     loaded: N5LoadedOptionSet,
@@ -7994,7 +7934,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   ): { code: string; message: string } | null {
     const accepted = payload.accepted_selection_payload;
     if (accepted.decision !== 'select') {
-      return this.n5NonSelectGateBlocker(accepted);
+      return n5NonSelectGateBlocker(accepted);
     }
     if (!accepted.selected_option_ref || !accepted.selected_option_hash || !selectedOption) {
       return {
@@ -8035,24 +7975,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return {
         code: 'N5_HIGH_RISK_SELECTION_REQUIRES_ACCEPTED_RISK',
         message: 'N5 high-risk or human-review selections require human delegation or frozen accepted risk refs.',
-      };
-    }
-    return null;
-  }
-
-  private n5NonSelectGateBlocker(
-    accepted: TopicSelectionV1bAcceptedSliceSelectionPayload,
-  ): { code: string; message: string } | null {
-    if (accepted.selected_option_ref !== null || accepted.selected_option_hash !== null) {
-      return {
-        code: 'N5_NON_SELECT_SELECTED_OPTION_FORBIDDEN',
-        message: 'N5 non-select decisions must not carry selected option refs or hashes.',
-      };
-    }
-    if (accepted.decision === 'request_more_options' && (!accepted.loopback_target || !accepted.loopback_reason_code)) {
-      return {
-        code: 'N5_REQUEST_MORE_OPTIONS_LOOPBACK_REQUIRED',
-        message: 'N5 request_more_options requires explicit loopback target and reason code.',
       };
     }
     return null;
@@ -8120,14 +8042,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       rejected_option_reasons: accepted.rejected_option_reasons.length > 0
         ? accepted.rejected_option_reasons
         : selectedOption
-          ? this.defaultRejectedReasons(loaded.options, selectedOption)
+          ? defaultRejectedReasons(loaded.options, selectedOption)
           : [],
       hard_blockers: selectedOption?.hard_blockers ?? [],
       open_risks: selectedOption?.main_risks ?? [],
       unresolved_disagreements: loaded.optionSet.unresolved_disagreements,
       loopback_target: accepted.decision === 'select'
         ? null
-        : accepted.loopback_target ?? this.defaultN5Loopback(accepted.decision),
+        : accepted.loopback_target ?? defaultN5Loopback(accepted.decision),
       loopback_target_ref: accepted.loopback_target_ref,
       required_actions: accepted.required_actions,
       loopback_reason_code: accepted.decision === 'select'
@@ -8137,7 +8059,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       creates_new_run_or_version: accepted.decision === 'request_more_options',
       confidence: accepted.confidence ?? selectedOption?.confidence ?? null,
       requires_human_review: accepted.requires_human_review || (selectedOption?.requires_human_review ?? false),
-      human_review_reason: accepted.human_review_reason ?? (selectedOption ? this.humanReviewReason(selectedOption) : null),
+      human_review_reason: accepted.human_review_reason ?? (selectedOption ? humanReviewReason(selectedOption) : null),
       output_research_slice_ref: input.sliceRef,
       input_snapshot_id: input.controlPlaneRefs.inputSnapshot.input_snapshot_id,
       workflow_run_id: input.input.workflow_run_id,
@@ -8204,7 +8126,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       dependency_risks: input.selectedOption.dependency_risks,
       slice_budget: input.selectedOption.slice_budget,
       topic_question_guardrails: this.topicQuestionGuardrails(input.selectedOption, inherited),
-      value_assessment_inputs: this.valueAssessmentInputs(input.selectedOption),
+      value_assessment_inputs: valueAssessmentInputs(input.selectedOption),
       must_preserve_boundaries: this.mustPreserveBoundaries(input.selectedOption, inherited),
       accepted_risk_refs: uniqueRefs([
         ...input.loaded.planRun.accepted_risk_refs,
@@ -10816,21 +10738,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
   }
 
-  private defaultRejectedReasons(
-    options: TopicSelectionResearchSliceOptionRecord[],
-    selectedOption: TopicSelectionResearchSliceOptionRecord,
-  ): TopicSelectionRejectedSliceOptionReason[] {
-    return options
-      .filter((option) => option.research_slice_option_id !== selectedOption.research_slice_option_id)
-      .map((option) => ({
-        option_id: option.research_slice_option_id,
-        reason: option.status === 'blocked'
-          ? 'Option carried hard blockers.'
-          : 'Option was not selected in this decision.',
-        reason_code: option.status === 'blocked' ? 'hard_blocker' : 'weaker_fit',
-      }));
-  }
-
   private inheritedConstraints(option: TopicSelectionResearchSliceOptionRecord): InheritedConstraints {
     const inherited = isRecord(option.details_payload.inherited_constraints)
       ? option.details_payload.inherited_constraints
@@ -10856,15 +10763,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     ]);
   }
 
-  private valueAssessmentInputs(option: TopicSelectionResearchSliceOptionRecord): string[] {
-    return uniqueStrings([
-      option.expected_claim,
-      option.fallback_claim,
-      option.evaluation_path,
-      ...option.observable_success_criteria,
-    ]);
-  }
-
   private mustPreserveBoundaries(
     option: TopicSelectionResearchSliceOptionRecord,
     inherited: InheritedConstraints,
@@ -10875,54 +10773,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ...option.excluded_boundaries,
       ...inherited.non_goals,
     ]);
-  }
-
-  private humanReviewReason(option: TopicSelectionResearchSliceOptionRecord): string | null {
-    if (!option.requires_human_review) {
-      return null;
-    }
-    return uniqueStrings(option.human_review_triggers).join('; ') || 'ResearchSlice option requires human review.';
-  }
-
-  private defaultN5Loopback(
-    decision: Exclude<TopicSelectionSliceSelectionDecision, 'select'>,
-  ): TopicSelectionSliceLoopbackTarget {
-    if (decision === 'request_more_options') {
-      return 'plan_research_slice_run';
-    }
-    if (decision === 'park') {
-      return 'research_constraint_profile';
-    }
-    return 'validated_need';
-  }
-
-  private n5OptionSetStatusForNonSelectDecision(
-    decision: Exclude<TopicSelectionSliceSelectionDecision, 'select'>,
-  ): TopicSelectionResearchSliceOptionSetRecord['status'] {
-    if (decision === 'request_more_options') {
-      return 'needs_more_options';
-    }
-    if (decision === 'park') {
-      return 'parked';
-    }
-    return 'rejected';
-  }
-
-  private n5CreatedBy(
-    requested: TopicSelectionActorType | undefined,
-    provider: TopicSelectionV1bN5HarnessFrozenInputPayload['authority_input_provider'],
-  ): TopicSelectionActorType {
-    if (requested) {
-      return requested;
-    }
-    switch (provider) {
-      case 'codex_delegated':
-        return 'hybrid';
-      case 'fixture':
-        return 'system';
-      case 'human_delegated':
-        return 'human';
-    }
   }
 
   private nonGoalsRemainExcluded(
