@@ -282,8 +282,6 @@ import {
   warning,
   refsEqual,
   nullableRefsEqual,
-  refArraysEqual,
-  stringArraysEqual,
   refKey,
   versionFromId,
   nodeAttemptRef,
@@ -351,6 +349,17 @@ import {
   n4LineageBlocker,
   n4RuntimeAuditDrift,
 } from './topic-selection-v1b-harness-n4.js';
+import {
+  n7CandidateAdmissionBlocker,
+  n7FailedCandidateIdsFromCurrentState,
+  n7FrameClaimCeiling,
+  n7FrameStringArray,
+  n7HardGateResults,
+  n7PayloadMatchesN6Handoff,
+  n7RejectedCandidateReasons,
+  n7RequiredEvidenceCategories,
+  n7RuntimeAuditDrift,
+} from './topic-selection-v1b-harness-n7.js';
 
 const ALLOWED_REQUEST_KEYS = new Set([
   'schema_version',
@@ -3337,7 +3346,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }
       return this.runN7CandidateTrialsExhausted(input, hashContext, payload.value, loaded.value, support.value, choice);
     }
-    const admissionBlocker = this.n7CandidateAdmissionBlocker(choice.value.candidate, loaded.value.frame);
+    const admissionBlocker = n7CandidateAdmissionBlocker(choice.value.candidate, loaded.value.frame);
     if (admissionBlocker) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: admissionBlocker.code,
@@ -3519,7 +3528,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           admitted_candidate_ids: [choice.value.candidate.topic_question_candidate_id],
           created_topic_question_ids: [materialization.topic_question.topic_question_id],
           merged_candidate_groups: support.value.grouping?.payload.duplicate_or_overlap_groups ?? [],
-          hard_gate_results: this.n7HardGateResults(loaded.value.candidates),
+          hard_gate_results: n7HardGateResults(loaded.value.candidates),
           admission_review: {
             answerability: 'passed',
             boundary_fit: 'passed',
@@ -3532,7 +3541,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           },
           candidate_relationships: support.value.grouping?.payload.candidate_relationships ?? {},
           priority_order: choice.value.priorityOrder,
-          rejected_candidate_reasons: this.n7RejectedCandidateReasons(loaded.value.candidates, [choice.value.candidate], choice.value.failedCandidateIds),
+          rejected_candidate_reasons: n7RejectedCandidateReasons(loaded.value.candidates, [choice.value.candidate], choice.value.failedCandidateIds),
           blocking_contexts: loaded.value.feedback ? [{
             feedback_class: loaded.value.feedback.feedback_class,
             failure_reason_code: loaded.value.feedback.failure_reason_code,
@@ -4317,7 +4326,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
       || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
     ) {
-      return this.n7RuntimeAuditDrift('N7 runtime support provenance must point to its audit artifact_ref.');
+      return n7RuntimeAuditDrift('N7 runtime support provenance must point to its audit artifact_ref.');
     }
     const auditArtifact = await this.controlPlane.getArtifactRef(artifact.runtime_audit_ref.ref_id);
     if (
@@ -4326,11 +4335,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || auditArtifact.checksum !== artifact.runtime_audit_hash
       || auditArtifact.workflow_run_id !== input.workflow_run_id
     ) {
-      return this.n7RuntimeAuditDrift('N7 runtime support audit artifact is missing or checksum-drifted.');
+      return n7RuntimeAuditDrift('N7 runtime support audit artifact is missing or checksum-drifted.');
     }
     const auditPayload = auditArtifact.payload;
     if (!isRecord(auditPayload) || !isRecord(auditPayload.provenance)) {
-      return this.n7RuntimeAuditDrift('N7 runtime support audit payload is not a valid invocation audit snapshot.');
+      return n7RuntimeAuditDrift('N7 runtime support audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
     const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : 'codex_response';
@@ -4355,17 +4364,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || provenance.response_reuse_ref !== null
       || provenance.telemetry !== null
     ) {
-      return this.n7RuntimeAuditDrift('N7 runtime support audit provenance does not match the support artifact identity.');
+      return n7RuntimeAuditDrift('N7 runtime support audit provenance does not match the support artifact identity.');
     }
     return { ok: true };
-  }
-
-  private n7RuntimeAuditDrift(message: string): { ok: false; code: string; message: string } {
-    return {
-      ok: false,
-      code: 'N7_SUPPORT_ARTIFACT_RUNTIME_CONTEXT_DRIFT',
-      message,
-    };
   }
 
   private n7LineageBlocker(
@@ -4373,7 +4374,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     loaded: N7LoadedContext,
   ): { code: string; message: string } | null {
     const handoffPayload = loaded.n6Handoff.payload as TopicSelectionV1bN6ToN7HandoffPayload;
-    if (!this.n7PayloadMatchesN6Handoff(payload, handoffPayload)) {
+    if (!n7PayloadMatchesN6Handoff(payload, handoffPayload)) {
       return {
         code: 'N7_N6_HANDOFF_PAYLOAD_MISMATCH',
         message: 'N7 frozen payload does not match the persisted N6-to-N7 handoff artifact.',
@@ -4429,23 +4430,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return null;
   }
 
-  private n7PayloadMatchesN6Handoff(
-    payload: TopicSelectionV1bN7HarnessFrozenInputPayload,
-    handoffPayload: TopicSelectionV1bN6ToN7HandoffPayload,
-  ): boolean {
-    return payload.topic_question_candidate_set_hash === handoffPayload.topic_question_candidate_set_hash
-      && payload.selected_research_slice_hash === handoffPayload.selected_research_slice_hash
-      && payload.generation_artifact_hash === handoffPayload.generation_artifact_hash
-      && payload.candidate_gate_hash === handoffPayload.candidate_gate_hash
-      && payload.candidate_grouping_hash === handoffPayload.candidate_grouping_hash
-      && refsEqual(payload.topic_question_candidate_set_ref, handoffPayload.topic_question_candidate_set_ref)
-      && refsEqual(payload.selected_research_slice_ref, handoffPayload.selected_research_slice_ref)
-      && refsEqual(payload.generation_artifact_ref, handoffPayload.generation_artifact_ref)
-      && nullableRefsEqual(payload.candidate_grouping_ref, handoffPayload.candidate_grouping_ref)
-      && refArraysEqual(payload.admissible_candidate_refs, handoffPayload.admissible_candidate_refs)
-      && stringArraysEqual(payload.admissible_candidate_hashes, handoffPayload.admissible_candidate_hashes);
-  }
-
   private chooseN7Candidate(
     payload: TopicSelectionV1bN7HarnessFrozenInputPayload,
     loaded: N7LoadedContext,
@@ -4466,7 +4450,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const failedCandidateIds = loaded.feedback
       ? uniqueStrings([
         loaded.feedback.failed_candidate_ref.ref_id,
-        ...this.n7FailedCandidateIdsFromCurrentState(loaded.candidates),
+        ...n7FailedCandidateIdsFromCurrentState(loaded.candidates),
       ])
       : [];
     const failedSet = new Set(failedCandidateIds);
@@ -4560,14 +4544,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ...recommendedIds,
       ...payload.admissible_candidate_refs.map((candidateRef) => candidateRef.ref_id),
     ]);
-  }
-
-  private n7FailedCandidateIdsFromCurrentState(
-    candidates: TopicSelectionTopicQuestionCandidateRecord[],
-  ): string[] {
-    return candidates
-      .filter((candidate) => candidate.status === 'rejected')
-      .map((candidate) => candidate.topic_question_candidate_id);
   }
 
   private async runN7CandidateTrialsExhausted(
@@ -4689,7 +4665,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           admitted_candidate_ids: [],
           created_topic_question_ids: [],
           merged_candidate_groups: [],
-          hard_gate_results: this.n7HardGateResults(loaded.candidates),
+          hard_gate_results: n7HardGateResults(loaded.candidates),
           admission_review: {
             failed_trial_synthesis_hash: synthesis.payloadHash,
             input_mode: payload.input_mode,
@@ -7124,54 +7100,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
   }
 
-  private n7CandidateAdmissionBlocker(
-    candidate: TopicSelectionTopicQuestionCandidateRecord,
-    frame: TopicSelectionQuestionFrameRecord,
-  ): { code: string; message: string } | null {
-    if (candidate.status === 'blocked' || candidate.blockers.length > 0) {
-      return {
-        code: 'N7_ACTIVE_CANDIDATE_BLOCKED',
-        message: 'N7 active candidate is blocked and cannot be materialized.',
-      };
-    }
-    if (candidate.boundary_check_payload.boundary_violations.length > 0) {
-      return {
-        code: 'N7_ACTIVE_CANDIDATE_BOUNDARY_VIOLATION',
-        message: 'N7 active candidate has boundary violations.',
-      };
-    }
-    if (candidate.answerability_verdict === 'not_answerable'
-      || candidate.answerability_verdict === 'needs_slice_refinement') {
-      return {
-        code: 'N7_ACTIVE_CANDIDATE_NOT_ANSWERABLE',
-        message: 'N7 active candidate is not answerable within the selected slice.',
-      };
-    }
-    if (candidate.answerability_plan_payload.datasets_or_resources.length === 0
-      || candidate.answerability_plan_payload.metrics.length === 0
-      || candidate.answerability_plan_payload.baselines.length === 0
-      || candidate.answerability_plan_payload.required_evidence_refs.length === 0
-      || candidate.answerability_plan_payload.evaluation_setting.trim().length === 0) {
-      return {
-        code: 'N7_ACTIVE_CANDIDATE_ANSWERABILITY_PLAN_INVALID',
-        message: 'N7 active candidate is missing a minimum answerability plan.',
-      };
-    }
-    const claimCeiling = this.n7FrameClaimCeiling(frame);
-    const claimText = [
-      candidate.expected_claim,
-      candidate.fallback_claim,
-      candidate.max_claim_strength,
-    ].join(' ').toLowerCase();
-    if (claimCeiling.toLowerCase().includes('bounded') && /\bprove\b|\bguarantee\b|\balways\b/u.test(claimText)) {
-      return {
-        code: 'N7_ACTIVE_CANDIDATE_CLAIM_CEILING_DRIFT',
-        message: 'N7 active candidate exceeds the frozen claim ceiling.',
-      };
-    }
-    return null;
-  }
-
   private materializeN7TopicQuestion(input: {
     acceptedRiskRefs: TopicSelectionFunctionalRef[];
     candidate: TopicSelectionTopicQuestionCandidateRecord;
@@ -7245,12 +7173,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
       fallback_claim: candidate.fallback_claim,
       max_claim_strength: candidate.max_claim_strength,
       evaluation_route: candidate.answerability_plan_payload.evaluation_setting,
-      claim_ceiling: this.n7FrameClaimCeiling(frame),
+      claim_ceiling: n7FrameClaimCeiling(frame),
       prohibited_claims: uniqueStrings([
         ...candidate.boundary_check_payload.prohibited_claims,
-        ...this.n7FrameStringArray(frame, 'inherited_non_goals'),
+        ...n7FrameStringArray(frame, 'inherited_non_goals'),
       ]),
-      required_evidence_categories: this.n7RequiredEvidenceCategories(evidenceRefs),
+      required_evidence_categories: n7RequiredEvidenceCategories(evidenceRefs),
       allowed_refinements: candidate.boundary_check_payload.allowed_refinements,
       stop_reopen_conditions: candidate.falsification_conditions_payload.map((condition) => condition.statement),
       accepted_risk_refs: acceptedRiskRefs,
@@ -7445,22 +7373,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       created_at: now,
     } satisfies TopicSelectionTopicQuestionAssumptionRefRecord));
     return [...inheritedRefs, ...unmapped];
-  }
-
-  private n7FrameClaimCeiling(frame: TopicSelectionQuestionFrameRecord): string {
-    const value = frame.frame_payload.inherited_claim_ceiling;
-    return typeof value === 'string' && value.trim().length > 0 ? value : 'Bounded workflow claim.';
-  }
-
-  private n7FrameStringArray(frame: TopicSelectionQuestionFrameRecord, key: string): string[] {
-    const value = frame.frame_payload[key];
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-  }
-
-  private n7RequiredEvidenceCategories(evidenceRefs: TopicSelectionTopicQuestionEvidenceRefRecord[]): string[] {
-    const roles = new Set(evidenceRefs.map((ref) => ref.evidence_role));
-    return ['support', 'challenge', 'claim', 'baseline', 'context'].filter((role) =>
-      roles.has(role as TopicSelectionTopicQuestionEvidenceRefRecord['evidence_role']));
   }
 
   private async recordN7DebateAdmissionArtifact(
@@ -7802,32 +7714,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ));
     }
     return warnings;
-  }
-
-  private n7HardGateResults(candidates: TopicSelectionTopicQuestionCandidateRecord[]): Record<string, unknown>[] {
-    return candidates.map((candidate) => ({
-      answerability_verdict: candidate.answerability_verdict,
-      blockers: candidate.blockers,
-      candidate_id: candidate.topic_question_candidate_id,
-      passed: candidate.status !== 'blocked' && candidate.blockers.length === 0,
-    }));
-  }
-
-  private n7RejectedCandidateReasons(
-    candidates: TopicSelectionTopicQuestionCandidateRecord[],
-    admittedCandidates: TopicSelectionTopicQuestionCandidateRecord[],
-    failedCandidateIds: string[],
-  ): Record<string, unknown>[] {
-    const admittedIds = new Set(admittedCandidates.map((candidate) => candidate.topic_question_candidate_id));
-    const failedIds = new Set(failedCandidateIds);
-    return candidates
-      .filter((candidate) => !admittedIds.has(candidate.topic_question_candidate_id))
-      .map((candidate) => ({
-        candidate_id: candidate.topic_question_candidate_id,
-        reason: failedIds.has(candidate.topic_question_candidate_id)
-          ? 'Rejected by frozen N8 feedback.'
-          : 'Preserved for possible later trial.',
-      }));
   }
 
   private n1MetadataBlocker(
