@@ -9,7 +9,7 @@
 | W-04 Coordinator 故障恢复（feedback pre-flight / upstream-blocked / timeout 指引 / nonce 守卫） | 1 | 核心 | done | 见 Phase 1 记录（coordinator 19/0；upstream_blocked / feedback_artifact_missing / nonce 负例） |
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
-| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | in-progress | D-T127-01；major 簇(dedup/hash-authority/pure-utils/predicates/parsers) 全出壳 + N7 support-payload guards（harness 12898→12030，golden 守卫绿）。**核查：`resolve*` 均 async/stateful → 留壳（D-T123-03 范式）；余 ~100 个节点纯助手用户定继续 grind 至壳** |
+| W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | **done（2026-06-18）** | D-T127-01；**收壳完成**：70 个纯助手（+ ref-builders/asserts 共 90 搬迁函数）全数析出至 **16 个兄弟模块**，harness **12,898→9,933 行（-23%）**，严格 DAG 无环；余即字面壳（生命周期 + 持久化 + stateful async runner + runner-local 类型助手）。每批 golden 守卫绿 + 全套件 **1469/0/35** byte-identical；独立逐字对抗评审 90 函数 0 缺陷（`wf_063839cb`）。`resolve*`/local-type 助手按 D-T123-03 范式留壳。 |
 | W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | planned | 待 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
@@ -138,6 +138,27 @@
 - 评审（3 维 + 验证，slices 4–9 = hashN6 / predicates / parsers / N7 guards）：**byte-identity 0 缺陷**（32 个搬迁函数逐字 diff 为空 + mutation 验证）；模块依赖 DAG 无环、无孤立 import、无死导出、无重复定义、contracts 类型 import 皆 type-only。
 - 唯一确认项（medium，**非搬迁缺陷、属既有覆盖盲点**）：搬迁后的 parser 9/11 与 3 个 N7 guard 的 `{ok:false}`/false 分支**无任何测试断言**——评审用 mutation 证明（删 parseN9 的 `isHash` 检查让坏 payload ADMIT 仍全绿）。
 - **补强**：新增 `topic-selection-v1b-harness-parsers.unit.test.ts`（41 测试：每个 parser happy + 精确 `*_INVALID` 码负例 + 2 validator）与 `topic-selection-v1b-harness-predicates.unit.test.ts`（25 测试：17 guard 各 true/false，复杂/N7 guard 多负例）。独立 mutation 复验：削弱 parseN9 `isHash` → parsers 测试转红（40/1），git 还原干净。覆盖盲点**已闭合**。
+
+**W-12 slices 10–11 — gate-utils + 守卫簇收口 — done（2026-06-17）**
+- slice 10（`a83decbe`）`topic-selection-v1b-harness-gate-utils.ts`：`blocker`/`warning`/`refsEqual`/`nullableRefsEqual`/`refArraysEqual`/`stringArraysEqual`/`refKey`/`normalize`/`versionFromId`/`nodeAttemptRef`/`firstDuplicate`/`effectiveRunMode`/`requiredModelLikeSlot`（gate-issue + 比较 + key 工具簇）。slice 11（`015fdc6c`）补抽残余类型守卫簇至 `harness-predicates.ts`。
+
+**W-12 slices 12–13 — ref-builder + assert 簇 — done（2026-06-18）**
+- slice 12（`15e72aec`）`topic-selection-v1b-harness-ref-builders.ts`：12 个 functional-ref builder（snapshotRef/profileRef/readinessRef/optionSetRef/optionRef/bundleRef/flattenEvidenceRoleBundle/draftEvidenceRefs/n5ArtifactRefs/v1aBundleSourceRefs/n6CandidateEvidenceRefs/n8DraftRefs，基于 pure-utils `buildRef` + dedup `uniqueRefs`）。其中 5 个（snapshot/profile/readiness/optionSet/bundle Ref）与 harness **局部变量同名** → import 起别名 `build*` 避免遮蔽（纯改名，零行为变化）；N7/N8 support-ref builder（n7SupportRefs/n7SupportHashes/n8KnownRefs，取 runner-local 上下文类型）留壳。
+- slice 13（`922f84c3`）`topic-selection-v1b-harness-asserts.ts`：10 个纯 assert 校验器（assertResult/assertNonEmpty/assertOptionalStringId/assertOptionalRunMode/assertFunctionalRef/assertActorRef/assertHash/assertOptionalHash/assertSourceHashMap/assertRuntimeVerifiedSupportArtifact，模块自建 ACTOR_TYPE_SET/AGENT_RUN_MODE_SET）。两个 stateful assert（assertRequest/assertSemanticSupportArtifact 调 `this.getNodePolicy`）留壳，改 bare import 调叶子校验器。
+
+**W-12 收尾分类（清单工作流 `wf_2dd916ca`，2026-06-18）**：对 harness 剩余 **132 个 private sync 方法**做 fan-out 分类（12 并行分类器 → 综合 → 逐批对抗证伪），裁定 **70 可抽 / 62 留壳**。留壳判据：体内引 `this.<statefulField>`（idFactory/now/modelProfileRegistry/各 admission·runtime/runnerDependencies/controlPlane），或经污染传播调到 stateful 方法，或参/返 **harness-local 类型**（HashContext / N5LoadedOptionSet / N6KnownContext·LoadedContext·LoopbackPlan / N7LoadedContext·SupportContext·CandidateChoice / N8DraftResolution·LoadedContext / N9LoadedContext / InheritedConstraints 等）。清单存项目记忆 `w12-harness-extraction-inventory`。
+
+**W-12 batches 0–6c — 70 纯助手抽尽 / 收壳完成 — done（2026-06-18）**
+- **b0 委托折叠**（`a809904b`）：`private hash`（88 调用点）与 `private hashResearchSliceOptionAuthority`（2 调用点）本是对**已抽**纯函数的一行委托 → 直接折叠为 `canonicalHash` / `sharedHashResearchSliceOptionAuthority` 并删壳；消解最高频同名碰撞（局部 `const hash`）。
+- **b1 route-handoff**（`2ab7b3b7`，新模块）：buildHandoff/handoffEdge/nextNodeForImplementedHandoff/routeTargetNode。
+- **b2 intake-readiness**（`db78d775`，新模块）：riskCoversRecheck/missingConstraintCodes/readinessBlockers/readinessRecommendation/profileParkReason + 折叠后 this-free 的 hashSnapshot/Profile/ReadinessAuthority；missingConstraintCodes 起别名避碰撞。
+- **b3 n5**（`50143b88`，新模块）：10 个 N5 选片纯助手（codex/lineage/selected-option/non-select gate + 决策叶子）。
+- **b4 n6**（`9ec3d1c8`，新模块）：12 个 N6 候选/回环纯叶子。
+- **b5 n4**（`3ab3ea8c`，新模块）：6 个 N4 纯助手 + 共享字符串叶子 aligns/nonGoalsRemainExcluded/explicitClaimCeilingViolations（后者亦供留壳的 N6 结构/语义门用）。
+- **b6a n7**（`78220492`，新模块）：9 个 N7 物化纯叶子。**b6b n8**（`dec4f51e`，新模块）：6 个 N8 估值纯叶子。**b6c node-misc**（`21fc36db`，新模块）：10 个跨节点纯叶子（isRegistryExecutionMode/earlyRuntimeAuditDrift/n10 叙事·携带·告警/legacyValueVerdict/n1·n2 lineage·codex 守卫/pushRefMismatchIssue〔20 调用点〕）。
+- **每批不变式**：逐字搬迁（`private X`→`export function X`，`this.<已抽兄弟>`→bare/别名）；tsc 0；harness 单测 **97/0**（`GUARD_GOLDEN_N1`+`OPTION_AUTHORITY_GOLDEN` 绿）；backend 全套件 **1469/0/35** 抽前后一致（byte-identical）；删除每批 tsc 暴露的孤立 import；路径限定 commit。
+- **收壳达成**：harness **12,898 → 9,933 行（-2,965，-23%）**；析出 **16 个兄弟模块**（pure-utils/dedup-utils 为叶，gate-utils/predicates/authority-hash→pure-utils，ref-builders/asserts/parsers→下层，节点模块 n4–n8/node-misc/intake-readiness/route-handoff→下层），**严格 DAG 无环、无模块反向 import harness service**。剩余 harness 即**字面壳**：生命周期（`invokeNode`）+ 持久化 + stateful per-node async runner + 绑定 runner-local 上下文类型的助手。完整性核查确认余下每个 sync 方法皆 `this.<stateful>` 或 local-type 绑定（无遗漏纯助手）。
+- **独立逐字对抗评审**（工作流 `wf_063839cb`，10 个本会话模块 vs 基线 `015fdc6c`）：**CLEAN**——10 模块 / **90 个搬迁函数**逐字 diff，**0 确认缺陷**；每个函数与基线 `private` 原型 token-for-token 一致，差异仅为允许的三类（`private`→`export function`、`this.<已抽兄弟>`→bare/别名、缩进降一级）；逐项核对字符串字面量、枚举/数值常量、运算符、字段访问、分支、正则、默认值均无偏移。此为全套件 byte-identity 之外的独立兜底（防"测试语料内等价、未测输入分叉"）。
 
 ### Phase 3 — 能力扩展 / 选项 B（待开工）
 ### Phase 4 — 工作台收口 / 选项 C（待开工）
