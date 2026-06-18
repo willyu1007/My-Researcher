@@ -96,8 +96,6 @@ import {
   TOPIC_SELECTION_V1B_N6_RUNTIME_CONTEXT_PROJECTION_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_N7_RUNTIME_CONTEXT_PROJECTION_SCHEMA_VERSION,
   type TopicSelectionV1bN6GateFailureRetryContextProjection,
-  type TopicSelectionV1bN1HarnessFrozenInputPayload,
-  type TopicSelectionV1bN2HarnessFrozenInputPayload,
   type TopicSelectionV1bN4HarnessFrozenInputPayload,
   type TopicSelectionV1bN5HarnessFrozenInputPayload,
   type TopicSelectionV1bN5ToN6HandoffPayload,
@@ -364,6 +362,18 @@ import {
   n8ResearchSliceSnapshot,
   n8RuntimeAuditDrift,
 } from './topic-selection-v1b-harness-n8.js';
+import {
+  earlyRuntimeAuditDrift,
+  isRegistryExecutionMode,
+  legacyValueVerdict,
+  n10CarryForwardCodes,
+  n10Narrative,
+  n10Warnings,
+  n1MetadataBlocker,
+  n2CodexDelegationBlocker,
+  n2CreatedBy,
+  pushRefMismatchIssue,
+} from './topic-selection-v1b-harness-node-misc.js';
 
 const ALLOWED_REQUEST_KEYS = new Set([
   'schema_version',
@@ -1560,7 +1570,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
       return null;
     }
-    if (!this.isRegistryExecutionMode(input.executionMode)) {
+    if (!isRegistryExecutionMode(input.executionMode)) {
       admissionRecords.push({
         ...baseRecord,
         admitted: false,
@@ -1634,14 +1644,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
       return null;
     }
-  }
-
-  private isRegistryExecutionMode(
-    executionMode: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef['execution_mode'],
-  ): executionMode is TopicSelectionAgentExecutionMode {
-    return executionMode === 'mocked_llm'
-      || executionMode === 'codex_assisted'
-      || executionMode === 'provider_llm';
   }
 
   private policyBlocker(
@@ -1900,7 +1902,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const expectedBundleHash = canonicalHash(bundle);
     const sourceRefs = v1aBundleSourceRefs(bundle, bundleRef);
     const expectedSourceRefsHash = canonicalHash(sourceRefs);
-    const metadataBlocker = this.n1MetadataBlocker(payload.value, bundleRef, expectedBundleHash, expectedSourceRefsHash);
+    const metadataBlocker = n1MetadataBlocker(payload.value, bundleRef, expectedBundleHash, expectedSourceRefsHash);
     if (metadataBlocker) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: metadataBlocker.code,
@@ -2082,7 +2084,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N2 accepted constraint profile payload hash does not match the frozen payload.',
       });
     }
-    const codexBlocker = this.n2CodexDelegationBlocker(input, payload.value, acceptedPayloadHash);
+    const codexBlocker = n2CodexDelegationBlocker(input, payload.value, acceptedPayloadHash);
     if (codexBlocker) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: codexBlocker.code,
@@ -2189,7 +2191,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warningCodes: [],
     });
     const handoffHash = canonicalHash(handoff);
-    const createdBy = this.n2CreatedBy(input.created_by, payload.value.authority_input_provider);
+    const createdBy = n2CreatedBy(input.created_by, payload.value.authority_input_provider);
     const result = await this.persistAdmittedResult(input, hashContext, {
       authorityHash,
       authorityRef: profileRef,
@@ -4150,7 +4152,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
       || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
     ) {
-      return this.earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support provenance must point to its audit artifact_ref.');
+      return earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support provenance must point to its audit artifact_ref.');
     }
     const auditArtifact = await this.controlPlane.getArtifactRef(artifact.runtime_audit_ref.ref_id);
     if (
@@ -4159,11 +4161,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || auditArtifact.checksum !== artifact.runtime_audit_hash
       || auditArtifact.workflow_run_id !== input.workflow_run_id
     ) {
-      return this.earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support audit artifact is missing or checksum-drifted.');
+      return earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support audit artifact is missing or checksum-drifted.');
     }
     const auditPayload = auditArtifact.payload;
     if (!isRecord(auditPayload) || !isRecord(auditPayload.provenance)) {
-      return this.earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support audit payload is not a valid invocation audit snapshot.');
+      return earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
     const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : 'codex_response';
@@ -4188,17 +4190,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || provenance.response_reuse_ref !== null
       || provenance.telemetry !== null
     ) {
-      return this.earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support audit provenance does not match the support artifact identity.');
+      return earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support audit provenance does not match the support artifact identity.');
     }
     return { ok: true };
-  }
-
-  private earlyRuntimeAuditDrift(message: string): { ok: false; code: string; message: string } {
-    return {
-      ok: false,
-      code: 'V1B_EARLY_SUPPORT_ARTIFACT_RUNTIME_CONTEXT_DRIFT',
-      message,
-    };
   }
 
   private async resolveN7SupportContext(
@@ -5042,7 +5036,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ceiling_case: draftResolution.value.draft.ceiling_case,
       base_case: draftResolution.value.draft.base_case,
       floor_case: draftResolution.value.draft.floor_case,
-      legacy_verdict: this.legacyValueVerdict(draftResolution.value.draft.recommended_disposition),
+      legacy_verdict: legacyValueVerdict(draftResolution.value.draft.recommended_disposition),
       total_score: draftResolution.value.draft.total_score,
       value_summary: draftResolution.value.draft.value_summary,
       confidence: draftResolution.value.draft.confidence,
@@ -5506,7 +5500,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
     const packageHash = hashN10PackageAuthority(built.value.topicPackage);
-    const warnings = this.n10Warnings(built.value.topicPackage);
+    const warnings = n10Warnings(built.value.topicPackage);
     const gateStatus: TopicSelectionV1bWorkflowHarnessGateStatus =
       warnings.length > 0 ? 'admitted_with_warnings' : 'admitted';
     const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
@@ -6617,7 +6611,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const packageVersion = 'v1';
     const packageRef = buildRef('topic_package', topicPackageId, titleCardId, packageVersion);
     const selectedEvidenceRefs = uniqueRefs(packageInput.evidence_refs.map((record) => record.evidence_ref));
-    const narrative = this.n10Narrative(packageInput);
+    const narrative = n10Narrative(packageInput);
     const topicPackage: TopicSelectionTopicPackageRecord = {
       topic_package_id: topicPackageId,
       workspace_id: workspaceId,
@@ -6701,7 +6695,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       missing_ref_codes: [],
       new_ref_codes: [],
       boundary_conflict_codes: [],
-      carry_forward_codes: this.n10CarryForwardCodes(topicPackage),
+      carry_forward_codes: n10CarryForwardCodes(topicPackage),
       trace_issues: [],
       boundary_issues: [],
       narrative_consistency: {
@@ -6725,7 +6719,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       package_version: packageVersion,
       package_readiness_status: 'ready_for_promotion_review',
       blockers: [],
-      warnings: this.n10Warnings(topicPackage),
+      warnings: n10Warnings(topicPackage),
       required_actions: [],
       accepted_risk_refs: topicPackage.accepted_risk_refs,
       blocker_refs: topicPackage.blocker_refs,
@@ -6787,87 +6781,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
         v1cInputBundle,
       },
     };
-  }
-
-  private n10Narrative(input: TopicSelectionV1bPackageDraftInput): {
-    candidateMethods: string[];
-    contributionSummary: string;
-    evaluationPlan: string;
-    keyRisks: string[];
-    nonGoals: string[];
-    researchBackground: string;
-    titleCandidates: string[];
-  } {
-    return {
-      titleCandidates: uniqueStrings([
-        input.question_contract.main_question.replace(/\?$/u, ''),
-        `${input.question_contract.contribution_hypothesis}: ${input.question_contract.expected_claim}`,
-      ]).slice(0, 3),
-      researchBackground: [
-        `Target setting: ${input.question_contract.target_setting}.`,
-        `Target community: ${input.question_contract.target_community}.`,
-        input.value_reasoning_memo.significance,
-        input.value_reasoning_memo.originality,
-      ].join(' '),
-      contributionSummary: [
-        input.value_reasoning_memo.value_thesis,
-        `Strongest claim: ${input.topic_value_assessment.strongest_claim_if_success}.`,
-        input.topic_value_assessment.fallback_claim_if_success
-          ? `Fallback claim: ${input.topic_value_assessment.fallback_claim_if_success}.`
-          : '',
-      ].filter(Boolean).join(' '),
-      candidateMethods: uniqueStrings([
-        ...input.answerability_plan.datasets_or_resources.map((item) => `Resource: ${item}`),
-        ...input.answerability_plan.metrics.map((item) => `Metric: ${item}`),
-        ...input.answerability_plan.baselines.map((item) => `Baseline: ${item}`),
-        ...input.answerability_plan.ablations_or_comparisons.map((item) => `Comparison: ${item}`),
-        input.answerability_plan.evaluation_setting,
-      ].filter(Boolean)),
-      evaluationPlan: [
-        input.answerability_plan.evaluation_setting,
-        input.answerability_plan.datasets_or_resources.length > 0
-          ? `Datasets/resources: ${input.answerability_plan.datasets_or_resources.join('; ')}.`
-          : '',
-        input.answerability_plan.metrics.length > 0
-          ? `Metrics: ${input.answerability_plan.metrics.join('; ')}.`
-          : '',
-        input.answerability_plan.baselines.length > 0
-          ? `Baselines: ${input.answerability_plan.baselines.join('; ')}.`
-          : '',
-      ].filter(Boolean).join(' '),
-      keyRisks: uniqueStrings([
-        ...input.topic_value_assessment.risk_notes,
-        ...input.value_reasoning_memo.reviewer_risks,
-        ...input.value_reasoning_memo.top_objections,
-        ...input.answerability_plan.dependency_risks,
-        ...input.answerability_plan.open_dependencies,
-        ...input.answerability_plan.known_gaps,
-        ...input.falsification_conditions.map((condition) => `${condition.condition_type}: ${condition.statement}`),
-      ]),
-      nonGoals: uniqueStrings(input.question_contract.prohibited_claims),
-    };
-  }
-
-  private n10CarryForwardCodes(pkg: TopicSelectionTopicPackageRecord): string[] {
-    return [
-      pkg.accepted_risk_refs.length > 0 ? 'accepted_risks_carried_forward' : '',
-      pkg.blocker_refs.length > 0 ? 'blockers_carried_forward' : '',
-      pkg.recheck_request_refs.length > 0 ? 'recheck_requests_carried_forward' : '',
-    ].filter(Boolean);
-  }
-
-  private n10Warnings(pkg: TopicSelectionTopicPackageRecord): TopicSelectionGateIssue[] {
-    const warnings: TopicSelectionGateIssue[] = [];
-    if (pkg.accepted_risk_refs.length > 0) {
-      warnings.push(warning('N10_ACCEPTED_RISK_CARRIED_FORWARD', 'N10 package carries accepted risk refs forward.', pkg.accepted_risk_refs));
-    }
-    if (pkg.recheck_request_refs.length > 0) {
-      warnings.push(warning('N10_RECHECK_REFS_CARRIED_FORWARD', 'N10 package carries recheck request refs forward.', pkg.recheck_request_refs));
-    }
-    if (pkg.key_risks.length > 0) {
-      warnings.push(warning('N10_PACKAGE_RISKS_CARRIED_FORWARD', 'N10 package carries key risks forward.', pkg.topic_value_assessment_ref ? [pkg.topic_value_assessment_ref] : []));
-    }
-    return warnings;
   }
 
   private async loadN11Context(
@@ -6972,21 +6885,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       code: `${codePrefix}_${handoffKind.toUpperCase()}_NOT_FOUND`,
       message: `${codePrefix} frozen input source_refs must include the persisted ${handoffKind} artifact.`,
     };
-  }
-
-  private legacyValueVerdict(disposition: TopicSelectionValueDisposition): TopicSelectionTopicValueAssessmentRecord['legacy_verdict'] {
-    switch (disposition) {
-      case 'advance_to_package':
-        return 'promote';
-      case 'refine_question':
-      case 'refine_slice':
-      case 'recheck_evidence_or_search':
-        return 'refine';
-      case 'park':
-        return 'park';
-      case 'drop':
-        return 'drop';
-    }
   }
 
   private materializeN7TopicQuestion(input: {
@@ -7603,69 +7501,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ));
     }
     return warnings;
-  }
-
-  private n1MetadataBlocker(
-    payload: TopicSelectionV1bN1HarnessFrozenInputPayload,
-    bundleRef: TopicSelectionFunctionalRef,
-    expectedBundleHash: string,
-    expectedSourceRefsHash: string,
-  ): { code: string; message: string } | null {
-    if (!refsEqual(payload.v1a_bundle_ref, bundleRef)) {
-      return {
-        code: 'N1_V1A_BUNDLE_REF_MISMATCH',
-        message: 'N1 v1a_bundle_ref does not match the explicit persisted v1a bundle.',
-      };
-    }
-    if (payload.v1a_bundle_hash !== expectedBundleHash) {
-      return {
-        code: 'N1_V1A_BUNDLE_HASH_MISMATCH',
-        message: 'N1 v1a_bundle_hash does not match the persisted v1a bundle.',
-      };
-    }
-    if (payload.source_refs_hash !== expectedSourceRefsHash) {
-      return {
-        code: 'N1_SOURCE_REFS_HASH_MISMATCH',
-        message: 'N1 source_refs_hash does not match the persisted v1a bundle lineage refs.',
-      };
-    }
-    return null;
-  }
-
-  private n2CodexDelegationBlocker(
-    input: TopicSelectionV1bWorkflowHarnessRunRequest,
-    payload: TopicSelectionV1bN2HarnessFrozenInputPayload,
-    acceptedPayloadHash: string,
-  ): { code: string; message: string } | null {
-    if (payload.authority_input_provider !== 'codex_delegated') {
-      return null;
-    }
-    if (payload.delegation_artifact_hash !== acceptedPayloadHash) {
-      return {
-        code: 'N2_CODEX_DELEGATION_ARTIFACT_MISMATCH',
-        message: 'N2 codex_delegated payload must bind delegation_artifact_hash to accepted profile payload hash.',
-      };
-    }
-    const artifact = (input.semantic_artifacts ?? []).find((item) =>
-      item.slot_id === 'n2_constraint_profile_semantic_support'
-      && item.allowed_effect === 'delegated_payload_candidate'
-    );
-    if (!artifact) {
-      return {
-        code: 'N2_CODEX_DELEGATION_ARTIFACT_REQUIRED',
-        message: 'N2 codex_delegated payload requires matching frozen semantic support artifact provenance.',
-      };
-    }
-    if (
-      artifact.normalized_output_hash !== payload.delegation_artifact_hash
-      && artifact.structured_output_hash !== payload.delegation_artifact_hash
-    ) {
-      return {
-        code: 'N2_CODEX_DELEGATION_ARTIFACT_MISMATCH',
-        message: 'N2 Codex semantic artifact hash does not match the accepted authority payload hash.',
-      };
-    }
-    return null;
   }
 
   private async loadN5OptionSet(
@@ -9685,30 +9520,30 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!needCandidate) {
       issues.push(blocker('SOURCE_NEED_CANDIDATE_NOT_FOUND', 'v1b intake requires the source NeedCandidate.', [bundle.source_need_candidate_ref]));
     } else {
-      this.pushRefMismatchIssue(issues, 'SOURCE_NEED_CANDIDATE_REF_MISMATCH', bundle.source_need_candidate_ref, buildRef('need_candidate', needCandidate.need_candidate_id, needCandidate.title_card_id, needCandidate.candidate_version));
-      this.pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, needCandidate.evidence_map_ref);
-      this.pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_SEARCH_RUN_REF_MISMATCH', bundle.search_run_ref, needCandidate.search_run_ref);
-      this.pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_SEARCH_PLAN_REF_MISMATCH', bundle.search_plan_ref, needCandidate.search_plan_ref);
-      this.pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_LITERATURE_SNAPSHOT_REF_MISMATCH', bundle.literature_snapshot_ref, needCandidate.literature_snapshot_ref);
+      pushRefMismatchIssue(issues, 'SOURCE_NEED_CANDIDATE_REF_MISMATCH', bundle.source_need_candidate_ref, buildRef('need_candidate', needCandidate.need_candidate_id, needCandidate.title_card_id, needCandidate.candidate_version));
+      pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, needCandidate.evidence_map_ref);
+      pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_SEARCH_RUN_REF_MISMATCH', bundle.search_run_ref, needCandidate.search_run_ref);
+      pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_SEARCH_PLAN_REF_MISMATCH', bundle.search_plan_ref, needCandidate.search_plan_ref);
+      pushRefMismatchIssue(issues, 'SOURCE_CANDIDATE_LITERATURE_SNAPSHOT_REF_MISMATCH', bundle.literature_snapshot_ref, needCandidate.literature_snapshot_ref);
     }
     if (!validatedNeed) {
       issues.push(blocker('VALIDATED_NEED_NOT_FOUND', 'v1b intake requires a persisted ValidatedNeed.', [bundle.validated_need_ref]));
     } else {
-      this.pushRefMismatchIssue(issues, 'VALIDATED_NEED_REF_MISMATCH', bundle.validated_need_ref, buildRef('validated_need', validatedNeed.validated_need_id, validatedNeed.title_card_id));
-      this.pushRefMismatchIssue(issues, 'HUMAN_DECISION_REF_MISMATCH', bundle.human_decision_ref, validatedNeed.human_decision_ref);
-      this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_REF_MISMATCH', bundle.support_packet_ref, validatedNeed.support_packet_ref);
-      this.pushRefMismatchIssue(issues, 'ADJUDICATION_RESULT_REF_MISMATCH', bundle.adjudication_result_ref, validatedNeed.adjudication_result_ref);
-      this.pushRefMismatchIssue(issues, 'EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, validatedNeed.evidence_map_ref);
-      this.pushRefMismatchIssue(issues, 'SEARCH_RUN_REF_MISMATCH', bundle.search_run_ref, validatedNeed.search_run_ref);
-      this.pushRefMismatchIssue(issues, 'SEARCH_PLAN_REF_MISMATCH', bundle.search_plan_ref, validatedNeed.search_plan_ref);
-      this.pushRefMismatchIssue(issues, 'LITERATURE_SNAPSHOT_REF_MISMATCH', bundle.literature_snapshot_ref, validatedNeed.literature_snapshot_ref);
+      pushRefMismatchIssue(issues, 'VALIDATED_NEED_REF_MISMATCH', bundle.validated_need_ref, buildRef('validated_need', validatedNeed.validated_need_id, validatedNeed.title_card_id));
+      pushRefMismatchIssue(issues, 'HUMAN_DECISION_REF_MISMATCH', bundle.human_decision_ref, validatedNeed.human_decision_ref);
+      pushRefMismatchIssue(issues, 'SUPPORT_PACKET_REF_MISMATCH', bundle.support_packet_ref, validatedNeed.support_packet_ref);
+      pushRefMismatchIssue(issues, 'ADJUDICATION_RESULT_REF_MISMATCH', bundle.adjudication_result_ref, validatedNeed.adjudication_result_ref);
+      pushRefMismatchIssue(issues, 'EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, validatedNeed.evidence_map_ref);
+      pushRefMismatchIssue(issues, 'SEARCH_RUN_REF_MISMATCH', bundle.search_run_ref, validatedNeed.search_run_ref);
+      pushRefMismatchIssue(issues, 'SEARCH_PLAN_REF_MISMATCH', bundle.search_plan_ref, validatedNeed.search_plan_ref);
+      pushRefMismatchIssue(issues, 'LITERATURE_SNAPSHOT_REF_MISMATCH', bundle.literature_snapshot_ref, validatedNeed.literature_snapshot_ref);
     }
     if (!isHumanDecisionRef(bundle.human_decision_ref)) {
       issues.push(blocker('HUMAN_DECISION_REF_TYPE_INVALID', 'v1b intake requires a human confirmed decision ref.', [bundle.human_decision_ref]));
     } else if (!humanDecision) {
       issues.push(blocker('HUMAN_DECISION_NOT_FOUND', 'v1b intake requires the persisted human confirmed decision.', [bundle.human_decision_ref]));
     } else {
-      this.pushRefMismatchIssue(issues, 'HUMAN_DECISION_TARGET_MISMATCH', humanDecision.target_ref, bundle.validated_need_ref);
+      pushRefMismatchIssue(issues, 'HUMAN_DECISION_TARGET_MISMATCH', humanDecision.target_ref, bundle.validated_need_ref);
       if (humanDecision.decision_type !== 'confirm') {
         issues.push(blocker('HUMAN_DECISION_CONFIRM_REQUIRED', 'v1b intake requires a confirming human decision.', [bundle.human_decision_ref]));
       }
@@ -9719,16 +9554,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!supportPacket) {
       issues.push(blocker('SUPPORT_PACKET_NOT_FOUND', 'v1b intake requires the v1a validation support packet.', [bundle.support_packet_ref]));
     } else {
-      this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_REF_MISMATCH', bundle.support_packet_ref, buildRef('validation_decision_support_packet', supportPacket.validation_support_packet_id, supportPacket.title_card_id));
-      this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, supportPacket.evidence_map_ref);
-      this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_SEARCH_RUN_REF_MISMATCH', bundle.search_run_ref, supportPacket.search_run_ref);
-      this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_SEARCH_PLAN_REF_MISMATCH', bundle.search_plan_ref, supportPacket.search_plan_ref);
-      this.pushRefMismatchIssue(issues, 'SUPPORT_PACKET_LITERATURE_SNAPSHOT_REF_MISMATCH', bundle.literature_snapshot_ref, supportPacket.literature_snapshot_ref);
+      pushRefMismatchIssue(issues, 'SUPPORT_PACKET_REF_MISMATCH', bundle.support_packet_ref, buildRef('validation_decision_support_packet', supportPacket.validation_support_packet_id, supportPacket.title_card_id));
+      pushRefMismatchIssue(issues, 'SUPPORT_PACKET_EVIDENCE_MAP_REF_MISMATCH', bundle.evidence_map_ref, supportPacket.evidence_map_ref);
+      pushRefMismatchIssue(issues, 'SUPPORT_PACKET_SEARCH_RUN_REF_MISMATCH', bundle.search_run_ref, supportPacket.search_run_ref);
+      pushRefMismatchIssue(issues, 'SUPPORT_PACKET_SEARCH_PLAN_REF_MISMATCH', bundle.search_plan_ref, supportPacket.search_plan_ref);
+      pushRefMismatchIssue(issues, 'SUPPORT_PACKET_LITERATURE_SNAPSHOT_REF_MISMATCH', bundle.literature_snapshot_ref, supportPacket.literature_snapshot_ref);
     }
     if (!adjudication) {
       issues.push(blocker('ADJUDICATION_RESULT_NOT_FOUND', 'v1b intake requires the v1a adjudication result.', [bundle.adjudication_result_ref]));
     } else {
-      this.pushRefMismatchIssue(issues, 'ADJUDICATION_RESULT_REF_MISMATCH', bundle.adjudication_result_ref, buildRef('validate_need_adjudication_result', adjudication.adjudication_result_id, adjudication.title_card_id));
+      pushRefMismatchIssue(issues, 'ADJUDICATION_RESULT_REF_MISMATCH', bundle.adjudication_result_ref, buildRef('validate_need_adjudication_result', adjudication.adjudication_result_id, adjudication.title_card_id));
       if (adjudication.final_decision !== 'validate') {
         issues.push(blocker('ADJUDICATION_NOT_VALIDATED', 'v1b only accepts validated need adjudications.', [bundle.adjudication_result_ref]));
       }
@@ -9865,23 +9700,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     titleCardId: string,
   ): Promise<TopicSelectionV1bIntakeSnapshotRecord[]> {
     return this.runnerDependencies.v1bIntakeRepository?.listIntakeSnapshotsByTitleCardId(titleCardId) ?? [];
-  }
-
-  private n2CreatedBy(
-    requested: TopicSelectionActorType | undefined,
-    provider: TopicSelectionV1bN2HarnessFrozenInputPayload['authority_input_provider'],
-  ): TopicSelectionActorType {
-    if (requested) {
-      return requested;
-    }
-    switch (provider) {
-      case 'codex_delegated':
-        return 'hybrid';
-      case 'fixture':
-        return 'system';
-      case 'human_delegated':
-        return 'human';
-    }
   }
 
   private async persistBlockedResult(
@@ -10067,17 +9885,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       handoff_hash: null,
       route_hash: routeHash,
     };
-  }
-
-  private pushRefMismatchIssue(
-    issues: TopicSelectionGateIssue[],
-    code: string,
-    actual: TopicSelectionFunctionalRef,
-    expected: TopicSelectionFunctionalRef,
-  ): void {
-    if (!refsEqual(actual, expected)) {
-      issues.push(blocker(code, `${code} blocks v1b intake readiness.`, [actual, expected]));
-    }
   }
 
   private inheritedConstraints(option: TopicSelectionResearchSliceOptionRecord): InheritedConstraints {
