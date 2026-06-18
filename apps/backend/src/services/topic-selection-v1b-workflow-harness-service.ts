@@ -238,7 +238,6 @@ import {
   HASH_PATTERN,
   buildRef,
   isRecord,
-  hasOnlyKeys,
   recordString,
 } from './topic-selection-v1b-harness-pure-utils.js';
 import {
@@ -255,7 +254,6 @@ import {
   isN7CandidateGroupingSupportPayload,
   isN7DebateAdmissionSupportPayload,
   isN7FailedTrialSynthesisSupportPayload,
-  isN8ReasoningMemoDraft,
   isN8ToN7FeedbackPayload,
   isN8ValueDimensionScore,
   isN8ValueGateResult,
@@ -281,7 +279,6 @@ import {
   blocker,
   warning,
   refsEqual,
-  nullableRefsEqual,
   refKey,
   versionFromId,
   nodeAttemptRef,
@@ -360,6 +357,13 @@ import {
   n7RequiredEvidenceCategories,
   n7RuntimeAuditDrift,
 } from './topic-selection-v1b-harness-n7.js';
+import {
+  extractN8DraftPayload,
+  n8PayloadMatchesN7Handoff,
+  n8QualityFlags,
+  n8ResearchSliceSnapshot,
+  n8RuntimeAuditDrift,
+} from './topic-selection-v1b-harness-n8.js';
 
 const ALLOWED_REQUEST_KEYS = new Set([
   'schema_version',
@@ -4992,7 +4996,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       recheck_request_refs: loaded.value.researchSlice.recheck_request_refs,
       question_contract: loaded.value.contract,
       answerability_plan: loaded.value.answerabilityPlan,
-      research_slice_snapshot: this.n8ResearchSliceSnapshot(loaded.value.researchSlice),
+      research_slice_snapshot: n8ResearchSliceSnapshot(loaded.value.researchSlice),
       snapshot_hash: canonicalHash({
         answerability_plan_hash: payload.value.answerability_plan_hash,
         contract_hash: payload.value.topic_question_contract_hash,
@@ -5160,7 +5164,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
             gate_result_id: prepared.gate.readiness_gate_result_id,
             transition_attempt_id: null,
             artifact_refs: persistedArtifactRefs,
-            quality_flags: this.n8QualityFlags(draftResolution.value.draft),
+            quality_flags: n8QualityFlags(draftResolution.value.draft),
             failure_reason: null,
             created_at: now,
             updated_at: now,
@@ -5786,7 +5790,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     loaded: N8LoadedContext,
   ): { code: string; message: string } | null {
     const handoffPayload = loaded.n7Handoff.payload as TopicSelectionV1bN7ToN8HandoffPayload;
-    if (!this.n8PayloadMatchesN7Handoff(payload, handoffPayload)) {
+    if (!n8PayloadMatchesN7Handoff(payload, handoffPayload)) {
       return {
         code: 'N8_N7_HANDOFF_PAYLOAD_MISMATCH',
         message: 'N8 frozen payload does not match the persisted N7-to-N8 handoff artifact.',
@@ -5839,30 +5843,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return null;
   }
 
-  private n8PayloadMatchesN7Handoff(
-    payload: TopicSelectionV1bN8HarnessFrozenInputPayload,
-    handoffPayload: TopicSelectionV1bN7ToN8HandoffPayload,
-  ): boolean {
-    return payload.topic_question_hash === handoffPayload.topic_question_hash
-      && payload.topic_question_contract_hash === handoffPayload.topic_question_contract_hash
-      && payload.answerability_plan_hash === handoffPayload.answerability_plan_hash
-      && payload.trial_ledger_hash === handoffPayload.trial_ledger_hash
-      && payload.topic_question_candidate_set_hash === handoffPayload.topic_question_candidate_set_hash
-      && payload.active_candidate_hash === handoffPayload.active_candidate_hash
-      && payload.selected_research_slice_hash === handoffPayload.selected_research_slice_hash
-      && payload.n8_debate_admission_hash === handoffPayload.n8_debate_admission_hash
-      && payload.candidate_grouping_hash === handoffPayload.candidate_grouping_hash
-      && refsEqual(payload.topic_question_ref, handoffPayload.topic_question_ref)
-      && refsEqual(payload.topic_question_contract_ref, handoffPayload.topic_question_contract_ref)
-      && refsEqual(payload.answerability_plan_ref, handoffPayload.answerability_plan_ref)
-      && refsEqual(payload.trial_ledger_ref, handoffPayload.trial_ledger_ref)
-      && refsEqual(payload.topic_question_candidate_set_ref, handoffPayload.topic_question_candidate_set_ref)
-      && refsEqual(payload.active_candidate_ref, handoffPayload.active_candidate_ref)
-      && refsEqual(payload.selected_research_slice_ref, handoffPayload.selected_research_slice_ref)
-      && refsEqual(payload.n8_debate_admission_ref, handoffPayload.n8_debate_admission_ref)
-      && nullableRefsEqual(payload.candidate_grouping_ref, handoffPayload.candidate_grouping_ref);
-  }
-
   private async verifyN8RuntimeVerifiedDraftAuditArtifact(
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
     artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
@@ -5872,7 +5852,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
       || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)
     ) {
-      return this.n8RuntimeAuditDrift('N8 runtime value draft provenance must point to its audit artifact_ref.');
+      return n8RuntimeAuditDrift('N8 runtime value draft provenance must point to its audit artifact_ref.');
     }
     const auditArtifact = await this.controlPlane.getArtifactRef(artifact.runtime_audit_ref.ref_id);
     if (
@@ -5881,11 +5861,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || auditArtifact.checksum !== artifact.runtime_audit_hash
       || auditArtifact.workflow_run_id !== input.workflow_run_id
     ) {
-      return this.n8RuntimeAuditDrift('N8 runtime value draft audit artifact is missing or checksum-drifted.');
+      return n8RuntimeAuditDrift('N8 runtime value draft audit artifact is missing or checksum-drifted.');
     }
     const auditPayload = auditArtifact.payload;
     if (!isRecord(auditPayload) || !isRecord(auditPayload.provenance)) {
-      return this.n8RuntimeAuditDrift('N8 runtime value draft audit payload is not a valid invocation audit snapshot.');
+      return n8RuntimeAuditDrift('N8 runtime value draft audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
     const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : 'codex_response';
@@ -5910,17 +5890,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || provenance.response_reuse_ref !== null
       || provenance.telemetry !== null
     ) {
-      return this.n8RuntimeAuditDrift('N8 runtime value draft audit provenance does not match the draft artifact identity.');
+      return n8RuntimeAuditDrift('N8 runtime value draft audit provenance does not match the draft artifact identity.');
     }
     return { ok: true };
-  }
-
-  private n8RuntimeAuditDrift(message: string): { ok: false; code: string; message: string } {
-    return {
-      ok: false,
-      code: 'N8_DRAFT_ARTIFACT_RUNTIME_CONTEXT_DRIFT',
-      message,
-    };
   }
 
   private async resolveN8ValueAssessmentAdmissionExpectedIdentity(input: {
@@ -5993,7 +5965,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N8 semantic artifact hashes do not match persisted ArtifactRef checksums.',
       };
     }
-    const draftPayload = this.extractN8DraftPayload(normalizedArtifact.payload);
+    const draftPayload = extractN8DraftPayload(normalizedArtifact.payload);
     if (!draftPayload) {
       return {
         ok: false,
@@ -6067,63 +6039,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
         semanticArtifact,
       },
     };
-  }
-
-  private extractN8DraftPayload(
-    payload: Record<string, unknown> | null | undefined,
-  ): TopicSelectionV1bTopicValueAssessmentDraftPayload | null {
-    if (!isRecord(payload)) {
-      return null;
-    }
-    const candidate = isRecord(payload.normalized_output)
-      ? payload.normalized_output
-      : payload;
-    return this.isN8DraftPayload(candidate)
-      ? candidate as unknown as TopicSelectionV1bTopicValueAssessmentDraftPayload
-      : null;
-  }
-
-  private isN8DraftPayload(value: Record<string, unknown>): boolean {
-    return hasOnlyKeys(value, [
-      'accepted_risk_refs',
-      'base_case',
-      'blocker_refs',
-      'ceiling_case',
-      'confidence',
-      'dimension_scores',
-      'fallback_claim_if_success',
-      'floor_case',
-      'hard_gates',
-      'readiness_status',
-      'reasoning_memo',
-      'recommended_disposition',
-      'reviewer_objections',
-      'risk_notes',
-      'risk_penalty',
-      'strongest_claim_if_success',
-      'total_score',
-      'value_summary',
-    ])
-      && ['ready', 'ready_with_accepted_risk', 'needs_refinement', 'recheck_required', 'blocked', 'parked', 'dropped']
-        .includes(value.readiness_status as string)
-      && typeof value.strongest_claim_if_success === 'string'
-      && (value.fallback_claim_if_success === null || value.fallback_claim_if_success === undefined || typeof value.fallback_claim_if_success === 'string')
-      && Array.isArray(value.hard_gates)
-      && Array.isArray(value.dimension_scores)
-      && isRecord(value.risk_penalty)
-      && isStringArray(value.reviewer_objections)
-      && typeof value.ceiling_case === 'string'
-      && typeof value.base_case === 'string'
-      && typeof value.floor_case === 'string'
-      && ['advance_to_package', 'refine_question', 'refine_slice', 'recheck_evidence_or_search', 'park', 'drop']
-        .includes(value.recommended_disposition as string)
-      && typeof value.total_score === 'number'
-      && typeof value.value_summary === 'string'
-      && typeof value.confidence === 'number'
-      && isFunctionalRefArray(value.accepted_risk_refs)
-      && isFunctionalRefArray(value.blocker_refs)
-      && isStringArray(value.risk_notes)
-      && isN8ReasoningMemoDraft(value.reasoning_memo);
   }
 
   private n8DraftGateBlocker(
@@ -6419,14 +6334,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return uniqueIssues(warnings);
   }
 
-  private n8QualityFlags(draft: TopicSelectionAssessTopicValueLlmOutput): string[] {
-    return uniqueStrings([
-      draft.readiness_status !== 'ready' ? `readiness:${draft.readiness_status}` : '',
-      draft.recommended_disposition !== 'advance_to_package' ? `disposition:${draft.recommended_disposition}` : '',
-      ...draft.hard_gates.filter((gate) => gate.verdict !== 'pass').map((gate) => `gate:${gate.gate_key}:${gate.verdict}`),
-    ].filter(Boolean));
-  }
-
   private buildN8ValueEvidenceRefs(input: {
     assessmentId: string;
     contractId: string;
@@ -6446,24 +6353,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       rationale: evidenceRef.rationale,
       created_at: this.now(),
     }));
-  }
-
-  private n8ResearchSliceSnapshot(slice: TopicSelectionResearchSliceRecord): Record<string, unknown> {
-    return {
-      research_slice_id: slice.research_slice_id,
-      slice_version: slice.slice_version,
-      slice_statement: slice.slice_statement,
-      target_setting: slice.target_setting,
-      target_community: slice.target_community,
-      contribution_type_candidate: slice.preferred_contribution_type ?? slice.candidate_contribution_types[0] ?? null,
-      evaluation_path: slice.evaluation_path,
-      expected_claim: slice.expected_claim,
-      fallback_claim: slice.fallback_claim,
-      accepted_risk_refs: slice.accepted_risk_refs,
-      memory_suggestion_refs: slice.memory_suggestion_refs,
-      recheck_request_refs: slice.recheck_request_refs,
-      non_goals: slice.non_goals,
-    };
   }
 
   private async loadN9Context(
