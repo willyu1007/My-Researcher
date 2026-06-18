@@ -2,7 +2,8 @@
  * W-12 / D-T127-01: v1b harness N4 (generate-research-slice-options) pure helpers, relocated
  * VERBATIM from the harness. `this`-free draft predicate/extraction, upstream-lineage + planning-input
  * builders, the per-option draft gate, and the normalize-based string leaves (aligns /
- * nonGoalsRemainExcluded / explicitClaimCeilingViolations) it shares with the N6 structural gates.
+ * nonGoalsRemainExcluded / explicitClaimCeilingViolations); aligns + explicitClaimCeilingViolations
+ * also serve the staying N6 structural/semantic gates, while nonGoalsRemainExcluded is N4-internal.
  * The N4 methods touching N4ValidatedOptionSet / n4ResearchSliceRuntime / control-plane I/O stay.
  */
 import type {

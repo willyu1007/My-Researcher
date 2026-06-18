@@ -1,7 +1,8 @@
 /**
  * W-12 / D-T127-01: v1b harness route + handoff builders, relocated VERBATIM from the harness.
- * Pure, `this`-free helpers that compute the static node graph (handoffEdge / nextNode /
- * routeTargetNode) and assemble a handoff envelope (buildHandoff, via the pure canonicalHash).
+ * Pure, `this`-free helpers that compute the static node graph (handoffEdge /
+ * nextNodeForImplementedHandoff / routeTargetNode) and assemble a handoff envelope (buildHandoff,
+ * via the pure canonicalHash).
  */
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';

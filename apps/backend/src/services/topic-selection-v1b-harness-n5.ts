@@ -1,7 +1,8 @@
 /**
  * W-12 / D-T127-01: v1b harness N5 (select-research-slice) pure helpers, relocated VERBATIM from
  * the harness. `this`-free option-set lineage/selection guards + decision-record leaf builders
- * (rejected reasons, value-assessment inputs, loopback/status defaults, created-by resolution).
+ * (rejected reasons, value-assessment inputs, human-review reason, loopback/status defaults,
+ * created-by resolution).
  * The N5 builders that touch N5LoadedOptionSet/PreparedAdmittedControlPlane/idFactory/now stay.
  */
 import type {

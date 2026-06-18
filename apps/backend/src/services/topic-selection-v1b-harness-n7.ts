@@ -1,7 +1,8 @@
 /**
  * W-12 / D-T127-01: v1b harness N7 (materialize-topic-question-contract) pure leaves, relocated
  * VERBATIM from the harness. `this`-free handoff/payload match, runtime-audit-drift factory,
- * candidate-admission gate, question-frame readers, and hard-gate/rejection summaries. The N7
+ * candidate-admission gate, question-frame readers, failed-candidate id collection, and
+ * hard-gate/rejection summaries. The N7
  * methods taking N7LoadedContext / N7SupportContext / N7CandidateChoice (n7LineageBlocker,
  * chooseN7Candidate, materializeN7TopicQuestion, the projection builders, n7Support*) stay.
  */
