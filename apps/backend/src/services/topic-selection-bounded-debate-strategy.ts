@@ -145,3 +145,26 @@ export interface BoundedDebateStrategy<
   /** pull the slot + stable hash off a role artifact so the loop can thread + fold the transcript. */
   priorRoleArtifactHashOf(artifact: TArtifact): { slotId: TRole; hash: string };
 }
+
+/**
+ * T-127 W-07 (D-T127-02) — divergent-loop variant for generative nodes (v1b N6). Worker stages fan
+ * out (arity >= 1: e.g. multiple explorer framings, multiple critics) then arbiter stages aggregate
+ * (issue-frame -> final-synthesis subset). It REUSES the entire BoundedDebateStrategy per-turn hook
+ * contract verbatim — so the core's `generateRoleArtifact` consumes a DivergentDebateStrategy
+ * unchanged (it IS-A BoundedDebateStrategy) — and adds ONLY the per-stage fan-out arity. `roleOrder`
+ * is the ordered stage-slot list (each slot visited `instanceCountFor(slot)` times). Worker
+ * aggregation/summaries are a strategy concern (the arbiter's per-turn hooks read priorRoleArtifacts);
+ * the core stays a topology-orchestration shell. DMP-10: one core, one role-turn primitive, one hash.
+ */
+export interface DivergentDebateStrategy<
+  THandoff,
+  TRole extends string,
+  TOut extends Record<string, unknown>,
+  TArtifact,
+  TInputs,
+> extends BoundedDebateStrategy<THandoff, TRole, TOut, TArtifact, TInputs> {
+  /** Deterministic fan-out arity for a stage slot (>= 1). bounded_sequence is the implicit arity-1
+   *  case (runLoop); divergent worker stages return > 1. MUST be replay-deterministic — the loop
+   *  transcript hash folds the [slot, arity] structure, so a run-varying arity breaks replay identity. */
+  instanceCountFor(slot: TRole): number;
+}

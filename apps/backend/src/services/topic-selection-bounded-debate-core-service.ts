@@ -23,6 +23,7 @@ import type {
 import type {
   BoundedDebateRoleContext,
   BoundedDebateStrategy,
+  DivergentDebateStrategy,
 } from './topic-selection-bounded-debate-strategy.js';
 
 export type BoundedDebateRoleGenerationResult<TOut, TArtifact> =
@@ -54,6 +55,27 @@ export type BoundedDebateLoopResult<TRole extends string, TOut, TArtifact> =
   | {
     status: 'blocked';
     failed_slot: TRole;
+    turn: Extract<BoundedDebateRoleGenerationResult<TOut, TArtifact>, { status: 'blocked' }>;
+    ordered_role_artifacts: TArtifact[];
+  };
+
+/** T-127 W-07 — divergent fan-out loop result. Parallel to BoundedDebateLoopResult but the transcript
+ *  hash folds the variable-arity [slot, arity] stage structure + every role artifact (fan-out included). */
+export type DivergentDebateLoopResult<TRole extends string, TOut, TArtifact> =
+  | {
+    status: 'completed';
+    ordered_role_artifacts: TArtifact[];
+    final_role_artifact: TArtifact;
+    final_structured_output: TOut;
+    turns: Array<Extract<BoundedDebateRoleGenerationResult<TOut, TArtifact>, { status: 'succeeded' }>>;
+    /** sha256(stableStringify([debate_loop_id, [[slot, arity], ...], ordered role hashes])) — whole-loop
+     *  replay identity over the variable-arity fan-out (explorer_1..N, critic_1..M, arbiter stages). */
+    loop_transcript_hash: string;
+  }
+  | {
+    status: 'blocked';
+    failed_slot: TRole;
+    failed_instance_index: number;
     turn: Extract<BoundedDebateRoleGenerationResult<TOut, TArtifact>, { status: 'blocked' }>;
     ordered_role_artifacts: TArtifact[];
   };
@@ -221,6 +243,83 @@ export class TopicSelectionBoundedDebateCoreService {
     const loop_transcript_hash = this.hash([
       strategy.debateLoopId,
       [...strategy.roleOrder],
+      ordered.map((artifact) => strategy.priorRoleArtifactHashOf(artifact).hash),
+    ]);
+    return {
+      status: 'completed',
+      ordered_role_artifacts: ordered,
+      final_role_artifact: ordered[ordered.length - 1]!,
+      final_structured_output: turns[turns.length - 1]!.structured_output,
+      turns,
+      loop_transcript_hash,
+    };
+  }
+
+  /**
+   * DIVERGENT fan-out walk (T-127 W-07, ADDITIVE — runLoop + generateRoleArtifact are untouched, so
+   * N8 / v1c-N2 bounded_sequence stay byte-identical by construction). Each stage slot in roleOrder
+   * runs `strategy.instanceCountFor(slot)` turns (arity >= 1) through the SAME generateRoleArtifact;
+   * all prior role artifacts thread append-only into every later turn (the arbiter's strategy hooks
+   * aggregate them — worker summaries are a strategy concern, not the core's). Folds a
+   * loop_transcript_hash over the [slot, arity] structure + the full ordered artifact set. Divergent
+   * strategies reach this method only; bounded consumers never call it. DMP-10: one core, one
+   * role-turn primitive (generateRoleArtifact), one hash util.
+   */
+  async runDivergentLoop<
+    THandoff,
+    TRole extends string,
+    TOut extends Record<string, unknown>,
+    TArtifact,
+    TInputs,
+  >(
+    strategy: DivergentDebateStrategy<THandoff, TRole, TOut, TArtifact, TInputs>,
+    base: Omit<
+      BoundedDebateRoleContext<THandoff, TRole, TArtifact, TInputs>,
+      'slotId' | 'priorRoleArtifacts' | 'priorRoleArtifactHashes' | 'invocationInputs'
+    >,
+    perInstance: (slot: TRole, instanceIndex: number, prior: TArtifact[]) => TInputs,
+  ): Promise<DivergentDebateLoopResult<TRole, TOut, TArtifact>> {
+    if (strategy.roleOrder.length === 0) {
+      throw new AppError(500, 'INTERNAL_ERROR', `divergent debate ${strategy.debateLoopId} has an empty role order.`);
+    }
+    if (new Set(strategy.roleOrder).size !== strategy.roleOrder.length) {
+      // prior-role hashes are keyed by slotId; duplicate stage slots would silently collapse the
+      // threaded map while the transcript still folds every artifact — reject the misconfiguration.
+      throw new AppError(500, 'INTERNAL_ERROR', `divergent debate ${strategy.debateLoopId} role order has duplicate stage slots.`);
+    }
+    const stageArities: Array<[TRole, number]> = [];
+    const ordered: TArtifact[] = [];
+    const turns: Array<Extract<BoundedDebateRoleGenerationResult<TOut, TArtifact>, { status: 'succeeded' }>> = [];
+    for (const slot of strategy.roleOrder) {
+      const arity = strategy.instanceCountFor(slot);
+      if (!Number.isInteger(arity) || arity < 1) {
+        throw new AppError(500, 'INTERNAL_ERROR', `divergent debate ${strategy.debateLoopId} stage ${slot} has invalid instance count ${arity}.`);
+      }
+      stageArities.push([slot, arity]);
+      for (let instanceIndex = 0; instanceIndex < arity; instanceIndex += 1) {
+        const priorRoleArtifactHashes: Partial<Record<TRole, string>> = {};
+        for (const artifact of ordered) {
+          const { slotId, hash } = strategy.priorRoleArtifactHashOf(artifact);
+          priorRoleArtifactHashes[slotId] = hash;
+        }
+        const ctx: BoundedDebateRoleContext<THandoff, TRole, TArtifact, TInputs> = {
+          ...base,
+          slotId: slot,
+          priorRoleArtifacts: [...ordered],
+          priorRoleArtifactHashes,
+          invocationInputs: perInstance(slot, instanceIndex, [...ordered]),
+        };
+        const turn = await this.generateRoleArtifact(strategy, ctx);
+        if (turn.status !== 'succeeded') {
+          return { status: 'blocked', failed_slot: slot, failed_instance_index: instanceIndex, turn, ordered_role_artifacts: ordered };
+        }
+        ordered.push(turn.role_artifact);
+        turns.push(turn);
+      }
+    }
+    const loop_transcript_hash = this.hash([
+      strategy.debateLoopId,
+      stageArities,
       ordered.map((artifact) => strategy.priorRoleArtifactHashOf(artifact).hash),
     ]);
     return {
