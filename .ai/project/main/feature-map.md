@@ -46,9 +46,9 @@ Project: `main`
 | T-119 adaptive-llm-systems-standard-pipeline-expansion | in-progress | dev-docs/active/adaptive-llm-systems-standard-pipeline-expansion |
 | T-120 adaptive-llm-systems-literature-pipeline-completion | in-progress | dev-docs/active/adaptive-llm-systems-literature-pipeline-completion |
 | T-121 literature-retrieval-pgvector-index-design | archived | dev-docs/archive/literature-retrieval-pgvector-index-design |
-| T-122 literature-scaleout-corpus-strategy | in-progress | dev-docs/active/literature-scaleout-corpus-strategy |
-| T-125 literature-balanced-corpus-scaleout-v2 | in-progress | dev-docs/active/literature-balanced-corpus-scaleout-v2 |
-| T-126 literature-rag-frontier-tech-radar | in-progress | dev-docs/active/literature-rag-frontier-tech-radar |
+| T-122 literature-scaleout-corpus-strategy | archived | dev-docs/archive/literature-scaleout-corpus-strategy |
+| T-125 literature-balanced-corpus-scaleout-v2 | archived | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |
+| T-126 literature-rag-frontier-tech-radar | archived | dev-docs/archive/literature-rag-frontier-tech-radar |
 
 ### F-001 Research Lifecycle Governance Core
 

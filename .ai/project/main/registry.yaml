@@ -1125,11 +1125,11 @@ tasks:
     updated: 2026-06-06
   - id: T-122
     slug: literature-scaleout-corpus-strategy
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/literature-scaleout-corpus-strategy
-    updated: 2026-06-06
+    dev_docs_path: dev-docs/archive/literature-scaleout-corpus-strategy
+    updated: 2026-06-19
   - id: T-123
     slug: topic-selection-productization-hardening
     status: done
@@ -1148,18 +1148,18 @@ tasks:
     updated: 2026-06-11
   - id: T-125
     slug: literature-balanced-corpus-scaleout-v2
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/literature-balanced-corpus-scaleout-v2
-    updated: 2026-06-15
+    dev_docs_path: dev-docs/archive/literature-balanced-corpus-scaleout-v2
+    updated: 2026-06-19
   - id: T-126
     slug: literature-rag-frontier-tech-radar
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/literature-rag-frontier-tech-radar
-    updated: 2026-06-16
+    dev_docs_path: dev-docs/archive/literature-rag-frontier-tech-radar
+    updated: 2026-06-19
   - id: T-127
     slug: topic-selection-backend-hardening-and-expansion
     status: planned

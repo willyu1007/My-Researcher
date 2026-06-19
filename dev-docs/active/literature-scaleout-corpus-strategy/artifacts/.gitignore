@@ -1,3 +1,0 @@
-# Generated run artifacts belong under .ai/.tmp, not versioned dev-docs.
-*.json
-**/*.json
