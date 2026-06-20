@@ -3556,6 +3556,8 @@ test('v1b workflow harness N6 applies loopback triage for debate escalation and 
   assert.equal(debateResult.authority_ref, null);
   assert.equal(debateResult.handoff_ref, null);
   assert.ok(debateResult.warnings.some((warning) => warning.code === 'N6_DEBATE_ESCALATION_RECOMMENDED'));
+  // f6: the provisional tripwire is gated to product runs — silent in this acceptance-mode escalation.
+  assert.equal(debateResult.warnings.some((warning) => warning.code === 'N6_DEBATE_THRESHOLDS_PROVISIONAL'), false);
   const debateTrace = await assertTraceLoopbackTargetCode(
     debateCtx,
     debateResult,
@@ -3771,6 +3773,9 @@ test('v1b workflow harness N6 admits runtime-verified loopback triage in product
   assert.equal(result.authority_ref, null);
   assert.equal(result.handoff_ref, null);
   assert.ok(result.warnings.some((warning) => warning.code === 'N6_DEBATE_ESCALATION_RECOMMENDED'));
+  // f6 (T-127 W-07): a PRODUCT run escalating under the still-provisional N6 debate-trigger thresholds
+  // (step e) emits the advisory tripwire — non-blocking (the loopback still routes); held until W-13.
+  assert.ok(result.warnings.some((warning) => warning.code === 'N6_DEBATE_THRESHOLDS_PROVISIONAL'));
   await assertTraceLoopbackTargetCode(
     ctx,
     result,

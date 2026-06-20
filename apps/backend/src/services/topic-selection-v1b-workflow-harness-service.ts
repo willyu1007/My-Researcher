@@ -3121,7 +3121,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           transitionKey: 'topic-selection.v1b.harness.n6-topic-question-candidates',
           warnings: [
             ...(validation.warnings ?? []),
-            ...this.n6LoopbackWarnings(loopbackPlan.value),
+            ...this.n6LoopbackWarnings(loopbackPlan.value, input.run_mode),
           ],
         }, {
           writeAuthority: async () => {},
@@ -8624,17 +8624,30 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return { ok: true };
   }
 
-  private n6LoopbackWarnings(plan: N6LoopbackPlan): TopicSelectionGateIssue[] {
+  private n6LoopbackWarnings(plan: N6LoopbackPlan, runMode: TopicSelectionAgentRunMode | null | undefined): TopicSelectionGateIssue[] {
     if (plan.loopbackTargetCode !== 'n6_debate_escalation') {
       return [];
     }
-    return [
+    const warnings: TopicSelectionGateIssue[] = [
       warning(
         'N6_DEBATE_ESCALATION_RECOMMENDED',
         'N6 loopback triage recommends debate escalation before retrying candidate generation.',
         plan.affectedRefs,
       ),
     ];
+    // T-127 W-07 (step f6): the N6 debate-trigger thresholds (step e) are still PROVISIONAL and must not
+    // silently govern a product run. When a product run escalates to the bounded divergent debate under
+    // those un-calibrated thresholds, emit the tripwire — advisory (non-blocking), mirroring the N8 DP-3.3
+    // tripwire. Formal semantics: N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE (held until W-13 calibration).
+    const thresholds = this.getNodePolicy('topic-selection.v1b.generate-topic-question-candidates.v1').n6_debate_trigger_thresholds ?? null;
+    if (Boolean(thresholds?.provisional) && runMode === 'product') {
+      warnings.push(warning(
+        'N6_DEBATE_THRESHOLDS_PROVISIONAL',
+        'N6 debate-trigger thresholds are still provisional (W-07 step e) and governed a product run; calibrate against real N6 candidate-quality data (W-13).',
+        plan.affectedRefs,
+      ));
+    }
+    return warnings;
   }
 
   private validateAndBuildN6Candidates(input: {
