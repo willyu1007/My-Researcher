@@ -8,6 +8,7 @@ import {
   type TopicSelectionAgentExecutionSpec,
   type TopicSelectionAgentRunMode,
 } from './topic-selection-agent-profile-contracts.js';
+import { TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER } from './topic-selection-v1b-workflow-harness-contracts.js';
 
 export const TOPIC_SELECTION_DEBATE_SCENARIO_CONTRACT_SCHEMA_VERSION =
   'TopicSelectionDebateScenarioContract@v1' as const;
@@ -531,11 +532,11 @@ export const TOPIC_SELECTION_V1B_N6_GENERATE_TOPIC_QUESTION_CANDIDATES_NODE_ID =
   'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
 export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_POLICY_ID =
   'topic-selection.v1b.n6-divergent-candidate-debate.v1' as const;
-export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_SLOT_IDS = [
-  'n6_debate_explorer',
-  'n6_debate_critic',
-  'n6_debate_arbiter',
-] as const;
+// Single-sourced from the harness role order (the runtime walks runDivergentLoop over ROLE_ORDER, and
+// the scenario's slot_ids MUST equal it) — re-exported so the runtime-order and scenario-config views
+// cannot drift; the schema test still pins role_stage_slots[].slot_id against this.
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_SLOT_IDS =
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER;
 export type TopicSelectionV1bN6DivergentDebateScenarioSlotId =
   (typeof TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_SLOT_IDS)[number];
 
