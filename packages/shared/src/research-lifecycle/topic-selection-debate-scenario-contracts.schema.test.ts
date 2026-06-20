@@ -3,9 +3,12 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import {
   createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContract,
+  createTopicSelectionV1bN6DivergentDebateScenarioContract,
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_SLOT_IDS,
   topicSelectionDebateScenarioContractSchema,
   topicSelectionV1aGenerateNeedCandidateDebateExecutionPlanSchema,
 } from './topic-selection-debate-scenario-contracts.js';
+import { TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER } from './topic-selection-v1b-workflow-harness-contracts.js';
 
 async function validatesBody(schema: Record<string, unknown>, body: unknown): Promise<boolean> {
   const app = Fastify();
@@ -49,6 +52,29 @@ test('topic-selection debate scenario contract schema accepts v1a need-discovery
       'arbiter.final_synthesis',
     ],
   );
+  assert.equal(JSON.stringify(contract).includes('temperature'), false);
+});
+
+test('topic-selection debate scenario contract schema accepts the v1b N6 divergent contract + slot ids match the role order', async () => {
+  const contract = createTopicSelectionV1bN6DivergentDebateScenarioContract();
+
+  assert.equal(await validatesBody(topicSelectionDebateScenarioContractSchema, contract), true);
+  assert.equal(contract.node_id, 'topic-selection.v1b.generate-topic-question-candidates.v1');
+  assert.equal(contract.role_stage_slots.length, 3);
+  // The scenario slot ids MUST equal the runtime role order (runDivergentLoop walks these) — one invariant.
+  const slotIds = contract.role_stage_slots.map((slot) => slot.slot_id);
+  assert.deepEqual(slotIds, [...TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_SLOT_IDS]);
+  assert.deepEqual(slotIds, [...TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER]);
+  // explorer fans out (default 2, up to 3); arbiter is the terminal singleton producing the gate-facing draft.
+  const explorer = contract.role_stage_slots.find((slot) => slot.slot_id === 'n6_debate_explorer');
+  assert.equal(explorer?.instance_policy.default_instances, 2);
+  assert.equal(explorer?.instance_policy.max_instances, 3);
+  const arbiter = contract.role_stage_slots.find((slot) => slot.slot_id === 'n6_debate_arbiter');
+  assert.equal(arbiter?.instance_policy.max_instances, 1);
+  assert.equal(arbiter?.instance_policy.merge_output_as, 'external_structured_output');
+  assert.equal(arbiter?.codex_substitution_policy.allowed, false);
+  assert.equal(contract.artifact_contract.final_external_output_slot_id, 'n6_debate_arbiter');
+  assert.equal(contract.validation_contract.max_persisted_candidates, 5);
   assert.equal(JSON.stringify(contract).includes('temperature'), false);
 });
 

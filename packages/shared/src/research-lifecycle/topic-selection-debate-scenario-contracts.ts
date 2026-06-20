@@ -518,3 +518,148 @@ export function createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContra
     },
   };
 }
+
+// ── T-127 W-07 (D-T127-02) — v1b N6 divergent topic-question candidate debate ────────────────────
+// Mirrors the V1A divergent scenario above (explorer/critic FAN OUT then a single arbiter), but with
+// 3 stages — N8's repair + V1A's issue-framing fold into the single terminal arbiter, whose
+// `external_structured_output` IS the gate-facing TopicQuestionCandidateSet draft. The slot_ids MUST
+// match TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER (harness-contracts) — the runtime walks
+// runDivergentLoop over them; a cross-check test pins the agreement.
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_SCENARIO_ID =
+  'topic-selection.debate.v1b-n6-topic-candidates.v1' as const;
+export const TOPIC_SELECTION_V1B_N6_GENERATE_TOPIC_QUESTION_CANDIDATES_NODE_ID =
+  'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_POLICY_ID =
+  'topic-selection.v1b.n6-divergent-candidate-debate.v1' as const;
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_SLOT_IDS = [
+  'n6_debate_explorer',
+  'n6_debate_critic',
+  'n6_debate_arbiter',
+] as const;
+export type TopicSelectionV1bN6DivergentDebateScenarioSlotId =
+  (typeof TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_SLOT_IDS)[number];
+
+export function createTopicSelectionV1bN6DivergentDebateScenarioContract(): TopicSelectionDebateScenarioContract {
+  return {
+    schema_version: TOPIC_SELECTION_DEBATE_SCENARIO_CONTRACT_SCHEMA_VERSION,
+    scenario_id: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_SCENARIO_ID,
+    node_id: TOPIC_SELECTION_V1B_N6_GENERATE_TOPIC_QUESTION_CANDIDATES_NODE_ID,
+    debate_policy_id: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_POLICY_ID,
+    contract_version: 'v1',
+    status: 'active',
+    role_stage_slots: [
+      {
+        slot_id: 'n6_debate_explorer',
+        role: 'explorer',
+        stage: 'fan_out_framing',
+        profile_id: 'topic-selection.v1b.n6-debate.explorer.v1',
+        input_context_family: 'exploration_context',
+        output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
+        schema_name: 'topic_selection_v1b_n6_divergent_debate_role_output',
+        prompt_template_id: 'topic-selection-v1b-n6-debate-explorer',
+        prompt_template_version: 'v1',
+        instance_policy: {
+          min_instances: 1,
+          max_instances: 3,
+          default_instances: 2,
+          allow_duplicate_model_options: true,
+          diversity_policy: 'prefer_prompt_or_context_angle_diversity',
+          merge_output_as: 'role_level_summary',
+        },
+        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+        codex_substitution_policy: {
+          allowed: true,
+          requires_operator_approval: false,
+          allowed_run_modes: ['acceptance', 'product'],
+        },
+      },
+      {
+        slot_id: 'n6_debate_critic',
+        role: 'deep_critic',
+        stage: 'fan_out_challenge',
+        profile_id: 'topic-selection.v1b.n6-debate.critic.v1',
+        input_context_family: 'exploration_context',
+        output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
+        schema_name: 'topic_selection_v1b_n6_divergent_debate_role_output',
+        prompt_template_id: 'topic-selection-v1b-n6-debate-critic',
+        prompt_template_version: 'v1',
+        instance_policy: {
+          min_instances: 1,
+          max_instances: 3,
+          default_instances: 1,
+          allow_duplicate_model_options: true,
+          diversity_policy: 'prefer_critique_angle_diversity',
+          merge_output_as: 'role_level_summary',
+        },
+        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+        codex_substitution_policy: {
+          allowed: true,
+          requires_operator_approval: false,
+          allowed_run_modes: ['acceptance', 'product'],
+        },
+      },
+      {
+        slot_id: 'n6_debate_arbiter',
+        role: 'arbiter',
+        stage: 'final_synthesis',
+        profile_id: 'topic-selection.v1b.n6-debate.arbiter.v1',
+        input_context_family: 'arbiter_context',
+        output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
+        schema_name: 'topic_selection_v1b_n6_divergent_debate_role_output',
+        prompt_template_id: 'topic-selection-v1b-n6-debate-arbiter',
+        prompt_template_version: 'v1',
+        instance_policy: {
+          min_instances: 1,
+          max_instances: 1,
+          default_instances: 1,
+          allow_duplicate_model_options: false,
+          diversity_policy: null,
+          merge_output_as: 'external_structured_output',
+        },
+        allowed_execution_modes: ['mocked_llm', 'provider_llm'],
+        codex_substitution_policy: {
+          allowed: false,
+          requires_operator_approval: false,
+          allowed_run_modes: [],
+        },
+      },
+    ],
+    provider_selection_policy: {
+      default_model_option_use_when: 'default_provider_run',
+      explicit_model_option_allowed: true,
+      automatic_fallback: false,
+      provider_failure_result: 'blocked',
+    },
+    failure_policy: {
+      max_rounds: 3,
+      llm_failure_result: 'blocked',
+      malformed_output_result: 'blocked',
+      supplemental_round_is_retry: false,
+      require_manual_rerun_for_provider_change: true,
+    },
+    artifact_contract: {
+      required_artifact_keys: [
+        'debate_role_output',
+        'debate_role_level_summary',
+        'debate_final_synthesis',
+      ],
+      forbid_raw_debate_transcript: true,
+      forbid_hidden_reasoning: true,
+      final_external_output_slot_id: 'n6_debate_arbiter',
+    },
+    validation_contract: {
+      required_downstream_gates: [
+        'n6_topic_question_candidate_set_schema_validation',
+        'n6_candidate_draft_admission',
+        'n6_debate_escalation_routing',
+      ],
+      authority_object: 'TopicQuestionCandidate',
+      forbidden_authority_objects: [
+        'TopicQuestionCandidateSet',
+        'TopicQuestionContract',
+        'ResearchSlice',
+      ],
+      max_persisted_candidates: 5,
+    },
+  };
+}
