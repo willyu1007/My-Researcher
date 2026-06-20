@@ -797,9 +797,13 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
       // provider_llm is NOT a debate-runtime mode) and product run_mode forbids mocked_llm, so
       // barring the arbiter from codex (the prior v1a arbiter-final stance) would DEADLOCK a codex
       // N6 debate in product. The scenario's per-slot codex_substitution_policy.allowed:false still
-      // holds and is unaffected: that forbids OVERLAYING codex on the arbiter within a non-codex
-      // base run — a distinct substitution-overlay concern, gated separately from this base-mode
-      // eligibility. Default run_mode_eligibility applies (codex_assisted in acceptance + product).
+      // holds and is unaffected: it forbids OVERLAYING codex on the arbiter within a non-codex base
+      // run — a distinct substitution-overlay concern. NOTE: that policy is enforced ONLY by the v1a
+      // need-discovery loop (topic-selection-need-discovery-debate-loop-service.ts:1245), NOT by the
+      // N8/N6 shared-core runDivergentLoop path, which threads ONE uniform execution_mode and never
+      // consults it. For N6 the field is declarative — f3/f4 mirror N8 and MUST NOT port the v1a
+      // enforcement, else the codex arbiter re-deadlocks at a second layer. Default
+      // run_mode_eligibility applies (codex_assisted in acceptance + product).
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
       output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
     }),
