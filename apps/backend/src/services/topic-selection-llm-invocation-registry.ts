@@ -67,8 +67,9 @@ export const TOPIC_SELECTION_OUTPUT_SCHEMA_NAMES = new Set<string>([
   'topic_selection_resource_sampling_canary',
   // v1b harness runtime slots
   'TopicSelectionV1bN8BoundedDebateRoleOutput@v1',
-  // v1b N6 divergent candidate debate role output (W-07)
-  'topic_selection_v1b_n6_divergent_debate_role_output',
+  // v1b N6 divergent candidate debate role output (W-07) — canonical PascalCase value matching the
+  // runtime envelope schema_name (= OUTPUT_CONTRACT) + the scenario role_stage_slots schema_name.
+  'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
   // v1c
   'TopicSelectionPromotionDecisionSupportLlmDraft',
   'TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1',

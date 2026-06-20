@@ -26,6 +26,7 @@ import type {
 import {
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
   type TopicSelectionV1bN6DivergentDebateBlockerCode,
   type TopicSelectionV1bN6DivergentDebateRolePayload,
   type TopicSelectionV1bN6DivergentDebateRoleSlotId,
@@ -303,6 +304,13 @@ export class TopicSelectionV1bN6DivergentDebateAdmissionService {
       }
       if (candidate.structured_output.role_slot !== slot) {
         return this.block('N6_DIVERGENT_DEBATE_ROLE_OUTPUT_MISMATCH', 'N6 divergent debate role output role_slot does not match its runtime slot.', { slot, actual_role_slot: candidate.structured_output.role_slot });
+      }
+      if (candidate.structured_output.schema_version !== TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION) {
+        // The model output must self-identify the EXACT contract version. The orchestrator schema only
+        // requires a non-empty schema_version (any value), and the artifact's output_contract is set by
+        // the trusted strategy — so without this per-instance check the model output's OWN schema_version
+        // field is never pinned, and a role output carrying a wrong/missing schema_version is admitted.
+        return this.block('N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION', 'N6 divergent debate role output schema_version does not match the frozen role-output contract version.', { slot, actual_schema_version: candidate.structured_output.schema_version, expected_schema_version: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION });
       }
       const forbiddenKey = this.findForbiddenAuthorityKey(candidate.structured_output);
       if (forbiddenKey) {

@@ -654,7 +654,12 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
     input: GenerateTopicSelectionV1bN6DivergentDebateInput,
   ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
     const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
-    // Shared N6 context resolved ONCE (reused by the single-agent gate bridge below — one resolution path).
+    // Shared N6 context resolved via the SAME public resolver the single-agent draft path uses
+    // (resolveSharedN6RuntimeContext — DMP-10 one resolution method). The gate bridge below re-invokes
+    // generateDraftArtifact, which resolves it AGAIN from the same request+mode; that re-resolution is
+    // deterministic (pure reads + canonicalHash, no control-plane writes within a run), so the bridged
+    // draft's sourceHashes lineage matches the debate roles'. (Threading `shared` into the bridge to
+    // skip the second resolve is a possible optimization, not a correctness requirement.)
     const shared = await this.singleAgent.resolveSharedN6RuntimeContext(input.request, input.generation_mode);
     const handoff: V1bN6DebateHandoff = {
       request: input.request,

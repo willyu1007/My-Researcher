@@ -561,7 +561,7 @@ export function createTopicSelectionV1bN6DivergentDebateScenarioContract(): Topi
         profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
         input_context_family: 'exploration_context',
         output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
-        schema_name: 'topic_selection_v1b_n6_divergent_debate_role_output',
+        schema_name: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
         prompt_template_id: 'topic-selection-v1b-n6-debate-explorer',
         prompt_template_version: 'v1',
         instance_policy: {
@@ -586,7 +586,7 @@ export function createTopicSelectionV1bN6DivergentDebateScenarioContract(): Topi
         profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
         input_context_family: 'exploration_context',
         output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
-        schema_name: 'topic_selection_v1b_n6_divergent_debate_role_output',
+        schema_name: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
         prompt_template_id: 'topic-selection-v1b-n6-debate-critic',
         prompt_template_version: 'v1',
         instance_policy: {
@@ -611,7 +611,7 @@ export function createTopicSelectionV1bN6DivergentDebateScenarioContract(): Topi
         profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
         input_context_family: 'arbiter_context',
         output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
-        schema_name: 'topic_selection_v1b_n6_divergent_debate_role_output',
+        schema_name: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
         prompt_template_id: 'topic-selection-v1b-n6-debate-arbiter',
         prompt_template_version: 'v1',
         instance_policy: {
@@ -622,7 +622,10 @@ export function createTopicSelectionV1bN6DivergentDebateScenarioContract(): Topi
           diversity_policy: null,
           merge_output_as: 'external_structured_output',
         },
-        allowed_execution_modes: ['mocked_llm', 'provider_llm'],
+        // T-127 W-07 f0: base-mode codex eligibility matches the arbiter model profile (opened so a
+        // uniform codex_assisted N6 debate can run in product). codex_substitution_policy below stays
+        // allowed:false — that governs codex OVERLAY within a non-codex base run, a distinct concern.
+        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
         codex_substitution_policy: {
           allowed: false,
           requires_operator_approval: false,
