@@ -1,0 +1,21 @@
+version: 1
+task_id: T-128
+project: main
+slug: topic-selection-prompt-content-authoring
+status: planned
+updated: "2026-06-20"
+keywords:
+  - topic-selection
+  - prompt-authoring
+  - prompt-content
+  - product-grade-prompts
+  - prompt-versioning
+  - prompt-packet-hash
+  - n6-debate
+  - n8-debate
+  - v1a-need-discovery
+  - v1c-promotion
+  - depends:T-127
+  - depends:T-123
+  - reuses:T-112
+  - coordinates-with:W-13-calibration
