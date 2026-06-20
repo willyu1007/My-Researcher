@@ -165,6 +165,24 @@ export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS = {
   synthesizer_final: 'n8_debate_synthesizer_final',
 } as const;
 
+// T-127 W-07 (step f2) — v1b N6 divergent topic-question candidate debate role context profiles.
+// The invocation_slot_id values MUST equal the N6 divergent-debate role order
+// (TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER); a guard test pins that invariant.
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS = {
+  explorer:
+    'topic-selection.v1b.n6.divergent-debate.explorer.context-runtime@v1',
+  critic:
+    'topic-selection.v1b.n6.divergent-debate.critic.context-runtime@v1',
+  arbiter:
+    'topic-selection.v1b.n6.divergent-debate.arbiter.context-runtime@v1',
+} as const;
+
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS = {
+  explorer: 'n6_debate_explorer',
+  critic: 'n6_debate_critic',
+  arbiter: 'n6_debate_arbiter',
+} as const;
+
 export const TOPIC_SELECTION_V1C_N2_CONTEXT_RUNTIME_PROFILE_IDS = {
   promotion_support_llm_draft:
     'topic-selection.v1c.n2.promotion-support-llm-draft.context-runtime@v1',
@@ -384,6 +402,44 @@ const V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES = [
   'draft_admission',
   'deterministic_gate',
   'feedback_boundary',
+  'authority_boundary',
+] as const;
+
+// T-127 W-07 (step f2) — v1b N6 candidate-generation context facts the divergent-debate roles
+// preserve. Mirrors the non-debate N6 question_candidate_draft profile's grounding (selected
+// slice/option/constraint/intake + blocked-candidate context) so the arbiter's synthesized draft is
+// grounded identically to the single-agent N6 draft it substitutes for through the gate bridge (same
+// N6 candidate-set gate, validateAndBuildN6Candidates), plus the debate-threading facts the step-7
+// divergent strategy emits from prior-role artifacts (candidate_seed / critic_finding from the
+// explorer/critic turns, synthesis_resolution from the arbiter).
+const V1B_N6_DIVERGENT_DEBATE_PRESERVED_FACT_KINDS = [
+  ...COMMON_PRESERVED_FACT_KINDS,
+  'selected_slice_identity',
+  'n5_handoff',
+  'selected_option_identity',
+  'option_set_identity',
+  'constraint_profile',
+  'intake_readiness',
+  'evidence_ref',
+  'boundary_ref',
+  'assumption_ref',
+  'claim_ceiling',
+  'non_goal',
+  'source_health_warning',
+  'blocked_candidate_context',
+  'candidate_order',
+  'loopback_target',
+  'candidate_seed',
+  'critic_finding',
+  'synthesis_resolution',
+] as const;
+
+const V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES = [
+  'schema_validation',
+  'role_artifact_admission',
+  'dynamic_material_boundary',
+  'draft_admission',
+  'deterministic_gate',
   'authority_boundary',
 ] as const;
 
@@ -1049,6 +1105,49 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         preserved_fact_kinds: [...V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS],
         post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
         post_cache_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
+      }),
+      // T-127 W-07 (step f2) — v1b N6 divergent topic-question candidate debate role profiles.
+      // support_only_semantic (like the N8 debate roles): the gate-facing draft is minted by the
+      // SEPARATE single-agent bridge (step f4), not the debate role output; the arbiter only widens
+      // and ranks. All three share context_family v1b_n6_topic_question_generation.
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.explorer,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS.explorer,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n6_topic_question_generation',
+        estimated_input_token_target: 22000,
+        estimated_output_token_budget: 2000,
+        preserved_fact_kinds: [...V1B_N6_DIVERGENT_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES],
+      }),
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.critic,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS.critic,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n6_topic_question_generation',
+        estimated_input_token_target: 24000,
+        estimated_output_token_budget: 2000,
+        preserved_fact_kinds: [...V1B_N6_DIVERGENT_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES],
+      }),
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.arbiter,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS.arbiter,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n6_topic_question_generation',
+        estimated_input_token_target: 26000,
+        estimated_output_token_budget: 4096,
+        preserved_fact_kinds: [...V1B_N6_DIVERGENT_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES],
       }),
       contextPolicyProfile({
         context_policy_profile_id:

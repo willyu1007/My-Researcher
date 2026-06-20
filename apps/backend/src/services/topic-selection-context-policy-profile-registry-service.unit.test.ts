@@ -16,6 +16,8 @@ import {
   TOPIC_SELECTION_V1A_N8_INVOCATION_SLOT_IDS,
   TOPIC_SELECTION_V1B_N6_CONTEXT_RUNTIME_PROFILE_IDS,
   TOPIC_SELECTION_V1B_N6_INVOCATION_SLOT_IDS,
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS,
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS,
   TOPIC_SELECTION_V1B_N7_CONTEXT_RUNTIME_PROFILE_IDS,
   TOPIC_SELECTION_V1B_N7_INVOCATION_SLOT_IDS,
   TOPIC_SELECTION_V1B_N8_CONTEXT_RUNTIME_PROFILE_IDS,
@@ -30,6 +32,7 @@ import {
   TOPIC_SELECTION_V1C_N6_INVOCATION_SLOT_IDS,
   TopicSelectionContextPolicyProfileRegistryService,
 } from './topic-selection-context-policy-profile-registry-service.js';
+import { TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 
 test('context policy profile registry resolves resource sampling runtime profile', () => {
   const service = new TopicSelectionContextPolicyProfileRegistryService();
@@ -498,4 +501,69 @@ test('context policy profile registry treats schema-invalid profile rows as inva
 
   assert.equal(validation.valid, false);
   assert.equal(validation.issues[0]?.code, 'SCHEMA_VALIDATION_FAILED');
+});
+
+// T-127 W-07 (step f2): the 3 N6 divergent-debate role context profiles resolve under the existing
+// v1b_n6_topic_question_generation family, support_only_semantic (the gate-facing draft is minted by
+// the separate single-agent bridge in f4, not the debate role), and each role slot maps to exactly
+// one profile. resolveProfile throws on a miss (not null) — f3's strategy relies on that loud failure.
+test('context policy profile registry resolves the 3 N6 divergent-debate role profiles (f2)', () => {
+  const service = new TopicSelectionContextPolicyProfileRegistryService();
+
+  const byRole = {
+    explorer: {
+      profileId: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.explorer,
+      slotId: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS.explorer,
+      outputBudget: 2000,
+    },
+    critic: {
+      profileId: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.critic,
+      slotId: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS.critic,
+      outputBudget: 2000,
+    },
+    arbiter: {
+      profileId: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.arbiter,
+      slotId: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS.arbiter,
+      outputBudget: 4096,
+    },
+  } as const;
+
+  for (const role of Object.values(byRole)) {
+    const resolved = service.resolveProfile({
+      context_policy_profile_id: role.profileId,
+      invocation_slot_id: role.slotId,
+    });
+    assert.equal(resolved.profile.context_family, 'v1b_n6_topic_question_generation');
+    assert.equal(resolved.profile.functional_template, 'support_only_semantic');
+    assert.equal(resolved.profile.token_budget_policy.estimated_output_token_budget, role.outputBudget);
+    // required post-cache gates present (REQUIRED_POST_CACHE_GATES superset)
+    for (const gate of ['schema_validation', 'deterministic_gate', 'authority_boundary']) {
+      assert.equal(resolved.profile.cache_policy.post_cache_gates.includes(gate), true);
+    }
+    // debate-threading + N6 grounding facts preserved
+    assert.equal(
+      resolved.profile.compression_policy.preserved_fact_kinds.includes('critic_finding'),
+      true,
+    );
+    assert.equal(
+      resolved.profile.compression_policy.preserved_fact_kinds.includes('selected_slice_identity'),
+      true,
+    );
+  }
+
+  // Drift invariant: the context invocation_slot_id values MUST equal the N6 role order
+  // (runDivergentLoop walks ROLE_ORDER; CONTEXT_PROFILE_BY_SLOT in f3 keys on these).
+  assert.deepEqual(
+    Object.values(TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS),
+    [...TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER],
+  );
+
+  // GOTCHA pin: a missing profile id throws (loud), never returns null.
+  assert.throws(
+    () => service.resolveProfile({ context_policy_profile_id: 'topic-selection.v1b.n6.divergent-debate.missing@v1' }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.errorCode === 'INVALID_PAYLOAD'
+      && error.message === 'context policy profile does not exist.',
+  );
 });
