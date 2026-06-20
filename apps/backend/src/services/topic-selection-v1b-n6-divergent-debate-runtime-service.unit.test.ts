@@ -14,6 +14,7 @@ import { TopicSelectionModelProfileRegistryService } from './topic-selection-mod
 import { TopicSelectionPromptPacketRuntimeService } from './topic-selection-prompt-packet-runtime-service.js';
 import {
   PROMPT_TEMPLATE_ID_BY_SLOT,
+  PROMPT_TEMPLATE_VERSION,
   V1bN6DivergentDebateStrategy,
   type V1bN6DebateHandoff,
 } from './topic-selection-v1b-n6-divergent-debate-runtime-service.js';
@@ -62,6 +63,8 @@ test('f4 strategy: PROMPT_TEMPLATE_ID_BY_SLOT is single-sourced to the scenario 
     const stageSlot = scenario.role_stage_slots.find((item) => item.slot_id === slot);
     assert.ok(stageSlot, `scenario has stage slot ${slot}`);
     assert.equal(PROMPT_TEMPLATE_ID_BY_SLOT[slot], stageSlot!.prompt_template_id);
+    // also pin the version so a scenario version bump can't silently drift from the strategy.
+    assert.equal(PROMPT_TEMPLATE_VERSION, stageSlot!.prompt_template_version);
   }
 });
 

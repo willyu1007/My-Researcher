@@ -11,6 +11,7 @@
 // whose RoleArtifact / AdmissionExpectedIdentity types this strategy returns. Prompts are SKELETON (D1);
 // product-grade authoring is deferred to T-128.
 
+import { AppError } from '../errors/app-error.js';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -183,6 +184,13 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
 
   runtimeInvocationContextObject(ctx: V1bN6DebateRoleContext, sourceHashes: Record<string, string>): unknown {
     const index = this.roleOrder.indexOf(ctx.slotId);
+    const instanceIndex = ctx.invocationInputs.instance_index;
+    if (!Number.isInteger(instanceIndex) || instanceIndex < 0) {
+      // Loud failure if f5's perInstance ever forgets to thread the fan-out index — a missing index
+      // would silently produce a stable-but-wrong identity that admission (using the SAME hook as its
+      // builder) would still self-accept while diverging from a correctly-threaded real run.
+      throw new AppError(500, 'INTERNAL_ERROR', `N6 divergent debate ${ctx.slotId} turn is missing a valid fan-out instance_index.`);
+    }
     return {
       schema_version: TOPIC_SELECTION_RUNTIME_INVOCATION_CONTEXT_SCHEMA_VERSION,
       invocation_slot_id: ctx.slotId,
@@ -207,8 +215,10 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
         round_index: index + 1,
         role: null,
         stage: ctx.slotId,
-        // numeric fan-out worker index — makes explorer_0 vs explorer_1 produce distinct RIC hashes.
-        agent_instance_id: ctx.invocationInputs.instance_index,
+        // Contract-conformant STRING id (TopicSelectionRuntimeDebateContext.agent_instance_id is
+        // string|null — N8 + N6-single-agent emit null; a numeric value would fail the published RIC
+        // schema). String(index) still makes explorer_0 vs explorer_1 produce distinct RIC hashes.
+        agent_instance_id: String(instanceIndex),
         parent_invocation_attempt_ids_hash: this.hash(ctx.priorRoleArtifactHashesAll ?? {}),
         dynamic_material_refs_hash: this.hash(ctx.priorRoleArtifactHashesAll ?? {}),
       },
