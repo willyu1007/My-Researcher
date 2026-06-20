@@ -10,7 +10,7 @@
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
 | W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | **done（2026-06-18）** | D-T127-01；**收壳完成**：70 个纯助手（+ ref-builders/asserts 共 90 搬迁函数）全数析出至 **16 个兄弟模块**，harness **12,898→9,933 行（-23%）**，严格 DAG 无环；余即字面壳（生命周期 + 持久化 + stateful async runner + runner-local 类型助手）。每批 golden 守卫绿 + 全套件 **1469/0/35** byte-identical；独立逐字对抗评审 90 函数 0 缺陷（`wf_063839cb`）。`resolve*`/local-type 助手按 D-T123-03 范式留壳。 |
-| W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | planned | 待 |
+| W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | **in-progress** | a/core-gen/b 已落（见 Phase 3 记录）；原语=divergent_loop（3 角色，用户定）；共享 core 加法泛化 `runDivergentLoop`（Option A，N8/v1c byte-identical）+ N6 debate 契约。续 c–i |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
 | W-10 工作台收口审计 + 只读节点文档化 | 4 | 核心 | planned | 待 |
@@ -160,6 +160,20 @@
 - **收壳达成**：harness **12,898 → 9,933 行（-2,965，-23%）**；析出 **16 个兄弟模块**（pure-utils/dedup-utils 为叶，gate-utils/predicates/authority-hash→pure-utils，ref-builders/asserts/parsers→下层，节点模块 n4–n8/node-misc/intake-readiness/route-handoff→下层），**严格 DAG 无环、无模块反向 import harness service**。剩余 harness 即**字面壳**：生命周期（`invokeNode`）+ 持久化 + stateful per-node async runner + 绑定 runner-local 上下文类型的助手。完整性核查确认余下每个 sync 方法皆 `this.<stateful>` 或 local-type 绑定（无遗漏纯助手）。
 - **独立逐字对抗评审**（工作流 `wf_063839cb`，10 个本会话模块 vs 基线 `015fdc6c`）：**CLEAN**——10 模块 / **90 个搬迁函数**逐字 diff，**0 确认缺陷**；每个函数与基线 `private` 原型 token-for-token 一致，差异仅为允许的三类（`private`→`export function`、`this.<已抽兄弟>`→bare/别名、缩进降一级）；逐项核对字符串字面量、枚举/数值常量、运算符、字段访问、分支、正则、默认值均无偏移。此为全套件 byte-identity 之外的独立兜底（防"测试语料内等价、未测输入分叉"）。
 
-### Phase 3 — 能力扩展 / 选项 B（待开工）
+### Phase 3 — 能力扩展 / 选项 B（进行中 2026-06-19）
+
+**W-07 step a — D-T127-02 登记 + 原语锁定 — done（`948aac89` / `736d2340`）**
+- 在 T-088 `06-joint-decisions.md` 登记 **D-T127-02**（镜像 D-T127-01 五段式）：N6 节点体加法式 debate-escalation 分支，不改 invokeNode 生命周期 / replay-key / route-edge，replay byte-identity 逐 slice 守卫；协调 T-089 N6 `debate_primitive` reserved→implemented。
+- 原语 design gate（02-architecture §3.1）关定 **divergent_loop（3 角色 explorer→critic→arbiter，用户两轮确认）** —— 贴 N6 生成型探索，镜像 V1A divergent 角色编排。**调和 DMP-10**：读 `bounded-debate-core` 的 `runLoop` 发现它只支持 bounded_sequence 固定序列走、装不下 divergent；用户定**加法泛化共享 core**（非复制 V1A 独立 service）。
+
+**W-07 core-gen slice — 共享 core 加法泛化 `runDivergentLoop` — done（`b91b2625` + `1817c5c6` hardening）**
+- **Option A**（用户经鲁棒性/复杂性评估确认）：在同一 `TopicSelectionBoundedDebateCoreService` 加 `runDivergentLoop` 方法，每 turn 复用**现有** `generateRoleArtifact`；`runLoop` + `generateRoleArtifact` + `BoundedDebateStrategy` **字节零改**（122 插入/0 删除）→ **N8/v1c-N2 byte-identity 构造性成立**。新增 `DivergentDebateStrategy extends BoundedDebateStrategy` + `instanceCountFor` 扇出元数；`DivergentDebateLoopResult`；divergent `loop_transcript_hash = canonicalHash([loopId, [[slot,arity]…], ordered hashes])`。DMP-10 单 core 保持。
+- 充分性 + 质量审查（3 评审）：adequacyVerdict=**SUFFICIENT_FOR_N6**（summary 聚合/记录、admission 重算、gate-bridge 都落 N6 strategy/consumer，**无需再动共享 core**）。修一个真缺陷（fan-out hash-map last-wins 会让 N6 arbiter 静默漏折 explorer 实例 → replay 分叉）：加法补 `priorRoleArtifactHashesAll`（全实例）+ 终端单例守卫 + arity `Number.isFinite` 加固 + 确定性契约文档。守卫：N8/v1c-N2 **40/0** 零基线改 + divergent 核心测试 **6/0** + 全套件 **1475/0/35**。
+
+**W-07 step b — N6 debate 角色契约 — done（`b584166c`）**
+- 在 `topic-selection-v1b-workflow-harness-contracts.ts` 紧挨 N8 块加 N6 divergent 契约（命名镜像 N8 + `DIVERGENT_DEBATE` 限定词）：role-order（3 角色）+ slot-id + LOOP_ID（byte-bearing 单源）+ ROLE_OUTPUT_SCHEMA_VERSION + `TopicSelectionV1bN6DivergentDebateRolePayload`（按 role_slot 判别：explorer→candidate_seeds / critic→critic_findings / arbiter→synthesized_candidate_set）+ debate-admission blocker 码 union。
+- **arbiter→gate 对齐（零新 gate）**：arbiter `synthesized_candidate_set` 即既有 `TopicSelectionV1bTopicQuestionCandidateSetDraftPayload`（=FormTopicQuestionLlmOutput），既有 N6 gate（`isN6DraftPayload`/`validateAndBuildN6Candidates`）原样接受；runtime（step f）解包成裸 draft 再记 gate 工件。纯加法（step f 前无消费者）；shared/backend tsc 0、shared 256/0、backend 1475/0/35。
+- 续：c scenario 注册 → d profile（DP-3.5）→ e 触发阈值 → f N6 runtime+admission（用 `runDivergentLoop`）→ g harness hook → h e2e+replay 守卫 → i matrix+T-089。
+
 ### Phase 4 — 工作台收口 / 选项 C（待开工）
 ### Phase 5 — 阈值标定 / 选项 D（延期尾巴，待语料）
