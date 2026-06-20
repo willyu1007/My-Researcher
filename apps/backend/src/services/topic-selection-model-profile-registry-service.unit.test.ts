@@ -18,6 +18,11 @@ import {
   PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import {
+  TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import {
   createDefaultTopicSelectionModelProfileRegistry,
   TOPIC_SELECTION_CONFIRMATION_SEMANTIC_REVIEW_SINGLE_AGENT_PROFILE_ID,
   TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID,
@@ -602,4 +607,38 @@ test('model profile registry validates provider_overrides keys per provider (T-1
     badShapeService.validateRegistry().issues.some((issue) => issue.code === 'SCHEMA_VALIDATION_FAILED'),
     true,
   );
+});
+
+// f0 (T-127 W-07 step f): the 3 N6 divergent-debate roles must share codex eligibility so a uniform
+// codex_assisted N6 debate can run in product (the N8-mirror runtime threads ONE execution_mode and
+// product forbids mocked_llm). This is a tripwire: re-barring the arbiter from codex (the prior v1a
+// stance) would re-introduce the product deadlock and turn this test red.
+test('model profile registry: N6 divergent-debate arbiter is codex-eligible in product (f0, aligns N8)', () => {
+  const service = new TopicSelectionModelProfileRegistryService();
+
+  for (const profileId of [
+    TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
+    TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
+    TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
+  ]) {
+    const resolved = service.resolveProfile({
+      profile_id: profileId,
+      execution_mode: 'codex_assisted',
+      run_mode: 'product',
+    });
+    // Pre-f0 the arbiter's run_mode_eligibility.codex_assisted was [] → this threw
+    // 'run_mode is not allowed by model profile.'. f0 removed that override.
+    assert.equal(resolved.profile.allowed_execution_modes.includes('codex_assisted'), true);
+    assert.deepEqual(resolved.profile.run_mode_eligibility.codex_assisted, ['acceptance', 'product']);
+  }
+
+  // The arbiter specifically — the gate-facing synthesizer — now mirrors N8: codex permitted as a
+  // base execution mode (distinct from the scenario's codex_substitution_policy, which stays false).
+  const arbiter = service.resolveProfile({
+    profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
+    execution_mode: 'codex_assisted',
+    run_mode: 'product',
+  });
+  assert.equal(arbiter.profile.role_family, 'arbiter');
+  assert.equal(arbiter.profile.output_contract, 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1');
 });

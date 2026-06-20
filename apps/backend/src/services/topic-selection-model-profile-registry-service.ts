@@ -752,7 +752,9 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
     // T-127 W-07 (D-T127-02, DP-3.5) — v1b N6 divergent topic-question candidate debate roles.
     // explorer/critic FAN OUT (instance arity from the scenario instance_policy) then a single
     // terminal arbiter; the arbiter is the only candidate-bearing role (emits the gate-facing
-    // TopicQuestionCandidateSet draft) and excludes codex_assisted like the V1A arbiter-final.
+    // TopicQuestionCandidateSet draft). All three share the N8 shared-profile execution eligibility
+    // (mocked_llm / provider_llm / codex_assisted) — the arbiter's codex eligibility was opened in
+    // f0 to mirror N8's gate-facing synthesizer; see the f0 note on the arbiter profile below.
     profileBase({
       profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
       profile_function: 'v1b_n6_divergent_debate_exploration',
@@ -789,11 +791,16 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'separate_rejected_framings_with_authority_preservation',
         'prepare_deterministic_n6_candidate_set_gate',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm'],
-      run_mode_eligibility: {
-        ...DEFAULT_RUN_MODE_ELIGIBILITY,
-        codex_assisted: [],
-      },
+      // f0 (T-127 W-07 step f): the arbiter is codex-eligible like N8's gate-facing synthesizer
+      // (the shared N8 bounded-debate profile allows codex on all roles, see ~L739). The N8-mirror
+      // debate runtime threads ONE execution_mode across all roles (codex_assisted | mocked_llm —
+      // provider_llm is NOT a debate-runtime mode) and product run_mode forbids mocked_llm, so
+      // barring the arbiter from codex (the prior v1a arbiter-final stance) would DEADLOCK a codex
+      // N6 debate in product. The scenario's per-slot codex_substitution_policy.allowed:false still
+      // holds and is unaffected: that forbids OVERLAYING codex on the arbiter within a non-codex
+      // base run — a distinct substitution-overlay concern, gated separately from this base-mode
+      // eligibility. Default run_mode_eligibility applies (codex_assisted in acceptance + product).
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
       output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
     }),
     profileBase({
