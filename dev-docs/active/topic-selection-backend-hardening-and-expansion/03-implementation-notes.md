@@ -10,7 +10,7 @@
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
 | W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | **done（2026-06-18）** | D-T127-01；**收壳完成**：70 个纯助手（+ ref-builders/asserts 共 90 搬迁函数）全数析出至 **16 个兄弟模块**，harness **12,898→9,933 行（-23%）**，严格 DAG 无环；余即字面壳（生命周期 + 持久化 + stateful async runner + runner-local 类型助手）。每批 golden 守卫绿 + 全套件 **1469/0/35** byte-identical；独立逐字对抗评审 90 函数 0 缺陷（`wf_063839cb`）。`resolve*`/local-type 助手按 D-T123-03 范式留壳。 |
-| W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | **in-progress** | a/core-gen/b/c/d1/e 已落（见 Phase 3 记录）；原语=divergent_loop（3 角色，用户定）；共享 core 加法泛化 `runDivergentLoop`（Option A，N8/v1c byte-identical）+ N6 debate 契约 + scenario/profile 注册 + 触发阈值（advisory）。续 f（runtime+admission）–i |
+| W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | **in-progress** | a/core-gen/b/c/d1/e 已落（见 Phase 3 记录）；原语=divergent_loop（3 角色，用户定）；共享 core 加法泛化 `runDivergentLoop`（Option A，N8/v1c byte-identical）+ N6 debate 契约 + scenario/profile 注册 + 触发阈值（advisory）。**step f 计划 2026-06-20 锁定**（f0–f6，五项决策定，prompt 正文延期 T-128）。续 f0（d1 arbiter codex 修订）→ f6 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
 | W-10 工作台收口审计 + 只读节点文档化 | 4 | 核心 | planned | 待 |
@@ -182,6 +182,26 @@
 - 纯契约/策略数据，无 runtime：升级判定在上游 `n6_loopback_triage` LLM 工件，harness 仅校验/路由（DMP-10 / T-088 D6，无第二判定路径，无 N8 式 compute 函数）。镜像 W-06 N8 块。
 - 加：`TopicSelectionV1bN6DebateTriggerThresholds` 接口（weak_blocked_fraction/count、admissible_floor、duplicate_distinct_ratio/overlap_count）+ node-policy 可选字段 `n6_debate_trigger_thresholds` + Zod validator；`N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` 常量（镜像 N8，非阻断、需 stakeholder sign-off，W-13 标定前 hold）；N6 node policy 填 `provisional:true` + `n6_debate_thresholds_provisional` tripwire warning；守卫 test（provisional 早翻即红）。阈值→triage prompt 注入 + tripwire emit 留 step f。shared 258/0、backend 1475/0/35、双 tsc 0。
 - 续：f N6 runtime+admission（用 `runDivergentLoop` + DivergentDebateStrategy 实现 + per-role context-policy profile〔补 d2〕+ prompt 模板内容 + output schema JSON + 阈值注入 triage prompt + 武装 provisional tripwire）→ g harness hook（`runN6GenerateTopicQuestionCandidates` 升级死端，加法）→ h e2e+N6 replay 守卫 → i matrix（N6 行 reserved→implemented）+T-089 trace。
+
+**W-07 step f — N6 完整运行时 — 计划锁定（2026-06-20 对齐，待开工）**
+- 研究（study workflow `wmkkhjty7`）核实:N8 运行时不在 harness 内,而是**独立专用文件** `topic-selection-v1b-n8-bounded-debate-runtime-service.ts`（`runDebate` :195-285）+ `*-n8-bounded-debate-admission-service.ts`;N6 镜像此文件结构,调 `core.runDivergentLoop`（core-service.ts:268）而非 `runLoop`。dead-end 定位:harness-service.ts:3109-3120 + 8628-8638（今仅发 `N6_DEBATE_ESCALATION_RECOMMENDED` warning,无真跑）。
+- **加法镜像不变量**:`runLoop`/`generateRoleArtifact` 不动 → N8/v1c byte-identical;arbiter `synthesized_candidate_set` 拆成裸 5-key draft（contracts.ts:1853-1857）→ 走**既有** N6 gate `validateAndBuildN6Candidates`,零新 gate;升级判定仍归上游 triage 工件,harness 只校验/路由（DMP-10 / T-088 D6,f6 落在 D-T127-02 治理下）。
+- **五项决策锁定（2026-06-20，用户拍板）**:
+  - **D1 prompt 深度** = 骨架（够驱动 codex/mocked e2e + pin `prompt_packet_hash`）;产品级正文**延期到新任务包 T-128**（`topic-selection-prompt-content-authoring`,范围=全选题节点,commit `16f272f9`）。
+  - **D2 执行模式** = codex_assisted 统一默认（镜像 N8 的 `codex|mocked` 统一 runtime,provider 非 debate 模式）;测试用 fixture `codex_response` 保确定性,`mocked_llm` 非必需。
+  - **D2-调和（→ f0）** = 放开 N6 arbiter 的 codex:修订 d1 的 `topic-selection-model-profile-registry-service.ts:792-796`（arbiter `allowed_execution_modes` 加回 `codex_assisted`、去掉 `run_mode_eligibility.codex_assisted:[]`）,对齐 N8 共享 profile（其 synthesizer 本就许 codex,:739）。**理由（决定性）**:N8 debate runtime 类型为 `codex_assisted|mocked_llm`,arbiter 禁 codex + product 禁 mocked + provider 非 debate 模式 → 三方死锁,codex N6 debate 在 product 下无法出结果。d1 原按 v1a arbiter-final 禁 codex,但 step f 镜像 N8（其 gate-facing synthesizer 许 codex）,放开更忠于镜像。
+  - **D3 context profile** = 作为 **f2** 在 f 内落（`resolveRuntimeProfile` miss 即 throw,是 strategy 硬前置;放 d2 会跨切片阻塞）。
+  - **D4 schema 粒度** = 最小镜像 N8（`schema_version`+`role_slot` required,`additionalProperties:true`);下游确定性 gate 已强校验 5-key 形状,网关再加严会在 gate 前误拒 explorer/critic 自由文本。
+  - **D5 阈值注入** = f 内把 `n6_debate_trigger_thresholds` 作 advisory context 注入 `n6-loopback-triage-runtime-service`;升级仍是 triage LLM 判断;provisional warning 在 harness 步（f6）发射,与 N8 tripwire 同位。
+- **子切片序列（data-up,各自独立可发,f0–f5 对运行中 harness 不可见,直到 f6 翻活）**:
+  - **f0** 修订 d1:N6 arbiter codex-eligible（model-profile-registry）+ 守卫 test。
+  - **f1** N6 role-output JSON schema **body** + 注册回填（今仅 name-registered,无 schema 常量）+ schema test（role_slot enum==ROLE_ORDER、additionalProperties:true）。
+  - **f2** 3 个 N6 debate context-policy profile（explorer/critic/arbiter,family `v1b_n6_topic_question_generation` 已存在）+ slot/profile-id 常量 + CONTEXT_PROFILE_BY_SLOT。
+  - **f3** `V1bN6DivergentDebateStrategy`(实现全 hook + `instanceCountFor`,从 frozen scenario 取 arity;arbiter hook **必须读 `priorRoleArtifactHashesAll`** 否则 fan-out 身份丢失;`invocationPassthrough` 拒混合 mode)。
+  - **f4** `V1bN6DivergentDebateRuntimeService.runDivergentDebate` + arbiter 拆裸 draft + gate bridge（复用既有单 agent draft 路径,保 single-agent 身份）;`loop_transcript_hash` 用 divergent `[slot,arity]` fold。
+  - **f5** `V1bN6DivergentDebateAdmissionService`（fan-out admission + forbidden authority keys + transcript 重折比对）——step h replay 守卫的 designed-for。
+  - **f6** harness 接线:`n6_debate_escalation` 死端换真实 runtime + 失败回退 `n6_regenerate_candidates`（反震荡,不再升级）+ provisional tripwire 发射(product+provisional)。
+- **风险台账（来自研究）**:(1) arbiter 误读 `priorRoleArtifactHashes`（last-wins 折叠丢 fan-out 身份）— f3 单测强制;(2) transcript fold 用错 bounded 公式 → admission 误报 `TRANSCRIPT_DRIFT` — f4/f5 交叉校验;(3) 拆包漏剥 `schema_version`/`role_slot` → `isN6DraftPayload` hasOnlyKeys 全拒 — f4 断言 5-key;(4) LOOP_ID 单常量,补轮复用同 id 致 hash 碰撞 — f4 绑 triage ref/补轮计数（designed-for h）;(5) `resolveRuntimeProfile` miss 须 throw 非 null — f2/f3 测;(6) 勿过建 g/h 的路由矩阵 — f 只做保守 regenerate-on-failure 回退。
 
 ### Phase 4 — 工作台收口 / 选项 C（待开工）
 ### Phase 5 — 阈值标定 / 选项 D（延期尾巴，待语料）
