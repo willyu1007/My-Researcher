@@ -8,7 +8,12 @@ import {
   type TopicSelectionAgentExecutionSpec,
   type TopicSelectionAgentRunMode,
 } from './topic-selection-agent-profile-contracts.js';
-import { TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER } from './topic-selection-v1b-workflow-harness-contracts.js';
+import {
+  TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
+} from './topic-selection-v1b-workflow-harness-contracts.js';
 
 export const TOPIC_SELECTION_DEBATE_SCENARIO_CONTRACT_SCHEMA_VERSION =
   'TopicSelectionDebateScenarioContract@v1' as const;
@@ -553,7 +558,7 @@ export function createTopicSelectionV1bN6DivergentDebateScenarioContract(): Topi
         slot_id: 'n6_debate_explorer',
         role: 'explorer',
         stage: 'fan_out_framing',
-        profile_id: 'topic-selection.v1b.n6-debate.explorer.v1',
+        profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
         input_context_family: 'exploration_context',
         output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
         schema_name: 'topic_selection_v1b_n6_divergent_debate_role_output',
@@ -578,7 +583,7 @@ export function createTopicSelectionV1bN6DivergentDebateScenarioContract(): Topi
         slot_id: 'n6_debate_critic',
         role: 'deep_critic',
         stage: 'fan_out_challenge',
-        profile_id: 'topic-selection.v1b.n6-debate.critic.v1',
+        profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
         input_context_family: 'exploration_context',
         output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
         schema_name: 'topic_selection_v1b_n6_divergent_debate_role_output',
@@ -603,7 +608,7 @@ export function createTopicSelectionV1bN6DivergentDebateScenarioContract(): Topi
         slot_id: 'n6_debate_arbiter',
         role: 'arbiter',
         stage: 'final_synthesis',
-        profile_id: 'topic-selection.v1b.n6-debate.arbiter.v1',
+        profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
         input_context_family: 'arbiter_context',
         output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
         schema_name: 'topic_selection_v1b_n6_divergent_debate_role_output',

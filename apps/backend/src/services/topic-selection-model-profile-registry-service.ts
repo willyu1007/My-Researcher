@@ -7,6 +7,9 @@ import type {
   TopicSelectionAgentExecutionMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import {
+  TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
@@ -745,6 +748,53 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
           }),
         }),
       ),
+    }),
+    // T-127 W-07 (D-T127-02, DP-3.5) — v1b N6 divergent topic-question candidate debate roles.
+    // explorer/critic FAN OUT (instance arity from the scenario instance_policy) then a single
+    // terminal arbiter; the arbiter is the only candidate-bearing role (emits the gate-facing
+    // TopicQuestionCandidateSet draft) and excludes codex_assisted like the V1A arbiter-final.
+    profileBase({
+      profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
+      profile_function: 'v1b_n6_divergent_debate_exploration',
+      role_family: 'explorer',
+      stage_family: 'fan_out_framing',
+      quality_objectives: [
+        'broaden_topic_question_candidate_framing',
+        'surface_latent_value_and_scope_points',
+        'preserve_prior_candidate_and_input_grounding',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
+    }),
+    profileBase({
+      profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
+      profile_function: 'v1b_n6_divergent_debate_critique',
+      role_family: 'deep_critic',
+      stage_family: 'fan_out_challenge',
+      quality_objectives: [
+        'stress_test_topic_question_candidate_value',
+        'surface_method_evidence_and_scope_failure_modes',
+        'identify_missing_counterevidence_and_risk_coverage',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
+    }),
+    profileBase({
+      profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
+      profile_function: 'v1b_n6_divergent_debate_arbitration_and_synthesis',
+      role_family: 'arbiter',
+      stage_family: 'final_synthesis',
+      quality_objectives: [
+        'rank_grounded_topic_question_candidates',
+        'separate_rejected_framings_with_authority_preservation',
+        'prepare_deterministic_n6_candidate_set_gate',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm'],
+      run_mode_eligibility: {
+        ...DEFAULT_RUN_MODE_ELIGIBILITY,
+        codex_assisted: [],
+      },
+      output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
     }),
     profileBase({
       profile_id: TOPIC_SELECTION_V1C_PROMOTION_DECISION_SUPPORT_PROFILE_ID,

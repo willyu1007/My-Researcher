@@ -607,6 +607,16 @@ export type TopicSelectionV1bN6DivergentDebateRoleSlotId =
 export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID = 'v1b_n6_divergent_candidate_debate' as const;
 
 /**
+ * N6 divergent debate per-role MODEL profile ids — the SINGLE source for both the scenario contract
+ * (role_stage_slots[].profile_id) and the backend model-profile-registry registration, so the
+ * scenario config and the registered profile cannot drift (the runtime resolves the slot's profile_id
+ * against the model-profile registry). The backend registers profileBase() entries under these ids.
+ */
+export const TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID = 'topic-selection.v1b.n6-debate.explorer.v1' as const;
+export const TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID = 'topic-selection.v1b.n6-debate.critic.v1' as const;
+export const TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID = 'topic-selection.v1b.n6-debate.arbiter.v1' as const;
+
+/**
  * Deterministic debate-trigger thresholds for the N8 gate (D2: T1 borderline / T3
  * dimension conflict). Values are PROVISIONAL until deep-test calibration (DP-3.3);
  * they live in the node policy so the gate stays a pure code-over-policy check.
