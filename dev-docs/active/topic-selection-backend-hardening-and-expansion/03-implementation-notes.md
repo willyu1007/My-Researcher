@@ -10,7 +10,7 @@
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
 | W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | **done（2026-06-18）** | D-T127-01；**收壳完成**：70 个纯助手（+ ref-builders/asserts 共 90 搬迁函数）全数析出至 **16 个兄弟模块**，harness **12,898→9,933 行（-23%）**，严格 DAG 无环；余即字面壳（生命周期 + 持久化 + stateful async runner + runner-local 类型助手）。每批 golden 守卫绿 + 全套件 **1469/0/35** byte-identical；独立逐字对抗评审 90 函数 0 缺陷（`wf_063839cb`）。`resolve*`/local-type 助手按 D-T123-03 范式留壳。 |
-| W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | **in-progress** | a/core-gen/b 已落（见 Phase 3 记录）；原语=divergent_loop（3 角色，用户定）；共享 core 加法泛化 `runDivergentLoop`（Option A，N8/v1c byte-identical）+ N6 debate 契约。续 c–i |
+| W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | **in-progress** | a/core-gen/b/c/d1/e 已落（见 Phase 3 记录）；原语=divergent_loop（3 角色，用户定）；共享 core 加法泛化 `runDivergentLoop`（Option A，N8/v1c byte-identical）+ N6 debate 契约 + scenario/profile 注册 + 触发阈值（advisory）。续 f（runtime+admission）–i |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
 | W-10 工作台收口审计 + 只读节点文档化 | 4 | 核心 | planned | 待 |
@@ -173,7 +173,15 @@
 **W-07 step b — N6 debate 角色契约 — done（`b584166c`）**
 - 在 `topic-selection-v1b-workflow-harness-contracts.ts` 紧挨 N8 块加 N6 divergent 契约（命名镜像 N8 + `DIVERGENT_DEBATE` 限定词）：role-order（3 角色）+ slot-id + LOOP_ID（byte-bearing 单源）+ ROLE_OUTPUT_SCHEMA_VERSION + `TopicSelectionV1bN6DivergentDebateRolePayload`（按 role_slot 判别：explorer→candidate_seeds / critic→critic_findings / arbiter→synthesized_candidate_set）+ debate-admission blocker 码 union。
 - **arbiter→gate 对齐（零新 gate）**：arbiter `synthesized_candidate_set` 即既有 `TopicSelectionV1bTopicQuestionCandidateSetDraftPayload`（=FormTopicQuestionLlmOutput），既有 N6 gate（`isN6DraftPayload`/`validateAndBuildN6Candidates`）原样接受；runtime（step f）解包成裸 draft 再记 gate 工件。纯加法（step f 前无消费者）；shared/backend tsc 0、shared 256/0、backend 1475/0/35。
-- 续：c scenario 注册 → d profile（DP-3.5）→ e 触发阈值 → f N6 runtime+admission（用 `runDivergentLoop`）→ g harness hook → h e2e+replay 守卫 → i matrix+T-089。
+**W-07 step c — N6 divergent debate scenario 注册 — done（`a63e5db1` + `5bbc8bba` hardening）**
+- `topic-selection-debate-scenario-contracts.ts` 加 `createTopicSelectionV1bN6DivergentDebateScenarioContract()`（node_id N6、3 role-stage slot：explorer 默认 2 / 上限 3 fan-out，critic，arbiter 终端单例 `merge_output_as: external_structured_output` → gate-facing draft；无 `temperature`/无 automatic_fallback）。
+- **单源不漂移**：scenario `SLOT_IDS = TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER`（从 harness-contracts re-export，无环）；schema test 加 slot-id↔role-order 不变式。lint：在 `topic-selection-llm-invocation-registry.ts` 注册 3 个 prompt-template-id（explorer/critic/arbiter）+ schema_name `topic_selection_v1b_n6_divergent_debate_role_output`，过 invocation-lint。
+- **step d1 — N6 divergent profile 注册 — done（`416d725c`）**：`topic-selection-model-profile-registry-service.ts` 加 3 个 `profileBase`（explorer/deep_critic/arbiter，output_contract `TopicSelectionV1bN6DivergentDebateRoleOutput@v1`，镜像 V1A divergent）；3 个 `*_PROFILE_ID` 常量单源于 harness-contracts。d2（context-policy profile）随 step f（消费它的 runtime）co-design，暂缓。
+
+**W-07 step e — N6 debate 触发阈值（node_policy，ADVISORY-CONTRACT）— done（`6eda4f70`）**
+- 纯契约/策略数据，无 runtime：升级判定在上游 `n6_loopback_triage` LLM 工件，harness 仅校验/路由（DMP-10 / T-088 D6，无第二判定路径，无 N8 式 compute 函数）。镜像 W-06 N8 块。
+- 加：`TopicSelectionV1bN6DebateTriggerThresholds` 接口（weak_blocked_fraction/count、admissible_floor、duplicate_distinct_ratio/overlap_count）+ node-policy 可选字段 `n6_debate_trigger_thresholds` + Zod validator；`N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` 常量（镜像 N8，非阻断、需 stakeholder sign-off，W-13 标定前 hold）；N6 node policy 填 `provisional:true` + `n6_debate_thresholds_provisional` tripwire warning；守卫 test（provisional 早翻即红）。阈值→triage prompt 注入 + tripwire emit 留 step f。shared 258/0、backend 1475/0/35、双 tsc 0。
+- 续：f N6 runtime+admission（用 `runDivergentLoop` + DivergentDebateStrategy 实现 + per-role context-policy profile〔补 d2〕+ prompt 模板内容 + output schema JSON + 阈值注入 triage prompt + 武装 provisional tripwire）→ g harness hook（`runN6GenerateTopicQuestionCandidates` 升级死端，加法）→ h e2e+N6 replay 守卫 → i matrix（N6 行 reserved→implemented）+T-089 trace。
 
 ### Phase 4 — 工作台收口 / 选项 C（待开工）
 ### Phase 5 — 阈值标定 / 选项 D（延期尾巴，待语料）
