@@ -642,6 +642,13 @@ export interface TopicSelectionV1bN8DebateTriggerThresholds {
  * these drive NO harness compute function: escalation is decided upstream by the triage artifact and the
  * harness only validates/routes it (DMP-10 / T-088 D6 — code-over-policy, no second judgment path). They
  * are threaded into the triage prompt in step f; here they are pure advisory policy data.
+ *
+ * Scope note: of N6's three blocker codes the thresholds deliberately cover only two — weak-set and
+ * duplicate/overlap — and intentionally OMIT `missing_value_axis`. The divergent debate only acts on the
+ * weak-set / duplicate-overlap critic findings (see the critic finding_code reuse on the N6 role payload),
+ * and a missing value axis is remedied by slice reselection / candidate regeneration, not by widening the
+ * candidate set via debate. Do not "complete" this set with a `missing_value_axis` threshold the debate
+ * cannot honor.
  */
 export interface TopicSelectionV1bN6DebateTriggerThresholds {
   provisional: boolean;
@@ -733,9 +740,10 @@ export const N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
  * W-07 (T-127): the N6 provisional-thresholds PRODUCT GATE — the formal semantics of the
  * `N6_DEBATE_THRESHOLDS_PROVISIONAL` tripwire, mirroring the N8 gate above.
  *
- * While the N6 node policy's `n6_debate_trigger_thresholds.provisional` is true, the harness emits the
- * `N6_DEBATE_THRESHOLDS_PROVISIONAL` warning whenever a PRODUCT run (`run_mode: 'product'`) is governed by
- * these un-calibrated escalation thresholds. As with N8 the warning is NON-BLOCKING at the harness layer:
+ * While the N6 node policy's `n6_debate_trigger_thresholds.provisional` is true, the harness will emit
+ * (wired in step f) the `N6_DEBATE_THRESHOLDS_PROVISIONAL` warning whenever a PRODUCT run (`run_mode:
+ * 'product'`) is governed by these un-calibrated escalation thresholds. As with N8 the warning is
+ * NON-BLOCKING at the harness layer:
  * escalation remains the upstream triage artifact's judgment (DMP-10 / T-088 D6), N6 still admits.
  *
  * The PRODUCT-LEVEL contract is identical: a real topic may proceed past N6 carrying this warning ONLY
@@ -1048,7 +1056,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       'candidate_overlap_preserved',
       'debate_escalation_recommended',
       'decision_memory_duplicate_candidate',
-      // W-07 (DP step e): provisional escalation thresholds governed a product run (calibration tripwire).
+      // W-07 step e: provisional escalation thresholds governed a product run (calibration tripwire).
       'n6_debate_thresholds_provisional',
     ],
     loopback_target_codes: [...TOPIC_SELECTION_V1B_N6_LOOPBACK_TARGET_CODES],
