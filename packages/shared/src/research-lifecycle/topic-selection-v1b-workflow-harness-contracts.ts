@@ -585,6 +585,28 @@ export type TopicSelectionV1bN8BoundedDebateRoleSlotId =
 export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID = 'v1b_n8_bounded_micro_debate' as const;
 
 /**
+ * N6 DIVERGENT-debate role order (T-127 W-07, D-T127-02) — generative topic-question candidate debate
+ * on the shared core's runDivergentLoop. explorer + critic FAN OUT (arity > 1) then the arbiter is the
+ * sole TERMINAL SINGLETON producer of the gate-facing candidate-set draft (DMP-03 arbiter semantics;
+ * N8's repair + V1A's issue-framing both fold into the single arbiter synthesis). Primitive =
+ * divergent_loop (not bounded_sequence) — hence the DIVERGENT_DEBATE qualifier vs N8's BOUNDED_DEBATE.
+ */
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER = [
+  'n6_debate_explorer',
+  'n6_debate_critic',
+  'n6_debate_arbiter',
+] as const;
+export type TopicSelectionV1bN6DivergentDebateRoleSlotId =
+  (typeof TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER)[number];
+/**
+ * The N6 divergent debate-loop identity folded into loop_transcript_hash on BOTH the runDivergentLoop
+ * fold (runtime) and the admission re-fold (drift check) — byte-bearing, single-sourced (same
+ * constraint as the N8 LOOP_ID above), and a DISTINCT value from every other node's loop id so
+ * transcript hashes never collide across nodes.
+ */
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID = 'v1b_n6_divergent_candidate_debate' as const;
+
+/**
  * Deterministic debate-trigger thresholds for the N8 gate (D2: T1 borderline / T3
  * dimension conflict). Values are PROVISIONAL until deep-test calibration (DP-3.3);
  * they live in the node policy so the gate stays a pure code-over-policy check.
@@ -1726,6 +1748,54 @@ export interface TopicSelectionV1bN8BoundedDebateRolePayload {
   }> | null;
   debate_summary?: string | null;
 }
+
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION =
+  'TopicSelectionV1bN6DivergentDebateRoleOutput@v1' as const;
+
+/**
+ * T-127 W-07 — one divergent-debate role turn for N6 (topic-question candidate generation). A single
+ * payload discriminated by `role_slot` (mirrors the N8 RolePayload shape):
+ *  - explorer fills `candidate_seeds`: multiple non-overlapping topic-question framings that widen the
+ *    set so the arbiter can assemble an admissible 1..5-candidate draft;
+ *  - critic fills `critic_findings`: weak-set / duplicate-or-overlapping challenges + objections; the
+ *    `finding_code` reuses the existing N6 escalation trigger codes
+ *    (weak_topic_question_candidate_set / duplicate_or_overlapping_candidates) plus free-form codes;
+ *  - arbiter (terminal singleton) fills `synthesized_candidate_set` with a FULL
+ *    TopicSelectionV1bTopicQuestionCandidateSetDraftPayload — the EXISTING N6 candidate-set gate
+ *    (isN6DraftPayload / validateAndBuildN6Candidates) consumes it verbatim, so there is NO new gate.
+ *    (The N6 debate runtime unwraps this to a BARE draft before recording the gate artifact — the
+ *    wrapper's extra keys would fail isN6DraftPayload's hasOnlyKeys check.)
+ */
+export interface TopicSelectionV1bN6DivergentDebateRolePayload {
+  schema_version: typeof TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
+  role_slot: TopicSelectionV1bN6DivergentDebateRoleSlotId;
+  candidate_seeds?: Array<{
+    seed_id: string;
+    candidate_key_hint?: string | null;
+    question_framing: string;
+    evidence_refs: TopicSelectionFunctionalRef[];
+  }> | null;
+  critic_findings?: Array<{
+    finding_code: string;
+    severity: 'note' | 'material' | 'blocking';
+    candidate_key_hint?: string | null;
+    statement: string;
+  }> | null;
+  synthesized_candidate_set?: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload | null;
+  debate_summary?: string | null;
+}
+
+/**
+ * N6 divergent-debate ADMISSION blocker codes — they gate the debate runtime/admission, NOT the N6
+ * candidate-set gate, so they are intentionally ABSENT from the N6 node-policy blocker_codes (which
+ * stays weak_topic_question_candidate_set / duplicate_or_overlapping_candidates / missing_value_axis).
+ * Mirrors the v1c-N2 debate-admission blocker pattern.
+ */
+export type TopicSelectionV1bN6DivergentDebateBlockerCode =
+  | 'N6_DIVERGENT_DEBATE_ROLE_ORDER_INVALID'
+  | 'N6_DIVERGENT_DEBATE_TERMINAL_NOT_SINGLETON'
+  | 'N6_DIVERGENT_DEBATE_ARBITER_OUTPUT_NOT_N6_DRAFT'
+  | 'N6_DIVERGENT_DEBATE_TRANSCRIPT_DRIFT';
 
 export interface TopicSelectionV1bN8FailedTrialSynthesisSupportPayload {
   exhausted_candidate_refs: TopicSelectionFunctionalRef[];
