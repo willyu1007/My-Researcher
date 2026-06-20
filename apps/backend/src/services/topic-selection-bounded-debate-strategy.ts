@@ -29,7 +29,16 @@ export interface BoundedDebateRoleContext<THandoff, TRole extends string, TArtif
   handoff: THandoff; // strategy-opaque to the core
   slotId: TRole;
   priorRoleArtifacts: TArtifact[];
+  /** Per-slot LATEST-instance hash (1 per slot). For bounded_sequence (runLoop, arity 1) this is the
+   *  complete prior-role identity. ⚠ Under fan-out (runDivergentLoop) a stage with arity > 1 collapses
+   *  to its LAST instance here — to fold COMPLETE worker identity (every explorer/critic instance) into
+   *  a context hash / admission re-derivation, use `priorRoleArtifactHashesAll` (or iterate
+   *  `priorRoleArtifacts` via `priorRoleArtifactHashOf`), NEVER this last-wins map. */
   priorRoleArtifactHashes: Partial<Record<TRole, string>>;
+  /** ALL prior-role-artifact hashes per slot, in invocation order — populated by runDivergentLoop so
+   *  divergent fan-out strategies fold every worker instance. Undefined for bounded_sequence (runLoop),
+   *  which is arity-1 (the last-wins map above already carries the complete identity there). */
+  priorRoleArtifactHashesAll?: Partial<Record<TRole, string[]>>;
   invocationInputs: TInputs;
   workflowRunId: string;
   nodeAttemptId: string;
@@ -155,6 +164,13 @@ export interface BoundedDebateStrategy<
  * is the ordered stage-slot list (each slot visited `instanceCountFor(slot)` times). Worker
  * aggregation/summaries are a strategy concern (the arbiter's per-turn hooks read priorRoleArtifacts);
  * the core stays a topology-orchestration shell. DMP-10: one core, one role-turn primitive, one hash.
+ *
+ * Contract (enforced by runDivergentLoop):
+ *  - the TERMINAL roleOrder stage MUST be a singleton (instanceCountFor === 1): the core returns its
+ *    sole turn as final_role_artifact / final_structured_output (the arbiter synthesizer);
+ *  - `debateLoopId` MUST be unique per (logical debate, supplemental round) so the loop_transcript_hash
+ *    never collides across rounds, and `instanceCountFor` MUST key to FROZEN inputs only (replay-
+ *    deterministic) — a run-varying arity or a reused debateLoopId breaks replay identity.
  */
 export interface DivergentDebateStrategy<
   THandoff,

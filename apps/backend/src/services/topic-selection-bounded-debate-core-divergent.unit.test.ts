@@ -19,16 +19,30 @@ type Strat = DivergentDebateStrategy<unknown, string, Record<string, unknown>, A
 // A core whose per-role-turn primitive is replaced by a deterministic fake, isolating the divergent
 // walk. The fake records each turn (slot/instance/prior count) and can be told to block at a point.
 class FakeTurnCore extends TopicSelectionBoundedDebateCoreService {
-  public readonly turns: Array<{ slot: string; instanceIndex: number; priorCount: number }> = [];
+  public readonly turns: Array<{
+    slot: string; instanceIndex: number; priorCount: number; explorerHashesAll: number; explorerHashesMap: number;
+  }> = [];
 
   constructor(private readonly blockAt?: { slot: string; instanceIndex: number }) {
     super({ controlPlane: {} as never, agentOrchestrator: {} as never });
   }
 
   override async generateRoleArtifact(_strategy: never, ctx: never): Promise<never> {
-    const turnCtx = ctx as unknown as { slotId: string; priorRoleArtifacts: Artifact[]; invocationInputs: Inputs };
+    const turnCtx = ctx as unknown as {
+      slotId: string;
+      priorRoleArtifacts: Artifact[];
+      priorRoleArtifactHashes: Record<string, string>;
+      priorRoleArtifactHashesAll?: Record<string, string[]>;
+      invocationInputs: Inputs;
+    };
     const instanceIndex = turnCtx.invocationInputs.instanceIndex;
-    this.turns.push({ slot: turnCtx.slotId, instanceIndex, priorCount: turnCtx.priorRoleArtifacts.length });
+    this.turns.push({
+      slot: turnCtx.slotId,
+      instanceIndex,
+      priorCount: turnCtx.priorRoleArtifacts.length,
+      explorerHashesAll: turnCtx.priorRoleArtifactHashesAll?.explorer?.length ?? 0,
+      explorerHashesMap: turnCtx.priorRoleArtifactHashes?.explorer === undefined ? 0 : 1,
+    });
     if (this.blockAt && this.blockAt.slot === turnCtx.slotId && this.blockAt.instanceIndex === instanceIndex) {
       return {
         status: 'blocked',
@@ -136,7 +150,20 @@ test('runDivergentLoop propagates a blocked turn with failed slot + instance ind
   assert.equal(result.ordered_role_artifacts.length, 1); // only explorer#0 completed before the block
 });
 
-test('runDivergentLoop rejects empty role order, duplicate stage slots, and invalid arity', async () => {
+test('runDivergentLoop threads the COMPLETE fan-out hash set (priorRoleArtifactHashesAll), not the last-wins map', async () => {
+  const core = new FakeTurnCore();
+  const result = await core.runDivergentLoop(makeStrategy(), BASE, perInstance);
+  assert.equal(result.status, 'completed');
+  // The critic turn runs after the 2 explorer instances: the *All map carries BOTH explorer hashes,
+  // while the last-wins map carries only 1 explorer key. An N6 arbiter folding the last-wins map would
+  // silently drop explorer#0 from its context identity / admission re-derivation — this guards the fix.
+  const criticTurn = core.turns.find((t) => t.slot === 'critic');
+  assert.ok(criticTurn);
+  assert.equal(criticTurn.explorerHashesAll, 2);
+  assert.equal(criticTurn.explorerHashesMap, 1);
+});
+
+test('runDivergentLoop rejects empty role order, duplicate slots, invalid arity, and a non-singleton terminal stage', async () => {
   const core = new FakeTurnCore();
   await assert.rejects(
     () => core.runDivergentLoop(makeStrategy({ roleOrder: [] }), BASE, perInstance),
@@ -146,8 +173,17 @@ test('runDivergentLoop rejects empty role order, duplicate stage slots, and inva
     () => core.runDivergentLoop(makeStrategy({ roleOrder: ['explorer', 'explorer'] }), BASE, perInstance),
     /duplicate stage slots/,
   );
+  // Invalid worker-stage arity — terminal kept singleton so the terminal-stage guard does not mask it.
+  for (const bad of [0, -1, 2.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    await assert.rejects(
+      () => core.runDivergentLoop(makeStrategy({ instanceCountFor: (slot: string) => (slot === 'explorer' ? bad : 1) }), BASE, perInstance),
+      /invalid instance count/,
+      `arity ${String(bad)} must be rejected`,
+    );
+  }
+  // The terminal stage (synthesizer) must be a singleton — it yields final_role_artifact.
   await assert.rejects(
-    () => core.runDivergentLoop(makeStrategy({ instanceCountFor: () => 0 }), BASE, perInstance),
-    /invalid instance count/,
+    () => core.runDivergentLoop(makeStrategy({ instanceCountFor: () => 2 }), BASE, perInstance),
+    /terminal stage .* must have instance count 1/,
   );
 });

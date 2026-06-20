@@ -287,26 +287,38 @@ export class TopicSelectionBoundedDebateCoreService {
       // threaded map while the transcript still folds every artifact — reject the misconfiguration.
       throw new AppError(500, 'INTERNAL_ERROR', `divergent debate ${strategy.debateLoopId} role order has duplicate stage slots.`);
     }
+    const finalSlot = strategy.roleOrder[strategy.roleOrder.length - 1]!;
+    if (strategy.instanceCountFor(finalSlot) !== 1) {
+      // The terminal stage is the synthesizer/arbiter — runDivergentLoop returns its sole turn as
+      // final_role_artifact / final_structured_output, so a multi-instance terminal stage is ambiguous.
+      throw new AppError(500, 'INTERNAL_ERROR', `divergent debate ${strategy.debateLoopId} terminal stage ${finalSlot} must have instance count 1.`);
+    }
     const stageArities: Array<[TRole, number]> = [];
     const ordered: TArtifact[] = [];
     const turns: Array<Extract<BoundedDebateRoleGenerationResult<TOut, TArtifact>, { status: 'succeeded' }>> = [];
     for (const slot of strategy.roleOrder) {
       const arity = strategy.instanceCountFor(slot);
-      if (!Number.isInteger(arity) || arity < 1) {
+      if (!Number.isFinite(arity) || !Number.isInteger(arity) || arity < 1) {
         throw new AppError(500, 'INTERNAL_ERROR', `divergent debate ${strategy.debateLoopId} stage ${slot} has invalid instance count ${arity}.`);
       }
       stageArities.push([slot, arity]);
       for (let instanceIndex = 0; instanceIndex < arity; instanceIndex += 1) {
+        // Last-wins per-slot map (bounded-shaped convenience) + the complete per-slot instance lists,
+        // so a fan-out divergent strategy folds EVERY worker instance into context identity — never the
+        // collapsing last-wins map (see DivergentDebateStrategy / BoundedDebateRoleContext docs).
         const priorRoleArtifactHashes: Partial<Record<TRole, string>> = {};
+        const priorRoleArtifactHashesAll: Partial<Record<TRole, string[]>> = {};
         for (const artifact of ordered) {
           const { slotId, hash } = strategy.priorRoleArtifactHashOf(artifact);
           priorRoleArtifactHashes[slotId] = hash;
+          (priorRoleArtifactHashesAll[slotId] ??= []).push(hash);
         }
         const ctx: BoundedDebateRoleContext<THandoff, TRole, TArtifact, TInputs> = {
           ...base,
           slotId: slot,
           priorRoleArtifacts: [...ordered],
           priorRoleArtifactHashes,
+          priorRoleArtifactHashesAll,
           invocationInputs: perInstance(slot, instanceIndex, [...ordered]),
         };
         const turn = await this.generateRoleArtifact(strategy, ctx);
