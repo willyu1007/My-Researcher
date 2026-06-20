@@ -38,15 +38,18 @@ import {
   TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
   type TopicSelectionV1bN6DivergentDebateRoleSlotId,
   type TopicSelectionV1bN6HarnessFrozenInputPayload,
+  type TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import { TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_POLICY_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-scenario-contracts';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { stableStringify } from './literature-content-processing-utils.js';
+import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import type { ResolvedTopicSelectionDecisionMemoryPacket } from './topic-selection-decision-memory-projection-service.js';
-import type {
-  TopicSelectionV1bN6DraftGenerationMode,
-  TopicSelectionV1bN6DraftRuntimeModeContext,
+import {
+  TopicSelectionV1bN6DraftRuntimeService,
+  type TopicSelectionV1bN6DraftGenerationMode,
+  type TopicSelectionV1bN6DraftRuntimeModeContext,
 } from './topic-selection-v1b-n6-draft-runtime-service.js';
 import {
   TOPIC_SELECTION_CONTEXT_RUNTIME_REDACTION_POLICY,
@@ -59,20 +62,27 @@ import {
   type TopicSelectionResolvedModelProfile,
 } from './topic-selection-model-profile-registry-service.js';
 import {
+  TopicSelectionAgentOrchestratorService,
   type TopicSelectionAgentInvocationResult,
   type TopicSelectionAgentRuntimeTokenBudgetInput,
   type TopicSelectionCodexAssistedAgentOutput,
   type TopicSelectionMockedAgentOutput,
 } from './topic-selection-agent-orchestrator-service.js';
 import { TopicSelectionPromptPacketRuntimeService } from './topic-selection-prompt-packet-runtime-service.js';
+import {
+  TopicSelectionBoundedDebateCoreService,
+  type DivergentDebateLoopResult,
+} from './topic-selection-bounded-debate-core-service.js';
 import type {
   BoundedDebateRoleContext,
   BoundedDebateInvocationEnvelope,
   DivergentDebateStrategy,
 } from './topic-selection-bounded-debate-strategy.js';
 import {
+  TopicSelectionV1bN6DivergentDebateAdmissionService,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_DEFAULT_INSTANCE_COUNTS,
   type TopicSelectionV1bN6DivergentDebateAdmissionExpectedIdentity,
+  type TopicSelectionV1bN6DivergentDebateAdmissionResult,
   type TopicSelectionV1bN6DivergentDebateRoleArtifact,
   type TopicSelectionV1bN6DivergentDebateRoleOutput,
 } from './topic-selection-v1b-n6-divergent-debate-admission-service.js';
@@ -563,3 +573,180 @@ export {
   MODEL_PROFILE_BY_SLOT,
   ROLE_OUTPUT_SCHEMA,
 };
+
+// ============================================================================
+// f5 (T-127 W-07) — N6 divergent-debate RUNTIME ENTRY: drives the shared core over the 3 fan-out roles
+// via core.runDivergentLoop, runs the f3 deterministic admission, then BRIDGES the arbiter's unwrapped
+// synthesized_candidate_set through the EXISTING N6 single-agent draft path so the gate-facing draft
+// carries single-agent identity (the deterministic N6 candidate-set gate stays untouched; it is wired
+// in f6). Mirrors the N8 bounded-debate runtime entry (runDebate). The harness is NOT touched here.
+// ============================================================================
+
+export type GenerateTopicSelectionV1bN6DivergentDebateInput = {
+  request: TopicSelectionV1bWorkflowHarnessRunRequest;
+  generation_mode: TopicSelectionV1bN6DraftGenerationMode;
+  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+  run_mode?: TopicSelectionAgentRunMode | null;
+  /** per-role, per-instance codex/mock fixtures: role_outputs[slot][instanceIndex] (fan-out). */
+  role_outputs: Partial<Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, V1bN6DebateInputs[]>>;
+  created_by?: TopicSelectionV1bWorkflowHarnessRunRequest['created_by'];
+};
+
+export type TopicSelectionV1bN6DivergentDebateRunResult =
+  | {
+    status: 'role_blocked';
+    loop: DivergentDebateLoopResult<TopicSelectionV1bN6DivergentDebateRoleSlotId, TopicSelectionV1bN6DivergentDebateRoleOutput, TopicSelectionV1bN6DivergentDebateRoleArtifact>;
+  }
+  | { status: 'admission_blocked'; admission: TopicSelectionV1bN6DivergentDebateAdmissionResult }
+  | {
+    status: 'completed';
+    admission: Extract<TopicSelectionV1bN6DivergentDebateAdmissionResult, { admitted: true }>;
+    /** The semantic-support draft the harness N6 gate consumes (single-agent identity). */
+    gate_draft: Awaited<ReturnType<TopicSelectionV1bN6DraftRuntimeService['generateDraftArtifact']>>;
+    loop_transcript_hash: string;
+  };
+
+export class TopicSelectionV1bN6DivergentDebateRuntimeService {
+  private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
+  private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
+  private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService;
+  private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
+  private readonly core: TopicSelectionBoundedDebateCoreService;
+  private readonly singleAgent: TopicSelectionV1bN6DraftRuntimeService;
+  private readonly strategy: V1bN6DivergentDebateStrategy;
+
+  constructor(
+    private readonly controlPlane: TopicSelectionControlPlaneService,
+    options: {
+      agentOrchestrator?: TopicSelectionAgentOrchestratorService;
+      contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
+      modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
+      promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
+      singleAgentRuntime?: TopicSelectionV1bN6DraftRuntimeService;
+    } = {},
+  ) {
+    this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
+      ?? new TopicSelectionContextPolicyProfileRegistryService();
+    this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
+    this.promptPacketRuntime = options.promptPacketRuntime ?? new TopicSelectionPromptPacketRuntimeService();
+    this.agentOrchestrator = options.agentOrchestrator ?? new TopicSelectionAgentOrchestratorService({
+      controlPlane,
+      modelProfileRegistry: this.modelProfileRegistry,
+    });
+    this.core = new TopicSelectionBoundedDebateCoreService({
+      controlPlane: this.controlPlane,
+      agentOrchestrator: this.agentOrchestrator,
+    });
+    this.singleAgent = options.singleAgentRuntime ?? new TopicSelectionV1bN6DraftRuntimeService(controlPlane, {
+      agentOrchestrator: this.agentOrchestrator,
+      contextPolicyProfileRegistry: this.contextPolicyProfileRegistry,
+      modelProfileRegistry: this.modelProfileRegistry,
+      promptPacketRuntime: this.promptPacketRuntime,
+    });
+    this.strategy = new V1bN6DivergentDebateStrategy(
+      this.contextPolicyProfileRegistry,
+      this.modelProfileRegistry,
+      this.promptPacketRuntime,
+    );
+  }
+
+  async runDivergentDebate(
+    input: GenerateTopicSelectionV1bN6DivergentDebateInput,
+  ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
+    const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
+    // Shared N6 context resolved ONCE (reused by the single-agent gate bridge below — one resolution path).
+    const shared = await this.singleAgent.resolveSharedN6RuntimeContext(input.request, input.generation_mode);
+    const handoff: V1bN6DebateHandoff = {
+      request: input.request,
+      frozenPayload: shared.frozenPayload,
+      candidateGenerationMode: shared.generationMode,
+      modeContext: shared.modeContext,
+      decisionMemory: shared.decisionMemory,
+      baseSourceHashes: shared.sourceHashes,
+      baseSourceRefs: shared.sourceRefs,
+    };
+
+    const loop = await this.core.runDivergentLoop<
+      V1bN6DebateHandoff,
+      TopicSelectionV1bN6DivergentDebateRoleSlotId,
+      TopicSelectionV1bN6DivergentDebateRoleOutput,
+      TopicSelectionV1bN6DivergentDebateRoleArtifact,
+      V1bN6DebateInputs
+    >(
+      this.strategy,
+      {
+        handoff,
+        workflowRunId: input.request.workflow_run_id,
+        nodeAttemptId: input.request.node_attempt_id,
+        executionMode: input.execution_mode,
+        runMode,
+        policyVersion: input.request.policy_version,
+        modelOptionId: null,
+        createdBy: input.created_by ?? input.request.created_by ?? 'system',
+      },
+      // perInstance ALWAYS sets instance_index to the core's fan-out index (the sole worker
+      // disambiguator — the strategy throws if it is missing); per-instance fixtures ride role_outputs.
+      (slot, instanceIndex) => {
+        const fixture = (input.role_outputs[slot] ?? [])[instanceIndex];
+        return {
+          codex_response: fixture?.codex_response ?? null,
+          mocked_output: fixture?.mocked_output ?? null,
+          instance_index: instanceIndex,
+        };
+      },
+    );
+    if (loop.status !== 'completed') {
+      return { status: 'role_blocked', loop };
+    }
+
+    // Admission's expected-identity builder is bound to THIS run's resolved handoff so it re-derives each
+    // fan-out instance's identity through the same hooks the runtime used (byte-consistent by construction).
+    const admission = new TopicSelectionV1bN6DivergentDebateAdmissionService({
+      buildAdmissionExpectedIdentity: (admissionInput) => this.strategy.buildAdmissionExpectedIdentityFor(handoff, admissionInput),
+    });
+    const admissionResult = await admission.admit({
+      role_results: loop.ordered_role_artifacts.map((artifact, index) => ({
+        artifact,
+        structured_output: loop.turns[index]!.structured_output,
+      })),
+      loop_transcript_hash: loop.loop_transcript_hash,
+    });
+    if (!admissionResult.admitted) {
+      return { status: 'admission_blocked', admission: admissionResult };
+    }
+
+    // GATE BRIDGE: the arbiter's synthesized_candidate_set is already a bare 5-key candidate-set draft
+    // (admission enforced isN6DraftPayload). Funnel it through the EXISTING single-agent draft path so
+    // the gate-facing draft carries single-agent identity — threading the debate's REAL execution_mode as
+    // codex_response (codex) or mocked_output (mocked), never silently re-recording one as the other.
+    const draftPayload = admissionResult.synthesized_candidate_set as unknown as TopicSelectionV1bTopicQuestionCandidateSetDraftPayload;
+    const bridgeFixtureId = `n6_debate_bridge_${input.request.node_attempt_id}`;
+    const gateDraft = await this.singleAgent.generateDraftArtifact({
+      request: input.request,
+      generation_mode: handoff.candidateGenerationMode,
+      execution_mode: input.execution_mode,
+      run_mode: runMode,
+      codex_response: input.execution_mode === 'codex_assisted'
+        ? {
+          output: draftPayload,
+          operator_label: bridgeFixtureId,
+          response_hash: canonicalHash(draftPayload),
+        } as unknown as TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicQuestionCandidateSetDraftPayload>
+        : null,
+      mocked_output: input.execution_mode === 'mocked_llm'
+        ? {
+          output: draftPayload,
+          fixture_id: bridgeFixtureId,
+          fixture_hash: canonicalHash(draftPayload),
+        } as unknown as TopicSelectionMockedAgentOutput<TopicSelectionV1bTopicQuestionCandidateSetDraftPayload>
+        : null,
+      created_by: input.created_by ?? input.request.created_by ?? 'system',
+    });
+    return {
+      status: 'completed',
+      admission: admissionResult,
+      gate_draft: gateDraft,
+      loop_transcript_hash: loop.loop_transcript_hash,
+    };
+  }
+}

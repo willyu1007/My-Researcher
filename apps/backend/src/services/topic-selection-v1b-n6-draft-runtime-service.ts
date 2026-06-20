@@ -176,15 +176,43 @@ export class TopicSelectionV1bN6DraftRuntimeService {
     });
   }
 
+  /**
+   * Resolve the shared N6 runtime context (frozen payload + mode-context projection + decision memory +
+   * source hashes/refs) ONCE per run. The single-agent generateDraftArtifact and the divergent-debate
+   * runtime (T-127 W-07 f5) both call this so the two paths share ONE resolution (DMP-10 — no second
+   * context path); mirrors the N8 resolveSharedN8RuntimeContext seam. generationMode is required
+   * (resolveModeContext throws on a missing/invalid mode). Byte-preserving: the single-agent draft
+   * identity is unchanged (same frozen payload / mode context / decision memory / source hashes).
+   */
+  async resolveSharedN6RuntimeContext(
+    request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    generationMode: TopicSelectionV1bN6DraftGenerationMode,
+  ): Promise<{
+    frozenPayload: TopicSelectionV1bN6HarnessFrozenInputPayload;
+    generationMode: TopicSelectionV1bN6DraftGenerationMode;
+    modeContext: TopicSelectionV1bN6DraftRuntimeModeContext;
+    decisionMemory: ResolvedTopicSelectionDecisionMemoryPacket | null;
+    sourceHashes: Record<string, string>;
+    sourceRefs: TopicSelectionFunctionalRef[];
+  }> {
+    const frozenPayload = this.assertN6FrozenPayload(request);
+    const modeContext = await this.resolveModeContext(request, frozenPayload, generationMode);
+    const decisionMemory = await this.resolveDecisionMemoryPacket(request);
+    const sourceHashes = this.sourceHashes(request, frozenPayload, modeContext, decisionMemory?.hash ?? null);
+    const sourceRefs = this.sourceRefs(request, frozenPayload, modeContext);
+    return { frozenPayload, generationMode, modeContext, decisionMemory, sourceHashes, sourceRefs };
+  }
+
   async generateDraftArtifact(
     input: GenerateTopicSelectionV1bN6RuntimeDraftInput,
   ): Promise<TopicSelectionV1bN6RuntimeDraftGenerationResult> {
-    const frozenPayload = this.assertN6FrozenPayload(input.request);
+    const shared = await this.resolveSharedN6RuntimeContext(input.request, input.generation_mode);
+    const frozenPayload = shared.frozenPayload;
     const binding = this.slotBinding(input.generation_mode);
     const runMode = input.run_mode ?? input.request.run_mode ?? this.defaultRunMode(input.execution_mode);
-    const modeContext = await this.resolveModeContext(input.request, frozenPayload, input.generation_mode);
-    const decisionMemory = await this.resolveDecisionMemoryPacket(input.request);
-    const sourceHashes = this.sourceHashes(input.request, frozenPayload, modeContext, decisionMemory?.hash ?? null);
+    const modeContext = shared.modeContext;
+    const decisionMemory = shared.decisionMemory;
+    const sourceHashes = shared.sourceHashes;
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(binding, sourceHashes, modeContext);
     const contextPacket = this.buildContextPacket({

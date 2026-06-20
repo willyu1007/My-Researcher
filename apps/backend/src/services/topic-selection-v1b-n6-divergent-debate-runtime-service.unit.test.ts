@@ -1,22 +1,31 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type {
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   type TopicSelectionV1bN6DivergentDebateRoleSlotId,
   type TopicSelectionV1bN6HarnessFrozenInputPayload,
+  type TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import { createTopicSelectionV1bN6DivergentDebateScenarioContract } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-scenario-contracts';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
+import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionContextPolicyProfileRegistryService } from './topic-selection-context-policy-profile-registry-service.js';
 import { TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import { TopicSelectionPromptPacketRuntimeService } from './topic-selection-prompt-packet-runtime-service.js';
 import {
   PROMPT_TEMPLATE_ID_BY_SLOT,
   PROMPT_TEMPLATE_VERSION,
+  TopicSelectionV1bN6DivergentDebateRuntimeService,
   V1bN6DivergentDebateStrategy,
   type V1bN6DebateHandoff,
+  type V1bN6DebateInputs,
 } from './topic-selection-v1b-n6-divergent-debate-runtime-service.js';
 import {
   TopicSelectionV1bN6DivergentDebateAdmissionService,
@@ -186,6 +195,205 @@ test('f4 strategy + f3 admission round-trip: a strategy-built fan-out chain ADMI
   if (!result.admitted) return;
   assert.equal(result.final_artifact.slot_id, 'n6_debate_arbiter');
   assert.deepEqual(Object.keys(result.synthesized_candidate_set).sort(), [
+    'candidates', 'generation_notes', 'human_review_triggers', 'question_frame', 'recommended_candidate_keys',
+  ]);
+});
+
+// ---- f5 e2e (the EXECUTABLE parity proof): a mocked_llm fan-out runs the real strategy through
+// core.runDivergentLoop + the f3 admission + the gate bridge, against the real orchestrator/registries/
+// in-memory control plane. status 'completed' means the core's [slot,arity] transcript fold == the
+// admission re-fold AND every per-instance identity re-derived byte-identically (admission would block
+// otherwise) — closing the f3/f4 executable-parity obligation. ----
+
+const TITLE_CARD_ID = 'title_card_001';
+const fref = (refType: string, refId: string): TopicSelectionFunctionalRef => ({ ref_type: refType, ref_id: refId, title_card_id: TITLE_CARD_ID, version_id: null });
+const h64 = (seed: string): string => seed.repeat(64).slice(0, 64);
+const EVIDENCE_REF = fref('evidence_unit', 'evidence_unit_001');
+const INCLUDED_BOUNDARY_REF = fref('research_slice_boundary', 'boundary_included_001');
+const EXCLUDED_BOUNDARY_REF = fref('research_slice_boundary', 'boundary_excluded_001');
+const NEED_REF = fref('validated_need', 'validated_need_001');
+
+function e2eFrozenPayload(): TopicSelectionV1bN6HarnessFrozenInputPayload {
+  return {
+    n5_handoff_hash: h64('a'),
+    constraint_profile_ref: fref('research_constraint_profile', 'constraint_profile_001'),
+    constraint_profile_hash: h64('b'),
+    intake_readiness_ref: fref('readiness_assessment', 'intake_readiness_001'),
+    intake_readiness_hash: h64('c'),
+    research_slice_ref: fref('research_slice', 'research_slice_001'),
+    research_slice_hash: h64('d'),
+    research_slice_selection_ref: fref('research_slice_selection_decision', 'slice_selection_001'),
+    research_slice_selection_hash: h64('e'),
+    research_slice_option_set_ref: fref('research_slice_option_set', 'option_set_001'),
+    research_slice_option_set_hash: h64('f'),
+    selected_slice_option_ref: fref('research_slice_option', 'slice_option_001'),
+    selected_slice_option_hash: h64('1'),
+  };
+}
+
+function e2eRequest(): TopicSelectionV1bWorkflowHarnessRunRequest {
+  const payload = e2eFrozenPayload();
+  return {
+    schema_version: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
+    workspace_id: 'workspace_001',
+    title_card_id: TITLE_CARD_ID,
+    workflow_run_id: 'workflow_run_v1b_n6_debate_001',
+    node_attempt_id: 'node_attempt_v1b_n6_debate_001',
+    node_id: 'topic-selection.v1b.generate-topic-question-candidates.v1',
+    policy_version: 'topic-selection-v1b-node-policy-v1',
+    run_mode: 'test',
+    created_by: 'system',
+    frozen_input: {
+      input_contract: 'N5ToN6Handoff@v1',
+      snapshot_kind: 'research_slice_selection_decision',
+      source_refs: [
+        fref('research_slice_selection_decision', 'slice_selection_001'),
+        payload.research_slice_ref,
+        payload.research_slice_selection_ref,
+        payload.research_slice_option_set_ref,
+        payload.selected_slice_option_ref,
+        payload.constraint_profile_ref,
+        payload.intake_readiness_ref,
+      ],
+      payload: payload as unknown as Record<string, unknown>,
+    },
+  } as unknown as TopicSelectionV1bWorkflowHarnessRunRequest;
+}
+
+function e2eCandidateSetDraft(): TopicSelectionV1bTopicQuestionCandidateSetDraftPayload {
+  return {
+    question_frame: {
+      target_setting: 'Local-first CS paper engineering assistant workflows.',
+      target_community: 'CS paper engineering researchers',
+      object_scope: 'v1b harness-native topic selection candidate generation',
+      task_scope: 'candidate generation, deterministic gates, and replay drift checks',
+      intervention_or_approach: 'WorkflowHarness-native candidate-set gate with frozen semantic artifacts',
+      comparison_baseline: 'route-only smoke tests without harness-level product acceptance',
+      observable_outcome: 'stable candidate-set refs and replay hashes',
+      assumption_refs: [],
+      evidence_refs: [EVIDENCE_REF],
+      frame_payload: { fixture: true },
+    },
+    recommended_candidate_keys: ['harness_candidate'],
+    generation_notes: ['Candidate stays inside the selected ResearchSlice and preserves N5 lineage.'],
+    human_review_triggers: [],
+    candidates: [
+      {
+        candidate_key: 'harness_candidate',
+        main_question: 'How can a WorkflowHarness-native candidate gate improve replayable v1b topic selection?',
+        sub_questions: ['Which N5 lineage hashes must remain frozen before N7 admission?'],
+        question_type: 'system',
+        contribution_hypothesis: 'system',
+        source_validated_need_refs: [NEED_REF],
+        answerability_plan: {
+          datasets_or_resources: ['v1b harness trace fixtures'],
+          metrics: ['hash drift detection rate'],
+          baselines: ['route-only smoke coverage'],
+          ablations_or_comparisons: ['without frozen semantic artifact admission'],
+          evaluation_setting: 'local deterministic harness acceptance tests',
+          dependency_risks: ['provider canary behavior is not exercised in this fixture'],
+          open_dependencies: [],
+          known_gaps: [],
+          required_evidence_refs: [EVIDENCE_REF],
+        },
+        answerability_verdict: 'answerable',
+        expected_claim: 'A harness-native candidate gate improves replayable v1b topic selection.',
+        fallback_claim: 'The gate preserves candidate lineage for downstream review.',
+        max_claim_strength: 'Bounded workflow claim about candidate lineage and replay.',
+        observable_success_criteria: ['N6 emits candidate set refs and hashes.'],
+        boundary_check: {
+          preserved_boundary_refs: [INCLUDED_BOUNDARY_REF],
+          excluded_boundary_refs: [EXCLUDED_BOUNDARY_REF],
+          boundary_violations: [],
+          prohibited_claims: ['promotion decision'],
+          allowed_refinements: ['tighten candidate wording'],
+        },
+        traceability_check: {
+          support_evidence_refs: [EVIDENCE_REF],
+          challenge_evidence_refs: [EVIDENCE_REF],
+          baseline_evidence_refs: [EVIDENCE_REF],
+          context_evidence_refs: [EVIDENCE_REF],
+          mapped_evidence_refs: [EVIDENCE_REF],
+          unmapped_assumptions: [],
+        },
+        falsification_conditions: [
+          {
+            condition_type: 'claim_overstrong',
+            severity: 'hard',
+            statement: 'If changed frozen N5 lineage hashes are not detected, the candidate claim must be lowered.',
+            trigger_evidence_refs: [EVIDENCE_REF],
+            trigger_source_refs: [fref('research_slice', 'research_slice_001')],
+            related_contract_fields: ['expected_claim'],
+            expected_action: 'lower_claim_strength',
+            check_timing: 'before_value_assessment',
+            confidence: 'high',
+          },
+        ],
+        risk_notes: [],
+        blockers: [],
+        objections: [],
+        human_review_triggers: [],
+        confidence: 0.84,
+      },
+    ],
+  };
+}
+
+function mockedRole(slot: TopicSelectionV1bN6DivergentDebateRoleSlotId, idx: number, body: Record<string, unknown>): V1bN6DebateInputs {
+  return {
+    codex_response: null,
+    mocked_output: {
+      fixture_id: `n6_debate_${slot}_${idx}`,
+      output: { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: slot, ...body },
+    } as never,
+    instance_index: idx,
+  };
+}
+
+test('f5 runtime: a mocked_llm fan-out debate runs through core + admission + gate bridge to completed', async () => {
+  const repository = new InMemoryTopicSelectionControlPlaneRepository();
+  const controlPlane = new TopicSelectionControlPlaneService(repository, {
+    idFactory: (() => {
+      const counts = new Map<string, number>();
+      return (prefix: string) => {
+        const next = (counts.get(prefix) ?? 0) + 1;
+        counts.set(prefix, next);
+        return `${prefix}_${String(next).padStart(3, '0')}`;
+      };
+    })(),
+    now: () => '2026-06-16T00:00:00.000Z',
+  });
+  const runtime = new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane);
+
+  const result = await runtime.runDivergentDebate({
+    request: e2eRequest(),
+    generation_mode: 'initial_from_n5',
+    execution_mode: 'mocked_llm',
+    run_mode: 'test',
+    role_outputs: {
+      n6_debate_explorer: [
+        mockedRole('n6_debate_explorer', 0, { candidate_seeds: [{ seed_id: 's0', question_framing: 'framing 0', evidence_refs: [] }] }),
+        mockedRole('n6_debate_explorer', 1, { candidate_seeds: [{ seed_id: 's1', question_framing: 'framing 1', evidence_refs: [] }] }),
+      ],
+      n6_debate_critic: [
+        mockedRole('n6_debate_critic', 0, { critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin set' }] }),
+      ],
+      n6_debate_arbiter: [
+        mockedRole('n6_debate_arbiter', 0, { synthesized_candidate_set: e2eCandidateSetDraft() }),
+      ],
+    },
+    created_by: 'system',
+  });
+
+  assert.equal(result.status, 'completed');
+  if (result.status !== 'completed') return;
+  assert.match(result.loop_transcript_hash, /^[a-f0-9]{64}$/);
+  assert.equal(result.gate_draft.status, 'succeeded');
+  if (result.gate_draft.status !== 'succeeded') return;
+  // The bridged draft carries single-agent gate identity (model_draft_for_gate), not a debate role artifact.
+  assert.equal(result.gate_draft.semantic_artifact.allowed_effect, 'model_draft_for_gate');
+  // The admission surfaced the arbiter's bare 5-key draft (what the gate bridge funnelled through).
+  assert.deepEqual(Object.keys(result.admission.synthesized_candidate_set).sort(), [
     'candidates', 'generation_notes', 'human_review_triggers', 'question_frame', 'recommended_candidate_keys',
   ]);
 });

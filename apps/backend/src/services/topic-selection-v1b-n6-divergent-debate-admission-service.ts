@@ -33,6 +33,7 @@ import {
 import { createTopicSelectionV1bN6DivergentDebateScenarioContract } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-scenario-contracts';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { stableStringify } from './literature-content-processing-utils.js';
+import { isN6DraftPayload } from './topic-selection-v1b-harness-predicates.js';
 
 const N6_NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
 const N6_DEBATE_OUTPUT_CONTRACT = 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1' as const;
@@ -316,8 +317,11 @@ export class TopicSelectionV1bN6DivergentDebateAdmissionService {
     const synthesized = this.asRecord(
       (finalCandidate.structured_output as TopicSelectionV1bN6DivergentDebateRolePayload).synthesized_candidate_set,
     );
-    if (!synthesized) {
-      return this.block('N6_DIVERGENT_DEBATE_ARBITER_OUTPUT_NOT_N6_DRAFT', 'N6 divergent debate arbiter output must carry the synthesized_candidate_set (TopicQuestionCandidateSet draft) for the gate bridge.');
+    // The arbiter draft must be a BARE 5-key TopicQuestionCandidateSet draft — the exact shape the f5
+    // gate bridge funnels through the existing N6 single-agent draft path (isN6DraftPayload's hasOnlyKeys
+    // rejects the role-output wrapper keys), so the downstream N6 gate consumes it verbatim.
+    if (!synthesized || !isN6DraftPayload(synthesized)) {
+      return this.block('N6_DIVERGENT_DEBATE_ARBITER_OUTPUT_NOT_N6_DRAFT', 'N6 divergent debate arbiter synthesized_candidate_set must be a bare TopicQuestionCandidateSet draft (5-key isN6DraftPayload) for the gate bridge.');
     }
 
     // 4. Whole-loop transcript: re-fold over [debate_loop_id, [[slot,arity]...], ordered hashes] and
