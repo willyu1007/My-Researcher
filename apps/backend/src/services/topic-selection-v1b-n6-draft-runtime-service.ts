@@ -65,7 +65,7 @@ export type TopicSelectionV1bN6DraftGenerationMode =
   | 'regeneration_after_n7_loopback'
   | 'regeneration_after_n6_gate_failure';
 
-type TopicSelectionV1bN6DraftRuntimeModeContext =
+export type TopicSelectionV1bN6DraftRuntimeModeContext =
   | {
     kind: 'initial_from_n5';
     n7_loopback_projection_ref: null;
