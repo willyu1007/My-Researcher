@@ -10,7 +10,7 @@
 | W-05 准入/运行时 service 单测补齐（~12） | 1 | 核心 | done | 12 个 service 各补单测，66/0（见 Phase 1 记录） |
 | W-06 N8 provisional 阈值产品门禁形式化 | 1 | 核心 | done | `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` + 守卫单测（provisional 仍 true） |
 | W-12 harness 单文件一次拆透（b1，承 D-T123-03，D-T127-01） | 2 | 核心 | **done（2026-06-18）** | D-T127-01；**收壳完成**：70 个纯助手（+ ref-builders/asserts 共 90 搬迁函数）全数析出至 **16 个兄弟模块**，harness **12,898→9,933 行（-23%）**，严格 DAG 无环；余即字面壳（生命周期 + 持久化 + stateful async runner + runner-local 类型助手）。每批 golden 守卫绿 + 全套件 **1469/0/35** byte-identical；独立逐字对抗评审 90 函数 0 缺陷（`wf_063839cb`）。`resolve*`/local-type 助手按 D-T123-03 范式留壳。 |
-| W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | **in-progress** | a/core-gen/b/c/d1/e 已落（见 Phase 3 记录）；原语=divergent_loop（3 角色，用户定）；共享 core 加法泛化 `runDivergentLoop`（Option A，N8/v1c byte-identical）+ N6 debate 契约 + scenario/profile 注册 + 触发阈值（advisory）。**step f 计划 2026-06-20 锁定**（f0–f6，五项决策定，prompt 正文延期 T-128）。续 f0（d1 arbiter codex 修订）→ f6 |
+| W-07 v1b N6 有界对抗 debate 完整运行时（full a–i，D-T127-02） | 3 | 核心 | **in-progress** | a/core-gen/b/c/d1/e 已落（见 Phase 3 记录）；原语=divergent_loop（3 角色，用户定）；共享 core 加法泛化 `runDivergentLoop`（Option A，N8/v1c byte-identical）+ N6 debate 契约 + scenario/profile 注册 + 触发阈值（advisory）。**step f 计划 2026-06-20 锁定**（f0–f6，五项决策定，prompt 正文延期 T-128）；**f0 已落（`35a33ed7`，arbiter codex 对齐 N8）**。续 f1（schema body）→ f6 |
 | W-08 v1c 反馈触发 recheck 建议性发射（record-only，T-108 保持） | 3 | 核心 | planned | 待 |
 | W-09 provider-diverse debate 角色 profile（DP-3.5 加法） | 3 | 核心 | planned | 待 |
 | W-10 工作台收口审计 + 只读节点文档化 | 4 | 核心 | planned | 待 |
@@ -194,7 +194,7 @@
   - **D4 schema 粒度** = 最小镜像 N8（`schema_version`+`role_slot` required,`additionalProperties:true`);下游确定性 gate 已强校验 5-key 形状,网关再加严会在 gate 前误拒 explorer/critic 自由文本。
   - **D5 阈值注入** = f 内把 `n6_debate_trigger_thresholds` 作 advisory context 注入 `n6-loopback-triage-runtime-service`;升级仍是 triage LLM 判断;provisional warning 在 harness 步（f6）发射,与 N8 tripwire 同位。
 - **子切片序列（data-up,各自独立可发,f0–f5 对运行中 harness 不可见,直到 f6 翻活）**:
-  - **f0** 修订 d1:N6 arbiter codex-eligible（model-profile-registry）+ 守卫 test。
+  - **f0 — done（`35a33ed7`）** 修订 d1:N6 arbiter codex-eligible（model-profile-registry:加 `codex_assisted` + 去 `run_mode_eligibility.codex_assisted:[]` 覆盖 → 默认 acceptance+product,与 explorer/critic 及 N8 共享 profile 一致;scenario `codex_substitution_policy.allowed:false` **不变**——其管 codex overlay,与 base-mode 资格正交）+ tripwire 守卫 test（3 角色 product codex 可解析;再禁 arbiter 即红）。backend 1476/0/35、tsc 0。
   - **f1** N6 role-output JSON schema **body** + 注册回填（今仅 name-registered,无 schema 常量）+ schema test（role_slot enum==ROLE_ORDER、additionalProperties:true）。
   - **f2** 3 个 N6 debate context-policy profile（explorer/critic/arbiter,family `v1b_n6_topic_question_generation` 已存在）+ slot/profile-id 常量 + CONTEXT_PROFILE_BY_SLOT。
   - **f3** `V1bN6DivergentDebateStrategy`(实现全 hook + `instanceCountFor`,从 frozen scenario 取 arity;arbiter hook **必须读 `priorRoleArtifactHashesAll`** 否则 fan-out 身份丢失;`invocationPassthrough` 拒混合 mode)。
