@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID,
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
   type TopicSelectionV1bN6DivergentDebateRoleSlotId,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import {
-  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_EXPECTED_INSTANCE_COUNTS,
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_DEFAULT_INSTANCE_COUNTS,
   TopicSelectionV1bN6DivergentDebateAdmissionService,
   type TopicSelectionV1bN6DivergentDebateAdmissionExpectedIdentityBuilder,
   type TopicSelectionV1bN6DivergentDebateRoleAdmissionCandidate,
@@ -90,14 +91,12 @@ function instanceFor(
   return { artifact, structured_output: output as never };
 }
 
-/** explorer_0, explorer_1, critic_0, arbiter_0 in invocation order, prior accumulating. */
-function buildChain(): TopicSelectionV1bN6DivergentDebateRoleAdmissionCandidate[] {
-  const order: Array<[TopicSelectionV1bN6DivergentDebateRoleSlotId, number]> = [
-    ['n6_debate_explorer', 0],
-    ['n6_debate_explorer', 1],
-    ['n6_debate_critic', 0],
-    ['n6_debate_arbiter', 0],
-  ];
+/** explorerCount explorers, then critic_0, arbiter_0, in invocation order, prior accumulating. */
+function buildChain(explorerCount = 2): TopicSelectionV1bN6DivergentDebateRoleAdmissionCandidate[] {
+  const order: Array<[TopicSelectionV1bN6DivergentDebateRoleSlotId, number]> = [];
+  for (let i = 0; i < explorerCount; i += 1) order.push(['n6_debate_explorer', i]);
+  order.push(['n6_debate_critic', 0]);
+  order.push(['n6_debate_arbiter', 0]);
   const results: TopicSelectionV1bN6DivergentDebateRoleAdmissionCandidate[] = [];
   const prior: TopicSelectionV1bN6DivergentDebateRoleArtifact[] = [];
   for (const [slot, idx] of order) {
@@ -108,12 +107,15 @@ function buildChain(): TopicSelectionV1bN6DivergentDebateRoleAdmissionCandidate[
   return results;
 }
 
+/** Fold the transcript over the ACTUAL observed [slot,arity] structure (matches core.runDivergentLoop). */
 function transcriptFor(results: TopicSelectionV1bN6DivergentDebateRoleAdmissionCandidate[]): string {
-  const stageArities: Array<[TopicSelectionV1bN6DivergentDebateRoleSlotId, number]> = [
-    ['n6_debate_explorer', TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_EXPECTED_INSTANCE_COUNTS.n6_debate_explorer],
-    ['n6_debate_critic', TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_EXPECTED_INSTANCE_COUNTS.n6_debate_critic],
-    ['n6_debate_arbiter', TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_EXPECTED_INSTANCE_COUNTS.n6_debate_arbiter],
-  ];
+  const counts = {} as Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, number>;
+  for (const result of results) {
+    counts[result.artifact.slot_id] = (counts[result.artifact.slot_id] ?? 0) + 1;
+  }
+  const stageArities = TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER.map(
+    (slot) => [slot, counts[slot] ?? 0] as [TopicSelectionV1bN6DivergentDebateRoleSlotId, number],
+  );
   return canonicalHash([
     TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID,
     stageArities,
@@ -145,7 +147,7 @@ const clone = (results: TopicSelectionV1bN6DivergentDebateRoleAdmissionCandidate
   structuredClone(results) as TopicSelectionV1bN6DivergentDebateRoleAdmissionCandidate[];
 
 test('N6 divergent debate admission: scenario arity defaults are explorer 2 / critic 1 / arbiter 1', () => {
-  assert.deepEqual(TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_EXPECTED_INSTANCE_COUNTS, {
+  assert.deepEqual(TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_DEFAULT_INSTANCE_COUNTS, {
     n6_debate_explorer: 2,
     n6_debate_critic: 1,
     n6_debate_arbiter: 1,
@@ -177,9 +179,25 @@ test('N6 divergent debate admission: blocks a missing stage', async () => {
   assert.equal(result.blocker.code, 'N6_DIVERGENT_DEBATE_REQUIRED_ROLE_MISSING');
 });
 
-test('N6 divergent debate admission: blocks stage arity drift (one explorer instead of two)', async () => {
-  const results = buildChain();
-  results.splice(1, 1); // drop explorer_1 → explorer arity 1 != scenario default 2
+test('N6 divergent debate admission: admits a 3-explorer fan-out (within max) — variable arity, not pinned to default', async () => {
+  const results = buildChain(3);
+  const result = await service().admit({ role_results: results, loop_transcript_hash: transcriptFor(results) });
+  assert.equal(result.admitted, true);
+  if (!result.admitted) return;
+  assert.deepEqual(result.admission_identity.stage_arities, [
+    ['n6_debate_explorer', 3], ['n6_debate_critic', 1], ['n6_debate_arbiter', 1],
+  ]);
+  assert.equal(result.admission_identity.ordered_role_artifact_hashes.length, 5);
+});
+
+test('N6 divergent debate admission: admits a single-explorer fan-out (min)', async () => {
+  const results = buildChain(1);
+  const result = await service().admit({ role_results: results, loop_transcript_hash: transcriptFor(results) });
+  assert.equal(result.admitted, true);
+});
+
+test('N6 divergent debate admission: blocks stage arity outside [min,max] (four explorers > max 3)', async () => {
+  const results = buildChain(4);
   const result = await service().admit({ role_results: results, loop_transcript_hash: transcriptFor(results) });
   assert.equal(result.admitted, false);
   if (result.admitted) return;

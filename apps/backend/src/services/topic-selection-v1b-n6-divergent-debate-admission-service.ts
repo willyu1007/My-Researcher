@@ -38,24 +38,44 @@ const N6_NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1' a
 const N6_DEBATE_OUTPUT_CONTRACT = 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1' as const;
 const ARBITER_SLOT = 'n6_debate_arbiter' as const;
 
-/** Frozen per-stage fan-out arity, single-sourced from the scenario contract's instance_policy
- *  (default_instances) — the SAME source the strategy's instanceCountFor reads (f4 imports this), so
- *  the runtime fold and this admission re-fold can never disagree over a drifted literal. */
-export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_EXPECTED_INSTANCE_COUNTS: Record<
+interface N6DivergentDebateInstancePolicy { min: number; max: number; default: number; }
+
+/** Per-stage fan-out instance policy [min, max, default], single-sourced from the scenario contract's
+ *  instance_policy — the SAME source the strategy's instanceCountFor reads (f4 imports the default below).
+ *  CRITICAL: admission does NOT pin arity to `default`. The core folds whatever `instanceCountFor` returns
+ *  into the [slot,arity] transcript (core-service.ts:296-336), and that arity is a genuine per-run VARIABLE
+ *  within [min,max] (explorer is min1/max3/default2 with allow_duplicate_model_options + a diversity policy).
+ *  So admission accepts any per-stage count within [min,max] and re-folds the ACTUAL arity it observes in
+ *  role_results — a legitimate non-default run is admitted, never falsely rejected. */
+const N6_DIVERGENT_DEBATE_INSTANCE_POLICY: Record<
   TopicSelectionV1bN6DivergentDebateRoleSlotId,
-  number
+  N6DivergentDebateInstancePolicy
 > = (() => {
   const scenario = createTopicSelectionV1bN6DivergentDebateScenarioContract();
-  const counts = {} as Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, number>;
+  const policy = {} as Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, N6DivergentDebateInstancePolicy>;
   for (const slot of TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER) {
     const stageSlot = scenario.role_stage_slots.find((item) => item.slot_id === slot);
     if (!stageSlot) {
       throw new AppError(500, 'INTERNAL_ERROR', `N6 divergent debate scenario is missing role stage slot ${slot}.`);
     }
-    counts[slot] = stageSlot.instance_policy.default_instances;
+    policy[slot] = {
+      min: stageSlot.instance_policy.min_instances,
+      max: stageSlot.instance_policy.max_instances,
+      default: stageSlot.instance_policy.default_instances,
+    };
   }
-  return counts;
+  return policy;
 })();
+
+/** Default per-stage fan-out arity (instance_policy.default_instances) — the arity the strategy's
+ *  instanceCountFor returns absent a frozen per-run override. f4 imports this for its default; admission
+ *  validates against [min,max] (above), NOT against this default. */
+export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_DEFAULT_INSTANCE_COUNTS: Record<
+  TopicSelectionV1bN6DivergentDebateRoleSlotId,
+  number
+> = Object.fromEntries(
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER.map((slot) => [slot, N6_DIVERGENT_DEBATE_INSTANCE_POLICY[slot].default]),
+) as Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, number>;
 
 /** The core's TOut for v1b N6 divergent debate roles (index-signature form so it satisfies the generic). */
 export type TopicSelectionV1bN6DivergentDebateRoleOutput =
@@ -237,13 +257,19 @@ export class TopicSelectionV1bN6DivergentDebateAdmissionService {
     if ((countBySlot.get(ARBITER_SLOT) ?? 0) !== 1) {
       return this.block('N6_DIVERGENT_DEBATE_TERMINAL_NOT_SINGLETON', 'N6 divergent debate terminal arbiter stage must be a singleton.', { actual: countBySlot.get(ARBITER_SLOT) ?? 0 });
     }
+    // Per-stage arity must be within the frozen scenario's [min,max] — NOT pinned to default. The core
+    // folds the ACTUAL instanceCountFor arity into the transcript, so admission re-folds the actual
+    // observed count; a legitimate non-default run (e.g. 3 explorers, within max) admits.
+    const actualCounts = {} as Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, number>;
     for (const slot of TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER) {
-      const expected = TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_EXPECTED_INSTANCE_COUNTS[slot];
-      if ((countBySlot.get(slot) ?? 0) !== expected) {
-        return this.block('N6_DIVERGENT_DEBATE_STAGE_ARITY_DRIFT', `N6 divergent debate stage ${slot} instance count does not match the frozen scenario arity.`, { slot, expected, actual: countBySlot.get(slot) ?? 0 });
+      const actual = countBySlot.get(slot) ?? 0;
+      const policy = N6_DIVERGENT_DEBATE_INSTANCE_POLICY[slot];
+      if (actual < policy.min || actual > policy.max) {
+        return this.block('N6_DIVERGENT_DEBATE_STAGE_ARITY_DRIFT', `N6 divergent debate stage ${slot} instance count is outside the frozen scenario [min,max] fan-out range.`, { slot, min: policy.min, max: policy.max, actual });
       }
+      actualCounts[slot] = actual;
     }
-    const expectedOrder = this.expectedInstanceOrder();
+    const expectedOrder = this.instanceOrder(actualCounts);
     const actualOrder = input.role_results.map((result) => result.artifact.slot_id);
     if (!this.sameOrder(actualOrder, expectedOrder)) {
       return this.block('N6_DIVERGENT_DEBATE_ROLE_ORDER_INVALID', 'N6 divergent debate instances must be admitted in canonical fan-out order (each stage\'s instances contiguous, in role order).', { actual_order: actualOrder, expected_order: expectedOrder });
@@ -297,7 +323,7 @@ export class TopicSelectionV1bN6DivergentDebateAdmissionService {
     // 4. Whole-loop transcript: re-fold over [debate_loop_id, [[slot,arity]...], ordered hashes] and
     //    compare to the runtime's fold. The loop id + arity + role order are all single-sourced, so a
     //    mismatch is a genuine drift, never a stale-literal disagreement.
-    const stageArities = this.stageArities();
+    const stageArities = this.stageArities(actualCounts);
     const orderedHashes = input.role_results.map((result) => result.artifact.role_artifact_hash);
     const expectedTranscript = this.hash([
       TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID,
@@ -368,20 +394,25 @@ export class TopicSelectionV1bN6DivergentDebateAdmissionService {
     return null;
   }
 
-  /** The canonical flat instance order: each stage's instances contiguous, stages in role order. */
-  private expectedInstanceOrder(): TopicSelectionV1bN6DivergentDebateRoleSlotId[] {
+  /** The canonical flat instance order for the OBSERVED arities: each stage's instances contiguous,
+   *  stages in role order. */
+  private instanceOrder(
+    counts: Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, number>,
+  ): TopicSelectionV1bN6DivergentDebateRoleSlotId[] {
     const order: TopicSelectionV1bN6DivergentDebateRoleSlotId[] = [];
     for (const slot of TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER) {
-      for (let i = 0; i < TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_EXPECTED_INSTANCE_COUNTS[slot]; i += 1) {
+      for (let i = 0; i < counts[slot]; i += 1) {
         order.push(slot);
       }
     }
     return order;
   }
 
-  private stageArities(): Array<[TopicSelectionV1bN6DivergentDebateRoleSlotId, number]> {
+  private stageArities(
+    counts: Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, number>,
+  ): Array<[TopicSelectionV1bN6DivergentDebateRoleSlotId, number]> {
     return TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER.map(
-      (slot) => [slot, TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_EXPECTED_INSTANCE_COUNTS[slot]] as [TopicSelectionV1bN6DivergentDebateRoleSlotId, number],
+      (slot) => [slot, counts[slot]] as [TopicSelectionV1bN6DivergentDebateRoleSlotId, number],
     );
   }
 
