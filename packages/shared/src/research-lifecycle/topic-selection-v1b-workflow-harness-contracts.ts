@@ -635,6 +635,28 @@ export interface TopicSelectionV1bN8DebateTriggerThresholds {
   t3_total_score_min: number;
 }
 
+/**
+ * N6 only (T-127 W-07 step e): advisory thresholds describing when the upstream `n6_loopback_triage`
+ * LLM artifact SHOULD recommend escalating candidate generation to the bounded divergent debate
+ * (`debate_escalation_recommended` warning → `n6_debate_escalation` loopback). Unlike the N8 thresholds
+ * these drive NO harness compute function: escalation is decided upstream by the triage artifact and the
+ * harness only validates/routes it (DMP-10 / T-088 D6 — code-over-policy, no second judgment path). They
+ * are threaded into the triage prompt in step f; here they are pure advisory policy data.
+ */
+export interface TopicSelectionV1bN6DebateTriggerThresholds {
+  provisional: boolean;
+  /** Escalate when the fraction of weak/blocked candidates is at/above this. */
+  weak_blocked_fraction_min: number;
+  /** ...or when the absolute count of weak/blocked candidates is at/above this. */
+  weak_blocked_count_min: number;
+  /** Escalate when the count of admissible (non-blocked) candidates is at/below this floor. */
+  admissible_candidate_floor: number;
+  /** Escalate when distinct/total candidate ratio is at/below this (too much duplication/overlap). */
+  duplicate_distinct_ratio_max_inclusive: number;
+  /** ...or when the count of duplicate/overlapping candidates is at/above this. */
+  duplicate_overlap_count_min: number;
+}
+
 const slotsFor = (
   nodeId: TopicSelectionV1bWorkflowHarnessNodeId,
 ): readonly TopicSelectionV1bWorkflowHarnessSemanticSupportSlotSpec[] =>
@@ -674,6 +696,8 @@ export interface TopicSelectionV1bWorkflowHarnessNodePolicy {
   replay_hash_components: readonly TopicSelectionV1bWorkflowHarnessReplayHashComponent[];
   /** N8 only (T-123 Phase 3): deterministic T1/T3 debate-trigger thresholds. */
   debate_trigger_thresholds?: TopicSelectionV1bN8DebateTriggerThresholds;
+  /** N6 only (T-127 W-07): advisory candidate-debate escalation thresholds (no harness compute). */
+  n6_debate_trigger_thresholds?: TopicSelectionV1bN6DebateTriggerThresholds;
 }
 
 /**
@@ -699,6 +723,35 @@ export const N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
   /** Non-blocking at the harness layer — the node still admits; the gate is a product-level policy. */
   harness_blocking: false,
   /** A real topic may pass N8 carrying the warning only with a recorded stakeholder sign-off. */
+  requires_stakeholder_sign_off: true,
+  applies_when: { run_mode: 'product', thresholds_provisional: true },
+  /** Calibration bar that releases the gate (flips provisional:false and removes the tripwire). */
+  released_by: 'W-13 calibration: >=100 multi-provider labeled samples, false-positive rate < 5%',
+} as const;
+
+/**
+ * W-07 (T-127): the N6 provisional-thresholds PRODUCT GATE — the formal semantics of the
+ * `N6_DEBATE_THRESHOLDS_PROVISIONAL` tripwire, mirroring the N8 gate above.
+ *
+ * While the N6 node policy's `n6_debate_trigger_thresholds.provisional` is true, the harness emits the
+ * `N6_DEBATE_THRESHOLDS_PROVISIONAL` warning whenever a PRODUCT run (`run_mode: 'product'`) is governed by
+ * these un-calibrated escalation thresholds. As with N8 the warning is NON-BLOCKING at the harness layer:
+ * escalation remains the upstream triage artifact's judgment (DMP-10 / T-088 D6), N6 still admits.
+ *
+ * The PRODUCT-LEVEL contract is identical: a real topic may proceed past N6 carrying this warning ONLY
+ * with an explicit, recorded stakeholder sign-off acknowledging that N6 escalation ran under provisional
+ * thresholds. That sign-off record IS the production-gated override entry; absent it, advancing a real
+ * topic past a provisional-threshold N6 is out of policy.
+ *
+ * The gate is HELD until W-13 calibration meets its bar (>=100 multi-provider labeled samples with a
+ * false-positive rate < 5%). Until then `provisional` MUST NOT be set to false and this tripwire MUST NOT
+ * be removed (T-127 D8 record-and-defer).
+ */
+export const N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
+  warning_code: 'N6_DEBATE_THRESHOLDS_PROVISIONAL',
+  /** Non-blocking at the harness layer — the node still admits; the gate is a product-level policy. */
+  harness_blocking: false,
+  /** A real topic may pass N6 carrying the warning only with a recorded stakeholder sign-off. */
   requires_stakeholder_sign_off: true,
   applies_when: { run_mode: 'product', thresholds_provisional: true },
   /** Calibration bar that releases the gate (flips provisional:false and removes the tripwire). */
@@ -991,9 +1044,28 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       },
     ],
     blocker_codes: ['weak_topic_question_candidate_set', 'duplicate_or_overlapping_candidates', 'missing_value_axis'],
-    warning_codes: ['candidate_overlap_preserved', 'debate_escalation_recommended', 'decision_memory_duplicate_candidate'],
+    warning_codes: [
+      'candidate_overlap_preserved',
+      'debate_escalation_recommended',
+      'decision_memory_duplicate_candidate',
+      // W-07 (DP step e): provisional escalation thresholds governed a product run (calibration tripwire).
+      'n6_debate_thresholds_provisional',
+    ],
     loopback_target_codes: [...TOPIC_SELECTION_V1B_N6_LOOPBACK_TARGET_CODES],
     replay_hash_components: [...DEFAULT_REPLAY_HASH_COMPONENTS, 'selected_candidate_hash'],
+    n6_debate_trigger_thresholds: {
+      // W-07 step e: stays PROVISIONAL. There is no empirical N6 candidate-quality distribution to
+      // calibrate against — every N6 candidate set in the deep-test artifacts is a hand-authored fixture,
+      // not a spread of real generation runs. Picking escalation cut-offs would be guessing (prohibited),
+      // so the provisional values hold and the n6_debate_thresholds_provisional tripwire guards product.
+      // Product-gate semantics for this flag: see N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE (T-127 W-07).
+      provisional: true,
+      weak_blocked_fraction_min: 0.5,
+      weak_blocked_count_min: 2,
+      admissible_candidate_floor: 1,
+      duplicate_distinct_ratio_max_inclusive: 0.5,
+      duplicate_overlap_count_min: 2,
+    },
   },
   {
     node_index: 7,
@@ -3199,6 +3271,29 @@ export const topicSelectionV1bWorkflowHarnessNodePolicySchema = {
         t3_dimension_spread_min: { type: 'number' },
         t3_single_dimension_floor: { type: 'number' },
         t3_total_score_min: { type: 'number' },
+      },
+    },
+    // N6 only (T-127 W-07): advisory candidate-debate escalation thresholds carried on the node
+    // policy. Optional because only the generate-topic-question-candidates node declares it; drives
+    // no harness compute (escalation is the upstream triage artifact's judgment, DMP-10 / T-088 D6).
+    n6_debate_trigger_thresholds: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'provisional',
+        'weak_blocked_fraction_min',
+        'weak_blocked_count_min',
+        'admissible_candidate_floor',
+        'duplicate_distinct_ratio_max_inclusive',
+        'duplicate_overlap_count_min',
+      ],
+      properties: {
+        provisional: { type: 'boolean' },
+        weak_blocked_fraction_min: { type: 'number' },
+        weak_blocked_count_min: { type: 'number' },
+        admissible_candidate_floor: { type: 'number' },
+        duplicate_distinct_ratio_max_inclusive: { type: 'number' },
+        duplicate_overlap_count_min: { type: 'number' },
       },
     },
   },

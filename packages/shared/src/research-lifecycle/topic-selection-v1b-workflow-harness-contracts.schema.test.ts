@@ -8,6 +8,7 @@ import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_RESULT_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
   N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE,
+  N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
   topicSelectionV1bN1HarnessFrozenInputPayloadSchema,
   topicSelectionV1bN2HarnessFrozenInputPayloadSchema,
@@ -1675,4 +1676,25 @@ test('N8 provisional-thresholds product gate (W-06) is held and formalized', () 
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code, 'N8_DEBATE_THRESHOLDS_PROVISIONAL');
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.harness_blocking, false);
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.requires_stakeholder_sign_off, true);
+});
+
+// W-07 (T-127): the N6 provisional-thresholds product gate is held + formalized, mirroring N8. This
+// doubles as a tripwire — if anyone flips `provisional` to false before W-13 calibration, this fails.
+test('N6 provisional-thresholds product gate (W-07) is held and formalized', () => {
+  const n6 = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES.find(
+    (policy) => policy.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1',
+  );
+  assert.ok(n6, 'N6 generate-topic-question-candidates policy exists');
+  // Held until W-13 calibration — provisional must NOT be flipped early (T-127 D8).
+  assert.equal(n6!.n6_debate_trigger_thresholds?.provisional, true);
+  // Advisory-only: drives no harness compute, so the thresholds carry escalation hints, not gate cut-offs.
+  assert.equal(n6!.n6_debate_trigger_thresholds?.weak_blocked_count_min, 2);
+  assert.equal(n6!.n6_debate_trigger_thresholds?.admissible_candidate_floor, 1);
+  // The node policy declares the tripwire code (lowercase policy convention); the harness emits its
+  // uppercase form, pinned by the const assertion below.
+  assert.ok(n6!.warning_codes.includes('n6_debate_thresholds_provisional'));
+  // The formalized product-gate contract: non-blocking at the harness, requires a recorded sign-off.
+  assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code, 'N6_DEBATE_THRESHOLDS_PROVISIONAL');
+  assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.harness_blocking, false);
+  assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.requires_stakeholder_sign_off, true);
 });
