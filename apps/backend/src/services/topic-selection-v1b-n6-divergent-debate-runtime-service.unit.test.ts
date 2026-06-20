@@ -396,4 +396,7 @@ test('f5 runtime: a mocked_llm fan-out debate runs through core + admission + ga
   assert.deepEqual(Object.keys(result.admission.synthesized_candidate_set).sort(), [
     'candidates', 'generation_notes', 'human_review_triggers', 'question_frame', 'recommended_candidate_keys',
   ]);
+  // Byte pass-through: the bridged gate draft IS the arbiter's exact synthesized draft (not a substitute).
+  assert.deepEqual(result.gate_draft.structured_output, result.admission.synthesized_candidate_set);
+  assert.deepEqual(result.gate_draft.structured_output, e2eCandidateSetDraft());
 });
