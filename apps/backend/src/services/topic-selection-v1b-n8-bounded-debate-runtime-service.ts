@@ -23,6 +23,10 @@ import type {
   TopicSelectionExecutorKind,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import {
+  resolveDebateExecutionModelOptionId,
+  type TopicSelectionNamedDebateExecutionPlan,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
+import {
   TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
@@ -114,6 +118,10 @@ interface V1bN8DebateHandoff {
   requiredStructureManifest: unknown;
   requiredStructureManifestHash: string;
   baseSourceRefs: TopicSelectionFunctionalRef[];
+  /** T-127 W-09 (DP-3.5): optional provider-diverse execution plan — per-role model_option_id override.
+   *  Absent (null) -> the strategy resolver returns null -> the base modelOptionId (null) is used, i.e.
+   *  byte-identical to the pre-W09 single-profile behavior. */
+  executionPlan: TopicSelectionNamedDebateExecutionPlan<TopicSelectionV1bN8BoundedDebateRoleSlotId> | null;
 }
 
 type V1bN8DebateInputs = {
@@ -135,6 +143,9 @@ export type GenerateTopicSelectionV1bN8DebateInput = {
   /** per-role codex/mock outputs (keyed by role slot id). */
   role_outputs: Partial<Record<TopicSelectionV1bN8BoundedDebateRoleSlotId, V1bN8DebateInputs>>;
   created_by?: TopicSelectionV1bWorkflowHarnessRunRequest['created_by'];
+  /** T-127 W-09 (DP-3.5): optional named provider-diverse execution plan (debate_level -> named plan),
+   *  per-role model_option_id override. Absent -> unchanged single-profile behavior. */
+  execution_plan?: TopicSelectionNamedDebateExecutionPlan<TopicSelectionV1bN8BoundedDebateRoleSlotId> | null;
 };
 
 export type TopicSelectionV1bN8DebateRunResult =
@@ -206,6 +217,7 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
       requiredStructureManifest: shared.requiredStructureManifest,
       requiredStructureManifestHash: canonicalHash(shared.requiredStructureManifest),
       baseSourceRefs: this.strategy.baseSourceRefs(input.request, shared.frozenPayload, shared.projection.payload, shared.projection.ref),
+      executionPlan: input.execution_plan ?? null,
     };
 
     const loop = await this.core.runLoop<
@@ -459,7 +471,10 @@ class V1bN8DebateStrategy implements BoundedDebateStrategy<
       run_mode: ctx.runMode,
       profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
       output_contract: OUTPUT_CONTRACT,
-      model_option_id: ctx.modelOptionId,
+      // T-127 W-09: per-role model_option_id from the named execution plan (provider-diverse), falling
+      // back to the base ctx.modelOptionId. Absent a plan the resolver returns null -> ctx.modelOptionId
+      // (null today), so this is byte-identical to the pre-W09 single-profile behavior.
+      model_option_id: resolveDebateExecutionModelOptionId(ctx.handoff.executionPlan, ctx.slotId) ?? ctx.modelOptionId,
       prompt: { promptTemplateId: PROMPT_TEMPLATE_ID, version: PROMPT_TEMPLATE_VERSION },
       prompt_variant_key: this.invocationSlotId(ctx.slotId),
       schema_name: OUTPUT_CONTRACT,

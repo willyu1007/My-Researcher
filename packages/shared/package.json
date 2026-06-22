@@ -19,6 +19,7 @@
     "./research-lifecycle/topic-selection-agent-invocation-contracts": "./src/research-lifecycle/topic-selection-agent-invocation-contracts.ts",
     "./research-lifecycle/topic-selection-llm-runtime-contracts": "./src/research-lifecycle/topic-selection-llm-runtime-contracts.ts",
     "./research-lifecycle/topic-selection-debate-scenario-contracts": "./src/research-lifecycle/topic-selection-debate-scenario-contracts.ts",
+    "./research-lifecycle/topic-selection-debate-execution-plan-contracts": "./src/research-lifecycle/topic-selection-debate-execution-plan-contracts.ts",
     "./research-lifecycle/topic-selection-search-resource-contracts": "./src/research-lifecycle/topic-selection-search-resource-contracts.ts",
     "./research-lifecycle/topic-selection-resource-sampling-contracts": "./src/research-lifecycle/topic-selection-resource-sampling-contracts.ts",
     "./research-lifecycle/topic-selection-evidence-map-contracts": "./src/research-lifecycle/topic-selection-evidence-map-contracts.ts",

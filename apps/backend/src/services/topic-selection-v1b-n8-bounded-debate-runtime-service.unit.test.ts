@@ -269,6 +269,32 @@ test('v1b N8 bounded debate runtime drives the 4-role loop, admits, and bridges 
   assert.equal((stub as unknown as { sharedContextCalls: number }).sharedContextCalls, 1);
 });
 
+test('v1b N8 bounded debate runtime: a W-09 execution_plan with no per-role override is byte-identical (no-plan === empty-plan)', async () => {
+  // T-127 W-09: the execution_plan threads additively; a plan that supplies no per-role model_option_id
+  // resolves to null -> the base ctx.modelOptionId (null), so the loop transcript + admission identity
+  // are byte-identical to a run with no plan at all. (Concrete per-role overrides are exercised in S4.)
+  const request = makeRequest();
+  const noPlan = await makeSubject().runtime.runDebate(debateInput(request));
+  const emptyPlan = await makeSubject().runtime.runDebate({
+    ...debateInput(request),
+    execution_plan: { name: 'codex_assisted' },
+  });
+  assert.equal(noPlan.status, 'completed');
+  assert.equal(emptyPlan.status, 'completed');
+  if (noPlan.status !== 'completed' || emptyPlan.status !== 'completed') return;
+  // Compare the id-INDEPENDENT identity components (as the replay test does — the top-level
+  // admission_identity_hash folds idFactory-bearing refs). An empty plan leaves them byte-identical.
+  assert.equal(emptyPlan.loop_transcript_hash, noPlan.loop_transcript_hash);
+  assert.deepEqual(
+    emptyPlan.admission.admission_identity.role_prompt_packet_hashes,
+    noPlan.admission.admission_identity.role_prompt_packet_hashes,
+  );
+  assert.deepEqual(
+    emptyPlan.admission.admission_identity.role_artifact_hashes,
+    noPlan.admission.admission_identity.role_artifact_hashes,
+  );
+});
+
 test('v1b N8 bounded debate runtime bridges a codex_assisted debate as codex_response (not a mock fixture)', async () => {
   const { runtime, stub } = makeSubject();
   const result = await runtime.runDebate(debateInput(makeRequest(), { executionMode: 'codex_assisted' }));
