@@ -29,6 +29,10 @@ import type {
   TopicSelectionExecutorKind,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import {
+  resolveDebateExecutionModelOptionId,
+  type TopicSelectionNamedDebateExecutionPlan,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
+import {
   TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
@@ -134,6 +138,10 @@ export interface V1bN6DebateHandoff {
   decisionMemory: ResolvedTopicSelectionDecisionMemoryPacket | null;
   baseSourceHashes: Record<string, string>;
   baseSourceRefs: TopicSelectionFunctionalRef[];
+  /** T-127 W-09 (DP-3.5): optional provider-diverse execution plan keyed by debate ROLE FAMILY
+   *  (explorer/critic/arbiter) — all fan-out instances of a family share the family's spec. Absent
+   *  (null) -> the resolver returns null -> the base modelOptionId (null), i.e. byte-identical to pre-W09. */
+  executionPlan: TopicSelectionNamedDebateExecutionPlan<TopicSelectionV1bN6DivergentDebateRoleSlotId> | null;
 }
 
 export type V1bN6DebateInputs = {
@@ -333,7 +341,11 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
       run_mode: ctx.runMode,
       profile_id: MODEL_PROFILE_BY_SLOT[ctx.slotId],
       output_contract: OUTPUT_CONTRACT,
-      model_option_id: ctx.modelOptionId,
+      // T-127 W-09: per-role-FAMILY model_option_id from the named execution plan (ctx.slotId IS the
+      // family — fan-out instances share it; instance_index disambiguates only the attempt id). Falls
+      // back to the base ctx.modelOptionId; absent a plan the resolver returns null -> ctx.modelOptionId
+      // (null today), so this is byte-identical to the pre-W09 single-profile behavior.
+      model_option_id: resolveDebateExecutionModelOptionId(ctx.handoff.executionPlan, ctx.slotId) ?? ctx.modelOptionId,
       prompt: { promptTemplateId: PROMPT_TEMPLATE_ID_BY_SLOT[ctx.slotId], version: PROMPT_TEMPLATE_VERSION },
       prompt_variant_key: ctx.slotId,
       schema_name: OUTPUT_CONTRACT,
@@ -590,6 +602,8 @@ export type GenerateTopicSelectionV1bN6DivergentDebateInput = {
   /** per-role, per-instance codex/mock fixtures: role_outputs[slot][instanceIndex] (fan-out). */
   role_outputs: Partial<Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, V1bN6DebateInputs[]>>;
   created_by?: TopicSelectionV1bWorkflowHarnessRunRequest['created_by'];
+  /** T-127 W-09: optional provider-diverse execution plan (role-family-keyed). Absent -> byte-identical. */
+  execution_plan?: TopicSelectionNamedDebateExecutionPlan<TopicSelectionV1bN6DivergentDebateRoleSlotId> | null;
 };
 
 export type TopicSelectionV1bN6DivergentDebateRunResult =
@@ -669,6 +683,7 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
       decisionMemory: shared.decisionMemory,
       baseSourceHashes: shared.sourceHashes,
       baseSourceRefs: shared.sourceRefs,
+      executionPlan: input.execution_plan ?? null,
     };
 
     const loop = await this.core.runDivergentLoop<

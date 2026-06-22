@@ -49,6 +49,7 @@ const handoff: V1bN6DebateHandoff = {
   decisionMemory: null,
   baseSourceHashes: { frozen_input_hash: 'fih', n5_handoff_hash: 'n5h' },
   baseSourceRefs: [],
+  executionPlan: null,
 };
 
 const WFR = 'wfr-1';
@@ -399,4 +400,78 @@ test('f5 runtime: a mocked_llm fan-out debate runs through core + admission + ga
   // Byte pass-through: the bridged gate draft IS the arbiter's exact synthesized draft (not a substitute).
   assert.deepEqual(result.gate_draft.structured_output, result.admission.synthesized_candidate_set);
   assert.deepEqual(result.gate_draft.structured_output, e2eCandidateSetDraft());
+});
+
+test('f5 runtime: a W-09 execution_plan with no per-role override is byte-identical (no-plan === empty-plan)', async () => {
+  // T-127 W-09 (S2): the execution_plan threads additively into the N6 divergent debate; a plan that
+  // supplies no per-role model_option_id resolves (per ROLE FAMILY) to null -> the base ctx.modelOptionId
+  // (null), so the loop transcript + the id-INDEPENDENT admission-identity components are byte-identical to
+  // a run with no plan at all. The plan does NOT change fan-out arity (that stays strategy.instanceCountFor).
+  // Concrete per-family overrides are exercised in S4.
+  const makeRuntime = () => {
+    const repository = new InMemoryTopicSelectionControlPlaneRepository();
+    const controlPlane = new TopicSelectionControlPlaneService(repository, {
+      idFactory: (() => {
+        const counts = new Map<string, number>();
+        return (prefix: string) => {
+          const next = (counts.get(prefix) ?? 0) + 1;
+          counts.set(prefix, next);
+          return `${prefix}_${String(next).padStart(3, '0')}`;
+        };
+      })(),
+      now: () => '2026-06-16T00:00:00.000Z',
+    });
+    return new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane);
+  };
+
+  const baseInput = () => ({
+    request: e2eRequest(),
+    generation_mode: 'initial_from_n5' as const,
+    execution_mode: 'mocked_llm' as const,
+    run_mode: 'test' as const,
+    role_outputs: {
+      n6_debate_explorer: [
+        mockedRole('n6_debate_explorer', 0, { candidate_seeds: [{ seed_id: 's0', question_framing: 'framing 0', evidence_refs: [] }] }),
+        mockedRole('n6_debate_explorer', 1, { candidate_seeds: [{ seed_id: 's1', question_framing: 'framing 1', evidence_refs: [] }] }),
+      ],
+      n6_debate_critic: [
+        mockedRole('n6_debate_critic', 0, { critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin set' }] }),
+      ],
+      n6_debate_arbiter: [
+        mockedRole('n6_debate_arbiter', 0, { synthesized_candidate_set: e2eCandidateSetDraft() }),
+      ],
+    } as Partial<Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, V1bN6DebateInputs[]>>,
+    created_by: 'system' as const,
+  });
+
+  const noPlan = await makeRuntime().runDivergentDebate(baseInput());
+  const emptyPlan = await makeRuntime().runDivergentDebate({
+    ...baseInput(),
+    execution_plan: { name: 'codex_assisted' },
+  });
+
+  assert.equal(noPlan.status, 'completed');
+  assert.equal(emptyPlan.status, 'completed');
+  if (noPlan.status !== 'completed' || emptyPlan.status !== 'completed') return;
+
+  // Compare the id-INDEPENDENT identity components (the N6 admission identity has no role-keyed hash maps;
+  // its final_*_ref / *_audit_* fields + admission_identity_hash fold idFactory-bearing refs, so they are
+  // NOT compared). An empty plan leaves the transcript chain + source/prior hashes byte-identical.
+  assert.equal(emptyPlan.loop_transcript_hash, noPlan.loop_transcript_hash);
+  assert.deepEqual(
+    emptyPlan.admission.admission_identity.ordered_role_artifact_hashes,
+    noPlan.admission.admission_identity.ordered_role_artifact_hashes,
+  );
+  assert.deepEqual(
+    emptyPlan.admission.admission_identity.source_hashes,
+    noPlan.admission.admission_identity.source_hashes,
+  );
+  assert.deepEqual(
+    emptyPlan.admission.admission_identity.prior_role_artifact_hashes,
+    noPlan.admission.admission_identity.prior_role_artifact_hashes,
+  );
+  assert.deepEqual(
+    emptyPlan.admission.admission_identity.stage_arities,
+    noPlan.admission.admission_identity.stage_arities,
+  );
 });
