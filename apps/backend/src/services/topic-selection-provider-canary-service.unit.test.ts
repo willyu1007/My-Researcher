@@ -55,6 +55,8 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts';
 import {
   TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
   type TopicSelectionV1cN2BoundedDebateRoleOutput,
   type TopicSelectionV1cN2BoundedDebateRoleSlotId,
 } from './topic-selection-v1c-n2-bounded-debate-admission-service.js';
@@ -96,8 +98,8 @@ class MinimalN2ProviderCanaryGateway extends StubProviderCanaryGateway {
     const slot = n2SlotFromRequest(request);
     const output = {
       schema_version: slot === TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.synthesizer_final
-        ? 'topic-selection-v1c-n2-bounded-micro-debate-final.v1'
-        : 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+        ? TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION
+        : TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
       role_slot: slot,
     };
     return {
@@ -242,7 +244,7 @@ function v1cN2CanaryOutput(request: LlmStructuredOutputRequest): TopicSelectionV
   const recheckRef = functionalRef('recheck_request', 'provider_canary_recheck_001');
   if (slot === TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.promotion_supporter_draft) {
     return {
-      schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
       role_slot: slot,
       support_summary: 'Synthetic provider canary support draft for N2 runtime semantics.',
       support_points: [{
@@ -256,7 +258,7 @@ function v1cN2CanaryOutput(request: LlmStructuredOutputRequest): TopicSelectionV
   }
   if (slot === TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.reviewer_critic_review) {
     return {
-      schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
       role_slot: slot,
       critic_findings: [{
         finding_id: 'provider_canary_finding_001',
@@ -270,7 +272,7 @@ function v1cN2CanaryOutput(request: LlmStructuredOutputRequest): TopicSelectionV
   }
   if (slot === TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.promotion_supporter_repair) {
     return {
-      schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
       role_slot: slot,
       repaired_summary: 'Synthetic repair preserves the provider-live runtime boundary.',
       accepted_findings: ['provider_canary_finding_001'],
@@ -284,7 +286,7 @@ function v1cN2CanaryOutput(request: LlmStructuredOutputRequest): TopicSelectionV
     };
   }
   return {
-    schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-final.v1',
+    schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
     role_slot: slot,
     final_support_summary: 'Synthetic final support validates N2 provider-live runtime semantics.',
     dossier_markdown: 'Prompt packet reuse is allowed, provider response reuse remains blocked, and output is non-authority.',

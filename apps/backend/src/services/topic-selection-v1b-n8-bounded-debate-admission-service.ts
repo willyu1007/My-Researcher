@@ -17,6 +17,7 @@ import type {
 import {
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
   type TopicSelectionV1bN8BoundedDebateRolePayload,
   type TopicSelectionV1bN8BoundedDebateRoleSlotId,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
@@ -24,7 +25,10 @@ import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { stableStringify } from './literature-content-processing-utils.js';
 
 const N8_NODE_ID = 'topic-selection.v1b.assess-topic-value.v1' as const;
-const N8_DEBATE_OUTPUT_CONTRACT = 'TopicSelectionV1bN8BoundedDebateRoleOutput@v1' as const;
+// The role artifact's output_contract IS the role-output contract version — single-sourced from the
+// schema_version constant (mirrors N6) so the artifact contract pin and the model-output schema_version
+// pin can never silently desync.
+const N8_DEBATE_OUTPUT_CONTRACT = TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
 const SYNTHESIZER_SLOT = 'n8_debate_synthesizer_final' as const;
 const CRITIC_SLOT = 'n8_debate_value_critic' as const;
 const REPAIR_SLOT = 'n8_debate_assessor_repair' as const;
@@ -91,6 +95,7 @@ export type TopicSelectionV1bN8BoundedDebateAdmissionBlockerCode =
   | 'N8_BOUNDED_DEBATE_REQUIRED_ROLE_MISSING'
   | 'N8_BOUNDED_DEBATE_ROLE_ORDER_INVALID'
   | 'N8_BOUNDED_DEBATE_ROLE_OUTPUT_MISMATCH'
+  | 'N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION'
   | 'N8_BOUNDED_DEBATE_FORBIDDEN_AUTHORITY_FIELD'
   | 'N8_BOUNDED_DEBATE_ARTIFACT_PROFILE_DRIFT'
   | 'N8_BOUNDED_DEBATE_ARTIFACT_PROMPT_DRIFT'
@@ -232,6 +237,14 @@ export class TopicSelectionV1bN8BoundedDebateAdmissionService {
       }
       if (candidate.structured_output.role_slot !== slot) {
         return this.block('N8_BOUNDED_DEBATE_ROLE_OUTPUT_MISMATCH', 'N8 bounded debate role output role_slot does not match its runtime slot.', { slot, actual_role_slot: candidate.structured_output.role_slot });
+      }
+      if (candidate.structured_output.schema_version !== TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION) {
+        // The model output must self-identify the EXACT contract version. The orchestrator schema only
+        // requires a non-empty schema_version (any value), and the artifact's output_contract is set by
+        // the trusted strategy — so without this per-role check the model output's OWN schema_version
+        // field is never pinned, and a role output carrying a wrong/missing schema_version is admitted.
+        // (Mirrors the N6 divergent-debate admission guard; levels N8 up to the same enforcement.)
+        return this.block('N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION', 'N8 bounded debate role output schema_version does not match the frozen role-output contract version.', { slot, actual_schema_version: candidate.structured_output.schema_version, expected_schema_version: TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION });
       }
       const forbiddenKey = this.findForbiddenAuthorityKey(candidate.structured_output);
       if (forbiddenKey) {

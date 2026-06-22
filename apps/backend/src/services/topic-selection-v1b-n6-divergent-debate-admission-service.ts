@@ -37,7 +37,10 @@ import { stableStringify } from './literature-content-processing-utils.js';
 import { isN6DraftPayload } from './topic-selection-v1b-harness-predicates.js';
 
 const N6_NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
-const N6_DEBATE_OUTPUT_CONTRACT = 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1' as const;
+// The role artifact's output_contract IS the role-output contract version — single-sourced from the
+// schema_version constant (the runtime service does the same at runtime-service.ts:93) so the artifact
+// contract pin and the model-output schema_version pin can never silently desync.
+const N6_DEBATE_OUTPUT_CONTRACT = TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
 const ARBITER_SLOT = 'n6_debate_arbiter' as const;
 
 interface N6DivergentDebateInstancePolicy { min: number; max: number; default: number; }

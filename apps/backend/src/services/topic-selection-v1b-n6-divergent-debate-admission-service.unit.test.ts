@@ -237,6 +237,68 @@ test('N6 divergent debate admission: blocks a forbidden authority field in a rol
   assert.equal(result.blocker.code, 'N6_DIVERGENT_DEBATE_FORBIDDEN_AUTHORITY_FIELD');
 });
 
+test('N6 divergent debate admission: blocks a role output whose role_slot does not match its runtime slot', async () => {
+  const results = clone(buildChain());
+  const critic = results[2]!; // explorer_0, explorer_1, critic_0, arbiter_0
+  (critic.structured_output as Record<string, unknown>).role_slot = 'n6_debate_explorer'; // wrong slot
+  const rehash = canonicalHash(critic.structured_output);
+  critic.artifact.role_artifact_hash = rehash;
+  critic.artifact.normalized_output_hash = rehash;
+  critic.artifact.structured_output_hash = rehash;
+  const result = await service().admit({ role_results: results, loop_transcript_hash: transcriptFor(results) });
+  assert.equal(result.admitted, false);
+  if (result.admitted) return;
+  assert.equal(result.blocker.code, 'N6_DIVERGENT_DEBATE_ROLE_OUTPUT_MISMATCH');
+});
+
+test('N6 divergent debate admission: blocks a role output with a drifted schema_version', async () => {
+  const results = clone(buildChain());
+  const critic = results[2]!; // explorer_0, explorer_1, critic_0, arbiter_0
+  // role_slot stays correct; only the model output's self-declared schema_version drifts off-contract.
+  (critic.structured_output as Record<string, unknown>).schema_version = 'TopicSelectionV1bN6DivergentDebateRoleOutput@v0';
+  const rehash = canonicalHash(critic.structured_output);
+  critic.artifact.role_artifact_hash = rehash;
+  critic.artifact.normalized_output_hash = rehash;
+  critic.artifact.structured_output_hash = rehash;
+  const result = await service().admit({ role_results: results, loop_transcript_hash: transcriptFor(results) });
+  assert.equal(result.admitted, false);
+  if (result.admitted) return;
+  assert.equal(result.blocker.code, 'N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION');
+});
+
+// NOTE (intentional cross-node divergence): N6 divergent-debate admission pins the model's
+// self-declared schema_version, unlike its N8 / v1c-N2 bounded-debate siblings which currently check
+// only role_slot. These cases lock that extra guard so it cannot be silently dropped. The "missing"
+// case is the exact scenario the dedicated blocker code was added for (a role output carrying a
+// wrong/MISSING schema_version must not be admitted).
+test('N6 divergent debate admission: blocks a role output with a missing schema_version', async () => {
+  const results = clone(buildChain());
+  const critic = results[2]!; // explorer_0, explorer_1, critic_0, arbiter_0
+  delete (critic.structured_output as Record<string, unknown>).schema_version; // missing entirely
+  const rehash = canonicalHash(critic.structured_output);
+  critic.artifact.role_artifact_hash = rehash;
+  critic.artifact.normalized_output_hash = rehash;
+  critic.artifact.structured_output_hash = rehash;
+  const result = await service().admit({ role_results: results, loop_transcript_hash: transcriptFor(results) });
+  assert.equal(result.admitted, false);
+  if (result.admitted) return;
+  assert.equal(result.blocker.code, 'N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION');
+});
+
+test('N6 divergent debate admission: blocks a role output with an empty-string schema_version', async () => {
+  const results = clone(buildChain());
+  const critic = results[2]!;
+  (critic.structured_output as Record<string, unknown>).schema_version = ''; // present but empty
+  const rehash = canonicalHash(critic.structured_output);
+  critic.artifact.role_artifact_hash = rehash;
+  critic.artifact.normalized_output_hash = rehash;
+  critic.artifact.structured_output_hash = rehash;
+  const result = await service().admit({ role_results: results, loop_transcript_hash: transcriptFor(results) });
+  assert.equal(result.admitted, false);
+  if (result.admitted) return;
+  assert.equal(result.blocker.code, 'N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION');
+});
+
 test('N6 divergent debate admission: blocks an arbiter output missing synthesized_candidate_set', async () => {
   const results = clone(buildChain());
   const arbiter = results[3]!;

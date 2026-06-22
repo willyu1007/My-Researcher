@@ -11,6 +11,8 @@ import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
   TopicSelectionV1cN2BoundedDebateAdmissionService,
   type TopicSelectionV1cN2BoundedDebateRoleAdmissionCandidate,
   type TopicSelectionV1cN2BoundedDebateRoleArtifact,
@@ -181,7 +183,7 @@ function roleOutput(
   const recheckRef = handoff.recheck_request_refs[0]!;
   if (slot === 'n2_bounded_micro_debate.promotion_supporter_draft') {
     return {
-      schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
       role_slot: slot,
       support_summary: 'Support draft preserves bounded claim and source refs.',
       support_points: [{
@@ -195,7 +197,7 @@ function roleOutput(
   }
   if (slot === 'n2_bounded_micro_debate.reviewer_critic_review') {
     return {
-      schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
       role_slot: slot,
       critic_findings: [{
         finding_id: 'critic_finding_001',
@@ -209,7 +211,7 @@ function roleOutput(
   }
   if (slot === 'n2_bounded_micro_debate.promotion_supporter_repair') {
     return {
-      schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
       role_slot: slot,
       repaired_summary: 'Repair addresses critic finding.',
       accepted_findings: ['critic_finding_001'],
@@ -223,7 +225,7 @@ function roleOutput(
     };
   }
   return {
-    schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-final.v1',
+    schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
     role_slot: slot,
     final_support_summary: 'Final support is ready for N3 deterministic gate review.',
     dossier_markdown: 'Dossier preserves claim ceiling, selected evidence, accepted risk, and recheck obligations.',

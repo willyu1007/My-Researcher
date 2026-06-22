@@ -10,6 +10,8 @@ import test from 'node:test';
 
 import {
   TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
   TopicSelectionV1cN2BoundedDebateAdmissionService,
   type TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity,
   type TopicSelectionV1cN2BoundedDebateRoleAdmissionCandidate,
@@ -24,6 +26,14 @@ import { sha256Text, stableStringify } from './literature-content-processing-uti
 
 const OUTPUT_CONTRACT = 'TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1' as const;
 const [DRAFT, CRITIC, REPAIR, FINAL] = TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER;
+
+// v1c-N2 discriminates per-turn role outputs (`…-role.v1`) from the synthesizer final (`…-final.v1`)
+// via schema_version; the artifact output_contract stays the RoleOrFinal union literal (OUTPUT_CONTRACT).
+function schemaVersionFor(slot: TopicSelectionV1cN2BoundedDebateRoleSlotId): string {
+  return slot === FINAL
+    ? TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION
+    : TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
+}
 
 function ref(refId: string) {
   return { ref_type: 'artifact_ref', ref_id: refId, title_card_id: 'title_card_001', version_id: null };
@@ -106,7 +116,7 @@ function finalSemanticLayer() {
 }
 
 function structuredOutputFor(slot: TopicSelectionV1cN2BoundedDebateRoleSlotId): TopicSelectionV1cN2BoundedDebateRoleOutput {
-  const base = { schema_version: OUTPUT_CONTRACT, role_slot: slot } as TopicSelectionV1cN2BoundedDebateRoleOutput;
+  const base = { schema_version: schemaVersionFor(slot), role_slot: slot } as TopicSelectionV1cN2BoundedDebateRoleOutput;
   if (slot === CRITIC) {
     return { ...base, critic_findings: [{ finding_id: 'CF1', statement: 'Novelty needs evidence.' }] };
   }
@@ -331,7 +341,7 @@ const outputNegatives: Array<{
     code: 'N2_BOUNDED_DEBATE_FORBIDDEN_AUTHORITY_FIELD',
     override: {
       [DRAFT!]: {
-        schema_version: OUTPUT_CONTRACT,
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
         role_slot: DRAFT,
         disposition: 'promote',
       } as unknown as TopicSelectionV1cN2BoundedDebateRoleOutput,
@@ -342,7 +352,7 @@ const outputNegatives: Array<{
     code: 'N2_BOUNDED_DEBATE_REF_OUT_OF_BOUNDS',
     override: {
       [DRAFT!]: {
-        schema_version: OUTPUT_CONTRACT,
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
         role_slot: DRAFT,
         cited: { ref_type: 'artifact_ref', ref_id: 'not_in_handoff' },
       } as unknown as TopicSelectionV1cN2BoundedDebateRoleOutput,
@@ -353,8 +363,66 @@ const outputNegatives: Array<{
     code: 'N2_BOUNDED_DEBATE_ROLE_OUTPUT_MISMATCH',
     override: {
       [DRAFT!]: {
-        schema_version: OUTPUT_CONTRACT,
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
         role_slot: CRITIC,
+      } as unknown as TopicSelectionV1cN2BoundedDebateRoleOutput,
+    },
+  },
+  {
+    // role_slot stays correct; only the model's self-declared schema_version drifts off-contract.
+    name: 'drifted role-output schema_version -> ROLE_OUTPUT_SCHEMA_VERSION',
+    code: 'N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION',
+    override: {
+      [DRAFT!]: {
+        schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v0',
+        role_slot: DRAFT,
+      } as unknown as TopicSelectionV1cN2BoundedDebateRoleOutput,
+    },
+  },
+  {
+    name: 'missing role-output schema_version -> ROLE_OUTPUT_SCHEMA_VERSION',
+    code: 'N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION',
+    override: {
+      [DRAFT!]: {
+        role_slot: DRAFT,
+      } as unknown as TopicSelectionV1cN2BoundedDebateRoleOutput,
+    },
+  },
+  {
+    name: 'empty-string role-output schema_version -> ROLE_OUTPUT_SCHEMA_VERSION',
+    code: 'N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION',
+    override: {
+      [DRAFT!]: {
+        schema_version: '',
+        role_slot: DRAFT,
+      } as unknown as TopicSelectionV1cN2BoundedDebateRoleOutput,
+    },
+  },
+  {
+    // v1c-N2-specific: a role turn carrying the synthesizer FINAL schema_version (role/final class swap)
+    // must be rejected — the per-role-class pin is what distinguishes this from a single-value check.
+    name: 'role turn carrying the final schema_version (class swap) -> ROLE_OUTPUT_SCHEMA_VERSION',
+    code: 'N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION',
+    override: {
+      [DRAFT!]: {
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
+        role_slot: DRAFT,
+      } as unknown as TopicSelectionV1cN2BoundedDebateRoleOutput,
+    },
+  },
+  {
+    // The symmetric reverse swap: the synthesizer FINAL carrying the per-turn ROLE schema_version. The
+    // output is otherwise a fully-valid final (semantic layer complete) so the per-loop schema_version
+    // guard is provably what trips — before validateFinalSemanticLayer — proving the pin is symmetric.
+    name: 'final carrying the role schema_version (reverse class swap) -> ROLE_OUTPUT_SCHEMA_VERSION',
+    code: 'N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION',
+    override: {
+      [FINAL!]: {
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+        role_slot: FINAL,
+        final_support_summary: 'Synthesis resolves the critic finding.',
+        dossier_markdown: '# Dossier\n\nReady for human review.',
+        n3_semantic_layer: finalSemanticLayer(),
       } as unknown as TopicSelectionV1cN2BoundedDebateRoleOutput,
     },
   },
@@ -363,7 +431,7 @@ const outputNegatives: Array<{
     code: 'N2_BOUNDED_DEBATE_FINAL_SEMANTIC_LAYER_INCOMPLETE',
     override: {
       [FINAL!]: {
-        schema_version: OUTPUT_CONTRACT,
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
         role_slot: FINAL,
         final_support_summary: 'summary',
         dossier_markdown: '# Dossier',
@@ -375,7 +443,7 @@ const outputNegatives: Array<{
     code: 'N2_BOUNDED_DEBATE_CRITIC_FINDING_UNRESOLVED',
     override: {
       [FINAL!]: {
-        schema_version: OUTPUT_CONTRACT,
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
         role_slot: FINAL,
         final_support_summary: 'summary',
         dossier_markdown: '# Dossier',
@@ -388,7 +456,7 @@ const outputNegatives: Array<{
     code: 'N2_BOUNDED_DEBATE_REQUIRED_REF_DROPPED',
     override: {
       [FINAL!]: {
-        schema_version: OUTPUT_CONTRACT,
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
         role_slot: FINAL,
         final_support_summary: 'summary',
         dossier_markdown: '# Dossier',

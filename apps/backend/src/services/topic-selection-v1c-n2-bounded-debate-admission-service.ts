@@ -29,6 +29,19 @@ export const TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER = [
 export type TopicSelectionV1cN2BoundedDebateRoleSlotId =
   (typeof TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER)[number];
 
+/** Frozen role-output schema_version values for v1c N2 bounded-debate outputs. UNLIKE N6/N8 (where a
+ *  single role-output schema_version equals the artifact output_contract), v1c-N2's `RoleOrFinal` union
+ *  discriminates the per-turn role outputs (`…-role.v1`) from the synthesizer final (`…-final.v1`) via
+ *  schema_version, while the artifact `output_contract` stays the union literal
+ *  `TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1`. These are the values the production builder
+ *  (`topic-selection-provider-canary-service`) and the runtime emit; admission pins PER ROLE CLASS so a
+ *  role output carrying a wrong/missing schema_version (or a final/role version swap) cannot be admitted. */
+export const TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION =
+  'topic-selection-v1c-n2-bounded-micro-debate-role.v1' as const;
+export const TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION =
+  'topic-selection-v1c-n2-bounded-micro-debate-final.v1' as const;
+const N2_FINAL_SLOT_ID = 'n2_bounded_micro_debate.synthesizer_final' as const;
+
 export type TopicSelectionV1cN2BoundedDebateRoleOutput =
   Record<string, unknown> & {
     schema_version: string;
@@ -89,6 +102,7 @@ export type TopicSelectionV1cN2BoundedDebateAdmissionBlockerCode =
   | 'N2_BOUNDED_DEBATE_REQUIRED_ROLE_MISSING'
   | 'N2_BOUNDED_DEBATE_ROLE_ORDER_INVALID'
   | 'N2_BOUNDED_DEBATE_ROLE_OUTPUT_MISMATCH'
+  | 'N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION'
   | 'N2_BOUNDED_DEBATE_FORBIDDEN_AUTHORITY_FIELD'
   | 'N2_BOUNDED_DEBATE_REF_OUT_OF_BOUNDS'
   | 'N2_BOUNDED_DEBATE_ARTIFACT_PROFILE_DRIFT'
@@ -263,6 +277,26 @@ export class TopicSelectionV1cN2BoundedDebateAdmissionService {
           'N2_BOUNDED_DEBATE_ROLE_OUTPUT_MISMATCH',
           'N2 bounded debate role output role_slot does not match its runtime slot.',
           { slot, actual_role_slot: candidate.structured_output.role_slot },
+        );
+      }
+      // v1c-N2's RoleOrFinal union discriminates per-turn role outputs from the synthesizer final via
+      // schema_version, so admission pins PER ROLE CLASS (final slot -> final version, else role version).
+      // The orchestrator schema only requires a non-empty schema_version (any value) and the artifact's
+      // output_contract is set by the trusted strategy — so without this check the model output's OWN
+      // schema_version is never pinned, and a wrong/missing version (or a final/role swap) is admitted.
+      // (Mirrors the N6 divergent-debate admission guard; levels v1c-N2 up to the same enforcement.)
+      const expectedSchemaVersion = slot === N2_FINAL_SLOT_ID
+        ? TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION
+        : TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
+      if (candidate.structured_output.schema_version !== expectedSchemaVersion) {
+        return this.block(
+          'N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION',
+          'N2 bounded debate role output schema_version does not match the frozen per-role-class contract version.',
+          {
+            slot,
+            actual_schema_version: candidate.structured_output.schema_version,
+            expected_schema_version: expectedSchemaVersion,
+          },
         );
       }
       const forbiddenKey = this.findForbiddenAuthorityKey(candidate.structured_output);

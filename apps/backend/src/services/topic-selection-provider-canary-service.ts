@@ -75,6 +75,10 @@ import type {
   TopicSelectionV1cN2BoundedDebateRoleSlotId,
 } from './topic-selection-v1c-n2-bounded-debate-admission-service.js';
 import {
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
+} from './topic-selection-v1c-n2-bounded-debate-admission-service.js';
+import {
   TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_ID,
   TOPIC_SELECTION_RESOURCE_SAMPLING_OUTPUT_CONTRACT,
   TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_ID,
@@ -1640,7 +1644,7 @@ export class TopicSelectionProviderCanaryService {
     const recheckRef = this.ref('recheck_request', 'provider_canary_recheck_001');
     if (slotId === TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.promotion_supporter_draft) {
       return {
-        schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
         role_slot: slotId,
         support_summary: 'Synthetic provider canary support draft for N2 runtime semantics.',
         support_points: [{
@@ -1654,7 +1658,7 @@ export class TopicSelectionProviderCanaryService {
     }
     if (slotId === TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.reviewer_critic_review) {
       return {
-        schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
         role_slot: slotId,
         critic_findings: [{
           finding_id: 'provider_canary_finding_001',
@@ -1668,7 +1672,7 @@ export class TopicSelectionProviderCanaryService {
     }
     if (slotId === TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.promotion_supporter_repair) {
       return {
-        schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-role.v1',
+        schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
         role_slot: slotId,
         repaired_summary: 'Synthetic repair preserves the provider-live runtime boundary.',
         accepted_findings: ['provider_canary_finding_001'],
@@ -1682,7 +1686,7 @@ export class TopicSelectionProviderCanaryService {
       };
     }
     return {
-      schema_version: 'topic-selection-v1c-n2-bounded-micro-debate-final.v1',
+      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
       role_slot: slotId,
       final_support_summary: 'Synthetic final support validates N2 provider-live runtime semantics.',
       dossier_markdown: 'Prompt packet reuse is allowed, provider response reuse remains blocked, and output is non-authority.',

@@ -152,6 +152,27 @@ function tamper(
     : c));
 }
 
+// Mutate the DRAFT role output's self-declared schema_version (drift / missing / empty-string) and
+// re-hash the three payload-hash fields so the candidate still passes validateArtifactIdentity and
+// reaches the new schema_version guard. DRAFT is first in role order, so its guard fires before any
+// later role is read.
+function mutateSchemaVersion(
+  candidates: TopicSelectionV1bN8BoundedDebateRoleAdmissionCandidate[],
+  schemaVersion: string | undefined,
+): { role_results: TopicSelectionV1bN8BoundedDebateRoleAdmissionCandidate[]; loop_transcript_hash: string } {
+  const draft = candidates[0]!;
+  const structured_output = { ...draft.structured_output } as TopicSelectionV1bN8BoundedDebateRoleOutput;
+  if (schemaVersion === undefined) {
+    delete (structured_output as Record<string, unknown>).schema_version;
+  } else {
+    (structured_output as Record<string, unknown>).schema_version = schemaVersion;
+  }
+  const hash = canonicalHash(structured_output);
+  const artifact = { ...draft.artifact, role_artifact_hash: hash, normalized_output_hash: hash, structured_output_hash: hash };
+  const tampered = [{ artifact, structured_output }, candidates[1]!, candidates[2]!, candidates[3]!];
+  return { role_results: tampered, loop_transcript_hash: loopTranscriptHash(tampered) };
+}
+
 test('v1b N8 admission admits a canonical, byte-matching 4-role chain', async () => {
   const candidates = makeCandidates();
   const admitted = await makeAdmission().admit({ role_results: candidates, loop_transcript_hash: loopTranscriptHash(candidates) });
@@ -223,6 +244,21 @@ const negatives: Array<{ name: string; mutate: (c: TopicSelectionV1bN8BoundedDeb
       const tampered = [{ artifact, structured_output }, c[1]!, c[2]!, c[3]!];
       return { role_results: tampered, loop_transcript_hash: loopTranscriptHash(tampered) };
     },
+  },
+  {
+    name: 'drifted role-output schema_version -> ROLE_OUTPUT_SCHEMA_VERSION',
+    code: 'N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION',
+    mutate: (c) => mutateSchemaVersion(c, 'TopicSelectionV1bN8BoundedDebateRoleOutput@v0'),
+  },
+  {
+    name: 'missing role-output schema_version -> ROLE_OUTPUT_SCHEMA_VERSION',
+    code: 'N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION',
+    mutate: (c) => mutateSchemaVersion(c, undefined),
+  },
+  {
+    name: 'empty-string role-output schema_version -> ROLE_OUTPUT_SCHEMA_VERSION',
+    code: 'N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION',
+    mutate: (c) => mutateSchemaVersion(c, ''),
   },
 ];
 
