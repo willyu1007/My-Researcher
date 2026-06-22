@@ -94,3 +94,27 @@ test('debate execution plan: the per-debate JSON schema accepts a valid role-key
   // missing required name
   assert.equal(await validatesBody(schema, { roles: {} }), false);
 });
+
+test('debate execution plan: the schema factory closes additionalProperties at every level (unknown keys cannot smuggle a payload)', () => {
+  // Fastify/ajv STRIPS unknown props (additionalProperties:false) rather than rejecting at the HTTP edge,
+  // so the protection is verified STRUCTURALLY here: a stricter validator (or any non-stripping consumer)
+  // relies on additionalProperties:false being present at the plan / roles / per-role-spec levels so an
+  // unknown role key or an unknown spec field cannot smuggle a value past the contract.
+  const schema = topicSelectionNamedDebateExecutionPlanSchema(['n6_debate_explorer', 'n6_debate_critic']) as {
+    additionalProperties: boolean;
+    properties: {
+      roles: { additionalProperties: boolean; properties: Record<string, { additionalProperties: boolean }> };
+      default: { anyOf: Array<{ additionalProperties?: boolean }> };
+    };
+  };
+  // plan object is closed
+  assert.equal(schema.additionalProperties, false);
+  // the roles map only admits the declared role slot ids (no arbitrary role key)
+  assert.equal(schema.properties.roles.additionalProperties, false);
+  assert.deepEqual(Object.keys(schema.properties.roles.properties).sort(), ['n6_debate_critic', 'n6_debate_explorer']);
+  // each declared role's execution-spec is closed (no unknown spec field)
+  assert.equal(schema.properties.roles.properties.n6_debate_explorer!.additionalProperties, false);
+  // the default execution-spec branch is closed too
+  const defaultSpecBranch = schema.properties.default.anyOf.find((branch) => branch.additionalProperties === false);
+  assert.ok(defaultSpecBranch, 'default spec branch must close additionalProperties');
+});
