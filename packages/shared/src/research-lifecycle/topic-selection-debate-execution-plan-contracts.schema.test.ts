@@ -5,6 +5,7 @@ import {
   TOPIC_SELECTION_DEBATE_EXECUTION_PLAN_NAMES,
   debateExecutionPlanMixingError,
   debateLevelToExecutionPlanName,
+  resolveCallerSideDebateModelOptionId,
   resolveDebateExecutionModelOptionId,
   resolveDebateExecutionSpec,
   topicSelectionNamedDebateExecutionPlanSchema,
@@ -57,6 +58,27 @@ test('debate execution plan: mixing a plan with a legacy model_option_id is reje
   assert.ok(debateExecutionPlanMixingError(plan, 'some-opt'));
   assert.equal(debateExecutionPlanMixingError(plan, null), null);
   assert.equal(debateExecutionPlanMixingError(null, 'some-opt'), null);
+});
+
+test('debate execution plan: Option-A caller seam resolves per-role / legacy / null and rejects mixing (W-09 S3)', () => {
+  type Role = 'n2_draft' | 'n2_critic' | 'n2_final';
+  const plan: TopicSelectionNamedDebateExecutionPlan<Role> = {
+    name: 'provider_diverse',
+    default: { execution_mode: 'provider_llm', model_option_id: 'profile.default-opt' },
+    roles: { n2_draft: { execution_mode: 'provider_llm', model_option_id: 'draft-profile.deepseek' } },
+  };
+  // plan present, role with explicit entry -> that role's option (per-slot diversity via the caller loop)
+  assert.equal(resolveCallerSideDebateModelOptionId(plan, 'n2_draft', null), 'draft-profile.deepseek');
+  // plan present, role without entry -> the plan default
+  assert.equal(resolveCallerSideDebateModelOptionId(plan, 'n2_critic', null), 'profile.default-opt');
+  // no plan, legacy per-call option supplied -> the legacy option (today's single-profile channel)
+  assert.equal(resolveCallerSideDebateModelOptionId(null, 'n2_draft', 'legacy-opt'), 'legacy-opt');
+  // empty plan (no roles/default) + no legacy -> null === today's default (byte-identical)
+  assert.equal(resolveCallerSideDebateModelOptionId({ name: 'codex_assisted' }, 'n2_draft', null), null);
+  // absent everything -> null
+  assert.equal(resolveCallerSideDebateModelOptionId(null, 'n2_final', null), null);
+  // plan AND legacy on the same call -> the mixing guard throws (the plan is the sole override channel)
+  assert.throws(() => resolveCallerSideDebateModelOptionId(plan, 'n2_draft', 'legacy-opt'), /cannot be combined with a legacy/);
 });
 
 test('debate execution plan: the per-debate JSON schema accepts a valid role-keyed plan and rejects bad value constraints', async () => {

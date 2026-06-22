@@ -125,3 +125,22 @@ export function debateExecutionPlanMixingError<TRole extends string>(
   }
   return null;
 }
+
+/** Option-A caller seam (T-127 W-09 S3): for debates whose runtime handoff carries NO executionPlan and
+ *  whose caller drives one invocation per role/slot (e.g. v1c-N2 bounded micro-debate), the CALLER resolves
+ *  the plan into the runtime's existing per-call `model_option_id` — zero runtime change. For ONE slot per
+ *  call: rejects plan+legacy mixing (throws), else returns the plan's per-role option, falling back to the
+ *  legacy per-call model_option_id, then null. Null when neither supplies one — byte-identical to today's
+ *  default. Per-role diversity is a property of the caller's slot loop (each slot resolves independently),
+ *  not of a per-role field on the service input. */
+export function resolveCallerSideDebateModelOptionId<TRole extends string>(
+  plan: TopicSelectionNamedDebateExecutionPlan<TRole> | null | undefined,
+  role: TRole,
+  legacyModelOptionId: string | null | undefined,
+): string | null {
+  const mixingError = debateExecutionPlanMixingError(plan, legacyModelOptionId);
+  if (mixingError) {
+    throw new Error(mixingError);
+  }
+  return resolveDebateExecutionModelOptionId(plan, role) ?? legacyModelOptionId ?? null;
+}

@@ -22,6 +22,10 @@ import {
 import {
   TopicSelectionV1cN2BoundedDebateRuntimeService,
 } from './topic-selection-v1c-n2-bounded-debate-runtime-service.js';
+import {
+  resolveCallerSideDebateModelOptionId,
+  type TopicSelectionNamedDebateExecutionPlan,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
 
 const NOW = '2026-06-02T00:00:00.000Z';
 
@@ -278,6 +282,9 @@ async function generateCandidates(input: {
   runtime: TopicSelectionV1cN2BoundedDebateRuntimeService;
   handoff: TopicSelectionPromotionInputSnapshotHandoff;
   outputOverrides?: Partial<Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, TopicSelectionV1cN2BoundedDebateRoleOutput>>;
+  /** W-09 S3 (Option A): the CALLER resolves the plan into the runtime's per-call model_option_id, one slot
+   *  at a time (resolveCallerSideDebateModelOptionId). Absent -> null per slot === today's default. */
+  executionPlan?: TopicSelectionNamedDebateExecutionPlan<TopicSelectionV1cN2BoundedDebateRoleSlotId> | null;
 }): Promise<TopicSelectionV1cN2BoundedDebateRoleAdmissionCandidate[]> {
   const priorArtifacts: TopicSelectionV1cN2BoundedDebateRoleArtifact[] = [];
   const candidates: TopicSelectionV1cN2BoundedDebateRoleAdmissionCandidate[] = [];
@@ -291,6 +298,8 @@ async function generateCandidates(input: {
       node_attempt_id: 'node_attempt_n2_bounded_debate_001',
       execution_mode: 'codex_assisted',
       run_mode: 'acceptance',
+      // Option-A caller seam: per-slot resolve of the (optional) plan into the existing per-call field.
+      model_option_id: resolveCallerSideDebateModelOptionId(input.executionPlan, slot, null),
       codex_response: {
         output,
         operator_label: 'unit-test',
@@ -366,6 +375,49 @@ test('v1c N2 bounded debate runtime emits runtime-verified role artifacts admitt
   assert.equal(admitted.promotion_support_draft.reviewer_questions?.length, 1);
   assert.equal(admitted.promotion_support_draft.risk_notes?.length, 1);
   assert.equal(admitted.promotion_support_draft.recheck_notes?.length, 1);
+});
+
+test('v1c N2 bounded debate (W-09 S3): an Option-A empty execution_plan is byte-identical to no plan', async () => {
+  // T-127 W-09 S3: v1c-N2 resolves the plan CALLER-side into the per-call model_option_id
+  // (resolveCallerSideDebateModelOptionId), one slot at a time — no runtime change. A plan with no
+  // per-role/default override resolves every slot to null === today's default, so the run reproduces the
+  // no-plan run byte-for-byte on every REPRODUCIBLE identity component. (Real per-slot overrides land in S4.)
+  const noPlan = makeSubject();
+  const noPlanHandoff = makeHandoff();
+  const noPlanCandidates = await generateCandidates({ runtime: noPlan.runtime, handoff: noPlanHandoff });
+  const noPlanAdmitted = noPlan.admission.admit({ handoff: noPlanHandoff, role_results: noPlanCandidates });
+
+  const emptyPlan = makeSubject();
+  const emptyPlanHandoff = makeHandoff();
+  const emptyPlanCandidates = await generateCandidates({
+    runtime: emptyPlan.runtime,
+    handoff: emptyPlanHandoff,
+    executionPlan: { name: 'codex_assisted' },
+  });
+  const emptyPlanAdmitted = emptyPlan.admission.admit({ handoff: emptyPlanHandoff, role_results: emptyPlanCandidates });
+
+  assert.equal(noPlanAdmitted.admitted, true);
+  assert.equal(emptyPlanAdmitted.admitted, true);
+  if (!noPlanAdmitted.admitted || !emptyPlanAdmitted.admitted) {
+    throw new Error('Expected both N2 admissions to pass.');
+  }
+  // Every slot's caller-resolved option is null under an empty plan — identical to the no-plan default —
+  // so the REPRODUCIBLE identity components (model_option_id + structured-output hash + prompt-packet hash)
+  // reproduce byte-for-byte. NOTE: runtime_audit_hash and admission_identity_hash are intentionally NOT
+  // compared — runtime_audit_hash folds per-invocation telemetry (verified non-reproducible across two
+  // identical runs), and admission_identity_hash folds the idFactory-bearing final_*_ref. The prompt-packet
+  // hash IS where model_option_id lands, so its equality is the load-bearing byte-identity proof.
+  for (let i = 0; i < noPlanCandidates.length; i += 1) {
+    assert.equal(emptyPlanCandidates[i]!.artifact.model_option_id, null);
+    assert.equal(emptyPlanCandidates[i]!.artifact.model_option_id, noPlanCandidates[i]!.artifact.model_option_id);
+    assert.equal(emptyPlanCandidates[i]!.artifact.role_artifact_hash, noPlanCandidates[i]!.artifact.role_artifact_hash);
+    assert.equal(emptyPlanCandidates[i]!.artifact.prompt_packet_hash, noPlanCandidates[i]!.artifact.prompt_packet_hash);
+  }
+  // The admitted final's prompt-packet identity reproduces byte-for-byte (the model-option-bearing hash).
+  assert.equal(
+    emptyPlanAdmitted.admission_identity.final_prompt_packet_hash,
+    noPlanAdmitted.admission_identity.final_prompt_packet_hash,
+  );
 });
 
 test('v1c N2 bounded debate admission blocks non-canonical role order', async () => {
