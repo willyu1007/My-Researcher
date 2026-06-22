@@ -1475,7 +1475,10 @@ export interface TopicSelectionV1bN6RuntimeContextProjectionBase {
 export interface TopicSelectionV1bN6GateFailureRetryContextProjection
 extends TopicSelectionV1bN6RuntimeContextProjectionBase {
   projection_kind: 'v1b_n6_gate_failure_retry_context';
-  loopback_target_code: 'n6_regenerate_candidates';
+  // The N6 gate-failure retry context backs BOTH the single-agent regeneration loopback
+  // (n6_regenerate_candidates) and the divergent-debate escalation (n6_debate_escalation) — both
+  // re-run candidate generation against the same failed-draft/blocked-candidate context.
+  loopback_target_code: 'n6_regenerate_candidates' | 'n6_debate_escalation';
   selected_research_slice_ref: TopicSelectionFunctionalRef;
   selected_research_slice_hash: string;
   n5_handoff_hash: string;
@@ -1888,6 +1891,7 @@ export type TopicSelectionV1bN6DivergentDebateBlockerCode =
   | 'N6_DIVERGENT_DEBATE_STAGE_ARITY_DRIFT'
   | 'N6_DIVERGENT_DEBATE_TERMINAL_NOT_SINGLETON'
   | 'N6_DIVERGENT_DEBATE_ROLE_OUTPUT_MISMATCH'
+  | 'N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION'
   | 'N6_DIVERGENT_DEBATE_FORBIDDEN_AUTHORITY_FIELD'
   // per-instance runtime-identity drift (replay integrity — mirrors the N8 bounded-debate set)
   | 'N6_DIVERGENT_DEBATE_ARTIFACT_PROFILE_DRIFT'
@@ -3408,7 +3412,9 @@ const topicSelectionV1bN6GateFailureRetryContextProjectionSchema = {
   properties: {
     ...n6RuntimeContextProjectionBaseProperties,
     projection_kind: { const: 'v1b_n6_gate_failure_retry_context' },
-    loopback_target_code: { const: 'n6_regenerate_candidates' },
+    // Mirrors the widened TS interface: the gate-failure retry context backs both the single-agent
+    // regeneration loopback and the divergent-debate escalation.
+    loopback_target_code: { enum: ['n6_regenerate_candidates', 'n6_debate_escalation'] },
     selected_research_slice_ref: strictFunctionalRefSchema,
     selected_research_slice_hash: hashString,
     n5_handoff_hash: hashString,

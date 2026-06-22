@@ -1496,6 +1496,12 @@ test('topic-selection v1b N6 runtime context projection schema accepts retry pro
     true,
   );
 
+  // The gate-failure retry projection backs the divergent-debate escalation as well as the
+  // single-agent regeneration loopback — the schema must accept the escalation target code.
+  const escalationTarget = canonicalN6RuntimeContextProjection() as unknown as Record<string, unknown>;
+  escalationTarget.loopback_target_code = 'n6_debate_escalation';
+  assert.equal(await validatesBody(topicSelectionV1bN6RuntimeContextProjectionSchema, escalationTarget), true);
+
   const authorityDrift = canonicalN6RuntimeContextProjection() as unknown as Record<string, unknown>;
   authorityDrift.non_authority = false;
   assert.equal(await validatesBody(topicSelectionV1bN6RuntimeContextProjectionSchema, authorityDrift), false);
