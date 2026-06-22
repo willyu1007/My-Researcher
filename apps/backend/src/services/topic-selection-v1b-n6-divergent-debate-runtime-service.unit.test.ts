@@ -32,6 +32,7 @@ import {
   type TopicSelectionV1bN6DivergentDebateRoleAdmissionCandidate,
   type TopicSelectionV1bN6DivergentDebateRoleArtifact,
 } from './topic-selection-v1b-n6-divergent-debate-admission-service.js';
+import { selectN6DebateExecutionPlan } from './topic-selection-debate-execution-plan-registry-service.js';
 
 function makeStrategy(): V1bN6DivergentDebateStrategy {
   return new V1bN6DivergentDebateStrategy(
@@ -473,5 +474,67 @@ test('f5 runtime: a W-09 execution_plan with no per-role override is byte-identi
   assert.deepEqual(
     emptyPlan.admission.admission_identity.stage_arities,
     noPlan.admission.admission_identity.stage_arities,
+  );
+});
+
+test('f5 runtime: a concrete provider_diverse plan is DORMANT (replay-safe) for a mocked/codex N6 debate (W-09 S4)', async () => {
+  // T-127 W-09 S4: the per-FAMILY provider_diverse plan (explorer/critic dashscope, arbiter openai-quality)
+  // is selectable + injectable, but N6 debates run codex_assisted | mocked_llm only and the model-profile
+  // registry resolves a model_option_id to a provider option ONLY for execution_mode 'provider_llm'. So for
+  // a mocked/codex N6 debate the per-family option is dropped at profile resolution -> the plan is COMPLETELY
+  // DORMANT (zero observable identity effect), exactly like an empty plan. Replay-safety: a provider_diverse
+  // plan can never silently perturb the divergent debate identity. (Live effect awaits provider_llm — OOS.)
+  const makeRuntime = () => {
+    const repository = new InMemoryTopicSelectionControlPlaneRepository();
+    const controlPlane = new TopicSelectionControlPlaneService(repository, {
+      idFactory: (() => {
+        const counts = new Map<string, number>();
+        return (prefix: string) => {
+          const next = (counts.get(prefix) ?? 0) + 1;
+          counts.set(prefix, next);
+          return `${prefix}_${String(next).padStart(3, '0')}`;
+        };
+      })(),
+      now: () => '2026-06-16T00:00:00.000Z',
+    });
+    return new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane);
+  };
+  const baseInput = () => ({
+    request: e2eRequest(),
+    generation_mode: 'initial_from_n5' as const,
+    execution_mode: 'mocked_llm' as const,
+    run_mode: 'test' as const,
+    role_outputs: {
+      n6_debate_explorer: [
+        mockedRole('n6_debate_explorer', 0, { candidate_seeds: [{ seed_id: 's0', question_framing: 'framing 0', evidence_refs: [] }] }),
+        mockedRole('n6_debate_explorer', 1, { candidate_seeds: [{ seed_id: 's1', question_framing: 'framing 1', evidence_refs: [] }] }),
+      ],
+      n6_debate_critic: [
+        mockedRole('n6_debate_critic', 0, { critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin set' }] }),
+      ],
+      n6_debate_arbiter: [
+        mockedRole('n6_debate_arbiter', 0, { synthesized_candidate_set: e2eCandidateSetDraft() }),
+      ],
+    } as Partial<Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, V1bN6DebateInputs[]>>,
+    created_by: 'system' as const,
+  });
+
+  const noPlan = await makeRuntime().runDivergentDebate(baseInput());
+  const diverse = await makeRuntime().runDivergentDebate({
+    ...baseInput(),
+    execution_plan: selectN6DebateExecutionPlan('provider_diverse'),
+  });
+
+  assert.equal(noPlan.status, 'completed');
+  assert.equal(diverse.status, 'completed');
+  if (noPlan.status !== 'completed' || diverse.status !== 'completed') return;
+  assert.equal(diverse.loop_transcript_hash, noPlan.loop_transcript_hash);
+  assert.deepEqual(
+    diverse.admission.admission_identity.ordered_role_artifact_hashes,
+    noPlan.admission.admission_identity.ordered_role_artifact_hashes,
+  );
+  assert.deepEqual(
+    diverse.admission.admission_identity.source_hashes,
+    noPlan.admission.admission_identity.source_hashes,
   );
 });

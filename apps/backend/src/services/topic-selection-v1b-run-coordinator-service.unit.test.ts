@@ -24,6 +24,7 @@ import type {
   GenerateTopicSelectionV1bN8DebateInput,
   TopicSelectionV1bN8DebateRunResult,
 } from './topic-selection-v1b-n8-bounded-debate-runtime-service.js';
+import { selectN6DebateExecutionPlan } from './topic-selection-debate-execution-plan-registry-service.js';
 
 const RUN = 'workflow_run_coord_test';
 const CARD = 'title_card_coord_test';
@@ -1148,6 +1149,9 @@ test('N6 debate escalation: coordinator runs runDivergentDebate and feeds the ga
   assert.equal(n6DivergentDebateRuntime.calls.length, 1);
   assert.equal(n6DivergentDebateRuntime.calls[0]!.generation_mode, 'regeneration_after_n6_gate_failure');
   assert.equal(n6DivergentDebateRuntime.calls[0]!.execution_mode, 'mocked_llm');
+  // W-09 S4: no execution_plan supplied -> the coordinator forwards undefined -> the runtime resolves null
+  // -> byte-identical to pre-W09. (Positive forwarding is proven in the next test.)
+  assert.equal(n6DivergentDebateRuntime.calls[0]!.execution_plan, undefined);
   // N6 was re-invoked, and the debate's runtime_verified gate-draft was ATTACHED (not re-recorded).
   assert.equal(report.steps[0]!.node_id, N6);
   const n6Requests = harness.invocations.filter((request) => request.node_id === N6);
@@ -1155,6 +1159,30 @@ test('N6 debate escalation: coordinator runs runDivergentDebate and feeds the ga
   const attached = n6Requests[1]!.semantic_artifacts?.[0];
   assert.equal(attached?.slot_id, 'n6_question_candidate_draft');
   assert.equal(attached?.runtime_provenance_class, 'runtime_verified');
+});
+
+test('N6 debate escalation (W-09 S4): the coordinator forwards a caller-supplied provider-diverse execution_plan verbatim into the runtime', async () => {
+  // The one production-reachable selection seam: a caller injects a named plan on the debate node input
+  // and the coordinator passes it through to runDivergentDebate unchanged (the debate_level->plan
+  // auto-decision stays a deferred harness seam). The plan is identity-bearing, NOT live-provider.
+  const { coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  const plan = selectN6DebateExecutionPlan('provider_diverse');
+
+  await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: { ...N6_DEBATE_INPUT, execution_plan: plan } } },
+    max_steps: 1,
+  });
+
+  assert.equal(n6DivergentDebateRuntime.calls.length, 1);
+  // The plan reached the runtime byte-for-byte (per-role provider-diverse model_option_ids intact).
+  assert.deepEqual(n6DivergentDebateRuntime.calls[0]!.execution_plan, plan);
+  assert.equal(n6DivergentDebateRuntime.calls[0]!.execution_plan?.name, 'provider_diverse');
+  assert.equal(
+    n6DivergentDebateRuntime.calls[0]!.execution_plan?.roles?.n6_debate_arbiter?.model_option_id,
+    `${'topic-selection.v1b.n6-debate.arbiter.v1'}.openai-quality`,
+  );
 });
 
 test('N6 debate request threads the gate-failure retry projection into frozen_input.source_refs', async () => {

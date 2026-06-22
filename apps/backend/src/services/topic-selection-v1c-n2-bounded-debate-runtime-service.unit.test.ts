@@ -26,6 +26,7 @@ import {
   resolveCallerSideDebateModelOptionId,
   type TopicSelectionNamedDebateExecutionPlan,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
+import { selectV1cN2DebateExecutionPlan } from './topic-selection-debate-execution-plan-registry-service.js';
 
 const NOW = '2026-06-02T00:00:00.000Z';
 
@@ -416,6 +417,44 @@ test('v1c N2 bounded debate (W-09 S3): an Option-A empty execution_plan is byte-
   // The admitted final's prompt-packet identity reproduces byte-for-byte (the model-option-bearing hash).
   assert.equal(
     emptyPlanAdmitted.admission_identity.final_prompt_packet_hash,
+    noPlanAdmitted.admission_identity.final_prompt_packet_hash,
+  );
+});
+
+test('v1c N2 bounded debate (W-09 S4): a concrete provider_diverse plan is DORMANT (replay-safe) for a codex debate', async () => {
+  // T-127 W-09 S4: the Option-A caller resolves a per-slot provider option into input.model_option_id, but
+  // v1c-N2 debates run codex_assisted only and the model-profile registry resolves a model_option_id to a
+  // provider option ONLY for execution_mode 'provider_llm'. So the per-slot option is dropped at profile
+  // resolution -> the resolved artifact model_option_id stays null and the prompt-packet identity reproduces
+  // the no-plan run byte-for-byte. The named plan is selectable + injectable but COMPLETELY DORMANT for the
+  // codex path (live effect awaits provider_llm execution — OUT of W-09 scope). Replay-safety pinned.
+  const noPlan = makeSubject();
+  const noPlanHandoff = makeHandoff();
+  const noPlanCandidates = await generateCandidates({ runtime: noPlan.runtime, handoff: noPlanHandoff });
+  const noPlanAdmitted = noPlan.admission.admit({ handoff: noPlanHandoff, role_results: noPlanCandidates });
+
+  const diverse = makeSubject();
+  const diverseHandoff = makeHandoff();
+  const diverseCandidates = await generateCandidates({
+    runtime: diverse.runtime,
+    handoff: diverseHandoff,
+    executionPlan: selectV1cN2DebateExecutionPlan('provider_diverse'),
+  });
+  const diverseAdmitted = diverse.admission.admit({ handoff: diverseHandoff, role_results: diverseCandidates });
+
+  assert.equal(noPlanAdmitted.admitted, true);
+  assert.equal(diverseAdmitted.admitted, true);
+  if (!noPlanAdmitted.admitted || !diverseAdmitted.admitted) {
+    throw new Error('Expected both N2 admissions to pass.');
+  }
+  for (let i = 0; i < noPlanCandidates.length; i += 1) {
+    // The provider option is dropped to null at profile resolution for the codex path (no live provider).
+    assert.equal(diverseCandidates[i]!.artifact.model_option_id, null);
+    assert.equal(diverseCandidates[i]!.artifact.role_artifact_hash, noPlanCandidates[i]!.artifact.role_artifact_hash);
+    assert.equal(diverseCandidates[i]!.artifact.prompt_packet_hash, noPlanCandidates[i]!.artifact.prompt_packet_hash);
+  }
+  assert.equal(
+    diverseAdmitted.admission_identity.final_prompt_packet_hash,
     noPlanAdmitted.admission_identity.final_prompt_packet_hash,
   );
 });

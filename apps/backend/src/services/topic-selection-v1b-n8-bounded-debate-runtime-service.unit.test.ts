@@ -269,6 +269,46 @@ test('v1b N8 bounded debate runtime drives the 4-role loop, admits, and bridges 
   assert.equal((stub as unknown as { sharedContextCalls: number }).sharedContextCalls, 1);
 });
 
+test('v1b N8 bounded debate runtime: a concrete provider_diverse plan is DORMANT (replay-safe) for a codex debate (W-09 S4)', async () => {
+  // T-127 W-09 S4 — fills the S1 "concrete per-role overrides are exercised in S4" obligation with the
+  // HONEST result. N8 debates run codex_assisted | mocked_llm ONLY; the model-profile registry resolves a
+  // model_option_id to a provider option ONLY for execution_mode 'provider_llm' (resolveProfile L1298-1300),
+  // so for a codex debate the per-role option is dropped to null at profile resolution. The named plan is
+  // therefore COMPLETELY DORMANT for codex|mocked debates: it is selectable + injectable but produces ZERO
+  // observable effect (prompt-packet hashes, loop transcript, AND the artifact's resolved model_option_id
+  // are all identical to a no-plan run). It activates only under provider_llm debate execution — OUT of W-09
+  // scope. This test pins replay-safety: a provider_diverse plan can never silently perturb codex identity.
+  const { selectN8DebateExecutionPlan } = await import('./topic-selection-debate-execution-plan-registry-service.js');
+  const request = makeRequest();
+  const codexInput = () => debateInput(request, { executionMode: 'codex_assisted' });
+
+  const noPlan = await makeSubject().runtime.runDebate(codexInput());
+  const compact = await makeSubject().runtime.runDebate({ ...codexInput(), execution_plan: selectN8DebateExecutionPlan('provider_compact') });
+  const diverse = await makeSubject().runtime.runDebate({ ...codexInput(), execution_plan: selectN8DebateExecutionPlan('provider_diverse') });
+
+  assert.equal(noPlan.status, 'completed');
+  assert.equal(compact.status, 'completed');
+  assert.equal(diverse.status, 'completed');
+  if (noPlan.status !== 'completed' || compact.status !== 'completed' || diverse.status !== 'completed') return;
+
+  for (const planned of [compact, diverse]) {
+    // Dormant: the id-independent identity components reproduce the no-plan codex run byte-for-byte.
+    assert.equal(planned.loop_transcript_hash, noPlan.loop_transcript_hash);
+    assert.deepEqual(
+      planned.admission.admission_identity.role_prompt_packet_hashes,
+      noPlan.admission.admission_identity.role_prompt_packet_hashes,
+    );
+    assert.deepEqual(
+      planned.admission.admission_identity.role_artifact_hashes,
+      noPlan.admission.admission_identity.role_artifact_hashes,
+    );
+    // The resolved provenance option is null for a codex debate regardless of the plan (dropped at the
+    // model profile — the plan does NOT select a live provider here).
+    assert.equal(planned.admission.final_artifact.model_option_id, null);
+    assert.equal(planned.admission.final_artifact.model_option_id, noPlan.admission.final_artifact.model_option_id);
+  }
+});
+
 test('v1b N8 bounded debate runtime: a W-09 execution_plan with no per-role override is byte-identical (no-plan === empty-plan)', async () => {
   // T-127 W-09: the execution_plan threads additively; a plan that supplies no per-role model_option_id
   // resolves to null -> the base ctx.modelOptionId (null), so the loop transcript + admission identity

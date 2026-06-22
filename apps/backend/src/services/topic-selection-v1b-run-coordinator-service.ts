@@ -282,11 +282,14 @@ export type TopicSelectionV1bRunStateProjection = {
 export type TopicSelectionV1bRunCoordinatorDebateInput =
   | ({ kind: 'n6_divergent' } & Pick<
       GenerateTopicSelectionV1bN6DivergentDebateInput,
-      'execution_mode' | 'run_mode' | 'generation_mode' | 'role_outputs'
+      // T-127 W-09 S4: execution_plan is the caller-injectable provider-diverse plan (absent -> null ->
+      // byte-identical). This is the one production-reachable selection seam; the debate_level->plan
+      // auto-decision inside the harness stays a documented deferred seam.
+      'execution_mode' | 'run_mode' | 'generation_mode' | 'role_outputs' | 'execution_plan'
     >)
   | ({ kind: 'n8_bounded' } & Pick<
       GenerateTopicSelectionV1bN8DebateInput,
-      'execution_mode' | 'run_mode' | 'role_outputs'
+      'execution_mode' | 'run_mode' | 'role_outputs' | 'execution_plan'
     >);
 
 export type TopicSelectionV1bRunCoordinatorNodeInput = {
@@ -1067,6 +1070,8 @@ export class TopicSelectionV1bRunCoordinatorService {
         execution_mode: debate.execution_mode,
         run_mode: runMode,
         role_outputs: debate.role_outputs,
+        // W-09 S4: forward the (optional) provider-diverse plan verbatim; absent -> the runtime resolves null.
+        execution_plan: debate.execution_plan,
         created_by: request.created_by,
       });
       if (result.status !== 'completed' || result.gate_draft.status !== 'succeeded') {
@@ -1079,6 +1084,8 @@ export class TopicSelectionV1bRunCoordinatorService {
         execution_mode: debate.execution_mode,
         run_mode: runMode,
         role_outputs: debate.role_outputs,
+        // W-09 S4: forward the (optional) provider-diverse plan verbatim; absent -> the runtime resolves null.
+        execution_plan: debate.execution_plan,
         created_by: request.created_by,
       });
       if (result.status !== 'completed' || result.gate_draft.status !== 'succeeded') {
