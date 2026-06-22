@@ -13,6 +13,7 @@ import {
   type TopicSelectionV1bN3HarnessFrozenInputPayload,
   type TopicSelectionV1bN4HarnessFrozenInputPayload,
   type TopicSelectionV1bN5HarnessFrozenInputPayload,
+  type TopicSelectionV1bN6DivergentDebateRoleSlotId,
   type TopicSelectionV1bN6HarnessFrozenInputPayload,
   type TopicSelectionV1bN6LoopbackTriageSupportPayload,
   type TopicSelectionV1bN7HarnessFrozenInputPayload,
@@ -91,6 +92,10 @@ import {
   TopicSelectionV1bN6DraftRuntimeService,
   type TopicSelectionV1bN6DraftGenerationMode,
 } from './topic-selection-v1b-n6-draft-runtime-service.js';
+import {
+  TopicSelectionV1bN6DivergentDebateRuntimeService,
+  type V1bN6DebateInputs,
+} from './topic-selection-v1b-n6-divergent-debate-runtime-service.js';
 import { TopicSelectionV1bN4ResearchSliceRuntimeService } from './topic-selection-v1b-n4-research-slice-runtime-service.js';
 import { TopicSelectionV1bN6LoopbackTriageRuntimeService } from './topic-selection-v1b-n6-loopback-triage-runtime-service.js';
 import {
@@ -3943,6 +3948,86 @@ test('v1b workflow harness N6 admits runtime-verified Codex draft in product mod
   assert.equal(result.authority_ref?.ref_type, 'topic_question_candidate_set');
 });
 
+// ---- T-127 W-07 loop closure (the SINGLE spanning end-to-end test): the v1b N6 divergent debate is
+// asserted to close back onto the harness N6 gate "by construction" (the gate bridge funnels the arbiter's
+// synthesized draft through the SAME single-agent draft path the harness admits). This proves it as one
+// run: a mocked_llm fan-out debate (mirroring the runtime f5 e2e) shares THIS harness's control plane, so
+// the bridged gate_draft.semantic_artifact resolves through resolveN6DraftPayload and ADMITS — identical to
+// the non-debate single-agent admit path above. ----
+function mockedDebateRole(
+  slot: TopicSelectionV1bN6DivergentDebateRoleSlotId,
+  idx: number,
+  body: Record<string, unknown>,
+): V1bN6DebateInputs {
+  return {
+    codex_response: null,
+    mocked_output: {
+      fixture_id: `n6_debate_${slot}_${idx}`,
+      output: { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: slot, ...body },
+    } as never,
+    instance_index: idx,
+  };
+}
+
+test('v1b workflow harness N6 admits a divergent-debate-bridged gate draft (T-127 W-07 loop closure)', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const input = await n6Request(ctx, n5, {
+    run_mode: 'test',
+    workflow_run_id: 'workflow_run_v1b_n6_divergent_debate_loop_closure',
+    node_attempt_id: 'node_attempt_v1b_n6_divergent_debate_loop_closure',
+  });
+  // The arbiter synthesizes the harness-aligned candidate-set draft (same fixture the non-debate gate admits),
+  // so its bridged gate draft passes the N6 product-acceptance content checks against the seeded slice.
+  const draft = await n6Draft(ctx, input);
+
+  // The debate shares THIS harness's control plane so the gate bridge's recorded ArtifactRefs resolve in N6.
+  const debate = new TopicSelectionV1bN6DivergentDebateRuntimeService(ctx.controlPlane);
+  const result = await debate.runDivergentDebate({
+    request: input,
+    generation_mode: 'initial_from_n5',
+    execution_mode: 'mocked_llm',
+    run_mode: 'test',
+    role_outputs: {
+      n6_debate_explorer: [
+        mockedDebateRole('n6_debate_explorer', 0, { candidate_seeds: [{ seed_id: 's0', question_framing: 'framing 0', evidence_refs: [] }] }),
+        mockedDebateRole('n6_debate_explorer', 1, { candidate_seeds: [{ seed_id: 's1', question_framing: 'framing 1', evidence_refs: [] }] }),
+      ],
+      n6_debate_critic: [
+        mockedDebateRole('n6_debate_critic', 0, { critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin set' }] }),
+      ],
+      n6_debate_arbiter: [
+        mockedDebateRole('n6_debate_arbiter', 0, { synthesized_candidate_set: draft }),
+      ],
+    },
+    created_by: 'system',
+  });
+
+  assert.equal(result.status, 'completed');
+  if (result.status !== 'completed') {
+    throw new Error('Expected the divergent debate run to complete.');
+  }
+  assert.equal(result.gate_draft.status, 'succeeded');
+  if (result.gate_draft.status !== 'succeeded') {
+    throw new Error('Expected the bridged single-agent gate draft to succeed.');
+  }
+  // The bridge funnels the arbiter's synthesized set through byte-for-byte (not a substitute), and carries
+  // single-agent runtime identity — so what the harness admits below is provably THIS debate's draft.
+  assert.deepEqual(result.gate_draft.structured_output, draft);
+  assert.equal(result.gate_draft.semantic_artifact.runtime_provenance_class, 'runtime_verified');
+  assert.equal(result.gate_draft.semantic_artifact.execution_mode, 'mocked_llm');
+
+  // Loop closure: the debate-produced gate draft, fed back through the harness N6 node, earns the same admit
+  // verdict (gate_status / route_decision / authority ref_type) the non-debate single-agent draft earns above.
+  const n6 = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [result.gate_draft.semantic_artifact],
+  });
+  assert.equal(n6.gate_status, 'admitted');
+  assert.equal(n6.route_decision, 'invoke_next');
+  assert.equal(n6.authority_ref?.ref_type, 'topic_question_candidate_set');
+});
+
 test('v1b workflow harness N6 runtime draft exact replay does not rewrite authority artifacts', async () => {
   const ctx = await seedHarnessV1aBundle();
   const { n5 } = await runReadyN5(ctx);
@@ -5835,6 +5920,126 @@ test('v1b workflow harness N6 admits runtime regeneration from N6 gate-failure r
   });
   assert.equal(sourceDrift.gate_status, 'blocked');
   assert.equal(sourceDrift.error_code, 'N6_DRAFT_ARTIFACT_SOURCE_HASH_DRIFT');
+});
+
+// Local mirror of the divergent-debate test's mockedRole (that helper lives in the runtime test file).
+function mockedN6DebateRole(
+  slot: TopicSelectionV1bN6DivergentDebateRoleSlotId,
+  idx: number,
+  body: Record<string, unknown>,
+): V1bN6DebateInputs {
+  return {
+    codex_response: null,
+    mocked_output: {
+      fixture_id: `n6_debate_${slot}_${idx}`,
+      output: { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: slot, ...body },
+    } as never,
+    instance_index: idx,
+  };
+}
+
+// T-127 W-07 item (a) follow-up: the N6 divergent-debate escalation now runs END-TO-END against the
+// REAL harness + runtime. Previously the harness recorded the gate-failure retry projection only on
+// the n6_regenerate_candidates loopback, so runDivergentDebate (regeneration_after_n6_gate_failure)
+// threw AppError(400) on the escalation route. This proves: harness records the projection on the
+// escalation loopback → the real divergent debate consumes it → the gate admits the bridged draft.
+test('v1b N6 divergent-debate escalation runs end-to-end: harness records the gate-failure projection, the real runtime consumes it, and the gate admits the debate draft', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+
+  // 1. Drive the real harness N6 gate to an n6_debate_escalation loopback (failed draft + triage).
+  //    run_mode stays at the n6Request default so the triage artifact's identity matches the request
+  //    (an explicit run_mode here mismatches the recorded triage and blocks before routing).
+  const failedInput = await n6Request(ctx, n5, {
+    workflow_run_id: 'workflow_run_v1b_n6_debate_escalation_e2e_first',
+    node_attempt_id: 'node_attempt_v1b_n6_debate_escalation_e2e_first',
+  });
+  const failedDraft = await n6Draft(ctx, failedInput);
+  const escalation = await ctx.service.invokeNode({
+    ...failedInput,
+    semantic_artifacts: [
+      await recordN6DraftArtifact(ctx, failedInput, {
+        ...failedDraft,
+        candidates: [{
+          ...failedDraft.candidates[0]!,
+          answerability_verdict: 'not_answerable',
+          main_question: 'How can AI improve research?',
+        }],
+      }),
+      await recordN6LoopbackTriageArtifact(ctx, failedInput, n6LoopbackTriagePayload(failedInput, {
+        loopback_target_code: 'n6_debate_escalation',
+        debate_escalation: {
+          debate_level: 'mixed_cost_control',
+          recommended_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent,
+          sticky: true,
+          rationale: 'Escalate candidate generation to a divergent debate before retrying N6.',
+        },
+        upstream_rollback: null,
+        rationale: 'Candidate failures look like prompt contention rather than a bad selected slice.',
+      })),
+    ],
+  });
+  assert.equal(escalation.route_decision, 'loopback');
+  assert.ok(escalation.warnings.some((warning) => warning.code === 'N6_DEBATE_ESCALATION_RECOMMENDED'));
+
+  // 2. The harness now records a gate-failure retry projection on the escalation loopback (NEW —
+  //    previously only n6_regenerate_candidates did), tagged with the escalation target code.
+  const escalationTrace = await assertTraceLoopbackTargetCode(
+    ctx, escalation, 'n6_debate_escalation', 'topic-selection.v1b.generate-topic-question-candidates.v1',
+  );
+  const projectionRef = escalationTrace.payload.runtime_context_projection_ref as TopicSelectionFunctionalRef | null;
+  assert.equal(projectionRef?.ref_type, 'artifact_ref', 'escalation loopback must record a runtime context projection');
+  const projectionArtifact = await ctx.controlPlane.getArtifactRef(projectionRef!.ref_id);
+  assert.equal(projectionArtifact?.payload?.projection_kind, 'v1b_n6_gate_failure_retry_context');
+  assert.equal(projectionArtifact?.payload?.loopback_target_code, 'n6_debate_escalation');
+
+  // 3. Run the REAL divergent debate in regeneration_after_n6_gate_failure mode, with the escalation
+  //    projection threaded into source_refs — resolveModeContext must now accept it (was throwing).
+  const retryBase = await n6Request(ctx, n5, {
+    run_mode: 'test',
+    workflow_run_id: 'workflow_run_v1b_n6_debate_escalation_e2e_retry',
+    node_attempt_id: 'node_attempt_v1b_n6_debate_escalation_e2e_retry',
+  });
+  const retryInput = n6InputWithN6GateFailureProjection(retryBase, projectionRef!);
+  const arbiterDraft = await n6Draft(ctx, retryInput); // a valid, admissible 5-key candidate set
+  const debateRuntime = new TopicSelectionV1bN6DivergentDebateRuntimeService(ctx.controlPlane);
+  const debate = await debateRuntime.runDivergentDebate({
+    request: retryInput,
+    generation_mode: 'regeneration_after_n6_gate_failure',
+    execution_mode: 'mocked_llm',
+    run_mode: 'test',
+    role_outputs: {
+      n6_debate_explorer: [
+        mockedN6DebateRole('n6_debate_explorer', 0, { candidate_seeds: [{ seed_id: 's0', question_framing: 'framing 0', evidence_refs: [] }] }),
+        mockedN6DebateRole('n6_debate_explorer', 1, { candidate_seeds: [{ seed_id: 's1', question_framing: 'framing 1', evidence_refs: [] }] }),
+      ],
+      n6_debate_critic: [
+        mockedN6DebateRole('n6_debate_critic', 0, { critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin set' }] }),
+      ],
+      n6_debate_arbiter: [
+        mockedN6DebateRole('n6_debate_arbiter', 0, { synthesized_candidate_set: arbiterDraft }),
+      ],
+    },
+    created_by: 'system',
+  });
+  assert.equal(debate.status, 'completed', 'the divergent debate must complete with the escalation projection');
+  if (debate.status !== 'completed') return;
+  assert.equal(debate.gate_draft.status, 'succeeded');
+  if (debate.gate_draft.status !== 'succeeded') return;
+  // The bridged gate-facing draft carries single-agent runtime_verified identity under the gate-failure mode.
+  assert.equal(debate.gate_draft.semantic_artifact.runtime_provenance_class, 'runtime_verified');
+  assert.equal(debate.gate_draft.semantic_artifact.allowed_effect, 'model_draft_for_gate');
+  assert.equal(debate.gate_draft.semantic_artifact.prompt_variant_key, 'n6_question_candidate_draft.regeneration_after_n6_gate_failure');
+
+  // 4. Feed the debate's bridged runtime_verified draft back through the real harness N6 gate → admit.
+  const regenerated = await ctx.service.invokeNode({
+    ...retryInput,
+    semantic_artifacts: [debate.gate_draft.semantic_artifact],
+  });
+  assert.equal(regenerated.gate_status, 'admitted');
+  assert.equal(regenerated.route_decision, 'invoke_next');
+  assert.equal(regenerated.authority_ref?.ref_type, 'topic_question_candidate_set');
+  assert.equal(regenerated.handoff_ref?.ref_type, 'artifact_ref');
 });
 
 test('v1b N6 runtime regeneration blocks orphan and malformed N6 gate-failure retry projections', async () => {

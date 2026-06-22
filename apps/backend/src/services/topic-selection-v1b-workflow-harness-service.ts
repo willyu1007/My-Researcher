@@ -3106,7 +3106,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
             triage_payload_hash: loopbackPlan.value.triagePayloadHash,
             upstream_rollback: loopbackPlan.value.upstreamRollback,
           },
-          runtimeContextProjection: loopbackPlan.value.loopbackTargetCode === 'n6_regenerate_candidates'
+          // Both the single-agent regeneration loopback AND the divergent-debate escalation re-run
+          // candidate generation against the failed-draft context, so both record the gate-failure
+          // retry projection (the N6 runtime — single-agent OR debate — requires it for the
+          // regeneration_after_n6_gate_failure mode). The N5 slice-rollback loopback does not.
+          runtimeContextProjection: (loopbackPlan.value.loopbackTargetCode === 'n6_regenerate_candidates'
+            || loopbackPlan.value.loopbackTargetCode === 'n6_debate_escalation')
             ? {
               build: () => this.buildN6GateFailureRetryContextProjection({
                 request: input,
@@ -7369,6 +7374,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
     draftArtifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
     draftHash: string;
   }): TopicSelectionV1bN6GateFailureRetryContextProjection {
+    const loopbackTargetCode = input.loopbackPlan.loopbackTargetCode;
+    if (loopbackTargetCode !== 'n6_regenerate_candidates' && loopbackTargetCode !== 'n6_debate_escalation') {
+      // The gate-failure retry projection is only built for the two candidate-regeneration loopbacks
+      // (regenerate / debate-escalation), never the N5 slice rollback — guarded so the projection's
+      // loopback_target_code stays within its 2-value contract union.
+      throw new AppError(500, 'INTERNAL_ERROR', `N6 gate-failure retry projection cannot be built for loopback target ${loopbackTargetCode}.`);
+    }
     if (!input.draftArtifact.normalized_output_ref) {
       throw new AppError(500, 'INTERNAL_ERROR', 'N6 gate-failure retry projection requires a failed draft output ref.');
     }
@@ -7397,7 +7409,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       workflow_run_id: input.request.workflow_run_id,
       node_attempt_id: input.request.node_attempt_id,
       route_decision: 'loopback',
-      loopback_target_code: 'n6_regenerate_candidates',
+      // byte-identical to the prior hardcoded value on the regenerate route (loopbackTargetCode is
+      // 'n6_regenerate_candidates' there); carries 'n6_debate_escalation' on the escalation route.
+      loopback_target_code: loopbackTargetCode,
       non_authority: true,
       context_cache_scope: 'process_local_runtime_only',
       context_authority: 'non_authority_runtime_context',

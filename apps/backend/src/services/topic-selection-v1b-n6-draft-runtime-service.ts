@@ -854,9 +854,10 @@ export class TopicSelectionV1bN6DraftRuntimeService {
       projection.non_authority !== true
       || projection.context_authority !== 'non_authority_runtime_context'
       || projection.route_decision !== 'loopback'
-      || projection.loopback_target_code !== 'n6_regenerate_candidates'
+      || (projection.loopback_target_code !== 'n6_regenerate_candidates'
+        && projection.loopback_target_code !== 'n6_debate_escalation')
     ) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'N6 gate-failure retry projection must remain non-authority regeneration context.');
+      throw new AppError(400, 'INVALID_PAYLOAD', 'N6 gate-failure retry projection must remain non-authority regeneration/debate-escalation context.');
     }
     const hasTriageRef = projection.triage_artifact_ref !== null;
     if (
@@ -988,7 +989,8 @@ export class TopicSelectionV1bN6DraftRuntimeService {
       || value.projection_kind !== 'v1b_n6_gate_failure_retry_context'
       || value.node_id !== NODE_ID
       || value.route_decision !== 'loopback'
-      || value.loopback_target_code !== 'n6_regenerate_candidates'
+      || (value.loopback_target_code !== 'n6_regenerate_candidates'
+        && value.loopback_target_code !== 'n6_debate_escalation')
       || value.non_authority !== true
       || value.context_cache_scope !== 'process_local_runtime_only'
       || value.context_authority !== 'non_authority_runtime_context'

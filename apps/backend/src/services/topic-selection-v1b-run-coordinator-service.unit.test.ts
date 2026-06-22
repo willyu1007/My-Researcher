@@ -9,11 +9,21 @@ import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
   type TopicSelectionV1bWorkflowHarnessRunResult,
+  type TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 
+import { AppError } from '../errors/app-error.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { TopicSelectionV1bRunCoordinatorService } from './topic-selection-v1b-run-coordinator-service.js';
+import type {
+  GenerateTopicSelectionV1bN6DivergentDebateInput,
+  TopicSelectionV1bN6DivergentDebateRunResult,
+} from './topic-selection-v1b-n6-divergent-debate-runtime-service.js';
+import type {
+  GenerateTopicSelectionV1bN8DebateInput,
+  TopicSelectionV1bN8DebateRunResult,
+} from './topic-selection-v1b-n8-bounded-debate-runtime-service.js';
 
 const RUN = 'workflow_run_coord_test';
 const CARD = 'title_card_coord_test';
@@ -79,6 +89,14 @@ class StubHarness {
   readonly invocations: TopicSelectionV1bWorkflowHarnessRunRequest[] = [];
   readonly script = new Map<string, ScriptedResult[]>();
   hangNodes = new Set<string>();
+  /** Nodes whose NEXT invocation rejects without landing a trace (simulates a harness rejection
+   *  after a caller-side debate already recorded its rows — the idempotency re-advance window). */
+  readonly failNextNodes = new Set<string>();
+  /** Request-aware routers: when set for a node, the function picks the ScriptedResult from the
+   *  actual request (e.g. route n6_debate_escalation only when the request carries the
+   *  n6_loopback_triage support slot — mirrors the real harness's loopback-plan resolution).
+   *  Takes precedence over the on()/script queue when it returns non-null. */
+  readonly routers = new Map<string, (request: TopicSelectionV1bWorkflowHarnessRunRequest) => ScriptedResult | null>();
   private readonly hangWaiters = new Map<string, Array<() => void>>();
 
   constructor(private readonly controlPlane: StubControlPlane) {}
@@ -87,6 +105,11 @@ class StubHarness {
     const queue = this.script.get(nodeId) ?? [];
     queue.push(result);
     this.script.set(nodeId, queue);
+  }
+
+  /** Install a request-aware router for a node (see `routers`). */
+  route(nodeId: string, fn: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => ScriptedResult | null): void {
+    this.routers.set(nodeId, fn);
   }
 
   /** Let a hanging invocation continue into its scripted result (orphan settles). */
@@ -102,6 +125,10 @@ class StubHarness {
   async invokeNode(
     request: TopicSelectionV1bWorkflowHarnessRunRequest,
   ): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    if (this.failNextNodes.has(request.node_id)) {
+      this.failNextNodes.delete(request.node_id);
+      throw new Error(`stub harness rejected ${request.node_id} (no trace landed)`);
+    }
     if (this.hangNodes.has(request.node_id)) {
       await new Promise<void>((resolve) => {
         const waiters = this.hangWaiters.get(request.node_id) ?? [];
@@ -110,8 +137,9 @@ class StubHarness {
       });
     }
     this.invocations.push(request);
+    const routed = this.routers.get(request.node_id)?.(request) ?? null;
     const queue = this.script.get(request.node_id) ?? [];
-    const scripted = queue.length > 1 ? queue.shift()! : queue[0];
+    const scripted = routed ?? (queue.length > 1 ? queue.shift()! : queue[0]);
     if (!scripted) {
       throw new Error(`no scripted result for ${request.node_id}`);
     }
@@ -185,14 +213,73 @@ class StubHarness {
   }
 }
 
+/** Minimal gate-draft semantic-artifact descriptor the debate stubs return — the coordinator only
+ *  ATTACHES it to the node request (the stub harness does not validate its content). */
+function stubGateDraft(slotId: string): TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef {
+  return {
+    slot_id: slotId,
+    allowed_effect: 'model_draft_for_gate',
+    runtime_provenance_class: 'runtime_verified',
+    support_artifact_ref: ref('artifact_ref', `gate_draft_${slotId}`),
+  } as unknown as TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
+}
+
+/** Stub N6 divergent-debate runtime: records calls + returns a scriptable result (default completed). */
+class StubN6DebateRuntime {
+  readonly calls: GenerateTopicSelectionV1bN6DivergentDebateInput[] = [];
+  next: TopicSelectionV1bN6DivergentDebateRunResult | null = null;
+  throwError: Error | null = null;
+
+  async runDivergentDebate(
+    input: GenerateTopicSelectionV1bN6DivergentDebateInput,
+  ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
+    this.calls.push(input);
+    if (this.throwError) {
+      throw this.throwError;
+    }
+    return this.next ?? ({
+      status: 'completed',
+      admission: { admitted: true },
+      gate_draft: { status: 'succeeded', semantic_artifact: stubGateDraft('n6_question_candidate_draft') },
+      loop_transcript_hash: 'n6_divergent_loop_hash',
+    } as unknown as TopicSelectionV1bN6DivergentDebateRunResult);
+  }
+}
+
+/** Stub N8 bounded-debate runtime: records calls + returns a scriptable result (default completed). */
+class StubN8DebateRuntime {
+  readonly calls: GenerateTopicSelectionV1bN8DebateInput[] = [];
+  next: TopicSelectionV1bN8DebateRunResult | null = null;
+  throwError: Error | null = null;
+
+  async runDebate(
+    input: GenerateTopicSelectionV1bN8DebateInput,
+  ): Promise<TopicSelectionV1bN8DebateRunResult> {
+    this.calls.push(input);
+    if (this.throwError) {
+      throw this.throwError;
+    }
+    return this.next ?? ({
+      status: 'completed',
+      admission: { admitted: true },
+      gate_draft: { status: 'succeeded', semantic_artifact: stubGateDraft('n8_value_assessment_draft') },
+      loop_transcript_hash: 'n8_bounded_loop_hash',
+    } as unknown as TopicSelectionV1bN8DebateRunResult);
+  }
+}
+
 function makeSubject() {
   const controlPlane = new StubControlPlane();
   const harness = new StubHarness(controlPlane);
+  const n6DivergentDebateRuntime = new StubN6DebateRuntime();
+  const n8BoundedDebateRuntime = new StubN8DebateRuntime();
   const coordinator = new TopicSelectionV1bRunCoordinatorService({
     harness,
     controlPlane: controlPlane as never,
+    n6DivergentDebateRuntime: n6DivergentDebateRuntime as never,
+    n8BoundedDebateRuntime: n8BoundedDebateRuntime as never,
   });
-  return { controlPlane, harness, coordinator };
+  return { controlPlane, harness, coordinator, n6DivergentDebateRuntime, n8BoundedDebateRuntime };
 }
 
 function bootstrapRequest(): TopicSelectionV1bWorkflowHarnessRunRequest {
@@ -308,7 +395,7 @@ test('draft_payload and execution_spec together are rejected before any harness 
         },
       },
     }),
-    /not both/,
+    /at most one of draft_payload, execution_spec, or debate/,
   );
   assert.equal(harness.invocations.filter((request) => request.node_id === N4).length, 0);
 });
@@ -357,11 +444,12 @@ async function driveToN8DebateLoopback(): Promise<{
   harness: StubHarness;
   coordinator: ReturnType<typeof makeSubject>['coordinator'];
   controlPlane: StubControlPlane;
+  n8BoundedDebateRuntime: ReturnType<typeof makeSubject>['n8BoundedDebateRuntime'];
   feedbackRef: TopicSelectionFunctionalRef;
   feedbackPayloadHash: string;
   feedbackRecordHash: string;
 }> {
-  const { harness, coordinator, controlPlane } = makeSubject();
+  const { harness, coordinator, controlPlane, n8BoundedDebateRuntime } = makeSubject();
   harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
   harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
   harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
@@ -426,7 +514,7 @@ async function driveToN8DebateLoopback(): Promise<{
   assert.equal(loopbackReport.halt.node_id, N8);
   assert.match(loopbackReport.halt.message, /retry_node_id=topic-selection\.v1b\.materialize-topic-question-contract\.v1 to re-enter/);
 
-  return { harness, coordinator, controlPlane, feedbackRef, feedbackPayloadHash, feedbackRecordHash };
+  return { harness, coordinator, controlPlane, n8BoundedDebateRuntime, feedbackRef, feedbackPayloadHash, feedbackRecordHash };
 }
 
 const DEBATE_ADMISSION_SUPPORT = {
@@ -802,4 +890,550 @@ test('W-04: concurrent same-(run, nonce) submissions accept exactly one (race-sa
   const rejected = (a.status === 'rejected' ? a : b) as PromiseRejectedResult;
   assert.match(String((rejected.reason as Error)?.message ?? rejected.reason), /already accepted/);
   assert.equal(ran, 1, 'only one submission body ran');
+});
+
+// ===========================================================================================
+// T-127 W-07 item (a): caller-side debate orchestration. The harness DETECTS + ROUTES the N6
+// n6_debate_escalation loopback (warning N6_DEBATE_ESCALATION_RECOMMENDED) and the N8 n8_feedback_to_n7
+// debate loopback; the coordinator now DRIVES the debate runtime caller-side and feeds its
+// runtime_verified gate-draft back into the node so the existing gate admits it.
+// ===========================================================================================
+
+const N6_DEBATE_INPUT = {
+  kind: 'n6_divergent' as const,
+  execution_mode: 'mocked_llm' as const,
+  generation_mode: 'regeneration_after_n6_gate_failure' as const,
+  role_outputs: {},
+};
+
+const N8_DEBATE_INPUT = {
+  kind: 'n8_bounded' as const,
+  execution_mode: 'mocked_llm' as const,
+  role_outputs: {},
+};
+
+/** A STRUCTURALLY valid N6LoopbackTriageSupport@v1 payload routing `n6_debate_escalation` (passes
+ *  isN6LoopbackTriageSupportPayload field-by-field). It is NOT lineage-valid: affected_refs points at a
+ *  synthetic slice ref, so n6LoopbackTriageAffectedRefsBlocker would reject it in a REAL run (a real
+ *  caller must use the frozen research_slice_ref). This suite asserts the coordinator's record+attach
+ *  contract against a slot-presence stub; the real-harness round-trip (lineage-correct triage +
+ *  loopback-inducing draft -> routed escalation) is covered by
+ *  topic-selection-v1b-workflow-harness-service.unit.test.ts ('N6 divergent-debate escalation runs
+ *  end-to-end'), whose fixture_replay artifact shape is identical to the coordinator's recorder. */
+const N6_TRIAGE_ESCALATION_SUPPORT = {
+  loopback_target_code: 'n6_debate_escalation',
+  failure_scope: 'candidate_level',
+  dominant_reason_codes: ['N6_NO_ADMISSIBLE_CANDIDATES'],
+  affected_refs: [ref('research_slice', 'slice_1')],
+  regeneration_hints: [],
+  debate_escalation: {
+    debate_level: 'mixed_cost_control',
+    recommended_profile_id: 'topic-selection.v1b.n6-divergent-debate-support',
+    sticky: true,
+    rationale: 'No admissible candidates; escalate to a divergent debate before regenerating.',
+  },
+  upstream_rollback: null,
+  rationale: 'N6 gate found no admissible candidates; triage recommends divergent-debate escalation.',
+};
+
+/** Stub N6 routing that models ONLY the coordinator-observable signal: it emits the escalation warning
+ *  iff the request carries an n6_loopback_triage slot, else admits. It deliberately does NOT reproduce
+ *  the real resolveN6LoopbackTriage gauntlet (payload validity, loopback_target_code, affected-refs
+ *  lineage, fixture_replay admission) — that is the harness suite's job (see the E2E test above). The
+ *  point here is to drive the coordinator's record+attach + debate-orchestration plumbing, not to
+ *  re-prove harness routing. */
+function routeN6OnTriage(harness: StubHarness): void {
+  harness.route(N6, (request) => {
+    const hasTriage = (request.semantic_artifacts ?? []).some((artifact) => artifact.slot_id === 'n6_loopback_triage');
+    return hasTriage
+      ? {
+        gate_status: 'blocked',
+        route_decision: 'loopback',
+        warnings: [{ code: 'N6_DEBATE_ESCALATION_RECOMMENDED', message: 'debate escalation recommended', severity: 'warning' }],
+      }
+      // No triage attached (the debate-driven re-invocation, or a single-agent regeneration) → admit.
+      // NB: the real harness admits a re-invocation because the fresh draft VALIDATES, not because a
+      // triage slot is absent; the stub conflates the two, which is sufficient for the coordinator plumbing.
+      : { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N6ToN7Handoff' };
+  });
+}
+
+/** Drive N1..N5, then an N6 gate-failure whose attached triage routes `n6_debate_escalation` — so N6's
+ *  latest attempt is a loopback-to-self carrying the escalation warning. The coordinator reaches that
+ *  frontier by recording + attaching the caller's n6_loopback_triage support (the production path), not
+ *  by a hard-coded harness script. Mirrors driveToN8DebateLoopback's N1..N5 driving. */
+async function driveToN6Escalation(): Promise<ReturnType<typeof makeSubject>> {
+  const subject = makeSubject();
+  const { harness, coordinator, controlPlane } = subject;
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+  harness.on(N5, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N5ToN6Handoff' });
+  // N6 routes the escalation iff the attempt carries the n6_loopback_triage support; otherwise admits.
+  routeN6OnTriage(harness);
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+  // NB: { candidates: [] } is a placeholder draft — the stub harness does not validate it. In a REAL
+  // run the draft must be a TopicQuestionCandidateSetDraft@v1 that the deterministic N6 gate routes
+  // specifically into a candidate-level loopback (>=1 candidate, all semantically blocked); a zero/empty
+  // draft would route 'blocked', never reaching the triage. The harness E2E test exercises that real draft.
+  const blocked = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: { [N6]: { draft_payload: { candidates: [] }, support_payloads: { n6_loopback_triage: N6_TRIAGE_ESCALATION_SUPPORT } } },
+  });
+  assert.equal(blocked.halt.reason, 'harness_loopback');
+  assert.equal(blocked.halt.node_id, N6);
+  // The real harness records the gate-failure retry projection on the n6_debate_escalation loopback
+  // (the N6 runtime — single-agent OR divergent debate — requires it for the
+  // regeneration_after_n6_gate_failure mode). The stub harness does not, so record it here so the
+  // coordinator can thread its ref into the debate re-invocation's frozen_input.source_refs.
+  await controlPlane.recordArtifactRef({
+    artifact_kind: 'diagnostic',
+    workflow_run_id: RUN,
+    payload: { projection_kind: 'v1b_n6_gate_failure_retry_context', loopback_target_code: 'n6_debate_escalation' },
+  });
+  return subject;
+}
+
+// The core T-127 W-07 (a) follow-up: the coordinator gives a run a way to attach an n6_loopback_triage
+// support to the failing N6 attempt — the channel the harness needs to route n6_debate_escalation in a
+// real run (without it the gate-failure defaults to n6_regenerate_candidates). This test pins the
+// COORDINATOR's responsibility: record the caller payload as a fixture_replay support_only artifact and
+// attach it (+ the model draft) to the N6 request. The real-harness routing of that artifact is proven
+// in topic-selection-v1b-workflow-harness-service.unit.test.ts ('N6 divergent-debate escalation
+// runs end-to-end'), which drives the same fixture_replay shape through the real resolveN6LoopbackTriage.
+test('coordinator records + attaches the n6_loopback_triage support (the channel the harness routes escalation on)', async () => {
+  const { harness, controlPlane } = await driveToN6Escalation();
+
+  // The failing N6 attempt carried BOTH the model draft and the triage support (the harness resolves
+  // each independently by slot_id), so a real harness could route the escalation off the triage.
+  const n6Requests = harness.invocations.filter((request) => request.node_id === N6);
+  assert.equal(n6Requests.length, 1, 'only the escalation-triggering trial ran so far');
+  const slots = (n6Requests[0]!.semantic_artifacts ?? []).map((artifact) => artifact.slot_id).sort();
+  assert.deepEqual(slots, ['n6_loopback_triage', 'n6_question_candidate_draft']);
+
+  // The triage rides the same fixture_replay / support_only recording as the feedback-admission support.
+  const triage = n6Requests[0]!.semantic_artifacts!.find((artifact) => artifact.slot_id === 'n6_loopback_triage')!;
+  assert.equal(triage.allowed_effect, 'support_only');
+  assert.equal(triage.output_contract, 'N6LoopbackTriageSupport@v1');
+  assert.equal(triage.runtime_provenance_class, 'fixture_replay');
+  assert.equal(triage.run_mode, 'acceptance');
+  assert.equal(triage.input_hash, n6Requests[0]!.frozen_input.frozen_input_hash);
+  // One artifact backs both refs; the recorded payload is the caller's triage verbatim.
+  assert.equal(triage.normalized_output_ref?.ref_id, triage.support_artifact_ref.ref_id);
+  assert.equal(triage.normalized_output_hash, triage.support_artifact_hash);
+  const recorded = await controlPlane.getArtifactRef(triage.support_artifact_ref.ref_id);
+  assert.deepEqual(recorded?.payload, N6_TRIAGE_ESCALATION_SUPPORT);
+  // All three hash fields carry the recorded artifact checksum (= canonicalHash of the payload), NOT a
+  // placeholder — the shape the real resolver requires (payloadHash === normalized/structured/support hash).
+  // This asserts copy-fidelity + non-placeholder; the real round-trip equality is exercised in the harness E2E.
+  const triageHash = canonicalHash(N6_TRIAGE_ESCALATION_SUPPORT);
+  assert.equal(triage.normalized_output_hash, triageHash);
+  assert.equal(triage.structured_output_hash, triageHash);
+  assert.equal(triage.support_artifact_hash, triageHash);
+});
+
+test('coordinator propagates run_mode=product onto the recorded triage (so the harness rejects fixture_replay under product)', async () => {
+  // The coordinator cannot itself reject product (the harness does), but it must STAMP the run_mode so
+  // the real harness admission can — fixture_replay is admitted only when run_mode !== 'product'.
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+  harness.on(N5, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N5ToN6Handoff' });
+  routeN6OnTriage(harness);
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+
+  await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    run_mode: 'product',
+    node_inputs: { [N6]: { draft_payload: { candidates: [] }, support_payloads: { n6_loopback_triage: N6_TRIAGE_ESCALATION_SUPPORT } } },
+  });
+
+  const n6Request = harness.invocations.find((request) => request.node_id === N6)!;
+  assert.equal(n6Request.run_mode, 'product');
+  const triage = n6Request.semantic_artifacts!.find((artifact) => artifact.slot_id === 'n6_loopback_triage')!;
+  assert.equal(triage.run_mode, 'product', 'the recorded triage carries the request run_mode, so the real harness rejects the fixture_replay');
+});
+
+test('support_payloads rejects a model_draft_for_gate slot — those belong on draft_payload', async () => {
+  const { coordinator } = await driveToN6Escalation();
+  // Routing a model-draft slot through support_payloads would shadow the real gate draft — rejected.
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N6,
+      node_inputs: {
+        [N6]: {
+          draft_payload: { candidates: ['regenerated'] },
+          support_payloads: { n6_question_candidate_draft: { candidates: ['shadow'] } },
+        },
+      },
+    }),
+    /not support_only/,
+  );
+});
+
+test('support_payloads supplied with debate is rejected before any harness call', async () => {
+  const { harness, coordinator } = await driveToN6Escalation();
+  const n6Before = harness.invocations.filter((request) => request.node_id === N6).length;
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N6,
+      node_inputs: { [N6]: { debate: N6_DEBATE_INPUT, support_payloads: { n6_loopback_triage: N6_TRIAGE_ESCALATION_SUPPORT } } },
+    }),
+    /support_payloads can only accompany draft_payload, not debate/,
+  );
+  assert.equal(harness.invocations.filter((request) => request.node_id === N6).length, n6Before, 'no harness call on the rejected advance');
+});
+
+test('support_payloads supplied with execution_spec is rejected (the support is fixture_replay/codex_assisted)', async () => {
+  const { harness, coordinator } = await driveToN6Escalation();
+  const n6Before = harness.invocations.filter((request) => request.node_id === N6).length;
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N6,
+      node_inputs: {
+        [N6]: {
+          execution_spec: { execution_mode: 'provider_llm', model_option_id: 'm1' },
+          support_payloads: { n6_loopback_triage: N6_TRIAGE_ESCALATION_SUPPORT },
+        },
+      },
+    }),
+    /support_payloads can only accompany draft_payload, not execution_spec/,
+  );
+  assert.equal(harness.invocations.filter((request) => request.node_id === N6).length, n6Before, 'no harness call on the rejected advance');
+});
+
+test('support_payloads cannot re-target a slot already populated by draft_payload (feedback re-entry support)', async () => {
+  // The N7 feedback re-entry records draft_payload UNDER the n7_n8_debate_admission_review support slot;
+  // also passing that slot via support_payloads would double-record it (harness keeps only the first).
+  const { coordinator } = await driveToN8DebateLoopback();
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N7,
+      node_inputs: {
+        [N7]: {
+          draft_payload: { ...DEBATE_ADMISSION_SUPPORT },
+          support_payloads: { n7_n8_debate_admission_review: { ...DEBATE_ADMISSION_SUPPORT } },
+        },
+      },
+    }),
+    /already populated/,
+  );
+});
+
+test('N6 debate escalation: coordinator runs runDivergentDebate and feeds the gate-draft back into N6', async () => {
+  const { harness, coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+    max_steps: 1, // stop right after the debate-driven N6 re-invocation
+  });
+
+  // The divergent debate ran exactly once, with the caller's fixtures + re-entry generation_mode.
+  assert.equal(n6DivergentDebateRuntime.calls.length, 1);
+  assert.equal(n6DivergentDebateRuntime.calls[0]!.generation_mode, 'regeneration_after_n6_gate_failure');
+  assert.equal(n6DivergentDebateRuntime.calls[0]!.execution_mode, 'mocked_llm');
+  // N6 was re-invoked, and the debate's runtime_verified gate-draft was ATTACHED (not re-recorded).
+  assert.equal(report.steps[0]!.node_id, N6);
+  const n6Requests = harness.invocations.filter((request) => request.node_id === N6);
+  assert.equal(n6Requests.length, 2, 'N6 ran twice: blocking trial then debate-driven re-invocation');
+  const attached = n6Requests[1]!.semantic_artifacts?.[0];
+  assert.equal(attached?.slot_id, 'n6_question_candidate_draft');
+  assert.equal(attached?.runtime_provenance_class, 'runtime_verified');
+});
+
+test('N6 debate request threads the gate-failure retry projection into frozen_input.source_refs', async () => {
+  const { controlPlane, coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  // The recorded gate-failure projection (driveToN6Escalation simulates the harness recording it).
+  const projection = (await controlPlane.listArtifactRefsByWorkflowRunId(RUN))
+    .find((artifact) => (artifact.payload as { projection_kind?: string } | null)?.projection_kind === 'v1b_n6_gate_failure_retry_context');
+  assert.ok(projection, 'the escalation must have recorded a gate-failure retry projection');
+
+  await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+    max_steps: 1,
+  });
+
+  // The request the coordinator handed the debate runtime (== the request it re-invokes the harness
+  // with) carries the gate-failure projection ref, so both the runtime resolve and the harness gate
+  // (regeneration_after_n6_gate_failure) can find it.
+  const debateRequest = n6DivergentDebateRuntime.calls[0]!.request;
+  const refIds = debateRequest.frozen_input.source_refs.map((sourceRef) => sourceRef.ref_id);
+  assert.ok(refIds.includes(projection!.artifact_ref_id), 'the N6 debate request must thread the gate-failure projection ref');
+});
+
+test('N6 debate request threads the escalation projection even when a LATER regenerate projection shares the kind', async () => {
+  const { controlPlane, coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  // Match the gate-failure PROJECTION specifically (projection_kind) — the n6_loopback_triage support
+  // artifact also carries loopback_target_code='n6_debate_escalation', so filtering on the code alone collides.
+  const byCode = async (code: string) => (await controlPlane.listArtifactRefsByWorkflowRunId(RUN))
+    .find((artifact) => {
+      const payload = artifact.payload as { projection_kind?: string; loopback_target_code?: string } | null;
+      return payload?.projection_kind === 'v1b_n6_gate_failure_retry_context' && payload?.loopback_target_code === code;
+    });
+  const escalation = await byCode('n6_debate_escalation');
+  // A single-agent regenerate projection shares the gate-failure projection_kind and is recorded LATER
+  // (higher created_at). Selecting by created_at recency alone would mis-pick it; the discriminator on
+  // loopback_target_code must keep the coordinator threading the escalation-coded projection.
+  await controlPlane.recordArtifactRef({
+    artifact_kind: 'diagnostic',
+    workflow_run_id: RUN,
+    payload: { projection_kind: 'v1b_n6_gate_failure_retry_context', loopback_target_code: 'n6_regenerate_candidates' },
+  });
+  const regenerate = await byCode('n6_regenerate_candidates');
+
+  await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+    max_steps: 1,
+  });
+
+  const refIds = n6DivergentDebateRuntime.calls[0]!.request.frozen_input.source_refs.map((sourceRef) => sourceRef.ref_id);
+  assert.ok(refIds.includes(escalation!.artifact_ref_id), 'must thread the escalation-coded projection');
+  assert.ok(!refIds.includes(regenerate!.artifact_ref_id), 'must NOT thread the later regenerate-coded projection');
+});
+
+test('N6 debate escalation halts upstream_blocked when the gate-failure projection is missing', async () => {
+  const { controlPlane, coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  // Remove the projection driveToN6Escalation recorded — simulate an escalation routed by an older
+  // harness that did not yet record the gate-failure projection. The coordinator must fail closed.
+  const projection = (await controlPlane.listArtifactRefsByWorkflowRunId(RUN))
+    .find((artifact) => (artifact.payload as { projection_kind?: string } | null)?.projection_kind === 'v1b_n6_gate_failure_retry_context');
+  controlPlane.artifacts.delete(projection!.artifact_ref_id);
+
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+  });
+  assert.equal(report.halt.reason, 'upstream_blocked');
+  assert.match(report.halt.message, /v1b_n6_gate_failure_retry_context/);
+  assert.equal(n6DivergentDebateRuntime.calls.length, 0, 'the debate must not run without the projection');
+});
+
+test('N6 debate escalation is opt-in: with no debate fixtures it halts model_input_required and surfaces the debate option', async () => {
+  const { coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, retry_node_id: N6 });
+  assert.equal(report.steps.length, 0);
+  // Debate is opt-in — omitting it falls through to the existing model-like path, but the message
+  // surfaces both the debate (runDivergentDebate) and the single-agent draft option.
+  assert.equal(report.halt.reason, 'model_input_required');
+  assert.equal(report.halt.node_id, N6);
+  assert.match(report.halt.message, /runDivergentDebate/);
+  assert.match(report.halt.message, /single-agent pass/);
+  assert.equal(n6DivergentDebateRuntime.calls.length, 0, 'no debate ran without fixtures');
+});
+
+test('N6 debate escalation still permits a single-agent draft re-invocation (debate is opt-in)', async () => {
+  const { harness, coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { draft_payload: { candidates: ['regenerated'] } } },
+    max_steps: 1,
+  });
+  // The generic loopback resume (re-invoke N6 with a fresh single-agent draft) still works.
+  assert.equal(report.steps[0]!.node_id, N6);
+  assert.equal(n6DivergentDebateRuntime.calls.length, 0, 'no debate ran — the caller chose a single-agent draft');
+  const n6Requests = harness.invocations.filter((request) => request.node_id === N6);
+  assert.equal(n6Requests[1]!.semantic_artifacts?.[0]?.slot_id, 'n6_question_candidate_draft');
+});
+
+test('N6 debate that does not complete halts with debate_blocked, surfaces the role-turn codes, and does not re-invoke N6', async () => {
+  const { harness, coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  // The REAL role_blocked shape: the failing-role codes live in loop.turn.invocation_result.blocker_codes
+  // (string[]), one level deeper than a {code,message} admission blocker — extractDebateBlockers must reach it.
+  n6DivergentDebateRuntime.next = {
+    status: 'role_blocked',
+    loop: {
+      status: 'blocked',
+      failed_slot: 'n6_debate_explorer',
+      turn: {
+        status: 'blocked',
+        invocation_result: {
+          status: 'blocked',
+          blocker_codes: ['N6_DEBATE_ROLE_TURN_BLOCKED'],
+          error_code: 'N6_DEBATE_ROLE_TURN_BLOCKED',
+          error_message: 'explorer turn blocked',
+        },
+      },
+      ordered_role_artifacts: [],
+    },
+  } as unknown as TopicSelectionV1bN6DivergentDebateRunResult;
+
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+  });
+  assert.equal(report.halt.reason, 'debate_blocked');
+  assert.equal(report.halt.node_id, N6);
+  // The role-turn blocker code is surfaced on the halt (not an empty array).
+  assert.ok(
+    report.halt.blockers.some((blocker) => blocker.code === 'N6_DEBATE_ROLE_TURN_BLOCKED' && blocker.message === 'explorer turn blocked'),
+    'debate_blocked halt must carry the role-turn blocker code',
+  );
+  // The blocked debate must not reach the harness — N6 stays at the single blocking trial.
+  assert.equal(harness.invocations.filter((request) => request.node_id === N6).length, 1);
+});
+
+test('N6 debate runtime throw surfaces as a structured debate_blocked halt (not a raw error)', async () => {
+  const { harness, coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  // The real N6 runtime throws AppError(400) for regeneration_after_n6_gate_failure without the
+  // gate-failure retry projection; the coordinator must convert that throw into a debate_blocked halt.
+  n6DivergentDebateRuntime.throwError = new AppError(400, 'INVALID_PAYLOAD', 'N6 regeneration_after_n6_gate_failure runtime draft requires exactly one N6 gate-failure retry projection');
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+  });
+  assert.equal(report.halt.reason, 'debate_blocked');
+  assert.equal(report.halt.node_id, N6);
+  assert.match(report.halt.message, /caller-side debate could not run/);
+  assert.ok(report.halt.blockers.some((blocker) => blocker.code === 'INVALID_PAYLOAD'));
+  assert.equal(harness.invocations.filter((request) => request.node_id === N6).length, 1);
+});
+
+test('debate.kind that mismatches the detected frontier is rejected with a 400', async () => {
+  const { coordinator, n6DivergentDebateRuntime, n8BoundedDebateRuntime } = await driveToN6Escalation();
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N6,
+      node_inputs: { [N6]: { debate: N8_DEBATE_INPUT } }, // n8_bounded at the N6 divergent frontier
+    }),
+    /does not match this node's debate kind/,
+  );
+  assert.equal(n6DivergentDebateRuntime.calls.length, 0);
+  assert.equal(n8BoundedDebateRuntime.calls.length, 0);
+});
+
+test('an N6 escalation stranded at the loopback budget halts with an escalation-aware message', async () => {
+  const { coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  // N6 is at one escalation loopback (loopback_count=1). With budget 1, the retry hits the exhausted
+  // branch before the debate runs, and the message must name the stranded escalation.
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+    loopback_budget_per_node: 1,
+  });
+  assert.equal(report.halt.reason, 'loopback_budget_exhausted');
+  assert.equal(report.halt.node_id, N6);
+  assert.match(report.halt.message, /the pending n6_debate_escalation cannot run/);
+  assert.equal(n6DivergentDebateRuntime.calls.length, 0, 'the debate must not run once the budget is exhausted');
+});
+
+test('debate and draft_payload supplied together are rejected before any harness call', async () => {
+  const { coordinator } = await driveToN6Escalation();
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N6,
+      node_inputs: { [N6]: { debate: N6_DEBATE_INPUT, draft_payload: { candidates: ['c'] } } },
+    }),
+    /at most one of draft_payload, execution_spec, or debate/,
+  );
+});
+
+test('debate supplied at a node that is not a debate frontier halts debate_not_applicable', async () => {
+  // N4 is model-like but never a debate frontier; supplying `debate` there is a misuse.
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: { [N4]: { debate: N6_DEBATE_INPUT } },
+  });
+  assert.equal(report.halt.reason, 'debate_not_applicable');
+  assert.equal(report.halt.node_id, N4);
+  assert.match(report.halt.message, /not at a debate frontier/);
+});
+
+test('N6 debate is idempotent: a re-advance after a harness rejection reuses the gate-draft, not a re-run', async () => {
+  const { harness, coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  // First attempt: the debate runs + records its marker, then the harness rejects (no trace lands).
+  harness.failNextNodes.add(N6);
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N6,
+      node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+    }),
+    /stub harness rejected/,
+  );
+  assert.equal(n6DivergentDebateRuntime.calls.length, 1, 'debate ran once before the rejection');
+
+  // Re-advance on the SAME attempt id (no trace landed ⇒ attempt_count unchanged): the recorded
+  // gate-draft marker is reused, so the debate is NOT re-run (no duplicate role/context/audit rows).
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+    max_steps: 1,
+  });
+  assert.equal(report.steps[0]!.node_id, N6);
+  assert.equal(n6DivergentDebateRuntime.calls.length, 1, 'debate was reused, not re-run');
+});
+
+test('N8 bounded debate: after the N8->N7 round-trip, the coordinator runs runDebate on the N8 re-entry', async () => {
+  const { harness, coordinator, n8BoundedDebateRuntime } = await driveToN8DebateLoopback();
+  // N8 re-entry (pass 2) admits once the debate's gate-draft is attached.
+  harness.script.set(N8, [{ gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N8ToN9Handoff' }]);
+
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N7,
+    node_inputs: {
+      [N7]: { draft_payload: { ...DEBATE_ADMISSION_SUPPORT } }, // feedback re-entry support (pass-2 admission level)
+      [N8]: { debate: N8_DEBATE_INPUT }, // bounded debate drives the pass-2 draft
+    },
+    max_steps: 2, // N7 feedback re-entry, then the debate-driven N8 re-invocation
+  });
+
+  // N7 feedback re-entry ran, then the bounded debate produced the N8 pass-2 draft.
+  assert.deepEqual(report.steps.map((step) => step.node_id), [N7, N8]);
+  assert.equal(n8BoundedDebateRuntime.calls.length, 1, 'the bounded debate ran exactly once on the N8 re-entry');
+  assert.equal(n8BoundedDebateRuntime.calls[0]!.execution_mode, 'mocked_llm');
+  const n8Requests = harness.invocations.filter((request) => request.node_id === N8);
+  const attached = n8Requests[n8Requests.length - 1]!.semantic_artifacts?.[0];
+  assert.equal(attached?.slot_id, 'n8_value_assessment_draft');
+  assert.equal(attached?.runtime_provenance_class, 'runtime_verified');
+});
+
+test('N8 first pass never runs the bounded debate (it runs only after the N7 round-trip)', async () => {
+  // On the N8 FIRST pass the harness re-arms the N8->N7 loopback regardless, so the coordinator must
+  // not waste a debate there: supplying `debate` on the first pass is a misuse, not a frontier.
+  const { coordinator, n8BoundedDebateRuntime } = await driveToN8DebateLoopback();
+  // driveToN8DebateLoopback already left N8 at its first-pass loopback (not a post-N7 re-entry).
+  // Re-invoking the SOURCE N8 with `debate` is not a bounded-debate frontier — it halts for input.
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N8,
+    node_inputs: { [N8]: { debate: N8_DEBATE_INPUT } },
+  });
+  assert.equal(report.halt.reason, 'debate_not_applicable');
+  assert.match(report.halt.message, /not at a debate frontier/);
+  assert.equal(n8BoundedDebateRuntime.calls.length, 0);
 });

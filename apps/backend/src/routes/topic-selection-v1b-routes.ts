@@ -220,6 +220,11 @@ const workflowRunAdvanceSchema = {
             properties: {
               execution_spec: { anyOf: [coordinatorExecutionSpecSchema, { type: 'null' }] },
               draft_payload: { anyOf: [recordPayload, { type: 'null' }] },
+              // Per-role debate fixtures for an N6 divergent / N8 bounded debate frontier (W-07 item a).
+              // Passed through permissively — the coordinator validates the discriminated union (kind,
+              // mutual-exclusion with draft_payload/execution_spec) and the debate runtimes validate the
+              // per-role fixtures; a structural mismatch surfaces as a 400 / debate_blocked halt, not here.
+              debate: { anyOf: [recordPayload, { type: 'null' }] },
             },
           },
         },
