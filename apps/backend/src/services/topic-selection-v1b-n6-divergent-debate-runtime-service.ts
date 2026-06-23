@@ -29,6 +29,7 @@ import type {
   TopicSelectionExecutorKind,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import {
+  debateExecutionPlanMixingError,
   resolveDebateExecutionModelOptionId,
   type TopicSelectionNamedDebateExecutionPlan,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
@@ -604,6 +605,12 @@ export type GenerateTopicSelectionV1bN6DivergentDebateInput = {
   created_by?: TopicSelectionV1bWorkflowHarnessRunRequest['created_by'];
   /** T-127 W-09: optional provider-diverse execution plan (role-family-keyed). Absent -> byte-identical. */
   execution_plan?: TopicSelectionNamedDebateExecutionPlan<TopicSelectionV1bN6DivergentDebateRoleSlotId> | null;
+  /** Legacy per-loop model_option_id channel: the single fallback option applied to EVERY role family with
+   *  no per-family plan entry (it becomes the base ctx.modelOptionId). Mutually exclusive with execution_plan
+   *  (the plan is the sole override channel) — co-supplying both is rejected up front (pre-provider_llm
+   *  hardening; inert today because no caller supplies a legacy id). Absent (null) -> base ctx.modelOptionId
+   *  stays null, i.e. byte-identical to pre-W09. */
+  model_option_id?: string | null;
 };
 
 export type TopicSelectionV1bN6DivergentDebateRunResult =
@@ -667,6 +674,16 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
   async runDivergentDebate(
     input: GenerateTopicSelectionV1bN6DivergentDebateInput,
   ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
+    // T-127 W-09 pre-provider_llm hardening: the named execution_plan is the SOLE per-family override
+    // channel, so it cannot be co-supplied with the legacy per-loop model_option_id. This legacy channel has
+    // NO producing caller today — the coordinator's debate input type (Pick<>) structurally excludes
+    // model_option_id, so the guard is unreachable via the only production path; it guards a FUTURE direct
+    // caller separately wired to populate model_option_id (a live provider_llm path landing does not by
+    // itself populate it).
+    const mixingError = debateExecutionPlanMixingError(input.execution_plan ?? null, input.model_option_id);
+    if (mixingError) {
+      throw new AppError(400, 'INVALID_PAYLOAD', mixingError);
+    }
     const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
     // Shared N6 context resolved via the SAME public resolver the single-agent draft path uses
     // (resolveSharedN6RuntimeContext — DMP-10 one resolution method). The gate bridge below re-invokes
@@ -701,7 +718,8 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
         executionMode: input.execution_mode,
         runMode,
         policyVersion: input.request.policy_version,
-        modelOptionId: null,
+        // Legacy per-loop fallback option (null today); the plan resolver takes precedence per role family.
+        modelOptionId: input.model_option_id ?? null,
         createdBy: input.created_by ?? input.request.created_by ?? 'system',
       },
       // perInstance ALWAYS sets instance_index to the core's fan-out index (the sole worker

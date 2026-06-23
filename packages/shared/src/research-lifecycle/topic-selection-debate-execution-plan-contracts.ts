@@ -83,8 +83,11 @@ export function resolveDebateExecutionModelOptionId<TRole extends string>(
 }
 
 /** JSON-schema factory for a named debate execution plan over a FIXED set of role slot ids (so each
- *  debate validates its own role keys). Mirrors the v1a execution_spec rule: a model_option_id requires
- *  execution_mode 'provider_llm' (codex/mocked select no provider option). */
+ *  debate validates its own role keys). Structurally mirrors the v1a execution_spec schema: execution_mode
+ *  and model_option_id are INDEPENDENT fields here — the schema does NOT couple them. The "a model_option_id
+ *  belongs only to execution_mode 'provider_llm'" rule is enforced at RESOLUTION time by the model-profile
+ *  registry resolveProfile (it selects a model_option_id only for provider_llm and drops it for codex/mocked),
+ *  not by this schema; a stray option under codex/mocked validates here but is inert (the W-09 DORMANCY). */
 export function topicSelectionNamedDebateExecutionPlanSchema(
   roleSlotIds: readonly string[],
 ): Record<string, unknown> {

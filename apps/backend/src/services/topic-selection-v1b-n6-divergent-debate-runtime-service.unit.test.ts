@@ -538,3 +538,29 @@ test('f5 runtime: a concrete provider_diverse plan is DORMANT (replay-safe) for 
     noPlan.admission.admission_identity.source_hashes,
   );
 });
+
+test('f5 runtime: rejects a named execution_plan co-supplied with a legacy model_option_id (W-09 pre-provider_llm hardening)', async () => {
+  // T-127 W-09: the per-family named plan is the SOLE override channel — co-supplying it with the legacy
+  // per-loop model_option_id is rejected up front (the plan's default tail would shadow the legacy id). The
+  // guard is inert today (no caller supplies a legacy id) but fires the moment a live provider_llm path lands.
+  const repository = new InMemoryTopicSelectionControlPlaneRepository();
+  const controlPlane = new TopicSelectionControlPlaneService(repository, {
+    idFactory: (prefix: string) => `${prefix}_001`,
+    now: () => '2026-06-16T00:00:00.000Z',
+  });
+  const runtime = new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane);
+  await assert.rejects(
+    runtime.runDivergentDebate({
+      request: e2eRequest(),
+      generation_mode: 'initial_from_n5',
+      execution_mode: 'mocked_llm',
+      run_mode: 'test',
+      role_outputs: {},
+      execution_plan: selectN6DebateExecutionPlan('provider_compact'),
+      model_option_id: 'legacy-per-loop-option',
+    }),
+    /named debate execution_plan cannot be combined with a legacy per-loop model_option_id/,
+  );
+  // The reject fires before any role/context artifacts are recorded (no debate loop ran).
+  assert.equal((await controlPlane.listArtifactRefsByWorkflowRunId(e2eRequest().workflow_run_id)).length, 0);
+});

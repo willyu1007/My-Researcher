@@ -147,7 +147,7 @@ function makeSubject() {
   const runtime = new TopicSelectionV1bN8BoundedDebateRuntimeService(controlPlane, {
     singleAgentRuntime: stub.runtime,
   });
-  return { runtime, stub };
+  return { runtime, stub, controlPlane };
 }
 
 function makeRequest(suffix = '001'): TopicSelectionV1bWorkflowHarnessRunRequest {
@@ -384,4 +384,23 @@ test('v1b N8 bounded debate runtime blocks admission when a material critic find
     throw new Error('Expected admission to be blocked.');
   }
   assert.equal(result.admission.blocker.code, 'N8_BOUNDED_DEBATE_CRITIC_FINDING_UNRESOLVED');
+});
+
+test('v1b N8 bounded debate runtime: rejects a named execution_plan co-supplied with a legacy model_option_id (W-09 pre-provider_llm hardening)', async () => {
+  // T-127 W-09: the named N8 plan is the SOLE per-role override channel — co-supplying it with the legacy
+  // per-loop model_option_id is rejected up front (the plan's default tail would shadow the legacy id). The
+  // guard is inert today (no caller supplies a legacy id) but fires the moment a live provider_llm path lands.
+  const { selectN8DebateExecutionPlan } = await import('./topic-selection-debate-execution-plan-registry-service.js');
+  const { runtime, controlPlane } = makeSubject();
+  const request = makeRequest();
+  await assert.rejects(
+    runtime.runDebate({
+      ...debateInput(request),
+      execution_plan: selectN8DebateExecutionPlan('provider_compact'),
+      model_option_id: 'legacy-per-loop-option',
+    }),
+    /named debate execution_plan cannot be combined with a legacy per-loop model_option_id/,
+  );
+  // The reject fires before any role/context artifacts are recorded (no debate loop ran).
+  assert.equal((await controlPlane.listArtifactRefsByWorkflowRunId(request.workflow_run_id)).length, 0);
 });

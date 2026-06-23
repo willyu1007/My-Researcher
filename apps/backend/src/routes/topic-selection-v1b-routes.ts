@@ -20,9 +20,14 @@ import {
   TOPIC_SELECTION_AGENT_EXECUTION_MODES,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import {
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS,
   topicSelectionV1bWorkflowHarnessRunRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import {
+  topicSelectionNamedDebateExecutionPlanSchema,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
 import {
   TopicSelectionV1bController,
   type ConstraintProfileHumanBody,
@@ -205,6 +210,45 @@ const coordinatorExecutionSpecSchema = {
     model_option_id: nullableStringId,
   },
 } as const;
+// T-127 W-09 pre-provider_llm hardening: validate a debate frontier's optional execution_plan at the HTTP
+// boundary against the debate kind's OWN role slot ids (the same shared named-plan factory the runtimes use),
+// constrained ONLY when debate.kind names a known frontier (if/then). Every other debate field (kind,
+// execution_mode, run_mode, generation_mode, role_outputs) rides additionalProperties:true and is validated
+// by the coordinator's discriminated union + the runtimes.
+// IMPORTANT — what this actually enforces at the route: Fastify's default Ajv runs with removeAdditional:true
+// (@fastify/ajv-compiler default), so this sub-schema only 400s enum/type/required violations — an unknown
+// plan `name`, or a bad role-spec `execution_mode`. additionalProperties:false violations (foreign role keys,
+// unknown plan/spec keys) are SILENTLY STRIPPED here, NOT rejected. The authoritative structural reject is the
+// coordinator's own Ajv (removeAdditional OFF) in assertDebateExecutionPlanValid: it fully rejects foreign/
+// unknown keys for DIRECT (non-HTTP) callers; over HTTP it sees the already-stripped body, so the two layers
+// are complementary (route = early enum/type 400 + sanitize unknown keys; coordinator = authoritative
+// structural reject for direct callers). Pinned by the advance-route schema-validation integration test.
+const debateNodeInputSchema: JsonSchema = {
+  type: 'object',
+  additionalProperties: true,
+  allOf: [
+    {
+      if: { required: ['kind'], properties: { kind: { const: 'n6_divergent' } } },
+      then: {
+        properties: {
+          execution_plan: {
+            anyOf: [topicSelectionNamedDebateExecutionPlanSchema(TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER), { type: 'null' }],
+          },
+        },
+      },
+    },
+    {
+      if: { required: ['kind'], properties: { kind: { const: 'n8_bounded' } } },
+      then: {
+        properties: {
+          execution_plan: {
+            anyOf: [topicSelectionNamedDebateExecutionPlanSchema(TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER), { type: 'null' }],
+          },
+        },
+      },
+    },
+  ],
+};
 const workflowRunAdvanceSchema = {
   ...paramsSchema({ workflowRunId: stringId }),
   ...bodySchema([], {
@@ -221,10 +265,14 @@ const workflowRunAdvanceSchema = {
               execution_spec: { anyOf: [coordinatorExecutionSpecSchema, { type: 'null' }] },
               draft_payload: { anyOf: [recordPayload, { type: 'null' }] },
               // Per-role debate fixtures for an N6 divergent / N8 bounded debate frontier (W-07 item a).
-              // Passed through permissively — the coordinator validates the discriminated union (kind,
-              // mutual-exclusion with draft_payload/execution_spec) and the debate runtimes validate the
-              // per-role fixtures; a structural mismatch surfaces as a 400 / debate_blocked halt, not here.
-              debate: { anyOf: [recordPayload, { type: 'null' }] },
+              // The per-kind execution_plan's enum/type constraints are checked here (debateNodeInputSchema,
+              // W-09 pre-provider_llm hardening) — a non-named plan or a bad role execution_mode 400s; foreign
+              // role keys / unknown keys are STRIPPED by Fastify, not rejected (see debateNodeInputSchema note).
+              // The remaining debate fields (kind, execution_mode, run_mode, generation_mode, role_outputs) stay
+              // permissive — the coordinator validates the discriminated union (kind, mutual-exclusion with
+              // draft_payload/execution_spec) + the plan structurally, and the runtimes validate the per-role
+              // fixtures; a structural mismatch there surfaces as a 400 / debate_blocked halt.
+              debate: { anyOf: [debateNodeInputSchema, { type: 'null' }] },
             },
           },
         },

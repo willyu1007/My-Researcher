@@ -1934,6 +1934,50 @@ test('topic-selection v1b offline replay routes reject invalid payloads', async 
   }
 });
 
+test('topic-selection v1b advance route validates a debate execution_plan per kind (W-09 pre-provider_llm hardening)', async () => {
+  const app = buildApp({
+    topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
+  });
+  try {
+    const url = `/topic-selection/v1b/workflow-runs/${encodeURIComponent('run-schema-noop')}/advance`;
+    const advance = (plan: unknown) => app.inject({
+      method: 'POST',
+      url,
+      payload: {
+        node_inputs: {
+          'topic-selection.v1b.assess-topic-value.v1': {
+            debate: { kind: 'n8_bounded', execution_mode: 'mocked_llm', role_outputs: {}, execution_plan: plan },
+          },
+        },
+      },
+    });
+
+    // The two route-layer ENUM/TYPE violations Fastify actually 400s on (previously the plan passed
+    // permissively as additionalProperties): an unknown plan `name`, and a bad nested role `execution_mode`.
+    assert.equal((await advance({ name: 'not_a_named_plan' })).statusCode, 400);
+    assert.equal(
+      (await advance({ name: 'codex_assisted', roles: { n8_debate_value_critic: { execution_mode: 'not_a_mode' } } })).statusCode,
+      400,
+    );
+
+    // What the route does NOT reject (Fastify default Ajv runs removeAdditional:true, so additionalProperties
+    // violations are STRIPPED here, not rejected). A FOREIGN role key (an N6 slot on an N8 plan) is silently
+    // dropped at the route — it is NOT a 400. The coordinator's own Ajv (removeAdditional OFF) is the
+    // authoritative structural reject for direct callers (pinned in the coordinator unit tests); over HTTP it
+    // only ever sees the already-stripped body. This assertion documents the real boundary behavior.
+    assert.notEqual(
+      (await advance({ name: 'codex_assisted', roles: { n6_debate_explorer: { execution_mode: 'mocked_llm' } } })).statusCode,
+      400,
+    );
+
+    // A structurally valid (empty) plan passes schema validation — NOT rejected (the run has no traces, so
+    // the coordinator returns a no_frontier advance report rather than a 400).
+    assert.notEqual((await advance({ name: 'codex_assisted' })).statusCode, 400);
+  } finally {
+    await app.close();
+  }
+});
+
 test('topic-selection v1b workflow harness HTTP route invokes N1 without legacy write headers', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),

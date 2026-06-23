@@ -23,6 +23,7 @@ import type {
   TopicSelectionExecutorKind,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import {
+  debateExecutionPlanMixingError,
   resolveDebateExecutionModelOptionId,
   type TopicSelectionNamedDebateExecutionPlan,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
@@ -38,6 +39,7 @@ import {
   type TopicSelectionV1bTopicValueAssessmentDraftPayload,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import { AppError } from '../errors/app-error.js';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { stableStringify } from './literature-content-processing-utils.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
@@ -146,6 +148,12 @@ export type GenerateTopicSelectionV1bN8DebateInput = {
   /** T-127 W-09 (DP-3.5): optional named provider-diverse execution plan (debate_level -> named plan),
    *  per-role model_option_id override. Absent -> unchanged single-profile behavior. */
   execution_plan?: TopicSelectionNamedDebateExecutionPlan<TopicSelectionV1bN8BoundedDebateRoleSlotId> | null;
+  /** Legacy per-loop model_option_id channel: the single fallback option applied to EVERY role with no
+   *  per-role plan entry (it becomes the base ctx.modelOptionId). Mutually exclusive with execution_plan —
+   *  the plan is the sole override channel, so co-supplying both is rejected up front (pre-provider_llm
+   *  hardening; the mixing guard is inert today because no caller supplies a legacy id). Absent (null) ->
+   *  base ctx.modelOptionId stays null, i.e. byte-identical to pre-W09. */
+  model_option_id?: string | null;
 };
 
 export type TopicSelectionV1bN8DebateRunResult =
@@ -204,6 +212,16 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
   }
 
   async runDebate(input: GenerateTopicSelectionV1bN8DebateInput): Promise<TopicSelectionV1bN8DebateRunResult> {
+    // T-127 W-09 pre-provider_llm hardening: a named execution_plan is the SOLE per-role override channel,
+    // so it cannot be co-supplied with the legacy per-loop model_option_id (the plan's default tail would
+    // shadow it ambiguously). This legacy channel has NO producing caller today — the coordinator's debate
+    // input type (Pick<>) structurally excludes model_option_id, so the guard is unreachable via the only
+    // production path; it guards a FUTURE direct caller separately wired to populate model_option_id (a live
+    // provider_llm path landing does not by itself populate it).
+    const mixingError = debateExecutionPlanMixingError(input.execution_plan ?? null, input.model_option_id);
+    if (mixingError) {
+      throw new AppError(400, 'INVALID_PAYLOAD', mixingError);
+    }
     const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
     const shared = await this.singleAgent.resolveSharedN8RuntimeContext(input.request);
     const handoff: V1bN8DebateHandoff = {
@@ -235,7 +253,8 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
         executionMode: input.execution_mode,
         runMode,
         policyVersion: input.request.policy_version,
-        modelOptionId: null,
+        // Legacy per-loop fallback option (null today); the plan resolver takes precedence per role.
+        modelOptionId: input.model_option_id ?? null,
         createdBy: input.created_by ?? input.request.created_by ?? 'system',
       },
       (slot) => input.role_outputs[slot] ?? { codex_response: null, mocked_output: null },

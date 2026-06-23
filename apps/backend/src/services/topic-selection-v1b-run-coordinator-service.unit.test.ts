@@ -1185,6 +1185,69 @@ test('N6 debate escalation (W-09 S4): the coordinator forwards a caller-supplied
   );
 });
 
+test('N6 debate escalation (W-09 pre-provider_llm hardening): the coordinator rejects a structurally invalid execution_plan before running the debate', async () => {
+  // The forwarding seam must not pass an over-permissive plan through: a `name` outside the three named
+  // plans fails the shared named-plan schema, so the coordinator rejects it (INVALID_PAYLOAD) before
+  // forwarding it to runDivergentDebate. (The plan is INERT for codex|mocked debates today, so this is
+  // contract-tightness only — the harness W-09 review's gap — but it must hold before any provider_llm path.)
+  const { coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N6,
+      node_inputs: { [N6]: { debate: { ...N6_DEBATE_INPUT, execution_plan: { name: 'not_a_named_plan' } as never } } },
+    }),
+    /execution_plan is not a valid n6_divergent named execution plan/,
+  );
+  assert.equal(n6DivergentDebateRuntime.calls.length, 0, 'no debate ran on the rejected plan');
+});
+
+test('N6 debate escalation (W-09 pre-provider_llm hardening): the coordinator rejects an execution_plan carrying a foreign role key', async () => {
+  // The plan is validated against THIS debate kind's OWN role slot ids: roles.additionalProperties is false,
+  // so an N8 role key on an N6 plan (any non-N6 slot) is rejected rather than silently forwarded.
+  const { coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N6,
+      node_inputs: {
+        [N6]: {
+          debate: {
+            ...N6_DEBATE_INPUT,
+            execution_plan: { name: 'codex_assisted', roles: { n8_debate_value_critic: { execution_mode: 'provider_llm', model_option_id: 'x' } } } as never,
+          },
+        },
+      },
+    }),
+    /execution_plan is not a valid n6_divergent named execution plan/,
+  );
+  assert.equal(n6DivergentDebateRuntime.calls.length, 0, 'no debate ran on the rejected plan');
+});
+
+test('N8 bounded debate (W-09 pre-provider_llm hardening): the coordinator rejects an execution_plan carrying a foreign (N6) role key', async () => {
+  // Exercises the n8_bounded validator branch (the N6 tests above only hit n6_divergent): each kind is
+  // validated against its OWN role slot ids, so an N6 role key on an N8 plan is rejected, not forwarded.
+  const { coordinator, n8BoundedDebateRuntime } = await driveToN8DebateLoopback();
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N7,
+      node_inputs: {
+        [N7]: { draft_payload: { ...DEBATE_ADMISSION_SUPPORT } }, // feedback re-entry support (reaches the N8 frontier)
+        [N8]: {
+          debate: {
+            ...N8_DEBATE_INPUT,
+            execution_plan: { name: 'codex_assisted', roles: { n6_debate_arbiter: { execution_mode: 'provider_llm', model_option_id: 'x' } } } as never,
+          },
+        },
+      },
+      max_steps: 2,
+    }),
+    /execution_plan is not a valid n8_bounded named execution plan/,
+  );
+  assert.equal(n8BoundedDebateRuntime.calls.length, 0, 'no debate ran on the rejected plan');
+});
+
 test('N6 debate request threads the gate-failure retry projection into frozen_input.source_refs', async () => {
   const { controlPlane, coordinator, n6DivergentDebateRuntime } = await driveToN6Escalation();
   // The recorded gate-failure projection (driveToN6Escalation simulates the harness recording it).

@@ -1,3 +1,4 @@
+import { Ajv, type ValidateFunction } from 'ajv';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -5,8 +6,11 @@ import type {
   TopicSelectionAgentExecutionSpec,
   TopicSelectionAgentRunMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
+import { topicSelectionNamedDebateExecutionPlanSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
 import {
   TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
+  TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_TRACE_PAYLOAD_SCHEMA_VERSION,
@@ -291,6 +295,28 @@ export type TopicSelectionV1bRunCoordinatorDebateInput =
       GenerateTopicSelectionV1bN8DebateInput,
       'execution_mode' | 'run_mode' | 'role_outputs' | 'execution_plan'
     >);
+
+/**
+ * T-127 W-09 pre-provider_llm hardening: per-kind structural validators for a debate frontier's
+ * caller-supplied execution_plan, keyed by each debate's OWN role slot ids (so an N8 plan cannot carry
+ * an N6 role key, etc.). The named-plan schema is the SAME shared factory the runtimes' contracts use;
+ * compiled once at module load. removeAdditional stays OFF so an over-permissive plan (foreign role key,
+ * unknown field, bad enum) is REJECTED — not silently stripped — before it is forwarded to the runtimes.
+ * This is the AUTHORITATIVE structural reject for DIRECT (non-HTTP) callers. NB: over the HTTP advance route,
+ * Fastify's default Ajv (removeAdditional:true) already STRIPS additionalProperties violations before the
+ * controller hands the body here, so on that path this validator only re-catches the surviving enum/type
+ * violations; full foreign-key/unknown-key rejection is observable only off the HTTP path (e.g. direct
+ * coordinator callers / the unit tests).
+ */
+const debateExecutionPlanAjv = new Ajv({ allErrors: true, strict: false });
+const DEBATE_EXECUTION_PLAN_VALIDATORS: Record<TopicSelectionV1bRunCoordinatorDebateInput['kind'], ValidateFunction> = {
+  n6_divergent: debateExecutionPlanAjv.compile(
+    topicSelectionNamedDebateExecutionPlanSchema(TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER),
+  ),
+  n8_bounded: debateExecutionPlanAjv.compile(
+    topicSelectionNamedDebateExecutionPlanSchema(TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER),
+  ),
+};
 
 export type TopicSelectionV1bRunCoordinatorNodeInput = {
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
@@ -672,6 +698,10 @@ export class TopicSelectionV1bRunCoordinatorService {
             `${nextNodeId}: node_inputs.debate.kind=${nodeInput.debate.kind} does not match this node's debate kind (${debateFrontier}).`,
           );
         }
+        // T-127 W-09 pre-provider_llm hardening: structurally validate the (optional) execution_plan against
+        // THIS debate kind's role slot ids before forwarding it to the runtime (gap closes the harness W-09
+        // review's contract-tightness note). Absent plan -> no-op -> byte-identical to today.
+        this.assertDebateExecutionPlanValid(nextNodeId, nodeInput.debate);
         let debateRequest: TopicSelectionV1bWorkflowHarnessRunRequest;
         try {
           // The N6 divergent debate re-runs in regeneration_after_n6_gate_failure mode, which (in the
@@ -1008,6 +1038,33 @@ export class TopicSelectionV1bRunCoordinatorService {
     }
     const n7Admitted = projection.nodes.find((node) => node.node_id === N7_NODE_ID)?.latest_admitted;
     return Boolean(n7Admitted && n7Admitted.route_decision === 'invoke_next' && n7Admitted.seq > n8Latest.seq);
+  }
+
+  /**
+   * T-127 W-09 pre-provider_llm hardening: validate a debate frontier's caller-supplied execution_plan
+   * STRUCTURE (against the debate kind's own role slot ids) before forwarding it to the runtime. Today the
+   * runtimes thread the plan verbatim and the model-profile registry drops every per-role option to null for
+   * codex|mocked debates, so a malformed plan is INERT — but rejecting it here keeps an over-permissive plan
+   * from silently riding into a future live provider_llm debate path. Absent plan (null/undefined): no-op.
+   */
+  private assertDebateExecutionPlanValid(
+    nodeId: string,
+    debate: TopicSelectionV1bRunCoordinatorDebateInput,
+  ): void {
+    if (debate.execution_plan == null) {
+      return;
+    }
+    const validator = DEBATE_EXECUTION_PLAN_VALIDATORS[debate.kind];
+    if (!validator(debate.execution_plan)) {
+      const detail = (validator.errors ?? [])
+        .map((error) => `${error.instancePath || '(root)'} ${error.message ?? ''}`.trim())
+        .join('; ');
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `${nodeId}: node_inputs.debate.execution_plan is not a valid ${debate.kind} named execution plan: ${detail || 'schema validation failed'}.`,
+      );
+    }
   }
 
   /**
