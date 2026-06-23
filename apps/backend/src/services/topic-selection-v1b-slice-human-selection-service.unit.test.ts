@@ -306,6 +306,12 @@ test('W-11 regression: the n4_handoff_hash backfill un-409s human N5 selection f
   assert.equal(report.unrecoverable, 0);
 
   // 3) Post-backfill: selectSlice RESOLVES (no 409) and threads the recomputed hash into the N5 request.
+  // SCOPE: the harness is stubbed (makeCapturingHarness), so this proves the 409 clears and the recomputed
+  // hash threads into the N5 frozen_input — but NOT the real N5 authority-equality check. That equality is
+  // safe because the recompute is byte-identical to N4's original write (canonicalHash over the same
+  // persisted handoff object) AND that exact recompute pattern is already prod-load-bearing: N7 admission
+  // re-derives canonicalHash(handoff) and requires equality with the stored hash (harness ~:4026). So the
+  // round-trip fidelity is backstopped in production, not only here.
   const harness = makeCapturingHarness();
   const result = await new V1bSliceHumanSelectionService(harness, readPort, { idFactory: (prefix) => `${prefix}_test` })
     .selectSlice({

@@ -75,8 +75,10 @@ async function main(): Promise<void> {
     }
     if (report.unrecoverable > 0) {
       // Surfaced, never swallowed: these records have no retrievable N4->N5 handoff artifact and were NOT
-      // touched. Investigate separately (do not re-run N4 to "fix" them blindly).
+      // touched. Investigate separately (do not re-run N4 to "fix" them blindly). Exit 2 (distinct from the
+      // hard-error exit 1) so CI/automation can detect a PARTIAL-success run rather than reading it as clean.
       console.error(`WARNING: ${report.unrecoverable} option-set(s) UNRECOVERABLE (no retrievable N4 handoff artifact).`);
+      process.exitCode = 2;
     }
   } finally {
     await prisma.$disconnect();
