@@ -393,6 +393,9 @@ export class TopicSelectionRecheckRiskMemoryService {
     artifact_refs?: TopicSelectionFunctionalRef[];
     policy_version_id?: string | null;
     payload?: Record<string, unknown>;
+    /** T-127 W-08: optional deterministic advisory ranking score for the queue item. Absent -> the
+     *  prior binary default (invalidated→100 / else→85), so existing callers are byte-unchanged. */
+    priority?: number | null;
   }): Promise<InterpretationResult> {
     return this.recordSignalDrivenInterpretation({
       workspace_id: input.workspace_id ?? null,
@@ -413,7 +416,7 @@ export class TopicSelectionRecheckRiskMemoryService {
       blocked_transition_keys: [],
       queue_item_type: 'downstream_feedback',
       handler_key: 'human_review',
-      priority: input.impact_level === 'invalidated' ? 100 : 85,
+      priority: input.priority ?? (input.impact_level === 'invalidated' ? 100 : 85),
       policy_version_id: input.policy_version_id ?? null,
       payload: {
         feedback_type: input.feedback_type,

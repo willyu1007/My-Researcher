@@ -91,6 +91,13 @@ export interface TopicSelectionDownstreamFeedbackImpactSummary {
   recheck_impact_ref?: TopicSelectionFunctionalRef | null;
   decision_work_queue_item_ref?: TopicSelectionFunctionalRef | null;
   summary: string;
+  /** T-127 W-08: deterministic ranked advisory score (0–100, higher = recheck sooner) =
+   *  computeDownstreamRecheckAdvisoryPriority(severity, impact_level, loopback_cause). Present only when
+   *  requires_recheck; ADVISORY/record-only — it ranks recheck candidates for an operator, never routes a
+   *  loopback (T-108 forward-only preserved). */
+  advisory_priority?: number | null;
+  /** Human-readable derivation of advisory_priority, e.g. "critical+invalidated+need_invalidated". */
+  advisory_rank_reason?: string | null;
 }
 
 export interface TopicSelectionDownstreamTopicFeedbackCreateInput {
@@ -277,6 +284,9 @@ export const topicSelectionDownstreamFeedbackImpactSummarySchema = {
     recheck_impact_ref: nullableFunctionalRef,
     decision_work_queue_item_ref: nullableFunctionalRef,
     summary: stringId,
+    // T-127 W-08: optional advisory ranking (record-only). Absent on no-recheck records.
+    advisory_priority: { anyOf: [{ type: 'integer', minimum: 0, maximum: 100 }, { type: 'null' }] },
+    advisory_rank_reason: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
   },
 } as const;
 
@@ -432,3 +442,59 @@ export const topicSelectionDownstreamTopicFeedbackRecordSchema = {
     created_at: stringId,
   },
 } as const;
+
+// ─────────────────────────────────────────────────── T-127 W-08: deterministic recheck advisory ranking ──
+//
+// A pure, deterministic ranked score (0–100, higher = recheck sooner) for a downstream feedback that
+// REQUIRES a recheck. It refines the prior binary queue priority (invalidated→100 / else→85) into a
+// severity × impact × cause composite so multiple feedbacks converging on one target are distinguishable.
+// ADVISORY/record-only: it ranks recheck candidates for a human operator to read — it NEVER routes a
+// loopback or mutates forward state (T-108 forward-only preserved). Single-sourced here so the emission
+// side and the read projection agree.
+
+const ADVISORY_SEVERITY_WEIGHT: Record<TopicSelectionSeverity, number> = {
+  info: 10,
+  warning: 25,
+  blocking: 45,
+  critical: 60,
+};
+
+const ADVISORY_IMPACT_WEIGHT: Record<TopicSelectionImpactLevel, number> = {
+  no_impact: 0,
+  stale: 8,
+  recheck_required: 18,
+  invalidated: 30,
+};
+
+const ADVISORY_CAUSE_WEIGHT: Record<TopicSelectionDownstreamLoopbackCause, number> = {
+  downstream_mutation_attempt: 10,
+  need_invalidated: 9,
+  promotion_authorization_gap: 8,
+  commitment_gap: 7,
+  overclaim: 6,
+  bridge_trace_gap: 6,
+  boundary_drift: 5,
+  package_narrative_gap: 5,
+  unanswerable_question: 5,
+  merge_candidate_conflict: 4,
+  paper_project_constraint_conflict: 4,
+  stale_evidence: 3,
+  no_recheck_needed: 0,
+};
+
+/** Deterministic recheck advisory ranking. Returns the 0–100 score + a human-readable reason. Pure: same
+ *  inputs always yield the same output (no clock / randomness), so it is replay-stable. */
+export function computeDownstreamRecheckAdvisoryPriority(
+  severity: TopicSelectionSeverity,
+  impactLevel: TopicSelectionImpactLevel,
+  loopbackCause: TopicSelectionDownstreamLoopbackCause,
+): { advisory_priority: number; advisory_rank_reason: string } {
+  const advisory_priority =
+    ADVISORY_SEVERITY_WEIGHT[severity] +
+    ADVISORY_IMPACT_WEIGHT[impactLevel] +
+    ADVISORY_CAUSE_WEIGHT[loopbackCause];
+  return {
+    advisory_priority,
+    advisory_rank_reason: `${severity}+${impactLevel}+${loopbackCause}`,
+  };
+}
