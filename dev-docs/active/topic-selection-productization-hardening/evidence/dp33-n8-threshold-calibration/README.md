@@ -270,9 +270,11 @@ deferral guard around the W-01 scaffold above; it did **not** calibrate, fabrica
 A flip is a separate, human-gated action. ALL must hold before `provisional → false`:
 
 1. **Human-curated labeled corpus** — ≥100 multi-provider labeled samples spanning the 4 bands (non-anecdotal), each a
-   `TopicSelectionN8CalibrationCorpusEntry@v1`, every `__placeholder` replaced. (Note the F6 tension: only two N8
-   single-agent options are registered — `…openai-balanced` + `…dashscope-thinking-budget`; deepseek is debate-worker-only.
-   Either register a third N8 option or re-interpret "multi-provider" against the two available — do **not** silently assume 3.)
+   `TopicSelectionN8CalibrationCorpusEntry@v1`, every `__placeholder` replaced. (Note the **F6 tension** recorded in the
+   Verified-findings table above: the N8 single-agent profile's provider diversity is bounded — deepseek is debate-worker-only,
+   so "multi-provider" resolves to the two distinct providers F6 names (openai / dashscope), not three. Either register an
+   additional N8 provider option or re-interpret "multi-provider" against what the N8 profile actually exposes — do **not**
+   silently assume three providers. Re-confirm F6 against the live `model-profile-registry` before a real run.)
 2. **Independent content-grounded assessor run** — an external Codex agent that reads the real bodies (NOT score-pinned,
    independent of the labeler), captured into calibration records.
 3. **Analysis meets the bar** — `analyzeN8DebateThresholdCalibration` on the **deployed provisional set** AND candidate sets
@@ -285,5 +287,7 @@ A flip is a separate, human-gated action. ALL must hold before `provisional → 
    `03-implementation-notes.md` §DP-3.3, and in `04-verification.md`.
 
 **Caveat — materializer mirror drift:** `materializeN8CalibrationRunRequest` MIRRORS (does not import) the SSOT projection
-builder `buildN7ToN8TopicQuestionContractContextProjection` (harness-service.ts:8236). `verifyN8CalibrationRunRequest` is the
-only guardrail; if the real harness projection shape drifts, re-verify the materializer before trusting a calibration run.
+builder `buildN7ToN8TopicQuestionContractContextProjection` (private method in
+`apps/backend/src/services/topic-selection-v1b-workflow-harness-service.ts` — grep the symbol; line numbers drift).
+`verifyN8CalibrationRunRequest` is the only guardrail; if the real harness projection shape drifts, re-verify the
+materializer before trusting a calibration run.

@@ -118,6 +118,8 @@ test('record-and-defer invariant: a synthetic run — even a clean "separates" v
   // the DEPLOYED gate is provisional BEFORE the run.
   assert.equal(n8Policy()?.debate_trigger_thresholds?.provisional, true);
   const deployed: TopicSelectionV1bN8DebateTriggerThresholds = n8Policy()!.debate_trigger_thresholds!;
+  // snapshot the FULL deployed set so we catch an in-place VALUE mutation too, not just a provisional flip.
+  const beforeSnapshot = JSON.parse(JSON.stringify(n8Policy()!.debate_trigger_thresholds));
 
   const assessor = mockN8CalibrationAssessor({
     clear_pass_1: { total_score: 83, confidence: 0.82, reviewerRiskScore: 72, otherDimScore: 84 },
@@ -132,6 +134,8 @@ test('record-and-defer invariant: a synthetic run — even a clean "separates" v
   // the circular guessing D8 forbids. The calibration path is policy-inert — it reports, it never mutates.
   assert.equal(result.analysis.band_separation_verdict, 'separates');
   assert.equal(n8Policy()?.debate_trigger_thresholds?.provisional, true);
+  // neither provisional NOR any threshold value moved — the whole deployed set is byte-identical after the run.
+  assert.deepEqual(n8Policy()!.debate_trigger_thresholds, beforeSnapshot);
   // the runner result exposes ONLY report data — no threshold-adopt / flip surface to wire a gate change to.
   assert.deepEqual(Object.keys(result).sort(), ['analysis', 'per_entry', 'records']);
 });

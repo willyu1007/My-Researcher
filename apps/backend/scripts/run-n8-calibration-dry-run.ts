@@ -64,12 +64,15 @@ function parseArgs(argv: string[]): ParsedArgs {
       continue;
     }
     if (token === '--corpus') {
-      args.corpusPath = String(argv[index + 1] ?? '').trim() || null;
+      // guard against swallowing the next FLAG as the path (e.g. `--corpus --out x` must not set corpus='--out').
+      const next = argv[index + 1];
+      args.corpusPath = next && !next.startsWith('--') ? next.trim() : null;
       index += 1;
       continue;
     }
     if (token === '--out') {
-      args.outPath = String(argv[index + 1] ?? '').trim() || null;
+      const next = argv[index + 1];
+      args.outPath = next && !next.startsWith('--') ? next.trim() : null;
       index += 1;
     }
   }
@@ -85,7 +88,10 @@ function deployedN8Thresholds(): TopicSelectionV1bN8DebateTriggerThresholds {
   if (!thresholds) {
     throw new Error(`N8 node policy (${N8_NODE_ID}) has no debate_trigger_thresholds — cannot dry-run.`);
   }
-  return thresholds;
+  // Defensive copy: the dry-run must NEVER hand out a mutable reference to the shared deployed const, so no
+  // downstream code (now or later) can mutate the production gate through this read. The backstop re-reads the
+  // live const each call, so cloning here does not weaken it.
+  return structuredClone(thresholds);
 }
 
 /**
@@ -146,6 +152,14 @@ const DEFERRAL_BANNER = [
   'the release bar (>=100 multi-provider labeled samples, FP<5%) and a recorded stakeholder sign-off.',
 ].join('\n');
 
+// The pure analysis harness emits a generic 'Safe to adopt this set and flip provisional → false' recommendation
+// when a threshold set separates the bands — it is content-blind to the fact that a self-test corpus is SYNTHETIC.
+// We REPLACE that field in the persisted report so no saved/forwarded artifact carries an actionable flip verdict
+// computed on fabricated data (the banner alone lives on stderr and would be detached from an --out file).
+const SYNTHETIC_RECOMMENDATION_OVERRIDE =
+  'SYNTHETIC RUN — recommendation suppressed. This verdict was computed on FABRICATED scores+labels and CANNOT '
+  + 'authorise adopting any threshold or flipping provisional. Pipeline-plumbing proof only (T-127 D8 record-and-defer).';
+
 async function runSelfTest(thresholds: TopicSelectionV1bN8DebateTriggerThresholds): Promise<unknown> {
   // Round-trip through a REAL temp file to exercise the operator's file->report path, then delete it
   // (no fabricated corpus left in the tree — per the DP-3.3 README "removed; no fabricated corpus" decision).
@@ -159,10 +173,12 @@ async function runSelfTest(thresholds: TopicSelectionV1bN8DebateTriggerThreshold
     return {
       mode: 'self-test',
       corpus_is: 'SYNTHETIC — NOT calibration data',
+      record_and_defer_notice: DEFERRAL_BANNER,
       thresholds_evaluated: thresholds,
       n_entries: corpus.length,
       per_entry: result.per_entry,
-      analysis: result.analysis,
+      // neutralize the analysis harness's content-blind 'flip provisional' recommendation for synthetic data.
+      analysis: { ...result.analysis, recommendation: SYNTHETIC_RECOMMENDATION_OVERRIDE },
       provisional_after_run: deployedN8Thresholds().provisional,
     };
   } finally {
@@ -185,6 +201,7 @@ async function runCorpusReadiness(
   return {
     mode: 'corpus-readiness',
     corpus_path: corpusPath,
+    record_and_defer_notice: DEFERRAL_BANNER,
     thresholds_evaluated: thresholds,
     n_entries: corpus.length,
     n_gate_preflight_passed: result.per_entry.filter((d) => d.preflight === 'passed').length,
