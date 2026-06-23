@@ -1078,6 +1078,12 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
   {
     node_index: 7,
     node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1',
+    // T-127 W-10: NOT a required human-review surface, despite execution_kind 'delegated'. The INITIAL
+    // contract materialization is MECHANICAL — the runtime chooseN7Candidate picks the active candidate
+    // algorithmically (the frozen N6->N7 input carries no human content). The 'human_delegated' / codex
+    // support modes below are for OPTIONAL support artifacts on the N8-failure loopback
+    // (n7_synthesize_n8_failures), NOT a needed human gate: allowance != needs-review, so the reviewer
+    // workbench correctly ships no dedicated human-N7 write card. Do not "promote" N7 to a human node here.
     execution_kind: 'delegated',
     deterministic_gate_required: true,
     input_contract: 'N6ToN7Handoff@v1',
@@ -1200,6 +1206,11 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
   {
     node_index: 9,
     node_id: 'topic-selection.v1b.decide-value-disposition.v1',
+    // T-127 W-10: READ-ONLY by design — a deterministic disposition rule over the frozen N8 value
+    // assessment. allowed_execution_modes:['none'] + delegated_payload_allowed:false +
+    // codex_support_allowed:false means there is NO human or model write surface (the reviewer workbench
+    // correctly omits a human-N9 card). Do NOT add 'human_delegated' / codex support: the disposition is a
+    // pure deterministic function of the frozen assessment, not a human or LLM judgement point.
     execution_kind: 'deterministic',
     deterministic_gate_required: true,
     input_contract: 'N8ToN9Handoff@v1',
@@ -1241,6 +1252,10 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
   {
     node_index: 10,
     node_id: 'topic-selection.v1b.create-draft-topic-package.v1',
+    // T-127 W-10: READ-ONLY by design — deterministic draft-package assembly from the N9 disposition.
+    // allowed_execution_modes:['none'] (no human/model write surface; the workbench omits a human-N10 card).
+    // Do NOT add 'human_delegated' / codex support: the package is a deterministic projection, not a
+    // human or LLM authoring point.
     execution_kind: 'deterministic',
     deterministic_gate_required: true,
     input_contract: 'N9ToN10Handoff@v1',

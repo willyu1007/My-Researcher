@@ -4433,6 +4433,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return null;
   }
 
+  // T-127 W-10: N7's MECHANICAL candidate selection — picks the active topic-question candidate
+  // algorithmically (admissible set minus failed trials, optional codex/human support grouping, else N6's
+  // recommended ordering). This is why N7 is not a required human-review surface (see the node-7 policy
+  // note in topic-selection-v1b-workflow-harness-contracts.ts): the initial materialization needs no human
+  // input; the support context is an OPTIONAL N8-failure-loopback aid, not a human gate.
   private chooseN7Candidate(
     payload: TopicSelectionV1bN7HarnessFrozenInputPayload,
     loaded: N7LoadedContext,
