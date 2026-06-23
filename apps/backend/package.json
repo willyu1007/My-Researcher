@@ -14,7 +14,8 @@
     "prisma:generate": "prisma generate --schema ../../prisma/schema.prisma",
     "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts",
     "dev:prisma": "node --env-file=../../.env.local --enable-source-maps --loader ts-node/esm src/server.ts",
-    "content-processing:backfill": "node scripts/backfill-literature-content-processing.mjs"
+    "content-processing:backfill": "node scripts/backfill-literature-content-processing.mjs",
+    "v1b:backfill-n4-handoff-hash": "node --env-file=../../.env.local --loader ts-node/esm scripts/backfill-v1b-n4-handoff-hash.ts"
   },
   "dependencies": {
     "@paper-engineering-assistant/shared": "workspace:*",
