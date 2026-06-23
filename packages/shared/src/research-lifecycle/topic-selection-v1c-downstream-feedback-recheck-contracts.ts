@@ -451,6 +451,12 @@ export const topicSelectionDownstreamTopicFeedbackRecordSchema = {
 // ADVISORY/record-only: it ranks recheck candidates for a human operator to read — it NEVER routes a
 // loopback or mutates forward state (T-108 forward-only preserved). Single-sourced here so the emission
 // side and the read projection agree.
+//
+// SPAN BUDGET (deliberate — keep when editing the tables): severity carries the most weight (10→60),
+// then impact (0→30), then cause (0→10); the three sum to exactly 0–100. It is a COMPOSITE, not a strict
+// lexicographic order: because span(impact)=30 > a one-step severity gap, a genuinely-invalidating
+// lower-severity feedback can outrank a higher-severity-but-no-impact note. If you change a weight, keep
+// the per-dimension max (60/30/10) so the score stays within the schema's 0–100 bound.
 
 const ADVISORY_SEVERITY_WEIGHT: Record<TopicSelectionSeverity, number> = {
   info: 10,

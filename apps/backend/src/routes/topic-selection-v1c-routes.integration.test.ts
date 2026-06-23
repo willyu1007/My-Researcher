@@ -1424,18 +1424,20 @@ test('topic-selection v1c HTTP routes drive ready bundle to bridge and downstrea
     assert.equal((listAfterNoRecheckRes.json() as { items: unknown[] }).items.length, 2);
 
     // T-127 W-08: the scoped, ranked recheck-advisory surface returns ONLY the recheck-requiring record
-    // (1 of the 2 on this bridge), carrying its deterministic advisory_priority. Record-only GET.
+    // (1 of the 2 on this bridge), carrying its deterministic advisory ranking. Record-only GET; { items } envelope.
     const advisoriesRes = await app.inject({
       method: 'GET',
       url: `/topic-selection/v1c/paper-project-bridges/${encodeURIComponent(bridge.paper_project_bridge.paper_project_bridge_id)}/recheck-advisories`,
     });
     assertStatus(advisoriesRes, 200);
     const advisories = (advisoriesRes.json() as {
-      recheck_advisories: Array<{ impact_summary: { requires_recheck: boolean; advisory_priority: number | null } }>;
-    }).recheck_advisories;
+      items: Array<{ impact_summary: { requires_recheck: boolean; advisory_priority: number | null; advisory_rank_reason: string | null } }>;
+    }).items;
     assert.equal(advisories.length, 1);
     assert.equal(advisories[0]!.impact_summary.requires_recheck, true);
-    assert.equal(typeof advisories[0]!.impact_summary.advisory_priority, 'number');
+    // The seeded feedback is overclaim+blocking: blocking(45) + recheck_required(18) + overclaim(6) = 69.
+    assert.equal(advisories[0]!.impact_summary.advisory_priority, 69);
+    assert.equal(advisories[0]!.impact_summary.advisory_rank_reason, 'blocking+recheck_required+overclaim');
   } finally {
     await app.close();
   }

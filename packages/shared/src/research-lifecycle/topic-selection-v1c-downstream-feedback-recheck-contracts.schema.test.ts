@@ -73,6 +73,13 @@ test('W-08 recheck advisory schema: accepts optional advisory fields and rejects
   assert.equal(await validatesBody(topicSelectionDownstreamFeedbackImpactSummarySchema as Record<string, unknown>, impactSummary({
     advisory_priority: 250,
   })), false);
+  // advisory_rank_reason is nullable (anyOf string-minLength-1 | null). The minLength:1 holds for a strict
+  // validator, but Fastify's ajv coerceTypes coerces '' -> null for a null-accepting field, so over HTTP an
+  // empty string is accepted AS null (not rejected). This pins the real boundary behavior so it is not
+  // misread as a 400. (The emission side never produces '' — it is always "severity+impact+cause".)
+  assert.equal(await validatesBody(topicSelectionDownstreamFeedbackImpactSummarySchema as Record<string, unknown>, impactSummary({
+    advisory_rank_reason: '',
+  })), true);
   // Null is allowed (no-recheck records carry no score).
   assert.equal(await validatesBody(topicSelectionDownstreamFeedbackImpactSummarySchema as Record<string, unknown>, impactSummary({
     advisory_priority: null,
