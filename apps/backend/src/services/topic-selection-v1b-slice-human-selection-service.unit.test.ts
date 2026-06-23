@@ -18,6 +18,13 @@ import {
   V1bSliceHumanSelectionService,
   type V1bResearchSliceReadPort,
 } from './topic-selection-v1b-slice-human-selection-service.js';
+import type {
+  TopicSelectionArtifactRefRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { optionSetLacksN4HandoffHash } from '../repositories/topic-selection-v1b-research-slice.repository.js';
+import {
+  TopicSelectionV1bN4HandoffHashBackfillService,
+} from './topic-selection-v1b-n4-handoff-hash-backfill-service.js';
 
 const OPTION_SET_ID = 'rsos_1';
 const TITLE_CARD_ID = 'tc_1';
@@ -233,6 +240,83 @@ test('selectSlice rejects when the N4 handoff hash is not persisted (Phase 2 pre
     }),
     /n4_handoff_hash/,
   );
+});
+
+test('W-11 regression: the n4_handoff_hash backfill un-409s human N5 selection for an old option-set', async () => {
+  // The acceptance for W-11: an OLD option-set (created before T-115 Phase 2) lacks
+  // comparison_payload.n4_handoff_hash but still carries its N4->N5 handoff artifact in artifact_refs.
+  // Pre-backfill it 409s; after the backfill recomputes + persists the hash, human N5 selection resolves.
+  const HANDOFF_REF_ID = 'artifact_n4_handoff_1';
+  const handoffPayload: Record<string, unknown> = {
+    envelope: {
+      handoff_kind: 'N4ToN5Handoff',
+      source_node_id: 'topic-selection.v1b.generate-research-slice-options.v1',
+      source_node_attempt_id: 'na_old_1',
+      schema_version: 'N4ToN5Handoff@v1',
+      warning_codes: [],
+      residual_risk_refs: [],
+    },
+    target_node_id: 'topic-selection.v1b.select-research-slice.v1',
+    route_signal: 'slice_options_generated',
+    payload: { research_slice_option_set_id: OPTION_SET_ID },
+  };
+  const expectedHash = canonicalHash(handoffPayload);
+
+  // Shared mutable store so the backfill's write is visible to the human-selection read port.
+  const store = new Map<string, TopicSelectionResearchSliceOptionSetRecord>();
+  store.set(OPTION_SET_ID, makeOptionSet({
+    comparison_payload: { authority_hash: AUTHORITY_HASH }, // pre-Phase-2: NO n4_handoff_hash
+    artifact_refs: [{ ref_type: 'artifact_ref', ref_id: HANDOFF_REF_ID, title_card_id: TITLE_CARD_ID, version_id: null }],
+  }));
+  const readPort: V1bResearchSliceReadPort = {
+    findOptionSetById: async (id) => store.get(id) ?? null,
+    listOptionsByOptionSetId: async () => [makeOption()],
+  };
+
+  // 1) Pre-backfill: selectSlice 409s (the gate is correct — the old data is the bug).
+  await assert.rejects(
+    new V1bSliceHumanSelectionService(makeCapturingHarness(), readPort).selectSlice({
+      research_slice_option_set_id: OPTION_SET_ID,
+      selected_option_id: 'rso_1',
+      selection_rationale: 'pre',
+      actor: ACTOR,
+    }),
+    /n4_handoff_hash/,
+  );
+
+  // 2) Run the W-11 backfill against the shared store.
+  const backfillRepo = {
+    findOptionSetById: async (id: string) => store.get(id) ?? null,
+    listOptionSetsMissingN4HandoffHash: async () => [...store.values()].filter(optionSetLacksN4HandoffHash),
+    updateOptionSetComparisonPayload: async (id: string, comparisonPayload: Record<string, unknown>, updatedAt: string) => {
+      const next = { ...store.get(id)!, comparison_payload: comparisonPayload, updated_at: updatedAt };
+      store.set(id, next);
+      return next;
+    },
+  };
+  const artifactReader = {
+    getArtifactRef: async (id: string): Promise<TopicSelectionArtifactRefRecord | null> =>
+      id === HANDOFF_REF_ID
+        ? { artifact_ref_id: id, artifact_kind: 'structured_output', storage_kind: 'inline', payload: handoffPayload, created_by: 'system', created_at: '2026-01-01T00:00:00.000Z' }
+        : null,
+  };
+  const report = await new TopicSelectionV1bN4HandoffHashBackfillService(backfillRepo, artifactReader, () => '2026-06-23T00:00:00.000Z')
+    .run({ dryRun: false });
+  assert.equal(report.updated, 1);
+  assert.equal(report.unrecoverable, 0);
+
+  // 3) Post-backfill: selectSlice RESOLVES (no 409) and threads the recomputed hash into the N5 request.
+  const harness = makeCapturingHarness();
+  const result = await new V1bSliceHumanSelectionService(harness, readPort, { idFactory: (prefix) => `${prefix}_test` })
+    .selectSlice({
+      research_slice_option_set_id: OPTION_SET_ID,
+      selected_option_id: 'rso_1',
+      selection_rationale: 'post-backfill resolves',
+      actor: ACTOR,
+    });
+  assert.equal(result, HARNESS_RESULT_STUB);
+  const payload = harness.last().frozen_input.payload as Record<string, unknown>;
+  assert.equal(payload.n4_handoff_hash, expectedHash);
 });
 
 test('selectSlice rejects an unknown option set', async () => {
