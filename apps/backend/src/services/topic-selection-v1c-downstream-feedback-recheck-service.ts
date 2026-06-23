@@ -27,6 +27,7 @@ import type {
 import {
   TOPIC_SELECTION_DOWNSTREAM_FEEDBACK_SOURCE_KINDS,
   TOPIC_SELECTION_DOWNSTREAM_LOOPBACK_CAUSES,
+  computeDownstreamRecheckAdvisoryPriority,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-downstream-feedback-recheck-contracts';
 
 import { AppError } from '../errors/app-error.js';
@@ -64,6 +65,8 @@ export type TopicSelectionDownstreamRecheckSink = {
     artifact_refs?: TopicSelectionFunctionalRef[];
     policy_version_id?: string | null;
     payload?: Record<string, unknown>;
+    /** T-127 W-08: optional deterministic advisory ranking score for the queue item (record-only). */
+    priority?: number | null;
   }): Promise<{
     event: TopicSelectionRecheckEventRecord | null;
     impact: TopicSelectionRecheckImpactRecord | null;
@@ -183,6 +186,12 @@ export class TopicSelectionV1cDownstreamFeedbackRecheckService {
       required_actions: requiredActions,
     };
     const impactLevel = this.impactLevelFor(input.severity, requiresRecheck);
+    // T-127 W-08: deterministic recheck advisory ranking (record-only) — computed ONLY when a recheck is
+    // required; it ranks recheck candidates for a human operator to read, it never routes a loopback or
+    // mutates forward state (T-108 forward-only preserved).
+    const advisory = requiresRecheck
+      ? computeDownstreamRecheckAdvisoryPriority(input.severity, impactLevel, input.feedback_signal)
+      : null;
     let recheckRequest: TopicSelectionDownstreamRecheckRequest | null = null;
     let recheckEventRef: TopicSelectionFunctionalRef | null = null;
     let recheckImpactRef: TopicSelectionFunctionalRef | null = null;
@@ -213,6 +222,9 @@ export class TopicSelectionV1cDownstreamFeedbackRecheckService {
         required_actions: requiredActions,
         artifact_refs: input.artifact_refs ?? [],
         policy_version_id: input.policy_version_id ?? null,
+        // W-08: thread the deterministic advisory score onto the queue item (replaces the prior binary
+        // 100/85 default for W-08-emitted rechecks; absent -> the sink keeps the binary default).
+        priority: advisory?.advisory_priority ?? null,
         payload: {
           downstream_source_kind: input.downstream_source_kind,
           downstream_source_ref: input.downstream_source_ref,
@@ -249,6 +261,9 @@ export class TopicSelectionV1cDownstreamFeedbackRecheckService {
       summary: requiresRecheck
         ? `Downstream feedback requires ${loopbackTarget} recheck.`
         : 'Downstream feedback recorded with no upstream recheck required.',
+      // W-08: the same deterministic score, mirrored here so the read projection ranks without re-deriving.
+      advisory_priority: advisory?.advisory_priority ?? null,
+      advisory_rank_reason: advisory?.advisory_rank_reason ?? null,
     };
     const record: TopicSelectionDownstreamTopicFeedbackRecord = {
       downstream_topic_feedback_id: feedbackId,

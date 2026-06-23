@@ -383,6 +383,49 @@ test('warning blocking and critical severity propagate into impact summary and g
   }
 });
 
+test('downstream feedback ranks recheck advisories deterministically and flows the score to the queue item (W-08)', async () => {
+  const { recheck, service } = makeSubject();
+  // critical + need_invalidated (impact invalidated) = 60 + 30 + 9 = 99.
+  const high = await service.recordDownstreamTopicFeedback(makeCreateInput({
+    feedback_signal: 'need_invalidated',
+    severity: 'critical',
+    summary: 'Downstream reviewer invalidated the claimed need.',
+  }));
+  // warning + stale_evidence (impact stale) = 25 + 8 + 3 = 36. Distinct fingerprint (signal+severity+summary differ).
+  const low = await service.recordDownstreamTopicFeedback(makeCreateInput({
+    feedback_signal: 'stale_evidence',
+    severity: 'warning',
+    summary: 'Downstream reviewer flagged stale supporting evidence.',
+  }));
+
+  // Both required a recheck -> both carry a deterministic advisory score + human-readable reason.
+  assert.equal(high.impact_summary.advisory_priority, 99);
+  assert.equal(high.impact_summary.advisory_rank_reason, 'critical+invalidated+need_invalidated');
+  assert.equal(low.impact_summary.advisory_priority, 36);
+  assert.equal(low.impact_summary.advisory_rank_reason, 'warning+stale+stale_evidence');
+  // The critical/invalidating feedback strictly outranks the warning/stale one.
+  assert.ok((high.impact_summary.advisory_priority ?? 0) > (low.impact_summary.advisory_priority ?? 0));
+
+  // The SAME score flows to the queue item via the sink (replaces the prior binary 100/85 default).
+  assert.equal(recheck.calls.length, 2);
+  assert.equal(recheck.calls[0]!.priority, 99);
+  assert.equal(recheck.calls[1]!.priority, 36);
+});
+
+test('downstream feedback ranking is record-only: a no-recheck feedback carries no advisory and emits no queue item (W-08)', async () => {
+  const { recheck, service } = makeSubject();
+  const result = await service.recordDownstreamTopicFeedback(makeCreateInput({
+    feedback_signal: 'no_recheck_needed',
+    severity: 'info',
+    summary: 'Downstream reviewer confirmed no recheck needed.',
+  }));
+  // No recheck -> no advisory score, no rank reason, and NO sink/queue emission (record-only, no routing).
+  assert.equal(result.impact_summary.requires_recheck, false);
+  assert.equal(result.impact_summary.advisory_priority ?? null, null);
+  assert.equal(result.impact_summary.advisory_rank_reason ?? null, null);
+  assert.equal(recheck.calls.length, 0);
+});
+
 test('downstream feedback rejects missing bridge inactive bridge workspace drift and malformed input', async () => {
   const missingBridge = new TopicSelectionV1cDownstreamFeedbackRecheckService({
     repository: new InMemoryTopicSelectionV1cDownstreamFeedbackRecheckRepository(),
