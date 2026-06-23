@@ -13,6 +13,7 @@ import type {
   TopicSelectionResearchSliceCreation,
   TopicSelectionV1bResearchSliceRepository,
 } from './topic-selection-v1b-research-slice.repository.js';
+import { optionSetLacksN4HandoffHash } from './topic-selection-v1b-research-slice.repository.js';
 
 export class InMemoryTopicSelectionV1bResearchSliceRepository
 implements TopicSelectionV1bResearchSliceRepository {
@@ -87,6 +88,21 @@ implements TopicSelectionV1bResearchSliceRepository {
     const next = { ...current, ...patch };
     this.optionSets.set(optionSetId, next);
     return next;
+  }
+
+  async updateOptionSetComparisonPayload(
+    optionSetId: string,
+    comparisonPayload: Record<string, unknown>,
+    updatedAt: string,
+  ): Promise<TopicSelectionResearchSliceOptionSetRecord> {
+    const current = this.require(this.optionSets, optionSetId, 'ResearchSliceOptionSet');
+    const next = { ...current, comparison_payload: comparisonPayload, updated_at: updatedAt };
+    this.optionSets.set(optionSetId, next);
+    return next;
+  }
+
+  async listOptionSetsMissingN4HandoffHash(): Promise<TopicSelectionResearchSliceOptionSetRecord[]> {
+    return [...this.optionSets.values()].filter(optionSetLacksN4HandoffHash);
   }
 
   async listOptionsByOptionSetId(optionSetId: string): Promise<TopicSelectionResearchSliceOptionRecord[]> {

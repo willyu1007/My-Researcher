@@ -29,6 +29,7 @@ import type {
   TopicSelectionResearchSliceCreation,
   TopicSelectionV1bResearchSliceRepository,
 } from '../topic-selection-v1b-research-slice.repository.js';
+import { optionSetLacksN4HandoffHash } from '../topic-selection-v1b-research-slice.repository.js';
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
@@ -426,6 +427,28 @@ implements TopicSelectionV1bResearchSliceRepository {
       },
     });
     return toOptionSetRecord(row);
+  }
+
+  async updateOptionSetComparisonPayload(
+    optionSetId: string,
+    comparisonPayload: Record<string, unknown>,
+    updatedAt: string,
+  ): Promise<TopicSelectionResearchSliceOptionSetRecord> {
+    const row = await this.prisma.topicSelectionResearchSliceOptionSet.update({
+      where: { id: optionSetId },
+      data: {
+        comparisonPayload: toJsonValue(comparisonPayload),
+        updatedAt: new Date(updatedAt),
+      },
+    });
+    return toOptionSetRecord(row);
+  }
+
+  async listOptionSetsMissingN4HandoffHash(): Promise<TopicSelectionResearchSliceOptionSetRecord[]> {
+    // One-time backfill enumerator: load all option-sets and filter in-app (robust to absent vs JSON-null vs
+    // empty keys, which a Prisma JSON `where` handles inconsistently). Bounded, off the hot path.
+    const rows = await this.prisma.topicSelectionResearchSliceOptionSet.findMany();
+    return rows.map(toOptionSetRecord).filter(optionSetLacksN4HandoffHash);
   }
 
   async listOptionsByOptionSetId(optionSetId: string): Promise<TopicSelectionResearchSliceOptionRecord[]> {

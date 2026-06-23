@@ -64,6 +64,23 @@ export interface TopicSelectionV1bResearchSliceRepository {
       'status' | 'selected_option_id' | 'updated_at'
     >>,
   ): Promise<TopicSelectionResearchSliceOptionSetRecord>;
+  /**
+   * T-127 W-11: persist a fully-merged comparison_payload back onto an option-set. The standard
+   * updateOptionSet patch is locked to status/selected_option_id/updated_at and cannot touch
+   * comparison_payload; the n4_handoff_hash backfill needs this narrow write. The CALLER owns the merge
+   * (passes the full payload), so the repo just writes it — no repo-side read-merge race.
+   */
+  updateOptionSetComparisonPayload(
+    optionSetId: string,
+    comparisonPayload: Record<string, unknown>,
+    updatedAt: string,
+  ): Promise<TopicSelectionResearchSliceOptionSetRecord>;
+  /**
+   * T-127 W-11: option-sets whose comparison_payload lacks a non-empty n4_handoff_hash (the backfill
+   * candidates — old records created before T-115 Phase 2 began persisting it). Coarse enumerator; the
+   * backfill service re-applies the authoritative skip rule per record.
+   */
+  listOptionSetsMissingN4HandoffHash(): Promise<TopicSelectionResearchSliceOptionSetRecord[]>;
   listOptionsByOptionSetId(optionSetId: string): Promise<TopicSelectionResearchSliceOptionRecord[]>;
   findOptionById(optionId: string): Promise<TopicSelectionResearchSliceOptionRecord | null>;
 
@@ -93,4 +110,16 @@ export interface TopicSelectionV1bResearchSliceRepository {
   listAssumptionsByResearchSliceId(
     researchSliceId: string,
   ): Promise<TopicSelectionResearchSliceAssumptionRecord[]>;
+}
+
+/**
+ * T-127 W-11: single-source predicate — true when an option-set's comparison_payload carries no usable
+ * n4_handoff_hash (absent / null / empty string). Used by both repo enumerators and the backfill service's
+ * skip rule so they agree on what "needs backfill" means.
+ */
+export function optionSetLacksN4HandoffHash(
+  record: TopicSelectionResearchSliceOptionSetRecord,
+): boolean {
+  const hash = record.comparison_payload.n4_handoff_hash;
+  return typeof hash !== 'string' || hash.length === 0;
 }
