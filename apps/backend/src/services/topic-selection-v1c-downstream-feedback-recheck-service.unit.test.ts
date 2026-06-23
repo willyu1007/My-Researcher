@@ -445,6 +445,37 @@ test('downstream recheck advisories are scoped + ranked priority-desc and exclud
   assert.deepEqual(await service.listDownstreamRecheckAdvisoriesByBridge('paper_project_bridge_absent'), []);
 });
 
+test('downstream recheck advisories break a priority tie by created_at ascending (W-08 S3 tie-break)', async () => {
+  // Two SAME-priority advisories (both critical+need_invalidated = 99) recorded at increasing timestamps:
+  // the equal-priority tie must resolve to the EARLIER record first (created_at asc). A constant clock can't
+  // exercise this, so this subject uses a strictly-increasing now().
+  const repository = new InMemoryTopicSelectionV1cDownstreamFeedbackRecheckRepository();
+  const recheck = new RecordingRecheckSink();
+  let tick = 0;
+  const service = new TopicSelectionV1cDownstreamFeedbackRecheckService({
+    repository,
+    paperProjectBridgeService: new StubBridgeService(makeBridgeHandoff()),
+    recheckRiskMemoryService: recheck,
+    idFactory: makeIdFactory(),
+    now: () => `2026-06-23T00:00:0${tick++}.000Z`,
+  });
+  const bridgeId = 'paper_project_bridge_001';
+  // Distinct fingerprints (different summary) -> two records; same severity+signal -> identical priority.
+  const earlier = await service.recordDownstreamTopicFeedback(makeCreateInput({ feedback_signal: 'need_invalidated', severity: 'critical', summary: 'first invalidation' }));
+  const later = await service.recordDownstreamTopicFeedback(makeCreateInput({ feedback_signal: 'need_invalidated', severity: 'critical', summary: 'second invalidation' }));
+  assert.equal(earlier.impact_summary.advisory_priority, 99);
+  assert.equal(later.impact_summary.advisory_priority, 99);
+
+  const advisories = await service.listDownstreamRecheckAdvisoriesByBridge(bridgeId);
+  assert.equal(advisories.length, 2);
+  // Equal priority -> the older (smaller created_at) advisory ranks first.
+  assert.ok(advisories[0]!.created_at < advisories[1]!.created_at);
+  assert.equal(
+    advisories[0]!.downstream_topic_feedback_id,
+    earlier.downstream_topic_feedback.downstream_topic_feedback_id,
+  );
+});
+
 test('downstream feedback rejects missing bridge inactive bridge workspace drift and malformed input', async () => {
   const missingBridge = new TopicSelectionV1cDownstreamFeedbackRecheckService({
     repository: new InMemoryTopicSelectionV1cDownstreamFeedbackRecheckRepository(),
