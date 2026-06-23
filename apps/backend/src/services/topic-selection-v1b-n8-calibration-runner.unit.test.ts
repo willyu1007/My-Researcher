@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type {
-  TopicSelectionV1bN8DebateTriggerThresholds,
+import {
+  TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
+  type TopicSelectionV1bN8DebateTriggerThresholds,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import type { TopicSelectionN8CalibrationCorpusEntry } from './topic-selection-v1b-n8-calibration-materializer.js';
 import {
@@ -107,6 +108,32 @@ test('loadN8CalibrationCorpus strips the marker and rejects duplicates / malform
     () => loadN8CalibrationCorpus({ entries: [entry('dup', 'borderline', 'refine_question'), entry('dup', 'clear_pass', 'advance_to_package')] }),
     /Duplicate/,
   );
+});
+
+test('record-and-defer invariant: a synthetic run — even a clean "separates" verdict — never flips the deployed provisional gate (T-127 W-13 / D8)', async () => {
+  const N8_NODE_ID = 'topic-selection.v1b.assess-topic-value.v1';
+  const n8Policy = () =>
+    TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES.find((p) => p.node_id === N8_NODE_ID);
+
+  // the DEPLOYED gate is provisional BEFORE the run.
+  assert.equal(n8Policy()?.debate_trigger_thresholds?.provisional, true);
+  const deployed: TopicSelectionV1bN8DebateTriggerThresholds = n8Policy()!.debate_trigger_thresholds!;
+
+  const assessor = mockN8CalibrationAssessor({
+    clear_pass_1: { total_score: 83, confidence: 0.82, reviewerRiskScore: 72, otherDimScore: 84 },
+    borderline_1: { total_score: 65, confidence: 0.9, reviewerRiskScore: 80, otherDimScore: 82 },
+    conflict_1: { total_score: 83, confidence: 0.9, reviewerRiskScore: 40, otherDimScore: 84 },
+    clear_fail_1: { total_score: 40, confidence: 0.9, reviewerRiskScore: 35, otherDimScore: 50 },
+  });
+  // run against the DEPLOYED provisional thresholds — exactly what the v1b:n8-calibration-dry-run script does.
+  const result = await runN8Calibration(CORPUS, assessor, { thresholds: deployed });
+
+  // a clean 'separates' on SYNTHETIC data must NOT be acted on: flipping provisional off a mock/synthetic run is
+  // the circular guessing D8 forbids. The calibration path is policy-inert — it reports, it never mutates.
+  assert.equal(result.analysis.band_separation_verdict, 'separates');
+  assert.equal(n8Policy()?.debate_trigger_thresholds?.provisional, true);
+  // the runner result exposes ONLY report data — no threshold-adopt / flip surface to wire a gate change to.
+  assert.deepEqual(Object.keys(result).sort(), ['analysis', 'per_entry', 'records']);
 });
 
 test('the real placeholder corpus-template.json is rejected by the loader (guard against accidental calibration on it)', async () => {

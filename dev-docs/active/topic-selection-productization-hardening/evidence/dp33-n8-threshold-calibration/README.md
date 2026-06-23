@@ -242,3 +242,48 @@ human-labeled corpus + scores from an independent content-grounded assessor) can
   throwaway (removed; no fabricated corpus left in the tree); the committed mock-corpus proof is
   `topic-selection-v1b-n8-calibration-runner.unit.test.ts` (which also asserts the loader REJECTS the placeholder
   `corpus-template.json`, so no run can accidentally calibrate on mock/placeholder data).
+
+## W-13 (T-127) — record-and-defer registered (2026-06-24)
+
+T-127 W-13 (Phase 5, the deferred tail — does **not** block the already-signed-off core segment Phase 0–4) registered
+this calibration as **record-and-defer** per locked decision **D8**. It added operational glue + a machine-enforced
+deferral guard around the W-01 scaffold above; it did **not** calibrate, fabricate a corpus, or flip `provisional`.
+
+- **Operator entry point (report-only):** `apps/backend/scripts/run-n8-calibration-dry-run.ts`, npm
+  `v1b:n8-calibration-dry-run` (pure in-memory, no DB/env). `--self-test` (default) writes a SYNTHETIC 4-band corpus to a
+  real temp file, loads it back through `loadN8CalibrationCorpus`, runs materialize → real N8 gate pre-flight → a mock
+  assessor → `analyzeN8DebateThresholdCalibration` against the **deployed** provisional thresholds, emits the report, then
+  deletes the temp file (no fabricated corpus left in the tree — honouring the decision above). `--corpus <path>` validates
+  a real corpus file's gate-readiness only (no assessor runs in-process; the content-grounded assessor is operator-supplied
+  and out-of-band). The script reads the deployed thresholds, **never mutates node policy / flips `provisional` / adopts a
+  threshold**, prints a banner that no verdict (not even `separates`) authorises a flip, and fails loudly if the deployed
+  gate is somehow non-provisional after a run.
+- **Deferral invariant guard (new test):** `…-calibration-runner.unit.test.ts` now pins that a synthetic run — even one
+  whose verdict is `separates` — leaves the deployed `debate_trigger_thresholds.provisional === true` and that the runner
+  result exposes no adopt/flip surface. This complements the placeholder-rejection guard and the W-06 (N8) / W-07 (N6)
+  flip tripwires.
+- **Both gates held:** `N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` and the mirrored
+  `N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE` share `released_by: 'W-13 calibration'` and stay held.
+
+### Single-source flip checklist (when a real corpus + assessor finally exist)
+
+A flip is a separate, human-gated action. ALL must hold before `provisional → false`:
+
+1. **Human-curated labeled corpus** — ≥100 multi-provider labeled samples spanning the 4 bands (non-anecdotal), each a
+   `TopicSelectionN8CalibrationCorpusEntry@v1`, every `__placeholder` replaced. (Note the F6 tension: only two N8
+   single-agent options are registered — `…openai-balanced` + `…dashscope-thinking-budget`; deepseek is debate-worker-only.
+   Either register a third N8 option or re-interpret "multi-provider" against the two available — do **not** silently assume 3.)
+2. **Independent content-grounded assessor run** — an external Codex agent that reads the real bodies (NOT score-pinned,
+   independent of the labeler), captured into calibration records.
+3. **Analysis meets the bar** — `analyzeN8DebateThresholdCalibration` on the **deployed provisional set** AND candidate sets
+   shows false-positive rate < 5% with no per-executor/per-provider leak (a global `separates` must not hide a provider leak).
+4. **Recorded stakeholder sign-off** — `requires_stakeholder_sign_off: true` is currently a declarative flag with no concrete
+   artifact/table in code; defining that record is itself a prerequisite of the flip (out of W-13 record-and-defer scope).
+5. **The edits, together:** set `provisional: false` on the N8 (and, if calibrated, N6) `debate_trigger_thresholds`, set the
+   final T1/T3 values, remove the `n8_debate_thresholds_provisional` (and N6 mirror) tripwire warning, and **update the W-06/W-07
+   flip-tripwire guard tests** accordingly — then record the distribution + precision/recall here, in
+   `03-implementation-notes.md` §DP-3.3, and in `04-verification.md`.
+
+**Caveat — materializer mirror drift:** `materializeN8CalibrationRunRequest` MIRRORS (does not import) the SSOT projection
+builder `buildN7ToN8TopicQuestionContractContextProjection` (harness-service.ts:8236). `verifyN8CalibrationRunRequest` is the
+only guardrail; if the real harness projection shape drifts, re-verify the materializer before trusting a calibration run.
