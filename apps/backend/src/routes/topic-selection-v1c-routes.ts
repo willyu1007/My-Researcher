@@ -355,6 +355,12 @@ export async function registerTopicSelectionV1cRoutes(
     { schema: bridgeParams },
     controller.listDownstreamTopicFeedbackByBridge,
   );
+  // T-127 W-08: scoped, ranked, record-only recheck advisories for a bridge (priority-desc).
+  fastify.get(
+    '/topic-selection/v1c/paper-project-bridges/:bridgeId/recheck-advisories',
+    { schema: bridgeParams },
+    controller.listDownstreamRecheckAdvisoriesByBridge,
+  );
   fastify.get(
     '/topic-selection/v1c/downstream-feedback/:feedbackId/recheck-request',
     { schema: feedbackParams },

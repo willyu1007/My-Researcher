@@ -332,6 +332,31 @@ export class TopicSelectionV1cDownstreamFeedbackRecheckService {
     return this.repository.listFeedbackByBridgeId(paperProjectBridgeId);
   }
 
+  /**
+   * T-127 W-08: the scoped, RANKED, record-only recheck-advisory read projection. Returns the bridge's
+   * feedback records that require a recheck, ordered by advisory_priority (desc) then created_at (asc) as a
+   * stable tie-break. Pure read — no writes, no loopback routing, no forward-state mutation (T-108 preserved).
+   * This is the v1c-scoped surface the global, unsorted risk-memory queue does not provide.
+   */
+  async listDownstreamRecheckAdvisoriesByBridge(
+    paperProjectBridgeId: string,
+  ): Promise<TopicSelectionDownstreamTopicFeedbackRecord[]> {
+    const records = await this.listDownstreamTopicFeedbackByBridge(paperProjectBridgeId);
+    return records
+      .filter((record) => record.impact_summary.requires_recheck)
+      .sort((left, right) => {
+        const leftPriority = left.impact_summary.advisory_priority ?? 0;
+        const rightPriority = right.impact_summary.advisory_priority ?? 0;
+        if (rightPriority !== leftPriority) {
+          return rightPriority - leftPriority; // higher advisory_priority first
+        }
+        if (left.created_at === right.created_at) {
+          return 0;
+        }
+        return left.created_at < right.created_at ? -1 : 1; // stable tie-break: older first
+      });
+  }
+
   async getDownstreamRecheckRequestByFeedback(
     downstreamTopicFeedbackId: string,
   ): Promise<TopicSelectionV1cDownstreamRecheckProjection> {

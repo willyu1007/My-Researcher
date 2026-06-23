@@ -426,6 +426,25 @@ test('downstream feedback ranking is record-only: a no-recheck feedback carries 
   assert.equal(recheck.calls.length, 0);
 });
 
+test('downstream recheck advisories are scoped + ranked priority-desc and exclude no-recheck records (W-08 S3)', async () => {
+  const { service } = makeSubject();
+  const bridgeId = 'paper_project_bridge_001';
+  // Insert OUT of priority order; distinct signal+severity+summary -> distinct fingerprints (no dedup).
+  await service.recordDownstreamTopicFeedback(makeCreateInput({ feedback_signal: 'stale_evidence', severity: 'warning', summary: 'C stale evidence' })); // 25+8+3=36
+  await service.recordDownstreamTopicFeedback(makeCreateInput({ feedback_signal: 'no_recheck_needed', severity: 'info', summary: 'D no recheck' })); // excluded (no recheck)
+  await service.recordDownstreamTopicFeedback(makeCreateInput({ feedback_signal: 'need_invalidated', severity: 'critical', summary: 'A invalidated need' })); // 60+30+9=99
+  await service.recordDownstreamTopicFeedback(makeCreateInput({ feedback_signal: 'overclaim', severity: 'blocking', summary: 'B overclaim' })); // 45+18+6=69
+
+  const advisories = await service.listDownstreamRecheckAdvisoriesByBridge(bridgeId);
+  // The no-recheck record is excluded, and the rest are ranked by advisory_priority (desc).
+  assert.equal(advisories.length, 3);
+  assert.deepEqual(advisories.map((advisory) => advisory.impact_summary.advisory_priority), [99, 69, 36]);
+  // Pure record-only read: every returned record requires a recheck; nothing was mutated to produce it.
+  assert.ok(advisories.every((advisory) => advisory.impact_summary.requires_recheck));
+  // A bridge with no feedback returns an empty advisory list (no throw).
+  assert.deepEqual(await service.listDownstreamRecheckAdvisoriesByBridge('paper_project_bridge_absent'), []);
+});
+
 test('downstream feedback rejects missing bridge inactive bridge workspace drift and malformed input', async () => {
   const missingBridge = new TopicSelectionV1cDownstreamFeedbackRecheckService({
     repository: new InMemoryTopicSelectionV1cDownstreamFeedbackRecheckRepository(),

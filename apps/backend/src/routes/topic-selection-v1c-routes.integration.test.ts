@@ -1422,6 +1422,20 @@ test('topic-selection v1c HTTP routes drive ready bundle to bridge and downstrea
     });
     assertStatus(listAfterNoRecheckRes, 200);
     assert.equal((listAfterNoRecheckRes.json() as { items: unknown[] }).items.length, 2);
+
+    // T-127 W-08: the scoped, ranked recheck-advisory surface returns ONLY the recheck-requiring record
+    // (1 of the 2 on this bridge), carrying its deterministic advisory_priority. Record-only GET.
+    const advisoriesRes = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1c/paper-project-bridges/${encodeURIComponent(bridge.paper_project_bridge.paper_project_bridge_id)}/recheck-advisories`,
+    });
+    assertStatus(advisoriesRes, 200);
+    const advisories = (advisoriesRes.json() as {
+      recheck_advisories: Array<{ impact_summary: { requires_recheck: boolean; advisory_priority: number | null } }>;
+    }).recheck_advisories;
+    assert.equal(advisories.length, 1);
+    assert.equal(advisories[0]!.impact_summary.requires_recheck, true);
+    assert.equal(typeof advisories[0]!.impact_summary.advisory_priority, 'number');
   } finally {
     await app.close();
   }

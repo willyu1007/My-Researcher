@@ -305,6 +305,21 @@ export class TopicSelectionV1cController {
     }
   };
 
+  // T-127 W-08: scoped, ranked, record-only recheck-advisory read projection for a bridge.
+  listDownstreamRecheckAdvisoriesByBridge = async (
+    request: ParamsRequest<{ bridgeId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.downstreamFeedbackRecheck.listDownstreamRecheckAdvisoriesByBridge(
+        request.params.bridgeId,
+      );
+      return reply.send({ recheck_advisories: result });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   getDownstreamRecheckRequestByFeedback = async (
     request: ParamsRequest<{ feedbackId: string }>,
     reply: FastifyReply,
