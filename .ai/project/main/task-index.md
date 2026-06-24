@@ -136,6 +136,6 @@ Project: `main`
 | T-124 paper-implementation-productization-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-productization-hardening |
 | T-125 literature-balanced-corpus-scaleout-v2 | archived | F-000 | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |
 | T-126 literature-rag-frontier-tech-radar | archived | F-000 | dev-docs/archive/literature-rag-frontier-tech-radar |
-| T-127 topic-selection-backend-hardening-and-expansion | planned | F-001 | dev-docs/active/topic-selection-backend-hardening-and-expansion |
+| T-127 topic-selection-backend-hardening-and-expansion | done | F-001 | dev-docs/active/topic-selection-backend-hardening-and-expansion |
 | T-128 topic-selection-product-readiness-closure | planned | F-001 | dev-docs/active/topic-selection-product-readiness-closure |
 <!-- AUTO-GENERATED:END task-index -->

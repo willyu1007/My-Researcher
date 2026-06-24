@@ -1,8 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: in-progress（Phase 0–1 / M0–M1 已收口 2026-06-16；**Phase 2 / W-12（选项 A：harness 一次拆透）已收口 2026-06-18**——D-T127-01 登记 + **70 纯助手（含 ref-builders/asserts 共 90 搬迁函数）全数析出至 16 个兄弟模块**，harness **12,898→9,933 行（-23%）**、严格 DAG 无环；余即字面壳（生命周期 + 持久化 + stateful async runner + runner-local 类型助手）。每批 golden 守卫绿 + 全套件 **1469/0/35** byte-identical；3 次对抗式评审〔含 90 函数逐字 diff〕均 **0 缺陷**。**下一步 Phase 3 / 选项 B（W-07 N6 debate 完整运行时，先登记 D-T127-02）**）
-- Progress: **任务包创建 + 顶层决策对齐（2026-06-16）**——承接 T-123（选题管理产品化加固）**收尾关闭后移交**的 F-11 拆分线、DP-3.3 标定线，并新建本伞型包统一推进。**用户对齐的修订相位序：先夯实后端 → 拆透 harness（选项 A）→ 选项 B（能力扩展）→ 选项 C（工作台收口）→ 选项 D（N8 标定，延期）**。工作项 W-01..W-13 见下；顶层决策 D1..D6 经 2026-06-16 两轮对齐锁定。状态盘点基于 2026-06-16 全链 ground-truth 调查（backend-solidity / Option-B / Option-C / 约定与依赖四路并行）。**Phase 0（M0）已于 2026-06-16 收口**：W-01 残留落地（commit `bfe5ae31`）、W-02 N11 终端穿越单测、W-03 ②/③ 代码卫生；其中 W-02/W-03 经代码核验**重定标**（W-02 N11 条目实已存在、W-03 ① moot，详见 03/04）。**Phase 1（M1）亦于 2026-06-16 收口**：W-04 coordinator 故障恢复（`upstream_blocked`/`feedback_artifact_missing` 结构化 halt + 人审 nonce 守卫；timeout 指引核验已存在）、W-05 12 个 admission/runtime service 单测（66/0）、W-06 N8 provisional 产品门禁形式化（`N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE`）。基线 backend 1402/0/35、shared 256/0、tsc 0。Phase 2+ 待开工。
+- State: done
+- Progress: **全部工作项 W-01..W-13 已收口（2026-06-24）→ 核心段 Phase 0–4 sign-off**。Phase 0 后端夯实（W-01/02/03）、Phase 1 鲁棒性（W-04/05/06）、Phase 2 harness 一次拆透（W-12：12,898→9,933 行、16 模块严格 DAG）、Phase 3 能力扩展（W-07 N6 debate 全运行时、W-08 v1c recheck 建议位、W-09 provider-diverse profiles + 预 provider_llm 加固）、Phase 4 工作台收口（W-11 `n4_handoff_hash` 迁移、W-10 N7/N9/N10 只读节点文档）全 done；**Phase 5 / W-13 N8 标定 = record-and-defer（done）**——N8/N6 维持 `provisional` + tripwire，标定 scaffold + report-only dry-run 入口 + 不变量守卫就绪，真翻门阻塞于外部语料（≥100 多 provider 标注 + FP<5% + sign-off + 独立 assessor），**该延期尾巴所有权移交后继包 T-128 `topic-selection-product-readiness-closure`（W-17）**。基线：full backend **1560/0/35**、shared **267/0**、双 tsc **0**。逐相证据见 `03-implementation-notes.md` / `04-verification.md`。
 - Task ID: `T-127`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-009`
 - Depends on / 承接: `T-123`（topic-selection-productization-hardening，**done，已关闭归档**——其 F-11 拆分线与 DP-3.3 标定线**所有权移交本包 W-12 / W-13**；本包复用其 coordinator / debate-core / decision-memory / token-estimator / 校准 scaffold）；`T-088`（workflow-runtime-foundation，in-progress——凡触碰 harness 本体的改动按 D6 先在 `06-joint-decisions.md` 登记联合决策）
@@ -65,14 +65,15 @@
 - **D8 选项 D 标定姿态（locked）**:**record-and-defer**——mock 不可标定真阈值,故显式登记阻塞于语料,N8 维持 provisional + 签核门直至真实语料达标。
 
 ## Acceptance Criteria (high level)
+> **Sign-off 留痕（2026-06-24 状态同步）**：勾选反映各相位收口时已达成的验收（逐相证据见 `03`/`04`）。本次 sync 复跑 **backend 全套件 1560/0/35 + shared 267/0 + 双 tsc 0**；其中涉及 **desktop typecheck / UI gate** 的项（75/76）系相应相位（C 收口）验证、本次未重跑（W-10 明确不动 desktop）。Phase 5 / W-13 标定尾巴为 record-and-defer，其真翻门所有权移交 T-128 W-17。
 ### 核心段（Phase 0–4,阻塞 sign-off）
-- [ ] W-01..W-12 逐项关闭,每项在 `03-implementation-notes.md` 有条目与证据指针;工作树无 T-127/T-123 未落地残留（W-01 提交且排除并行 session 文件）。
-- [ ] Coordinator 故障恢复三类边界（feedback 工件缺失、upstream-blocked、node_timeout retry 指引）有负例覆盖且返回结构化 halt 而非 500;人审 nonce 守卫拒陈旧重跑。
-- [ ] ~12 个准入/运行时 service 各有 ≥1 `legacy_unverified` 拒绝 + 1 happy path 单测;backend 套件无回归。
-- [ ] **harness 一次拆透**:每 slice 前后 replay-identity 守卫（N1 golden 哈希）+ 全套件 + replay 幂等对比全绿;harness 壳仅余生命周期 + 持久化;D-T127-01 登记。
-- [ ] v1b N6 debate full runtime:触发器单测全分支;mocked debate e2e 绿（生成→escalation→debate→synthesizer→gate 准入→继续）;不触发时既有 N6 路径回归不变;D-T127-02 登记、矩阵 N6 行 reserved→implemented、T-089 留痕;harness 改动 replay byte-identity 保持。
-- [ ] v1c recheck 建议性发射有单测;**T-108 前向唯一不变量回归绿**（无新回环路由、`topic-selection.v1c.downstream-feedback-recheck` 仍 record-only）。
-- [ ] 工作台收口:N7/N9/N10 只读语义有注释;`n4_handoff_hash` backfill 后旧 option-set 人审 N5 不再 409;desktop typecheck + UI gate 0/0。
-- [ ] 既有不变量回归:legacy 404、mocked product 拒绝、replay 幂等、v1b 人审 N2/N5 e2e、`pnpm typecheck` + desktop typecheck + UI gate 0/0。
+- [x] W-01..W-12 逐项关闭,每项在 `03-implementation-notes.md` 有条目与证据指针;工作树无 T-127/T-123 未落地残留（W-01 提交且排除并行 session 文件）。
+- [x] Coordinator 故障恢复三类边界（feedback 工件缺失、upstream-blocked、node_timeout retry 指引）有负例覆盖且返回结构化 halt 而非 500;人审 nonce 守卫拒陈旧重跑。
+- [x] ~12 个准入/运行时 service 各有 ≥1 `legacy_unverified` 拒绝 + 1 happy path 单测;backend 套件无回归。
+- [x] **harness 一次拆透**:每 slice 前后 replay-identity 守卫（N1 golden 哈希）+ 全套件 + replay 幂等对比全绿;harness 壳仅余生命周期 + 持久化;D-T127-01 登记。
+- [x] v1b N6 debate full runtime:触发器单测全分支;mocked debate e2e 绿（生成→escalation→debate→synthesizer→gate 准入→继续）;不触发时既有 N6 路径回归不变;D-T127-02 登记、矩阵 N6 行 reserved→implemented、T-089 留痕;harness 改动 replay byte-identity 保持。
+- [x] v1c recheck 建议性发射有单测;**T-108 前向唯一不变量回归绿**（无新回环路由、`topic-selection.v1c.downstream-feedback-recheck` 仍 record-only）。
+- [x] 工作台收口:N7/N9/N10 只读语义有注释;`n4_handoff_hash` backfill 后旧 option-set 人审 N5 不再 409;desktop typecheck + UI gate 0/0。
+- [x] 既有不变量回归:legacy 404、mocked product 拒绝、replay 幂等、v1b 人审 N2/N5 e2e、`pnpm typecheck` + desktop typecheck + UI gate 0/0。
 ### 延期尾巴（Phase 5,独立追踪,不阻塞核心）
-- [ ] W-13 标定姿态登记为 record-and-defer;N8 维持 `provisional` + tripwire;scaffold 已由 W-01 落地;真实语料达标前不翻 `provisional:false`、不以 mock 充真阈值。
+- [x] W-13 标定姿态登记为 record-and-defer;N8 维持 `provisional` + tripwire;scaffold 已由 W-01 落地;真实语料达标前不翻 `provisional:false`、不以 mock 充真阈值。
