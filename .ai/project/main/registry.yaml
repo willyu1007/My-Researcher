@@ -1169,3 +1169,12 @@ tasks:
       - R-009
     dev_docs_path: dev-docs/active/topic-selection-backend-hardening-and-expansion
     updated: 2026-06-16
+  - id: T-128
+    slug: topic-selection-product-readiness-closure
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-009
+    dev_docs_path: dev-docs/active/topic-selection-product-readiness-closure
+    updated: 2026-06-24

@@ -8,12 +8,13 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 127 (planned: 3, in-progress: 7, blocked: 0, done: 43, archived: 74)
+- Tasks: 128 (planned: 4, in-progress: 7, blocked: 0, done: 43, archived: 74)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-128 topic-selection-product-readiness-closure | planned | F-001 | dev-docs/active/topic-selection-product-readiness-closure |
 | T-122 literature-scaleout-corpus-strategy | archived | F-000 | dev-docs/archive/literature-scaleout-corpus-strategy |
 | T-125 literature-balanced-corpus-scaleout-v2 | archived | F-000 | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |
 | T-126 literature-rag-frontier-tech-radar | archived | F-000 | dev-docs/archive/literature-rag-frontier-tech-radar |
@@ -33,5 +34,4 @@ Project: `main`
 | T-086 research-argument-writing-entry-bridge-acceptance | archived | F-001 | dev-docs/archive/research-argument-writing-entry-bridge-acceptance |
 | T-113 paper-implementation-legacy-authority-cleanup | done | F-001 | dev-docs/active/paper-implementation-legacy-authority-cleanup |
 | T-108 topic-selection-v1c-workflow-hardening | done | F-001 | dev-docs/active/topic-selection-v1c-workflow-hardening |
-| T-110 experiment-foundation-research-workbench | archived | F-001 | dev-docs/archive/experiment-foundation-research-workbench |
 <!-- AUTO-GENERATED:END dashboard -->
