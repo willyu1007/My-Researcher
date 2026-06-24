@@ -17,7 +17,7 @@
 | W-10 首次真跑 ★ | 3 | closeable | planned | 核心可达性 sign-off；N8/N6 provisional behind tripwire |
 | W-11 P-01 压缩恢复 | 4 | coordination | planned | 跨 T-124/T-088 JD；gates product-robust（不阻塞 W-10）；当前最大未追踪开口 |
 | W-12 N6 升级可达性 | 4 | closeable | planned | n6_gate_failure_retry_context projection + 幂等 |
-| W-13 v1c-N2 **+ v1c-N4** 生产接线/收口 | 4 | closeable | planned | **审计确认二者皆 dead（零非测试 caller，仅 canary inline orchestrator 自证、绕过 class）**：① v1c-N2 bounded debate（runtime+admission+`createPromotionDecisionSupportFromVerifiedRuntimeDraft` gate 入口 gate-service:210）含 emission↔admission schema_version 对齐 ② v1c-N4 delegated-promotion（runtime-service:184 + admission，app.ts 从不构造、human-decision writer 不穿 delegated candidate）。各需决策：**接真 caller vs 文档化为 reserved/dormant** |
+| W-13 v1c-N2 **+ v1c-N4** 生产接线/收口 | 4 | closeable | **done（2026-06-25，全接 codex_assisted 真 caller）** | 用户定**全接**（非 reserved），D6=否（v1c 无 harness、只用纯 `canonicalHash` leaf，纯加法 coordinator/DI/route）。**v1c-N2**（`dc9ff27f` 协调器+单测、`40cf3e00` DI+controller+route+HTTP 测）:`TopicSelectionV1cN2BoundedDebateCoordinatorService` 循环 4 角色 codex_assisted→**穿 admit**（canary 漏的关键步）→既有 verified-runtime-draft gate 入口;路由 `POST …/promotion-decision-support/bounded-debate`。**v1c-N4**（`ce889186` S0 provenance contract、`4463dfca` S4 delegated service+5 单测、`3cba7a5c` S5 DI+operator-only route+2 HTTP 测）:delegated agent 起草、人仍授权——`human_actor` 来自**请求**（admission 再断言 `actor_type==='human'`）、promote-class 草案需 `promote_reconfirmed:true`、决定带 `delegated_decision_provenance` 标记（可审计/非冒充）;operator-only route `POST …/promotion-decisions/delegated`（默认人审 route 字节不变）。codex_assisted=operator 供输出 verbatim、无 provider、测试无需 stub。全后端 **1572/0/35**、双 tsc 0。**两 dead slot 现皆 caller-reached、admit 不再被绕过。** |
 | W-14 provider_llm debate 管路预接 | 4 | closeable | planned | 类型并集放宽 + model_option_id 穿线，dormant + 守卫 |
 | W-15 D5 HumanOverride + Trace | 4 | closeable | planned | 先权限边界 spec 再建写面 + Trace 抽屉 |
 | W-16 sign-off 工件 schema | 4 | closeable | planned | requires_stakeholder_sign_off artifact/表；不接自动翻门 |
@@ -51,3 +51,10 @@
 
 ## 实施留痕（逐相追加）
 （W-01 进行中：见本轮建包 commit）
+
+### W-13 — v1c-N2 + v1c-N4 dead-slot 真 caller 接线（2026-06-25，全接）
+设计 study `wf_c2753144` 定 **D6=否**（v1c 无 run-coordinator/harness;N2/N4 runtime/admission 不调 `invokeNode`、只引 W-12 析出的纯 `canonicalHash` leaf;改动纯加法 coordinator/DI/route + 一个 N4 contract 可选字段）。**codex_assisted 真相**:`response_source='operator_supplied'` 时 orchestrator 把 operator 供的角色输出 **verbatim** 返回（不调 provider）、`run_mode='acceptance'`;canary 的 bug 是**绕过 `admission.admit()`**（schema_version pin + 所有深检查只在 admit 内），真 caller 必须穿 admit。
+- **v1c-N2**（S1 `dc9ff27f` / S2+S3 `40cf3e00`）:`TopicSelectionV1cN2BoundedDebateCoordinatorService`(在 gate 之上、不给 gate 加 control-plane 依赖)循环 4 角色 `generateRoleArtifact`(codex_assisted)→**admit**→既有 `createPromotionDecisionSupportFromVerifiedRuntimeDraft` gate 入口;默认确定性 registry 与 gate 校验匹配(单测证)。4 单测(happy 持久化 + schema_version/forbidden-authority/missing-output 负例证 admit 被穿)+ HTTP 测(422 证 admit 经 HTTP 触达)。
+- **v1c-N4**（S0 `ce889186` / S4 `4463dfca` / S5 `3cba7a5c`）:delegated agent 起草促进**决定**内容、人仍授权。**权威边界构造性保证**:`human_actor` 来自请求(非 agent)、admission 再断言 `actor_type==='human'`、禁 authority-write keys;**promote-class 草案**(能在人授权后驱动真实 PaperProjectBridge)须 `promote_reconfirmed:true`(用户锁的安全门);决定带 **`delegated_decision_provenance`**({source:'codex_delegated',admission_identity_hash},S0 contract + 经 `recordHumanPromotionDecision` 穿线)使其可审计、不与纯人审混淆。operator-only route(默认人审 route 字节不变)。5 单测(非人 actor fail-fast/park happy 带标记/promote 无 reconfirm→409/promote 有 reconfirm→记/admit blocker)+ 2 HTTP 测(非人边界 + runtime+admission 触达)。
+- **验证**:双 tsc 0、标定与 v1c 套件绿、full backend **1572/0/35**、replay 不受影响(纯加法)。**节点审计的 v1c-N2/N4 dead-slot 项 → 收口**。
+- **遗留(归 W-08)**:并行 T-112 所有的 `06-node-scope-matrix.md` v1c-N4 行仍高估为 production-wired,实地核对后 reconcile(本包不直接改并行 session 文件)。
