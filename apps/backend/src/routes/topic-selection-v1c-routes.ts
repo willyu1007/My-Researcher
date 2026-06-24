@@ -106,6 +106,22 @@ const promotionDecisionSupportBoundedDebateBody = bodySchema(
   },
 );
 
+// T-128 W-13: OPERATOR-ONLY delegated promotion decision. human_actor + codex_response are passthrough objects
+// (the service validates the human boundary + admission validates the candidate). promote_reconfirmed gates promote-class.
+const delegatedPromotionDecisionBody = bodySchema(
+  ['promotion_gate_check_id', 'workflow_run_id', 'node_attempt_id', 'human_actor', 'codex_response'],
+  {
+    promotion_gate_check_id: stringId,
+    workflow_run_id: stringId,
+    node_attempt_id: stringId,
+    human_actor: recordPayload,
+    codex_response: recordPayload,
+    workspace_id: nullableStringId,
+    policy_version_id: nullableStringId,
+    promote_reconfirmed: { type: 'boolean' },
+  },
+);
+
 const promotionGateCheckBody = {
   body: {
     type: 'object',
@@ -325,6 +341,11 @@ export async function registerTopicSelectionV1cRoutes(
     '/topic-selection/v1c/promotion-decisions',
     { schema: humanPromotionDecisionBody },
     controller.recordHumanPromotionDecision,
+  );
+  fastify.post(
+    '/topic-selection/v1c/promotion-decisions/delegated',
+    { schema: delegatedPromotionDecisionBody },
+    controller.recordDelegatedPromotionDecision,
   );
   fastify.get(
     '/topic-selection/v1c/human-promotion-decisions/:humanPromotionDecisionId',

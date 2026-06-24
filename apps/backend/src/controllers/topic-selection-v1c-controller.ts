@@ -4,6 +4,7 @@ import { TopicSelectionOfflineEvaluationReplayService } from '../services/topic-
 import { TopicSelectionV1cDownstreamFeedbackRecheckService } from '../services/topic-selection-v1c-downstream-feedback-recheck-service.js';
 import { TopicSelectionV1cHumanPromotionDecisionService } from '../services/topic-selection-v1c-human-promotion-decision-service.js';
 import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from '../services/topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
+import { TopicSelectionV1cN4DelegatedPromotionDecisionService } from '../services/topic-selection-v1c-n4-delegated-promotion-decision-service.js';
 import { TopicSelectionV1cPaperProjectBridgeService } from '../services/topic-selection-v1c-paper-project-bridge-service.js';
 import { TopicSelectionV1cPromotionGateService } from '../services/topic-selection-v1c-promotion-gate-service.js';
 import { TopicSelectionV1cPromotionInputService } from '../services/topic-selection-v1c-promotion-input-service.js';
@@ -16,6 +17,8 @@ type PromotionGateSupportBody = Parameters<TopicSelectionV1cPromotionGateService
 type PromotionDecisionSupportBody = Parameters<TopicSelectionV1cPromotionGateService['createPromotionDecisionSupport']>[0];
 type PromotionDecisionSupportFromBoundedDebateBody =
   Parameters<TopicSelectionV1cN2BoundedDebateCoordinatorService['createPromotionDecisionSupportFromBoundedDebate']>[0];
+type DelegatedPromotionDecisionBody =
+  Parameters<TopicSelectionV1cN4DelegatedPromotionDecisionService['recordDelegatedPromotionDecision']>[0];
 type PromotionGateCheckBody =
   Parameters<TopicSelectionV1cPromotionGateService['createPromotionGateCheckFromSupport']>[0]
   & Partial<PromotionGateSupportBody>;
@@ -65,6 +68,7 @@ export class TopicSelectionV1cController {
     private readonly downstreamFeedbackRecheck: TopicSelectionV1cDownstreamFeedbackRecheckService,
     private readonly offlineReplay: TopicSelectionOfflineEvaluationReplayService,
     private readonly n2BoundedDebateCoordinator: TopicSelectionV1cN2BoundedDebateCoordinatorService,
+    private readonly n4DelegatedPromotionDecision: TopicSelectionV1cN4DelegatedPromotionDecisionService,
   ) {}
 
   createPromotionInputSnapshot = async (
@@ -186,6 +190,21 @@ export class TopicSelectionV1cController {
   ) => {
     try {
       const result = await this.humanPromotionDecision.recordHumanPromotionDecision(request.body);
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  // T-128 W-13: OPERATOR-ONLY delegated promotion decision (an agent drafts the decision content; a human still
+  // authorizes via human_actor from the request; promote-class requires promote_reconfirmed:true). Distinct from the
+  // default pure-human POST /promotion-decisions, which is unchanged.
+  recordDelegatedPromotionDecision = async (
+    request: BodyRequest<DelegatedPromotionDecisionBody>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.n4DelegatedPromotionDecision.recordDelegatedPromotionDecision(request.body);
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);

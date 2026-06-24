@@ -211,6 +211,9 @@ import { TopicSelectionV1cPromotionGateService } from './services/topic-selectio
 import { TopicSelectionV1cN2BoundedDebateRuntimeService } from './services/topic-selection-v1c-n2-bounded-debate-runtime-service.js';
 import { TopicSelectionV1cN2BoundedDebateAdmissionService } from './services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
 import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from './services/topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
+import { TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService } from './services/topic-selection-v1c-n4-delegated-promotion-decision-runtime-service.js';
+import { TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService } from './services/topic-selection-v1c-n4-delegated-promotion-decision-admission-service.js';
+import { TopicSelectionV1cN4DelegatedPromotionDecisionService } from './services/topic-selection-v1c-n4-delegated-promotion-decision-service.js';
 import { TopicSelectionV1cPromotionInputService } from './services/topic-selection-v1c-promotion-input-service.js';
 import { FileGovernanceDeliveryAuditStore } from './services/event-delivery/governance-delivery-audit-store.js';
 import { FileGovernanceDeliveryOutboxStore } from './services/event-delivery/governance-delivery-outbox-store.js';
@@ -569,6 +572,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     repository: topicSelectionV1cHumanPromotionDecisionRepository,
     promotionGateService: topicSelectionV1cPromotionGateService,
   });
+  // T-128 W-13: v1c-N4 delegated promotion-decision production caller (operator-only path; human still authorizes).
+  const topicSelectionV1cN4DelegatedPromotionDecisionRuntime =
+    new TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService(topicSelectionControlPlaneService);
+  const topicSelectionV1cN4DelegatedPromotionDecisionService = new TopicSelectionV1cN4DelegatedPromotionDecisionService({
+    runtime: topicSelectionV1cN4DelegatedPromotionDecisionRuntime,
+    admission: new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(topicSelectionV1cN4DelegatedPromotionDecisionRuntime),
+    gateService: topicSelectionV1cPromotionGateService,
+    humanPromotionDecisionService: topicSelectionV1cHumanPromotionDecisionService,
+  });
   const topicSelectionV1cPaperProjectBridgeService = new TopicSelectionV1cPaperProjectBridgeService({
     repository: topicSelectionV1cPaperProjectBridgeRepository,
     humanPromotionDecisionService: topicSelectionV1cHumanPromotionDecisionService,
@@ -858,6 +870,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     topicSelectionV1cDownstreamFeedbackRecheckService,
     topicSelectionOfflineEvaluationReplayService,
     topicSelectionV1cN2BoundedDebateCoordinator,
+    topicSelectionV1cN4DelegatedPromotionDecisionService,
   );
   const literatureAcquisitionSettingsService = new LiteratureAcquisitionSettingsService(applicationSettingsRepository);
   const literatureAcquisitionSettingsController = new LiteratureAcquisitionSettingsController(

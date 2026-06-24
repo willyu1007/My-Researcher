@@ -60,6 +60,10 @@ import {
   TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
   TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
 } from '../services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
+import { TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService } from '../services/topic-selection-v1c-n4-delegated-promotion-decision-runtime-service.js';
+import { TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService } from '../services/topic-selection-v1c-n4-delegated-promotion-decision-admission-service.js';
+import { TopicSelectionV1cN4DelegatedPromotionDecisionService } from '../services/topic-selection-v1c-n4-delegated-promotion-decision-service.js';
+import { TOPIC_SELECTION_V1C_DELEGATED_PROMOTION_DECISION_CANDIDATE_SCHEMA_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts';
 import { TopicSelectionV1cPromotionInputService } from '../services/topic-selection-v1c-promotion-input-service.js';
 import { registerTopicSelectionV1cRoutes } from './topic-selection-v1c-routes.js';
 
@@ -815,6 +819,15 @@ async function makeV1cRouteHarness(
     gateService: promotionGateService,
     promotionInputService,
   });
+  const n4DelegatedRuntime = new TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService(
+    new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository(), { now: () => NOW }),
+  );
+  const n4DelegatedPromotionDecisionService = new TopicSelectionV1cN4DelegatedPromotionDecisionService({
+    runtime: n4DelegatedRuntime,
+    admission: new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(n4DelegatedRuntime),
+    gateService: promotionGateService,
+    humanPromotionDecisionService,
+  });
   const controller = new TopicSelectionV1cController(
     promotionInputService,
     promotionGateService,
@@ -823,6 +836,7 @@ async function makeV1cRouteHarness(
     downstreamFeedbackRecheckService,
     offlineReplayService,
     n2BoundedDebateCoordinator,
+    n4DelegatedPromotionDecisionService,
   );
   await registerTopicSelectionV1cRoutes(app, controller);
   return { app, offlineReplayService, paperProjectGateway };
@@ -889,6 +903,57 @@ test('POST /promotion-decision-support/bounded-debate reaches the runtime+admiss
     assert.equal(res.statusCode, 422);
     const body = res.json() as { error: { code: string } };
     assert.ok(['GATE_CONSTRAINT_FAILED', 'INVALID_PAYLOAD'].includes(body.error.code), `unexpected error code: ${body.error.code}`);
+  } finally {
+    await app.close();
+  }
+});
+
+test('POST /promotion-decisions/delegated rejects a non-human authorizer over HTTP (the agent never supplies the actor)', async () => {
+  const repository = makeSeededTopicPackageRepository(uniqueId('delegated-actor'));
+  const app = await makeV1cRouteApp(repository);
+  try {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1c/promotion-decisions/delegated',
+      payload: {
+        promotion_gate_check_id: 'promotion_gate_check_anything',
+        workflow_run_id: 'workflow_run_delegated_http_001',
+        node_attempt_id: 'node_attempt_delegated_http_001',
+        human_actor: { actor_type: 'llm', actor_id: 'agent_x' },
+        codex_response: { output: { decision: 'park' }, operator_label: 'op' },
+      },
+    });
+    // the authority boundary fires (fail-fast, before any gate/runtime call) over HTTP.
+    assert.equal(res.statusCode, 422);
+    assert.equal((res.json() as { error: { code: string } }).error.code, 'GATE_CONSTRAINT_FAILED');
+  } finally {
+    await app.close();
+  }
+});
+
+test('POST /promotion-decisions/delegated reaches the runtime+admission over HTTP (admit is NOT bypassed; the canary skipped it)', async () => {
+  const repository = makeSeededTopicPackageRepository(uniqueId('delegated-admit'));
+  const app = await makeV1cRouteApp(repository);
+  try {
+    const { gateBundle } = await createReadyGate(app, repository.v1cInputBundle.v1b_to_v1c_input_bundle_id);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1c/promotion-decisions/delegated',
+      payload: {
+        promotion_gate_check_id: gateBundle.promotion_gate_check.promotion_gate_check_id,
+        workflow_run_id: 'workflow_run_delegated_admit_001',
+        node_attempt_id: 'node_attempt_delegated_admit_001',
+        human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+        // an under-specified non-promote candidate: the runtime returns it verbatim (codex_assisted), then admission
+        // rejects it -> the route reached the runtime+admission. (A fully-valid happy path is unit-tested.)
+        codex_response: {
+          output: { schema_version: TOPIC_SELECTION_V1C_DELEGATED_PROMOTION_DECISION_CANDIDATE_SCHEMA_VERSION, decision: 'park' },
+          operator_label: 'op',
+        },
+      },
+    });
+    assert.equal(res.statusCode, 422);
+    assert.ok(['GATE_CONSTRAINT_FAILED', 'INVALID_PAYLOAD'].includes((res.json() as { error: { code: string } }).error.code));
   } finally {
     await app.close();
   }
