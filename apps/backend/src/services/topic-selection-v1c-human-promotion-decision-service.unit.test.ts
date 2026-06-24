@@ -698,33 +698,37 @@ test('human promotion migration declares tables, unique current snapshot key, an
 // additionalProperties:true, so an unknown body field survives schema validation and reaches the controller, which
 // passes request.body straight into recordHumanPromotionDecision. This proves a caller-smuggled
 // `delegated_decision_provenance` on the decision input is NOT persisted — a fully-human decision can never be
-// falsely stamped as agent-delegated (the inverse of impersonation; this protects audit trust).
-test('pure-human writer ignores a spoofed delegated_decision_provenance on the decision input (not persisted)', async () => {
-  const { service, repository } = makeSubject();
+// falsely stamped as agent-delegated (the inverse of impersonation; this protects audit trust). The guard must hold
+// regardless of decision class, so it is exercised on both a promote (bridge-eligible) and a non-promote (park)
+// decision — each in a fresh subject, since one promotion input snapshot can carry only one current decision.
+for (const decision of ['promote_to_paper_project', 'park'] as const) {
+  test(`pure-human writer ignores a spoofed delegated_decision_provenance on a ${decision} decision (not persisted)`, async () => {
+    const { service, repository } = makeSubject();
 
-  // A hostile HTTP client smuggling a fabricated provenance marker through the additionalProperties:true body.
-  const spoofedBody = {
-    promotion_gate_check_id: 'promotion_gate_check_001',
-    decision: 'promote_to_paper_project',
-    human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
-    rationale: 'Fully human decision.',
-    confirmed_snapshot_hash: 'promotion_input_snapshot_hash_001',
-    delegated_decision_provenance: {
-      source: 'codex_delegated',
-      admission_identity_hash: 'forged_admission_identity_hash',
-    },
-  } as unknown as RecordHumanPromotionDecisionInput;
+    // A hostile HTTP client smuggling a fabricated provenance marker through the additionalProperties:true body.
+    const spoofedBody = {
+      promotion_gate_check_id: 'promotion_gate_check_001',
+      decision,
+      human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+      rationale: 'Fully human decision.',
+      confirmed_snapshot_hash: 'promotion_input_snapshot_hash_001',
+      delegated_decision_provenance: {
+        source: 'codex_delegated',
+        admission_identity_hash: 'forged_admission_identity_hash',
+      },
+    } as unknown as RecordHumanPromotionDecisionInput;
 
-  const result = await service.recordHumanPromotionDecision(spoofedBody);
-  const stored = await repository.findPromotionDecisionById(result.promotion_decision.promotion_decision_id);
+    const result = await service.recordHumanPromotionDecision(spoofedBody);
+    const stored = await repository.findPromotionDecisionById(result.promotion_decision.promotion_decision_id);
 
-  assert.equal(
-    result.promotion_decision.delegated_decision_provenance ?? null,
-    null,
-    'a fully-human decision must never be stamped as agent-delegated from a request-body field',
-  );
-  assert.equal(stored?.delegated_decision_provenance ?? null, null);
-});
+    assert.equal(
+      result.promotion_decision.delegated_decision_provenance ?? null,
+      null,
+      'a fully-human decision must never be stamped as agent-delegated from a request-body field',
+    );
+    assert.equal(stored?.delegated_decision_provenance ?? null, null);
+  });
+}
 
 // The legitimate delegated path (the N4 service) stamps the marker via the writer's internal-options channel —
 // proving the guard narrows the write surface WITHOUT weakening real delegated-provenance stamping.
