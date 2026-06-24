@@ -959,6 +959,51 @@ test('POST /promotion-decisions/delegated reaches the runtime+admission over HTT
   }
 });
 
+// T-128 W-13 provenance-integrity guard, end-to-end. The pure-human POST /promotion-decisions body schema is
+// additionalProperties:true, so an unknown `delegated_decision_provenance` survives validation and reaches the
+// controller/service. This proves the writer ignores it: a fully-human decision is never falsely stamped as
+// agent-delegated (the marker is reserved for the N4 delegated path's admission-computed identity hash).
+test('POST /promotion-decisions ignores a spoofed delegated_decision_provenance in the body (pure-human decision stays un-stamped)', async () => {
+  const repository = makeSeededTopicPackageRepository(uniqueId('human-provenance-spoof'));
+  const app = await makeV1cRouteApp(repository);
+  try {
+    const { gateBundle } = await createReadyGate(app, repository.v1cInputBundle.v1b_to_v1c_input_bundle_id);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1c/promotion-decisions',
+      payload: {
+        promotion_gate_check_id: gateBundle.promotion_gate_check.promotion_gate_check_id,
+        decision: 'promote_to_paper_project',
+        human_actor: { actor_type: 'human', actor_id: 'route-reviewer' },
+        rationale: 'Fully human authorization.',
+        confirmed_snapshot_hash: gateBundle.promotion_gate_check.promotion_input_snapshot_hash,
+        // Hostile smuggled marker — must NOT be persisted.
+        delegated_decision_provenance: { source: 'codex_delegated', admission_identity_hash: 'forged_admission_identity_hash' },
+      },
+    });
+    assertStatus(res, 201);
+    const created = res.json() as {
+      promotion_decision: { promotion_decision_id: string; delegated_decision_provenance?: unknown };
+    };
+    assert.equal(
+      created.promotion_decision.delegated_decision_provenance ?? null,
+      null,
+      'the spoofed provenance marker must not be persisted on a pure-human decision',
+    );
+
+    // The persisted record, read back over HTTP, is also un-stamped.
+    const readRes = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1c/promotion-decisions/${encodeURIComponent(created.promotion_decision.promotion_decision_id)}`,
+    });
+    assertStatus(readRes, 200);
+    const stored = readRes.json() as { delegated_decision_provenance?: unknown };
+    assert.equal(stored.delegated_decision_provenance ?? null, null);
+  } finally {
+    await app.close();
+  }
+});
+
 async function createReadyGate(app: FastifyInstance, v1cInputBundleId: string) {
   const snapshotRes = await app.inject({
     method: 'POST',

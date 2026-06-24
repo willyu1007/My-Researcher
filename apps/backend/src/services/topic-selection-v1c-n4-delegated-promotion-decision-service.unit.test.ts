@@ -24,6 +24,7 @@ function makeSubject(opts: {
 } = {}) {
   const calls = { generate: 0, admit: 0, record: 0 as number, getHandoff: 0 };
   let recordedInput: any = null;
+  let recordedInternalOptions: any = null;
   const generatedCandidate = opts.generated ?? candidate('park');
 
   const runtime = {
@@ -72,10 +73,13 @@ function makeSubject(opts: {
     },
   };
   const humanPromotionDecisionService = {
-    recordHumanPromotionDecision: async (input: any) => {
+    // The real writer's signature: (input, internalOptions). The delegated-provenance marker is read ONLY from the
+    // internal-options channel — mirror that here so the test pins the marker arriving off the public input.
+    recordHumanPromotionDecision: async (input: any, internalOptions: any) => {
       calls.record += 1;
       recordedInput = input;
-      return { promotion_decision: { promotion_decision_id: 'pd_001', delegated_decision_provenance: input.delegated_decision_provenance } };
+      recordedInternalOptions = internalOptions ?? null;
+      return { promotion_decision: { promotion_decision_id: 'pd_001', delegated_decision_provenance: internalOptions?.delegatedDecisionProvenance ?? null } };
     },
   };
 
@@ -85,7 +89,7 @@ function makeSubject(opts: {
     gateService: gateService as any,
     humanPromotionDecisionService: humanPromotionDecisionService as any,
   });
-  return { service, calls, recordedInput: () => recordedInput };
+  return { service, calls, recordedInput: () => recordedInput, recordedInternalOptions: () => recordedInternalOptions };
 }
 
 function baseInput(overrides: Partial<RecordDelegatedPromotionDecisionInput> = {}): RecordDelegatedPromotionDecisionInput {
@@ -114,13 +118,15 @@ test('v1c N4 delegated: a non-human authorizer is rejected before any runtime ca
 });
 
 test('v1c N4 delegated: a non-promote candidate (park) is admitted + recorded with the delegated-provenance marker', async () => {
-  const { service, calls, recordedInput } = makeSubject({ generated: candidate('park') });
+  const { service, calls, recordedInput, recordedInternalOptions } = makeSubject({ generated: candidate('park') });
   const result = await service.recordDelegatedPromotionDecision(baseInput());
   assert.equal(calls.generate, 1);
   assert.equal(calls.admit, 1);
   assert.equal(calls.record, 1);
-  // the provenance marker is stamped onto the recorded decision (auditable, non-impersonation).
-  assert.deepEqual(recordedInput().delegated_decision_provenance, { source: 'codex_delegated', admission_identity_hash: 'admission_identity_hash_001' });
+  // the provenance marker is stamped via the writer's INTERNAL-ONLY channel (auditable, non-impersonation)...
+  assert.deepEqual(recordedInternalOptions().delegatedDecisionProvenance, { source: 'codex_delegated', admission_identity_hash: 'admission_identity_hash_001' });
+  // ...and NEVER on the public decision input (the writer ignores any marker arriving on the request body).
+  assert.equal(recordedInput().delegated_decision_provenance, undefined);
   // the human_actor flows from the request through admission's create_input.
   assert.deepEqual(recordedInput().human_actor, { actor_type: 'human', actor_id: 'reviewer_001' });
   assert.equal((result as { promotion_decision: { delegated_decision_provenance?: unknown } }).promotion_decision.delegated_decision_provenance !== undefined, true);
@@ -143,11 +149,11 @@ test('v1c N4 delegated: a PROMOTE-class candidate without promote_reconfirmed is
 });
 
 test('v1c N4 delegated: a PROMOTE-class candidate WITH promote_reconfirmed=true is admitted + recorded with the marker', async () => {
-  const { service, calls, recordedInput } = makeSubject({ generated: candidate('promote_to_paper_project') });
+  const { service, calls, recordedInternalOptions } = makeSubject({ generated: candidate('promote_to_paper_project') });
   await service.recordDelegatedPromotionDecision(baseInput({ promote_reconfirmed: true }));
   assert.equal(calls.admit, 1);
   assert.equal(calls.record, 1);
-  assert.deepEqual(recordedInput().delegated_decision_provenance, { source: 'codex_delegated', admission_identity_hash: 'admission_identity_hash_001' });
+  assert.deepEqual(recordedInternalOptions().delegatedDecisionProvenance, { source: 'codex_delegated', admission_identity_hash: 'admission_identity_hash_001' });
 });
 
 test('v1c N4 delegated: an admit blocker surfaces as a GATE_CONSTRAINT_FAILED AppError, nothing recorded', async () => {

@@ -127,13 +127,17 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionService {
     }
 
     // Record via the existing human authority writer, stamping the delegated-provenance marker so the decision is
-    // auditable + never indistinguishable from a fully-human one.
-    return this.deps.humanPromotionDecisionService.recordHumanPromotionDecision({
-      ...admitted.create_input,
-      delegated_decision_provenance: {
-        source: 'codex_delegated',
-        admission_identity_hash: admitted.admission_identity_hash,
+    // auditable + never indistinguishable from a fully-human one. The marker travels on the writer's INTERNAL-ONLY
+    // second argument (not on create_input) — that channel is the only way to set it, so a pure-human caller hitting
+    // POST /promotion-decisions cannot smuggle a fabricated provenance through the (additionalProperties:true) body.
+    return this.deps.humanPromotionDecisionService.recordHumanPromotionDecision(
+      admitted.create_input,
+      {
+        delegatedDecisionProvenance: {
+          source: 'codex_delegated',
+          admission_identity_hash: admitted.admission_identity_hash,
+        },
       },
-    });
+    );
   }
 }

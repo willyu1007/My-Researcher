@@ -30,6 +30,7 @@ import { InMemoryTopicSelectionV1cHumanPromotionDecisionRepository } from '../re
 import { PrismaTopicSelectionV1cHumanPromotionDecisionRepository } from '../repositories/prisma/prisma-topic-selection-v1c-human-promotion-decision-repository.js';
 import {
   TopicSelectionV1cHumanPromotionDecisionService,
+  type RecordHumanPromotionDecisionInput,
 } from './topic-selection-v1c-human-promotion-decision-service.js';
 
 const NOW = '2026-05-15T00:00:00.000Z';
@@ -691,6 +692,63 @@ test('human promotion migration declares tables, unique current snapshot key, an
   assert.match(sql, /tshpd_decision_key_key/);
   assert.match(sql, /tspd_current_input_snapshot_key/);
   assert.match(sql, /tspcp_promotion_decision_key/);
+});
+
+// T-128 W-13 provenance-integrity guard. The pure-human POST /topic-selection/v1c/promotion-decisions route uses
+// additionalProperties:true, so an unknown body field survives schema validation and reaches the controller, which
+// passes request.body straight into recordHumanPromotionDecision. This proves a caller-smuggled
+// `delegated_decision_provenance` on the decision input is NOT persisted — a fully-human decision can never be
+// falsely stamped as agent-delegated (the inverse of impersonation; this protects audit trust).
+test('pure-human writer ignores a spoofed delegated_decision_provenance on the decision input (not persisted)', async () => {
+  const { service, repository } = makeSubject();
+
+  // A hostile HTTP client smuggling a fabricated provenance marker through the additionalProperties:true body.
+  const spoofedBody = {
+    promotion_gate_check_id: 'promotion_gate_check_001',
+    decision: 'promote_to_paper_project',
+    human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+    rationale: 'Fully human decision.',
+    confirmed_snapshot_hash: 'promotion_input_snapshot_hash_001',
+    delegated_decision_provenance: {
+      source: 'codex_delegated',
+      admission_identity_hash: 'forged_admission_identity_hash',
+    },
+  } as unknown as RecordHumanPromotionDecisionInput;
+
+  const result = await service.recordHumanPromotionDecision(spoofedBody);
+  const stored = await repository.findPromotionDecisionById(result.promotion_decision.promotion_decision_id);
+
+  assert.equal(
+    result.promotion_decision.delegated_decision_provenance ?? null,
+    null,
+    'a fully-human decision must never be stamped as agent-delegated from a request-body field',
+  );
+  assert.equal(stored?.delegated_decision_provenance ?? null, null);
+});
+
+// The legitimate delegated path (the N4 service) stamps the marker via the writer's internal-options channel —
+// proving the guard narrows the write surface WITHOUT weakening real delegated-provenance stamping.
+test('delegated path stamps delegated_decision_provenance via the internal-options channel', async () => {
+  const { service, repository } = makeSubject();
+  const provenance = {
+    source: 'codex_delegated' as const,
+    admission_identity_hash: 'admission_identity_hash_001',
+  };
+
+  const result = await service.recordHumanPromotionDecision(
+    {
+      promotion_gate_check_id: 'promotion_gate_check_001',
+      decision: 'promote_to_paper_project',
+      human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+      rationale: 'Human-authorized, agent-drafted decision.',
+      confirmed_snapshot_hash: 'promotion_input_snapshot_hash_001',
+    },
+    { delegatedDecisionProvenance: provenance },
+  );
+  const stored = await repository.findPromotionDecisionById(result.promotion_decision.promotion_decision_id);
+
+  assert.deepEqual(result.promotion_decision.delegated_decision_provenance, provenance);
+  assert.deepEqual(stored?.delegated_decision_provenance, provenance);
 });
 
 class FakeModel {

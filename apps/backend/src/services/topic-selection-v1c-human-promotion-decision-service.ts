@@ -85,12 +85,19 @@ export type RecordHumanPromotionDecisionInput = {
   allowed_refinements?: TopicSelectionAllowedPromotionRefinement[];
   stop_conditions?: TopicSelectionPromotionStopOrReopenCondition[];
   reopen_conditions?: TopicSelectionPromotionStopOrReopenCondition[];
-  /**
-   * T-128 W-13: present iff the decision content was drafted by a delegated agent (codex_assisted). A human still
-   * authorizes the decision (human_actor must be human); this marker is provenance/audit only. Absent on a pure-human
-   * decision -> no behavior change to the existing human path.
-   */
-  delegated_decision_provenance?: TopicSelectionDelegatedDecisionProvenance | null;
+};
+
+/**
+ * T-128 W-13 (provenance-integrity guard): the delegated-decision provenance marker is INTERNAL-ONLY — deliberately
+ * kept OFF the public RecordHumanPromotionDecisionInput so it can be supplied only here, by the N4 delegated-promotion
+ * service, from the admission-computed identity hash. The pure-human POST /topic-selection/v1c/promotion-decisions
+ * route uses additionalProperties:true, so a caller could otherwise smuggle a fabricated `delegated_decision_provenance`
+ * into the request body and have it persisted — falsely marking a fully-human decision as agent-delegated. Because the
+ * writer reads the marker ONLY from this second argument (never from `input`), such a spoofed body field is silently
+ * ignored, while the N4 path still stamps real provenance. (Inverse of impersonation: this protects audit trust.)
+ */
+export type RecordHumanPromotionDecisionInternalOptions = {
+  delegatedDecisionProvenance?: TopicSelectionDelegatedDecisionProvenance | null;
 };
 
 export type TopicSelectionPromotionGateHandoffProvider = {
@@ -142,6 +149,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
 
   async recordHumanPromotionDecision(
     input: RecordHumanPromotionDecisionInput,
+    internalOptions: RecordHumanPromotionDecisionInternalOptions = {},
   ): Promise<TopicSelectionV1cHumanPromotionDecisionCreationResult> {
     const gateHandoff = await this.promotionGateService.getPromotionGateHandoff(
       input.promotion_gate_check_id,
@@ -295,7 +303,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
       source_refs: sourceRefs,
       snapshot_hashes: gateHandoff.snapshot_hashes,
       artifact_refs: [artifactRef],
-      delegated_decision_provenance: input.delegated_decision_provenance ?? null,
+      delegated_decision_provenance: internalOptions.delegatedDecisionProvenance ?? null,
       created_at: now,
     };
     const promotionCommitmentProfile = commitmentProfileId
