@@ -26,6 +26,7 @@ import type {
   TopicSelectionPromotionDecisionBundle,
   TopicSelectionPromotionDecisionClass,
   TopicSelectionPromotionDecisionRecord,
+  TopicSelectionDelegatedDecisionProvenance,
   TopicSelectionPromotionLoopbackTarget,
   TopicSelectionPromotionStopOrReopenCondition,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts';
@@ -84,6 +85,12 @@ export type RecordHumanPromotionDecisionInput = {
   allowed_refinements?: TopicSelectionAllowedPromotionRefinement[];
   stop_conditions?: TopicSelectionPromotionStopOrReopenCondition[];
   reopen_conditions?: TopicSelectionPromotionStopOrReopenCondition[];
+  /**
+   * T-128 W-13: present iff the decision content was drafted by a delegated agent (codex_assisted). A human still
+   * authorizes the decision (human_actor must be human); this marker is provenance/audit only. Absent on a pure-human
+   * decision -> no behavior change to the existing human path.
+   */
+  delegated_decision_provenance?: TopicSelectionDelegatedDecisionProvenance | null;
 };
 
 export type TopicSelectionPromotionGateHandoffProvider = {
@@ -288,6 +295,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
       source_refs: sourceRefs,
       snapshot_hashes: gateHandoff.snapshot_hashes,
       artifact_refs: [artifactRef],
+      delegated_decision_provenance: input.delegated_decision_provenance ?? null,
       created_at: now,
     };
     const promotionCommitmentProfile = commitmentProfileId
