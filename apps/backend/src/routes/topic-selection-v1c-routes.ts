@@ -106,8 +106,11 @@ const promotionDecisionSupportBoundedDebateBody = bodySchema(
   },
 );
 
-// T-128 W-13: OPERATOR-ONLY delegated promotion decision. human_actor + codex_response are passthrough objects
-// (the service validates the human boundary + admission validates the candidate). promote_reconfirmed gates promote-class.
+// T-128 W-13: delegated promotion decision — a DISTINCT endpoint from the default pure-human POST
+// /promotion-decisions (which is unchanged). NOTE: this is NOT access-gated today (the backend has no auth/RBAC
+// infrastructure); "operator-only" is by convention, not enforcement — hard env/RBAC gating is a tracked follow-up.
+// The authority boundary IS enforced regardless: human_actor (from the request) must be human, admission validates
+// the candidate, and promote_reconfirmed gates promote-class. human_actor + codex_response are passthrough objects.
 const delegatedPromotionDecisionBody = bodySchema(
   ['promotion_gate_check_id', 'workflow_run_id', 'node_attempt_id', 'human_actor', 'codex_response'],
   {

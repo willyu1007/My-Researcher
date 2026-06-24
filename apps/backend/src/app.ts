@@ -572,7 +572,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     repository: topicSelectionV1cHumanPromotionDecisionRepository,
     promotionGateService: topicSelectionV1cPromotionGateService,
   });
-  // T-128 W-13: v1c-N4 delegated promotion-decision production caller (operator-only path; human still authorizes).
+  // T-128 W-13: v1c-N4 delegated promotion-decision production caller (distinct delegated endpoint; human still
+  // authorizes; not RBAC-gated today — a tracked follow-up).
   const topicSelectionV1cN4DelegatedPromotionDecisionRuntime =
     new TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService(topicSelectionControlPlaneService);
   const topicSelectionV1cN4DelegatedPromotionDecisionService = new TopicSelectionV1cN4DelegatedPromotionDecisionService({

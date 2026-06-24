@@ -196,9 +196,10 @@ export class TopicSelectionV1cController {
     }
   };
 
-  // T-128 W-13: OPERATOR-ONLY delegated promotion decision (an agent drafts the decision content; a human still
-  // authorizes via human_actor from the request; promote-class requires promote_reconfirmed:true). Distinct from the
-  // default pure-human POST /promotion-decisions, which is unchanged.
+  // T-128 W-13: delegated promotion decision (an agent drafts the content; a human still authorizes via human_actor
+  // from the request; promote-class requires promote_reconfirmed:true). A DISTINCT endpoint from the default pure-human
+  // POST /promotion-decisions (unchanged). Not access-gated today (no RBAC infra) — gating is a tracked follow-up; the
+  // authority boundary (human actor + admission) holds regardless.
   recordDelegatedPromotionDecision = async (
     request: BodyRequest<DelegatedPromotionDecisionBody>,
     reply: FastifyReply,

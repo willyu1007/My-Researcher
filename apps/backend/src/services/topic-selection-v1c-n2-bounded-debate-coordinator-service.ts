@@ -64,6 +64,13 @@ export interface TopicSelectionV1cN2BoundedDebateCoordinatorDeps {
 const FINAL_SLOT =
   TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER[TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER.length - 1];
 
+// Make the coupling explicit (review nit): the coordinator selects the final turn by role-order position, while
+// admission + the gate key off the literal synthesizer_final slot. They agree only because ROLE_ORDER ends with it;
+// a reorder without updating this would otherwise diverge (it fails closed at the gate, but pin it loudly here).
+if (FINAL_SLOT !== 'n2_bounded_micro_debate.synthesizer_final') {
+  throw new Error(`N2 bounded-debate ROLE_ORDER must end with synthesizer_final; got ${FINAL_SLOT}.`);
+}
+
 export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
   constructor(private readonly deps: TopicSelectionV1cN2BoundedDebateCoordinatorDeps) {}
 
