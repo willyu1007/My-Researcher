@@ -128,6 +128,18 @@ export interface TopicSelectionHumanPromotionDecisionRecord {
   created_at: string;
 }
 
+/**
+ * T-128 W-13: marks a promotion decision whose CONTENT was drafted by a delegated agent (codex_assisted) rather
+ * than authored by the human. The human still AUTHORIZED it — admission enforces `human_actor.actor_type==='human'`
+ * — so this is a provenance/audit marker, never an authority bypass; its presence is what makes a delegated-drafted
+ * decision distinguishable from a fully-human one (non-impersonation).
+ */
+export interface TopicSelectionDelegatedDecisionProvenance {
+  source: 'codex_delegated';
+  /** The N4 delegated-promotion admission identity hash — ties the decision content to the runtime-verified candidate. */
+  admission_identity_hash: string;
+}
+
 export interface TopicSelectionPromotionDecisionRecord {
   promotion_decision_id: string;
   promotion_decision_status: TopicSelectionPromotionDecisionStatus;
@@ -151,6 +163,8 @@ export interface TopicSelectionPromotionDecisionRecord {
   source_refs: TopicSelectionFunctionalRef[];
   snapshot_hashes: TopicSelectionPromotionGateHandoff['snapshot_hashes'];
   artifact_refs: TopicSelectionFunctionalRef[];
+  /** Present iff the decision content was drafted by a delegated agent (T-128 W-13); absent on a fully-human decision. */
+  delegated_decision_provenance?: TopicSelectionDelegatedDecisionProvenance | null;
   created_at: string;
 }
 
@@ -557,6 +571,16 @@ export const topicSelectionHumanPromotionDecisionRecordSchema = {
   ],
 } as const;
 
+export const topicSelectionDelegatedDecisionProvenanceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['source', 'admission_identity_hash'],
+  properties: {
+    source: { enum: ['codex_delegated'] },
+    admission_identity_hash: stringId,
+  },
+} as const;
+
 export const topicSelectionPromotionDecisionRecordSchema = {
   type: 'object',
   additionalProperties: false,
@@ -604,6 +628,7 @@ export const topicSelectionPromotionDecisionRecordSchema = {
     source_refs: functionalRefArray,
     snapshot_hashes: snapshotHashesSchema,
     artifact_refs: functionalRefArray,
+    delegated_decision_provenance: { anyOf: [topicSelectionDelegatedDecisionProvenanceSchema, { type: 'null' }] },
     created_at: stringId,
   },
   allOf: [
