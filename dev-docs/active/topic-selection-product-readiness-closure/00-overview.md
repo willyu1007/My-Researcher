@@ -31,7 +31,7 @@ T-127 把选题管理**后端骨架**彻底夯实并 sign-off（v1a/v1b/v1c 的 
 - live-surface 分类（T-089 切片）：产品跑真实穿越节点的 execution-type + WorkflowScenario 绑定，对齐**已迁移的 SSOT** `docs/context/process/topic-selection-workflow-matrix.md`（勿 re-fork） — M。
 - 产品跑使能（**新，无主**）：注册/激活 product-eligible `model_option_id`（否则 harness 抛 `MISSING_PROVIDER_MODEL_OPTION`）+ 定义 product WorkflowScenario + 扩展已 done 的 real-e2e canary/scale 包 — M。
 - N6 升级可达性硬化（**chip，无主**）：`regeneration_after_n6_gate_failure` 硬需的 `n6_gate_failure_retry_context` projection 未记录/穿线（现以 clean `debate_blocked` halt 兜底）+ crash-mid-debate / blocked-then-retry 幂等 — M。
-- v1c-N2 bounded debate **无任何生产 caller**（仅 canary 自证）：emission↔admission 对齐（`ROLE_OUTPUT_SCHEMA` 拆 per-slot const/enum + prompt 指令）+ 接 caller + 修不一致 fixtures — M。
+- v1c-N2 bounded debate **+ v1c-N4 delegated-promotion 二者皆无生产 caller**（审计 `wf_034f15eb` 确认，仅 canary inline 自证、绕过 class）：v1c-N2 emission↔admission 对齐 + 接 caller + gate 入口 + 修 fixtures；v1c-N4 穿 delegated candidate 或文档化 reserved — 各需先定「接真 caller vs reserved」 — M（见 W-13）。
 - W-13 stakeholder sign-off **工件 schema**（`requires_stakeholder_sign_off:true` 今天只是声明 flag、无 artifact/表）——纯代码 S，**语料到位即可翻门**。
 - provider_llm debate 管路预接（决策 3）：放宽类型并集 + 穿 `model_option_id`，dormant — M。
 - D5 工作台：HumanOverride **写面**（operator card + 后端 HTTP 路由 + audit label）+ Trace-snapshot **抽屉**（只读 trace 工件查看器）— M，**软门控**于 HumanOverride 权限边界产品 spec 先落。
