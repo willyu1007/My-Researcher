@@ -51,6 +51,15 @@ import { TopicSelectionV1cDownstreamFeedbackRecheckService } from '../services/t
 import { TopicSelectionV1cHumanPromotionDecisionService } from '../services/topic-selection-v1c-human-promotion-decision-service.js';
 import { TopicSelectionV1cPaperProjectBridgeService } from '../services/topic-selection-v1c-paper-project-bridge-service.js';
 import { TopicSelectionV1cPromotionGateService } from '../services/topic-selection-v1c-promotion-gate-service.js';
+import { TopicSelectionControlPlaneService } from '../services/topic-selection-control-plane-service.js';
+import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import { TopicSelectionV1cN2BoundedDebateRuntimeService } from '../services/topic-selection-v1c-n2-bounded-debate-runtime-service.js';
+import { TopicSelectionV1cN2BoundedDebateAdmissionService } from '../services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
+import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from '../services/topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
+import {
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
+} from '../services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
 import { TopicSelectionV1cPromotionInputService } from '../services/topic-selection-v1c-promotion-input-service.js';
 import { registerTopicSelectionV1cRoutes } from './topic-selection-v1c-routes.js';
 
@@ -797,6 +806,15 @@ async function makeV1cRouteHarness(
     new InMemoryTopicSelectionOfflineEvaluationReplayRepository(),
     { now: () => NOW },
   );
+  const n2BoundedDebateRuntime = new TopicSelectionV1cN2BoundedDebateRuntimeService(
+    new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository(), { now: () => NOW }),
+  );
+  const n2BoundedDebateCoordinator = new TopicSelectionV1cN2BoundedDebateCoordinatorService({
+    runtime: n2BoundedDebateRuntime,
+    admission: new TopicSelectionV1cN2BoundedDebateAdmissionService(n2BoundedDebateRuntime),
+    gateService: promotionGateService,
+    promotionInputService,
+  });
   const controller = new TopicSelectionV1cController(
     promotionInputService,
     promotionGateService,
@@ -804,10 +822,77 @@ async function makeV1cRouteHarness(
     paperProjectBridgeService,
     downstreamFeedbackRecheckService,
     offlineReplayService,
+    n2BoundedDebateCoordinator,
   );
   await registerTopicSelectionV1cRoutes(app, controller);
   return { app, offlineReplayService, paperProjectGateway };
 }
+
+test('POST /promotion-decision-support/bounded-debate reaches the runtime+admission over HTTP (admit is NOT bypassed; the canary skipped it)', async () => {
+  const repository = makeSeededTopicPackageRepository(uniqueId('bounded-debate'));
+  const app = await makeV1cRouteApp(repository);
+  try {
+    const { snapshot } = await createReadyGate(app, repository.v1cInputBundle.v1b_to_v1c_input_bundle_id);
+
+    // 4 structurally-minimal operator (codex_assisted) role outputs with the CORRECT schema_versions: the runtime
+    // returns them verbatim, then admission rejects them (their refs/semantic layer do not match the real handoff).
+    // The point is the route reaches admit at all — the dead slot previously had only the canary's bypass.
+    const res = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1c/promotion-decision-support/bounded-debate',
+      payload: {
+        promotion_input_snapshot_id: snapshot.promotion_input_snapshot_id,
+        created_by: 'system',
+        workflow_run_id: 'workflow_run_bounded_debate_http_001',
+        node_attempt_id: 'node_attempt_bounded_debate_http_001',
+        debate_role_outputs: {
+          'n2_bounded_micro_debate.promotion_supporter_draft': {
+            schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+            role_slot: 'n2_bounded_micro_debate.promotion_supporter_draft',
+            support_summary: 'minimal',
+            support_points: [],
+            risk_acknowledgements: [],
+            recheck_obligations: [],
+          },
+          'n2_bounded_micro_debate.reviewer_critic_review': {
+            schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+            role_slot: 'n2_bounded_micro_debate.reviewer_critic_review',
+            critic_findings: [],
+            required_repairs: [],
+          },
+          'n2_bounded_micro_debate.promotion_supporter_repair': {
+            schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+            role_slot: 'n2_bounded_micro_debate.promotion_supporter_repair',
+            repaired_summary: 'minimal',
+            accepted_findings: [],
+            rebutted_findings: [],
+            repair_actions: [],
+          },
+          'n2_bounded_micro_debate.synthesizer_final': {
+            schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
+            role_slot: 'n2_bounded_micro_debate.synthesizer_final',
+            final_support_summary: 'minimal',
+            dossier_markdown: 'minimal',
+            reviewer_questions: [],
+            risk_notes: [],
+            recheck_notes: [],
+            n3_semantic_layer: {},
+          },
+        },
+      },
+    });
+
+    // The route is registered, the body passed the role outputs through unstripped, and the coordinator reached
+    // the runtime + admission, which rejected the under-specified content. A 422 (admit/runtime blocker) — NOT a
+    // 404/500 — proves the wiring is live and admit is on the path. (Happy-path 201 is covered by the coordinator
+    // unit test with an admission-passing fixture.)
+    assert.equal(res.statusCode, 422);
+    const body = res.json() as { error: { code: string } };
+    assert.ok(['GATE_CONSTRAINT_FAILED', 'INVALID_PAYLOAD'].includes(body.error.code), `unexpected error code: ${body.error.code}`);
+  } finally {
+    await app.close();
+  }
+});
 
 async function createReadyGate(app: FastifyInstance, v1cInputBundleId: string) {
   const snapshotRes = await app.inject({

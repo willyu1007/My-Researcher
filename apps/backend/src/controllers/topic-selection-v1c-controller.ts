@@ -3,6 +3,7 @@ import { AppError } from '../errors/app-error.js';
 import { TopicSelectionOfflineEvaluationReplayService } from '../services/topic-selection-offline-evaluation-replay-service.js';
 import { TopicSelectionV1cDownstreamFeedbackRecheckService } from '../services/topic-selection-v1c-downstream-feedback-recheck-service.js';
 import { TopicSelectionV1cHumanPromotionDecisionService } from '../services/topic-selection-v1c-human-promotion-decision-service.js';
+import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from '../services/topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
 import { TopicSelectionV1cPaperProjectBridgeService } from '../services/topic-selection-v1c-paper-project-bridge-service.js';
 import { TopicSelectionV1cPromotionGateService } from '../services/topic-selection-v1c-promotion-gate-service.js';
 import { TopicSelectionV1cPromotionInputService } from '../services/topic-selection-v1c-promotion-input-service.js';
@@ -13,6 +14,8 @@ type ParamsRequest<T> = FastifyRequest<{ Params: T }>;
 type PromotionInputSnapshotBody = Parameters<TopicSelectionV1cPromotionInputService['createPromotionInputSnapshot']>[0];
 type PromotionGateSupportBody = Parameters<TopicSelectionV1cPromotionGateService['createPromotionGateSupport']>[0];
 type PromotionDecisionSupportBody = Parameters<TopicSelectionV1cPromotionGateService['createPromotionDecisionSupport']>[0];
+type PromotionDecisionSupportFromBoundedDebateBody =
+  Parameters<TopicSelectionV1cN2BoundedDebateCoordinatorService['createPromotionDecisionSupportFromBoundedDebate']>[0];
 type PromotionGateCheckBody =
   Parameters<TopicSelectionV1cPromotionGateService['createPromotionGateCheckFromSupport']>[0]
   & Partial<PromotionGateSupportBody>;
@@ -61,6 +64,7 @@ export class TopicSelectionV1cController {
     private readonly paperProjectBridge: TopicSelectionV1cPaperProjectBridgeService,
     private readonly downstreamFeedbackRecheck: TopicSelectionV1cDownstreamFeedbackRecheckService,
     private readonly offlineReplay: TopicSelectionOfflineEvaluationReplayService,
+    private readonly n2BoundedDebateCoordinator: TopicSelectionV1cN2BoundedDebateCoordinatorService,
   ) {}
 
   createPromotionInputSnapshot = async (
@@ -93,6 +97,20 @@ export class TopicSelectionV1cController {
   ) => {
     try {
       const result = await this.promotionGate.createPromotionDecisionSupport(request.body);
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  // T-128 W-13: the v1c-N2 bounded-debate production caller (operator-supplied codex_assisted role outputs ->
+  // runtime -> admission -> verified-runtime-draft gate entry). Replaces the canary's admission-bypassing path.
+  createPromotionDecisionSupportFromBoundedDebate = async (
+    request: BodyRequest<PromotionDecisionSupportFromBoundedDebateBody>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.n2BoundedDebateCoordinator.createPromotionDecisionSupportFromBoundedDebate(request.body);
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);

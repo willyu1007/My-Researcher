@@ -90,6 +90,22 @@ const promotionGateSupportBody = bodySchema(['promotion_input_snapshot_id'], {
   model: recordPayload,
 });
 
+// T-128 W-13: v1c-N2 bounded-debate support. debate_role_outputs is a passthrough object (4 operator-supplied
+// codex_assisted role outputs); the runtime + admission do the deep per-role validation, so no nested schema here.
+const promotionDecisionSupportBoundedDebateBody = bodySchema(
+  ['promotion_input_snapshot_id', 'workflow_run_id', 'node_attempt_id', 'debate_role_outputs'],
+  {
+    promotion_input_snapshot_id: stringId,
+    workspace_id: nullableStringId,
+    created_by: actorType,
+    policy_version_id: nullableStringId,
+    workflow_run_id: stringId,
+    node_attempt_id: stringId,
+    operator_label: { type: 'string' },
+    debate_role_outputs: recordPayload,
+  },
+);
+
 const promotionGateCheckBody = {
   body: {
     type: 'object',
@@ -274,6 +290,11 @@ export async function registerTopicSelectionV1cRoutes(
     '/topic-selection/v1c/promotion-decision-support',
     { schema: promotionGateSupportBody },
     controller.createPromotionDecisionSupport,
+  );
+  fastify.post(
+    '/topic-selection/v1c/promotion-decision-support/bounded-debate',
+    { schema: promotionDecisionSupportBoundedDebateBody },
+    controller.createPromotionDecisionSupportFromBoundedDebate,
   );
   fastify.post(
     '/topic-selection/v1c/promotion-gate-checks',

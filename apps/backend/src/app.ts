@@ -208,6 +208,9 @@ import {
 import { TopicSelectionV1cHumanPromotionDecisionService } from './services/topic-selection-v1c-human-promotion-decision-service.js';
 import { TopicSelectionV1cPaperProjectBridgeService } from './services/topic-selection-v1c-paper-project-bridge-service.js';
 import { TopicSelectionV1cPromotionGateService } from './services/topic-selection-v1c-promotion-gate-service.js';
+import { TopicSelectionV1cN2BoundedDebateRuntimeService } from './services/topic-selection-v1c-n2-bounded-debate-runtime-service.js';
+import { TopicSelectionV1cN2BoundedDebateAdmissionService } from './services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
+import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from './services/topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
 import { TopicSelectionV1cPromotionInputService } from './services/topic-selection-v1c-promotion-input-service.js';
 import { FileGovernanceDeliveryAuditStore } from './services/event-delivery/governance-delivery-audit-store.js';
 import { FileGovernanceDeliveryOutboxStore } from './services/event-delivery/governance-delivery-outbox-store.js';
@@ -552,6 +555,16 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     promotionInputService: topicSelectionV1cPromotionInputService,
     llmGateway: topicSelectionV1cPromotionGateLlmGateway,
   });
+  // T-128 W-13: v1c-N2 bounded-debate production caller. Default registries (deterministic) so the runtime/admission
+  // profile hashes match the gate's verified-runtime-draft validation — proven by the coordinator unit test.
+  const topicSelectionV1cN2BoundedDebateRuntime =
+    new TopicSelectionV1cN2BoundedDebateRuntimeService(topicSelectionControlPlaneService);
+  const topicSelectionV1cN2BoundedDebateCoordinator = new TopicSelectionV1cN2BoundedDebateCoordinatorService({
+    runtime: topicSelectionV1cN2BoundedDebateRuntime,
+    admission: new TopicSelectionV1cN2BoundedDebateAdmissionService(topicSelectionV1cN2BoundedDebateRuntime),
+    gateService: topicSelectionV1cPromotionGateService,
+    promotionInputService: topicSelectionV1cPromotionInputService,
+  });
   const topicSelectionV1cHumanPromotionDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({
     repository: topicSelectionV1cHumanPromotionDecisionRepository,
     promotionGateService: topicSelectionV1cPromotionGateService,
@@ -844,6 +857,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     topicSelectionV1cPaperProjectBridgeService,
     topicSelectionV1cDownstreamFeedbackRecheckService,
     topicSelectionOfflineEvaluationReplayService,
+    topicSelectionV1cN2BoundedDebateCoordinator,
   );
   const literatureAcquisitionSettingsService = new LiteratureAcquisitionSettingsService(applicationSettingsRepository);
   const literatureAcquisitionSettingsController = new LiteratureAcquisitionSettingsController(
