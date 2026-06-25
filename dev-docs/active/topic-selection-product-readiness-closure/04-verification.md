@@ -40,4 +40,10 @@
 - **对抗式 review（agent）**：SHIP-WITH-FOLLOWUP，**0 critical / 2 should-fix**——硬编「cap 5」→ arbiter-context cap；issue-frame signal 字段误归角色 → each-summary。两项已修 + 锚 re-baseline，复跑全绿。
 - **slice A 锚值**：`arbiter_issue_frame=1bdbef20…`、`arbiter_final=8ee59593…`（re-baseline ONLY for 有意正文改动）。
 
+### 2026-06-25 · W-04 slice B — generate-need-candidate 产品化（Phase 1）
+- **改动**：`topic-selection-generate-need-candidate-orchestrator-adapter-service.ts` `buildMessages` SYSTEM 块加角色 persona + 2 内联 per-field 契约行（纯加法，USER 不变）；同文件单测加 sys/user 双 rendered-text 锚。
+- **回归门**：adapter 单测 **14/14**；双 tsc **0**；full backend **1578/0/35**（+1 锚、0 回归）。既有 body matcher（`empty pool…` / `candidate_pool_digest_role` / role_ref_constraints）全绿。
+- **对抗式 review（agent）**：**SHIP**，0 critical/0 should-fix，2 nit（1-based 经 validator 强制、字段全吻合）；nit「optional 字段措辞」已修 + re-baseline。
+- **slice B 锚值**：`system=16dbcf5d…`、`user=64bf5c63…`。
+
 ### （待开工）

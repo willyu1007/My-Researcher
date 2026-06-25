@@ -8,7 +8,7 @@
 | W-01 建包治理收口 | 0 | closeable | **done（2026-06-25）** | git mv 重命名 ✓、.ai-task.yaml ✓、registry 注册 T-128（`query` 可见，`status:planned`）✓、`lint --check` 绿（仅 T-123/T-115 既有 acceptance-未勾 warning）✓；T-127 `00-overview` 已是 `State:done` + 含「残留移交登记 → T-128」（stale 行已不存在）✓；T-088 `D-T128-00` JD 开篇已落（line 1929）✓ |
 | W-02 撰写状态台账 | 0 | closeable | **done（2026-06-25）** | 27 非-canary id 全勘定（grounding `wf_0478aceb`，8 表面簇并行 + critic）。分布 **0 产品级 / 7 骨架 / 20 部分**；**全 27 个正文皆无 per-prompt golden byte-identity 锚**（Phase 1 每项定稿须新增）；6 项标定门控→Phase 5。台账见下「W-02 产出」。3 处承重断言已人工抽验吻合。 |
 | W-03 孤儿开口认领 | 0 | closeable | **done（2026-06-25）** | 3 孤儿开口正式认领：N6 升级可达性→`D-T128-01` 占位（W-12）；P-01 压缩恢复 topic-selection 半边→`D-T128-02` 占位（W-11，跨 T-124）；v1c-N2 接线 **= W-13 已 done、D6=否（无 harness）→ 核销、不开空 JD**。JD 链 D-T128-00 开篇→01/02 占位（T-088 line 1929-1943）。见下「W-03 留痕」。 |
-| W-04 v1a 表面 prompt | 1 | closeable | **进行中（2026-06-25）** | 8 prompt（4 单 agent + 4 need-discovery 角色）。grounding `wf_79f66a5e`（blast-radius 测绘 + golden-anchor 策略 + keystone-first 序）。**slice A done**：arbiter-final + arbiter-issue-frame 产品化 + `arbiterMessages` 按 stage 拆分 + 2 rendered-text 锚（commit 见 W-04 留痕）。余 slice B（generate-need-candidate）/C（explorer+deep_critic 拆 roleMessages）/D（need-adjudication）/E（human-confirmation）/F（evidence-map）待续。 |
+| W-04 v1a 表面 prompt | 1 | closeable | **进行中（2026-06-25）** | 8 prompt（4 单 agent + 4 need-discovery 角色）。grounding `wf_79f66a5e`（blast-radius 测绘 + golden-anchor 策略 + keystone-first 序）。**slice A,B done**：A=arbiter-final+issue-frame（拆 arbiterMessages，commit `e5d4ce72`）；B=generate-need-candidate（角色 persona + 内联 per-field 契约，USER 不变，sys+user 双锚）。余 slice C（explorer+deep_critic 拆 roleMessages）/D（need-adjudication）/E（human-confirmation）/F（evidence-map）待续。 |
 | W-05 v1b 非-debate 槽位 prompt | 1 | closeable | planned | 承 W-P2；含 N6 loopback-triage 阈值 advisory 注入正文 |
 | W-06 v1c 表面 prompt | 1 | closeable | planned | 承 W-P3 |
 | W-07 资源采样 prompt | 1 | closeable | planned | 承 W-P4 |
@@ -130,6 +130,12 @@
 - **2 rendered-text 锚**（专用漂移测试，`NEED_DISCOVERY_ARBITER_PROMPT_BODY_GOLDEN`，pin calls[3]=issue_frame / calls[4]=final 的 `sha256Text(stableStringify(messages))`）。
 - **对抗式 review（agent，SHIP-WITH-FOLLOWUP，0 critical/2 should-fix，均已修+re-baseline）**：① 硬编「(cap 5)」是平行真值源（`max_persisted_candidates` 已经 `arbiter_context.payload` 送达模型）→ 改「set to the cap given in arbiter context」；② issue-frame 把 candidate_need_signals/risk_signals/unresolved_questions 误归特定角色（`RoleLevelSummary` 两角色皆有三字段）→ 改「each role-level summary」。其余 verified clean（拆分/schema-enum 准确/不变量未软化/锚 stage-correct/roleMessages 未动）。
 - **验证**：debate 单测 **16/16**、双 tsc **0**、full backend **1577/0/35**（+1 锚测试，0 回归）；replay 守卫不涉（v1a 无 harness golden 覆盖这些正文，新锚是其唯一漂移守卫）。
+
+**slice B — generate-need-candidate（单 agent，commit 见下）**：
+- 现状已是 partial 中最强（边界齐全），升级**纯加法**：SYSTEM 块 prepend 角色 persona（drafting agent、artifacts-only）+ 加 2 行内联 per-field 契约（drafts 级 rank/candidate_need/unmet_need_statement/mechanism_type/prior_art_status/gap_codes + batch 级 terminal_result/ranking_rationale/rejected_framings/unresolved_points.routed_to）。**USER 载荷字节不变**（output_constraints 含 `candidate_pool_digest_role` + `role_ref_constraints` 未动）。必保留短语 `empty pool means there are no known duplicates` verbatim。
+- **2 rendered-text 锚**（sys + user 分离，`GENERATE_NEED_CANDIDATE_PROMPT_BODY_GOLDEN`，pin calls[0].messages[0]/[1]）。user 锚虽 USER 未变也 lock 其将来不漂移。
+- **对抗式 review（agent，SHIP，0 critical/0 should-fix，2 nit）**：schema 字段逐一核验吻合（rank 的 1-based 经 validator 强制、routed_to enum 字节一致）；must-keep 保留、6 条边界 verbatim、锚有效。nit「mechanism_summary/non_goal_notes 是 optional 却措辞像 mandatory」**已修**（改「where applicable」）+ re-baseline sys 锚。
+- **验证**：adapter 单测 **14/14**、双 tsc **0**、full backend **1578/0/35**（+1 锚测试，0 回归）。
 
 ### W-13 — v1c-N2 + v1c-N4 dead-slot 真 caller 接线（2026-06-25，全接）
 设计 study `wf_c2753144` 定 **D6=否**（v1c 无 run-coordinator/harness;N2/N4 runtime/admission 不调 `invokeNode`、只引 W-12 析出的纯 `canonicalHash` leaf;改动纯加法 coordinator/DI/route + 一个 N4 contract 可选字段）。**codex_assisted 真相**:`response_source='operator_supplied'` 时 orchestrator 把 operator 供的角色输出 **verbatim** 返回（不调 provider）、`run_mode='acceptance'`;canary 的 bug 是**绕过 `admission.admit()`**（schema_version pin + 所有深检查只在 admit 内），真 caller 必须穿 admit。

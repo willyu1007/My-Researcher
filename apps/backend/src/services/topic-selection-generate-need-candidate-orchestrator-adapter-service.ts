@@ -931,12 +931,15 @@ export class TopicSelectionGenerateNeedCandidateOrchestratorAdapterService {
       {
         role: 'system',
         content: [
+          'You are the v1a need-candidate drafting agent: turn EvidenceMap-grounded evidence signals into a ranked batch of validation-ready NeedCandidate drafts (artifacts only, never authority records).',
           'Generate a RankedCandidateDraftBatch for the v1a topic-selection generate-need-candidate node.',
           'Use only the supplied refs and context packets.',
           'The candidate_pool_digest and sibling_candidate_digest describe existing sibling candidates for duplicate awareness only; an empty pool means there are no known duplicates, not that generation should stop.',
           'Generate new candidate drafts from the evidence signals, evidence_ref_table, resource sample digest, and challenge prompts.',
           'For every candidate draft, include non-empty scope_notes that state the exact population, technique, evidence boundary, and validation boundary; candidates without scope_notes are not validation-ready.',
           'Set speculative=false unless the supplied evidence directly forces uncertainty; speculative candidates are intentionally blocked before validation.',
+          'Rank drafts 1-based by descending need strength; for each draft give a candidate_need with a distinct unmet_need_statement, a mechanism_type, prior_art_status, and gap_codes, plus mechanism_summary and non_goal_notes where applicable.',
+          'Set draft_batch.terminal_result to reflect whether any admissible draft exists and give a ranking_rationale for the order; record discarded angles in rejected_framings and anything unsettled in unresolved_points (routed_to = supplemental_round, human_review, or blocked).',
           'Role bundle refs must be role-specific evidence_unit refs only: support_unit_refs use support units, challenge_unit_refs use challenge units, baseline_unit_refs use baseline units, and context_unit_refs use context units.',
           'Before returning, check every role-bundle ref against role_ref_constraints; if a role has no allowed evidence_unit refs, return an empty array for that role rather than borrowing another role.',
           'Do not use baseline, challenge, or context units in support_unit_refs to mean they support the written argument; EvidenceMap role is authoritative.',
