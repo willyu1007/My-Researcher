@@ -23,4 +23,10 @@
 - **v1c-N4**:delegated service 单测 5/0（非人 actor fail-fast / park happy 带 provenance 标记 + human_actor 来自请求 / promote 无 reconfirm→409 / promote 有 reconfirm→记 / admit blocker→GATE_CONSTRAINT_FAILED）；2 HTTP 集成测（非人边界经 HTTP 触发 + runtime+admission 经 HTTP 触达）；human-writer + N4 runtime/admission 既有测 18/0（provenance 穿线零回归）；shared schema 套件 267/0（S0 contract）。
 - **回归门**:双 tsc **0**、**full backend 1572/0/35**（1564 + 5 S4 + 2 S5 + 1 S3）、replay 不受影响（纯加法、不触 harness，D6=否）。commits `dc9ff27f`/`40cf3e00`（N2）、`ce889186`/`4463dfca`/`3cba7a5c`（N4）。
 
+### 2026-06-25 · W-02 撰写状态台账（Phase 0）
+- **产出**：03-implementation-notes「W-02 产出」台账（27 非-canary prompt-template-id × 现状/正文位置/version/hash 锚/标定门控 + 全局结论 + 现状校正 + Phase 1 排序）。grounding `wf_0478aceb`（8 表面簇并行 + 完整性 critic，`allCovered:true`、0 missing/dup/location-错配/门控-分歧）。
+- **回归门**：纯文档项,**零代码改动** → 套件/双 tsc/replay byte-identity 守卫均不受影响（无需重跑）。治理 `lint --check --project main` **绿**（仅 T-123/T-115 既有 acceptance-未勾 warning,非本项）。
+- **主验证抽验（不盲信工作流）**：3 处承重断言人工核对吻合——N6-divergent 自带 `SKELETON … product-grade authoring is T-128` 注释（divergent-debate-runtime-service:294-295）、`GUARD_GOLDEN_N1` 为 N1-only harness 哈希（workflow-harness-service.unit.test:6990-6997）、v1c promotion-support 系统正文 3 句 + raw stableStringify 用户体（promotion-gate-service:618-633）。
+- **关键发现（驱动 Phase 1 验证策略）**：**全 27 个 prompt 正文皆无 per-prompt golden byte-identity 锚** → Phase 1 每项定稿须同事务新增 golden drift 锚,否则 replay 守卫对正文漂移**无覆盖**。
+
 ### （待开工）

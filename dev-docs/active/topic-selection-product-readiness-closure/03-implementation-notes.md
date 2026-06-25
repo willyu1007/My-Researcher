@@ -6,7 +6,7 @@
 | 工作项 | Phase | 类别 | 状态 | 备注 |
 |---|---|---|---|---|
 | W-01 建包治理收口 | 0 | closeable | 进行中 | git mv 重命名 + .ai-task.yaml + registry + sync/lint + 回填 T-127 stale 状态行 + T-088 D-T128-00 JD 开篇 |
-| W-02 撰写状态台账 | 0 | closeable | planned | 遍历 registry prompt-template-ids，标现状/version/hash/门控 |
+| W-02 撰写状态台账 | 0 | closeable | **done（2026-06-25）** | 27 非-canary id 全勘定（grounding `wf_0478aceb`，8 表面簇并行 + critic）。分布 **0 产品级 / 7 骨架 / 20 部分**；**全 27 个正文皆无 per-prompt golden byte-identity 锚**（Phase 1 每项定稿须新增）；6 项标定门控→Phase 5。台账见下「W-02 产出」。3 处承重断言已人工抽验吻合。 |
 | W-03 孤儿开口认领 | 0 | closeable | planned | N6 可达性 / v1c-N2 / P-01 confirm 半边 纳 ledger + JD 占位 |
 | W-04 v1a 表面 prompt | 1 | closeable | planned | 承 T-128 W-P1 |
 | W-05 v1b 非-debate 槽位 prompt | 1 | closeable | planned | 承 W-P2；含 N6 loopback-triage 阈值 advisory 注入正文 |
@@ -32,10 +32,66 @@
 - **D-128-4 宽 DoD**：Phase 0–4 工程可闭环项全闭环；Phase 5 外部尾巴唯一延期。
 - **承 T-127**：D5（HumanOverride/Trace 延期）、D8（标定 record-and-defer，不翻门）、D6（harness-touch JD 协议）继承生效。
 
-## 台账（W-02 产出，待填）
+## 台账（W-02 产出，2026-06-25）
 > prompt-template-id × {现状(骨架/部分/产品级), 正文位置, version 来源, hash 锚定, 标定门控?}
+>
+> 方法：grounding `wf_0478aceb`（8 表面簇并行勘定 27 非-canary id → 完整性 critic：`allCovered:true`、0 missing/dup、0 location 错配、0 标定门控分歧）。3 处承重断言主验证人工抽验吻合：N6-divergent 自带 `SKELETON … product-grade authoring is T-128` 注释（divergent-debate-runtime-service:294）、`GUARD_GOLDEN_N1` 确为 N1-only harness 哈希（workflow-harness-service.unit.test:6990）、v1c promotion-support 系统正文仅 3 句（promotion-gate-service:618-633）。
 
-（W-02 开工后填）
+### 全局结论
+- **成熟度分布：0 产品级 / 7 骨架 / 20 部分**（27 项，含 6 个标定门控）。无任何 prompt 达产品级——Phase 1 是真实工作量，非走过场。
+- **version 来源（统一形态）**：全部为**内联 const**（无集中模板库；templates inline by design）。字面值：v1a/v1b 表面 = `'v1'`；resource-sampling 与**全部 v1c** = `'1'`。唯一例外：`topic-selection-promotion-decision-support` 接受 caller override，缺省回落 `'1'`。registry 只强制 **id-membership + 非空 version**，精确 pinning 延期（[registry header](apps/backend/src/services/topic-selection-llm-invocation-registry.ts:13)）。
+- **hash 锚定（统一缺口，最重要发现）**：**全 27 个 prompt 正文皆无 committed golden byte-identity 锚**。现存 `GUARD_GOLDEN_N1` 仅钉 v1b-N1 harness 哈希、`OPTION_AUTHORITY_GOLDEN`（`b7f43aa3…`）钉 v1b-N1 authority，皆**非 prompt 正文**。运行期 `prompt_packet_hash`/`ln_hash` 只做**同跑自洽 / 自决定性 / admission 等式**校验（非锚定到 checked-in 字面）。n6-debate 三角色另有**仅-ID 漂移守卫**（`PROMPT_TEMPLATE_ID_BY_SLOT` single-sourced 到 scenario `role_stage_slots`），仍非正文锚。→ **Phase 1 每项定稿都须同事务新增 per-prompt golden drift 锚**（承雷区 prompt_packet_hash 漂移；任何正文定稿改 hash，否则 replay byte-identity 无守卫即漂移）。
+- **标定门控（Phase 5 defer，恰 6 项，与 00-overview/包规则一致）**：`topic-selection-v1b-n6-debate-explorer/critic/arbiter`、`topic-selection.v1b.n8.topic-value-assessment.runtime-draft`、`topic-selection.v1b.n8.bounded-micro-debate.runtime-role`、`topic-selection-v1c-promotion-support-bounded-micro-debate`。其余 21 项皆 Phase 1（不被语料门控）。
+
+### 台账表（27 行）
+> 现状缩写：骨架=skeleton｜部分=partial｜产品级=product-grade。hash 锚一律 NONE（见全局结论）。门控=Y 即 Phase 5 defer。归属 W-item 按 01-plan 表面定义（W-04 v1a / W-05 v1b 非-debate / W-06 v1c / W-07 资源采样；6 门控项→W-18 Phase 5）。
+
+| # | prompt-template-id | 节点 | 执行类型 | 现状 | 正文位置 (file:line) | version | 门控 | W-item |
+|---|---|---|---|---|---|---|---|---|
+| 1 | topic-selection-evidence-map-extraction | v1a N5 evidence-map | single-agent | partial | v1a-llm-runtime-binding-service:511-544 | v1 | N | W-04 |
+| 2 | topic-selection-generate-need-candidate | v1a N6 single-agent | single-agent | partial | generate-need-candidate-orchestrator-adapter-service:924-974 | v1 | N | W-04 |
+| 3 | topic-selection-need-adjudication | v1a N7 adjudication | single-agent | partial | v1a-llm-runtime-binding-service:573-654 | v1 | N | W-04 |
+| 4 | topic-selection-human-confirmation-semantic-review | v1a N8 semantic-review | single-agent | partial | v1a-llm-runtime-binding-service:729-763 | v1 | N | W-04 |
+| 5 | topic-selection-need-discovery-explorer | v1a need-discovery debate | debate-role | **skeleton** | need-discovery-debate-loop-service:302 / scenario-contracts:386-409 | v1 | N | W-04 |
+| 6 | topic-selection-need-discovery-deep-critic | v1a need-discovery debate | debate-role | **skeleton** | need-discovery-debate-loop-service:348 / scenario-contracts:410-434 | v1 | N | W-04 |
+| 7 | topic-selection-need-discovery-arbiter-issue-frame | v1a need-discovery debate | debate-role | partial⚠ | need-discovery-debate-loop-service:397 / scenario-contracts:435-459 | v1 | N | W-04 |
+| 8 | topic-selection-need-discovery-arbiter-final | v1a need-discovery debate（**external 权威 feed**） | debate-role | partial⚠ | need-discovery-debate-loop-service:451 / scenario-contracts:460-484 | v1 | N | W-04 |
+| 9 | topic-selection-resource-sampling-classification | resource-sampling | single-agent | partial | resource-sampling-service:629-664 | 1 | N | W-07 |
+| 10 | topic-selection.v1b.n2.constraint-profile.runtime-support | v1b N2 | runtime-support | partial（**共享体**） | v1b-early-semantic-support-runtime-service:474-499 | v1 | N | W-05 |
+| 11 | topic-selection.v1b.n3.intake-readiness.runtime-support | v1b N3 | runtime-support | partial（**共享体**） | v1b-early-semantic-support-runtime-service:474-499 | v1 | N | W-05 |
+| 12 | topic-selection.v1b.n4.research-slice-options.runtime-draft | v1b N4 | single-agent | partial | v1b-n4-research-slice-runtime-service:474-500 | v1 | N | W-05 |
+| 13 | topic-selection.v1b.n5.slice-selection.runtime-support | v1b N5 | runtime-support | partial（**共享体**） | v1b-early-semantic-support-runtime-service:474-499 | v1 | N | W-05 |
+| 14 | topic-selection.v1b.n6.question-candidate-draft.runtime-initial | v1b N6 | single-agent | partial | v1b-n6-draft-runtime-service:482-510 | v1 | N | W-05 |
+| 15 | topic-selection.v1b.n6.loopback-triage.runtime-support | v1b N6 | single-agent | partial | v1b-n6-loopback-triage-runtime-service:427-452 | v1 | N | W-05 |
+| 16 | topic-selection-v1b-n6-debate-explorer | v1b N6 divergent debate | debate-role | **skeleton** | v1b-n6-divergent-debate-runtime-service:290-322 | v1 | **Y** | W-18 |
+| 17 | topic-selection-v1b-n6-debate-critic | v1b N6 divergent debate | debate-role | **skeleton** | v1b-n6-divergent-debate-runtime-service:290-322 | v1 | **Y** | W-18 |
+| 18 | topic-selection-v1b-n6-debate-arbiter | v1b N6 divergent debate | debate-role | **skeleton** | v1b-n6-divergent-debate-runtime-service:290-322 | v1 | **Y** | W-18 |
+| 19 | topic-selection.v1b.n7.candidate-grouping.runtime-support | v1b N7 | runtime-support | partial（**共享体**） | v1b-n7-support-runtime-service:415-440 | v1 | N | W-05 |
+| 20 | topic-selection.v1b.n7.failed-trial-synthesis.runtime-support | v1b N7 | runtime-support | partial（**共享体**） | v1b-n7-support-runtime-service:415-440 | v1 | N | W-05 |
+| 21 | topic-selection.v1b.n7.n8-debate-admission-review.runtime-support | v1b N7（**荐 N8 debate-level**） | runtime-support | partial⚠（**共享体**） | v1b-n7-support-runtime-service:415-440 | v1 | N | W-05 |
+| 22 | topic-selection.v1b.n8.topic-value-assessment.runtime-draft | v1b N8 | single-agent | partial | v1b-n8-value-assessment-runtime-service:519-547 | v1 | **Y** | W-18 |
+| 23 | topic-selection.v1b.n8.bounded-micro-debate.runtime-role | v1b N8 | debate-role | partial | v1b-n8-bounded-debate-runtime-service:446-471 | v1 | **Y** | W-18 |
+| 24 | topic-selection-promotion-decision-support | v1c-N2 promotion support | single-agent | **skeleton** | v1c-promotion-gate-service:618-633 | 1（caller override） | N | W-06 |
+| 25 | topic-selection-v1c-promotion-support-bounded-micro-debate | v1c-N2 bounded micro-debate | debate-role | **skeleton** | v1c-n2-bounded-debate-runtime-service:531-551 | 1 | **Y** | W-18 |
+| 26 | topic-selection-v1c-delegated-promotion-decision | v1c-N4 delegated | single-agent | partial | v1c-n4-delegated-promotion-decision-runtime-service:623-644 | 1 | N | W-06 |
+| 27 | topic-selection-v1c-downstream-feedback-normalization | v1c-N6 feedback-norm | single-agent | partial | v1c-n6-feedback-normalization-runtime-service:492-512 | 1 | N | W-06 |
+
+### 现状校正（critic maturity 挑战，落 Phase 1 优先级）
+- **#8 need-discovery-arbiter-final**（标 partial，⚠）：实为 **external NeedCandidate 权威 feed**（`final_synthesis` → `RankedCandidateDraftBatch`，`allowed_execution_modes` 仅 `provider_llm`、禁 codex 替换），角色/输出框架仍只一句话，倚赖**借来的** ranked-batch-shaped guardrail 块。**最高 drift/正确性 blast radius** → Phase 1 按 **skeleton-优先级**处理 + golden 锚列为该簇最高优先。
+- **#7 need-discovery-arbiter-issue-frame**（标 partial，⚠）：partial 靠的是 final-synthesis-shaped 借用 guardrail，对 issue-framing 仅「部分适用」，issue-frame-相关内容近 skeleton；Phase 1 须**拆分共享 arbiterMessages 块**（issue-frame vs final-synthesis 两形）。
+- **#21 n7 n8-debate-admission-review**（标 partial，⚠）：以 enum `debate_level:[compact_assessment_debate, provider_diverse_deep_debate]` **推荐**下游 N8 debate 级别却**零 NL 选择 rubric**,且与另两个 N7 槽共用字节相同的通用体——实质近 skeleton,partial 全靠共享 boilerplate 撑。
+- **共享构造体须拆分（Phase 1 结构动作）**：N2/N3/N5 共用一个 `early-semantic-support` `messages()` 体（#10/11/13）；三个 N7 槽共用一个 `n7-support` `messages()` 体（#19/20/21）。Phase 1 须按节点拆出 slot-specific 正文,否则「定稿一个」会连带改另两个的 hash。
+
+### Phase 1 推荐排序（critic，已映射回 01-plan 的 W-item 表面定义）
+> 关键路径优先（v1a need-discovery 链先行,external 权威 feed 最高优先）；W-item 身份不变,仅排执行序。
+1. **W-04 v1a 优先**：先 need-discovery debate 簇——**arbiter-final（#8）= 单点最高优先**（external 权威 feed + golden 锚），explorer/deep-critic（#5/#6）真骨架紧随,issue-frame（#7）并拆共享 arbiter 块；再 v1a 单 agent 四件（#1-4）。
+2. **W-07 资源采样（#9）**：单件,与 W-04 可并行（不在关键 debate 链上）。
+3. **W-05 v1b 非-debate（#10-15,19-21,共 9 件）**：最大单桶,先拆两组共享构造体（early-semantic-support、n7-support）再逐槽定稿；**#21 admission-review rubric 风险最高**。
+4. **W-06 v1c（#24/26/27）**：`promotion-decision-support（#24）`是唯一剩余**非门控 skeleton**,不应等,提前到 W-06 前列或并入 W-04 批；delegated（#26）/feedback-norm（#27）boundaries 已强,仅缺 per-field 描述 + golden 锚。
+5. **Phase 5 defer（#16/17/18/22/23/25,共 6 件）**：随标定语料,W-18 同期定稿。
+
+### W-03 衔接（孤儿开口正式认领，下一步）
+- 台账已为 Phase 1（W-04..W-07）铺定 SSOT；下一步 W-03 把 N6 升级可达性、v1c-N2 生产接线（W-13 已 done，可核销）、P-01 压缩恢复 confirm 半边正式纳 ledger + 开 `D-T128-0N` JD 占位。
 
 ## 节点逐环审计确认（2026-06-24，`wf_034f15eb`）
 > 34 节点逐环只读审计（6 段并行 → 每 issue 对抗式验证 → 综合）：**10 确认 / 37 反驳**。结论：**全链节点级 functional + 生产可达**——v1a need-discovery 链、v1b N1–N11 链、v1c promotion 链 + paper-project bridge 皆有真生产 caller、在 codex/mocked +（非 debate）provider_llm 下端到端跑通；**权威骨架（确定性 gate / 人审面 / bridge）完整可达；无 blocker**。
