@@ -59,4 +59,8 @@
 - **slice D/E/F 锚值**：F=`1222d4e3…`、D=`4783f90b…`、E=`b01b05fe…`。
 - **W-04 收口**：8 prompt 全产品化 + 各得唯一漂移锚；keystone-first 5 commit（A/B/C/D-E-F）。
 
+### 2026-06-25 · W-05 study + plan（未起 code）
+- **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
+- **回归门**:无 code 改动 → 套件/tsc 不涉。基线维持 full backend **1579/0/35**。
+
 ### （待开工）
