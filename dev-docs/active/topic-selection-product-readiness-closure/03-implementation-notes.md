@@ -5,9 +5,9 @@
 ## 工作项矩阵
 | 工作项 | Phase | 类别 | 状态 | 备注 |
 |---|---|---|---|---|
-| W-01 建包治理收口 | 0 | closeable | 进行中 | git mv 重命名 + .ai-task.yaml + registry + sync/lint + 回填 T-127 stale 状态行 + T-088 D-T128-00 JD 开篇 |
+| W-01 建包治理收口 | 0 | closeable | **done（2026-06-25）** | git mv 重命名 ✓、.ai-task.yaml ✓、registry 注册 T-128（`query` 可见，`status:planned`）✓、`lint --check` 绿（仅 T-123/T-115 既有 acceptance-未勾 warning）✓；T-127 `00-overview` 已是 `State:done` + 含「残留移交登记 → T-128」（stale 行已不存在）✓；T-088 `D-T128-00` JD 开篇已落（line 1929）✓ |
 | W-02 撰写状态台账 | 0 | closeable | **done（2026-06-25）** | 27 非-canary id 全勘定（grounding `wf_0478aceb`，8 表面簇并行 + critic）。分布 **0 产品级 / 7 骨架 / 20 部分**；**全 27 个正文皆无 per-prompt golden byte-identity 锚**（Phase 1 每项定稿须新增）；6 项标定门控→Phase 5。台账见下「W-02 产出」。3 处承重断言已人工抽验吻合。 |
-| W-03 孤儿开口认领 | 0 | closeable | planned | N6 可达性 / v1c-N2 / P-01 confirm 半边 纳 ledger + JD 占位 |
+| W-03 孤儿开口认领 | 0 | closeable | **done（2026-06-25）** | 3 孤儿开口正式认领：N6 升级可达性→`D-T128-01` 占位（W-12）；P-01 压缩恢复 topic-selection 半边→`D-T128-02` 占位（W-11，跨 T-124）；v1c-N2 接线 **= W-13 已 done、D6=否（无 harness）→ 核销、不开空 JD**。JD 链 D-T128-00 开篇→01/02 占位（T-088 line 1929-1943）。见下「W-03 留痕」。 |
 | W-04 v1a 表面 prompt | 1 | closeable | planned | 承 T-128 W-P1 |
 | W-05 v1b 非-debate 槽位 prompt | 1 | closeable | planned | 承 W-P2；含 N6 loopback-triage 阈值 advisory 注入正文 |
 | W-06 v1c 表面 prompt | 1 | closeable | planned | 承 W-P3 |
@@ -106,7 +106,15 @@
 - **steering 面偏薄（细化）**：v1c promotion-support 生产 prompt（gate-service:618-633）+ schema 无 per-field description，薄 prompt 是唯一自然语言引导 → W-06 撰写时一并补 schema 描述/引导。
 
 ## 实施留痕（逐相追加）
-（W-01 进行中：见本轮建包 commit）
+
+### W-01 + W-03 — Phase 0 治理收口 + 孤儿开口认领（2026-06-25）
+- **W-01 治理收口（done）**：建包 git mv 重命名 + `.ai-task.yaml`（slug/keywords/edges）+ registry 注册 T-128（`ctl-project-governance query` 可见，`status:planned`，F-001/M-001）+ `lint --check --project main` 绿（仅 T-123/T-115 既有 acceptance-未勾 warning，非本包）。文档卫生：T-127 `00-overview` 经核对**已是** `State:done` + 完整「残留移交登记 → T-128」（① N8/N6 翻门→W-17、② D5→W-15、③ P-01→W-11、④ dormant debate→W-14、⑤ step-f prompt 骨架→Phase 1/5），stale「Phase 2+ 待开工」行已不存在 → W-01 该子项无需再改。
+- **W-03 孤儿/无主开口认领（done）**：三孤儿正式纳入本包 ledger，按 D6 协议在触碰前于 T-088 `06-joint-decisions.md` 登记 JD（承 D-T127-02）：
+  - **D-T128-00 开篇**（line 1929）：声明本包 harness-touch 协议——prompt 撰写 / v1c 接线**不触 harness 无需 JD**；凡触 harness 壳/节点体/orchestrator 边界/`bounded-debate-core`/共享压缩 orchestrator **先开 D-T128-0N**；全包不变量承诺（replay byte-identity、DMP-10 单 core、不翻 provisional/不撤 tripwire）。
+  - **D-T128-01 占位**（line 1936，W-12）：N6 升级可达性——`n6_gate_failure_retry_context` projection 未穿线（现 clean `debate_blocked` halt 软死端）+ crash-mid-debate/blocked-then-retry 幂等。预期加法式触 harness N6 节点体，待 Phase 4 grounding 回填。
+  - **D-T128-02 占位**（line 1943，W-11，跨 T-124+T-088）：P-01 压缩恢复——共享 orchestrator `blockForCompressionAttempt` 只记录不恢复（无 compress→re-gate→continue）；本包认领 **topic-selection 侧回归确认半边**（T-123 D3 孤儿义务）；STEP-7 debate 压缩-facts 严格其下游；gates product-robust（**不阻塞** W-10 可达性）。
+  - **v1c-N2 接线核销**：原 chip 已由 **T-127/T-128 W-13 完成**（真 caller 接线、admit 不再被绕过），且设计 study `wf_c2753144` 定 **D6=否**（v1c 无 harness、纯 `canonicalHash` leaf）→ **不开空 JD，直接核销**。
+- **验证**：纯文档/JD 登记，零代码改动 → 套件/双 tsc/replay 守卫不受影响；治理 `lint --check` 绿。path-scoped commit（仅 T-128 `03` + T-088 `06-joint-decisions`，排除全部并行 session 文件）。
 
 ### W-13 — v1c-N2 + v1c-N4 dead-slot 真 caller 接线（2026-06-25，全接）
 设计 study `wf_c2753144` 定 **D6=否**（v1c 无 run-coordinator/harness;N2/N4 runtime/admission 不调 `invokeNode`、只引 W-12 析出的纯 `canonicalHash` leaf;改动纯加法 coordinator/DI/route + 一个 N4 contract 可选字段）。**codex_assisted 真相**:`response_source='operator_supplied'` 时 orchestrator 把 operator 供的角色输出 **verbatim** 返回（不调 provider）、`run_mode='acceptance'`;canary 的 bug 是**绕过 `admission.admit()`**（schema_version pin + 所有深检查只在 admit 内），真 caller 必须穿 admit。

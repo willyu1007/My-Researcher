@@ -29,4 +29,9 @@
 - **主验证抽验（不盲信工作流）**：3 处承重断言人工核对吻合——N6-divergent 自带 `SKELETON … product-grade authoring is T-128` 注释（divergent-debate-runtime-service:294-295）、`GUARD_GOLDEN_N1` 为 N1-only harness 哈希（workflow-harness-service.unit.test:6990-6997）、v1c promotion-support 系统正文 3 句 + raw stableStringify 用户体（promotion-gate-service:618-633）。
 - **关键发现（驱动 Phase 1 验证策略）**：**全 27 个 prompt 正文皆无 per-prompt golden byte-identity 锚** → Phase 1 每项定稿须同事务新增 golden drift 锚,否则 replay 守卫对正文漂移**无覆盖**。
 
+### 2026-06-25 · W-01 治理收口 + W-03 孤儿开口认领（Phase 0）
+- **W-01（done）**：registry 注册 T-128（`ctl-project-governance query` 可见，`status:planned/in-progress`，F-001/M-001）；`lint --check --project main` **绿**（仅 T-123/T-115 既有 acceptance-未勾 warning）；T-127 `00-overview` 经核对**已是** `State:done` + 完整移交登记（stale 行已不存在）；T-088 `D-T128-00` JD 开篇已落。
+- **W-03（done）**：三孤儿开口认领——`D-T128-01`（N6 升级可达性，W-12）+ `D-T128-02`（P-01 压缩恢复 topic-selection 半边，W-11，跨 T-124）JD 占位落 T-088 `06-joint-decisions.md`（line 1929-1943，承 D-T127-02）；v1c-N2 接线 = W-13 已 done + D6=否 → 核销不开空 JD。
+- **回归门**：纯文档 + JD 登记，**零代码改动** → 套件/双 tsc/replay byte-identity 守卫不受影响（无需重跑）。治理 `lint --check` 绿。path-scoped commit（仅 T-128 `00/03/04` + T-088 `06-joint-decisions`，排除全部并行 session 文件）。
+
 ### （待开工）

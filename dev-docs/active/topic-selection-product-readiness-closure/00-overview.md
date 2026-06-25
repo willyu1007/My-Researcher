@@ -2,7 +2,8 @@
 
 ## Status
 - State: planned
-- Progress: **立项 2026-06-24** —— 由 `T-128 topic-selection-prompt-content-authoring` **重定范围（rename / re-scope）** 而来：原 T-128 只承接「prompt 正文产品化」单线，现升格为**选题管理产品就绪收口伞型包**，统一处理并收口**所有未闭环项**；原 prompt 撰写计划保留为本包 Phase 1。立项基于只读 grounding `wf_d4972427`（4 reader → 综合：开放项清单 / 治理规约 / 依赖排序 / 查漏）。尚未开工。
+- Progress: **立项 2026-06-24** —— 由 `T-128 topic-selection-prompt-content-authoring` **重定范围（rename / re-scope）** 而来：原 T-128 只承接「prompt 正文产品化」单线，现升格为**选题管理产品就绪收口伞型包**，统一处理并收口**所有未闭环项**；原 prompt 撰写计划保留为本包 Phase 1。立项基于只读 grounding `wf_d4972427`（4 reader → 综合：开放项清单 / 治理规约 / 依赖排序 / 查漏）。
+- **进度（2026-06-25）**：**Phase 0 收口完成**（W-01 治理 + W-02 撰写状态台账 + W-03 孤儿开口认领，详见 `03-implementation-notes` 矩阵 + 留痕）。W-02 grounding `wf_0478aceb`：27 非-canary prompt id 全勘定（**0 产品级 / 7 骨架 / 20 部分**，全无 per-prompt golden 锚，6 项标定门控→Phase 5）。W-03：N6 可达性/P-01 半边经 `D-T128-01/02` 占位认领，v1c-N2（W-13 done、D6=否）核销。W-13（v1c-N2/N4 dead-slot 真 caller 接线）此前已 done。**下一步 → Phase 1 W-04**（v1a 表面 prompt 产品化，关键路径起点）。（`State` 字段仍 `planned` 以与 registry 一致——翻 `in-progress` 需 `sync --apply` 触 `.ai/project`，按本包 commit 纪律暂不动，待首个 Phase 1 实体落地随治理一并翻；细粒度进度以本 Progress + `03` 矩阵为准。）
 - Task ID: `T-128`（复用，未在 registry 注册过 → 本次随建包 sync 注册）
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-009`
 - Depends on / 承接:
