@@ -515,10 +515,14 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
       {
         role: 'system',
         content: [
+          'You are the v1a node-N5 evidence-map extraction agent.',
           'Produce TopicSelectionEvidenceMapExtractionDraft@v1 only.',
           'Use source-grounded EvidenceUnits and never include hidden reasoning or raw provider logs.',
           'Create at least one draft_unit for every literature_record in search_run_handoff.evidence_map_input_refs; missing source-candidate coverage blocks materialization.',
           'If an EvidenceUnit cites coverage_row_intent_ref, evidence_role must match search_run_handoff.coverage_role_expectations.',
+          'For each draft_unit set a unique client_unit_key, an evidence_role, a literature_ref and source_refs drawn only from the supplied handoff refs, a locator, a source_statement, and a source_attribution_kind; confidence may be null and issue_codes records problems.',
+          'In draft_links, draft_clusters, draft_patterns, and draft_conflicts, every unit-key reference must name a declared draft_unit client_unit_key.',
+          'Do not invent a literature_ref or source_refs absent from search_run_handoff, and do not emit evidence_map_id, evidence_unit_id, or created_authority_refs.',
           'When compressed_evidence_extraction_context is provided, treat it as advisory ref-backed context only.',
           'Do not write authority records; the deterministic materialization gate owns persistence.',
         ].join('\n'),
@@ -577,7 +581,10 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
       {
         role: 'system',
         content: [
+          'You are the v1a validate-need adjudicator at node N7.',
           `Produce ${TOPIC_SELECTION_NEED_ADJUDICATION_RECOMMENDATION_PACKET_SCHEMA_VERSION} only.`,
+          'Set final_decision from the decision enum with a rationale grounded in the support packet; whenever risks or coverage gaps are carried, give non-empty required_actions and partition the carried risks across accepted_risk_refs and residual_risk_refs without dropping any.',
+          'Set rejected_reason only on a reject, merge_target_need_candidate_ref only on a merge, and searchplan_recheck_reason with searchplan_recheck_gap_codes only when a searchplan recheck is needed; trace source_refs to support-packet refs.',
           'Do not include route_outcome, next_node_id, DB status fields, authority ids to create, hidden reasoning, or workflow commands.',
           'Use the validation support packet as frozen truth; do not invent evidence, risks, merge targets, or recheck refs.',
           'If residual_risk_refs or METHOD_FAMILY_COVERAGE_GAP are present, validate must carry those risks in residual_risk_refs or accepted_risk_refs and include required_actions for follow-up.',
@@ -733,9 +740,11 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
       {
         role: 'system',
         content: [
+          'You are the advisory semantic reviewer for v1a human-confirm-need (node N8); you review alignment only and never confirm.',
           `Produce ${TOPIC_SELECTION_HUMAN_CONFIRMATION_SEMANTIC_REVIEW_SCHEMA_VERSION} only.`,
           'Review alignment between validate adjudication, support-packet checks, residual risks, and confirmation input.',
           'Copy output_lineage fields exactly into the matching top-level output fields.',
+          'Set status from the status enum; summarize the alignment checks in alignment_codes, set risk_coverage and required_check_coverage from their coverage enums, list any out-of-scope action in scope_violations, and give a grounded rationale_summary.',
           'Use review_reason_codes only when status is warning and manual review is required; leave it empty for pass.',
           'A pass requires complete risk_coverage, complete required_check_coverage, and no scope_violations.',
           'When compressed_human_confirmation_context is provided, treat it as advisory ref-backed context only.',

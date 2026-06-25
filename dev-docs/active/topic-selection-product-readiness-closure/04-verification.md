@@ -52,4 +52,11 @@
 - **对抗式 review（agent）**：**SHIP**，0 critical/0 should-fix，2 nit（schema 字段全吻合、两角色 distinct 无串味）；nit「注释 cross-ref」已修（注释-only），nit「只 pin calls[0]」by-construction 安全保留。
 - **slice C 新锚值**：`explorer=4bd5b6ae…`、`deep_critic=e66d5a63…`（arbiter 两锚不变）。
 
+### 2026-06-25 · W-04 slice D/E/F — need-adjudication + human-confirmation + evidence-map（Phase 1，W-04 收口）
+- **改动**：`topic-selection-v1a-llm-runtime-binding-service.ts` 三构造体 SYSTEM 块纯加法（角色 + per-field 契约；既有反 spoof/advisory 边界 verbatim；D appendix spread 末位 + schema-version const 保留）；binding 单测加 3 system-hash 锚 + D concatenation-lock。
+- **回归门**：binding 单测 **6/6**（既有 N5/N7/N8 + N7 `Carry the fixture risk.` appendix 断言全绿）；双 tsc **0**；full backend（D/E/F 复跑，下方确认）。
+- **对抗式 review（agent）**：**SHIP**，0 critical/0 should-fix，2 预存 nit 无需修（schema 全准、无软化、3 锚独立重算字节吻合）。详见 03 留痕。
+- **slice D/E/F 锚值**：F=`1222d4e3…`、D=`4783f90b…`、E=`b01b05fe…`。
+- **W-04 收口**：8 prompt 全产品化 + 各得唯一漂移锚；keystone-first 5 commit（A/B/C/D-E-F）。
+
 ### （待开工）

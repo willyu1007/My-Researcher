@@ -24,6 +24,7 @@ import {
 import {
   TopicSelectionV1aLlmRuntimeBindingService,
 } from './topic-selection-v1a-llm-runtime-binding-service.js';
+import { sha256Text } from './literature-content-processing-utils.js';
 
 function ref(
   refType: string,
@@ -325,6 +326,81 @@ test('v1a LLM runtime binding builds N8 advisory semantic review binding', () =>
   assert.equal(
     binding.runtime_token_budget.context_policy_profile.invocation_slot_id,
     TOPIC_SELECTION_V1A_N8_INVOCATION_SLOT_IDS.confirmation_semantic_review,
+  );
+});
+
+// T-128 W-04 — v1a single-agent binding prompt-body byte-identity drift anchors (N5 evidence-map,
+// N7 need-adjudication, N8 human-confirmation semantic review). Pin the rendered SYSTEM message
+// bytes so any body change is a LOUD, intentional re-baseline rather than silent rendered_prompt_hash
+// drift. No harness/replay/e2e guard pins these v1a prompt bodies, so these are their only drift
+// coverage. Re-baseline ONLY for a deliberate, separately-justified wording change — NOT mechanical.
+const V1A_BINDING_PROMPT_SYSTEM_GOLDEN = {
+  evidence_map_extraction: '1222d4e3513d3f29329ed8f50da07c4cfe601a02ca77b1f67dfbb5f302f8093d',
+  need_adjudication: '4783f90b1c508be73cbb13dc08974d2699238cd4c01706909a266c33a76d1367',
+  human_confirmation_semantic_review: 'b01b05fe8fd3b74058427427098ae0dd4d6cbfa01fa468c512179743cf02b747',
+};
+test('v1a single-agent binding prompt bodies are byte-identity drift-anchored (T-128 W-04)', () => {
+  const service = new TopicSelectionV1aLlmRuntimeBindingService();
+  const n5 = service.buildEvidenceExtractionBinding({
+    title_card_id: 'title_card_001',
+    workflow_run_id: 'workflow_run_n5',
+    node_attempt_id: 'node_attempt_n5',
+    scenario_id: 'scenario_n5',
+    execution_mode: 'provider_llm',
+    profile_id: 'topic-selection.evidence-map-extraction.single-agent.v1',
+    policy_version: 'v1',
+    output_schema_version: 'v1',
+    node_input: {
+      workflow_run_id: 'workflow_run_n5',
+      node_attempt_id: 'node_attempt_n5',
+      profile_id: 'topic-selection.evidence-map-extraction.single-agent.v1',
+      execution_mode: 'provider_llm',
+      policy_version: 'v1',
+      output_schema_version: 'v1',
+    } as unknown as TopicSelectionBuildEvidenceMapNodeInput,
+    search_run_handoff: searchRunHandoff(),
+    extraction_context_packet: extractionContextPacket(),
+    extraction_context_packet_ref: ref('artifact_ref', 'extraction_context_artifact_001'),
+  });
+  assert.equal(sha256Text(n5.messages[0]!.content), V1A_BINDING_PROMPT_SYSTEM_GOLDEN.evidence_map_extraction);
+
+  const n7Base = {
+    title_card_id: 'title_card_001',
+    workflow_run_id: 'workflow_run_n7',
+    node_attempt_id: 'node_attempt_n7',
+    scenario_id: 'scenario_n7',
+    scenario_case_id: 'semantic:n7',
+    execution_mode: 'provider_llm' as const,
+    profile_id: 'topic-selection.need-adjudication.single-agent.v1',
+    policy_version: 'v1',
+    output_schema_version: 'v1',
+    candidate: candidate(),
+    readiness: readiness(),
+    support_packet: supportPacket(),
+  };
+  const n7 = service.buildNeedAdjudicationBinding(n7Base);
+  assert.equal(sha256Text(n7.messages[0]!.content), V1A_BINDING_PROMPT_SYSTEM_GOLDEN.need_adjudication);
+  // Concatenation-lock: a diagnostic_prompt_appendix is appended after the canonical lines with a
+  // single newline (protects the includes()-assertion in the N7 residual-risk test from a join regression).
+  const n7WithAppendix = service.buildNeedAdjudicationBinding({
+    ...n7Base,
+    diagnostic_prompt_appendix: 'Carry the fixture risk.',
+  });
+  assert.equal(n7WithAppendix.messages[0]!.content, `${n7.messages[0]!.content}\nCarry the fixture risk.`);
+
+  const n8 = service.buildHumanConfirmationBinding({
+    title_card_id: 'title_card_001',
+    workflow_run_id: 'workflow_run_n8',
+    node_attempt_id: 'node_attempt_n8',
+    scenario_id: 'scenario_n8',
+    execution_mode: 'codex_assisted',
+    profile_id: 'topic-selection.confirmation-semantic-review.single-agent.v1',
+    context_packet: humanReviewContextPacket(),
+    context_packet_ref: ref('artifact_ref', 'human_review_context_artifact_001'),
+  });
+  assert.equal(
+    sha256Text(n8.messages[0]!.content),
+    V1A_BINDING_PROMPT_SYSTEM_GOLDEN.human_confirmation_semantic_review,
   );
 });
 
