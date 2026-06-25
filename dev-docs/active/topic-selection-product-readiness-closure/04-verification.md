@@ -34,4 +34,10 @@
 - **W-03（done）**：三孤儿开口认领——`D-T128-01`（N6 升级可达性，W-12）+ `D-T128-02`（P-01 压缩恢复 topic-selection 半边，W-11，跨 T-124）JD 占位落 T-088 `06-joint-decisions.md`（line 1929-1943，承 D-T127-02）；v1c-N2 接线 = W-13 已 done + D6=否 → 核销不开空 JD。
 - **回归门**：纯文档 + JD 登记，**零代码改动** → 套件/双 tsc/replay byte-identity 守卫不受影响（无需重跑）。治理 `lint --check` 绿。path-scoped commit（仅 T-128 `00/03/04` + T-088 `06-joint-decisions`，排除全部并行 session 文件）。
 
+### 2026-06-25 · W-04 slice A — arbiter-final + arbiter-issue-frame 产品化（Phase 1）
+- **改动**：`topic-selection-need-discovery-debate-loop-service.ts` `arbiterMessages` 按 stage 拆分 + 两 arbiter 系统正文产品化（final 保留 5 安全子句 verbatim + USER 字节不变；issue-frame 弃 batch 语言/丢 output_constraints、保 role_level_summaries）；同文件单测加专用 rendered-text 漂移锚（calls[3]/[4]）。grounding `wf_79f66a5e`。
+- **回归门**：debate 单测 **16/16**；双 tsc **0**（backend + shared）；full backend **1577/0/35**（+1 锚测试、0 回归）。replay byte-identity：v1a 无 harness golden 覆盖这些 prompt 正文（已证），新增 2 锚是其**唯一**漂移守卫——非「不破既有 golden」而是「补上原先缺失的守卫」。
+- **对抗式 review（agent）**：SHIP-WITH-FOLLOWUP，**0 critical / 2 should-fix**——硬编「cap 5」→ arbiter-context cap；issue-frame signal 字段误归角色 → each-summary。两项已修 + 锚 re-baseline，复跑全绿。
+- **slice A 锚值**：`arbiter_issue_frame=1bdbef20…`、`arbiter_final=8ee59593…`（re-baseline ONLY for 有意正文改动）。
+
 ### （待开工）

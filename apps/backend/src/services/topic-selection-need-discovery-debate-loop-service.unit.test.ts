@@ -25,6 +25,7 @@ import type {
 } from './llm-gateway.js';
 import { TopicSelectionNeedDiscoveryArtifactBoundaryService } from './topic-selection-need-discovery-artifact-boundary-service.js';
 import { TopicSelectionNeedDiscoveryContextCompilerService } from './topic-selection-need-discovery-context-compiler-service.js';
+import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import {
   type TopicSelectionNeedDiscoveryDebateMockedOutputs,
   TopicSelectionNeedDiscoveryDebateLoopService,
@@ -489,6 +490,45 @@ test('need-discovery debate loop uses contract defaults for provider role instan
   assert.deepEqual(roleRefConstraints?.baseline_unit_refs?.map((item) => item.ref_id), ['baseline_001']);
   assert.deepEqual(roleRefConstraints?.conflict_refs?.map((item) => item.ref_id), ['conflict_001']);
   assert.deepEqual(roleRefConstraints?.strength_assessment_refs?.map((item) => item.ref_id), ['strength_001']);
+});
+
+// T-128 W-04 — prompt-body byte-identity drift anchors. Pin the rendered [system,user] message
+// bytes for the need-discovery arbiter prompts (issue_framing + final_synthesis) so any change to a
+// prompt body is a LOUD, intentional re-baseline rather than silent rendered_prompt_hash drift.
+// No harness/replay/e2e guard pins these v1a prompt bodies, so this is their only drift coverage.
+// Re-baseline ONLY for a deliberate, separately-justified wording change — NOT for mechanical edits.
+const NEED_DISCOVERY_ARBITER_PROMPT_BODY_GOLDEN = {
+  arbiter_issue_frame: '1bdbef201cc484944ffe42542ee6cb35ce3813912c48355df3cf0a802dad1007',
+  arbiter_final: '8ee59593ebc80b37b3e31853396b975881817bb904382e7e3567906888cf2db3',
+};
+test('need-discovery debate arbiter prompt bodies are byte-identity drift-anchored (T-128 W-04)', async () => {
+  const providerGateway = new ProviderDebateGateway();
+  const { debateLoop, llmGateway, compiledContext } = await makeRuntime({
+    llmGateway: providerGateway,
+    executionMode: 'provider_llm',
+  });
+  await debateLoop.runNeedDiscoveryDebate({
+    workspace_id: 'workspace_001',
+    title_card_id: 'title_card_001',
+    node_input: {
+      ...nodeInput(compiledContext),
+      execution_mode: 'provider_llm',
+    },
+    run_mode: 'acceptance',
+    exploration_context_packet: compiledContext.exploration_context_packet,
+    arbiter_context_packet: compiledContext.arbiter_context_packet,
+    debate_loop_id: 'debate_loop_001',
+  });
+  assert.equal(llmGateway.calls.length, 5);
+  // calls[3] = arbiter issue_framing, calls[4] = arbiter final_synthesis (schemaName ordering above).
+  assert.equal(
+    sha256Text(stableStringify(llmGateway.calls[3].messages)),
+    NEED_DISCOVERY_ARBITER_PROMPT_BODY_GOLDEN.arbiter_issue_frame,
+  );
+  assert.equal(
+    sha256Text(stableStringify(llmGateway.calls[4].messages)),
+    NEED_DISCOVERY_ARBITER_PROMPT_BODY_GOLDEN.arbiter_final,
+  );
 });
 
 test('need-discovery debate loop preserves mocked fixture count under canonical slot execution plan', async () => {

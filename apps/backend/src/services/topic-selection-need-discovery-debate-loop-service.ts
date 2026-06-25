@@ -394,7 +394,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       },
       schema_name: ISSUE_FRAME_SLOT.schema_name,
       schema: topicSelectionNeedDiscoveryDebateIssueFrameSchema as unknown as Record<string, unknown>,
-      messages: this.arbiterMessages(input.input, 'Frame the discussion points for final synthesis.', {
+      messages: this.arbiterMessages(input.input, 'issue_framing', {
         role_level_summary_refs: input.roleLevelSummaryRefs,
       }, {
         role_level_summaries: input.roleLevelSummaries,
@@ -448,7 +448,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       },
       schema_name: FINAL_SYNTHESIS_SLOT.schema_name,
       schema: topicSelectionRankedCandidateDraftBatchSchema as unknown as Record<string, unknown>,
-      messages: this.arbiterMessages(input.input, 'Synthesize final ranked candidate draft batch.', {
+      messages: this.arbiterMessages(input.input, 'final_synthesis', {
         issue_frame_ref: input.issueFrameRef,
         role_level_summary_refs: input.roleLevelSummaryRefs,
       }, {
@@ -999,22 +999,54 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     ];
   }
 
+  // Stage-branched arbiter prompt (T-128 W-04). issue_framing and final_synthesis share this
+  // builder but emit DIFFERENT contracts: issue_framing produces a DebateIssueFrame (no ranked
+  // batch, no role-bundles); final_synthesis produces the external RankedCandidateDraftBatch that
+  // feeds NeedCandidate admission, so it keeps the evidence-role-bundle / role_ref_constraints
+  // safety clauses verbatim and adds the ranking/terminal contract. The final_synthesis USER
+  // payload (incl. output_constraints.role_ref_constraints) is load-bearing for downstream gating
+  // and is asserted byte-for-byte by the debate loop unit test; do not reshape it casually.
   private arbiterMessages(
     input: TopicSelectionNeedDiscoveryDebateLoopInput,
-    instruction: string,
+    stage: 'issue_framing' | 'final_synthesis',
     refs: Record<string, unknown>,
     debatePayloads: Record<string, unknown> = {},
   ): Array<{ role: 'system' | 'user'; content: string }> {
+    if (stage === 'issue_framing') {
+      return [
+        {
+          role: 'system',
+          content: [
+            'You are the debate arbiter in the issue-framing stage; from the role-level summaries, decide what final synthesis must resolve.',
+            'Use arbiter context and the supplied role-level summaries only.',
+            'Emit a DebateIssueFrame: set frame_id; focused_questions are the specific points final synthesis must settle, drawn from each role-level summary candidate_need_signals, risk_signals, and unresolved_questions; requested_roles lists any of explorer or deep_critic whose further input is still needed (empty if none); source_role_summary_refs are the role-level summary refs you used; stop_condition states when framing is complete, else null.',
+            'Do not produce a ranked candidate draft batch, candidate drafts, or evidence role-bundles here; that is the final-synthesis stage.',
+            'Do not write authority objects or include hidden reasoning.',
+          ].join(' '),
+        },
+        {
+          role: 'user',
+          content: stableStringify({
+            node_input: input.node_input,
+            arbiter_context: input.arbiter_context_packet.payload,
+            refs,
+            debate_payloads: debatePayloads,
+          }),
+        },
+      ];
+    }
     return [
       {
         role: 'system',
         content: [
-          instruction,
+          'You are the debate arbiter in final synthesis; resolve the issue frame into a ranked candidate need draft batch, the sole external output of this debate.',
           'Use arbiter context, role-level summaries, and referenced artifacts only.',
+          'Emit draft_batch with terminal_result, a ranking_rationale explaining the order, and max_persisted_candidates set to the cap given in arbiter context; list drafts ranked best-first and never more than that cap; record dropped angles in rejected_framings (framing_id, reason_code, summary, refs) and anything unsettled in unresolved_points (routed_to = supplemental_round, human_review, or blocked).',
           'If producing a ranked candidate draft batch, role bundle refs must be role-specific evidence_unit refs only: support_unit_refs use support units, challenge_unit_refs use challenge units, baseline_unit_refs use baseline units, and context_unit_refs use context units.',
           'Before returning a ranked candidate draft batch, check every role-bundle ref against role_ref_constraints; if a role has no allowed evidence_unit refs, return an empty array for that role rather than borrowing another role.',
           'Do not use baseline, challenge, or context units in support_unit_refs to mean they support the written argument; EvidenceMap role is authoritative.',
           'Do not place evidence_conflict/evidence_conflict_set or evidence_strength_assessment refs in the role bundle; put them only in conflict_refs or strength_assessment_refs.',
+          'Never exceed max_persisted_candidates drafts and choose terminal_result honestly; do not fabricate consensus. This batch is a NeedCandidate draft feed only; do not assert a NeedCandidateSet, ValidatedNeed, or TopicQuestionContract.',
           'Do not write authority objects or include hidden reasoning.',
         ].join(' '),
       },

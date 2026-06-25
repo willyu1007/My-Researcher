@@ -8,7 +8,7 @@
 | W-01 建包治理收口 | 0 | closeable | **done（2026-06-25）** | git mv 重命名 ✓、.ai-task.yaml ✓、registry 注册 T-128（`query` 可见，`status:planned`）✓、`lint --check` 绿（仅 T-123/T-115 既有 acceptance-未勾 warning）✓；T-127 `00-overview` 已是 `State:done` + 含「残留移交登记 → T-128」（stale 行已不存在）✓；T-088 `D-T128-00` JD 开篇已落（line 1929）✓ |
 | W-02 撰写状态台账 | 0 | closeable | **done（2026-06-25）** | 27 非-canary id 全勘定（grounding `wf_0478aceb`，8 表面簇并行 + critic）。分布 **0 产品级 / 7 骨架 / 20 部分**；**全 27 个正文皆无 per-prompt golden byte-identity 锚**（Phase 1 每项定稿须新增）；6 项标定门控→Phase 5。台账见下「W-02 产出」。3 处承重断言已人工抽验吻合。 |
 | W-03 孤儿开口认领 | 0 | closeable | **done（2026-06-25）** | 3 孤儿开口正式认领：N6 升级可达性→`D-T128-01` 占位（W-12）；P-01 压缩恢复 topic-selection 半边→`D-T128-02` 占位（W-11，跨 T-124）；v1c-N2 接线 **= W-13 已 done、D6=否（无 harness）→ 核销、不开空 JD**。JD 链 D-T128-00 开篇→01/02 占位（T-088 line 1929-1943）。见下「W-03 留痕」。 |
-| W-04 v1a 表面 prompt | 1 | closeable | planned | 承 T-128 W-P1 |
+| W-04 v1a 表面 prompt | 1 | closeable | **进行中（2026-06-25）** | 8 prompt（4 单 agent + 4 need-discovery 角色）。grounding `wf_79f66a5e`（blast-radius 测绘 + golden-anchor 策略 + keystone-first 序）。**slice A done**：arbiter-final + arbiter-issue-frame 产品化 + `arbiterMessages` 按 stage 拆分 + 2 rendered-text 锚（commit 见 W-04 留痕）。余 slice B（generate-need-candidate）/C（explorer+deep_critic 拆 roleMessages）/D（need-adjudication）/E（human-confirmation）/F（evidence-map）待续。 |
 | W-05 v1b 非-debate 槽位 prompt | 1 | closeable | planned | 承 W-P2；含 N6 loopback-triage 阈值 advisory 注入正文 |
 | W-06 v1c 表面 prompt | 1 | closeable | planned | 承 W-P3 |
 | W-07 资源采样 prompt | 1 | closeable | planned | 承 W-P4 |
@@ -115,6 +115,21 @@
   - **D-T128-02 占位**（line 1943，W-11，跨 T-124+T-088）：P-01 压缩恢复——共享 orchestrator `blockForCompressionAttempt` 只记录不恢复（无 compress→re-gate→continue）；本包认领 **topic-selection 侧回归确认半边**（T-123 D3 孤儿义务）；STEP-7 debate 压缩-facts 严格其下游；gates product-robust（**不阻塞** W-10 可达性）。
   - **v1c-N2 接线核销**：原 chip 已由 **T-127/T-128 W-13 完成**（真 caller 接线、admit 不再被绕过），且设计 study `wf_c2753144` 定 **D6=否**（v1c 无 harness、纯 `canonicalHash` leaf）→ **不开空 JD，直接核销**。
 - **验证**：纯文档/JD 登记，零代码改动 → 套件/双 tsc/replay 守卫不受影响；治理 `lint --check` 绿。path-scoped commit（仅 T-128 `03` + T-088 `06-joint-decisions`，排除全部并行 session 文件）。
+
+### W-04 — v1a 表面 prompt 产品化（2026-06-25，进行中）
+**study/grounding `wf_79f66a5e`（3 簇深读 + plan，已主验证 blast-radius）**：
+- **统一发现**：8 个 v1a 系统正文今日**全无** golden/harness/replay/e2e 锚（`GUARD_GOLDEN_N1` 仅钉 v1b-N1 无-LLM 节点；v1a harness StubGateway 按 schemaName 打桩、忽略 messages；replay-smoke 只解析 USER）→ **改正文断 0 既有断言**,但漂移当前无守卫。
+- **golden-anchor 策略（统一）**：每 prompt 在其同文件单测加 **rendered-text-hash 锚**（`sha256Text(stableStringify(messages))`，非 packet-hash——packet-hash 含 profile/context 哈希、过脆且 Stub/Provider 测不可达）。record→paste→同 commit。
+- **element(b) 输出契约走 prompt 内联系统文本**（非改共享 schema）：降风险、避免触 cross-package contract 文件 + fingerprint 锚复杂度；prompt 永远发给模型故内联更可靠。
+- **2 处共享构造体须拆分**：`arbiterMessages`（issue_framing vs final_synthesis，非对称）、`roleMessages`（explorer vs deep_critic，role-aware）。其余 6 prompt 用专用构造体、无需拆。
+- **keystone-first 序 + commit 分组**：A=arbiter-final+issue-frame（拆 arbiterMessages，一 commit）→ B=generate-need-candidate → C=explorer+deep_critic（拆 roleMessages，一 commit）→ D=need-adjudication → E=human-confirmation → F=evidence-map。每 prompt 锚与正文同 commit。
+- **必 verbatim 保留**：adapter `empty pool means there are no known duplicates`(test@333)+`candidate_pool_digest_role` key、N7 diagnostic-appendix spread(@232)、arbiter-final `output_constraints.role_ref_constraints.*`(@468-491)、schema-version 插值 const。
+
+**slice A — arbiter-final + arbiter-issue-frame（commit 见下）**：
+- `arbiterMessages` 按 `stage:'issue_framing'|'final_synthesis'` 分支。**final_synthesis**：保留 5 条安全子句(role-bundle/role_ref_constraints/EvidenceMap-authoritative/conflict-strength/no-authority)**verbatim** + USER 载荷**字节不变**（test@468-491 仍读 role_ref_constraints.*），ADD 角色框架 + 排名/terminal 契约 + terminal-honesty 边界。**issue_framing**：弃 ranked-batch 语言、USER 丢 `output_constraints`（保留 `debate_payloads.role_level_summaries`，test@462-466 仍绿），ADD DebateIssueFrame 字段契约 + 「不在此产 ranked batch/role-bundle」边界。两调用点(397/451)传 stage 字面。
+- **2 rendered-text 锚**（专用漂移测试，`NEED_DISCOVERY_ARBITER_PROMPT_BODY_GOLDEN`，pin calls[3]=issue_frame / calls[4]=final 的 `sha256Text(stableStringify(messages))`）。
+- **对抗式 review（agent，SHIP-WITH-FOLLOWUP，0 critical/2 should-fix，均已修+re-baseline）**：① 硬编「(cap 5)」是平行真值源（`max_persisted_candidates` 已经 `arbiter_context.payload` 送达模型）→ 改「set to the cap given in arbiter context」；② issue-frame 把 candidate_need_signals/risk_signals/unresolved_questions 误归特定角色（`RoleLevelSummary` 两角色皆有三字段）→ 改「each role-level summary」。其余 verified clean（拆分/schema-enum 准确/不变量未软化/锚 stage-correct/roleMessages 未动）。
+- **验证**：debate 单测 **16/16**、双 tsc **0**、full backend **1577/0/35**（+1 锚测试，0 回归）；replay 守卫不涉（v1a 无 harness golden 覆盖这些正文，新锚是其唯一漂移守卫）。
 
 ### W-13 — v1c-N2 + v1c-N4 dead-slot 真 caller 接线（2026-06-25，全接）
 设计 study `wf_c2753144` 定 **D6=否**（v1c 无 run-coordinator/harness;N2/N4 runtime/admission 不调 `invokeNode`、只引 W-12 析出的纯 `canonicalHash` leaf;改动纯加法 coordinator/DI/route + 一个 N4 contract 可选字段）。**codex_assisted 真相**:`response_source='operator_supplied'` 时 orchestrator 把 operator 供的角色输出 **verbatim** 返回（不调 provider）、`run_mode='acceptance'`;canary 的 bug 是**绕过 `admission.admit()`**（schema_version pin + 所有深检查只在 admit 内），真 caller 必须穿 admit。
