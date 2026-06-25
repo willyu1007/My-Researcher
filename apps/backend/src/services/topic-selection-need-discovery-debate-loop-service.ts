@@ -299,7 +299,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         },
         schema_name: EXPLORER_SLOT.schema_name,
         schema: topicSelectionNeedDiscoveryExplorerNotesSchema as unknown as Record<string, unknown>,
-        messages: this.roleMessages(input, 'explorer', 'Explore grounded candidate need angles.'),
+        messages: this.roleMessages(input, 'explorer'),
         mocked_output: this.mockedRoleOutput(executionSpec.execution_mode, outputs[index], `explorer[${index}]`),
         codex_response: this.codexRoleResponse(executionSpec.execution_mode, codexResponses[index], `explorer[${index}]`),
       });
@@ -345,7 +345,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         },
         schema_name: DEEP_CRITIC_SLOT.schema_name,
         schema: topicSelectionNeedDiscoveryDeepCriticNotesSchema as unknown as Record<string, unknown>,
-        messages: this.roleMessages(input, 'deep_critic', 'Stress-test candidate value, pseudo-gap risk, and missing evidence.'),
+        messages: this.roleMessages(input, 'deep_critic'),
         mocked_output: this.mockedRoleOutput(executionSpec.execution_mode, outputs[index], `deep_critic[${index}]`),
         codex_response: this.codexRoleResponse(executionSpec.execution_mode, codexResponses[index], `deep_critic[${index}]`),
       });
@@ -973,16 +973,30 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     return response;
   }
 
+  // Role-branched explorer/deep_critic prompt (T-128 W-04). Round-1 divergent discovery: the two
+  // roles run in parallel off the SAME exploration_context (the critic does not see explorer output).
+  // Each role gets a role-specific persona + output contract + boundary block; the generic
+  // grounding / structured-only / no-authority lines stay shared. USER payload shape is unchanged.
   private roleMessages(
     input: TopicSelectionNeedDiscoveryDebateLoopInput,
     role: 'explorer' | 'deep_critic',
-    instruction: string,
   ): Array<{ role: 'system' | 'user'; content: string }> {
+    const roleLines = role === 'explorer'
+      ? [
+          'You are the divergent explorer in a single round of need-discovery debate; surface distinct, evidence-grounded candidate need angles, maximizing coverage rather than ranking.',
+          'Emit candidate_angles, each with a stable angle_id, a one-line summary, evidence_refs drawn only from supplied exploration_context refs, and an optional candidate_need_hint (a need phrasing, not a NeedCandidate id); list open items in unresolved_questions, data or coverage gaps in warnings, and cross-angle support in top-level evidence_refs.',
+          'Cite only exploration_context evidence refs; never invent refs or need IDs. This is round-1 divergence: do not score, rank, or pick winners. Do not emit a role other than explorer.',
+        ]
+      : [
+          'You are the deep critic in a single round of need-discovery debate; adversarially stress-test candidate value, prior-art and pseudo-gap risk, and evidence sufficiency.',
+          'Emit critique_points, each with a critique_id, a one-line summary, a severity of low, medium, or high, and evidence_refs citing the prior-art or strength refs that justify it; put systemic risks in failure_modes, evidence you lack in missing_evidence_questions, and meta or data-quality issues in warnings.',
+          'Every critique cites supplied evidence or names the missing evidence; make no unsupported assertions. Do not propose new candidate need angles (explorer-only) or rank or decide (arbiter-only). Do not emit a role other than deep_critic.',
+        ];
     return [
       {
         role: 'system',
         content: [
-          instruction,
+          ...roleLines,
           'Use only supplied context refs and payloads.',
           'Return only structured role notes.',
           'Do not write authority objects or include hidden reasoning.',

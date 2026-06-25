@@ -46,4 +46,10 @@
 - **对抗式 review（agent）**：**SHIP**，0 critical/0 should-fix，2 nit（1-based 经 validator 强制、字段全吻合）；nit「optional 字段措辞」已修 + re-baseline。
 - **slice B 锚值**：`system=16dbcf5d…`、`user=64bf5c63…`。
 
+### 2026-06-25 · W-04 slice C — explorer + deep_critic 产品化（拆 roleMessages，Phase 1）
+- **改动**：`topic-selection-need-discovery-debate-loop-service.ts` `roleMessages` 由 instruction-参重构为按 `role` 分支（explorer/deep_critic 各 persona+per-field 契约+边界，generic 3 行共享，USER 不变）；两调用点删 instruction 参；debate 锚测试扩展为 4 角色（`NEED_DISCOVERY_PROMPT_BODY_GOLDEN`）。
+- **回归门**：debate 单测 **16/16**（4 锚全绿，arbiter 两锚 hex 字节不变证拆分未扰 arbiter 体）；双 tsc **0**；full backend（slice C 复跑，下方确认）。
+- **对抗式 review（agent）**：**SHIP**，0 critical/0 should-fix，2 nit（schema 字段全吻合、两角色 distinct 无串味）；nit「注释 cross-ref」已修（注释-only），nit「只 pin calls[0]」by-construction 安全保留。
+- **slice C 新锚值**：`explorer=4bd5b6ae…`、`deep_critic=e66d5a63…`（arbiter 两锚不变）。
+
 ### （待开工）

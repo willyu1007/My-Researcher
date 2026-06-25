@@ -493,15 +493,19 @@ test('need-discovery debate loop uses contract defaults for provider role instan
 });
 
 // T-128 W-04 — prompt-body byte-identity drift anchors. Pin the rendered [system,user] message
-// bytes for the need-discovery arbiter prompts (issue_framing + final_synthesis) so any change to a
-// prompt body is a LOUD, intentional re-baseline rather than silent rendered_prompt_hash drift.
-// No harness/replay/e2e guard pins these v1a prompt bodies, so this is their only drift coverage.
+// bytes for all four need-discovery debate roles (explorer, deep_critic, arbiter issue_framing,
+// arbiter final_synthesis) so any change to a prompt body is a LOUD, intentional re-baseline rather
+// than silent rendered_prompt_hash drift. No harness/replay/e2e guard pins these v1a prompt bodies,
+// so these are their only drift coverage. The explorer/deep_critic anchors additionally prove the
+// roleMessages role-branch did not silently collapse the two roles' bodies.
 // Re-baseline ONLY for a deliberate, separately-justified wording change — NOT for mechanical edits.
-const NEED_DISCOVERY_ARBITER_PROMPT_BODY_GOLDEN = {
+const NEED_DISCOVERY_PROMPT_BODY_GOLDEN = {
+  explorer: '4bd5b6ae88fe057c687d2eaa108f213f0b3c05fae55e97c8093216f414724a68',
+  deep_critic: 'e66d5a6315e364d39a75cc64319ea250bc045a62eff37614129a8a8414003aec',
   arbiter_issue_frame: '1bdbef201cc484944ffe42542ee6cb35ce3813912c48355df3cf0a802dad1007',
   arbiter_final: '8ee59593ebc80b37b3e31853396b975881817bb904382e7e3567906888cf2db3',
 };
-test('need-discovery debate arbiter prompt bodies are byte-identity drift-anchored (T-128 W-04)', async () => {
+test('need-discovery debate prompt bodies are byte-identity drift-anchored (T-128 W-04)', async () => {
   const providerGateway = new ProviderDebateGateway();
   const { debateLoop, llmGateway, compiledContext } = await makeRuntime({
     llmGateway: providerGateway,
@@ -520,14 +524,24 @@ test('need-discovery debate arbiter prompt bodies are byte-identity drift-anchor
     debate_loop_id: 'debate_loop_001',
   });
   assert.equal(llmGateway.calls.length, 5);
-  // calls[3] = arbiter issue_framing, calls[4] = arbiter final_synthesis (schemaName ordering above).
+  // calls[0,1] = explorer instances (identical body), calls[2] = deep_critic, calls[3] = arbiter
+  // issue_framing, calls[4] = arbiter final_synthesis (schemaName ordering asserted in the
+  // canonical-slot test above).
+  assert.equal(
+    sha256Text(stableStringify(llmGateway.calls[0].messages)),
+    NEED_DISCOVERY_PROMPT_BODY_GOLDEN.explorer,
+  );
+  assert.equal(
+    sha256Text(stableStringify(llmGateway.calls[2].messages)),
+    NEED_DISCOVERY_PROMPT_BODY_GOLDEN.deep_critic,
+  );
   assert.equal(
     sha256Text(stableStringify(llmGateway.calls[3].messages)),
-    NEED_DISCOVERY_ARBITER_PROMPT_BODY_GOLDEN.arbiter_issue_frame,
+    NEED_DISCOVERY_PROMPT_BODY_GOLDEN.arbiter_issue_frame,
   );
   assert.equal(
     sha256Text(stableStringify(llmGateway.calls[4].messages)),
-    NEED_DISCOVERY_ARBITER_PROMPT_BODY_GOLDEN.arbiter_final,
+    NEED_DISCOVERY_PROMPT_BODY_GOLDEN.arbiter_final,
   );
 });
 

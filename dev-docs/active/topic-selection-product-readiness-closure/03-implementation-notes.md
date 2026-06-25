@@ -8,7 +8,7 @@
 | W-01 建包治理收口 | 0 | closeable | **done（2026-06-25）** | git mv 重命名 ✓、.ai-task.yaml ✓、registry 注册 T-128（`query` 可见，`status:planned`）✓、`lint --check` 绿（仅 T-123/T-115 既有 acceptance-未勾 warning）✓；T-127 `00-overview` 已是 `State:done` + 含「残留移交登记 → T-128」（stale 行已不存在）✓；T-088 `D-T128-00` JD 开篇已落（line 1929）✓ |
 | W-02 撰写状态台账 | 0 | closeable | **done（2026-06-25）** | 27 非-canary id 全勘定（grounding `wf_0478aceb`，8 表面簇并行 + critic）。分布 **0 产品级 / 7 骨架 / 20 部分**；**全 27 个正文皆无 per-prompt golden byte-identity 锚**（Phase 1 每项定稿须新增）；6 项标定门控→Phase 5。台账见下「W-02 产出」。3 处承重断言已人工抽验吻合。 |
 | W-03 孤儿开口认领 | 0 | closeable | **done（2026-06-25）** | 3 孤儿开口正式认领：N6 升级可达性→`D-T128-01` 占位（W-12）；P-01 压缩恢复 topic-selection 半边→`D-T128-02` 占位（W-11，跨 T-124）；v1c-N2 接线 **= W-13 已 done、D6=否（无 harness）→ 核销、不开空 JD**。JD 链 D-T128-00 开篇→01/02 占位（T-088 line 1929-1943）。见下「W-03 留痕」。 |
-| W-04 v1a 表面 prompt | 1 | closeable | **进行中（2026-06-25）** | 8 prompt（4 单 agent + 4 need-discovery 角色）。grounding `wf_79f66a5e`（blast-radius 测绘 + golden-anchor 策略 + keystone-first 序）。**slice A,B done**：A=arbiter-final+issue-frame（拆 arbiterMessages，commit `e5d4ce72`）；B=generate-need-candidate（角色 persona + 内联 per-field 契约，USER 不变，sys+user 双锚）。余 slice C（explorer+deep_critic 拆 roleMessages）/D（need-adjudication）/E（human-confirmation）/F（evidence-map）待续。 |
+| W-04 v1a 表面 prompt | 1 | closeable | **进行中（2026-06-25）** | 8 prompt（4 单 agent + 4 need-discovery 角色）。grounding `wf_79f66a5e`（blast-radius 测绘 + golden-anchor 策略 + keystone-first 序）。**slice A,B,C done**：A=arbiter-final+issue-frame（拆 arbiterMessages，`e5d4ce72`）；B=generate-need-candidate（`157414b6`）；C=explorer+deep_critic（拆 roleMessages 按 role 分支，4 角色统一漂移锚）。余 slice D（need-adjudication）/E（human-confirmation）/F（evidence-map）—— 3 个 binding-service 单 agent prompt，可合并一 commit。 |
 | W-05 v1b 非-debate 槽位 prompt | 1 | closeable | planned | 承 W-P2；含 N6 loopback-triage 阈值 advisory 注入正文 |
 | W-06 v1c 表面 prompt | 1 | closeable | planned | 承 W-P3 |
 | W-07 资源采样 prompt | 1 | closeable | planned | 承 W-P4 |
@@ -136,6 +136,12 @@
 - **2 rendered-text 锚**（sys + user 分离，`GENERATE_NEED_CANDIDATE_PROMPT_BODY_GOLDEN`，pin calls[0].messages[0]/[1]）。user 锚虽 USER 未变也 lock 其将来不漂移。
 - **对抗式 review（agent，SHIP，0 critical/0 should-fix，2 nit）**：schema 字段逐一核验吻合（rank 的 1-based 经 validator 强制、routed_to enum 字节一致）；must-keep 保留、6 条边界 verbatim、锚有效。nit「mechanism_summary/non_goal_notes 是 optional 却措辞像 mandatory」**已修**（改「where applicable」）+ re-baseline sys 锚。
 - **验证**：adapter 单测 **14/14**、双 tsc **0**、full backend **1578/0/35**（+1 锚测试，0 回归）。
+
+**slice C — explorer + deep_critic（拆 roleMessages，commit 见下）**：
+- `roleMessages` 由 `(input, role, instruction)` 重构为按 `role` 分支（删 `instruction` 参，content derive from role）。**explorer**：角色 persona（divergent，maximize coverage 非 ranking）+ candidate_angles（angle_id/summary/evidence_refs + 可选 candidate_need_hint）/unresolved_questions/warnings 契约 + 边界（仅引 exploration_context refs、round-1 不 rank、不发非-explorer role）。**deep_critic**：persona（adversarial stress-test）+ critique_points（critique_id/summary/severity low|medium|high/evidence_refs）/failure_modes/missing_evidence_questions/warnings 契约 + 边界（每 critique 引证据、不提新 angle、不 rank/decide）。generic 3 行共享；**USER 载荷形状不变**（两角色并行跑同一 exploration_context，critic 不见 explorer 输出）。两调用点(302/348)删 instruction 参。
+- **统一漂移锚**：把 slice A 的 arbiter 锚测试**扩展为 4 角色**（`NEED_DISCOVERY_PROMPT_BODY_GOLDEN`：explorer=calls[0]/deep_critic=calls[2]/arbiter_issue_frame=calls[3]/arbiter_final=calls[4]）；arbiter 两锚 hex **字节不变**证拆分未扰 arbiter 体。
+- **对抗式 review（agent，SHIP，0 critical/0 should-fix，2 nit）**：schema 字段逐一核验吻合（candidate_need_hint 确 optional、severity enum 字节一致），两角色内容 distinct 无串味、generic 边界保留、call site 正确、arbiterMessages 未动、锚能捕角色串味。nit「注释 cross-ref 措辞」已修（注释-only）；nit「只 pin calls[0]」by-construction 安全（roleMessages 无 per-instance 参）保留。
+- **验证**：debate 单测 **16/16**、双 tsc **0**、full backend（slice C 复跑）；replay 守卫不涉。
 
 ### W-13 — v1c-N2 + v1c-N4 dead-slot 真 caller 接线（2026-06-25，全接）
 设计 study `wf_c2753144` 定 **D6=否**（v1c 无 run-coordinator/harness;N2/N4 runtime/admission 不调 `invokeNode`、只引 W-12 析出的纯 `canonicalHash` leaf;改动纯加法 coordinator/DI/route + 一个 N4 contract 可选字段）。**codex_assisted 真相**:`response_source='operator_supplied'` 时 orchestrator 把 operator 供的角色输出 **verbatim** 返回（不调 provider）、`run_mode='acceptance'`;canary 的 bug 是**绕过 `admission.admit()`**（schema_version pin + 所有深检查只在 admit 内），真 caller 必须穿 admit。
