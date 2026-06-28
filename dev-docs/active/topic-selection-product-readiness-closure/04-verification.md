@@ -59,6 +59,16 @@
 - **slice D/E/F 锚值**：F=`1222d4e3…`、D=`4783f90b…`、E=`b01b05fe…`。
 - **W-04 收口**：8 prompt 全产品化 + 各得唯一漂移锚；keystone-first 5 commit（A/B/C/D-E-F）。
 
+### 2026-06-25 · Phase 0 + W-04 深入对抗式审查 + findings 处置（`wf_92ca7f98`）
+- **回归独立实跑（reviewer 重跑，非信旧报）= GREEN**:双 tsc **0**、full backend **1579/0/35**、3 单测各自全绿、**3 漂移锚 36/36 复现**、治理 lint 绿、path-scoping 干净。
+- **2 实质 finding**:1 confirmed should-fix（连贯性不对称,已修）+ 1 refuted（candidate_need 嵌套误判,对抗式验证驳回为假阳）。10 nit 已分诊（详见 03 深审留痕）。
+- **review-followup 处置（已修 + re-baseline + 复验）**:
+  - generate-need-candidate 补 cap+诚实边界 + adapter 锚去双包 → `system=4d964a25…`、`user=b1dca968…`。
+  - evidence-map(F) 补 `interpretation_payload` → `F=58000ae9…`（旧 1222d4e3 已 superseded）。
+  - need-adjudication(D) 补 `gap_codes` + searchplan 措辞 → `D=a0deee32…`（旧 4783f90b 已 superseded）。E 锚不变 `b01b05fe…`。
+  - 验证:adapter 14/14、binding 6/6、双 tsc 0、full backend 复跑确认 1579/0/35。
+- **登记跟踪（不动）**:N8 review_reason_codes blocked 措辞（预存）、debate 锚 per-message 化（可选）、预存 flaky test（非 W-04，建议另起 de-flake）。
+
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
 - **回归门**:无 code 改动 → 套件/tsc 不涉。基线维持 full backend **1579/0/35**。

@@ -129,7 +129,7 @@
 - `arbiterMessages` 按 `stage:'issue_framing'|'final_synthesis'` 分支。**final_synthesis**：保留 5 条安全子句(role-bundle/role_ref_constraints/EvidenceMap-authoritative/conflict-strength/no-authority)**verbatim** + USER 载荷**字节不变**（test@468-491 仍读 role_ref_constraints.*），ADD 角色框架 + 排名/terminal 契约 + terminal-honesty 边界。**issue_framing**：弃 ranked-batch 语言、USER 丢 `output_constraints`（保留 `debate_payloads.role_level_summaries`，test@462-466 仍绿），ADD DebateIssueFrame 字段契约 + 「不在此产 ranked batch/role-bundle」边界。两调用点(397/451)传 stage 字面。
 - **2 rendered-text 锚**（专用漂移测试，`NEED_DISCOVERY_ARBITER_PROMPT_BODY_GOLDEN`，pin calls[3]=issue_frame / calls[4]=final 的 `sha256Text(stableStringify(messages))`）。
 - **对抗式 review（agent，SHIP-WITH-FOLLOWUP，0 critical/2 should-fix，均已修+re-baseline）**：① 硬编「(cap 5)」是平行真值源（`max_persisted_candidates` 已经 `arbiter_context.payload` 送达模型）→ 改「set to the cap given in arbiter context」；② issue-frame 把 candidate_need_signals/risk_signals/unresolved_questions 误归特定角色（`RoleLevelSummary` 两角色皆有三字段）→ 改「each role-level summary」。其余 verified clean（拆分/schema-enum 准确/不变量未软化/锚 stage-correct/roleMessages 未动）。
-- **验证**：debate 单测 **16/16**、双 tsc **0**、full backend **1577/0/35**（+1 锚测试，0 回归）；replay 守卫不涉（v1a 无 harness golden 覆盖这些正文，新锚是其唯一漂移守卫）。
+- **验证**：debate 单测 **16/16**、双 tsc **0**、full backend **1577/0/35**（slice A 起跑基线 1576 = W-13 的 1575 + 非-W-04 中间 commit `487c084f` 的 +1;slice A 再 +1 锚测试 → 1577，0 回归）；replay 守卫不涉（v1a 无 harness golden 覆盖这些正文，新锚是其唯一漂移守卫）。
 
 **slice B — generate-need-candidate（单 agent，commit 见下）**：
 - 现状已是 partial 中最强（边界齐全），升级**纯加法**：SYSTEM 块 prepend 角色 persona（drafting agent、artifacts-only）+ 加 2 行内联 per-field 契约（drafts 级 rank/candidate_need/unmet_need_statement/mechanism_type/prior_art_status/gap_codes + batch 级 terminal_result/ranking_rationale/rejected_framings/unresolved_points.routed_to）。**USER 载荷字节不变**（output_constraints 含 `candidate_pool_digest_role` + `role_ref_constraints` 未动）。必保留短语 `empty pool means there are no known duplicates` verbatim。
@@ -149,12 +149,27 @@
 - **对抗式 review（agent，SHIP，0 critical/0 should-fix，2 预存 nit 无需修）**：三 prompt schema 字段/enum 逐一核验吻合（D final_decision 确「from decision enum」、E risk_coverage+required_check_coverage 确为 enum、F 四类 collection 的 unit-key 引用 + 被禁 keys `:false` 全核实）；反 spoof/advisory 边界 verbatim、D appendix spread 末位 + D/E const 插值完好、3 锚独立重算字节吻合、persona stage-correct、条件字段（rejected_reason/merge_target/searchplan_recheck/confidence）均按 nullable 状态条件措辞未 over-state。2 nit 皆**预存行**（F 硬字面 schema-version 与 const 值一致仅 D/E 在范围；E status enum 含 blocked 但 review_reason_codes 指引旧行）→ 不在本 slice 范围、不动。
 - **验证**：binding 单测 **6/6**、双 tsc **0**、full backend（D/E/F 复跑，下方确认）。锚值：F=`1222d4e3…`、D=`4783f90b…`、E=`b01b05fe…`。
 
+### Phase 0 + W-04 深入对抗式审查（`wf_92ca7f98`，2026-06-25）
+> 6 维度独立 reviewer（拆分/replay·schema 准确·prompt 质量·安全/反 spoof/无机制夹带·golden 锚·Phase 0+治理+文档+JD）+ 1 独立回归实跑 → 对每个实质 finding 对抗式验证（默认 refute）。范围 = 本会话 7 commit `487c084f..HEAD`。
+- **回归独立实跑 = GREEN**:双 tsc 0、full backend **1579/0/35**、3 单测各自全绿、**3 锚 36/36 复现**、治理 lint 绿。path-scoping 干净（无并行 session 文件泄漏）。
+- **2 实质 finding → 1 confirmed（should-fix）/ 1 refuted**:
+  - **confirmed（已修，commit 见 review-followup）**:连贯性不对称——arbiter-final 与 generate-need-candidate 产同一 RankedCandidateDraftBatch（皆喂 NeedCandidate admission），但后者系统正文缺「cap 硬规则 + 不捏造 consensus / 诚实 terminal_result」边界（cap 有 validator 确定性兜底,但「不捏造 consensus」软边界无后盾）→ **补齐**对齐 arbiter-final 措辞。
+  - **refuted（对抗式验证驳回,假阳）**:称 generate-need-candidate「candidate_need 嵌套误判」——实为 flat 字段、house idiom 一致、结构化输出强制 schema,非缺陷。
+- **nit 处置**:① evidence-map 补 `interpretation_payload`、need-adjudication 补顶层 `gap_codes` + `searchplan_recheck_gap_codes` 必填措辞精确化（**已修**）;② adapter 锚去 `stableStringify(string)` 双包对齐 binding 锚（**已修**）;③ 文档 forbidden-patterns 路径前缀 + slice-A 计数叙述（**已修**）;④ **登记跟踪不动**:N8 `review_reason_codes` 的 blocked 措辞（预存行、改需确认 gate 语义）、debate 锚 per-message 化（可选 robustness,reviewer 明言现不必改——现 combined-array 锚仍能检出任何漂移,只是未独立隔离 final_synthesis USER 载荷）。
+- **向用户提示**:full suite 首跑曾 **1578/1fail**、后两跑 **1579/0**——一个**预存** flaky test（非 W-04 文件,纯 sha256 锚测试无 async/ordering 依赖）,与本次无关,建议另起 de-flake。
+
+### review-followup（深审 confirmed should-fix + nit 处置，2026-06-25）
+- **generate-need-candidate**:系统正文加 `Never emit more drafts than max_persisted_candidates and choose terminal_result honestly; do not fabricate consensus.`（对齐 arbiter-final）。adapter 锚去双包（`sha256Text(content)` 直接 hash raw string）→ 两锚 re-baseline:`system=4d964a25…`、`user=b1dca968…`。
+- **evidence-map(F)**:draft_unit per-field 补 `interpretation_payload` → 锚 `1222d4e3…→58000ae9…`。
+- **need-adjudication(D)**:per-field 补顶层 `gap_codes` + `searchplan_recheck_gap_codes` 改「always emit (empty unless needed)」精确措辞 → 锚 `4783f90b…→a0deee32…`。
+- **验证**:adapter **14/14**、binding **6/6**、双 tsc **0**、full backend 复跑（下方确认）。所有改动纯加法/精确化、无软化边界、USER key 集不变。
+
 ### W-05 计划（study `wf_e093ee2d` 产出，2026-06-25，未起 code — 下次直接 author）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。
 
 **关键约束**：
 - **golden 锚 = pin `sha256Text(SYSTEM content string)`**（非全 messages——USER 嵌 context_packet 会变）。捕获方式:runtime 测试用 stub orchestrator,服务 line 258/344 传 `messages: this.messages(...)` → 读 `calls[0].messages[0].content`。
-- **禁 token**:勿写 `chain-of-thought:`/`secret:`/`api_key:`/`hidden_reasoning:` 等**冒号形**（`prompt-packet-runtime-service.ts:68-76` `FORBIDDEN_PROMPT_VALUE_PATTERNS` 会令 buildPromptPacket 运行期拒包）。
+- **禁 token**:勿写 `chain-of-thought:`/`secret:`/`api_key:`/`hidden_reasoning:` 等**冒号形**（`topic-selection-prompt-packet-runtime-service.ts:68-76` `FORBIDDEN_PROMPT_VALUE_PATTERNS` 会令 buildPromptPacket 运行期拒包）。
 - **必保留子串**:N4 `ResearchSliceOptionSetDraft@v1`（test L243）+ 变体 key `n4_research_slice_option_draft.initial_from_n3`（L246）;N6-draft `TopicQuestionCandidateSetDraft@v1`（L240）;N7 变体 key `n7_candidate_grouping`（harness L4458）。
 - **admission expected-identity 无需翻**:每 admission 测试两侧都用合成 fixture（hashE 等),非 messages() 派生;真正护栏=runtime 自决定性 `prompt_packet_hash` first===second（N6-draft L267 已有;N4/N6-loopback/N7 需**新增**——与各拆分同 commit）。
 

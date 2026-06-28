@@ -335,8 +335,8 @@ test('v1a LLM runtime binding builds N8 advisory semantic review binding', () =>
 // drift. No harness/replay/e2e guard pins these v1a prompt bodies, so these are their only drift
 // coverage. Re-baseline ONLY for a deliberate, separately-justified wording change — NOT mechanical.
 const V1A_BINDING_PROMPT_SYSTEM_GOLDEN = {
-  evidence_map_extraction: '1222d4e3513d3f29329ed8f50da07c4cfe601a02ca77b1f67dfbb5f302f8093d',
-  need_adjudication: '4783f90b1c508be73cbb13dc08974d2699238cd4c01706909a266c33a76d1367',
+  evidence_map_extraction: '58000ae9d50b66506e7cfe18f9a3d3fd431155cdfe5ae9f822bcdb108574599b',
+  need_adjudication: 'a0deee32d5c926eb0c04363c1fcf6ca03e943cf2e8e86b2549dc827fb9d1c8af',
   human_confirmation_semantic_review: 'b01b05fe8fd3b74058427427098ae0dd4d6cbfa01fa468c512179743cf02b747',
 };
 test('v1a single-agent binding prompt bodies are byte-identity drift-anchored (T-128 W-04)', () => {

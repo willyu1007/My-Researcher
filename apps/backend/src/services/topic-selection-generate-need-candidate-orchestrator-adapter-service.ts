@@ -940,6 +940,7 @@ export class TopicSelectionGenerateNeedCandidateOrchestratorAdapterService {
           'Set speculative=false unless the supplied evidence directly forces uncertainty; speculative candidates are intentionally blocked before validation.',
           'Rank drafts 1-based by descending need strength; for each draft give a candidate_need with a distinct unmet_need_statement, a mechanism_type, prior_art_status, and gap_codes, plus mechanism_summary and non_goal_notes where applicable.',
           'Set draft_batch.terminal_result to reflect whether any admissible draft exists and give a ranking_rationale for the order; record discarded angles in rejected_framings and anything unsettled in unresolved_points (routed_to = supplemental_round, human_review, or blocked).',
+          'Never emit more drafts than max_persisted_candidates and choose terminal_result honestly; do not fabricate consensus.',
           'Role bundle refs must be role-specific evidence_unit refs only: support_unit_refs use support units, challenge_unit_refs use challenge units, baseline_unit_refs use baseline units, and context_unit_refs use context units.',
           'Before returning, check every role-bundle ref against role_ref_constraints; if a role has no allowed evidence_unit refs, return an empty array for that role rather than borrowing another role.',
           'Do not use baseline, challenge, or context units in support_unit_refs to mean they support the written argument; EvidenceMap role is authoritative.',

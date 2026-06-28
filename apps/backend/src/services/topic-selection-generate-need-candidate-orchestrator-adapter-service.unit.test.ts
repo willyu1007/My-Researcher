@@ -19,7 +19,7 @@ import type {
 } from './llm-gateway.js';
 import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
 import { TopicSelectionGenerateNeedCandidateOrchestratorAdapterService } from './topic-selection-generate-need-candidate-orchestrator-adapter-service.js';
-import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
+import { sha256Text } from './literature-content-processing-utils.js';
 import { TopicSelectionCompressionRuntimeService } from './topic-selection-compression-runtime-service.js';
 import { TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID } from './topic-selection-model-profile-registry-service.js';
 import { TopicSelectionNeedDiscoveryArtifactBoundaryService } from './topic-selection-need-discovery-artifact-boundary-service.js';
@@ -379,8 +379,8 @@ test('generate-need-candidate adapter produces ranked draft batch through mocked
 // re-baseline (no harness/replay/e2e guard pins this v1a prompt body; these are its only coverage).
 // Re-baseline ONLY for a deliberate, separately-justified wording change — NOT for mechanical edits.
 const GENERATE_NEED_CANDIDATE_PROMPT_BODY_GOLDEN = {
-  system: '16dbcf5dc7b91324ff2e81b980b589a35151303f219d6c0a23b4634d9a834249',
-  user: '64bf5c634b0aa6005bf5d6056d29f0ceafe9a1f37134772b18ddef958eb1edc5',
+  system: '4d964a25612b62e981ca47d6b47d774168354ba697cd9b2e31168628460cae56',
+  user: 'b1dca968e9950cea2097c7a9dbaa8b1670e2d868dc71d880606d0c723ddacac3',
 };
 test('generate-need-candidate single-agent prompt body is byte-identity drift-anchored (T-128 W-04)', async () => {
   const { adapter, compiledContext, llmGateway } = await makeHarness('provider_llm');
@@ -393,11 +393,11 @@ test('generate-need-candidate single-agent prompt body is byte-identity drift-an
   });
   assert.equal(llmGateway.calls.length, 1);
   assert.equal(
-    sha256Text(stableStringify(llmGateway.calls[0]?.messages[0]?.content ?? '')),
+    sha256Text(llmGateway.calls[0]?.messages[0]?.content ?? ''),
     GENERATE_NEED_CANDIDATE_PROMPT_BODY_GOLDEN.system,
   );
   assert.equal(
-    sha256Text(stableStringify(llmGateway.calls[0]?.messages[1]?.content ?? '')),
+    sha256Text(llmGateway.calls[0]?.messages[1]?.content ?? ''),
     GENERATE_NEED_CANDIDATE_PROMPT_BODY_GOLDEN.user,
   );
 });
