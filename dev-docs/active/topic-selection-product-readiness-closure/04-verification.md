@@ -69,6 +69,13 @@
   - 验证:adapter 14/14、binding 6/6、双 tsc 0、full backend 复跑确认 1579/0/35。
 - **登记跟踪（不动）**:N8 review_reason_codes blocked 措辞（预存）、debate 锚 per-message 化（可选）、预存 flaky test（非 W-04，建议另起 de-flake）。
 
+### 2026-06-29 · W-05 Commit 1 — SPLIT-1 早期语义支持 N2/N3/N5 拆分
+- **改动**：`topic-selection-v1b-early-semantic-support-runtime-service.ts` 系统内容提取为导出纯函数 `buildV1bEarlySemanticSupportSystemContent`（按 slot_id 分支），messages() 委托；同文件单测加 3 SYSTEM 漂移锚 + cross-slot 不等式 + N3 wiring 断言。
+- **回归门**：early-semantic 单测 **5/5**、admission **3/3**（无破）；双 tsc **0**；full backend 复跑确认 1579/0/35（纯函数重构 + 纯加法 prompt）。
+- **对抗式 review（agent）**：**SHIP**，0 critical/0 should-fix，1 非-load-bearing nit（N3「handoff」措辞,留）；3 锚 hash 独立重算字节吻合、schema 全准、无字段串味、无软化、无禁-token。
+- **锚值**：`n2=2ec0534c…`、`n3=17183102…`、`n5=556edf0c…`。
+- **设计要点**：避开 N2/N5 full-fixture rabbit-hole（node_id+完整 payload+mocked output+conditional allOf），改纯函数直接锚 + N3 wiring 断言闭合缺口。
+
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
 - **回归门**:无 code 改动 → 套件/tsc 不涉。基线维持 full backend **1579/0/35**。

@@ -34,6 +34,7 @@ import type {
 } from './topic-selection-agent-orchestrator-service.js';
 import {
   TopicSelectionV1bEarlySemanticSupportRuntimeService,
+  buildV1bEarlySemanticSupportSystemContent,
   type GenerateTopicSelectionV1bEarlySemanticSupportInput,
   type TopicSelectionV1bIntakeReadinessClassificationSupportPayload,
 } from './topic-selection-v1b-early-semantic-support-runtime-service.js';
@@ -180,6 +181,29 @@ function makeControlPlane() {
   });
 }
 
+// T-128 W-05 — early-semantic-support per-slot prompt-body byte-identity drift anchors (SPLIT-1:
+// N2 constraint-profile / N3 intake-readiness / N5 slice-selection). Pin the rendered SYSTEM content
+// per slot so any body change is a LOUD, intentional re-baseline. No harness/replay/e2e guard pins
+// these v1b prompt bodies, so these are their only drift coverage; the cross-slot inequality proves
+// the shared constructor actually diverged each sibling. Re-baseline ONLY for a deliberate change.
+const EARLY_SEMANTIC_SUPPORT_SYSTEM_GOLDEN = {
+  n2: '2ec0534c50086a3575404da5104e7c2e84eecd949c93cc6b02b2b41fd5caaa96',
+  n3: '17183102e1be81d6dee4e75f8df22045efe7d40534e169d02aee925fa06c755d',
+  n5: '556edf0c6c6e29376a17d576a81b599a1dafe75cc91853536f8ce9d22b42d115',
+};
+test('v1b early-semantic-support per-slot prompt bodies are byte-identity drift-anchored (T-128 W-05)', () => {
+  const n2 = buildV1bEarlySemanticSupportSystemContent('n2_constraint_profile_semantic_support');
+  const n3 = buildV1bEarlySemanticSupportSystemContent('n3_readiness_classification');
+  const n5 = buildV1bEarlySemanticSupportSystemContent('n5_slice_selection_review');
+  assert.equal(sha256Text(n2), EARLY_SEMANTIC_SUPPORT_SYSTEM_GOLDEN.n2);
+  assert.equal(sha256Text(n3), EARLY_SEMANTIC_SUPPORT_SYSTEM_GOLDEN.n3);
+  assert.equal(sha256Text(n5), EARLY_SEMANTIC_SUPPORT_SYSTEM_GOLDEN.n5);
+  // The split must actually diverge each sibling's body.
+  assert.notEqual(n2, n3);
+  assert.notEqual(n2, n5);
+  assert.notEqual(n3, n5);
+});
+
 test('v1b early-semantic-support runtime produces a runtime_verified N3 support artifact and threads identity', async () => {
   const controlPlane = makeControlPlane();
   // Seed the audit artifact the success path reads back (it must carry a checksum).
@@ -253,6 +277,11 @@ test('v1b early-semantic-support runtime produces a runtime_verified N3 support 
   assert.equal(stub.calls.length, 1);
   assert.equal(stub.calls[0]!.output_contract, N3_OUTPUT_CONTRACT);
   assert.equal(stub.calls[0]!.schema_name, N3_OUTPUT_CONTRACT);
+  // Wiring: messages() renders the N3 slot's system body via the drift-anchored pure builder.
+  assert.equal(
+    (stub.calls[0]!.messages as Array<{ role: string; content: string }>)[0]!.content,
+    buildV1bEarlySemanticSupportSystemContent('n3_readiness_classification'),
+  );
 });
 
 test('v1b early-semantic-support runtime rejects an incomplete N3 frozen payload with INVALID_PAYLOAD', async () => {

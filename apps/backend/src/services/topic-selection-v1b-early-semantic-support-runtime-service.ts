@@ -182,6 +182,41 @@ const intakeReadinessClassificationSupportPayloadSchema = {
   },
 } as const;
 
+// Per-slot product-grade system prompt content (T-128 W-05). The three early-semantic-support slots
+// (N2 constraint-profile / N3 intake-readiness / N5 slice-selection) share one runtime constructor but
+// emit DIFFERENT support payloads, so the role + per-field contract + context refs branch on slot_id
+// while the non-authority / no-mutate / no-override / JSON-only safety lines stay shared verbatim. All
+// three are commentary-only over an ALREADY-accepted authority artifact — they never write or re-decide
+// it. Exported as a pure function so the prompt body is drift-anchored directly in the unit test.
+export function buildV1bEarlySemanticSupportSystemContent(
+  slotId: TopicSelectionV1bEarlySemanticSupportSlotId,
+): string {
+  const slotLines = slotId === 'n2_constraint_profile_semantic_support'
+    ? [
+        'You are the N2 non-authority constraint-profile semantic-support reviewer; the ResearchConstraintProfile is already accepted by the authority provider, so produce commentary-only structured support and never the profile itself.',
+        'Restate the accepted target_community and claim_ceiling faithfully from accepted_constraint_profile_payload; give method_constraints, resource_constraints, available_assets, and non_goals as ref-grounded string arrays; keep feasibility_budget and constraint_payload keys traceable to the cited source.',
+        'Ground every field in the supplied intake_snapshot, v1a_bundle, accepted_constraint_profile_payload, and any delegation_artifact or previous_profile refs.',
+      ]
+    : slotId === 'n3_readiness_classification'
+      ? [
+          'You are the N3 intake-readiness classification support analyst over the accepted profile and intake snapshot; you classify readiness and never write the IntakeReadinessAssessment.',
+          'Set readiness_recommendation to ready, needs_refinement, or blocked; populate blocker_codes only when blocked and warning_codes for soft gaps; set loopback_target_code to n3_snapshot_refresh, n3_profile_repair, or null, keeping it null when ready; cite every supporting ref in cited_refs and confirm no_authority_write_confirmed.',
+          'Ground the classification in the supplied intake snapshot, constraint profile, and N3 handoff refs.',
+        ]
+      : [
+          'You are the N5 slice-selection decision support reviewer mirroring an already-accepted ResearchSliceSelectionDecision; you reflect the decision and never re-decide it.',
+          'Set decision to select, request_more_options, park, or reject to match accepted_selection_payload; on select set selected_option_ref and selected_option_hash and null the loopback fields; on request_more_options set a loopback_target with a non-empty loopback_reason_code; give rejected_option_reasons with a valid reason_code, carry accepted_risk_refs, and set requires_human_review with an honest human_review_reason.',
+          'Ground the decision in the supplied research_slice_option_set, N4 handoff, accepted_selection_payload, selected_option, and accepted_risk_refs.',
+        ];
+  return [
+    ...slotLines,
+    'Use only the supplied refs, hashes, and context packet.',
+    'Do not create or mutate ResearchConstraintProfile, IntakeReadinessAssessment, ResearchSliceSelectionDecision, ResearchSlice, option sets, topic questions, packages, or bridges.',
+    'Do not override deterministic gates, route policy, executable prompts, or ref/hash lineage.',
+    'Return only JSON matching the requested support output contract.',
+  ].join(' ');
+}
+
 export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
@@ -478,13 +513,7 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Generate a non-authority semantic support artifact for v1b topic-selection.',
-          'Use only the supplied refs, hashes, and context packet.',
-          'Do not create or mutate ResearchConstraintProfile, IntakeReadinessAssessment, ResearchSliceSelectionDecision, ResearchSlice, option sets, topic questions, packages, or bridges.',
-          'Do not override deterministic gates, route policy, executable prompts, or ref/hash lineage.',
-          'Return only JSON matching the requested support output contract.',
-        ].join(' '),
+        content: buildV1bEarlySemanticSupportSystemContent(binding.slot_id),
       },
       {
         role: 'user',

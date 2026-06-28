@@ -9,7 +9,7 @@
 | W-02 撰写状态台账 | 0 | closeable | **done（2026-06-25）** | 27 非-canary id 全勘定（grounding `wf_0478aceb`，8 表面簇并行 + critic）。分布 **0 产品级 / 7 骨架 / 20 部分**；**全 27 个正文皆无 per-prompt golden byte-identity 锚**（Phase 1 每项定稿须新增）；6 项标定门控→Phase 5。台账见下「W-02 产出」。3 处承重断言已人工抽验吻合。 |
 | W-03 孤儿开口认领 | 0 | closeable | **done（2026-06-25）** | 3 孤儿开口正式认领：N6 升级可达性→`D-T128-01` 占位（W-12）；P-01 压缩恢复 topic-selection 半边→`D-T128-02` 占位（W-11，跨 T-124）；v1c-N2 接线 **= W-13 已 done、D6=否（无 harness）→ 核销、不开空 JD**。JD 链 D-T128-00 开篇→01/02 占位（T-088 line 1929-1943）。见下「W-03 留痕」。 |
 | W-04 v1a 表面 prompt | 1 | closeable | **done（2026-06-25）** | 8 prompt 全产品化（4 单 agent + 4 need-discovery 角色）。grounding `wf_79f66a5e`（blast-radius 测绘 + golden-anchor 策略 + keystone-first 序）。A=arbiter-final+issue-frame（拆 arbiterMessages，`e5d4ce72`）；B=generate-need-candidate（`157414b6`）；C=explorer+deep_critic（拆 roleMessages，`071e0ad6`）；D/E/F=need-adjudication+human-confirmation+evidence-map（binding-service 3 prompt 合并）。**8 prompt 各得 rendered-text golden 漂移锚（此前全无）**；每 slice 对抗式 review（全 0 critical，少量 nit 已修）。 |
-| W-05 v1b 非-debate 槽位 prompt | 1 | closeable | **planned（study+plan done 2026-06-25，未起 code）** | 9 槽。grounding `wf_e093ee2d`（blast-radius + golden 策略 + 2 共享构造体拆分设计）。**5-commit 计划见下「W-05 计划」**。SPLIT-1 production 已设计+schema 核验（N2/N3/N5 按 `binding.slot_id` 分支），gating 工作量=N2/N5 测试 fixture（frozen payload+mocked output）。 |
+| W-05 v1b 非-debate 槽位 prompt | 1 | closeable | **进行中（2026-06-29）** | 9 槽。grounding `wf_e093ee2d`。**5-commit 计划见下「W-05 计划」**。**Commit 1（SPLIT-1，N2/N3/N5）done**：系统内容提取为导出纯函数 `buildV1bEarlySemanticSupportSystemContent`（按 slot_id 分支），messages() 委托；3 SYSTEM 漂移锚 + cross-slot 不等式 + N3 wiring 断言（避开 N2/N5 full-fixture rabbit-hole）；对抗式 review SHIP/0-critical。余 Commit 2（N4）/3（N6-draft）/4（N6-loopback）/5（SPLIT-2 N7×3）待续。 |
 | W-06 v1c 表面 prompt | 1 | closeable | planned | 承 W-P3 |
 | W-07 资源采样 prompt | 1 | closeable | planned | 承 W-P4 |
 | W-08 live-surface 分类 | 2 | closeable | planned | T-089 切片；对齐 SSOT 矩阵勿 re-fork |
@@ -164,7 +164,13 @@
 - **need-adjudication(D)**:per-field 补顶层 `gap_codes` + `searchplan_recheck_gap_codes` 改「always emit (empty unless needed)」精确措辞 → 锚 `4783f90b…→a0deee32…`。
 - **验证**:adapter **14/14**、binding **6/6**、双 tsc **0**、full backend 复跑（下方确认）。所有改动纯加法/精确化、无软化边界、USER key 集不变。
 
-### W-05 计划（study `wf_e093ee2d` 产出，2026-06-25，未起 code — 下次直接 author）
+### W-05 Commit 1 — SPLIT-1 早期语义支持 N2/N3/N5 拆分（2026-06-29）
+- **production**：`topic-selection-v1b-early-semantic-support-runtime-service.ts` 把 per-slot 系统内容提取为**模块级导出纯函数** `buildV1bEarlySemanticSupportSystemContent(slotId)`（按 `binding.slot_id` 分支:n2/n3/else=n5），`messages()` 委托之。N2/N3/N5 各得角色 persona + 内联 per-field 契约 + context-refs；**4 条共享安全行 verbatim**（use-only-supplied / do-not-mutate / do-not-override / JSON-only）；USER 载荷字节不变。schema enum 全核验（N2 字段、N3 `readiness_recommendation`/`loopback_target_code`、N5 `decision`/`loopback_target`+`loopback_reason_code` + conditional allOf;**N3 用 loopback_target_code、N5 用 loopback_target 未串味**）。
+- **锚机制（避开 full-fixture rabbit-hole）**：N2/N5 经 `generateSupportArtifact` 全跑需匹配 node_id + 完整 frozen payload + mocked output + conditional allOf（rabbit-hole）。改用**纯函数直接锚**:测试 pin `sha256Text(buildV1b…(slotId))` × 3 slot + cross-slot 不等式（证拆分确已分化各 sibling）+ **既有 N3 e2e 测试加 wiring 断言** `stub.calls[0].messages[0].content === buildV1b…('n3_readiness_classification')`（证 messages() 确经该纯函数渲染,闭合 function-only 锚的缺口）。锚值:`n2=2ec0534c…`、`n3=17183102…`、`n5=556edf0c…`。
+- **对抗式 review（agent，SHIP，0 critical/0 should-fix，1 非-load-bearing nit 留）**：3 schema enum 独立核验吻合、无字段串味、重构纯委托、USER 不变、else→N5 无误route、两 messages() 调用点一致、4 安全行 verbatim 且 per-slot 角色行净强化、无禁-token、**3 锚 hash 独立重算字节吻合**。
+- **验证**：early-semantic 单测 **5/5**（3 锚 + 不等式 + N3 wiring + 既有）、admission **3/3**（无破）、双 tsc **0**、full backend（复跑,下方确认）。**纯加法 prompt 内容 + 纯函数重构,无新字段/schema/harness 触碰。**
+
+### W-05 计划（study `wf_e093ee2d` 产出，2026-06-25；Commit 1 已 done，余 2–5 待续）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。
 
 **关键约束**：
