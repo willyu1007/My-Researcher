@@ -76,6 +76,12 @@
 - **锚值**：`n2=2ec0534c…`、`n3=17183102…`、`n5=556edf0c…`。
 - **设计要点**：避开 N2/N5 full-fixture rabbit-hole（node_id+完整 payload+mocked output+conditional allOf），改纯函数直接锚 + N3 wiring 断言闭合缺口。
 
+### 2026-06-29 · W-05 Commit 2 — N4 research-slice option-set draft
+- **改动**：`topic-selection-v1b-n4-research-slice-runtime-service.ts` 系统内容提取为导出纯函数 `buildV1bN4ResearchSliceSystemContent()`，messages() 委托；同文件单测加 SYSTEM 漂移锚 + closer 子串 + 扩 prompt_packet_hash 自决定性。
+- **回归门**：N4 单测 **5/5**、admission **4/4**（无破）；双 tsc **0**；full backend 复跑确认（纯函数 + 纯加法 prompt）。
+- **对抗式 review（agent）**：**SHIP-WITH-FOLLOWUP** → 1 should-fix（`confidence` 顶层↔per-option 放反:top-level 无此字段 + additionalProperties:false,per-option 必填 nullable）+ 1 nit（planning_input 限定）**均已修 + re-baseline**。其余 verified clean（全字段/enum 准、边界 verbatim、无禁-token、锚 hash 独立重算吻合）。
+- **锚值**：`n4=9006518e…`（修前 df45821a 已 superseded）。
+
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
 - **回归门**:无 code 改动 → 套件/tsc 不涉。基线维持 full backend **1579/0/35**。

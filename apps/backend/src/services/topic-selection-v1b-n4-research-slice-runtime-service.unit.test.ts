@@ -33,8 +33,10 @@ import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   TopicSelectionV1bN4ResearchSliceRuntimeService,
+  buildV1bN4ResearchSliceSystemContent,
   type GenerateTopicSelectionV1bN4RuntimeDraftInput,
 } from './topic-selection-v1b-n4-research-slice-runtime-service.js';
+import { sha256Text } from './literature-content-processing-utils.js';
 
 const NOW = '2026-06-16T00:00:00.000Z';
 const N4_NODE_ID = 'topic-selection.v1b.generate-research-slice-options.v1' as const;
@@ -281,6 +283,23 @@ test('v1b N4 research-slice runtime is byte-stable across runs with identical fi
     first.semantic_artifact.runtime_invocation_context_hash,
     second.semantic_artifact.runtime_invocation_context_hash,
   );
+  // prompt_packet_hash (covers the rendered messages, incl. the system body) is byte-stable too, so
+  // the live-invocation and admission-expected-identity call sites of messages() stay consistent.
+  assert.equal(
+    first.semantic_artifact.prompt_packet_hash,
+    second.semantic_artifact.prompt_packet_hash,
+  );
+});
+
+// T-128 W-05 — N4 research-slice prompt-body byte-identity drift anchor. Pin the rendered SYSTEM
+// content so any body change is a LOUD, intentional re-baseline. No harness/replay/e2e guard pins this
+// v1b prompt body, so this is its only drift coverage. Re-baseline ONLY for a deliberate change.
+const N4_RESEARCH_SLICE_SYSTEM_GOLDEN = '9006518ecd345883503ad120313f7550cdfa3ab2a26f96ed87b4e4dbe4cb67ac';
+test('v1b N4 research-slice prompt body is byte-identity drift-anchored (T-128 W-05)', () => {
+  assert.equal(sha256Text(buildV1bN4ResearchSliceSystemContent()), N4_RESEARCH_SLICE_SYSTEM_GOLDEN);
+  // Must-preserve substrings the artifact/admission asserts depend on.
+  const body = buildV1bN4ResearchSliceSystemContent();
+  assert.ok(body.includes('Return only JSON matching ResearchSliceOptionSetDraft@v1.'));
 });
 
 test('v1b N4 research-slice runtime rejects planning input whose lineage drifts from the frozen N4 input', async () => {
