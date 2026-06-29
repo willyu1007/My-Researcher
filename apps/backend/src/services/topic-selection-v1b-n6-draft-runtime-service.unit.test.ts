@@ -23,9 +23,11 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import { AppError } from '../errors/app-error.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import { sha256Text } from './literature-content-processing-utils.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   TopicSelectionV1bN6DraftRuntimeService,
+  buildV1bN6DraftSystemContent,
   type GenerateTopicSelectionV1bN6RuntimeDraftInput,
 } from './topic-selection-v1b-n6-draft-runtime-service.js';
 
@@ -340,5 +342,44 @@ test('v1b N6 draft runtime refuses initial_from_n5 when a loopback projection is
       assert.equal(error.errorCode, 'INVALID_PAYLOAD');
       return true;
     },
+  );
+});
+
+// --- W-05 Commit 3: product-grade N6 candidate-set draft system prompt drift anchors ---------
+//
+// N6 renders a single dedicated draft system prompt via the exported pure builder. There is no
+// harness/replay golden over this body, so the two SHA-256 anchors below (decision-memory absent
+// vs present) are its only drift guard: any intentional edit to the prompt body must re-baseline
+// both anchors in the same commit (record -> paste). The branch invariants additionally assert
+// that the decision-memory branch only appends the verbatim anti-repeat clause.
+const N6_DRAFT_SYSTEM_BODY_GOLDEN = {
+  without_decision_memory: 'c0972b12d6a00edf3557cce0f123252704e0297d670b6aa6ed01b1c22dea4428',
+  with_decision_memory: '265d66b7e95c2bc6501f0e25a3a79ef30b1e68831909b0fcdc0399359e0d66e8',
+} as const;
+
+const N6_DRAFT_DECISION_MEMORY_CLAUSE =
+  'context_packet.decision_memory lists previously rejected/parked/duplicate directions for this title card; do not regenerate equivalent candidates, and if intentionally revisiting one, justify it explicitly in the candidate rationale.';
+
+test('v1b N6 draft system prompt body is product-grade and drift-anchored for both decision-memory branches', () => {
+  const withoutMemory = buildV1bN6DraftSystemContent(false);
+  const withMemory = buildV1bN6DraftSystemContent(true);
+
+  // Both branches are pinned. Re-baseline both anchors together when the prompt body changes.
+  assert.equal(sha256Text(withoutMemory), N6_DRAFT_SYSTEM_BODY_GOLDEN.without_decision_memory);
+  assert.equal(sha256Text(withMemory), N6_DRAFT_SYSTEM_BODY_GOLDEN.with_decision_memory);
+
+  // The decision-memory branch is exactly the base body plus the verbatim anti-repeat clause.
+  assert.notEqual(sha256Text(withoutMemory), sha256Text(withMemory));
+  assert.ok(withMemory.startsWith(withoutMemory));
+  assert.equal(withMemory.slice(withoutMemory.length), ' ' + N6_DRAFT_DECISION_MEMORY_CLAUSE);
+
+  // The non-authority boundary + output-contract closer the downstream N6 gate keys on must remain.
+  assert.ok(
+    withoutMemory.includes('non-authority topic-question candidate set for v1b N6'),
+    'N6 draft system prompt must keep its non-authority candidate-set framing.',
+  );
+  assert.ok(
+    withoutMemory.includes('Return only JSON matching TopicQuestionCandidateSetDraft@v1.'),
+    'N6 draft system prompt must keep its output-contract closer.',
   );
 });

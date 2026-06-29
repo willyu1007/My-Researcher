@@ -82,6 +82,13 @@
 - **对抗式 review（agent）**：**SHIP-WITH-FOLLOWUP** → 1 should-fix（`confidence` 顶层↔per-option 放反:top-level 无此字段 + additionalProperties:false,per-option 必填 nullable）+ 1 nit（planning_input 限定）**均已修 + re-baseline**。其余 verified clean（全字段/enum 准、边界 verbatim、无禁-token、锚 hash 独立重算吻合）。
 - **锚值**：`n4=9006518e…`（修前 df45821a 已 superseded）。
 
+### 2026-06-29 · W-05 Commit 3 — N6 question-candidate-set draft
+- **改动**：`topic-selection-v1b-n6-draft-runtime-service.ts` 系统内容提取为导出纯函数 `buildV1bN6DraftSystemContent(hasDecisionMemory)`，messages() 委托（传 `Boolean(contextPacket.decision_memory)`）；同文件单测加**双分支 SYSTEM 漂移锚** + clause 不变式（`with===without+' '+clause`，startsWith + slice 精确）+ 非权威框架/closer 子串。
+- **回归门**：N6 单测 **6/6**、双 tsc **0**；full backend 复跑确认 **1582/0/35**（vs 基线 1581，净 +1 锚测试）；纯函数重构 + 纯加法 prompt。
+- **对抗式 review（人工）**：**SHIP**，0 critical/0 should-fix；candidate 20 required + question_frame 10 + top-level 5 + falsification 9 字段全覆盖、4 组 enum 字面精确、decision_memory clause verbatim、双锚 hash 独立重算吻合、纯委托、USER 不变、无禁-token。
+- **锚值**：`without_decision_memory=c0972b12…`、`with_decision_memory=265d66b7…`。
+- **设计要点**：N6 单槽无 harness/replay golden over body → 双锚是其唯一漂移护栏；decision_memory 仅在 hasDecisionMemory 分支追加 verbatim anti-repeat clause。
+
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
 - **回归门**:无 code 改动 → 套件/tsc 不涉。基线维持 full backend **1579/0/35**。
