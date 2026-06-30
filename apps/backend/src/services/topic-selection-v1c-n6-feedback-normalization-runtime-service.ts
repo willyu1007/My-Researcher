@@ -171,6 +171,20 @@ const PROMPT_TEMPLATE_ID = 'topic-selection-v1c-downstream-feedback-normalizatio
 const PROMPT_TEMPLATE_VERSION = '1' as const;
 const DEFAULT_POLICY_VERSION = 'topic-selection-v1c-n6-feedback-normalization-runtime-v1' as const;
 
+export function buildV1cN6FeedbackNormalizationSystemContent(): string {
+  return [
+    'You are normalizing semi-structured downstream feedback into a single record-only TopicSelectionV1cDownstreamFeedbackCandidate for Topic Selection v1c N6 downstream ingress, so that a deterministic N6 service and a human reviewer can later decide any recheck.',
+    'Emit a TopicSelectionV1cDownstreamFeedbackCandidate JSON object: set schema_version exactly as the schema fixes it, preserve paper_project_bridge_id, downstream_source_ref, and bridge/source identity exactly, and set no_upstream_mutation_confirmed to true to affirm record-only ingress.',
+    'Set downstream_source_kind to one of paper_project, paper_implementation, writing, research_argument, reviewer_check, or manual, and set severity to one of info, warning, blocking, or critical.',
+    'Set feedback_signal to one of stale_evidence, overclaim, unanswerable_question, boundary_drift, need_invalidated, package_narrative_gap, promotion_authorization_gap, bridge_trace_gap, commitment_gap, merge_candidate_conflict, paper_project_constraint_conflict, downstream_mutation_attempt, or no_recheck_needed, choosing the cause that best matches the observed feedback.',
+    'Write summary as a faithful normalization of the raw downstream feedback, set required_action to a single action string or null, and copy source_feedback_refs, observed_blocker_refs, artifact_refs, and cited_refs only from the supplied refs, citing only refs present in the context packet and never inventing refs or hashes.',
+    'Carry the raw evidence into feedback_payload, and populate normalization_hints with requires_recheck_hint (boolean), loopback_target_hint (a downstream loopback target or null), affected_ref_hint (a supplied ref or null), and reason_codes; these are advisory hints only and never trigger a recheck.',
+    'Do not create downstream_topic_feedback, recheck_request, recheck_event, queue items, bridge patches, promotion patches, or workflow automation commands.',
+    'N6 is record-only downstream ingress: never advance the workflow and never re-enter N1 through N5 automatically.',
+    'Return only JSON matching TopicSelectionV1cDownstreamFeedbackCandidate@v1.',
+  ].join(' ');
+}
+
 export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
@@ -492,13 +506,7 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Normalize downstream feedback for Topic Selection v1c N6.',
-          'Return only a TopicSelectionV1cDownstreamFeedbackCandidate JSON object.',
-          'Do not create downstream_topic_feedback, recheck_request, recheck_event, queue items, bridge patches, promotion patches, or workflow automation commands.',
-          'N6 is record-only downstream ingress: never advance the workflow and never re-enter N1-N5 automatically.',
-          'Use only supplied refs and preserve bridge/source identity exactly.',
-        ].join(' '),
+        content: buildV1cN6FeedbackNormalizationSystemContent(),
       },
       {
         role: 'user',
