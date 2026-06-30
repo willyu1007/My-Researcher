@@ -503,7 +503,7 @@ const NEED_DISCOVERY_PROMPT_BODY_GOLDEN = {
   explorer: '4bd5b6ae88fe057c687d2eaa108f213f0b3c05fae55e97c8093216f414724a68',
   deep_critic: 'e66d5a6315e364d39a75cc64319ea250bc045a62eff37614129a8a8414003aec',
   arbiter_issue_frame: '1bdbef201cc484944ffe42542ee6cb35ce3813912c48355df3cf0a802dad1007',
-  arbiter_final: '8ee59593ebc80b37b3e31853396b975881817bb904382e7e3567906888cf2db3',
+  arbiter_final: '76f32df7c6d07da658766e535c1b097f46ba39274e7163221460d08c3d3fd60e',
 };
 test('need-discovery debate prompt bodies are byte-identity drift-anchored (T-128 W-04)', async () => {
   const providerGateway = new ProviderDebateGateway();
@@ -543,6 +543,26 @@ test('need-discovery debate prompt bodies are byte-identity drift-anchored (T-12
     sha256Text(stableStringify(llmGateway.calls[4].messages)),
     NEED_DISCOVERY_PROMPT_BODY_GOLDEN.arbiter_final,
   );
+
+  // P0 (T-128 closure review) — arbiter final_synthesis is the debate path's only external
+  // NeedCandidate feed and shares the single-agent generate-need-candidate validator+admission
+  // pipeline, so its prompt must mirror those gates (not just the role-bundle safety clauses).
+  // These substrings pin the draft-completeness contract added to close the prompt↔gate drift.
+  const finalSystemBody = String(llmGateway.calls[4].messages[0]?.content ?? '');
+  assert.match(
+    finalSystemBody,
+    /Echo node_input\.schema_version into the batch and node_input\.node_attempt_id into draft_batch\.node_attempt_id/,
+  );
+  assert.match(finalSystemBody, /only set terminal_result=finalize when at least one admissible draft exists/);
+  assert.match(finalSystemBody, /include non-empty scope_notes/);
+  assert.match(finalSystemBody, /set speculative=false unless the supplied evidence directly forces uncertainty/);
+  assert.match(finalSystemBody, /Rank drafts contiguously from 1 with no gaps/);
+  assert.match(
+    finalSystemBody,
+    /a distinct unmet_need_statement, a mechanism_type, a prior_art_status, and at least one gap_code/,
+  );
+  assert.match(finalSystemBody, /at least one evidence_strength_assessment ref in strength_assessment_refs/);
+  assert.match(finalSystemBody, /drop drafts whose prior_art_status is already_solved or falsified/);
 });
 
 test('need-discovery debate loop preserves mocked fixture count under canonical slot execution plan', async () => {

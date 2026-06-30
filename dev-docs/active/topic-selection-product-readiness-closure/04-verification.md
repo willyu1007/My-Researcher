@@ -149,4 +149,12 @@
 - **锚值**：`resource_sampling_classification=a91aac9c…`。
 - **W-07 收口**：单件 #9 partial→产品级，得唯一漂移锚；**Phase 1 非-debate prompt 全收口**（W-04 v1a + W-05 v1b 非-debate + W-06 v1c + W-07 资源采样）。下一步 → Phase 2（W-08 live-surface 分类 / W-09 产品跑使能）。**已提交 `edf7e27a`**。
 
+### 2026-07-01 · Phase 1 闭环审查 — P0 #8 arbiter-final prompt↔gate 对齐
+> 整体闭环审查（2 对抗式子代理用 W-06 盲区模式复查 W-04/W-05 共 17 prompt + 亲核下游 gate）确认：W-06 的「prompt 仅对照 schema（含 allOf）、漏对照下游 gate 业务校验」盲区是**系统性**的，W-04/W-05 同存同类 prompt↔gate 漂移（去噪后 ~13🔴+~16🟡，子代理原报 ~60 条含约半数噪音/低优先）。最高 blast-radius = **#8 arbiter-final**（debate 路径唯一 external NeedCandidate feed，与孪生 single-agent #2 共用 RankedCandidateDraftBatch validator+admission，但 prompt 约束显著弱于 #2）。本段先收 **P0 #8**。
+- **改动**：`topic-selection-need-discovery-debate-loop-service.ts` `arbiterMessages` final_synthesis system 9→13 句（role-bundle 安全句 verbatim 保留、USER 3 条 load-bearing 约束 byte 不变），补 4 句镜像 validator+admission 强校验：① identity echo（batch.schema_version=node_input.schema_version、draft_batch.node_attempt_id=node_input.node_attempt_id，validator:74/81）+ terminal_result=finalize 须有 admissible draft（validator:109）；② scope_notes 非空 + speculative=false 默认（admission:169）；③ rank contiguous 1..N（validator:184）+ candidate_need(distinct unmet_need_statement / mechanism_type / prior_art_status / ≥1 gap_code，validator:211）；④ 每 draft support|challenge≥1（admission:151）+ strength_assessment_refs≥1（validator:203）+ prior_art already_solved/falsified 丢弃不排名（admission:157）。
+- **identity echo 有据非臆造**：debate `node_input` 类型 = `TopicSelectionGenerateNeedCandidateNodeInput`（debate-loop:97，与 #2 同），含 schema_version/node_attempt_id 且 USER 已注入（:1070）LLM 可见；final batch 走同一 ranked-batch validator。
+- **回归门**：debate 单测 **16/16**（+8 final system 子串断言钉 4 子句的 8 处措辞，0 新增 test 数）、ReadLints **0**、backend tsc **0**；full backend **1625/1590/0/35**（断言增强未增 test 数，与 W-07 收口同基线，0 回归）。
+- **锚 re-baseline**：`arbiter_final=76f32df7…`（原 `8ee59593…`）。
+- **范围说明**：本次仅 P0 #8；P1（W-05 N4/N6 draft + W-04 #2/#1/#3，~9🔴+~11🟡）与 P2（低优先）已在闭环报告分级登记，**本次未实施**——建议立「Phase 1.5 prompt↔gate 一致性收尾」或并入 Phase 3 真跑前置。**已提交 `__COMMIT__`**。
+
 ### （待开工）
