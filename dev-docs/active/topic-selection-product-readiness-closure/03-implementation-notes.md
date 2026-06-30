@@ -239,7 +239,7 @@
 - **gate 行号依据**：validator schema_version:74 / node_attempt_id:81 / finalize:109 / rank contiguous:184(`rank===index+1`) / strength≥1:203 / gap_code≥1:211；admission support+challenge:151 / prior_art:157 / speculative-risk:169。**identity 有据非臆造**：debate `node_input`=`TopicSelectionGenerateNeedCandidateNodeInput`（:97，与 #2 同），含字段且 USER 注入（:1070）。
 - **锚（re-baseline）**：`arbiter_final=76f32df7…`（原 `8ee59593…`）；test 加 **8 final-system 子串断言**钉 4 子句 8 处措辞，byte-identity 锚 + 子串双护栏。USER 3 条 load-bearing 约束 byte 不变（既有 finalPayload 断言 0 破）。
 - **验证**：debate 单测 **16/16**、ReadLints 0、backend tsc **0**；full backend 见 `04`。纯加法 prompt，无新字段/schema/YAML/registry。
-- **范围**：仅 **P0 #8**。P1（N4/N6 draft + #2/#1/#3）/P2 已分级登记于闭环报告，本次未实施 → 建议立「Phase 1.5 prompt↔gate 一致性收尾」或并入 Phase 3 真跑前置。**已提交 `__COMMIT__`**。
+- **范围**：仅 **P0 #8**。P1（N4/N6 draft + #2/#1/#3）/P2 已分级登记于闭环报告，本次未实施 → 建议立「Phase 1.5 prompt↔gate 一致性收尾」或并入 Phase 3 真跑前置。**已提交 `69b42b4a`**。
 
 ### W-05 计划（study `wf_e093ee2d` 产出，2026-06-25；Commit 1–5 全 done，W-05 收口）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。

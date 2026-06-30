@@ -155,6 +155,6 @@
 - **identity echo 有据非臆造**：debate `node_input` 类型 = `TopicSelectionGenerateNeedCandidateNodeInput`（debate-loop:97，与 #2 同），含 schema_version/node_attempt_id 且 USER 已注入（:1070）LLM 可见；final batch 走同一 ranked-batch validator。
 - **回归门**：debate 单测 **16/16**（+8 final system 子串断言钉 4 子句的 8 处措辞，0 新增 test 数）、ReadLints **0**、backend tsc **0**；full backend **1625/1590/0/35**（断言增强未增 test 数，与 W-07 收口同基线，0 回归）。
 - **锚 re-baseline**：`arbiter_final=76f32df7…`（原 `8ee59593…`）。
-- **范围说明**：本次仅 P0 #8；P1（W-05 N4/N6 draft + W-04 #2/#1/#3，~9🔴+~11🟡）与 P2（低优先）已在闭环报告分级登记，**本次未实施**——建议立「Phase 1.5 prompt↔gate 一致性收尾」或并入 Phase 3 真跑前置。**已提交 `__COMMIT__`**。
+- **范围说明**：本次仅 P0 #8；P1（W-05 N4/N6 draft + W-04 #2/#1/#3，~9🔴+~11🟡）与 P2（低优先）已在闭环报告分级登记，**本次未实施**——建议立「Phase 1.5 prompt↔gate 一致性收尾」或并入 Phase 3 真跑前置。**已提交 `69b42b4a`**。
 
 ### （待开工）
