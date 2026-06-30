@@ -458,7 +458,7 @@ test('v1c N6 runtime compression quality gate blocks dropped feedback facts befo
 });
 
 const DOWNSTREAM_FEEDBACK_NORMALIZATION_SYSTEM_BODY_GOLDEN =
-  'e16ced58fefc889f2f041facd3a32fbeb921c4d4ad7ca3e56e45908c6cd02363';
+  '49e23cc74b392c837ee70b09ef8a587209d8ed1d7b45024d884aa276e3ed65ba';
 
 test('v1c N6 downstream-feedback-normalization system prompt is product-grade and byte-stable (golden anchor)', () => {
   const body = buildV1cN6FeedbackNormalizationSystemContent();
@@ -467,13 +467,18 @@ test('v1c N6 downstream-feedback-normalization system prompt is product-grade an
 
   assert.match(body, /TopicSelectionV1cDownstreamFeedbackCandidate@v1/);
 
-  assert.match(body, /Set downstream_source_kind to one of paper_project, paper_implementation, writing, research_argument, reviewer_check, or manual/);
+  assert.match(body, /Echo downstream_source_kind exactly from the supplied source \(one of paper_project, paper_implementation, writing, research_argument, reviewer_check, or manual\) and never reclassify it/);
   assert.match(body, /set severity to one of info, warning, blocking, or critical/);
   assert.match(body, /Set feedback_signal to one of stale_evidence, overclaim, unanswerable_question, boundary_drift, need_invalidated, package_narrative_gap, promotion_authorization_gap, bridge_trace_gap, commitment_gap, merge_candidate_conflict, paper_project_constraint_conflict, downstream_mutation_attempt, or no_recheck_needed/);
+
+  assert.match(body, /set required_action to a single non-empty action string for a recheck-producing feedback_signal and to null when feedback_signal is no_recheck_needed/);
 
   for (const hint of ['requires_recheck_hint', 'loopback_target_hint', 'affected_ref_hint', 'reason_codes']) {
     assert.ok(body.includes(hint), `system prompt must mirror normalization hint ${hint}`);
   }
+
+  assert.match(body, /requires_recheck_hint matches whether feedback_signal is recheck-producing/);
+  assert.match(body, /loopback_target_hint and affected_ref_hint are each either null or the deterministic downstream routing fixed by feedback_signal/);
 
   assert.match(body, /no_upstream_mutation_confirmed to true/);
   assert.match(body, /N6 is record-only downstream ingress: never advance the workflow and never re-enter N1 through N5 automatically/);

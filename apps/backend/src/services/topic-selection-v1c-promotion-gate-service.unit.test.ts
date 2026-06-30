@@ -887,7 +887,7 @@ class FakePromotionGatePrismaClient {
 }
 
 const PROMOTION_DECISION_SUPPORT_SYSTEM_BODY_GOLDEN =
-  'a164d8ac6e086860c85ad484ccbae6de1ce949e893d54c4715fe5fcde2b59ccc';
+  '0eefd9f06d5cc4cecc5fd1d2dc586ef1b87155da1d14dc7b2eac7a1071165e0f';
 
 test('v1c promotion-decision-support system prompt is product-grade and byte-stable (golden anchor)', () => {
   const body = buildV1cPromotionDecisionSupportSystemContent();
@@ -899,6 +899,8 @@ test('v1c promotion-decision-support system prompt is product-grade and byte-sta
   for (const field of ['summary', 'reviewer_questions', 'risk_notes', 'recheck_notes', 'dossier_markdown']) {
     assert.ok(body.includes(field), `system prompt must mirror schema field ${field}`);
   }
+
+  assert.match(body, /Every field is optional; populate only the fields the handoff supports and omit the rest/);
 
   assert.match(body, /Do not decide the gate disposition/);
   assert.match(body, /authorize or recommend promotion/);

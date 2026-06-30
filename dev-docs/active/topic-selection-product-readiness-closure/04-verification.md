@@ -130,6 +130,14 @@
 - **锚值**：`downstream_feedback_normalization=e16ced58…`。
 - **W-06 收口**：3 surface 全产品化（C1 #24 / C2 #26 / C3 #27），各得唯一漂移锚；schema/YAML 零改动。**Phase 1 v1c 非-debate prompt 收口**（#25 门控→W-18）。**已提交 `06ceb295`**。
 
+### 2026-07-01 · W-06 Review follow-up — prompt↔admission 契约对齐（订正上方三段「0 should-fix」）
+> 复检判定：上方 C1–C3 对抗式 review **仅对照 schema（含 allOf），漏查各 surface admission service 的业务校验**（prompt 输出的真实下游验收者）。重审 admission 后定位 **6 处 prompt↔admission 漂移**——prompt 会引导 LLM 产 *schema 合法但 admission 拒* 的 candidate。**非安全/非正确性 bug**（admission fail-closed 拦截、既有负例测试已证拦截、系统安全），属**产品质量缺陷**（降首跑 admission 通过率 + 重试浪费）。
+- **#26 delegated（3 should-fix）**：① non-promote `loopback_target` 实为 decision→target **唯一映射**（`LOOPBACK_TARGET_BY_DECISION`：merge_packages/refine_package→package、reassess_value→value、revise_question→question、revise_slice→slice、recheck_evidence_or_search→evidence_or_search、park→park、drop→none），原正文「7 选 1」误导；② promote-class 须 `required_actions` 空（admission `loopback||required_actions` 双拒）；③ non-promote（除 park/drop）须 `required_actions` 非空。→ 正文句 4-5 重写。
+- **#27 feedback-norm（3 should-fix）**：① `downstream_source_kind` 须 echo source（admission `candidate!==source` 即拒），原「6 选 1」误导；② `required_action` 有无由 feedback_signal/policy 定（recheck-producing→非空、no_recheck_needed→null），原「string-or-null」未绑定；③ `normalization_hints` 须匹配确定性 policy（requires_recheck_hint===policy、loopback_target_hint/affected_ref_hint null-or-policy），原「advisory-only」误导。→ 正文句 3-5-6 重写。
+- **#24 promotion-support（1 nit）**：5 字段本全 optional，原仅 dossier_markdown 单标「optional」易令 LLM 误判其余必填 → 补「Every field is optional」统句 + 去单标。（#24 无 admission 字段约束，仅措辞。）
+- **锚 re-baseline**：`#24=0eefd9f0…`（原 a164d8ac）、`#26=271c75b5…`（原 168804f2）、`#27=49e23cc7…`（原 e16ced58）；3 test 各加契约断言钉新约束（promote-class required_actions 空 / non-promote loopback 映射 / source_kind echo / required_action 绑定 / hints 匹配 policy / 全 optional）。
+- **复跑**：3 runtime/service 单测 **28/28**、ReadLints **0**、全量 typecheck **0**；full backend **1624/1589/0/35**（3 test 仅改断言未增 test 数，与 W-06 收口同，无回归）。**已提交 `__C_FOLLOWUP__`**。
+
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
 - **回归门**:无 code 改动 → 套件/tsc 不涉。基线维持 full backend **1579/0/35**。

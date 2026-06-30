@@ -436,7 +436,7 @@ test('v1c N4 admission blocks out-of-bounds candidate refs before human authorit
 });
 
 const DELEGATED_PROMOTION_DECISION_SYSTEM_BODY_GOLDEN =
-  '168804f25bf7f313d3a8d72da77c875518189a4becfefb4a075e00d65e974e55';
+  '271c75b557b668a792fc531e356fc6243665b76013aa51ce88e90776369e5738';
 
 test('v1c N4 delegated-promotion-decision system prompt is product-grade and byte-stable (golden anchor)', () => {
   const body = buildV1cN4DelegatedPromotionDecisionSystemContent();
@@ -447,9 +447,11 @@ test('v1c N4 delegated-promotion-decision system prompt is product-grade and byt
 
   assert.match(body, /Set decision to one of promote_to_paper_project, promote_with_conditions, merge_packages, refine_package, reassess_value, revise_question, revise_slice, recheck_evidence_or_search, park, or drop/);
 
-  assert.match(body, /When decision is promote_with_conditions, supply at least one conditions entry and set loopback_target to null/);
-  assert.match(body, /when decision is promote_to_paper_project, leave conditions empty and set loopback_target to null/);
-  assert.match(body, /for every non-promote decision leave conditions empty and set loopback_target to one of none, package, value, question, slice, evidence_or_search, or park/);
+  assert.match(body, /For a promote-class decision \(promote_to_paper_project or promote_with_conditions\) set loopback_target to null and leave required_actions empty/);
+  assert.match(body, /at least one conditions entry when the decision is promote_with_conditions and leaving conditions empty when the decision is promote_to_paper_project/);
+  assert.match(body, /For a non-promote decision leave conditions empty and set loopback_target to the single value fixed by that decision/);
+  assert.match(body, /merge_packages and refine_package use package, reassess_value uses value, revise_question uses question, revise_slice uses slice, recheck_evidence_or_search uses evidence_or_search, park uses park, and drop uses none/);
+  assert.match(body, /supply at least one required_actions entry for every non-promote decision except park and drop/);
 
   for (const field of ['schema_version', 'no_authority_write_confirmed', 'no_bridge_creation_confirmed', 'human_review_required']) {
     assert.ok(body.includes(field), `system prompt must mirror const field ${field}`);

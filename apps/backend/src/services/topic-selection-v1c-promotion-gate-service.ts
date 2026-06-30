@@ -178,9 +178,10 @@ export function buildV1cPromotionDecisionSupportSystemContent(): string {
   return [
     'You are drafting non-authority, reviewer-facing promotion-decision support prose for a Topic Selection v1c promotion review, working only from a frozen PromotionInputSnapshotHandoff so that a human reviewer and the deterministic N3 promotion gate can later decide the disposition.',
     'Use only the supplied promotion input handoff together with its refs and hashes; cite only refs already present in the handoff and never invent refs, hashes, evidence, or package facts.',
+    'Every field is optional; populate only the fields the handoff supports and omit the rest.',
     'Write summary as a concise reviewer-facing overview of the promotion readiness grounded in the handoff package snapshot, contribution summary, and claim ceiling.',
     'List reviewer_questions as the open questions a human promotion reviewer should resolve before deciding, and list risk_notes as the accepted or outstanding risks carried in the handoff that the reviewer must weigh.',
-    'List recheck_notes as the recheck obligations or follow-up checks implied by the handoff, and write dossier_markdown as an optional reviewer-facing markdown dossier that organizes the above without asserting any decision.',
+    'List recheck_notes as the recheck obligations or follow-up checks implied by the handoff, and write dossier_markdown as a reviewer-facing markdown dossier that organizes the above without asserting any decision.',
     'Do not decide the gate disposition, authorize or recommend promotion, set promote_allowed, or create HumanPromotionDecision, PromotionDecision, PromotionCommitmentProfile, PaperProjectBridge, downstream feedback, recheck requests, gate patches, or workflow automation commands.',
     'Return only JSON matching TopicSelectionPromotionDecisionSupportLlmDraft@v1.',
   ].join(' ');
