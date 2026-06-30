@@ -223,7 +223,7 @@
 - **#26 production**：句 4-5 重写——promote-class（loopback null + **required_actions 空** + conditions 规则）/ non-promote（conditions 空 + loopback **decision 唯一映射**：merge·refine→package、reassess→value、revise_question→question、revise_slice→slice、recheck→evidence_or_search、park→park、drop→none + **required_actions 非空**除 park/drop）。锚 `168804f2…→271c75b5…`。
 - **#27 production**：句 3-5-6 重写——downstream_source_kind **echo source 不 reclassify** / required_action **绑定 feedback_signal**（recheck-producing→非空、no_recheck_needed→null）/ normalization_hints **匹配确定性 policy**（requires_recheck_hint·loopback_target_hint·affected_ref_hint）。锚 `e16ced58…→49e23cc7…`。
 - **#24 production**：补「Every field is optional」统句 + 去 dossier_markdown 单标 optional（nit）。锚 `a164d8ac…→0eefd9f0…`。
-- **test**：3 文件各加契约断言（promote-class required_actions 空 / non-promote loopback 映射 / source_kind echo / required_action 绑定 / hints 匹配 policy / 全 optional）+ 锚 re-pin。**验证**：3 单测 **28/28**、tsc **0**、full backend 见 `04`。**已提交 `__C_FOLLOWUP__`**。
+- **test**：3 文件各加契约断言（promote-class required_actions 空 / non-promote loopback 映射 / source_kind echo / required_action 绑定 / hints 匹配 policy / 全 optional）+ 锚 re-pin。**验证**：3 单测 **28/28**、tsc **0**、full backend 见 `04`。**已提交 `9d457c64`**。
 
 ### W-05 计划（study `wf_e093ee2d` 产出，2026-06-25；Commit 1–5 全 done，W-05 收口）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。
