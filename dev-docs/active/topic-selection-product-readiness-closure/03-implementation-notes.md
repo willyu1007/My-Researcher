@@ -231,7 +231,7 @@
 - **下游核对（替 admission）**：resource-sampling 是 single-agent **无 admission**；下游 `applyGuardrails` 对 LLM output 做确定性纠偏——`clampUnit` 把 topic_relevance/confidence/role_scores[*] 限 [0,1]、`normalizeRole`/`normalizeEvidencePolarity` 兜底非法值、excluded→exclusion_reason·review→review_reason 配套、`detectDeterministicRoleSignals` 强信号纠偏（非拒绝）。**prompt 引导（[0,1]、primary↔scores、配套 reason）与 guardrail 期望一致 → 减少纠偏介入，无契约漂移**（吸取 W-06 教训主动核对下游消费者）。
 - **blast-radius**：service.unit.test 仅解析 `messages[1]`（user）+ 全 mocked output；routes integration test 0 命中 system 正文；改 system + 提纯函数断 0 既有断言（15 既有全绿）。schema/registry YAML 未动。
 - **验证**：resource-sampling 单测 **16/16**（+1 单锚，既有 15 全绿）、ReadLints 0、backend tsc **0**；full backend 见 `04`。纯函数重构 + 纯加法 prompt（partial→产品级），无新字段/schema/YAML。
-- **W-07 收口**：单件 #9 partial→产品级，得唯一漂移锚 `a91aac9c…`；**Phase 1 非-debate prompt 全收口**（W-04 v1a + W-05 v1b 非-debate + W-06 v1c + W-07 资源采样）。下一步 → Phase 2（W-08 live-surface 分类 / W-09 产品跑使能）。**已提交 `__C_W07__`**。
+- **W-07 收口**：单件 #9 partial→产品级，得唯一漂移锚 `a91aac9c…`；**Phase 1 非-debate prompt 全收口**（W-04 v1a + W-05 v1b 非-debate + W-06 v1c + W-07 资源采样）。下一步 → Phase 2（W-08 live-surface 分类 / W-09 产品跑使能）。**已提交 `edf7e27a`**。
 
 ### W-05 计划（study `wf_e093ee2d` 产出，2026-06-25；Commit 1–5 全 done，W-05 收口）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。
