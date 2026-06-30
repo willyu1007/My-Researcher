@@ -128,7 +128,7 @@
 - **回归门**：N6 feedback-norm runtime 单测 **6/6**（+1 anchor，既有 5 无破）、backend tsc **0**；full backend 复跑 **1624/1589/0/35**（vs 上轮 1623/1588，净 +1 = anchor，无回归）。纯函数重构 + 纯加法 prompt，无新字段/schema/YAML。
 - **对抗式 review（人工）**：**SHIP**，0 critical/0 should-fix；15 required 全镜像、3 enum 穷举精确、normalization_hints 4 子字段、record-only/no-upstream-mutation 边界 verbatim；runtime/admission 经 mocked_output/合成 fixture 故零破；schema/YAML 未动。
 - **锚值**：`downstream_feedback_normalization=e16ced58…`。
-- **W-06 收口**：3 surface 全产品化（C1 #24 / C2 #26 / C3 #27），各得唯一漂移锚；schema/YAML 零改动。**Phase 1 v1c 非-debate prompt 收口**（#25 门控→W-18）。**已提交 `__C3_COMMIT__`**。
+- **W-06 收口**：3 surface 全产品化（C1 #24 / C2 #26 / C3 #27），各得唯一漂移锚；schema/YAML 零改动。**Phase 1 v1c 非-debate prompt 收口**（#25 门控→W-18）。**已提交 `06ceb295`**。
 
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
