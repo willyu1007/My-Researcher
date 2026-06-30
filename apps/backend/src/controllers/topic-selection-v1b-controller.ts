@@ -234,8 +234,16 @@ export class TopicSelectionV1bController {
   /**
    * A caller-supplied workflow_run_id binds a human decision into that run's timeline —
    * validate the binding before invoking the harness: the run must exist, the human node
-   * must plausibly be its frontier, and the route target must descend from THIS run's
-   * upstream authority (a wrong/stale run id would otherwise contaminate a foreign run).
+   * must be the run's CURRENT frontier (next_node_id), and the route target must descend
+   * from THIS run's upstream authority (a wrong/stale run id would otherwise contaminate
+   * a foreign run).
+   *
+   * The frontier check keys on next_node_id ALONE (not "the node has any prior attempt").
+   * next_node_id is derived purely from the last admitted node's route edge, so a human
+   * node that submitted but only BLOCKED keeps next_node_id pointed at itself — retries and
+   * loopback re-entries (which pull the frontier back) still pass. But once the node is
+   * admitted and the frontier advances past it, a late/duplicate write with the stale
+   * run id is rejected (409) instead of landing a fresh attempt that would poison the run.
    */
   private async assertHumanRunBinding(
     workflowRunId: string,
@@ -250,8 +258,7 @@ export class TopicSelectionV1bController {
     if (!state.nodes.some((node) => node.latest)) {
       throw new AppError(404, 'NOT_FOUND', `workflow run ${workflowRunId} has no recorded attempts.`);
     }
-    const humanNode = state.nodes.find((node) => node.node_id === binding.human_node_id);
-    if (state.next_node_id !== binding.human_node_id && !humanNode?.latest) {
+    if (state.next_node_id !== binding.human_node_id) {
       throw new AppError(
         409,
         'VERSION_CONFLICT',

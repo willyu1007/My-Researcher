@@ -2560,6 +2560,26 @@ test('v1b run coordinator advances N1→N11 with human halts, caller drafts, and
     });
     assertStatus(n5Human, 201);
 
+    // 5b) frontier guard regression: N5 is now admitted, so the projection's next_node_id advances
+    // to N6 (derived from N5's invoke_next edge). A late/duplicate N5 human selection that reuses the
+    // SAME run id AND the CORRECT N4 target is therefore rejected (409 "is not awaiting") instead of
+    // landing a stale attempt. This pins the strict next_node_id check: a prior short-circuit let an
+    // already-admitted node keep accepting late writes once the frontier had moved on.
+    const lateN5 = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/research-slice-option-sets/${encodeURIComponent(n4Like.authority_ref!.ref_id)}/human-selection`,
+      payload: {
+        selected_option_id: selectedOption.research_slice_option_id,
+        selection_rationale: 'late resubmit after the frontier advanced past N5',
+        actor: { actor_type: 'human', actor_id: 'reviewer_coordinator_e2e' },
+        workflow_run_id: runId,
+      },
+    });
+    assert.equal(lateN5.statusCode, 409);
+    const lateN5Body = lateN5.json() as { error: { code: string; message: string } };
+    assert.equal(lateN5Body.error.code, 'VERSION_CONFLICT');
+    assert.match(lateN5Body.error.message, /is not awaiting/);
+
     // 6) advance with the N6 draft → N6 + mechanical N7 run, halt at N8
     const stateAfterN5 = (await advance({})).run_state; // surfaces fresh projection (halts at N6 input)
     const n6Input = await v1bHarnessN6Request(app, fabricateResult(stateAfterN5, N5_ID), suffix);

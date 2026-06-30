@@ -26,6 +26,17 @@ import { PaperImplementationTraceIntegrityDebateRuntimeService } from '../../app
 import { PaperImplementationTraceKernelService } from '../../apps/backend/src/services/paper-implementation-trace-kernel-service.ts';
 import { PaperImplementationValidationCyclePlanningService } from '../../apps/backend/src/services/paper-implementation-validation-cycle-planning-service.ts';
 import { PaperImplementationWorkOrderExperimentBridgeService } from '../../apps/backend/src/services/paper-implementation-workorder-experiment-bridge-service.ts';
+import { PaperImplementationP1RuntimeReviewService } from '../../apps/backend/src/services/paper-implementation-p1-runtime-review-service.ts';
+import { PaperImplementationResultAnalysisRuntimeService } from '../../apps/backend/src/services/paper-implementation-result-analysis-runtime-service.ts';
+import { PaperImplementationExperimentPlanningRuntimeService } from '../../apps/backend/src/services/paper-implementation-experiment-planning-runtime-service.ts';
+import { PaperImplementationRoutePlanningRuntimeService } from '../../apps/backend/src/services/paper-implementation-route-planning-runtime-service.ts';
+import { PaperImplementationValidationCyclePlanningRuntimeService } from '../../apps/backend/src/services/paper-implementation-validation-cycle-planning-runtime-service.ts';
+import { PaperImplementationFeasibilityPlanningRuntimeService } from '../../apps/backend/src/services/paper-implementation-feasibility-planning-runtime-service.ts';
+import { PaperImplementationCrossBoardSynthesisRuntimeService } from '../../apps/backend/src/services/paper-implementation-cross-board-synthesis-runtime-service.ts';
+import { PaperImplementationEvidenceBoardCurationRuntimeService } from '../../apps/backend/src/services/paper-implementation-evidence-board-curation-runtime-service.ts';
+import { PaperImplementationMotiveDecompositionRuntimeService } from '../../apps/backend/src/services/paper-implementation-motive-decomposition-runtime-service.ts';
+import { PaperImplementationMotiveEvolutionRuntimeService } from '../../apps/backend/src/services/paper-implementation-motive-evolution-runtime-service.ts';
+import { PaperImplementationRuntimeDomainGateService } from '../../apps/backend/src/services/paper-implementation-runtime-domain-gate-service.ts';
 import { writeReplayArtifacts } from './paper-implementation-v1-runnable-artifacts.mjs';
 import {
   findResearchArgumentAuthorityFindings,
@@ -473,7 +484,59 @@ function makeReplayHarness() {
     idFactory,
     now: () => NOW,
   });
-  const controller = new PaperImplementationController(
+  // Runtime AI nodes (P1 review / planning / motive / synthesis / domain gate) are not exercised by
+  // the V1 route-level replay, so they share one throwing stub orchestrator: the controller needs the
+  // dependencies to construct, but the replay never reaches an endpoint that invokes them.
+  const unusedRuntimeAgentOrchestrator = {
+    invokeStructuredOutput: async () => {
+      throw new Error('runtime agent orchestration is not exercised by the V1 runnable replay.');
+    },
+  };
+  const p1RuntimeReview = new PaperImplementationP1RuntimeReviewService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const resultAnalysisRuntime = new PaperImplementationResultAnalysisRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const experimentPlanningRuntime = new PaperImplementationExperimentPlanningRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const routePlanningRuntime = new PaperImplementationRoutePlanningRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const validationCyclePlanningRuntime = new PaperImplementationValidationCyclePlanningRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const feasibilityPlanningRuntime = new PaperImplementationFeasibilityPlanningRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const crossBoardSynthesisRuntime = new PaperImplementationCrossBoardSynthesisRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const evidenceBoardCurationRuntime = new PaperImplementationEvidenceBoardCurationRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const motiveDecompositionRuntime = new PaperImplementationMotiveDecompositionRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const motiveEvolutionRuntime = new PaperImplementationMotiveEvolutionRuntimeService({
+    runtimeAdmission,
+    agentOrchestrator: unusedRuntimeAgentOrchestrator,
+  });
+  const runtimeDomainGate = new PaperImplementationRuntimeDomainGateService({
+    runtimeAdmission,
+    resultClaimDossier,
+  });
+  const controller = new PaperImplementationController({
     intakeBootstrap,
     traceKernel,
     motiveEvidenceBoard,
@@ -483,9 +546,20 @@ function makeReplayHarness() {
     aiWorkflowHarness,
     runtimeAdmission,
     traceIntegrityDebateRuntime,
+    p1RuntimeReview,
+    resultAnalysisRuntime,
+    experimentPlanningRuntime,
+    routePlanningRuntime,
+    validationCyclePlanningRuntime,
+    feasibilityPlanningRuntime,
+    crossBoardSynthesisRuntime,
+    evidenceBoardCurationRuntime,
+    motiveDecompositionRuntime,
+    motiveEvolutionRuntime,
+    runtimeDomainGate,
     liveExperimentAdapter,
     providerVarianceEvaluation,
-  );
+  });
   return { app, controller, fakeExecution, downstreamFeedback };
 }
 

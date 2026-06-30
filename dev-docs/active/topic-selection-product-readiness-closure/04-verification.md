@@ -89,6 +89,12 @@
 - **锚值**：`without_decision_memory=c0972b12…`、`with_decision_memory=265d66b7…`。
 - **设计要点**：N6 单槽无 harness/replay golden over body → 双锚是其唯一漂移护栏；decision_memory 仅在 hasDecisionMemory 分支追加 verbatim anti-repeat clause。
 
+### 2026-06-30 · W-05 Commit 3 Review follow-up — Bugbot 超范围发现修复（×2，未提交）
+> Bugbot 在 Commit 3 review 报出 2 个**超本 commit 范围**的既有缺陷（归并行 session，本轮顺修但**不动其文档、不并入 Commit 3**）。
+- **发现 1（真缺陷 · 归 `paper-implementation-runtime-orchestration-hardening`）**：`PaperImplementationController` 改为**单依赖对象**构造（21 字段）后，工具脚本 `.ai/scripts/paper-implementation-v1-runnable-replay.mjs` 仍用**旧 11 位置参数**实例化 → 服务错位 + 缺 11 个 runtime service，bootstrap **500**（应 201）；`.mjs` 不过 tsc 故 CI 静默。**修**：补 11 个 `PaperImplementation*RuntimeService` import + 依赖对象构造（未被 V1 route-replay 触达的 runtime AI 节点共用一个 throwing stub orchestrator——构造需要、replay 不触达其端点）。**验**：replay `status:passed` / `blockers:[]`（修前 failed/bootstrap 500）。
+- **发现 2（真缺陷 · 归 `topic-selection-v1b-human-review-path`）**：`topic-selection-v1b-controller.ts` `assertHumanRunBinding` 的 frontier 检查含 `&& !humanNode?.latest` 短路 → human node 一旦 admit（`latest` 存在），即便 frontier 已前进，迟到/重复的同-run human 写入仍被放行 → 落 stale attempt 污染 run。**修**：删 `&& !humanNode?.latest`，frontier 严格只认 `next_node_id`（retry/loopback 因 next_node_id 仍指向自身而通过；coordinator `getRunState` 投影由 lastCompleted 的 invoke_next 边即时派生 next_node_id，admit 即前进）+ 更新注释。**测**：integration coordinator e2e 在 N5 admit 后加 frontier 回归断言（late 同-run + 正确 N4 target → 409 `VERSION_CONFLICT` "is not awaiting"；既有 `wrongTarget` 仅覆盖 upstream-authority-mismatch 分支，frontier 分支此前**零覆盖**）。
+- **回归门**：双发现 backend tsc **0**、coordinator e2e 单测绿、full backend **1617/1582/0/35**（净 +1 frontier 锚测试，无回归）；replay `passed`。**当前未 commit**（待用户确认提交与归属）。
+
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
 - **回归门**:无 code 改动 → 套件/tsc 不涉。基线维持 full backend **1579/0/35**。
