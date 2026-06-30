@@ -142,4 +142,11 @@
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
 - **回归门**:无 code 改动 → 套件/tsc 不涉。基线维持 full backend **1579/0/35**。
 
+### 2026-07-01 · W-07 — #9 resource-sampling-classification（Phase 1 收口）
+- **改动**：`topic-selection-resource-sampling-service.ts` `classificationRequest()` 的 6 行 partial inline system content 提取为导出纯函数 `buildResourceSamplingClassificationSystemContent()`，system message 委托；产品级正文镜像 `TopicSelectionResourceSamplingLlmOutput@v1` 全 7 required（literature_ref copy / primary_role 6-role 完整语义含 review+excluded / topic_relevance·confidence·role_scores 各 [0,1] / evidence_polarity 7 enum 对齐 role）+ 3 optional（exclusion_reason↔excluded / review_reason↔review / method_families）+ 契约名。同文件单测加 **1 单漂移锚** + 6 role/7 polarity/范围/optional 配套/copy-verbatim/契约名子串。
+- **回归门**：resource-sampling 单测 **16/16**（+1 anchor，既有 15 全绿）、ReadLints **0**、backend tsc **0**；full backend 复跑 **1625/1590/0/35**（vs 上轮 1624/1589，净 +1 = anchor，无回归）。纯函数重构 + 纯加法 prompt，无新字段/schema/YAML。
+- **下游核对（替 admission）**：resource-sampling 是 single-agent **无 admission**；下游 `applyGuardrails` `clampUnit` 限 [0,1]、`normalizeRole`/`normalizeEvidencePolarity` 兜底、excluded→exclusion_reason·review→review_reason 配套、`detectDeterministicRoleSignals` 强信号纠偏（非拒绝）——prompt 引导（[0,1]、primary↔scores、配套 reason）与 guardrail 期望一致，无契约漂移（吸取 W-06 教训主动核对下游消费者）。
+- **锚值**：`resource_sampling_classification=a91aac9c…`。
+- **W-07 收口**：单件 #9 partial→产品级，得唯一漂移锚；**Phase 1 非-debate prompt 全收口**（W-04 v1a + W-05 v1b 非-debate + W-06 v1c + W-07 资源采样）。下一步 → Phase 2（W-08 live-surface 分类 / W-09 产品跑使能）。**已提交 `__C_W07__`**。
+
 ### （待开工）

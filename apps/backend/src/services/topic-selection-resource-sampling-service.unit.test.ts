@@ -30,12 +30,14 @@ import {
   type TopicSelectionAgentOrchestratorLlmGateway,
 } from './topic-selection-agent-orchestrator-service.js';
 import {
+  buildResourceSamplingClassificationSystemContent,
   TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_ID,
   TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_ID,
   TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_VERSION,
   TOPIC_SELECTION_RESOURCE_SAMPLING_WORKFLOW_PROFILE_KEY,
   TopicSelectionResourceSamplingService,
 } from './topic-selection-resource-sampling-service.js';
+import { sha256Text } from './literature-content-processing-utils.js';
 
 const NOW = '2026-05-17T08:00:00.000Z';
 const TOPIC_ID = 'ai-rag-finetuning-2022-2026';
@@ -1063,3 +1065,31 @@ class FakeResourceSamplingPrismaClient {
     };
   }
 }
+
+const RESOURCE_SAMPLING_CLASSIFICATION_SYSTEM_BODY_GOLDEN =
+  'a91aac9cb43d326129db323884f46ba0fe36d8195a8b95dce6a72ca6bf112a50';
+
+test('resource-sampling classification system prompt is product-grade and byte-stable (golden anchor)', () => {
+  const body = buildResourceSamplingClassificationSystemContent();
+  assert.equal(buildResourceSamplingClassificationSystemContent(), body);
+  assert.equal(sha256Text(body), RESOURCE_SAMPLING_CLASSIFICATION_SYSTEM_BODY_GOLDEN);
+
+  assert.match(body, /TopicSelectionResourceSamplingLlmOutput@v1/);
+
+  assert.match(body, /Set primary_role to one of support, challenge, baseline, context, review, or excluded/);
+  assert.match(body, /review is genuinely mixed or uncertain material that needs human judgement before sampling/);
+  assert.match(body, /excluded is off-topic or topic-drift material that is not usable for this topic/);
+
+  assert.match(body, /Set role_scores to a 0-to-1 score for every role \(support, challenge, baseline, context, review, excluded\) and make primary_role the highest-scoring role/);
+
+  assert.match(body, /Set topic_relevance and confidence each as a 0-to-1 number/);
+
+  assert.match(body, /Set evidence_polarity to one of positive_method, risk_or_failure, evaluation_baseline, foundation_context, topic_drift, mixed, or unknown, aligned with the primary_role/);
+
+  assert.match(body, /brief classification_rationale and never expose hidden chain-of-thought/);
+  assert.match(body, /supply exclusion_reason when the role is excluded, supply review_reason when the role is review, and list method_families only when the method semantics are clear/);
+
+  assert.match(body, /exactly one classification per eligible literature_ref in this batch, copying each literature_ref verbatim and neither adding, dropping, nor merging candidates/);
+
+  assert.match(body, /never invent literature, refs, or facts not present in the batch/);
+});
