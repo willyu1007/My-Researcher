@@ -109,6 +109,13 @@
 - **锚值**：`grouping=5341c315…`、`failed_trial=c013e630…`、`admission=a91ad1dc…`。
 - **设计要点**：N7 三槽无 harness/replay golden over body → 3 per-slot 锚是其唯一漂移护栏；admission slot 的 2 enum 字面是 N8 成本高价值护栏。**W-05 收口**：9 槽全产品化（5 commit C1–C5）、各得唯一漂移锚、2 共享构造体拆分（SPLIT-1 early-semantic + SPLIT-2 n7-support）。
 
+### 2026-06-30 · W-06 Commit 1 — #24 v1c promotion-decision-support
+- **改动**：`topic-selection-v1c-promotion-gate-service.ts` system content 由 3 行骨架（内联于 `invokeStructuredOutput`）提取为导出纯函数 `buildV1cPromotionDecisionSupportSystemContent()`，system message 委托；产品级正文镜像 `TopicSelectionPromotionDecisionSupportLlmDraft@v1` 5 字段（summary/reviewer_questions/risk_notes/recheck_notes/dossier_markdown）+ 非权威边界 + ref 纪律。同文件单测加 **1 单漂移锚** + 5 字段镜像子串 + 4 类非权威边界子串（不决 disposition / 不授权 promotion / HumanPromotionDecision / PromotionCommitmentProfile / PaperProjectBridge）+ ref 纪律子串（never invent refs, hashes）。
+- **回归门**：promotion-gate 单测 **18/18**（+1 anchor，既有 17 含 LLM-draft/admission/replay/migration 无破）、backend tsc **0**；full backend 复跑 **1622/1587/0/35**（vs 上轮 1621/1586，净 +1 = anchor，无回归）。纯函数重构 + 纯加法 prompt，无新字段/schema/YAML。
+- **对抗式 review（人工）**：**SHIP**，0 critical/0 should-fix；5 字段全镜像、非权威边界穷举（7 authority 对象 + promote_allowed + automation）、ref/hash 纪律精确；schema **未动**（5 字段本无 per-field description，薄 prompt 是唯一自然语言引导）；YAML `description` 仍准确未动；旧正文无 .test 钉（grep 仅命中 service + YAML description），改正文断 0 既有断言。
+- **锚值**：`promotion_decision_support=a164d8ac…`。
+- **设计要点**：v1c promotion-support 单槽无 harness/replay golden over body → 单锚是其唯一漂移护栏；正文无条件分支故单锚。**已提交 `__C1_COMMIT__`**。
+
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
 - **回归门**:无 code 改动 → 套件/tsc 不涉。基线维持 full backend **1579/0/35**。

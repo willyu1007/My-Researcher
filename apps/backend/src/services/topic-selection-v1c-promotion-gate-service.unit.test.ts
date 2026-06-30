@@ -37,6 +37,7 @@ import type {
 } from './llm-gateway.js';
 import {
   TopicSelectionV1cPromotionGateService,
+  buildV1cPromotionDecisionSupportSystemContent,
 } from './topic-selection-v1c-promotion-gate-service.js';
 import {
   sha256Text,
@@ -884,3 +885,26 @@ class FakePromotionGatePrismaClient {
     };
   }
 }
+
+const PROMOTION_DECISION_SUPPORT_SYSTEM_BODY_GOLDEN =
+  'a164d8ac6e086860c85ad484ccbae6de1ce949e893d54c4715fe5fcde2b59ccc';
+
+test('v1c promotion-decision-support system prompt is product-grade and byte-stable (golden anchor)', () => {
+  const body = buildV1cPromotionDecisionSupportSystemContent();
+  assert.equal(buildV1cPromotionDecisionSupportSystemContent(), body);
+  assert.equal(sha256Text(body), PROMOTION_DECISION_SUPPORT_SYSTEM_BODY_GOLDEN);
+
+  assert.match(body, /TopicSelectionPromotionDecisionSupportLlmDraft@v1/);
+
+  for (const field of ['summary', 'reviewer_questions', 'risk_notes', 'recheck_notes', 'dossier_markdown']) {
+    assert.ok(body.includes(field), `system prompt must mirror schema field ${field}`);
+  }
+
+  assert.match(body, /Do not decide the gate disposition/);
+  assert.match(body, /authorize or recommend promotion/);
+  assert.match(body, /HumanPromotionDecision/);
+  assert.match(body, /PromotionCommitmentProfile/);
+  assert.match(body, /PaperProjectBridge/);
+
+  assert.match(body, /never invent refs, hashes/);
+});
