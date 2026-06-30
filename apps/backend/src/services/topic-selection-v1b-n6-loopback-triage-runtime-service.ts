@@ -116,6 +116,29 @@ type N6LoopbackTriageRuntimeSlotBinding = {
 const NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
 const PROMPT_TEMPLATE_VERSION = 'v1' as const;
 
+/**
+ * Product-grade v1b N6 loopback-triage support system prompt (W-05 Commit 4). Exported as a pure,
+ * input-free builder so the unit test can pin a single SHA-256 drift anchor over the rendered body —
+ * there is no harness/replay golden over this single-slot prompt, so the anchor is its only drift
+ * guard. The prose mirrors the N6LoopbackTriageSupport@v1 schema, including its conditional allOf
+ * branches: each loopback_target_code locks a failure_scope subset and the object-vs-null shape of
+ * debate_escalation / upstream_rollback.
+ */
+export function buildV1bN6LoopbackTriageSystemContent(): string {
+  return [
+    'You are producing a non-authority loopback-triage support recommendation for a v1b N6 topic-question candidate draft that failed its deterministic N6 gate: diagnose the failure from the supplied failed-draft identity and context packet, and recommend exactly one recovery route for a downstream deterministic N6 gate and human reviewer to act on.',
+    'Use only the supplied refs, hashes, failed-draft identity, and context packet; cite only refs present in the context packet and never invent refs or hashes.',
+    'Set loopback_target_code to one of n6_regenerate_candidates, n6_debate_escalation, or n6_loopback_to_n5_select_different_slice, set failure_scope to one of candidate_level, question_frame_level, slice_level, or upstream_context_level, give at least one dominant_reason_codes entry and at least one affected_refs drawn from the supplied refs, and list regeneration_hints.',
+    'When loopback_target_code is n6_regenerate_candidates, set failure_scope to candidate_level or question_frame_level and set both debate_escalation and upstream_rollback to null, because the failed draft is recoverable by regenerating candidates in place.',
+    'When loopback_target_code is n6_debate_escalation, set failure_scope to candidate_level or question_frame_level, set upstream_rollback to null, and provide a debate_escalation object with debate_level (mixed_cost_control or provider_diverse_deep), recommended_profile_id, sticky, and rationale.',
+    'When loopback_target_code is n6_loopback_to_n5_select_different_slice, set failure_scope to slice_level or upstream_context_level, set debate_escalation to null, and provide an upstream_rollback object whose target_node_id is topic-selection.v1b.select-research-slice.v1, whose repair_action is select_different_slice, and with a rationale.',
+    'Provide an overall rationale for the recommended recovery route.',
+    'Do not create candidates, research slice selections, handoffs, rechecks, packages, or authority records.',
+    'Do not override deterministic N6 gates, route policy, executable prompts, or ref/hash lineage.',
+    'Return only JSON matching N6LoopbackTriageSupport@v1.',
+  ].join(' ');
+}
+
 export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
@@ -431,13 +454,7 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Generate a non-authority semantic support artifact for v1b N6 loopback triage.',
-          'Use only the supplied refs, hashes, failed draft identity, and context packet.',
-          'Do not create candidates, research slice selections, handoffs, rechecks, packages, or authority records.',
-          'Do not override deterministic N6 gates, route policy, executable prompts, or ref/hash lineage.',
-          'Return only JSON matching N6LoopbackTriageSupport@v1.',
-        ].join(' '),
+        content: buildV1bN6LoopbackTriageSystemContent(),
       },
       {
         role: 'user',

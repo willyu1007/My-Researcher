@@ -23,9 +23,11 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { AppError } from '../errors/app-error.js';
+import { sha256Text } from './literature-content-processing-utils.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   TopicSelectionV1bN6LoopbackTriageRuntimeService,
+  buildV1bN6LoopbackTriageSystemContent,
   type GenerateTopicSelectionV1bN6LoopbackTriageRuntimeInput,
 } from './topic-selection-v1b-n6-loopback-triage-runtime-service.js';
 
@@ -219,11 +221,18 @@ test('v1b N6 loopback triage runtime is byte-stable across runs with identical f
   if (first.status !== 'succeeded' || second.status !== 'succeeded') {
     throw new Error('Expected both runs to succeed.');
   }
-  // The structured-output identity and context-packet identity are independent of the incrementing
-  // control-plane ref ids, so a fresh control plane reproduces them byte-for-byte.
+  // The structured-output, prompt-packet, runtime-invocation-context, and context-packet identities are
+  // all independent of the incrementing control-plane ref ids, so a fresh control plane reproduces them
+  // byte-for-byte. The prompt_packet_hash equality is the self-determinism guard for the rendered system
+  // prompt (it folds messages() in), pairing with the golden anchor below.
   assert.equal(
     first.semantic_artifact.structured_output_hash,
     second.semantic_artifact.structured_output_hash,
+  );
+  assert.equal(first.semantic_artifact.prompt_packet_hash, second.semantic_artifact.prompt_packet_hash);
+  assert.equal(
+    first.semantic_artifact.runtime_invocation_context_hash,
+    second.semantic_artifact.runtime_invocation_context_hash,
   );
   assert.equal(first.context_packet_hash, second.context_packet_hash);
 });
@@ -293,5 +302,46 @@ test('v1b N6 loopback triage runtime rejects a failed-draft artifact whose hash 
       assert.match(error.message, /hash does not match failed draft payload hash/);
       return true;
     },
+  );
+});
+
+// --- W-05 Commit 4: product-grade N6 loopback-triage support system prompt drift anchor ----------
+//
+// N6 loopback triage renders a single, input-free system prompt via the exported pure builder. There
+// is no harness/replay golden over this body, so the SHA-256 anchor below is its only drift guard: any
+// intentional edit to the prompt body must re-baseline the anchor in the same commit (record -> paste).
+// The substring assertions additionally pin the schema-mirroring contract surface — the three
+// loopback_target_code routes and their conditional (allOf) shapes.
+const N6_LOOPBACK_TRIAGE_SYSTEM_BODY_GOLDEN =
+  '142e31fefa7c2abce199a2b3ad244fb1d26b0fccf667c1b268de7e84d1b24b10';
+
+test('v1b N6 loopback-triage system prompt body is product-grade and drift-anchored', () => {
+  const body = buildV1bN6LoopbackTriageSystemContent();
+
+  // Pinned. Re-baseline this anchor when the prompt body changes.
+  assert.equal(sha256Text(body), N6_LOOPBACK_TRIAGE_SYSTEM_BODY_GOLDEN);
+
+  // Non-authority framing + output-contract closer the downstream N6 gate keys on must remain.
+  assert.ok(
+    body.includes('non-authority loopback-triage support recommendation for a v1b N6'),
+    'N6 loopback-triage system prompt must keep its non-authority recommendation framing.',
+  );
+  assert.ok(
+    body.includes('Return only JSON matching N6LoopbackTriageSupport@v1.'),
+    'N6 loopback-triage system prompt must keep its output-contract closer.',
+  );
+
+  // The three loopback_target_code routes and their conditional shapes (the schema allOf mirror) must remain.
+  assert.ok(
+    body.includes('When loopback_target_code is n6_regenerate_candidates, set failure_scope to candidate_level or question_frame_level and set both debate_escalation and upstream_rollback to null'),
+    'N6 loopback-triage prompt must mirror the n6_regenerate_candidates branch.',
+  );
+  assert.ok(
+    body.includes('When loopback_target_code is n6_debate_escalation, set failure_scope to candidate_level or question_frame_level, set upstream_rollback to null, and provide a debate_escalation object'),
+    'N6 loopback-triage prompt must mirror the n6_debate_escalation branch.',
+  );
+  assert.ok(
+    body.includes('When loopback_target_code is n6_loopback_to_n5_select_different_slice, set failure_scope to slice_level or upstream_context_level, set debate_escalation to null, and provide an upstream_rollback object'),
+    'N6 loopback-triage prompt must mirror the n6_loopback_to_n5_select_different_slice branch.',
   );
 });
