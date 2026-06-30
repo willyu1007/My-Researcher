@@ -32,7 +32,11 @@ import {
 } from './topic-selection-v1c-n4-delegated-promotion-decision-admission-service.js';
 import {
   TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService,
+  buildV1cN4DelegatedPromotionDecisionSystemContent,
 } from './topic-selection-v1c-n4-delegated-promotion-decision-runtime-service.js';
+import {
+  sha256Text,
+} from './literature-content-processing-utils.js';
 
 const NOW = TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP;
 
@@ -429,4 +433,33 @@ test('v1c N4 admission blocks out-of-bounds candidate refs before human authorit
     throw new Error('Expected out-of-bounds ref to block N4 admission.');
   }
   assert.equal(admitted.blocker.code, 'N4_DELEGATED_DECISION_REF_OUT_OF_BOUNDS');
+});
+
+const DELEGATED_PROMOTION_DECISION_SYSTEM_BODY_GOLDEN =
+  '168804f25bf7f313d3a8d72da77c875518189a4becfefb4a075e00d65e974e55';
+
+test('v1c N4 delegated-promotion-decision system prompt is product-grade and byte-stable (golden anchor)', () => {
+  const body = buildV1cN4DelegatedPromotionDecisionSystemContent();
+  assert.equal(buildV1cN4DelegatedPromotionDecisionSystemContent(), body);
+  assert.equal(sha256Text(body), DELEGATED_PROMOTION_DECISION_SYSTEM_BODY_GOLDEN);
+
+  assert.match(body, /TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1/);
+
+  assert.match(body, /Set decision to one of promote_to_paper_project, promote_with_conditions, merge_packages, refine_package, reassess_value, revise_question, revise_slice, recheck_evidence_or_search, park, or drop/);
+
+  assert.match(body, /When decision is promote_with_conditions, supply at least one conditions entry and set loopback_target to null/);
+  assert.match(body, /when decision is promote_to_paper_project, leave conditions empty and set loopback_target to null/);
+  assert.match(body, /for every non-promote decision leave conditions empty and set loopback_target to one of none, package, value, question, slice, evidence_or_search, or park/);
+
+  for (const field of ['schema_version', 'no_authority_write_confirmed', 'no_bridge_creation_confirmed', 'human_review_required']) {
+    assert.ok(body.includes(field), `system prompt must mirror const field ${field}`);
+  }
+
+  assert.match(body, /Populate required_actions, allowed_refinements, stop_conditions, reopen_conditions, cited_refs, and decision_support_refs/);
+
+  assert.match(body, /Do not create HumanPromotionDecision/);
+  assert.match(body, /cannot supply a human actor/);
+  assert.match(body, /explicit human acceptance through the N4 authority writer is required/);
+
+  assert.match(body, /never inventing refs or hashes/);
 });

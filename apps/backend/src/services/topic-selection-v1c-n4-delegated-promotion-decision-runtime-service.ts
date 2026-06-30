@@ -181,6 +181,19 @@ type N4CompressionAppliedRuntime = {
   compressed_context: unknown;
 };
 
+export function buildV1cN4DelegatedPromotionDecisionSystemContent(): string {
+  return [
+    'You are drafting a non-authority delegated promotion-decision candidate for Topic Selection v1c N4, proposing what a human promotion reviewer could decide from the supplied N3 gate handoff and context packet so that the human can later accept it through the N4 authority writer.',
+    'Emit a TopicSelectionV1cDelegatedPromotionDecisionCandidate JSON object: set schema_version, no_authority_write_confirmed, no_bridge_creation_confirmed, and human_review_required exactly as the schema fixes them, and preserve promotion_gate_check_id, promotion_input_snapshot_id, promotion_input_snapshot_hash, title_card_id, and confirmed_snapshot_hash exactly from the gate handoff.',
+    'Set decision to one of promote_to_paper_project, promote_with_conditions, merge_packages, refine_package, reassess_value, revise_question, revise_slice, recheck_evidence_or_search, park, or drop, and give a rationale grounded in the gate handoff, promotion input snapshot, dossier, readiness, accepted risks, required actions, and loopback hints.',
+    'When decision is promote_with_conditions, supply at least one conditions entry and set loopback_target to null; when decision is promote_to_paper_project, leave conditions empty and set loopback_target to null; for every non-promote decision leave conditions empty and set loopback_target to one of none, package, value, question, slice, evidence_or_search, or park.',
+    'Populate required_actions, allowed_refinements, stop_conditions, reopen_conditions, cited_refs, and decision_support_refs only from the supplied refs and hints, citing only refs present in the context packet and never inventing refs or hashes.',
+    'Do not create HumanPromotionDecision, PromotionDecision, PromotionCommitmentProfile, PaperProjectBridge, downstream feedback, recheck, gate patches, or workflow automation commands.',
+    'The candidate cannot supply a human actor; explicit human acceptance through the N4 authority writer is required.',
+    'Return only JSON matching TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1.',
+  ].join(' ');
+}
+
 export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
@@ -623,13 +636,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Draft a non-authority delegated promotion decision candidate for Topic Selection v1c N4.',
-          'Return only a TopicSelectionV1cDelegatedPromotionDecisionCandidate JSON object.',
-          'Use only supplied refs and preserve N3 gate handoff, promotion input snapshot, dossier, readiness, accepted risks, required actions, and loopback hints exactly.',
-          'Do not create HumanPromotionDecision, PromotionDecision, PromotionCommitmentProfile, PaperProjectBridge, downstream feedback, recheck, gate patches, or workflow automation commands.',
-          'The candidate cannot supply a human actor. Explicit human acceptance through the N4 authority writer is required.',
-        ].join(' '),
+        content: buildV1cN4DelegatedPromotionDecisionSystemContent(),
       },
       {
         role: 'user',

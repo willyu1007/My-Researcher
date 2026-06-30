@@ -114,7 +114,14 @@
 - **回归门**：promotion-gate 单测 **18/18**（+1 anchor，既有 17 含 LLM-draft/admission/replay/migration 无破）、backend tsc **0**；full backend 复跑 **1622/1587/0/35**（vs 上轮 1621/1586，净 +1 = anchor，无回归）。纯函数重构 + 纯加法 prompt，无新字段/schema/YAML。
 - **对抗式 review（人工）**：**SHIP**，0 critical/0 should-fix；5 字段全镜像、非权威边界穷举（7 authority 对象 + promote_allowed + automation）、ref/hash 纪律精确；schema **未动**（5 字段本无 per-field description，薄 prompt 是唯一自然语言引导）；YAML `description` 仍准确未动；旧正文无 .test 钉（grep 仅命中 service + YAML description），改正文断 0 既有断言。
 - **锚值**：`promotion_decision_support=a164d8ac…`。
-- **设计要点**：v1c promotion-support 单槽无 harness/replay golden over body → 单锚是其唯一漂移护栏；正文无条件分支故单锚。**已提交 `__C1_COMMIT__`**。
+- **设计要点**：v1c promotion-support 单槽无 harness/replay golden over body → 单锚是其唯一漂移护栏；正文无条件分支故单锚。**已提交 `87d35d9f`**。
+
+### 2026-06-30 · W-06 Commit 2 — #26 v1c delegated-promotion-decision
+- **改动**：`topic-selection-v1c-n4-delegated-promotion-decision-runtime-service.ts` `messages()` 的 5 行 partial system content 提取为导出纯函数 `buildV1cN4DelegatedPromotionDecisionSystemContent()`，`messages()` 委托；产品级正文镜像 `TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1` 10 decision enum + 3 conditional 分支 + loopback 7 值 + 3 const confirm + key preserve + per-field + 非权威边界。同文件单测加 **1 单漂移锚** + decision/conditional/loopback 整句 match + const/per-field/边界/ref 子串。
+- **回归门**：N4 delegated runtime 单测 **4/4**（+1 anchor，既有 3 含 happy/drift/oob 无破）、backend tsc **0**；full backend 复跑 **1623/1588/0/35**（vs 上轮 1622/1587，净 +1 = anchor，无回归）。纯函数重构 + 纯加法 prompt，无新字段/schema/YAML。
+- **对抗式 review（人工）**：**SHIP**，0 critical/0 should-fix；10 decision enum + 3 conditional（conditions minItems/maxItems + loopback null-vs-enum）精确镜像 schema allOf、3 const confirm + key preserve + per-field 全覆盖、非权威边界 verbatim；runtime/admission 经 mocked_output/合成 fixture 故零破；schema/YAML 未动。
+- **锚值**：`delegated_promotion_decision=168804f2…`。
+- **设计要点**：v1c delegated 单槽无 harness/replay golden over body → 单锚是其唯一漂移护栏；3 decision 分支均 verbatim 同一正文故单锚。**已提交 `__C2_COMMIT__`**。
 
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。
