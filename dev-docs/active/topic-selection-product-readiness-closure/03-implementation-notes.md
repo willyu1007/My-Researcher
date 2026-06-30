@@ -188,7 +188,15 @@
 - **对抗式 review（人工，SHIP，0 critical/0 should-fix）**：逐字段核验——8 required 全覆盖、loopback_target_code 3 值 + failure_scope 4 值 + debate_level 2 enum 字面精确、upstream_rollback 2 const（target_node_id/repair_action）字面精确、3 allOf 分支 failure_scope 子集 + object-vs-null 形精确镜像、无杜撰枚举值；admission 用合成 fixture（`prompt_packet_hash:hashE` 非 messages() 派生）故零破；无禁-token（self-determinism 过 → buildPromptPacket 未拒包）。
 - **验证**：N6-loopback 单测 **7/7**（+1 单锚 + 扩自决定性 + 既有 5）、双 tsc **0**、full backend 复跑（见 `04`，无回归）。纯加法 prompt（骨架→产品级）+ 纯函数重构，无新字段/schema/harness。blast-radius 已验证（registry 仅注册 template-id、admission 合成 fixture、无 .test pin 旧正文）。
 
-### W-05 计划（study `wf_e093ee2d` 产出，2026-06-25；Commit 1–4 已 done，余 5 待续）
+### W-05 Commit 5 — N7×3 support SPLIT-2（2026-06-30）
+- **production**：`topic-selection-v1b-n7-support-runtime-service.ts` `messages()` 由单一通用 5 行骨架重构为按 `binding.slot_id` 分支的导出纯函数 `buildV1bN7SupportSystemContent(slotId)`（SPLIT-2，镜像 SPLIT-1 的 slotLines + 共享尾结构）。3 slot 各产品级 per-field：① `n7_candidate_grouping`（`CandidateGroupingSupport@v1` 6 字段：selected_candidate_ref/hash + priority_order≥1 + duplicate_or_overlap_groups[group_key/candidate_refs/canonical_candidate_ref/rationale] + candidate_relationships + grouping_summary）；② `n7_failed_trial_synthesis`（`N8FailedTrialSynthesisSupport@v1` 5 字段：exhausted_candidate_refs≥1 + failure_reason_codes + synthesis_summary + n6_regeneration_hints + affected_refs≥1）；③ `n7_n8_debate_admission_review`（`N8DebateAdmissionReviewSupport@v1` 5 字段：debate_level + recommended_profile_id + high_value_signal_codes + risk_signal_codes + rationale）。共享尾 verbatim（support_only/no-authority/no-gate-override/JSON-only）。
+- **admission-review 高价值**：该 slot 正文 verbatim 含 2 个 debate_level enum 字面 `compact_assessment_debate` + `provider_diverse_deep_debate` + debate-level 选择 rubric（lower-cost routine vs higher-cost high-value/high-risk）——其 enum 驱动 `debateLevelToExecutionPlanName`→真 N8 execution-plan 成本，prose/enum 漂移高价值。
+- **锚（3 per-slot）**：`grouping=5341c315…`、`failed_trial=c013e630…`、`admission=a91ad1dc…`；+ cross-slot 不等式（3 互不相等）+ 共享尾子串 + admission 2 enum 字面 includes + grouping/failed_trial 不含 `debate_level`（scoped）。+ 2 新 directly-invoking slot 测试（failed_trial + admission happy path 经真 orchestrator schema-validate，原仅 candidate_grouping 被直接触达）+ 扩 byte-stable 加 `prompt_packet_hash` first===second。
+- **对抗式 review（人工，SHIP，0 critical/0 should-fix）**：3 slot 逐字段精确镜像各 schema（6/5/5 required 全覆盖）、admission 2 enum 字面 + rubric 精确、共享尾 verbatim、cross-slot 隔离（grouping/failed_trial 无 debate 串味）；admission 用合成 fixture 故 N7 admission 单测 **4/4** 无破；无禁-token（self-determinism 过 → buildPromptPacket 未拒包）。
+- **验证**：N7 单测 **8/8**（+1 anchor + 2 新 slot + 扩自决定性 + 既有 5）、N7 admission **4/4**（无破）、双 tsc **0**、full backend 复跑（见 `04`，无回归）。纯函数重构 + 纯加法 prompt（骨架→产品级），无新字段/schema/harness。
+- **W-05 收口**：9 槽全产品化（Commit 1 N2/N3/N5 + 2 N4 + 3 N6-draft + 4 N6-loopback + 5 N7×3），各得唯一漂移锚；2 共享构造体拆分（SPLIT-1 early-semantic + SPLIT-2 n7-support）。
+
+### W-05 计划（study `wf_e093ee2d` 产出，2026-06-25；Commit 1–5 全 done，W-05 收口）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。
 
 **关键约束**：

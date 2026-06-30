@@ -100,7 +100,14 @@
 - **回归门**：N6-loopback 单测 **7/7**（+1 单锚 + 扩自决定性 + 既有 5）、双 tsc **0**（backend + shared）；full backend 复跑 **1618/1583/0/35**（vs 上轮 1617，净 +1 锚测试，无回归）。纯函数重构 + 纯加法 prompt（骨架→产品级），无新字段/schema/harness。
 - **对抗式 review（人工）**：**SHIP**，0 critical/0 should-fix；8 required 全覆盖（loopback_target_code 3 enum / failure_scope 4 enum / dominant_reason_codes ≥1 / affected_refs ≥1 supplied / regeneration_hints / debate_escalation object-null / upstream_rollback object-null / rationale）、**3 个 allOf conditional 分支精确镜像**（每 target → failure_scope 子集 + debate_escalation/upstream_rollback 的 object-vs-null）、debate_level 2 enum + upstream_rollback 2 const 字面精确；admission 用合成 fixture（非 messages 派生）零破；无禁-token（self-determinism 过证 buildPromptPacket 未拒包）。
 - **锚值**：`n6_loopback_triage=142e31fe…`。
-- **设计要点**：N6-loopback 单槽无 harness/replay golden over body → 单锚是其唯一漂移护栏；正文**无条件分支**（不依赖 contextPacket flag）故单锚；conditional 镜像子串额外钉住 schema allOf 的 prose 表达。**当前未 commit**（待用户确认）。
+- **设计要点**：N6-loopback 单槽无 harness/replay golden over body → 单锚是其唯一漂移护栏；正文**无条件分支**（不依赖 contextPacket flag）故单锚；conditional 镜像子串额外钉住 schema allOf 的 prose 表达。**已提交 `2f06fb99`**（4 文件，+92/−12）。
+
+### 2026-06-30 · W-05 Commit 5 — N7×3 support SPLIT-2（W-05 收口）
+- **改动**：`topic-selection-v1b-n7-support-runtime-service.ts` messages() 由单一通用 5 行骨架重构为按 `binding.slot_id` 分支的导出纯函数 `buildV1bN7SupportSystemContent(slotId)`（SPLIT-2，同 SPLIT-1 结构）；3 slot 产品级 per-field（candidate-grouping 6 / failed-trial 5 / admission-review 5）+ 共享尾 verbatim。同文件单测加 **3 per-slot 漂移锚** + cross-slot 不等式 + 共享尾子串 + admission **2 enum 字面** includes + grouping/failed_trial 不含 debate_level，新增 **2 个 directly-invoking slot 测试**（failed_trial + admission），扩 byte-stable 加 `prompt_packet_hash`。
+- **回归门**：N7 单测 **8/8**（+1 anchor + 2 新 slot + 扩自决定性 + 既有 5）、N7 admission **4/4**（无破）、双 tsc **0**（backend + shared）；full backend 复跑 **1621/1586/0/35**（vs 上轮 1618，净 +3 = anchor + 2 新 slot，无回归）。纯函数重构 + 纯加法 prompt（骨架→产品级），无新字段/schema/harness。
+- **对抗式 review（人工）**：**SHIP**，0 critical/0 should-fix；3 slot 逐字段精确镜像各 schema（6/5/5 required 全覆盖）、admission `compact_assessment_debate`/`provider_diverse_deep_debate` 2 enum 字面 + debate-level rubric 精确（驱动真 N8 execution-plan 成本）、共享尾 verbatim、cross-slot 隔离；admission 用合成 fixture 故 N7 admission 零破；无禁-token（self-determinism 过证 buildPromptPacket 未拒包）。
+- **锚值**：`grouping=5341c315…`、`failed_trial=c013e630…`、`admission=a91ad1dc…`。
+- **设计要点**：N7 三槽无 harness/replay golden over body → 3 per-slot 锚是其唯一漂移护栏；admission slot 的 2 enum 字面是 N8 成本高价值护栏。**W-05 收口**：9 槽全产品化（5 commit C1–C5）、各得唯一漂移锚、2 共享构造体拆分（SPLIT-1 early-semantic + SPLIT-2 n7-support）。
 
 ### 2026-06-25 · W-05 study + plan（未起 code）
 - **产出**:grounding `wf_e093ee2d`（4 簇深读 9 槽 + plan，`allCovered:true`）→ `03`「W-05 计划」5-commit 路线（2 共享构造体拆分 + golden 策略 + must-preserve + 禁-token + 各 schema enum 核验）。SPLIT-1 production 正文已设计+schema 核验后**回退**（保持工作树干净）,gating=N2/N5 测试 fixture。

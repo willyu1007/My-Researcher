@@ -122,6 +122,44 @@ type N7RuntimeSlotBinding = {
 const NODE_ID = 'topic-selection.v1b.materialize-topic-question-contract.v1' as const;
 const PROMPT_TEMPLATE_VERSION = 'v1' as const;
 
+/**
+ * Product-grade v1b N7 support system prompt (W-05 Commit 5, SPLIT-2). Exported as a pure, slot-keyed
+ * builder so each of the three N7 support slots gets its own SHA-256 drift anchor (there is no
+ * harness/replay golden over these bodies). slotLines carry the per-slot role + per-field contract; the
+ * shared tail repeats the support-only / no-authority / no-gate-override / JSON-only boundary verbatim.
+ * The n8_debate_admission_review slot pins BOTH debate_level enum literals verbatim
+ * (compact_assessment_debate / provider_diverse_deep_debate) because those values drive the real N8
+ * execution-plan cost (debateLevelToExecutionPlanName), so a prose/enum drift here is high-value.
+ */
+export function buildV1bN7SupportSystemContent(
+  slotId: TopicSelectionV1bN7SupportSlotId,
+): string {
+  const slotLines = slotId === 'n7_candidate_grouping'
+    ? [
+        'You are the N7 non-authority candidate-grouping support reviewer over the admissible topic-question candidates; you organize and prioritize them and never write the TopicQuestionContract or any authority record.',
+        'Set selected_candidate_ref and selected_candidate_hash to the strongest admissible candidate, give priority_order as a ranked list of at least one supplied candidate ref, populate duplicate_or_overlap_groups (each with a group_key, candidate_refs, a canonical_candidate_ref, and a rationale), record candidate_relationships as a structured object, and summarize the grouping in grouping_summary.',
+        'Ground every ref in the supplied candidate set, admissible candidates, selected research slice, generation artifact, and candidate grouping refs.',
+      ]
+    : slotId === 'n7_failed_trial_synthesis'
+      ? [
+          'You are the N7 non-authority failed-trial-synthesis support analyst over exhausted topic-question trials; you synthesize why they failed and hint at N6 regeneration, and never write authority records or re-run the deterministic gate.',
+          'List exhausted_candidate_refs with at least one supplied ref, give failure_reason_codes and n6_regeneration_hints as ref-grounded string arrays, write a synthesis_summary, and list affected_refs with at least one supplied ref.',
+          'Ground every ref and reason in the supplied candidate set, admissible candidates, trial lineage, and any N8 feedback refs.',
+        ]
+      : [
+          'You are the N7 non-authority N8-debate-admission-review support reviewer; you recommend the N8 debate cost tier and never admit the debate, set the gate, or write authority records.',
+          'Set debate_level to exactly compact_assessment_debate (the lower-cost tier for routine assessments) or provider_diverse_deep_debate (the higher-cost tier reserved for high-value or high-risk candidates that justify provider-diverse deep debate), set recommended_profile_id, give high_value_signal_codes and risk_signal_codes as ref-grounded string arrays that justify the chosen tier, and explain the choice in rationale.',
+          'Ground the recommendation in the supplied candidate set, admissible candidates, selected research slice, and candidate gate refs.',
+        ];
+  return [
+    ...slotLines,
+    'Use only the supplied refs, hashes, and context packet.',
+    'Do not create TopicQuestionContract, TopicValueAssessment, loopback, recheck, package, or authority records.',
+    'Do not override deterministic N7 gates, route policy, executable prompts, or ref/hash lineage.',
+    'Return only JSON matching the requested support output contract.',
+  ].join(' ');
+}
+
 export class TopicSelectionV1bN7SupportRuntimeService {
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
@@ -419,13 +457,7 @@ export class TopicSelectionV1bN7SupportRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Generate a non-authority semantic support artifact for v1b N7.',
-          'Use only the supplied refs, hashes, and context packet.',
-          'Do not create TopicQuestionContract, TopicValueAssessment, loopback, recheck, package, or authority records.',
-          'Do not override deterministic N7 gates, route policy, executable prompts, or ref/hash lineage.',
-          'Return only JSON matching the requested support output contract.',
-        ].join(' '),
+        content: buildV1bN7SupportSystemContent(binding.slot_id),
       },
       {
         role: 'user',
