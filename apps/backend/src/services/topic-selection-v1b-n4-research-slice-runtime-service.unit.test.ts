@@ -294,12 +294,18 @@ test('v1b N4 research-slice runtime is byte-stable across runs with identical fi
 // T-128 W-05 — N4 research-slice prompt-body byte-identity drift anchor. Pin the rendered SYSTEM
 // content so any body change is a LOUD, intentional re-baseline. No harness/replay/e2e guard pins this
 // v1b prompt body, so this is its only drift coverage. Re-baseline ONLY for a deliberate change.
-const N4_RESEARCH_SLICE_SYSTEM_GOLDEN = '9006518ecd345883503ad120313f7550cdfa3ab2a26f96ed87b4e4dbe4cb67ac';
+const N4_RESEARCH_SLICE_SYSTEM_GOLDEN = 'c111329935c65fb0b6746a2ab235b503a9beec7554701dcb55c061a9d54b0e4c';
 test('v1b N4 research-slice prompt body is byte-identity drift-anchored (T-128 W-05)', () => {
   assert.equal(sha256Text(buildV1bN4ResearchSliceSystemContent()), N4_RESEARCH_SLICE_SYSTEM_GOLDEN);
   // Must-preserve substrings the artifact/admission asserts depend on.
   const body = buildV1bN4ResearchSliceSystemContent();
   assert.ok(body.includes('Return only JSON matching ResearchSliceOptionSetDraft@v1.'));
+  // Phase 1.5 — prompt must mirror n4DraftGateBlocker checks (harness-n4), not just the schema.
+  assert.match(body, /source_validated_need_refs must include context_packet\.planning_input\.validated_need_ref/);
+  assert.match(body, /keep both included_boundaries and excluded_boundaries non-empty/);
+  assert.match(body, /echo context_packet\.planning_input\.target_community rather than drifting/);
+  assert.match(body, /keep each claim_ceiling_alignment\.status off exceeds/);
+  assert.match(body, /restate every context_packet\.planning_input\.non_goal inside excluded_boundaries/);
 });
 
 test('v1b N4 research-slice runtime rejects planning input whose lineage drifts from the frozen N4 input', async () => {

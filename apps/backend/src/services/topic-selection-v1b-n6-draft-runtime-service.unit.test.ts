@@ -353,8 +353,8 @@ test('v1b N6 draft runtime refuses initial_from_n5 when a loopback projection is
 // both anchors in the same commit (record -> paste). The branch invariants additionally assert
 // that the decision-memory branch only appends the verbatim anti-repeat clause.
 const N6_DRAFT_SYSTEM_BODY_GOLDEN = {
-  without_decision_memory: 'c0972b12d6a00edf3557cce0f123252704e0297d670b6aa6ed01b1c22dea4428',
-  with_decision_memory: '265d66b7e95c2bc6501f0e25a3a79ef30b1e68831909b0fcdc0399359e0d66e8',
+  without_decision_memory: '664737f449d0613242c52bd9d482b396248c85e6bbf43eec16a822e3a18968cc',
+  with_decision_memory: '1acbbaa4ef0832fd0174bfce342c7020cd588b4a99bb71978dd8e21ab5849f7d',
 } as const;
 
 const N6_DRAFT_DECISION_MEMORY_CLAUSE =
@@ -382,4 +382,15 @@ test('v1b N6 draft system prompt body is product-grade and drift-anchored for bo
     withoutMemory.includes('Return only JSON matching TopicQuestionCandidateSetDraft@v1.'),
     'N6 draft system prompt must keep its output-contract closer.',
   );
+
+  // Phase 1.5 — prompt must mirror n6CandidateSemanticBlocker + the candidate cap, not just the schema.
+  assert.match(withoutMemory, /Emit at most five candidates/);
+  assert.match(withoutMemory, /answerable or answerable_with_risk \(needs_slice_refinement and not_answerable are blocked/);
+  assert.match(withoutMemory, /specific main_question that ends with a question mark/);
+  assert.match(withoutMemory, /support\/challenge\/baseline\/context evidence_refs each non-empty/);
+  assert.match(withoutMemory, /keep boundary_check\.boundary_violations and blockers empty/);
+  assert.match(withoutMemory, /answerability_plan\.datasets_or_resources, metrics, baselines, and evaluation_setting non-empty/);
+  assert.match(withoutMemory, /at least one non-weak falsification_condition/);
+  assert.match(withoutMemory, /within the selected ResearchSlice claim ceiling/);
+  assert.match(withoutMemory, /set source_validated_need_refs to the frozen slice validated need ref/);
 });
