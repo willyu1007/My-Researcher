@@ -335,8 +335,8 @@ test('v1a LLM runtime binding builds N8 advisory semantic review binding', () =>
 // drift. No harness/replay/e2e guard pins these v1a prompt bodies, so these are their only drift
 // coverage. Re-baseline ONLY for a deliberate, separately-justified wording change — NOT mechanical.
 const V1A_BINDING_PROMPT_SYSTEM_GOLDEN = {
-  evidence_map_extraction: '58000ae9d50b66506e7cfe18f9a3d3fd431155cdfe5ae9f822bcdb108574599b',
-  need_adjudication: 'a0deee32d5c926eb0c04363c1fcf6ca03e943cf2e8e86b2549dc827fb9d1c8af',
+  evidence_map_extraction: '5f8a2082ba4438b9ddb31bb431a4979ce63a483391614a50d52d1f0789f46773',
+  need_adjudication: '1fe8bf8bf7dffd34b67e53546b22c262e1e33dffc14825731326cff9232b32be',
   human_confirmation_semantic_review: 'b01b05fe8fd3b74058427427098ae0dd4d6cbfa01fa468c512179743cf02b747',
 };
 test('v1a single-agent binding prompt bodies are byte-identity drift-anchored (T-128 W-04)', () => {
@@ -363,6 +363,10 @@ test('v1a single-agent binding prompt bodies are byte-identity drift-anchored (T
     extraction_context_packet_ref: ref('artifact_ref', 'extraction_context_artifact_001'),
   });
   assert.equal(sha256Text(n5.messages[0]!.content), V1A_BINDING_PROMPT_SYSTEM_GOLDEN.evidence_map_extraction);
+  // Phase 1.5 — prompt must mirror the evidence-map materialization gate, not just the schema.
+  assert.match(n5.messages[0]!.content, /Echo the frozen lineage exactly/);
+  assert.match(n5.messages[0]!.content, /set source_attribution_kind to a value other than llm_inference/);
+  assert.match(n5.messages[0]!.content, /keep locator\.literature_ref equal to the unit's literature_ref/);
 
   const n7Base = {
     title_card_id: 'title_card_001',
@@ -380,6 +384,10 @@ test('v1a single-agent binding prompt bodies are byte-identity drift-anchored (T
   };
   const n7 = service.buildNeedAdjudicationBinding(n7Base);
   assert.equal(sha256Text(n7.messages[0]!.content), V1A_BINDING_PROMPT_SYSTEM_GOLDEN.need_adjudication);
+  // Phase 1.5 — prompt must mirror validateNeedAdjudicationRecommendationGate, not just the schema.
+  assert.match(n7.messages[0]!.content, /return_to_candidate decision requires non-empty required_actions/);
+  assert.match(n7.messages[0]!.content, /merge requires merge_target_need_candidate_ref pointing at a different NeedCandidate/);
+  assert.match(n7.messages[0]!.content, /a reject requires rejected_reason/);
   // Concatenation-lock: a diagnostic_prompt_appendix is appended after the canonical lines with a
   // single newline (protects the includes()-assertion in the N7 residual-risk test from a join regression).
   const n7WithAppendix = service.buildNeedAdjudicationBinding({
