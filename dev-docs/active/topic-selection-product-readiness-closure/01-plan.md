@@ -16,6 +16,12 @@
 - **W-06 v1c 表面**：promotion-decision-support / delegated-promotion-decision / downstream-feedback-normalization（promotion bounded-micro-debate 见 Phase 5）。
 - **W-07 资源采样**：resource-sampling-classification 正文复核与定稿。
 
+## Phase 1.5 — prompt↔下游 gate 一致性收尾（闭环审查衍生，2026-07-01）
+> Phase 1 收口后整体闭环审查发现 W-06「prompt 仅对照 schema（含 allOf）、漏对照下游 gate 业务校验」盲区系统性存在于 W-04/W-05；去噪后 ~13🔴+~16🟡 真 should-fix（子代理原 ~60 条含约半数噪音）。P0 #8 arbiter-final 已修（`69b42b4a`）。本相位清剩余 P1/P2，使被授权 prompt 真正满足「输出契约」对齐下游 admission/validator/gate（非仅 schema）。逐 prompt 清单见 `03` Phase 1.5 ledger。
+- **W-05r v1b 收尾**：N4 research-slice（source_validated_need_refs echo / boundaries 非空 / target_community aligns / claim_ceiling≠exceeds / non_goal⊆excluded）；N6 draft（candidates≤5 / answerability_verdict 限 answerable·answerable_with_risk / main_question specific / traceability 四类 refs / source_validated_need_refs echo / answerability_plan·falsification·observable 非空）。
+- **W-04r v1a 收尾**：#2 generate-need（strength_assessment_refs≥1 / prior_art already_solved·falsified 拒态 / support+challenge≥1）；#1 evidence-map（lineage echo / source_attribution_kind≠llm_inference / locator.literature_ref 一致）；#3 need-adjudication（park·return_to_candidate required_actions 非空 / merge self-ban / packet lineage echo）。
+- **W-DOC 文档闭环（P2）**：台账表（27 行）现状列回填 W-04/W-05 product-grade + 锚；`ad1aa8c4` 两个跨任务 defect 的 owner 任务（`runtime-orchestration-hardening` / `v1b-human-review-path`）留痕补记或交叉引用。
+
 ## Phase 2 — live-surface 分类 + 产品跑使能（依赖 Phase 1，无 stub prompt 不跑 provider）
 - **W-08 live-surface 分类（T-089 切片）**：对产品跑真实穿越的每个节点（v1a need-discovery、v1b N2–N8、v1c promotion、bridge）确认 execution-type（deterministic / single-agent / debate / human / codex）+ WorkflowScenario 绑定 + 节点 policy 填充；对齐**已迁移 SSOT** `docs/context/process/topic-selection-workflow-matrix.md`（勿 re-fork，否则触发 consistency test 红）。穷举 dormant/边缘节点留 T-089 backlog。
 - **W-09 产品跑使能**：核对/注册至少一个 product-eligible provider `model_option_id`（确认今天有 profile 能真解析，否则 harness 抛 `MISSING_PROVIDER_MODEL_OPTION`）+ 定义 `run_mode:'product'` WorkflowScenario(s)（v1a / v1b-非debate / v1c）+ 无密钥提交的 real-provider canary（**扩展**已 done 的 real-e2e-canary / real-e2e-scale-quality scaffolding，不重建）。
@@ -41,6 +47,7 @@
 ## Acceptance Criteria（按相位）
 - Phase 0：台账覆盖全部非-canary prompt-template-id + 门控标注；治理 sync/lint 绿；孤儿开口已 ledger + JD 占位。
 - Phase 1：W-04..W-07 每个被授权 prompt 四要素完备、经评审、version/hash 定稿、drift 锚点同步、lint 绿；无机制改动。
+- Phase 1.5：W-04r/W-05r 每个 P1 prompt 正文镜像下游 gate（admission/validator/materialization）强校验 + 锚 re-baseline + 子串断言；台账 SSOT 回填；owner 留痕补记；full backend + lint 绿；无机制改动（纯加法 prompt）。
 - Phase 2：live-surface 分类对齐 SSOT 矩阵无 re-fork；≥1 product-eligible model_option 可解析；product 场景 + canary 就绪。
 - Phase 3：一次真实 `run_mode:'product'` 非-debate 端到端跑通，证据 + trace 留痕（核心可达性 sign-off）。
 - Phase 4：W-11..W-16 全闭环，harness-touch 项有 JD 留痕，全套件 + replay 守卫绿（宽 DoD 主体）。

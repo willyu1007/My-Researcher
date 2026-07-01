@@ -157,4 +157,15 @@
 - **锚 re-baseline**：`arbiter_final=76f32df7…`（原 `8ee59593…`）。
 - **范围说明**：本次仅 P0 #8；P1（W-05 N4/N6 draft + W-04 #2/#1/#3，~9🔴+~11🟡）与 P2（低优先）已在闭环报告分级登记，**本次未实施**——建议立「Phase 1.5 prompt↔gate 一致性收尾」或并入 Phase 3 真跑前置。**已提交 `69b42b4a`**。
 
+### 2026-07-01 · Phase 1.5 — prompt↔下游 gate 一致性收尾（P1 批量 + P2 文档）
+> 承 P0 #8，用户「按建议实施」。逐 prompt **亲核真 gate 的 file:line** 后补最小加法句 + 锚 re-baseline + 子串断言双护栏。全程纯加法 prompt，无新字段/schema/harness/registry。
+- **#12 N4**（gate `topic-selection-v1b-harness-n4.ts:n4DraftGateBlocker`）：+1 句镜像 6 blocker（source_validated_need_refs echo:159 / boundaries 双非空:166 / target_community aligns:173 / non_goal⊆excluded:180 / evidence refs:188 / claim_ceiling≠exceeds:207）。锚 `9006518e…→c1113299…`，+5 子串断言；N4 单测 **5/5**。
+- **#14 N6-draft**（gate `topic-selection-v1b-workflow-harness-service.ts:n6CandidateSemanticBlocker`:9015 + candidate-cap）：+2 句镜像 9 校验（candidates≤5 / answerability 限 2 值:9019 / main_question `isSpecificQuestion`:9037 / traceability 四角色非空:9043 / answerability_plan 4 字段非空:9049 / claim_ceiling:9060 / observable 非空:9070 / falsification 非弱:9076）。双锚 `c0972b12…/265d66b7…→664737f4…/1acbbaa4…`，+9 子串断言；N6 单测 **6/6**。
+- **#1 evidence-map**（gate `topic-selection-evidence-map-materialization-service.ts`）：+2 句镜像 lineage echo（8 draft 字段回显 handoff+node_input，`validateLineage`:135-150，**确认 lineage 为 LLM-produced 非 harness 注入**）+ source_attribution_kind≠llm_inference:243 + locator.literature_ref 一致:277。锚 `58000ae9…→5f8a2082…`，+3 子串断言。
+- **#3 need-adjudication**（gate `topic-selection-workflow-harness-service.ts:validateNeedAdjudicationRecommendationGate`:5859——**LLM recommendation 专用 gate，区别于 human `adjudicateNeed` 写入路径**）：+1 句镜像 return_to_candidate **无条件** required_actions:5882 + merge **self-ban**:5922 + reject rejected_reason:5903 + park required_actions|rationale:5932。锚 `a0deee32…→1fe8bf8b…`，+3 子串断言。**方法论价值**：初判 prompt(586-591)已含条件式 required_actions 疑无漂移；亲核真 gate 后确认 2🔴 未表达——印证「必读下游 blocker file:line，勿凭 schema/prose 直觉」。#1+#3 合于 v1a-binding 单测 **6/6**。
+- **#2 generate-need — 去噪 cancelled**：核 `need-discovery-debate-loop-service.ts` 仅 4 messages 函数（roleMessages×2 + arbiterMessages×2）→ #2 **无独立 prompt**，输出契约=#8 `RankedCandidateDraftBatch`；B 清单三条（strength≥1 / prior_art 拒 / support·challenge）已被 P0 #8 补句完全覆盖（validator evidenceRefs≥1:195 / strength≥1:203 / gap_codes≥1:211 + admission prior_art:157）。
+- **回归门**：ReadLints **0**、backend typecheck **0**；full backend **1625/1590/0/35**（与 W-07/P0 同基线，纯断言增强未增 test 数，**0 回归**）。4 锚 re-baseline byte-identity + 子串断言双护栏；USER key 集/load-bearing 断言 byte 不变。
+- **P2 文档闭环**：`03` 台账表 21 非门控 prompt 现状列 partial/skeleton→product-grade + 锚 + 正文位置改稳定纯函数名（消除「锚一律 NONE」+ 旧 file:line stale）；`ad1aa8c4` 两跨任务 defect 在 owner task（`paper-implementation-runtime-orchestration-hardening` 发现1 / `topic-selection-v1b-human-review-path` 发现2）补交叉引用留痕。
+- **提交**：W-05r（N4+N6）`8bf73078` / W-04r（#1+#3）`39169a42` / docs（本段 + 台账回填 + owner 留痕）本次 docs commit。
+
 ### （待开工）
