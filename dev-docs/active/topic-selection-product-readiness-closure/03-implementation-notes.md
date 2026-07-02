@@ -61,7 +61,7 @@
 | 11 | topic-selection.v1b.n3.intake-readiness.runtime-support | v1b N3 | runtime-support | **product-grade（W-05 C1）** | `buildV1bEarlySemanticSupportSystemContent`(n3 分支)（commit `444f123b`） | v1 | N | W-05 |
 | 12 | topic-selection.v1b.n4.research-slice-options.runtime-draft | v1b N4 | single-agent | **product-grade（W-05 C2 + P15）** | `buildV1bN4ResearchSliceSystemContent` 锚 `c1113299…`（P15 `n4DraftGateBlocker` 镜像 re-baseline） | v1 | N | W-05 |
 | 13 | topic-selection.v1b.n5.slice-selection.runtime-support | v1b N5 | runtime-support | **product-grade（W-05 C1）** | `buildV1bEarlySemanticSupportSystemContent`(else=n5 分支)（commit `444f123b`） | v1 | N | W-05 |
-| 14 | topic-selection.v1b.n6.question-candidate-draft.runtime-initial | v1b N6 | single-agent | **product-grade（W-05 C3 + P15）** | `buildV1bN6DraftSystemContent(hasDecisionMemory)` 双锚 `664737f4…`/`1acbbaa4…`（P15 `n6CandidateSemanticBlocker` 镜像 re-baseline） | v1 | N | W-05 |
+| 14 | topic-selection.v1b.n6.question-candidate-draft.runtime-initial | v1b N6 | single-agent | **product-grade（W-05 C3 + P15 + 07-02 补刀）** | `buildV1bN6DraftSystemContent(hasDecisionMemory)` 双锚 `28e7932b…`/`e657ae03…`（P15 镜像 + 07-02 falsification 全称量词补刀 re-baseline，见 Phase 1.5 补刀段） | v1 | N | W-05 |
 | 15 | topic-selection.v1b.n6.loopback-triage.runtime-support | v1b N6 | single-agent | **product-grade（W-05 C4）** | `buildV1bN6LoopbackTriageSystemContent` 锚 `142e31fe…`（commit `2f06fb99`） | v1 | N | W-05 |
 | 16 | topic-selection-v1b-n6-debate-explorer | v1b N6 divergent debate | debate-role | **skeleton** | v1b-n6-divergent-debate-runtime-service:290-322 | v1 | **Y** | W-18 |
 | 17 | topic-selection-v1b-n6-debate-critic | v1b N6 divergent debate | debate-role | **skeleton** | v1b-n6-divergent-debate-runtime-service:290-322 | v1 | **Y** | W-18 |
@@ -257,7 +257,7 @@
 - **consistency test 绿**：`topic-selection-workflow-matrix-consistency.unit.test.ts` **2/2** + 脚本 `.ai/scripts/topic-selection-workflow-matrix-consistency.mjs --self-test` 注入漂移全检出（deleted v1b slot / flipped codex_allowed / renamed v1c node）。矩阵 `docs/context/process/topic-selection-workflow-matrix.md` 与代码权威源（`TOPIC_SELECTION_V1A/V1B/V1C/DOWNSTREAM_*_NODE_IDS` + v1b `SEMANTIC_SUPPORT_SLOTS`(14) + codex_allowed）集合相等 → **未 re-fork**。
 - **分类完整性**：产品跑穿越节点（v1a 9 / v1b N1–N11 含 N8 / v1c 6 / resource-sampling / downstream）executor_kind + default_execution_mode + covered_scenarios + 节点 policy（context/model profile）经代理逐节点核对**全对齐**；LLM 槽 context/model profile **无填充空洞**（纯 deterministic/human 节点无 profile = 预期）。
 - **结构化硬化 → T-089 backlog（超 Acceptance，本包不做避 scope creep）**：矩阵语义列（executor_kind/default_execution_mode/debate_primitive/human_*）未接入 consistency script、v1c 无统一 `TOPIC_SELECTION_V1C_NODE_POLICIES` 结构化导出、covered_scenarios 无机器校验——登记 T-089。
-- **cache-runtime 文档 reconcile（协调项，承 W-13 遗留）**：`topic-selection-llm-context-cache-runtime/06-node-scope-matrix.md` v1c-N4 行仍高估 production-wired → T-112 owner 协调，本包不直接改并行 session 文件。
+- **cache-runtime 文档 reconcile（协调项，承 W-13 遗留）**：`topic-selection-llm-context-cache-runtime/06-node-scope-matrix.md` v1c-N4 行仍高估 production-wired → T-112 owner 协调，本包不直接改并行 session 文件。→ **2026-07-02 收口**：工作树中既有的 T-112 matrix reconcile 修订（canary 语义降级为「acceptance 能力代理，非生产运行时」+ v1c-N2 per-role-class `schema_version` admission-pin NOTE）经本包代码核证为准确，仅修正一处口径——W-13 后 codex_assisted coordinator route 已是生产调用方，「无生产调用方」限定到 provider_llm 路径——以独立 docs commit 落盘（见 `04` 2026-07-02 段）。
 
 **W-09 — 产品跑使能（product 场景 + canary 就绪，不真跑）**
 - **≥1 product-eligible model_option 可解析（已就绪）**：`TopicSelectionModelProfileRegistryService.resolveProfile({run_mode:'product', execution_mode:'provider_llm'})` 对 generate/evidence/adjudication/N4/N6/N8/v1c/resource-sampling 全 profile 解析成功（默认 eligibility `provider_llm:['acceptance','product']`）。**唯一 product 语义分支 = orchestrator 拒 mocked_llm**（`topic-selection-agent-orchestrator-service.ts:426/1622`）；provider_llm+product 无额外约束、run_mode 仅穿 provenance —— 故 acceptance→product 对 provider canary 路径等价、仅 eligibility+审计标签变。
@@ -269,6 +269,13 @@
   - env-gating 不变：live 调用仍需 `T112_*_PROVIDER_CANARY_LIVE=1` + `BACKEND_TEST_PRESERVE_REAL_ENV=1` + provider key（无 key skip，**无密钥入库**）。
 - **W-09c 单测**（`topic-selection-provider-canary-service.unit.test.ts`）：`makeCanaryService` 透传 runMode + helper `assertProductTierLiveRequiredCanary`；**5 新 test** 证 v1a / v1b N4·N6·N8 / v1c N2·N4·N6 / resource-sampling 在 `run_mode:'product'` 下 `evidence.run_mode==='product'` + succeeded + provider_call_count=2 + model_option 正确（StubGateway，**无 live provider 调用**）；+1 test 钉 acceptance 仍为默认 tier。
 - **验证/提交**：见 `04` 同日段。commit：code+test `07fc019d` / docs 本次。
+
+### Phase 1.5 补刀 — #14 N6 falsification 条款全称量词对齐（2026-07-02，审查驱动）
+> 外部对抗式提交审查复核 Phase 1.5/2 的 5 个 commit（`8bf73078`/`39169a42`/`69b42b4a`/`edf7e27a`/`07fc019d`）：4 SOLID、1 MINOR。MINOR = `8bf73078` 的 N6 falsification 句写「give at least one non-weak falsification_condition」（存在量词），但 gate 是**全称量词**——`falsification_conditions.length===0 || .some(n6FalsificationConditionWeak)` 即 block（`v1b-workflow-harness-service.ts`:9076-9077），任一弱条件即丢整候选；「一强一弱」的 prompt 合规输出会被 gate 以 `falsification_weak` 静默丢弃（候选级 drop，非批级 block）——正是 Phase 1.5 要消灭的 prompt-弱于-gate 漂移类别。
+- **修复**：#14 该子句改为「give at least one falsification_condition and make every falsification_condition non-weak (…)」，并**正面给出 gate 的非弱定义**（statement ≥24 字符 / ≥1 `trigger_evidence_ref`|`trigger_source_ref` / `related_contract_fields` 非空 / `expected_action` 非空；括注单弱即 block 整候选）——镜像 `topic-selection-v1b-harness-n6.ts:n6FalsificationConditionWeak`:230-238 的四个弱分支。纯措辞收紧，无新字段/schema/harness。
+- **锚（re-baseline）**：双分支锚 `664737f4…/1acbbaa4…→28e7932b…/e657ae03…`；falsification 子串断言 **1→5**（every…non-weak / ≥24 字符 / trigger refs / contract fields+expected_action / 单弱 block 整候选），断言旁注 gate file:line。
+- **验证**：N6 单测 **6/6**；backend & shared tsc **0**；full backend 见 `04` 同日段。commit 见 `04`。
+- **同日随行（同一审查会话）**：W-08 协调项（T-112 matrix reconcile）落盘 + shared barrel 测试自维护化 + `.gitignore` `*.tsbuildinfo`——均见 `04` 2026-07-02 段。审查的另一 nit（`07fc019d` commit message「5 product-tier 单测」实为 4 product-tier + 1 acceptance 回归）为纯计数误差，留此更正不改历史 commit。
 
 ### W-05 计划（历史 planning，已收口，保留供追溯）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。

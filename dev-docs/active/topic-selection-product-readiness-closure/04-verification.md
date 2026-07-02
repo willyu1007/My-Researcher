@@ -176,4 +176,12 @@
 - **回归门**：ReadLints **0**、backend typecheck **0**；full backend **1630/1595/0/35**（Phase 1.5 基线 1625/1590/0/35 → **+5 pass 0 fail 0 回归**，新增即 5 product-tier 单测）；skip 恒 35（无 key live-gate）。product 场景+canary **就绪**，真跑留 Phase 3（W-10）。
 - **提交**：code+test `07fc019d`；docs（本段 + 台账回填）本次 commit。
 
+### 2026-07-02 · Phase 1.5 补刀 + W-08 协调项收口（审查驱动）
+> 外部对抗式提交审查复核 Phase 1.5/2 五 commit（`8bf73078`/`39169a42`/`69b42b4a`/`edf7e27a`/`07fc019d`）：4 SOLID / 1 MINOR，MINOR 即本次补刀对象。用户「从第一项开始实施」。
+- **#14 N6-draft falsification 全称量词**（gate `v1b-workflow-harness-service.ts`:9076 `.some(n6FalsificationConditionWeak)` + 弱定义 `harness-n6.ts`:230-238）：prompt「at least one non-weak」（存在量词）→「give at least one falsification_condition and make every falsification_condition non-weak (…)」+ 正面镜像非弱四条件（statement≥24 字符 / ≥1 trigger_evidence_ref|trigger_source_ref / related_contract_fields 非空 / expected_action 非空；单弱 block 整候选）。双锚 `664737f4…/1acbbaa4…→28e7932b…/e657ae03…`，falsification 子串断言 **1→5**（断言旁注 gate file:line）；N6 单测 **6/6**。commit `3af583be`。
+- **W-08 协调项（T-112 matrix reconcile）落盘**：工作树既有修订（canary=「acceptance 能力代理，非生产运行时」×6 处 + v1c-N2 per-role-class `schema_version` admission-pin NOTE ×5 处）经代码核证准确——pin 仅存在于 admission service（grep `-role.v1|-final.v1` 全库仅 admission+test 命中）、provider 侧 runtime/prompt 零发射；修正一处口径：W-13 后 codex_assisted coordinator route（`POST /topic-selection/v1c/promotion-decision-support/bounded-debate`）已是生产调用方（operator-supplied 输出须自带 pinned version 过 admit），「无生产调用方」限定到 provider_llm 路径。commit `fbf65d01`。
+- **工作树卫生（随行）**：shared barrel 值面测试自维护化（41 硬编码 namespace import → 运行期解析 index.ts export-star + 动态 import 并集，≥40 守卫；shared **267/0** 计数不变）commit `ac95db7c`；`.gitignore` 加 `*.tsbuildinfo`（`packages/shared/tsconfig.tsbuildinfo` 纳入忽略）commit `4be670f2`。
+- **回归门**：backend & shared tsc **0**；N6 单测 6/6；shared **267/0**（两次独立复跑）；**full backend 1630/1595/0/35**（与 Phase 2 基线逐字一致，纯措辞收紧未增 test 数，**0 回归**）；governance lint **passed**（仅既有 T-123/T-115 acceptance-criteria warning，历史登记 non-blocking）。
+- **提交**：fix `3af583be` / matrix docs `fbf65d01` / shared test `ac95db7c` / chore `4be670f2` / docs（本段 + 03 补刀段 + 台账 #14 锚更新 + W-08 协调项收口注）随本次 docs commit。
+
 ### （待开工）
