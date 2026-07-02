@@ -168,4 +168,12 @@
 - **P2 文档闭环**：`03` 台账表 21 非门控 prompt 现状列 partial/skeleton→product-grade + 锚 + 正文位置改稳定纯函数名（消除「锚一律 NONE」+ 旧 file:line stale）；`ad1aa8c4` 两跨任务 defect 在 owner task（`paper-implementation-runtime-orchestration-hardening` 发现1 / `topic-selection-v1b-human-review-path` 发现2）补交叉引用留痕。
 - **提交**：W-05r（N4+N6）`8bf73078` / W-04r（#1+#3）`39169a42` / docs（本段 + 台账回填 + owner 留痕）本次 docs commit。
 
+### 2026-07-02 · Phase 2 — live-surface 分类核对 + 产品跑使能
+> 用户「开始实施 phase 2」。现状探查超预期（W-08 核心已达标、W-09 registry+v1a 已就绪）；ready-only + doc-plus-canary + verify-only。
+- **W-08 核对**：`topic-selection-workflow-matrix-consistency.unit.test.ts` **2/2**；脚本 `--self-test` 注入漂移全检出（deleted v1b slot / flipped codex / renamed v1c）；矩阵 `docs/context/process/topic-selection-workflow-matrix.md` ↔ 代码权威源集合相等，**无 re-fork**。分类/policy 无空洞。结构化硬化留 T-089。
+- **W-09b/c canary product tier**：`provider-canary-service.ts` constructor `runMode`（默认 acceptance 不变）+ 8 处 run_mode 参数化 + evidence `run_mode` 字段（取 provenance，证穿透）。5 新 product-tier 单测（v1a / v1b N4·N6·N8 / v1c N2·N4·N6 / resource-sampling）证 `run_mode:'product'` 下 succeeded + `evidence.run_mode==='product'` + provider_call_count=2 + model_option 正确（StubGateway，无 live provider）；+1 acceptance 默认回归。provider-canary 单测 **41 pass / 16 skip（live-gated 无 key）/ 0 fail**。
+- **W-09 model_option 可解析**：registry `resolveProfile({run_mode:'product',provider_llm})` 全 profile 成功；唯一 product 分支=拒 mocked_llm（orchestrator:426/1622）。**无 `MISSING_PROVIDER_MODEL_OPTION`**。
+- **回归门**：ReadLints **0**、backend typecheck **0**；full backend **1630/1595/0/35**（Phase 1.5 基线 1625/1590/0/35 → **+5 pass 0 fail 0 回归**，新增即 5 product-tier 单测）；skip 恒 35（无 key live-gate）。product 场景+canary **就绪**，真跑留 Phase 3（W-10）。
+- **提交**：code+test `07fc019d`；docs（本段 + 台账回填）本次 commit。
+
 ### （待开工）
