@@ -1,7 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: done（governance registry/task-index 待 `ctl-project-governance sync` 同步 —— 因 `.ai/project/*` 正被并行工作占用，延后同步）
+- State: done
+- Governance note: registry/task-index sync was deferred while `.ai/project/*` was occupied by parallel work; later sync confirmed task metadata as `done`.
 - Task ID: `T-115`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-009`
 - Parent: `T-087` (topic-selection desktop workbench) · Depends on: `T-088` (workflow-runtime-foundation, in-progress)
