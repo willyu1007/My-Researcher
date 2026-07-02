@@ -213,6 +213,7 @@ import {
   hashN10V1cInputBundleAuthority,
   hashResearchSliceOptionAuthority as sharedHashResearchSliceOptionAuthority,
   hashV1bFrozenInput,
+  hashV1bToV1cBundle,
 } from './topic-selection-v1b-harness-authority-hash.js';
 import {
   uniqueIssues,
@@ -6769,11 +6770,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       readiness_check_refs: [packageTraceRef, readinessRef],
       package_snapshot: topicPackage,
       package_draft_input_snapshot: packageInput,
-      bundle_hash: canonicalHash({
-        package_ref: packageRef,
-        package_readiness_assessment_ref: readinessRef,
-        package_trace_boundary_check_ref: packageTraceRef,
-        value_disposition_decision_ref: packageInput.value_disposition_decision_ref,
+      // D-T128-03: single-source shape shared with the route-path producer and the v1c
+      // freshness checker — the old 4-field local variant could never pass the v1c gate.
+      bundle_hash: hashV1bToV1cBundle({
+        checkRef: packageTraceRef,
+        packageRef,
+        packageVersion,
+        readinessRef,
+        valueDispositionDecisionRef: packageInput.value_disposition_decision_ref,
       }),
       input_snapshot_id: null,
       workflow_run_id: input.workflow_run_id,

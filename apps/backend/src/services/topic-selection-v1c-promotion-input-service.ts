@@ -38,6 +38,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { hashV1bToV1cBundle } from './topic-selection-v1b-harness-authority-hash.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -927,12 +928,13 @@ export class TopicSelectionV1cPromotionInputService {
   }
 
   private expectedV1cBundleHash(bundle: TopicSelectionV1bToV1cInputBundleRecord): string {
-    return this.hashValue({
-      check_ref: bundle.package_trace_boundary_check_ref,
-      package_ref: bundle.topic_package_ref,
-      package_version: bundle.package_version,
-      readiness_ref: bundle.package_readiness_assessment_ref,
-      value_disposition_decision_ref: bundle.value_disposition_decision_ref,
+    // D-T128-03: single-sourced with both bundle producers (route path + harness N11).
+    return hashV1bToV1cBundle({
+      checkRef: bundle.package_trace_boundary_check_ref,
+      packageRef: bundle.topic_package_ref,
+      packageVersion: bundle.package_version,
+      readinessRef: bundle.package_readiness_assessment_ref,
+      valueDispositionDecisionRef: bundle.value_disposition_decision_ref,
     });
   }
 

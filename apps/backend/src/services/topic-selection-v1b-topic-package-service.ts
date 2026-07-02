@@ -39,6 +39,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { hashV1bToV1cBundle } from './topic-selection-v1b-harness-authority-hash.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -1021,13 +1022,15 @@ export class TopicSelectionV1bTopicPackageService {
       input.readiness.package_readiness_assessment_id,
       input.titleCardId,
     );
-    const payload = {
-      package_ref: input.packageRecord.topic_package_ref,
-      package_version: input.packageRecord.package_version,
-      readiness_ref: readinessRef,
-      check_ref: checkRef,
-      value_disposition_decision_ref: input.packageRecord.value_disposition_decision_ref,
-    };
+    // D-T128-03: the bundle content hash is single-sourced with the harness N11 publisher and
+    // the v1c freshness checker; this shape is byte-identical to the previous local payload.
+    const bundleHash = hashV1bToV1cBundle({
+      checkRef,
+      packageRef: input.packageRecord.topic_package_ref,
+      packageVersion: input.packageRecord.package_version,
+      readinessRef,
+      valueDispositionDecisionRef: input.packageRecord.value_disposition_decision_ref,
+    });
     return {
       v1b_to_v1c_input_bundle_id: input.id,
       workspace_id: input.workspaceId,
@@ -1055,7 +1058,7 @@ export class TopicSelectionV1bTopicPackageService {
       readiness_check_refs: [checkRef, readinessRef],
       package_snapshot: input.packageRecord,
       package_draft_input_snapshot: input.packageInput,
-      bundle_hash: sha256Text(stableStringify(payload)),
+      bundle_hash: bundleHash,
       input_snapshot_id: input.inputSnapshotId,
       workflow_run_id: input.workflowRunId,
       gate_result_id: input.gateResultId,

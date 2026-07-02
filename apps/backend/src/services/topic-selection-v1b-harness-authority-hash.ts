@@ -189,6 +189,37 @@ export function hashN10V1cInputBundleAuthority(bundle: TopicSelectionV1bToV1cInp
   });
 }
 
+/** Single source for the persisted v1b→v1c input-bundle content hash (D-T128-03).
+ *
+ *  Every producer (route-path `TopicSelectionV1bTopicPackageService`, harness N11
+ *  `publish-v1c-input-bundle`) and the v1c freshness checker
+ *  (`TopicSelectionV1cPromotionInputService.expectedV1cBundleHash`) MUST hash this exact
+ *  payload shape. The first `run_mode:'product'` run (T-128 W-10) caught the harness
+ *  publishing a 4-field, differently-keyed variant that the v1c gate could structurally
+ *  never accept (`v1b_to_v1c_bundle_hash_drift`) — in-memory unit fixtures were
+ *  self-consistent per side, so only the real Prisma round trip exposed the split. */
+export function v1bToV1cBundleHashPayload(input: {
+  checkRef: TopicSelectionFunctionalRef;
+  packageRef: TopicSelectionFunctionalRef;
+  packageVersion: string;
+  readinessRef: TopicSelectionFunctionalRef;
+  valueDispositionDecisionRef: TopicSelectionFunctionalRef;
+}): Record<string, unknown> {
+  return {
+    check_ref: input.checkRef,
+    package_ref: input.packageRef,
+    package_version: input.packageVersion,
+    readiness_ref: input.readinessRef,
+    value_disposition_decision_ref: input.valueDispositionDecisionRef,
+  };
+}
+
+export function hashV1bToV1cBundle(
+  input: Parameters<typeof v1bToV1cBundleHashPayload>[0],
+): string {
+  return canonicalHash(v1bToV1cBundleHashPayload(input));
+}
+
 // ---------------------------------------------------------------------------
 // W-12 / D-T127-01 (slice 2): N7 (topic-question / contract / answerability-plan)
 // + N5 (decision / research-slice) authority hashes, relocated VERBATIM from the

@@ -5,7 +5,9 @@ import {
   canonicalHash,
   hashResearchSliceOptionAuthority,
   hashV1bFrozenInput,
+  hashV1bToV1cBundle,
   researchSliceOptionRef,
+  v1bToV1cBundleHashPayload,
 } from './topic-selection-v1b-harness-authority-hash.js';
 
 function makeOption(
@@ -117,4 +119,38 @@ test('hashV1bFrozenInput is deterministic and ignores fields outside the envelop
   });
   assert.equal(h1, h2);
   assert.match(h1, /^[0-9a-f]{64}$/);
+});
+
+test('v1bToV1cBundleHashPayload pins the single-source 5-field shape (D-T128-03)', () => {
+  // The first product run caught the harness N11 publisher hashing a 4-field, differently
+  // keyed payload that the v1c freshness checker could structurally never accept
+  // (v1b_to_v1c_bundle_hash_drift). This pins the canonical shape all three sites share.
+  const ref = (refType: string, refId: string) => ({
+    ref_type: refType,
+    ref_id: refId,
+    version_id: null,
+    title_card_id: 'tc_1',
+  });
+  const input = {
+    checkRef: ref('package_trace_boundary_check', 'ptbc_1'),
+    packageRef: { ...ref('topic_package', 'tp_1'), version_id: 'v1' },
+    packageVersion: 'v1',
+    readinessRef: ref('topic_package_readiness_assessment', 'pra_1'),
+    valueDispositionDecisionRef: ref('value_disposition_decision', 'vdd_1'),
+  };
+  const payload = v1bToV1cBundleHashPayload(input);
+  assert.deepEqual(Object.keys(payload).sort(), [
+    'check_ref',
+    'package_ref',
+    'package_version',
+    'readiness_ref',
+    'value_disposition_decision_ref',
+  ]);
+  // hash == canonicalHash(payload): producers and checker are byte-equivalent by construction.
+  assert.equal(hashV1bToV1cBundle(input), canonicalHash(payload));
+  // package_version participates in the hash (the old harness variant dropped it).
+  assert.notEqual(
+    hashV1bToV1cBundle(input),
+    hashV1bToV1cBundle({ ...input, packageVersion: 'v2' }),
+  );
 });
