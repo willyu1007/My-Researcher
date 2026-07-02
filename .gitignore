@@ -22,6 +22,7 @@ env/values/*.local.yml
 
 # Node
 node_modules/
+*.tsbuildinfo
 
 # Python
 __pycache__/
