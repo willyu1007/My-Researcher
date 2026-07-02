@@ -17,6 +17,7 @@ import {
   topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
+import type { TopicSelectionAgentRunMode } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 import {
   type TopicSelectionResourceSamplingLlmOutput,
   topicSelectionResourceSamplingLlmOutputSchema,
@@ -98,6 +99,7 @@ export type TopicSelectionProviderCanaryCandidateDraftBatch = {
 export interface TopicSelectionProviderCanaryLiveRequiredEvidence {
   provider_id: TopicSelectionProviderCanaryProviderId;
   model_option_id: string;
+  run_mode: TopicSelectionAgentRunMode;
   provider_required_live: true;
   provider_call_count: number;
   first_status: TopicSelectionAgentInvocationResult<unknown>['status'];
@@ -176,6 +178,7 @@ export class TopicSelectionProviderCanaryService {
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
   private readonly contextProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
   private readonly now: () => string;
+  private readonly canaryRunMode: TopicSelectionAgentRunMode;
 
   constructor(options: {
     controlPlane: TopicSelectionControlPlaneService;
@@ -183,6 +186,12 @@ export class TopicSelectionProviderCanaryService {
     modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
     contextProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
     now?: () => string;
+    // Provider canary tier. Defaults to 'acceptance' (bounded-cost verification).
+    // 'product' proves each production slot resolves + emits a provider_llm
+    // invocation under the same run_mode the first real product run will use
+    // (Phase 2 product-run enablement; no behavior change for provider_llm
+    // beyond registry eligibility + provenance run_mode label).
+    runMode?: TopicSelectionAgentRunMode;
   }) {
     this.controlPlane = options.controlPlane;
     this.llmGateway = options.llmGateway ?? new BackendLlmGateway();
@@ -190,6 +199,7 @@ export class TopicSelectionProviderCanaryService {
     this.contextProfileRegistry = options.contextProfileRegistry
       ?? new TopicSelectionContextPolicyProfileRegistryService();
     this.now = options.now ?? (() => new Date().toISOString());
+    this.canaryRunMode = options.runMode ?? 'acceptance';
   }
 
   async runPromptCacheLiveRequiredCanary(
@@ -672,7 +682,7 @@ export class TopicSelectionProviderCanaryService {
       node_attempt_id: `provider_canary_${providerId}_node_attempt_001`,
       execution_mode: 'provider_llm',
       executor_kind: 'single_agent',
-      run_mode: 'acceptance',
+      run_mode: this.canaryRunMode,
       profile_id: TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
       model_option_id: this.modelOptionId(providerId),
       output_contract: 'RankedCandidateDraftBatch@v1',
@@ -738,7 +748,7 @@ export class TopicSelectionProviderCanaryService {
       invocation_attempt_id: `provider_canary_v1c_n2_${slotKey}_${providerId}_runtime_role`,
       execution_mode: 'provider_llm',
       executor_kind: 'single_agent',
-      run_mode: 'acceptance',
+      run_mode: this.canaryRunMode,
       profile_id: TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID,
       model_option_id: this.v1cN2ModelOptionId(providerId),
       output_contract: 'TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1',
@@ -812,7 +822,7 @@ export class TopicSelectionProviderCanaryService {
       invocation_attempt_id: `provider_canary_v1b_n4_${providerId}_initial_from_n3`,
       execution_mode: 'provider_llm',
       executor_kind: 'single_agent',
-      run_mode: 'acceptance',
+      run_mode: this.canaryRunMode,
       profile_id: TOPIC_SELECTION_V1B_RESEARCH_SLICE_OPTIONS_SINGLE_AGENT_PROFILE_ID,
       model_option_id: this.v1bN4ModelOptionId(providerId),
       output_contract: 'ResearchSliceOptionSetDraft@v1',
@@ -886,7 +896,7 @@ export class TopicSelectionProviderCanaryService {
       invocation_attempt_id: `provider_canary_v1b_n6_${providerId}_initial_from_n5`,
       execution_mode: 'provider_llm',
       executor_kind: 'single_agent',
-      run_mode: 'acceptance',
+      run_mode: this.canaryRunMode,
       profile_id: TOPIC_SELECTION_V1B_TOPIC_QUESTION_CANDIDATES_SINGLE_AGENT_PROFILE_ID,
       model_option_id: this.v1bN6ModelOptionId(providerId),
       output_contract: 'TopicQuestionCandidateSetDraft@v1',
@@ -960,7 +970,7 @@ export class TopicSelectionProviderCanaryService {
       invocation_attempt_id: `provider_canary_v1b_n8_${providerId}_initial_from_n7`,
       execution_mode: 'provider_llm',
       executor_kind: 'single_agent',
-      run_mode: 'acceptance',
+      run_mode: this.canaryRunMode,
       profile_id: TOPIC_SELECTION_V1B_TOPIC_VALUE_ASSESSMENT_SINGLE_AGENT_PROFILE_ID,
       model_option_id: this.v1bN8ModelOptionId(providerId),
       output_contract: 'TopicValueAssessmentDraft@v1',
@@ -1032,7 +1042,7 @@ export class TopicSelectionProviderCanaryService {
       invocation_attempt_id: `provider_canary_v1c_n4_${providerId}_delegated_promotion_decision`,
       execution_mode: 'provider_llm',
       executor_kind: 'single_agent',
-      run_mode: 'acceptance',
+      run_mode: this.canaryRunMode,
       profile_id: TOPIC_SELECTION_V1C_DELEGATED_PROMOTION_DECISION_PROFILE_ID,
       model_option_id: this.v1cN4ModelOptionId(providerId),
       output_contract: 'TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1',
@@ -1104,7 +1114,7 @@ export class TopicSelectionProviderCanaryService {
       invocation_attempt_id: `provider_canary_v1c_n6_${providerId}_downstream_feedback_normalization`,
       execution_mode: 'provider_llm',
       executor_kind: 'single_agent',
-      run_mode: 'acceptance',
+      run_mode: this.canaryRunMode,
       profile_id: TOPIC_SELECTION_V1C_DOWNSTREAM_FEEDBACK_NORMALIZATION_PROFILE_ID,
       model_option_id: this.v1cN6ModelOptionId(providerId),
       output_contract: 'TopicSelectionV1cDownstreamFeedbackCandidate@v1',
@@ -1179,7 +1189,7 @@ export class TopicSelectionProviderCanaryService {
         `provider_canary_resource_sampling_${providerId}_literature_classification_batch`,
       execution_mode: 'provider_llm',
       executor_kind: 'single_agent',
-      run_mode: 'acceptance',
+      run_mode: this.canaryRunMode,
       profile_id: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
       model_option_id: this.resourceSamplingModelOptionId(providerId),
       output_contract: TOPIC_SELECTION_RESOURCE_SAMPLING_OUTPUT_CONTRACT,
@@ -1245,6 +1255,7 @@ export class TopicSelectionProviderCanaryService {
     return {
       provider_id: input.providerId,
       model_option_id: input.modelOptionId,
+      run_mode: input.first.provenance.run_mode,
       provider_required_live: true,
       provider_call_count: input.countingGateway.callCount,
       first_status: input.first.status,

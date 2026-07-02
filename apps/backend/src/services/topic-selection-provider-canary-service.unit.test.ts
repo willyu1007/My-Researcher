@@ -18,6 +18,7 @@ import {
   type TopicSelectionResourceSamplingLlmOutput,
   topicSelectionResourceSamplingLlmOutputSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-resource-sampling-contracts';
+import type { TopicSelectionAgentRunMode } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 import {
   TOPIC_SELECTION_VALUE_DIMENSIONS,
   TOPIC_SELECTION_VALUE_GATE_KEYS,
@@ -667,6 +668,7 @@ function telemetry(request: LlmStructuredOutputRequest): LlmCallTelemetry {
 
 function makeCanaryService(options: {
   llmGateway?: StubProviderCanaryGateway | BackendLlmGateway;
+  runMode?: TopicSelectionAgentRunMode;
 } = {}) {
   const repository = new InMemoryTopicSelectionControlPlaneRepository();
   let sequence = 0;
@@ -677,8 +679,32 @@ function makeCanaryService(options: {
   return new TopicSelectionProviderCanaryService({
     controlPlane,
     llmGateway: options.llmGateway,
+    runMode: options.runMode,
     now: () => '2026-05-30T00:00:00.000Z',
   });
+}
+
+async function assertProductTierLiveRequiredCanary(
+  runCanary: (
+    service: TopicSelectionProviderCanaryService,
+  ) => Promise<TopicSelectionProviderCanaryLiveRequiredEvidence>,
+  expected: {
+    providerId: TopicSelectionProviderCanaryProviderId;
+    modelOptionId: string;
+  },
+): Promise<TopicSelectionProviderCanaryLiveRequiredEvidence> {
+  const gateway = new StubProviderCanaryGateway();
+  const service = makeCanaryService({ llmGateway: gateway, runMode: 'product' });
+
+  const result = await runCanary(service);
+
+  assert.equal(result.run_mode, 'product', liveRequiredDiagnostic(result));
+  assert.equal(result.provider_id, expected.providerId);
+  assert.equal(result.model_option_id, expected.modelOptionId);
+  assert.equal(result.provider_required_live, true);
+  assertLiveRequiredSucceeded(result);
+  assert.equal(result.provider_call_count, 2);
+  return result;
 }
 
 function liveRequiredDiagnostic(result: TopicSelectionProviderCanaryLiveRequiredEvidence): string {
@@ -1671,6 +1697,79 @@ test('provider canary blocks malformed minimal resource-sampling provider output
   assert.equal(result.provider_call_count, 2);
   assert.equal(gateway.calls.length, 2);
   assert.deepEqual(result.response_reuse_refs, [null, null]);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2 (W-09) product-run enablement.
+//
+// Every production runtime slot that backs a run_mode:'acceptance' provider
+// canary also resolves a product-eligible model_option and emits a provider_llm
+// invocation under run_mode:'product'. This is the offline readiness proof for
+// the first real product run (Phase 3): the same orchestrator/registry path
+// accepts run_mode:'product' (only mocked_llm is rejected in product), the
+// selected model_option is product-eligible, and run_mode is carried through to
+// canary evidence. No live provider call happens here (StubGateway); acceptance
+// stays the default tier.
+// ---------------------------------------------------------------------------
+
+test('provider canary resolves the v1a generate-need-candidate slot under run_mode:product', async () => {
+  await assertProductTierLiveRequiredCanary(
+    (service) => service.runPromptCacheLiveRequiredCanary({ provider_id: 'openai' }),
+    { providerId: 'openai', modelOptionId: expectedModelOptionId('openai') },
+  );
+  await assertProductTierLiveRequiredCanary(
+    (service) => service.runPromptCacheLiveRequiredCanary({ provider_id: 'dashscope' }),
+    { providerId: 'dashscope', modelOptionId: expectedModelOptionId('dashscope') },
+  );
+});
+
+test('provider canary resolves v1b non-debate slots N4/N6/N8 under run_mode:product', async () => {
+  await assertProductTierLiveRequiredCanary(
+    (service) => service.runV1bN4PromptCacheLiveRequiredCanary({ provider_id: 'openai' }),
+    { providerId: 'openai', modelOptionId: expectedV1bN4ModelOptionId('openai') },
+  );
+  await assertProductTierLiveRequiredCanary(
+    (service) => service.runV1bN6PromptCacheLiveRequiredCanary({ provider_id: 'openai' }),
+    { providerId: 'openai', modelOptionId: expectedV1bN6ModelOptionId('openai') },
+  );
+  await assertProductTierLiveRequiredCanary(
+    (service) => service.runV1bN8PromptCacheLiveRequiredCanary({ provider_id: 'openai' }),
+    { providerId: 'openai', modelOptionId: expectedV1bN8ModelOptionId('openai') },
+  );
+});
+
+test('provider canary resolves v1c slots N2/N4/N6 under run_mode:product', async () => {
+  await assertProductTierLiveRequiredCanary(
+    (service) => service.runV1cN2PromptCacheLiveRequiredCanary({
+      provider_id: 'openai',
+      slot_id: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.synthesizer_final,
+    }),
+    { providerId: 'openai', modelOptionId: expectedV1cN2ModelOptionId('openai') },
+  );
+  await assertProductTierLiveRequiredCanary(
+    (service) => service.runV1cN4PromptCacheLiveRequiredCanary({ provider_id: 'openai' }),
+    { providerId: 'openai', modelOptionId: expectedV1cN4ModelOptionId('openai') },
+  );
+  await assertProductTierLiveRequiredCanary(
+    (service) => service.runV1cN6PromptCacheLiveRequiredCanary({ provider_id: 'openai' }),
+    { providerId: 'openai', modelOptionId: expectedV1cN6ModelOptionId('openai') },
+  );
+});
+
+test('provider canary resolves the resource-sampling slot under run_mode:product', async () => {
+  await assertProductTierLiveRequiredCanary(
+    (service) => service.runResourceSamplingPromptCacheLiveRequiredCanary({ provider_id: 'openai' }),
+    { providerId: 'openai', modelOptionId: expectedResourceSamplingModelOptionId('openai') },
+  );
+});
+
+test('provider canary keeps run_mode:acceptance as the default tier', async () => {
+  const gateway = new StubProviderCanaryGateway();
+  const service = makeCanaryService({ llmGateway: gateway });
+
+  const result = await service.runPromptCacheLiveRequiredCanary({ provider_id: 'openai' });
+
+  assert.equal(result.run_mode, 'acceptance', liveRequiredDiagnostic(result));
 });
 
 function shouldRunLiveCanary(providerId: TopicSelectionProviderCanaryProviderId): boolean {
