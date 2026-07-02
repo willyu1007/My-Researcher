@@ -8,7 +8,7 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 128 (planned: 3, in-progress: 4, blocked: 0, done: 44, archived: 77)
+- Tasks: 128 (planned: 2, in-progress: 5, blocked: 0, done: 44, archived: 77)
 
 ## Recent tasks
 
@@ -17,8 +17,8 @@ Project: `main`
 | T-041 literature-end-to-end-quality-upgrade | archived | F-000 | dev-docs/archive/literature-end-to-end-quality-upgrade |
 | T-119 adaptive-llm-systems-standard-pipeline-expansion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-standard-pipeline-expansion |
 | T-120 adaptive-llm-systems-literature-pipeline-completion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-literature-pipeline-completion |
+| T-128 topic-selection-product-readiness-closure | in-progress | F-001 | dev-docs/active/topic-selection-product-readiness-closure |
 | T-127 topic-selection-backend-hardening-and-expansion | done | F-001 | dev-docs/active/topic-selection-backend-hardening-and-expansion |
-| T-128 topic-selection-product-readiness-closure | planned | F-001 | dev-docs/active/topic-selection-product-readiness-closure |
 | T-122 literature-scaleout-corpus-strategy | archived | F-000 | dev-docs/archive/literature-scaleout-corpus-strategy |
 | T-125 literature-balanced-corpus-scaleout-v2 | archived | F-000 | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |
 | T-126 literature-rag-frontier-tech-radar | archived | F-000 | dev-docs/archive/literature-rag-frontier-tech-radar |

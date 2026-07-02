@@ -184,4 +184,12 @@
 - **回归门**：backend & shared tsc **0**；N6 单测 6/6；shared **267/0**（两次独立复跑）；**full backend 1630/1595/0/35**（与 Phase 2 基线逐字一致，纯措辞收紧未增 test 数，**0 回归**）；governance lint **passed**（仅既有 T-123/T-115 acceptance-criteria warning，历史登记 non-blocking）。
 - **提交**：fix `3af583be` / matrix docs `fbf65d01` / shared test `ac95db7c` / chore `4be670f2` / docs（本段 + 03 补刀段 + 台账 #14 锚更新 + W-08 协调项收口注）随本次 docs commit。
 
+### 2026-07-02 · Phase 3 — W-10 首次真实产品跑（核心可达性 sign-off）
+> 用户「完成后进入 W-10」授权（真实 provider 花费经确认;语料池 410 条中间档经用户选定）。**run9 passed** = Acceptance「一次真实 `run_mode:'product'` 非-debate 端到端跑通,证据 + trace 留痕」达成。
+- **最终通过跑**：`t128-w10-product-run9-1782995163`（`pnpm topic-selection:real-e2e`,dashscope/qwen3.6-plus,`LLM_TIMEOUT_MS=420000`,复用采样集 `resource_sample_set_a852ffb2…`）。工件 `.ai/.tmp/topic-selection-real-e2e/t128-w10-product-run9-1782995163/`（00 采样 / 01 选文 16 条 4/4/4/4 角色平衡 / 02 v1a / 03 v1b harness 日志+摘要 / 04 v1c / 05 intake / 06 downstream / 90 summary **passed**）。
+- **产品身份证据**：v1a generate `harness_trace_snapshot.run_mode==='product'`、`execution_mode==='provider_llm'`、scenario assertions 全过（execution_mode/node_attempt/persistence-after-finalize/routing `finalize_with_admitted_batch`/min 计数）、3 persisted candidates;v1c `paper_project_bridge_d956e811…` **active** 带 `bridge_payload_hash`;downstream 13 feedback/12 recheck 含 400/409 负例断言。
+- **九跑取证台账**（详见 `03` Phase 3 段）：run1 资源池空（6 月清理副作用,410 条经产品 scope API 重挂）→ run2/3 设置行旧 OpenAI key（settings-first 无 401 回退;产品 PATCH 刷新）+ **F2 token target 校准**（`literature_classification_batch` 24000→40000,实测 32,632;P-01 缺位使 requires_compression=fail-closed,「W-11 不阻塞 W-10」以校准债形式被证伪）→ run4 过采样、count 期望钉死 1 vs 真模型 5（**F3** provider 模式 min 形态,harness 契约原生支持）→ run5/6 OpenAI 5xx 窗口（TransientError;双 provider 探测后切 dashscope;**健壮性登记**:分类循环无批级重试）→ run7 v1a+v1b 通,**F4 `v1b_to_v1c_bundle_hash_drift`**（harness N11 4 字段异名键 vs route/v1c 5 字段,结构性永不相等;单源化 `hashV1bToV1cBundle` 三处消费 + 形状钉测,**JD `D-T128-03`** 于 T-088 `06-joint-decisions.md`）→ run8 qwen thinking 180s 超时（参数 420s）→ **run9 passed**。
+- **回归门**：backend tsc **0**;authority-hash 单测 **7/0**（+1 形状钉测）;harness+v1c-promotion-input+topic-package 三套件 **123/0**（harness goldens 完好=byte-identity 维持,bundle_hash 变化仅及新 run）;**full backend 1632/1597/0/35**（Phase 2 基线 1630/1595 → +1 TSCP 回归测 +1 形状钉测,0 fail）;governance lint passed。
+- **提交**：F4+JD `ef62a56f` / F2 校准 `948fa3c9` / F3 脚本 `0dfed952` / docs+状态翻转随本次 docs commit（F1 `3af583be` 前置已落）。
+
 ### （待开工）

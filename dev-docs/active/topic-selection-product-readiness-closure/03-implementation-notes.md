@@ -14,7 +14,7 @@
 | W-07 资源采样 prompt | 1 | closeable | **done（2026-07-01）** | 承 W-P4。**单件 #9 done**：纯函数 `buildResourceSamplingClassificationSystemContent`（service 提取、system message 委托）+ golden 锚 `a91aac9c…` + 镜像 7 required（literature_ref copy / primary_role 6-role 完整语义含 review+excluded / topic_relevance·confidence·role_scores 各 [0,1] / evidence_polarity 7 enum）+ 3 optional（exclusion_reason↔excluded / review_reason↔review / method_families）+ 契约名。**W-07 收口（Phase 1 非-debate prompt 全收口）。** |
 | W-08 live-surface 分类 | 2 | closeable | **done（2026-07-02）** | 核对确认：consistency test 2/2 + self-test 绿、分类对齐 SSOT 矩阵**无 re-fork**；结构化硬化（语义列校验 / v1c `NODE_POLICIES` / covered_scenarios 机器校验）留 T-089 backlog |
 | W-09 产品跑使能 | 2 | closeable | **done（2026-07-02）** | provider-canary 参数化 product tier（constructor `runMode`，默认 acceptance 不变）；≥1 product-eligible model_option 可解析（唯一 product 分支=拒 mocked_llm）；5 product-tier 单测（v1a/v1b N4·N6·N8/v1c N2·N4·N6/resource-sampling）+ acceptance 默认回归；真跑留 Phase 3 |
-| W-10 首次真跑 ★ | 3 | closeable | planned | 核心可达性 sign-off；N8/N6 provisional behind tripwire |
+| W-10 首次真跑 ★ | 3 | closeable | **done（2026-07-02）** | **核心可达性 sign-off 达成**：run9 `t128-w10-product-run9-1782995163` **passed**——`run_mode:'product'`+`provider_llm`（dashscope/qwen3.6-plus）v1a 生成 3 候选→裁决→确认→v1b N1..N11→v1c gate→bridge **active**→downstream 13 反馈/12 recheck。9 跑取证修 4 真缺陷（TSCP id 碰撞/设置行旧 key/分类批 token target/`v1b_to_v1c_bundle_hash_drift` 双生产者分叉=D-T128-03）+ 2 运行参数（provider 期望 min 形态/timeout）。N8/N6 provisional+tripwire 未动。详见 Phase 3 段 + `04` 同日段 |
 | W-11 P-01 压缩恢复 | 4 | coordination | planned | 跨 T-124/T-088 JD；gates product-robust（不阻塞 W-10）；当前最大未追踪开口 |
 | W-12 N6 升级可达性 | 4 | closeable | planned | n6_gate_failure_retry_context projection + 幂等 |
 | W-13 v1c-N2 **+ v1c-N4** 生产接线/收口 | 4 | closeable | **done（2026-06-25，全接 codex_assisted 真 caller）** | 用户定**全接**（非 reserved），D6=否（v1c 无 harness、只用纯 `canonicalHash` leaf，纯加法 coordinator/DI/route）。**v1c-N2**（`dc9ff27f` 协调器+单测、`40cf3e00` DI+controller+route+HTTP 测）:`TopicSelectionV1cN2BoundedDebateCoordinatorService` 循环 4 角色 codex_assisted→**穿 admit**（canary 漏的关键步）→既有 verified-runtime-draft gate 入口;路由 `POST …/promotion-decision-support/bounded-debate`。**v1c-N4**（`ce889186` S0 provenance contract、`4463dfca` S4 delegated service+5 单测、`3cba7a5c` S5 DI+operator-only route+2 HTTP 测）:delegated agent 起草、人仍授权——`human_actor` 来自**请求**（admission 再断言 `actor_type==='human'`）、promote-class 草案需 `promote_reconfirmed:true`、决定带 `delegated_decision_provenance` 标记（可审计/非冒充）;operator-only route `POST …/promotion-decisions/delegated`（默认人审 route 字节不变）。codex_assisted=operator 供输出 verbatim、无 provider、测试无需 stub。全后端 **1572/0/35**、双 tsc 0。**两 dead slot 现皆 caller-reached、admit 不再被绕过。** |
@@ -276,6 +276,22 @@
 - **锚（re-baseline）**：双分支锚 `664737f4…/1acbbaa4…→28e7932b…/e657ae03…`；falsification 子串断言 **1→5**（every…non-weak / ≥24 字符 / trigger refs / contract fields+expected_action / 单弱 block 整候选），断言旁注 gate file:line。
 - **验证**：N6 单测 **6/6**；backend & shared tsc **0**；full backend 见 `04` 同日段。commit 见 `04`。
 - **同日随行（同一审查会话）**：W-08 协调项（T-112 matrix reconcile）落盘 + shared barrel 测试自维护化 + `.gitignore` `*.tsbuildinfo`——均见 `04` 2026-07-02 段。审查的另一 nit（`07fc019d` commit message「5 product-tier 单测」实为 4 product-tier + 1 acceptance 回归）为纯计数误差，留此更正不改历史 commit。
+
+### Phase 3 — W-10 首次真实产品跑（2026-07-02，用户「完成后进入 W-10」授权）
+> **核心可达性 sign-off 达成**：run9 `t128-w10-product-run9-1782995163` **passed**。这是第一次 `run_mode:'product'` 真实选题全链跑通（v1a 产品级 provider 生成 → 裁决/确认 → v1b N1..N11 → v1c 晋升门 → paper-project bridge active → downstream feedback）。入口 `pnpm topic-selection:real-e2e`（dashscope/qwen3.6-plus，`TOPIC_SELECTION_REAL_LLM_TIMEOUT_MS=420000`，复用 run4 采样集）。**W-10 的存在意义被充分证明：9 次点火揪出 4 个真缺陷 + 2 个运行参数问题，全部只有真 Prisma+真 provider 全链才能暴露。**
+
+**前置（操作员动作，DB 侧,无 repo diff）**
+- **topic 资源池挂载**（run1 `NO_ELIGIBLE_RESOURCE_CANDIDATES` 根因）：6 月语料清理清掉了历史 `TopicLiteratureScope`（全表仅剩 4 行 canary）。经产品 API `POST /topics/ai-rag-finetuning-2022-2026/literature-scope` 挂载 **410 条**（用户批准的中间档；分桶 150 rag-aware / 100 failure-modes / 100 benchmarks / 60 theory，全部 evidence-ready，挂载后激活服务自动全量晋升 `in_scope/active`）。评估依据：采样每跑对全部 eligible 重分类,池子大小=**经常性成本**（410→18 批/跑）。
+- **设置行 provider key 刷新**（run2/3 `LLM_CLASSIFICATION_FAILED` 根因之一）：`literature_content_processing/provider.openai` 设置行存有**与 env 不一致的旧 key**，而 app gateway 设置行优先、**不因 401 回退 env**。经产品 `PATCH /settings/literature-content-processing` 用 env 现值刷新（值不经对话上下文）。**遗留观察**：设置行 key 无健康校验/腐化告警——settings-first-no-fallback 是运维暗坑，留 Phase 4 备选。
+
+**真缺陷修复（代码,各见 commit）**
+- **F1 TSCP/PLNK count-based id 碰撞**（run1 seeding 500）：`nextTopicScopeId`=行数+1，删行后撞主键 TSCP-0009。修为 `nextPrefixedNumericId`（max+1）四层 + 回归测。commit `3af583be` 前置会话已落。
+- **F2 分类批 token target 失真**（run3 `TOKEN_BUDGET_REQUIRES_COMPRESSION`）：`literature_classification_batch` profile `estimated_input_token_target: 24000` 为前-真语料时代值；真语料 24 条/批实测 **32,632**——且 **P-01 压缩恢复缺位（W-11）意味着 requires_compression=整链 fail-closed**，「W-11 不阻塞 W-10」的分类被证伪（阻塞形式=校准债而非恢复分支缺失）。校准 24000→**40000**（128k 窗口/2048 输出，~22% 余量），registry 带实测证据注释。
+- **F3 real-e2e provider 期望形态**（run4 5 admitted vs 钉死 1）：产品化 prompt 下真模型合法产出 1..N ranked 候选；脚本期望改为 provider 模式用 `min_admitted/persisted_count`（harness 契约本就支持），mock/codex 保持恰好 1。
+- **F4 `v1b_to_v1c_bundle_hash_drift` 双生产者分叉**（run7 v1c 409,**最重**）：harness N11 发布路径以 4 字段异名键算 `bundle_hash`,与 route 路径/v1c 校验器的 5 字段形状**结构性永不相等**——harness 发布的 bundle 永过不了 v1c 门;in-memory fixture 各侧自洽故单测全绿。修复=纯叶单源 `v1bToV1cBundleHashPayload`/`hashV1bToV1cBundle` 三处消费 + 形状钉测。**JD `D-T128-03`**（T-088 `06-joint-decisions.md`,承 D-T128-00）。
+- **健壮性观察（登记不修）**：采样分类循环**无批级重试**——run5 一个 `TransientError`（OpenAI 5xx 窗口,单发 canary 复现 218s 失败）即 18 批全弃、整链 fail-closed;generate 侧超时=运行参数（qwen thinking ~28k 输入>180s 默认,420s 通过）。**批级 retry/backoff + 部分批容忍 → Phase 4 健壮性项**（可并入 W-11 语境或独立小项）。
+
+**runs 台账**：run1 pool 缺失→run2/3 旧 key+token target→run4 过采样、败 count 期望（**采样 4/4/4/4 完美角色平衡**）→run5 分类 TransientError→run6 生成 TransientError（OpenAI 5xx 窗口,双 provider 探测:OpenAI 218s 失败/DashScope 123s 通过→切 dashscope）→run7 v1a+v1b 通、v1c 409（F4 取证）→run8 生成 TimeoutError（180s 默认）→**run9 passed**。采样集 `resource_sample_set_a852ffb2…`（run4 产,run6+ 复用省 18 批/跑）。
 
 ### W-05 计划（历史 planning，已收口，保留供追溯）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。
