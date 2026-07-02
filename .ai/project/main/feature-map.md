@@ -35,7 +35,7 @@ Project: `main`
 | T-038 literature-content-processing-cutover-verification | archived | dev-docs/archive/literature-content-processing-cutover-verification |
 | T-039 literature-citation-abstract-readiness | archived | dev-docs/archive/literature-citation-abstract-readiness |
 | T-040 literature-content-processing-closure-fixes | archived | dev-docs/archive/literature-content-processing-closure-fixes |
-| T-041 literature-end-to-end-quality-upgrade | in-progress | dev-docs/active/literature-end-to-end-quality-upgrade |
+| T-041 literature-end-to-end-quality-upgrade | archived | dev-docs/archive/literature-end-to-end-quality-upgrade |
 | T-083 backend-full-suite-environment-isolation | done | dev-docs/active/backend-full-suite-environment-isolation |
 | T-084 topic-selection-real-e2e-canary | done | dev-docs/active/topic-selection-real-e2e-canary |
 | T-085 topic-selection-real-e2e-scale-quality | done | dev-docs/active/topic-selection-real-e2e-scale-quality |
@@ -43,8 +43,8 @@ Project: `main`
 | T-116 adaptive-llm-systems-literature-collection-ingestion | done | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
 | T-117 adaptive-llm-systems-readiness-followup | done | dev-docs/active/adaptive-llm-systems-readiness-followup |
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
-| T-119 adaptive-llm-systems-standard-pipeline-expansion | in-progress | dev-docs/active/adaptive-llm-systems-standard-pipeline-expansion |
-| T-120 adaptive-llm-systems-literature-pipeline-completion | in-progress | dev-docs/active/adaptive-llm-systems-literature-pipeline-completion |
+| T-119 adaptive-llm-systems-standard-pipeline-expansion | archived | dev-docs/archive/adaptive-llm-systems-standard-pipeline-expansion |
+| T-120 adaptive-llm-systems-literature-pipeline-completion | archived | dev-docs/archive/adaptive-llm-systems-literature-pipeline-completion |
 | T-121 literature-retrieval-pgvector-index-design | archived | dev-docs/archive/literature-retrieval-pgvector-index-design |
 | T-122 literature-scaleout-corpus-strategy | archived | dev-docs/archive/literature-scaleout-corpus-strategy |
 | T-125 literature-balanced-corpus-scaleout-v2 | archived | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |

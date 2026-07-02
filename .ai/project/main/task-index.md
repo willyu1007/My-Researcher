@@ -50,7 +50,7 @@ Project: `main`
 | T-038 literature-content-processing-cutover-verification | archived | F-000 | dev-docs/archive/literature-content-processing-cutover-verification |
 | T-039 literature-citation-abstract-readiness | archived | F-000 | dev-docs/archive/literature-citation-abstract-readiness |
 | T-040 literature-content-processing-closure-fixes | archived | F-000 | dev-docs/archive/literature-content-processing-closure-fixes |
-| T-041 literature-end-to-end-quality-upgrade | in-progress | F-000 | dev-docs/active/literature-end-to-end-quality-upgrade |
+| T-041 literature-end-to-end-quality-upgrade | archived | F-000 | dev-docs/archive/literature-end-to-end-quality-upgrade |
 | T-042 topic-selection-decision-chain-redesign | archived | F-001 | dev-docs/archive/topic-selection-decision-chain-redesign |
 | T-043 experiment-foundation-v1 | planned | F-001 | dev-docs/active/experiment-foundation-v1 |
 | T-044 topic-selection-v1a-evidence-to-need | archived | F-001 | dev-docs/archive/topic-selection-v1a-evidence-to-need |
@@ -128,8 +128,8 @@ Project: `main`
 | T-116 adaptive-llm-systems-literature-collection-ingestion | done | F-000 | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
 | T-117 adaptive-llm-systems-readiness-followup | done | F-000 | dev-docs/active/adaptive-llm-systems-readiness-followup |
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
-| T-119 adaptive-llm-systems-standard-pipeline-expansion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-standard-pipeline-expansion |
-| T-120 adaptive-llm-systems-literature-pipeline-completion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-literature-pipeline-completion |
+| T-119 adaptive-llm-systems-standard-pipeline-expansion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-standard-pipeline-expansion |
+| T-120 adaptive-llm-systems-literature-pipeline-completion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-literature-pipeline-completion |
 | T-121 literature-retrieval-pgvector-index-design | archived | F-000 | dev-docs/archive/literature-retrieval-pgvector-index-design |
 | T-122 literature-scaleout-corpus-strategy | archived | F-000 | dev-docs/archive/literature-scaleout-corpus-strategy |
 | T-123 topic-selection-productization-hardening | done | F-001 | dev-docs/active/topic-selection-productization-hardening |

@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const DEFAULT_FIXTURE_PATH = 'dev-docs/active/literature-end-to-end-quality-upgrade/artifacts/evaluator/t041-evaluator-v2-fixtures.json';
+// Fixture relocated out of the T-041 task package at its 2026-07-02 archive; runtime assets live here.
+const DEFAULT_FIXTURE_PATH = '.ai/scripts/fixtures/t041-evaluator-v2-fixtures.json';
 const DEFAULT_GROBID_ENDPOINT = 'http://localhost:8070';
 const DEFAULT_RAW_FILES_ROOT = '/Volumes/DataDisk/Paper/Auto';
 const TERMINAL_ACQUISITION_STATUSES = new Set(['SUCCEEDED', 'PARTIAL', 'FAILED', 'CANCELED']);

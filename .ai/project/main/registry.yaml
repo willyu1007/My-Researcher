@@ -418,11 +418,11 @@ tasks:
     updated: 2026-05-13
   - id: T-041
     slug: literature-end-to-end-quality-upgrade
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/literature-end-to-end-quality-upgrade
-    updated: 2026-05-08
+    dev_docs_path: dev-docs/archive/literature-end-to-end-quality-upgrade
+    updated: 2026-07-02
   - id: T-042
     slug: topic-selection-decision-chain-redesign
     status: archived
@@ -1104,18 +1104,18 @@ tasks:
     updated: 2026-06-04
   - id: T-119
     slug: adaptive-llm-systems-standard-pipeline-expansion
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/adaptive-llm-systems-standard-pipeline-expansion
-    updated: 2026-06-04
+    dev_docs_path: dev-docs/archive/adaptive-llm-systems-standard-pipeline-expansion
+    updated: 2026-07-02
   - id: T-120
     slug: adaptive-llm-systems-literature-pipeline-completion
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/adaptive-llm-systems-literature-pipeline-completion
-    updated: 2026-06-04
+    dev_docs_path: dev-docs/archive/adaptive-llm-systems-literature-pipeline-completion
+    updated: 2026-07-02
   - id: T-121
     slug: literature-retrieval-pgvector-index-design
     status: archived
