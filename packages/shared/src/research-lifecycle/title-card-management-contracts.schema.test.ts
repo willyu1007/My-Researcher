@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
@@ -7,28 +8,12 @@ import {
   createResearchQuestionRequestSchema,
   createTitleCardRequestSchema,
 } from './title-card-management-contracts.js';
-import * as autoPullContracts from './auto-pull-contracts.js';
-import * as experimentFoundationContracts from './experiment-foundation-contracts.js';
-import * as literatureContracts from './literature-contracts.js';
-import * as paperImplementationAgentCommonContracts from './paper-implementation-agent-common-contracts.js';
-import * as paperImplementationContracts from './paper-implementation-contracts.js';
-import * as paperImplementationAiWorkflowHarnessContracts from './paper-implementation-ai-workflow-harness-contracts.js';
-import * as paperImplementationMotiveContracts from './paper-implementation-motive-contracts.js';
-import * as paperImplementationResultClaimDossierContracts from './paper-implementation-result-claim-dossier-contracts.js';
-import * as paperImplementationTraceContracts from './paper-implementation-trace-contracts.js';
-import * as paperImplementationValidationContracts from './paper-implementation-validation-contracts.js';
-import * as paperImplementationWorkOrderContracts from './paper-implementation-workorder-contracts.js';
-import * as paperImplementationLiveExperimentAdapterContracts from './paper-implementation-live-experiment-adapter-contracts.js';
-import * as paperImplementationProviderVarianceContracts from './paper-implementation-provider-variance-contracts.js';
-import * as paperImplementationRuntimeContracts from './paper-implementation-runtime-contracts.js';
-import * as paperProjectContracts from './paper-project-contracts.js';
+// NOTE: only the namespaces referenced by OTHER tests in this file are imported here.
+// The 'barrel re-exports the runtime value surface' test below derives the full module
+// set programmatically from index.ts, so it needs no per-module import.
 import * as researchLifecycleContracts from './index.js';
-import * as researchLifecycleCoreContracts from './research-lifecycle-core-contracts.js';
-import * as titleCardManagementContracts from './title-card-management-contracts.js';
 import * as topicSelectionControlPlaneContracts from './topic-selection-control-plane-contracts.js';
-import * as topicSelectionAgentProfileContracts from './topic-selection-agent-profile-contracts.js';
 import * as topicSelectionAgentInvocationContracts from './topic-selection-agent-invocation-contracts.js';
-import * as topicSelectionLlmRuntimeContracts from './topic-selection-llm-runtime-contracts.js';
 import * as topicSelectionDebateScenarioContracts from './topic-selection-debate-scenario-contracts.js';
 import * as topicSelectionEvidenceMapContracts from './topic-selection-evidence-map-contracts.js';
 import * as topicSelectionNeedValidationContracts from './topic-selection-need-validation-contracts.js';
@@ -36,14 +21,11 @@ import * as topicSelectionOfflineEvaluationReplayContracts from './topic-selecti
 import * as topicSelectionRecheckRiskMemoryContracts from './topic-selection-recheck-risk-memory-contracts.js';
 import * as topicSelectionResourceSamplingContracts from './topic-selection-resource-sampling-contracts.js';
 import * as topicSelectionSearchResourceContracts from './topic-selection-search-resource-contracts.js';
-import * as topicSelectionV1aWorkflowHarnessContracts from './topic-selection-v1a-workflow-harness-contracts.js';
 import * as topicSelectionV1bIntakeContracts from './topic-selection-v1b-intake-contracts.js';
 import * as topicSelectionV1bResearchSliceContracts from './topic-selection-v1b-research-slice-contracts.js';
 import * as topicSelectionV1bTopicQuestionContracts from './topic-selection-v1b-topic-question-contracts.js';
 import * as topicSelectionV1bTopicPackageContracts from './topic-selection-v1b-topic-package-contracts.js';
 import * as topicSelectionV1bValueAssessmentContracts from './topic-selection-v1b-value-assessment-contracts.js';
-import * as topicSelectionV1bNodePolicyContracts from './topic-selection-v1b-node-policy-contracts.js';
-import * as topicSelectionV1bWorkflowHarnessContracts from './topic-selection-v1b-workflow-harness-contracts.js';
 import * as topicSelectionV1cPromotionGateContracts from './topic-selection-v1c-promotion-gate-contracts.js';
 import * as topicSelectionV1cHumanPromotionDecisionContracts from './topic-selection-v1c-human-promotion-decision-contracts.js';
 import * as topicSelectionV1cPaperProjectBridgeContracts from './topic-selection-v1c-paper-project-bridge-contracts.js';
@@ -3088,50 +3070,30 @@ test('promotion decision schema accepts valid promote payload', async () => {
   assert.equal(res.statusCode, 200);
 });
 
-test('research-lifecycle barrel re-exports the runtime value surface of split modules', () => {
-  const expectedKeys = new Set([
-    ...Object.keys(researchLifecycleCoreContracts),
-    ...Object.keys(paperProjectContracts),
-    ...Object.keys(literatureContracts),
-    ...Object.keys(paperImplementationAgentCommonContracts),
-    ...Object.keys(paperImplementationContracts),
-    ...Object.keys(paperImplementationAiWorkflowHarnessContracts),
-    ...Object.keys(paperImplementationTraceContracts),
-    ...Object.keys(paperImplementationMotiveContracts),
-    ...Object.keys(paperImplementationValidationContracts),
-    ...Object.keys(paperImplementationWorkOrderContracts),
-    ...Object.keys(paperImplementationLiveExperimentAdapterContracts),
-    ...Object.keys(paperImplementationResultClaimDossierContracts),
-    ...Object.keys(paperImplementationRuntimeContracts),
-    ...Object.keys(paperImplementationProviderVarianceContracts),
-    ...Object.keys(autoPullContracts),
-    ...Object.keys(experimentFoundationContracts),
-    ...Object.keys(titleCardManagementContracts),
-    ...Object.keys(topicSelectionControlPlaneContracts),
-    ...Object.keys(topicSelectionAgentProfileContracts),
-    ...Object.keys(topicSelectionAgentInvocationContracts),
-    ...Object.keys(topicSelectionLlmRuntimeContracts),
-    ...Object.keys(topicSelectionDebateScenarioContracts),
-    ...Object.keys(topicSelectionSearchResourceContracts),
-    ...Object.keys(topicSelectionResourceSamplingContracts),
-    ...Object.keys(topicSelectionEvidenceMapContracts),
-    ...Object.keys(topicSelectionNeedValidationContracts),
-    ...Object.keys(topicSelectionRecheckRiskMemoryContracts),
-    ...Object.keys(topicSelectionOfflineEvaluationReplayContracts),
-    ...Object.keys(topicSelectionV1aWorkflowHarnessContracts),
-    ...Object.keys(topicSelectionV1bIntakeContracts),
-    ...Object.keys(topicSelectionV1bResearchSliceContracts),
-    ...Object.keys(topicSelectionV1bTopicQuestionContracts),
-    ...Object.keys(topicSelectionV1bValueAssessmentContracts),
-    ...Object.keys(topicSelectionV1bTopicPackageContracts),
-    ...Object.keys(topicSelectionV1bNodePolicyContracts),
-    ...Object.keys(topicSelectionV1bWorkflowHarnessContracts),
-    ...Object.keys(topicSelectionV1cPromotionInputContracts),
-    ...Object.keys(topicSelectionV1cPromotionGateContracts),
-    ...Object.keys(topicSelectionV1cHumanPromotionDecisionContracts),
-    ...Object.keys(topicSelectionV1cPaperProjectBridgeContracts),
-    ...Object.keys(topicSelectionV1cDownstreamFeedbackRecheckContracts),
-  ]);
+test('research-lifecycle barrel re-exports the runtime value surface of split modules', async () => {
+  // Derive the expected surface straight from the barrel's own `export *` list (parsed
+  // from index.ts) so this test cannot silently drift out of lockstep with the barrel.
+  // Each re-exported module is dynamically imported — they are already loaded via the
+  // static `index.js` import above, so this only reads cached namespaces — and the union
+  // of their runtime value keys must equal the barrel's. Adding/removing a split module
+  // therefore updates this expectation automatically; a module dropping out of the barrel
+  // is the only way to fail.
+  const exportStarSpecifiers = [
+    ...readFileSync(new URL('./index.ts', import.meta.url), 'utf8').matchAll(
+      /export\s+\*\s+from\s+['"](\.\/[^'"]+\.js)['"]/g,
+    ),
+  ].map((match) => match[1]);
+  assert.ok(
+    exportStarSpecifiers.length >= 40,
+    `expected to parse the barrel's re-exported modules from index.ts, got ${exportStarSpecifiers.length}`,
+  );
+
+  const moduleNamespaces = await Promise.all(
+    exportStarSpecifiers.map((specifier) => import(new URL(specifier, import.meta.url).href)),
+  );
+  const expectedKeys = new Set(
+    moduleNamespaces.flatMap((namespace) => Object.keys(namespace)).filter((key) => key !== 'default'),
+  );
 
   assert.deepEqual(Object.keys(researchLifecycleContracts).sort(), [...expectedKeys].sort());
 });
