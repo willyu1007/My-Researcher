@@ -285,7 +285,7 @@
 - **设置行 provider key 刷新**（run2/3 `LLM_CLASSIFICATION_FAILED` 根因之一）：`literature_content_processing/provider.openai` 设置行存有**与 env 不一致的旧 key**，而 app gateway 设置行优先、**不因 401 回退 env**。经产品 `PATCH /settings/literature-content-processing` 用 env 现值刷新（值不经对话上下文）。**遗留观察**：设置行 key 无健康校验/腐化告警——settings-first-no-fallback 是运维暗坑，留 Phase 4 备选。
 
 **真缺陷修复（代码,各见 commit）**
-- **F1 TSCP/PLNK count-based id 碰撞**（run1 seeding 500）：`nextTopicScopeId`=行数+1，删行后撞主键 TSCP-0009。修为 `nextPrefixedNumericId`（max+1）四层 + 回归测。commit `3af583be` 前置会话已落。
+- **F1 TSCP/PLNK count-based id 碰撞**（run1 seeding 500）：`nextTopicScopeId`=行数+1，删行后撞主键 TSCP-0009。修为 `nextPrefixedNumericId`（max+1）四层 + 回归测。commit `9fb04a26`。
 - **F2 分类批 token target 失真**（run3 `TOKEN_BUDGET_REQUIRES_COMPRESSION`）：`literature_classification_batch` profile `estimated_input_token_target: 24000` 为前-真语料时代值；真语料 24 条/批实测 **32,632**——且 **P-01 压缩恢复缺位（W-11）意味着 requires_compression=整链 fail-closed**，「W-11 不阻塞 W-10」的分类被证伪（阻塞形式=校准债而非恢复分支缺失）。校准 24000→**40000**（128k 窗口/2048 输出，~22% 余量），registry 带实测证据注释。
 - **F3 real-e2e provider 期望形态**（run4 5 admitted vs 钉死 1）：产品化 prompt 下真模型合法产出 1..N ranked 候选；脚本期望改为 provider 模式用 `min_admitted/persisted_count`（harness 契约本就支持），mock/codex 保持恰好 1。
 - **F4 `v1b_to_v1c_bundle_hash_drift` 双生产者分叉**（run7 v1c 409,**最重**）：harness N11 发布路径以 4 字段异名键算 `bundle_hash`,与 route 路径/v1c 校验器的 5 字段形状**结构性永不相等**——harness 发布的 bundle 永过不了 v1c 门;in-memory fixture 各侧自洽故单测全绿。修复=纯叶单源 `v1bToV1cBundleHashPayload`/`hashV1bToV1cBundle` 三处消费 + 形状钉测。**JD `D-T128-03`**（T-088 `06-joint-decisions.md`,承 D-T128-00）。
