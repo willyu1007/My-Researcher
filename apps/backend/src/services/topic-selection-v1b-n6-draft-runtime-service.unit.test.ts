@@ -353,8 +353,8 @@ test('v1b N6 draft runtime refuses initial_from_n5 when a loopback projection is
 // both anchors in the same commit (record -> paste). The branch invariants additionally assert
 // that the decision-memory branch only appends the verbatim anti-repeat clause.
 const N6_DRAFT_SYSTEM_BODY_GOLDEN = {
-  without_decision_memory: '664737f449d0613242c52bd9d482b396248c85e6bbf43eec16a822e3a18968cc',
-  with_decision_memory: '1acbbaa4ef0832fd0174bfce342c7020cd588b4a99bb71978dd8e21ab5849f7d',
+  without_decision_memory: '28e7932ba6a0ce3880cbd5804a23f060c45291835e018fcb03c82cd36563ee7f',
+  with_decision_memory: 'e657ae037e58312d31e76561b9fd0fb6186f18e6d68f9038f3567bbe34fdc54c',
 } as const;
 
 const N6_DRAFT_DECISION_MEMORY_CLAUSE =
@@ -390,7 +390,14 @@ test('v1b N6 draft system prompt body is product-grade and drift-anchored for bo
   assert.match(withoutMemory, /support\/challenge\/baseline\/context evidence_refs each non-empty/);
   assert.match(withoutMemory, /keep boundary_check\.boundary_violations and blockers empty/);
   assert.match(withoutMemory, /answerability_plan\.datasets_or_resources, metrics, baselines, and evaluation_setting non-empty/);
-  assert.match(withoutMemory, /at least one non-weak falsification_condition/);
+  // Phase 1.5 补刀 — the gate drops a candidate when ANY condition is weak (harness :9076
+  // `.some(n6FalsificationConditionWeak)`), so the prompt must demand every condition non-weak
+  // and spell out the gate's concrete weakness criteria (harness-n6.ts n6FalsificationConditionWeak).
+  assert.match(withoutMemory, /make every falsification_condition non-weak/);
+  assert.match(withoutMemory, /statement of at least 24 characters/);
+  assert.match(withoutMemory, /at least one trigger_evidence_ref or trigger_source_ref/);
+  assert.match(withoutMemory, /non-empty related_contract_fields, and a non-empty expected_action/);
+  assert.match(withoutMemory, /a single weak condition blocks the whole candidate/);
   assert.match(withoutMemory, /within the selected ResearchSlice claim ceiling/);
   assert.match(withoutMemory, /set source_validated_need_refs to the frozen slice validated need ref/);
 });
