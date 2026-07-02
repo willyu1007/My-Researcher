@@ -591,7 +591,13 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
           TOPIC_SELECTION_RESOURCE_SAMPLING_INVOCATION_SLOT_IDS.literature_classification_batch,
         functional_template: 'candidate_for_deterministic_gate',
         context_family: 'resource_sampling_literature_classification_batch',
-        estimated_input_token_target: 24000,
+        // Calibrated 2026-07-02 from the first run_mode:'product' run (T-128 W-10): a
+        // 24-candidate batch over the real corpus (evidence-rich key_content_digest per record)
+        // measures estimated_input_tokens=32632; the pre-real-corpus 24000 target fail-closed
+        // the whole product path at its first LLM step because P-01 compression recovery is not
+        // built yet (T-128 W-11). 40000 gives the measured shape ~22% headroom and stays well
+        // inside the 128k provider window alongside the 2048-token output budget.
+        estimated_input_token_target: 40000,
         estimated_output_token_budget: 2048,
         preserved_fact_kinds: [
           ...COMMON_PRESERVED_FACT_KINDS,
