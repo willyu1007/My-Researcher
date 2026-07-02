@@ -336,6 +336,71 @@ test('topic scope can sync into paper literature links', async () => {
   assert.equal(links.items[0]?.citation_status, 'seeded');
 });
 
+test('topic scope id generation is max+1 over surviving ids, not count+1', async () => {
+  // Regression for the first product run (T-128 W-10): after bulk row deletions the table
+  // count lags the highest surviving id, so count+1 minted an id that collided with an
+  // existing primary key. The generator must derive from the max surviving numeric id.
+  const researchRepository = new InMemoryResearchLifecycleRepository();
+  const literatureRepository = new InMemoryLiteratureRepository();
+  const literatureService = new LiteratureService(literatureRepository, researchRepository);
+
+  const imported = await literatureService.collectionImport({
+    items: [
+      {
+        provider: 'crossref',
+        external_id: '10.1000/scope-id-a',
+        title: 'Scope Id Paper A',
+        authors: ['Ann'],
+        year: 2024,
+        doi: '10.1000/scope-id-a',
+        source_url: 'https://doi.org/10.1000/scope-id-a',
+      },
+      {
+        provider: 'crossref',
+        external_id: '10.1000/scope-id-b',
+        title: 'Scope Id Paper B',
+        authors: ['Ben'],
+        year: 2024,
+        doi: '10.1000/scope-id-b',
+        source_url: 'https://doi.org/10.1000/scope-id-b',
+      },
+    ],
+  });
+  const [litA, litB] = imported.results.map((result) => result.literature_id);
+  assert.ok(litA && litB);
+
+  // Model the post-cleanup shape directly in the repository: one surviving scope whose
+  // numeric id (TSCP-0009) is far above the table count (1).
+  const now = new Date().toISOString();
+  await literatureRepository.upsertTopicScope({
+    id: 'TSCP-0009',
+    topicId: 'TOPIC-SCOPE-ID-REGRESSION',
+    literatureId: litA,
+    scopeStatus: 'in_scope',
+    reason: null,
+    activationStatus: 'eligible',
+    activationReason: 'MANUAL_SCOPE_IN_SCOPE',
+    activationScore: null,
+    activatedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await literatureService.upsertTopicScope('TOPIC-SCOPE-ID-REGRESSION', {
+    actions: [
+      {
+        literature_id: litB,
+        scope_status: 'in_scope',
+      },
+    ],
+  });
+
+  const scopes = await literatureRepository.listTopicScopesByTopicId('TOPIC-SCOPE-ID-REGRESSION');
+  const created = scopes.find((scope) => scope.literatureId === litB);
+  assert.ok(created, 'expected the new topic scope to be created');
+  assert.equal(created.id, 'TSCP-0010');
+});
+
 test('paper literature link status can be updated', async () => {
   const researchRepository = new InMemoryResearchLifecycleRepository();
   const literatureRepository = new InMemoryLiteratureRepository();

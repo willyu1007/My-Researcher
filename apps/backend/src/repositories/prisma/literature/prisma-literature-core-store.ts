@@ -25,12 +25,18 @@ export class PrismaLiteratureCoreStore {
     return this.prisma.literatureSource.count();
   }
 
-  async countTopicScopes(): Promise<number> {
-    return this.prisma.topicLiteratureScope.count();
+  async listTopicScopeIds(): Promise<string[]> {
+    const rows = await this.prisma.topicLiteratureScope.findMany({
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
   }
 
-  async countPaperLiteratureLinks(): Promise<number> {
-    return this.prisma.paperLiteratureLink.count();
+  async listPaperLiteratureLinkIds(): Promise<string[]> {
+    const rows = await this.prisma.paperLiteratureLink.findMany({
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
   }
 
   async listLiteratureSourceIds(): Promise<string[]> {

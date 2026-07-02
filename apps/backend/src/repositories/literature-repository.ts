@@ -590,8 +590,8 @@ export type PaperLiteratureLinkRecord = {
 export interface LiteratureRepository {
   countLiteratures(): Promise<number>;
   countLiteratureSources(): Promise<number>;
-  countTopicScopes(): Promise<number>;
-  countPaperLiteratureLinks(): Promise<number>;
+  listTopicScopeIds(): Promise<string[]>;
+  listPaperLiteratureLinkIds(): Promise<string[]>;
   listLiteratureSourceIds(): Promise<string[]>;
 
   createLiterature(record: LiteratureRecord): Promise<LiteratureRecord>;

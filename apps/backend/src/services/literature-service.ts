@@ -1893,8 +1893,9 @@ export class LiteratureService {
   }
 
   private async nextTopicScopeId(): Promise<string> {
-    const next = (await this.literatureRepository.countTopicScopes()) + 1;
-    return `TSCP-${String(next).padStart(4, '0')}`;
+    // max+1 over existing ids, NOT count+1: after row deletions the count lags behind the
+    // highest surviving id and count+1 collides with it (surfaced by the first product run).
+    return this.nextPrefixedNumericId(await this.literatureRepository.listTopicScopeIds(), 'TSCP');
   }
 
   private nextPrefixedNumericId(ids: string[], prefix: string): string {
@@ -1909,7 +1910,6 @@ export class LiteratureService {
   }
 
   private async nextPaperLiteratureLinkId(): Promise<string> {
-    const next = (await this.literatureRepository.countPaperLiteratureLinks()) + 1;
-    return `PLNK-${String(next).padStart(4, '0')}`;
+    return this.nextPrefixedNumericId(await this.literatureRepository.listPaperLiteratureLinkIds(), 'PLNK');
   }
 }

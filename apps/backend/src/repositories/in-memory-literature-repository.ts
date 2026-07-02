@@ -109,12 +109,12 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
     return this.literatureSources.size;
   }
 
-  async countTopicScopes(): Promise<number> {
-    return this.topicScopes.size;
+  async listTopicScopeIds(): Promise<string[]> {
+    return [...this.topicScopes.values()].map((scope) => scope.id);
   }
 
-  async countPaperLiteratureLinks(): Promise<number> {
-    return this.paperLinks.size;
+  async listPaperLiteratureLinkIds(): Promise<string[]> {
+    return [...this.paperLinks.values()].map((link) => link.id);
   }
 
   async listLiteratureSourceIds(): Promise<string[]> {
