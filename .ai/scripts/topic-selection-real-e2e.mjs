@@ -1255,13 +1255,24 @@ async function runGenerateNeedCandidateHarness(workflowHarness, input) {
       search_plan_ref: searchPlanRef,
       literature_snapshot_ref: literatureSnapshotRef,
     },
-    expectations: {
-      status: 'succeeded',
-      routing_decision: 'finalize_with_admitted_batch',
-      admitted_draft_count: 1,
-      persisted_candidate_count: 1,
-      persistence: 'required',
-    },
+    expectations: V1A_GENERATE_EXECUTION_MODE === 'provider_llm'
+      // A real provider legitimately returns a ranked batch of 1..N candidates (the product
+      // prompt asks for a ranked set and admission dedups/caps it), so pin a floor, not an
+      // exact count. Mocked/codex modes keep the exact-1 pin — their fixture emits one draft.
+      ? {
+        status: 'succeeded',
+        routing_decision: 'finalize_with_admitted_batch',
+        min_admitted_draft_count: 1,
+        min_persisted_candidate_count: 1,
+        persistence: 'required',
+      }
+      : {
+        status: 'succeeded',
+        routing_decision: 'finalize_with_admitted_batch',
+        admitted_draft_count: 1,
+        persisted_candidate_count: 1,
+        persistence: 'required',
+      },
     created_by: 'system',
   };
   const result = await workflowHarness.runGenerateNeedCandidateScenario(harnessInput);
