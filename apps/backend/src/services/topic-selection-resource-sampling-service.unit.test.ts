@@ -1093,3 +1093,58 @@ test('resource-sampling classification system prompt is product-grade and byte-s
 
   assert.match(body, /never invent literature, refs, or facts not present in the batch/);
 });
+
+test('resource sampling recovers over-budget classification batches by dropping digests (D-T128-02)', async () => {
+  const controlPlaneRepository = new InMemoryTopicSelectionControlPlaneRepository();
+  const controlPlane = new TopicSelectionControlPlaneService(
+    controlPlaneRepository,
+    { idFactory: makeIdFactory(), now: () => NOW },
+  );
+  const llmGateway = new BatchAwareLlmGateway();
+  // Two ~200k-char digests push the uncompressed batch far over the 40k-token profile target;
+  // before D-T128-02 this fail-closed the whole sample as LLM_CLASSIFICATION_FAILED (W-10 run3).
+  const fatDigest = 'retrieval budget evidence detail '.repeat(6000);
+  const service = new TopicSelectionResourceSamplingService({
+    repository: new InMemoryTopicSelectionResourceSamplingRepository(),
+    literatureRepository: makeLiteratureRepository([
+      {
+        ...literature('lit_fat_digest_1', 'Adaptive RAG allocation study', 'Adaptive retrieval evidence for RAG.', ['rag']),
+        keyContentDigest: fatDigest,
+      },
+      {
+        ...literature('lit_fat_digest_2', 'RAG serving benchmark', 'Benchmark comparison for RAG serving.', ['benchmark']),
+        keyContentDigest: fatDigest,
+      },
+    ]),
+    controlPlaneService: controlPlane,
+    agentOrchestrator: makeAgentOrchestrator(controlPlane, llmGateway),
+    idFactory: makeIdFactory(),
+    now: () => NOW,
+  });
+
+  const result = await service.createResourceSampleSet({
+    topic_id: TOPIC_ID,
+    title_card_id: TITLE_CARD_ID,
+    sample_size: 2,
+  });
+
+  assert.equal(result.sample_set.warnings.includes('LLM_CLASSIFICATION_FAILED'), false);
+  assert.notEqual(result.sample_set.status, 'blocked');
+  assert.equal(llmGateway.calls.length, 1);
+  const sentPayload = JSON.parse(llmGateway.calls[0]!.messages[1]!.content ?? '{}') as {
+    eligible_candidates: Array<{ key_content_digest: string | null }>;
+  };
+  assert.equal(sentPayload.eligible_candidates.length, 2);
+  assert.equal(
+    sentPayload.eligible_candidates.every((candidate) => candidate.key_content_digest === null),
+    true,
+    'the provider must receive the digest-stripped compressed form',
+  );
+
+  const artifacts = await controlPlane.listArtifactRefsByWorkflowRunId(result.sample_set.workflow_run_id!);
+  const compressionReport = artifacts.find((artifact) => {
+    const payload = artifact.payload as { payload_schema?: string } | null;
+    return payload?.payload_schema === 'TopicSelectionCompressionReportEnvelope@v1';
+  });
+  assert.ok(compressionReport, 'expected the compression report artifact to be recorded');
+});

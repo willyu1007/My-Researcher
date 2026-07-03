@@ -54,6 +54,7 @@ import {
 import {
   TopicSelectionAgentOrchestratorService,
   type TopicSelectionAgentInvocationResult,
+  type TopicSelectionAgentRuntimeCompressionAttemptInput,
   type TopicSelectionAgentRuntimeTokenBudgetInput,
 } from './topic-selection-agent-orchestrator-service.js';
 
@@ -586,6 +587,15 @@ export class TopicSelectionResourceSamplingService {
             runtimeProfile,
             runtimeInvocationContextHash,
             batchContext: runtimeContext,
+            compressionAttempt: this.resourceSamplingCompressionAttempt({
+              input: input.input,
+              policyVersion: input.policyVersion,
+              roleTargets: input.roleTargets,
+              batchCandidates,
+              batchIndex,
+              batchCount: batches.length,
+              batchContext: runtimeContext,
+            }),
           }),
           created_by: input.createdBy,
         });
@@ -640,38 +650,57 @@ export class TopicSelectionResourceSamplingService {
         promptTemplateId: TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_ID,
         version: TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_VERSION,
       },
-      messages: [
-        {
-          role: 'system' as const,
-          content: buildResourceSamplingClassificationSystemContent(),
-        },
-        {
-          role: 'user' as const,
-          content: stableStringify({
-            topic_id: input.input.topic_id,
-            policy_version: input.policyVersion,
-            role_targets: input.roleTargets,
-            batch: {
-              index: input.batchIndex + 1,
-              count: input.batchCount,
-            },
-            eligible_candidates: input.batchCandidates.map((candidate) => ({
-              literature_ref: candidate.literature_ref,
-              title: candidate.literature.title,
-              abstract: candidate.literature.abstractText,
-              key_content_digest: candidate.literature.keyContentDigest,
-              tags: candidate.literature.tags,
-              year: candidate.literature.year,
-              activation_score: candidate.scope.activationScore,
-              activation_reason: candidate.scope.activationReason,
-              source_count: candidate.source_count,
-            })),
-          }),
-        },
-      ],
+      messages: this.classificationMessages(input, { includeDigest: true }),
       schemaName: 'topic_selection_resource_sampling_classification',
       schema: topicSelectionResourceSamplingLlmOutputSchema as unknown as Record<string, unknown>,
     };
+  }
+
+  /** Shared message builder for the classification batch. The compressed form (D-T128-02)
+   *  is the SAME request with `key_content_digest` dropped per candidate — classification can
+   *  degrade to title+abstract+tags, so the digest is the one deterministic trim level. */
+  private classificationMessages(
+    input: {
+      input: CreateTopicSelectionResourceSampleInput;
+      policyVersion: string;
+      roleTargets: TopicSelectionResourceRoleTargets;
+      batchCandidates: ResourceCandidate[];
+      batchIndex: number;
+      batchCount: number;
+    },
+    options: { includeDigest: boolean },
+  ): Array<{ role: 'system' | 'user'; content: string }> {
+    return [
+      {
+        role: 'system' as const,
+        content: buildResourceSamplingClassificationSystemContent(),
+      },
+      {
+        role: 'user' as const,
+        content: stableStringify({
+          topic_id: input.input.topic_id,
+          policy_version: input.policyVersion,
+          role_targets: input.roleTargets,
+          batch: {
+            index: input.batchIndex + 1,
+            count: input.batchCount,
+          },
+          eligible_candidates: input.batchCandidates.map((candidate) => ({
+            literature_ref: candidate.literature_ref,
+            title: candidate.literature.title,
+            abstract: candidate.literature.abstractText,
+            key_content_digest: options.includeDigest
+              ? candidate.literature.keyContentDigest
+              : null,
+            tags: candidate.literature.tags,
+            year: candidate.literature.year,
+            activation_score: candidate.scope.activationScore,
+            activation_reason: candidate.scope.activationReason,
+            source_count: candidate.source_count,
+          })),
+        }),
+      },
+    ];
   }
 
   private resourceSamplingBatchRuntimeContext(input: {
@@ -771,6 +800,7 @@ export class TopicSelectionResourceSamplingService {
     runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
     runtimeInvocationContextHash: string;
     batchContext: ResourceSamplingBatchRuntimeContext;
+    compressionAttempt?: TopicSelectionAgentRuntimeCompressionAttemptInput | null;
   }): TopicSelectionAgentRuntimeTokenBudgetInput {
     return {
       context_policy_profile: input.runtimeProfile.profile,
@@ -783,6 +813,67 @@ export class TopicSelectionResourceSamplingService {
           batch_candidate_count: input.batchContext.batch.candidate_count,
         },
       ],
+      compression_attempt: input.compressionAttempt ?? null,
+    };
+  }
+
+  /** D-T128-02: deterministic structural compression attempt for a classification batch.
+   *  One trim level — drop `key_content_digest` per candidate; titles/abstracts/tags/refs are
+   *  preserved and DECLARED preserved, the digest is deliberately NOT listed as required.
+   *  Within budget the orchestrator ignores this entirely; over budget it validates, records
+   *  the report, re-gates the compressed form, and continues instead of fail-closing. */
+  private resourceSamplingCompressionAttempt(input: {
+    input: CreateTopicSelectionResourceSampleInput;
+    policyVersion: string;
+    roleTargets: TopicSelectionResourceRoleTargets;
+    batchCandidates: ResourceCandidate[];
+    batchIndex: number;
+    batchCount: number;
+    batchContext: ResourceSamplingBatchRuntimeContext;
+  }): TopicSelectionAgentRuntimeCompressionAttemptInput {
+    const compressedContext: ResourceSamplingBatchRuntimeContext = {
+      ...input.batchContext,
+      eligible_candidates: input.batchContext.eligible_candidates.map((candidate) => ({
+        ...candidate,
+        key_content_digest: null,
+      })),
+    };
+    const literatureRefIds = input.batchCandidates.map((candidate) => candidate.literature_ref.ref_id);
+    const titleFactIds = input.batchCandidates
+      .filter((candidate) => (candidate.literature.title ?? '').trim().length > 0)
+      .map((candidate) => candidate.literature_ref.ref_id);
+    const preservedFacts = {
+      topic_id: [input.input.topic_id],
+      sample_role_targets: Object.keys(input.roleTargets),
+      literature_ref: literatureRefIds,
+      candidate_title: titleFactIds,
+      candidate_abstract: input.batchCandidates
+        .filter((candidate) => (candidate.literature.abstractText ?? '').trim().length > 0)
+        .map((candidate) => candidate.literature_ref.ref_id),
+    };
+    return {
+      source_refs: this.resourceSamplingInputRefs(input.batchCandidates),
+      input_context: input.batchContext,
+      compressed_context: compressedContext,
+      summary: {
+        schema_version: 'TopicSelectionResourceSamplingCompressionSummary@v1',
+        dropped_fields: ['key_content_digest'],
+        candidate_count: input.batchCandidates.length,
+        preserved_fields: [
+          'literature_ref',
+          'title',
+          'abstract',
+          'tags',
+          'year',
+          'activation_score',
+          'activation_reason',
+          'source_count',
+        ],
+      },
+      compressed_messages: this.classificationMessages(input, { includeDigest: false }),
+      compression_executor_kind: 'deterministic_structural',
+      required_preserved_facts: preservedFacts,
+      compressed_preserved_facts: preservedFacts,
     };
   }
 
