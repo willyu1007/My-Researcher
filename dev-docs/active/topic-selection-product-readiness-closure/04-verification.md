@@ -192,4 +192,14 @@
 - **回归门**：backend tsc **0**;authority-hash 单测 **7/0**（+1 形状钉测）;harness+v1c-promotion-input+topic-package 三套件 **123/0**（harness goldens 完好=byte-identity 维持,bundle_hash 变化仅及新 run）;**full backend 1632/1597/0/35**（Phase 2 基线 1630/1595 → +1 TSCP 回归测 +1 形状钉测,0 fail）;governance lint passed。
 - **提交**：F4+JD `ef62a56f` / F2 校准 `948fa3c9` / F3 脚本 `0dfed952` / F1 TSCP id `9fb04a26` / docs+状态翻转 `f5aaab27`。
 
+### 2026-07-02 · Phase 4 — W-11 压缩恢复 topic-selection 半边（D-T128-02 回填落地）
+> 用户「进入 Phase 4，先做 W-11」授权。P-01 恢复分支 + 首个消费方落地；T-123 D3 孤儿回归确认以钉测集合完成。
+- **S1 orchestrator**（`41ac51b3`）：恢复分支单测 3 新增——成功续跑（gateway 实收压缩消息、`COMPRESSION_APPLIED`+`COMPRESSION_REPORT_RECORDED` 传播、post-gate `within_budget`、报告工件 quality_gate=passed）/ 压缩后仍超（`TOKEN_BUDGET_OVER_LIMIT_AFTER_COMPRESSION`，零 provider 调用，报告 refs 在 provenance）/ 质量门 blocked 不可恢复（掉必留事实时即便供有合尺寸压缩消息仍 fail-closed）。orchestrator 套件 **25/25**（22 既有钉测含 :891 over-budget 前置拦截 / :945 记录报告仍 block / :993 掉事实 block 全部原样）。执行尾逐字抽取 `finishInvocation`,两形态共用同一管线。
+- **S2 resource-sampling**（`cb5479ef`）：采样套件 **17/17**——16 既有测试零改动全绿（预算内 attempt 被 gate 忽略=零行为改证明）+1 穿透恢复测（双 ~200k 字符胖 digest 候选 → requires_compression → provider 实收 `key_content_digest:null` 压缩形态 → 分类成功、无 `LLM_CLASSIFICATION_FAILED` → `TopicSelectionCompressionReportEnvelope@v1` 工件落控制面）。
+- **兄弟套件**：compression-runtime + token-budget-gate **27/27**（quality-gate/decide 语义未动）。
+- **回归门**：backend tsc **0**；**full backend 1639/1604/0/35**（注：本跑包含共居工作树中并行 chip 会话未提交的 research-lifecycle 修复 +3 测；本包自身增量 = 恢复分支 3 + 采样穿透 1 = +4，0 fail 对两条工作流同时成立）。
+- **JD**：`D-T128-02` 占位回填（grounding/S1/S2/不改动边界/回归口径/事故记录）于 T-088 `06-joint-decisions.md`，随 `41ac51b3` 提交。
+- **事故留痕**：首次落地的未提交编辑于 2026-07-03 22:14 被本目录外部 `git reset` 清除（chip 会话引导副作用；reflog `reset: moving to HEAD`）。已全量重放；此后每步即改即提交。**后续注意：启动 chip 会话前确认主工作树干净；共居期间禁用 `git add -A`。**
+- **遗留（登记不做）**：paper-implementation 侧 caller 启用归 T-124；N6/N8 debate 压缩-facts builder 在恢复下游跟做；采样分类**批级重试**（W-10 run5 TransientError 教训）仍为 Phase 4 独立小项。
+
 ### （待开工）
