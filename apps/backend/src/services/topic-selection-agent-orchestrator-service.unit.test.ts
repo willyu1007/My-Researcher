@@ -1030,6 +1030,130 @@ test('agent orchestrator blocks compression attempts that drop required preserve
   assert.equal(providerGateway.calls.length, 0);
 });
 
+// --- D-T128-02: compress→re-gate→continue recovery branch -----------------------------------
+
+function compressionRecoveryAttempt(overrides: {
+  compressed_messages?: Array<{ role: 'system' | 'user'; content: string }> | null;
+  required_preserved_facts?: Record<string, string[]>;
+  compressed_preserved_facts?: Record<string, string[]>;
+} = {}) {
+  return {
+    source_refs: [
+      {
+        ref_type: 'artifact_ref',
+        ref_id: 'context_packet_001',
+        title_card_id: 'title_card_001',
+      },
+    ],
+    input_context: { token_budget_fixture: 'long exploration and arbiter context' },
+    compressed_context: { preserved_refs: ['context_packet_001'] },
+    summary: { summary: 'Compressed context preserving source refs and known risks.' },
+    compression_executor_kind: 'deterministic_structural' as const,
+    estimated_input_tokens_before_override: 40_000,
+    estimated_input_tokens_after_override: 12_000,
+    ...overrides,
+  };
+}
+
+test('agent orchestrator continues with compressed messages when a valid attempt fits the budget', async () => {
+  const providerGateway = new StubLlmGateway(output());
+  const { orchestrator, repository } = makeOrchestrator({ llmGateway: providerGateway });
+  const compressedMessages = [
+    { role: 'system' as const, content: 'Compressed system guidance.' },
+    { role: 'user' as const, content: 'Compressed user payload preserving context_packet_001.' },
+  ];
+
+  const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+    ...baseInvocation(),
+    execution_mode: 'provider_llm',
+    run_mode: 'product',
+    runtime_token_budget: {
+      ...runtimeTokenBudgetInput({ estimated_input_tokens_override: 40_000 }),
+      compression_attempt: compressionRecoveryAttempt({ compressed_messages: compressedMessages }),
+    },
+  });
+
+  assert.equal(result.status, 'succeeded');
+  assert.equal(providerGateway.calls.length, 1);
+  assert.deepEqual(providerGateway.calls[0]!.messages, compressedMessages);
+  assert.equal(result.warning_codes.includes('COMPRESSION_APPLIED'), true);
+  assert.equal(result.warning_codes.includes('COMPRESSION_REPORT_RECORDED'), true);
+  assert.equal(result.warning_codes.includes('TOKEN_BUDGET_REQUIRES_COMPRESSION'), true);
+  assert.equal(result.token_budget_gate_result?.decision, 'within_budget');
+  assert.equal(result.provenance.compression_report_ref?.ref_type, 'artifact_ref');
+  assert.equal(typeof result.provenance.compressed_context_hash, 'string');
+
+  const compressionArtifact = await repository.findArtifactRefById(
+    result.provenance.compression_report_ref!.ref_id,
+  );
+  const payload = compressionArtifact?.payload as {
+    payload_schema?: string;
+    report?: { quality_gate_result?: string };
+  } | null;
+  assert.equal(payload?.payload_schema, 'TopicSelectionCompressionReportEnvelope@v1');
+  assert.equal(payload?.report?.quality_gate_result, 'passed');
+});
+
+test('agent orchestrator blocks after compression when the compressed form still exceeds the budget', async () => {
+  const providerGateway = new StubLlmGateway(output());
+  const { orchestrator } = makeOrchestrator({ llmGateway: providerGateway });
+  // ~50k-token compressed user message: still far over the profile's input target, so the
+  // post-compression gate must hard-block with the loop-safe after-compression code.
+  const oversizedCompressedMessages = [
+    { role: 'system' as const, content: 'Compressed system guidance.' },
+    { role: 'user' as const, content: 'x'.repeat(200_000) },
+  ];
+
+  const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+    ...baseInvocation(),
+    execution_mode: 'provider_llm',
+    run_mode: 'product',
+    runtime_token_budget: {
+      ...runtimeTokenBudgetInput({ estimated_input_tokens_override: 40_000 }),
+      compression_attempt: compressionRecoveryAttempt({
+        compressed_messages: oversizedCompressedMessages,
+      }),
+    },
+  });
+
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.error_code, 'TOKEN_BUDGET_OVER_LIMIT_AFTER_COMPRESSION');
+  assert.equal(result.blocker_codes.includes('TOKEN_BUDGET_OVER_LIMIT_AFTER_COMPRESSION'), true);
+  assert.equal(providerGateway.calls.length, 0);
+  assert.equal(result.provenance.compression_report_ref?.ref_type, 'artifact_ref');
+  assert.equal(result.warning_codes.includes('COMPRESSION_REPORT_RECORDED'), true);
+});
+
+test('agent orchestrator keeps the quality-gate block when compressed messages are supplied', async () => {
+  const providerGateway = new StubLlmGateway(output());
+  const { orchestrator } = makeOrchestrator({ llmGateway: providerGateway });
+  const runtime = runtimeTokenBudgetInput({ estimated_input_tokens_override: 40_000 });
+  const requiredFactKind = runtime.context_policy_profile.compression_policy.preserved_fact_kinds[0]!;
+
+  const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+    ...baseInvocation(),
+    execution_mode: 'provider_llm',
+    run_mode: 'product',
+    runtime_token_budget: {
+      ...runtime,
+      compression_attempt: compressionRecoveryAttempt({
+        compressed_messages: [
+          { role: 'system' as const, content: 'Compressed system guidance.' },
+          { role: 'user' as const, content: 'Compressed user payload.' },
+        ],
+        required_preserved_facts: { [requiredFactKind]: ['required_fact_001'] },
+        compressed_preserved_facts: { [requiredFactKind]: [] },
+      }),
+    },
+  });
+
+  // A blocked compression quality gate must NEVER be recovered over, even when the caller
+  // supplied a fitting compressed form — dropped required facts stay fail-closed.
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.error_code, 'COMPRESSION_QUALITY_GATE_BLOCKED');
+  assert.equal(providerGateway.calls.length, 0);
+});
+
 test('agent orchestrator requires approval for codex exact response reuse', async () => {
   const { orchestrator, repository } = makeOrchestrator();
 

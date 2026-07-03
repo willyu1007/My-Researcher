@@ -134,6 +134,12 @@ export type TopicSelectionAgentRuntimeCompressionAttemptInput = {
   input_context: unknown;
   compressed_context: unknown;
   summary: unknown;
+  /** D-T128-02 recovery: caller-prebuilt messages for the compressed form. When present and
+   *  the compression quality gate does not block, the orchestrator re-runs the token gate over
+   *  this form (compression_already_applied=true) and, if it fits, CONTINUES the invocation
+   *  with these messages instead of fail-closing. Absent → the legacy record-and-block
+   *  behavior stays byte-identical. */
+  compressed_messages?: Array<{ role: 'system' | 'user'; content: string }> | null;
   compression_executor_kind: TopicSelectionCompressionExecutorKind;
   required_preserved_facts?: TopicSelectionCompressionFactInventory | null;
   compressed_preserved_facts?: TopicSelectionCompressionFactInventory | null;
@@ -283,6 +289,42 @@ export class TopicSelectionAgentOrchestratorService {
       });
     }
 
+    if (tokenBudgetPreflight.compressionApplication) {
+      // D-T128-02 recovery: the caller-supplied compressed form passed the compression quality
+      // gate and re-passed the token gate, so continue the invocation over the SUBSTITUTED
+      // messages. The prompt packet is rebuilt for the compressed input so packet identity,
+      // quality gating, and redaction describe what is actually sent.
+      const application = tokenBudgetPreflight.compressionApplication;
+      const compressedPromptPacket = await this.preparePromptPacket(application.input, resolvedProfile);
+      return this.finishInvocation(
+        application.input,
+        resolvedProfile,
+        compressedPromptPacket,
+        application.gateResult,
+        application.warningCodes,
+      );
+    }
+
+    return this.finishInvocation(
+      effectiveInput,
+      resolvedProfile,
+      preparedPromptPacket,
+      tokenBudgetPreflight.gateResult,
+      tokenBudgetPreflight.warningCodes,
+    );
+  }
+
+  /** Post-token-gate execution tail (prompt-quality gate → source execution → output gates →
+   *  result). Extracted VERBATIM from invokeStructuredOutput (D-T128-02) so the compressed
+   *  recovery form and the normal form run the exact same pipeline. */
+  private async finishInvocation<T>(
+    effectiveInput: TopicSelectionAgentInvocationRequest<T>,
+    resolvedProfile: TopicSelectionResolvedModelProfile,
+    preparedPromptPacket: PreparedPromptPacket,
+    gateResult: TopicSelectionAgentTokenBudgetGateResult | null,
+    gateWarningCodes: string[],
+  ): Promise<TopicSelectionAgentInvocationResult<T>> {
+    const promptPacketHash = preparedPromptPacket.promptPacketHash;
     if (preparedPromptPacket.blockerCodes.length > 0) {
       const source = this.blockedSource(
         effectiveInput,
@@ -306,7 +348,7 @@ export class TopicSelectionAgentOrchestratorService {
         structuredOutput: null,
         provenance: source.provenance,
         validation: source.validation ?? this.validationSummary(null),
-        tokenBudgetGateResult: tokenBudgetPreflight.gateResult,
+        tokenBudgetGateResult: gateResult,
         warningCodes: preparedPromptPacket.warningCodes,
         blockerCodes: source.blocker_codes ?? ['PROMPT_QUALITY_GATE_BLOCKED'],
         errorCode: source.error_code ?? 'PROMPT_QUALITY_GATE_BLOCKED',
@@ -325,10 +367,10 @@ export class TopicSelectionAgentOrchestratorService {
         structuredOutput: null,
         provenance: source.provenance,
         validation: source.validation ?? this.validationSummary(null),
-        tokenBudgetGateResult: tokenBudgetPreflight.gateResult,
+        tokenBudgetGateResult: gateResult,
         warningCodes: this.uniqueStrings([
           ...preparedPromptPacket.warningCodes,
-          ...tokenBudgetPreflight.warningCodes,
+          ...gateWarningCodes,
           ...(source.warning_codes ?? []),
         ]),
         blockerCodes: source.blocker_codes ?? ['AGENT_EXECUTION_FAILED'],
@@ -343,10 +385,10 @@ export class TopicSelectionAgentOrchestratorService {
         structuredOutput: null,
         provenance: source.provenance,
         validation: this.validationSummary(null),
-        tokenBudgetGateResult: tokenBudgetPreflight.gateResult,
+        tokenBudgetGateResult: gateResult,
         warningCodes: this.uniqueStrings([
           ...preparedPromptPacket.warningCodes,
-          ...tokenBudgetPreflight.warningCodes,
+          ...gateWarningCodes,
         ]),
         blockerCodes: ['FORBIDDEN_AGENT_OUTPUT_FIELD'],
         errorCode: 'FORBIDDEN_AGENT_OUTPUT_FIELD',
@@ -360,10 +402,10 @@ export class TopicSelectionAgentOrchestratorService {
         structuredOutput: null,
         provenance: source.provenance,
         validation,
-        tokenBudgetGateResult: tokenBudgetPreflight.gateResult,
+        tokenBudgetGateResult: gateResult,
         warningCodes: this.uniqueStrings([
           ...preparedPromptPacket.warningCodes,
-          ...tokenBudgetPreflight.warningCodes,
+          ...gateWarningCodes,
         ]),
         blockerCodes: ['SCHEMA_VALIDATION_FAILED'],
         errorCode: 'SCHEMA_VALIDATION_FAILED',
@@ -375,10 +417,10 @@ export class TopicSelectionAgentOrchestratorService {
       structuredOutput: source.output,
       provenance: source.provenance,
       validation,
-      tokenBudgetGateResult: tokenBudgetPreflight.gateResult,
+      tokenBudgetGateResult: gateResult,
       warningCodes: this.uniqueStrings([
         ...preparedPromptPacket.warningCodes,
-        ...tokenBudgetPreflight.warningCodes,
+        ...gateWarningCodes,
       ]),
       blockerCodes: [],
       errorCode: null,
@@ -1350,6 +1392,13 @@ export class TopicSelectionAgentOrchestratorService {
     blockedSource: SourceExecution<T> | null;
     warningCodes: string[];
     gateResult: TopicSelectionAgentTokenBudgetGateResult | null;
+    /** D-T128-02 recovery: set when a caller-supplied compressed form passed the compression
+     *  quality gate AND re-passed the token gate — the invocation continues over this input. */
+    compressionApplication?: {
+      input: TopicSelectionAgentInvocationRequest<T>;
+      gateResult: TopicSelectionAgentTokenBudgetGateResult;
+      warningCodes: string[];
+    } | null;
   }> {
     const runtime = input.runtime_token_budget;
     if (!runtime) {
@@ -1399,13 +1448,64 @@ export class TopicSelectionAgentOrchestratorService {
     }
 
     if (evaluation.result.decision === 'requires_compression' && runtime.compression_attempt) {
+      const compression = await this.createCompressionReport(input, runtime);
+      const recovery = this.buildCompressionApplication(
+        input,
+        resolvedProfile,
+        runtime,
+        evaluation.result,
+        compression,
+      );
+      if (recovery.kind === 'apply') {
+        return {
+          blockedSource: null,
+          warningCodes: recovery.application.warningCodes,
+          gateResult: recovery.application.gateResult,
+          compressionApplication: recovery.application,
+        };
+      }
+      if (recovery.kind === 'blocked_after_compression') {
+        const post = recovery.gateResult;
+        const errorCode = post.blocker_codes[0] ?? 'TOKEN_BUDGET_OVER_LIMIT_AFTER_COMPRESSION';
+        const blockerCodes = this.uniqueStrings([errorCode, ...post.blocker_codes]);
+        const warningCodes = this.uniqueStrings([
+          ...evaluation.result.warning_codes,
+          ...compression.result.warning_codes,
+          'COMPRESSION_REPORT_RECORDED',
+          ...post.warning_codes,
+        ]);
+        return {
+          blockedSource: this.blockedSource(
+            input,
+            resolvedProfile,
+            errorCode,
+            this.sourceKindForExecutionMode(input),
+            promptPacketHash,
+            {
+              blockerCodes,
+              warningCodes,
+              compressionReportRef: compression.artifact_ref,
+              compressionReportHash: compression.artifact_hash,
+              compressedContextHash: compression.result.report.compressed_context_hash,
+              promptQualityReportRef: preparedPromptPacket.promptQualityReportRef,
+              redactedPromptArtifactRef: preparedPromptPacket.redactedPromptArtifactRef,
+              promptPacketCacheStatus: preparedPromptPacket.promptPacketCacheStatus,
+              promptPacketCacheResultRef: preparedPromptPacket.promptPacketCacheResultRef,
+              promptPacketCacheResultHash: preparedPromptPacket.promptPacketCacheResultHash,
+              validation: this.runtimeGateValidationSummary(errorCode, post.decision),
+            },
+          ),
+          warningCodes,
+          gateResult: post,
+        };
+      }
       return this.blockForCompressionAttempt(
         input,
         resolvedProfile,
         promptPacketHash,
-        runtime,
         evaluation.result,
         preparedPromptPacket,
+        compression,
       );
     }
 
@@ -1441,19 +1541,95 @@ export class TopicSelectionAgentOrchestratorService {
     };
   }
 
+  /** D-T128-02 recovery decision over an already-validated compression report. Returns
+   *  'apply' when the caller supplied compressed_messages, the compression quality gate did
+   *  not block, and the compressed form passes the token gate (compression_already_applied);
+   *  'blocked_after_compression' when the compressed form still exceeds the budget; and
+   *  'not_eligible' otherwise — which preserves the legacy record-and-block path verbatim. */
+  private buildCompressionApplication<T>(
+    input: TopicSelectionAgentInvocationRequest<T>,
+    resolvedProfile: TopicSelectionResolvedModelProfile,
+    runtime: TopicSelectionAgentRuntimeTokenBudgetInput,
+    preGateResult: TopicSelectionAgentTokenBudgetGateResult,
+    compression: Awaited<ReturnType<TopicSelectionAgentOrchestratorService['createCompressionReport']>>,
+  ):
+    | { kind: 'apply'; application: {
+        input: TopicSelectionAgentInvocationRequest<T>;
+        gateResult: TopicSelectionAgentTokenBudgetGateResult;
+        warningCodes: string[];
+      }; }
+    | { kind: 'blocked_after_compression'; gateResult: TopicSelectionAgentTokenBudgetGateResult }
+    | { kind: 'not_eligible' } {
+    const attempt = runtime.compression_attempt;
+    const compressedMessages = attempt?.compressed_messages ?? null;
+    if (!attempt || !compressedMessages || compressedMessages.length === 0) {
+      return { kind: 'not_eligible' };
+    }
+    if (compression.result.quality_gate_result === 'blocked') {
+      return { kind: 'not_eligible' };
+    }
+    const selectedOption = resolvedProfile.selected_model_option;
+    const postEvaluation = this.tokenBudgetGate.evaluate({
+      context_policy_profile: runtime.context_policy_profile,
+      provider_id: selectedOption?.provider_id ?? null,
+      model_id: selectedOption?.model_id ?? null,
+      model_profile_id: resolvedProfile.profile.profile_id,
+      model_option_id: selectedOption?.option_id ?? null,
+      messages: compressedMessages,
+      context_payloads: [attempt.compressed_context, attempt.summary],
+      schema: input.schema,
+      extra_payloads: runtime.extra_payloads ?? [],
+      compression_strategy_ref: runtime.compression_strategy_ref
+        ?? this.compressionStrategyRef(runtime.context_policy_profile),
+      compression_already_applied: true,
+    });
+    if (
+      postEvaluation.result.decision !== 'within_budget'
+      && postEvaluation.result.decision !== 'budget_unknown_allow_with_warning'
+    ) {
+      return { kind: 'blocked_after_compression', gateResult: postEvaluation.result };
+    }
+    const updatedRuntime: TopicSelectionAgentRuntimeTokenBudgetInput = {
+      ...runtime,
+      compression_already_applied: true,
+      compression_attempt: null,
+      compression_report_ref: compression.artifact_ref,
+      compression_report_hash: compression.artifact_hash,
+      compressed_context_hash: compression.result.report.compressed_context_hash,
+      context_payloads: [attempt.compressed_context, attempt.summary],
+    };
+    return {
+      kind: 'apply',
+      application: {
+        input: {
+          ...input,
+          messages: compressedMessages.map((message) => ({ ...message })),
+          runtime_token_budget: updatedRuntime,
+        },
+        gateResult: postEvaluation.result,
+        warningCodes: this.uniqueStrings([
+          ...preGateResult.warning_codes,
+          ...compression.result.warning_codes,
+          'COMPRESSION_REPORT_RECORDED',
+          'COMPRESSION_APPLIED',
+          ...postEvaluation.result.warning_codes,
+        ]),
+      },
+    };
+  }
+
   private async blockForCompressionAttempt<T>(
     input: TopicSelectionAgentInvocationRequest<T>,
     resolvedProfile: TopicSelectionResolvedModelProfile,
     promptPacketHash: string,
-    runtime: TopicSelectionAgentRuntimeTokenBudgetInput,
     gateResult: TopicSelectionAgentTokenBudgetGateResult,
     preparedPromptPacket: PreparedPromptPacket,
+    compression: Awaited<ReturnType<TopicSelectionAgentOrchestratorService['createCompressionReport']>>,
   ): Promise<{
     blockedSource: SourceExecution<T>;
     warningCodes: string[];
     gateResult: TopicSelectionAgentTokenBudgetGateResult;
   }> {
-    const compression = await this.createCompressionReport(input, runtime);
     const warningCodes = this.uniqueStrings([
       ...gateResult.warning_codes,
       ...compression.result.warning_codes,
