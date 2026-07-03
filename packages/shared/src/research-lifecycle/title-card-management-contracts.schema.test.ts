@@ -3076,8 +3076,11 @@ test('research-lifecycle barrel re-exports the runtime value surface of split mo
   // Each re-exported module is dynamically imported — they are already loaded via the
   // static `index.js` import above, so this only reads cached namespaces — and the union
   // of their runtime value keys must equal the barrel's. Adding/removing a split module
-  // therefore updates this expectation automatically; a module dropping out of the barrel
-  // is the only way to fail.
+  // therefore updates this expectation automatically. NOTE: index.ts also carries one
+  // explicit named re-export block (paperImplementationWritingEntryPacketSchema); it is
+  // runtime-redundant with its module's `export *` line, so the bidirectional deepEqual
+  // holds. A future named-ONLY export (or `export * as ns`) that this regex cannot see
+  // would fail this test LOUDLY on the barrel side — extend the parser then.
   const exportStarSpecifiers = [
     ...readFileSync(new URL('./index.ts', import.meta.url), 'utf8').matchAll(
       /export\s+\*\s+from\s+['"](\.\/[^'"]+\.js)['"]/g,
