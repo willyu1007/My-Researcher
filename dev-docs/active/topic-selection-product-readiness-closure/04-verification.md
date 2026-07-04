@@ -217,4 +217,10 @@
 - **回归门**：coordinator **48/48**（45 既有零改动）；backend tsc **0**；**full backend 1645/1610/0/35**（W-R1 基线 1642/1607 → +3，0 fail）；harness 本体零改动（goldens 天然不受扰）。
 - **提交**：JD 回填 `e819d919` / feat `06b01b1f` / docs 本段随本次 docs commit。
 
+### 2026-07-03 · Phase 4 — W-16 sign-off 工件契约
+> 用户「按照计划推进清理W-16」。纯契约项：零 harness 触碰（无需 JD）、零 route/表、零自动翻门路径（D8）。
+- **契约**：`TopicSelectionStakeholderSignOff@v1` 单契约双 scope（逐跑覆写 + 标定释放），释放门槛结构化（≥100 样本 / ≥2 相异 provider[F6] / FP 严格<0.05 / leak 已查 / 独立 assessor + corpus/report refs——不达标结构性无法校验通过）；层层 strict、仅 human 签署、跨 scope 混填拒；两 `*_PROVISIONAL_PRODUCT_GATE` 加 `sign_off_contract` 指针（守卫 +1 断言各钉）；DP-3.3 README 清单第 4 条更新为已定义。
+- **回归门**：shared **272/0**（+3 schema 测：双 canonical / 释放门槛负例组 / 严格性负例组）；双 tsc **0**；**full backend 1645/1610/0/35**（backend 计数不变——纯 shared 契约，0 fail）。
+- **提交**：feat `ce3cd67b` / docs 本段随本次 docs commit。
+
 ### （待开工）

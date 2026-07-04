@@ -20,7 +20,7 @@
 | W-13 v1c-N2 **+ v1c-N4** 生产接线/收口 | 4 | closeable | **done（2026-06-25，全接 codex_assisted 真 caller）** | 用户定**全接**（非 reserved），D6=否（v1c 无 harness、只用纯 `canonicalHash` leaf，纯加法 coordinator/DI/route）。**v1c-N2**（`dc9ff27f` 协调器+单测、`40cf3e00` DI+controller+route+HTTP 测）:`TopicSelectionV1cN2BoundedDebateCoordinatorService` 循环 4 角色 codex_assisted→**穿 admit**（canary 漏的关键步）→既有 verified-runtime-draft gate 入口;路由 `POST …/promotion-decision-support/bounded-debate`。**v1c-N4**（`ce889186` S0 provenance contract、`4463dfca` S4 delegated service+5 单测、`3cba7a5c` S5 DI+operator-only route+2 HTTP 测）:delegated agent 起草、人仍授权——`human_actor` 来自**请求**（admission 再断言 `actor_type==='human'`）、promote-class 草案需 `promote_reconfirmed:true`、决定带 `delegated_decision_provenance` 标记（可审计/非冒充）;operator-only route `POST …/promotion-decisions/delegated`（默认人审 route 字节不变）。codex_assisted=operator 供输出 verbatim、无 provider、测试无需 stub。全后端 **1572/0/35**、双 tsc 0。**两 dead slot 现皆 caller-reached、admit 不再被绕过。** |
 | W-14 provider_llm debate 管路预接 | 4 | closeable | planned | 类型并集放宽 + model_option_id 穿线，dormant + 守卫 |
 | W-15 D5 HumanOverride + Trace | 4 | closeable | planned | 先权限边界 spec 再建写面 + Trace 抽屉 |
-| W-16 sign-off 工件 schema | 4 | closeable | planned | requires_stakeholder_sign_off artifact/表；不接自动翻门 |
+| W-16 sign-off 工件 schema | 4 | closeable | **done（2026-07-03）** | `TopicSelectionStakeholderSignOff@v1` 单契约双 scope（逐跑覆写 + 标定释放）`ce3cd67b`：释放门槛结构化进 schema（≥100 样本/≥2 相异 provider[F6 口径]/FP<0.05 严格/leak 已查/独立 assessor+refs——不达标无法校验通过，"语料到位即可一步翻门"）；两 PRODUCT_GATE 加 `sign_off_contract` 指针；层层 strict、仅 human 可签；**零自动翻门路径（D8）**；DP-3.3 清单第 4 条更新。shared 272/0（+3 schema 测） |
 | W-R1 采样分类批级重试（W-10 后新增） | 4 | closeable | **done（2026-07-03）** | run5 教训:单瞬态错误废 18 批。批级有界重试（默认 2 次退避 1.5s/3s、attempt id 带 `.retry_N` 唯一溯源）+ 部分批容忍（失败批候选单独 review-blocked，余批分类存活，新 warning `LLM_CLASSIFICATION_PARTIAL`）+ 全败保留 legacy fail-closed。采样套件 20/20（17 既有零改动）。详见 Phase 4 W-R1 段 + `04` 同日段 |
 | W-17 N8/N6 真标定翻门 | 5 | externally-gated | deferred | 语料 + FP<5% + assessor + sign-off 就绪后 |
 | W-18 语料耦合 debate 正文 | 5 | externally-gated | deferred | 承 W-P5/W-P6/W-P7；与 W-17 同期 |
@@ -316,6 +316,14 @@
 - **(B) 幂等负例守卫**：+3 测——再生穿线（retry 带 projection ref、首入不带）/ regenerate 判别最近优先 + **跨路由隔离**（escalation projection 永不误附单代理路径，双向判别闭环——升级侧既有测的孪生）/ **crash-mid-debate 干净重跑**（`throwError` 首用：无 marker 即整段重跑、恰一 marker、附着且 admit 的是新 draft——补齐既有 completed→rejection 复用测的另一半窗口）。
 - **(C) caller 契约文档化**：再生 re-entry 契约落 coordinator `node_inputs` 契约文档块（模式判定/恰一 projection/无 N7 projection/coordinator 自动穿线、caller 不供 projection），JD `D-T128-01` 回填 `e819d919` 同步登记。
 - **验证**：coordinator 套件 **48/48**（45 既有零改动）；tsc 0；full backend 见 `04` 同日段。harness 本体**零改动**（预判成立）。
+
+### Phase 4 — W-16 sign-off 工件契约（2026-07-03，用户「按照计划推进清理W-16」）
+> 关闭「`requires_stakeholder_sign_off: true` 只是声明 flag、无 artifact/表」的开口——DP-3.3 翻门清单第 4 条明列"定义该记录本身是翻门前置"。**纯契约项：零 harness/orchestrator 触碰（无需 JD）、零 route/表/服务（记录走既有控制面工件通道,操作员表面需要时再立）、零自动翻门路径（D8）。**
+- **单契约双 scope**（`topic-selection-v1b-workflow-harness-contracts.ts`,与两 gate 常量同文件共居）：`provisional_threshold_run_override`（逐跑覆写：具名 human 确认某 product 跑的具体 (run,node,attempt) 在 provisional 阈值下通过——gate 注释所述"sign-off record IS the production-gated override entry"的实体化）；`calibration_gate_release`（一次性释放记录,W-17 翻门消费）。
+- **释放门槛结构化**：≥100 标注样本、≥2 相异 provider（uniqueItems;F6 口径=两个 provider,不臆测三个）、FP **严格** <0.05（exclusiveMaximum）、`per_provider_leak_checked` 必真、assessor `independent` 必真 + 语料/报告 functional refs——**不达标的 sign-off 结构性无法通过校验**,这就是"语料到位即可一步翻门"的机器保证;翻门本身仍是清单里独立的人工受审编辑（provisional:false + 撤 tripwire + 守卫测试 re-baseline）。
+- **严格性**：层层 `additionalProperties:false`（W-09 纪律）、`signed_by.actor_type` 仅 `human`、跨 scope 混填拒（oneOf 双严格对象）、gate_warning_code 限 N8/N6 两枚举。
+- **接线**：两 `*_PROVISIONAL_PRODUCT_GATE` 常量加 `sign_off_contract: 'TopicSelectionStakeholderSignOff@v1'` 指针字段（addition-only,守卫测试各 +1 断言钉住）;DP-3.3 README 清单第 4 条由"未定义"更新为指向本契约。
+- **验证**：shared **272/0**（+3 schema 测：双 canonical / 释放门槛负例组[99 样本/FP=0.05/单 provider/重复 provider/非独立 assessor/leak 未查] / 严格性负例组[未知键顶层+嵌套/跨 scope/缺 run 锚/llm 签署/未知 gate 码]）;双 tsc 0;full backend 见 `04` 同日段。commit `ce3cd67b`。
 
 ### W-05 计划（历史 planning，已收口，保留供追溯）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。
