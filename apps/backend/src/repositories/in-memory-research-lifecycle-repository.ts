@@ -20,16 +20,16 @@ export class InMemoryResearchLifecycleRepository implements ResearchLifecycleRep
   private readonly releaseReviews = new Map<string, ReleaseReviewRecord[]>();
   private readonly runtimeMetrics = new Map<string, PaperRuntimeMetric>();
 
-  async countPapers(): Promise<number> {
-    return this.papers.size;
+  async listPaperIds(): Promise<string[]> {
+    return [...this.papers.values()].map((paper) => paper.id);
   }
 
-  async countNodes(): Promise<number> {
-    return this.nodes.size;
+  async listNodeIds(): Promise<string[]> {
+    return [...this.nodes.values()].map((node) => node.id);
   }
 
-  async countSnapshots(): Promise<number> {
-    return this.snapshots.size;
+  async listSnapshotIds(): Promise<string[]> {
+    return [...this.snapshots.values()].map((snapshot) => snapshot.id);
   }
 
   async createPaperProject(record: PaperProjectRecord): Promise<PaperProjectRecord> {

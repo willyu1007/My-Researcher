@@ -262,3 +262,152 @@ test('delivery failure is persisted into audit store', async () => {
   assert.equal(records.length > 0, true);
   assert.equal(records.some((record) => record.status === 'failed'), true);
 });
+
+test('paper id generation is max+1 over surviving ids, not count+1', async () => {
+  // Regression for the count+1 defect class caught by the first product run (T-128 W-10):
+  // after deletePaperProject removes rows the table count lags the highest surviving id,
+  // so count+1 mints an id that collides with an existing primary key. The generator must
+  // derive from the max surviving numeric id.
+  const repository = new InMemoryResearchLifecycleRepository();
+  const service = new ResearchLifecycleService(repository);
+
+  // Model the post-deletion shape directly: one surviving paper whose numeric id (P009)
+  // is far above the table count (1).
+  await repository.createPaperProject({
+    id: 'P009',
+    titleCardId: 'title_card_id_regression_survivor',
+    title: 'Surviving Paper',
+    researchDirection: 'LLM',
+    status: 'active',
+    paperActiveSpFull: null,
+    paperActiveSpPartial: null,
+    createdAt: new Date().toISOString(),
+  });
+
+  const created = await service.createPaperProject({
+    title_card_id: 'title_card_id_regression_new',
+    title: 'Paper Created After Deletions',
+    created_by: 'human',
+    initial_context: {
+      literature_evidence_ids: ['LIT-ID-REG-1'],
+    },
+  });
+
+  assert.equal(created.paper_id, 'P010');
+});
+
+test('node id generation is max+1 over surviving ids, not count+1', async () => {
+  // Same count+1 defect class as the paper id regression above: deletePaperProject also
+  // removes the paper's nodes, so the node count lags surviving NODE- ids.
+  const repository = new InMemoryResearchLifecycleRepository();
+  const service = new ResearchLifecycleService(repository);
+  const paper = await service.createPaperProject({
+    title_card_id: 'title_card_id_regression_node',
+    title: 'Node Id Regression Paper',
+    created_by: 'human',
+    initial_context: {
+      literature_evidence_ids: ['LIT-ID-REG-2'],
+    },
+  });
+
+  await repository.createNode({
+    id: 'NODE-0009',
+    paperId: paper.paper_id,
+    stageId: 'S3',
+    moduleId: 'M5',
+    versionId: 'P001-M5-B01-N0008',
+    parentNodeIds: [],
+    runId: 'RUN-ID-REG-1',
+    laneId: 'LANE-ID-REG-1',
+    attemptId: 'ATT-ID-REG-1',
+    createdBy: 'llm',
+    createdAt: new Date().toISOString(),
+    payloadRef: 'experiment_plan_v:EXP-ID-REG-1',
+    nodeStatus: 'draft',
+  });
+
+  const node = await service.commitVersionSpine({
+    lineage_meta: {
+      paper_id: paper.paper_id,
+      stage_id: 'S3',
+      module_id: 'M5',
+      version_id: 'P001-M5-B01-N0009',
+      run_id: 'RUN-ID-REG-2',
+      lane_id: 'LANE-ID-REG-2',
+      attempt_id: 'ATT-ID-REG-2',
+      created_by: 'llm',
+      created_at: new Date().toISOString(),
+    },
+    payload_ref: 'experiment_plan_v:EXP-ID-REG-2',
+    node_status: 'draft',
+  });
+
+  assert.equal(node.node_id, 'NODE-0010');
+});
+
+test('snapshot id generation is max+1 over surviving ids, not count+1', async () => {
+  // Same count+1 defect class as the paper id regression above: deletePaperProject also
+  // removes the paper's snapshots, so the snapshot count lags surviving SP- ids.
+  const repository = new InMemoryResearchLifecycleRepository();
+  const service = new ResearchLifecycleService(repository);
+  const paper = await service.createPaperProject({
+    title_card_id: 'title_card_id_regression_snapshot',
+    title: 'Snapshot Id Regression Paper',
+    created_by: 'human',
+    initial_context: {
+      literature_evidence_ids: ['LIT-ID-REG-3'],
+    },
+  });
+
+  await repository.createSnapshot({
+    id: 'SP-0009',
+    paperId: paper.paper_id,
+    snapshotType: 'SP-partial',
+    nodeRefs: [],
+    claimSetHash: 'hash-claim-reg',
+    problemScopeHash: 'hash-scope-reg',
+    datasetProtocolHash: 'hash-dataset-reg',
+    evaluationProtocolHash: 'hash-eval-reg',
+    createdAt: new Date().toISOString(),
+    createdBy: 'llm',
+  });
+
+  const node = await service.commitVersionSpine({
+    lineage_meta: {
+      paper_id: paper.paper_id,
+      stage_id: 'S3',
+      module_id: 'M5',
+      version_id: 'P001-M5-B01-N0010',
+      run_id: 'RUN-ID-REG-3',
+      lane_id: 'LANE-ID-REG-3',
+      attempt_id: 'ATT-ID-REG-3',
+      created_by: 'llm',
+      created_at: new Date().toISOString(),
+    },
+    payload_ref: 'experiment_plan_v:EXP-ID-REG-3',
+    node_status: 'candidate',
+    value_judgement_payload: {
+      judgement_id: 'J-ID-REG-1',
+      decision: 'promote',
+      core_score_vector: { technical_soundness: 0.8 },
+      extension_score_vector: { protocol_fairness: 0.8 },
+      confidence: 0.9,
+      reason_summary: 'candidate ok',
+      reviewer: 'llm',
+      timestamp: new Date().toISOString(),
+    },
+  });
+
+  const result = await service.verifyStageGate(paper.paper_id, {
+    candidate_node_ids: [node.node_id],
+    config_version: 'llm-global-default-v1',
+    reviewer_mode: 'hybrid',
+    analysis_contract: 'no_m6',
+    override_context: {
+      skip_m6_reason: 'no training path',
+      training_claim_allowed: false,
+    },
+  });
+
+  assert.equal(result.snapshot?.snapshot_id, 'SP-0010');
+});

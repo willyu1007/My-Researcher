@@ -770,18 +770,28 @@ export class ResearchLifecycleService {
   }
 
   private async nextPaperId(): Promise<string> {
-    const count = await this.repository.countPapers();
-    return `P${String(count + 1).padStart(3, '0')}`;
+    // max+1 over existing ids, NOT count+1: after deletePaperProject removes rows the count
+    // lags behind the highest surviving id and count+1 collides with it.
+    return this.nextPrefixedNumericId(await this.repository.listPaperIds(), 'P', 3);
   }
 
   private async nextNodeId(): Promise<string> {
-    const count = await this.repository.countNodes();
-    return `NODE-${String(count + 1).padStart(4, '0')}`;
+    return this.nextPrefixedNumericId(await this.repository.listNodeIds(), 'NODE-', 4);
   }
 
   private async nextSnapshotId(): Promise<string> {
-    const count = await this.repository.countSnapshots();
-    return `SP-${String(count + 1).padStart(4, '0')}`;
+    return this.nextPrefixedNumericId(await this.repository.listSnapshotIds(), 'SP-', 4);
+  }
+
+  private nextPrefixedNumericId(ids: string[], prefix: string, padWidth: number): string {
+    const pattern = new RegExp(`^${prefix}(\\d+)$`);
+    const maxId = ids
+      .map((id) => pattern.exec(id)?.[1])
+      .filter((value): value is string => Boolean(value))
+      .map((value) => Number.parseInt(value, 10))
+      .filter(Number.isFinite)
+      .reduce((currentMax, value) => Math.max(currentMax, value), 0);
+    return `${prefix}${String(maxId + 1).padStart(padWidth, '0')}`;
   }
 
   private nextWritingPackageId(): string {

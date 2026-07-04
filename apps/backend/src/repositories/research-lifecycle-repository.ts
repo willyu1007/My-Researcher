@@ -79,9 +79,9 @@ export type ReleaseReviewRecord = {
 };
 
 export interface ResearchLifecycleRepository {
-  countPapers(): Promise<number>;
-  countNodes(): Promise<number>;
-  countSnapshots(): Promise<number>;
+  listPaperIds(): Promise<string[]>;
+  listNodeIds(): Promise<string[]>;
+  listSnapshotIds(): Promise<string[]>;
 
   createPaperProject(record: PaperProjectRecord): Promise<PaperProjectRecord>;
   deletePaperProject(paperId: string): Promise<void>;

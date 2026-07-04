@@ -107,16 +107,25 @@ export class PrismaResearchLifecycleRepository implements ResearchLifecycleRepos
 
   constructor(private readonly prisma: PrismaClient) {}
 
-  async countPapers(): Promise<number> {
-    return this.prisma.paperProject.count();
+  async listPaperIds(): Promise<string[]> {
+    const rows = await this.prisma.paperProject.findMany({
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
   }
 
-  async countNodes(): Promise<number> {
-    return this.prisma.stageNode.count();
+  async listNodeIds(): Promise<string[]> {
+    const rows = await this.prisma.stageNode.findMany({
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
   }
 
-  async countSnapshots(): Promise<number> {
-    return this.prisma.snapshot.count();
+  async listSnapshotIds(): Promise<string[]> {
+    const rows = await this.prisma.snapshot.findMany({
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
   }
 
   async createPaperProject(record: PaperProjectRecord): Promise<PaperProjectRecord> {
