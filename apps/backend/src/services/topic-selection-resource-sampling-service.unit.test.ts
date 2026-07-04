@@ -93,28 +93,48 @@ class StubLlmGateway implements TopicSelectionAgentOrchestratorLlmGateway {
   }
 }
 
+function batchAwareStructuredOutput<T>(request: LlmStructuredOutputRequest) {
+  const payload = JSON.parse(request.messages[1]?.content ?? '{}') as {
+    eligible_candidates?: Array<{ literature_ref: TopicSelectionFunctionalRef }>;
+  };
+  const candidates = payload.eligible_candidates ?? [];
+  const output: TopicSelectionResourceSamplingLlmOutput = {
+    classifications: candidates.map((candidate) => batchClassification(candidate.literature_ref)),
+  };
+  return {
+    parsed: output as T,
+    raw: { output },
+    telemetry: {
+      ...makeTelemetry(),
+      input_tokens: candidates.length * 10,
+      output_tokens: candidates.length * 20,
+      total_tokens: candidates.length * 30,
+    },
+  };
+}
+
 class BatchAwareLlmGateway implements TopicSelectionAgentOrchestratorLlmGateway {
   calls: LlmStructuredOutputRequest[] = [];
 
   async createStructuredOutput<T>(request: LlmStructuredOutputRequest) {
     this.calls.push(request);
-    const payload = JSON.parse(request.messages[1]?.content ?? '{}') as {
-      eligible_candidates?: Array<{ literature_ref: TopicSelectionFunctionalRef }>;
-    };
-    const candidates = payload.eligible_candidates ?? [];
-    const output: TopicSelectionResourceSamplingLlmOutput = {
-      classifications: candidates.map((candidate) => batchClassification(candidate.literature_ref)),
-    };
-    return {
-      parsed: output as T,
-      raw: { output },
-      telemetry: {
-        ...makeTelemetry(),
-        input_tokens: candidates.length * 10,
-        output_tokens: candidates.length * 20,
-        total_tokens: candidates.length * 30,
-      },
-    };
+    return batchAwareStructuredOutput<T>(request);
+  }
+}
+
+/** BatchAware gateway that throws a synthetic transient failure on the given 1-based call
+ *  numbers — retries shift call order deterministically, so fail-sets model per-attempt flakes. */
+class FlakyBatchAwareLlmGateway implements TopicSelectionAgentOrchestratorLlmGateway {
+  calls: LlmStructuredOutputRequest[] = [];
+
+  constructor(private readonly failOnCalls: Set<number>) {}
+
+  async createStructuredOutput<T>(request: LlmStructuredOutputRequest) {
+    this.calls.push(request);
+    if (this.failOnCalls.has(this.calls.length)) {
+      throw new Error(`synthetic transient provider failure on call ${this.calls.length}`);
+    }
+    return batchAwareStructuredOutput<T>(request);
   }
 }
 
@@ -375,6 +395,44 @@ function makeService(
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
+}
+
+function bulkLiterature(count: number): LiteratureRecord[] {
+  return Array.from({ length: count }, (_, index) => {
+    const id = `lit_bulk_${String(index + 1).padStart(2, '0')}`;
+    return literature(
+      id,
+      `Bulk retrieval paper ${index + 1}`,
+      `Digest for bulk paper ${index + 1} covering retrieval augmented generation evidence.`,
+      ['bulk'],
+    );
+  });
+}
+
+function makeRetryService(gateway: TopicSelectionAgentOrchestratorLlmGateway, records: LiteratureRecord[]) {
+  const controlPlane = new TopicSelectionControlPlaneService(
+    new InMemoryTopicSelectionControlPlaneRepository(),
+    { idFactory: makeIdFactory(), now: () => NOW },
+  );
+  const orchestrator = makeAgentOrchestrator(controlPlane, gateway);
+  const invocationAttemptIds: string[] = [];
+  const originalInvoke = orchestrator.invokeStructuredOutput.bind(orchestrator);
+  orchestrator.invokeStructuredOutput = (async (
+    request: Parameters<TopicSelectionAgentOrchestratorService['invokeStructuredOutput']>[0],
+  ) => {
+    invocationAttemptIds.push(request.invocation_attempt_id ?? '');
+    return originalInvoke(request);
+  }) as TopicSelectionAgentOrchestratorService['invokeStructuredOutput'];
+  const service = new TopicSelectionResourceSamplingService({
+    repository: new InMemoryTopicSelectionResourceSamplingRepository(),
+    literatureRepository: makeLiteratureRepository(records),
+    controlPlaneService: controlPlane,
+    agentOrchestrator: orchestrator,
+    idFactory: makeIdFactory(),
+    now: () => NOW,
+    classificationRetryPolicy: { backoffMs: () => 0 },
+  });
+  return { service, invocationAttemptIds };
 }
 
 test('resource sampling classifies roles, applies guardrails, and emits coverage warnings', async () => {
@@ -1147,4 +1205,72 @@ test('resource sampling recovers over-budget classification batches by dropping 
     return payload?.payload_schema === 'TopicSelectionCompressionReportEnvelope@v1';
   });
   assert.ok(compressionReport, 'expected the compression report artifact to be recorded');
+});
+
+test('resource sampling retries a transient batch failure and recovers with no partial warning', async () => {
+  // 26 eligible candidates -> 2 batches (24 + 2). Call 1 (batch 1, attempt 1) throws a
+  // synthetic transient failure; the bounded per-batch retry must recover it (W-10 run5:
+  // one transient 5xx must not discard every batch).
+  const gateway = new FlakyBatchAwareLlmGateway(new Set([1]));
+  const { service, invocationAttemptIds } = makeRetryService(gateway, bulkLiterature(26));
+
+  const result = await service.createResourceSampleSet({
+    topic_id: TOPIC_ID,
+    title_card_id: TITLE_CARD_ID,
+    sample_size: 4,
+    role_targets: { support: 1, challenge: 1, baseline: 1, context: 1 },
+  });
+
+  assert.equal(gateway.calls.length, 3);
+  assert.ok(
+    invocationAttemptIds[1]?.endsWith('.batch_1.retry_1'),
+    `retry attempt must carry a distinct .retry_ suffix, got ${invocationAttemptIds[1]}`,
+  );
+  assert.ok(!result.sample_set.warnings.includes('LLM_CLASSIFICATION_FAILED'));
+  assert.ok(!result.sample_set.warnings.includes('LLM_CLASSIFICATION_PARTIAL'));
+  assert.notEqual(result.sample_set.status, 'blocked');
+  assert.equal(result.selected_items.length, 4);
+});
+
+test('resource sampling tolerates a permanently failed batch and continues on surviving batches', async () => {
+  // Batch 1 fails its initial attempt and both retries (calls 1-3); batch 2 (call 4)
+  // succeeds. The failed batch blocks only its own candidates; the run degrades to
+  // LLM_CLASSIFICATION_PARTIAL instead of discarding the surviving classifications.
+  const gateway = new FlakyBatchAwareLlmGateway(new Set([1, 2, 3]));
+  const { service } = makeRetryService(gateway, bulkLiterature(26));
+
+  const result = await service.createResourceSampleSet({
+    topic_id: TOPIC_ID,
+    title_card_id: TITLE_CARD_ID,
+    sample_size: 4,
+    role_targets: { support: 1, challenge: 1, baseline: 1, context: 1 },
+  });
+
+  assert.equal(gateway.calls.length, 4);
+  assert.ok(result.sample_set.warnings.includes('LLM_CLASSIFICATION_PARTIAL'));
+  assert.ok(!result.sample_set.warnings.includes('LLM_CLASSIFICATION_FAILED'));
+  assert.equal(result.sample_set.status, 'ready_with_warning');
+  // Batch 2 holds only 2 candidates, so the sample underfills but is NOT hard-blocked.
+  assert.equal(result.selected_items.length, 2);
+  assert.ok(result.sample_set.warnings.includes('SAMPLE_SIZE_UNDERFILLED'));
+});
+
+test('resource sampling keeps whole-classification-failed semantics when every batch fails', async () => {
+  // Both batches exhaust initial+2 retries (6 calls, all failing): legacy fail-closed
+  // shape is preserved — blocked status + LLM_CLASSIFICATION_FAILED, no partial warning.
+  const gateway = new FlakyBatchAwareLlmGateway(new Set([1, 2, 3, 4, 5, 6]));
+  const { service } = makeRetryService(gateway, bulkLiterature(26));
+
+  const result = await service.createResourceSampleSet({
+    topic_id: TOPIC_ID,
+    title_card_id: TITLE_CARD_ID,
+    sample_size: 4,
+    role_targets: { support: 1, challenge: 1, baseline: 1, context: 1 },
+  });
+
+  assert.equal(gateway.calls.length, 6);
+  assert.equal(result.sample_set.status, 'blocked');
+  assert.ok(result.sample_set.warnings.includes('LLM_CLASSIFICATION_FAILED'));
+  assert.ok(!result.sample_set.warnings.includes('LLM_CLASSIFICATION_PARTIAL'));
+  assert.equal(result.selected_items.length, 0);
 });

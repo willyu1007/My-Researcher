@@ -89,6 +89,11 @@ type ServiceOptions = {
   modelProfileRegistry?: Pick<TopicSelectionModelProfileRegistryService, 'resolveProfile'>;
   idFactory?: IdFactory;
   now?: () => string;
+  /** Per-batch classification retry knobs; tests inject backoffMs () => 0. */
+  classificationRetryPolicy?: {
+    maxRetriesPerBatch?: number;
+    backoffMs?: (retryIndex: number) => number;
+  };
 };
 
 type CandidateEligibilityStatus = 'eligible' | 'excluded';
@@ -140,11 +145,19 @@ type DeterministicRoleSignals = {
   broadFoundationOnly: boolean;
 };
 
+type ClassificationBatchStats = {
+  batch_count: number;
+  failed_batch_count: number;
+  retried_batch_count: number;
+  retry_attempt_count: number;
+};
+
 type ClassificationOutcome = {
   guarded: GuardedClassification[];
   llmOutput: TopicSelectionResourceSamplingLlmOutput;
   telemetry: LlmCallTelemetry | null;
   error: unknown | null;
+  batchStats: ClassificationBatchStats;
 };
 
 type ResourceSamplingBatchRuntimeContext = {
@@ -228,6 +241,11 @@ const CONTEXT_ORIENTATION_PATTERN =
 const BROAD_FOUNDATION_TAGS = new Set(['foundational-ai', 'background-literature', 'auto-screened-context']);
 const TARGET_ROLE_RELEVANCE_FLOOR = 0.7;
 const LLM_CLASSIFICATION_BATCH_SIZE = 24;
+// Per-batch retry for transient provider failures (W-10 run5: one 5xx killed all 18 batches —
+// the gateway's own retry window is too short for a sustained provider incident, and losing a
+// single batch must not discard every other batch's paid classification).
+const CLASSIFICATION_BATCH_MAX_RETRIES = 2;
+const CLASSIFICATION_BATCH_RETRY_BACKOFF_MS = 1500;
 
 export function buildResourceSamplingClassificationSystemContent(): string {
   return [
@@ -249,6 +267,10 @@ export class TopicSelectionResourceSamplingService {
   private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
   private readonly modelProfileRegistry: Pick<TopicSelectionModelProfileRegistryService, 'resolveProfile'>;
+  private readonly classificationRetry: {
+    maxRetriesPerBatch: number;
+    backoffMs: (retryIndex: number) => number;
+  };
 
   constructor(private readonly options: ServiceOptions) {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
@@ -257,6 +279,13 @@ export class TopicSelectionResourceSamplingService {
       ?? new TopicSelectionContextPolicyProfileRegistryService();
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
     this.agentOrchestrator = options.agentOrchestrator;
+    this.classificationRetry = {
+      maxRetriesPerBatch: Math.max(0, Math.trunc(
+        options.classificationRetryPolicy?.maxRetriesPerBatch ?? CLASSIFICATION_BATCH_MAX_RETRIES,
+      )),
+      backoffMs: options.classificationRetryPolicy?.backoffMs
+        ?? ((retryIndex) => CLASSIFICATION_BATCH_RETRY_BACKOFF_MS * 2 ** (retryIndex - 1)),
+    };
   }
 
   async createResourceSampleSet(
@@ -361,6 +390,7 @@ export class TopicSelectionResourceSamplingService {
           eligible_count: eligibleCandidates.length,
           selected_count: assembly.selectedItems.length,
           warning_codes: assembly.warnings,
+          classification_batches: classification.batchStats,
         },
         error_code: classification.error ? 'LLM_CLASSIFICATION_FAILED' : null,
         error_message: classification.error ? this.errorMessage(classification.error) : null,
@@ -528,112 +558,170 @@ export class TopicSelectionResourceSamplingService {
         llmOutput: { classifications: [] },
         telemetry: null,
         error: null,
+        batchStats: { batch_count: 0, failed_batch_count: 0, retried_batch_count: 0, retry_attempt_count: 0 },
       };
     }
     const batches = this.chunkCandidates(input.eligibleCandidates, LLM_CLASSIFICATION_BATCH_SIZE);
     const classifications: TopicSelectionResourceCandidateClassificationDraft[] = [];
     const telemetry: LlmCallTelemetry[] = [];
+    // W-10 run5 lesson: a batch failure must stay a BATCH failure. Each batch gets bounded
+    // retries with backoff; a batch that still fails only blocks its own candidates, and the
+    // all-batches-failed case keeps the legacy whole-classification-failed semantics.
+    const failedLiteratureIds = new Set<string>();
+    let failedBatchCount = 0;
+    let retriedBatchCount = 0;
+    let retryAttemptCount = 0;
+    let lastBatchError: unknown = null;
 
-    try {
-      for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
-        const batchCandidates = batches[batchIndex]!;
-        const request = this.classificationRequest({
-          input: input.input,
-          policyVersion: input.policyVersion,
-          roleTargets: input.roleTargets,
-          sampleSize: input.sampleSize,
-          batchCandidates,
-          batchIndex,
-          batchCount: batches.length,
-        });
-        const runtimeContext = this.resourceSamplingBatchRuntimeContext({
-          ...input,
-          batchCandidates,
-          batchIndex,
-          batchCount: batches.length,
-        });
-        const runtimeProfile = this.resolveResourceSamplingRuntimeProfile();
-        const runtimeInvocationContextHash = this.resourceSamplingRuntimeInvocationContextHash({
-          topicId: input.input.topic_id,
-          policyVersion: input.policyVersion,
-          roleTargets: input.roleTargets,
-          sampleSize: input.sampleSize,
-          batchContext: runtimeContext,
-          batchIndex,
-          batchCount: batches.length,
-        });
-        const contextPacketHash = this.hash(runtimeContext);
-        const invocation = await this.agentOrchestrator.invokeStructuredOutput<TopicSelectionResourceSamplingLlmOutput>({
-          workspace_id: input.input.workspace_id ?? null,
-          title_card_id: input.input.title_card_id ?? null,
-          node_id: TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_ID,
-          workflow_run_id: input.workflowRunId,
-          node_attempt_id: `${input.sampleSetId}.batch_${batchIndex + 1}`,
-          invocation_attempt_id: `${input.sampleSetId}.${RESOURCE_SAMPLING_INVOCATION_SLOT_ID}.batch_${batchIndex + 1}`,
-          execution_mode: 'provider_llm',
-          executor_kind: 'single_agent',
-          run_mode: 'product',
-          profile_id: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
-          output_contract: TOPIC_SELECTION_RESOURCE_SAMPLING_OUTPUT_CONTRACT,
-          model_option_id: this.modelOptionIdForModel(input.model),
-          prompt: request.prompt,
-          prompt_variant_key: RESOURCE_SAMPLING_INVOCATION_SLOT_ID,
-          schema_name: request.schemaName,
-          schema: request.schema,
-          messages: request.messages,
-          input_refs: this.resourceSamplingInputRefs(batchCandidates),
-          context_packet_hashes: [contextPacketHash],
-          runtime_token_budget: this.resourceSamplingRuntimeTokenBudget({
-            runtimeProfile,
-            runtimeInvocationContextHash,
-            batchContext: runtimeContext,
-            compressionAttempt: this.resourceSamplingCompressionAttempt({
-              input: input.input,
-              policyVersion: input.policyVersion,
-              roleTargets: input.roleTargets,
-              batchCandidates,
-              batchIndex,
-              batchCount: batches.length,
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+      const batchCandidates = batches[batchIndex]!;
+      const request = this.classificationRequest({
+        input: input.input,
+        policyVersion: input.policyVersion,
+        roleTargets: input.roleTargets,
+        sampleSize: input.sampleSize,
+        batchCandidates,
+        batchIndex,
+        batchCount: batches.length,
+      });
+      const runtimeContext = this.resourceSamplingBatchRuntimeContext({
+        ...input,
+        batchCandidates,
+        batchIndex,
+        batchCount: batches.length,
+      });
+      const runtimeProfile = this.resolveResourceSamplingRuntimeProfile();
+      const runtimeInvocationContextHash = this.resourceSamplingRuntimeInvocationContextHash({
+        topicId: input.input.topic_id,
+        policyVersion: input.policyVersion,
+        roleTargets: input.roleTargets,
+        sampleSize: input.sampleSize,
+        batchContext: runtimeContext,
+        batchIndex,
+        batchCount: batches.length,
+      });
+      const contextPacketHash = this.hash(runtimeContext);
+
+      let batchSucceeded = false;
+      for (let retry = 0; retry <= this.classificationRetry.maxRetriesPerBatch; retry += 1) {
+        // Retries are distinct attempts end to end: fresh node/invocation attempt ids keep
+        // control-plane provenance rows unique and every paid call auditable.
+        const attemptSuffix = retry > 0 ? `.retry_${retry}` : '';
+        let attemptError: unknown = null;
+        try {
+          const invocation = await this.agentOrchestrator.invokeStructuredOutput<TopicSelectionResourceSamplingLlmOutput>({
+            workspace_id: input.input.workspace_id ?? null,
+            title_card_id: input.input.title_card_id ?? null,
+            node_id: TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_ID,
+            workflow_run_id: input.workflowRunId,
+            node_attempt_id: `${input.sampleSetId}.batch_${batchIndex + 1}${attemptSuffix}`,
+            invocation_attempt_id: `${input.sampleSetId}.${RESOURCE_SAMPLING_INVOCATION_SLOT_ID}.batch_${batchIndex + 1}${attemptSuffix}`,
+            execution_mode: 'provider_llm',
+            executor_kind: 'single_agent',
+            run_mode: 'product',
+            profile_id: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
+            output_contract: TOPIC_SELECTION_RESOURCE_SAMPLING_OUTPUT_CONTRACT,
+            model_option_id: this.modelOptionIdForModel(input.model),
+            prompt: request.prompt,
+            prompt_variant_key: RESOURCE_SAMPLING_INVOCATION_SLOT_ID,
+            schema_name: request.schemaName,
+            schema: request.schema,
+            messages: request.messages,
+            input_refs: this.resourceSamplingInputRefs(batchCandidates),
+            context_packet_hashes: [contextPacketHash],
+            runtime_token_budget: this.resourceSamplingRuntimeTokenBudget({
+              runtimeProfile,
+              runtimeInvocationContextHash,
               batchContext: runtimeContext,
+              compressionAttempt: this.resourceSamplingCompressionAttempt({
+                input: input.input,
+                policyVersion: input.policyVersion,
+                roleTargets: input.roleTargets,
+                batchCandidates,
+                batchIndex,
+                batchCount: batches.length,
+                batchContext: runtimeContext,
+              }),
             }),
-          }),
-          created_by: input.createdBy,
-        });
-        const invocationTelemetry = this.gatewayTelemetryFromInvocation(invocation);
-        if (invocationTelemetry) {
-          telemetry.push(invocationTelemetry);
+            created_by: input.createdBy,
+          });
+          const invocationTelemetry = this.gatewayTelemetryFromInvocation(invocation);
+          if (invocationTelemetry) {
+            telemetry.push(invocationTelemetry);
+          }
+          if (invocation.status !== 'succeeded' || !invocation.structured_output) {
+            attemptError = this.invocationError(invocation);
+          } else {
+            classifications.push(...invocation.structured_output.classifications);
+            batchSucceeded = true;
+            if (retry > 0) {
+              retriedBatchCount += 1;
+            }
+            break;
+          }
+        } catch (error) {
+          attemptError = error;
+          const failedTelemetry = this.errorTelemetry(error);
+          if (failedTelemetry) {
+            telemetry.push(failedTelemetry);
+          }
         }
-        if (invocation.status !== 'succeeded' || !invocation.structured_output) {
-          throw this.invocationError(invocation);
+        lastBatchError = attemptError;
+        if (retry < this.classificationRetry.maxRetriesPerBatch) {
+          retryAttemptCount += 1;
+          await this.sleepMs(this.classificationRetry.backoffMs(retry + 1));
         }
-        classifications.push(...invocation.structured_output.classifications);
       }
-      const llmOutput: TopicSelectionResourceSamplingLlmOutput = { classifications };
-      const classificationsByLiteratureId = new Map(
-        llmOutput.classifications.map((classification) => [
-          classification.literature_ref.ref_id,
-          classification,
-        ]),
-      );
-      return {
-        guarded: input.eligibleCandidates.map((candidate) =>
-          this.applyGuardrails(candidate, classificationsByLiteratureId.get(candidate.literature_ref.ref_id)),
-        ),
-        llmOutput,
-        telemetry: this.aggregateTelemetry(input.model, telemetry),
-        error: null,
-      };
-    } catch (error) {
-      const failedTelemetry = this.errorTelemetry(error);
+      if (!batchSucceeded) {
+        failedBatchCount += 1;
+        for (const candidate of batchCandidates) {
+          failedLiteratureIds.add(candidate.literature_ref.ref_id);
+        }
+      }
+    }
+
+    const batchStats: ClassificationBatchStats = {
+      batch_count: batches.length,
+      failed_batch_count: failedBatchCount,
+      retried_batch_count: retriedBatchCount,
+      retry_attempt_count: retryAttemptCount,
+    };
+    if (failedBatchCount === batches.length) {
+      // Legacy semantics preserved: nothing classified → whole classification failed.
       return {
         guarded: input.eligibleCandidates.map((candidate) => this.blockedClassification(candidate, 'LLM_CLASSIFICATION_FAILED')),
         llmOutput: { classifications: [] },
-        telemetry: this.aggregateTelemetry(input.model, [...telemetry, failedTelemetry].filter(
-          (item): item is LlmCallTelemetry => Boolean(item),
-        )),
-        error,
+        telemetry: this.aggregateTelemetry(input.model, telemetry),
+        error: lastBatchError ?? new AppError(500, 'INTERNAL_ERROR', 'Resource sampling classification failed for every batch.'),
+        batchStats,
       };
     }
+    const llmOutput: TopicSelectionResourceSamplingLlmOutput = { classifications };
+    const classificationsByLiteratureId = new Map(
+      llmOutput.classifications.map((classification) => [
+        classification.literature_ref.ref_id,
+        classification,
+      ]),
+    );
+    return {
+      guarded: input.eligibleCandidates.map((candidate) =>
+        failedLiteratureIds.has(candidate.literature_ref.ref_id)
+          ? this.blockedClassification(candidate, 'LLM_CLASSIFICATION_FAILED')
+          : this.applyGuardrails(candidate, classificationsByLiteratureId.get(candidate.literature_ref.ref_id))),
+      llmOutput,
+      telemetry: this.aggregateTelemetry(input.model, telemetry),
+      error: null,
+      batchStats,
+    };
+  }
+
+  private async sleepMs(ms: number): Promise<void> {
+    if (!Number.isFinite(ms) || ms <= 0) {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 
   private classificationRequest(input: {
@@ -1225,6 +1313,10 @@ export class TopicSelectionResourceSamplingService {
     const warnings = new Set<string>();
     if (input.classification.error) {
       warnings.add('LLM_CLASSIFICATION_FAILED');
+    } else if (input.classification.batchStats.failed_batch_count > 0) {
+      // Some batches failed after retries but the rest classified: their candidates are
+      // review-blocked individually and the run continues on the surviving classifications.
+      warnings.add('LLM_CLASSIFICATION_PARTIAL');
     }
     if (input.eligibleCandidates.length === 0) {
       warnings.add('NO_ELIGIBLE_RESOURCE_CANDIDATES');
