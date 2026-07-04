@@ -394,6 +394,9 @@ function makeService(
     agentOrchestrator: makeAgentOrchestrator(controlPlane, llmGateway),
     idFactory: makeIdFactory(),
     now: () => NOW,
+    // Zero backoff in tests: failure-path tests would otherwise sleep the real 1.5s/3s
+    // production backoff between retries (review finding — one gateway-failure test cost ~4.5s).
+    classificationRetryPolicy: { backoffMs: () => 0 },
   });
 }
 
@@ -1273,4 +1276,29 @@ test('resource sampling keeps whole-classification-failed semantics when every b
   assert.ok(result.sample_set.warnings.includes('LLM_CLASSIFICATION_FAILED'));
   assert.ok(!result.sample_set.warnings.includes('LLM_CLASSIFICATION_PARTIAL'));
   assert.equal(result.selected_items.length, 0);
+});
+
+test('a deterministic pre-provider block (over budget even after compression) is not retried', async () => {
+  // One candidate whose ABSTRACT is so fat that even the digest-stripped compressed form stays over
+  // budget: the token gate blocks deterministically (TOKEN_BUDGET_OVER_LIMIT_AFTER_COMPRESSION)
+  // before any provider call. Retrying a pure gate block re-fails identically — the review fix
+  // skips the retries (and their backoff) for this class while keeping provider failures retryable.
+  const fatAbstract = `Retrieval augmented generation evidence. ${'x'.repeat(200000)}`;
+  const gateway = new BatchAwareLlmGateway();
+  const { service, invocationAttemptIds } = makeRetryService(gateway, [
+    literature('lit_fat_abstract', 'Fat abstract paper', fatAbstract, ['bulk']),
+  ]);
+
+  const result = await service.createResourceSampleSet({
+    topic_id: TOPIC_ID,
+    title_card_id: TITLE_CARD_ID,
+    sample_size: 4,
+    role_targets: { support: 1, challenge: 1, baseline: 1, context: 1 },
+  });
+
+  assert.equal(invocationAttemptIds.length, 1, 'no retry attempts for a deterministic gate block');
+  assert.ok(!invocationAttemptIds[0]!.includes('.retry_'), 'the single attempt is the original, unsuffixed one');
+  assert.equal(gateway.calls.length, 0, 'the gate blocked before any provider call');
+  assert.equal(result.sample_set.status, 'blocked');
+  assert.ok(result.sample_set.warnings.includes('LLM_CLASSIFICATION_FAILED'));
 });

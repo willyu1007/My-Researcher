@@ -246,6 +246,11 @@ const LLM_CLASSIFICATION_BATCH_SIZE = 24;
 // single batch must not discard every other batch's paid classification).
 const CLASSIFICATION_BATCH_MAX_RETRIES = 2;
 const CLASSIFICATION_BATCH_RETRY_BACKOFF_MS = 1500;
+// Deterministic pre-provider blocks re-fail identically on retry (review finding): the token-budget
+// gate and the compression quality gate are pure functions of the batch input — retrying burns backoff
+// time (and, for nothing, gate evaluations) without a provider call ever happening. Provider-side and
+// schema-validation failures stay retryable (LLM nondeterminism is the whole point of the retry).
+const NON_RETRYABLE_CLASSIFICATION_BLOCKER_PREFIXES = ['TOKEN_BUDGET_', 'COMPRESSION_QUALITY_GATE_'] as const;
 
 export function buildResourceSamplingClassificationSystemContent(): string {
   return [
@@ -649,14 +654,23 @@ export class TopicSelectionResourceSamplingService {
           if (invocationTelemetry) {
             telemetry.push(invocationTelemetry);
           }
+          let deterministicallyBlocked = false;
           if (invocation.status !== 'succeeded' || !invocation.structured_output) {
             attemptError = this.invocationError(invocation);
+            const blockerCodes = invocation.blocker_codes ?? [];
+            deterministicallyBlocked = blockerCodes.length > 0 && blockerCodes.every((code) =>
+              NON_RETRYABLE_CLASSIFICATION_BLOCKER_PREFIXES.some((prefix) => code.startsWith(prefix)));
           } else {
             classifications.push(...invocation.structured_output.classifications);
             batchSucceeded = true;
             if (retry > 0) {
               retriedBatchCount += 1;
             }
+            break;
+          }
+          if (deterministicallyBlocked) {
+            // A pure gate block re-fails identically — record the failure and skip the retries.
+            lastBatchError = attemptError;
             break;
           }
         } catch (error) {

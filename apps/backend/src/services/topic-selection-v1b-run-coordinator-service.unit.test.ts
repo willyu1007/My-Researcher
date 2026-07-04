@@ -1685,3 +1685,30 @@ test('N6 debate crash mid-debate re-runs cleanly on re-advance (no marker, no st
     'the fresh debate draft (not anything stale) is what got attached and admitted',
   );
 });
+
+// Review fix (2026-07-03 adversarial pass): the regenerate threading must be PENDING-aware. After an
+// N5 slice-rollback re-drive, the next N6 entry is a FRESH forward pass — auto-attaching the stale
+// regenerate projection would dead-end both draft variants (prompt-identity / lineage-hash drift).
+test('a fresh N6 entry after an N5 re-drive does NOT attach the stale regenerate projection', async () => {
+  const { harness, coordinator, controlPlane } = await driveToN6RegenerateFailure();
+
+  // Operator re-drives N5 (the slice-rollback path): N5 re-admits AFTER the N6 loopback.
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_redrive' });
+
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: { [N6]: { draft_payload: { candidates: ['fresh-after-rollback'] } } },
+    max_steps: 1,
+  });
+  assert.equal(report.steps[0]!.node_id, N6);
+
+  const artifacts = await controlPlane.listArtifactRefsByWorkflowRunId(RUN);
+  const projection = artifacts.find((artifact) =>
+    (artifact.payload as Record<string, unknown> | null)?.projection_kind === 'v1b_n6_gate_failure_retry_context');
+  assert.ok(projection, 'the stale projection still exists on the run');
+  const freshN6 = harness.invocations.filter((request) => request.node_id === N6).at(-1)!;
+  assert.ok(
+    !freshN6.frozen_input.source_refs.some((item) => item.ref_id === projection!.artifact_ref_id),
+    'the fresh forward N6 entry must not carry the stale regenerate projection',
+  );
+});

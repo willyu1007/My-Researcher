@@ -65,6 +65,7 @@ const POLICY_BY_NODE_ID = new Map<string, NodePolicy>(
 );
 
 /** Nodes whose harness-routed debate escalation/re-entry the coordinator drives caller-side (T-127 W-07 item a). */
+const N5_NODE_ID = 'topic-selection.v1b.select-research-slice.v1';
 const N6_NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1';
 const N7_NODE_ID = 'topic-selection.v1b.materialize-topic-question-contract.v1';
 const N8_NODE_ID = 'topic-selection.v1b.assess-topic-value.v1';
@@ -791,7 +792,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         // attach iff the regenerate-route projection is already recorded on this run — a first N6
         // entry has none, so its request assembly stays byte-identical.
         request = await this.buildNextRequest(input, projection, nextNodeId,
-          await this.n6RegenerateProjectionOpts(input.workflow_run_id, nextNodeId));
+          await this.n6RegenerateProjectionOpts(input, projection, nextNodeId));
       } catch (error) {
         // W-04: a missing upstream/feedback precondition surfaces as a structured halt (named
         // artifact) the operator can resolve, instead of a raw 500 from deep in request assembly.
@@ -1185,19 +1186,28 @@ export class TopicSelectionV1bRunCoordinatorService {
     return { kind: 'ok', gateDraftArtifact };
   }
 
-  /** D-T128-01 (A): presence-based projection opts for the SINGLE-AGENT N6 regeneration re-entry.
-   *  The debate escalation route threads the gate-failure retry projection explicitly (advance body);
-   *  the regenerate route gets the same projection here iff one is already recorded on this run,
-   *  pinned by the loopback_target_code discriminator so an escalation-route projection is never
-   *  mis-attached. Absent (every first N6 entry) → `{}` → request assembly byte-identical. */
+  /** D-T128-01 (A): projection opts for the SINGLE-AGENT N6 regeneration re-entry. The debate
+   *  escalation route threads the gate-failure retry projection explicitly (advance body); the
+   *  regenerate route gets the same projection here, pinned by the loopback_target_code
+   *  discriminator so an escalation-route projection is never mis-attached.
+   *
+   *  Review fix (2026-07-03 adversarial pass): the check must be PENDING-aware, not run-lifetime
+   *  presence-based. A stale regenerate projection attached to a FRESH N6 entry (e.g. after an N5
+   *  slice-rollback re-drive) dead-ends BOTH draft variants — the runtime fail-closes an
+   *  initial-variant draft on prompt-identity drift and a regenerate-variant draft on lineage-hash
+   *  drift. Pending ⇔ N6's latest attempt looped back without the escalation warning (the regenerate
+   *  default, mirroring pendingN6DebateEscalation) AND N5 has not re-admitted since (the
+   *  pendingN8BoundedDebate seq comparison — an N5 re-drive makes the next N6 entry a fresh forward
+   *  pass). Not pending → `{}` → request assembly byte-identical to pre-W-12. */
   private async n6RegenerateProjectionOpts(
-    workflowRunId: string,
+    input: AdvanceTopicSelectionV1bRunInput,
+    projection: TopicSelectionV1bRunStateProjection,
     nextNodeId: string,
   ): Promise<{ extraProjectionKind?: string; extraProjectionDiscriminator?: { key: string; value: string } }> {
-    if (nextNodeId !== N6_NODE_ID) {
+    if (nextNodeId !== N6_NODE_ID || !this.pendingN6RegenerateLoopback(projection)) {
       return {};
     }
-    const artifacts = await this.deps.controlPlane.listArtifactRefsByWorkflowRunId(workflowRunId);
+    const artifacts = await this.deps.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
     const recorded = artifacts.some((artifact) => {
       const payload = artifact.payload as Record<string, unknown> | null | undefined;
       return payload?.projection_kind === N6_GATE_FAILURE_PROJECTION_KIND
@@ -1209,6 +1219,22 @@ export class TopicSelectionV1bRunCoordinatorService {
         extraProjectionDiscriminator: { key: 'loopback_target_code', value: 'n6_regenerate_candidates' },
       }
       : {};
+  }
+
+  /** The single-agent twin of pendingN6DebateEscalation: N6 most-recently looped back WITHOUT the
+   *  escalation warning (= the regenerate default route), and N5 has NOT re-admitted since — an N5
+   *  re-admission (slice rollback re-drive) means the coming N6 entry is a fresh forward pass whose
+   *  draft must NOT carry the stale gate-failure retry projection. */
+  private pendingN6RegenerateLoopback(projection: TopicSelectionV1bRunStateProjection): boolean {
+    const latest = projection.nodes.find((node) => node.node_id === N6_NODE_ID)?.latest;
+    if (!latest || latest.route_decision !== 'loopback') {
+      return false;
+    }
+    if (latest.warnings.some((warning) => warning.code === N6_DEBATE_ESCALATION_WARNING_CODE)) {
+      return false;
+    }
+    const n5Admitted = projection.nodes.find((node) => node.node_id === N5_NODE_ID)?.latest_admitted;
+    return !(n5Admitted && n5Admitted.seq > latest.seq);
   }
 
   private debateBlockedMessage(nodeId: string, status: string): string {
