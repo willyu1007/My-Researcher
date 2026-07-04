@@ -13,6 +13,12 @@
 // The only difference is that this wrapper PIPES (instead of inherits) the
 // child's stdout/stderr so it can capture and parse the TAP output.
 //
+// Concurrency: each iteration inherits run-node-tests.mjs's cross-process
+// suite lock (see its header), so a suite run from another session serializes
+// against this hunt instead of corrupting it with resource-contention false
+// reds. That other session may fairly grab the lock between two iterations;
+// an iteration that had to wait just shows a longer elapsed time.
+//
 // Usage:
 //   node scripts/run-node-tests-repeat.mjs [iterations]
 //   TEST_REPEAT_N=50 node scripts/run-node-tests-repeat.mjs

@@ -273,7 +273,10 @@ function buildLaneManifest(input) {
       command('shared-typecheck', 'deterministic', ['pnpm', '--filter', '@paper-engineering-assistant/shared', 'typecheck'], '.', 120_000, input.mode),
       command('shared-test', 'deterministic', ['pnpm', '--filter', '@paper-engineering-assistant/shared', 'test'], '.', 180_000, input.mode),
       command('backend-typecheck', 'deterministic', ['pnpm', '--filter', '@paper-engineering-assistant/backend', 'typecheck'], '.', 180_000, input.mode),
-      command('backend-test', 'deterministic', ['pnpm', '--filter', '@paper-engineering-assistant/backend', 'test'], '.', 300_000, input.mode),
+      // 900s, not 300s: a solo full suite already runs ~286-294s, and the
+      // suite runner's cross-process lock (run-node-tests.mjs) may queue this
+      // step behind another session's run before it can even start.
+      command('backend-test', 'deterministic', ['pnpm', '--filter', '@paper-engineering-assistant/backend', 'test'], '.', 900_000, input.mode),
       command('desktop-typecheck', 'deterministic', ['pnpm', '--filter', '@paper-engineering-assistant/desktop', 'typecheck'], '.', 180_000, input.mode),
       command('desktop-build', 'deterministic', ['pnpm', '--filter', '@paper-engineering-assistant/desktop', 'build'], '.', 180_000, input.mode),
       command('desktop-smoke-e2e', 'deterministic', ['pnpm', '--filter', '@paper-engineering-assistant/desktop', 'smoke:e2e'], '.', 120_000, input.mode),
