@@ -1528,3 +1528,160 @@ test('N8 first pass never runs the bounded debate (it runs only after the N7 rou
   assert.match(report.halt.message, /not at a debate frontier/);
   assert.equal(n8BoundedDebateRuntime.calls.length, 0);
 });
+
+/** Drive N1..N5, then an N6 gate-failure WITHOUT triage — the real harness defaults this loopback to
+ *  `n6_regenerate_candidates` and records the gate-failure retry projection for it (harness :3114-3126).
+ *  The stub does not, so the projection is recorded manually (mirrors driveToN6Escalation). */
+async function driveToN6RegenerateFailure(): Promise<ReturnType<typeof makeSubject>> {
+  const subject = makeSubject();
+  const { harness, coordinator, controlPlane } = subject;
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+  harness.on(N5, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N5ToN6Handoff' });
+  let n6Calls = 0;
+  harness.route(N6, () => {
+    n6Calls += 1;
+    return n6Calls === 1
+      ? { gate_status: 'blocked', route_decision: 'loopback' }
+      : { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N6ToN7Handoff' };
+  });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+  const blocked = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    node_inputs: { [N6]: { draft_payload: { candidates: [] } } },
+  });
+  assert.equal(blocked.halt.reason, 'harness_loopback');
+  assert.equal(blocked.halt.node_id, N6);
+  await controlPlane.recordArtifactRef({
+    artifact_kind: 'diagnostic',
+    workflow_run_id: RUN,
+    payload: { projection_kind: 'v1b_n6_gate_failure_retry_context', loopback_target_code: 'n6_regenerate_candidates' },
+  });
+  return subject;
+}
+
+// D-T128-01 (A): the single-agent regeneration re-entry threads the regenerate-route projection
+// presence-based (the debate route already threads its own explicitly). Without this the runtime's
+// regeneration_after_n6_gate_failure mode structurally blocks — the residual "soft dead end".
+test('single-agent N6 regeneration re-entry threads the regenerate-route gate-failure projection', async () => {
+  const { harness, coordinator, controlPlane } = await driveToN6RegenerateFailure();
+
+  await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { draft_payload: { candidates: ['regenerated'] } } },
+    max_steps: 1,
+  });
+
+  const n6Requests = harness.invocations.filter((request) => request.node_id === N6);
+  assert.equal(n6Requests.length, 2, 'gate-failure attempt + regeneration re-entry');
+  const artifacts = await controlPlane.listArtifactRefsByWorkflowRunId(RUN);
+  const projection = artifacts.find((artifact) =>
+    (artifact.payload as Record<string, unknown> | null)?.projection_kind === 'v1b_n6_gate_failure_retry_context');
+  assert.ok(projection, 'the regenerate-route projection is recorded');
+  const retryRefs = n6Requests[1]!.frozen_input.source_refs;
+  assert.ok(
+    retryRefs.some((item) => item.ref_type === 'artifact_ref' && item.ref_id === projection!.artifact_ref_id),
+    'the re-entry frozen_input.source_refs carries the projection artifact ref',
+  );
+  // The FIRST N6 entry predates the projection — presence-based threading attached nothing then.
+  assert.ok(
+    !n6Requests[0]!.frozen_input.source_refs.some((item) => item.ref_id === projection!.artifact_ref_id),
+    'the first entry is untouched (byte-identical no-op)',
+  );
+});
+
+// D-T128-01 (B) blocked-then-retry: with BOTH routes' projections present plus an older regenerate one,
+// the single-agent re-entry picks the discriminated (regenerate) MOST-RECENT projection — never the
+// escalation-route one, never a stale one. Twin of the escalation-side discriminator test above.
+test('single-agent N6 re-entry pins the most-recent regenerate-route projection (never the escalation one)', async () => {
+  const { harness, coordinator, controlPlane } = await driveToN6RegenerateFailure();
+  await controlPlane.recordArtifactRef({
+    artifact_kind: 'diagnostic',
+    workflow_run_id: RUN,
+    payload: { projection_kind: 'v1b_n6_gate_failure_retry_context', loopback_target_code: 'n6_debate_escalation' },
+  });
+  const newest = await controlPlane.recordArtifactRef({
+    artifact_kind: 'diagnostic',
+    workflow_run_id: RUN,
+    payload: {
+      projection_kind: 'v1b_n6_gate_failure_retry_context',
+      loopback_target_code: 'n6_regenerate_candidates',
+      retry_round: 2,
+    },
+  });
+
+  await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { draft_payload: { candidates: ['regenerated'] } } },
+    max_steps: 1,
+  });
+
+  const retry = harness.invocations.filter((request) => request.node_id === N6).at(-1)!;
+  const artifacts = await controlPlane.listArtifactRefsByWorkflowRunId(RUN);
+  const escalation = artifacts.find((artifact) => {
+    const payload = artifact.payload as Record<string, unknown> | null;
+    return payload?.projection_kind === 'v1b_n6_gate_failure_retry_context'
+      && payload?.loopback_target_code === 'n6_debate_escalation';
+  });
+  assert.ok(
+    retry.frozen_input.source_refs.some((item) => item.ref_id === newest.artifact_ref_id),
+    'threads the most-recent regenerate-route projection',
+  );
+  assert.ok(
+    !retry.frozen_input.source_refs.some((item) => item.ref_id === escalation!.artifact_ref_id),
+    'the escalation-route projection is never mis-attached to the single-agent re-entry',
+  );
+});
+
+// D-T128-01 (B) crash-mid-debate: the debate runtime dies BEFORE completing (no gate-draft marker
+// recorded), so the re-advance must re-run the debate cleanly — nothing stale is admitted, and exactly
+// one marker exists afterwards. Complements the existing 'reuses the gate-draft' test, which covers the
+// completed-debate -> harness-rejection window.
+test('N6 debate crash mid-debate re-runs cleanly on re-advance (no marker, no stale admit)', async () => {
+  const { harness, coordinator, controlPlane, n6DivergentDebateRuntime } = await driveToN6Escalation();
+
+  n6DivergentDebateRuntime.throwError = new Error('synthetic mid-debate crash');
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      retry_node_id: N6,
+      node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+    }),
+    /synthetic mid-debate crash/,
+  );
+  assert.equal(n6DivergentDebateRuntime.calls.length, 1, 'debate attempted once before the crash');
+  const markersAfterCrash = (await controlPlane.listArtifactRefsByWorkflowRunId(RUN)).filter((artifact) =>
+    (artifact.payload as Record<string, unknown> | null)?.marker === 'v1b_run_coordinator_debate_gate_draft@v1');
+  assert.equal(markersAfterCrash.length, 0, 'no gate-draft marker lands for an incomplete debate');
+
+  n6DivergentDebateRuntime.throwError = null;
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N6,
+    node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+    max_steps: 1,
+  });
+  assert.equal(report.steps[0]!.node_id, N6);
+  assert.equal(n6DivergentDebateRuntime.calls.length, 2, 'the re-advance re-runs the debate from scratch');
+  const markers = (await controlPlane.listArtifactRefsByWorkflowRunId(RUN)).filter((artifact) =>
+    (artifact.payload as Record<string, unknown> | null)?.marker === 'v1b_run_coordinator_debate_gate_draft@v1');
+  assert.equal(markers.length, 1, 'exactly one marker after the clean re-run');
+  const lastN6 = harness.invocations.filter((request) => request.node_id === N6).at(-1)!;
+  const attached = lastN6.semantic_artifacts?.[0];
+  const markerDraft = (markers[0]!.payload as Record<string, unknown>).gate_draft_semantic_artifact as {
+    support_artifact_ref: { ref_id: string };
+  };
+  assert.equal(
+    attached?.support_artifact_ref.ref_id,
+    markerDraft.support_artifact_ref.ref_id,
+    'the fresh debate draft (not anything stale) is what got attached and admitted',
+  );
+});

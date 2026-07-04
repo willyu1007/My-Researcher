@@ -364,6 +364,16 @@ export type TopicSelectionV1bRunCoordinatorNodeInput = {
    *     only when run_mode !== 'product').
    * The real-harness round-trip (loopback-inducing draft + lineage-correct triage -> routed escalation)
    * is covered by the harness E2E test; this channel's coordinator-side contract is to record + attach.
+   *
+   * N6 regeneration re-entry caller contract (D-T128-01 C): after an N6 gate-failure loopback the
+   * harness records a `v1b_n6_gate_failure_retry_context` projection for BOTH loopback routes. The
+   * runtime's `regeneration_after_n6_gate_failure` mode then requires EXACTLY ONE such projection in
+   * frozen_input.source_refs (and no N7 loopback projection) — the harness derives the mode from the
+   * draft's prompt_variant_key and blocks a projection-less regeneration. The coordinator threads the
+   * projection automatically on re-entry, discriminated by loopback_target_code (`n6_debate_escalation`
+   * on the debate route, `n6_regenerate_candidates` presence-based on the single-agent route), always
+   * picking the most-recent match. Callers therefore only supply the regeneration draft (or debate
+   * fixtures); supplying/duplicating the projection artifact itself is NOT a caller responsibility.
    */
   support_payloads?: Record<string, Record<string, unknown>> | null;
 };
@@ -775,7 +785,13 @@ export class TopicSelectionV1bRunCoordinatorService {
 
       let request: TopicSelectionV1bWorkflowHarnessRunRequest;
       try {
-        request = await this.buildNextRequest(input, projection, nextNodeId);
+        // D-T128-01 (A): a single-agent N6 regeneration re-entry needs the gate-failure retry
+        // projection in frozen_input.source_refs (the runtime's regeneration_after_n6_gate_failure
+        // mode requires exactly one). Presence-based mirror of the debate route's threading above:
+        // attach iff the regenerate-route projection is already recorded on this run — a first N6
+        // entry has none, so its request assembly stays byte-identical.
+        request = await this.buildNextRequest(input, projection, nextNodeId,
+          await this.n6RegenerateProjectionOpts(input.workflow_run_id, nextNodeId));
       } catch (error) {
         // W-04: a missing upstream/feedback precondition surfaces as a structured halt (named
         // artifact) the operator can resolve, instead of a raw 500 from deep in request assembly.
@@ -1167,6 +1183,32 @@ export class TopicSelectionV1bRunCoordinatorService {
       created_by: request.created_by ?? 'system',
     });
     return { kind: 'ok', gateDraftArtifact };
+  }
+
+  /** D-T128-01 (A): presence-based projection opts for the SINGLE-AGENT N6 regeneration re-entry.
+   *  The debate escalation route threads the gate-failure retry projection explicitly (advance body);
+   *  the regenerate route gets the same projection here iff one is already recorded on this run,
+   *  pinned by the loopback_target_code discriminator so an escalation-route projection is never
+   *  mis-attached. Absent (every first N6 entry) → `{}` → request assembly byte-identical. */
+  private async n6RegenerateProjectionOpts(
+    workflowRunId: string,
+    nextNodeId: string,
+  ): Promise<{ extraProjectionKind?: string; extraProjectionDiscriminator?: { key: string; value: string } }> {
+    if (nextNodeId !== N6_NODE_ID) {
+      return {};
+    }
+    const artifacts = await this.deps.controlPlane.listArtifactRefsByWorkflowRunId(workflowRunId);
+    const recorded = artifacts.some((artifact) => {
+      const payload = artifact.payload as Record<string, unknown> | null | undefined;
+      return payload?.projection_kind === N6_GATE_FAILURE_PROJECTION_KIND
+        && payload?.loopback_target_code === 'n6_regenerate_candidates';
+    });
+    return recorded
+      ? {
+        extraProjectionKind: N6_GATE_FAILURE_PROJECTION_KIND,
+        extraProjectionDiscriminator: { key: 'loopback_target_code', value: 'n6_regenerate_candidates' },
+      }
+      : {};
   }
 
   private debateBlockedMessage(nodeId: string, status: string): string {
