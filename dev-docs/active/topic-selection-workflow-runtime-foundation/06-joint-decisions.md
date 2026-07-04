@@ -1942,6 +1942,7 @@ error_code: string | null
 - **不改动**：`invokeNode` 生命周期/四类 blocker 顺序/`hashContext`→`node_replay_key`/route edges/既有 N6 三类 blocker/triage policy/`N6_DEBATE_ESCALATION_RECOMMENDED` warning 语义/所有 byte-bearing 哈希;projection 不入 `frozen_input`（source_refs 通道,`frozen_input_hash` 恒等——与既有 debate 穿线同机制）;不新增第二 projection 种类/装配路径。初次进入（无 projection 工件）路径 byte-identical。
 - **验证口径**：coordinator+harness 既有套件零回归（含 GUARD_GOLDEN_N1）;新增 (A) 再生穿线单测（driveTo 门失败→re-entry 请求 source_refs 含 discriminated projection→harness admit）+ (B) 两负例守卫;full backend 全绿;证据记 T-128 `04`。
 - **归属**：T-128 W-12（Phase 4）。冲突面：coordinator `buildNextRequest`/N6 re-entry 分支加法 + 测试;harness 本体预计零改动（若 (B) 需暴露测缝再回本条补记）。T-088 若同期改 N6 节点体/coordinator 请在此协调。
+- **复审修正（2026-07-03,对抗式复审,commit `592c42d0`）**：(A) 的「presence-based（run 生命周期存在性）」被复审证伪为边角 DEFECT——N5 slice 回滚重驱后的**全新** N6 前向进入会误附陈旧 regenerate projection,runtime 对错误附着不豁免而是 fail-close（initial 变体 `N6_DRAFT_ARTIFACT_PROMPT_IDENTITY_DRIFT`、regenerate 变体 lineage-hash drift）→ 双变体死端,回归 pre-W-12 可用路径。修正为 **pending-aware**：新增 `pendingN6RegenerateLoopback`（镜像 `pendingN6DebateEscalation` 的 loopback+无升级 warning 判定,并借 `pendingN8BoundedDebate` 的 seq 比较排除「N5 已在其后重新 admit」= 全新前向进入）,非 pending → `{}` byte-identical。+1 回归测（N5 重驱后不附着）。coordinator 49/49。harness 本体仍零改动。
 
 ## D-T128-02 (2026-06-25) — 占位：W-11 P-01 压缩恢复 topic-selection 半边（承 D-T128-00，跨 T-124 + T-088，联合决策登记）
 - **状态：占位（PLACEHOLDER）—— 待 W-11（Phase 4）与 T-124 + T-088 三方协调后回填具体 范围/不改动/设计要点。** 本条按 D6 协议 + 跨包协调在触碰前登记，**当前最大未追踪开口**。

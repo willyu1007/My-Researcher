@@ -223,4 +223,13 @@
 - **回归门**：shared **272/0**（+3 schema 测：双 canonical / 释放门槛负例组 / 严格性负例组）；双 tsc **0**；**full backend 1645/1610/0/35**（backend 计数不变——纯 shared 契约，0 fail）。
 - **提交**：feat `ce3cd67b` / docs 本段随本次 docs commit。
 
+### 2026-07-03 · Phase 4 波次对抗式复审 + 修复（W-11/W-R1/W-12/W-16 全覆盖）
+> 用户「检查下本轮实施的代码质量」。双代理三路复审：代码对抗（A–E 深检 + HEAD 复跑四套件）/ 文档一致性（JD↔代码、台账↔提交、计数链、DP-3.3 指针、收口声明——**全绿零问题**）/ 本会话自查（基线时间线与 chip 会话 5 提交增量精确对账、warnings 下游消费面清零）。
+- **裁定**：W-11 S1（逐字 diff 提取尾零漂移、防循环双路证明、既有三 fail-closed 钉原样、身份无陈旧泄漏、报告工件单次记录）与 S2（单源 builder 两形态唯一分歧=digest、穿透测真 E2E）**SOLID**;W-16 **SOLID**（`validatesBody` 实配 `removeAdditional:false`——严格性负例为"正确原因"通过;oneOf 互斥探针验证;gate 常量无 deepEqual 消费者）;W-R1 **2 MINOR**;W-12 **1 边角 DEFECT**。
+- **W-12 DEFECT（已修 `592c42d0`）**：presence-based 检查在「N6 regenerate 失败→二次失败路由 N5 slice 回滚→提额重驱 N5→全新 N6 前向进入」上误附陈旧 projection,runtime fail-close 双变体（prompt-identity / lineage-hash drift）死端。修正=**pending-aware**（`pendingN6RegenerateLoopback`：N6 最新 loopback 且无升级 warning + N5 未在其后重 admit;JD D-T128-01 同步修正留痕）。+1 回归测;coordinator **49/49**。
+- **W-R1 MINOR（已修,同 commit）**：① makeService 未注零退避 → 一个既有 gateway 失败测真睡产线退避 ~4.5s/全量跑——注入 `backoffMs () => 0`;② 确定性 pre-provider block（TOKEN_BUDGET_/COMPRESSION_QUALITY_GATE_ 前缀,批输入纯函数）重试必然同败——命中即跳过重试（provider/schema 失败保持可重试）。+1 测（胖 abstract 压缩后仍超 → 恰一调用/零 retry/零 provider/blocked）;sampling **21/21**。
+- **登记不修（复审观察项）**：S1 `blocked_after_compression` 下 estimate-unknown 走 `TOKEN_BUDGET_ESTIMATE_UNKNOWN` 而非 `_AFTER_COMPRESSION`（忠实 gate 产物,仅超限例被钉）;W-R1 attempt-id 唯一性为 by-construction（控制面无唯一约束,后缀价值=审计判别);W-16 `validatesBody` 的 Fastify `coerceTypes` 令数值字符串可过（无后端记录器消费此宽松性,立记录器时收紧）;W-12 stub 手录最小 projection payload（真 harness↔runtime 互作由 harness e2e 覆盖）。
+- **回归门**：coordinator 49/49、sampling 21/21、tsc 0;**full backend **1647/1612/0/35**(1645+2 回归测,0 fail)**。
+- **提交**：修复 `592c42d0` / JD 修正 + docs 本段随本次 docs commit。
+
 ### （待开工）
