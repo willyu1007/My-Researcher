@@ -6,6 +6,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { acquireSuiteLock } from '../../apps/backend/scripts/lib/suite-lock.mjs';
 import { PrismaClient } from '@prisma/client';
 
 import { PrismaTopicSelectionPromptPacketCacheStore } from '../../apps/backend/src/repositories/prisma/prisma-topic-selection-prompt-packet-cache-store.ts';
@@ -365,32 +366,47 @@ async function runCommand(step) {
   };
   const timeoutMs = step.timeoutMs ?? CHILD_TIMEOUT_MS;
 
-  const exit = await new Promise((resolve, reject) => {
-    const child = spawn(step.command, step.args, {
-      cwd: REPO_ROOT,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+  // Multi-file `node --test` steps spawn a ts-node fleet comparable to the
+  // full backend suite's — take the machine-wide suite lock so they never
+  // overlap another session's fleet. Acquired before the step timer starts,
+  // so lock wait does not consume the step budget. Residual (pre-existing):
+  // a step timeout kills only the coordinator, so orphaned workers may
+  // briefly outlive the released lock on that rare path.
+  const spawnsTestFleet =
+    step.args.filter((arg) => typeof arg === 'string' && arg.endsWith('.test.ts')).length >= 2;
+  const releaseSuiteLock = spawnsTestFleet ? await acquireSuiteLock() : () => {};
+
+  let exit;
+  try {
+    exit = await new Promise((resolve, reject) => {
+      const child = spawn(step.command, step.args, {
+        cwd: REPO_ROOT,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let timedOut = false;
+      let forceKillTimeout = null;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGTERM');
+        forceKillTimeout = setTimeout(() => child.kill('SIGKILL'), 5000);
+      }, timeoutMs);
+      child.stdout.on('data', (chunk) => stdoutChunks.push(Buffer.from(chunk)));
+      child.stderr.on('data', (chunk) => stderrChunks.push(Buffer.from(chunk)));
+      child.on('error', (error) => {
+        clearTimeout(timeout);
+        if (forceKillTimeout) clearTimeout(forceKillTimeout);
+        reject(error);
+      });
+      child.on('close', (code, signal) => {
+        clearTimeout(timeout);
+        if (forceKillTimeout) clearTimeout(forceKillTimeout);
+        resolve({ code, signal, timed_out: timedOut });
+      });
     });
-    let timedOut = false;
-    let forceKillTimeout = null;
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-      forceKillTimeout = setTimeout(() => child.kill('SIGKILL'), 5000);
-    }, timeoutMs);
-    child.stdout.on('data', (chunk) => stdoutChunks.push(Buffer.from(chunk)));
-    child.stderr.on('data', (chunk) => stderrChunks.push(Buffer.from(chunk)));
-    child.on('error', (error) => {
-      clearTimeout(timeout);
-      if (forceKillTimeout) clearTimeout(forceKillTimeout);
-      reject(error);
-    });
-    child.on('close', (code, signal) => {
-      clearTimeout(timeout);
-      if (forceKillTimeout) clearTimeout(forceKillTimeout);
-      resolve({ code, signal, timed_out: timedOut });
-    });
-  });
+  } finally {
+    releaseSuiteLock();
+  }
 
   const stdout = Buffer.concat(stdoutChunks).toString('utf8');
   const stderr = Buffer.concat(stderrChunks).toString('utf8');

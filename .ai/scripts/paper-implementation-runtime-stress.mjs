@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { acquireSuiteLock } from '../../apps/backend/scripts/lib/suite-lock.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '../..');
@@ -733,27 +734,42 @@ async function runStep(step) {
   await fs.mkdir(ARTIFACT_DIR, { recursive: true });
   await fs.writeFile(logPath, '');
 
-  const child = spawn(step.command, step.args, {
-    cwd: step.cwd,
-    env: deterministicTestEnv(),
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  // Multi-file `node --test` steps spawn a ts-node fleet as wide as the full
+  // backend suite's — take the machine-wide suite lock so they never overlap
+  // another session's fleet. Acquired before the step timer starts, so lock
+  // wait does not consume the step budget. Residual (pre-existing): a step
+  // timeout kills only the coordinator, so orphaned workers may briefly
+  // outlive the released lock on that rare path.
+  const spawnsTestFleet =
+    step.args.filter((arg) => typeof arg === 'string' && arg.endsWith('.test.ts')).length >= 2;
+  const releaseSuiteLock = spawnsTestFleet ? await acquireSuiteLock() : () => {};
 
-  const timeout = setTimeout(() => {
-    child.kill('SIGTERM');
-  }, CHILD_TIMEOUT_MS);
-
-  for (const stream of [child.stdout, child.stderr]) {
-    stream.on('data', (chunk) => {
-      process.stdout.write(chunk);
-      outputChunks.push(chunk);
+  let exit;
+  try {
+    const child = spawn(step.command, step.args, {
+      cwd: step.cwd,
+      env: deterministicTestEnv(),
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-  }
 
-  const exit = await new Promise((resolve) => {
-    child.on('close', (code, signal) => resolve({ code, signal }));
-  });
-  clearTimeout(timeout);
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM');
+    }, CHILD_TIMEOUT_MS);
+
+    for (const stream of [child.stdout, child.stderr]) {
+      stream.on('data', (chunk) => {
+        process.stdout.write(chunk);
+        outputChunks.push(chunk);
+      });
+    }
+
+    exit = await new Promise((resolve) => {
+      child.on('close', (code, signal) => resolve({ code, signal }));
+    });
+    clearTimeout(timeout);
+  } finally {
+    releaseSuiteLock();
+  }
 
   const output = Buffer.concat(outputChunks).toString('utf8');
   const tapSummary = parseTapOutput(output);
