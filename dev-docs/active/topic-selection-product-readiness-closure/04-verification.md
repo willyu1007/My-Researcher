@@ -209,4 +209,12 @@
 - **回归门**：backend tsc **0**；**full backend 1642/1607/0/35**（前基线 1639/1604 含 chip 会话已入库的 research-lifecycle +3 测；本项 +3，0 fail）。
 - **提交**：feat `28da56a4` / docs 本段随本次 docs commit。
 
+### 2026-07-03 · Phase 4 — W-12 N6 升级可达性（D-T128-01 回填落地）
+> 用户「继续W-12」。grounding 先行修正占位声明（构建/记录/debate 穿线/runtime 消费/升级 e2e/marker 复用均已在），真残余三项全落。
+- **(A) 单代理再生穿线**：`n6RegenerateProjectionOpts` presence-based extraProjection（regenerate 判别、most-recent、`buildNextRequest` 零改动、初次进入 byte-identical）。commit `06b01b1f`。
+- **(B) 幂等负例**：+3 测——再生穿线（retry 带 projection ref/首入不带）/ 最近优先+跨路由隔离（escalation projection 永不误附单代理路径）/ crash-mid-debate 干净重跑（无 marker 即重跑、恰一 marker、admit 新 draft；`throwError` 首用，补齐 completed→rejection 复用测的另一半窗口）。
+- **(C) 契约文档化**：coordinator `node_inputs` 契约块 + JD `D-T128-01` 回填 `e819d919`。
+- **回归门**：coordinator **48/48**（45 既有零改动）；backend tsc **0**；**full backend 1645/1610/0/35**（W-R1 基线 1642/1607 → +3，0 fail）；harness 本体零改动（goldens 天然不受扰）。
+- **提交**：JD 回填 `e819d919` / feat `06b01b1f` / docs 本段随本次 docs commit。
+
 ### （待开工）
