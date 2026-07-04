@@ -251,7 +251,10 @@ export type ResearchLifecycleEvent =
   | ResearchReleaseReviewedEvent;
 
 export const VERSION_ID_PATTERN = /^P\d+-M[1-8]-B\d+-N\d+$/;
-export const SNAPSHOT_ID_PATTERN = /^SP-\d{4}$/;
+// 4+ digits, not exactly 4: the generator zero-pads to 4 but keeps counting
+// past SP-9999 (mints SP-10000), so validators must accept everything minting
+// can produce — same flexible style as VERSION_ID_PATTERN's P\d+.
+export const SNAPSHOT_ID_PATTERN = /^SP-\d{4,}$/;
 export const RELEASE_TAG_PATTERN = /^R\d+\.\d+\.\d+$/;
 
 export function isVersionId(value: string): boolean {
@@ -408,7 +411,7 @@ export const writingPackageBuildRequestSchema = {
   type: 'object',
   required: ['source_snapshot_id', 'writing_mode', 'target_release_tag', 'sections'],
   properties: {
-    source_snapshot_id: { type: 'string', pattern: '^SP-\\d{4}$' },
+    source_snapshot_id: { type: 'string', pattern: '^SP-\\d{4,}$' },
     writing_mode: { type: 'string', enum: ['submission', 'revision', 'draft'] },
     target_release_tag: { type: 'string', pattern: '^R\\d+\\.\\d+\\.\\d+$' },
     sections: {

@@ -64,6 +64,8 @@ export function resolveRunSortTimeMs(run: AutoPullRun): number {
 }
 
 export function tryGetSnapshotId(summary: string): string | null {
-  const matched = summary.match(/SP-\d{4}/);
+  // {4,} so a 5+ digit id (SP-10000) is extracted whole, not truncated to a
+  // different existing id (SP-1000).
+  const matched = summary.match(/SP-\d{4,}/);
   return matched ? matched[0] : null;
 }
