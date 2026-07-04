@@ -21,6 +21,7 @@
 | W-14 provider_llm debate 管路预接 | 4 | closeable | planned | 类型并集放宽 + model_option_id 穿线，dormant + 守卫 |
 | W-15 D5 HumanOverride + Trace | 4 | closeable | planned | 先权限边界 spec 再建写面 + Trace 抽屉 |
 | W-16 sign-off 工件 schema | 4 | closeable | planned | requires_stakeholder_sign_off artifact/表；不接自动翻门 |
+| W-R1 采样分类批级重试（W-10 后新增） | 4 | closeable | **done（2026-07-03）** | run5 教训:单瞬态错误废 18 批。批级有界重试（默认 2 次退避 1.5s/3s、attempt id 带 `.retry_N` 唯一溯源）+ 部分批容忍（失败批候选单独 review-blocked，余批分类存活，新 warning `LLM_CLASSIFICATION_PARTIAL`）+ 全败保留 legacy fail-closed。采样套件 20/20（17 既有零改动）。详见 Phase 4 W-R1 段 + `04` 同日段 |
 | W-17 N8/N6 真标定翻门 | 5 | externally-gated | deferred | 语料 + FP<5% + assessor + sign-off 就绪后 |
 | W-18 语料耦合 debate 正文 | 5 | externally-gated | deferred | 承 W-P5/W-P6/W-P7；与 W-17 同期 |
 | W-19 provider_llm debate 开启 | 5 | externally-gated | deferred | W-14 管路标定后 turn-on |
@@ -300,6 +301,14 @@
 - **回归确认（T-123 D3 孤儿义务）**：orchestrator **25/25**（3 新恢复测：成功续跑带 `COMPRESSION_APPLIED`+gateway 实收压缩消息 / 仍超硬 block 零 provider 调用 / 质量门 block 不可恢复；22 既有钉测含 over-budget/记录/掉必留事实全部原样）；采样 **17/17**（+1 穿透测：双 200k 字符胖 digest → provider 实收无 digest 形态 → 分类成功 + 压缩报告工件落控制面）；compression-runtime + token-gate **27/27**；full backend 见 `04` 同日段。
 - **边界维持**：无第二 LLM 通路（executor kinds 不变，attempt 仍 caller 预计算）；paper-implementation 侧 caller 启用归 T-124（L5 `*_over_budget_zero_provider_calls` 不受影响）；N6/N8 debate 压缩-facts builder 维持下游、不独立建；provisional/tripwire 不动。
 - **事故与对策**：首次落地的未提交编辑于 22:14 被本目录外部 `git reset` 清除（chip 会话「fresh worktree」引导落在主目录的副作用，reflog `reset: moving to HEAD` 实锤）；已全量重放,并改为**每步即改即提交**。启动 chip 会话前请确认主工作树无未提交编辑。
+
+### Phase 4 — W-R1 采样分类批级重试（2026-07-03，用户批准的优先序①）
+> W-10 run5 教训的直接收口：分类循环原语义"任一批失败即 throw → 全部候选 blocked"，一个瞬态 5xx 就废掉 18 批已付费分类;gateway 自身重试窗口（默认 1 次）扛不住持续性 provider 事故窗口。**纯采样服务内改动,不触 harness/orchestrator/debate-core,无需 JD。**
+- **批级有界重试**：每批默认 2 次重试、指数退避 1.5s/3s（`classificationRetryPolicy` 可注入,测试注 0）;每次 attempt 用独立 `node_attempt_id`/`invocation_attempt_id`（`.retry_N` 后缀）——控制面 provenance 行唯一、每次付费调用可审计。
+- **部分批容忍**：重试耗尽仍失败的批只 block 自己的候选（`blockedClassification` 同码 `LLM_CLASSIFICATION_FAILED`,review 角色兜底）,其余批分类存活参与选样;新 warning **`LLM_CLASSIFICATION_PARTIAL`**（warnings 为自由字符串数组,零契约改动）;`output_summary` 加 `classification_batches` 统计（batch/failed/retried/retry_attempt 计数）。
+- **全败语义保留**：所有批都失败 → legacy 整体失败形状原样（`error` 置位 → status `blocked` + `LLM_CLASSIFICATION_FAILED` warning）。
+- **测试**：采样套件 **20/20** —— 17 既有测试零改动全绿（成功路径行为完全不变的证明）+3 新增：瞬态单批恢复（3 调用,`.batch_1.retry_1` 后缀断言,无 PARTIAL/FAILED,选样 4/4）/ 单批永久失败部分容忍（4 调用,PARTIAL+`ready_with_warning`,存活批选样 2 条+SAMPLE_SIZE_UNDERFILLED）/ 全批永久失败 legacy 兜底（6 调用,blocked+FAILED,无 PARTIAL）。
+- **验证/提交**：见 `04` 同日段。
 
 ### W-05 计划（历史 planning，已收口，保留供追溯）
 > 9 个 v1b 非-debate 槽。统一原则同 W-04：element(b) 输出契约**内联 prompt 系统文本**（不改共享 schema）、只编辑 SYSTEM 块（USER key 集不变）、每正文定稿同 commit 加 **rendered-text golden 锚**。**全 9 槽今日无既有测试钉正文**（blast-radius 已验证），改正文断 0 既有断言。

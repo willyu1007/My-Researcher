@@ -202,4 +202,11 @@
 - **事故留痕**：首次落地的未提交编辑于 2026-07-03 22:14 被本目录外部 `git reset` 清除（chip 会话引导副作用；reflog `reset: moving to HEAD`）。已全量重放；此后每步即改即提交。**后续注意：启动 chip 会话前确认主工作树干净；共居期间禁用 `git add -A`。**
 - **遗留（登记不做）**：paper-implementation 侧 caller 启用归 T-124；N6/N8 debate 压缩-facts builder 在恢复下游跟做；采样分类**批级重试**（W-10 run5 TransientError 教训）仍为 Phase 4 独立小项。
 
+### 2026-07-03 · Phase 4 — W-R1 采样分类批级重试
+> W-10 run5 教训收口（用户批准的 Phase 4 优先序①）。纯采样服务内改动，无 harness/orchestrator/debate-core 触碰，无需 JD。
+- **行为**：批级有界重试（默认 2 次、退避 1.5s/3s，`classificationRetryPolicy` 可注入）+ 每 attempt 独立 `.retry_N` node/invocation attempt id + 部分批容忍（失败批候选单独 `LLM_CLASSIFICATION_FAILED` review-block，余批存活，新 warning `LLM_CLASSIFICATION_PARTIAL`，`output_summary.classification_batches` 统计）+ 全败保留 legacy fail-closed（blocked + `LLM_CLASSIFICATION_FAILED`）。
+- **测试**：采样套件 **20/20**（17 既有零改动 = 成功路径不变证明；+3：瞬态恢复 3 调用含 retry 后缀断言 / 单批永久失败 4 调用 PARTIAL+`ready_with_warning`+存活批选样 / 全批失败 6 调用 legacy blocked）。
+- **回归门**：backend tsc **0**；**full backend 1642/1607/0/35**（前基线 1639/1604 含 chip 会话已入库的 research-lifecycle +3 测；本项 +3，0 fail）。
+- **提交**：feat `28da56a4` / docs 本段随本次 docs commit。
+
 ### （待开工）
