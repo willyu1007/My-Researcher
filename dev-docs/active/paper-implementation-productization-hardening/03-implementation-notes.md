@@ -83,7 +83,12 @@
   - release 无主校验 → tryTake 返回写入的精确 payload，release 先读文件比对，仅删除仍载有本 run payload 的锁（手删+他人重建后不再误删他人活锁）。
   - pid 复用无限等待 → 持有者每 15s touch 锁 mtime 心跳；合法 JSON 锁 mtime 超 5min 一律判 stale（不再唯 pid 存活论——EPERM 对每用户 tmpdir 锁恰是反向信号）；等待消息补 startedAt/cwd 与 `ps -p` 排查提示。
 - `experiment-foundation-full-flow-runner.mjs` backend-test 预算 300s→900s：solo 全量本就 ~286-294s（余量 ~2%），锁排队会把等待变 timeout 假红。
-- 未动项（待确认）：SP-`\d{4,}` 契约拓宽（涉 shared 契约三处）；锁抽共享模块覆盖 runtime-stress 13 文件舰队等旁路入口（复审 finding，量级与全量相同却不取锁）。
+- 复审当日的两项待确认（SP 契约拓宽、锁抽共享模块）经用户确认后于同日落地，见下一条目。
+
+## 2026-07-04 复审待确认两项落地：SP 校验拓宽 + 套件锁共享模块化
+- **snapshot id 校验 `\d{4}`→`\d{4,}`（纯放宽，27ad677b）**：生成器 padStart(4) 不截断、SP-9999 后照常铸出 SP-10000，但三处校验硬编码 4 位——快照建档成功且为活跃指针，却永远过不了 buildWritingPackage；桌面端无锚提取还会截成 SP-1000 误导航。拓宽 SNAPSHOT_ID_PATTERN、writing-package body schema、desktop tryGetSnapshotId 三处，与 VERSION_ID_PATTERN 的 `P\d+` 弹性风格对齐；paper/node 无硬编码位数校验不需要动。新增 `paper-project-contracts.schema.test.ts` 回归（isSnapshotId 4/5 位接受 + 3 位拒绝；schema SP-10000 过/SP-999 400）。
+- **套件锁抽共享模块 `apps/backend/scripts/lib/suite-lock.mjs`**：复审确认 runtime-stress 13 文件步在 12 核机上瞬时舰队宽度与全量完全相同却不取锁（v1c-production-depth 7 文件步次之）。锁全部机制（心跳/年龄兜底/claim 串行化接管/ownership release/逃生口）移入单一模块——一份锁路径常量，杜绝双份漂移；`run-node-tests.mjs` 改 import。两个 .ai runner 的多文件（≥2 个 .test.ts 参数）`node --test` 步在**步计时器启动前**取锁：锁等待不吃步预算，且子步默认预算宽裕（runtime-stress 900s / v1c 1800s），不复刻 flow-runner 300s 那类超时假红。单文件步不取锁（舰队宽度 1-2,过度串行只亏不赚）。
+- 残留声明：步超时路径只杀协调器,孤儿 worker 可能短暂活过锁释放（两 runner 预先存在的行为,集成注释已表）;修复它需 detached 组信号改造 .ai runner 的 Ctrl-C 语义,不在本轮范围。
 
 ## 联合决策登记（JD-x，与 T-127 互链）
 > T-123 于 2026-06-16 收尾关闭归档；共享面后续 JD 互链对象转为 **T-127**（topic-selection-backend-hardening-and-expansion）。下列条目涉及 T-123 的**前向对齐 / 共决**对象转 T-127；涉及 T-123 **已签决策形态**（D1/D2 文本）的为历史引用，不变。
