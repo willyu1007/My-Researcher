@@ -9,4 +9,10 @@
 - **压缩/记忆产物不是证据**：`durable_memory_as_standalone_evidence: false`；压缩报告是 lineage 制品。任何把它们当 primary input/evidence 的设计直接拒绝。
 
 ## 历史教训（待本包推进中补充）
-- （暂无；按规范在问题解决后补：symptom / root cause / tried / fix / prevention）
+
+### 2026-07-03/04 双会话并发跑 backend 全量 → 文件级崩溃假红（已根治：runner 跨进程互斥锁）
+- **Symptom**：full suite 出现大批文件级 `not ok`（集中在引 buildApp 的重文件：routes/integration/app-config），子进程 ~11-13s 死亡并留 ts-node TSError 风格 `[Object: null prototype]` dump；总测数骤降（崩溃文件丢失全部 subtests，如 1635→1020）、wall time 反而偏短。同一文件单跑全绿。
+- **Root cause**：`run-node-tests.mjs` 把全部测试文件交给单个 `node --test --loader ts-node/esm`（默认并发 ~cores-1 个子进程，每个全图类型检查）；两个会话同时跑 → 双倍舰队耗尽 CPU/RAM，子进程装载期崩溃。测试代码本身无错。
+- **Tried**：按常规红灯排查逐文件复跑（全绿，误导性极强）；靠"人记得别同时跑"不可靠。
+- **Fix**：runner 启动舰队前取 `os.tmpdir()` 排他锁文件，后到者轮询等待；2026-07-04 复审后加固——claim 文件串行化 stale 接管、child-exit 后才释放、release 仅删自己的 payload、心跳+5min 年龄兜底（详见 03 同日条目、04 Log）。
+- **Prevention**：信任红灯前先认签名——"文件级崩溃 + 总数骤降 + 单跑即绿"= 资源争用非代码错；勿设 `BACKEND_TEST_SUITE_LOCK=0`（仅争用取证用）；旁路重型入口（runtime-stress 13 文件步等）尚未取锁，并行会话期间勿与全量同跑；共享工作树有并行会话时**禁用 git stash**（会卷走对方中间态制造 franken 假红，教训见 T-128 侧记录）。

@@ -62,6 +62,29 @@
 - D6 自我修正：原草案"保留旧名过渡 alias + 告警"与用户 D3 裁定原则（未上线不留双轨/漂移面）冲突，修正为**原子更名无 alias**——T114_* 全部引用 grep 可达，同一 slice 内一次切换，meta 测试负例捕获残留旧名，更名后全门重跑。
 - 文档落点：`00-overview.md` D5/D6 与 AC-7、`01-plan.md` Phase 1 与 6.1、`02-architecture.md` R5 已同步。
 
+## 2026-07-03 外部修复留痕：research-lifecycle id 生成 count+1 主键碰撞（9fb04a26 同类）
+- 来源：T-128 W-10 首次产品跑同日的对抗式审查确认 literature 同类缺陷仍存于 `research-lifecycle-service.ts`——nextPaperId/nextNodeId/nextSnapshotId 用"行数+1"生成 `P___`/`NODE-____`/`SP-____` id，而 `deletePaperProject` 删除路径真实存在：删任何非最新 paper 后下一次创建即撞主键（500）。本项经查未被 T-124 认领，由独立会话修复并在此留痕。
+- 修复形态（镜像 9fb04a26）：repository 三层（interface / in-memory / prisma）`countPapers/countNodes/countSnapshots` → `listPaperIds/listNodeIds/listSnapshotIds`（count 三方法全仓库无其他调用方，直接替换）；服务侧镜像 literature 的 `nextPrefixedNumericId` 改 max+1，带 padWidth 参数适配 `P`=3 位无连字符、`NODE-`/`SP-`=4 位。id 对外形态不变、无契约变更；paper-implementation 依赖的 paper/node/snapshot id 生成自此删除安全。
+- 回归测 3 个（mutation-solid）：预置幸存高位 id（P009/NODE-0009/SP-0009，行数=1）断言新 id = max+1（P010/NODE-0010/SP-0010）；经 count+1 变异反验，恰好三个新测红、七个旧测不受扰。
+
+## 2026-07-03 工具链修复留痕：backend 套件跨进程互斥锁（并发全量假红根治）
+- 背景：同日取证确认（见 04 Log 2026-07-03 行）双会话并发跑全量套件时，双倍 ts-node 子进程舰队耗尽机器资源，子进程装载期崩溃（~11-13s，TSError 风格 `[Object: null prototype]` dump），产生文件级 `not ok` 假红（两次取证分别 43/4 个文件）、总测数骤降（崩溃文件丢失全部 subtests，如 1635→1020）与误导性偏短 wall time。"全量须单会话独占"靠人记不可靠，改由 runner 自身强制。
+- 形态：`apps/backend/scripts/run-node-tests.mjs` 在 spawn 舰队前以排他锁文件（`O_EXCL` 创建 + pid JSON 内容，零依赖）取跨进程互斥；已被持有则打印持有者 pid 并每 2s 轮询（15s 心跳行），空闲后接管继续。持有者 pid 已死（`process.kill(pid,0)` ESRCH）判定 stale 自动接管，接管前重读内容比对防误删他人新锁；内容不可解析仅在 mtime > 60s 时视为 stale（防误杀写入中途的锁）。
+- 锁域取 `os.tmpdir()`（机器级/每用户）而非仓根：争用的资源是机器 CPU/RAM 而非工作树，跨 worktree/克隆的两次运行同样必须串行；也不脏 git status。逃生口 `BACKEND_TEST_SUITE_LOCK=0`（仅用于刻意复现争用取证）。
+- 释放路径全覆盖：`exit` 事件（覆盖 process.exit 与 uncaughtException）+ SIGINT/SIGTERM/SIGHUP once 处理器（先 `child.kill(signal)` 带走测试舰队再释放锁再重抛默认终止——保证"锁空闲 ⇒ 无舰队在跑"，定向 kill runner 不再留孤儿舰队诱发下一位等待者撞上争用）；等待期间不装信号处理器，排队中 Ctrl-C 立即退出且无锁可漏。
+- `run-node-tests-repeat.mjs` 无需改动：它逐次 shell 出真 runner，每次迭代天然继承锁（其他会话可在两次迭代之间公平插队，表现为该迭代 elapsed 偏长）；两脚本 header 均已注明。
+- 测试形态说明：脚本为顶层副作用 .mjs，不在 src 测试图内，不加单测；验证走真实行为——stale 接管/等待-接管/信号释放三条路径手验 + 双并发全量真跑（见 04 Log 同日行）。
+
+## 2026-07-04 质量复审修复：套件锁四处边角加固 + flow-runner 预算适配
+- 背景：对本轮未提交 diff 的 high-effort 复审（8 视角 finder × 独立验证，findings 全 CONFIRMED）在锁实现上确认四个边角缺口与两个生态缺口，按验证者方案修复（其中 stale 接管一项验证者建议的 rename 方案推演仍有残洞，改为更强的 claim 文件串行化）。
+- 修复形态（`run-node-tests.mjs`）：
+  - stale 接管 TOCTOU → **O_EXCL claim 文件串行化**：接管前必须原子创建 `<lock>.takeover-claim`，唯一 claim 持有者才可在"内容仍等于 stale 原文"前提下 unlink 主锁；claim 60s 年龄自愈防中途死亡。read-compare-unlink 三步在跨进程下可被对手的"接管+重建"插入（rename 同理——rename 挪走的是路径上当前的任何东西），claim 串行化把删除权收敛到单持有者。
+  - 信号路径提前放锁 → 处理器只发信号，释放与重抛统一收敛到 child 'exit'；实测又揪出下一层：node --test 协调器收 TERM 默认瞬死、compute-bound ts-node worker 全部孤儿化——fleet 改 `detached` 独立进程组 + `process.kill(-pid)` 组信号直达每个 worker（实测 12 进程 200ms 全灭且锁后于舰队消失）；二次信号走默认终止，遗留锁由 staleness 规则回收。
+  - release 无主校验 → tryTake 返回写入的精确 payload，release 先读文件比对，仅删除仍载有本 run payload 的锁（手删+他人重建后不再误删他人活锁）。
+  - pid 复用无限等待 → 持有者每 15s touch 锁 mtime 心跳；合法 JSON 锁 mtime 超 5min 一律判 stale（不再唯 pid 存活论——EPERM 对每用户 tmpdir 锁恰是反向信号）；等待消息补 startedAt/cwd 与 `ps -p` 排查提示。
+- `experiment-foundation-full-flow-runner.mjs` backend-test 预算 300s→900s：solo 全量本就 ~286-294s（余量 ~2%），锁排队会把等待变 timeout 假红。
+- 未动项（待确认）：SP-`\d{4,}` 契约拓宽（涉 shared 契约三处）；锁抽共享模块覆盖 runtime-stress 13 文件舰队等旁路入口（复审 finding，量级与全量相同却不取锁）。
+
 ## 联合决策登记（JD-x，与 T-127 互链）
 > T-123 于 2026-06-16 收尾关闭归档；共享面后续 JD 互链对象转为 **T-127**（topic-selection-backend-hardening-and-expansion）。下列条目涉及 T-123 的**前向对齐 / 共决**对象转 T-127；涉及 T-123 **已签决策形态**（D1/D2 文本）的为历史引用，不变。
 - **JD-候选（待 Phase 0 正式登记）**：T-123 D1 文本为"同步 advance-until-blocked + 人在环触发"（该形态现由 T-127 承接）。Phase 0 需与 T-127 对齐：topic-selection 或同步采纳自动化优先形态，或在两包各自记录域差异理由（topic-selection 节点单步耗时短，同步语义代价低；paper-implementation 单 slot 分钟级，异步是硬约束）。
