@@ -232,4 +232,11 @@
 - **回归门**：coordinator 49/49、sampling 21/21、tsc 0;**full backend **1647/1612/0/35**(1645+2 回归测,0 fail)**。
 - **提交**：修复 `592c42d0` / JD 修正 + docs 本段随本次 docs commit。
 
+### 2026-07-03 · Phase 4 — W-15 S1+S2（O-1 签核 + D1(c) 政策 halt + O-2 预算提额）
+> spec v1.0（`06-w15-humanoverride-trace-spec.md`）落地前两片。**harness/orchestrator/debate-core 零触碰**（halt reason 联合类型 coordinator 本地,按 D-T128-00 无需 JD）;不可覆写面全守（gate 结论/authority/route/provisional/阈值/replay 身份零改动）。
+- **S1 O-1+D1(c)**：run-override 分支具名导出（oneOf 语义不变,sign-off 既有 4 测原样）;coordinator `sign_off_required` halt——product-only、置于 HUMAN_HALT 之前（先签再进人节点）、last_completed∈{N6,N8} 且 latest_admitted 带对应 provisional warning 且无匹配签核工件才触发;`recordProvisionalRunOverrideSignOff` 严格 Ajv（未知键/跨 scope 拒）+ latest-admitted attempt/warning 实存校验（否则 409）+ 幂等（重签返回同工件）;路由 body 宽松、服务权威（W-09 模式,注释成文）。
+- **S2 O-2**：`TopicSelectionLoopbackBudgetRaise@v1`（strict、`raised_to` integer 1..5 硬上限、human-only、rationale 必填）;`recordLoopbackBudgetRaise`（严格校验+run/node 匹配）;advance 生效预算 = max(参数, 最高有效提额)且读取处防御性再封顶 5;exhausted 消息内联提额路由。
+- **测试**：coordinator **56/56**（+7:product 停签/签核解锁+幂等/acceptance 与无警双旁路/严格负例四连/无警签拒/提额解锁 exhausted+消息/提额负例三连）;shared **273/0**（+1 提额 schema 测:cap 6·0·2.5 拒、非 human 拒、未知键拒）;backend tsc **0**;**full backend **1654/1619/0/35**(1647+7,0 fail)**。
+- **提交**：feat `0c6a0ce0` / docs 本段随本次 docs commit。**S3（桌面两卡+抽屉）/S4（收口+第二次产品跑）待做。**
+
 ### （待开工）
