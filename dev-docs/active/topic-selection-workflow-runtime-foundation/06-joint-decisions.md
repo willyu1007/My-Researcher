@@ -1933,12 +1933,15 @@ error_code: string | null
 - **不变量承诺（全包）**：所有 harness-touch 改动维持 **replay byte-identity**（`invokeNode` 生命周期 + 四类 blocker 顺序 + `hashContext`→`node_replay_key` 组成 + route edges 集合 + 既有 gate/blocker 语义 + 所有 byte-bearing 哈希 不变，除非该条 JD 显式声明并配 golden re-baseline 留痕）；不引入第二套 debate/prompt/context 装配路径（DMP-10 单 core、`prompt_packet_hash` canonicalHash 单源）；不翻 N8/N6 `provisional`、不撤 tripwire（D8）。
 - **归属**：T-128（`dev-docs/active/topic-selection-product-readiness-closure/`，W-01/W-03）。冲突面：本条仅为协议声明，零代码改动。**T-088 若需改 harness 本体 / `bounded-debate-core` / 共享压缩 orchestrator，请在本包 harness-touch 落地前于此协调。**
 
-## D-T128-01 (2026-06-25) — 占位：W-12 N6 升级可达性硬化（承 D-T128-00，联合决策登记）
-- **状态：占位（PLACEHOLDER）—— 待 W-12（Phase 4）grounding 后回填具体 范围/不改动/设计要点。** 本条按 D6 协议在触碰前登记意图与边界，不预先臆测实现。
-- **认领的开口**（孤儿 chip，W-03 正式纳入 T-128 ledger）：`regeneration_after_n6_gate_failure` 重生路径硬需的 `n6_gate_failure_retry_context` projection **未记录/未穿线**（现以 clean `debate_blocked` halt 兜底，escalation→retry 链路为软死端）；外加 **crash-mid-debate / blocked-then-retry 幂等** 缺负例守卫 + 文档化 re-entry `generation_mode` caller 契约。承 D-T127-02 收口note（N6 debate 检测/路由 harness 侧已完整、执行在 caller 端）。
-- **预期触碰面（待 grounding 确认）**：`topic-selection-v1b-workflow-harness-service.ts` N6 节点体在升级/重生路径**加法式**构建 `n6_gate_failure_retry_context` projection（镜像既有 `buildN6GateFailureRetryContextProjection` 同构 projection，不持久化）+ coordinator 条件穿线 + 真 provider/harness e2e 过 gate。
-- **边界承诺**：加法式，零既有行为/契约/哈希改动；retry-context 经 `semantic_artifacts`/projection 槽参与、不入 `frozen_input`（`frozen_input_hash` 恒等）；维持 N6 三类 blocker / triage policy / warning 语义；新增专用 re-entry 幂等 replay 守卫（钉死重生路径身份）。任一既有哈希漂移即视为回归回滚。
-- **归属**：T-128 W-12（Phase 4）。冲突面：加法、零既有改动。回填前 T-088 若需改 harness N6 节点体请在此协调。
+## D-T128-01 (2026-06-25，回填 2026-07-03) — W-12 N6 升级可达性硬化（承 D-T128-00，联合决策登记）
+- **状态：已回填（grounding 2026-07-03）→ 落地中。** 原占位声明经全面 grounding 后**大幅修正**：占位所述「projection 未记录/未穿线」已被 T-127 W-07（`4417477f` 等）超越——harness N6 节点体已对 `n6_regenerate_candidates` **和** `n6_debate_escalation` 两路由构建并记录 `v1b_n6_gate_failure_retry_context` projection（harness `:3114-3126`/`:7378`），coordinator 已对 **debate 升级路由**穿线（`:710-717`，discriminator `loopback_target_code='n6_debate_escalation'`），runtime 消费/校验完整（n6-draft-runtime `:824-926`），且有升级 e2e 测试（harness unit `:5946-6043`）。
+- **grounding 修正后的真实残余（W-12 实做范围）**：
+  - **(A) 单代理再生 re-entry 的 coordinator 条件穿线**：`buildNextRequest` 的 extraProjection 仅在 debate 路由供给；N6 recipe 无 `required_projection_kind` → 经 coordinator 的单代理再生 re-entry（caller 供 `draft_payload`/`execution_spec`，draft 变体为 `regeneration_after_n6_gate_failure`）的请求 source_refs **不含** projection → harness/runtime 按门语义 block。这是「escalation→retry 软死端」的**真残余**（regenerate 半边）。修法（加法式、presence-based）：N6 re-entry 构建请求时，**若** run 内存在 `loopback_target_code='n6_regenerate_candidates'` 的 gate-failure projection 工件则自动附至 source_refs（discriminator 同款、most-recent）；不存在 → no-op（初次进入 byte-identical）。
+  - **(B) 幂等负例守卫**：blocked-then-retry（再生与升级两路由：重进入择取 discriminated/most-recent projection、不产生重复 projection 工件、replay 身份成立）+ crash-mid-debate（部分 role transcript 残留后重进入干净重跑,不误admit 残留;`DEBATE_GATE_DRAFT_MARKER` 仅护 completed→rejection 窗口的语义显式钉测）。
+  - **(C) re-entry `generation_mode` caller 契约文档化**：`regeneration_after_n6_gate_failure` ⇒ source_refs 恰一枚 N6 gate-failure projection、无 N7 projection（mode 判定 harness `:8303-8347`）;落 coordinator 既有 caller-contract 文档块 + T-128 03。
+- **不改动**：`invokeNode` 生命周期/四类 blocker 顺序/`hashContext`→`node_replay_key`/route edges/既有 N6 三类 blocker/triage policy/`N6_DEBATE_ESCALATION_RECOMMENDED` warning 语义/所有 byte-bearing 哈希;projection 不入 `frozen_input`（source_refs 通道,`frozen_input_hash` 恒等——与既有 debate 穿线同机制）;不新增第二 projection 种类/装配路径。初次进入（无 projection 工件）路径 byte-identical。
+- **验证口径**：coordinator+harness 既有套件零回归（含 GUARD_GOLDEN_N1）;新增 (A) 再生穿线单测（driveTo 门失败→re-entry 请求 source_refs 含 discriminated projection→harness admit）+ (B) 两负例守卫;full backend 全绿;证据记 T-128 `04`。
+- **归属**：T-128 W-12（Phase 4）。冲突面：coordinator `buildNextRequest`/N6 re-entry 分支加法 + 测试;harness 本体预计零改动（若 (B) 需暴露测缝再回本条补记）。T-088 若同期改 N6 节点体/coordinator 请在此协调。
 
 ## D-T128-02 (2026-06-25) — 占位：W-11 P-01 压缩恢复 topic-selection 半边（承 D-T128-00，跨 T-124 + T-088，联合决策登记）
 - **状态：占位（PLACEHOLDER）—— 待 W-11（Phase 4）与 T-124 + T-088 三方协调后回填具体 范围/不改动/设计要点。** 本条按 D6 协议 + 跨包协调在触碰前登记，**当前最大未追踪开口**。
