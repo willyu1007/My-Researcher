@@ -8,12 +8,18 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 import { topicSelectionNamedDebateExecutionPlanSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
 import {
+  TOPIC_SELECTION_LOOPBACK_BUDGET_RAISE_SCHEMA_VERSION,
+  TOPIC_SELECTION_STAKEHOLDER_SIGN_OFF_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_TRACE_PAYLOAD_SCHEMA_VERSION,
+  topicSelectionLoopbackBudgetRaiseSchema,
+  topicSelectionProvisionalRunOverrideSignOffSchema,
+  type TopicSelectionLoopbackBudgetRaise,
+  type TopicSelectionProvisionalRunOverrideSignOff,
   type TopicSelectionV1bWorkflowHarnessNodeId,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
   type TopicSelectionV1bWorkflowHarnessRunResult,
@@ -230,6 +236,11 @@ export type TopicSelectionV1bRunCoordinatorHaltReason =
   // T-127 W-07 item (a): the caller-side debate runtime did not reach `completed`
   // (a role turn or the deterministic admission blocked) — surfaced so the operator can fix fixtures.
   | 'debate_blocked'
+  // T-128 W-15 D1(c): a PRODUCT advance is about to move past an admitted N6/N8 attempt that
+  // carries the provisional-thresholds tripwire warning, and no matching stakeholder sign-off
+  // (W-16 run-override scope) is recorded — the coordinator enforces the product-level contract
+  // the gate consts declare. Harness untouched; acceptance/test runs never see this halt.
+  | 'sign_off_required'
   | 'run_timeout'
   | 'max_steps_reached'
   | 'no_frontier';
@@ -310,6 +321,18 @@ export type TopicSelectionV1bRunCoordinatorDebateInput =
  * coordinator callers / the unit tests).
  */
 const debateExecutionPlanAjv = new Ajv({ allErrors: true, strict: false });
+
+// T-128 W-15: authoritative strict validators for the two operator records (W-09 pattern — the
+// route layer stays permissive, THIS is where additionalProperties violations reject).
+const operatorRecordAjv = new Ajv({ allErrors: true, strict: false });
+const provisionalSignOffValidator = operatorRecordAjv.compile(topicSelectionProvisionalRunOverrideSignOffSchema);
+const loopbackBudgetRaiseValidator = operatorRecordAjv.compile(topicSelectionLoopbackBudgetRaiseSchema);
+
+/** W-15 D1(c): the provisional product gates the coordinator enforces sign-offs for, keyed by node. */
+const PROVISIONAL_GATE_WARNING_BY_NODE = new Map<string, string>([
+  [N6_NODE_ID, 'N6_DEBATE_THRESHOLDS_PROVISIONAL'],
+  [N8_NODE_ID, 'N8_DEBATE_THRESHOLDS_PROVISIONAL'],
+]);
 const DEBATE_EXECUTION_PLAN_VALIDATORS: Record<TopicSelectionV1bRunCoordinatorDebateInput['kind'], ValidateFunction> = {
   n6_divergent: debateExecutionPlanAjv.compile(
     topicSelectionNamedDebateExecutionPlanSchema(TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER),
@@ -552,7 +575,14 @@ export class TopicSelectionV1bRunCoordinatorService {
     input: AdvanceTopicSelectionV1bRunInput,
   ): Promise<TopicSelectionV1bRunAdvanceReport> {
     const maxSteps = input.max_steps ?? 12;
-    const loopbackBudget = input.loopback_budget_per_node ?? 2;
+    const loopbackBudgetBase = input.loopback_budget_per_node ?? 2;
+    // W-15: operator records (sign-offs, budget raises) are written between advances, never during
+    // one — a single lazy fetch per advance call serves both policy checks below.
+    let operatorArtifactsCache: Awaited<ReturnType<TopicSelectionControlPlaneService['listArtifactRefsByWorkflowRunId']>> | null = null;
+    const loadOperatorArtifacts = async () => {
+      operatorArtifactsCache ??= await this.deps.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
+      return operatorArtifactsCache;
+    };
     const nodeTimeoutMs = input.node_timeout_ms ?? 120_000;
     const runTimeoutMs = input.run_timeout_ms ?? 600_000;
     const startedAt = Date.now();
@@ -636,6 +666,23 @@ export class TopicSelectionV1bRunCoordinatorService {
         throw new AppError(500, 'INTERNAL_ERROR', `no node policy registered for ${nextNodeId}.`);
       }
 
+      // W-15 D1(c): the product-level provisional-thresholds contract, coordinator-enforced.
+      // Fires BEFORE any progression (including into a human node): a product run that just
+      // admitted N6/N8 under provisional thresholds must carry a recorded stakeholder sign-off
+      // (W-16 run-override scope) before anything downstream runs. Non-product runs skip entirely.
+      if ((input.run_mode ?? 'acceptance') === 'product') {
+        const pendingSignOff = await this.pendingProvisionalSignOff(input.workflow_run_id, projection, loadOperatorArtifacts);
+        if (pendingSignOff) {
+          return halt(
+            'sign_off_required',
+            pendingSignOff.gate_node_id,
+            `${pendingSignOff.gate_node_id} attempt ${pendingSignOff.node_attempt_id} admitted under provisional thresholds (${pendingSignOff.warning_code}); a product run may proceed past it only with a recorded stakeholder sign-off. Record a provisional_threshold_run_override sign-off (TopicSelectionStakeholderSignOff@v1) via POST /topic-selection/v1b/workflow-runs/${input.workflow_run_id}/sign-offs, then advance again.`,
+            [],
+            projection,
+          );
+        }
+      }
+
       if (HUMAN_HALT_NODE_IDS.has(nextNodeId)) {
         return halt(
           'human_node',
@@ -647,6 +694,12 @@ export class TopicSelectionV1bRunCoordinatorService {
       }
 
       const nodeState = projection.nodes.find((node) => node.node_id === nextNodeId);
+      // W-15 O-2: the effective budget honors recorded raises (audited operator records, schema-capped
+      // at 5) on top of the call parameter — max() so a parameter above every raise still wins.
+      const loopbackBudget = Math.max(
+        loopbackBudgetBase,
+        await this.raisedLoopbackBudget(input.workflow_run_id, nextNodeId, loadOperatorArtifacts),
+      );
       if ((nodeState?.loopback_count ?? 0) >= loopbackBudget) {
         // The N6 debate escalation is itself a loopback-to-self, so an already-exhausted N6 halts here
         // before the debate branch — name it so the operator knows the debate did not run.
@@ -655,7 +708,8 @@ export class TopicSelectionV1bRunCoordinatorService {
           'loopback_budget_exhausted',
           nextNodeId,
           `loopback budget (${loopbackBudget}) exhausted for ${nextNodeId} (LOOPBACK_BUDGET_EXHAUSTED)`
-            + (escalationStranded ? '; the pending n6_debate_escalation cannot run — raise loopback_budget_per_node to drive the divergent debate.' : '.'),
+            + (escalationStranded ? '; the pending n6_debate_escalation cannot run — record a loopback-budget raise to drive the divergent debate.' : '.')
+            + ` Record an audited raise (TopicSelectionLoopbackBudgetRaise@v1, max 5) via POST /topic-selection/v1b/workflow-runs/${input.workflow_run_id}/loopback-budget-raises, then advance again.`,
           [],
           projection,
         );
@@ -1219,6 +1273,148 @@ export class TopicSelectionV1bRunCoordinatorService {
         extraProjectionDiscriminator: { key: 'loopback_target_code', value: 'n6_regenerate_candidates' },
       }
       : {};
+  }
+
+  /**
+   * T-128 W-15 (O-1): record a provisional-thresholds run-override sign-off. Authoritative strict
+   * validation (route stays permissive per the W-09 pattern); the target must be the gate node's
+   * CURRENT latest-admitted attempt and must actually carry the matching tripwire warning.
+   * Idempotent: an identical existing sign-off is returned, not duplicated. Records via the
+   * control-plane artifact channel — no new table, no gate/authority mutation anywhere.
+   */
+  async recordProvisionalRunOverrideSignOff(input: {
+    workflow_run_id: string;
+    payload: unknown;
+    created_by?: 'llm' | 'human' | 'hybrid' | 'system';
+  }): Promise<{ artifact_ref_id: string; already_recorded: boolean }> {
+    if (!provisionalSignOffValidator(input.payload)) {
+      throw new AppError(400, 'INVALID_PAYLOAD',
+        `sign-off payload does not match ${TOPIC_SELECTION_STAKEHOLDER_SIGN_OFF_SCHEMA_VERSION} (provisional_threshold_run_override): ${operatorRecordAjv.errorsText(provisionalSignOffValidator.errors)}`);
+    }
+    const payload = input.payload as TopicSelectionProvisionalRunOverrideSignOff;
+    if (payload.workflow_run_id !== input.workflow_run_id) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'sign-off workflow_run_id does not match the route run.');
+    }
+    const expectedWarning = PROVISIONAL_GATE_WARNING_BY_NODE.get(payload.node_id);
+    if (!expectedWarning || payload.gate_warning_code !== expectedWarning) {
+      throw new AppError(400, 'INVALID_PAYLOAD',
+        `sign-off node_id/gate_warning_code pair is not a provisional product gate (expected ${[...PROVISIONAL_GATE_WARNING_BY_NODE.entries()].map(([node, code]) => `${node}→${code}`).join(', ')}).`);
+    }
+    const projection = await this.getRunState(input.workflow_run_id);
+    const admitted = projection.nodes.find((node) => node.node_id === payload.node_id)?.latest_admitted;
+    if (!admitted || admitted.node_attempt_id !== payload.node_attempt_id) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+        `sign-off target ${payload.node_id} attempt ${payload.node_attempt_id} is not the run's latest admitted attempt for that node.`);
+    }
+    if (!admitted.warnings.some((warning) => warning.code === expectedWarning)) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+        `sign-off target attempt does not carry ${expectedWarning} — nothing to sign off.`);
+    }
+    const artifacts = await this.deps.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
+    const existing = artifacts.find((artifact) => this.matchesRunOverrideSignOff(artifact.payload, payload.node_id, payload.node_attempt_id, expectedWarning, input.workflow_run_id));
+    if (existing) {
+      return { artifact_ref_id: existing.artifact_ref_id, already_recorded: true };
+    }
+    const recorded = await this.deps.controlPlane.recordArtifactRef({
+      artifact_kind: 'structured_output',
+      workflow_run_id: input.workflow_run_id,
+      payload: payload as unknown as Record<string, unknown>,
+      created_by: input.created_by ?? 'human',
+    });
+    return { artifact_ref_id: recorded.artifact_ref_id, already_recorded: false };
+  }
+
+  /**
+   * T-128 W-15 (O-2): record an audited loopback-budget raise for (run, node). Schema caps
+   * `raised_to` at 5; the advance loop's effective budget is max(call parameter, highest raise).
+   */
+  async recordLoopbackBudgetRaise(input: {
+    workflow_run_id: string;
+    payload: unknown;
+    created_by?: 'llm' | 'human' | 'hybrid' | 'system';
+  }): Promise<{ artifact_ref_id: string }> {
+    if (!loopbackBudgetRaiseValidator(input.payload)) {
+      throw new AppError(400, 'INVALID_PAYLOAD',
+        `budget-raise payload does not match ${TOPIC_SELECTION_LOOPBACK_BUDGET_RAISE_SCHEMA_VERSION}: ${operatorRecordAjv.errorsText(loopbackBudgetRaiseValidator.errors)}`);
+    }
+    const payload = input.payload as TopicSelectionLoopbackBudgetRaise;
+    if (payload.workflow_run_id !== input.workflow_run_id) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'budget-raise workflow_run_id does not match the route run.');
+    }
+    if (!POLICY_BY_NODE_ID.has(payload.node_id)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `budget-raise node_id ${payload.node_id} is not a v1b node.`);
+    }
+    const recorded = await this.deps.controlPlane.recordArtifactRef({
+      artifact_kind: 'structured_output',
+      workflow_run_id: input.workflow_run_id,
+      payload: payload as unknown as Record<string, unknown>,
+      created_by: input.created_by ?? 'human',
+    });
+    return { artifact_ref_id: recorded.artifact_ref_id };
+  }
+
+  /** W-15 D1(c): the not-yet-signed-off provisional gate the run is about to advance past, or null. */
+  private async pendingProvisionalSignOff(
+    workflowRunId: string,
+    projection: TopicSelectionV1bRunStateProjection,
+    loadOperatorArtifacts: () => Promise<Awaited<ReturnType<TopicSelectionControlPlaneService['listArtifactRefsByWorkflowRunId']>>>,
+  ): Promise<{ gate_node_id: string; node_attempt_id: string; warning_code: string } | null> {
+    const gateNodeId = projection.last_completed_node_id;
+    if (!gateNodeId) {
+      return null;
+    }
+    const warningCode = PROVISIONAL_GATE_WARNING_BY_NODE.get(gateNodeId);
+    if (!warningCode) {
+      return null;
+    }
+    const admitted = projection.nodes.find((node) => node.node_id === gateNodeId)?.latest_admitted;
+    if (!admitted || !admitted.warnings.some((warning) => warning.code === warningCode)) {
+      return null;
+    }
+    const artifacts = await loadOperatorArtifacts();
+    const signed = artifacts.some((artifact) =>
+      this.matchesRunOverrideSignOff(artifact.payload, gateNodeId, admitted.node_attempt_id, warningCode, workflowRunId));
+    return signed ? null : { gate_node_id: gateNodeId, node_attempt_id: admitted.node_attempt_id, warning_code: warningCode };
+  }
+
+  private matchesRunOverrideSignOff(
+    payload: unknown,
+    nodeId: string,
+    nodeAttemptId: string,
+    warningCode: string,
+    workflowRunId: string,
+  ): boolean {
+    const record = payload as Record<string, unknown> | null | undefined;
+    return record?.schema_version === TOPIC_SELECTION_STAKEHOLDER_SIGN_OFF_SCHEMA_VERSION
+      && record?.sign_off_scope === 'provisional_threshold_run_override'
+      && record?.workflow_run_id === workflowRunId
+      && record?.node_id === nodeId
+      && record?.node_attempt_id === nodeAttemptId
+      && record?.gate_warning_code === warningCode;
+  }
+
+  /** W-15 O-2: the highest valid recorded raise for (run, node); 0 when none. */
+  private async raisedLoopbackBudget(
+    workflowRunId: string,
+    nodeId: string,
+    loadOperatorArtifacts: () => Promise<Awaited<ReturnType<TopicSelectionControlPlaneService['listArtifactRefsByWorkflowRunId']>>>,
+  ): Promise<number> {
+    const artifacts = await loadOperatorArtifacts();
+    let raised = 0;
+    for (const artifact of artifacts) {
+      const record = artifact.payload as Record<string, unknown> | null | undefined;
+      if (
+        record?.schema_version === TOPIC_SELECTION_LOOPBACK_BUDGET_RAISE_SCHEMA_VERSION
+        && record?.workflow_run_id === workflowRunId
+        && record?.node_id === nodeId
+        && typeof record?.raised_to === 'number'
+      ) {
+        // Defensive re-cap: the schema already enforces <=5, but a hand-recorded artifact must
+        // never widen the budget past the spec's hard ceiling.
+        raised = Math.max(raised, Math.min(5, Math.trunc(record.raised_to)));
+      }
+    }
+    return raised;
   }
 
   /** The single-agent twin of pendingN6DebateEscalation: N6 most-recently looped back WITHOUT the

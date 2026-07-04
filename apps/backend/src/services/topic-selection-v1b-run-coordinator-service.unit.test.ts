@@ -1712,3 +1712,225 @@ test('a fresh N6 entry after an N5 re-drive does NOT attach the stale regenerate
     'the fresh forward N6 entry must not carry the stale regenerate projection',
   );
 });
+
+// --- T-128 W-15: provisional sign-off gate (O-1 / D1c) + loopback budget raise (O-2) -----------
+
+function runOverrideSignOffPayload(nodeId: string, attemptId: string, warningCode: string): Record<string, unknown> {
+  return {
+    schema_version: 'TopicSelectionStakeholderSignOff@v1',
+    sign_off_id: `sign_off_${attemptId}`,
+    sign_off_scope: 'provisional_threshold_run_override',
+    gate_warning_code: warningCode,
+    signed_by: { actor_type: 'human', actor_id: 'operator_alice' },
+    signed_at: '2026-07-03T12:00:00.000Z',
+    rationale: 'Acknowledged: proceeding under provisional thresholds.',
+    workflow_run_id: RUN,
+    node_id: nodeId,
+    node_attempt_id: attemptId,
+  };
+}
+
+/** Drive N1..N8 where N8 ADMITS carrying the provisional-thresholds tripwire warning. */
+async function driveToWarnedN8(warned = true): Promise<ReturnType<typeof makeSubject>> {
+  const subject = makeSubject();
+  const { harness, coordinator, controlPlane } = subject;
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+  harness.on(N5, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N5ToN6Handoff' });
+  harness.on(N6, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N6ToN7Handoff' });
+  harness.on(N7, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N7ToN8Handoff' });
+  harness.on(N8, {
+    gate_status: 'admitted',
+    route_decision: 'invoke_next',
+    handoff_kind_for_test: 'N8ToN9Handoff',
+    ...(warned
+      ? { warnings: [{ code: 'N8_DEBATE_THRESHOLDS_PROVISIONAL', message: 'provisional thresholds', severity: 'warning' }] }
+      : {}),
+  });
+  harness.on(N9, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N9ToN10Handoff' });
+  // The N8 recipe requires N7's n7->n8 context projection (required_projection_kind) — the real
+  // N7 runner records it; simulate that so the N8 request can be assembled.
+  await controlPlane.recordArtifactRef({
+    artifact_kind: 'diagnostic',
+    workflow_run_id: RUN,
+    payload: { projection_kind: 'v1b_n7_to_n8_topic_question_contract_context' },
+  });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+  const toN8 = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    max_steps: 3,
+    node_inputs: { [N6]: { draft_payload: { candidates: ['c'] } }, [N8]: { draft_payload: { total_score: 82 } } },
+  });
+  assert.deepEqual(toN8.steps.map((step) => step.node_id), [N6, N7, N8]);
+  return subject;
+}
+
+test('W-15 D1(c): a product advance past a provisional-warned N8 halts sign_off_required', async () => {
+  const { coordinator } = await driveToWarnedN8();
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, run_mode: 'product' });
+  assert.equal(report.halt.reason, 'sign_off_required');
+  assert.equal(report.halt.node_id, N8);
+  assert.equal(report.steps.length, 0, 'nothing downstream ran');
+  assert.match(report.halt.message, /provisional_threshold_run_override/);
+  assert.match(report.halt.message, /sign-offs/);
+});
+
+test('W-15 D1(c): a recorded sign-off unlocks the product advance (and is idempotent)', async () => {
+  const { coordinator } = await driveToWarnedN8();
+  const state = await coordinator.getRunState(RUN);
+  const attemptId = state.nodes.find((node) => node.node_id === N8)!.latest_admitted!.node_attempt_id;
+
+  const first = await coordinator.recordProvisionalRunOverrideSignOff({
+    workflow_run_id: RUN,
+    payload: runOverrideSignOffPayload(N8, attemptId, 'N8_DEBATE_THRESHOLDS_PROVISIONAL'),
+  });
+  assert.equal(first.already_recorded, false);
+  const second = await coordinator.recordProvisionalRunOverrideSignOff({
+    workflow_run_id: RUN,
+    payload: runOverrideSignOffPayload(N8, attemptId, 'N8_DEBATE_THRESHOLDS_PROVISIONAL'),
+  });
+  assert.equal(second.already_recorded, true);
+  assert.equal(second.artifact_ref_id, first.artifact_ref_id, 'idempotent re-record returns the same artifact');
+
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, run_mode: 'product', max_steps: 1 });
+  assert.notEqual(report.halt.reason, 'sign_off_required');
+  assert.deepEqual(report.steps.map((step) => step.node_id), [N9], 'the signed run proceeds into N9');
+});
+
+test('W-15 D1(c): acceptance runs and unwarned product runs never see the sign-off halt', async () => {
+  // Acceptance mode past a WARNED N8: gate skipped entirely.
+  const warned = await driveToWarnedN8();
+  const acceptance = await warned.coordinator.advanceUntilBlocked({ workflow_run_id: RUN, max_steps: 1 });
+  assert.notEqual(acceptance.halt.reason, 'sign_off_required');
+  assert.deepEqual(acceptance.steps.map((step) => step.node_id), [N9]);
+
+  // Product mode past an UNWARNED N8: nothing to sign.
+  const unwarned = await driveToWarnedN8(false);
+  const product = await unwarned.coordinator.advanceUntilBlocked({ workflow_run_id: RUN, run_mode: 'product', max_steps: 1 });
+  assert.notEqual(product.halt.reason, 'sign_off_required');
+  assert.deepEqual(product.steps.map((step) => step.node_id), [N9]);
+});
+
+test('W-15 O-1: sign-off recording validates strictly and pins the latest admitted attempt', async () => {
+  const { coordinator } = await driveToWarnedN8();
+  const state = await coordinator.getRunState(RUN);
+  const attemptId = state.nodes.find((node) => node.node_id === N8)!.latest_admitted!.node_attempt_id;
+
+  // Unknown extra key -> strict Ajv reject (route-level stripping never reaches here).
+  await assert.rejects(
+    coordinator.recordProvisionalRunOverrideSignOff({
+      workflow_run_id: RUN,
+      payload: { ...runOverrideSignOffPayload(N8, attemptId, 'N8_DEBATE_THRESHOLDS_PROVISIONAL'), flips_provisional: true },
+    }),
+    /does not match/,
+  );
+  // Run mismatch.
+  await assert.rejects(
+    coordinator.recordProvisionalRunOverrideSignOff({
+      workflow_run_id: 'workflow_run_other',
+      payload: runOverrideSignOffPayload(N8, attemptId, 'N8_DEBATE_THRESHOLDS_PROVISIONAL'),
+    }),
+    /does not match the route run/,
+  );
+  // Non-gate node.
+  await assert.rejects(
+    coordinator.recordProvisionalRunOverrideSignOff({
+      workflow_run_id: RUN,
+      payload: runOverrideSignOffPayload(N7, attemptId, 'N8_DEBATE_THRESHOLDS_PROVISIONAL'),
+    }),
+    /not a provisional product gate/,
+  );
+  // Stale/foreign attempt id.
+  await assert.rejects(
+    coordinator.recordProvisionalRunOverrideSignOff({
+      workflow_run_id: RUN,
+      payload: runOverrideSignOffPayload(N8, 'node_attempt_stale', 'N8_DEBATE_THRESHOLDS_PROVISIONAL'),
+    }),
+    /not the run's latest admitted attempt/,
+  );
+});
+
+test('W-15 O-1: signing an attempt that does not carry the warning is rejected', async () => {
+  const { coordinator } = await driveToWarnedN8(false);
+  const state = await coordinator.getRunState(RUN);
+  const attemptId = state.nodes.find((node) => node.node_id === N8)!.latest_admitted!.node_attempt_id;
+  await assert.rejects(
+    coordinator.recordProvisionalRunOverrideSignOff({
+      workflow_run_id: RUN,
+      payload: runOverrideSignOffPayload(N8, attemptId, 'N8_DEBATE_THRESHOLDS_PROVISIONAL'),
+    }),
+    /does not carry/,
+  );
+});
+
+test('W-15 O-2: an audited budget raise lifts the exhausted halt (and the halt names the raise route)', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+  harness.on(N5, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N5ToN6Handoff' });
+  harness.route(N6, () => ({ gate_status: 'blocked', route_decision: 'loopback' }));
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+  // Two blocked loopback attempts consume the default budget of 2.
+  const first = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N6]: { draft_payload: { candidates: [] } } } });
+  assert.equal(first.halt.reason, 'harness_loopback');
+  const second = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, retry_node_id: N6, node_inputs: { [N6]: { draft_payload: { candidates: [] } } } });
+  assert.equal(second.halt.reason, 'harness_loopback');
+
+  const exhausted = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, retry_node_id: N6, node_inputs: { [N6]: { draft_payload: { candidates: [] } } } });
+  assert.equal(exhausted.halt.reason, 'loopback_budget_exhausted');
+  assert.match(exhausted.halt.message, /loopback-budget-raises/);
+
+  await coordinator.recordLoopbackBudgetRaise({
+    workflow_run_id: RUN,
+    payload: {
+      schema_version: 'TopicSelectionLoopbackBudgetRaise@v1',
+      raise_id: 'raise_n6_1',
+      workflow_run_id: RUN,
+      node_id: N6,
+      raised_to: 3,
+      rationale: 'One more regeneration round is warranted.',
+      raised_by: { actor_type: 'human', actor_id: 'operator_alice' },
+      raised_at: '2026-07-03T12:30:00.000Z',
+    },
+  });
+  const afterRaise = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, retry_node_id: N6, node_inputs: { [N6]: { draft_payload: { candidates: [] } } } });
+  assert.equal(afterRaise.halt.reason, 'harness_loopback', 'the raised budget admits a third loopback attempt');
+});
+
+test('W-15 O-2: budget-raise recording rejects over-cap, foreign-node, and mismatched-run payloads', async () => {
+  const { coordinator } = await driveToN6RegenerateFailure();
+  const base = {
+    schema_version: 'TopicSelectionLoopbackBudgetRaise@v1',
+    raise_id: 'raise_x',
+    workflow_run_id: RUN,
+    node_id: N6,
+    raised_to: 3,
+    rationale: 'r',
+    raised_by: { actor_type: 'human', actor_id: 'op' },
+    raised_at: '2026-07-03T12:30:00.000Z',
+  };
+  await assert.rejects(
+    coordinator.recordLoopbackBudgetRaise({ workflow_run_id: RUN, payload: { ...base, raised_to: 6 } }),
+    /does not match/,
+  );
+  await assert.rejects(
+    coordinator.recordLoopbackBudgetRaise({ workflow_run_id: RUN, payload: { ...base, node_id: 'not.a.v1b.node' } }),
+    /not a v1b node/,
+  );
+  await assert.rejects(
+    coordinator.recordLoopbackBudgetRaise({ workflow_run_id: 'workflow_run_other', payload: base }),
+    /does not match the route run/,
+  );
+});

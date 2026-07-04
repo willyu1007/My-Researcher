@@ -843,6 +843,26 @@ export type TopicSelectionStakeholderSignOff =
   | TopicSelectionProvisionalRunOverrideSignOff
   | TopicSelectionCalibrationGateReleaseSignOff;
 
+/**
+ * T-128 W-15 (O-2): the loopback-budget raise record — the audited form of the coordinator's
+ * `loopback_budget_per_node` knob. Recorded per (workflow_run_id, node_id) via the control-plane
+ * artifact channel; the coordinator's effective budget for that node becomes
+ * max(call parameter, highest valid raise). `raised_to` is hard-capped at 5 BY SCHEMA — an
+ * over-cap raise cannot validate. Human-only, rationale required (same posture as the sign-off).
+ */
+export const TOPIC_SELECTION_LOOPBACK_BUDGET_RAISE_SCHEMA_VERSION = 'TopicSelectionLoopbackBudgetRaise@v1' as const;
+
+export type TopicSelectionLoopbackBudgetRaise = {
+  schema_version: typeof TOPIC_SELECTION_LOOPBACK_BUDGET_RAISE_SCHEMA_VERSION;
+  raise_id: string;
+  workflow_run_id: string;
+  node_id: string;
+  raised_to: number;
+  rationale: string;
+  raised_by: TopicSelectionStakeholderSignOffActor;
+  raised_at: string;
+};
+
 export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
   {
     node_index: 1,
@@ -4288,31 +4308,35 @@ const topicSelectionStakeholderSignOffCommonProperties = {
   rationale: stringId,
 } as const;
 
+/** The run-override branch as a standalone schema — the W-15 sign-off route/service validate
+ *  against THIS branch directly (a release-scope record is not a valid run override). */
+export const topicSelectionProvisionalRunOverrideSignOffSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'sign_off_id',
+    'sign_off_scope',
+    'gate_warning_code',
+    'signed_by',
+    'signed_at',
+    'rationale',
+    'workflow_run_id',
+    'node_id',
+    'node_attempt_id',
+  ],
+  properties: {
+    ...topicSelectionStakeholderSignOffCommonProperties,
+    sign_off_scope: { const: 'provisional_threshold_run_override' },
+    workflow_run_id: stringId,
+    node_id: stringId,
+    node_attempt_id: stringId,
+  },
+} as const;
+
 export const topicSelectionStakeholderSignOffSchema = {
   oneOf: [
-    {
-      type: 'object',
-      additionalProperties: false,
-      required: [
-        'schema_version',
-        'sign_off_id',
-        'sign_off_scope',
-        'gate_warning_code',
-        'signed_by',
-        'signed_at',
-        'rationale',
-        'workflow_run_id',
-        'node_id',
-        'node_attempt_id',
-      ],
-      properties: {
-        ...topicSelectionStakeholderSignOffCommonProperties,
-        sign_off_scope: { const: 'provisional_threshold_run_override' },
-        workflow_run_id: stringId,
-        node_id: stringId,
-        node_attempt_id: stringId,
-      },
-    },
+    topicSelectionProvisionalRunOverrideSignOffSchema,
     {
       type: 'object',
       additionalProperties: false,
@@ -4362,4 +4386,32 @@ export const topicSelectionStakeholderSignOffSchema = {
       },
     },
   ],
+} as const;
+
+/** T-128 W-15 (O-2): strict schema for the loopback-budget raise record. `raised_to` is
+ *  hard-capped at 5 by `maximum` — an over-cap raise is schema-invalid, mirroring how the W-16
+ *  release sign-off encodes its bar structurally. */
+export const topicSelectionLoopbackBudgetRaiseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'raise_id',
+    'workflow_run_id',
+    'node_id',
+    'raised_to',
+    'rationale',
+    'raised_by',
+    'raised_at',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionLoopbackBudgetRaise@v1' },
+    raise_id: stringId,
+    workflow_run_id: stringId,
+    node_id: stringId,
+    raised_to: { type: 'integer', minimum: 1, maximum: 5 },
+    rationale: stringId,
+    raised_by: topicSelectionStakeholderSignOffActorSchema,
+    raised_at: stringId,
+  },
 } as const;

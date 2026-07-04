@@ -32,6 +32,7 @@ import {
   topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
   topicSelectionV1bN6RuntimeContextProjectionSchema,
   topicSelectionV1bN7RuntimeContextProjectionSchema,
+  topicSelectionLoopbackBudgetRaiseSchema,
   topicSelectionStakeholderSignOffSchema,
   type TopicSelectionV1bAcceptedConstraintProfilePayload,
   type TopicSelectionV1bAcceptedSliceSelectionPayload,
@@ -1823,4 +1824,32 @@ test('stakeholder sign-off schema is strict: unknown keys, cross-scope fields, a
   const wrongGate = canonicalRunOverrideSignOff();
   wrongGate.gate_warning_code = 'SOME_OTHER_GATE';
   assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, wrongGate), false);
+});
+
+test('loopback-budget raise schema is strict and hard-caps raised_to at 5 (W-15 O-2)', async () => {
+  const canonical = () => ({
+    schema_version: 'TopicSelectionLoopbackBudgetRaise@v1',
+    raise_id: 'raise_001',
+    workflow_run_id: 'workflow_run_001',
+    node_id: 'topic-selection.v1b.generate-topic-question-candidates.v1',
+    raised_to: 3,
+    rationale: 'One more regeneration round is warranted for this run.',
+    raised_by: { actor_type: 'human', actor_id: 'operator_alice' },
+    raised_at: '2026-07-03T12:30:00.000Z',
+  });
+  assert.equal(await validatesBody(topicSelectionLoopbackBudgetRaiseSchema, canonical()), true);
+
+  // The spec's hard ceiling is structural: 6 cannot validate; neither can 0 or a fraction.
+  assert.equal(await validatesBody(topicSelectionLoopbackBudgetRaiseSchema, { ...canonical(), raised_to: 6 }), false);
+  assert.equal(await validatesBody(topicSelectionLoopbackBudgetRaiseSchema, { ...canonical(), raised_to: 0 }), false);
+  assert.equal(await validatesBody(topicSelectionLoopbackBudgetRaiseSchema, { ...canonical(), raised_to: 2.5 }), false);
+  // Human-only, strict keys.
+  assert.equal(
+    await validatesBody(topicSelectionLoopbackBudgetRaiseSchema, {
+      ...canonical(),
+      raised_by: { actor_type: 'llm', actor_id: 'bot' },
+    }),
+    false,
+  );
+  assert.equal(await validatesBody(topicSelectionLoopbackBudgetRaiseSchema, { ...canonical(), auto_apply: true }), false);
 });

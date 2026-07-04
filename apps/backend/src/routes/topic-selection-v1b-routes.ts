@@ -323,6 +323,19 @@ export async function registerTopicSelectionV1bRoutes(
     { schema: workflowRunAdvanceSchema, preValidation: normalizeOptionalBody },
     controller.advanceWorkflowRun,
   );
+  // T-128 W-15: operator records. Route bodies are permissive objects — the coordinator's own
+  // strict Ajv is the authoritative validator (W-09 pattern: Fastify's default removeAdditional
+  // would silently strip additionalProperties violations instead of rejecting them).
+  fastify.post<{ Params: { workflowRunId: string }; Body: Record<string, unknown> }>(
+    '/topic-selection/v1b/workflow-runs/:workflowRunId/sign-offs',
+    { schema: { ...paramsSchema({ workflowRunId: stringId }), body: { type: 'object' } } },
+    controller.recordProvisionalSignOff,
+  );
+  fastify.post<{ Params: { workflowRunId: string }; Body: Record<string, unknown> }>(
+    '/topic-selection/v1b/workflow-runs/:workflowRunId/loopback-budget-raises',
+    { schema: { ...paramsSchema({ workflowRunId: stringId }), body: { type: 'object' } } },
+    controller.recordLoopbackBudgetRaise,
+  );
   fastify.post<{ Body: WorkflowHarnessArtifactBody }>(
     '/topic-selection/v1b/workflow-harness/artifacts',
     { schema: workflowHarnessArtifactBody },

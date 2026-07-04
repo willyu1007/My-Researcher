@@ -137,6 +137,42 @@ export class TopicSelectionV1bController {
     }
   };
 
+  /** T-128 W-15 O-1: record a provisional-thresholds run-override sign-off (W-16 contract).
+   *  Route body stays permissive; the coordinator's strict Ajv is the authoritative validator
+   *  (W-09 pattern). No RBAC yet — distinct endpoint + human actor in payload, honestly noted. */
+  recordProvisionalSignOff = async (
+    request: { params: { workflowRunId: string }; body: Record<string, unknown> },
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.runCoordinator.recordProvisionalRunOverrideSignOff({
+        workflow_run_id: request.params.workflowRunId,
+        payload: request.body,
+        created_by: 'human',
+      });
+      return reply.status(result.already_recorded ? 200 : 201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  /** T-128 W-15 O-2: record an audited loopback-budget raise (schema-capped at 5). */
+  recordLoopbackBudgetRaise = async (
+    request: { params: { workflowRunId: string }; body: Record<string, unknown> },
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.runCoordinator.recordLoopbackBudgetRaise({
+        workflow_run_id: request.params.workflowRunId,
+        payload: request.body,
+        created_by: 'human',
+      });
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   invokeWorkflowHarnessNode = async (
     request: BodyParamsRequest<WorkflowHarnessRunBody, { nodeId: string }>,
     reply: FastifyReply,
