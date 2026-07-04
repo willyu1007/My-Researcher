@@ -731,6 +731,8 @@ export const N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
   harness_blocking: false,
   /** A real topic may pass N8 carrying the warning only with a recorded stakeholder sign-off. */
   requires_stakeholder_sign_off: true,
+  /** T-128 W-16: the concrete record contract behind the flag (see the sign-off schema below). */
+  sign_off_contract: 'TopicSelectionStakeholderSignOff@v1',
   applies_when: { run_mode: 'product', thresholds_provisional: true },
   /** Calibration bar that releases the gate (flips provisional:false and removes the tripwire). */
   released_by: 'W-13 calibration: >=100 multi-provider labeled samples, false-positive rate < 5%',
@@ -761,10 +763,85 @@ export const N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
   harness_blocking: false,
   /** A real topic may pass N6 carrying the warning only with a recorded stakeholder sign-off. */
   requires_stakeholder_sign_off: true,
+  /** T-128 W-16: the concrete record contract behind the flag (see the sign-off schema below). */
+  sign_off_contract: 'TopicSelectionStakeholderSignOff@v1',
   applies_when: { run_mode: 'product', thresholds_provisional: true },
   /** Calibration bar that releases the gate (flips provisional:false and removes the tripwire). */
   released_by: 'W-13 calibration: >=100 multi-provider labeled samples, false-positive rate < 5%',
 } as const;
+
+/**
+ * T-128 W-16: the stakeholder sign-off RECORD contract — the concrete artifact behind the two gates'
+ * `requires_stakeholder_sign_off: true` flags (previously declaration-only; the DP-3.3 flip checklist
+ * names defining this record as a flip prerequisite). Two scopes, one schema:
+ *
+ * - `provisional_threshold_run_override`: the PER-RUN override entry — a named human acknowledges that
+ *   a specific product-run node attempt proceeded under provisional thresholds. Ties to the concrete
+ *   (workflow_run_id, node_id, node_attempt_id) carrying the tripwire warning.
+ * - `calibration_gate_release`: the ONE-TIME release record consumed by the W-17 flip. Its calibration
+ *   evidence block encodes the release bar STRUCTURALLY — an under-bar record is schema-invalid:
+ *   >=100 labeled samples, >=2 distinct providers (the F6 nuance: the N8 profile exposes two — do not
+ *   assume three), false-positive rate strictly < 0.05, per-provider-leak check done, and an
+ *   INDEPENDENT content-grounded assessor. "语料到位即可一步翻门": once a valid release record exists,
+ *   the flip itself stays a separate, human-gated edit (provisional:false + tripwire removal + guard
+ *   test re-baseline) — this contract wires NO auto-flip path (T-127 D8).
+ *
+ * Recording rides the existing control-plane artifact channel (payload validated against this schema);
+ * no dedicated table/route until an operator surface needs one.
+ */
+export const TOPIC_SELECTION_STAKEHOLDER_SIGN_OFF_SCHEMA_VERSION = 'TopicSelectionStakeholderSignOff@v1' as const;
+
+export const TOPIC_SELECTION_PROVISIONAL_GATE_WARNING_CODES = [
+  'N8_DEBATE_THRESHOLDS_PROVISIONAL',
+  'N6_DEBATE_THRESHOLDS_PROVISIONAL',
+] as const;
+
+export type TopicSelectionProvisionalGateWarningCode =
+  (typeof TOPIC_SELECTION_PROVISIONAL_GATE_WARNING_CODES)[number];
+
+export type TopicSelectionStakeholderSignOffActor = {
+  actor_type: 'human';
+  actor_id: string;
+};
+
+export type TopicSelectionProvisionalRunOverrideSignOff = {
+  schema_version: typeof TOPIC_SELECTION_STAKEHOLDER_SIGN_OFF_SCHEMA_VERSION;
+  sign_off_id: string;
+  sign_off_scope: 'provisional_threshold_run_override';
+  gate_warning_code: TopicSelectionProvisionalGateWarningCode;
+  signed_by: TopicSelectionStakeholderSignOffActor;
+  signed_at: string;
+  rationale: string;
+  workflow_run_id: string;
+  node_id: string;
+  node_attempt_id: string;
+};
+
+export type TopicSelectionCalibrationGateReleaseSignOff = {
+  schema_version: typeof TOPIC_SELECTION_STAKEHOLDER_SIGN_OFF_SCHEMA_VERSION;
+  sign_off_id: string;
+  sign_off_scope: 'calibration_gate_release';
+  gate_warning_code: TopicSelectionProvisionalGateWarningCode;
+  signed_by: TopicSelectionStakeholderSignOffActor;
+  signed_at: string;
+  rationale: string;
+  calibration_evidence: {
+    labeled_sample_count: number;
+    providers: string[];
+    false_positive_rate: number;
+    per_provider_leak_checked: true;
+    assessor: {
+      independent: true;
+      actor: TopicSelectionStakeholderSignOffActor;
+    };
+    corpus_ref: TopicSelectionFunctionalRef;
+    calibration_report_ref: TopicSelectionFunctionalRef;
+  };
+};
+
+export type TopicSelectionStakeholderSignOff =
+  | TopicSelectionProvisionalRunOverrideSignOff
+  | TopicSelectionCalibrationGateReleaseSignOff;
 
 export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
   {
@@ -4186,4 +4263,103 @@ export const topicSelectionV1bWorkflowHarnessRunResultSchema = {
     error_code: nullableStringId,
     error_message: nullableStringId,
   },
+} as const;
+
+/** T-128 W-16: strict schema for the stakeholder sign-off record (see the type block near the two
+ *  provisional product gates). additionalProperties:false at every level (W-09 discipline); the
+ *  calibration_gate_release branch encodes the flip bar structurally so an under-bar sign-off can
+ *  never validate. No auto-flip path is wired anywhere (T-127 D8). */
+const topicSelectionStakeholderSignOffActorSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['actor_type', 'actor_id'],
+  properties: {
+    actor_type: { const: 'human' },
+    actor_id: stringId,
+  },
+} as const;
+
+const topicSelectionStakeholderSignOffCommonProperties = {
+  schema_version: { const: 'TopicSelectionStakeholderSignOff@v1' },
+  sign_off_id: stringId,
+  gate_warning_code: { enum: ['N8_DEBATE_THRESHOLDS_PROVISIONAL', 'N6_DEBATE_THRESHOLDS_PROVISIONAL'] },
+  signed_by: topicSelectionStakeholderSignOffActorSchema,
+  signed_at: stringId,
+  rationale: stringId,
+} as const;
+
+export const topicSelectionStakeholderSignOffSchema = {
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'schema_version',
+        'sign_off_id',
+        'sign_off_scope',
+        'gate_warning_code',
+        'signed_by',
+        'signed_at',
+        'rationale',
+        'workflow_run_id',
+        'node_id',
+        'node_attempt_id',
+      ],
+      properties: {
+        ...topicSelectionStakeholderSignOffCommonProperties,
+        sign_off_scope: { const: 'provisional_threshold_run_override' },
+        workflow_run_id: stringId,
+        node_id: stringId,
+        node_attempt_id: stringId,
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'schema_version',
+        'sign_off_id',
+        'sign_off_scope',
+        'gate_warning_code',
+        'signed_by',
+        'signed_at',
+        'rationale',
+        'calibration_evidence',
+      ],
+      properties: {
+        ...topicSelectionStakeholderSignOffCommonProperties,
+        sign_off_scope: { const: 'calibration_gate_release' },
+        calibration_evidence: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'labeled_sample_count',
+            'providers',
+            'false_positive_rate',
+            'per_provider_leak_checked',
+            'assessor',
+            'corpus_ref',
+            'calibration_report_ref',
+          ],
+          properties: {
+            labeled_sample_count: { type: 'integer', minimum: 100 },
+            providers: { type: 'array', items: stringId, minItems: 2, uniqueItems: true },
+            false_positive_rate: { type: 'number', minimum: 0, exclusiveMaximum: 0.05 },
+            per_provider_leak_checked: { const: true },
+            assessor: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['independent', 'actor'],
+              properties: {
+                independent: { const: true },
+                actor: topicSelectionStakeholderSignOffActorSchema,
+              },
+            },
+            corpus_ref: strictFunctionalRefSchema,
+            calibration_report_ref: strictFunctionalRefSchema,
+          },
+        },
+      },
+    },
+  ],
 } as const;

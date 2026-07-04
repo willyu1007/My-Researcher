@@ -279,8 +279,12 @@ A flip is a separate, human-gated action. ALL must hold before `provisional → 
    independent of the labeler), captured into calibration records.
 3. **Analysis meets the bar** — `analyzeN8DebateThresholdCalibration` on the **deployed provisional set** AND candidate sets
    shows false-positive rate < 5% with no per-executor/per-provider leak (a global `separates` must not hide a provider leak).
-4. **Recorded stakeholder sign-off** — `requires_stakeholder_sign_off: true` is currently a declarative flag with no concrete
-   artifact/table in code; defining that record is itself a prerequisite of the flip (out of W-13 record-and-defer scope).
+4. **Recorded stakeholder sign-off** — the record contract is now defined (T-128 W-16):
+   `TopicSelectionStakeholderSignOff@v1` (`topic-selection-v1b-workflow-harness-contracts.ts`, scope
+   `calibration_gate_release`). The schema encodes THIS checklist's bar structurally (>=100 labeled samples,
+   >=2 distinct providers, false-positive rate strictly < 0.05, per-provider leak check, independent assessor
+   + corpus/report refs) — an under-bar sign-off cannot validate. Record it via the control-plane artifact
+   channel; the flip itself stays this checklist's separate human-gated edit (no auto-flip path exists, D8).
 5. **The edits, together:** set `provisional: false` on the N8 (and, if calibrated, N6) `debate_trigger_thresholds`, set the
    final T1/T3 values, remove the `n8_debate_thresholds_provisional` (and N6 mirror) tripwire warning, and **update the W-06/W-07
    flip-tripwire guard tests** accordingly — then record the distribution + precision/recall here, in

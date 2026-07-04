@@ -32,6 +32,7 @@ import {
   topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
   topicSelectionV1bN6RuntimeContextProjectionSchema,
   topicSelectionV1bN7RuntimeContextProjectionSchema,
+  topicSelectionStakeholderSignOffSchema,
   type TopicSelectionV1bAcceptedConstraintProfilePayload,
   type TopicSelectionV1bAcceptedSliceSelectionPayload,
   type TopicSelectionV1bN1HarnessFrozenInputPayload,
@@ -1682,6 +1683,8 @@ test('N8 provisional-thresholds product gate (W-06) is held and formalized', () 
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code, 'N8_DEBATE_THRESHOLDS_PROVISIONAL');
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.harness_blocking, false);
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.requires_stakeholder_sign_off, true);
+  // W-16 (T-128): the flag now points at the concrete record contract.
+  assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.sign_off_contract, 'TopicSelectionStakeholderSignOff@v1');
 });
 
 // W-07 (T-127): the N6 provisional-thresholds product gate is held + formalized, mirroring N8. This
@@ -1703,4 +1706,121 @@ test('N6 provisional-thresholds product gate (W-07) is held and formalized', () 
   assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code, 'N6_DEBATE_THRESHOLDS_PROVISIONAL');
   assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.harness_blocking, false);
   assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.requires_stakeholder_sign_off, true);
+  // W-16 (T-128): the flag now points at the concrete record contract.
+  assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.sign_off_contract, 'TopicSelectionStakeholderSignOff@v1');
+});
+
+// --- T-128 W-16: stakeholder sign-off record schema -----------------------------------------
+
+function canonicalRunOverrideSignOff(): Record<string, unknown> {
+  return {
+    schema_version: 'TopicSelectionStakeholderSignOff@v1',
+    sign_off_id: 'sign_off_run_override_001',
+    sign_off_scope: 'provisional_threshold_run_override',
+    gate_warning_code: 'N8_DEBATE_THRESHOLDS_PROVISIONAL',
+    signed_by: { actor_type: 'human', actor_id: 'stakeholder_alice' },
+    signed_at: '2026-07-03T12:00:00.000Z',
+    rationale: 'Acknowledged: this product run proceeded past N8 under provisional thresholds.',
+    workflow_run_id: 'workflow_run_001',
+    node_id: 'topic-selection.v1b.assess-topic-value.v1',
+    node_attempt_id: 'node_attempt_workflow_run_001_assess_topic_value_v1_1',
+  };
+}
+
+function canonicalGateReleaseSignOff(): Record<string, unknown> {
+  return {
+    schema_version: 'TopicSelectionStakeholderSignOff@v1',
+    sign_off_id: 'sign_off_gate_release_001',
+    sign_off_scope: 'calibration_gate_release',
+    gate_warning_code: 'N8_DEBATE_THRESHOLDS_PROVISIONAL',
+    signed_by: { actor_type: 'human', actor_id: 'stakeholder_alice' },
+    signed_at: '2026-07-03T12:00:00.000Z',
+    rationale: 'Calibration met the release bar; authorizing the provisional flip as a separate reviewed edit.',
+    calibration_evidence: {
+      labeled_sample_count: 128,
+      providers: ['openai', 'dashscope'],
+      false_positive_rate: 0.032,
+      per_provider_leak_checked: true,
+      assessor: {
+        independent: true,
+        actor: { actor_type: 'human', actor_id: 'assessor_bob' },
+      },
+      corpus_ref: {
+        ref_type: 'calibration_corpus',
+        ref_id: 'corpus_001',
+        version_id: 'v1',
+        title_card_id: null,
+      },
+      calibration_report_ref: {
+        ref_type: 'calibration_report',
+        ref_id: 'report_001',
+        version_id: 'v1',
+        title_card_id: null,
+      },
+    },
+  };
+}
+
+test('stakeholder sign-off schema accepts both canonical scopes (W-16)', async () => {
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, canonicalRunOverrideSignOff()), true);
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, canonicalGateReleaseSignOff()), true);
+});
+
+test('stakeholder sign-off schema encodes the calibration release bar structurally (W-16)', async () => {
+  // Under-bar corpus: 99 labeled samples.
+  const underBar = canonicalGateReleaseSignOff();
+  (underBar.calibration_evidence as Record<string, unknown>).labeled_sample_count = 99;
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, underBar), false);
+
+  // False-positive rate must be STRICTLY below 0.05.
+  const fpAtBound = canonicalGateReleaseSignOff();
+  (fpAtBound.calibration_evidence as Record<string, unknown>).false_positive_rate = 0.05;
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, fpAtBound), false);
+
+  // Multi-provider means at least two DISTINCT providers (F6: two, not assumed three).
+  const singleProvider = canonicalGateReleaseSignOff();
+  (singleProvider.calibration_evidence as Record<string, unknown>).providers = ['openai'];
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, singleProvider), false);
+  const dupProviders = canonicalGateReleaseSignOff();
+  (dupProviders.calibration_evidence as Record<string, unknown>).providers = ['openai', 'openai'];
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, dupProviders), false);
+
+  // The assessor must be independent — a non-independent assessor cannot validate.
+  const dependentAssessor = canonicalGateReleaseSignOff();
+  ((dependentAssessor.calibration_evidence as Record<string, unknown>).assessor as Record<string, unknown>).independent = false;
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, dependentAssessor), false);
+
+  // The leak check is a hard prerequisite (a global 'separates' must not hide a provider leak).
+  const leakUnchecked = canonicalGateReleaseSignOff();
+  (leakUnchecked.calibration_evidence as Record<string, unknown>).per_provider_leak_checked = false;
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, leakUnchecked), false);
+});
+
+test('stakeholder sign-off schema is strict: unknown keys, cross-scope fields, and non-human signers reject (W-16)', async () => {
+  // Unknown top-level key.
+  const extraTop = { ...canonicalRunOverrideSignOff(), flips_provisional: true };
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, extraTop), false);
+
+  // Unknown nested key inside calibration_evidence.
+  const extraNested = canonicalGateReleaseSignOff();
+  (extraNested.calibration_evidence as Record<string, unknown>).auto_flip = true;
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, extraNested), false);
+
+  // Cross-scope mixing: a release record carrying run-override fields is not a valid shape.
+  const mixed = { ...canonicalGateReleaseSignOff(), workflow_run_id: 'workflow_run_001' };
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, mixed), false);
+
+  // A run-override without its run anchor is not a valid shape.
+  const { workflow_run_id: _omit, ...noRunId } = canonicalRunOverrideSignOff();
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, noRunId), false);
+
+  // Only a HUMAN signer can sign off.
+  const llmSigner = canonicalRunOverrideSignOff();
+  (llmSigner.signed_by as Record<string, unknown>).actor_type = 'llm';
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, llmSigner), false);
+
+  // Unknown gate warning code rejects.
+  const wrongGate = canonicalRunOverrideSignOff();
+  wrongGate.gate_warning_code = 'SOME_OTHER_GATE';
+  assert.equal(await validatesBody(topicSelectionStakeholderSignOffSchema, wrongGate), false);
 });
