@@ -270,4 +270,13 @@
 - **W-15 验收口径(spec §6)全满足**:S1/S2 单测+复审修复(59/59,full backend 1658/1623/0/35);S3 两卡+抽屉(typecheck 0,UI gate 0/0);S4 `sign_off_required` halt → 签核 → 续跑完整链留痕。**W-15 DONE。**
 
 
+### 2026-07-05 · Phase 4 — W-14 provider_llm debate 管路预接(dormant + 守卫)⇒ 收口
+> 01-plan 锁定范围:放宽 N6/N8 debate runtime 的执行模式并集承 provider_llm + model_option_id 穿入每个 role turn + 默认 dormant + 守卫钉「未开启身份不变」;另承 W-15 S4 移交的 execution_spec 决策。接地修正:**model_option_id 穿线已由 T-127 W-09 完成**(N8 `invocationEnvelope` 每 role 从 named plan 解析、N6 同构),W-14 真残余 = 并集放宽 + dormancy 守卫 + execution_spec 决策。
+- **接地实锤(比预期严重)**:洞不是"预接卫生"而是**已敞开**——advance 路由 debate enum 用全量执行模式(含 provider_llm)、TS 并集只是编译期约束、debate 三 profile 走 DEFAULT eligibility(provider_llm: acceptance+product)、`selectModelOption(null)` 回退默认 provider 选项 ⇒ HTTP 一发 `debate:{kind,execution_mode:'provider_llm',role_outputs:{}}` 即触发**真实 provider 调用×每 role turn,prompt 还是 W-02 台账里的骨架**,直到 admission/bridge 才失败(钱已花)。
+- **S1 落地**:shared 新增 `TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH`(dormant:true + release_sign_off_scope=calibration_gate_release + opened_by=W-19 code change——D8:翻常量是人工代码变更,绝非运行时读工件自动翻);两 runtime 并集放宽至含 provider_llm(类型可表示)+ 入口守卫 `assertProviderDebatePathOpen`(**任何解析/控制面写之前**,409 GATE_CONSTRAINT_FAILED 具名消息);**fail-closed 双投**:只翻常量不接线会撞分支内第二道 500(W-19 欠:live role outputs / gate-bridge provenance / provider runMode 默认)。
+- **S2 落地(execution_spec 决策 = 明文 reserved + 前置拒)**:coordinator 对 standalone `node_inputs.execution_spec` 前置 400(reserved 消息指 runtime codex_assisted 通道与 W-19),置于既有共供检查**之后**(它们的消息保持权威);死透传赋值移除;两处 halt 提示文案与字段 docblock 同步去 execution_spec 引导。W-15 S4 的深层 `N4_FROZEN_DRAFT_ARTIFACT_REQUIRED` footgun 就地消灭。
+- **测试**:runtime 守卫 ×2(N6/N8:provider → 409 + /DORMANT/ + /calibration_gate_release/ + /W-19/,**零控制面写**断言;常量形状 pin);coordinator +1(standalone execution_spec → /reserved \(T-128 W-14\)/,N4 零 invocation);集成 debate-loop 测试内嵌 **HTTP 前沿探针**:真实 N8 bounded 前沿上发 provider debate → coordinator 收成结构化 `debate_blocked` halt(200,steps=[],blocker GATE_CONSTRAINT_FAILED,run 未动,后续 codex re-eval 原样通过)——比裸 409 更优:run 可恢复。**身份不变 pin = 全部既有 debate 身份测试零改动**(byte-identity 断言原样绿)。coordinator **60/60**、debate runtimes **18/18**、shared schema **29/29**、debate-loop 集成绿;full backend **1661/1626/0/35**(1658+3,零回归)。
+- **W-19 turn-on 义务清单(守卫处成文)**:翻 `TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.dormant` + wire live role outputs + gate-bridge provenance 决策 + provider runMode 默认;前置条件 = W-16 `calibration_gate_release` 签核(W-17)+ W-18 语料化 debate prompts。
+
+
 ### （待开工）

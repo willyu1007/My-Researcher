@@ -358,6 +358,13 @@ const DEBATE_EXECUTION_PLAN_VALIDATORS: Record<TopicSelectionV1bRunCoordinatorDe
 };
 
 export type TopicSelectionV1bRunCoordinatorNodeInput = {
+  /**
+   * RESERVED (T-128 W-14): rejected up front — no wired consumer exists. The harness requires a
+   * pre-recorded runtime draft artifact regardless of any spec, and the single-agent draft runtimes
+   * have no provider_llm path yet; the field stays typed so the W-19 provider turn-on can wire it
+   * without a contract change. Current product-legal caller shape: generate through the node's
+   * runtime service (codex_assisted) and invoke the harness directly (see the run_mode docblock).
+   */
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
   /**
    * Caller-supplied model draft for N4/N6/N8 (acceptance / codex-assisted operation).
@@ -441,8 +448,8 @@ export type AdvanceTopicSelectionV1bRunInput = {
    * Current product-legal caller shape (validated by the W-15 S4 product run): generate the
    * draft through the node's RUNTIME service (codex_assisted → runtime_verified) and invoke
    * the harness node directly with the artifact attached, on the SAME workflow_run_id — the
-   * projection folds those traces like any human-route invocation. execution_spec below is a
-   * pass-through the harness does not act on for single-agent drafts (provider wiring = W-14).
+   * projection folds those traces like any human-route invocation. node_inputs.execution_spec is
+   * reserved-rejected up front (T-128 W-14) until the W-19 provider turn-on wires it.
    */
   run_mode?: TopicSelectionAgentRunMode | null;
 };
@@ -757,6 +764,19 @@ export class TopicSelectionV1bRunCoordinatorService {
           `${nextNodeId}: support_payloads can only accompany draft_payload, not ${nodeInput.debate ? 'debate' : 'execution_spec'} — supply the support alongside the model draft on the escalation-triggering attempt.`,
         );
       }
+      if (nodeInput?.execution_spec) {
+        // T-128 W-14 (after the co-supply checks above so their messages stay authoritative for those
+        // shapes): a STANDALONE execution_spec is RESERVED — nothing consumes it today. The harness
+        // requires a pre-recorded runtime draft artifact regardless (the W-15 S4 probe run ended in
+        // N4_FROZEN_DRAFT_ARTIFACT_REQUIRED deep in the gate), and the single-agent draft runtimes have
+        // no provider_llm path yet (W-19 tail). Reject up front with the honest contract instead of
+        // letting callers discover the dead parameter via that deep blocker.
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          `${nextNodeId}: node_inputs.execution_spec is reserved (T-128 W-14) — no wired consumer exists yet; provider single-agent generation lands with the W-19 turn-on. Supply draft_payload (acceptance) or generate the draft through the node's runtime service codex_assisted channel and invoke the harness directly (the current product-legal caller shape; see the run_mode docblock).`,
+        );
+      }
 
       // T-127 W-07 item (a): a harness-routed debate frontier (N6 n6_debate_escalation loopback / N8
       // post-N7 bounded-debate re-entry). The debate is OPT-IN: a frontier ALLOWS the caller to drive
@@ -772,7 +792,7 @@ export class TopicSelectionV1bRunCoordinatorService {
           return halt(
             'debate_not_applicable',
             nextNodeId,
-            `${nextNodeId}: node_inputs.debate was supplied but this node is not at a debate frontier (N6 needs an n6_debate_escalation loopback; N8 runs the bounded debate only on the post-N7 re-entry). Supply draft_payload/execution_spec for a normal pass.`,
+            `${nextNodeId}: node_inputs.debate was supplied but this node is not at a debate frontier (N6 needs an n6_debate_escalation loopback; N8 runs the bounded debate only on the post-N7 re-entry). Supply draft_payload for a normal pass.`,
             [],
             projection,
           );
@@ -844,7 +864,8 @@ export class TopicSelectionV1bRunCoordinatorService {
       // so it needs caller input exactly like a model-like node.
       const feedbackSupportSlotId = this.feedbackReentrySupportSlotId(projection, nextNodeId);
       const isModelLike = policy.execution_kind === 'model_like';
-      if ((isModelLike || feedbackSupportSlotId != null) && !nodeInput?.draft_payload && !nodeInput?.execution_spec) {
+      // (execution_spec cannot reach here — the reserved-reject above throws on it.)
+      if ((isModelLike || feedbackSupportSlotId != null) && !nodeInput?.draft_payload) {
         return halt(
           'model_input_required',
           nextNodeId,
@@ -852,8 +873,8 @@ export class TopicSelectionV1bRunCoordinatorService {
             ? `${nextNodeId} is re-entering in feedback mode; supply node_inputs[...].draft_payload carrying the ${feedbackSupportSlotId} support (the debate-admission review the readmission requires).`
             : debateFrontier != null
               // The harness recommends a debate here, but it is opt-in — surface both paths.
-              ? `${nextNodeId} is at a ${debateFrontier === 'n6_divergent' ? 'divergent (N6)' : 'bounded (N8)'} debate frontier; supply node_inputs[...].debate (per-role fixtures) to drive ${debateFrontier === 'n6_divergent' ? 'runDivergentDebate' : 'runDebate'}, or draft_payload/execution_spec for a single-agent pass.`
-              : `${nextNodeId} is model-like; supply node_inputs[...].draft_payload (caller-curated draft) or execution_spec (provider run) — auto-advance stays human-in-loop per D1.`,
+              ? `${nextNodeId} is at a ${debateFrontier === 'n6_divergent' ? 'divergent (N6)' : 'bounded (N8)'} debate frontier; supply node_inputs[...].debate (per-role fixtures) to drive ${debateFrontier === 'n6_divergent' ? 'runDivergentDebate' : 'runDebate'}, or draft_payload for a single-agent pass.`
+              : `${nextNodeId} is model-like; supply node_inputs[...].draft_payload (caller-curated draft; or run the node's runtime channel and invoke the harness directly) — auto-advance stays human-in-loop per D1.`,
           [],
           projection,
         );
@@ -876,8 +897,8 @@ export class TopicSelectionV1bRunCoordinatorService {
         }
         throw error;
       }
-      if (nodeInput?.draft_payload || nodeInput?.execution_spec || nodeInput?.support_payloads) {
-        // run_mode is only meaningful alongside a semantic artifact / execution spec —
+      if (nodeInput?.draft_payload || nodeInput?.support_payloads) {
+        // run_mode is only meaningful alongside a semantic artifact —
         // the harness blocks it on bare deterministic invocations
         // (RUNTIME_FIELDS_REQUIRE_SEMANTIC_ARTIFACT). A support_payload is itself such an artifact,
         // and it must be set BEFORE recording so the recorded support carries the same run_mode.
@@ -902,9 +923,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         );
         request.semantic_artifacts = [...(request.semantic_artifacts ?? []), ...supports];
       }
-      if (nodeInput?.execution_spec) {
-        request.execution_spec = nodeInput.execution_spec;
-      }
+      // (No execution_spec forwarding: the field is reserved-rejected above — T-128 W-14.)
 
       const result = await this.invokeWithTimeout(request, nodeTimeoutMs);
       if (result.kind === 'timeout') {

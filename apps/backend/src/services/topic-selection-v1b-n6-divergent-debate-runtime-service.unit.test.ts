@@ -6,12 +6,14 @@ import type {
 import {
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   type TopicSelectionV1bN6DivergentDebateRoleSlotId,
   type TopicSelectionV1bN6HarnessFrozenInputPayload,
   type TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import { AppError } from '../errors/app-error.js';
 import { createTopicSelectionV1bN6DivergentDebateScenarioContract } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-scenario-contracts';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
@@ -563,4 +565,34 @@ test('f5 runtime: rejects a named execution_plan co-supplied with a legacy model
   );
   // The reject fires before any role/context artifacts are recorded (no debate loop ran).
   assert.equal((await controlPlane.listArtifactRefsByWorkflowRunId(e2eRequest().workflow_run_id)).length, 0);
+});
+
+// T-128 W-14: mirror of the N8 dormancy-gate pin — provider_llm divergent debate is representable
+// but rejected at entry while the shared const says dormant (W-19 flips it; D8: no auto-flip).
+test('W-14 dormancy gate: provider_llm N6 divergent debate rejects at entry (409, zero control-plane writes)', async () => {
+  assert.equal(TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.dormant, true);
+
+  const repository = new InMemoryTopicSelectionControlPlaneRepository();
+  const controlPlane = new TopicSelectionControlPlaneService(repository);
+  const runtime = new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane);
+  const request = e2eRequest();
+  await assert.rejects(
+    runtime.runDivergentDebate({
+      request,
+      generation_mode: 'initial_from_n5',
+      execution_mode: 'provider_llm',
+      role_outputs: {},
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && /DORMANT/.test(error.message)
+      && /calibration_gate_release/.test(error.message)
+      && /W-19/.test(error.message),
+  );
+  assert.deepEqual(
+    await controlPlane.listArtifactRefsByWorkflowRunId(request.workflow_run_id),
+    [],
+    'the guard fires before any control-plane write',
+  );
 });

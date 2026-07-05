@@ -401,6 +401,28 @@ test('draft_payload and execution_spec together are rejected before any harness 
   assert.equal(harness.invocations.filter((request) => request.node_id === N4).length, 0);
 });
 
+// T-128 W-14: a STANDALONE execution_spec is reserved — nothing consumes it (the harness demands a
+// pre-recorded runtime draft regardless; the W-15 S4 probe died on N4_FROZEN_DRAFT_ARTIFACT_REQUIRED
+// deep in the gate). The coordinator rejects it up front with the honest contract instead.
+test('a standalone execution_spec is reserved-rejected before any harness call (W-14)', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+
+  await assert.rejects(
+    coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      node_inputs: { [N4]: { execution_spec: { execution_mode: 'provider_llm', model_option_id: 'm1' } } },
+    }),
+    /execution_spec is reserved \(T-128 W-14\)/,
+  );
+  assert.equal(harness.invocations.filter((request) => request.node_id === N4).length, 0);
+});
+
 test('loopback halts, retry_node_id resumes, and the per-node budget exhausts', async () => {
   const { harness, coordinator } = makeSubject();
   harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });

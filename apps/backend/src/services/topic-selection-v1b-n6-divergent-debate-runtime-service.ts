@@ -38,6 +38,7 @@ import {
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+  TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH,
   TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
   TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
   TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
@@ -598,7 +599,10 @@ export {
 export type GenerateTopicSelectionV1bN6DivergentDebateInput = {
   request: TopicSelectionV1bWorkflowHarnessRunRequest;
   generation_mode: TopicSelectionV1bN6DraftGenerationMode;
-  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+  /** T-128 W-14: `provider_llm` is REPRESENTABLE (pre-wired: per-family model_option_id already
+   *  threads from a named execution plan) but DORMANT — the runDivergentDebate entry guard rejects
+   *  it while TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.dormant holds. Live wiring lands with W-19. */
+  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm' | 'provider_llm'>;
   run_mode?: TopicSelectionAgentRunMode | null;
   /** per-role, per-instance codex/mock fixtures: role_outputs[slot][instanceIndex] (fan-out). */
   role_outputs: Partial<Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, V1bN6DebateInputs[]>>;
@@ -671,9 +675,29 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
     );
   }
 
+  /** T-128 W-14 dormancy gate: throws 409 while the shared const says dormant (D8: opened only by
+   *  the W-19 code change after the calibration_gate_release sign-off — never a runtime artifact check). */
+  private assertProviderDebatePathOpen(): void {
+    if (TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.dormant) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+        `N6 divergent-debate provider_llm execution is pre-wired but DORMANT (T-128 W-14): debate prompts are pre-calibration skeletons and the path opens only via the W-19 turn-on after a ${TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.release_sign_off_scope} sign-off (${TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.release_sign_off_contract}). Run the debate with codex_assisted or mocked_llm role outputs instead.`);
+    }
+  }
+
   async runDivergentDebate(
     input: GenerateTopicSelectionV1bN6DivergentDebateInput,
   ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
+    // T-128 W-14 dormancy gate — FIRST, before any resolution or control-plane write. Without it the
+    // provider path is live end-to-end today (route enum admits provider_llm, debate profiles default
+    // provider-eligible, null model_option_id falls back to a default provider option) and every
+    // fan-out role instance would spend real provider calls on still-skeleton debate prompts. Both
+    // branch paths throw (fail-closed): flipping the const WITHOUT wiring the live path hits the 500
+    // below — W-19 owes live role outputs, the gate-bridge provenance, and the provider runMode default.
+    if (input.execution_mode === 'provider_llm') {
+      this.assertProviderDebatePathOpen();
+      throw new AppError(500, 'INTERNAL_ERROR',
+        'provider_llm N6 divergent-debate turn-on (W-19) must wire live role outputs, the gate-bridge provenance, and the runMode default before lifting the dormancy guard.');
+    }
     // T-127 W-09 pre-provider_llm hardening: the named execution_plan is the SOLE per-family override
     // channel, so it cannot be co-supplied with the legacy per-loop model_option_id. This legacy channel has
     // NO producing caller today — the coordinator's debate input type (Pick<>) structurally excludes

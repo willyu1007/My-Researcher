@@ -771,6 +771,31 @@ export const N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
 } as const;
 
 /**
+ * T-128 W-14: the provider_llm DEBATE path is PRE-WIRED but DORMANT. The N6/N8 debate runtimes
+ * accept `execution_mode: 'provider_llm'` at the type level and thread per-role `model_option_id`
+ * from a named execution plan (T-127 W-09), but their entry guards REJECT provider execution while
+ * this const says dormant. Without the guard the path would be LIVE today: the advance route's
+ * debate enum admits provider_llm, the debate model profiles default to provider-eligible
+ * run modes, and a null model_option_id falls back to a default provider option — i.e. real
+ * provider calls on debate prompts that are still skeletons (W-02 ledger; corpus-coupled prompts
+ * land with W-18).
+ *
+ * Turn-on is a HUMAN CODE CHANGE in W-19 (flip `dormant` here) after the W-16
+ * `calibration_gate_release` sign-off — never a runtime artifact check (T-127 D8: no auto-flip
+ * paths). W-19 also owes the live-path wiring the guard makes unreachable today: live role
+ * outputs (no codex/mock passthrough), the gate-bridge provenance decision (the completed-debate
+ * draft is bridged as codex_response/mocked_output today — neither fits provider), and the
+ * runMode default for provider entries.
+ */
+export const TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH = {
+  dormant: true,
+  /** What releases the gate: the one-time calibration sign-off (W-16 scope), then the W-19 flip. */
+  release_sign_off_contract: 'TopicSelectionStakeholderSignOff@v1',
+  release_sign_off_scope: 'calibration_gate_release',
+  opened_by: 'W-19 code change (flip `dormant`) after the calibration_gate_release sign-off',
+} as const;
+
+/**
  * T-128 W-16: the stakeholder sign-off RECORD contract — the concrete artifact behind the two gates'
  * `requires_stakeholder_sign_off: true` flags (previously declaration-only; the DP-3.3 flip checklist
  * names defining this record as a flip prerequisite). Two scopes, one schema:

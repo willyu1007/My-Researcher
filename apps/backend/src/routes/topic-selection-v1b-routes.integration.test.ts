@@ -2719,6 +2719,24 @@ test('v1b run coordinator drives the full N8 debate loop: borderline T1 loopback
     assert.equal(n7Reentry.route_decision, 'invoke_next');
     assert.equal(reentryReport.halt.node_id, N8_ID);
 
+    // T-128 W-14: at this exact bounded-debate frontier a provider_llm debate request must hit the
+    // DORMANCY gate over HTTP — the route enum admits provider_llm and the debate profiles are
+    // provider-eligible by default, so without the runtime entry guard this would fire live provider
+    // role turns on skeleton prompts. The coordinator surfaces the guard as a structured
+    // `debate_blocked` halt (resumable run, zero steps/writes), so the codex re-eval below proceeds.
+    const providerProbe = await advance({
+      node_inputs: {
+        [N8_ID]: { debate: { kind: 'n8_bounded', execution_mode: 'provider_llm', role_outputs: {} } },
+      },
+    });
+    assert.equal(providerProbe.halt.reason, 'debate_blocked');
+    assert.equal(providerProbe.halt.node_id, N8_ID);
+    assert.equal(providerProbe.steps.length, 0);
+    assert.match(providerProbe.halt.message ?? '', /DORMANT/);
+    assert.match(providerProbe.halt.message ?? '', /calibration_gate_release/);
+    const providerProbeBlocker = (providerProbe.halt as unknown as { blockers: Array<{ code: string }> }).blockers[0];
+    assert.equal(providerProbeBlocker?.code, 'GATE_CONSTRAINT_FAILED');
+
     // N8 re-eval (still borderline; admission ref now feedback_from_n8) -> after-debate warning admit.
     const n8Reentry = await v1bHarnessN8Request(app, fabricate(reentryReport.run_state, N7_ID), `${suffix}_reeval`);
     const reevalReport = await advance({ node_inputs: { [N8_ID]: { draft_payload: borderline(v1bHarnessN8ValueDraft(n8Reentry) as unknown as Record<string, unknown>) } } });

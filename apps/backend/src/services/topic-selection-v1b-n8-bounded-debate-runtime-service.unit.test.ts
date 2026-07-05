@@ -18,10 +18,12 @@ import type {
 import {
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+  TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   type TopicSelectionV1bN8BoundedDebateRoleSlotId,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import { AppError } from '../errors/app-error.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionV1bN8ValueAssessmentRuntimeService } from './topic-selection-v1b-n8-value-assessment-runtime-service.js';
@@ -403,4 +405,33 @@ test('v1b N8 bounded debate runtime: rejects a named execution_plan co-supplied 
   );
   // The reject fires before any role/context artifacts are recorded (no debate loop ran).
   assert.equal((await controlPlane.listArtifactRefsByWorkflowRunId(request.workflow_run_id)).length, 0);
+});
+
+// T-128 W-14: the provider_llm debate path is REPRESENTABLE (type union widened, per-role
+// model_option_id threads from a named plan) but DORMANT — the entry guard rejects it before any
+// resolution or control-plane write. Without the guard the path is live end-to-end (route enum
+// admits provider_llm, debate profiles default provider-eligible, null option falls back to a
+// default provider option). Opened only by the W-19 code change after the calibration_gate_release
+// sign-off; flipping the const WITHOUT wiring the live path fail-closes on INTERNAL_ERROR.
+test('W-14 dormancy gate: provider_llm N8 debate rejects at entry (409, zero control-plane writes)', async () => {
+  assert.equal(TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.dormant, true);
+  assert.equal(TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.release_sign_off_scope, 'calibration_gate_release');
+  assert.equal(TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.release_sign_off_contract, 'TopicSelectionStakeholderSignOff@v1');
+
+  const { runtime, controlPlane } = makeSubject();
+  const request = makeRequest('dormant_guard');
+  await assert.rejects(
+    runtime.runDebate({ request, execution_mode: 'provider_llm', role_outputs: {} }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && /DORMANT/.test(error.message)
+      && /calibration_gate_release/.test(error.message)
+      && /W-19/.test(error.message),
+  );
+  assert.deepEqual(
+    await controlPlane.listArtifactRefsByWorkflowRunId(request.workflow_run_id),
+    [],
+    'the guard fires before any control-plane write',
+  );
 });
