@@ -1449,3 +1449,20 @@ Close criteria:
 - Result: passed.
 - Negative harness startup probe: named profile plus legacy slot env correctly fails before workflow execution with `cannot be combined with legacy debate slot env overrides`.
 - Cleanup: removed the accidental failed canary artifact created while probing script import behavior; no failed SO-03 canary artifact is retained as evidence.
+
+## 2026-07-05 结构化硬化切片 ②→①→③ 验证
+- Command: `node .ai/scripts/topic-selection-workflow-matrix-consistency.mjs`
+- Result: passed — matrix matches code authority sources and scenario registry（真实文件零 issue；含新增的 v1c/downstream 全语义列、v1b 三项语义、行形状、stage 词汇、抽取完备性、covered_scenarios 双向、D-28 脚本登记检查）。
+- Command: `node .ai/scripts/topic-selection-workflow-matrix-consistency.mjs --self-test`
+- Result: passed — **21/21 漂移注入负例全部命中**（原 7 例 + 本切片 14 例：v1c debate 翻转/executor 漂移、v1b human_delegated 翻转/executor 漂移/非法 default、行缺格、未知 stage、v1b 常量化重构抽取失效、未映射 execution_kind、v1c policy 缺失、矩阵场景改名、注册表 covered_nodes 漂移/伪造节点、脚本未登记）。
+- Command: `node --test --loader ts-node/esm src/research-lifecycle/topic-selection-v1c-node-policy-contracts.schema.test.ts`（packages/shared）
+- Result: passed; 7 tests（AJV 逐条 + 注册表全序相等 + debate⟺primitive/human_review→executor 不变量 + 负例拒绝）。
+- Command: `pnpm test`（packages/shared 全 schema 套件）
+- Result: passed; **280/280**。
+- Command: `pnpm --filter @paper-engineering-assistant/shared typecheck` / `pnpm --filter @paper-engineering-assistant/backend typecheck`
+- Result: passed ×2（0 error）。
+- Command: `node --test --loader ts-node/esm src/services/topic-selection-workflow-matrix-consistency.unit.test.ts`（apps/backend 包装测试）
+- Result: passed; 2/2（真实文件 + self-test 两口径进默认套件）。
+- Command: `node scripts/run-node-tests.mjs`（apps/backend 全量）
+- Result: passed — **1661 / 1626 pass / 0 fail / 35 skipped = 基线**。注：切片中途首跑曾 1 fail（test 1213 标定语料 placeholder 守卫），定位为 470300e1 归档搬迁漏改 backend 侧路径的既有断裂（先于本切片），已独立修复提交 `793fbebb` 后回归基线。
+- 对抗式复审（13 代理，4 维 + 逐发现反驳）：4 项确认当轮修复（见 03 §复审段）、5 项反驳留档;registry-content 维度补跑**零发现**（11 场景双向一致 + 新 N6 条目声明逐项核实）。

@@ -1,7 +1,9 @@
 # 08 Scenarios
 
 ## Purpose
-This file is the scenario registry for T-089. Scenarios describe acceptance orchestration only. Business semantics come from `06-workflow-matrix.md` and `07-node-policies.md`.
+This file is the scenario registry for T-089. Scenarios describe acceptance orchestration only. Business semantics come from the SSOT matrix `docs/context/process/topic-selection-workflow-matrix.md`（原 `06-workflow-matrix.md`，已迁移）and `07-node-policies.md`.
+
+Machine-checked（T-089 ③，2026-07-05 起）: `.ai/scripts/topic-selection-workflow-matrix-consistency.mjs`（进 backend 默认套件）双向校验本注册表——矩阵 `covered_scenarios` 引用的 scenario 必须在此注册、此处注册的 scenario 必须被矩阵引用、每个 scenario 的 `covered_nodes` 与矩阵行集合**相等**、covered_nodes 必须是契约已知 node id；并按 T-088 D-28 校验每个 `.ai/scripts/topic-selection-*.mjs` 已在本文件登记（见文末 Script Registration Map）。
 
 ## Required Fields
 - `scenario_id`
@@ -37,23 +39,30 @@ scenario_type: real_db_harness_smoke
 execution_modes: [codex_assisted, mocked_llm, provider_llm]
 covered_nodes:
   - topic-selection.resource-sampling.create-sample-set.v1
+  - topic-selection.v1a.create-topic-seed.v1
+  - topic-selection.v1a.snapshot-literature-resource-pool.v1
+  - topic-selection.v1a.create-search-plan.v1
+  - topic-selection.v1a.record-search-run.v1
   - topic-selection.v1a.build-evidence-map.v1
   - topic-selection.v1a.generate-need-candidate.v1
   - topic-selection.v1a.validate-need-adjudication.v1
   - topic-selection.v1a.human-confirm-need.v1
   - topic-selection.v1a.publish-v1b-input-bundle.v1
-  - topic-selection.v1b.build-intake-constraint-profile.v1
-  - topic-selection.v1b.plan-research-slice.v1
-  - topic-selection.v1b.form-topic-question-contract.v1
+  - topic-selection.v1b.create-intake-snapshot.v1
+  - topic-selection.v1b.record-research-constraint-profile.v1
+  - topic-selection.v1b.assess-intake-readiness.v1
+  - topic-selection.v1b.generate-research-slice-options.v1
+  - topic-selection.v1b.select-research-slice.v1
+  - topic-selection.v1b.generate-topic-question-candidates.v1
+  - topic-selection.v1b.materialize-topic-question-contract.v1
   - topic-selection.v1b.assess-topic-value.v1
   - topic-selection.v1b.decide-value-disposition.v1
-  - topic-selection.v1b.create-topic-package-draft.v1
-  - topic-selection.v1b.assess-package-readiness.v1
+  - topic-selection.v1b.create-draft-topic-package.v1
   - topic-selection.v1b.publish-v1c-input-bundle.v1
   - topic-selection.v1c.create-promotion-input-snapshot.v1
   - topic-selection.v1c.generate-promotion-support.v1
   - topic-selection.v1c.run-promotion-gate.v1
-  - topic-selection.v1c.human-promotion-decision.v1
+  - topic-selection.v1c.record-human-promotion-decision.v1
   - topic-selection.v1c.create-paper-project-bridge.v1
   - topic-selection.downstream.paper-project-intake.v1
 fixtures_or_data_source: real resource pool sample such as ai-rag-finetuning-2022-2026 plus human decision fixtures where required
@@ -90,23 +99,30 @@ scenario_type: scale_quality_gate
 execution_modes: [provider_llm, codex_assisted, mocked_llm]
 covered_nodes:
   - topic-selection.resource-sampling.create-sample-set.v1
+  - topic-selection.v1a.create-topic-seed.v1
+  - topic-selection.v1a.snapshot-literature-resource-pool.v1
+  - topic-selection.v1a.create-search-plan.v1
+  - topic-selection.v1a.record-search-run.v1
   - topic-selection.v1a.build-evidence-map.v1
   - topic-selection.v1a.generate-need-candidate.v1
   - topic-selection.v1a.validate-need-adjudication.v1
   - topic-selection.v1a.human-confirm-need.v1
   - topic-selection.v1a.publish-v1b-input-bundle.v1
-  - topic-selection.v1b.build-intake-constraint-profile.v1
-  - topic-selection.v1b.plan-research-slice.v1
-  - topic-selection.v1b.form-topic-question-contract.v1
+  - topic-selection.v1b.create-intake-snapshot.v1
+  - topic-selection.v1b.record-research-constraint-profile.v1
+  - topic-selection.v1b.assess-intake-readiness.v1
+  - topic-selection.v1b.generate-research-slice-options.v1
+  - topic-selection.v1b.select-research-slice.v1
+  - topic-selection.v1b.generate-topic-question-candidates.v1
+  - topic-selection.v1b.materialize-topic-question-contract.v1
   - topic-selection.v1b.assess-topic-value.v1
   - topic-selection.v1b.decide-value-disposition.v1
-  - topic-selection.v1b.create-topic-package-draft.v1
-  - topic-selection.v1b.assess-package-readiness.v1
+  - topic-selection.v1b.create-draft-topic-package.v1
   - topic-selection.v1b.publish-v1c-input-bundle.v1
   - topic-selection.v1c.create-promotion-input-snapshot.v1
   - topic-selection.v1c.generate-promotion-support.v1
   - topic-selection.v1c.run-promotion-gate.v1
-  - topic-selection.v1c.human-promotion-decision.v1
+  - topic-selection.v1c.record-human-promotion-decision.v1
   - topic-selection.v1c.create-paper-project-bridge.v1
   - topic-selection.downstream.paper-project-intake.v1
 fixtures_or_data_source: expanded real resource sample set
@@ -123,14 +139,22 @@ purpose: Verify weak value assessment stops before package, v1c, bridge, and Pap
 scenario_type: negative
 execution_modes: [codex_assisted, mocked_llm, provider_llm]
 covered_nodes:
+  - topic-selection.v1a.create-topic-seed.v1
+  - topic-selection.v1a.snapshot-literature-resource-pool.v1
+  - topic-selection.v1a.create-search-plan.v1
+  - topic-selection.v1a.record-search-run.v1
   - topic-selection.v1a.build-evidence-map.v1
   - topic-selection.v1a.generate-need-candidate.v1
   - topic-selection.v1a.validate-need-adjudication.v1
   - topic-selection.v1a.human-confirm-need.v1
   - topic-selection.v1a.publish-v1b-input-bundle.v1
-  - topic-selection.v1b.build-intake-constraint-profile.v1
-  - topic-selection.v1b.plan-research-slice.v1
-  - topic-selection.v1b.form-topic-question-contract.v1
+  - topic-selection.v1b.create-intake-snapshot.v1
+  - topic-selection.v1b.record-research-constraint-profile.v1
+  - topic-selection.v1b.assess-intake-readiness.v1
+  - topic-selection.v1b.generate-research-slice-options.v1
+  - topic-selection.v1b.select-research-slice.v1
+  - topic-selection.v1b.generate-topic-question-candidates.v1
+  - topic-selection.v1b.materialize-topic-question-contract.v1
   - topic-selection.v1b.assess-topic-value.v1
   - topic-selection.v1b.decide-value-disposition.v1
 fixtures_or_data_source: controlled weak-value v1b input or real-flow fork with low value outcome
@@ -148,10 +172,11 @@ scenario_type: real_provider_canary
 execution_modes: [provider_llm]
 covered_nodes:
   - topic-selection.resource-sampling.create-sample-set.v1
+  - topic-selection.v1a.build-evidence-map.v1
   - topic-selection.v1a.generate-need-candidate.v1
   - topic-selection.v1a.validate-need-adjudication.v1
-  - topic-selection.v1b.plan-research-slice.v1
-  - topic-selection.v1b.form-topic-question-contract.v1
+  - topic-selection.v1b.generate-research-slice-options.v1
+  - topic-selection.v1b.generate-topic-question-candidates.v1
   - topic-selection.v1b.assess-topic-value.v1
   - topic-selection.v1c.generate-promotion-support.v1
 fixtures_or_data_source: real or deterministic resource sample plus provider credentials from local environment
@@ -172,8 +197,8 @@ scenario_type: downstream_loopback
 execution_modes: [none]
 covered_nodes:
   - topic-selection.v1c.create-paper-project-bridge.v1
+  - topic-selection.v1c.downstream-feedback-recheck.v1
   - topic-selection.downstream.paper-project-intake.v1
-  - topic-selection.downstream.feedback-recheck.v1
 fixtures_or_data_source: active PaperProjectBridge and controlled downstream feedback payloads
 assertion_scope: feedback source lineage, typed loopback target, recheck request creation, append-only feedback, and upstream immutability
 artifact_expectations: feedback trace, recheck request refs, bridge hash comparison, and upstream immutability assertion evidence
@@ -211,6 +236,22 @@ business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
 implementation_note: D-25 WorkflowHarness plumbing cases exist for finalize-persist, supplemental-routing, admission-blocked, duplicate merge-hint, malformed blocked output, execution-mode shape stability, and persistence-conflict rollback; the initial multi-agent debate role loop is implemented through TopicSelectionNeedDiscoveryDebateLoopService; the real E2E canary now routes v1a generate-need-candidate through WorkflowHarness, while full scenario-wrapper migration for remaining nodes and automated supplemental repair rounds remain pending.
 ```
 
+### `topic-selection.debate.v1b-n6-topic-candidates.v1`
+```yaml
+scenario_id: topic-selection.debate.v1b-n6-topic-candidates.v1
+status: runtime_implemented_prompts_gated
+purpose: Verify the N6 divergent candidate debate loop (explorer/critic/arbiter fan-out) deepens topic-question candidate generation behind the deterministic N6 gate.
+scenario_type: debate
+execution_modes: [codex_assisted, mocked_llm, provider_llm]
+covered_nodes:
+  - topic-selection.v1b.generate-topic-question-candidates.v1
+fixtures_or_data_source: controlled research-slice selection with candidate-quality tension triggering the n6_debate_escalation loopback
+assertion_scope: debate trigger via deterministic gate codes, caller-side runtime execution, divergent loop `v1b_n6_divergent_candidate_debate` role fan-out, deterministic admission, arbiter draft funnel into the existing N6 gate, provisional-threshold tripwire emission, and loopback re-entry projection attachment
+artifact_expectations: role outputs, arbiter draft batch, admission report, gate-failure retry-context projection refs, and harness trace refs
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md + 07-node-policies.md
+implementation_note: runtime implemented T-127 W-07 (2026-06-20, caller-side debate + runDivergentLoop; JD D-T127-02); provider_llm debate path product-gated by W-14 dormancy (release owned by T-129 C-3); gated prompt bodies are T-129 C-2 scope. Registered 2026-07-05 (T-089 slice ③) because the SSOT matrix N6 row references this scenario id.
+```
+
 ### `topic-selection.debate.v1b-value-tension.v1`
 ```yaml
 scenario_id: topic-selection.debate.v1b-value-tension.v1
@@ -240,3 +281,28 @@ assertion_scope: debate trigger, promotion advocate output, blocker reviewer out
 artifact_expectations: role outputs, arbiter summary, accepted-risk coverage table, validation report, and support audit refs
 business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
 ```
+
+## Script Registration Map（T-088 D-28）
+
+D-28（T-088 `06-joint-decisions.md`，2026-07-05）硬约束：任何新增 topic-selection acceptance 脚本必须在本文件登记；一致性脚本机器校验每个 `.ai/scripts/topic-selection-*.mjs` 文件名出现在本文件中。
+
+| 脚本 | 角色 | 关联 scenario / 说明 |
+|---|---|---|
+| topic-selection-real-e2e.mjs | E2E 执行引擎 | `topic-selection.real-e2e.canary.v1` / `topic-selection.real-e2e.scale-quality.v1` 的底层执行引擎（由 scenario runner 编排） |
+| topic-selection-workflow-scenario-runner.mjs | 注册 runner | canary + scale-quality 两注册 scenario 的入口 runner（承接旧 quality-gate 断言） |
+| topic-selection-multisample-provider-batch.mjs | 批量编排 | `topic-selection.provider-stability.v1` 多样本批跑编排 |
+| topic-selection-v1a-harness-e2e.mjs | E2E | canary v1a 腿；`topic-selection.debate.v1a-need-discovery.v1`；`topic-selection.v1a.replay-idempotency.real-db-smoke.v1`（runner `pnpm topic-selection:v1a-harness-replay-smoke`） |
+| topic-selection-v1a-harness-negative-e2e.mjs | 负例 E2E | v1a 失败路径/负例诊断（canary 负例面） |
+| topic-selection-v1a-runtime-stress.mjs | stress | scale-quality 支撑：v1a prompt-packet cache 压测 |
+| topic-selection-v1b-harness-e2e.mjs | E2E | canary/scale-quality v1b 腿；`topic-selection.v1b.non-advance-negative.v1` |
+| topic-selection-v1b-near-prod-deep-test.mjs | 深测编排 | scale-quality v1b 深度验收编排（spawn harness/stress） |
+| topic-selection-v1b-runtime-stress.mjs | stress | scale-quality 支撑：v1b cache/并发压测 |
+| topic-selection-v1c-harness-acceptance.mjs | acceptance | canary/scale-quality v1c 腿 |
+| topic-selection-v1c-n2-runtime-smoke.mjs | smoke | v1c N2（`topic-selection.debate.v1c-promotion-support-risk.v1` runtime smoke） |
+| topic-selection-v1c-n4-runtime-smoke.mjs | smoke | v1c N4 人工晋升决策路由 smoke |
+| topic-selection-v1c-n6-runtime-smoke.mjs | smoke | `topic-selection.downstream.feedback-recheck.v1` smoke |
+| topic-selection-v1c-production-depth.mjs | 深测 | scale-quality v1c 深度面 |
+| topic-selection-v1c-real-codex-acceptance.mjs | acceptance | canary codex 档 v1c 验收 |
+| topic-selection-v1c-runtime-stress.mjs | stress | v1c smoke 场景压测编排 |
+| topic-selection-w15-s4-signoff-product-run.mjs | product-run | T-128 W-15 S4 签核摩擦产品跑（product-tier scenario SSOT 在归档 T-128 03） |
+| topic-selection-workflow-matrix-consistency.mjs | checker | 本机器校验自身（SSOT 矩阵 ↔ 契约 ↔ 本注册表） |
