@@ -2,8 +2,8 @@ version: 1
 task_id: T-123
 project: main
 slug: topic-selection-productization-hardening
-status: done
-updated: "2026-06-16"
+status: archived
+updated: "2026-07-05"
 keywords:
   - topic-selection
   - productization

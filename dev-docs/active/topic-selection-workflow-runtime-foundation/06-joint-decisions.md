@@ -1891,7 +1891,7 @@ error_code: string | null
 - 范围：`topic-selection-v1b-workflow-harness-service.ts` 新增 ① N6 确定性 gate 的 decision-memory dedup warning（新 helper + `validateAndBuildN6Candidates` 处一个调用点 + 契约 N6 `warning_codes` 增加 `decision_memory_duplicate_candidate`）；② N6/N8 runtime service（harness 内部构造）经 frozen_input.source_refs 解析可选的 decision-memory packet artifact（镜像既有 projection 解析模式）。
 - 不改动：`invokeNode` 生命周期、节点策略语义、route edges、replay key 组成规则（memory ref 经 frozen_input 自然参与 frozen_input_hash）。
 - 设计要点：memory packet 是预先持久化的 control-plane artifact、由调用方放入 frozen_input.source_refs（与 N7 loopback projection 同构），保证生成/准入 expected-identity 恒等与 replay 确定性；不做活查询注入。
-- 归属：T-123 Phase 4（dev-docs/active/topic-selection-productization-hardening/）。冲突面评估：纯加法、不与 T-088 Phase 2 runtime primitives 重叠。
+- 归属：T-123 Phase 4（dev-docs/archive/topic-selection-productization-hardening/）。冲突面评估：纯加法、不与 T-088 Phase 2 runtime primitives 重叠。
 
 ## D-T123-02 (2026-06-13) — T-123 Phase 3 对 harness 的加法式改动（联合决策登记）
 - 范围：`topic-selection-v1b-workflow-harness-service.ts` + v1b harness contracts 新增：
@@ -1901,13 +1901,13 @@ error_code: string | null
   ④ N8 runtime（harness 内部构造）按 handoff 携带的 `n8_debate_admission_ref/hash`（N7 runner 既有织入）选择 debate 草稿生成路径。
 - 不改动：`invokeNode` 生命周期、replay key 组成规则、既有 N8 三类 blocker 语义、route edges 集合（仅启用既有声明边）、N9（DP-3.4 收窄为 N8-only，其 loopback 码保持 declared-unused）。
 - 设计要点：零新触发引擎（D2）——T1/T3 是纯确定性编码，复用 N6 同形 gate→loopback 机制；复评防环判据用既有 handoff 字段，零新契约字段；debate 运行时本体在 harness 外（共享骨架 + v1b builder，DMP-10 单实现）。
-- 归属：T-123 Phase 3（dev-docs/active/topic-selection-productization-hardening/，决策 DP-3.1~3.6 见其 03 §Phase 3 决策）。冲突面评估：纯加法、不与 T-088 runtime primitives 重叠；N8/N7 gate 改动与 T-088 Phase 2 无共享改动点。
+- 归属：T-123 Phase 3（dev-docs/archive/topic-selection-productization-hardening/，决策 DP-3.1~3.6 见其 03 §Phase 3 决策）。冲突面评估：纯加法、不与 T-088 runtime primitives 重叠；N8/N7 gate 改动与 T-088 Phase 2 无共享改动点。
 
 ## D-T123-03 (2026-06-15) — T-123 Phase 5.1 harness 单文件拆分（机械重构，联合决策登记）
 - 范围：`topic-selection-v1b-workflow-harness-service.ts`（现 12,929 行）的**纯机械拆分**——把内聚的**纯函数簇**逐步抽出为独立模块（不改 `WorkflowHarnessService` 类对外契约）：① parse-and-resolve 子系统（`parseN*` frozen payload 解析 + `resolveN*Payload`/`resolveN7SupportContext`/`resolveEarlySemanticSupportPayload` 等纯解析）；② **hash-authority 簇**（`hashContext` 之外的 ~11 个 `hashN*Authority` + ref builder + `outcomeGateResultHash` 的纯计算部分）；③ ref/issue builder 工具（`n7BuildEvidenceRefs`/`uniqueRefs`/`uniqueIssues` 等）。被抽函数改为接收显式参数的 module 级函数（无 `this`），harness 类调用点逐字替换为模块调用。有状态的 per-node runner（依赖 18 个实例依赖）本期不动或仅改薄委托。
 - 不改动：`invokeNode` 生命周期与四类 blocker 顺序、replay key 组成规则（`hashContext` → `node_replay_key` 必须 byte-identical）、route edges 集合、所有 gate/blocker 语义、**所有 byte-bearing 哈希**（`frozen_input_hash`/`execution_spec_hash`/`gate_result_hash`/`route_hash`/runtime_admission/11 个 authority hash/`node_replay_key`）、控制面记录形态、契约层。零行为变化。
 - 设计要点：复用 v1c debate-core 抽取已验证的**逐字搬迁 + 差分核验**范式（被抽逻辑 byte-identical，pre/post 差分探针互证）。先落 **replay-identity 守卫单测**（对代表性输入钉死 `hashContext`/各 authority hash/`outcomeGateResultHash`/frozen_input_hash 的具体值），每个抽取 slice 前后该守卫 + 全套件必须保持绿；任一哈希漂移即视为回归。增量推进：一簇一 slice，互不耦合者优先（parse/hash/ref builder 纯函数无实例状态，最低风险）。多 session 工程。
-- 归属：T-123 Phase 5.1（F-11，dev-docs/active/topic-selection-productization-hardening/，计划见其 03 §Phase 5 + 00-overview Next）。冲突面评估：纯机械、零行为/契约改动；harness 本体属 T-088 WorkflowHarness 边界（D-02），故按 D3 在此联合登记；不引入新 runtime primitive、不与 T-088 Phase 2 改动点重叠。**重构期间 T-088 若需改 harness 本体请先在此协调，避免大范围搬迁冲突。**
+- 归属：T-123 Phase 5.1（F-11，dev-docs/archive/topic-selection-productization-hardening/，计划见其 03 §Phase 5 + 00-overview Next）。冲突面评估：纯机械、零行为/契约改动；harness 本体属 T-088 WorkflowHarness 边界（D-02），故按 D3 在此联合登记；不引入新 runtime primitive、不与 T-088 Phase 2 改动点重叠。**重构期间 T-088 若需改 harness 本体请先在此协调，避免大范围搬迁冲突。**
 - **续推移交（2026-06-16）**：T-123 收尾关闭归档，本 harness 拆分线**所有权移交 T-127 W-12**（`topic-selection-backend-hardening-and-expansion`，相位提前至 Phase 2、**一次拆透 b1**）。后续拆分在 T-127 登记 **D-T127-01** 续此范式（slice 边界 + N1 golden replay-identity 守卫逐字搬迁 + 差分核验承袭）；原 slice 1（dedup-utils）成果保留为起点。本条 D-T123-03 维持历史记录，进行中工作改看 T-127。
 
 ## D-T127-01 (2026-06-17) — T-127 W-12 harness 一次拆透至壳（机械重构，承 D-T123-03，联合决策登记）

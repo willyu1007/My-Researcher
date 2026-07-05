@@ -78,7 +78,7 @@ pnpm topic-selection:v1a-harness-replay-smoke
 ### 2026-06-15 F-10 per-provider token 校准收口验证
 | 检查 | 命令 | 结果 |
 |---|---|---|
-| 真实分词器实测 + 1200-输入验证 | `python3 dev-docs/active/topic-selection-productization-hardening/evidence/f10-token-calibration/measure.py` | ✅ default byte-identity 断言通过；CJK 实测均值 0.842/0.730/0.669；病态 newline-dense CJK safe；1200 输入（12 seed，33% newline-heavy + 25% CJK-heavy）×1.25 **0/1200 低估**，最差 est/actual ≈1.04（o200k 1.075 / qwen 1.044 / deepseek 1.054；exact 随 doc 派生语料漂移，0 低估为不变量） |
+| 真实分词器实测 + 1200-输入验证 | `python3 dev-docs/archive/topic-selection-productization-hardening/evidence/f10-token-calibration/measure.py` | ✅ default byte-identity 断言通过；CJK 实测均值 0.842/0.730/0.669；病态 newline-dense CJK safe；1200 输入（12 seed，33% newline-heavy + 25% CJK-heavy）×1.25 **0/1200 低估**，最差 est/actual ≈1.04（o200k 1.075 / qwen 1.044 / deepseek 1.054；exact 随 doc 派生语料漂移，0 低估为不变量） |
 | backend typecheck | `pnpm --filter @paper-engineering-assistant/backend typecheck` | ✅ 0 error |
 | estimator + gate 单测 | `node --test ... topic-selection-conservative-token-estimator-service.unit.test.ts topic-selection-token-budget-gate-service.unit.test.ts` | ✅ 14/14（含 provider 收紧 CJK、unknown/Latin byte-identical、校准表金值、newline 每行 1 token、gate 透传 provider_id） |
 | backend 全套件 | `pnpm --filter @paper-engineering-assistant/backend test` | ✅ 1349 tests / 1314 pass / 0 fail / 35 skipped（skip 为既有 env-gated；改动后重跑确认 newline 修复无回归） |

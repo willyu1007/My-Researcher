@@ -2,7 +2,7 @@
 
 > **本矩阵已迁移为永久 SSOT**：`docs/context/process/topic-selection-workflow-matrix.md`
 >
-> 迁移与实现对齐由 **T-123 Phase 0**（`dev-docs/active/topic-selection-productization-hardening/`）于 2026-06-11 完成：
+> 迁移与实现对齐由 **T-123 Phase 0**（`dev-docs/archive/topic-selection-productization-hardening/`）于 2026-06-11 完成：
 > - v1b 行重写为 11 节点实现 ID（旧 8 节点 ID 已与 `TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS` 脱节）；
 > - v1c 两处命名漂移以代码为准修正；
 > - 新增 `human_delegated_allowed` / `debate_primitive` 两列；

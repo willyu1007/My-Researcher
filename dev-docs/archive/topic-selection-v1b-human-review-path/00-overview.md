@@ -37,9 +37,9 @@
 - **运行时底座在建**：`T-088` workflow-runtime-foundation **in-progress**（non-goal: "Do not make desktop UI changes" / 不改授权契约）；`T-089` agent-workflow-review 在定节点 agent/debate/human 分类（non-goal: "Do not add UI"）。→ v1b 人审进 UI 不属于 T-088/T-089，是独立工作，但依赖的契约稳定，可独立推进（须与 T-088 对齐 harness service 改动边界）。
 
 ## Acceptance criteria (high level)
-- [ ] 人可在 UI 内完成 **N5 选切片**：选定一个 option → 产出合法 `ResearchSlice` + `SliceSelectionDecision`（与 harness 产物一致），全程走 `harnessService.ln`。
-- [ ] 同模式覆盖 **N7**（题目契约物化）与 **N2**（约束档案）的人审入口。
-- [ ] 人审路径用 `human_delegated` / `authority_input_provider`，与 harness（codex/fixture）路径**并存不冲突**；同一 option set 二者择一驱动。
-- [ ] 不破坏既有不变量：`'legacy write routes are not registered'` 仍 404；harness-native N1–N11 链路与 offline-replay 仍绿。
-- [ ] N8/N9/N10 维持只读；N9/N10 不暴露人审写入。
-- [ ] `pnpm typecheck` / desktop build / 后端 v1b 套件无回归；新增 service 单测覆盖成功 + hash-mismatch + 陈旧 option-set 负例。
+- [x] 人可在 UI 内完成 **N5 选切片**：选定一个 option → 产出合法 `ResearchSlice` + `SliceSelectionDecision`（与 harness 产物一致），全程走 `harnessService.ln`。
+- [x] 同模式覆盖 **N7**（题目契约物化）与 **N2**（约束档案）的人审入口(N2 已落地;N7 经核实为机械节点 `chooseN7Candidate`、正式 descope——见 Progress 2026-06-06 段,维持只读符合本包不变量)。
+- [x] 人审路径用 `human_delegated` / `authority_input_provider`，与 harness（codex/fixture）路径**并存不冲突**；同一 option set 二者择一驱动。
+- [x] 不破坏既有不变量：`'legacy write routes are not registered'` 仍 404；harness-native N1–N11 链路与 offline-replay 仍绿。
+- [x] N8/N9/N10 维持只读；N9/N10 不暴露人审写入。
+- [x] `pnpm typecheck` / desktop build / 后端 v1b 套件无回归；新增 service 单测覆盖成功 + hash-mismatch + 陈旧 option-set 负例。

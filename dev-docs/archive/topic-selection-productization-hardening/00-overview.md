@@ -50,10 +50,10 @@
 - **D3 与 T-088 的关系（locked）**：T-123 独立推进；凡触碰 harness service 本体（含 Phase 5.1 拆分）的改动先在两包的 implementation-notes 各记一条联合决策再动手。
 
 ## Acceptance Criteria (high level)
-- [ ] F-01..F-11 逐项关闭，每项在 `03-implementation-notes.md` 有对应条目与证据指针。
-- [ ] 矩阵一致性脚本进入测试链：矩阵 node_id 集合 == 代码注册节点策略集合；注入漂移时校验失败（负例覆盖）。
-- [ ] topic-selection 域内所有 LLM 调用经 model profile registry 解析（含 N8/N4/N6）；provenance 含 `profile_hash` + `normalized_params_hash`；lint/grep 级守卫防回潮。
-- [ ] coordinator 在 acceptance 隔离下自动推进 v1b N1→N11 至人审/blocked 停驻；故障注入三件套（并发双发→单执行、崩溃→replay 恢复、loopback 超额→budget_exhausted blocked）全绿。
-- [ ] v1b N8 debate：触发器单测全分支；mocked debate e2e 绿；不触发时单 agent 路径回归不变；provenance `debate_extension` 完整。
-- [ ] Decision Memory：预置否决候选的 e2e 中，N6 上下文 packet 含 dedup 信息、N8 收到负面记忆输入；token 预算/压缩路径有覆盖；不产生新权威对象。
-- [ ] 既有不变量回归：legacy 404、mocked product 拒绝、replay 幂等（拆分前后对比）、v1b 人审 N2/N5 e2e、`pnpm typecheck` + desktop typecheck + UI gate 0/0。
+- [x] F-01..F-11 逐项关闭(F-01..F-10 本包内;F-11 harness 拆分经 Closure 移交 T-127 W-12 已落地,DP-3.3 标定线 → T-127 W-13 → T-128 W-17 → T-129 C-1 track-and-defer)，每项在 `03-implementation-notes.md` 有对应条目与证据指针。
+- [x] 矩阵一致性脚本进入测试链：矩阵 node_id 集合 == 代码注册节点策略集合；注入漂移时校验失败（负例覆盖）。
+- [x] topic-selection 域内所有 LLM 调用经 model profile registry 解析（含 N8/N4/N6）；provenance 含 `profile_hash` + `normalized_params_hash`；lint/grep 级守卫防回潮。
+- [x] coordinator 在 acceptance 隔离下自动推进 v1b N1→N11 至人审/blocked 停驻；故障注入三件套（并发双发→单执行、崩溃→replay 恢复、loopback 超额→budget_exhausted blocked）全绿。
+- [x] v1b N8 debate：触发器单测全分支；mocked debate e2e 绿；不触发时单 agent 路径回归不变；provenance `debate_extension` 完整。
+- [x] Decision Memory：预置否决候选的 e2e 中，N6 上下文 packet 含 dedup 信息、N8 收到负面记忆输入；token 预算/压缩路径有覆盖；不产生新权威对象。
+- [x] 既有不变量回归：legacy 404、mocked product 拒绝、replay 幂等（拆分前后对比）、v1b 人审 N2/N5 e2e、`pnpm typecheck` + desktop typecheck + UI gate 0/0。
