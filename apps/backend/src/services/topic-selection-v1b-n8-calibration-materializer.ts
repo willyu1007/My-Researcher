@@ -15,7 +15,7 @@
  * (mocked executor, no provider call) and fails the moment the gates reject our construction.
  *
  * Calibration TOOLING — not wired into any product route. See
- * dev-docs/active/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/README.md.
+ * dev-docs/archive/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/README.md.
  */
 import {
   TOPIC_SELECTION_V1B_N7_RUNTIME_CONTEXT_PROJECTION_SCHEMA_VERSION,

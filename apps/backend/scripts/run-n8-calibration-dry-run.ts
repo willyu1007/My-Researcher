@@ -29,7 +29,7 @@
 //   node --loader ts-node/esm scripts/run-n8-calibration-dry-run.ts --self-test
 //   node --loader ts-node/esm scripts/run-n8-calibration-dry-run.ts --corpus ./my-corpus.json
 //
-// See dev-docs/active/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/README.md.
+// See dev-docs/archive/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/README.md.
 
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

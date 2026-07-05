@@ -144,7 +144,7 @@ test('the real placeholder corpus-template.json is rejected by the loader (guard
   const fs = await import('node:fs/promises');
   const url = await import('node:url');
   const path = url.fileURLToPath(new URL(
-    '../../../../dev-docs/active/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/corpus-template.json',
+    '../../../../dev-docs/archive/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/corpus-template.json',
     import.meta.url,
   ));
   const raw = JSON.parse(await fs.readFile(path, 'utf8'));

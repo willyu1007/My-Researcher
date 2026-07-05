@@ -6,7 +6,7 @@
  * topics that SHOULD trigger a value debate (borderline / dimension-conflicted) from the
  * clear pass/fail topics. It is the evaluator the calibration run feeds once a labeled corpus
  * and a content-grounded N8 execution path exist (see
- * dev-docs/active/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/README.md).
+ * dev-docs/archive/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/README.md).
  *
  * It is deliberately PURE and executor-agnostic: it reuses the SAME deterministic trigger
  * function the production N8 gate uses (computeTopicSelectionV1bN8DebateTriggers), so the
