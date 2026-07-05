@@ -250,4 +250,16 @@
 - **提交**:fix 本段同 commit。
 
 
+### 2026-07-05 · Phase 4 — W-15 S3(workbench 运行操作台:O-1 签核卡 + O-2 提额卡 + Trace 只读抽屉)
+> 本包首次触桌面端。harness/coordinator 契约零改动;唯一后端触点 = spec §2 预授权的只读 GET。
+- **后端(只读)**:`GET /topic-selection/v1b/workflow-runs/:workflowRunId/artifacts`(薄包 `listArtifactRefsByWorkflowRunId`,list 语义:未知 run → 空 items 非 404)。操作路由集成测试追加 (h) 段:读回含已录提额工件 + 未知 run 空表。
+- **桌面 API**(`topic-workbench/api/v1b.ts`):`getWorkflowRunState` / `listWorkflowRunArtifacts` / `getWorkflowTraceSnapshot` / `recordProvisionalSignOff` / `recordLoopbackBudgetRaise`;run 投影类型按 D-T128-00 保持 coordinator 本地,桌面镜像**只渲染字段**的 view-model(`V1bRunStateView` 等),后端加字段不破此面;签核/提额载荷类型直接 import shared W-16/O-2 契约。
+- **RunOperationsCard(`run` 子标签)**:run id 手输 + quick-pick(本题目卡四类 v1b 记录上出现过的 `workflow_run_id` 去重);投影概览(run_complete/next/last_completed + 逐节点 gate/route 徽章、attempts/loopbacks/warnings 计数);**O-1 签核卡**挂 `latest_provisional_tripwire` 节点——已签显示既有工件(展示性匹配,权威仍在 coordinator 严格校验),未签出表单(actor_id+rationale 必填,`sign_off_id` 按锚 attempt 确定性生成 → 误重提落后端幂等路径),tripwire attempt 可直开 trace(N6 锚是早期 loopback attempt,不在 latest 行上);**O-2 提额卡**(节点下拉默认 loopback 中节点、raised_to 1..5、rationale/actor 必填,已录提额按节点取 max 徽章展示);**Trace 抽屉**:元数据/snapshot_hash/五组 refs 直展,payload 为 redaction 管道产物、二次点击展开(textarea 只读)——无未脱敏取回路径,符合 D3。
+- **D4 如实声明**:卡片文案明示 actor_id 随表单记录、暂无 RBAC(与 v1c N4 同一 follow-up 池)。
+- **UI 治理**:desktop typecheck **0**;UI gate **0 errors / 0 warnings(131 files)**——中途 `data-ui="code"`(未知角色)+ inline style 两违例,改用合法 `textarea` 只读呈现后通过;literal-tone 徽章分支(contract-dynamic 规则)沿 fe9df82 先例。
+- **表单卫生**:SignOffForm 按 (node, anchor attempt)、BudgetRaiseForm 按 run 加 key 重挂载,跨 run 装载不残留旧选择;`as never` 类型逃逸改为 `as const` 字面量联合(`ProvisionalGateWarningCode`)。
+- **spec 对齐**:D2 增补实施注——生效预算 = max(参数, 全体记录 max) 而非"最近一条"(单调不降,复审轮已 pin);06 头部进度行更新 S3 已落地。
+- **测试**:full backend **1658/1623/0/35**(含新 GET 与 (h) 段,总数与复审轮持平——(h) 为既有测试内追加断言);shared 未触。S4 剩余:第二次产品跑验证 `sign_off_required` → workbench 一键签 → 续跑全链。
+
+
 ### （待开工）

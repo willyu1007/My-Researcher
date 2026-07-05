@@ -353,6 +353,23 @@ export class TopicSelectionV1bController {
     }
   };
 
+  /**
+   * T-128 W-15 S3 — read-only list of a run's control-plane artifacts. Serves the workbench
+   * run-operations surface (existing sign-offs / budget raises / diagnostics are all artifacts
+   * on the run). List semantics: unknown run id → empty items, not 404.
+   */
+  listWorkflowRunArtifacts = async (
+    request: ParamsRequest<{ workflowRunId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const items = await this.controlPlane.listArtifactRefsByWorkflowRunId(request.params.workflowRunId);
+      return reply.send({ items });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   getWorkflowHarnessTraceSnapshot = async (
     request: ParamsRequest<{ traceSnapshotId: string }>,
     reply: FastifyReply,

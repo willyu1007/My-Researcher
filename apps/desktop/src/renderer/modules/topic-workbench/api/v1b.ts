@@ -12,9 +12,13 @@
 import { requestGovernance } from '../../../literature/shared/api';
 import type {
   TopicSelectionActorRef,
+  TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
+  TopicSelectionTraceSnapshotRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
+  TopicSelectionLoopbackBudgetRaise,
+  TopicSelectionProvisionalRunOverrideSignOff,
   TopicSelectionV1bWorkflowHarnessRunResult,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import type {
@@ -175,4 +179,104 @@ export async function listTopicQuestionCandidatesByCandidateSet(
     path: `/topic-selection/v1b/topic-question-candidate-sets/${encodeURIComponent(candidateSetId)}/candidates`,
   });
   return payload.items ?? [];
+}
+
+// ---------------------------------------------------------------------------
+// T-128 W-15 S3 — run-operations surface (run state + operator records + trace).
+
+/**
+ * Read-side view models for the run-state projection. The projection types are
+ * deliberately COORDINATOR-LOCAL on the backend (D-T128-00 boundary discipline:
+ * not a shared contract), so the workbench mirrors ONLY the fields it renders —
+ * additive backend fields never break this surface.
+ */
+export type V1bRunAttemptSnapshotView = {
+  node_attempt_id: string;
+  gate_status: string;
+  route_decision: string;
+  trace_snapshot_ref: TopicSelectionFunctionalRef | null;
+  authority_hash: string | null;
+  handoff_hash: string | null;
+  replayed: boolean;
+  created_at: string;
+  seq: number;
+  blockers: Array<{ code: string; message: string }>;
+  warnings: Array<{ code: string; message: string }>;
+};
+
+export type V1bRunNodeStateView = {
+  node_id: string;
+  node_index: number;
+  attempt_count: number;
+  loopback_count: number;
+  latest: V1bRunAttemptSnapshotView | null;
+  latest_admitted: V1bRunAttemptSnapshotView | null;
+  /** W-15 D1(c) sign-off anchor: newest tripwire-carrying attempt (N8 → admitted attempt,
+   *  N6 → escalation-loopback attempt). Null when the node never tripwired (all non-product runs). */
+  latest_provisional_tripwire: V1bRunAttemptSnapshotView | null;
+};
+
+export type V1bRunStateView = {
+  workflow_run_id: string;
+  nodes: V1bRunNodeStateView[];
+  last_completed_node_id: string | null;
+  next_node_id: string | null;
+  run_complete: boolean;
+};
+
+export async function getWorkflowRunState(workflowRunId: string): Promise<V1bRunStateView> {
+  return requestGovernance<V1bRunStateView>({
+    method: 'GET',
+    path: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(workflowRunId)}/state`,
+  });
+}
+
+export async function listWorkflowRunArtifacts(
+  workflowRunId: string,
+): Promise<TopicSelectionArtifactRefRecord[]> {
+  const payload = await requestGovernance<V1bListResponse<TopicSelectionArtifactRefRecord>>({
+    method: 'GET',
+    path: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(workflowRunId)}/artifacts`,
+  });
+  return payload.items ?? [];
+}
+
+export async function getWorkflowTraceSnapshot(
+  traceSnapshotId: string,
+): Promise<TopicSelectionTraceSnapshotRecord> {
+  return requestGovernance<TopicSelectionTraceSnapshotRecord>({
+    method: 'GET',
+    path: `/topic-selection/v1b/workflow-harness/trace-snapshots/${encodeURIComponent(traceSnapshotId)}`,
+  });
+}
+
+/**
+ * W-15 O-1 — record a provisional-thresholds run-override sign-off. The backend re-validates
+ * strictly (W-09 pattern) and anchors the target to the run's CURRENT provisional-tripwire
+ * attempt; recording an identical sign-off again is idempotent (already_recorded: true).
+ */
+export async function recordProvisionalSignOff(
+  workflowRunId: string,
+  body: TopicSelectionProvisionalRunOverrideSignOff,
+): Promise<{ artifact_ref_id: string; already_recorded: boolean }> {
+  return requestGovernance<{ artifact_ref_id: string; already_recorded: boolean }>({
+    method: 'POST',
+    path: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(workflowRunId)}/sign-offs`,
+    body,
+  });
+}
+
+/**
+ * W-15 O-2 — record an audited loopback-budget raise for (run, node). Schema-capped at 5;
+ * the coordinator's effective budget is max(call parameter, highest recorded raise).
+ */
+export async function recordLoopbackBudgetRaise(
+  workflowRunId: string,
+  body: TopicSelectionLoopbackBudgetRaise,
+): Promise<{ artifact_ref_id: string }> {
+  return requestGovernance<{ artifact_ref_id: string }>({
+    method: 'POST',
+    path: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(workflowRunId)}/loopback-budget-raises`,
+    body,
+  });
 }

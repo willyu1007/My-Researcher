@@ -336,6 +336,12 @@ export async function registerTopicSelectionV1bRoutes(
     { schema: { ...paramsSchema({ workflowRunId: stringId }), body: { type: 'object' } } },
     controller.recordLoopbackBudgetRaise,
   );
+  // T-128 W-15 S3 — read-only artifact list by run (workbench run-operations surface).
+  fastify.get<{ Params: { workflowRunId: string } }>(
+    '/topic-selection/v1b/workflow-runs/:workflowRunId/artifacts',
+    { schema: paramsSchema({ workflowRunId: stringId }) },
+    controller.listWorkflowRunArtifacts,
+  );
   fastify.post<{ Body: WorkflowHarnessArtifactBody }>(
     '/topic-selection/v1b/workflow-harness/artifacts',
     { schema: workflowHarnessArtifactBody },

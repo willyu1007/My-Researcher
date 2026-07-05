@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { TitleCardPrimaryTabKey } from '../../../literature/shared/types';
 import { useV1bStageData } from '../hooks/useV1bStageData';
 import { ResearchConstraintProfileCard } from '../cards/ResearchConstraintProfileCard';
@@ -5,6 +6,7 @@ import { SliceOptionSetCard } from '../cards/SliceOptionSetCard';
 import { QuestionCandidateSetCard } from '../cards/QuestionCandidateSetCard';
 import { ValueAssessmentCard } from '../cards/ValueAssessmentCard';
 import { TopicPackageCard } from '../cards/TopicPackageCard';
+import { RunOperationsCard } from '../cards/RunOperationsCard';
 
 type V1bStageViewProps = {
   titleCardId: string | null;
@@ -16,16 +18,18 @@ type V1bStageViewProps = {
   ) => void;
 };
 
-const SUB_TABS = ['constraint', 'slice', 'question', 'value', 'package'] as const;
+const SUB_TABS = ['constraint', 'slice', 'question', 'value', 'package', 'run'] as const;
 
 /**
- * v1b stage view — composes 5 reviewer surfaces.
+ * v1b stage view — composes 6 reviewer surfaces.
  *
  * Question / Value / Package remain read-only (harness/agent-owned). The two
  * human-authority nodes are actionable (T-115) and both run THROUGH the harness
  * in `human_delegated` mode, never via a legacy direct-write path:
  *  - N2 constraint profile (constraint tab) — the researcher AUTHORS the profile.
  *  - N5 slice selection (slice tab) — the researcher PICKS an option.
+ * The run tab (T-128 W-15 S3) is the operator surface: provisional sign-offs,
+ * audited loopback-budget raises, and the read-only per-attempt trace drawer.
  */
 export function V1bStageView({
   titleCardId,
@@ -34,6 +38,19 @@ export function V1bStageView({
   onSelectSecondaryTab,
 }: V1bStageViewProps) {
   const { data, loading, error, reload } = useV1bStageData(titleCardId, refreshToken);
+  // Distinct run ids seen on this title-card's v1b records — quick-picks for the run tab.
+  const candidateRunIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const record of [
+      ...data.sliceOptionSets,
+      ...data.questionCandidateSets,
+      ...data.valueAssessments,
+      ...data.topicPackages,
+    ]) {
+      if (record.workflow_run_id) ids.add(record.workflow_run_id);
+    }
+    return [...ids];
+  }, [data]);
   const activeSubTab = (SUB_TABS as readonly string[]).includes(subTab ?? '')
     ? (subTab as (typeof SUB_TABS)[number])
     : 'slice';
@@ -110,6 +127,12 @@ export function V1bStageView({
       {activeSubTab === 'package' ? (
         <TopicPackageCard
           topicPackages={data.topicPackages}
+        />
+      ) : null}
+      {activeSubTab === 'run' ? (
+        <RunOperationsCard
+          candidateRunIds={candidateRunIds}
+          refreshToken={refreshToken}
         />
       ) : null}
 

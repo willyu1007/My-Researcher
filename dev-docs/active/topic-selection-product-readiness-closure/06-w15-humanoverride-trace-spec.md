@@ -1,7 +1,7 @@
 # 06 · W-15 HumanOverride + Trace 抽屉 — 产品 Spec（v1.0,已锁定）
 
 > 状态:**已锁定**(2026-07-03,用户按推荐批准 D1–D5)。承 T-127 D5 延期项;实施切片 S1–S4 见文末。
-> 进度:**S1+S2 已落地**(0c6a0ce0 + 复审修复);S3(桌面)/S4(收口+二次产品跑)待做。
+> 进度:**S1+S2 已落地**(0c6a0ce0 + 复审修复 4362648a);**S3 已落地**(2026-07-05,workbench run 标签:O-1 签核卡 + O-2 提额卡 + Trace 只读抽屉);S4(收口+二次产品跑)待做。
 > 复审修正(2026-07-05):D1 的锚点/触发键语义按对抗复审结论修正(见 §3 D1「复审修正」段);
 > S1 路由路径笔误更正为 `workflow-runs/:workflowRunId`。
 > 原则约束:确定性 gate = 权威脊柱,LLM 产物 = 非权威草稿,人经由既定写面行动。本 spec 的
@@ -48,6 +48,8 @@ human-review 路径部分重叠。
     tripwire 的本意;acceptance/test 模式完全不受影响(run9 型验收跑无摩擦)。
 - **D2:O-2 生效边界。** 按 (workflow_run_id, node_id) 记录、仅对该 run 生效、`raised_to ≤ 5`
   硬上限(schema `maximum`)、必填 rationale + human 签署人;coordinator 读最近一条有效记录。
+  - **实施注(2026-07-05)**:生效值实际取 **max(调用参数, 全体有效记录最大值)** 而非"最近一条"——
+    后录较低值不降低已生效预算(单调不降,复审轮单测 pin:4 后录 3 生效仍 4)。
 - **D3:Trace 披露深度。** v1 直接展示:node_attempt 元数据、replay 身份、全部哈希、
   blockers/warnings、source/authority/handoff refs;redacted prompt 消息体二次点击展开
   (仍是既有 redaction 管道的产物);未脱敏原文不存在于 trace,亦不新增任何取回路径。

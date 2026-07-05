@@ -2829,6 +2829,23 @@ test('v1b operator routes (W-15): sign-off strict validation + tripwire target g
     assertStatus(recorded, 201);
     const recordedBody = recorded.json() as { artifact_ref_id: string };
     assert.ok(recordedBody.artifact_ref_id.length > 0);
+
+    // (h) S3 read-back: the run's artifact list is readable and contains the recorded raise;
+    // an unknown run id yields an empty list (list semantics, not 404).
+    const artifactList = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(runId)}/artifacts`,
+    });
+    assertStatus(artifactList, 200);
+    const listed = (artifactList.json() as { items: Array<{ artifact_ref_id: string; payload: Record<string, unknown> | null }> }).items;
+    assert.ok(listed.some((item) => item.artifact_ref_id === recordedBody.artifact_ref_id));
+    assert.ok(listed.some((item) => item.payload?.schema_version === 'TopicSelectionLoopbackBudgetRaise@v1'));
+    const emptyList = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(`${runId}_missing`)}/artifacts`,
+    });
+    assertStatus(emptyList, 200);
+    assert.deepEqual((emptyList.json() as { items: unknown[] }).items, []);
   } finally {
     await app.close();
   }
