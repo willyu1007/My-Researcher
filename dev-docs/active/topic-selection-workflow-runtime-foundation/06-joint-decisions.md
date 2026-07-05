@@ -1965,3 +1965,19 @@ error_code: string | null
 - **不改动**：`invokeNode` 生命周期 / 四类 blocker 顺序 / `hashContext`→`node_replay_key` / route edges / 其余 byte-bearing 哈希；`hashN10V1cInputBundleAuthority` 函数本体不变（其对 bundle 全记录哈希，`bundle_hash` 字段值变化仅影响**新 run** 的 N10/N11 authority hash，无 golden 钉旧值）；不引入第二哈希路径（DMP-10 / canonicalHash 单源）。
 - **验证**：helper 单测（producer↔checker 同源等价）+ v1c promotion-input 既有套件 + full backend 套件 + 真跑过 v1c 门（证据记 T-128 `04-verification.md` 2026-07-02 段）。
 - **归属**：T-128 W-10（Phase 3）。冲突面：harness N11 节点体一处表达式替换，加法泄漏面零。**T-088 若同期改 N11 节点体请在此协调。**
+
+## D-27 (2026-07-05) — Profile Escalation Policy Runtime 处置：superseded（T-088 对账收口，联合决策）
+- **背景**：profile escalation policy runtime 是本包 00-overview 三大目标之一（AC-3），D-05（2026-05-19）锁定了其边界（允许的决策集 / 无静默跨模式升级 / debate≠escalation / 确定性输入 / 可审计输出）。03 各切片（Slice 2/3/4）持续标注其 pending。2026-07-05 对账核实：**全仓零实现**（无 `ProfileEscalation*` 符号），且此后 6 周的产品化演进（T-107..T-128）从未需要它。
+- **决定（用户拍板 2026-07-05）**：登记 **superseded**。实际演化以**显式选择**取代了策略运行时：统一 `TopicSelectionAgentExecutionSpec`（03 §2026-05-24）+ debate `execution_plan`（default/slots/instances，含 per-slot model options，03 §2026-05-23/24）+ T-127 W-07 debate execution plan registry + T-128 W-14 的 route strip / coordinator reject / runtime mixing-guard 产品门控。升级决策由 caller/人工显式指定并经 invocation provenance envelope 全程审计。D-05 要防的「静默升级」风险的消解方式从「策略运行时+审计」变为「**不存在自动升级路径**」——与 D8「无自动翻门」纪律同构。
+- **边界**：D-05 作为设计记录**保留不删**；若未来 provider 常态化（T-129 C-3 之后）重新出现自动升级需求，须开新 JD 且遵守 D-05 边界。00-overview AC-3 判定 superseded（引本条）；AC-6 的 "escalation" 覆盖子句同步改判为对显式 `execution_spec`/`execution_plan` 路径的覆盖（既有测试已覆盖 mismatch 拒绝/双轨拒绝语义）。
+- **归属**：T-088 对账切片（2026-07-05）。零代码改动。
+
+## D-28 (2026-07-05) — D-09 脚本迁移完成判据修订 + 一次性审计（T-088 对账收口，联合决策）
+- **背景**：D-09（2026-05-19）判据要求 typed `WorkflowScenario` registry、CLI 降级 wrapper-only、wrapper 测试、drift check、新 E2E 必须注册 scenario。现实（2026-07-05 盘点）：quality-gate 断言已迁 `topic-selection-workflow-scenario-runner.mjs`（2 个注册 scenario id：canary / scale-quality），但 T-107..T-128 各包按既定实践新增 15+ 独立 acceptance runner（皆经 harness/coordinator 服务）；typed registry / wrapper 测试 / drift check 未实施。判据与现实背离。
+- **决定（用户拍板 2026-07-05，经成本/收益对比）**：脚本层不在产品执行路径上（产品路径=routes→coordinator→runtime services→orchestrator→gateway，其鲁棒性由路由/协调器测试、W-14 dormancy+tripwire、sign-off schema、bundle_hash 单源、矩阵一致性脚本、replay goldens 直接守护）；原判据买的 enforcement 可由一次性审计+台账机器校验等价获得，而收紧执行需重排已验证证据链（w15-s4 product run、goldens 等），churn 为净稳定性风险。故：
+  1. **完成判据修订**：所有 topic-selection acceptance 脚本的业务语义（节点执行 / prompt 构造 / guardrail-admission 判定 / 权威持久化）必须经 backend 服务层或 `buildApp` HTTP 路由；脚本可做 DI 装配、fixture 种植/清理、按经典链顺序调用节点级 runner，不得自持节点内部语义、不得绕门、不得直连 provider。
+  2. **判据退役**：typed scenario registry / wrapper-only CLI / wrapper 测试 / drift check 不再要求，由三层现有守卫接替（矩阵一致性脚本进默认套件 + replay byte-identity goldens + per-package acceptance runner 实践）。
+  3. **硬约束保留并升级为机器校验对象**：任何新增 topic-selection E2E/real-flow/debate acceptance 脚本必须在 T-089 `08-scenarios.md` 登记 scenario 条目；scenario 台账 ↔ 脚本映射的机器校验由 T-089 结构化硬化切片③（covered_scenarios 机器校验）实现。
+  4. **一次性审计（已执行 2026-07-05）**：18 个 `.ai/scripts/topic-selection-*.mjs` 逐个核查四判据（业务语义经服务层 / 无直连 provider / prisma 直写分类 / 无门禁绕过）。**结论：18/18 合规，零违规**——15 compliant + 3 compliant-with-notes（notes 均为 fixture 种植或门禁负例的测试脚手架：real-e2e 的 bridge status 负例翻转、v1a-harness-e2e 的 T-112 replay fixture 种植、w15-s4 的 env 选仓储模式）。证据表见 04 §2026-07-05。
+- **不改动**：D-09 的 Semantic Drift Controls 小节（契约版本化 / 三模式同契约 / fixture 语义集中 / 单向历史 reader）整体保留为纪律；scenario-runner 既有 2 注册 id 不动。
+- **归属**：T-088 对账切片（2026-07-05）。零代码改动（③ 的机器校验归 T-089）。

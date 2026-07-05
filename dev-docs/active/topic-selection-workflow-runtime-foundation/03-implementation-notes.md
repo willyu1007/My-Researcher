@@ -8,7 +8,7 @@
 - Generate-need-candidate `WorkflowHarness` scenario execution exists for the current v1a runtime slice.
 - Initial v1a need-discovery multi-agent debate role invocation runtime exists for `generate-need-candidate`.
 - v1a need-discovery debate provider slots now support explicit per-slot model-option selection while keeping concrete provider/model resolution inside the profile registry.
-- Profile escalation policy runtime, route-level runner integration, supplemental debate round automation, and full legacy script migration are still pending.
+- 2026-07-05 对账终态（详见 §2026-07-05 对账收口）：profile escalation runtime → superseded（D-27）；route-level runner integration → 由 T-115/T-107 路由落地吸收；supplemental debate round 跨执行自动化 → 语义裁决移交 T-089 backlog ⑤；legacy script migration → 按 D-28 修订判据达成（18 脚本审计 18/18 合规）。本包工程范围收口。
 
 ## 2026-05-23 Phase 4 Slice: v1a Full Harness E2E Runner
 - Added a v1a-only real-environment runner that executes the normalized v1a chain through `TopicSelectionWorkflowHarnessService` nodes instead of route-level compatibility orchestration.
@@ -937,3 +937,13 @@
 - v1a model profile registry exposes DeepSeek only as an explicit debate-worker option for `explorer` and `deep_critic`: `<profile_id>.deepseek-v4-thinking`.
 - The DeepSeek option uses `deepseek-v4-pro`, `thinking.type=enabled`, `reasoning_effort=high`, JSON structured output, and a 180s timeout.
 - Arbiter final synthesis and ordinary single-agent nodes do not receive DeepSeek by default in this slice; this avoids changing authority boundaries before slot-level override is finalized.
+
+## 2026-07-05 对账收口
+- **触发**：T-123/T-115/T-127/T-128 归档后盘点选题域剩余面，发现本包账面（00 六条 AC 全空、03 顶部 status 块停在 05-24）与现实严重脱节；主线工程记录实际止于 2026-05-24，6 月起 15 次提交均为 JD 台账代记 + 两笔 T-128 代持代码（D-T128-02 S1 / D-T128-03，皆经 T-128 Phase 4 对抗式复审归档）。
+- **05-24 顶部 status 块四项 pending 的逐项处置**（用户逐项拍板）：
+  1. **profile escalation policy runtime → superseded（D-27）**：全仓零实现且六周产品化演进从未需要；显式 `execution_spec`/`execution_plan` + per-slot model options + W-14 产品门控取代了策略运行时，无自动升级路径（与 D8 同构）。D-05 边界保留为设计记录。
+  2. **route-level runner integration → 已吸收**：v1a/v1b 路由级集成由 T-115（v1a-production-orchestration，done）/ T-107（v1b coordinator + 路由）落地；`topic-selection-v1a-routes.ts` / `topic-selection-v1b-routes.ts` 接 harness/coordinator 并有集成测试。
+  3. **supplemental debate round 跨执行自动化 → 移交 T-089 backlog ⑤**：核实现状为 debate loop 单次执行一轮（`round_index` 入参，默认 1），arbiter 路由 `run_supplemental_round` 时以节点状态 `need_candidate_supplemental_round` 上浮、由调用方重入触发（`topic-selection-workflow-harness-service.ts:1747-1752`）；D-22 已锁路由语义与轮次预算。「是否自动跨执行编排」属工作流语义裁决（与 runtime↔human-review 共存原则相关），归 T-089 边缘节点复核域。
+  4. **full legacy script migration → 按 D-28 修订判据达成**：判据修订+一次性审计详见 D-28 与 04 §2026-07-05；18/18 合规。
+- **状态变更**：State → done；包不归档，`06-joint-decisions.md` 保持边界 SSOT + 活跃 JD 台账职能（T-129 C-3 及后续 harness-touch 登记点）。
+- **同批**：T-089 的 W-08 移交 backlog（结构化硬化①②③+穷举复核④）与本次移交⑤首次落其 00-overview 账面（此前仅存于归档 T-128 笔记）。

@@ -8,12 +8,13 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 129 (planned: 3, in-progress: 4, blocked: 0, done: 41, archived: 81)
+- Tasks: 129 (planned: 3, in-progress: 3, blocked: 0, done: 42, archived: 81)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-088 topic-selection-workflow-runtime-foundation | done | F-001 | dev-docs/active/topic-selection-workflow-runtime-foundation |
 | T-115 topic-selection-v1b-human-review-path | archived | F-001 | dev-docs/archive/topic-selection-v1b-human-review-path |
 | T-123 topic-selection-productization-hardening | archived | F-001 | dev-docs/archive/topic-selection-productization-hardening |
 | T-127 topic-selection-backend-hardening-and-expansion | archived | F-001 | dev-docs/archive/topic-selection-backend-hardening-and-expansion |
@@ -33,5 +34,4 @@ Project: `main`
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
 | T-112 topic-selection-llm-context-cache-runtime | done | F-001 | dev-docs/active/topic-selection-llm-context-cache-runtime |
 | T-023 research-argument-control-plane-v1 | archived | F-001 | dev-docs/archive/research-argument-control-plane-v1 |
-| T-086 research-argument-writing-entry-bridge-acceptance | archived | F-001 | dev-docs/archive/research-argument-writing-entry-bridge-acceptance |
 <!-- AUTO-GENERATED:END dashboard -->

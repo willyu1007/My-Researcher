@@ -97,7 +97,7 @@ Project: `main`
 | T-085 topic-selection-real-e2e-scale-quality | done | F-000 | dev-docs/active/topic-selection-real-e2e-scale-quality |
 | T-086 research-argument-writing-entry-bridge-acceptance | archived | F-001 | dev-docs/archive/research-argument-writing-entry-bridge-acceptance |
 | T-087 topic-selection-desktop-workbench-v1abc | archived | F-001 | dev-docs/archive/topic-selection-desktop-workbench-v1abc |
-| T-088 topic-selection-workflow-runtime-foundation | in-progress | F-001 | dev-docs/active/topic-selection-workflow-runtime-foundation |
+| T-088 topic-selection-workflow-runtime-foundation | done | F-001 | dev-docs/active/topic-selection-workflow-runtime-foundation |
 | T-089 topic-selection-agent-workflow-review | planned | F-001 | dev-docs/active/topic-selection-agent-workflow-review |
 | T-090 experiment-foundation-capability-validation | done | F-001 | dev-docs/active/experiment-foundation-capability-validation |
 | T-091 paper-implementation-full-landing | done | F-001 | dev-docs/active/paper-implementation-full-landing |

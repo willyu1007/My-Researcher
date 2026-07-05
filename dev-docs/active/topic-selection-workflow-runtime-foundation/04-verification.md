@@ -780,3 +780,28 @@ Minimum close criteria:
 - Result: passed.
 - Command: `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
 - Result: passed.
+
+## 2026-07-05 D-28 一次性脚本审计（对账收口）
+- **方法**：只读代理逐脚本核查四判据（①业务语义经 backend 服务层或 `buildApp` HTTP 路由 ②无绕过 `BackendLlmGateway` 的直连 provider ③prisma 直写逐条分类 fixture vs 权威代产 ④无门禁绕过）；主会话对两 checker 脚本补钉核实（`grep prisma|Prisma|fetch(` 零命中）。
+- **结论：18/18 合规（15 compliant + 3 compliant-with-notes），零违规。**
+
+| 脚本 | 角色 | 判定 | 关键证据 |
+|---|---|---|---|
+| topic-selection-multisample-provider-batch.mjs | batch | compliant | 仅 prisma 只读 findMany；经 spawn 编排子脚本 |
+| topic-selection-real-e2e.mjs | E2E | compliant-with-notes | 主链全经 `app.inject`（:959 起）；两处 prisma.update（:1733/:1755）为 bridge status active→superseded→还原的门禁负例 fixture 翻转 |
+| topic-selection-v1a-harness-e2e.mjs | E2E | compliant-with-notes | 业务全经 `TopicSelectionWorkflowHarnessService` + HTTP 路由；prisma.$transaction（:1071-1117）为 T-112 balanced replay fixture 一次性种植（:1044 存在性守卫） |
+| topic-selection-v1a-harness-negative-e2e.mjs | E2E | compliant | 仅 prisma count 只读；spawn 子进程验失败路径 |
+| topic-selection-v1a-runtime-stress.mjs | stress | compliant | 仅 prompt-packet cache index 只读快照 |
+| topic-selection-v1b-harness-e2e.mjs | E2E | compliant | 39+ service/repo DI 装配 + `app.inject`；零 prisma 直写 |
+| topic-selection-v1b-near-prod-deep-test.mjs | deep-test | compliant | 经 pnpm spawn 编排 v1b harness/stress；无直接 DB |
+| topic-selection-v1b-runtime-stress.mjs | stress | compliant | 仅 cache index 只读；spawn harness 子进程 |
+| topic-selection-v1c-harness-acceptance.mjs | acceptance | compliant | InMemory 仓储 DI；全流程经 service 方法 |
+| topic-selection-v1c-n2-runtime-smoke.mjs | smoke | compliant | InMemory+Prisma 混合仓储 DI；零 fixture 直写 |
+| topic-selection-v1c-n4-runtime-smoke.mjs | smoke | compliant | 18+ service/repo 实例；`app.inject` 走 N4 路由 |
+| topic-selection-v1c-n6-runtime-smoke.mjs | smoke | compliant | 11+ service 实例；确定性 fixture 经 DI |
+| topic-selection-v1c-production-depth.mjs | product-run | compliant | 极小 import 面；单 service 实例；零写 |
+| topic-selection-v1c-real-codex-acceptance.mjs | acceptance | compliant | 11+ services；codex 集成；零 prisma 写 |
+| topic-selection-v1c-runtime-stress.mjs | stress | compliant | spawn runtime smoke 场景；无直接 DB |
+| topic-selection-w15-s4-signoff-product-run.mjs | product-run | compliant-with-notes | env 选 prisma 仓储（:33-36，buildApp import 前，既定模式）；sign-off 门全链经 coordinator + HTTP；复用 run9 v1a bundle，脚本自身零写 |
+| topic-selection-workflow-matrix-consistency.mjs | checker | compliant | 纯文档↔契约常量比对；主会话补钉：零 prisma/fetch 引用 |
+| topic-selection-workflow-scenario-runner.mjs | runner | compliant | spawn 子脚本 + 质量断言；注册 scenario id 2 枚；主会话补钉：零 prisma/fetch 引用 |

@@ -111,7 +111,7 @@ Project: `main`
 | T-082 topic-selection-paper-project-bridge-downstream-acceptance | done | dev-docs/active/topic-selection-paper-project-bridge-downstream-acceptance |
 | T-086 research-argument-writing-entry-bridge-acceptance | archived | dev-docs/archive/research-argument-writing-entry-bridge-acceptance |
 | T-087 topic-selection-desktop-workbench-v1abc | archived | dev-docs/archive/topic-selection-desktop-workbench-v1abc |
-| T-088 topic-selection-workflow-runtime-foundation | in-progress | dev-docs/active/topic-selection-workflow-runtime-foundation |
+| T-088 topic-selection-workflow-runtime-foundation | done | dev-docs/active/topic-selection-workflow-runtime-foundation |
 | T-089 topic-selection-agent-workflow-review | planned | dev-docs/active/topic-selection-agent-workflow-review |
 | T-090 experiment-foundation-capability-validation | done | dev-docs/active/experiment-foundation-capability-validation |
 | T-091 paper-implementation-full-landing | done | dev-docs/active/paper-implementation-full-landing |
