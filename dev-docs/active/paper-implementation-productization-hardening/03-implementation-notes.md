@@ -62,6 +62,16 @@
 - D6 自我修正：原草案"保留旧名过渡 alias + 告警"与用户 D3 裁定原则（未上线不留双轨/漂移面）冲突，修正为**原子更名无 alias**——T114_* 全部引用 grep 可达，同一 slice 内一次切换，meta 测试负例捕获残留旧名，更名后全门重跑。
 - 文档落点：`00-overview.md` D5/D6 与 AC-7、`01-plan.md` Phase 1 与 6.1、`02-architecture.md` R5 已同步。
 
+## 2026-07-05 P-01 对账:orchestrator 半边已由 D-T128-02 落地(caller-supplied 架构),Phase 2.2 原设计被取代
+- **既成事实**(T-128 W-11,commits `41ac51b3`/`cb5479ef`,JD=T-088 `06-joint-decisions.md` D-T128-02 回填段):共享 orchestrator 的 `requires_compression` 恢复分支已存在,形态为 **caller 预供**——`TopicSelectionAgentRuntimeCompressionAttemptInput` 携可选 `compressed_messages`,orchestrator 验证(确定性质量门)→ 记录报告 → 以 `compression_already_applied=true` re-gate → 过门则以压缩消息续跑,仍超则 `TOKEN_BUDGET_OVER_LIMIT_AFTER_COMPRESSION` 硬 block(防循环,最多一次尝试)。**orchestrator 不在内部执行裁剪**——这取代了本包 01-plan Phase 2.2 的「orchestrator 压缩执行分支(内部分级裁剪)」设计;D3 的核心裁定(deterministic_structural 唯一执行器、无调用路径内 LLM 压缩、可复算、质量门强制)在新架构下**逐条保持**,只是裁剪执行位从 orchestrator 移到 caller 侧纯函数。JD 明文:「paper-implementation L5 `*_over_budget_zero_provider_calls` 不受影响——其调用方不供 compressed_messages,**启用归 T-124 后续**」= 本包 P-01 剩余义务。
+- **caller 面盘点**(2026-07-05 grounding):10 个 runtime slot service 构建 runtime token budget,其中 **6 个携带同一胖字段 `source_context_packets`**(evidence-board-curation / cross-board-synthesis / feasibility-planning / experiment-planning / route-planning / validation-cycle-planning——正是 P-01 点名的「evidence board / 论文级输入」风险面;其余载荷均为 refs/hashes 骨架);motive 两槽(decomposition/evolution)无 packets,构造上不构成超预算面;trace-integrity-debate 已有自有压缩感知管路且属 debate 路径(STEP-7 facts builder 的下游义务,D-T128-02 明文「跟其后做、不独立建」)。
+- **修订后的 caller 半边切片(PC-S1..S4,待用户对齐后开工)**:
+  - **PC-S1 设计落栓(本条+01-plan 注记)**:降级语义承 D3/D3.b——层级 L1=逐 packet 正文裁至定长摘录(保 packet id/ref 骨架+截断标记),L2=整包剔除(refs/hashes 全保);caller 侧以既有 token 估计器**预估并择取最小充分层级**(「逐级重估达标即停」在 caller 侧实现,orchestrator 单次尝试语义不变);**永不裁** authority/conflict/challenge refs 与 `preserved_fact_kinds` 骨架;`required_preserved_facts` 声明 ref 骨架+逐 packet id,packet 正文显式不列 required。**v1 层级以 attempt-builder 内静态常量声明**(单源可测);Phase 2.1 的 registry 化(11 内联 profile 迁移+可裁等级入 registry)保持独立计划位,不并入本切片——避免一次吞下迁移面。
+  - **PC-S2 共享构建器+首槽穿透**:paper-impl 侧共享纯函数 attempt 构建器 + 首个消费方 **evidence-board-curation**(P-01 与 Phase 2.5 金丝雀双点名):roleMessages 参数化(includePackets 层级,单源无镜像漂移)+ 穿透测试(胖 packets 逼出 requires_compression → 恢复续跑 → 成功+报告工件)+ 既有 L5 fail-closed 钉测零改动(不供 attempt 的调用方行为原样)。
+  - **PC-S3 铺开其余 5 packet 槽**:同构建器机械应用+逐槽 required-facts+测试。
+  - **PC-S4 边界收尾**:motive 两槽 document-as-within-budget;trace-integrity-debate 明文留在 STEP-7 下游;L5 over-budget 用例按 Phase 2.4 拆双分支(不可裁→blocked 保留 / 可裁→压缩后完成且血缘可验)。
+- **跨包边界**:全部改动在 paper-implementation caller 侧(共享 orchestrator 零触碰——恢复分支已存在);若实施中需动共享面,按既定协议先在 T-088 JD 登记。
+
 ## 2026-07-03 外部修复留痕：research-lifecycle id 生成 count+1 主键碰撞（9fb04a26 同类）
 - 来源：T-128 W-10 首次产品跑同日的对抗式审查确认 literature 同类缺陷仍存于 `research-lifecycle-service.ts`——nextPaperId/nextNodeId/nextSnapshotId 用"行数+1"生成 `P___`/`NODE-____`/`SP-____` id，而 `deletePaperProject` 删除路径真实存在：删任何非最新 paper 后下一次创建即撞主键（500）。本项经查未被 T-124 认领，由独立会话修复并在此留痕。
 - 修复形态（镜像 9fb04a26）：repository 三层（interface / in-memory / prisma）`countPapers/countNodes/countSnapshots` → `listPaperIds/listNodeIds/listSnapshotIds`（count 三方法全仓库无其他调用方，直接替换）；服务侧镜像 literature 的 `nextPrefixedNumericId` 改 max+1，带 padWidth 参数适配 `P`=3 位无连字符、`NODE-`/`SP-`=4 位。id 对外形态不变、无契约变更；paper-implementation 依赖的 paper/node/snapshot id 生成自此删除安全。
