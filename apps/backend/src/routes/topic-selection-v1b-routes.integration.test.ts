@@ -2730,3 +2730,106 @@ test('v1b run coordinator drives the full N8 debate loop: borderline T1 loopback
     await app.close();
   }
 });
+
+// T-128 W-15 (O-1/O-2): the operator record routes over HTTP. Pins the W-09 validation chain —
+// the route body schema stays permissive `{type:'object'}` (so nothing is stripped before the
+// service) and the service-level STRICT Ajv is authoritative — plus the tripwire target guard
+// and the audited budget-raise recording.
+test('v1b operator routes (W-15): sign-off strict validation + tripwire target guard, budget-raise schema cap over HTTP', async () => {
+  const app = buildApp({ topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway() });
+  try {
+    const suffix = uniqueId('v1b-operator-routes');
+    const bundleResult = await createV1bInputBundle(app, suffix);
+    const n1Input = v1bHarnessN1Request(bundleResult.v1bInputBundle, suffix);
+    const runId = n1Input.workflow_run_id;
+    const N6_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1';
+    const N8_ID = 'topic-selection.v1b.assess-topic-value.v1';
+
+    // Bootstrap N1 so the run exists (halts at the N2 human node) — no tripwire anywhere on it.
+    const bootstrap = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(runId)}/advance`,
+      payload: { bootstrap_request: n1Input },
+    });
+    assertStatus(bootstrap, 200);
+    assert.equal((bootstrap.json() as { halt: { reason: string } }).halt.reason, 'human_node');
+
+    const signOffUrl = `/topic-selection/v1b/workflow-runs/${encodeURIComponent(runId)}/sign-offs`;
+    const raiseUrl = `/topic-selection/v1b/workflow-runs/${encodeURIComponent(runId)}/loopback-budget-raises`;
+    const signOffPayload = (overrides: Record<string, unknown>): Record<string, unknown> => ({
+      schema_version: 'TopicSelectionStakeholderSignOff@v1',
+      sign_off_id: `sign_off_${suffix}`,
+      sign_off_scope: 'provisional_threshold_run_override',
+      gate_warning_code: 'N8_DEBATE_THRESHOLDS_PROVISIONAL',
+      signed_by: { actor_type: 'human', actor_id: 'operator_http_e2e' },
+      signed_at: '2026-07-04T12:00:00.000Z',
+      rationale: 'HTTP e2e: acknowledged provisional thresholds.',
+      workflow_run_id: runId,
+      node_id: N8_ID,
+      node_attempt_id: 'node_attempt_never_ran',
+      ...overrides,
+    });
+
+    // (a) W-09 chain: an unknown key survives the permissive route schema and the service-level
+    // STRICT validator rejects it — proving strictness lives (and fires) at the service layer.
+    const unknownKey = await app.inject({ method: 'POST', url: signOffUrl, payload: signOffPayload({ smuggled: true }) });
+    assert.equal(unknownKey.statusCode, 400);
+    const unknownKeyBody = unknownKey.json() as { error: { code: string; message: string } };
+    assert.equal(unknownKeyBody.error.code, 'INVALID_PAYLOAD');
+    assert.match(unknownKeyBody.error.message, /TopicSelectionStakeholderSignOff@v1/);
+
+    // (b) a non-gate (node_id, warning_code) pair is rejected before any run-state load.
+    const wrongPair = await app.inject({
+      method: 'POST',
+      url: signOffUrl,
+      payload: signOffPayload({ node_id: N6_ID, gate_warning_code: 'N8_DEBATE_THRESHOLDS_PROVISIONAL' }),
+    });
+    assert.equal(wrongPair.statusCode, 400);
+    assert.match((wrongPair.json() as { error: { message: string } }).error.message, /not a provisional product gate/);
+
+    // (c) payload/route run mismatch is a 400, not a cross-run write.
+    const crossRun = await app.inject({
+      method: 'POST',
+      url: signOffUrl,
+      payload: signOffPayload({ workflow_run_id: `${runId}_other` }),
+    });
+    assert.equal(crossRun.statusCode, 400);
+    assert.match((crossRun.json() as { error: { message: string } }).error.message, /does not match the route run/);
+
+    // (d) a well-formed sign-off against a run with NO tripwire attempt is a 409 (nothing to sign).
+    const noTripwire = await app.inject({ method: 'POST', url: signOffUrl, payload: signOffPayload({}) });
+    assert.equal(noTripwire.statusCode, 409);
+    const noTripwireBody = noTripwire.json() as { error: { code: string; message: string } };
+    assert.equal(noTripwireBody.error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.match(noTripwireBody.error.message, /no provisional-tripwire attempt/);
+
+    // (e) budget raise: the strict schema's hard cap (raised_to <= 5) fires through HTTP.
+    const raisePayload = (overrides: Record<string, unknown>): Record<string, unknown> => ({
+      schema_version: 'TopicSelectionLoopbackBudgetRaise@v1',
+      raise_id: `raise_${suffix}`,
+      workflow_run_id: runId,
+      node_id: N6_ID,
+      raised_to: 4,
+      rationale: 'HTTP e2e: operator raise.',
+      raised_by: { actor_type: 'human', actor_id: 'operator_http_e2e' },
+      raised_at: '2026-07-04T12:05:00.000Z',
+      ...overrides,
+    });
+    const overCap = await app.inject({ method: 'POST', url: raiseUrl, payload: raisePayload({ raised_to: 6 }) });
+    assert.equal(overCap.statusCode, 400);
+    assert.match((overCap.json() as { error: { message: string } }).error.message, /TopicSelectionLoopbackBudgetRaise@v1/);
+
+    // (f) a non-v1b node_id is rejected even though the payload is schema-shaped.
+    const wrongNode = await app.inject({ method: 'POST', url: raiseUrl, payload: raisePayload({ node_id: 'not.a.v1b.node' }) });
+    assert.equal(wrongNode.statusCode, 400);
+    assert.match((wrongNode.json() as { error: { message: string } }).error.message, /is not a v1b node/);
+
+    // (g) a valid raise records (201) and lands as a control-plane artifact on the run.
+    const recorded = await app.inject({ method: 'POST', url: raiseUrl, payload: raisePayload({}) });
+    assertStatus(recorded, 201);
+    const recordedBody = recorded.json() as { artifact_ref_id: string };
+    assert.ok(recordedBody.artifact_ref_id.length > 0);
+  } finally {
+    await app.close();
+  }
+});

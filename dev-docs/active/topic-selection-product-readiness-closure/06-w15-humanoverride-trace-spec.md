@@ -1,6 +1,9 @@
 # 06 · W-15 HumanOverride + Trace 抽屉 — 产品 Spec（v1.0,已锁定）
 
 > 状态:**已锁定**(2026-07-03,用户按推荐批准 D1–D5)。承 T-127 D5 延期项;实施切片 S1–S4 见文末。
+> 进度:**S1+S2 已落地**(0c6a0ce0 + 复审修复);S3(桌面)/S4(收口+二次产品跑)待做。
+> 复审修正(2026-07-05):D1 的锚点/触发键语义按对抗复审结论修正(见 §3 D1「复审修正」段);
+> S1 路由路径笔误更正为 `workflow-runs/:workflowRunId`。
 > 原则约束:确定性 gate = 权威脊柱,LLM 产物 = 非权威草稿,人经由既定写面行动。本 spec 的
 > "Override" **不是**推翻 gate 结论(硬 NO),而是两类合法动作的审计化产品表面。
 
@@ -27,13 +30,20 @@ human-review 路径部分重叠。
 
 ## 3. 已锁定决策
 
-- **D1 = (c) coordinator 政策 halt。** `run_mode='product'` 的 advance 在**越过**带
-  `N8_DEBATE_THRESHOLDS_PROVISIONAL` / `N6_DEBATE_THRESHOLDS_PROVISIONAL` warning 的已 admit
-  attempt 前,检查该 (run, node, attempt) 是否存在匹配的 run-override sign-off 工件;缺失 →
-  halt `sign_off_required`(新 halt reason,联合类型在 coordinator 本地——非 shared、非
-  harness,按 D-T128-00 无需 JD),halt 消息内联签核路径。签核后 advance 继续。
+- **D1 = (c) coordinator 政策 halt。** advance 在**越过** N8/N6 前,检查该节点**最新带 tripwire
+  warning 的 attempt**(投影字段 `latest_provisional_tripwire`)是否存在匹配的 run-override
+  sign-off 工件;缺失 → halt `sign_off_required`(新 halt reason,联合类型在 coordinator
+  本地——非 shared、非 harness,按 D-T128-00 无需 JD),halt 消息内联签核路径。签核后 advance 继续。
   - 语义细节:检查点在"**下一步** invoke 之前"(N8 带警 admit 后,推进 N9 前;N6 同理推进 N7 前),
     不改 N8/N6 节点本身的 admit 行为——harness 零触碰,warning 仍非阻断,tripwire 语义原样。
+  - **复审修正(2026-07-05,对抗复审 A-DEFECT)**,两处替换初稿语义:
+    1. **锚点不是 latest_admitted。** harness 的 N8 tripwire 落在 admitted attempt 上,但 N6
+       tripwire 只落在**升级 LOOPBACK attempt** 上(post-debate 重入 admit 是干净的)。按
+       admitted 锚定会让 N6 臂成死代码且签核永远 409。签核锚 = `latest_provisional_tripwire`
+       (N8 → admitted attempt;N6 → loopback attempt;后续干净 admit 不清除)。
+    2. **触发键 = tripwire 存在性,不是本次调用的 `run_mode`。** harness 只在 product 跑上
+       发射这两个 warning,acceptance/test 由构造即无摩擦;若按 run_mode 键控,后续 advance
+       省略 run_mode 即可绕过 gate。存在性键控把这个旁路焊死。
   - **明示的流程代价**:W-17 标定完成前,每次 product 跑过 N8 都会停一次等签——这正是 D8
     tripwire 的本意;acceptance/test 模式完全不受影响(run9 型验收跑无摩擦)。
 - **D2:O-2 生效边界。** 按 (workflow_run_id, node_id) 记录、仅对该 run 生效、`raised_to ≤ 5`
@@ -56,7 +66,7 @@ harness / orchestrator / bounded-debate-core / 共享压缩 orchestrator **零�
 
 ## 5. 实施切片(S1–S4)
 
-- **S1 后端 O-1 + D1(c)**:签核记录路由 `POST /topic-selection/v1b/runs/:runId/sign-offs`
+- **S1 后端 O-1 + D1(c)**:签核记录路由 `POST /topic-selection/v1b/workflow-runs/:workflowRunId/sign-offs`
   (体校验 = W-16 schema 的 run-override 分支 + run/node/attempt 与真实 attempt 匹配校验)→
   存控制面工件;coordinator 政策检查 + `sign_off_required` halt;单测(product-only 触发 /
   签核解锁 / acceptance-test 不受影响 / 无警 attempt 不受影响 / N6 与 N8 两路)。

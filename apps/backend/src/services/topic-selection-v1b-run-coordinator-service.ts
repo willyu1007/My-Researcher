@@ -8,6 +8,8 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 import { topicSelectionNamedDebateExecutionPlanSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
 import {
+  N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE,
+  N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE,
   TOPIC_SELECTION_LOOPBACK_BUDGET_RAISE_SCHEMA_VERSION,
   TOPIC_SELECTION_STAKEHOLDER_SIGN_OFF_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
@@ -276,6 +278,14 @@ export type TopicSelectionV1bRunNodeState = {
    * (latest alone would erase admitted lineage and poison prev-node selection).
    */
   latest_admitted: TopicSelectionV1bRunNodeAttemptSnapshot | null;
+  /**
+   * W-15 D1(c): the most recent attempt carrying this node's provisional-thresholds tripwire
+   * warning — the sign-off ANCHOR. For N8 the tripwire rides the admitted attempt itself; for N6
+   * it rides ONLY the escalation-loopback attempt (the post-debate admitted attempt is clean), so
+   * the anchor deliberately survives later admitted attempts. Null when the node never tripwired
+   * (all non-product runs, by the harness's product-gated emission).
+   */
+  latest_provisional_tripwire: TopicSelectionV1bRunNodeAttemptSnapshot | null;
 };
 
 export type TopicSelectionV1bRunStateProjection = {
@@ -328,10 +338,15 @@ const operatorRecordAjv = new Ajv({ allErrors: true, strict: false });
 const provisionalSignOffValidator = operatorRecordAjv.compile(topicSelectionProvisionalRunOverrideSignOffSchema);
 const loopbackBudgetRaiseValidator = operatorRecordAjv.compile(topicSelectionLoopbackBudgetRaiseSchema);
 
-/** W-15 D1(c): the provisional product gates the coordinator enforces sign-offs for, keyed by node. */
+/** W-15 D1(c): the provisional product gates the coordinator enforces sign-offs for, keyed by node.
+ *  Codes come from the gate consts themselves (review fix — no re-declared literals to drift).
+ *  Emission reality the gate MUST honor (review finding): the harness attaches the N8 tripwire to
+ *  the ADMITTED N8 attempt, but the N6 tripwire ONLY to the escalation-LOOPBACK attempt — the
+ *  post-debate admitted N6 attempt is clean. Both are emitted ONLY on product runs, so keying on
+ *  tripwire PRESENCE is product-only by construction. */
 const PROVISIONAL_GATE_WARNING_BY_NODE = new Map<string, string>([
-  [N6_NODE_ID, 'N6_DEBATE_THRESHOLDS_PROVISIONAL'],
-  [N8_NODE_ID, 'N8_DEBATE_THRESHOLDS_PROVISIONAL'],
+  [N6_NODE_ID, N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code],
+  [N8_NODE_ID, N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code],
 ]);
 const DEBATE_EXECUTION_PLAN_VALIDATORS: Record<TopicSelectionV1bRunCoordinatorDebateInput['kind'], ValidateFunction> = {
   n6_divergent: debateExecutionPlanAjv.compile(
@@ -667,16 +682,17 @@ export class TopicSelectionV1bRunCoordinatorService {
       }
 
       // W-15 D1(c): the product-level provisional-thresholds contract, coordinator-enforced.
-      // Fires BEFORE any progression (including into a human node): a product run that just
-      // admitted N6/N8 under provisional thresholds must carry a recorded stakeholder sign-off
-      // (W-16 run-override scope) before anything downstream runs. Non-product runs skip entirely.
-      if ((input.run_mode ?? 'acceptance') === 'product') {
+      // Fires BEFORE any progression (including into a human node). Keyed on tripwire PRESENCE,
+      // not the current call's run_mode (review fix): the harness emits both tripwires only on
+      // product runs, so acceptance/test runs are frictionless by construction and omitting
+      // run_mode on a later advance cannot lap the gate.
+      {
         const pendingSignOff = await this.pendingProvisionalSignOff(input.workflow_run_id, projection, loadOperatorArtifacts);
         if (pendingSignOff) {
           return halt(
             'sign_off_required',
             pendingSignOff.gate_node_id,
-            `${pendingSignOff.gate_node_id} attempt ${pendingSignOff.node_attempt_id} admitted under provisional thresholds (${pendingSignOff.warning_code}); a product run may proceed past it only with a recorded stakeholder sign-off. Record a provisional_threshold_run_override sign-off (TopicSelectionStakeholderSignOff@v1) via POST /topic-selection/v1b/workflow-runs/${input.workflow_run_id}/sign-offs, then advance again.`,
+            `${pendingSignOff.gate_node_id} attempt ${pendingSignOff.node_attempt_id} ran under provisional thresholds (${pendingSignOff.warning_code}); the run may proceed past it only with a recorded stakeholder sign-off anchored to that attempt. Record a provisional_threshold_run_override sign-off (TopicSelectionStakeholderSignOff@v1) via POST /topic-selection/v1b/workflow-runs/${input.workflow_run_id}/sign-offs, then advance again.`,
             [],
             projection,
           );
@@ -995,6 +1011,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         loopback_count: 0,
         latest: null,
         latest_admitted: null,
+        latest_provisional_tripwire: null,
       }),
     );
     const byNode = new Map(nodes.map((node) => [node.node_id, node]));
@@ -1035,6 +1052,16 @@ export class TopicSelectionV1bRunCoordinatorService {
       const advancing = snapshot.route_decision === 'invoke_next' || snapshot.route_decision === 'stop_v1b_complete';
       if (admitted && advancing && (!node.latest_admitted || snapshot.seq > node.latest_admitted.seq)) {
         node.latest_admitted = snapshot;
+      }
+      // W-15 D1(c): remember the newest tripwire-carrying attempt regardless of its gate outcome —
+      // the N6 tripwire rides a blocked loopback attempt, the N8 one the admitted attempt.
+      const tripwireCode = PROVISIONAL_GATE_WARNING_BY_NODE.get(trace.node_id);
+      if (
+        tripwireCode
+        && snapshot.warnings.some((warning) => warning.code === tripwireCode)
+        && (!node.latest_provisional_tripwire || snapshot.seq > node.latest_provisional_tripwire.seq)
+      ) {
+        node.latest_provisional_tripwire = snapshot;
       }
     }
 
@@ -1278,9 +1305,11 @@ export class TopicSelectionV1bRunCoordinatorService {
   /**
    * T-128 W-15 (O-1): record a provisional-thresholds run-override sign-off. Authoritative strict
    * validation (route stays permissive per the W-09 pattern); the target must be the gate node's
-   * CURRENT latest-admitted attempt and must actually carry the matching tripwire warning.
-   * Idempotent: an identical existing sign-off is returned, not duplicated. Records via the
-   * control-plane artifact channel — no new table, no gate/authority mutation anywhere.
+   * CURRENT provisional-tripwire attempt (review fix — for N6 that is the escalation-LOOPBACK
+   * attempt, never an admitted one; for N8 it coincides with the admitted attempt). Idempotent:
+   * an identical existing sign-off is returned, not duplicated. Run-locked so a record can never
+   * interleave an in-flight advance (makes the advance-side cache invariant true by construction).
+   * Records via the control-plane artifact channel — no new table, no gate/authority mutation.
    */
   async recordProvisionalRunOverrideSignOff(input: {
     workflow_run_id: string;
@@ -1300,28 +1329,30 @@ export class TopicSelectionV1bRunCoordinatorService {
       throw new AppError(400, 'INVALID_PAYLOAD',
         `sign-off node_id/gate_warning_code pair is not a provisional product gate (expected ${[...PROVISIONAL_GATE_WARNING_BY_NODE.entries()].map(([node, code]) => `${node}→${code}`).join(', ')}).`);
     }
-    const projection = await this.getRunState(input.workflow_run_id);
-    const admitted = projection.nodes.find((node) => node.node_id === payload.node_id)?.latest_admitted;
-    if (!admitted || admitted.node_attempt_id !== payload.node_attempt_id) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
-        `sign-off target ${payload.node_id} attempt ${payload.node_attempt_id} is not the run's latest admitted attempt for that node.`);
-    }
-    if (!admitted.warnings.some((warning) => warning.code === expectedWarning)) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
-        `sign-off target attempt does not carry ${expectedWarning} — nothing to sign off.`);
-    }
-    const artifacts = await this.deps.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
-    const existing = artifacts.find((artifact) => this.matchesRunOverrideSignOff(artifact.payload, payload.node_id, payload.node_attempt_id, expectedWarning, input.workflow_run_id));
-    if (existing) {
-      return { artifact_ref_id: existing.artifact_ref_id, already_recorded: true };
-    }
-    const recorded = await this.deps.controlPlane.recordArtifactRef({
-      artifact_kind: 'structured_output',
-      workflow_run_id: input.workflow_run_id,
-      payload: payload as unknown as Record<string, unknown>,
-      created_by: input.created_by ?? 'human',
+    return this.withRunLock(input.workflow_run_id, async () => {
+      const projection = await this.getRunState(input.workflow_run_id);
+      const tripwire = projection.nodes.find((node) => node.node_id === payload.node_id)?.latest_provisional_tripwire;
+      if (!tripwire) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+          `sign-off target ${payload.node_id} has no provisional-tripwire attempt on this run — nothing to sign off.`);
+      }
+      if (tripwire.node_attempt_id !== payload.node_attempt_id) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+          `sign-off target attempt ${payload.node_attempt_id} is not the run's provisional-tripwire attempt for ${payload.node_id} (expected ${tripwire.node_attempt_id}).`);
+      }
+      const artifacts = await this.deps.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
+      const existing = artifacts.find((artifact) => this.matchesRunOverrideSignOff(artifact.payload, payload.node_id, payload.node_attempt_id, expectedWarning, input.workflow_run_id));
+      if (existing) {
+        return { artifact_ref_id: existing.artifact_ref_id, already_recorded: true };
+      }
+      const recorded = await this.deps.controlPlane.recordArtifactRef({
+        artifact_kind: 'structured_output',
+        workflow_run_id: input.workflow_run_id,
+        payload: payload as unknown as Record<string, unknown>,
+        created_by: input.created_by ?? 'human',
+      });
+      return { artifact_ref_id: recorded.artifact_ref_id, already_recorded: false };
     });
-    return { artifact_ref_id: recorded.artifact_ref_id, already_recorded: false };
   }
 
   /**
@@ -1344,16 +1375,23 @@ export class TopicSelectionV1bRunCoordinatorService {
     if (!POLICY_BY_NODE_ID.has(payload.node_id)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `budget-raise node_id ${payload.node_id} is not a v1b node.`);
     }
-    const recorded = await this.deps.controlPlane.recordArtifactRef({
-      artifact_kind: 'structured_output',
-      workflow_run_id: input.workflow_run_id,
-      payload: payload as unknown as Record<string, unknown>,
-      created_by: input.created_by ?? 'human',
+    // Run-locked for the same reason as the sign-off: a raise can never interleave an advance.
+    return this.withRunLock(input.workflow_run_id, async () => {
+      const recorded = await this.deps.controlPlane.recordArtifactRef({
+        artifact_kind: 'structured_output',
+        workflow_run_id: input.workflow_run_id,
+        payload: payload as unknown as Record<string, unknown>,
+        created_by: input.created_by ?? 'human',
+      });
+      return { artifact_ref_id: recorded.artifact_ref_id };
     });
-    return { artifact_ref_id: recorded.artifact_ref_id };
   }
 
-  /** W-15 D1(c): the not-yet-signed-off provisional gate the run is about to advance past, or null. */
+  /** W-15 D1(c): the not-yet-signed-off provisional tripwire the run is about to advance past, or
+   *  null. Anchored to the node's latest TRIPWIRE-carrying attempt (review fix): for N8 that is
+   *  the admitted attempt itself; for N6 it is the escalation-loopback attempt — the gate fires
+   *  once the run is about to move PAST the node (last_completed), whichever attempt carried the
+   *  warning. Presence-keyed: the harness emits these warnings only on product runs. */
   private async pendingProvisionalSignOff(
     workflowRunId: string,
     projection: TopicSelectionV1bRunStateProjection,
@@ -1367,14 +1405,14 @@ export class TopicSelectionV1bRunCoordinatorService {
     if (!warningCode) {
       return null;
     }
-    const admitted = projection.nodes.find((node) => node.node_id === gateNodeId)?.latest_admitted;
-    if (!admitted || !admitted.warnings.some((warning) => warning.code === warningCode)) {
+    const tripwire = projection.nodes.find((node) => node.node_id === gateNodeId)?.latest_provisional_tripwire;
+    if (!tripwire) {
       return null;
     }
     const artifacts = await loadOperatorArtifacts();
     const signed = artifacts.some((artifact) =>
-      this.matchesRunOverrideSignOff(artifact.payload, gateNodeId, admitted.node_attempt_id, warningCode, workflowRunId));
-    return signed ? null : { gate_node_id: gateNodeId, node_attempt_id: admitted.node_attempt_id, warning_code: warningCode };
+      this.matchesRunOverrideSignOff(artifact.payload, gateNodeId, tripwire.node_attempt_id, warningCode, workflowRunId));
+    return signed ? null : { gate_node_id: gateNodeId, node_attempt_id: tripwire.node_attempt_id, warning_code: warningCode };
   }
 
   private matchesRunOverrideSignOff(
@@ -1390,7 +1428,10 @@ export class TopicSelectionV1bRunCoordinatorService {
       && record?.workflow_run_id === workflowRunId
       && record?.node_id === nodeId
       && record?.node_attempt_id === nodeAttemptId
-      && record?.gate_warning_code === warningCode;
+      && record?.gate_warning_code === warningCode
+      // Review hardening: a hand-recorded artifact (bypassing the route) must still be a fully
+      // valid sign-off — no signer, no rationale, no unlock.
+      && provisionalSignOffValidator(record) === true;
   }
 
   /** W-15 O-2: the highest valid recorded raise for (run, node); 0 when none. */

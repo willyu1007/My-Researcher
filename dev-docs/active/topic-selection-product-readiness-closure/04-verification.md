@@ -239,4 +239,15 @@
 - **测试**：coordinator **56/56**（+7:product 停签/签核解锁+幂等/acceptance 与无警双旁路/严格负例四连/无警签拒/提额解锁 exhausted+消息/提额负例三连）;shared **273/0**（+1 提额 schema 测:cap 6·0·2.5 拒、非 human 拒、未知键拒）;backend tsc **0**;**full backend **1654/1619/0/35**(1647+7,0 fail)**。
 - **提交**：feat `0c6a0ce0` / docs 本段随本次 docs commit。**S3（桌面两卡+抽屉）/S4（收口+第二次产品跑）待做。**
 
+### 2026-07-05 · Phase 4 — W-15 S1+S2 对抗复审 + 修复(A-DEFECT:N6 臂死代码)
+> 用户例行质量复审(「检查本轮实施的质量」)。判定:S2 与 N8 臂 SOLID;**S1 的 N6 臂 A-DEFECT** + 三处加固,全部当轮修复。上方 07-03 段中「latest-admitted 锚定」「product-only 触发」为**修复前语义**,以本段为准(spec `06` §3 D1 已同步)。
+- **A-DEFECT(N6 臂死代码 + 签核不可记录)**:harness 的 N6 tripwire 只随**升级 LOOPBACK attempt** 发射(loopback persist 分支),post-debate 重入的 admitted attempt 是干净的;而 gate/记录两侧都锚定 latest_admitted → N6 的 gate 永不触发、签核目标校验永 409。**修复**:投影新增 `latest_provisional_tripwire`(逐 attempt 折叠,不论 gate 结局取最新带对应 warning 者;后续干净 admit 不清除;非 product 跑恒 null),gate 与 `recordProvisionalRunOverrideSignOff` 目标校验统一锚定该字段(N8 → admitted attempt 本身,N6 → loopback attempt)。
+- **加固 1(run_mode 旁路)**:gate 触发键从「本次调用 run_mode='product'」改为 **tripwire 存在性**——warning 发射端本就 product-gated(N8 admitted 端与 N6 loopback 端均在 harness product 分支),acceptance 由构造即无摩擦;原键控下签核前换一次省略 run_mode 的 advance 即可绕过 gate,现焊死。
+- **加固 2(手写工件不解锁)**:`matchesRunOverrideSignOff` 追加 `provisionalSignOffValidator(record)===true` 复验——绕过路由直投控制面通道的残缺「签核」(缺签署人/rationale)不再匹配。
+- **加固 3(并发)**:`recordProvisionalRunOverrideSignOff` / `recordLoopbackBudgetRaise` 均纳入 `withRunLock`——记录与 in-flight advance 不再交错(advance 侧操作员工件懒加载缓存的不变量由此构造成立)。
+- **测试**:3 处改写(presence 键控断言 + 两条 409 文案正则)+ **3 新增**:① N6 升级臂全链(loopback 带 tripwire → post-debate 干净 admit → 同次 advance 在 N7 前停 `sign_off_required`、消息锚 loopback attempt id → 签 admitted id 409 → 签 loopback id 解锁进 N7);② mid-advance 触发(同一次 product advance 内 [N6,N7,N8] 后停,非仅新 advance 起步);③ 多提额取 **max** 而非最新(4 后记 3,生效仍 4;第 5 次 loopback 才 exhausted 且消息含 budget (4))。路由集成 **+1**(unknown-key 400 证 W-09 服务层严格校验为权威 / 非 gate 对 400 / 跨 run 400 / 无 tripwire 409 / cap>5 400 / 非 v1b 节点 400 / 合法提额 201)。coordinator **59/59**,tsc **0**,full backend **1658/1623/0/35**(1654+4,0 fail)。
+- **测试陷阱留痕**:gate 求值点在「admit 步之后**下一轮迭代**顶部」,而 max_steps 检查在 gate 之前——预算恰好耗尽时该次 advance 报 `max_steps_reached`,下次 advance 立即 `sign_off_required`,**非旁路**(任何越过 gate 节点的 invoke 必经 gate 检查);N6 臂测试因此用 max_steps:2。
+- **提交**:fix 本段同 commit。
+
+
 ### （待开工）
