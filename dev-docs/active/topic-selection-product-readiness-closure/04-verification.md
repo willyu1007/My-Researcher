@@ -262,4 +262,12 @@
 - **测试**:full backend **1658/1623/0/35**(含新 GET 与 (h) 段,总数与复审轮持平——(h) 为既有测试内追加断言);shared 未触。S4 剩余:第二次产品跑验证 `sign_off_required` → workbench 一键签 → 续跑全链。
 
 
+### 2026-07-05 · Phase 4 — W-15 S4(第二次产品跑:签核摩擦全链验证)⇒ **W-15 全部收口**
+> 驱动脚本 `.ai/scripts/topic-selection-w15-s4-signoff-product-run.mjs`;run `t128-w15-s4-signoff-1783213389279`(工件 `.ai/.tmp/topic-selection-real-e2e/` 同名目录);复用 run9 真实 bundle `v1b_input_bundle_b9b8ff1d…`(真实文献+真实 provider v1a 血统),全链 `run_mode='product'`,零新增 provider 花费。
+- **摩擦链证据(90-summary `passed`)**:N8 product admit 携带 `N8_DEBATE_THRESHOLDS_PROVISIONAL`(+`N8_VALUE_RISK_NOTES_CARRIED_FORWARD`)→ 下一次 advance 停 `sign_off_required@N8`(steps=[],消息锚 tripwire attempt id)→ **负探针**:未签重 advance 门不松;错 attempt id 签核 409 → 真签核(workbench 卡同款载荷)201 落工件 `artifact_ref_e4b13e77…` → 续跑一次 advance 完成 [N9,N10,N11] → `run_complete`,v1c input bundle 发布。D1(c) 预期摩擦形态「N8 后停一次 → 一键签 → 续跑」逐字复现。
+- **结构性发现(S4 探跑挖出,划归 W-14)**:coordinator 驱动的 **product** 跑今天在模型节点上三路全断——① caller draft_payload 落 `fixture_replay`,product 准入按设计拒(诚实防线,非 bug);② `node_inputs.execution_spec` 是未接线的透传,harness 直接 `N4_FROZEN_DRAFT_ARTIFACT_REQUIRED`(首次探跑 `t128-w15-s4-signoff-1783212811143` 的 failure.json 为证);③ v1b 单代理草稿 runtime 本身只收 `codex_assisted|mocked_llm`,provider_llm 单代理生成是 W-14/W-19 休眠尾(W-09 canary 证的是 orchestrator 槽位,不产 gate 可消费工件)。**当前 product 合法调用方形态** = runtime `codex_assisted`(操作员策展草稿 → runtime_verified 工件)+ 直接 harness invoke 挂同一 workflow_run_id(n4/n6/n8_runtime_smoke 早已在 product run_mode 下证明该配方;人审 N2/N5 路由同为「直接入闸、coordinator 投影收编」模式)——S4 即按此形态跑,gate/签核/续跑全在 coordinator。coordinator 的 execution_spec→runtime 接线归 W-14。
+- **对照澄清**:W-10/run9 的 v1b 腿实为 acceptance run_mode + fixture 语义(real-e2e 未传 RUN_MODE env,provider 花费全在 v1a 生成腿)——product 姿态 v1b 链 + tripwire 真实触发,**S4 是第一次**。
+- **W-15 验收口径(spec §6)全满足**:S1/S2 单测+复审修复(59/59,full backend 1658/1623/0/35);S3 两卡+抽屉(typecheck 0,UI gate 0/0);S4 `sign_off_required` halt → 签核 → 续跑完整链留痕。**W-15 DONE。**
+
+
 ### （待开工）

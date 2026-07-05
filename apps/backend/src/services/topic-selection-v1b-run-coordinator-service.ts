@@ -438,6 +438,11 @@ export type AdvanceTopicSelectionV1bRunInput = {
    * Defaults to 'acceptance'. Note: caller drafts are recorded as fixture_replay,
    * which the harness rejects under run_mode='product' — the product path requires a
    * dedicated human-curated provenance class (recorded decision, T-123 Phase 3/5).
+   * Current product-legal caller shape (validated by the W-15 S4 product run): generate the
+   * draft through the node's RUNTIME service (codex_assisted → runtime_verified) and invoke
+   * the harness node directly with the artifact attached, on the SAME workflow_run_id — the
+   * projection folds those traces like any human-route invocation. execution_spec below is a
+   * pass-through the harness does not act on for single-agent drafts (provider wiring = W-14).
    */
   run_mode?: TopicSelectionAgentRunMode | null;
 };
