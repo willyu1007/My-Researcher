@@ -8,17 +8,18 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 128 (planned: 2, in-progress: 5, blocked: 0, done: 44, archived: 77)
+- Tasks: 129 (planned: 3, in-progress: 4, blocked: 0, done: 43, archived: 79)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-127 topic-selection-backend-hardening-and-expansion | archived | F-001 | dev-docs/archive/topic-selection-backend-hardening-and-expansion |
+| T-128 topic-selection-product-readiness-closure | archived | F-001 | dev-docs/archive/topic-selection-product-readiness-closure |
+| T-129 topic-selection-calibration-release | planned | F-001 | dev-docs/active/topic-selection-calibration-release |
 | T-041 literature-end-to-end-quality-upgrade | archived | F-000 | dev-docs/archive/literature-end-to-end-quality-upgrade |
 | T-119 adaptive-llm-systems-standard-pipeline-expansion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-standard-pipeline-expansion |
 | T-120 adaptive-llm-systems-literature-pipeline-completion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-literature-pipeline-completion |
-| T-128 topic-selection-product-readiness-closure | in-progress | F-001 | dev-docs/active/topic-selection-product-readiness-closure |
-| T-127 topic-selection-backend-hardening-and-expansion | done | F-001 | dev-docs/active/topic-selection-backend-hardening-and-expansion |
 | T-122 literature-scaleout-corpus-strategy | archived | F-000 | dev-docs/archive/literature-scaleout-corpus-strategy |
 | T-125 literature-balanced-corpus-scaleout-v2 | archived | F-000 | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |
 | T-126 literature-rag-frontier-tech-radar | archived | F-000 | dev-docs/archive/literature-rag-frontier-tech-radar |
@@ -33,5 +34,4 @@ Project: `main`
 | T-112 topic-selection-llm-context-cache-runtime | done | F-001 | dev-docs/active/topic-selection-llm-context-cache-runtime |
 | T-023 research-argument-control-plane-v1 | archived | F-001 | dev-docs/archive/research-argument-control-plane-v1 |
 | T-086 research-argument-writing-entry-bridge-acceptance | archived | F-001 | dev-docs/archive/research-argument-writing-entry-bridge-acceptance |
-| T-113 paper-implementation-legacy-authority-cleanup | done | F-001 | dev-docs/active/paper-implementation-legacy-authority-cleanup |
 <!-- AUTO-GENERATED:END dashboard -->

@@ -2,8 +2,8 @@ version: 1
 task_id: T-128
 project: main
 slug: topic-selection-product-readiness-closure
-status: in-progress
-updated: "2026-07-02"
+status: archived
+updated: "2026-07-05"
 keywords:
   - topic-selection
   - product-readiness

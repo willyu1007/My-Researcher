@@ -140,8 +140,9 @@ Project: `main`
 | T-115 topic-selection-v1b-human-review-path | done | dev-docs/active/topic-selection-v1b-human-review-path |
 | T-123 topic-selection-productization-hardening | done | dev-docs/active/topic-selection-productization-hardening |
 | T-124 paper-implementation-productization-hardening | in-progress | dev-docs/active/paper-implementation-productization-hardening |
-| T-127 topic-selection-backend-hardening-and-expansion | done | dev-docs/active/topic-selection-backend-hardening-and-expansion |
-| T-128 topic-selection-product-readiness-closure | in-progress | dev-docs/active/topic-selection-product-readiness-closure |
+| T-127 topic-selection-backend-hardening-and-expansion | archived | dev-docs/archive/topic-selection-backend-hardening-and-expansion |
+| T-128 topic-selection-product-readiness-closure | archived | dev-docs/archive/topic-selection-product-readiness-closure |
+| T-129 topic-selection-calibration-release | planned | dev-docs/active/topic-selection-calibration-release |
 
 ### F-002 Desktop Frontend Foundation
 

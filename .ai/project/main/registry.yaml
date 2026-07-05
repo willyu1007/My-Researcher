@@ -1162,19 +1162,26 @@ tasks:
     updated: 2026-06-19
   - id: T-127
     slug: topic-selection-backend-hardening-and-expansion
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-backend-hardening-and-expansion
-    updated: 2026-06-24
+    dev_docs_path: dev-docs/archive/topic-selection-backend-hardening-and-expansion
+    updated: 2026-07-05
   - id: T-128
     slug: topic-selection-product-readiness-closure
-    status: in-progress
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-product-readiness-closure
-    updated: 2026-07-02
+    dev_docs_path: dev-docs/archive/topic-selection-product-readiness-closure
+    updated: 2026-07-05
+  - id: T-129
+    slug: topic-selection-calibration-release
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    dev_docs_path: dev-docs/active/topic-selection-calibration-release
+    updated: 2026-07-05

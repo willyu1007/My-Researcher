@@ -2,8 +2,8 @@ version: 1
 task_id: T-127
 project: main
 slug: topic-selection-backend-hardening-and-expansion
-status: done
-updated: "2026-06-24"
+status: archived
+updated: "2026-07-05"
 keywords:
   - topic-selection
   - backend-hardening
