@@ -188,6 +188,14 @@ function mockGrobidFulltext(response: { status: number; body?: string; throwErro
   const previousFetch = globalThis.fetch;
   globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
     const url = String(input);
+    // T-130 W-02: the parser health-probes /api/isalive before submitting documents; a fully
+    // down endpoint (throwError) fails the probe too, a working one answers 200.
+    if (url.endsWith('/api/isalive')) {
+      if (response.throwError) {
+        throw new Error('connect ECONNREFUSED');
+      }
+      return new Response('true', { status: 200 });
+    }
     if (url.endsWith('/api/processFulltextDocument')) {
       if (response.throwError) {
         throw new Error('connect ECONNREFUSED');

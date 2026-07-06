@@ -98,7 +98,8 @@ export class LiteratureFlowArtifactRuntime {
       options.llmGateway,
     );
     this.fileStore = new LiteratureContentProcessingFileStore(options.settingsService);
-    this.grobidParser = new LiteratureGrobidFulltextParser(options.settingsService);
+    // T-130 W-02 (D5): the repository powers the GROBID circuit breaker (shared source cooldown).
+    this.grobidParser = new LiteratureGrobidFulltextParser(options.settingsService, repository);
   }
 
   async ensureKeyContentReady(literature: LiteratureRecord): Promise<{

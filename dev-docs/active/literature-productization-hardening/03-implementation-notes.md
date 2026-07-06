@@ -14,3 +14,11 @@
 
 ## 2026-07-07 设计对齐(P1/P2 关键决策,用户逐项拍板)
 - W-03 ANN=halfvec 表达式索引(A);W-05 STALE=纳入但标记(b);W-06 自动衔接=AUTO_ADVANCE backfill job 形态+75/55 分档+默认关(按推荐);W-10 质量评估=改语义(b)。W-02/W-04/W-07/W-08 设计要点同轮呈报无异议。全部落 02-architecture D5-D8。
+
+## 2026-07-07 W-02(P1):GROBID 生产姿态(L-03,按 D5)
+- **超时/重试/分类**:主请求 `AbortSignal.timeout`(默认 120s,env `LITERATURE_GROBID_TIMEOUT_MS` 覆盖——settings 化归 W-10 配置面);超时(TimeoutError/AbortError)/连接失败/503 三类可重试,有界 1 次(500ms 间隔);诊断携带 `failure_class`(timeout/connection/http_503/http_error/circuit_open/health_probe_failed)与 attempts。
+- **断路器**:复用 `LiteratureSourceRuntimeState`(source=`grobid`),失败 60s×count 上限 15min 指数退避(与 arxiv/unpaywall 同款);cooldown 窗内解析请求零网络调用 fast-block。**开闸判据**:仅"不可达类"(连接/超时/probe 失败/终态 503)开闸;服务可达的解析失败(4xx/NO_BLOCKS/204)反而重置(reachable=服务活着)。
+- **健康门**:每次解析前 probe `/api/isalive`(5s 超时,健康结果缓存 30s)——down 端点 ~5s 内 block 而非挂满 120s,并记 `GROBID_HEALTH_PROBE_FAILED` 开闸。
+- **激活条件**:D5 姿态以 runtimeStateStore 接线为激活条件——生产构造(artifact-runtime 传 repository)全量激活;裸构造(隔离测试/遗留)保持原直连行为,既有 2 测零改动=默认路径不变证据。**D5 偏差记录**:原文"执行前健康 probe"落实为解析入口内的 breaker+cached-probe 双门(同语义、单接缝),而非 flow-service 层独立门。
+- **部署约定**:`docker-compose.literature.yml`(grobid 0.9.0-crf,:8070)+ 运行手册 `docs/context/env/literature-grobid.md`(启动/端点/健康/断路器语义/E2E 依赖)。
+- **测试**:解析器单测 2→8——circuit-open 零请求 fast-block、probe 不健康 block+开闸、连接失败重试 1 次后开闸(attempts=2 钉)、timeout 分类 GROBID_TIMEOUT、503 重试后成功且断路器复位(READY/failureCount=0)、204→OCR 且不开闸。

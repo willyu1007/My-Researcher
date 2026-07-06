@@ -1,0 +1,14 @@
+# T-130 W-02 (D5): literature-domain external dependencies — production/dev parity convention.
+# Usage:
+#   docker compose -f docker-compose.literature.yml up -d
+#   curl -s http://localhost:8070/api/isalive   # -> true
+# The backend probes /api/isalive before FULLTEXT_PREPROCESSED and opens a cooldown circuit
+# (LiteratureSourceRuntimeState source='grobid') when the endpoint is down — see
+# docs/context/env/literature-grobid.md.
+services:
+  grobid:
+    image: grobid/grobid:0.9.0-crf
+    container_name: literature-grobid
+    ports:
+      - "8070:8070"
+    restart: unless-stopped

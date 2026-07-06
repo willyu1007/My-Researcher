@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
@@ -6,9 +7,24 @@ import type {
   LiteratureFulltextAnchorRecord,
   LiteratureFulltextParagraphRecord,
   LiteratureFulltextSectionRecord,
+  LiteratureRepository,
 } from '../../repositories/literature-repository.js';
 import type { LiteratureContentProcessingSettingsService } from '../literature-content-processing-settings-service.js';
 import { normalizeWhitespace, sha256Text } from '../literature-content-processing-utils.js';
+
+// T-130 W-02 (D5): GROBID production posture — request timeout, bounded retry, health-probe gate,
+// and a circuit breaker that reuses the shared LiteratureSourceRuntimeState cooldown mechanism
+// (same exponential backoff as arxiv/unpaywall). Timeout is env-adjustable for now; moving these
+// knobs into the content-processing settings face is W-10 scope.
+const GROBID_SOURCE_KEY = 'grobid';
+const DEFAULT_GROBID_REQUEST_TIMEOUT_MS = 120_000;
+const GROBID_TIMEOUT_ENV = 'LITERATURE_GROBID_TIMEOUT_MS';
+const GROBID_HEALTH_PROBE_TIMEOUT_MS = 5_000;
+const GROBID_HEALTH_PROBE_CACHE_MS = 30_000;
+const GROBID_MAX_RETRIES = 1;
+const GROBID_RETRY_DELAY_MS = 500;
+
+type GrobidRuntimeStateStore = Pick<LiteratureRepository, 'findSourceRuntimeState' | 'upsertSourceRuntimeState'>;
 
 type ParsedSection = Omit<LiteratureFulltextSectionRecord, 'id' | 'documentId' | 'createdAt' | 'updatedAt'>;
 type ParsedParagraph = Omit<LiteratureFulltextParagraphRecord, 'id' | 'documentId' | 'createdAt' | 'updatedAt'>;
@@ -57,7 +73,13 @@ export class LiteratureGrobidFulltextParser {
     trimValues: true,
   });
 
-  constructor(private readonly settingsService?: LiteratureContentProcessingSettingsService) {}
+  private healthProbeHealthyUntil = 0;
+  private healthProbeEndpoint: string | null = null;
+
+  constructor(
+    private readonly settingsService?: LiteratureContentProcessingSettingsService,
+    private readonly runtimeStateStore?: GrobidRuntimeStateStore,
+  ) {}
 
   async parse(sourceAsset: LiteratureContentAssetRecord): Promise<GrobidFulltextParseResult> {
     if (!this.settingsService) {
@@ -70,6 +92,25 @@ export class LiteratureGrobidFulltextParser {
     }
 
     const endpointUrl = await this.settingsService.resolveGrobidEndpointUrl();
+
+    // D5 gates activate when the runtime-state store is wired (production construction passes the
+    // repository); bare construction keeps the legacy direct-call behavior for isolated tests.
+    if (this.runtimeStateStore) {
+      // Gate 1: circuit breaker — while the shared source cooldown is open, fail fast without
+      // touching GROBID at all (recovering the endpoint clears via cooldown expiry).
+      const circuitBlock = await this.checkCircuitOpen(endpointUrl);
+      if (circuitBlock) {
+        return circuitBlock;
+      }
+
+      // Gate 2: health probe (cached while healthy) — a down endpoint blocks the stage in ~5s
+      // instead of hanging into the full request timeout, and records a breaker failure.
+      const probeBlock = await this.probeHealthGate(endpointUrl);
+      if (probeBlock) {
+        return probeBlock;
+      }
+    }
+
     const body = new FormData();
     const fileBuffer = await fs.readFile(sourceAsset.localPath);
     const fileData = fileBuffer.buffer.slice(
@@ -84,35 +125,78 @@ export class LiteratureGrobidFulltextParser {
     body.append('generateIDs', '1');
     body.append('includeRawCitations', '1');
 
-    let response: Response;
-    try {
-      response = await fetch(`${endpointUrl}/api/processFulltextDocument`, {
-        method: 'POST',
-        headers: { Accept: 'application/xml' },
-        body,
-      });
-    } catch (error) {
+    const timeoutMs = this.requestTimeoutMs();
+    const maxAttempts = 1 + GROBID_MAX_RETRIES;
+    let response: Response | null = null;
+    let lastFailure: { failureClass: 'timeout' | 'connection' | 'http_503'; message: string } | null = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        response = await fetch(`${endpointUrl}/api/processFulltextDocument`, {
+          method: 'POST',
+          headers: { Accept: 'application/xml' },
+          body,
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+      } catch (error) {
+        const failureClass = this.isTimeoutError(error) ? 'timeout' as const : 'connection' as const;
+        lastFailure = {
+          failureClass,
+          message: error instanceof Error ? error.message : 'GROBID request failed.',
+        };
+        response = null;
+        if (attempt < maxAttempts) {
+          await this.delay(GROBID_RETRY_DELAY_MS);
+          continue;
+        }
+        break;
+      }
+
+      if (response.status === 503 && attempt < maxAttempts) {
+        lastFailure = { failureClass: 'http_503', message: 'GROBID responded 503 (busy/unavailable).' };
+        response = null;
+        await this.delay(GROBID_RETRY_DELAY_MS);
+        continue;
+      }
+      break;
+    }
+
+    if (!response) {
+      await this.recordBreakerFailure(lastFailure?.failureClass === 'timeout' ? 'GROBID_TIMEOUT' : 'GROBID_UNREACHABLE', lastFailure?.message ?? null);
       return {
         ready: false,
         reasonCode: 'FULLTEXT_PARSER_UNAVAILABLE',
-        reasonMessage: `GROBID is not reachable at ${endpointUrl}.`,
+        reasonMessage: lastFailure?.failureClass === 'timeout'
+          ? `GROBID timed out after ${timeoutMs}ms (with ${GROBID_MAX_RETRIES} retry).`
+          : `GROBID is not reachable at ${endpointUrl}.`,
         diagnostics: [{
           code: 'FULLTEXT_PARSER_UNAVAILABLE',
           severity: 'blocker',
           endpoint_url: endpointUrl,
-          message: error instanceof Error ? error.message : 'GROBID request failed.',
+          failure_class: lastFailure?.failureClass ?? 'connection',
+          attempts: maxAttempts,
+          timeout_ms: timeoutMs,
+          message: lastFailure?.message ?? 'GROBID request failed.',
         }],
       };
     }
 
     if (response.status === 204) {
+      await this.recordBreakerSuccess();
       return this.ocrRequired(sourceAsset, endpointUrl, 'GROBID returned no extractable content.');
     }
     const teiXml = await response.text();
     if (!response.ok) {
       const code = this.grobidErrorCode(teiXml);
       if (code === 'NO_BLOCKS') {
+        await this.recordBreakerSuccess();
         return this.ocrRequired(sourceAsset, endpointUrl, 'GROBID found no text blocks in the PDF.');
+      }
+      if (response.status === 503) {
+        await this.recordBreakerFailure('GROBID_HTTP_503', 'GROBID responded 503 after retry.');
+      } else {
+        // Non-503 HTTP errors mean the service is reachable; do not open the breaker.
+        await this.recordBreakerSuccess();
       }
       return {
         ready: false,
@@ -123,12 +207,14 @@ export class LiteratureGrobidFulltextParser {
           severity: 'blocker',
           endpoint_url: endpointUrl,
           status: response.status,
+          failure_class: response.status === 503 ? 'http_503' : 'http_error',
           grobid_error_code: code,
           body: teiXml.slice(0, 1000),
         }],
       };
     }
 
+    await this.recordBreakerSuccess();
     const parsed = this.parseTei(teiXml);
     if (parsed.paragraphs.length === 0 || normalizeWhitespace(parsed.normalizedText).length === 0) {
       return this.ocrRequired(sourceAsset, endpointUrl, 'GROBID parsed the PDF but did not produce body text.');
@@ -145,6 +231,136 @@ export class LiteratureGrobidFulltextParser {
       anchors: parsed.anchors,
       diagnostics: this.buildSuccessDiagnostics(endpointUrl, parsed),
     };
+  }
+
+  private requestTimeoutMs(): number {
+    const raw = Number(process.env[GROBID_TIMEOUT_ENV]);
+    return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_GROBID_REQUEST_TIMEOUT_MS;
+  }
+
+  private isTimeoutError(error: unknown): boolean {
+    return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+  }
+
+  private async delay(ms: number): Promise<void> {
+    await new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  private async checkCircuitOpen(endpointUrl: string): Promise<GrobidFulltextParseResult | null> {
+    if (!this.runtimeStateStore) {
+      return null;
+    }
+    const state = await this.runtimeStateStore.findSourceRuntimeState(GROBID_SOURCE_KEY);
+    if (!state || state.status !== 'COOLDOWN' || !state.cooldownUntil) {
+      return null;
+    }
+    if (state.cooldownUntil <= new Date().toISOString()) {
+      return null;
+    }
+    return {
+      ready: false,
+      reasonCode: 'FULLTEXT_PARSER_UNAVAILABLE',
+      reasonMessage: `GROBID circuit is open until ${state.cooldownUntil} after ${state.failureCount} failure(s).`,
+      diagnostics: [{
+        code: 'FULLTEXT_PARSER_UNAVAILABLE',
+        severity: 'blocker',
+        endpoint_url: endpointUrl,
+        failure_class: 'circuit_open',
+        cooldown_until: state.cooldownUntil,
+        failure_count: state.failureCount,
+        last_error_code: state.lastErrorCode,
+      }],
+    };
+  }
+
+  private async probeHealthGate(endpointUrl: string): Promise<GrobidFulltextParseResult | null> {
+    const now = Date.now();
+    if (this.healthProbeEndpoint === endpointUrl && this.healthProbeHealthyUntil > now) {
+      return null;
+    }
+    let healthy = false;
+    let message = 'GROBID health probe failed.';
+    try {
+      const probe = await fetch(`${endpointUrl}/api/isalive`, {
+        signal: AbortSignal.timeout(GROBID_HEALTH_PROBE_TIMEOUT_MS),
+      });
+      healthy = probe.ok;
+      if (!probe.ok) {
+        message = `GROBID health probe returned ${probe.status}.`;
+      }
+    } catch (error) {
+      message = error instanceof Error ? error.message : message;
+    }
+    if (healthy) {
+      this.healthProbeEndpoint = endpointUrl;
+      this.healthProbeHealthyUntil = now + GROBID_HEALTH_PROBE_CACHE_MS;
+      return null;
+    }
+    await this.recordBreakerFailure('GROBID_HEALTH_PROBE_FAILED', message);
+    return {
+      ready: false,
+      reasonCode: 'FULLTEXT_PARSER_UNAVAILABLE',
+      reasonMessage: `GROBID is not healthy at ${endpointUrl}; the stage was blocked before submitting the document.`,
+      diagnostics: [{
+        code: 'FULLTEXT_PARSER_UNAVAILABLE',
+        severity: 'blocker',
+        endpoint_url: endpointUrl,
+        failure_class: 'health_probe_failed',
+        message,
+      }],
+    };
+  }
+
+  private async recordBreakerSuccess(): Promise<void> {
+    if (!this.runtimeStateStore) {
+      return;
+    }
+    const existing = await this.runtimeStateStore.findSourceRuntimeState(GROBID_SOURCE_KEY);
+    const now = new Date().toISOString();
+    await this.runtimeStateStore.upsertSourceRuntimeState({
+      id: existing?.id ?? crypto.randomUUID(),
+      source: GROBID_SOURCE_KEY,
+      status: 'READY',
+      cooldownUntil: null,
+      failureCount: 0,
+      lastErrorCode: null,
+      lastErrorMessage: null,
+      lastRequestAt: now,
+      lastSuccessAt: now,
+      lastFailureAt: existing?.lastFailureAt ?? null,
+      metadata: existing?.metadata ?? {},
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
+  }
+
+  private async recordBreakerFailure(errorCode: string, errorMessage: string | null): Promise<void> {
+    this.healthProbeHealthyUntil = 0;
+    if (!this.runtimeStateStore) {
+      return;
+    }
+    const existing = await this.runtimeStateStore.findSourceRuntimeState(GROBID_SOURCE_KEY);
+    const now = new Date().toISOString();
+    const failureCount = (existing?.failureCount ?? 0) + 1;
+    // Same exponential backoff shape as the arxiv/unpaywall source cooldowns.
+    const cooldownUntil = new Date(Date.now() + Math.min(60_000 * failureCount, 900_000)).toISOString();
+    await this.runtimeStateStore.upsertSourceRuntimeState({
+      id: existing?.id ?? crypto.randomUUID(),
+      source: GROBID_SOURCE_KEY,
+      status: 'COOLDOWN',
+      cooldownUntil,
+      failureCount,
+      lastErrorCode: errorCode,
+      lastErrorMessage: errorMessage,
+      lastRequestAt: now,
+      lastSuccessAt: existing?.lastSuccessAt ?? null,
+      lastFailureAt: now,
+      metadata: existing?.metadata ?? {},
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 
   parseTei(teiXml: string): {
