@@ -25,6 +25,10 @@
 //                            TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_SEMANTIC_POLICIES
 //                            (topic-selection-node-semantic-policy-contracts.ts, T-089 ①尾巴) —
 //                            all 8 columns strict leading-token equality (incl. 'conditional'/'reserved')
+//   v1b remaining 4 semantic columns <- TOPIC_SELECTION_V1B_NODE_SEMANTIC_SUPPLEMENT_POLICIES
+//                            (same contracts file, 2026-07-07) — provider_required / debate_allowed /
+//                            debate_primitive / human_review_required by strict leading-token equality;
+//                            the other 4 v1b columns keep their runtime-policy-derived checks above.
 //
 // Still NOT auto-checked (no structured code authority): the resource-sampling / v1a Invocation
 // Slot Map rows' prose columns (Kind/Profile/Status — only the v1b slot_id set has a code
@@ -137,9 +141,10 @@ const SEMANTIC_TOKEN_ALL_COLUMNS = [
   'human_delegated_allowed',
 ];
 
-function extractLiteralSemanticPolicies(source, marker) {
-  // Parses TOPIC_SELECTION_V1A_NODE_SEMANTIC_POLICIES / ..._RESOURCE_SAMPLING_... entries where
-  // node_id and all eight semantic columns are quoted string literals.
+function extractLiteralSemanticPolicies(source, marker, columns = SEMANTIC_TOKEN_ALL_COLUMNS) {
+  // Parses TOPIC_SELECTION_V1A_NODE_SEMANTIC_POLICIES / ..._RESOURCE_SAMPLING_... /
+  // ..._V1B_NODE_SEMANTIC_SUPPLEMENT_... entries where node_id and every requested semantic
+  // column are quoted string literals.
   const block = extractBlock(source, marker);
   const policies = new Map();
   for (const seg of block.split(/node_index:/).slice(1)) {
@@ -147,7 +152,7 @@ function extractLiteralSemanticPolicies(source, marker) {
     if (!idMatch) throw new Error(`missing node_id literal in ${marker}`);
     const nodeId = idMatch[1];
     const entry = {};
-    for (const field of SEMANTIC_TOKEN_ALL_COLUMNS) {
+    for (const field of columns) {
       const m = seg.match(new RegExp(`${field}:\\s*'([^']+)'`));
       if (!m) throw new Error(`missing ${field} for ${nodeId}`);
       entry[field] = m[1];
@@ -156,6 +161,13 @@ function extractLiteralSemanticPolicies(source, marker) {
   }
   return policies;
 }
+
+const V1B_SEMANTIC_SUPPLEMENT_COLUMNS = [
+  'provider_required',
+  'debate_allowed',
+  'debate_primitive',
+  'human_review_required',
+];
 
 function extractCodeSets(sources) {
   const v1aNodes = new Set(
@@ -200,6 +212,11 @@ function extractCodeSets(sources) {
   const resourceSamplingSemanticPolicies = extractLiteralSemanticPolicies(
     sources.semanticPolicies,
     'TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_SEMANTIC_POLICIES = [',
+  );
+  const v1bSemanticSupplementPolicies = extractLiteralSemanticPolicies(
+    sources.semanticPolicies,
+    'TOPIC_SELECTION_V1B_NODE_SEMANTIC_SUPPLEMENT_POLICIES = [',
+    V1B_SEMANTIC_SUPPLEMENT_COLUMNS,
   );
 
   // v1b slots + per-slot modes
@@ -254,6 +271,7 @@ function extractCodeSets(sources) {
     downstreamSemanticPolicies,
     v1aSemanticPolicies,
     resourceSamplingSemanticPolicies,
+    v1bSemanticSupplementPolicies,
   };
 }
 
@@ -434,6 +452,9 @@ export function checkConsistency({ matrix, sources, scenarios, scriptNames }) {
     if (!code.allowedModesByNode.has(id) || !code.executionKindByNode.has(id)) {
       issues.push({ check: 'v1b_policy_extraction_incomplete', detail: id });
     }
+    if (!code.v1bSemanticSupplementPolicies.has(id)) {
+      issues.push({ check: 'v1b_semantic_supplement_missing', detail: id });
+    }
   }
   for (const id of code.v1cNodes) {
     if (!code.v1cSemanticPolicies.has(id)) issues.push({ check: 'v1c_policy_missing', detail: id });
@@ -524,6 +545,21 @@ export function checkConsistency({ matrix, sources, scenarios, scriptNames }) {
         detail: `${row.node_id}: matrix default=${defaultToken || '(empty)'} not in contract modes {${[...modes].join(', ')}}`,
       });
     }
+
+    // Remaining 4 v1b semantic columns against the literal supplement export (2026-07-07) —
+    // strict leading-token equality so 'conditional' and named primitives compare exactly.
+    const supplement = code.v1bSemanticSupplementPolicies.get(row.node_id);
+    if (supplement) {
+      for (const column of V1B_SEMANTIC_SUPPLEMENT_COLUMNS) {
+        const actual = leadingToken(row[column] ?? '');
+        if (actual !== supplement[column]) {
+          issues.push({
+            check: 'v1b_semantic_mismatch',
+            detail: `${row.node_id} ${column}: matrix=${actual || '(empty)'} contracts=${supplement[column]}`,
+          });
+        }
+      }
+    } // absence reported by v1b_semantic_supplement_missing above
   }
 
   // v1c + downstream full semantic-column checks against the structured policy exports.
@@ -842,6 +878,51 @@ function runSelfTest(real) {
       'missing v1c policy entry detected',
       { sources: { v1cPolicies: v1cPolicyDropped } },
       (issues) => issues.some((i) => i.check === 'v1c_policy_missing' && i.detail.includes('run-promotion-gate')),
+    ),
+  );
+
+  const v1bDebateFlipped = mutateRowCell(
+    real.matrix,
+    'topic-selection.v1b.assess-topic-value.v1',
+    'debate_allowed',
+    'no',
+  );
+  results.push(
+    expectIssues('flipped v1b debate_allowed detected', { matrix: v1bDebateFlipped }, (issues) =>
+      issues.some(
+        (i) => i.check === 'v1b_semantic_mismatch' && i.detail.includes('assess-topic-value.v1 debate_allowed'),
+      ),
+    ),
+  );
+
+  const v1bPrimitiveDrifted = mutateRowCell(
+    real.matrix,
+    'topic-selection.v1b.generate-topic-question-candidates.v1',
+    'debate_primitive',
+    'bounded_sequence',
+  );
+  results.push(
+    expectIssues('drifted v1b debate_primitive detected', { matrix: v1bPrimitiveDrifted }, (issues) =>
+      issues.some(
+        (i) =>
+          i.check === 'v1b_semantic_mismatch' &&
+          i.detail.includes('generate-topic-question-candidates.v1 debate_primitive'),
+      ),
+    ),
+  );
+
+  const v1bSupplementDropped = real.sources.semanticPolicies.replace(
+    "node_id: 'topic-selection.v1b.decide-value-disposition.v1',",
+    "node_id: 'topic-selection.v1b.create-intake-snapshot.v1',",
+  );
+  results.push(
+    expectIssues(
+      'missing v1b semantic supplement entry detected',
+      { sources: { semanticPolicies: v1bSupplementDropped } },
+      (issues) =>
+        issues.some(
+          (i) => i.check === 'v1b_semantic_supplement_missing' && i.detail.includes('decide-value-disposition'),
+        ),
     ),
   );
 

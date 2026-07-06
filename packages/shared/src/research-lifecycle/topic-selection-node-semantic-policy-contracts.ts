@@ -1,4 +1,5 @@
-// Topic-selection v1a + resource-sampling semantic node policies (T-089 backlog ①尾巴).
+// Topic-selection v1a + resource-sampling semantic node policies (T-089 backlog ①尾巴), plus the
+// v1b four-column semantic supplement (2026-07-07, see section comment below).
 //
 // Counterpart of topic-selection-v1c-node-policy-contracts.ts for the two stages that previously
 // had NO structured code authority for the SSOT matrix semantic columns. Unlike v1c (boolean
@@ -199,6 +200,146 @@ export const TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_SEMANTIC_POLICIES = [
     human_delegated_allowed: 'no',
   },
 ] as const satisfies readonly TopicSelectionNodeSemanticPolicy[];
+
+// --- v1b semantic supplement (2026-07-07) --------------------------------------------------------
+//
+// v1b already has runtime authority for four matrix columns (codex_allowed / executor_kind /
+// human_delegated_allowed / default_execution_mode derive from
+// TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES + slots). The remaining four semantic columns
+// (provider_required / debate_allowed / debate_primitive / human_review_required) had NO structured
+// export — the last per-column blind spot the matrix Change Log tracked. This supplement covers
+// exactly those four columns and nothing else, so the runtime-derived checks stay the single
+// authority for their columns (no dual-track).
+//
+// node ids must stay in lockstep with TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS (schema test
+// pins set equality). Values transcribed from the W-08-verified matrix v1b rows and cross-checked
+// against runtime reality (N6 divergent_loop / N8 bounded_sequence debate runtimes; no v1b node is
+// provider-required or a hard human gate — N2/N5 are delegated surfaces, not review gates).
+
+export interface TopicSelectionV1bNodeSemanticSupplementPolicy {
+  node_index: number;
+  node_id: string;
+  provider_required: TopicSelectionSemanticTristate;
+  debate_allowed: TopicSelectionSemanticTristate;
+  debate_primitive: TopicSelectionSemanticDebatePrimitive;
+  human_review_required: TopicSelectionSemanticTristate;
+}
+
+export const TOPIC_SELECTION_V1B_NODE_SEMANTIC_SUPPLEMENT_POLICIES = [
+  {
+    node_index: 1,
+    node_id: 'topic-selection.v1b.create-intake-snapshot.v1',
+    provider_required: 'no',
+    debate_allowed: 'no',
+    debate_primitive: 'none',
+    human_review_required: 'no',
+  },
+  {
+    node_index: 2,
+    node_id: 'topic-selection.v1b.record-research-constraint-profile.v1',
+    provider_required: 'no',
+    debate_allowed: 'no',
+    debate_primitive: 'none',
+    human_review_required: 'no',
+  },
+  {
+    node_index: 3,
+    node_id: 'topic-selection.v1b.assess-intake-readiness.v1',
+    provider_required: 'no',
+    debate_allowed: 'no',
+    debate_primitive: 'none',
+    human_review_required: 'no',
+  },
+  {
+    node_index: 4,
+    node_id: 'topic-selection.v1b.generate-research-slice-options.v1',
+    provider_required: 'no',
+    // Debate rejected 2026-06-11: the human choosing at N5 is the critic.
+    debate_allowed: 'no',
+    debate_primitive: 'none',
+    human_review_required: 'no',
+  },
+  {
+    node_index: 5,
+    node_id: 'topic-selection.v1b.select-research-slice.v1',
+    provider_required: 'no',
+    debate_allowed: 'no',
+    debate_primitive: 'none',
+    // Product default is a human pick (delegated surface), not a required review gate.
+    human_review_required: 'no',
+  },
+  {
+    node_index: 6,
+    node_id: 'topic-selection.v1b.generate-topic-question-candidates.v1',
+    provider_required: 'no',
+    debate_allowed: 'conditional',
+    // Implemented T-127 W-07: explorer/critic/arbiter fan-out, caller-side execution.
+    debate_primitive: 'divergent_loop',
+    human_review_required: 'no',
+  },
+  {
+    node_index: 7,
+    node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1',
+    provider_required: 'no',
+    debate_allowed: 'no',
+    debate_primitive: 'none',
+    human_review_required: 'no',
+  },
+  {
+    node_index: 8,
+    node_id: 'topic-selection.v1b.assess-topic-value.v1',
+    provider_required: 'no',
+    debate_allowed: 'conditional',
+    // Implemented T-123 Phase 3: 4-role bounded sequence, T1/T3 deterministic triggers.
+    debate_primitive: 'bounded_sequence',
+    human_review_required: 'no',
+  },
+  {
+    node_index: 9,
+    node_id: 'topic-selection.v1b.decide-value-disposition.v1',
+    provider_required: 'no',
+    debate_allowed: 'no',
+    debate_primitive: 'none',
+    human_review_required: 'no',
+  },
+  {
+    node_index: 10,
+    node_id: 'topic-selection.v1b.create-draft-topic-package.v1',
+    provider_required: 'no',
+    debate_allowed: 'no',
+    debate_primitive: 'none',
+    human_review_required: 'no',
+  },
+  {
+    node_index: 11,
+    node_id: 'topic-selection.v1b.publish-v1c-input-bundle.v1',
+    provider_required: 'no',
+    debate_allowed: 'no',
+    debate_primitive: 'none',
+    human_review_required: 'no',
+  },
+] as const satisfies readonly TopicSelectionV1bNodeSemanticSupplementPolicy[];
+
+export const topicSelectionV1bNodeSemanticSupplementPolicySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'node_index',
+    'node_id',
+    'provider_required',
+    'debate_allowed',
+    'debate_primitive',
+    'human_review_required',
+  ],
+  properties: {
+    node_index: { type: 'integer', minimum: 1, maximum: 11 },
+    node_id: { type: 'string', minLength: 1 },
+    provider_required: { enum: [...TOPIC_SELECTION_SEMANTIC_TRISTATE] },
+    debate_allowed: { enum: [...TOPIC_SELECTION_SEMANTIC_TRISTATE] },
+    debate_primitive: { enum: [...TOPIC_SELECTION_SEMANTIC_DEBATE_PRIMITIVES] },
+    human_review_required: { enum: [...TOPIC_SELECTION_SEMANTIC_TRISTATE] },
+  },
+} as const;
 
 export const topicSelectionNodeSemanticPolicySchema = {
   type: 'object',
