@@ -1185,3 +1185,10 @@ tasks:
     feature_id: F-001
     dev_docs_path: dev-docs/active/topic-selection-calibration-release
     updated: 2026-07-05
+  - id: T-130
+    slug: literature-productization-hardening
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/literature-productization-hardening
+    updated: 2026-07-07
