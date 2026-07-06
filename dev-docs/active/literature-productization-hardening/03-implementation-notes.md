@@ -11,3 +11,6 @@
 - **L-02 修复(原子准入)**:仓储新方法 `createPipelineRunExclusive`——Prisma 侧交互式事务内 `pg_advisory_xact_lock(hashtext('literature-pipeline-run:'||literatureId))` 包裹「重查 in-flight → 关闭 stale → 插入」,锁随事务释放、零 schema 迁移(备选 partial unique index 记 02-architecture D2 不选);in-memory 侧方法体全同步(无 await 点)等价互斥。SKIPPED 标记 run 的创建仍在锁外(纯审计行,无竞态语义)。
 - **改动面**:接口 +3 方法(`literature-repository.ts`,含 `LiteraturePipelineRunExclusiveCreateResult` 类型)、prisma pipeline store/repository 代理、in-memory 仓储、orchestrator、flow-service 包装、app.ts 钩子。行为变化仅限:stale 孤儿被关闭放行、并发双发其一必 SKIPPED;新鲜 in-flight 的 SKIPPED 语义与既有测试原样保留。
 - **测试**:orchestrator 单测 4→8——stale 孤儿关闭放行(含 stage state FAILED 断言)、新鲜 in-flight 仍 SKIPPED、并发双 enqueue 恰一 PENDING 一 SKIPPED(stage 门闩挂起下)、启动清扫解锁后续 enqueue。
+
+## 2026-07-07 设计对齐(P1/P2 关键决策,用户逐项拍板)
+- W-03 ANN=halfvec 表达式索引(A);W-05 STALE=纳入但标记(b);W-06 自动衔接=AUTO_ADVANCE backfill job 形态+75/55 分档+默认关(按推荐);W-10 质量评估=改语义(b)。W-02/W-04/W-07/W-08 设计要点同轮呈报无异议。全部落 02-architecture D5-D8。
