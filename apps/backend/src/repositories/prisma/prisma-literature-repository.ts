@@ -29,6 +29,7 @@ import type {
   LiteratureFulltextParagraphRecord,
   LiteratureFulltextSectionRecord,
   LiteraturePipelineArtifactRecord,
+  LiteraturePipelineRunExclusiveCreateResult,
   LiteraturePipelineRunRecord,
   LiteraturePipelineRunStepRecord,
   LiteraturePipelineStageStateRecord,
@@ -530,6 +531,21 @@ export class PrismaLiteratureRepository implements LiteratureRepository {
 
   async listInFlightPipelineRunsByLiteratureId(literatureId: string): Promise<LiteraturePipelineRunRecord[]> {
     return this.pipelineStore.listInFlightPipelineRunsByLiteratureId(literatureId);
+  }
+
+  async listInFlightPipelineRuns(): Promise<LiteraturePipelineRunRecord[]> {
+    return this.pipelineStore.listInFlightPipelineRuns();
+  }
+
+  async closePipelineRunAsOrphaned(runId: string, nowIso: string): Promise<void> {
+    return this.pipelineStore.closePipelineRunAsOrphaned(runId, nowIso);
+  }
+
+  async createPipelineRunExclusive(
+    record: LiteraturePipelineRunRecord,
+    staleBeforeIso: string,
+  ): Promise<LiteraturePipelineRunExclusiveCreateResult> {
+    return this.pipelineStore.createPipelineRunExclusive(record, staleBeforeIso);
   }
 
   async listPipelineRunsByLiteratureId(literatureId: string, limit?: number): Promise<LiteraturePipelineRunRecord[]> {

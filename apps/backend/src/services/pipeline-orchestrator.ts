@@ -32,6 +32,11 @@ type PipelineOrchestratorCallbacks = {
   }) => Promise<void> | void;
 };
 
+// T-130 W-01: an in-flight run whose updatedAt is older than this window is treated as orphaned
+// (its worker died — in-memory run jobs do not survive a process restart) and is closed so the
+// single-flight guard cannot deadlock the literature record forever.
+const ORPHANED_RUN_STALE_MS = 15 * 60_000;
+
 export class PipelineOrchestrator {
   private readonly runJobs = new Map<string, Promise<void>>();
 
@@ -40,14 +45,50 @@ export class PipelineOrchestrator {
     private readonly callbacks: PipelineOrchestratorCallbacks,
   ) {}
 
+  // T-130 W-01: startup sweep — close every in-flight run left behind by a previous process.
+  // Single-instance deployment assumption (same as AutoPullScheduler): at process start no
+  // legitimate worker can own an in-flight run, so all of them are orphans.
+  async recoverOrphanedRuns(): Promise<{ recoveredRunIds: string[] }> {
+    const inFlight = await this.repository.listInFlightPipelineRuns();
+    const recoveredRunIds: string[] = [];
+    for (const run of inFlight) {
+      if (this.runJobs.has(run.id)) {
+        continue;
+      }
+      await this.repository.closePipelineRunAsOrphaned(run.id, new Date().toISOString());
+      recoveredRunIds.push(run.id);
+    }
+    return { recoveredRunIds };
+  }
+
   async enqueueRun(input: {
     literatureId: string;
     triggerSource: LiteraturePipelineTriggerSource;
     requestedStages: LiteraturePipelineStageCode[];
   }): Promise<LiteraturePipelineRunRecord> {
-    const inFlightRuns = await this.repository.listInFlightPipelineRunsByLiteratureId(input.literatureId);
-    if (inFlightRuns.length > 0) {
-      const now = new Date().toISOString();
+    const now = new Date().toISOString();
+    const staleBeforeIso = new Date(Date.now() - ORPHANED_RUN_STALE_MS).toISOString();
+    // T-130 W-01: atomic single-flight admission — the repository re-checks in-flight runs under
+    // a per-literature mutex, closes stale orphans, and inserts only when no live run remains.
+    const admission = await this.repository.createPipelineRunExclusive(
+      {
+        id: crypto.randomUUID(),
+        literatureId: input.literatureId,
+        triggerSource: input.triggerSource,
+        status: 'PENDING',
+        requestedStages: [...input.requestedStages],
+        errorCode: null,
+        errorMessage: null,
+        createdAt: now,
+        startedAt: null,
+        finishedAt: null,
+        updatedAt: now,
+      },
+      staleBeforeIso,
+    );
+
+    if (admission.outcome === 'in_flight') {
+      const skippedAt = new Date().toISOString();
       return this.repository.createPipelineRun({
         id: crypto.randomUUID(),
         literatureId: input.literatureId,
@@ -56,30 +97,15 @@ export class PipelineOrchestrator {
         requestedStages: [...input.requestedStages],
         errorCode: 'CONTENT_PROCESSING_RUN_SKIPPED_SINGLE_FLIGHT',
         errorMessage: 'Existing content-processing run is still in-flight.',
-        createdAt: now,
-        startedAt: now,
-        finishedAt: now,
-        updatedAt: now,
+        createdAt: skippedAt,
+        startedAt: skippedAt,
+        finishedAt: skippedAt,
+        updatedAt: skippedAt,
       });
     }
 
-    const now = new Date().toISOString();
-    const run = await this.repository.createPipelineRun({
-      id: crypto.randomUUID(),
-      literatureId: input.literatureId,
-      triggerSource: input.triggerSource,
-      status: 'PENDING',
-      requestedStages: [...input.requestedStages],
-      errorCode: null,
-      errorMessage: null,
-      createdAt: now,
-      startedAt: null,
-      finishedAt: null,
-      updatedAt: now,
-    });
-
-    this.scheduleRun(run.id);
-    return run;
+    this.scheduleRun(admission.run.id);
+    return admission.run;
   }
 
   private scheduleRun(runId: string): void {

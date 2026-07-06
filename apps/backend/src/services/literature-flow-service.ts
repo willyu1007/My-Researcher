@@ -142,6 +142,12 @@ export class LiteratureFlowService {
     });
   }
 
+  // T-130 W-01: startup orphan recovery — closes in-flight pipeline runs left behind by a
+  // previous process so the single-flight guard cannot permanently block a literature record.
+  async recoverOrphanedPipelineRuns(): Promise<{ recoveredRunIds: string[] }> {
+    return this.pipelineOrchestrator.recoverOrphanedRuns();
+  }
+
   async recordCollectionUpserted(input: {
     literatureId: string;
     dedupStatus?: LiteraturePipelineDedupStatus;

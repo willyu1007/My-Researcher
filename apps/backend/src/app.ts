@@ -903,6 +903,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   void literatureBackfillService.resumeRunnableJobs().catch((error) => {
     app.log.error({ err: error }, 'Failed to resume literature content-processing backfill jobs.');
   });
+  // T-130 W-01: close orphaned pipeline runs from a previous process before new work arrives.
+  void literatureFlowService.recoverOrphanedPipelineRuns().catch((error) => {
+    app.log.error({ err: error }, 'Failed to recover orphaned literature pipeline runs.');
+  });
   const literatureBackfillController = new LiteratureBackfillController(literatureBackfillService);
   const literatureFulltextAcquisitionService = new LiteratureFulltextAcquisitionService(
     literatureRepository,

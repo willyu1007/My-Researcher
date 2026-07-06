@@ -167,3 +167,176 @@ test('PipelineOrchestrator skips new run when same literature already has in-fli
   const firstTerminal = await waitForTerminalRun(repository, firstRun.id);
   assert.equal(firstTerminal.status, 'SUCCESS');
 });
+
+// --- T-130 W-01: orphan recovery + atomic single-flight admission -------------
+
+test('PipelineOrchestrator closes a stale in-flight run as orphaned and admits a new run', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  await seedLiterature(repository, 'lit-orphan-stale');
+
+  const staleIso = new Date(Date.now() - 60 * 60_000).toISOString();
+  await repository.createPipelineRun({
+    id: 'run-stale-orphan',
+    literatureId: 'lit-orphan-stale',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
+    status: 'RUNNING',
+    requestedStages: ['CITATION_NORMALIZED'],
+    errorCode: null,
+    errorMessage: null,
+    createdAt: staleIso,
+    startedAt: staleIso,
+    finishedAt: null,
+    updatedAt: staleIso,
+  });
+  await repository.upsertPipelineStageState({
+    id: 'stage-stale-orphan',
+    literatureId: 'lit-orphan-stale',
+    stageCode: 'CITATION_NORMALIZED',
+    status: 'RUNNING',
+    lastRunId: 'run-stale-orphan',
+    detail: {},
+    updatedAt: staleIso,
+  });
+
+  const orchestrator = new PipelineOrchestrator(repository, {
+    executeStage: async () => ({ status: 'SUCCEEDED' }),
+  });
+
+  const run = await orchestrator.enqueueRun({
+    literatureId: 'lit-orphan-stale',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
+    requestedStages: ['CITATION_NORMALIZED'],
+  });
+
+  assert.notEqual(run.status, 'SKIPPED');
+  const terminal = await waitForTerminalRun(repository, run.id);
+  assert.equal(terminal.status, 'SUCCESS');
+
+  const orphaned = await repository.findPipelineRunById('run-stale-orphan');
+  assert.equal(orphaned?.status, 'FAILED');
+  assert.equal(orphaned?.errorCode, 'PIPELINE_RUN_ORPHANED');
+});
+
+test('PipelineOrchestrator still skips when the in-flight run is fresh', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  await seedLiterature(repository, 'lit-fresh-inflight');
+
+  const freshIso = new Date().toISOString();
+  await repository.createPipelineRun({
+    id: 'run-fresh-inflight',
+    literatureId: 'lit-fresh-inflight',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
+    status: 'RUNNING',
+    requestedStages: ['CITATION_NORMALIZED'],
+    errorCode: null,
+    errorMessage: null,
+    createdAt: freshIso,
+    startedAt: freshIso,
+    finishedAt: null,
+    updatedAt: freshIso,
+  });
+
+  const orchestrator = new PipelineOrchestrator(repository, {
+    executeStage: async () => ({ status: 'SUCCEEDED' }),
+  });
+
+  const run = await orchestrator.enqueueRun({
+    literatureId: 'lit-fresh-inflight',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
+    requestedStages: ['CITATION_NORMALIZED'],
+  });
+
+  assert.equal(run.status, 'SKIPPED');
+  assert.equal(run.errorCode, 'CONTENT_PROCESSING_RUN_SKIPPED_SINGLE_FLIGHT');
+  const fresh = await repository.findPipelineRunById('run-fresh-inflight');
+  assert.equal(fresh?.status, 'RUNNING');
+});
+
+test('PipelineOrchestrator admits exactly one run under concurrent enqueue', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  await seedLiterature(repository, 'lit-concurrent');
+
+  let releaseStage: () => void = () => {};
+  const stageGate = new Promise<void>((resolve) => {
+    releaseStage = resolve;
+  });
+  const orchestrator = new PipelineOrchestrator(repository, {
+    executeStage: async () => {
+      await stageGate;
+      return { status: 'SUCCEEDED' };
+    },
+  });
+
+  const [first, second] = await Promise.all([
+    orchestrator.enqueueRun({
+      literatureId: 'lit-concurrent',
+      triggerSource: 'CONTENT_PROCESSING_ACTION',
+      requestedStages: ['CITATION_NORMALIZED'],
+    }),
+    orchestrator.enqueueRun({
+      literatureId: 'lit-concurrent',
+      triggerSource: 'CONTENT_PROCESSING_ACTION',
+      requestedStages: ['CITATION_NORMALIZED'],
+    }),
+  ]);
+
+  const statuses = [first.status, second.status].sort();
+  assert.deepEqual(statuses, ['PENDING', 'SKIPPED']);
+  releaseStage();
+  const admitted = first.status === 'PENDING' ? first : second;
+  await waitForTerminalRun(repository, admitted.id);
+});
+
+test('recoverOrphanedRuns closes leftover in-flight runs and unblocks subsequent enqueue', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  await seedLiterature(repository, 'lit-startup-recovery');
+
+  const recentIso = new Date().toISOString();
+  await repository.createPipelineRun({
+    id: 'run-startup-orphan',
+    literatureId: 'lit-startup-recovery',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
+    status: 'RUNNING',
+    requestedStages: ['CITATION_NORMALIZED'],
+    errorCode: null,
+    errorMessage: null,
+    createdAt: recentIso,
+    startedAt: recentIso,
+    finishedAt: null,
+    updatedAt: recentIso,
+  });
+  await repository.upsertPipelineStageState({
+    id: 'stage-startup-orphan',
+    literatureId: 'lit-startup-recovery',
+    stageCode: 'CITATION_NORMALIZED',
+    status: 'RUNNING',
+    lastRunId: 'run-startup-orphan',
+    detail: {},
+    updatedAt: recentIso,
+  });
+
+  const orchestrator = new PipelineOrchestrator(repository, {
+    executeStage: async () => ({ status: 'SUCCEEDED' }),
+  });
+
+  // Startup sweep closes even FRESH leftovers: at process start no in-memory job can own them.
+  const recovery = await orchestrator.recoverOrphanedRuns();
+  assert.deepEqual(recovery.recoveredRunIds, ['run-startup-orphan']);
+
+  const orphaned = await repository.findPipelineRunById('run-startup-orphan');
+  assert.equal(orphaned?.status, 'FAILED');
+  assert.equal(orphaned?.errorCode, 'PIPELINE_RUN_ORPHANED');
+
+  const stageStates = await repository.listPipelineStageStatesByLiteratureId('lit-startup-recovery');
+  const citationStage = stageStates.find((stage) => stage.stageCode === 'CITATION_NORMALIZED');
+  assert.equal(citationStage?.status, 'FAILED');
+
+  const run = await orchestrator.enqueueRun({
+    literatureId: 'lit-startup-recovery',
+    triggerSource: 'CONTENT_PROCESSING_ACTION',
+    requestedStages: ['CITATION_NORMALIZED'],
+  });
+  assert.notEqual(run.status, 'SKIPPED');
+  const terminal = await waitForTerminalRun(repository, run.id);
+  assert.equal(terminal.status, 'SUCCESS');
+});

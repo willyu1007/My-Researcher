@@ -29,6 +29,7 @@ import type {
   LiteratureFulltextSectionRecord,
   LiteraturePipelineArtifactRecord,
   LiteratureRepository,
+  LiteraturePipelineRunExclusiveCreateResult,
   LiteraturePipelineRunRecord,
   LiteraturePipelineRunStepRecord,
   LiteraturePipelineStageStateRecord,
@@ -1277,6 +1278,81 @@ export class InMemoryLiteratureRepository implements LiteratureRepository {
       return sorted.slice(0, limit);
     }
     return sorted;
+  }
+
+  // T-130 W-01: global in-flight listing for startup orphan recovery.
+  async listInFlightPipelineRuns(): Promise<LiteraturePipelineRunRecord[]> {
+    return [...this.pipelineRuns.values()]
+      .filter((record) => record.status === 'PENDING' || record.status === 'RUNNING')
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  // T-130 W-01: close an abandoned in-flight run and fail its still-open stage states.
+  async closePipelineRunAsOrphaned(runId: string, nowIso: string): Promise<void> {
+    this.closePipelineRunAsOrphanedSync(
+      runId,
+      nowIso,
+      'In-flight run had no live worker (process restart or stale in-flight window) and was closed by orphan recovery.',
+    );
+  }
+
+  private closePipelineRunAsOrphanedSync(runId: string, nowIso: string, message: string): void {
+    const run = this.pipelineRuns.get(runId);
+    if (!run || (run.status !== 'PENDING' && run.status !== 'RUNNING')) {
+      return;
+    }
+    this.pipelineRuns.set(runId, {
+      ...run,
+      status: 'FAILED',
+      errorCode: 'PIPELINE_RUN_ORPHANED',
+      errorMessage: message,
+      finishedAt: nowIso,
+      updatedAt: nowIso,
+    });
+    for (const [key, stage] of this.pipelineStageStates) {
+      if (stage.lastRunId === runId && (stage.status === 'PENDING' || stage.status === 'RUNNING')) {
+        this.pipelineStageStates.set(key, {
+          ...stage,
+          status: 'FAILED',
+          updatedAt: nowIso,
+        });
+      }
+    }
+  }
+
+  // T-130 W-01: atomic single-flight admission. The body is fully synchronous, so concurrent
+  // callers within one process cannot interleave between the in-flight check and the insert —
+  // mirroring the Postgres advisory-xact-lock semantics of the Prisma implementation.
+  async createPipelineRunExclusive(
+    record: LiteraturePipelineRunRecord,
+    staleBeforeIso: string,
+  ): Promise<LiteraturePipelineRunExclusiveCreateResult> {
+    const ids = this.pipelineRunIdsByLiterature.get(record.literatureId) ?? [];
+    const inFlight = ids
+      .map((id) => this.pipelineRuns.get(id))
+      .filter((candidate): candidate is LiteraturePipelineRunRecord => candidate !== undefined)
+      .filter((candidate) => candidate.status === 'PENDING' || candidate.status === 'RUNNING');
+    const live = inFlight.filter((candidate) => candidate.updatedAt >= staleBeforeIso);
+    if (live.length > 0) {
+      return { outcome: 'in_flight', inFlight: live.map((candidate) => ({ ...candidate })) };
+    }
+
+    const orphanedRunIds: string[] = [];
+    for (const candidate of inFlight) {
+      if (candidate.updatedAt < staleBeforeIso) {
+        this.closePipelineRunAsOrphanedSync(
+          candidate.id,
+          record.createdAt,
+          'In-flight run exceeded the stale window without progress and was closed by orphan recovery.',
+        );
+        orphanedRunIds.push(candidate.id);
+      }
+    }
+
+    const created: LiteraturePipelineRunRecord = { ...record, requestedStages: [...record.requestedStages] };
+    this.pipelineRuns.set(created.id, created);
+    this.pipelineRunIdsByLiterature.set(record.literatureId, [...ids, created.id]);
+    return { outcome: 'created', run: { ...created }, orphanedRunIds };
   }
 
   async updatePipelineRun(

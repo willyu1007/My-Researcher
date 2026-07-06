@@ -348,6 +348,11 @@ export type LiteratureFulltextAcquisitionItemRecord = {
   updatedAt: string;
 };
 
+// T-130 W-01: result of the atomic single-flight pipeline-run admission.
+export type LiteraturePipelineRunExclusiveCreateResult =
+  | { outcome: 'created'; run: LiteraturePipelineRunRecord; orphanedRunIds: string[] }
+  | { outcome: 'in_flight'; inFlight: LiteraturePipelineRunRecord[] };
+
 export type LiteratureSourceRuntimeStateRecord = {
   id: string;
   source: string;
@@ -788,6 +793,19 @@ export interface LiteratureRepository {
   createPipelineRun(record: LiteraturePipelineRunRecord): Promise<LiteraturePipelineRunRecord>;
   findPipelineRunById(runId: string): Promise<LiteraturePipelineRunRecord | null>;
   listInFlightPipelineRunsByLiteratureId(literatureId: string): Promise<LiteraturePipelineRunRecord[]>;
+  // T-130 W-01: global in-flight listing for startup orphan recovery.
+  listInFlightPipelineRuns(): Promise<LiteraturePipelineRunRecord[]>;
+  // T-130 W-01: close an abandoned in-flight run (FAILED / PIPELINE_RUN_ORPHANED) and fail its
+  // still-open stage states. No-op when the run is already terminal.
+  closePipelineRunAsOrphaned(runId: string, nowIso: string): Promise<void>;
+  // T-130 W-01: atomic single-flight admission — under a per-literature mutex (Postgres advisory
+  // xact lock / in-memory synchronous section), re-checks in-flight runs, closes runs whose
+  // updatedAt < staleBeforeIso as orphans, and inserts the new run only when no live in-flight
+  // run remains.
+  createPipelineRunExclusive(
+    record: LiteraturePipelineRunRecord,
+    staleBeforeIso: string,
+  ): Promise<LiteraturePipelineRunExclusiveCreateResult>;
   listPipelineRunsByLiteratureId(literatureId: string, limit?: number): Promise<LiteraturePipelineRunRecord[]>;
   updatePipelineRun(
     runId: string,

@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type {
   LiteraturePipelineArtifactRecord,
+  LiteraturePipelineRunExclusiveCreateResult,
   LiteraturePipelineRunRecord,
   LiteraturePipelineRunStepRecord,
   LiteraturePipelineStageStateRecord,
@@ -248,6 +249,110 @@ export class PrismaLiteraturePipelineStore {
       ...(typeof limit === 'number' && limit > 0 ? { take: limit } : {}),
     });
     return rows.map((row) => toPipelineRunRecord(row));
+  }
+
+  // T-130 W-01: global in-flight listing for startup orphan recovery.
+  async listInFlightPipelineRuns(): Promise<LiteraturePipelineRunRecord[]> {
+    const rows = await this.prisma.literaturePipelineRun.findMany({
+      where: {
+        status: {
+          in: ['PENDING', 'RUNNING'],
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => toPipelineRunRecord(row));
+  }
+
+  // T-130 W-01: close an abandoned in-flight run and fail its still-open stage states.
+  async closePipelineRunAsOrphaned(runId: string, nowIso: string): Promise<void> {
+    const now = new Date(nowIso);
+    await this.prisma.$transaction([
+      this.prisma.literaturePipelineRun.updateMany({
+        where: { id: runId, status: { in: ['PENDING', 'RUNNING'] } },
+        data: {
+          status: 'FAILED',
+          errorCode: 'PIPELINE_RUN_ORPHANED',
+          errorMessage: 'In-flight run had no live worker (process restart or stale in-flight window) and was closed by orphan recovery.',
+          finishedAt: now,
+          updatedAt: now,
+        },
+      }),
+      this.prisma.literaturePipelineStageState.updateMany({
+        where: { lastRunId: runId, status: { in: ['PENDING', 'RUNNING'] } },
+        data: {
+          status: 'FAILED',
+          updatedAt: now,
+        },
+      }),
+    ]);
+  }
+
+  // T-130 W-01: atomic single-flight admission under a per-literature advisory xact lock.
+  async createPipelineRunExclusive(
+    record: LiteraturePipelineRunRecord,
+    staleBeforeIso: string,
+  ): Promise<LiteraturePipelineRunExclusiveCreateResult> {
+    const staleBefore = new Date(staleBeforeIso);
+    return this.prisma.$transaction(async (tx) => {
+      const lockKey = `literature-pipeline-run:${record.literatureId}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+
+      const inFlightRows = await tx.literaturePipelineRun.findMany({
+        where: {
+          literatureId: record.literatureId,
+          status: { in: ['PENDING', 'RUNNING'] },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      const liveRows = inFlightRows.filter((row) => row.updatedAt >= staleBefore);
+      if (liveRows.length > 0) {
+        return {
+          outcome: 'in_flight' as const,
+          inFlight: liveRows.map((row) => toPipelineRunRecord(row)),
+        };
+      }
+
+      const orphanRows = inFlightRows.filter((row) => row.updatedAt < staleBefore);
+      const now = new Date(record.createdAt);
+      for (const row of orphanRows) {
+        await tx.literaturePipelineRun.update({
+          where: { id: row.id },
+          data: {
+            status: 'FAILED',
+            errorCode: 'PIPELINE_RUN_ORPHANED',
+            errorMessage: 'In-flight run exceeded the stale window without progress and was closed by orphan recovery.',
+            finishedAt: now,
+            updatedAt: now,
+          },
+        });
+        await tx.literaturePipelineStageState.updateMany({
+          where: { lastRunId: row.id, status: { in: ['PENDING', 'RUNNING'] } },
+          data: { status: 'FAILED', updatedAt: now },
+        });
+      }
+
+      const created = await tx.literaturePipelineRun.create({
+        data: {
+          id: record.id,
+          literatureId: record.literatureId,
+          triggerSource: record.triggerSource,
+          status: record.status,
+          requestedStages: record.requestedStages,
+          errorCode: record.errorCode,
+          errorMessage: record.errorMessage,
+          createdAt: new Date(record.createdAt),
+          startedAt: record.startedAt ? new Date(record.startedAt) : null,
+          finishedAt: record.finishedAt ? new Date(record.finishedAt) : null,
+          updatedAt: new Date(record.updatedAt),
+        },
+      });
+      return {
+        outcome: 'created' as const,
+        run: toPipelineRunRecord(created),
+        orphanedRunIds: orphanRows.map((row) => row.id),
+      };
+    });
   }
 
   async updatePipelineRun(
