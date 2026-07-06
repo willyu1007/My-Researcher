@@ -1189,6 +1189,28 @@ export type TopicSelectionWorkflowHarnessGenerateNeedCandidateResult = {
   harness_trace_artifact: TopicSelectionGenerateNeedCandidateArtifactRefEntry;
 };
 
+// D-29 (T-089 ⑤): bounded auto re-entry chain over runGenerateNeedCandidateScenario.
+// Hard cap mirrors TopicSelectionSupplementalRoundRoutingService MAX_ROUND_INDEX (D-22).
+const SUPPLEMENTAL_CHAIN_MAX_TOTAL_ROUNDS = 3;
+
+export type TopicSelectionWorkflowHarnessSupplementalChainOptions = {
+  max_total_rounds?: number;
+};
+
+export type TopicSelectionWorkflowHarnessSupplementalChainRound = {
+  round_index: number;
+  node_attempt_id: string;
+  scenario_status: 'passed' | 'failed';
+  routing_decision: TopicSelectionSupplementalRoundRoutingDecisionKind | null;
+};
+
+export type TopicSelectionWorkflowHarnessSupplementalChainResult = {
+  schema_version: 'v1';
+  rounds: TopicSelectionWorkflowHarnessSupplementalChainRound[];
+  final: TopicSelectionWorkflowHarnessGenerateNeedCandidateResult;
+  stop_reason: 'terminal_routing' | 'scenario_not_passed' | 'round_budget_exhausted';
+};
+
 export type TopicSelectionWorkflowHarnessV1cConsumptionExpectation = {
   status?: 'passed' | 'failed';
   terminal_node_id?: TopicSelectionV1cHarnessNodeId | null;
@@ -3241,6 +3263,61 @@ export class TopicSelectionWorkflowHarnessService {
       harness_trace_snapshot: traceSnapshot,
       harness_trace_artifact: traceArtifact.artifact_entry,
     };
+  }
+
+  // D-29 (T-089 ⑤, 2026-07-06): bounded auto re-entry chain over the single-round scenario.
+  // Additive wrapper only — the single-round method above stays byte-identical, no product route
+  // calls this, each round keeps its own node_attempt/trace/replay identity, and the D-22 round
+  // rules stay double-guarded here and in TopicSelectionSupplementalRoundRoutingService.
+  async runGenerateNeedCandidateSupplementalChain(
+    input: TopicSelectionWorkflowHarnessGenerateNeedCandidateInput,
+    options?: TopicSelectionWorkflowHarnessSupplementalChainOptions,
+  ): Promise<TopicSelectionWorkflowHarnessSupplementalChainResult> {
+    const maxTotalRounds = Math.min(
+      Math.max(options?.max_total_rounds ?? SUPPLEMENTAL_CHAIN_MAX_TOTAL_ROUNDS, 1),
+      SUPPLEMENTAL_CHAIN_MAX_TOTAL_ROUNDS,
+    );
+    const baseAttemptId = input.node_attempt_id;
+    let roundIndex = Math.max(input.current_round_index ?? 1, 1);
+    // Round-1 default budget lets the chain reach maxTotalRounds; an explicit caller budget wins.
+    let remainingBudget = Math.max(input.remaining_round_budget ?? maxTotalRounds - roundIndex, 0);
+    let currentInput: TopicSelectionWorkflowHarnessGenerateNeedCandidateInput = {
+      ...input,
+      current_round_index: roundIndex,
+      remaining_round_budget: remainingBudget,
+    };
+    const rounds: TopicSelectionWorkflowHarnessSupplementalChainRound[] = [];
+
+    for (;;) {
+      const result = await this.runGenerateNeedCandidateScenario(currentInput);
+      const routingDecision = result.adapter_result.supplemental_round_routing_decision?.routing_decision ?? null;
+      rounds.push({
+        round_index: roundIndex,
+        node_attempt_id: currentInput.node_attempt_id,
+        scenario_status: result.scenario_status,
+        routing_decision: routingDecision,
+      });
+      if (result.scenario_status !== 'passed') {
+        return { schema_version: 'v1', rounds, final: result, stop_reason: 'scenario_not_passed' };
+      }
+      if (routingDecision !== 'run_supplemental_round') {
+        return { schema_version: 'v1', rounds, final: result, stop_reason: 'terminal_routing' };
+      }
+      if (roundIndex >= maxTotalRounds || remainingBudget <= 0) {
+        return { schema_version: 'v1', rounds, final: result, stop_reason: 'round_budget_exhausted' };
+      }
+      roundIndex += 1;
+      remainingBudget -= 1;
+      currentInput = {
+        ...currentInput,
+        node_attempt_id: `${baseAttemptId}__r${roundIndex}`,
+        current_round_index: roundIndex,
+        remaining_round_budget: remainingBudget,
+        // Caller expectations describe the entry round; derived rounds drop them so a
+        // round-1 assertion (e.g. routing_decision=run_supplemental_round) cannot fail round 2+.
+        expectations: undefined,
+      };
+    }
   }
 
   private async findGenerateNeedCandidateReplay(

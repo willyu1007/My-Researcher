@@ -6682,3 +6682,138 @@ test('workflow harness persistence conflict does not leave a partial duplicate b
   );
   assert.equal((await needValidationRepository.listNeedCandidatesByTitleCardId('title_card_001')).length, 1);
 });
+
+// --- D-29 (T-089 ⑤): bounded supplemental auto re-entry chain -----------------
+
+function speculativeSupplementalBatch(nodeAttemptId: string) {
+  const batch = rankedBatch(nodeAttemptId);
+  batch.drafts[0] = {
+    ...batch.drafts[0],
+    speculative: true,
+    scope_notes: null,
+    non_goal_notes: null,
+    conflict_refs: [],
+    evidence_role_bundle: {
+      ...batch.drafts[0].evidence_role_bundle,
+      challenge_unit_refs: [],
+    },
+  };
+  return batch;
+}
+
+function chainProviderInput(
+  caseId: string,
+  nodeAttemptId: string,
+  workflowRunId: string,
+  overrides: Partial<TopicSelectionWorkflowHarnessGenerateNeedCandidateInput> = {},
+) {
+  return scenarioInput({
+    scenario_case_id: caseId,
+    workflow_run_id: workflowRunId,
+    node_attempt_id: nodeAttemptId,
+    execution_mode: 'provider_llm',
+    run_mode: 'product',
+    mocked_output: null,
+    persist_admitted_candidates: false,
+    persistence_context: null,
+    expectations: undefined,
+    ...overrides,
+  });
+}
+
+test('supplemental chain auto re-enters once and stops on finalize routing', async () => {
+  const { workflowHarness, llmGateway, needValidationRepository } = await makeRuntime();
+  const baseAttemptId = 'node_attempt_chain_finalize';
+  let call = 0;
+  llmGateway.setOutputForSchema('topic_selection_ranked_candidate_draft_batch', () => {
+    call += 1;
+    return call === 1
+      ? speculativeSupplementalBatch(baseAttemptId)
+      : rankedBatch(`${baseAttemptId}__r2`);
+  });
+
+  const chain = await workflowHarness.runGenerateNeedCandidateSupplementalChain(
+    chainProviderInput('supplemental-chain-finalize', baseAttemptId, 'workflow_run_chain_finalize', {
+      expectations: {
+        status: 'succeeded',
+        routing_decision: 'run_supplemental_round',
+        admitted_draft_count: 0,
+        persisted_candidate_count: 0,
+        persistence: 'forbidden',
+      },
+    }),
+  );
+
+  assert.equal(chain.rounds.length, 2);
+  assert.equal(chain.rounds[0]?.node_attempt_id, baseAttemptId);
+  assert.equal(chain.rounds[0]?.routing_decision, 'run_supplemental_round');
+  assert.equal(chain.rounds[0]?.scenario_status, 'passed');
+  assert.equal(chain.rounds[1]?.node_attempt_id, `${baseAttemptId}__r2`);
+  assert.equal(chain.rounds[1]?.routing_decision, 'finalize_with_admitted_batch');
+  assert.equal(chain.stop_reason, 'terminal_routing');
+  assert.equal(chain.final.scenario_status, 'passed');
+  assert.equal(chain.final.node_attempt_id, `${baseAttemptId}__r2`);
+  assert.equal(llmGateway.calls.length, 2);
+  assert.equal((await needValidationRepository.listNeedCandidatesByTitleCardId('title_card_001')).length, 0);
+});
+
+test('supplemental chain is hard-bounded at three total rounds', async () => {
+  const { workflowHarness, llmGateway } = await makeRuntime();
+  const baseAttemptId = 'node_attempt_chain_bounded';
+  const attemptIdForRound = (round: number) => (round === 1 ? baseAttemptId : `${baseAttemptId}__r${round}`);
+  let call = 0;
+  llmGateway.setOutputForSchema('topic_selection_ranked_candidate_draft_batch', () => {
+    call += 1;
+    return speculativeSupplementalBatch(attemptIdForRound(call));
+  });
+
+  const chain = await workflowHarness.runGenerateNeedCandidateSupplementalChain(
+    chainProviderInput('supplemental-chain-bounded', baseAttemptId, 'workflow_run_chain_bounded'),
+  );
+
+  assert.equal(chain.rounds.length, 3);
+  assert.equal(chain.rounds[0]?.routing_decision, 'run_supplemental_round');
+  assert.equal(chain.rounds[1]?.routing_decision, 'run_supplemental_round');
+  assert.notEqual(chain.rounds[2]?.routing_decision, 'run_supplemental_round');
+  assert.deepEqual(
+    chain.rounds.map((round) => round.node_attempt_id),
+    [baseAttemptId, `${baseAttemptId}__r2`, `${baseAttemptId}__r3`],
+  );
+  assert.equal(llmGateway.calls.length, 3);
+});
+
+test('supplemental chain stops immediately on terminal routing without re-entry', async () => {
+  const { workflowHarness, llmGateway } = await makeRuntime();
+  const baseAttemptId = 'node_attempt_chain_terminal';
+  llmGateway.setOutputForSchema('topic_selection_ranked_candidate_draft_batch', () => rankedBatch(baseAttemptId));
+
+  const chain = await workflowHarness.runGenerateNeedCandidateSupplementalChain(
+    chainProviderInput('supplemental-chain-terminal', baseAttemptId, 'workflow_run_chain_terminal'),
+  );
+
+  assert.equal(chain.rounds.length, 1);
+  assert.equal(chain.rounds[0]?.node_attempt_id, baseAttemptId);
+  assert.equal(chain.rounds[0]?.routing_decision, 'finalize_with_admitted_batch');
+  assert.equal(chain.stop_reason, 'terminal_routing');
+  assert.equal(llmGateway.calls.length, 1);
+});
+
+test('supplemental chain respects a caller max_total_rounds below the hard cap', async () => {
+  const { workflowHarness, llmGateway } = await makeRuntime();
+  const baseAttemptId = 'node_attempt_chain_capped';
+  let call = 0;
+  llmGateway.setOutputForSchema('topic_selection_ranked_candidate_draft_batch', () => {
+    call += 1;
+    return speculativeSupplementalBatch(call === 1 ? baseAttemptId : `${baseAttemptId}__r${call}`);
+  });
+
+  const chain = await workflowHarness.runGenerateNeedCandidateSupplementalChain(
+    chainProviderInput('supplemental-chain-capped', baseAttemptId, 'workflow_run_chain_capped'),
+    { max_total_rounds: 2 },
+  );
+
+  assert.equal(chain.rounds.length, 2);
+  assert.equal(chain.rounds[0]?.routing_decision, 'run_supplemental_round');
+  assert.notEqual(chain.rounds[1]?.routing_decision, 'run_supplemental_round');
+  assert.equal(llmGateway.calls.length, 2);
+});

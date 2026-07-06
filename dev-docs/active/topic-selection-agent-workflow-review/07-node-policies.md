@@ -260,7 +260,7 @@ debate_trigger_policy:
   no_automatic_reentry:
     - terminal debate output is final for the node attempt.
     - rerun requires explicit new workflow/node attempt with changed input hash, policy version, execution mode, human instruction, bugfix/regression purpose, or scenario-controlled new run.
-profile_escalation_policy_ref: topic-selection.resource-sampling-classification.profile-escalation.v1
+profile_escalation_policy_ref: topic-selection.resource-sampling-classification.profile-escalation.v1 # superseded per T-088 D-27 (2026-07-05): 全仓零实现、无自动升级路径——显式 execution_spec/execution_plan 取代; 矩阵 Slot Map 行已同步 2026-07-06
 input_contract_refs:
   - CreateTopicSelectionResourceSampleRequest
   - TopicSelectionResourceSamplingLlmOutput

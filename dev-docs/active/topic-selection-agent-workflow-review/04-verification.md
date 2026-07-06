@@ -1466,3 +1466,16 @@ Close criteria:
 - Command: `node scripts/run-node-tests.mjs`（apps/backend 全量）
 - Result: passed — **1661 / 1626 pass / 0 fail / 35 skipped = 基线**。注：切片中途首跑曾 1 fail（test 1213 标定语料 placeholder 守卫），定位为 470300e1 归档搬迁漏改 backend 侧路径的既有断裂（先于本切片），已独立修复提交 `793fbebb` 后回归基线。
 - 对抗式复审（13 代理，4 维 + 逐发现反驳）：4 项确认当轮修复（见 03 §复审段）、5 项反驳留档;registry-content 维度补跑**零发现**（11 场景双向一致 + 新 N6 条目声明逐项核实）。
+
+## 2026-07-06 backlog ④+⑤ 验证
+- ④ 复核工作流：21 代理（Inventory/Merge Fable 档 + Review/Verify sonnet 档 resume），24 面/22 簇；判定与修复见 `13-dormant-edge-review.md` 与 03 §2026-07-06。修复后核对：`node .ai/scripts/topic-selection-workflow-matrix-consistency.mjs` ok（含 covered_scenarios 双向与注册表状态词改动后的回归）。
+- ⑤ 实现验证：
+  - Command: `node --test --loader ts-node/esm src/services/topic-selection-workflow-harness-service.unit.test.ts`（apps/backend）
+  - Result: **111/111**（含新增 4 链式测试：两轮续跑至 finalize 且 attempt 派生 `__r2` 钉、硬上限 3 轮 attempt 序列钉、terminal 路由单轮即停、caller `max_total_rounds=2` 低帽生效;gateway 调用次数逐例断言 2/3/1/2）。
+  - Command: `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - Result: passed（0 error）。
+  - 单轮路径零行为变化证据：本文件既有 107 测零改动全绿;链 wrapper 未接任何路由/coordinator（grep 无新调用方）。
+- Command: `node scripts/run-node-tests.mjs`（apps/backend 全量）
+- Result: passed — **1665 / 1630 pass / 0 fail / 35 skipped**（原基线 1661/1626 + 本切片 4 链式测试，零回归）。
+- Command: `node .ai/scripts/ctl-project-governance.mjs sync --apply && lint --check --project main`
+- Result: passed（见提交）。

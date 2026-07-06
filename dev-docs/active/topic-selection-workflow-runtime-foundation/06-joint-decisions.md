@@ -1981,3 +1981,15 @@ error_code: string | null
   4. **一次性审计（已执行 2026-07-05）**：18 个 `.ai/scripts/topic-selection-*.mjs` 逐个核查四判据（业务语义经服务层 / 无直连 provider / prisma 直写分类 / 无门禁绕过）。**结论：18/18 合规，零违规**——15 compliant + 3 compliant-with-notes（notes 均为 fixture 种植或门禁负例的测试脚手架：real-e2e 的 bridge status 负例翻转、v1a-harness-e2e 的 T-112 replay fixture 种植、w15-s4 的 env 选仓储模式）。证据表见 04 §2026-07-05。
 - **不改动**：D-09 的 Semantic Drift Controls 小节（契约版本化 / 三模式同契约 / fixture 语义集中 / 单向历史 reader）整体保留为纪律；scenario-runner 既有 2 注册 id 不动。
 - **归属**：T-088 对账切片（2026-07-05）。零代码改动（③ 的机器校验归 T-089）。
+
+## D-29 (2026-07-06) — v1a N6 supplemental 轮有界自动重入链（承 D-22，T-089 ⑤ 裁决落地，联合决策）
+- **背景**：T-089 backlog ⑤（T-088 对账移交）：supplemental 轮 2/3 的跨执行衔接权归属。现状证据（2026-07-06 调用方普查）：debate loop 单次执行一轮（`round_index` 入参默认 1，`NEED_DISCOVERY_DEBATE_CONTRACT.failure_policy.max_rounds=3`）；arbiter 路由 `run_supplemental_round` 时 harness 以节点状态 `need_candidate_supplemental_round` 上浮 + 策略边 `LB_N6_N6_SUPPLEMENTAL` 声明 loopback；全部既有调用方（E2E 脚本 / 单测 / HTTP 路由 invokeNode）手动重入；routing service 预算判定 `topic-selection-supplemental-round-routing-service.ts:62-76`（`remaining_round_budget>0 && currentRoundIndex<MAX_ROUND_INDEX(3)` 且存在 supplemental-eligible 草稿）。**用户裁决（2026-07-06）：建有界自动重入**（对比选项"锁定调用方驱动"后选定）。
+- **决定/设计**：
+  1. **加法式 wrapper**：`TopicSelectionWorkflowHarnessService` 新增 `runGenerateNeedCandidateSupplementalChain(input, options?)`——循环调用既有单轮 `runGenerateNeedCandidateScenario`；仅当上一轮 `adapter_result.supplemental_round_routing_decision.routing_decision === 'run_supplemental_round'` 且未达轮次上限时续跑下一轮；任何其他路由（finalize/reject/block/require_human_review/无路由工件）→ `stop_reason='terminal_routing'`；某轮 `scenario_status!=='passed'` → `'scenario_not_passed'`；上限截止时路由仍请求续跑 → `'round_budget_exhausted'`。
+  2. **轮间线程化**：round N+1 输入 = 原输入 + `current_round_index=N+1` + `remaining_round_budget=前轮值-1`（round-1 默认预算 = `max_total_rounds-round_index`，使链默认可跑满）；`node_attempt_id` 确定性派生 `${base}__r{N}`（每轮独立 attempt → 独立 trace/replay 身份，replay 语义逐轮沿既有机制）；`workflow_run_id` 不变；`execution_spec`/`execution_plan`/mocked/codex 载荷原样透传，**跨轮不得变更执行语义**（承 D-05 边界 + D-27：无静默升级）。
+  3. **有界**：`options.max_total_rounds` 默认 3、硬上限 3（与 routing service `MAX_ROUND_INDEX` 双守卫；D-22 轮次规则不变：round 1 必跑，2/3 仅 supplemental）。
+  4. **默认零接线**：不接任何 HTTP 路由/coordinator；仅调用方显式调用 wrapper 才生效；单轮方法与既有全部路径 **byte-identical**。
+  5. **无新持久化面**：各轮工件/审计/replay 快照由既有单轮 scenario 落；chain 结果（rounds[] + final + stop_reason）仅返回调用方，无新权威对象、无新 byte-bearing 哈希。
+- **不改动**：`invokeNode` 生命周期 / 四类 blocker 顺序 / `hashContext`→`node_replay_key` / route edges / 单轮 scenario 全部语义与哈希 / replay goldens；不触 provisional/tripwire/dormancy（D8）；D-22 的路由词汇、supplementable/non-supplementable 判据、每轮重过 schema+admission 全部原样。
+- **验证**：新增单测（链两轮 run_supplemental_round→finalize、上限耗尽停、terminal 路由立即停、scenario 失败停、attempt id 派生、默认单轮路径零行为变化=既有套件绿）；full backend 套件；矩阵一致性链绿。矩阵 v1a N6 行 `debate_primitive` 注解同步按实况更新（④ 复核确认项 F2："supplemental repair" 原表述过强）。
+- **归属**：T-089 ⑤（用户拍板 2026-07-06）；实施本体在 harness=T-088 域，按 D-T128-00 先登记本条再实施。冲突面：`topic-selection-workflow-harness-service.ts` 单文件加法（新类型+新方法），既有方法零改动。

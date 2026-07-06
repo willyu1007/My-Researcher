@@ -22,7 +22,10 @@
 //                            scenario registry doc (T-088 D-28 hard rule)
 //
 // Still NOT auto-checked (no structured code authority yet): v1a semantic columns
-// (executor_kind/default_execution_mode/...) and the resource-sampling row's semantic columns —
+// (executor_kind/default_execution_mode/...), the resource-sampling row's semantic columns, and
+// the resource-sampling / v1a Invocation Slot Map rows' prose columns (Kind/Profile/Status — only
+// the v1b slot_id set has a code authority source; the stale profile-escalation wording there was
+// retired by hand per T-088 D-27, see matrix Change Log 2026-07-06) —
 // see T-089 00-overview backlog notes.
 //
 // Usage:

@@ -191,10 +191,10 @@ current_runner_coverage:
 ### `topic-selection.downstream.feedback-recheck.v1`
 ```yaml
 scenario_id: topic-selection.downstream.feedback-recheck.v1
-status: planned_migration
+status: partial_runner_migrated
 purpose: Verify downstream feedback creates typed loopback/recheck records without mutating upstream topic-selection authority.
 scenario_type: downstream_loopback
-execution_modes: [none]
+execution_modes: [none, codex_assisted]
 covered_nodes:
   - topic-selection.v1c.create-paper-project-bridge.v1
   - topic-selection.v1c.downstream-feedback-recheck.v1
@@ -203,6 +203,7 @@ fixtures_or_data_source: active PaperProjectBridge and controlled downstream fee
 assertion_scope: feedback source lineage, typed loopback target, recheck request creation, append-only feedback, and upstream immutability
 artifact_expectations: feedback trace, recheck request refs, bridge hash comparison, and upstream immutability assertion evidence
 business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+implementation_note: 状态对齐 2026-07-06（T-089 ④ 复核确认项）——v1c N6 feedback-normalization 候选运行时已实装（codex_assisted 支持路径，pnpm 接线 + 单测在案），smoke runner=topic-selection-v1c-n6-runtime-smoke.mjs（见 Script Registration Map）；此前 status=planned_migration / execution_modes=[none] 为未建成时代的陈述。
 ```
 
 ### `topic-selection.debate.resource-sampling-polarity.v1`
@@ -255,7 +256,7 @@ implementation_note: runtime implemented T-127 W-07 (2026-06-20, caller-side deb
 ### `topic-selection.debate.v1b-value-tension.v1`
 ```yaml
 scenario_id: topic-selection.debate.v1b-value-tension.v1
-status: planned_after_node_policy
+status: runtime_implemented_prompts_gated
 purpose: Verify bounded debate can evaluate novelty versus feasibility tension in topic value assessment.
 scenario_type: debate
 execution_modes: [codex_assisted, provider_llm, mocked_llm]
@@ -265,6 +266,7 @@ fixtures_or_data_source: controlled TopicQuestionContract and value input with n
 assertion_scope: debate trigger, novelty advocate output, feasibility skeptic output, reviewer arbiter result, disposition recommendation consistency, and blocker handling
 artifact_expectations: role outputs, arbiter summary, value dimension deltas, validation report, and value assessment audit refs
 business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+implementation_note: 状态对齐 2026-07-06（T-089 ④ 复核确认项,原 status=planned_after_node_policy 为三方错位中最陈旧一方）——bounded_sequence 运行时 T-123 Phase 3 已实装并产品接线（N6 同形 gate 触发 T1/T3 → loopback n8_feedback_to_n7 → N7 debate_admission_review → 4 角色有界序列,coordinator 全闭环驱动,e2e 在案）；gated prompt 正文属 T-129 C-2,provider debate 路径受 W-14 dormancy(T-129 C-3)。角色词汇以实现为准（assessor/value_critic/assessor_repair/synthesizer_final,见矩阵 slot map）,本条目早期 novelty-advocate/feasibility-skeptic 表述为设计期语言。
 ```
 
 ### `topic-selection.debate.v1c-promotion-support-risk.v1`
