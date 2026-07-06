@@ -79,3 +79,16 @@
 - Output:
   - `08-lit-0204-ragperf-s0-s1-preflight.md`.
   - `artifacts/lit-0204-ragperf-s0-s1-preflight.json`.
+
+## 2026-07-06 - LIT-0204 S1 CPU 适配器烟测 + 文献 evaluator re-baseline
+- **S1 烟测**(run `ragperf-s1-20260706T141503Z`):
+  - Insert: exit 0,50/50 chunk CPU 嵌入入 LanceDB(all-MiniLM-L6-v2,其配置默认)。
+  - Query: exit 0,retrieval-only(generation=false 无 vLLM 实例化),retrieved_counts [2,2],top-1 语义正确;RAGPerf 自身 `text_pipeline_stats.txt` 正常产出(路径见工件 JSON stats_file_path)。
+  - Verdict: **protocol_executable_cpu_smoke_pass**(smoke 级「协议可执行」证据;非性能数字)。
+  - 工件: `artifacts/lit-0204-ragperf-s1-cpu-adapter.json`(13 补丁/10 偏差/剩余 blockers 全录);工作区证据 `/tmp/ragperf-s1-20260706/`。
+- **文献 evaluator re-baseline**(当前栈 = pgvector + text-embedding-3-large;协议/fixture 与 2026-05-11 基线完全一致):
+  - Command: `TS_NODE_TRANSPILE_ONLY=1 TS_NODE_PROJECT=apps/backend/tsconfig.json node --loader ./apps/backend/node_modules/ts-node/esm.mjs .ai/scripts/literature-e2e-v2-runner.mjs --mode full --run-id 20260706-rebaseline-full --fixture .ai/scripts/fixtures/t041-evaluator-v2-fixtures.json`(一次性库 `lit_rebaseline_full_20260706`;light 冒烟 `20260706-rebaseline-light2` 先行全绿)。
+  - Result: **PASS,24 步全过**——18 样本/16 可处理全链成功(download/parser/key-content/indexed 16/16),检索 37/37 正例 + 1/1 负例(rights-gated 排除),degraded 0、dup-top5 0。
+  - **排名指标 vs 2026-05-11 基线**:recall@5 **1.0000**(持平)、MRR@5 **0.9550**(基线 0.9347,+0.0203)、nDCG@5 **0.9665**(基线 0.9511,+0.0154)、blind recall@5 **9/9**(持平);embedding 237,091 tokens ≈ $0.0308(基线 237,017,同量级——协议一致性佐证)。**结论:当前栈(pgvector 检索 + 3-large 嵌入)不劣于且略优于切换前基线,re-baseline 达成。**
+  - Report/Audit: `.ai/.tmp/literature-e2e/20260706-rebaseline-full/report{.json,.md}`(evidence 惯例:不入 git,留本地)。
+  - 环境收尾:两只一次性库已 drop、GROBID 容器已停(留痕 03)。

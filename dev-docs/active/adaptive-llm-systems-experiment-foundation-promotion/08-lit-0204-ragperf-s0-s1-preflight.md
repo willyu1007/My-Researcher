@@ -56,3 +56,8 @@
 ## Artifact Boundary
 - Detailed clone, configs, and run evidence are outside the repo under `/tmp/ragperf-s0s1-20260604T015307Z`.
 - Repo stores only this summary and `artifacts/lit-0204-ragperf-s0-s1-preflight.json`.
+
+## 2026-07-06 Resolution
+- 用户决策:S1 经 **experiment-foundation 最小适配器**路径执行(本文件 Current Status 两选项中的后者)。
+- 结果:**S1 pass**(smoke 级)——run `ragperf-s1-20260706T141503Z`,verdict `protocol_executable_cpu_smoke_pass`。上表 8 项 blockers 全部经 13 处最小补丁/守卫解除或绕开(cmake/libmsys → no-op shim + 零表监控;cuda:0 → 设备参数化;VLLMResponser → retrieval-only 分支;psutil/依赖 → venv 最小安装;另发现并补丁 4 项新 blockers)。细节与剩余 blockers:`artifacts/lit-0204-ragperf-s1-cpu-adapter.json` + 03/04 §2026-07-06。
+- 本文件 Decision 段的「keep RAGPerf at candidate level」维持不变——S1 smoke 不构成晋升,晋升裁决待 07 payload 缺字段回填后另行做出。

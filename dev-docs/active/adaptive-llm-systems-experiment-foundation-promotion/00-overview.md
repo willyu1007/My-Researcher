@@ -2,7 +2,8 @@
 
 ## Status
 - State: in-progress
-- Next step: decide whether `LIT-0204` RAGPerf S1 should proceed through a faithful Linux/Python3.10/CUDA/vLLM environment or through an experiment-foundation minimal adapter for CPU/retrieval smoke.
+- Progress: **S1 决策已拍板并落地（2026-07-06）**——用户选定**最小适配器**路径（faithful GPU 环境留作外部依赖项）；S1 CPU/retrieval 烟测 **pass**（run `ragperf-s1-20260706T141503Z`，verdict `protocol_executable_cpu_smoke_pass`，13 最小补丁+合成 50 文档语料，insert/query 双过，RAGPerf 自身 stats 产出；工件 `artifacts/lit-0204-ragperf-s1-cpu-adapter.json`，留痕 03/04 §2026-07-06）。RAGPerf 维持 candidate 级。**同窗合并项**：文献 evaluator re-baseline 完成——当前栈（pgvector + text-embedding-3-large）vs 2026-05-11 基线：recall@5 1.0 持平、MRR@5 +0.020、nDCG@5 +0.015、blind 9/9，不劣于且略优（04 §2026-07-06）。
+- Next step: 以 S1 证据回填 `07-lit-0204-ragperf-candidate-payload.md` 缺字段（`entrypoint_smoke_result`/`local_smoke_command` 现已可填；`protocol_hash`/dataset 政策字段仍缺），然后做 candidate 晋升裁决；faithful 基准执行依赖外部 Linux/CUDA/vLLM 环境（S1 工件 blockers_remaining 已列）。
 
 ## Goal
 - Start `F3-experiment-foundation-promotion-candidates`.
