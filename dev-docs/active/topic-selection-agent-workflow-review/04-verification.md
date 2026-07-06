@@ -1479,3 +1479,14 @@ Close criteria:
 - Result: passed — **1665 / 1630 pass / 0 fail / 35 skipped**（原基线 1661/1626 + 本切片 4 链式测试，零回归）。
 - Command: `node .ai/scripts/ctl-project-governance.mjs sync --apply && lint --check --project main`
 - Result: passed（见提交）。
+
+## 2026-07-06 ①尾巴收口验证
+- Command: `node .ai/scripts/topic-selection-workflow-matrix-consistency.mjs` / `--self-test`
+- Result: 真跑 ok（v1a/rs 全 8 语义列接入后首跑即绿）;自测 **24/24** 漂移负例全命中（新增 3 例）。
+- Command: `node --test --loader ts-node/esm src/research-lifecycle/topic-selection-node-semantic-policy-contracts.schema.test.ts`（packages/shared）
+- Result: passed; 5/5。
+- Command: `pnpm typecheck`（shared + backend）
+- Result: passed ×2（0 error）。
+- Command: `node --test --loader ts-node/esm src/services/topic-selection-workflow-matrix-consistency.unit.test.ts`（apps/backend 包装）
+- Result: passed; 2/2。
+- Full backend 套件:见提交（收口批次统一跑）。

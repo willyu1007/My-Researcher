@@ -8,14 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 129 (planned: 2, in-progress: 4, blocked: 0, done: 42, archived: 81)
+- Tasks: 129 (planned: 2, in-progress: 3, blocked: 0, done: 43, archived: 81)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-089 topic-selection-agent-workflow-review | done | F-001 | dev-docs/active/topic-selection-agent-workflow-review |
 | T-088 topic-selection-workflow-runtime-foundation | done | F-001 | dev-docs/active/topic-selection-workflow-runtime-foundation |
-| T-089 topic-selection-agent-workflow-review | in-progress | F-001 | dev-docs/active/topic-selection-agent-workflow-review |
 | T-115 topic-selection-v1b-human-review-path | archived | F-001 | dev-docs/archive/topic-selection-v1b-human-review-path |
 | T-123 topic-selection-productization-hardening | archived | F-001 | dev-docs/archive/topic-selection-productization-hardening |
 | T-127 topic-selection-backend-hardening-and-expansion | archived | F-001 | dev-docs/archive/topic-selection-backend-hardening-and-expansion |

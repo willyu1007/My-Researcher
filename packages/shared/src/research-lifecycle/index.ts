@@ -25,6 +25,7 @@ export * from './topic-selection-v1b-topic-package-contracts.js';
 export * from './topic-selection-v1b-node-policy-contracts.js';
 export * from './topic-selection-v1b-workflow-harness-contracts.js';
 export * from './topic-selection-decision-memory-packet-contracts.js';
+export * from './topic-selection-node-semantic-policy-contracts.js';
 export * from './topic-selection-v1c-node-ids.js';
 export * from './topic-selection-v1c-node-policy-contracts.js';
 export * from './topic-selection-v1c-promotion-input-contracts.js';

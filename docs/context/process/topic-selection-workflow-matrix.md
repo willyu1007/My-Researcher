@@ -24,6 +24,7 @@
 | v1b human_delegated_allowed | 矩阵行 | 节点+槽位 `allowed_execution_modes` 含 `human_delegated`（T-089 ①） |
 | v1b default_execution_mode | 矩阵行首 token | 须为 `none` 或 ∈ 节点+槽位 `allowed_execution_modes`（T-089 ①） |
 | v1c / downstream 全语义列 | executor_kind / default_execution_mode / codex_allowed / provider_required / debate_allowed / debate_primitive / human_review_required / human_delegated_allowed | `TOPIC_SELECTION_V1C_NODE_POLICIES` / `TOPIC_SELECTION_DOWNSTREAM_NODE_POLICIES`（…/topic-selection-v1c-node-policy-contracts.ts，T-089 ②） |
+| v1a / resource_sampling 全语义列 | 同上 8 列 | `TOPIC_SELECTION_V1A_NODE_SEMANTIC_POLICIES` / `TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_SEMANTIC_POLICIES`（…/topic-selection-node-semantic-policy-contracts.ts，T-089 ①尾巴 2026-07-06）——8 列全部行首 token **严格相等**（含 `conditional`/`reserved` 全词汇，无 yes/no 前缀解析）;rs 节点 id 双源字面量由脚本交叉核对 |
 | covered_scenarios ↔ 场景注册表 | 全表 `covered_scenarios` 列 | T-089 `08-scenarios.md` 注册表：矩阵引用的 scenario 必须已注册、注册的 scenario 必须被矩阵引用、每个 scenario 的矩阵行集合与注册表 `covered_nodes` **集合相等**、covered_nodes 必须是已知 node id（T-089 ③） |
 | 脚本登记（T-088 D-28） | —— | 每个 `.ai/scripts/topic-selection-*.mjs` 文件名必须出现在 T-089 `08-scenarios.md`（Script Registration Map） |
 | 行形状守卫 | 每行格数 = 表头格数 | ——（缺格会让其后列静默左移；实案：v1c N2 曾缺 deterministic_validators 格） |
@@ -35,7 +36,7 @@
 - Slot Map 表头第一列是 `node_id`、第二列是 `slot_id`，v1b 行的 slot_id 用反引号包裹。
 - 语义列取**行首 token**（`/^[a-z_]+/`）比对，括号内注解不参与校验；被校验的布尔列以 `yes`/`no` 前缀解析（出现 `conditional`/`reserved` 会 fail-closed 报 unparseable，属有意设计——扩展词汇前先扩展契约导出与脚本）。
 - `covered_scenarios` 单元格内 scenario id 必须用反引号包裹（脚本按反引号提取）。
-- **仍未自动校验（按列精确表述）**：v1a 与 resource_sampling 行的**全部**语义列（无结构化契约导出源，T-089 backlog ①尾巴）；Invocation Slot Map 的 resource-sampling/v1a 行**全部散文列**（Kind/Default/Profile/Status——仅 v1b 行有 slot_id 集合代码权威源；2026-07-06 按 D-27 顺迁修正的 `resource_classification` 行 stale escalation 陈述即在此盲区，见 Change Log）；v1b 行的 `provider_required` / `debate_allowed` / `debate_primitive` / `human_review_required` 四列（v1b 契约无对应布尔导出——v1b 已校验的是 codex_allowed / executor_kind / human_delegated_allowed / default_execution_mode 四列）；v1c/downstream 行全部 8 列**已**校验。
+- **仍未自动校验（按列精确表述,2026-07-06 ①尾巴收口后）**：Invocation Slot Map 的 resource-sampling/v1a 行**全部散文列**（Kind/Default/Profile/Status——仅 v1b 行有 slot_id 集合代码权威源；2026-07-06 按 D-27 顺迁修正的 `resource_classification` 行 stale escalation 陈述即在此盲区，见 Change Log）；v1b 行的 `provider_required` / `debate_allowed` / `debate_primitive` / `human_review_required` 四列（v1b 契约无对应布尔导出——v1b 已校验的是 codex_allowed / executor_kind / human_delegated_allowed / default_execution_mode 四列）。**已全列校验**：v1a、resource_sampling、v1c、downstream 四个 stage 的全部 8 语义列。
 
 ## Required Fields
 - `node_id` / `stage` / `authority_object` / `executor_kind` / `default_execution_mode`

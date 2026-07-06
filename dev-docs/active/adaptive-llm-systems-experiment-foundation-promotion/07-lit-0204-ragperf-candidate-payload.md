@@ -95,3 +95,17 @@
 ## Artifact Boundary
 - JSON payload requirements: `dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion/artifacts/lit-0204-ragperf-candidate-payload.json`.
 - No raw dataset, cloned repository, model checkpoint, log, or execution output is stored in repo.
+
+## 2026-07-06 S1 后字段状态对账
+S1 CPU 适配器烟测通过后（run `ragperf-s1-20260706T141503Z` + 独立复现 `...T142335Z`，见 03/04 §2026-07-06 与 `artifacts/lit-0204-ragperf-s1-cpu-adapter.json`），上表缺字段与 gate blockers 状态更新：
+
+| 项 | 状态 |
+|---|---|
+| `entrypoint_smoke_result` | **可填**——CPU-adapter 档 smoke pass（insert 50/50、query [2,2]、RAGPerf 自身 stats 产出）；证据=工件 JSON。注意档位：这是 adapter 档协议可执行证据，**非** faithful 档 |
+| `local_smoke_command` | **可填**——venv + 补丁后 insert/query 命令与 tiny 配置全录于工件 JSON（patches/configs 字段） |
+| `example_configs_need_local_path_rewrite` | **已解**——S0 tiny 配置 + S1 复跑验证（本地路径/parallelism 修正在补丁清单） |
+| `dependency_file_reference_needs_resolution` | **部分解**——CPU 最小依赖集实证可装可跑（pip-freeze 在案）；faithful 全依赖(vLLM/CUDA/libmsys)仍未验证 |
+| `protocol_hash` | **仍缺**——哈希方案（对什么内容、何种规范化）属晋升裁决时决策，不在 S1 范围擅定 |
+| `duplicate_check` / dataset 政策字段(data_policy_ref/split_protocol/checksum_manifest/dataset_version/local_location_ref) / metric_definition_records / evaluator_ref_records / `gpu_model_dependencies_not_verified` | **仍缺**——依赖真实数据集获取与 faithful 环境，维持 record-and-defer |
+
+结论：Benchmark/Evaluation-protocol 两候选仍 `manual_review_required`，但晋升裁决所需的「协议可执行」证据面已齐；下一动作=晋升评审（人工），非工程。

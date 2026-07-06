@@ -21,12 +21,15 @@
 //   script registration   <- every .ai/scripts/topic-selection-*.mjs must be registered in the
 //                            scenario registry doc (T-088 D-28 hard rule)
 //
-// Still NOT auto-checked (no structured code authority yet): v1a semantic columns
-// (executor_kind/default_execution_mode/...), the resource-sampling row's semantic columns, and
-// the resource-sampling / v1a Invocation Slot Map rows' prose columns (Kind/Profile/Status — only
-// the v1b slot_id set has a code authority source; the stale profile-escalation wording there was
-// retired by hand per T-088 D-27, see matrix Change Log 2026-07-06) —
-// see T-089 00-overview backlog notes.
+//   v1a/resource-sampling semantic columns <- TOPIC_SELECTION_V1A_NODE_SEMANTIC_POLICIES /
+//                            TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_SEMANTIC_POLICIES
+//                            (topic-selection-node-semantic-policy-contracts.ts, T-089 ①尾巴) —
+//                            all 8 columns strict leading-token equality (incl. 'conditional'/'reserved')
+//
+// Still NOT auto-checked (no structured code authority): the resource-sampling / v1a Invocation
+// Slot Map rows' prose columns (Kind/Profile/Status — only the v1b slot_id set has a code
+// authority source; the stale profile-escalation wording there was retired by hand per T-088
+// D-27, see matrix Change Log 2026-07-06).
 //
 // Usage:
 //   node .ai/scripts/topic-selection-workflow-matrix-consistency.mjs            # check real files
@@ -44,6 +47,7 @@ const FILES = {
   v1b: 'packages/shared/src/research-lifecycle/topic-selection-v1b-workflow-harness-contracts.ts',
   v1c: 'packages/shared/src/research-lifecycle/topic-selection-v1c-node-ids.ts',
   v1cPolicies: 'packages/shared/src/research-lifecycle/topic-selection-v1c-node-policy-contracts.ts',
+  semanticPolicies: 'packages/shared/src/research-lifecycle/topic-selection-node-semantic-policy-contracts.ts',
   resourceSampling: 'apps/backend/src/services/topic-selection-resource-sampling-service.ts',
   scenarios: 'dev-docs/active/topic-selection-agent-workflow-review/08-scenarios.md',
 };
@@ -122,6 +126,37 @@ function extractSemanticPolicies(source, marker, idMaps) {
   return policies;
 }
 
+const SEMANTIC_TOKEN_ALL_COLUMNS = [
+  'executor_kind',
+  'default_execution_mode',
+  'codex_allowed',
+  'provider_required',
+  'debate_allowed',
+  'debate_primitive',
+  'human_review_required',
+  'human_delegated_allowed',
+];
+
+function extractLiteralSemanticPolicies(source, marker) {
+  // Parses TOPIC_SELECTION_V1A_NODE_SEMANTIC_POLICIES / ..._RESOURCE_SAMPLING_... entries where
+  // node_id and all eight semantic columns are quoted string literals.
+  const block = extractBlock(source, marker);
+  const policies = new Map();
+  for (const seg of block.split(/node_index:/).slice(1)) {
+    const idMatch = seg.match(/node_id:\s*'([^']+)'/);
+    if (!idMatch) throw new Error(`missing node_id literal in ${marker}`);
+    const nodeId = idMatch[1];
+    const entry = {};
+    for (const field of SEMANTIC_TOKEN_ALL_COLUMNS) {
+      const m = seg.match(new RegExp(`${field}:\\s*'([^']+)'`));
+      if (!m) throw new Error(`missing ${field} for ${nodeId}`);
+      entry[field] = m[1];
+    }
+    policies.set(nodeId, entry);
+  }
+  return policies;
+}
+
 function extractCodeSets(sources) {
   const v1aNodes = new Set(
     extractQuoted(
@@ -157,6 +192,14 @@ function extractCodeSets(sources) {
     sources.v1cPolicies,
     'TOPIC_SELECTION_DOWNSTREAM_NODE_POLICIES = [',
     nodeIdKeyMap,
+  );
+  const v1aSemanticPolicies = extractLiteralSemanticPolicies(
+    sources.semanticPolicies,
+    'TOPIC_SELECTION_V1A_NODE_SEMANTIC_POLICIES = [',
+  );
+  const resourceSamplingSemanticPolicies = extractLiteralSemanticPolicies(
+    sources.semanticPolicies,
+    'TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_SEMANTIC_POLICIES = [',
   );
 
   // v1b slots + per-slot modes
@@ -209,6 +252,8 @@ function extractCodeSets(sources) {
     allowedModesByNode,
     v1cSemanticPolicies,
     downstreamSemanticPolicies,
+    v1aSemanticPolicies,
+    resourceSamplingSemanticPolicies,
   };
 }
 
@@ -396,6 +441,17 @@ export function checkConsistency({ matrix, sources, scenarios, scriptNames }) {
   for (const id of code.downstreamNodes) {
     if (!code.downstreamSemanticPolicies.has(id)) issues.push({ check: 'downstream_policy_missing', detail: id });
   }
+  for (const id of code.v1aNodes) {
+    if (!code.v1aSemanticPolicies.has(id)) issues.push({ check: 'v1a_semantic_policy_missing', detail: id });
+  }
+  for (const id of code.resourceSamplingNodes) {
+    if (!code.resourceSamplingSemanticPolicies.has(id)) {
+      issues.push({
+        check: 'resource_sampling_semantic_policy_id_mismatch',
+        detail: `service id ${id} has no semantic policy entry (shared literal drifted?)`,
+      });
+    }
+  }
 
   for (const [stage, codeSet] of Object.entries(stageSets)) {
     const matrixSet = new Set(nodeRows.filter((row) => row.stage === stage).map((row) => row.node_id));
@@ -483,6 +539,28 @@ export function checkConsistency({ matrix, sources, scenarios, scriptNames }) {
     'downstream',
     issues,
   );
+
+  // v1a + resource-sampling full semantic-column checks (T-089 ①尾巴): every column is an exact
+  // leading-token string in the semantic policy export, so all eight compare by strict equality
+  // ('conditional'/'reserved' included — no yes/no parsing on these stages).
+  for (const [stageLabel, stage, policies] of [
+    ['v1a', 'v1a', code.v1aSemanticPolicies],
+    ['resource_sampling', 'resource_sampling', code.resourceSamplingSemanticPolicies],
+  ]) {
+    for (const row of nodeRows.filter((r) => r.stage === stage)) {
+      const policy = policies.get(row.node_id);
+      if (!policy) continue; // absence reported by the *_semantic_policy_missing / id-set checks
+      for (const column of SEMANTIC_TOKEN_ALL_COLUMNS) {
+        const actual = leadingToken(row[column] ?? '');
+        if (actual !== policy[column]) {
+          issues.push({
+            check: `${stageLabel}_semantic_mismatch`,
+            detail: `${row.node_id} ${column}: matrix=${actual || '(empty)'} contracts=${policy[column]}`,
+          });
+        }
+      }
+    }
+  }
 
   // covered_scenarios <-> scenario registry (T-089 slice ③ + T-088 D-28).
   if (scenarios !== undefined) {
@@ -767,6 +845,44 @@ function runSelfTest(real) {
     ),
   );
 
+  const v1aSemanticFlipped = mutateRowCell(
+    real.matrix,
+    'topic-selection.v1a.build-evidence-map.v1',
+    'codex_allowed',
+    'no',
+  );
+  results.push(
+    expectIssues('flipped v1a semantic column detected', { matrix: v1aSemanticFlipped }, (issues) =>
+      issues.some((i) => i.check === 'v1a_semantic_mismatch' && i.detail.includes('build-evidence-map.v1 codex_allowed')),
+    ),
+  );
+
+  const rsSemanticFlipped = mutateRowCell(
+    real.matrix,
+    'topic-selection.resource-sampling.create-sample-set.v1',
+    'debate_allowed',
+    'yes',
+  );
+  results.push(
+    expectIssues('flipped resource-sampling semantic column detected', { matrix: rsSemanticFlipped }, (issues) =>
+      issues.some(
+        (i) => i.check === 'resource_sampling_semantic_mismatch' && i.detail.includes('create-sample-set.v1 debate_allowed'),
+      ),
+    ),
+  );
+
+  const v1aPolicyDropped = real.sources.semanticPolicies.replace(
+    "node_id: 'topic-selection.v1a.create-search-plan.v1',",
+    "node_id: 'topic-selection.v1a.create-topic-seed.v1',",
+  );
+  results.push(
+    expectIssues(
+      'missing v1a semantic policy entry detected',
+      { sources: { semanticPolicies: v1aPolicyDropped } },
+      (issues) => issues.some((i) => i.check === 'v1a_semantic_policy_missing' && i.detail.includes('create-search-plan')),
+    ),
+  );
+
   const matrixScenarioRenamed = real.matrix.replaceAll(
     'topic-selection.v1b.non-advance-negative.v1',
     'topic-selection.v1b.non-advance-negative-renamed.v1',
@@ -829,6 +945,7 @@ function loadReal() {
       v1b: read(FILES.v1b),
       v1c: read(FILES.v1c),
       v1cPolicies: read(FILES.v1cPolicies),
+      semanticPolicies: read(FILES.semanticPolicies),
       resourceSampling: read(FILES.resourceSampling),
     },
   };
