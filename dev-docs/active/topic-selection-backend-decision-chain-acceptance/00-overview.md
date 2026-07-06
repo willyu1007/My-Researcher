@@ -5,8 +5,8 @@
 - Next step: real-resource environment rehearsal passed; no backend decision-chain acceptance follow-up remains inside T-068.
 
 ## Parent And Scope Source
-- Parent architecture package: `dev-docs/active/topic-selection-decision-chain-redesign/`
-- Scope acceptance source: `dev-docs/active/topic-selection-decision-chain-redesign/07-governance-scope-acceptance.md`
+- Parent architecture package: `dev-docs/archive/topic-selection-decision-chain-redesign/`
+- Scope acceptance source: `dev-docs/archive/topic-selection-decision-chain-redesign/07-governance-scope-acceptance.md`
 - Covered stages:
   - v1a evidence-to-need
   - v1b need-to-draft-topic

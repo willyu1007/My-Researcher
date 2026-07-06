@@ -86,6 +86,7 @@
   - Query: exit 0,retrieval-only(generation=false 无 vLLM 实例化),retrieved_counts [2,2],top-1 语义正确;RAGPerf 自身 `text_pipeline_stats.txt` 正常产出(路径见工件 JSON stats_file_path)。
   - Verdict: **protocol_executable_cpu_smoke_pass**(smoke 级「协议可执行」证据;非性能数字)。
   - 工件: `artifacts/lit-0204-ragperf-s1-cpu-adapter.json`(13 补丁/10 偏差/剩余 blockers 全录);工作区证据 `/tmp/ragperf-s1-20260706/`。
+  - **独立复现**(并发第二代理,意外但有效):隔离工作区 `/tmp/ragperf-s1-20260706b/`,**不同补丁集**(10 处,含 `langchain.text_splitter` stale import 等主跑未触发项)+**不同合成语料**,run `ragperf-s1-20260706T142335Z`,**同 verdict pass**(retrieval [2,2],自行重嵌入复核 top-1 语义正确)。其对主跑摘要"语料不含 Penicillin 文档"的质疑经直接 grep 主跑语料证伪(`synthetic_wiki_50.jsonl` 2 处命中)——主工件维持原版;两次独立执行互为佐证。
 - **文献 evaluator re-baseline**(当前栈 = pgvector + text-embedding-3-large;协议/fixture 与 2026-05-11 基线完全一致):
   - Command: `TS_NODE_TRANSPILE_ONLY=1 TS_NODE_PROJECT=apps/backend/tsconfig.json node --loader ./apps/backend/node_modules/ts-node/esm.mjs .ai/scripts/literature-e2e-v2-runner.mjs --mode full --run-id 20260706-rebaseline-full --fixture .ai/scripts/fixtures/t041-evaluator-v2-fixtures.json`(一次性库 `lit_rebaseline_full_20260706`;light 冒烟 `20260706-rebaseline-light2` 先行全绿)。
   - Result: **PASS,24 步全过**——18 样本/16 可处理全链成功(download/parser/key-content/indexed 16/16),检索 37/37 正例 + 1/1 负例(rights-gated 排除),degraded 0、dup-top5 0。

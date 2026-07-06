@@ -7,7 +7,7 @@
  * objects under the v1a/b/c decision chain.
  *
  * Design SSOT: `dev-docs/archive/topic-selection-decision-chain-redesign/06-design-spec.md` §3977
- * Dev-docs: `dev-docs/active/topic-selection-desktop-workbench-v1abc/02-architecture.md`
+ * Dev-docs: `dev-docs/archive/topic-selection-desktop-workbench-v1abc/02-architecture.md`
  */
 
 import type {

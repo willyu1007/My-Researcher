@@ -127,7 +127,7 @@ The UI proof must assert:
 
 ### Smoke entrypoint
 
-`pnpm --filter @paper-engineering-assistant/desktop smoke:e2e` is the official UI-driven full-flow smoke. It boots a memory-backed backend on a held port, starts the desktop dev server, runs the source-level + API-level assertions, and tears down both processes. Implementation lives at `apps/desktop/scripts/smoke-e2e.mjs`; the assertion catalogue lives in `assertExperimentFoundationWorkbenchSource` and `smokeExperimentFoundationApis`. Co-owned with `T-110 S5` per the soft-preference decision in `dev-docs/active/experiment-foundation-research-workbench/03-implementation-notes.md`.
+`pnpm --filter @paper-engineering-assistant/desktop smoke:e2e` is the official UI-driven full-flow smoke. It boots a memory-backed backend on a held port, starts the desktop dev server, runs the source-level + API-level assertions, and tears down both processes. Implementation lives at `apps/desktop/scripts/smoke-e2e.mjs`; the assertion catalogue lives in `assertExperimentFoundationWorkbenchSource` and `smokeExperimentFoundationApis`. Co-owned with `T-110 S5` per the soft-preference decision in `dev-docs/archive/experiment-foundation-research-workbench/03-implementation-notes.md`.
 
 ## LocalScript Robustness Contract
 

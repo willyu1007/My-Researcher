@@ -5,9 +5,9 @@
 - Result: explicit `PaperProjectBridge` -> PaperProject intake and downstream feedback/recheck contracts are covered with deeper post-v1c invariants, including hash immutability, evidence basket priority, stale duplicate rejection, append-only feedback, and Prisma-backed route readback.
 
 ## Parent And Scope Source
-- Parent topic-selection implementation package: `dev-docs/active/topic-selection-decision-chain-redesign/`
+- Parent topic-selection implementation package: `dev-docs/archive/topic-selection-decision-chain-redesign/`
 - Prior backend decision-chain acceptance: `dev-docs/active/topic-selection-backend-decision-chain-acceptance/`
-- Related research-argument umbrella: `dev-docs/active/research-argument-control-plane-v1/`
+- Related research-argument umbrella: `dev-docs/archive/research-argument-control-plane-v1/`
 
 ## Goal
 - Verify what happens after v1c creates an active `PaperProjectBridge`.
