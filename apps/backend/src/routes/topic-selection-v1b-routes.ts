@@ -273,6 +273,22 @@ const workflowRunAdvanceSchema = {
               // draft_payload/execution_spec) + the plan structurally, and the runtimes validate the per-role
               // fixtures; a structural mismatch there surfaces as a 400 / debate_blocked halt.
               debate: { anyOf: [debateNodeInputSchema, { type: 'null' }] },
+              // D-30: N8-only operator request arming the bounded-debate loopback (T-OP). The
+              // coordinator forwards it verbatim; the harness enforces the N8-only contract.
+              operator_debate_request: {
+                anyOf: [
+                  {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['reason', 'requested_by'],
+                    properties: {
+                      reason: { type: 'string', minLength: 1 },
+                      requested_by: { type: 'string', minLength: 1 },
+                    },
+                  },
+                  { type: 'null' },
+                ],
+              },
             },
           },
         },

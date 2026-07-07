@@ -608,8 +608,9 @@ export function RunOperationsCard({ candidateRunIds, refreshToken }: RunOperatio
                       <TraceDrawer traceSnapshotId={target.trace_snapshot_ref_id} />
                     ) : null}
                     <p data-ui="text" data-variant="caption" data-tone="muted">
-                      该 attempt 在 provisional 阈值下产生（W-17 标定完成前的 D8 tripwire）。产品跑越过该节点前，
-                      coordinator 会以 sign_off_required 停下等待此签核；记录后重新 advance 即可续跑。
+                      该 attempt 带有历史 provisional tripwire（D-30 于 2026-07-07 将阈值重定性为 advisory
+                      后，harness 不再发射此警告，coordinator 也不再要求签核）。此处签核为可选的留痕记录，
+                      不影响 advance。
                     </p>
                     {target.existing ? (
                       <div data-ui="alert" data-tone="success">

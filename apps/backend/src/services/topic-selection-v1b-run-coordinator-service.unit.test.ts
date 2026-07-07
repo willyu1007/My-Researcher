@@ -1793,14 +1793,13 @@ async function driveToWarnedN8(warned = true): Promise<ReturnType<typeof makeSub
   return subject;
 }
 
-test('W-15 D1(c): a product advance past a provisional-warned N8 halts sign_off_required', async () => {
+test('D-30: a provisional-warned N8 no longer halts the product advance (W-15 D1(c) retired)', async () => {
+  // The warning here models a HISTORICAL run recorded before D-30 (the harness no longer emits
+  // it). Advisory thresholds require no sign-off, so the product advance proceeds straight to N9.
   const { coordinator } = await driveToWarnedN8();
-  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, run_mode: 'product' });
-  assert.equal(report.halt.reason, 'sign_off_required');
-  assert.equal(report.halt.node_id, N8);
-  assert.equal(report.steps.length, 0, 'nothing downstream ran');
-  assert.match(report.halt.message, /provisional_threshold_run_override/);
-  assert.match(report.halt.message, /sign-offs/);
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, run_mode: 'product', max_steps: 1 });
+  assert.notEqual(report.halt.reason, 'sign_off_required');
+  assert.deepEqual(report.steps.map((step) => step.node_id), [N9], 'the warned run proceeds into N9 unimpeded');
 });
 
 test('W-15 D1(c): a recorded sign-off unlocks the product advance (and is idempotent)', async () => {
@@ -1825,16 +1824,12 @@ test('W-15 D1(c): a recorded sign-off unlocks the product advance (and is idempo
   assert.deepEqual(report.steps.map((step) => step.node_id), [N9], 'the signed run proceeds into N9');
 });
 
-test('W-15 D1(c): the gate keys on tripwire PRESENCE — run_mode omission cannot lap it; unwarned runs never halt', async () => {
-  // Review fix: the harness emits the tripwire only on product runs, so presence-keying keeps
-  // acceptance runs frictionless BY CONSTRUCTION while closing the bypass where an operator
-  // omits run_mode on the next advance. A warned run therefore halts regardless of the current
-  // call's run_mode:
+test('D-30: no advance shape (warned/unwarned, modeless/product) ever halts sign_off_required', async () => {
   const warned = await driveToWarnedN8();
   const modeless = await warned.coordinator.advanceUntilBlocked({ workflow_run_id: RUN, max_steps: 1 });
-  assert.equal(modeless.halt.reason, 'sign_off_required', 'omitting run_mode does not lap the gate');
+  assert.notEqual(modeless.halt.reason, 'sign_off_required');
+  assert.deepEqual(modeless.steps.map((step) => step.node_id), [N9]);
 
-  // An UNWARNED run (any mode) never sees the halt — the only reachable acceptance shape.
   const unwarned = await driveToWarnedN8(false);
   const product = await unwarned.coordinator.advanceUntilBlocked({ workflow_run_id: RUN, run_mode: 'product', max_steps: 1 });
   assert.notEqual(product.halt.reason, 'sign_off_required');
@@ -1962,7 +1957,7 @@ test('W-15 O-2: budget-raise recording rejects over-cap, foreign-node, and misma
 // Review-fix regression (the A-DEFECT): the N6 tripwire rides the escalation-LOOPBACK attempt —
 // the post-debate ADMITTED N6 attempt is clean. The gate must anchor to the loopback attempt and
 // the sign-off must be recordable against it (previously: gate never fired, sign-off 409'd).
-test('W-15 D1(c) N6 arm: the escalation-loopback tripwire gates the post-debate advance, anchored to the loopback attempt', async () => {
+test('D-30 N6 arm: the escalation-loopback tripwire no longer gates; sign-off recording stays loopback-anchored', async () => {
   const { harness, coordinator } = makeSubject();
   harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
   harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
@@ -2000,9 +1995,8 @@ test('W-15 D1(c) N6 arm: the escalation-loopback tripwire gates the post-debate 
   const tripwireAttemptId = (await coordinator.getRunState(RUN))
     .nodes.find((node) => node.node_id === N6)!.latest_provisional_tripwire!.node_attempt_id;
 
-  // Post-debate re-entry admits clean; the SAME advance then halts before invoking N7 — the
-  // loopback-anchored tripwire survives the clean admit. (max_steps 2: the gate is evaluated at
-  // the top of the iteration AFTER the admitting step, so 1 would halt max_steps_reached first.)
+  // D-30: the loopback-anchored tripwire (historical shape) no longer gates the post-debate
+  // advance — the clean re-admit proceeds straight into N7 with no sign-off.
   const admitted = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
     retry_node_id: N6,
@@ -2010,12 +2004,11 @@ test('W-15 D1(c) N6 arm: the escalation-loopback tripwire gates the post-debate 
     node_inputs: { [N6]: { draft_payload: { candidates: ['post-debate'] } } },
     max_steps: 2,
   });
-  assert.deepEqual(admitted.steps.map((step) => step.node_id), [N6]);
-  assert.equal(admitted.halt.reason, 'sign_off_required', 'the clean admit does not clear the loopback tripwire');
-  assert.equal(admitted.halt.node_id, N6);
-  assert.match(admitted.halt.message, new RegExp(tripwireAttemptId));
+  assert.deepEqual(admitted.steps.map((step) => step.node_id), [N6, N7]);
+  assert.notEqual(admitted.halt.reason, 'sign_off_required');
 
-  // Signing the ADMITTED attempt id is rejected — the anchor is the tripwire (loopback) attempt.
+  // Recording a sign-off remains legal and stays anchored to the tripwire (loopback) attempt —
+  // the admitted attempt is still rejected (recording-path validation preserved).
   const admittedAttemptId = (await coordinator.getRunState(RUN))
     .nodes.find((node) => node.node_id === N6)!.latest_admitted!.node_attempt_id;
   assert.notEqual(admittedAttemptId, tripwireAttemptId);
@@ -2026,20 +2019,16 @@ test('W-15 D1(c) N6 arm: the escalation-loopback tripwire gates the post-debate 
     }),
     /not the run's provisional-tripwire attempt/,
   );
-
-  // Signing the tripwire attempt unlocks the advance into N7.
-  await coordinator.recordProvisionalRunOverrideSignOff({
+  const recorded = await coordinator.recordProvisionalRunOverrideSignOff({
     workflow_run_id: RUN,
     payload: runOverrideSignOffPayload(N6, tripwireAttemptId, 'N6_DEBATE_THRESHOLDS_PROVISIONAL'),
   });
-  const unlocked = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, run_mode: 'product', max_steps: 1 });
-  assert.notEqual(unlocked.halt.reason, 'sign_off_required');
-  assert.deepEqual(unlocked.steps.map((step) => step.node_id), [N7]);
+  assert.equal(recorded.already_recorded, false);
 });
 
-// Review-fix regression: the gate must fire MID-advance — the same product advance that admits the
-// warned N8 halts before invoking N9, with the earlier steps preserved.
-test('W-15 D1(c): the gate fires mid-advance, right after the warned N8 admits', async () => {
+// D-30 regression: the same product advance that admits a warned N8 keeps going — no mid-advance
+// sign-off halt interrupts it any more.
+test('D-30: a warned N8 admit no longer interrupts the same advance', async () => {
   const subject = makeSubject();
   const { harness, coordinator, controlPlane } = subject;
   harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
@@ -2068,12 +2057,11 @@ test('W-15 D1(c): the gate fires mid-advance, right after the warned N8 admits',
   const report = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
     run_mode: 'product',
-    max_steps: 6,
+    max_steps: 3,
     node_inputs: { [N6]: { draft_payload: { candidates: ['c'] } }, [N8]: { draft_payload: { total_score: 82 } } },
   });
   assert.deepEqual(report.steps.map((step) => step.node_id), [N6, N7, N8], 'the warned N8 step itself completes');
-  assert.equal(report.halt.reason, 'sign_off_required', 'the SAME advance halts before invoking N9');
-  assert.equal(report.halt.node_id, N8);
+  assert.notEqual(report.halt.reason, 'sign_off_required', 'no mid-advance sign-off halt survives D-30');
 });
 
 test('W-15 O-2: multiple raises take the max (not the most recent)', async () => {

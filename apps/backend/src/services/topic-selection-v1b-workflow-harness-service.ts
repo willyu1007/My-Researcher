@@ -390,6 +390,7 @@ const ALLOWED_REQUEST_KEYS = new Set([
   'profile_id',
   'execution_spec',
   'semantic_artifacts',
+  'operator_debate_request',
   'actor',
   'created_by',
 ]);
@@ -839,6 +840,19 @@ export class TopicSelectionV1bWorkflowHarnessService {
     assertOptionalStringId(input.attempt_family_key, 'attempt_family_key');
     assertOptionalRunMode(input.run_mode, 'run_mode');
     assertOptionalStringId(input.profile_id, 'profile_id');
+    // D-30: operator_debate_request is an N8-only, submission-time declaration — fail closed on
+    // any other node (there is no post-admission re-entry path; see the contract docblock).
+    if (input.operator_debate_request != null) {
+      if (input.node_id !== 'topic-selection.v1b.assess-topic-value.v1') {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'operator_debate_request is only supported on the N8 assess-topic-value node.');
+      }
+      const request = input.operator_debate_request;
+      if (!isRecord(request)
+        || typeof request.reason !== 'string' || request.reason.trim().length === 0
+        || typeof request.requested_by !== 'string' || request.requested_by.trim().length === 0) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'operator_debate_request requires non-empty reason and requested_by.');
+      }
+    }
     this.getNodePolicy(input.node_id);
     if (!input.frozen_input || typeof input.frozen_input !== 'object') {
       throw new AppError(400, 'INVALID_PAYLOAD', 'frozen_input is required.');
@@ -3127,7 +3141,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           transitionKey: 'topic-selection.v1b.harness.n6-topic-question-candidates',
           warnings: [
             ...(validation.warnings ?? []),
-            ...this.n6LoopbackWarnings(loopbackPlan.value, input.run_mode),
+            ...this.n6LoopbackWarnings(loopbackPlan.value),
           ],
         }, {
           writeAuthority: async () => {},
@@ -4921,7 +4935,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     // re-assessment that produces a better draft) is caller-side (the v1b N8 debate runtime),
     // exactly as v1c N2 runs its debate caller-side before its gate. On a first pass that hits
     // T1/T3 we loop back to N7 for debate admission; on any non-first-pass the trigger is
-    // downgraded to a warning (DP-3.2 anti-oscillation).
+    // downgraded to a warning (DP-3.2 anti-oscillation). D-30 (2026-07-07): an explicit
+    // operator_debate_request arms the SAME loopback as a third trigger source (T-OP) — same
+    // first-pass guard, same downgrade-to-warning on re-entry, so an operator cannot loop either.
+    // The thresholds themselves are advisory routing heuristics per D-30 (the former DP-3.3
+    // provisional product tripwire + sign-off requirement are retired).
     const debateAdmission = await this.resolveN8DebateAdmission(payload.value);
     if (!debateAdmission.ok) {
       return this.persistBlockedResult(input, hashContext, {
@@ -4930,7 +4948,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
     const debateThresholds = this.getNodePolicy('topic-selection.v1b.assess-topic-value.v1').debate_trigger_thresholds ?? null;
-    const debateTriggers = computeTopicSelectionV1bN8DebateTriggers(draftResolution.value.draft, debateThresholds);
+    const operatorDebateRequest = input.operator_debate_request ?? null;
+    const debateTriggers = [
+      ...computeTopicSelectionV1bN8DebateTriggers(draftResolution.value.draft, debateThresholds),
+      ...(operatorDebateRequest ? [{
+        code: 'N8_OPERATOR_FORCED_DEBATE_TRIGGER',
+        message: `Operator requested bounded debate re-assessment (requested_by=${operatorDebateRequest.requested_by}): ${operatorDebateRequest.reason}`,
+      }] : []),
+    ];
     // Anti-loop: only the EXPLICIT first-pass marker arms the loopback. A missing/unknown
     // input_mode (stale/older-schema/hand-built admission) falls through to warnings, never
     // re-arming an N8<->N7 oscillation. The intended feedback re-entry carries 'feedback_from_n8'.
@@ -4939,8 +4964,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return this.persistN8DebateLoopback(input, hashContext, payload.value, draftResolution.value, debateTriggers);
     }
     const postDebateTriggerWarnings = firstPass ? [] : debateTriggers;
-    // DP-3.3 tripwire: provisional, un-calibrated thresholds must not silently govern a product run.
-    const provisionalThresholdsInProduct = Boolean(debateThresholds?.provisional) && input.run_mode === 'product';
 
     const now = this.now();
     const runId = this.idFactory('assess_topic_value_run');
@@ -5067,7 +5090,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
       draftResolution.value.draft,
       loaded.value,
       postDebateTriggerWarnings,
-      provisionalThresholdsInProduct,
     );
     const gateStatus: TopicSelectionV1bWorkflowHarnessGateStatus =
       warnings.length > 0
@@ -6299,21 +6321,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private static readonly N8_AFTER_DEBATE_WARNING_BY_TRIGGER: Record<string, string> = {
     N8_VALUE_BORDERLINE_DEBATE_TRIGGER: 'N8_VALUE_BORDERLINE_AFTER_DEBATE',
     N8_DIMENSION_CONFLICT_DEBATE_TRIGGER: 'N8_DIMENSION_CONFLICT_AFTER_DEBATE',
+    // D-30: an operator request repeated on a post-debate re-entry downgrades identically.
+    N8_OPERATOR_FORCED_DEBATE_TRIGGER: 'N8_OPERATOR_FORCED_AFTER_DEBATE',
   };
 
   private n8Warnings(
     draft: TopicSelectionAssessTopicValueLlmOutput,
     loaded: N8LoadedContext,
     postDebateTriggers: Array<{ code: string; message: string }> = [],
-    provisionalThresholdsInProduct = false,
   ): TopicSelectionGateIssue[] {
     const warnings: TopicSelectionGateIssue[] = [];
-    if (provisionalThresholdsInProduct) {
-      warnings.push(warning(
-        'N8_DEBATE_THRESHOLDS_PROVISIONAL',
-        'N8 debate-trigger thresholds are still provisional (DP-3.3) and governed a product run; calibrate against near-prod deep-test data.',
-      ));
-    }
     // DP-3.2: a non-first-pass re-assessment still inside a trigger band admits with a warning
     // (no further loopback). Exhaustive code map — an unknown trigger throws rather than being
     // silently relabeled as a dimension-conflict warning.
@@ -8647,30 +8664,20 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return { ok: true };
   }
 
-  private n6LoopbackWarnings(plan: N6LoopbackPlan, runMode: TopicSelectionAgentRunMode | null | undefined): TopicSelectionGateIssue[] {
+  private n6LoopbackWarnings(plan: N6LoopbackPlan): TopicSelectionGateIssue[] {
     if (plan.loopbackTargetCode !== 'n6_debate_escalation') {
       return [];
     }
-    const warnings: TopicSelectionGateIssue[] = [
+    // D-30 (2026-07-07): the former W-07 step-f6 provisional product tripwire is retired — the
+    // escalation thresholds are advisory routing heuristics (they only inform the caller-supplied
+    // triage judgment; the debate stays caller-driven). Only the routing recommendation remains.
+    return [
       warning(
         'N6_DEBATE_ESCALATION_RECOMMENDED',
         'N6 loopback triage recommends debate escalation before retrying candidate generation.',
         plan.affectedRefs,
       ),
     ];
-    // T-127 W-07 (step f6): the N6 debate-trigger thresholds (step e) are still PROVISIONAL and must not
-    // silently govern a product run. When a product run escalates to the bounded divergent debate under
-    // those un-calibrated thresholds, emit the tripwire — advisory (non-blocking), mirroring the N8 DP-3.3
-    // tripwire. Formal semantics: N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE (held until W-13 calibration).
-    const thresholds = this.getNodePolicy('topic-selection.v1b.generate-topic-question-candidates.v1').n6_debate_trigger_thresholds ?? null;
-    if (Boolean(thresholds?.provisional) && runMode === 'product') {
-      warnings.push(warning(
-        'N6_DEBATE_THRESHOLDS_PROVISIONAL',
-        'N6 debate-trigger thresholds are still provisional (W-07 step e) and governed a product run; calibrate against real N6 candidate-quality data (W-13).',
-        plan.affectedRefs,
-      ));
-    }
-    return warnings;
   }
 
   private validateAndBuildN6Candidates(input: {

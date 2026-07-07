@@ -1668,47 +1668,64 @@ test('topic-selection v1b workflow harness request schema rejects non-provider m
   assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, request), false);
 });
 
-// W-06 (T-127): the N8 provisional-thresholds product gate is held + formalized. This doubles as a
-// tripwire — if anyone flips `provisional` to false before W-13 calibration, this fails.
-test('N8 provisional-thresholds product gate (W-06) is held and formalized', () => {
+// D-30 (2026-07-07): the W-06/W-07 provisional product gates are SUPERSEDED — thresholds are
+// advisory routing heuristics. These tests pin the re-classified state: `provisional` still true
+// (it records "not yet empirically tuned"; flipping it stays a human code change), tripwire
+// warning codes retired from the node-policy vocab, sign-off requirement retired on the consts.
+test('N8 debate thresholds are advisory per D-30 (W-06 gate superseded)', () => {
   const n8 = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES.find(
     (policy) => policy.node_id === 'topic-selection.v1b.assess-topic-value.v1',
   );
   assert.ok(n8, 'N8 assess-topic-value policy exists');
-  // Held until W-13 calibration — provisional must NOT be flipped early (T-127 D8).
   assert.equal(n8!.debate_trigger_thresholds?.provisional, true);
-  // The node policy declares the tripwire code (lowercase policy convention); the harness emits its
-  // uppercase form, pinned by the const assertion below.
-  assert.ok(n8!.warning_codes.includes('n8_debate_thresholds_provisional'));
-  // The formalized product-gate contract: non-blocking at the harness, requires a recorded sign-off.
+  // D-30: tripwire code retired from the policy vocab; the operator trigger pair is declared.
+  assert.ok(!(n8!.warning_codes as readonly string[]).includes('n8_debate_thresholds_provisional'));
+  assert.ok((n8!.blocker_codes as readonly string[]).includes('operator_forced_debate_trigger'));
+  assert.ok((n8!.warning_codes as readonly string[]).includes('operator_forced_after_debate'));
+  // The superseded gate record: non-blocking, sign-off requirement retired.
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code, 'N8_DEBATE_THRESHOLDS_PROVISIONAL');
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.harness_blocking, false);
-  assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.requires_stakeholder_sign_off, true);
-  // W-16 (T-128): the flag now points at the concrete record contract.
+  assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.requires_stakeholder_sign_off, false);
+  assert.match(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.superseded_by, /D-30/);
+  // W-16 (T-128): recording a run-override sign-off remains legal against this contract.
   assert.equal(N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.sign_off_contract, 'TopicSelectionStakeholderSignOff@v1');
 });
 
-// W-07 (T-127): the N6 provisional-thresholds product gate is held + formalized, mirroring N8. This
-// doubles as a tripwire — if anyone flips `provisional` to false before W-13 calibration, this fails.
-test('N6 provisional-thresholds product gate (W-07) is held and formalized', () => {
+test('N6 debate thresholds are advisory per D-30 (W-07 gate superseded)', () => {
   const n6 = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES.find(
     (policy) => policy.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1',
   );
   assert.ok(n6, 'N6 generate-topic-question-candidates policy exists');
-  // Held until W-13 calibration — provisional must NOT be flipped early (T-127 D8).
   assert.equal(n6!.n6_debate_trigger_thresholds?.provisional, true);
   // Advisory-only: drives no harness compute, so the thresholds carry escalation hints, not gate cut-offs.
   assert.equal(n6!.n6_debate_trigger_thresholds?.weak_blocked_count_min, 2);
   assert.equal(n6!.n6_debate_trigger_thresholds?.admissible_candidate_floor, 1);
-  // The node policy declares the tripwire code (lowercase policy convention); the harness emits its
-  // uppercase form, pinned by the const assertion below.
-  assert.ok(n6!.warning_codes.includes('n6_debate_thresholds_provisional'));
-  // The formalized product-gate contract: non-blocking at the harness, requires a recorded sign-off.
+  // D-30: tripwire code retired from the policy vocab.
+  assert.ok(!(n6!.warning_codes as readonly string[]).includes('n6_debate_thresholds_provisional'));
+  // The superseded gate record: non-blocking, sign-off requirement retired.
   assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code, 'N6_DEBATE_THRESHOLDS_PROVISIONAL');
   assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.harness_blocking, false);
-  assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.requires_stakeholder_sign_off, true);
-  // W-16 (T-128): the flag now points at the concrete record contract.
+  assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.requires_stakeholder_sign_off, false);
+  assert.match(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.superseded_by, /D-30/);
   assert.equal(N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.sign_off_contract, 'TopicSelectionStakeholderSignOff@v1');
+});
+
+// D-30: the operator_debate_request request field — schema accepts the well-formed shape and
+// rejects empty/unknown-field payloads (the N8-only rule is harness-enforced, not schema-enforced).
+test('run request schema validates operator_debate_request shape', async () => {
+  const request = canonicalRequest();
+  request.operator_debate_request = { reason: 'stress-test the optimistic draft', requested_by: 'reviewer_yu' };
+  assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, request), true);
+
+  request.operator_debate_request = null;
+  assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, request), true);
+
+  request.operator_debate_request = { reason: '', requested_by: 'reviewer_yu' };
+  assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, request), false);
+
+  request.operator_debate_request = { reason: 'x', requested_by: 'reviewer_yu', extra: true } as unknown as
+    TopicSelectionV1bWorkflowHarnessRunRequest['operator_debate_request'];
+  assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, request), false);
 });
 
 // --- T-128 W-16: stakeholder sign-off record schema -----------------------------------------

@@ -708,66 +708,59 @@ export interface TopicSelectionV1bWorkflowHarnessNodePolicy {
 }
 
 /**
- * W-06 (T-127): the N8 provisional-thresholds PRODUCT GATE — the formal semantics of the
- * `n8_debate_thresholds_provisional` tripwire.
+ * W-06 (T-127) — SUPERSEDED by D-30 (2026-07-07, T-088 `06-joint-decisions.md`). Retained as the
+ * decision record; nothing consumes it at runtime.
  *
- * While the N8 node policy's `debate_trigger_thresholds.provisional` is true (see below), the harness
- * emits the `N8_DEBATE_THRESHOLDS_PROVISIONAL` warning whenever a PRODUCT run (`run_mode: 'product'`)
- * is governed by these un-calibrated thresholds. That warning is intentionally NON-BLOCKING at the
- * harness layer: the harness threshold judgment is unchanged (DMP-10 / T-088 D6), N8 still admits.
+ * Original semantics: while `debate_trigger_thresholds.provisional` was true, product runs emitted
+ * the `N8_DEBATE_THRESHOLDS_PROVISIONAL` tripwire warning and could proceed past N8 only with a
+ * recorded `provisional_threshold_run_override` stakeholder sign-off (W-15/W-16), held until W-13
+ * calibration (>=100 multi-provider labeled samples, FP < 5%).
  *
- * The PRODUCT-LEVEL contract is: a real topic may proceed past N8 carrying this warning ONLY with an
- * explicit, recorded stakeholder sign-off acknowledging that N8 ran under provisional thresholds. That
- * sign-off record IS the production-gated override entry; absent it, advancing a real topic past a
- * provisional-threshold N8 is out of policy.
- *
- * The gate is HELD until W-13 calibration meets its bar (>=100 multi-provider labeled samples with a
- * false-positive rate < 5%). Until then `provisional` MUST NOT be set to false and this tripwire MUST
- * NOT be removed (T-127 D8 record-and-defer).
+ * D-30 re-classified the T1/T3 thresholds as ADVISORY ROUTING HEURISTICS: they only arm the N8→N7
+ * debate loopback, the debate stays human opt-in at the coordinator frontier, and an operator can
+ * arm the same loopback explicitly via `operator_debate_request` regardless of thresholds — so
+ * un-calibrated values govern no product outcome. The tripwire warning and the run-override
+ * sign-off requirement are retired; calibration (was W-13 / T-129 C-1) becomes optional heuristic
+ * tuning, not a release gate. `provisional: true` on the thresholds now records only "not yet
+ * empirically tuned"; flipping it stays a human code change (T-127 D8 still applies to the flip).
  */
 export const N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
   warning_code: 'N8_DEBATE_THRESHOLDS_PROVISIONAL',
-  /** Non-blocking at the harness layer — the node still admits; the gate is a product-level policy. */
+  /** Non-blocking at the harness layer — the node still admits; historical semantics only. */
   harness_blocking: false,
-  /** A real topic may pass N8 carrying the warning only with a recorded stakeholder sign-off. */
-  requires_stakeholder_sign_off: true,
-  /** T-128 W-16: the concrete record contract behind the flag (see the sign-off schema below). */
+  /** D-30: sign-off requirement retired (was true under W-15/W-16). */
+  requires_stakeholder_sign_off: false,
+  /** T-128 W-16: the record contract the retired requirement used (recording one stays legal). */
   sign_off_contract: 'TopicSelectionStakeholderSignOff@v1',
   applies_when: { run_mode: 'product', thresholds_provisional: true },
-  /** Calibration bar that releases the gate (flips provisional:false and removes the tripwire). */
-  released_by: 'W-13 calibration: >=100 multi-provider labeled samples, false-positive rate < 5%',
+  superseded_by: 'D-30 (2026-07-07): thresholds re-classified as advisory routing heuristics',
+  released_by: 'D-30 advisory re-classification; calibration is optional tuning (was W-13)',
 } as const;
 
 /**
- * W-07 (T-127): the N6 provisional-thresholds PRODUCT GATE — the formal semantics of the
- * `N6_DEBATE_THRESHOLDS_PROVISIONAL` tripwire, mirroring the N8 gate above.
+ * W-07 (T-127) — SUPERSEDED by D-30 (2026-07-07), mirroring the N8 gate above. Retained as the
+ * decision record; nothing consumes it at runtime.
  *
- * While the N6 node policy's `n6_debate_trigger_thresholds.provisional` is true, the harness will emit
- * (wired in step f) the `N6_DEBATE_THRESHOLDS_PROVISIONAL` warning whenever a PRODUCT run (`run_mode:
- * 'product'`) is governed by these un-calibrated escalation thresholds. As with N8 the warning is
- * NON-BLOCKING at the harness layer:
- * escalation remains the upstream triage artifact's judgment (DMP-10 / T-088 D6), N6 still admits.
+ * Original semantics: while `n6_debate_trigger_thresholds.provisional` was true, a product run whose
+ * escalation loopback was governed by these thresholds emitted the `N6_DEBATE_THRESHOLDS_PROVISIONAL`
+ * tripwire and required the same recorded stakeholder sign-off to proceed, held until W-13.
  *
- * The PRODUCT-LEVEL contract is identical: a real topic may proceed past N6 carrying this warning ONLY
- * with an explicit, recorded stakeholder sign-off acknowledging that N6 escalation ran under provisional
- * thresholds. That sign-off record IS the production-gated override entry; absent it, advancing a real
- * topic past a provisional-threshold N6 is out of policy.
- *
- * The gate is HELD until W-13 calibration meets its bar (>=100 multi-provider labeled samples with a
- * false-positive rate < 5%). Until then `provisional` MUST NOT be set to false and this tripwire MUST NOT
- * be removed (T-127 D8 record-and-defer).
+ * D-30 re-classification (see the N8 gate docblock): the N6 values only inform the caller-supplied
+ * `n6_loopback_triage` judgment (the harness computes nothing from them) and escalation is reachable
+ * only on a gate failure with the divergent debate caller-driven — advisory by construction. Tripwire
+ * and sign-off requirement retired; calibration optional.
  */
 export const N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
   warning_code: 'N6_DEBATE_THRESHOLDS_PROVISIONAL',
-  /** Non-blocking at the harness layer — the node still admits; the gate is a product-level policy. */
+  /** Non-blocking at the harness layer — the node still admits; historical semantics only. */
   harness_blocking: false,
-  /** A real topic may pass N6 carrying the warning only with a recorded stakeholder sign-off. */
-  requires_stakeholder_sign_off: true,
-  /** T-128 W-16: the concrete record contract behind the flag (see the sign-off schema below). */
+  /** D-30: sign-off requirement retired (was true under W-15/W-16). */
+  requires_stakeholder_sign_off: false,
+  /** T-128 W-16: the record contract the retired requirement used (recording one stays legal). */
   sign_off_contract: 'TopicSelectionStakeholderSignOff@v1',
   applies_when: { run_mode: 'product', thresholds_provisional: true },
-  /** Calibration bar that releases the gate (flips provisional:false and removes the tripwire). */
-  released_by: 'W-13 calibration: >=100 multi-provider labeled samples, false-positive rate < 5%',
+  superseded_by: 'D-30 (2026-07-07): thresholds re-classified as advisory routing heuristics',
+  released_by: 'D-30 advisory re-classification; calibration is optional tuning (was W-13)',
 } as const;
 
 /**
@@ -1178,17 +1171,17 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       'candidate_overlap_preserved',
       'debate_escalation_recommended',
       'decision_memory_duplicate_candidate',
-      // W-07 step e: provisional escalation thresholds governed a product run (calibration tripwire).
-      'n6_debate_thresholds_provisional',
     ],
     loopback_target_codes: [...TOPIC_SELECTION_V1B_N6_LOOPBACK_TARGET_CODES],
     replay_hash_components: [...DEFAULT_REPLAY_HASH_COMPONENTS, 'selected_candidate_hash'],
     n6_debate_trigger_thresholds: {
-      // W-07 step e: stays PROVISIONAL. There is no empirical N6 candidate-quality distribution to
-      // calibrate against — every N6 candidate set in the deep-test artifacts is a hand-authored fixture,
-      // not a spread of real generation runs. Picking escalation cut-offs would be guessing (prohibited),
-      // so the provisional values hold and the n6_debate_thresholds_provisional tripwire guards product.
-      // Product-gate semantics for this flag: see N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE (T-127 W-07).
+      // D-30 (2026-07-07): ADVISORY ROUTING HEURISTIC. These values only inform the caller-supplied
+      // n6_loopback_triage judgment (the harness computes nothing from them), escalation is reachable
+      // only on a gate failure, and the divergent debate stays caller-driven — so un-calibrated
+      // constants govern no product outcome. `provisional: true` now records only "not yet
+      // empirically tuned" (no real N6 candidate-quality distribution exists; deep-test sets are
+      // hand-authored fixtures). Tuning is optional (was W-13 / T-129 C-1); flipping the flag stays
+      // a human code change. Retired product-gate history: N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.
       provisional: true,
       weak_blocked_fraction_min: 0.5,
       weak_blocked_count_min: 2,
@@ -1296,6 +1289,8 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       // T-123 Phase 3 (D2): first-pass T1/T3 hits route loopback to N7 for debate admission.
       'value_borderline_debate_trigger',
       'dimension_conflict_debate_trigger',
+      // D-30 (2026-07-07): first-pass operator_debate_request arms the same loopback explicitly.
+      'operator_forced_debate_trigger',
     ],
     warning_codes: [
       'residual_risk_carried_forward',
@@ -1303,19 +1298,20 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       // T-123 Phase 3 (DP-3.2): post-debate re-assessment still in band → admit with warning.
       'value_borderline_after_debate',
       'dimension_conflict_after_debate',
-      // T-123 Phase 3 (DP-3.3): provisional thresholds governed a product run (calibration tripwire).
-      'n8_debate_thresholds_provisional',
+      // D-30: operator request repeated on a post-debate re-entry → warning, never a second loop.
+      'operator_forced_after_debate',
     ],
     loopback_target_codes: ['n8_feedback_to_n7', 'n8_retry_same_contract'],
     replay_hash_components: [...DEFAULT_REPLAY_HASH_COMPONENTS, 'authority_hash'],
     debate_trigger_thresholds: {
-      // DP-3.3: stays PROVISIONAL. The 2026-06-15 calibration pass found NO empirical N8 score
-      // distribution to calibrate against — every N8 score in every deep-test artifact is a single
-      // hand-authored fixture (total_score 83, conf 0.82, spread 12) or a circular/value-neutral probe,
-      // not a spread of real assessments. Changing the constants would be guessing (prohibited), so the
-      // provisional values hold and the n8_debate_thresholds_provisional tripwire keeps guarding product.
-      // Evidence + the data-collection plan: 03-implementation-notes DP-3.3 + 07-phase3-debate-skeleton-spec.
-      // Product-gate semantics for this flag: see N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE (T-127 W-06).
+      // D-30 (2026-07-07): ADVISORY ROUTING HEURISTIC. T1/T3 only arm the N8→N7 debate loopback,
+      // whose debate stays human opt-in at the coordinator frontier, and an operator can arm the
+      // same loopback explicitly via operator_debate_request regardless of these values — so
+      // un-calibrated constants govern no product outcome. `provisional: true` now records only
+      // "not yet empirically tuned" (the 2026-06-15 calibration pass found no real N8 score
+      // distribution; every deep-test score is a hand-authored fixture). Tuning is optional
+      // (was W-13 / T-129 C-1); flipping the flag stays a human code change, never automated.
+      // History of the retired product-gate semantics: N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.
       provisional: true,
       t1_total_score_min: 60,
       t1_total_score_max_exclusive: 72,
@@ -2104,6 +2100,19 @@ export interface TopicSelectionV1bWorkflowHarnessRunRequest {
   profile_id?: TopicSelectionV1bWorkflowHarnessProfileId | null;
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
   semantic_artifacts?: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef[] | null;
+  /**
+   * D-30 (2026-07-07): N8-only operator request for a bounded-debate re-assessment. On a FIRST-pass
+   * N8 invocation this arms the same n8_feedback_to_n7 loopback the deterministic T1/T3 triggers
+   * arm (trigger code N8_OPERATOR_FORCED_DEBATE_TRIGGER); the debate itself stays human opt-in at
+   * the coordinator frontier. On a post-debate re-entry it downgrades to a warning exactly like
+   * T1/T3 (DP-3.2 anti-oscillation — an operator cannot create a debate loop either). Declared at
+   * submission time only: there is no post-admission re-entry path (a future one must add its own
+   * human-approval gate, per D-30). Any node other than N8 rejects the field fail-closed.
+   */
+  operator_debate_request?: {
+    reason: string;
+    requested_by: string;
+  } | null;
   actor?: {
     actor_type: TopicSelectionActorType;
     actor_id?: string | null;
@@ -4189,6 +4198,20 @@ export const topicSelectionV1bWorkflowHarnessRunRequestSchema = {
       anyOf: [topicSelectionV1bWorkflowHarnessExecutionSpecSchema, { type: 'null' }],
     },
     semantic_artifacts: semanticArtifactArray,
+    operator_debate_request: {
+      anyOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['reason', 'requested_by'],
+          properties: {
+            reason: { type: 'string', minLength: 1 },
+            requested_by: { type: 'string', minLength: 1 },
+          },
+        },
+        { type: 'null' },
+      ],
+    },
     actor: {
       anyOf: [
         topicSelectionActorRefSchema,

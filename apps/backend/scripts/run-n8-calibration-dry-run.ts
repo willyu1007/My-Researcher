@@ -6,10 +6,12 @@
 //   (3) a human-curated, ground-truth-labeled corpus, and
 //   (5) running an INDEPENDENT content-grounded assessor (an external Codex agent reading the real bodies)
 //       over it — the N8 production path is codex_assisted/out-of-band, so the assessor cannot run in-process.
-// Until both exist AND the release bar is met (>=100 multi-provider labeled samples, false-positive rate < 5%
-// — N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE), the N8 (and the mirrored N6) thresholds stay provisional
-// and the tripwire keeps guarding product. NO verdict this script prints — not even 'separates' — authorizes a
-// flip; that is a separate, human-gated, sign-off-recorded action.
+// D-30 (2026-07-07) re-classified the N8 (and mirrored N6) thresholds as ADVISORY ROUTING HEURISTICS —
+// the product tripwire + sign-off requirement are retired and calibration is OPTIONAL tuning, no longer a
+// release gate (N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE is now a superseded decision record). The
+// record-and-defer discipline on the FLIP itself is unchanged: until both inputs above exist the thresholds
+// stay provisional:true, and NO verdict this script prints — not even 'separates' — authorizes a flip; that
+// remains a separate, human-gated action.
 //
 // Modes:
 //   --self-test                 (default) Prove the toolchain end-to-end on a SYNTHETIC 4-band corpus: write it

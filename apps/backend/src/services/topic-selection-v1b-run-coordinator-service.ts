@@ -338,12 +338,10 @@ const operatorRecordAjv = new Ajv({ allErrors: true, strict: false });
 const provisionalSignOffValidator = operatorRecordAjv.compile(topicSelectionProvisionalRunOverrideSignOffSchema);
 const loopbackBudgetRaiseValidator = operatorRecordAjv.compile(topicSelectionLoopbackBudgetRaiseSchema);
 
-/** W-15 D1(c): the provisional product gates the coordinator enforces sign-offs for, keyed by node.
- *  Codes come from the gate consts themselves (review fix — no re-declared literals to drift).
- *  Emission reality the gate MUST honor (review finding): the harness attaches the N8 tripwire to
- *  the ADMITTED N8 attempt, but the N6 tripwire ONLY to the escalation-LOOPBACK attempt — the
- *  post-debate admitted N6 attempt is clean. Both are emitted ONLY on product runs, so keying on
- *  tripwire PRESENCE is product-only by construction. */
+/** D-30 (2026-07-07): the advance-side sign-off ENFORCEMENT is retired (thresholds are advisory
+ *  routing heuristics), but recording a provisional_threshold_run_override stays legal for runs
+ *  whose HISTORICAL attempts carry the retired tripwire warnings. This map now serves only the
+ *  recording path's node↔code validation and the projection's tripwire bookkeeping. */
 const PROVISIONAL_GATE_WARNING_BY_NODE = new Map<string, string>([
   [N6_NODE_ID, N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code],
   [N8_NODE_ID, N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code],
@@ -422,6 +420,14 @@ export type TopicSelectionV1bRunCoordinatorNodeInput = {
    * fixtures); supplying/duplicating the projection artifact itself is NOT a caller responsibility.
    */
   support_payloads?: Record<string, Record<string, unknown>> | null;
+  /**
+   * D-30 (2026-07-07): N8-only operator request for a bounded-debate re-assessment, forwarded
+   * verbatim to the harness run request. On a first-pass N8 it arms the same n8_feedback_to_n7
+   * loopback the T1/T3 triggers arm (code N8_OPERATOR_FORCED_DEBATE_TRIGGER); the debate itself
+   * remains opt-in at the frontier this coordinator surfaces. Composable with draft_payload (the
+   * draft is still required for the N8 pass). The harness rejects it on any other node.
+   */
+  operator_debate_request?: { reason: string; requested_by: string } | null;
 };
 
 export type AdvanceTopicSelectionV1bRunInput = {
@@ -693,23 +699,11 @@ export class TopicSelectionV1bRunCoordinatorService {
         throw new AppError(500, 'INTERNAL_ERROR', `no node policy registered for ${nextNodeId}.`);
       }
 
-      // W-15 D1(c): the product-level provisional-thresholds contract, coordinator-enforced.
-      // Fires BEFORE any progression (including into a human node). Keyed on tripwire PRESENCE,
-      // not the current call's run_mode (review fix): the harness emits both tripwires only on
-      // product runs, so acceptance/test runs are frictionless by construction and omitting
-      // run_mode on a later advance cannot lap the gate.
-      {
-        const pendingSignOff = await this.pendingProvisionalSignOff(input.workflow_run_id, projection, loadOperatorArtifacts);
-        if (pendingSignOff) {
-          return halt(
-            'sign_off_required',
-            pendingSignOff.gate_node_id,
-            `${pendingSignOff.gate_node_id} attempt ${pendingSignOff.node_attempt_id} ran under provisional thresholds (${pendingSignOff.warning_code}); the run may proceed past it only with a recorded stakeholder sign-off anchored to that attempt. Record a provisional_threshold_run_override sign-off (TopicSelectionStakeholderSignOff@v1) via POST /topic-selection/v1b/workflow-runs/${input.workflow_run_id}/sign-offs, then advance again.`,
-            [],
-            projection,
-          );
-        }
-      }
+      // D-30 (2026-07-07): the former W-15 D1(c) provisional-thresholds sign-off halt is retired —
+      // the N6/N8 debate-trigger thresholds are advisory routing heuristics (they only arm a
+      // loopback whose debate stays human opt-in at the frontier), so nothing here requires a
+      // provisional_threshold_run_override any more. Recording such a sign-off remains legal
+      // (historical records stay valid; the sign-off route is unchanged), it is just never required.
 
       if (HUMAN_HALT_NODE_IDS.has(nextNodeId)) {
         return halt(
@@ -922,6 +916,11 @@ export class TopicSelectionV1bRunCoordinatorService {
           input.created_by,
         );
         request.semantic_artifacts = [...(request.semantic_artifacts ?? []), ...supports];
+      }
+      if (nodeInput?.operator_debate_request) {
+        // D-30: forwarded verbatim — the harness enforces the N8-only + non-empty-fields contract
+        // (fail-closed 400), and on a first pass arms the n8_feedback_to_n7 loopback (T-OP).
+        request.operator_debate_request = nodeInput.operator_debate_request;
       }
       // (No execution_spec forwarding: the field is reserved-rejected above — T-128 W-14.)
 
@@ -1416,29 +1415,7 @@ export class TopicSelectionV1bRunCoordinatorService {
    *  the admitted attempt itself; for N6 it is the escalation-loopback attempt — the gate fires
    *  once the run is about to move PAST the node (last_completed), whichever attempt carried the
    *  warning. Presence-keyed: the harness emits these warnings only on product runs. */
-  private async pendingProvisionalSignOff(
-    workflowRunId: string,
-    projection: TopicSelectionV1bRunStateProjection,
-    loadOperatorArtifacts: () => Promise<Awaited<ReturnType<TopicSelectionControlPlaneService['listArtifactRefsByWorkflowRunId']>>>,
-  ): Promise<{ gate_node_id: string; node_attempt_id: string; warning_code: string } | null> {
-    const gateNodeId = projection.last_completed_node_id;
-    if (!gateNodeId) {
-      return null;
-    }
-    const warningCode = PROVISIONAL_GATE_WARNING_BY_NODE.get(gateNodeId);
-    if (!warningCode) {
-      return null;
-    }
-    const tripwire = projection.nodes.find((node) => node.node_id === gateNodeId)?.latest_provisional_tripwire;
-    if (!tripwire) {
-      return null;
-    }
-    const artifacts = await loadOperatorArtifacts();
-    const signed = artifacts.some((artifact) =>
-      this.matchesRunOverrideSignOff(artifact.payload, gateNodeId, tripwire.node_attempt_id, warningCode, workflowRunId));
-    return signed ? null : { gate_node_id: gateNodeId, node_attempt_id: tripwire.node_attempt_id, warning_code: warningCode };
-  }
-
+  /** Recording-path idempotency matcher (D-30: no longer consulted by advance). */
   private matchesRunOverrideSignOff(
     payload: unknown,
     nodeId: string,

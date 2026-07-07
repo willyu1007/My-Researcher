@@ -3561,7 +3561,7 @@ test('v1b workflow harness N6 applies loopback triage for debate escalation and 
   assert.equal(debateResult.authority_ref, null);
   assert.equal(debateResult.handoff_ref, null);
   assert.ok(debateResult.warnings.some((warning) => warning.code === 'N6_DEBATE_ESCALATION_RECOMMENDED'));
-  // f6: the provisional tripwire is gated to product runs — silent in this acceptance-mode escalation.
+  // D-30: no provisional tripwire on any escalation (retired; thresholds are advisory heuristics).
   assert.equal(debateResult.warnings.some((warning) => warning.code === 'N6_DEBATE_THRESHOLDS_PROVISIONAL'), false);
   const debateTrace = await assertTraceLoopbackTargetCode(
     debateCtx,
@@ -3778,9 +3778,9 @@ test('v1b workflow harness N6 admits runtime-verified loopback triage in product
   assert.equal(result.authority_ref, null);
   assert.equal(result.handoff_ref, null);
   assert.ok(result.warnings.some((warning) => warning.code === 'N6_DEBATE_ESCALATION_RECOMMENDED'));
-  // f6 (T-127 W-07): a PRODUCT run escalating under the still-provisional N6 debate-trigger thresholds
-  // (step e) emits the advisory tripwire — non-blocking (the loopback still routes); held until W-13.
-  assert.ok(result.warnings.some((warning) => warning.code === 'N6_DEBATE_THRESHOLDS_PROVISIONAL'));
+  // D-30 (2026-07-07): the former W-07 f6 provisional product tripwire is retired — thresholds are
+  // advisory routing heuristics, so a product escalation carries no provisional warning any more.
+  assert.equal(result.warnings.some((warning) => warning.code === 'N6_DEBATE_THRESHOLDS_PROVISIONAL'), false);
   await assertTraceLoopbackTargetCode(
     ctx,
     result,
@@ -4966,6 +4966,65 @@ test('v1b workflow harness N8 creates value assessment from frozen value draft a
   assert.equal(
     transitionRecord?.created_authority_refs.some((authorityRef) => authorityRef.ref_type === 'value_disposition_decision') ?? false,
     false,
+  );
+});
+
+// D-30 (2026-07-07): operator_debate_request is the third N8 trigger source (T-OP) — it arms the
+// SAME n8_feedback_to_n7 loopback the deterministic T1/T3 triggers arm, on a draft those triggers
+// would admit (the canonical fixture: total 83, conf 0.82 — outside every band).
+test('v1b workflow harness N8 operator_debate_request arms the debate loopback on a clean first pass', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n7 } = await runReadyN7(ctx);
+  const input = await n8Request(ctx, n7, {
+    operator_debate_request: { reason: 'value story reads optimistic; stress-test before advancing', requested_by: 'reviewer_yu' },
+  });
+  const draft = n8ValueDraft(input);
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN8ValueDraftArtifact(ctx, input, draft)],
+  });
+
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.route_decision, 'loopback');
+  // The loopback attempt records the N8ToN7 feedback packet as its artifact authority; no handoff.
+  assert.equal(result.authority_ref?.ref_type, 'artifact_ref');
+  assert.equal(result.handoff_ref, null);
+  assert.equal(result.error_code, 'N8_OPERATOR_FORCED_DEBATE_TRIGGER');
+  assert.ok(result.blockers.some((issue) => issue.code === 'N8_OPERATOR_FORCED_DEBATE_TRIGGER'));
+  // No deterministic trigger fired — the operator request alone armed the loopback.
+  assert.equal(result.blockers.some((issue) => issue.code === 'N8_VALUE_BORDERLINE_DEBATE_TRIGGER'), false);
+  assert.equal(result.blockers.some((issue) => issue.code === 'N8_DIMENSION_CONFLICT_DEBATE_TRIGGER'), false);
+  await assertTraceLoopbackTargetCode(
+    ctx,
+    result,
+    'n8_feedback_to_n7',
+    'topic-selection.v1b.materialize-topic-question-contract.v1',
+  );
+  // No authority was written on the loopback attempt.
+  assert.deepEqual(await ctx.valueAssessmentRepository.listAssessmentsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b workflow harness rejects operator_debate_request off N8 and with empty fields', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n8 } = await runReadyN8(ctx);
+  const n9Input = await n9Request(ctx, n8, {
+    operator_debate_request: { reason: 'wrong node', requested_by: 'reviewer_yu' },
+  });
+  await assert.rejects(
+    () => ctx.service.invokeNode(n9Input),
+    (error: unknown) => error instanceof AppError && error.statusCode === 400
+      && /only supported on the N8/.test(error.message),
+  );
+
+  const ctx2 = await seedHarnessV1aBundle();
+  const ready2 = await runReadyN7(ctx2);
+  const badInput = await n8Request(ctx2, ready2.n7, {
+    operator_debate_request: { reason: '   ', requested_by: 'reviewer_yu' },
+  });
+  await assert.rejects(
+    () => ctx2.service.invokeNode(badInput),
+    (error: unknown) => error instanceof AppError && error.statusCode === 400
+      && /non-empty reason and requested_by/.test(error.message),
   );
 });
 

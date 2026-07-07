@@ -306,5 +306,5 @@ D-28（T-088 `06-joint-decisions.md`，2026-07-05）硬约束：任何新增 top
 | topic-selection-v1c-production-depth.mjs | 深测 | scale-quality v1c 深度面 |
 | topic-selection-v1c-real-codex-acceptance.mjs | acceptance | canary codex 档 v1c 验收 |
 | topic-selection-v1c-runtime-stress.mjs | stress | v1c smoke 场景压测编排 |
-| topic-selection-w15-s4-signoff-product-run.mjs | product-run | T-128 W-15 S4 签核摩擦产品跑（product-tier scenario SSOT 在归档 T-128 03） |
+| topic-selection-w15-s4-signoff-product-run.mjs | ~~product-run~~ 已退役 (2026-07-07) | 原 T-128 W-15 S4 签核摩擦产品跑；D-30 将 N6/N8 阈值重定性 advisory 并退役 sign_off_required 门后，其断言行为不复存在，脚本文件已删除（记录保留供追溯） |
 | topic-selection-workflow-matrix-consistency.mjs | checker | 本机器校验自身（SSOT 矩阵 ↔ 契约 ↔ 本注册表） |

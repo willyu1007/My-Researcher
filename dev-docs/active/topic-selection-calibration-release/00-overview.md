@@ -14,24 +14,23 @@
 
 ## 移交项(原 T-128 W-17/W-18/W-19,条件与义务原样)
 
-### C-1(原 W-17)N8/N6 真标定翻门
-- **等什么**:≥100 条多 provider(每 F6 维度 ≥2 provider)标注样本 + FP 率 < 5%(exclusiveMaximum)+ 独立 assessor。
-- **动什么**:完成标定后,记录 `TopicSelectionStakeholderSignOff@v1` 的 **`calibration_gate_release`** scope 签核(结构化门槛已进 schema,不达标无法校验通过——shared `topic-selection-v1b-workflow-harness-contracts.ts` 的 sign-off 契约);随后人工代码变更翻 N8/N6 node-policy 的 `provisional:false` 并移除两个 tripwire(两 `*_PRODUCT_GATE` 常量的 `released_by` 载明同一条件)。
-- **翻门后效应**:W-15 D1(c) 的 `sign_off_required` product 摩擦自然消失(tripwire 不再发射)。
+### C-1(原 W-17)N8/N6 真标定翻门 —— **已按 D-30 重定性缩窄为可选调优(2026-07-07),不再是发布 blocker**
+- **D-30 处置**(T-088 `06-joint-decisions.md` D-30):阈值改判 advisory 路由启发器(只开人 opt-in 的门,不 govern 产品结果;N8 另有 operator 强制门 T-OP 兜底假阴性)。provisional product tripwire + W-15 `sign_off_required` advance 强制已退役——**"翻门后效应"所述摩擦已不存在**。
+- **残余(可选)**:若将来想提升启发器命中质量,仍可按原条件标定(≥100 条多 provider 标注样本 + FP<5% + 独立 assessor),完成后人工翻 `provisional:false`(record-and-defer 对 flip 不变;`calibration_gate_release` 签核 schema 保留可用)。不阻塞任何发布。
 
 ### C-2(原 W-18)语料耦合 debate 正文
 - **等什么**:与 C-1 同批语料(prompt 语义需真实语料校准)。
 - **动什么**:6 个门控 prompt(T-128 03 台账 #16/17/18/22/23/25——N6 divergent 三角色、N8 value runtime-draft、N8 bounded 四角色簇、v1c-N2 bounded micro)骨架/partial → 产品级,各配唯一 golden byte-identity 锚(T-128 W-04..07 的既定撰写纪律)。
 
 ### C-3(原 W-19)provider_llm debate 开启
-- **等什么**:C-1 签核 + C-2 正文定稿(前置)。
+- **等什么**:C-2 正文定稿(前置)。~~C-1 签核~~——D-30 后 C-1 不再是前置(阈值 advisory 与 provider 开启解耦;辩论触发由人/T-OP/启发器提醒共同承担)。
 - **动什么**:人工代码变更翻 shared `TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.dormant`(其 `opened_by` 载明本条件)**并同批接线**守卫处成文的三义务:live role outputs(去 codex/mock passthrough)、gate-bridge provenance 决策、provider runMode 默认;顺带决定 coordinator `node_inputs.execution_spec` 的接线(现为 reserved 前置拒,W-14 落定)。**fail-closed 保护**:只翻常量不接线会撞 runtime 分支内第二道 500(T-128 W-14 设计)。
 - **守卫位置**:`topic-selection-v1b-n6-divergent-debate-runtime-service.ts` / `topic-selection-v1b-n8-bounded-debate-runtime-service.ts` 的 `assertProviderDebatePathOpen` + 入口双投。
 
 ## Acceptance / DoD
-- [ ] C-1:标定语料达标 → calibration_gate_release 签核落工件 → provisional 翻门 + tripwire 移除,replay/守卫全绿。
+- [~] C-1:**D-30(2026-07-07)重定性后降为可选调优,退出 DoD**——tripwire/签核强制已退役;若做,仅为翻 `provisional:false` 的启发器质量提升。
 - [ ] C-2:6 门控 prompt 产品化,各得唯一漂移锚,对抗式 review 无 critical。
-- [ ] C-3:dormancy 常量翻开 + 三义务接线 + execution_spec 决策落地,dormant 身份守卫测试按新态更新。
+- [ ] C-3:dormancy 常量翻开 + 三义务接线 + execution_spec 决策落地,dormant 身份守卫测试按新态更新(前置仅 C-2)。
 
 ## 背景细节去向
 - 完整证据链/设计语境:`dev-docs/archive/topic-selection-product-readiness-closure/`(03 矩阵、04 各段、05-pitfalls「伪造语料/盲写正文」「D8 骆驼鼻子」两条纪律直接适用本包)。
