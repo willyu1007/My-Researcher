@@ -5,7 +5,7 @@
 - Lane: `LIT-0204` RAGPerf.
 - Decision: keep at candidate-payload-requirements level; do not create canonical assets.
 - Auto-promotion: `false`.
-- Recommended next step: build the RAGPerf benchmark/evaluation-protocol candidate payloads after duplicate, policy, and smoke checks.
+- Recommended next step(2026-07-08 更新): S1 smoke 证据已回填——下一动作 = **晋升评审(人工裁决)**:benchmark/evaluation-protocol 两候选去留 + `protocol_hash` 哈希方案决策 + duplicate check 执行;dataset 两候选维持 needs_info(政策/获取外部依赖)。
 
 ## Source Evidence
 - arXiv: https://arxiv.org/abs/2603.10765.
@@ -18,12 +18,19 @@
 - Source caveat: GitHub API metadata was not used because anonymous requests were rate-limited.
 
 ## Candidate Split
+（2026-07-08 以 S1 证据正式回填:`entrypoint_smoke_result` / `local_smoke_command` 移出缺字段列,取值见下方 Filled Fields;其余缺字段维持 record-and-defer。）
+
 | Candidate | Status | Missing fields before promotion |
 | --- | --- | --- |
-| Benchmark candidate | `manual_review_required` | duplicate_check, dataset_candidate_payloads, evaluation_protocol_candidate_payload, metric_definition_refs, protocol_hash, entrypoint_smoke_result, readiness_snapshot |
-| Evaluation protocol candidate | `manual_review_required` | protocol_hash, metric_definition_records, evaluator_ref_records, local_smoke_command, output_artifact_contract |
+| Benchmark candidate | `manual_review_required` | duplicate_check, dataset_candidate_payloads, evaluation_protocol_candidate_payload, metric_definition_refs, protocol_hash, readiness_snapshot |
+| Evaluation protocol candidate | `manual_review_required` | protocol_hash, metric_definition_records, evaluator_ref_records, output_artifact_contract |
 | Wikipedia corpus dataset candidate | `needs_info` | data_policy_ref, split_protocol, checksum_manifest, dataset_version, local_location_ref |
 | Natural Questions query dataset candidate | `needs_info` | data_policy_ref, split_protocol, checksum_manifest, dataset_version, local_location_ref |
+
+### Filled Fields(2026-07-08 回填,证据 = `artifacts/lit-0204-ragperf-s1-cpu-adapter.json`)
+- `entrypoint_smoke_result`(benchmark 候选):**`protocol_executable_cpu_smoke_pass`,档位 = CPU adapter 档(非 faithful 档)**。主跑 `ragperf-s1-20260706T141503Z`:insert exit 0(50/50 docs→chunks→embeddings 入 LanceDB,all-MiniLM-L6-v2 为配置自身默认)、query exit 0(retrieval-only,retrieved_counts [2,2],top-1 语义正确)、RAGPerf 自身 `text_pipeline_stats.txt` 正常产出。**独立复现** `ragperf-s1-20260706T142335Z`(隔离工作区、不同补丁集 10 处、不同合成语料)同 verdict——两次独立执行互为佐证(04 §2026-07-06)。
+- `local_smoke_command`(evaluation-protocol 候选):venv(Python 3.12,CPU 最小依赖集,pip 版本全录工件 `env.packages`)+ 13 补丁后,调用形状 `PYTHONPATH=<ws>/RAGPerf/src python3 <ws>/RAGPerf/src/run_new.py --config <tiny lance_insert/query yaml> --msys-config <zero-meter monitor yaml>`;tiny 配置内容、补丁清单(文件/行号/变更)与偏差 10 项全录工件 JSON(`patches`/`deviations` 字段)。
+- 工件边界判定:`artifacts/lit-0204-ragperf-candidate-payload.json`(2026-06-04,带 `payload_hash`)保持不可变需求快照原样;本 md 为对账后现状载体,S1 工件 JSON 为证据引用——与仓内「artifacts 不可变、md 承载现状」惯例一致。
 
 ## Observed Protocol
 - Insert phase: `python3 src/run_new.py --config config/lance_insert.yaml --msys-config config/monitor/example_config.yaml`.
@@ -67,13 +74,14 @@
 | `gpu_memory_or_dram_bandwidth` | MSys GPUMeter protobuf output | `informational` |
 | `cpu_memory_disk_process_io` | MSys CPU/Mem/Disk/Proc meters | `informational` |
 
-## Gate Status
+## Gate Status(2026-07-08 对账后)
 - Duplicate check: `not_checked`; query the experiment-foundation registry before promotion.
 - Code policy: `clear` for Apache-2.0 repo license.
 - Dataset policy: `unknown`; review Hugging Face dataset policies before dataset promotion.
 - Risk: benchmark/protocol low, dataset medium.
-- Completeness: `needs_info`; no protocol hash, metric definition records, evaluator refs, dataset versions, checksum manifests, or smoke evidence yet.
-- Gate blockers: `duplicate_check_not_run`, `dataset_policy_unknown`, `protocol_hash_missing`, `metric_definition_records_missing`, `evaluator_records_missing`, `entrypoint_smoke_missing`, `dependency_file_reference_needs_resolution`, `example_configs_need_local_path_rewrite`, `gpu_model_dependencies_not_verified`.
+- Completeness: `needs_info`——smoke 证据已齐(adapter 档),仍缺 protocol hash、metric definition records、evaluator refs、dataset versions/checksum manifests。
+- Gate blockers(活跃): `duplicate_check_not_run`, `dataset_policy_unknown`, `protocol_hash_missing`, `metric_definition_records_missing`, `evaluator_records_missing`, `gpu_model_dependencies_not_verified`。
+- Gate blockers(已解除,S1 证据): ~~`entrypoint_smoke_missing`~~(adapter 档 pass,双独立执行)、~~`example_configs_need_local_path_rewrite`~~(tiny 配置改写方案已验证)、~~`dependency_file_reference_needs_resolution`~~ **部分解**(CPU 最小依赖集实证可装可跑;faithful 全依赖 vLLM/CUDA/libmsys 仍未验证,归 `gpu_model_dependencies_not_verified`)。
 
 ## Smoke Plan
 ### S0 Static Protocol Check
