@@ -225,21 +225,71 @@ export class LiteratureEvidenceActivationService {
   }
 
   async isEvidenceReady(literatureId: string): Promise<{ active: boolean; reason: string }> {
-    const [quality, pipelineState, embeddingVersions] = await Promise.all([
-      this.repository.findQualityAssessmentByLiteratureId(literatureId),
-      this.repository.findPipelineStateByLiteratureId(literatureId),
-      this.repository.listActiveEmbeddingVersionsByLiteratureIds([literatureId]),
+    const readiness = await this.resolveRetrievalReadiness([literatureId]);
+    const entry = readiness.get(literatureId);
+    return { active: entry?.ready ?? false, reason: entry?.reason ?? 'QUALITY_NOT_ACTIVE' };
+  }
+
+  // T-130 W-05 (D7): THE single source of truth for "retrieval-ready". ready = quality active +
+  // key content ready + an activated embedding version; freshness = 'stale' when the INDEXED
+  // stage state is STALE — every content-invalidation chain (citation/abstract/fulltext/dossier)
+  // marks INDEXED stale, so it is the union signal for "upstream content changed, artifacts not
+  // recomputed". Per D7, stale literature STAYS usable but the marker must travel with it
+  // (retrieval warnings, sampling audit, provenance).
+  async resolveRetrievalReadiness(literatureIds: string[]): Promise<Map<string, LiteratureRetrievalReadiness>> {
+    const uniqueIds = [...new Set(literatureIds)];
+    const readiness = new Map<string, LiteratureRetrievalReadiness>();
+    if (uniqueIds.length === 0) {
+      return readiness;
+    }
+    const [qualities, states, versions, stageStates] = await Promise.all([
+      this.repository.listQualityAssessmentsByLiteratureIds(uniqueIds),
+      this.repository.listPipelineStatesByLiteratureIds(uniqueIds),
+      this.repository.listActiveEmbeddingVersionsByLiteratureIds(uniqueIds),
+      this.repository.listPipelineStageStatesByLiteratureIds(uniqueIds),
     ]);
-    if (!this.isQualityActive(quality)) {
-      return { active: false, reason: 'QUALITY_NOT_ACTIVE' };
+    const qualityByLiterature = new Map(qualities.map((record) => [record.literatureId, record]));
+    const stateByLiterature = new Map(states.map((record) => [record.literatureId, record]));
+    const activeVersionIds = new Set(
+      versions
+        .filter((version) => version.status === 'ACTIVE' || Boolean(version.activatedAt))
+        .map((version) => version.literatureId),
+    );
+    const staleIndexedByLiterature = new Map(
+      stageStates
+        .filter((stage) => stage.stageCode === 'INDEXED' && stage.status === 'STALE')
+        .map((stage) => [stage.literatureId, stage]),
+    );
+
+    for (const literatureId of uniqueIds) {
+      let ready = true;
+      let reason = 'EVIDENCE_READY';
+      if (!this.isQualityActive(qualityByLiterature.get(literatureId) ?? null)) {
+        ready = false;
+        reason = 'QUALITY_NOT_ACTIVE';
+      } else if (!this.isPipelineReady(stateByLiterature.get(literatureId) ?? null)) {
+        ready = false;
+        reason = 'KEY_CONTENT_NOT_READY';
+      } else if (!activeVersionIds.has(literatureId)) {
+        ready = false;
+        reason = 'INDEX_NOT_ACTIVE';
+      }
+      const staleStage = staleIndexedByLiterature.get(literatureId) ?? null;
+      readiness.set(literatureId, {
+        ready,
+        reason,
+        freshness: staleStage ? 'stale' : 'fresh',
+        freshness_detail: staleStage
+          ? {
+            reason_code: typeof staleStage.detail.reason_code === 'string' ? staleStage.detail.reason_code : 'INDEX_STALE',
+            reason_message: typeof staleStage.detail.reason_message === 'string'
+              ? staleStage.detail.reason_message
+              : 'Active index is stale and may not reflect latest content.',
+          }
+          : null,
+      });
     }
-    if (!this.isPipelineReady(pipelineState)) {
-      return { active: false, reason: 'KEY_CONTENT_NOT_READY' };
-    }
-    if (!embeddingVersions.some((version) => version.status === 'ACTIVE' || Boolean(version.activatedAt))) {
-      return { active: false, reason: 'INDEX_NOT_ACTIVE' };
-    }
-    return { active: true, reason: 'EVIDENCE_READY' };
+    return readiness;
   }
 
   async resolveTopicEvidenceActiveLiteratureIds(topicId: string): Promise<Set<string>> {
@@ -309,27 +359,10 @@ export class LiteratureEvidenceActivationService {
     );
   }
 
+  // T-130 W-05: consumer of resolveRetrievalReadiness — kept for call-site compatibility.
   async filterEvidenceReadyLiteratureIds(literatureIds: string[]): Promise<Set<string>> {
-    const uniqueIds = [...new Set(literatureIds)];
-    if (uniqueIds.length === 0) {
-      return new Set();
-    }
-    const [qualities, states, versions] = await Promise.all([
-      this.repository.listQualityAssessmentsByLiteratureIds(uniqueIds),
-      this.repository.listPipelineStatesByLiteratureIds(uniqueIds),
-      this.repository.listActiveEmbeddingVersionsByLiteratureIds(uniqueIds),
-    ]);
-    const qualityByLiterature = new Map(qualities.map((record) => [record.literatureId, record]));
-    const stateByLiterature = new Map(states.map((record) => [record.literatureId, record]));
-    const activeVersionIds = new Set(
-      versions
-        .filter((version) => version.status === 'ACTIVE' || Boolean(version.activatedAt))
-        .map((version) => version.literatureId),
-    );
-    return new Set(uniqueIds.filter((literatureId) =>
-      this.isQualityActive(qualityByLiterature.get(literatureId) ?? null)
-      && this.isPipelineReady(stateByLiterature.get(literatureId) ?? null)
-      && activeVersionIds.has(literatureId)));
+    const readiness = await this.resolveRetrievalReadiness(literatureIds);
+    return new Set([...readiness.entries()].filter(([, entry]) => entry.ready).map(([id]) => id));
   }
 
   private isQualityActive(record: LiteratureQualityAssessmentRecord | null): boolean {
@@ -357,3 +390,11 @@ export class LiteratureEvidenceActivationService {
     return pairs;
   }
 }
+
+// T-130 W-05 (D7): single-source retrieval readiness with explicit freshness.
+export type LiteratureRetrievalReadiness = {
+  ready: boolean;
+  reason: string;
+  freshness: 'fresh' | 'stale';
+  freshness_detail: { reason_code: string; reason_message: string } | null;
+};

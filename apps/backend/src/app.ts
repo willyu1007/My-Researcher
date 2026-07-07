@@ -133,6 +133,7 @@ import { AutoPullService } from './services/auto-pull-service.js';
 import { ExperimentFoundationExecutionService } from './services/experiment-foundation-execution-service.js';
 import { ExperimentFoundationService } from './services/experiment-foundation-service.js';
 import { LiteratureAutoAdvanceService } from './services/literature-auto-advance-service.js';
+import { LiteratureEvidenceActivationService } from './services/literature-evidence-activation-service.js';
 import { LiteratureBackfillService } from './services/literature-backfill-service.js';
 import { LiteratureAcquisitionSettingsService } from './services/literature-acquisition-settings-service.js';
 import { LiteratureClusterService } from './services/literature-cluster-service.js';
@@ -492,11 +493,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     llmGateway,
     promptPacketCache: topicSelectionPromptPacketCacheService,
   });
+  const literatureEvidenceActivationService = new LiteratureEvidenceActivationService(literatureRepository);
   const topicSelectionResourceSamplingService = new TopicSelectionResourceSamplingService({
     repository: topicSelectionResourceSamplingRepository,
     literatureRepository,
     controlPlaneService: topicSelectionControlPlaneService,
     agentOrchestrator: topicSelectionResourceSamplingAgentOrchestratorService,
+    // T-130 W-05 (D7): sampled items carry the retrieval-freshness marker in the sampling audit.
+    retrievalReadinessResolver: (literatureIds) =>
+      literatureEvidenceActivationService.resolveRetrievalReadiness(literatureIds),
   });
   const topicSelectionResourceSamplingController = new TopicSelectionResourceSamplingController(
     topicSelectionResourceSamplingService,

@@ -513,24 +513,19 @@ export class LiteratureRetrievalService {
     literatureIds: string[],
     versions: LiteratureEmbeddingVersionRecord[],
   ): Promise<LiteratureRetrieveResponse['meta']['freshness_warnings']> {
-    const stageStates = await this.repository.listPipelineStageStatesByLiteratureIds(literatureIds);
-    const indexedStateByLiterature = new Map(
-      stageStates
-        .filter((stage) => stage.stageCode === 'INDEXED')
-        .map((stage) => [stage.literatureId, stage]),
-    );
+    // T-130 W-05 (D7): freshness comes from the single readiness source, not a local stage-state re-query.
+    const readiness = await this.evidenceActivationService.resolveRetrievalReadiness(literatureIds);
     return versions.flatMap((version) => {
-      const stage = indexedStateByLiterature.get(version.literatureId);
-      if (stage?.status !== 'STALE') {
+      const entry = readiness.get(version.literatureId);
+      if (entry?.freshness !== 'stale') {
         return [];
       }
       return [{
         literature_id: version.literatureId,
         embedding_version_id: version.id,
-        reason_code: typeof stage.detail.reason_code === 'string' ? stage.detail.reason_code : 'INDEX_STALE',
-        reason_message: typeof stage.detail.reason_message === 'string'
-          ? stage.detail.reason_message
-          : 'Active index is stale and may not reflect latest content.',
+        reason_code: entry.freshness_detail?.reason_code ?? 'INDEX_STALE',
+        reason_message: entry.freshness_detail?.reason_message
+          ?? 'Active index is stale and may not reflect latest content.',
       }];
     });
   }

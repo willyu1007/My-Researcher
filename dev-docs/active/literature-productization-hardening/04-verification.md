@@ -49,3 +49,14 @@
 - auto-pull 回归 + backend tsc + 全量套件:见下方补记。
 - Command: 全量 `node scripts/run-node-tests.mjs`
 - Result: passed — **1693 / 1658 pass / 0 fail / 35 skipped**(绿锚 1652+6 新测,零回归);auto-pull 回归 24/24;backend tsc 0。
+
+## 2026-07-08 W-05 验证
+- Command: `node --test --loader ts-node/esm src/services/literature-evidence-activation-service.unit.test.ts src/services/literature-retrieval-service.unit.test.ts src/services/topic-selection-resource-sampling-service.unit.test.ts`
+- Result: passed; **40/40**——新增 3 例:readiness 全矩阵(4 条判定链 reason + ready-stale 标记 + 未知 id + stale 不出局 + isEvidenceReady 委托一致)、采样 stale 标记(资格/选中零变化 + audit warning `STALE_EVIDENCE_SAMPLED` + guardrail_summary.retrieval_freshness 明细 + sample_set.warnings 不受染 + resolver 恰好收到选中 4 篇)、resolver 失败不炸采样(audit 记 checked:false + error_message)。检索 12/12 零改动(freshness_warnings 输出经单源后契约不变的回归证据)。
+- Command: `node --test --loader ts-node/esm src/routes/topic-selection-resource-sampling-routes.integration.test.ts`
+- Result: passed; 2/2(app.ts 注入 resolver 后路由面零回归)。
+- Command: `pnpm --filter @paper-engineering-assistant/backend typecheck`
+- Result: passed(0 error)。
+- 首跑教训:readiness 测试夹具初版只建 quality/pipeline/embedding 三件套即断言 EVIDENCE_READY——in-memory `listActiveEmbeddingVersionsByLiteratureIds` 经 `literature.activeEmbeddingVersionId` 指针取版本,须先 createLiterature 挂指针(与真库语义一致,修夹具不修实现)。
+- Command: 全量 `node scripts/run-node-tests.mjs`
+- Result: passed — **1696 / 1661 pass / 0 fail / 35 skipped**(绿锚 1658+3 新测,零回归)。

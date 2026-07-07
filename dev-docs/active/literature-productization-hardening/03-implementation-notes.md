@@ -43,3 +43,12 @@
 - **契约加法**:`LiteratureContentProcessingBackfillOptions.trigger?: 'manual'|'auto_advance'`(schema 同步,default manual)——job 记录携带 provenance 供日预算统计与 UI 区分。
 - **T-029 边界修订(正式)**:「collection 不触发 processing」→「collection 可经显式闸门**编排**处理任务(默认关)」;W-08 文献 SSOT 落表时载明。
 - **测试**:服务单测 6/6——disabled 空转、三档分流+not_new/unscored 计数、日预算(高档优先+昨日/manual job 不占额)、unscored=fulltext 路由、createJob 抛错不外溢。
+
+## 2026-07-08 W-05(P1):retrieval-ready 单一事实源 + STALE 传播(L-06,按 D7)
+- **单一事实源**:`LiteratureEvidenceActivationService.resolveRetrievalReadiness(ids) → Map<id, {ready, reason, freshness, freshness_detail}>` 成为"retrieval-ready"唯一计算点——判定链 QUALITY_NOT_ACTIVE → KEY_CONTENT_NOT_READY → INDEX_NOT_ACTIVE → EVIDENCE_READY;freshness 取 **INDEXED 阶段 STALE**(所有内容失效链——citation/abstract/raw_fulltext/dossier——最终都打 INDEXED stale,故它是"上游已变、工件未重算"的并集信号),detail 透传 stage.detail 的 reason_code/reason_message。`isEvidenceReady`(单条)与 `filterEvidenceReadyLiteratureIds`(过滤)均改为该函数的薄壳,消灭并行判定。
+- **D7 语义**:stale **不出局**——ready 与 freshness 正交,过滤器照常放行 stale 文献,仅标记随行。
+- **检索消费**:`literature-retrieval-service.resolveFreshnessWarnings` 弃自查 stage states,改读 readiness map(freshness_warnings 输出契约不变);evidence-ready 过滤经 filterEvidenceReadyLiteratureIds 已传递单源。
+- **选题采样消费**:`TopicSelectionResourceSamplingService` 新注入点 `retrievalReadinessResolver`(窄结构类型,选题域不 import 文献服务;app.ts 接线到 resolveRetrievalReadiness)。选中样本(selectedItems 去重)批量查询:stale 项落 audit `guardrail_summary.retrieval_freshness = {checked, checked_count, stale_count, stale[]}` 并追加 audit `warning_codes` `STALE_EVIDENCE_SAMPLED`;**sample_set.warnings 不动**(不引入行为闸,仅审计可见)。resolver 失败不炸采样——错误记入 retrieval_freshness `{checked:false, error_message}`。**资格规则零改动**:`eligibilityExclusionReason`(keyContentReady 等)保持原样。
+- **UI 三方之三(判定留痕,不改 DTO)**:文献 overview 已由 `buildPipelineStateDTO(record, stageStates)` 携带全部 7 阶段 per-stage 状态(含 STALE)直达 UI——UI 消费的是同一底层事实(stage states),粒度为单源函数的超集,无需再走 readiness 函数;等价关系:全 7 阶段 SUCCEEDED ⇔ ready && fresh。
+- **JD 判定**:采样服务改动为选题域节点体外围(构造注入 + audit 富化),不触 harness 壳/orchestrator 边界/debate-core;evidence-activation/retrieval 属文献域。无需 JD,留此判定。
+- **契约影响**:零 shared 契约变更——audit `guardrail_summary` 本为开放 `Record<string, unknown>`,`warning_codes` 为 string[]。

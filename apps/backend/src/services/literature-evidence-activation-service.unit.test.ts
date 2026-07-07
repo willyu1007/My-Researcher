@@ -144,6 +144,186 @@ test('evidence activation keeps medium-confidence eligible scopes out of active 
   assert.equal(readyIds.has('LIT-MEDIUM-1'), false);
 });
 
+test('resolveRetrievalReadiness is the single source: reason chain + INDEXED-STALE freshness marker', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureEvidenceActivationService(repository);
+  const now = new Date().toISOString();
+
+  const seedReady = async (literatureId: string) => {
+    await repository.createLiterature({
+      id: literatureId,
+      title: `Readiness fixture ${literatureId}`,
+      abstractText: null,
+      keyContentDigest: null,
+      authors: ['Tester'],
+      year: 2026,
+      doiNormalized: `10.1000/${literatureId.toLowerCase()}`,
+      arxivId: null,
+      normalizedTitle: `readiness fixture ${literatureId.toLowerCase()}`,
+      titleAuthorsYearHash: `hash-${literatureId}`,
+      rightsClass: 'OA',
+      tags: [],
+      activeEmbeddingVersionId: `ev-${literatureId}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await repository.upsertQualityAssessment({
+      id: `quality-${literatureId}`,
+      literatureId,
+      qualityStatus: 'high_confidence',
+      qualityScore: 90,
+      qualityComponents: { test_fixture: true },
+      blockerCodes: [],
+      source: 'test_fixture',
+      assessedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await repository.upsertPipelineState({
+      id: `pipeline-${literatureId}`,
+      literatureId,
+      citationComplete: true,
+      abstractReady: true,
+      keyContentReady: true,
+      dedupStatus: 'unique',
+      updatedAt: now,
+    });
+    await repository.createEmbeddingVersion({
+      id: `ev-${literatureId}`,
+      literatureId,
+      versionNo: 1,
+      status: 'ACTIVE',
+      profileId: 'default',
+      provider: 'openai',
+      model: 'text-embedding-3-large',
+      dimension: 3,
+      chunkCount: 1,
+      vectorCount: 1,
+      tokenCount: 4,
+      inputChecksum: 'input',
+      chunkArtifactChecksum: 'chunk',
+      embeddingArtifactChecksum: 'embedding',
+      indexArtifactChecksum: 'index',
+      indexedAt: now,
+      activatedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+  };
+
+  // Fully ready + fresh.
+  await seedReady('LIT-READY-FRESH');
+  // Fully ready but INDEXED marked STALE by a content-invalidation chain.
+  await seedReady('LIT-READY-STALE');
+  await repository.upsertPipelineStageState({
+    id: 'stage-lit-ready-stale',
+    literatureId: 'LIT-READY-STALE',
+    stageCode: 'INDEXED',
+    status: 'STALE',
+    lastRunId: null,
+    detail: { reason_code: 'CITATION_UPDATED', reason_message: 'Citation fields changed after indexing.' },
+    updatedAt: now,
+  });
+  // Quality gate fails first in the chain.
+  await repository.upsertQualityAssessment({
+    id: 'quality-LIT-QUALITY-BLOCKED',
+    literatureId: 'LIT-QUALITY-BLOCKED',
+    qualityStatus: 'medium_confidence',
+    qualityScore: 60,
+    qualityComponents: { test_fixture: true },
+    blockerCodes: [],
+    source: 'test_fixture',
+    assessedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  // Quality passes but key content is not ready.
+  await repository.upsertQualityAssessment({
+    id: 'quality-LIT-NO-KEY-CONTENT',
+    literatureId: 'LIT-NO-KEY-CONTENT',
+    qualityStatus: 'high_confidence',
+    qualityScore: 90,
+    qualityComponents: { test_fixture: true },
+    blockerCodes: [],
+    source: 'test_fixture',
+    assessedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repository.upsertPipelineState({
+    id: 'pipeline-LIT-NO-KEY-CONTENT',
+    literatureId: 'LIT-NO-KEY-CONTENT',
+    citationComplete: true,
+    abstractReady: true,
+    keyContentReady: false,
+    dedupStatus: 'unique',
+    updatedAt: now,
+  });
+  // Quality + key content pass but no activated embedding version.
+  await repository.upsertQualityAssessment({
+    id: 'quality-LIT-NO-INDEX',
+    literatureId: 'LIT-NO-INDEX',
+    qualityStatus: 'high_confidence',
+    qualityScore: 90,
+    qualityComponents: { test_fixture: true },
+    blockerCodes: [],
+    source: 'test_fixture',
+    assessedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repository.upsertPipelineState({
+    id: 'pipeline-LIT-NO-INDEX',
+    literatureId: 'LIT-NO-INDEX',
+    citationComplete: true,
+    abstractReady: true,
+    keyContentReady: true,
+    dedupStatus: 'unique',
+    updatedAt: now,
+  });
+
+  const readiness = await service.resolveRetrievalReadiness([
+    'LIT-READY-FRESH',
+    'LIT-READY-STALE',
+    'LIT-QUALITY-BLOCKED',
+    'LIT-NO-KEY-CONTENT',
+    'LIT-NO-INDEX',
+    'LIT-UNKNOWN',
+  ]);
+
+  assert.deepEqual(readiness.get('LIT-READY-FRESH'), {
+    ready: true,
+    reason: 'EVIDENCE_READY',
+    freshness: 'fresh',
+    freshness_detail: null,
+  });
+  assert.deepEqual(readiness.get('LIT-READY-STALE'), {
+    ready: true,
+    reason: 'EVIDENCE_READY',
+    freshness: 'stale',
+    freshness_detail: {
+      reason_code: 'CITATION_UPDATED',
+      reason_message: 'Citation fields changed after indexing.',
+    },
+  });
+  assert.equal(readiness.get('LIT-QUALITY-BLOCKED')?.reason, 'QUALITY_NOT_ACTIVE');
+  assert.equal(readiness.get('LIT-NO-KEY-CONTENT')?.reason, 'KEY_CONTENT_NOT_READY');
+  assert.equal(readiness.get('LIT-NO-INDEX')?.reason, 'INDEX_NOT_ACTIVE');
+  assert.equal(readiness.get('LIT-UNKNOWN')?.ready, false);
+
+  // Stale stays retrieval-ready (D7): the filter keeps it, only the marker travels.
+  const readyIds = await service.filterEvidenceReadyLiteratureIds([
+    'LIT-READY-FRESH',
+    'LIT-READY-STALE',
+    'LIT-QUALITY-BLOCKED',
+  ]);
+  assert.deepEqual([...readyIds].sort(), ['LIT-READY-FRESH', 'LIT-READY-STALE']);
+
+  // isEvidenceReady delegates to the same source.
+  assert.deepEqual(await service.isEvidenceReady('LIT-READY-STALE'), { active: true, reason: 'EVIDENCE_READY' });
+  assert.deepEqual(await service.isEvidenceReady('LIT-QUALITY-BLOCKED'), { active: false, reason: 'QUALITY_NOT_ACTIVE' });
+});
+
 test('evidence activation centralizes retrieval and automatic processing workset policies', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureEvidenceActivationService(repository);

@@ -381,6 +381,7 @@ function makeService(
     literature('lit_topic_drift', 'Wireless sensor routing', 'Wireless routing unrelated to RAG and fine-tuning.', ['drift']),
     literature('lit_lora_review', 'LoRA fine-tuning for RAG', 'LoRA fine-tuning adapter evidence for RAG workflows.', ['fine-tuning']),
   ],
+  extraOptions: Partial<ConstructorParameters<typeof TopicSelectionResourceSamplingService>[0]> = {},
 ) {
   const controlPlane = new TopicSelectionControlPlaneService(
     new InMemoryTopicSelectionControlPlaneRepository(),
@@ -397,6 +398,7 @@ function makeService(
     // Zero backoff in tests: failure-path tests would otherwise sleep the real 1.5s/3s
     // production backoff between retries (review finding — one gateway-failure test cost ~4.5s).
     classificationRetryPolicy: { backoffMs: () => 0 },
+    ...extraOptions,
   });
 }
 
@@ -473,6 +475,91 @@ test('resource sampling classifies roles, applies guardrails, and emits coverage
   assert.ok(result.sample_set.warnings.includes('FINE_TUNING_UNDERCOVERED'));
   assert.equal(result.audit.eligible_count, 6);
   assert.equal(result.audit.selected_count, 4);
+});
+
+test('resource sampling marks stale selected evidence in the audit without changing eligibility (T-130 W-05 D7)', async () => {
+  const resolvedIdBatches: string[][] = [];
+  const service = makeService(makeLlmOutput(), undefined, {
+    retrievalReadinessResolver: async (literatureIds) => {
+      resolvedIdBatches.push(literatureIds);
+      return new Map(literatureIds.map((literatureId) => [literatureId, {
+        freshness: literatureId === 'lit_poisoning_risk' ? 'stale' as const : 'fresh' as const,
+        freshness_detail: literatureId === 'lit_poisoning_risk'
+          ? { reason_code: 'CITATION_UPDATED', reason_message: 'Citation fields changed after indexing.' }
+          : null,
+      }]));
+    },
+  });
+
+  const result = await service.createResourceSampleSet({
+    topic_id: TOPIC_ID,
+    title_card_id: TITLE_CARD_ID,
+    sample_size: 4,
+    role_targets: {
+      support: 1,
+      challenge: 1,
+      baseline: 1,
+      context: 1,
+    },
+  });
+
+  // Eligibility and selection are untouched: stale evidence stays sampled.
+  assert.equal(result.selected_items.length, 4);
+  assert.equal(result.candidate_items.find((item) => item.literature_ref.ref_id === 'lit_poisoning_risk')?.selected, true);
+  // The marker travels through the audit, not the sample-set warnings (no behavior gate).
+  assert.ok(result.audit.warning_codes.includes('STALE_EVIDENCE_SAMPLED'));
+  assert.ok(!result.sample_set.warnings.includes('STALE_EVIDENCE_SAMPLED'));
+  const freshness = result.audit.guardrail_summary.retrieval_freshness as {
+    checked: boolean;
+    checked_count: number;
+    stale_count: number;
+    stale: Array<{ literature_id: string; reason_code: string; reason_message: string }>;
+  };
+  assert.equal(freshness.checked, true);
+  assert.equal(freshness.checked_count, 4);
+  assert.equal(freshness.stale_count, 1);
+  assert.deepEqual(freshness.stale, [{
+    literature_id: 'lit_poisoning_risk',
+    reason_code: 'CITATION_UPDATED',
+    reason_message: 'Citation fields changed after indexing.',
+  }]);
+  // Resolver is called once with exactly the selected literature ids.
+  assert.equal(resolvedIdBatches.length, 1);
+  assert.deepEqual([...resolvedIdBatches[0]!].sort(), [
+    'lit_benchmark',
+    'lit_foundation',
+    'lit_poisoning_risk',
+    'lit_rag_positive',
+  ]);
+});
+
+test('resource sampling survives a failing freshness resolver and records the failure in the audit', async () => {
+  const service = makeService(makeLlmOutput(), undefined, {
+    retrievalReadinessResolver: async () => {
+      throw new Error('readiness backend down');
+    },
+  });
+
+  const result = await service.createResourceSampleSet({
+    topic_id: TOPIC_ID,
+    title_card_id: TITLE_CARD_ID,
+    sample_size: 4,
+    role_targets: {
+      support: 1,
+      challenge: 1,
+      baseline: 1,
+      context: 1,
+    },
+  });
+
+  assert.equal(result.selected_items.length, 4);
+  assert.ok(!result.audit.warning_codes.includes('STALE_EVIDENCE_SAMPLED'));
+  const freshness = result.audit.guardrail_summary.retrieval_freshness as {
+    checked: boolean;
+    error_message?: string;
+  };
+  assert.equal(freshness.checked, false);
+  assert.equal(freshness.error_message, 'readiness backend down');
 });
 
 test('resource sampling routes provider batches through runtime audit and token budget gate', async () => {

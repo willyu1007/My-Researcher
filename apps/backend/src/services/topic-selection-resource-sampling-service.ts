@@ -94,6 +94,18 @@ type ServiceOptions = {
     maxRetriesPerBatch?: number;
     backoffMs?: (retryIndex: number) => number;
   };
+  /**
+   * T-130 W-05 (D7): stale evidence stays sampleable, but the freshness marker must travel with
+   * the sample. When wired (app.ts → LiteratureEvidenceActivationService.resolveRetrievalReadiness),
+   * selected items are checked and stale ones recorded in the sampling audit. Eligibility rules
+   * are NOT affected. Structural type keeps this service free of literature-service imports.
+   */
+  retrievalReadinessResolver?: (
+    literatureIds: string[],
+  ) => Promise<Map<string, {
+    freshness: 'fresh' | 'stale';
+    freshness_detail: { reason_code: string; reason_message: string } | null;
+  }>>;
 };
 
 type CandidateEligibilityStatus = 'eligible' | 'excluded';
@@ -446,6 +458,7 @@ export class TopicSelectionResourceSamplingService {
       created_by: createdBy,
       created_at: this.now(),
     };
+    const retrievalFreshness = await this.resolveSelectedRetrievalFreshness(assembly.selectedItems);
     const audit: TopicSelectionResourceSamplingAuditRecord = {
       resource_sampling_audit_id: auditId,
       sample_set_id: sampleSetId,
@@ -460,8 +473,12 @@ export class TopicSelectionResourceSamplingService {
       eligible_count: eligibleCandidates.length,
       selected_count: assembly.selectedItems.length,
       excluded_count: assembly.items.filter((item) => item.selected_role === 'excluded').length,
-      warning_codes: assembly.warnings,
-      guardrail_summary: assembly.guardrailSummary,
+      warning_codes: retrievalFreshness && retrievalFreshness.staleCount > 0
+        ? [...assembly.warnings, 'STALE_EVIDENCE_SAMPLED']
+        : assembly.warnings,
+      guardrail_summary: retrievalFreshness
+        ? { ...assembly.guardrailSummary, retrieval_freshness: retrievalFreshness.summary }
+        : assembly.guardrailSummary,
       artifact_refs: artifactRefs,
       llm_structured_output: classification.llmOutput as unknown as Record<string, unknown>,
       created_at: this.now(),
@@ -543,6 +560,46 @@ export class TopicSelectionResourceSamplingService {
       return 'SOURCE_MISSING';
     }
     return null;
+  }
+
+  // T-130 W-05 (D7): advisory marker only — a resolver failure must never fail sampling,
+  // so errors are recorded in the audit summary instead of thrown.
+  private async resolveSelectedRetrievalFreshness(
+    selectedItems: TopicSelectionResourceSampleItemRecord[],
+  ): Promise<{ staleCount: number; summary: Record<string, unknown> } | null> {
+    const resolver = this.options.retrievalReadinessResolver;
+    if (!resolver || selectedItems.length === 0) {
+      return null;
+    }
+    const literatureIds = [...new Set(selectedItems.map((item) => item.literature_ref.ref_id))];
+    try {
+      const readiness = await resolver(literatureIds);
+      const stale = literatureIds.flatMap((literatureId) => {
+        const entry = readiness.get(literatureId);
+        if (entry?.freshness !== 'stale') {
+          return [];
+        }
+        return [{
+          literature_id: literatureId,
+          reason_code: entry.freshness_detail?.reason_code ?? 'INDEX_STALE',
+          reason_message: entry.freshness_detail?.reason_message
+            ?? 'Active index is stale and may not reflect latest content.',
+        }];
+      });
+      return {
+        staleCount: stale.length,
+        summary: { checked: true, checked_count: literatureIds.length, stale_count: stale.length, stale },
+      };
+    } catch (error) {
+      return {
+        staleCount: 0,
+        summary: {
+          checked: false,
+          checked_count: literatureIds.length,
+          error_message: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
   }
 
   private async classifyCandidates(input: {

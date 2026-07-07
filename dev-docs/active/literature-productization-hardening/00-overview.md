@@ -57,7 +57,7 @@
 - [x] W-02:GROBID 调用有超时/有界重试/断路器;健康检查接入执行前置;部署约定成文。(**DONE 2026-07-07**:解析器单测 2→8 全错误路径覆盖、flow-service 22/22;compose+运行手册在案;03/04 §2026-07-07)
 - [x] W-03:ANN 索引落地或以实测数据证明当前规模无需(留痕);检索超时取消 DB 查询;关键参数入 settings。(**DONE 2026-07-07**:halfvec hnsw 落地,p50 771→103ms、overlap 99.8%、EXPLAIN 钉索引;statement_timeout 真取消+结构化码;参数 settings 化按 D6 拆解归 W-10——03/04 §2026-07-07)
 - [x] W-04:embedding cost_usd 真实计费;超限文献分批不整篇失败。(**DONE 2026-07-07**:input-only 计费+定价登记+遥测回退,gateway 回归钉 $0.13/1M;分批助手+顺序批跑+遥测聚合;25/25+22/22——03/04 §2026-07-07)
-- [ ] W-05:retrieval-ready 单一判定函数被 UI/检索/选题三方消费;STALE 传播至选题采样可见。
+- [x] W-05:retrieval-ready 单一判定函数被 UI/检索/选题三方消费;STALE 传播至选题采样可见。(**DONE 2026-07-08**:`resolveRetrievalReadiness` 单源(判定链+INDEXED-STALE freshness);检索 freshness_warnings 与 evidence-ready 过滤改读单源;选题采样注入 resolver,stale 落 audit `retrieval_freshness`+`STALE_EVIDENCE_SAMPLED`(资格零变化);UI 经 per-stage DTO 消费同一底层事实(判定留痕);40/40+2/2、全量 1696/1661/0/35——03/04 §2026-07-08)
 - [x] W-06:新入库文献按规则自动推进(质量门+成本闸+限流),关闭开关可退回手动。(**DONE 2026-07-08**:AUTO_ADVANCE backfill job 形态,75/55 分档+日预算+默认 OFF settings 开关;auto-pull run summary 可审计;服务 6/6、auto-pull 24/24、全量 1693/1658/0/35——03/04 §2026-07-08)
 - [ ] W-07:fulltext-acquisition 单测覆盖状态机核心路径;并发导入返回结构化 409。
 - [ ] W-08:文献阶段 SSOT + 一致性脚本进默认套件(含自测负例)。
