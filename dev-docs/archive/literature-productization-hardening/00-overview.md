@@ -1,7 +1,7 @@
 # 00 Overview
 
 ## Status
-- State: in-progress
+- State: archived(2026-07-08 收口——W-01..W-10 全部 DONE,全量套件绿锚 1716/1680/0/36)
 - Task ID: `T-130`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-009`
 - Trigger: 2026-07-07 文献管理域落地审查(四路并行:阶段清单/采集半边/内容检索半边/编排衔接,全记录 `06-productization-audit.md`)——结论「验收级成熟、生产级有洞」:主链路真实可跑(1540 条语料由其产出),但存在死锁级缺陷、外部依赖生产姿态缺失、遥测逻辑 bug 与一批定义不清。

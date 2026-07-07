@@ -2,8 +2,8 @@ version: 1
 task_id: T-130
 project: main
 slug: literature-productization-hardening
-status: in-progress
-updated: "2026-07-07"
+status: archived
+updated: "2026-07-08"
 keywords:
   - literature
   - pipeline

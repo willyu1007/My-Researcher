@@ -139,5 +139,5 @@ Project: `main`
 | T-127 topic-selection-backend-hardening-and-expansion | archived | F-001 | dev-docs/archive/topic-selection-backend-hardening-and-expansion |
 | T-128 topic-selection-product-readiness-closure | archived | F-001 | dev-docs/archive/topic-selection-product-readiness-closure |
 | T-129 topic-selection-calibration-release | planned | F-001 | dev-docs/active/topic-selection-calibration-release |
-| T-130 literature-productization-hardening | in-progress | F-000 | dev-docs/active/literature-productization-hardening |
+| T-130 literature-productization-hardening | archived | F-001 | dev-docs/archive/literature-productization-hardening |
 <!-- AUTO-GENERATED:END task-index -->
