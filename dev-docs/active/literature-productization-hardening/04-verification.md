@@ -69,3 +69,11 @@
 - Result: passed(0 error)。
 - Command: 全量 `node scripts/run-node-tests.mjs`
 - Result: passed — **1711 / 1675 pass / 0 fail / 36 skipped**(绿锚 1661+14 新测+1 门控 e2e skip,零回归)。
+
+## 2026-07-08 W-08 验证
+- Command: `node .ai/scripts/literature-pipeline-matrix-consistency.mjs`(+ `--self-test`)
+- Result: passed — check ok;自测负例 **7/7**(clean 零 issue、阶段乱序、flow-service 双写漂移、失效链丢 INDEXED、代码链未登记、状态词汇漂移、行缺格,均被抓获)。
+- Command: `node --test ... literature-pipeline-matrix-consistency.unit.test.ts`
+- Result: passed; 2/2(套件 wrapper)。backend tsc 0。
+- Command: 全量 `node scripts/run-node-tests.mjs`
+- Result: passed — **1713 / 1677 pass / 0 fail / 36 skipped**(绿锚 1675+2 wrapper,零回归)。
