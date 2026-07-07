@@ -144,6 +144,39 @@ test('evidence activation keeps medium-confidence eligible scopes out of active 
   assert.equal(readyIds.has('LIT-MEDIUM-1'), false);
 });
 
+test('indexed assessment is a processing_complete marker, not a quality endorsement (T-130 W-10 D10)', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureEvidenceActivationService(repository);
+  const now = new Date().toISOString();
+
+  // Missing assessment → needs_review marker (previously high_confidence/100).
+  const marker = await service.ensureIndexedAssessment('LIT-D10-UNSCORED');
+  assert.equal(marker.qualityStatus, 'needs_review');
+  assert.equal(marker.qualityScore, null);
+  assert.equal(marker.source, 'content_processing');
+  assert.equal(marker.qualityComponents.kind, 'processing_complete_marker');
+  // The marker does not make the literature quality-active.
+  assert.equal((await service.isEvidenceReady('LIT-D10-UNSCORED')).reason, 'QUALITY_NOT_ACTIVE');
+
+  // Existing low_confidence rows are no longer resurrected to high/100.
+  await repository.upsertQualityAssessment({
+    id: 'quality-LIT-D10-LOW',
+    literatureId: 'LIT-D10-LOW',
+    qualityStatus: 'low_confidence',
+    qualityScore: 30,
+    qualityComponents: { auto_pull_quality_score: 30 },
+    blockerCodes: [],
+    source: 'auto_pull',
+    assessedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const kept = await service.ensureIndexedAssessment('LIT-D10-LOW');
+  assert.equal(kept.qualityStatus, 'low_confidence');
+  assert.equal(kept.qualityScore, 30);
+  assert.equal(kept.source, 'auto_pull');
+});
+
 test('resolveRetrievalReadiness is the single source: reason chain + INDEXED-STALE freshness marker', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureEvidenceActivationService(repository);

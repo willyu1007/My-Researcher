@@ -307,3 +307,52 @@ test('literature content-processing settings checks GROBID health with isalive f
     globalThis.fetch = previousFetch;
   }
 });
+
+test('W-10 settings expose auto-advance and retrieval candidate window with defaults, clamps, and round-trip', async () => {
+  const service = new LiteratureContentProcessingSettingsService(new InMemoryApplicationSettingsRepository());
+
+  // Defaults mirror the pre-W-10 constants.
+  const initial = await service.getSettings();
+  assert.deepEqual(initial.auto_advance, {
+    enabled: false,
+    full_chain_min_score: 75,
+    fulltext_only_min_score: 55,
+    daily_literature_limit: 50,
+    max_parallel_literature_runs: 2,
+    advance_unscored: 'none',
+  });
+  assert.deepEqual(initial.retrieval, {
+    floor: 200,
+    unscoped_ceiling: 1200,
+    scoped_ceiling: 2000,
+    profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+    per_literature_cap_min: 4,
+    per_literature_cap_max: 12,
+    query_timeout_ms: 5000,
+  });
+  assert.equal(initial.fulltext_parser.grobid.timeout_ms, 120_000);
+
+  // Patch round-trip with clamping (daily limit above max clamps to 1000; timeout below min clamps to 500).
+  const updated = await service.updateSettings({
+    auto_advance: { enabled: true, daily_literature_limit: 5_000, advance_unscored: 'fulltext' },
+    retrieval: { query_timeout_ms: 100, profile_multipliers: { general: 16 } },
+    fulltext_parser: { grobid: { timeout_ms: 30_000 } },
+  });
+  assert.equal(updated.auto_advance.enabled, true);
+  assert.equal(updated.auto_advance.daily_literature_limit, 1_000);
+  assert.equal(updated.auto_advance.advance_unscored, 'fulltext');
+  assert.equal(updated.auto_advance.full_chain_min_score, 75);
+  assert.equal(updated.retrieval.query_timeout_ms, 500);
+  assert.equal(updated.retrieval.profile_multipliers.general, 16);
+  assert.equal(updated.retrieval.profile_multipliers.paper_management, 12);
+  assert.equal(updated.fulltext_parser.grobid.timeout_ms, 30_000);
+
+  // Runtime resolvers read the same rows (W-06 resolver + new W-10 resolvers stay in sync).
+  const autoAdvance = await service.resolveAutoAdvanceSettings();
+  assert.equal(autoAdvance.enabled, true);
+  assert.equal(autoAdvance.daily_literature_limit, 1_000);
+  const window = await service.resolveRetrievalCandidateWindowSettings();
+  assert.equal(window.query_timeout_ms, 500);
+  assert.equal(window.profile_multipliers.general, 16);
+  assert.equal(await service.resolveGrobidRequestTimeoutMs(), 30_000);
+});

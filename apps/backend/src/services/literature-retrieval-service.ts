@@ -183,7 +183,11 @@ export class LiteratureRetrievalService {
   ) {}
 
   async retrieve(request: LiteratureRetrieveRequest): Promise<LiteratureRetrieveResponse> {
-    const result = await this.retrieveFromPgvector(request, DEFAULT_PGVECTOR_CANDIDATE_WINDOW);
+    // T-130 W-10 (D6 tail): candidate window comes from settings when wired; defaults mirror
+    // the pre-W-10 constants so bare construction (and partial test stubs) keep the old behavior.
+    const candidateWindow = await this.settingsService?.resolveRetrievalCandidateWindowSettings?.()
+      ?? DEFAULT_PGVECTOR_CANDIDATE_WINDOW;
+    const result = await this.retrieveFromPgvector(request, candidateWindow);
     return result.response;
   }
 

@@ -123,18 +123,25 @@ export class LiteratureEvidenceActivationService {
     return upserted.record;
   }
 
+  // T-130 W-10 (D10): processing completion is NOT a quality endorsement. This no longer
+  // manufactures high_confidence/100 — a missing assessment gets a needs_review row with an
+  // explicit processing_complete marker, and existing rows (including low_confidence/excluded,
+  // which the old code resurrected to high/100) are never upgraded. Quality statuses now come
+  // only from auto_pull and human review; pre-D10 content_processing rows were grandfathered
+  // by migration (qualityComponents.grandfathered_pseudo_score) and stay retrieval-active.
   async ensureIndexedAssessment(literatureId: string): Promise<LiteratureQualityAssessmentRecord> {
     const existing = await this.repository.findQualityAssessmentByLiteratureId(literatureId);
-    if (existing && existing.qualityStatus !== 'low_confidence' && existing.qualityStatus !== 'excluded') {
+    if (existing) {
       return existing;
     }
     const now = new Date().toISOString();
     const upserted = await this.repository.upsertQualityAssessment({
-      id: existing?.id ?? crypto.randomUUID(),
+      id: crypto.randomUUID(),
       literatureId,
-      qualityStatus: 'high_confidence',
-      qualityScore: existing?.qualityScore ?? 100,
+      qualityStatus: 'needs_review',
+      qualityScore: null,
       qualityComponents: {
+        kind: 'processing_complete_marker',
         inferred_from: 'content_processing_indexed',
         indexed_ready: true,
         activation_threshold: LITERATURE_ACTIVATION_THRESHOLD,
@@ -142,7 +149,7 @@ export class LiteratureEvidenceActivationService {
       blockerCodes: [],
       source: 'content_processing',
       assessedAt: now,
-      createdAt: existing?.createdAt ?? now,
+      createdAt: now,
       updatedAt: now,
     });
     return upserted.record;

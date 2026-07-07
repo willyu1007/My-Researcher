@@ -1852,6 +1852,25 @@ test('literature workflow routes support import, topic scope, paper link sync an
   });
   assert.equal(removedPipelineRunsListRes.statusCode, 404);
 
+  // T-130 W-10 (D10): processing completion is no longer a quality endorsement — an unscored
+  // collection import stays 'eligible' after the full chain instead of auto-activating.
+  const processedScopeRes = await app.inject({
+    method: 'GET',
+    url: '/topics/TOPIC-INT-LIT-1/literature-scope',
+  });
+  assert.equal(processedScopeRes.statusCode, 200);
+  assert.equal(processedScopeRes.json().items[0]?.activation_status, 'eligible');
+
+  // Manual review is now the activation path for unscored imports.
+  const manualActivateRes = await app.inject({
+    method: 'PATCH',
+    url: '/topics/TOPIC-INT-LIT-1/literature-activation',
+    payload: {
+      actions: [{ literature_id: literatureId, activation_status: 'active', reason: 'MANUAL_REVIEW_OK' }],
+    },
+  });
+  assert.equal(manualActivateRes.statusCode, 200);
+
   const activatedScopeRes = await app.inject({
     method: 'GET',
     url: '/topics/TOPIC-INT-LIT-1/literature-scope',

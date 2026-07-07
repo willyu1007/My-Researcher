@@ -495,7 +495,30 @@ export interface LiteratureContentProcessingStorageRootsDTO {
 export interface LiteratureFulltextParserSettingsDTO {
   grobid: {
     endpoint_url: string;
+    /** T-130 W-10: GROBID request timeout; env LITERATURE_GROBID_TIMEOUT_MS still wins as ops override. */
+    timeout_ms: number;
   };
+}
+
+// T-130 W-10: aggregated settings faces for the auto-advance gate (D8) and the pgvector
+// retrieval candidate window (D6) — previously a lightweight settings row / hardcoded const.
+export interface LiteratureAutoAdvanceSettingsDTO {
+  enabled: boolean;
+  full_chain_min_score: number;
+  fulltext_only_min_score: number;
+  daily_literature_limit: number;
+  max_parallel_literature_runs: number;
+  advance_unscored: 'none' | 'fulltext' | 'full';
+}
+
+export interface LiteratureRetrievalCandidateWindowSettingsDTO {
+  floor: number;
+  unscoped_ceiling: number;
+  scoped_ceiling: number;
+  profile_multipliers: Record<LiteratureRetrieveProfileId, number>;
+  per_literature_cap_min: number;
+  per_literature_cap_max: number;
+  query_timeout_ms: number;
 }
 
 export interface LiteratureContentProcessingSettingsDTO {
@@ -505,6 +528,8 @@ export interface LiteratureContentProcessingSettingsDTO {
   storage_roots: LiteratureContentProcessingStorageRootsDTO;
   effective_storage_roots: LiteratureContentProcessingStorageRootsDTO;
   fulltext_parser: LiteratureFulltextParserSettingsDTO;
+  auto_advance: LiteratureAutoAdvanceSettingsDTO;
+  retrieval: LiteratureRetrievalCandidateWindowSettingsDTO;
   updated_at: string;
 }
 
@@ -591,7 +616,16 @@ export interface UpdateLiteratureContentProcessingSettingsRequest {
     };
   };
   storage_roots?: Partial<LiteratureContentProcessingStorageRootsDTO>;
-  fulltext_parser?: Partial<LiteratureFulltextParserSettingsDTO>;
+  fulltext_parser?: {
+    grobid?: {
+      endpoint_url?: string;
+      timeout_ms?: number;
+    };
+  };
+  auto_advance?: Partial<LiteratureAutoAdvanceSettingsDTO>;
+  retrieval?: Partial<Omit<LiteratureRetrievalCandidateWindowSettingsDTO, 'profile_multipliers'>> & {
+    profile_multipliers?: Partial<Record<LiteratureRetrieveProfileId, number>>;
+  };
 }
 
 export interface UpdateLiteratureAcquisitionSettingsRequest {
@@ -1871,9 +1905,44 @@ const literatureFulltextParserSettingsSchema = {
       type: 'object',
       properties: {
         endpoint_url: { type: 'string', minLength: 1 },
+        timeout_ms: { type: 'integer', minimum: 1_000, maximum: 600_000 },
       },
       additionalProperties: false,
     },
+  },
+  additionalProperties: false,
+} as const;
+
+const literatureAutoAdvanceSettingsSchema = {
+  type: 'object',
+  properties: {
+    enabled: { type: 'boolean' },
+    full_chain_min_score: { type: 'integer', minimum: 0, maximum: 100 },
+    fulltext_only_min_score: { type: 'integer', minimum: 0, maximum: 100 },
+    daily_literature_limit: { type: 'integer', minimum: 1, maximum: 1_000 },
+    max_parallel_literature_runs: { type: 'integer', minimum: 1, maximum: 4 },
+    advance_unscored: { type: 'string', enum: ['none', 'fulltext', 'full'] },
+  },
+  additionalProperties: false,
+} as const;
+
+const literatureRetrievalCandidateWindowSettingsSchema = {
+  type: 'object',
+  properties: {
+    floor: { type: 'integer', minimum: 50, maximum: 5_000 },
+    unscoped_ceiling: { type: 'integer', minimum: 100, maximum: 20_000 },
+    scoped_ceiling: { type: 'integer', minimum: 100, maximum: 20_000 },
+    profile_multipliers: {
+      type: 'object',
+      properties: Object.fromEntries(LITERATURE_RETRIEVE_PROFILE_IDS.map((profileId) => [
+        profileId,
+        { type: 'integer', minimum: 1, maximum: 64 },
+      ])),
+      additionalProperties: false,
+    },
+    per_literature_cap_min: { type: 'integer', minimum: 1, maximum: 64 },
+    per_literature_cap_max: { type: 'integer', minimum: 1, maximum: 64 },
+    query_timeout_ms: { type: 'integer', minimum: 500, maximum: 120_000 },
   },
   additionalProperties: false,
 } as const;
@@ -1939,6 +2008,8 @@ export const updateLiteratureContentProcessingSettingsRequestSchema = {
       additionalProperties: false,
     },
     fulltext_parser: literatureFulltextParserSettingsSchema,
+    auto_advance: literatureAutoAdvanceSettingsSchema,
+    retrieval: literatureRetrievalCandidateWindowSettingsSchema,
   },
   additionalProperties: false,
   anyOf: [
@@ -1947,6 +2018,8 @@ export const updateLiteratureContentProcessingSettingsRequestSchema = {
     { required: ['extraction'] },
     { required: ['storage_roots'] },
     { required: ['fulltext_parser'] },
+    { required: ['auto_advance'] },
+    { required: ['retrieval'] },
   ],
 } as const;
 

@@ -11,6 +11,8 @@ import type {
   LiteratureExtractionProfileDTO,
   LiteratureExtractionProfileId,
   LiteratureKeyContentReadyMethod,
+  LiteratureRetrievalCandidateWindowSettingsDTO,
+  LiteratureRetrieveProfileId,
   UpdateLiteratureContentProcessingSettingsRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import { AppError } from '../errors/app-error.js';
@@ -27,6 +29,8 @@ const STORAGE_ROOTS_KEY = 'storage_roots';
 const FULLTEXT_PARSER_KEY = 'fulltext_parser';
 const AUTO_ADVANCE_KEY = 'auto_advance';
 const DEFAULT_GROBID_ENDPOINT_URL = 'http://localhost:8070';
+const DEFAULT_GROBID_TIMEOUT_MS = 120_000;
+const RETRIEVAL_KEY = 'retrieval_candidate_window';
 export const PAPER_ENGINEER_LOCAL_DATA_ROOT_ENV = 'PAPER_ENGINEER_LOCAL_DATA_ROOT';
 export const LITERATURE_CONTENT_PROCESSING_ROOT_ENV = 'LITERATURE_CONTENT_PROCESSING_ROOT';
 export const LITERATURE_KEY_CONTENT_READY_METHOD_ENV = 'LITERATURE_KEY_CONTENT_READY_METHOD';
@@ -131,13 +135,15 @@ export class LiteratureContentProcessingSettingsService {
   constructor(private readonly repository: ApplicationSettingsRepository) {}
 
   async getSettings(): Promise<LiteratureContentProcessingSettingsDTO> {
-    const [providerOpenAI, providerDashScope, embedding, extraction, storageRoots, fulltextParser] = await Promise.all([
+    const [providerOpenAI, providerDashScope, embedding, extraction, storageRoots, fulltextParser, autoAdvance, retrieval] = await Promise.all([
       this.repository.findSetting(SETTINGS_NAMESPACE, PROVIDER_OPENAI_KEY),
       this.repository.findSetting(SETTINGS_NAMESPACE, PROVIDER_DASHSCOPE_KEY),
       this.repository.findSetting(SETTINGS_NAMESPACE, EMBEDDING_KEY),
       this.repository.findSetting(SETTINGS_NAMESPACE, EXTRACTION_KEY),
       this.repository.findSetting(SETTINGS_NAMESPACE, STORAGE_ROOTS_KEY),
       this.repository.findSetting(SETTINGS_NAMESPACE, FULLTEXT_PARSER_KEY),
+      this.repository.findSetting(SETTINGS_NAMESPACE, AUTO_ADVANCE_KEY),
+      this.repository.findSetting(SETTINGS_NAMESPACE, RETRIEVAL_KEY),
     ]);
 
     const embeddingSettings = this.readEmbeddingSettings(embedding?.value);
@@ -151,6 +157,8 @@ export class LiteratureContentProcessingSettingsService {
       extraction?.updatedAt,
       storageRoots?.updatedAt,
       fulltextParser?.updatedAt,
+      autoAdvance?.updatedAt,
+      retrieval?.updatedAt,
     ]
       .filter((value): value is string => typeof value === 'string')
       .sort()
@@ -174,6 +182,8 @@ export class LiteratureContentProcessingSettingsService {
       storage_roots: storageRootSettings,
       effective_storage_roots: this.resolveEffectiveStorageRoots(storageRootSettings),
       fulltext_parser: fulltextParserSettings,
+      auto_advance: this.readAutoAdvanceSettings(autoAdvance?.value),
+      retrieval: this.readRetrievalCandidateWindowSettings(retrieval?.value),
       updated_at: updatedAt,
     };
   }
@@ -212,6 +222,14 @@ export class LiteratureContentProcessingSettingsService {
       await this.updateFulltextParserSettings(patch.fulltext_parser, now);
     }
 
+    if (patch.auto_advance) {
+      await this.updateAutoAdvanceSettings(patch.auto_advance, now);
+    }
+
+    if (patch.retrieval) {
+      await this.updateRetrievalCandidateWindowSettings(patch.retrieval, now);
+    }
+
     return this.getSettings();
   }
 
@@ -234,12 +252,15 @@ export class LiteratureContentProcessingSettingsService {
     return settings.fulltext_parser.grobid.endpoint_url;
   }
 
-  // T-130 W-06 (D8): import auto-advance gate. Lightweight settings-row resolver for now — the
-  // aggregated DTO / update-route face lands with the unified W-10 configuration pass. Toggling
-  // is a settings-store write (no deploy), which satisfies D8's runtime kill-switch requirement.
+  // T-130 W-06 (D8) + W-10: import auto-advance gate — now also exposed on the aggregated
+  // settings DTO / PATCH route; this resolver stays as the runtime read path.
   async resolveAutoAdvanceSettings(): Promise<LiteratureAutoAdvanceRuntimeSettings> {
     const record = await this.repository.findSetting(SETTINGS_NAMESPACE, AUTO_ADVANCE_KEY);
-    const value = (record?.value ?? {}) as Record<string, unknown>;
+    return this.readAutoAdvanceSettings(record?.value);
+  }
+
+  private readAutoAdvanceSettings(rawValue: Record<string, unknown> | undefined): LiteratureAutoAdvanceRuntimeSettings {
+    const value = rawValue ?? {};
     const readNumber = (key: string, fallback: number, min: number, max: number): number => {
       const raw = Number(value[key]);
       return Number.isFinite(raw) ? Math.min(max, Math.max(min, Math.trunc(raw))) : fallback;
@@ -254,6 +275,97 @@ export class LiteratureContentProcessingSettingsService {
       max_parallel_literature_runs: readNumber('max_parallel_literature_runs', 2, 1, 4),
       advance_unscored: advanceUnscored,
     };
+  }
+
+  private async updateAutoAdvanceSettings(
+    patch: NonNullable<UpdateLiteratureContentProcessingSettingsRequest['auto_advance']>,
+    now: string,
+  ): Promise<void> {
+    const existing = await this.repository.findSetting(SETTINGS_NAMESPACE, AUTO_ADVANCE_KEY);
+    const current = this.readAutoAdvanceSettings(existing?.value);
+    const next = this.readAutoAdvanceSettings({ ...current, ...patch } as Record<string, unknown>);
+    await this.repository.upsertSetting({
+      id: existing?.id ?? crypto.randomUUID(),
+      namespace: SETTINGS_NAMESPACE,
+      key: AUTO_ADVANCE_KEY,
+      value: { ...next },
+      secretValue: existing?.secretValue ?? null,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
+  }
+
+  // T-130 W-10 (D6 tail): pgvector retrieval candidate window — single settings-backed source,
+  // consumed by LiteratureRetrievalService.retrieve(); defaults mirror the pre-W-10 constants.
+  async resolveRetrievalCandidateWindowSettings(): Promise<LiteratureRetrievalCandidateWindowSettingsDTO> {
+    const record = await this.repository.findSetting(SETTINGS_NAMESPACE, RETRIEVAL_KEY);
+    return this.readRetrievalCandidateWindowSettings(record?.value);
+  }
+
+  private readRetrievalCandidateWindowSettings(
+    rawValue: Record<string, unknown> | undefined,
+  ): LiteratureRetrievalCandidateWindowSettingsDTO {
+    const value = rawValue ?? {};
+    const readNumber = (key: string, fallback: number, min: number, max: number): number => {
+      const raw = Number(value[key]);
+      return Number.isFinite(raw) ? Math.min(max, Math.max(min, Math.trunc(raw))) : fallback;
+    };
+    const rawMultipliers = value.profile_multipliers && typeof value.profile_multipliers === 'object' && !Array.isArray(value.profile_multipliers)
+      ? value.profile_multipliers as Record<string, unknown>
+      : {};
+    const defaultMultipliers: Record<LiteratureRetrieveProfileId, number> = {
+      general: 8,
+      topic_exploration: 10,
+      writing_evidence: 10,
+      paper_management: 12,
+    };
+    const profileMultipliers = Object.fromEntries(
+      (Object.keys(defaultMultipliers) as LiteratureRetrieveProfileId[]).map((profileId) => {
+        const raw = Number(rawMultipliers[profileId]);
+        const fallback = defaultMultipliers[profileId];
+        return [profileId, Number.isFinite(raw) ? Math.min(64, Math.max(1, Math.trunc(raw))) : fallback];
+      }),
+    ) as Record<LiteratureRetrieveProfileId, number>;
+    const capMin = readNumber('per_literature_cap_min', 4, 1, 64);
+    return {
+      floor: readNumber('floor', 200, 50, 5_000),
+      unscoped_ceiling: readNumber('unscoped_ceiling', 1_200, 100, 20_000),
+      scoped_ceiling: readNumber('scoped_ceiling', 2_000, 100, 20_000),
+      profile_multipliers: profileMultipliers,
+      per_literature_cap_min: capMin,
+      per_literature_cap_max: Math.max(capMin, readNumber('per_literature_cap_max', 12, 1, 64)),
+      query_timeout_ms: readNumber('query_timeout_ms', 5_000, 500, 120_000),
+    };
+  }
+
+  private async updateRetrievalCandidateWindowSettings(
+    patch: NonNullable<UpdateLiteratureContentProcessingSettingsRequest['retrieval']>,
+    now: string,
+  ): Promise<void> {
+    const existing = await this.repository.findSetting(SETTINGS_NAMESPACE, RETRIEVAL_KEY);
+    const current = this.readRetrievalCandidateWindowSettings(existing?.value);
+    const merged = {
+      ...current,
+      ...patch,
+      profile_multipliers: { ...current.profile_multipliers, ...(patch.profile_multipliers ?? {}) },
+    };
+    const next = this.readRetrievalCandidateWindowSettings(merged as unknown as Record<string, unknown>);
+    await this.repository.upsertSetting({
+      id: existing?.id ?? crypto.randomUUID(),
+      namespace: SETTINGS_NAMESPACE,
+      key: RETRIEVAL_KEY,
+      value: { ...next },
+      secretValue: existing?.secretValue ?? null,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
+  }
+
+  // T-130 W-10 (W-02 tail): GROBID request timeout from settings; env stays as ops override
+  // (checked by the parser before calling this).
+  async resolveGrobidRequestTimeoutMs(): Promise<number> {
+    const record = await this.repository.findSetting(SETTINGS_NAMESPACE, FULLTEXT_PARSER_KEY);
+    return this.readFulltextParserSettings(record?.value).grobid.timeout_ms;
   }
 
   async checkFulltextParserHealth(): Promise<LiteratureFulltextParserHealthDTO> {
@@ -564,6 +676,9 @@ export class LiteratureContentProcessingSettingsService {
         endpoint_url: patch.grobid?.endpoint_url === undefined
           ? current.grobid.endpoint_url
           : this.normalizeEndpointUrl(patch.grobid.endpoint_url, 'fulltext_parser.grobid.endpoint_url'),
+        timeout_ms: patch.grobid?.timeout_ms === undefined
+          ? current.grobid.timeout_ms
+          : Math.min(600_000, Math.max(1_000, Math.trunc(patch.grobid.timeout_ms))),
       },
     };
 
@@ -621,9 +736,13 @@ export class LiteratureContentProcessingSettingsService {
     const grobid = value?.grobid && typeof value.grobid === 'object' && !Array.isArray(value.grobid)
       ? value.grobid as Record<string, unknown>
       : {};
+    const rawTimeout = Number(grobid.timeout_ms);
     return {
       grobid: {
         endpoint_url: this.readString(grobid.endpoint_url) ?? DEFAULT_GROBID_ENDPOINT_URL,
+        timeout_ms: Number.isFinite(rawTimeout)
+          ? Math.min(600_000, Math.max(1_000, Math.trunc(rawTimeout)))
+          : DEFAULT_GROBID_TIMEOUT_MS,
       },
     };
   }

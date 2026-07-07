@@ -38,3 +38,11 @@
 ## D9 W-09 死资产处置(用户拍板 2026-07-08)
 - **Discovery 死表**:`LiteratureDiscoveryBatch/Candidate` 删表+migration——前置 dry-run 留痕(全仓消费方复核为零 + 行数据确认仅历史导入痕迹),migration 注释载明审查证据锚(06 §1 不一致①)。
 - **Token index**:`LiteratureEmbeddingTokenIndex` **停写+废弃**——激活路径(`activateLatestReadyEmbeddingVersion` → `replaceEmbeddingTokenIndexes`)停止写入(省 232 万行维护与事务开销),schema 注释标 deprecated,观察一版后另行删表;不接线(检索实时重分词已足用且更灵活)。
+
+## D10 W-10 质量改语义的存量处置 = 分级过渡(用户拍板 2026-07-08)
+- **实测硬约束**:真库 1539/1540 条 retrieval-ready 文献的质量评估全部为 `content_processing` 硬编码 100 分兜底(auto-pull/人工来源合计仅 1 条 + 55 条 needs_review)。严格执行 D8「不吃伪高分」= 语料几乎全部退出检索,不可接受。
+- **裁决**:分级过渡——
+  - **新写入**:`ensureIndexedAssessment` 不再制造 `high_confidence`/100:缺评估时写 `needs_review` + `processing_complete` 标记组件(处理完成≠质量背书);低分/排除行**不再复活升格**(原逻辑会把 low_confidence/excluded 拉回 high 100,一并封死)。
+  - **存量**:一次性 data migration 给 1539 条 content_processing 行的 qualityComponents 打 `grandfathered_pseudo_score: true` 标记,qualityStatus 保持 high_confidence——语料零中断,账面可见"这是过渡期祖父条款",后续由真实打分/人工复核逐步替换。
+  - **evidence-ready 判定不改**:仍按 qualityStatus 驱动(新写入天然不吃伪高分;存量凭祖父标记继续 active)。
+  - 真实内容打分记 backlog(D8 原文不变)。

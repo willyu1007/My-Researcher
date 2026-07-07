@@ -125,7 +125,7 @@ export class LiteratureGrobidFulltextParser {
     body.append('generateIDs', '1');
     body.append('includeRawCitations', '1');
 
-    const timeoutMs = this.requestTimeoutMs();
+    const timeoutMs = await this.requestTimeoutMs();
     const maxAttempts = 1 + GROBID_MAX_RETRIES;
     let response: Response | null = null;
     let lastFailure: { failureClass: 'timeout' | 'connection' | 'http_503'; message: string } | null = null;
@@ -233,9 +233,14 @@ export class LiteratureGrobidFulltextParser {
     };
   }
 
-  private requestTimeoutMs(): number {
+  // T-130 W-10: settings-backed timeout; the env var stays as an ops override that wins when set.
+  private async requestTimeoutMs(): Promise<number> {
     const raw = Number(process.env[GROBID_TIMEOUT_ENV]);
-    return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_GROBID_REQUEST_TIMEOUT_MS;
+    if (Number.isFinite(raw) && raw > 0) {
+      return raw;
+    }
+    const fromSettings = await this.settingsService?.resolveGrobidRequestTimeoutMs?.();
+    return fromSettings ?? DEFAULT_GROBID_REQUEST_TIMEOUT_MS;
   }
 
   private isTimeoutError(error: unknown): boolean {

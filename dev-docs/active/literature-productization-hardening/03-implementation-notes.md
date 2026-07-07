@@ -76,3 +76,14 @@
 - **⑤citation 失效链意图注释(L-15-6,做)**:两处调用点(元数据编辑/collection 导入)补"为何跳过 ABSTRACT_READY/FULLTEXT_PREPROCESSED"注释(可信摘要独立信任决策、fulltext 派生自 raw 资产,均不依赖引文身份);集合钉由 W-08 矩阵脚本承担。
 - **⑥文档漂移(L-16,做)**:③引用分裂——ingestion 00-overview「boundary from T-041」改指 T-029(含 T-130 修订)+矩阵 SSOT;codex_curated 半自动回填语义与 parser 评分权重硬编码注记落矩阵(W-10 收 settings 时更新)。
 - **⑦defer 留痕(不做,已登记)**:(a)`shadow_pgvector` 子状态引用仅存于 dev-docs/archive(历史留痕本体),判定无需改;(b)KEY_CONTENT_READY BLOCKED 无超时/告警托底(L-15-3)——矩阵备注列已载明缺口,处置归 W-10 之后(告警/超时属运维托底面);(c)历史 pipeline run 无清理(L-15-8b)——现 cleanupDryRun 只盖 embedding versions,run 记录清理为新 API 面,defer(W-10 后独立小切片或并入运维面),不静默。
+## 2026-07-08 W-10(P2):质量评估改语义 + 统一配置面(L-11+L-17,按 D10)——收敛全部"归 W-10"尾巴
+- **①质量改语义(L-11,按 D10 分级过渡)**:
+  - `ensureIndexedAssessment` 不再制造 high_confidence/100:缺评估 → `needs_review` + `processing_complete_marker` 组件(处理完成≠质量背书,不计入 quality-active);已有评估(含 low_confidence/excluded)**一律不升格**——原"复活升格到 high/100"路径一并封死。
+  - 存量分级:migration `20260708150000_grandfather_content_processing_quality_rows` 给 1539 条 content_processing high_confidence 行打 `grandfathered_pseudo_score` 组件标记(status 不动,语料零中断);migration 注释载明 1539/1540 实测依据。执行后验证 grandfathered=1539。
+  - evidence-ready 判定不改(status 驱动);真实内容打分记 backlog(D8 原文)。钉测:marker 语义 + 不复活 + marker 不使 quality-active。
+- **②统一配置面(L-17+各 W 尾巴)**:settings DTO/PATCH 面新增两组、扩一组——
+  - `auto_advance`(D8 尾巴):入聚合 DTO + PATCH(schema 校验),resolveAutoAdvanceSettings 改共用 reader,运行时读数与 DTO 单源。
+  - `retrieval`(D6 尾巴):候选窗全参数(floor/双 ceiling/profile_multipliers/per-literature cap/query_timeout_ms)入 settings,`resolveRetrievalCandidateWindowSettings` 供 `retrieve()` 消费(未接线/部分桩回退原常量,可选链防炸——首跑 11 红教训:测试桩是 partial stub);defaults=原常量,clamp 后写回。
+  - `fulltext_parser.grobid.timeout_ms`(W-02 尾巴):入 settings(默认 120s,1s–600s clamp);parser 读取顺序 env(ops override)> settings > 默认。
+- **③defer/判定留痕(L-17 余项,不静默)**:(a)orphan stale 阈值 15min 保持常量——单实例部署假设下无调参需求,多实例化时再入 settings(W-01 注记闭环);(b)`ef_search`/`iterative_scan` 保持 store 内随 candidateLimit 派生——派生比固定旋钮更安全,候选窗已可配即间接可调;(c)聚类/质量阈值、chunk 截断——无产品化调参场景,defer(避免为配置而配置);(d)调度器单实例假设——02 D-W01 节已载明,auto-pull scheduler 与 orchestrator 同假设,多实例部署前须先解决跨进程互斥(advisory lock 已备)。
+- **JD 判定**:全程文献域 settings/服务面,不触 harness 本体;无需 JD,留此判定。

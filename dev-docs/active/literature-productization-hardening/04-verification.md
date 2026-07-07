@@ -89,3 +89,17 @@
 - backend + shared typecheck:0 error。
 - Command: 全量 `node scripts/run-node-tests.mjs`
 - Result: passed — **1714 / 1678 pass / 0 fail / 36 skipped**(绿锚 1677+1 skip 区分钉测,零回归)。
+
+## 2026-07-08 W-10 验证
+- 存量测量(裁决依据):真库 groupBy source×status——content_processing/high_confidence **1539**、manual_visual_curation/high 1、semantic_quality_treatment_v1/needs_review 55 → 严格执行将清空检索语料,用户拍板分级过渡(D10)。
+- Migration `20260708150000_grandfather_content_processing_quality_rows` deploy 成功;执行后 grandfathered 计数 = **1539**(与测量一致)。
+- Command: `node --test ... literature-evidence-activation-service.unit.test.ts`
+- Result: passed; **6/6**(新 D10 钉测:marker 语义/不复活升格/marker 不计 quality-active)。
+- Command: `node --test ... literature-content-processing-settings-service.unit.test.ts`
+- Result: passed; **11/11**(新增 W-10 配置面测试:auto_advance+retrieval+grobid timeout 默认值/clamp/PATCH 往返/双 resolver 同源)。
+- Command: `node --test ... literature-retrieval-service.unit.test.ts + grobid parser`
+- Result: passed; **20/20**(首跑 11 红教训:retrieve() 对 settingsService 需可选链——测试桩为 partial stub,无新 resolver 方法;改 `?.()` 回退默认后全绿)。
+- 整合语义更新:research-lifecycle 路由整合测试——无分导入走完全链后 scope 停 `eligible`(不再自动 active),经 `PATCH /topics/:id/literature-activation` 人工复核后 `active`(D10 新激活路径覆盖)。
+- backend + shared typecheck:0 error。
+- Command: 全量 `node scripts/run-node-tests.mjs`
+- Result: passed — **1716 / 1680 pass / 0 fail / 36 skipped**(绿锚 1678+2 新测,零回归;整合测试语义按 D10 更新后全绿)。
