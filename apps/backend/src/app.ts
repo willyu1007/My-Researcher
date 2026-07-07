@@ -132,6 +132,7 @@ import { AutoPullScheduler } from './services/auto-pull-scheduler.js';
 import { AutoPullService } from './services/auto-pull-service.js';
 import { ExperimentFoundationExecutionService } from './services/experiment-foundation-execution-service.js';
 import { ExperimentFoundationService } from './services/experiment-foundation-service.js';
+import { LiteratureAutoAdvanceService } from './services/literature-auto-advance-service.js';
 import { LiteratureBackfillService } from './services/literature-backfill-service.js';
 import { LiteratureAcquisitionSettingsService } from './services/literature-acquisition-settings-service.js';
 import { LiteratureClusterService } from './services/literature-cluster-service.js';
@@ -896,13 +897,24 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     },
   );
   const literatureClusterService = new LiteratureClusterService(literatureRepository);
-  const literatureController = new LiteratureController(literatureService, literatureClusterService);
   const literatureBackfillService = new LiteratureBackfillService(literatureRepository, literatureFlowService, {
     resolvePreferredKeyContentMethod: () => literatureContentProcessingSettingsService.resolvePreferredKeyContentMethod(),
   });
   void literatureBackfillService.resumeRunnableJobs().catch((error) => {
     app.log.error({ err: error }, 'Failed to resume literature content-processing backfill jobs.');
   });
+  // T-130 W-06 (D8): import auto-advance gate (default OFF via settings) — quality-tiered
+  // AUTO_ADVANCE backfill jobs for newly imported literature.
+  const literatureAutoAdvanceService = new LiteratureAutoAdvanceService(
+    literatureRepository,
+    literatureBackfillService,
+    literatureContentProcessingSettingsService,
+  );
+  const literatureController = new LiteratureController(
+    literatureService,
+    literatureClusterService,
+    literatureAutoAdvanceService,
+  );
   // T-130 W-01: close orphaned pipeline runs from a previous process before new work arrives.
   void literatureFlowService.recoverOrphanedPipelineRuns().catch((error) => {
     app.log.error({ err: error }, 'Failed to recover orphaned literature pipeline runs.');
@@ -927,6 +939,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       acquisitionSettingsService: literatureAcquisitionSettingsService,
       llmGateway,
       sourceRuntimeStore: literatureRepository,
+      autoAdvanceService: literatureAutoAdvanceService,
     },
   );
   const autoPullController = new AutoPullController(autoPullService);

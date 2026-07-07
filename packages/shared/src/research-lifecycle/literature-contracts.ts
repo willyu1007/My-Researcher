@@ -883,6 +883,9 @@ export interface LiteratureContentProcessingBackfillOptions {
   extraction_concurrency?: number;
   embedding_concurrency?: number;
   provider_call_budget?: number;
+  // T-130 W-06 (D8): provenance marker — 'auto_advance' jobs are created by the import
+  // auto-advance gate and count against its daily literature budget.
+  trigger?: 'manual' | 'auto_advance';
 }
 
 export interface LiteratureContentProcessingBackfillDryRunRequest {
@@ -2014,6 +2017,7 @@ const literatureBackfillOptionsSchema = {
     extraction_concurrency: { type: 'integer', minimum: 1, maximum: 4, default: 1 },
     embedding_concurrency: { type: 'integer', minimum: 1, maximum: 4, default: 1 },
     provider_call_budget: { type: 'integer', minimum: 1 },
+    trigger: { type: 'string', enum: ['manual', 'auto_advance'], default: 'manual' },
   },
   additionalProperties: false,
 } as const;

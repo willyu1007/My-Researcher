@@ -25,6 +25,7 @@ const EMBEDDING_KEY = 'embedding';
 const EXTRACTION_KEY = 'extraction';
 const STORAGE_ROOTS_KEY = 'storage_roots';
 const FULLTEXT_PARSER_KEY = 'fulltext_parser';
+const AUTO_ADVANCE_KEY = 'auto_advance';
 const DEFAULT_GROBID_ENDPOINT_URL = 'http://localhost:8070';
 export const PAPER_ENGINEER_LOCAL_DATA_ROOT_ENV = 'PAPER_ENGINEER_LOCAL_DATA_ROOT';
 export const LITERATURE_CONTENT_PROCESSING_ROOT_ENV = 'LITERATURE_CONTENT_PROCESSING_ROOT';
@@ -231,6 +232,28 @@ export class LiteratureContentProcessingSettingsService {
   async resolveGrobidEndpointUrl(): Promise<string> {
     const settings = await this.getSettings();
     return settings.fulltext_parser.grobid.endpoint_url;
+  }
+
+  // T-130 W-06 (D8): import auto-advance gate. Lightweight settings-row resolver for now — the
+  // aggregated DTO / update-route face lands with the unified W-10 configuration pass. Toggling
+  // is a settings-store write (no deploy), which satisfies D8's runtime kill-switch requirement.
+  async resolveAutoAdvanceSettings(): Promise<LiteratureAutoAdvanceRuntimeSettings> {
+    const record = await this.repository.findSetting(SETTINGS_NAMESPACE, AUTO_ADVANCE_KEY);
+    const value = (record?.value ?? {}) as Record<string, unknown>;
+    const readNumber = (key: string, fallback: number, min: number, max: number): number => {
+      const raw = Number(value[key]);
+      return Number.isFinite(raw) ? Math.min(max, Math.max(min, Math.trunc(raw))) : fallback;
+    };
+    const unscoredRaw = value.advance_unscored;
+    const advanceUnscored = unscoredRaw === 'fulltext' || unscoredRaw === 'full' ? unscoredRaw : 'none';
+    return {
+      enabled: value.enabled === true,
+      full_chain_min_score: readNumber('full_chain_min_score', 75, 0, 100),
+      fulltext_only_min_score: readNumber('fulltext_only_min_score', 55, 0, 100),
+      daily_literature_limit: readNumber('daily_literature_limit', 50, 1, 1_000),
+      max_parallel_literature_runs: readNumber('max_parallel_literature_runs', 2, 1, 4),
+      advance_unscored: advanceUnscored,
+    };
   }
 
   async checkFulltextParserHealth(): Promise<LiteratureFulltextParserHealthDTO> {
@@ -895,3 +918,13 @@ export class LiteratureContentProcessingSettingsService {
     return Math.min(max, Math.max(min, value));
   }
 }
+
+// T-130 W-06 (D8): runtime shape of the import auto-advance gate settings.
+export type LiteratureAutoAdvanceRuntimeSettings = {
+  enabled: boolean;
+  full_chain_min_score: number;
+  fulltext_only_min_score: number;
+  daily_literature_limit: number;
+  max_parallel_literature_runs: number;
+  advance_unscored: 'none' | 'fulltext' | 'full';
+};

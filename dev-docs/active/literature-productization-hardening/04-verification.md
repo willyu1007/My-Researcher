@@ -42,3 +42,10 @@
 - Result: passed; 22/22(EMBEDDED 单批常态零行为变化)。
 - Command: `pnpm --filter @paper-engineering-assistant/backend typecheck`
 - Result: passed(0 error)。
+
+## 2026-07-08 W-06 验证
+- Command: `node --test --loader ts-node/esm src/services/literature-auto-advance-service.unit.test.ts`
+- Result: passed; **6/6**。
+- auto-pull 回归 + backend tsc + 全量套件:见下方补记。
+- Command: 全量 `node scripts/run-node-tests.mjs`
+- Result: passed — **1693 / 1658 pass / 0 fail / 35 skipped**(绿锚 1652+6 新测,零回归);auto-pull 回归 24/24;backend tsc 0。

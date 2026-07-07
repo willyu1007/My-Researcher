@@ -43,6 +43,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError } from '../errors/app-error.js';
+import type { LiteratureAutoAdvanceService } from '../services/literature-auto-advance-service.js';
 import { LiteratureClusterService } from '../services/literature-cluster-service.js';
 import { LiteratureService } from '../services/literature-service.js';
 
@@ -71,6 +72,9 @@ export class LiteratureController {
   constructor(
     private readonly service: LiteratureService,
     private readonly clusterService: LiteratureClusterService,
+    // T-130 W-06 (D8): optional import auto-advance gate for manual/Zotero imports. These carry
+    // no auto-pull quality score, so they follow the advance_unscored setting (default none).
+    private readonly autoAdvanceService?: LiteratureAutoAdvanceService,
   ) {}
 
   async collectionImport(
@@ -79,10 +83,27 @@ export class LiteratureController {
   ): Promise<void> {
     try {
       const result = await this.service.collectionImport(request.body);
+      await this.autoAdvanceAfterImport(result.results);
       reply.status(200).send(result satisfies LiteratureCollectionImportResponse);
     } catch (error) {
       this.handleError(reply, error);
     }
+  }
+
+  // Best-effort (the auto-advance service never throws); the outcome is not part of the import
+  // response contract — it lands in the created backfill job records.
+  private async autoAdvanceAfterImport(results: LiteratureCollectionImportResponse['results']): Promise<void> {
+    if (!this.autoAdvanceService || results.length === 0) {
+      return;
+    }
+    await this.autoAdvanceService.advanceAfterImport({
+      source: 'collection_import',
+      imported: results.map((item) => ({
+        literatureId: item.literature_id,
+        qualityScore: null,
+        isNew: item.is_new,
+      })),
+    });
   }
 
   async zoteroCollectionImport(
@@ -91,6 +112,7 @@ export class LiteratureController {
   ): Promise<void> {
     try {
       const result = await this.service.zoteroCollectionImport(request.body);
+      await this.autoAdvanceAfterImport(result.results);
       reply.status(200).send(result satisfies ZoteroImportResponse);
     } catch (error) {
       this.handleError(reply, error);

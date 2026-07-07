@@ -23,6 +23,7 @@ import {
   type UpdateTopicProfileRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/auto-pull-contracts';
 import { AppError } from '../errors/app-error.js';
+import type { LiteratureAutoAdvanceService } from './literature-auto-advance-service.js';
 import type {
   AutoPullAlertRecord,
   AutoPullQuerySpec,
@@ -98,6 +99,8 @@ type AutoPullServiceDependencies = {
   llmGateway?: BackendLlmGateway;
   sourceRuntimeStore?: AutoPullSourceRuntimeStore;
   sleepMs?: (milliseconds: number) => Promise<void>;
+  // T-130 W-06 (D8): optional import auto-advance gate, fired at run finish with per-item scores.
+  autoAdvanceService?: LiteratureAutoAdvanceService;
 };
 
 export class AutoPullService {
@@ -105,6 +108,7 @@ export class AutoPullService {
   private readonly contentProcessingSettingsService?: LiteratureContentProcessingSettingsService;
   private readonly acquisitionSettingsService?: LiteratureAcquisitionSettingsService;
   private readonly llmGateway?: BackendLlmGateway;
+  private readonly autoAdvanceService?: LiteratureAutoAdvanceService;
   private readonly sourceRuntimeStore?: AutoPullSourceRuntimeStore;
   private readonly sleepMs: (milliseconds: number) => Promise<void>;
   private readonly sourceLimiters = new Map<AutoPullThrottleSource, SourceLimiterState>();
@@ -139,6 +143,7 @@ export class AutoPullService {
     this.contentProcessingSettingsService = dependencies.contentProcessingSettingsService;
     this.acquisitionSettingsService = dependencies.acquisitionSettingsService;
     this.llmGateway = dependencies.llmGateway;
+    this.autoAdvanceService = dependencies.autoAdvanceService;
     this.sourceRuntimeStore = dependencies.sourceRuntimeStore;
     this.sleepMs = dependencies.sleepMs ?? ((milliseconds) =>
       new Promise((resolve) => {
@@ -157,6 +162,7 @@ export class AutoPullService {
         || 'acquisitionSettingsService' in value
         || 'llmGateway' in value
         || 'sourceRuntimeStore' in value
+        || 'autoAdvanceService' in value
         || 'sleepMs' in value
       ),
     );
@@ -796,6 +802,13 @@ export class AutoPullService {
         });
       }
 
+      // T-130 W-06 (D8): candidates for the import auto-advance gate (fired at run finish).
+      const autoAdvanceImports = imported.results.map((result, index) => ({
+        literatureId: result.literature_id,
+        qualityScore: selectedCandidates[index]?.qualityScore ?? null,
+        isNew: result.is_new,
+      }));
+
       const scopeUpsertByTopic = new Map<string, Array<{
         literature_id: string;
         scope_status: TopicScopeStatus;
@@ -899,11 +912,19 @@ export class AutoPullService {
         ? this.resolveRunFailureMessage(sourceResults, terminalErrorCode)
         : null;
 
+      // T-130 W-06 (D8): run-finish auto-advance — creates AUTO_ADVANCE backfill jobs for the
+      // literature imported by this run (quality-tiered, budget-capped, default-off). The gate
+      // never throws; its outcome is recorded in the run summary for auditability.
+      const autoAdvanceOutcome = this.autoAdvanceService && autoAdvanceImports.length > 0
+        ? await this.autoAdvanceService.advanceAfterImport({ source: 'auto_pull', imported: autoAdvanceImports })
+        : null;
+
       await this.repository.updateRun(runId, {
         status,
         finishedAt,
         summary: {
           ...runningRun.summary,
+          ...(autoAdvanceOutcome ? { auto_advance: autoAdvanceOutcome } : {}),
           imported_count: totalImported,
           failed_count: totalFailed,
           below_import_threshold_count: totalBelowImportThreshold,

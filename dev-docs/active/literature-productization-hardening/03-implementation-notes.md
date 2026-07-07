@@ -35,3 +35,11 @@
 ## 2026-07-07 W-04(P1):embedding 成本计费修复 + 请求分批(L-05+L-08)
 - **L-05 成本 bug 双点修**:①`computeLlmCostUsd` 支持 input-only 计费——定价条目 `output_usd_per_mtok: null` 时仅按输入计费;守卫:若响应竟报正数 output tokens 而无 output 费率,保持 null 不少计。②定价表登记 `text-embedding-3-large` $0.13/M、`text-embedding-3-small` $0.02/M(output null);③gateway 遥测对无 prompt(embedding)调用的 cost 入参回退 `inputTokens ?? totalTokens`。**JD 判定**:llm-gateway 非 D-T128-00 所列 harness 面(壳/节点体/orchestrator 边界/debate-core/压缩 orchestrator),纯加法计费逻辑,无需 JD;留此判定。
 - **L-08 分批**:纯函数 `splitEmbeddingInputBatches`(utils,item 上限 2048、保守 token 预算 200k=chars/3 高估;超大单条独立成批由 provider 明确拒绝而非整篇失败);`embedChunksViaGateway` 循环批次(顺序执行,任一批失败=EMBEDDED 阶段失败,保持阶段原子性、重跑 checksum 幂等)+ 遥测聚合(计数/耗时求和,token/cost null-poisoning 求和,身份取首批)。
+
+## 2026-07-08 W-06(P1):导入→管线自动衔接(L-10,按 D8)
+- **形态**:新 `LiteratureAutoAdvanceService`——auto-pull run 收尾(带逐条质量分)与 collectionImport/Zotero 控制器批尾(无分,按 `advance_unscored` 设置,默认 none)调用 `advanceAfterImport`;按质量分档创建 **AUTO_ADVANCE backfill job**(≥75 → target INDEXED 全链;55–75 → target FULLTEXT_PREPROCESSED 止;<55 不动;仅 `is_new` 新入库),白捡 backfill 并发 clamp/取消/断点/宕机重入;orchestrator 单飞闸不动。
+- **成本闸**:日预算(默认 50 篇/日,UTC 日界)——扫当日 `options.trigger='auto_advance'` 的 job 计数(totals.total),高档优先占额,超额记 `skipped_daily_limit`;job 级 `max_parallel_literature_runs`(默认 2)。**总开关默认 OFF**:settings 行 `literature_content_processing/auto_advance`(轻量 resolver `resolveAutoAdvanceSettings`,含 clamp;聚合 DTO/更新路由面归 W-10——D8 偏差留痕:运行时开关经 settings 行写入即可生效,满足灰度要求)。
+- **不破坏导入**:服务永不抛(错误进 outcome);auto-pull 侧 outcome 记入 run summary `auto_advance` 字段可审计;控制器侧不改响应契约。
+- **契约加法**:`LiteratureContentProcessingBackfillOptions.trigger?: 'manual'|'auto_advance'`(schema 同步,default manual)——job 记录携带 provenance 供日预算统计与 UI 区分。
+- **T-029 边界修订(正式)**:「collection 不触发 processing」→「collection 可经显式闸门**编排**处理任务(默认关)」;W-08 文献 SSOT 落表时载明。
+- **测试**:服务单测 6/6——disabled 空转、三档分流+not_new/unscored 计数、日预算(高档优先+昨日/manual job 不占额)、unscored=fulltext 路由、createJob 抛错不外溢。
