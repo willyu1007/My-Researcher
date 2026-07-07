@@ -1,4 +1,10 @@
 import crypto from 'node:crypto';
+import {
+  LITERATURE_BACKFILL_NON_RETRYABLE_ERROR_CODES,
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
+import type {
+  LiteratureBackfillSkipReason,
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import type {
   CreateLiteratureContentProcessingBackfillJobResponse,
   LiteratureContentProcessingBackfillDryRunEstimateDTO,
@@ -51,19 +57,19 @@ const DEEP_STAGES = new Set<LiteratureContentProcessingStageCode>([
 ]);
 
 const TERMINAL_RUN_STATUSES = new Set(['SUCCESS', 'PARTIAL', 'FAILED', 'SKIPPED']);
-const NON_RETRYABLE_CODES = new Set([
-  'RIGHTS_RESTRICTED',
-  'USER_AUTH_DISABLED',
-  'FULLTEXT_SOURCE_MISSING',
-  'FULLTEXT_PARSER_UNSUPPORTED',
-  'ABSTRACT_SOURCE_MISSING',
-  'PREREQUISITE_NOT_READY',
-]);
+// T-130 W-09 (L-14): sourced from the shared registry instead of a service-local literal.
+const NON_RETRYABLE_CODES = new Set<string>(LITERATURE_BACKFILL_NON_RETRYABLE_ERROR_CODES);
 
 type NormalizedBackfillOptions = LiteratureContentProcessingBackfillDryRunEstimateDTO['options'];
 
 type PlannedBackfillItem = LiteratureContentProcessingBackfillPlanItemDTO & {
   title: string;
+};
+
+// T-130 W-09 (L-15): non-actionable plan outcome with an explicit reason (was a silent null).
+type BackfillPlanSkip = {
+  skipped: true;
+  skip_reason: LiteratureBackfillSkipReason;
 };
 
 type RunFailureResolution = {
@@ -278,14 +284,16 @@ export class LiteratureBackfillService {
         retryStageFilters,
         preferredKeyContentMethod,
       );
-      if (!planned) {
+      if ('skipped' in planned) {
         await this.repository.updateContentProcessingBatchItem(item.id, {
           status: 'SKIPPED',
           requestedStages: [],
           nextStageIndex: 0,
           pipelineRunId: null,
-          errorCode: 'NO_BACKFILL_WORK_REMAINING',
-          errorMessage: 'No matching stages remain for this item.',
+          errorCode: planned.skip_reason,
+          errorMessage: planned.skip_reason === 'ALL_STAGES_CURRENT'
+            ? 'All stages up to the target are current; nothing to backfill.'
+            : 'Actionable stages exist but the active stage filters exclude them.',
           retryable: false,
           finishedAt: now,
           updatedAt: now,
@@ -406,6 +414,7 @@ export class LiteratureBackfillService {
 
     const planItems: PlannedBackfillItem[] = [];
     let skippedReadyCount = 0;
+    let skippedFilterExcludedCount = 0;
     const preferredKeyContentMethod = await this.resolvePreferredKeyContentMethod();
     for (const literature of selectedLiteratures) {
       const planned = this.planLiteratureItem(
@@ -415,8 +424,11 @@ export class LiteratureBackfillService {
         stageFilters,
         preferredKeyContentMethod,
       );
-      if (!planned) {
+      if ('skipped' in planned) {
         skippedReadyCount += 1;
+        if (planned.skip_reason === 'STAGE_FILTER_EXCLUDED') {
+          skippedFilterExcludedCount += 1;
+        }
         continue;
       }
       planItems.push(planned);
@@ -449,6 +461,7 @@ export class LiteratureBackfillService {
       selected_count: selectedLiteratures.length,
       planned_item_count: planItems.length,
       skipped_ready_count: skippedReadyCount,
+      skipped_filter_excluded_count: skippedFilterExcludedCount,
       blocked_count: planItems.filter((item) => item.blocked).length,
       curation_required_count: planItems.filter((item) =>
         item.key_content_curation_status !== null
@@ -537,7 +550,7 @@ export class LiteratureBackfillService {
     targetStage: LiteratureContentProcessingStageCode,
     stageFilters: Required<NonNullable<LiteratureContentProcessingBackfillWorkset['stage_filters']>>,
     preferredKeyContentMethod: LiteratureKeyContentReadyMethod,
-  ): PlannedBackfillItem | null {
+  ): PlannedBackfillItem | BackfillPlanSkip {
     const targetIndex = STAGE_ORDER.indexOf(targetStage);
     const stageStatus = new Map(stageStates.map((stage) => [stage.stageCode, stage.status]));
     const relevantStages = STAGE_ORDER.slice(0, targetIndex + 1);
@@ -564,7 +577,17 @@ export class LiteratureBackfillService {
     }
 
     if (firstActionableIndex === -1) {
-      return null;
+      // T-130 W-09 (L-15): distinguish "everything up to target is current" from "the active
+      // stage_filters excluded stages that would otherwise be actionable" — the latter was a
+      // silent skip that read as completed.
+      const hasNonCurrentStage = relevantStages.some((stage) => {
+        const status = stageStatus.get(stage) ?? 'NOT_STARTED';
+        return status !== 'SUCCEEDED';
+      });
+      return {
+        skipped: true,
+        skip_reason: hasNonCurrentStage ? 'STAGE_FILTER_EXCLUDED' : 'ALL_STAGES_CURRENT',
+      };
     }
 
     const requestedStages = relevantStages.slice(firstActionableIndex);

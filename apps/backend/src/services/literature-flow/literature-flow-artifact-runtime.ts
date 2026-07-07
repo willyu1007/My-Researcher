@@ -767,16 +767,10 @@ export class LiteratureFlowArtifactRuntime {
 
     const tokenEntries = [...this.readTokenToChunkIds(input.indexedArtifact).entries()];
     const now = new Date().toISOString();
-    const tokenIndexes = tokenEntries.map(([token, chunkIds]) => ({
-      id: crypto.randomUUID(),
-      embeddingVersionId: version.id,
-      literatureId: input.literatureId,
-      token,
-      chunkIds,
-      createdAt: now,
-      updatedAt: now,
-    }));
-    await this.repository.replaceEmbeddingTokenIndexes(version.id, tokenIndexes);
+    // T-130 W-09 (D9): token-index rows are write-only in production — retrieval re-tokenizes
+    // live and nothing reads LiteratureEmbeddingTokenIndex. Stop writing (saves ~2.3M rows of
+    // maintenance and transaction cost); tokenCount stays derived from the indexed artifact.
+    // The table is schema-deprecated for one observation release before a separate drop.
 
     const updated = await this.repository.updateEmbeddingVersion(version.id, {
       status: 'INDEXED',

@@ -127,6 +127,68 @@ test('backfill global worksets exclude medium-confidence auto-pull candidates by
   );
 });
 
+test('backfill dry-run distinguishes all-current skips from stage-filter-excluded skips (T-130 W-09 L-15)', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const fakeFlow = new FakeFlowRunner();
+  const service = new LiteratureBackfillService(repository, fakeFlow as unknown as LiteratureFlowService, {
+    resolvePreferredKeyContentMethod: async () => 'llm_gateway',
+  });
+  const now = new Date().toISOString();
+
+  // All stages up to target SUCCEEDED → genuine all-current skip.
+  await seedLiterature(repository, 'LIT-SKIP-CURRENT');
+  await seedQualityAssessment(repository, 'LIT-SKIP-CURRENT', 'high_confidence');
+  for (const stageCode of ['CITATION_NORMALIZED', 'ABSTRACT_READY'] as const) {
+    await repository.upsertPipelineStageState({
+      id: `stage-current-${stageCode}`,
+      literatureId: 'LIT-SKIP-CURRENT',
+      stageCode,
+      status: 'SUCCEEDED',
+      lastRunId: null,
+      detail: {},
+      updatedAt: now,
+    });
+  }
+  // ABSTRACT_READY FAILED but the failed filter is off → filter-excluded skip (previously
+  // indistinguishable from all-current).
+  await seedLiterature(repository, 'LIT-SKIP-FILTERED');
+  await seedQualityAssessment(repository, 'LIT-SKIP-FILTERED', 'high_confidence');
+  await repository.upsertPipelineStageState({
+    id: 'stage-filtered-citation',
+    literatureId: 'LIT-SKIP-FILTERED',
+    stageCode: 'CITATION_NORMALIZED',
+    status: 'SUCCEEDED',
+    lastRunId: null,
+    detail: {},
+    updatedAt: now,
+  });
+  await repository.upsertPipelineStageState({
+    id: 'stage-filtered-abstract',
+    literatureId: 'LIT-SKIP-FILTERED',
+    stageCode: 'ABSTRACT_READY',
+    status: 'FAILED',
+    lastRunId: null,
+    detail: {},
+    updatedAt: now,
+  });
+
+  const response = await service.dryRun({
+    target_stage: 'ABSTRACT_READY',
+    workset: {
+      literature_ids: ['LIT-SKIP-CURRENT', 'LIT-SKIP-FILTERED'],
+      stage_filters: {
+        missing: true,
+        stale: true,
+        failed: false,
+      },
+    },
+  });
+
+  assert.equal(response.estimate.planned_item_count, 0);
+  assert.equal(response.estimate.skipped_ready_count, 2);
+  assert.equal(response.estimate.skipped_filter_excluded_count, 1);
+});
+
 test('backfill topic worksets only consume eligible or active evidence activation', async () => {
   const repository = new InMemoryLiteratureRepository();
   const fakeFlow = new FakeFlowRunner();

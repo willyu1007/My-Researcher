@@ -21,7 +21,7 @@
 
 ## Non-goals
 - Do not add a new taxonomy database schema in this task.
-- Do not rewrite the collection/content-processing boundary from `T-041`.
+- Do not rewrite the collection/content-processing boundary here — the boundary decision is `T-029`(2026-07 由 T-130 修订为「可经显式闸门编排,默认关」), SSOT: `docs/context/process/literature-pipeline-matrix.md` §Pre-stage Domains.
 - Do not auto-run expensive content-processing stages as part of collection.
 - Do not make all imported papers evidence-active.
 - Do not require human review for every imported paper.

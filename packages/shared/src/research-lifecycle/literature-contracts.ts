@@ -38,6 +38,31 @@ export type PaperCitationStatus = (typeof PAPER_CITATION_STATUSES)[number];
 export const OVERVIEW_STATUSES = ['excluded', 'automation_ready', 'citable', 'not_citable'] as const;
 export type OverviewStatus = (typeof OVERVIEW_STATUSES)[number];
 
+// T-130 W-09 (L-14): central registry for literature-domain structured error codes that cross a
+// service boundary (job/item DTOs, retry classification). Services import these sets instead of
+// declaring private literals; codes that are still service-local converge here incrementally.
+export const LITERATURE_FULLTEXT_ACQUISITION_NON_RETRYABLE_ERROR_CODES = [
+  'RIGHTS_RESTRICTED',
+  'USER_AUTH_REQUIRED',
+  'FULLTEXT_SOURCE_MISSING',
+  'UNPAYWALL_NOT_CONFIGURED',
+  'UNPAYWALL_NO_OA_PDF',
+  'DOWNLOAD_REJECTED',
+] as const;
+
+export const LITERATURE_BACKFILL_NON_RETRYABLE_ERROR_CODES = [
+  'RIGHTS_RESTRICTED',
+  'USER_AUTH_DISABLED',
+  'FULLTEXT_SOURCE_MISSING',
+  'FULLTEXT_PARSER_UNSUPPORTED',
+  'ABSTRACT_SOURCE_MISSING',
+  'PREREQUISITE_NOT_READY',
+] as const;
+
+// Plan-skip reasons (backfill retry/dry-run; W-09 L-15 silent-skip distinction).
+export const LITERATURE_BACKFILL_SKIP_REASONS = ['ALL_STAGES_CURRENT', 'STAGE_FILTER_EXCLUDED'] as const;
+export type LiteratureBackfillSkipReason = (typeof LITERATURE_BACKFILL_SKIP_REASONS)[number];
+
 export const LITERATURE_CONTENT_PROCESSING_STAGE_CODES = [
   'CITATION_NORMALIZED',
   'ABSTRACT_READY',
@@ -942,6 +967,12 @@ export interface LiteratureContentProcessingBackfillDryRunEstimateDTO {
   selected_count: number;
   planned_item_count: number;
   skipped_ready_count: number;
+  /**
+   * T-130 W-09 (L-15): breakdown of skipped_ready_count — literatures skipped because active
+   * stage_filters excluded otherwise-actionable stages (vs. genuinely all-current). Optional
+   * for backward compatibility; absent means the breakdown was not computed.
+   */
+  skipped_filter_excluded_count?: number;
   blocked_count: number;
   curation_required_count: number;
   stage_counts: Record<LiteratureContentProcessingStageCode, number>;

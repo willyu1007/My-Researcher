@@ -77,3 +77,15 @@
 - Result: passed; 2/2(套件 wrapper)。backend tsc 0。
 - Command: 全量 `node scripts/run-node-tests.mjs`
 - Result: passed — **1713 / 1677 pass / 0 fail / 36 skipped**(绿锚 1675+2 wrapper,零回归)。
+
+## 2026-07-08 W-09 验证
+- Discovery 删表 dry-run:全仓 grep 零消费方;真库 count 119/2312、最新写入 2026-06-17(证据入 migration 注释与 03);`prisma migrate deploy` 应用成功、`prisma validate` 通过。
+- Command: `node --test ... literature-flow-service.unit.test.ts`
+- Result: passed; **22/22**(token 停写断言反转+INDEXED 失败注入点迁移后全绿)。
+- Command: `node --test ... literature-backfill-service.unit.test.ts`
+- Result: passed; **18/18**(含新钉测:skip 区分 ALL_STAGES_CURRENT vs STAGE_FILTER_EXCLUDED)。
+- Command: matrix 一致性 `node .ai/scripts/literature-pipeline-matrix-consistency.mjs`(+self-test)
+- Result: passed(W-09 矩阵备注/变更日志修改后 check+负例仍全绿)。
+- backend + shared typecheck:0 error。
+- Command: 全量 `node scripts/run-node-tests.mjs`
+- Result: passed — **1714 / 1678 pass / 0 fail / 36 skipped**(绿锚 1677+1 skip 区分钉测,零回归)。

@@ -351,8 +351,9 @@ test('literature flow executes all seven stages and persists stage artifacts', a
   const activeChunkRows = await repository.listEmbeddingChunksByEmbeddingVersionId(versions[0]!.id);
   assert.equal(activeChunkRows.length > 0, true);
   assert.equal(activeChunkRows.some((row) => row.chunkType === 'evidence'), true);
+  // T-130 W-09 (D9): token-index writes stopped — activation leaves the deprecated table empty.
   const activeTokenRows = await repository.listEmbeddingTokenIndexesByEmbeddingVersionId(versions[0]!.id);
-  assert.equal(activeTokenRows.length > 0, true);
+  assert.equal(activeTokenRows.length, 0);
 });
 
 test('literature flow blocks deep stages for RESTRICTED rights class', async () => {
@@ -1001,8 +1002,9 @@ test('literature flow rebuilds a stale index on the active indexed version witho
     const literatureAfterFirst = await repository.findLiteratureById('LIT-FLOW-REBUILD-INDEX');
     assert.ok(literatureAfterFirst?.activeEmbeddingVersionId);
     const activeVersionId = literatureAfterFirst.activeEmbeddingVersionId;
+    // T-130 W-09 (D9): stop-write — the deprecated token table stays empty across rebuilds.
     const tokenRowsBefore = await repository.listEmbeddingTokenIndexesByEmbeddingVersionId(activeVersionId);
-    assert.equal(tokenRowsBefore.length > 0, true);
+    assert.equal(tokenRowsBefore.length, 0);
 
     const indexedStage = (await repository.listPipelineStageStatesByLiteratureId('LIT-FLOW-REBUILD-INDEX'))
       .find((stage) => stage.stageCode === 'INDEXED');
@@ -1097,21 +1099,23 @@ test('literature flow blocks embedding activation when native vector coverage is
 });
 
 test('literature flow keeps active embedding version unchanged when INDEXED stage fails', async () => {
-  class FailingTokenIndexRepository extends InMemoryLiteratureRepository {
+  // T-130 W-09 (D9): token-index writes are gone, so the mid-INDEXED failure is injected at the
+  // version activation patch instead — same intent: INDEXED fails after EMBEDDED, pointer must hold.
+  class FailingIndexActivationRepository extends InMemoryLiteratureRepository {
     failTokenWrite = false;
 
-    override async replaceEmbeddingTokenIndexes(
+    override async updateEmbeddingVersion(
       embeddingVersionId: string,
-      records: Parameters<InMemoryLiteratureRepository['replaceEmbeddingTokenIndexes']>[1],
+      patch: Parameters<InMemoryLiteratureRepository['updateEmbeddingVersion']>[1],
     ) {
-      if (this.failTokenWrite) {
-        throw new Error('token-index write failed');
+      if (this.failTokenWrite && patch.status === 'INDEXED') {
+        throw new Error('index activation write failed');
       }
-      return super.replaceEmbeddingTokenIndexes(embeddingVersionId, records);
+      return super.updateEmbeddingVersion(embeddingVersionId, patch);
     }
   }
 
-  const repository = new FailingTokenIndexRepository();
+  const repository = new FailingIndexActivationRepository();
   const service = new LiteratureFlowService(repository, createMockSettingsService());
   const restoreFetch = mockOpenAIContentProcessing();
   await seedLiterature(repository, 'LIT-FLOW-ACTIVE-GUARD', 'OA', {

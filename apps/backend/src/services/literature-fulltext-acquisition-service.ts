@@ -1,4 +1,7 @@
 import crypto from 'node:crypto';
+import {
+  LITERATURE_FULLTEXT_ACQUISITION_NON_RETRYABLE_ERROR_CODES,
+} from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import type {
   CreateLiteratureFulltextAcquisitionJobResponse,
   LiteratureAcquisitionSettingsDTO,
@@ -41,14 +44,8 @@ type SourceLimiterState = {
 };
 
 const TERMINAL_JOB_STATUSES = new Set(['SUCCEEDED', 'PARTIAL', 'FAILED', 'CANCELED']);
-const NON_RETRYABLE_CODES = new Set([
-  'RIGHTS_RESTRICTED',
-  'USER_AUTH_REQUIRED',
-  'FULLTEXT_SOURCE_MISSING',
-  'UNPAYWALL_NOT_CONFIGURED',
-  'UNPAYWALL_NO_OA_PDF',
-  'DOWNLOAD_REJECTED',
-]);
+// T-130 W-09 (L-14): sourced from the shared registry instead of a service-local literal.
+const NON_RETRYABLE_CODES = new Set<string>(LITERATURE_FULLTEXT_ACQUISITION_NON_RETRYABLE_ERROR_CODES);
 const ACQUISITION_HEALTH_SOURCES: LiteratureFulltextAcquisitionHealthSourceKind[] = [
   'explicit_url',
   'arxiv',

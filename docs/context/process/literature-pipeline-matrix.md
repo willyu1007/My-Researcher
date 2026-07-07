@@ -30,8 +30,8 @@
 |---|---|---|---|---|---|
 | `CITATION_NORMALIZED` | deterministic(citation-normalization-service) | literature record + sources | citation profile 工件 | `pipelineState.citationComplete` | 引文身份(DOI/arXiv/title-hash)规范化 |
 | `ABSTRACT_READY` | deterministic(abstract-readiness-service) | literature.abstractText + sources | abstract profile 工件 | `pipelineState.abstractReady` | 可信摘要判定 |
-| `FULLTEXT_PREPROCESSED` | GROBID parser(断路器+健康门,W-02)/ OCR 回退 | raw_fulltext content asset | fulltext extraction bundle | stage state SUCCEEDED | 无 raw_fulltext 资产时 BLOCKED;采集本身不是阶段(见 §Pre-stage Domains) |
-| `KEY_CONTENT_READY` | llm_gateway 提取 或 人工/codex dossier 导入 | extraction bundle / dossier | key-content dossier + `keyContentDigest` | `pipelineState.keyContentReady` | `preferredMethod!=='llm_gateway'` 时强制人工/codex dossier(仅代码语义,此处载明) |
+| `FULLTEXT_PREPROCESSED` | GROBID parser(断路器+健康门,W-02)/ OCR 回退 | raw_fulltext content asset | fulltext extraction bundle | stage state SUCCEEDED | 无 raw_fulltext 资产时 BLOCKED;采集本身不是阶段(见 §Pre-stage Domains);解析质量评分权重/阈值硬编码于 parser(settings 化归 W-10) |
+| `KEY_CONTENT_READY` | llm_gateway 提取 或 人工/codex dossier 导入 | extraction bundle / dossier | key-content dossier + `keyContentDigest` | `pipelineState.keyContentReady` | 默认 `codex_curated` = **半自动外部回填**:阶段 BLOCKED 等待 dossier 导入(`accepted_curation_sources: codex_curated/manual_curated`),不调用 LLM;`preferredMethod!=='llm_gateway'` 时强制此路径;BLOCKED 无超时/告警托底(缺口,归 W-10 之后处置) |
 | `CHUNKED` | deterministic chunker | key content + fulltext | embedding chunks 工件 | stage state SUCCEEDED | checksum 幂等 |
 | `EMBEDDED` | embedding provider(分批,W-04) | chunks | embedding version(向量) | stage state SUCCEEDED | 任一批失败=阶段失败(原子) |
 | `INDEXED` | deterministic 激活 | embedding version | active embedding version(pgvector,W-03) | `literature.activeEmbeddingVersionId` + version ACTIVE | 其 STALE 状态是检索新鲜度的**并集信号**(W-05/D7) |
@@ -78,3 +78,4 @@ retrieval-ready 唯一判定 = `LiteratureEvidenceActivationService.resolveRetri
 
 ## Change Log
 - 2026-07-08(T-130 W-08):创建;载明 T-029 边界修订(AUTO_ADVANCE 显式闸门)、fulltext 采集非阶段归属、KEY_CONTENT_READY 方法优先级语义;一致性脚本上线。
+- 2026-07-08(T-130 W-09):补 codex_curated 半自动回填语义、parser 评分权重硬编码注记;discovery 死表已删(D9)、token index 停写标废弃(D9)。

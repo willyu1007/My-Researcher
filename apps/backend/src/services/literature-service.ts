@@ -934,6 +934,11 @@ export class LiteratureService {
 
     await this.literatureFlowService.refreshContentProcessingState(updated.id);
     if (citationChanged) {
+      // T-130 W-09 (L-15): the citation chain deliberately skips ABSTRACT_READY and
+      // FULLTEXT_PREPROCESSED — the trusted abstract is an independent trust decision and the
+      // fulltext parse is derived from the raw asset, neither depends on citation identity.
+      // Key content and below embed citation fields, so they go stale. The exact stage sets are
+      // pinned by .ai/scripts/literature-pipeline-matrix-consistency.mjs against the matrix SSOT.
       await this.literatureFlowService.markStagesStale({
         literatureId: updated.id,
         stages: ['CITATION_NORMALIZED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],
@@ -1469,6 +1474,8 @@ export class LiteratureService {
     input: { citationChanged: boolean; abstractChanged: boolean },
   ): Promise<void> {
     if (input.citationChanged) {
+      // Same deliberate skip of ABSTRACT_READY/FULLTEXT_PREPROCESSED as the metadata-edit chain
+      // above — see the comment there; sets pinned by the pipeline-matrix consistency script.
       await this.literatureFlowService.markStagesStale({
         literatureId,
         stages: ['CITATION_NORMALIZED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],

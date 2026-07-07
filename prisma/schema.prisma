@@ -102,8 +102,6 @@ model LiteratureRecord {
   clusterMemberships          LiteratureClusterMember[]
   clusterEvidenceAsA          LiteratureClusterEvidence[]            @relation("LiteratureClusterEvidenceA")
   clusterEvidenceAsB          LiteratureClusterEvidence[]            @relation("LiteratureClusterEvidenceB")
-  discoveryMatchedCandidates  LiteratureDiscoveryCandidate[]         @relation("LiteratureDiscoveryCandidateMatchedLiterature")
-  discoveryPromotedCandidates LiteratureDiscoveryCandidate[]         @relation("LiteratureDiscoveryCandidatePromotedLiterature")
 
   @@index([normalizedTitle])
   @@index([activeEmbeddingVersionId])
@@ -138,77 +136,6 @@ model LiteratureSource {
 
   @@unique([provider, sourceItemId])
   @@index([literatureId])
-}
-
-model LiteratureDiscoveryBatch {
-  id              String                         @id
-  batchCode       String
-  directionScope  String[]                       @default([])
-  sourceProviders String[]                       @default([])
-  queryLedger     Json                           @default("{}")
-  summaryStats    Json                           @default("{}")
-  status          String
-  errorSummary    String?
-  createdAt       DateTime                       @db.Timestamptz(6)
-  updatedAt       DateTime                       @db.Timestamptz(6)
-  completedAt     DateTime?                      @db.Timestamptz(6)
-  candidates      LiteratureDiscoveryCandidate[]
-
-  @@index([batchCode])
-  @@index([status, createdAt])
-  @@index([updatedAt])
-}
-
-model LiteratureDiscoveryCandidate {
-  id                   String                         @id
-  batchId              String
-  title                String
-  normalizedTitle      String
-  abstractText         String?
-  authors              String[]                       @default([])
-  year                 Int?
-  venue                String?
-  doiNormalized        String?
-  arxivId              String?
-  openalexId           String?
-  semanticScholarId    String?
-  dblpUrl              String?
-  sourceUrl            String?
-  sourceProvider       String
-  sourcePayload        Json                           @default("{}")
-  dedupKey             String?
-  duplicateReason      String?
-  duplicateConfidence  Float?
-  status               String                         @default("DISCOVERED")
-  directionScores      Json                           @default("{}")
-  roleScores           Json                           @default("{}")
-  relevanceScore       Float?
-  implementationScore  Float?
-  theoryScore          Float?
-  decisionReason       String?
-  decisionAt           DateTime?                      @db.Timestamptz(6)
-  matchedCandidateId   String?
-  matchedLiteratureId  String?
-  promotedLiteratureId String?
-  createdAt            DateTime                       @db.Timestamptz(6)
-  updatedAt            DateTime                       @db.Timestamptz(6)
-  batch                LiteratureDiscoveryBatch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  matchedCandidate     LiteratureDiscoveryCandidate?  @relation("LiteratureDiscoveryCandidateMatch", fields: [matchedCandidateId], references: [id], onDelete: SetNull)
-  duplicateCandidates  LiteratureDiscoveryCandidate[] @relation("LiteratureDiscoveryCandidateMatch")
-  matchedLiterature    LiteratureRecord?              @relation("LiteratureDiscoveryCandidateMatchedLiterature", fields: [matchedLiteratureId], references: [id], onDelete: SetNull)
-  promotedLiterature   LiteratureRecord?              @relation("LiteratureDiscoveryCandidatePromotedLiterature", fields: [promotedLiteratureId], references: [id], onDelete: SetNull)
-
-  @@index([batchId, status])
-  @@index([status, createdAt])
-  @@index([dedupKey])
-  @@index([doiNormalized])
-  @@index([arxivId])
-  @@index([openalexId])
-  @@index([semanticScholarId])
-  @@index([normalizedTitle, year])
-  @@index([matchedCandidateId])
-  @@index([matchedLiteratureId])
-  @@index([promotedLiteratureId])
 }
 
 model LiteratureCitationProfile {
@@ -593,6 +520,9 @@ model LiteratureEmbeddingChunk {
   @@index([literatureId, chunkType])
 }
 
+/// DEPRECATED (T-130 W-09, D9, 2026-07-08): write-only table — production stopped writing
+/// (activation no longer calls replaceEmbeddingTokenIndexes; retrieval re-tokenizes live).
+/// Kept for one observation release; scheduled for a separate drop migration afterwards.
 model LiteratureEmbeddingTokenIndex {
   id                 String                     @id
   embeddingVersionId String

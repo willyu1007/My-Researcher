@@ -61,5 +61,6 @@
 - [x] W-06:新入库文献按规则自动推进(质量门+成本闸+限流),关闭开关可退回手动。(**DONE 2026-07-08**:AUTO_ADVANCE backfill job 形态,75/55 分档+日预算+默认 OFF settings 开关;auto-pull run summary 可审计;服务 6/6、auto-pull 24/24、全量 1693/1658/0/35——03/04 §2026-07-08)
 - [x] W-07:fulltext-acquisition 单测覆盖状态机核心路径;并发导入返回结构化 409。(**DONE 2026-07-08**:acquisition 单测 0→11;P2002→409 VERSION_CONFLICT;collectionImport 批内失败隔离(request_index+failures[],auto-pull 配对同修);W-01 真库并发 e2e 实锤并修复 advisory-lock void 反序列化生产 bug(::text cast);条目级事务 defer 判定留痕——03/04 §2026-07-08)
 - [x] W-08:文献阶段 SSOT + 一致性脚本进默认套件(含自测负例)。(**DONE 2026-07-08**:`docs/context/process/literature-pipeline-matrix.md` + consistency 脚本(阶段序列双写守卫/失效链字面量钉/每链必含 INDEXED 的 D7 结构断言)+ wrapper 2 测;自测负例 7/7;T-029 修订边界与 fulltext 非阶段归属正式落表——03/04 §2026-07-08)
-- [ ] W-09/W-10:清单逐项留痕处置(做/defer 均可,不许静默)。
+- [x] W-09:清单逐项留痕处置。(**DONE 2026-07-08**:Discovery 删表(dry-run 证据+migration)/token index 停写标废弃/错误码注册表(跨界码集入 shared,增量收敛判定)/backfill skip 区分/citation 链意图注释/文档漂移 3 处修 + 3 项 defer 留痕(archive 引用无需改、KEY_CONTENT BLOCKED 托底、历史 run 清理)——03 §W-09 台账)
+- [ ] W-10:清单逐项留痕处置(做/defer 均可,不许静默)。
 - [ ] 全程:backend 全量套件基线不降;replay/goldens 不动;lint 零警告。
