@@ -1,4 +1,5 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
+import { AppError } from '../../../errors/app-error.js';
 import type {
   LiteratureRecord,
   LiteratureQualityAssessmentRecord,
@@ -46,7 +47,33 @@ export class PrismaLiteratureCoreStore {
     return rows.map((row) => row.id);
   }
 
+  // T-130 W-07 (L-09): concurrent imports of the same work race past the read-then-write
+  // dedup check and land on the DB unique constraints (doiNormalized/arxivId/titleAuthorsYearHash).
+  // Map that to a structured 409 instead of leaking a raw Prisma 500.
+  private mapUniqueConstraintConflict(error: unknown, literatureId: string): never {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const target = Array.isArray(error.meta?.target)
+        ? (error.meta.target as string[]).join(',')
+        : String(error.meta?.target ?? 'unique constraint');
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `Literature unique constraint conflict on ${target}; a concurrent import likely created the same work.`,
+        { literature_id: literatureId, constraint: target },
+      );
+    }
+    throw error;
+  }
+
   async createLiterature(record: LiteratureRecord): Promise<LiteratureRecord> {
+    try {
+      return await this.createLiteratureUnmapped(record);
+    } catch (error) {
+      this.mapUniqueConstraintConflict(error, record.id);
+    }
+  }
+
+  private async createLiteratureUnmapped(record: LiteratureRecord): Promise<LiteratureRecord> {
     const created = await this.prisma.literatureRecord.create({
       data: {
         id: record.id,
@@ -70,25 +97,29 @@ export class PrismaLiteratureCoreStore {
   }
 
   async updateLiterature(record: LiteratureRecord): Promise<LiteratureRecord> {
-    const updated = await this.prisma.literatureRecord.update({
-      where: { id: record.id },
-      data: {
-        title: record.title,
-        abstractText: record.abstractText,
-        keyContentDigest: record.keyContentDigest,
-        authors: record.authors,
-        year: record.year,
-        doiNormalized: record.doiNormalized,
-        arxivId: record.arxivId,
-        normalizedTitle: record.normalizedTitle,
-        titleAuthorsYearHash: record.titleAuthorsYearHash,
-        rightsClass: record.rightsClass,
-        tags: record.tags,
-        activeEmbeddingVersionId: record.activeEmbeddingVersionId,
-        updatedAt: new Date(record.updatedAt),
-      },
-    });
-    return toLiteratureRecord(updated);
+    try {
+      const updated = await this.prisma.literatureRecord.update({
+        where: { id: record.id },
+        data: {
+          title: record.title,
+          abstractText: record.abstractText,
+          keyContentDigest: record.keyContentDigest,
+          authors: record.authors,
+          year: record.year,
+          doiNormalized: record.doiNormalized,
+          arxivId: record.arxivId,
+          normalizedTitle: record.normalizedTitle,
+          titleAuthorsYearHash: record.titleAuthorsYearHash,
+          rightsClass: record.rightsClass,
+          tags: record.tags,
+          activeEmbeddingVersionId: record.activeEmbeddingVersionId,
+          updatedAt: new Date(record.updatedAt),
+        },
+      });
+      return toLiteratureRecord(updated);
+    } catch (error) {
+      this.mapUniqueConstraintConflict(error, record.id);
+    }
   }
 
   async findLiteratureById(literatureId: string): Promise<LiteratureRecord | null> {

@@ -143,8 +143,44 @@ export class LiteratureService {
     }
 
     const results: LiteratureCollectionImportResponse['results'] = [];
+    const failures: NonNullable<LiteratureCollectionImportResponse['failures']> = [];
 
-    for (const item of request.items) {
+    for (let requestIndex = 0; requestIndex < request.items.length; requestIndex += 1) {
+      const item = request.items[requestIndex]!;
+      // T-130 W-07 (L-09): one bad item must not abort the batch — writes for an item are
+      // ordered literature → source → flow-state, so a mid-item failure leaves a dedupable
+      // record that a re-import self-heals; the failure is reported instead of thrown.
+      try {
+        await this.importCollectionItem(item, requestIndex, results);
+      } catch (error) {
+        failures.push({
+          request_index: requestIndex,
+          title: item.title ?? '',
+          error_code: error instanceof AppError ? error.errorCode : 'INTERNAL_ERROR',
+          error_message: error instanceof Error ? error.message : 'Collection import item failed.',
+        });
+      }
+    }
+
+    if (results.length === 0 && failures.length > 0) {
+      // All items failed — keep the pre-W-07 contract for total failure (surface the error).
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `All ${failures.length} collection import items failed; first: ${failures[0]!.error_message}`,
+        { failures },
+      );
+    }
+
+    return failures.length > 0 ? { results, failures } : { results };
+  }
+
+  private async importCollectionItem(
+    item: LiteratureCollectionImportItem,
+    requestIndex: number,
+    results: LiteratureCollectionImportResponse['results'],
+  ): Promise<void> {
+    {
       const now = new Date().toISOString();
       const normalized = this.normalizeImportItem(item);
       const dedup = await this.findExisting(normalized);
@@ -251,10 +287,9 @@ export class LiteratureService {
         title: literatureRecord.title,
         source_provider: normalized.provider,
         source_url: normalized.source_url,
+        request_index: requestIndex,
       });
     }
-
-    return { results };
   }
 
   async importFromAutoPull(request: LiteratureCollectionImportRequest): Promise<LiteratureCollectionImportResponse> {

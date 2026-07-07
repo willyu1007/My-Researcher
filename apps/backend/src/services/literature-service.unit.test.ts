@@ -64,6 +64,50 @@ test('import deduplicates by DOI across providers', async () => {
   assert.equal(runs.length, 0);
 });
 
+test('collection import isolates a failing item and reports it with request_index (T-130 W-07 L-09)', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const literatureService = new LiteratureService(
+    repository,
+    new InMemoryResearchLifecycleRepository(),
+  );
+  const originalCreate = repository.createLiterature.bind(repository);
+  repository.createLiterature = async (record) => {
+    if (record.title === 'Poison Item') {
+      throw new Error('simulated unique constraint blowup');
+    }
+    return originalCreate(record);
+  };
+
+  const item = (title: string, doi: string) => ({
+    provider: 'crossref' as const,
+    external_id: doi,
+    title,
+    authors: ['Alice'],
+    year: 2024,
+    doi,
+    source_url: `https://doi.org/${doi}`,
+  });
+
+  const imported = await literatureService.collectionImport({
+    items: [item('First Fine', '10.1000/fine-1'), item('Poison Item', '10.1000/poison'), item('Third Fine', '10.1000/fine-3')],
+  });
+
+  assert.equal(imported.results.length, 2);
+  assert.deepEqual(imported.results.map((result) => result.request_index), [0, 2]);
+  assert.deepEqual(imported.results.map((result) => result.title), ['First Fine', 'Third Fine']);
+  assert.equal(imported.failures?.length, 1);
+  assert.equal(imported.failures?.[0]?.request_index, 1);
+  assert.equal(imported.failures?.[0]?.title, 'Poison Item');
+  assert.equal(imported.failures?.[0]?.error_code, 'INTERNAL_ERROR');
+  assert.match(imported.failures?.[0]?.error_message ?? '', /simulated unique constraint blowup/);
+
+  // All-items-failed keeps the pre-W-07 throw semantics.
+  await assert.rejects(
+    literatureService.collectionImport({ items: [item('Poison Item', '10.1000/poison-2')] }),
+    (error: unknown) => error instanceof Error && /All 1 collection import items failed/.test(error.message),
+  );
+});
+
 test('collection import allocates literature and source ids from sparse high-water marks', async () => {
   const repository = new InMemoryLiteratureRepository();
   const literatureService = new LiteratureService(

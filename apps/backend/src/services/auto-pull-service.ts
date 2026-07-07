@@ -760,7 +760,9 @@ export class AutoPullService {
 
       for (let index = 0; index < imported.results.length; index += 1) {
         const result = imported.results[index];
-        const selected = selectedCandidates[index];
+        // T-130 W-07 (L-09): pair by request_index — with per-item failure isolation the
+        // results array no longer aligns positionally with the submitted candidates.
+        const selected = selectedCandidates[result.request_index];
         if (!selected) {
           continue;
         }
@@ -803,9 +805,9 @@ export class AutoPullService {
       }
 
       // T-130 W-06 (D8): candidates for the import auto-advance gate (fired at run finish).
-      const autoAdvanceImports = imported.results.map((result, index) => ({
+      const autoAdvanceImports = imported.results.map((result) => ({
         literatureId: result.literature_id,
-        qualityScore: selectedCandidates[index]?.qualityScore ?? null,
+        qualityScore: selectedCandidates[result.request_index]?.qualityScore ?? null,
         isNew: result.is_new,
       }));
 
@@ -819,7 +821,7 @@ export class AutoPullService {
       }>>();
       for (let index = 0; index < imported.results.length; index += 1) {
         const result = imported.results[index];
-        const selected = selectedCandidates[index];
+        const selected = selectedCandidates[result.request_index];
         if (!selected || !selected.topicId) {
           continue;
         }

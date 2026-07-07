@@ -635,10 +635,25 @@ export interface LiteratureCollectionImportResult {
   title: string;
   source_provider: LiteratureProvider;
   source_url: string;
+  /**
+   * T-130 W-07 (L-09): index of the originating item in the request's items array.
+   * With per-item failure isolation, results no longer align 1:1 with the request —
+   * consumers pairing imports back to request items MUST key on this, not array position.
+   */
+  request_index: number;
+}
+
+// T-130 W-07 (L-09): one failed item no longer aborts the batch; it lands here instead.
+export interface LiteratureCollectionImportFailure {
+  request_index: number;
+  title: string;
+  error_code: string;
+  error_message: string;
 }
 
 export interface LiteratureCollectionImportResponse {
   results: LiteratureCollectionImportResult[];
+  failures?: LiteratureCollectionImportFailure[];
 }
 
 export interface TopicLiteratureScopeAction {
