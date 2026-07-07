@@ -22,7 +22,7 @@
 
 | Candidate | Status | Missing fields before promotion |
 | --- | --- | --- |
-| Benchmark candidate | `manual_review_required` | duplicate_check, dataset_candidate_payloads, evaluation_protocol_candidate_payload, metric_definition_refs, protocol_hash, readiness_snapshot |
+| Benchmark candidate | `manual_review_required` | dataset_candidate_payloads, evaluation_protocol_candidate_payload, metric_definition_refs, protocol_hash, readiness_snapshot |
 | Evaluation protocol candidate | `manual_review_required` | protocol_hash, metric_definition_records, evaluator_ref_records, output_artifact_contract |
 | Wikipedia corpus dataset candidate | `needs_info` | data_policy_ref, split_protocol, checksum_manifest, dataset_version, local_location_ref |
 | Natural Questions query dataset candidate | `needs_info` | data_policy_ref, split_protocol, checksum_manifest, dataset_version, local_location_ref |
@@ -75,13 +75,13 @@
 | `cpu_memory_disk_process_io` | MSys CPU/Mem/Disk/Proc meters | `informational` |
 
 ## Gate Status(2026-07-08 对账后)
-- Duplicate check: `not_checked`; query the experiment-foundation registry before promotion.
+- Duplicate check: **`clear`(2026-07-08 实测)**——experiment-foundation 注册表 208 行/23 recordKind 全查:RAGPerf/LIT-0204 零命中;registry 尚无任何 benchmark 类记录(本候选将是第一条);既有 14 条 `evaluation_protocol` 与全部 promotion 机制行均为 `*_capability_*` 能力验证场景记录(非文献来源、非 RAG),另 3 条 UUID evidence_candidate 无关。
 - Code policy: `clear` for Apache-2.0 repo license.
 - Dataset policy: `unknown`; review Hugging Face dataset policies before dataset promotion.
 - Risk: benchmark/protocol low, dataset medium.
 - Completeness: `needs_info`——smoke 证据已齐(adapter 档),仍缺 protocol hash、metric definition records、evaluator refs、dataset versions/checksum manifests。
-- Gate blockers(活跃): `duplicate_check_not_run`, `dataset_policy_unknown`, `protocol_hash_missing`, `metric_definition_records_missing`, `evaluator_records_missing`, `gpu_model_dependencies_not_verified`。
-- Gate blockers(已解除,S1 证据): ~~`entrypoint_smoke_missing`~~(adapter 档 pass,双独立执行)、~~`example_configs_need_local_path_rewrite`~~(tiny 配置改写方案已验证)、~~`dependency_file_reference_needs_resolution`~~ **部分解**(CPU 最小依赖集实证可装可跑;faithful 全依赖 vLLM/CUDA/libmsys 仍未验证,归 `gpu_model_dependencies_not_verified`)。
+- Gate blockers(活跃): `dataset_policy_unknown`, `protocol_hash_missing`, `metric_definition_records_missing`, `evaluator_records_missing`, `gpu_model_dependencies_not_verified`。
+- Gate blockers(已解除): ~~`duplicate_check_not_run`~~(2026-07-08 注册表全查 clear,见上)、~~`entrypoint_smoke_missing`~~(adapter 档 pass,双独立执行)、~~`example_configs_need_local_path_rewrite`~~(tiny 配置改写方案已验证)、~~`dependency_file_reference_needs_resolution`~~ **部分解**(CPU 最小依赖集实证可装可跑;faithful 全依赖 vLLM/CUDA/libmsys 仍未验证,归 `gpu_model_dependencies_not_verified`)。
 
 ## Smoke Plan
 ### S0 Static Protocol Check
