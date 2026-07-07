@@ -34,3 +34,7 @@
 - 成本闸:日自动推进篇数上限 + job 并发 clamp,入 settings;总开关 `literature_auto_advance.enabled` 默认 **false** 灰度。
 - 边界修订:T-029「collection 不触发 processing」→「collection 经闸门**编排**处理任务」,T-130 留痕 + 文献 SSOT(W-08)载明。
 - W-10:indexed 兜底分改语义为 `processing_complete` 标记,qualityStatus 收窄 auto-pull/人工两来源,evidence-ready 判定不吃伪高分;真实内容打分记 backlog。
+
+## D9 W-09 死资产处置(用户拍板 2026-07-08)
+- **Discovery 死表**:`LiteratureDiscoveryBatch/Candidate` 删表+migration——前置 dry-run 留痕(全仓消费方复核为零 + 行数据确认仅历史导入痕迹),migration 注释载明审查证据锚(06 §1 不一致①)。
+- **Token index**:`LiteratureEmbeddingTokenIndex` **停写+废弃**——激活路径(`activateLatestReadyEmbeddingVersion` → `replaceEmbeddingTokenIndexes`)停止写入(省 232 万行维护与事务开销),schema 注释标 deprecated,观察一版后另行删表;不接线(检索实时重分词已足用且更灵活)。
