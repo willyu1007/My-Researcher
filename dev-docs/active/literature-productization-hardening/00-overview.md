@@ -59,7 +59,7 @@
 - [x] W-04:embedding cost_usd 真实计费;超限文献分批不整篇失败。(**DONE 2026-07-07**:input-only 计费+定价登记+遥测回退,gateway 回归钉 $0.13/1M;分批助手+顺序批跑+遥测聚合;25/25+22/22——03/04 §2026-07-07)
 - [x] W-05:retrieval-ready 单一判定函数被 UI/检索/选题三方消费;STALE 传播至选题采样可见。(**DONE 2026-07-08**:`resolveRetrievalReadiness` 单源(判定链+INDEXED-STALE freshness);检索 freshness_warnings 与 evidence-ready 过滤改读单源;选题采样注入 resolver,stale 落 audit `retrieval_freshness`+`STALE_EVIDENCE_SAMPLED`(资格零变化);UI 经 per-stage DTO 消费同一底层事实(判定留痕);40/40+2/2、全量 1696/1661/0/35——03/04 §2026-07-08)
 - [x] W-06:新入库文献按规则自动推进(质量门+成本闸+限流),关闭开关可退回手动。(**DONE 2026-07-08**:AUTO_ADVANCE backfill job 形态,75/55 分档+日预算+默认 OFF settings 开关;auto-pull run summary 可审计;服务 6/6、auto-pull 24/24、全量 1693/1658/0/35——03/04 §2026-07-08)
-- [ ] W-07:fulltext-acquisition 单测覆盖状态机核心路径;并发导入返回结构化 409。
+- [x] W-07:fulltext-acquisition 单测覆盖状态机核心路径;并发导入返回结构化 409。(**DONE 2026-07-08**:acquisition 单测 0→11;P2002→409 VERSION_CONFLICT;collectionImport 批内失败隔离(request_index+failures[],auto-pull 配对同修);W-01 真库并发 e2e 实锤并修复 advisory-lock void 反序列化生产 bug(::text cast);条目级事务 defer 判定留痕——03/04 §2026-07-08)
 - [ ] W-08:文献阶段 SSOT + 一致性脚本进默认套件(含自测负例)。
 - [ ] W-09/W-10:清单逐项留痕处置(做/defer 均可,不许静默)。
 - [ ] 全程:backend 全量套件基线不降;replay/goldens 不动;lint 零警告。

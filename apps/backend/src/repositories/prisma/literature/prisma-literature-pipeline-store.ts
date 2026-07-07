@@ -296,7 +296,9 @@ export class PrismaLiteraturePipelineStore {
     const staleBefore = new Date(staleBeforeIso);
     return this.prisma.$transaction(async (tx) => {
       const lockKey = `literature-pipeline-run:${record.literatureId}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+      // ::text cast: pg_advisory_xact_lock returns void, which Prisma's $queryRaw cannot
+      // deserialize (caught by the W-07 real-DB lock e2e — uncast, this threw at runtime).
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))::text`;
 
       const inFlightRows = await tx.literaturePipelineRun.findMany({
         where: {

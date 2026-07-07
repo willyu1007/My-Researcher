@@ -52,3 +52,12 @@
 - **UI 三方之三(判定留痕,不改 DTO)**:文献 overview 已由 `buildPipelineStateDTO(record, stageStates)` 携带全部 7 阶段 per-stage 状态(含 STALE)直达 UI——UI 消费的是同一底层事实(stage states),粒度为单源函数的超集,无需再走 readiness 函数;等价关系:全 7 阶段 SUCCEEDED ⇔ ready && fresh。
 - **JD 判定**:采样服务改动为选题域节点体外围(构造注入 + audit 富化),不触 harness 壳/orchestrator 边界/debate-core;evidence-activation/retrieval 属文献域。无需 JD,留此判定。
 - **契约影响**:零 shared 契约变更——audit `guardrail_summary` 本为开放 `Record<string, unknown>`,`warning_codes` 为 string[]。
+
+## 2026-07-08 W-07(P1):测试与事务性(L-07+L-09+W-01 跟进)
+- **a)L-09 导入韧性**(commit 912b8de7):
+  - **P2002→409**:prisma core store `createLiterature`/`updateLiterature` 捕获 P2002 → `AppError(409, VERSION_CONFLICT, {literature_id, constraint})`——读后写去重竞态撞 DB 唯一约束(doiNormalized/arxivId/titleAuthorsYearHash)不再裸 500;非 P2002 原样透传。
+  - **批内隔离**:`collectionImport` 单条失败进 `failures[]`(request_index/title/error_code/error_message),批继续;**全部失败保留抛错语义**(单条直接导入行为不变)。结果契约加法:`LiteratureCollectionImportResult.request_index`(必填)+ `LiteratureCollectionImportResponse.failures?`。
+  - **配对修正**:auto-pull 三处 `results[i]↔selectedCandidates[i]` 位置配对改 `selectedCandidates[result.request_index]`——部分失败下数组错位导致错分/错记质量分的隐患一并封死(W-06 auto-advance 配对同修)。
+  - **事务边界判定留痕**:条目内写序 literature→source→flow-state 保持非事务——中途失败留下的半成品经 dedup 可自愈(重导补 source),真·条目级事务需把 tx 贯穿 LiteratureService/FlowService/EvidenceActivation 三层,收益不抵改造面,defer(如后续需要归 W-10 之后再议)。
+- **b)L-07 fulltext-acquisition 单测 0→11**(commit 0d87f1ab):计划面(blocker 分类/选源优先级/资产跳过+force_refresh)+ 执行面(预算闸/happy path/失败分类/retryFailed 三态/pause-resume/cancel/宕机重入 requeue/unpaywall OA-429-无PDF 三路/全阻塞即 FAILED)。**夹具教训**:可重试失败记 source cooldown(60s×n),会拖住同 job 后续条目的 pacing——记 cooldown 的失败项须排序在最后,或测前清 cooldown。
+- **c)W-01 真库并发注入跟进**(实锤一个生产 bug):新 env-gated e2e `prisma-literature-pipeline-lock.e2e.test.ts`(`RUN_LITERATURE_PIPELINE_LOCK_E2E=1`,默认套件 skip)——8 并发 `createPipelineRunExclusive` 恰 1 created + 7 in_flight 指向同一 winner;陈旧化后 takeover 关旧 run 为 PIPELINE_RUN_ORPHANED。**首跑即抓到 W-01 落地 bug**:`pg_advisory_xact_lock` 返回 Postgres `void`,Prisma 5.22 `$queryRaw` 反序列化直接抛错——生产锁路径其实一跑就炸,in-memory 测试盖不到。修法:`::text` cast(留注释)。这正是把"真库并发注入"列为跟进项的价值证明。

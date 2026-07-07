@@ -60,3 +60,12 @@
 - 首跑教训:readiness 测试夹具初版只建 quality/pipeline/embedding 三件套即断言 EVIDENCE_READY——in-memory `listActiveEmbeddingVersionsByLiteratureIds` 经 `literature.activeEmbeddingVersionId` 指针取版本,须先 createLiterature 挂指针(与真库语义一致,修夹具不修实现)。
 - Command: 全量 `node scripts/run-node-tests.mjs`
 - Result: passed — **1696 / 1661 pass / 0 fail / 35 skipped**(绿锚 1658+3 新测,零回归)。
+
+## 2026-07-08 W-07 验证
+- a)L-09:`node --test ... prisma-literature-core-store.unit.test.ts literature-service.unit.test.ts` — passed **20/20**(P2002 映射 409+详情/非 P2002 透传 2 例;批内隔离+request_index+全败抛错 1 例;既有导入语义零回归);auto-pull 回归 **26/26**(配对改 request_index 后零改动全绿)。
+- b)L-07:`node --test ... literature-fulltext-acquisition-service.unit.test.ts` — passed **11/11**(1149 行服务首次直测)。
+- c)W-01 跟进:`RUN_LITERATURE_PIPELINE_LOCK_E2E=1 node --env-file=../../.env.local --test ... prisma-literature-pipeline-lock.e2e.test.ts` — **真库 passed 1/1**:8 并发恰 1 admission、7 in_flight 同 winner、orphan takeover 生效。首跑抓获生产 bug(advisory lock void 反序列化炸,`::text` cast 修复)后复跑全绿;pipeline-orchestrator 回归 8/8。
+- Command: `pnpm --filter @paper-engineering-assistant/backend typecheck` + shared typecheck
+- Result: passed(0 error)。
+- Command: 全量 `node scripts/run-node-tests.mjs`
+- Result: passed — **1711 / 1675 pass / 0 fail / 36 skipped**(绿锚 1661+14 新测+1 门控 e2e skip,零回归)。
