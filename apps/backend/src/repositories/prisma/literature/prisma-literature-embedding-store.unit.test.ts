@@ -43,9 +43,20 @@ function makeFakePrismaClient(options: {
       options.onQuery?.(sql);
       return options.queryRows ?? [];
     },
-    $transaction: async (callback: (tx: { $executeRawUnsafe: (sql: string) => Promise<number> }) => Promise<unknown>) =>
+    // T-130 W-03: interactive transactions expose both raw methods; the candidate query now runs
+    // SET LOCALs + two $queryRawUnsafe calls (candidates, then count) inside one transaction.
+    $transaction: async (
+      callback: (tx: {
+        $executeRawUnsafe: (sql: string) => Promise<number>;
+        $queryRawUnsafe: (sql: string) => Promise<unknown[]>;
+      }) => Promise<unknown>,
+    ) =>
       callback({
         $executeRawUnsafe: async (sql: string) => options.onExecute?.(sql) ?? 1,
+        $queryRawUnsafe: async (sql: string) => {
+          options.onQuery?.(sql);
+          return options.queryRows ?? [];
+        },
       }),
     literatureEmbeddingChunk: {
       findMany: async (args: unknown) => options.embeddingChunkFindMany?.(args) ?? [],
@@ -87,9 +98,19 @@ test('Prisma literature embedding store excludes unsupported retrievalVector fro
 
 test('Prisma literature embedding store candidate query uses eligible pgvector versions without selecting JSONB vectors', async () => {
   let capturedSql = '';
+  let countSql = '';
+  const capturedSetLocals: string[] = [];
   const store = new PrismaLiteratureEmbeddingStore(makeFakePrismaClient({
     onQuery: (sql) => {
-      capturedSql = sql;
+      if (!capturedSql) {
+        capturedSql = sql;
+      } else if (!countSql) {
+        countSql = sql;
+      }
+    },
+    onExecute: (sql) => {
+      capturedSetLocals.push(sql);
+      return 1;
     },
     queryRows: [{
       id: 'chunk-row-1',
@@ -121,13 +142,21 @@ test('Prisma literature embedding store candidate query uses eligible pgvector v
 
   assert.match(capturedSql, /c\."embeddingVersionId" = ANY\(ARRAY\['EV-PARTIAL'\]::text\[\]\)/);
   assert.match(capturedSql, /c\."retrievalVector" IS NOT NULL/);
+  // T-130 W-03: knn window scan casts BOTH sides to halfvec(3072) to match the hnsw
+  // expression index; per-literature capping happens over the fetched window only.
+  assert.match(capturedSql, /c\."retrievalVector"::halfvec\(3072\)\) <#> '/);
+  assert.match(capturedSql, /::halfvec\(3072\)/);
   assert.match(capturedSql, /ROW_NUMBER\(\) OVER \(/);
-  assert.match(capturedSql, /PARTITION BY c\."literatureId"/);
+  assert.match(capturedSql, /PARTITION BY "literatureId"/);
   assert.match(capturedSql, /"literatureRank" <= 7/);
   assert.match(capturedSql, /LIMIT 25/);
   assert.doesNotMatch(capturedSql, /c\."vector"/);
   assert.doesNotMatch(capturedSql, /"status"/i);
   assert.doesNotMatch(capturedSql, /EV-STALE/);
+  assert.doesNotMatch(capturedSql, /COUNT\(\*\) OVER/);
+  assert.match(countSql, /SELECT COUNT\(\*\)::int AS "filteredChunkCount"/);
+  assert.equal(capturedSetLocals.some((sql) => sql.includes('hnsw.ef_search')), true);
+  assert.equal(capturedSetLocals.some((sql) => sql.includes("hnsw.iterative_scan = 'relaxed_order'")), true);
 
   const first = result.candidates[0];
   assert.ok(first);

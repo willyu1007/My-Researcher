@@ -338,8 +338,107 @@ export class PrismaLiteratureEmbeddingStore {
 
     const queryVectorLiteral = toPgvectorLiteral(query.normalizedQueryVector);
     const versionIdArray = `ARRAY[${query.eligibleEmbeddingVersionIds.map((id) => sqlString(id)).join(', ')}]::text[]`;
+    // T-130 W-03 (D6): the knn CTE is an index-friendly top-window scan — both sides of `<#>`
+    // are cast to halfvec(3072) to match the hnsw expression index
+    // (LiteratureEmbeddingChunk_retrievalVector_halfvec_hnsw_idx). Per-literature capping and
+    // scoring happen over the fetched window only (over-fetch ×4, bounded), instead of the old
+    // whole-table window-function scan that could never use an ANN index. statement_timeout is a
+    // real DB-side cancel; hnsw.iterative_scan keeps fetching when the version filter or a
+    // LIMIT above ef_search would otherwise truncate results.
+    const knnWindow = Math.min(candidateLimit * 4, 5_000);
+    const efSearch = Math.min(Math.max(candidateLimit, 100), 1_000);
+    const timeoutMs = clampInteger(query.queryTimeoutMs ?? 0, 0, 600_000);
+    const distanceExpr = `(c."retrievalVector"::halfvec(3072)) <#> ${sqlString(queryVectorLiteral)}::halfvec(3072)`;
     const startedAt = Date.now();
-    const rows = await this.prisma.$queryRawUnsafe<Array<{
+    const runCandidateQuery = async () => this.prisma.$transaction(async (tx) => {
+      if (timeoutMs > 0) {
+        await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = ${timeoutMs}`);
+      }
+      await tx.$executeRawUnsafe(`SET LOCAL hnsw.ef_search = ${efSearch}`);
+      await tx.$executeRawUnsafe(`SET LOCAL hnsw.iterative_scan = 'relaxed_order'`);
+      const candidateRows = await tx.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+        WITH knn AS (
+          SELECT
+            c."id",
+            c."embeddingVersionId",
+            c."literatureId",
+            c."chunkId",
+            c."chunkIndex",
+            c."text",
+            c."startOffset",
+            c."endOffset",
+            c."chunkType",
+            c."sourceRefs",
+            c."metadata",
+            c."contentChecksum",
+            c."createdAt",
+            c."updatedAt",
+            ${distanceExpr} AS "negativeInnerProduct"
+          FROM "LiteratureEmbeddingChunk" c
+          WHERE c."embeddingVersionId" = ANY(${versionIdArray})
+            AND c."retrievalVector" IS NOT NULL
+          ORDER BY ${distanceExpr} ASC, c."id" ASC
+          LIMIT ${knnWindow}
+        ),
+        ranked AS (
+          SELECT
+            *,
+            ROW_NUMBER() OVER (
+              PARTITION BY "literatureId"
+              ORDER BY "negativeInnerProduct" ASC, "id" ASC
+            ) AS "literatureRank"
+          FROM knn
+        )
+        SELECT
+          "id",
+          "embeddingVersionId",
+          "literatureId",
+          "chunkId",
+          "chunkIndex",
+          "text",
+          "startOffset",
+          "endOffset",
+          "chunkType",
+          "sourceRefs",
+          "metadata",
+          "contentChecksum",
+          "createdAt",
+          "updatedAt",
+          "negativeInnerProduct",
+          LEAST(1, GREATEST(0, ((-1 * "negativeInnerProduct") + 1) / 2))::float8 AS "vectorScore"
+        FROM ranked
+        WHERE "literatureRank" <= ${perLiteratureCandidateCap}
+        ORDER BY "negativeInnerProduct" ASC, "id" ASC
+        LIMIT ${candidateLimit}
+      `);
+      const countRows = await tx.$queryRawUnsafe<Array<{ filteredChunkCount: unknown }>>(`
+        SELECT COUNT(*)::int AS "filteredChunkCount"
+        FROM "LiteratureEmbeddingChunk" c
+        WHERE c."embeddingVersionId" = ANY(${versionIdArray})
+          AND c."retrievalVector" IS NOT NULL
+      `);
+      return { candidateRows, countRows };
+    }, {
+      // Prisma interactive transactions default to a 5s cap; the DB-side statement_timeout must
+      // be the binding constraint, so give the transaction headroom above it (+ count query).
+      timeout: Math.max(timeoutMs, 5_000) + 15_000,
+    });
+
+    let queryResult: Awaited<ReturnType<typeof runCandidateQuery>>;
+    try {
+      queryResult = await runCandidateQuery();
+    } catch (error) {
+      if (error instanceof Error && /statement timeout|57014/i.test(error.message)) {
+        const timeoutError = new Error(
+          `Literature pgvector candidate query exceeded statement_timeout (${timeoutMs}ms).`,
+        );
+        (timeoutError as Error & { code?: string }).code = 'RETRIEVAL_PGVECTOR_TIMEOUT';
+        throw timeoutError;
+      }
+      throw error;
+    }
+
+    const rows = queryResult.candidateRows as Array<{
       id: string;
       embeddingVersionId: string;
       literatureId: string;
@@ -356,63 +455,11 @@ export class PrismaLiteratureEmbeddingStore {
       updatedAt: Date | string;
       negativeInnerProduct: unknown;
       vectorScore: unknown;
-      filteredChunkCount: unknown;
-    }>>(`
-      WITH filtered AS (
-        SELECT
-          c."id",
-          c."embeddingVersionId",
-          c."literatureId",
-          c."chunkId",
-          c."chunkIndex",
-          c."text",
-          c."startOffset",
-          c."endOffset",
-          c."chunkType",
-          c."sourceRefs",
-          c."metadata",
-          c."contentChecksum",
-          c."createdAt",
-          c."updatedAt",
-          c."retrievalVector" <#> ${sqlString(queryVectorLiteral)}::vector AS "negativeInnerProduct",
-          (COUNT(*) OVER())::int AS "filteredChunkCount",
-          ROW_NUMBER() OVER (
-            PARTITION BY c."literatureId"
-            ORDER BY c."retrievalVector" <#> ${sqlString(queryVectorLiteral)}::vector ASC, c."id" ASC
-          ) AS "literatureRank"
-        FROM "LiteratureEmbeddingChunk" c
-        WHERE c."embeddingVersionId" = ANY(${versionIdArray})
-          AND c."retrievalVector" IS NOT NULL
-      ),
-      capped AS (
-        SELECT *
-        FROM filtered
-        WHERE "literatureRank" <= ${perLiteratureCandidateCap}
-      )
-      SELECT
-        "id",
-        "embeddingVersionId",
-        "literatureId",
-        "chunkId",
-        "chunkIndex",
-        "text",
-        "startOffset",
-        "endOffset",
-        "chunkType",
-        "sourceRefs",
-        "metadata",
-        "contentChecksum",
-        "createdAt",
-        "updatedAt",
-        "negativeInnerProduct",
-        LEAST(1, GREATEST(0, ((-1 * "negativeInnerProduct") + 1) / 2))::float8 AS "vectorScore",
-        "filteredChunkCount"
-      FROM capped
-      ORDER BY "negativeInnerProduct" ASC, "id" ASC
-      LIMIT ${candidateLimit}
-    `);
+    }>;
     const dbSimilarityQueryMs = Date.now() - startedAt;
-    const filteredChunkCount = rows.length > 0 ? toNumber(rows[0].filteredChunkCount) : 0;
+    const filteredChunkCount = queryResult.countRows.length > 0
+      ? toNumber(queryResult.countRows[0].filteredChunkCount)
+      : 0;
     const candidates = rows.map((row): LiteratureEmbeddingVectorCandidateRecord => ({
       id: row.id,
       embeddingVersionId: row.embeddingVersionId,

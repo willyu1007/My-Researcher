@@ -239,6 +239,10 @@ export type LiteratureEmbeddingVectorCandidateQuery = {
   normalizedQueryVector: number[];
   candidateLimit: number;
   perLiteratureCandidateCap: number;
+  // T-130 W-03 (D6): DB-side statement_timeout for the candidate query (0/undefined = none).
+  // The Prisma store raises an Error with code RETRIEVAL_PGVECTOR_TIMEOUT on expiry so the
+  // caller can map it to a structured retrieval error; the in-memory store ignores it.
+  queryTimeoutMs?: number | null;
 };
 
 export type LiteratureEmbeddingVectorCandidateRecord = LiteratureEmbeddingChunkRecord & {

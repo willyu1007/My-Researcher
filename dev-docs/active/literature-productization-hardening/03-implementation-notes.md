@@ -22,3 +22,12 @@
 - **激活条件**:D5 姿态以 runtimeStateStore 接线为激活条件——生产构造(artifact-runtime 传 repository)全量激活;裸构造(隔离测试/遗留)保持原直连行为,既有 2 测零改动=默认路径不变证据。**D5 偏差记录**:原文"执行前健康 probe"落实为解析入口内的 breaker+cached-probe 双门(同语义、单接缝),而非 flow-service 层独立门。
 - **部署约定**:`docker-compose.literature.yml`(grobid 0.9.0-crf,:8070)+ 运行手册 `docs/context/env/literature-grobid.md`(启动/端点/健康/断路器语义/E2E 依赖)。
 - **测试**:解析器单测 2→8——circuit-open 零请求 fast-block、probe 不健康 block+开闸、连接失败重试 1 次后开闸(attempts=2 钉)、timeout 分类 GROBID_TIMEOUT、503 重试后成功且断路器复位(READY/failureCount=0)、204→OCR 且不开闸。
+
+## 2026-07-07 W-03(P1):pgvector ANN + 超时真取消(L-04,按 D6)
+- **实测基线(索引前,26.16 万 vectors)**:exact 扫描 p50 **771ms** / p95 806ms(`.ai/.tmp/literature-pgvector-bench/w03-before-exact.json`)——规模风险坐实。
+- **索引**:migration `20260707090000_add_literature_pgvector_halfvec_hnsw_index`——`hnsw ((("retrievalVector")::halfvec(3072)) halfvec_ip_ops) WITH (m=16, ef_construction=64)`,1830 MB。**D6 偏差记录**:未用 CONCURRENTLY(Prisma migration 事务内不可用;单实例假设下建索引写停可接受,migration 注释载明)。
+- **查询重构(关键)**:原 SQL 为全表窗口函数形状(COUNT OVER + 全量 ROW_NUMBER),**结构上吃不到 ANN 索引**——重构为 knn 顶窗 CTE(双侧 halfvec cast 精确匹配索引表达式,over-fetch ×4 上限 5000)→ 窗内 per-literature cap → 计数改独立 btree 聚合查询;`SET LOCAL hnsw.ef_search`(≥100,随 candidateLimit)+ `hnsw.iterative_scan='relaxed_order'`(版本过滤丢弃与 LIMIT>ef_search 两种截断的保险)。
+- **超时真取消**:`queryTimeoutMs` 穿仓储接口 → 事务内 `SET LOCAL statement_timeout`(DB 侧真正杀查询),57014 映射结构化错误码 `RETRIEVAL_PGVECTOR_TIMEOUT`;应用层 Promise.race 保留为 +1s 兜底(非 DB 停滞场景)。**实施教训**:Prisma 交互事务默认 5s 上限会先于 statement_timeout 掐断——事务 timeout 显式设为 max(statement_timeout,5s)+15s,使 DB 超时始终为约束项。
+- **实测结果(索引后)**:ANN p50 **102.7ms** / p95 **150.9ms**(提速 p50 6.7×/p95 vs 冷峰 36×);**top-50 overlap vs exact = 99.8%**(半精度+hnsw 召回损失可忽略);真实版本过滤(1595 active versions)下 EXPLAIN 确认 `Index Scan using ..._halfvec_hnsw_idx`(外层 Incremental Sort 仅为 id 平局键的流式加序,LIMIT 有界)。证据:`w03-after-compare.json` + 基准脚本 `.ai/scripts/literature-pgvector-benchmark.mjs`(exact/ann/compare 三模式,SQL 形状与 store 同构、需同步维护)。
+- **语义注记**:ANN 为近似检索,候选集与 exact 可有 ≤0.2% 差异;evaluator 临时库走 `prisma db push`(不含 raw migration 索引)故其指标仍量的是 exact 行为——ANN 质量证据以本切片 overlap 对比为准。候选窗/权重 settings 化仍归 W-10(D6 载明项拆解)。
+- **D6 偏差二**:`ef_search`/`iterative_scan` 为 store 内派生常量(随 candidateLimit),未单列 env——W-10 统一配置面。

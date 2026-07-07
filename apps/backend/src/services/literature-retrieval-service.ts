@@ -246,12 +246,17 @@ export class LiteratureRetrievalService {
       Boolean(request.topic_id?.trim() || request.paper_id?.trim()),
     );
 
+    // T-130 W-03 (D6): the DB-side statement_timeout (queryTimeoutMs) is the primary cancel —
+    // it actually stops the Postgres query. The app-level race stays as a slightly-later
+    // backstop (+1s) for non-DB stalls, so DB timeouts surface first with a structured code
+    // instead of leaving an orphaned server-side query running.
     const result = await this.withPgvectorCandidateTimeout(this.repository.listEmbeddingVectorCandidates({
       normalizedQueryVector,
       eligibleEmbeddingVersionIds: eligibleVersions.map((version) => version.id),
       candidateLimit: candidateWindow.candidateLimit,
       perLiteratureCandidateCap: candidateWindow.perLiteratureCandidateCap,
-    }), candidateWindowSettings.query_timeout_ms);
+      queryTimeoutMs: candidateWindowSettings.query_timeout_ms,
+    }), candidateWindowSettings.query_timeout_ms + 1_000);
     const response = await this.retrieveFromPgvectorCandidates(request, {
       candidateVersions,
       candidates: result.candidates,
