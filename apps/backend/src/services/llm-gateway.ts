@@ -996,11 +996,13 @@ export class BackendLlmGateway {
       output_tokens: usage.outputTokens,
       embedding_input_tokens: prompt === null ? usage.inputTokens ?? usage.totalTokens : null,
       total_tokens: usage.totalTokens,
+      // T-130 W-04 (L-05): embeddings usage sometimes reports only total_tokens; fall back to it
+      // for the input side on prompt-less (embedding) calls so input-only billing can compute.
       cost_usd: computeLlmCostUsd(
         this.pricingTable(),
         model.providerId,
         model.modelId,
-        usage.inputTokens,
+        usage.inputTokens ?? (prompt === null ? usage.totalTokens : null),
         usage.outputTokens,
       ),
       provider_side_cache_hit: usage.providerSideCacheReadTokens === null

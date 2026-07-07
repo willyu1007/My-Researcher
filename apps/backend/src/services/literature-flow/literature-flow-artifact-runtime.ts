@@ -17,7 +17,7 @@ import type {
   LiteratureRepository,
 } from '../../repositories/literature-repository.js';
 import type { LiteratureContentProcessingSettingsService } from '../literature-content-processing-settings-service.js';
-import { sha256Text } from '../literature-content-processing-utils.js';
+import { sha256Text, splitEmbeddingInputBatches } from '../literature-content-processing-utils.js';
 import { LiteratureKeyContentExtractionService } from '../literature-key-content-extraction-service.js';
 import { BackendLlmGateway, type LlmCallTelemetry } from '../llm-gateway.js';
 import { LiteratureContentProcessingFileStore } from './literature-content-processing-file-store.js';
@@ -1584,32 +1584,78 @@ export class LiteratureFlowArtifactRuntime {
     chunks: ChunkRecord[],
     config: { profileId?: string; model: string; dimensions: number | null },
   ): Promise<{ vectors: EmbeddingRecord[]; telemetry: LlmCallTelemetry }> {
-    const response = await (this.options.llmGateway ?? new BackendLlmGateway({
+    const gateway = this.options.llmGateway ?? new BackendLlmGateway({
       settingsService: this.options.settingsService,
-    })).createEmbeddings({
-      executionContext: {
-        feature: 'literature_content_processing',
-        operation: 'embed_chunks',
-        metadata: {
-          chunk_count: chunks.length,
-        },
-      },
-      model: {
-        providerId: 'openai',
-        modelId: config.model,
-        profileId: config.profileId,
-      },
-      input: chunks.map((chunk) => chunk.text),
-      dimensions: config.dimensions,
     });
-    const rawVectors = response.vectors;
+    // T-130 W-04 (L-08): batch the request so a long literature cannot exceed the provider's
+    // per-request input/token caps and fail wholesale. Batches run sequentially; any batch
+    // failure fails the EMBEDDED stage (stage atomicity — reruns are checksum-idempotent).
+    const texts = chunks.map((chunk) => chunk.text);
+    const batches = splitEmbeddingInputBatches(texts);
+    const rawVectors: number[][] = new Array(chunks.length);
+    const telemetries: LlmCallTelemetry[] = [];
+    for (const batchIndexes of batches) {
+      const response = await gateway.createEmbeddings({
+        executionContext: {
+          feature: 'literature_content_processing',
+          operation: 'embed_chunks',
+          metadata: {
+            chunk_count: chunks.length,
+            batch_count: batches.length,
+            batch_size: batchIndexes.length,
+          },
+        },
+        model: {
+          providerId: 'openai',
+          modelId: config.model,
+          profileId: config.profileId,
+        },
+        input: batchIndexes.map((index: number) => texts[index]!),
+        dimensions: config.dimensions,
+      });
+      for (let position = 0; position < batchIndexes.length; position += 1) {
+        rawVectors[batchIndexes[position]!] = response.vectors[position]!;
+      }
+      telemetries.push(response.telemetry);
+    }
     return {
       vectors: chunks.map((chunk, index) => ({
         chunk_id: chunk.chunk_id,
         index: chunk.index,
         vector: rawVectors[index]!,
       })),
-      telemetry: response.telemetry,
+      telemetry: this.aggregateEmbeddingTelemetry(telemetries),
+    };
+  }
+
+  // T-130 W-04: fold per-batch telemetry into one record — counts/elapsed sum, nullable token
+  // and cost fields sum with null-poisoning (any unknown batch makes the total unknown), model
+  // identity from the first batch.
+  private aggregateEmbeddingTelemetry(telemetries: LlmCallTelemetry[]): LlmCallTelemetry {
+    if (telemetries.length === 1) {
+      return telemetries[0]!;
+    }
+    const first = telemetries[0]!;
+    const sumNullable = (values: Array<number | null>): number | null => (
+      values.some((value) => value === null)
+        ? null
+        : values.reduce<number>((sum, value) => sum + (value as number), 0)
+    );
+    return {
+      ...first,
+      elapsed_ms: telemetries.reduce((sum, item) => sum + item.elapsed_ms, 0),
+      request_count: telemetries.reduce((sum, item) => sum + item.request_count, 0),
+      retry_count: telemetries.reduce((sum, item) => sum + item.retry_count, 0),
+      timeout_count: telemetries.reduce((sum, item) => sum + item.timeout_count, 0),
+      rate_limit_count: telemetries.reduce((sum, item) => sum + item.rate_limit_count, 0),
+      input_tokens: sumNullable(telemetries.map((item) => item.input_tokens)),
+      output_tokens: sumNullable(telemetries.map((item) => item.output_tokens)),
+      embedding_input_tokens: sumNullable(telemetries.map((item) => item.embedding_input_tokens)),
+      total_tokens: sumNullable(telemetries.map((item) => item.total_tokens)),
+      cost_usd: sumNullable(telemetries.map((item) => item.cost_usd)),
+      provider_side_cache_hit: null,
+      provider_side_cache_read_tokens: sumNullable(telemetries.map((item) => item.provider_side_cache_read_tokens)),
+      provider_side_cache_write_tokens: sumNullable(telemetries.map((item) => item.provider_side_cache_write_tokens)),
     };
   }
 

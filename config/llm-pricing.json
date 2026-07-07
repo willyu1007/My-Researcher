@@ -1,7 +1,9 @@
 {
   "$comment": "LLM provider list prices in USD per 1M tokens, consumed by BackendLlmGateway telemetry cost computation (T-123 Phase 1.5). Verified 2026-06-12 from provider pricing pages/aggregators: gpt-5.5 $5/$30 (openai.com pricing; cached-input discount not modeled in v1); qwen3.6-plus $0.325/$1.95 (DashScope list price); deepseek-v4-pro standard $1.74/$3.48 (promo $0.435/$0.87 expired 2026-05-31 — using standard rate; if the promo is extended, lower these). Update on provider price changes; null disables cost computation for that model (non-blocking, warn-once).",
   "openai": {
-    "gpt-5.5": { "input_usd_per_mtok": 5.0, "output_usd_per_mtok": 30.0 }
+    "gpt-5.5": { "input_usd_per_mtok": 5.0, "output_usd_per_mtok": 30.0 },
+    "text-embedding-3-large": { "input_usd_per_mtok": 0.13, "output_usd_per_mtok": null },
+    "text-embedding-3-small": { "input_usd_per_mtok": 0.02, "output_usd_per_mtok": null }
   },
   "dashscope": {
     "qwen3.6-plus": { "input_usd_per_mtok": 0.325, "output_usd_per_mtok": 1.95 }

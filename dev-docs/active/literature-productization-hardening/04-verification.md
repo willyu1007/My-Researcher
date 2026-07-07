@@ -34,3 +34,11 @@
 - Command: `pnpm --filter @paper-engineering-assistant/backend typecheck`
 - Result: passed(0 error)。
 - `prisma migrate deploy`:52/52 applied,索引 1830 MB 建成。
+
+## 2026-07-07 W-04 验证
+- Command: `node --test --loader ts-node/esm src/services/llm-pricing-table.unit.test.ts src/services/literature-content-processing-utils.unit.test.ts src/services/llm-gateway.unit.test.ts`
+- Result: passed; **25/25**(新增:input-only 计费三规则 4 例、分批助手 5 例、gateway embedding 成本端到端回归钉 1M tokens→$0.13)。
+- Command: `node --test --loader ts-node/esm src/services/literature-flow-service.unit.test.ts`
+- Result: passed; 22/22(EMBEDDED 单批常态零行为变化)。
+- Command: `pnpm --filter @paper-engineering-assistant/backend typecheck`
+- Result: passed(0 error)。

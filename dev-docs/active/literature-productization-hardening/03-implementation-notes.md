@@ -31,3 +31,7 @@
 - **实测结果(索引后)**:ANN p50 **102.7ms** / p95 **150.9ms**(提速 p50 6.7×/p95 vs 冷峰 36×);**top-50 overlap vs exact = 99.8%**(半精度+hnsw 召回损失可忽略);真实版本过滤(1595 active versions)下 EXPLAIN 确认 `Index Scan using ..._halfvec_hnsw_idx`(外层 Incremental Sort 仅为 id 平局键的流式加序,LIMIT 有界)。证据:`w03-after-compare.json` + 基准脚本 `.ai/scripts/literature-pgvector-benchmark.mjs`(exact/ann/compare 三模式,SQL 形状与 store 同构、需同步维护)。
 - **语义注记**:ANN 为近似检索,候选集与 exact 可有 ≤0.2% 差异;evaluator 临时库走 `prisma db push`(不含 raw migration 索引)故其指标仍量的是 exact 行为——ANN 质量证据以本切片 overlap 对比为准。候选窗/权重 settings 化仍归 W-10(D6 载明项拆解)。
 - **D6 偏差二**:`ef_search`/`iterative_scan` 为 store 内派生常量(随 candidateLimit),未单列 env——W-10 统一配置面。
+
+## 2026-07-07 W-04(P1):embedding 成本计费修复 + 请求分批(L-05+L-08)
+- **L-05 成本 bug 双点修**:①`computeLlmCostUsd` 支持 input-only 计费——定价条目 `output_usd_per_mtok: null` 时仅按输入计费;守卫:若响应竟报正数 output tokens 而无 output 费率,保持 null 不少计。②定价表登记 `text-embedding-3-large` $0.13/M、`text-embedding-3-small` $0.02/M(output null);③gateway 遥测对无 prompt(embedding)调用的 cost 入参回退 `inputTokens ?? totalTokens`。**JD 判定**:llm-gateway 非 D-T128-00 所列 harness 面(壳/节点体/orchestrator 边界/debate-core/压缩 orchestrator),纯加法计费逻辑,无需 JD;留此判定。
+- **L-08 分批**:纯函数 `splitEmbeddingInputBatches`(utils,item 上限 2048、保守 token 预算 200k=chars/3 高估;超大单条独立成批由 provider 明确拒绝而非整篇失败);`embedChunksViaGateway` 循环批次(顺序执行,任一批失败=EMBEDDED 阶段失败,保持阶段原子性、重跑 checksum 幂等)+ 遥测聚合(计数/耗时求和,token/cost null-poisoning 求和,身份取首批)。

@@ -737,3 +737,26 @@ test('computes telemetry cost_usd from the pricing table and degrades to null wh
   });
   assert.equal(unpriced.telemetry.cost_usd, null);
 });
+
+test('LLM gateway computes input-only cost for embedding models (T-130 W-04)', async () => {
+  const gateway = new BackendLlmGateway({
+    settingsService: createSettingsService(),
+    fetchImpl: (async () => new Response(JSON.stringify({
+      data: [{ embedding: [0.1, 0.2, 0.3] }],
+      usage: { prompt_tokens: 1000000, total_tokens: 1000000 },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })) as typeof fetch,
+  });
+
+  const response = await gateway.createEmbeddings({
+    executionContext: { feature: 'test', operation: 'embedding-cost' },
+    model: { providerId: 'openai', modelId: 'text-embedding-3-large', profileId: 'embedding-test' },
+    input: ['a'],
+  });
+
+  assert.equal(response.telemetry.embedding_input_tokens, 1000000);
+  // input-only billing: 1M tokens * $0.13/M, no completion tokens required.
+  assert.equal(response.telemetry.cost_usd, 0.13);
+});
