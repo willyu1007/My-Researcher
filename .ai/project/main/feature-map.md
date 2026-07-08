@@ -42,7 +42,6 @@ Project: `main`
 | T-111 topic-selection-v1a-production-orchestration | done | dev-docs/active/topic-selection-v1a-production-orchestration |
 | T-116 adaptive-llm-systems-literature-collection-ingestion | done | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
 | T-117 adaptive-llm-systems-readiness-followup | done | dev-docs/active/adaptive-llm-systems-readiness-followup |
-| T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
 | T-119 adaptive-llm-systems-standard-pipeline-expansion | archived | dev-docs/archive/adaptive-llm-systems-standard-pipeline-expansion |
 | T-120 adaptive-llm-systems-literature-pipeline-completion | archived | dev-docs/archive/adaptive-llm-systems-literature-pipeline-completion |
 | T-121 literature-retrieval-pgvector-index-design | archived | dev-docs/archive/literature-retrieval-pgvector-index-design |
@@ -138,6 +137,7 @@ Project: `main`
 | T-113 paper-implementation-legacy-authority-cleanup | done | dev-docs/active/paper-implementation-legacy-authority-cleanup |
 | T-114 paper-implementation-runtime-orchestration-hardening | done | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
 | T-115 topic-selection-v1b-human-review-path | archived | dev-docs/archive/topic-selection-v1b-human-review-path |
+| T-118 adaptive-llm-systems-experiment-foundation-promotion | archived | dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion |
 | T-123 topic-selection-productization-hardening | archived | dev-docs/archive/topic-selection-productization-hardening |
 | T-124 paper-implementation-productization-hardening | in-progress | dev-docs/active/paper-implementation-productization-hardening |
 | T-127 topic-selection-backend-hardening-and-expansion | archived | dev-docs/archive/topic-selection-backend-hardening-and-expansion |

@@ -1,7 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: in-progress(A/B/C 段完成;D 段消费时验证 defer 至第一个真实 RunRecipe,见 playbook)
+- State: in-progress
+- Progress: A/B/C 段完成(晋升全链穿越 + playbook + 范围登记);D 段(消费时验证)defer 至第一个真实 RunRecipe,见 playbook
 - Task ID: `T-131`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-012`
 - Trigger: T-118 收口讨论(2026-07-08)——用户拍板:①开收尾小任务承接晋升执行(T-118 Non-goal 禁止其自建 canonical 资产);②LIT-0204 evaluation-protocol 候选一次做到 `promoted`。

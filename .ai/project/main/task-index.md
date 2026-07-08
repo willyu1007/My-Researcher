@@ -127,7 +127,7 @@ Project: `main`
 | T-115 topic-selection-v1b-human-review-path | archived | F-001 | dev-docs/archive/topic-selection-v1b-human-review-path |
 | T-116 adaptive-llm-systems-literature-collection-ingestion | done | F-000 | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
 | T-117 adaptive-llm-systems-readiness-followup | done | F-000 | dev-docs/active/adaptive-llm-systems-readiness-followup |
-| T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
+| T-118 adaptive-llm-systems-experiment-foundation-promotion | archived | F-001 | dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion |
 | T-119 adaptive-llm-systems-standard-pipeline-expansion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-standard-pipeline-expansion |
 | T-120 adaptive-llm-systems-literature-pipeline-completion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-literature-pipeline-completion |
 | T-121 literature-retrieval-pgvector-index-design | archived | F-000 | dev-docs/archive/literature-retrieval-pgvector-index-design |

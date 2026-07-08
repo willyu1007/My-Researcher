@@ -1,7 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: in-progress
+- State: archived(2026-07-08——F3 矩阵 + LIT-0204 lane 收口;晋升执行由 T-131 承接,evaluation-protocol 候选 promoted;其余候选需求拉动,外部依赖登记)
+- Feature / Milestone / Requirement: `F-001` / `M-001` / `R-012`
 - Progress: **S1 决策已拍板并落地（2026-07-06）**——用户选定**最小适配器**路径（faithful GPU 环境留作外部依赖项）；S1 CPU/retrieval 烟测 **pass**（run `ragperf-s1-20260706T141503Z`，verdict `protocol_executable_cpu_smoke_pass`，13 最小补丁+合成 50 文档语料，insert/query 双过，RAGPerf 自身 stats 产出；工件 `artifacts/lit-0204-ragperf-s1-cpu-adapter.json`，留痕 03/04 §2026-07-06）。RAGPerf 维持 candidate 级。**同窗合并项**：文献 evaluator re-baseline 完成——当前栈（pgvector + text-embedding-3-large）vs 2026-05-11 基线：recall@5 1.0 持平、MRR@5 +0.020、nDCG@5 +0.015、blind 9/9，不劣于且略优（04 §2026-07-06）。
 - Next step: **无(lane 收口 2026-07-08)**——07 回填与晋升裁决均完成:evaluation-protocol 候选经 T-131 走真实机器 **promoted**(第一条真实晋升全链,playbook 固化 `docs/context/process/experiment-foundation-promotion-lane-playbook.md`);benchmark 候选 manual_review_required、dataset 两候选 needs_info 挂外部依赖(faithful GPU 环境/HF 数据政策),其余 8 候选需求拉动。T-118 可归档评估。
 

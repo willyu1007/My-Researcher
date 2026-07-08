@@ -2,8 +2,8 @@ version: 1
 task_id: T-118
 project: main
 slug: adaptive-llm-systems-experiment-foundation-promotion
-status: in-progress
-updated: "2026-06-04"
+status: archived
+updated: "2026-07-08"
 keywords:
   - literature
   - adaptive-llm-systems

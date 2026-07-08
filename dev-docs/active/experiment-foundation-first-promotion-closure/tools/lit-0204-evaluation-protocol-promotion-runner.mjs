@@ -26,18 +26,22 @@ import { canonicalJson } from '../../../../.ai/scripts/experiment-foundation-pro
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pkgRoot = path.resolve(here, '..');
-const T118_ROOT = path.resolve(pkgRoot, '..', 'adaptive-llm-systems-experiment-foundation-promotion');
+// T-118 was archived 2026-07-08; its artifacts moved to dev-docs/archive. The registry records
+// created by the 2026-07-08 promotion run captured the then-current dev-docs/active paths as a
+// point-in-time snapshot (not rewritten — same convention as immutable migration comments). These
+// source constants point at the current (archive) location so re-runs / verify mode resolve files.
+const T118_ROOT = path.resolve(pkgRoot, '..', '..', 'archive', 'adaptive-llm-systems-experiment-foundation-promotion');
 
 const NOW = new Date().toISOString();
 const REVIEWER = { ref_type: 'user', ref_id: 'yurui' };
 const LIT_REF = { ref_type: 'literature_record', ref_id: 'LIT-0204' };
 const S1_ARTIFACT_REF = {
   ref_type: 'task_artifact',
-  ref_id: 'dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion/artifacts/lit-0204-ragperf-s1-cpu-adapter.json',
+  ref_id: 'dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion/artifacts/lit-0204-ragperf-s1-cpu-adapter.json',
 };
 const PAYLOAD_DOC_REF = {
   ref_type: 'task_artifact',
-  ref_id: 'dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion/07-lit-0204-ragperf-candidate-payload.md',
+  ref_id: 'dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion/07-lit-0204-ragperf-candidate-payload.md',
 };
 const PROTOCOL_DEFINITION_REF = {
   ref_type: 'task_artifact',
