@@ -8,13 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 130 (planned: 2, in-progress: 3, blocked: 0, done: 43, archived: 82)
+- Tasks: 131 (planned: 2, in-progress: 4, blocked: 0, done: 43, archived: 82)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-130 literature-productization-hardening | archived | F-001 | dev-docs/archive/literature-productization-hardening |
+| T-131 experiment-foundation-first-promotion-closure | in-progress | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
 | T-089 topic-selection-agent-workflow-review | done | F-001 | dev-docs/active/topic-selection-agent-workflow-review |
 | T-088 topic-selection-workflow-runtime-foundation | done | F-001 | dev-docs/active/topic-selection-workflow-runtime-foundation |
 | T-115 topic-selection-v1b-human-review-path | archived | F-001 | dev-docs/archive/topic-selection-v1b-human-review-path |
@@ -33,5 +34,4 @@ Project: `main`
 | T-121 literature-retrieval-pgvector-index-design | archived | F-000 | dev-docs/archive/literature-retrieval-pgvector-index-design |
 | T-116 adaptive-llm-systems-literature-collection-ingestion | done | F-000 | dev-docs/active/adaptive-llm-systems-literature-collection-ingestion |
 | T-117 adaptive-llm-systems-readiness-followup | done | F-000 | dev-docs/active/adaptive-llm-systems-readiness-followup |
-| T-118 adaptive-llm-systems-experiment-foundation-promotion | in-progress | F-000 | dev-docs/active/adaptive-llm-systems-experiment-foundation-promotion |
 <!-- AUTO-GENERATED:END dashboard -->

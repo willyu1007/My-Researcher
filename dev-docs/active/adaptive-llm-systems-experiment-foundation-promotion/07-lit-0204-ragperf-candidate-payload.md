@@ -5,7 +5,7 @@
 - Lane: `LIT-0204` RAGPerf.
 - Decision: keep at candidate-payload-requirements level; do not create canonical assets.
 - Auto-promotion: `false`.
-- Recommended next step(2026-07-08 更新): S1 smoke 证据已回填——下一动作 = **晋升评审(人工裁决)**:benchmark/evaluation-protocol 两候选去留 + `protocol_hash` 哈希方案决策 + duplicate check 执行;dataset 两候选维持 needs_info(政策/获取外部依赖)。
+- Recommended next step(2026-07-08 二次更新): 晋升裁决已执行(T-131)——**evaluation-protocol 候选 promoted**(manual_promote,reviewer=yurui;canonical 记录链 23 条入 registry,protocol_hash 方案与 lane 全程见 `docs/context/process/experiment-foundation-promotion-lane-playbook.md`);benchmark 候选维持 manual_review_required(faithful 环境+dataset payloads 外部依赖,`benchmark_asset_id` 以前向引用留在协议记录);dataset 两候选维持 needs_info。T-118 本 lane 到此收口。
 
 ## Source Evidence
 - arXiv: https://arxiv.org/abs/2603.10765.
@@ -23,7 +23,7 @@
 | Candidate | Status | Missing fields before promotion |
 | --- | --- | --- |
 | Benchmark candidate | `manual_review_required` | dataset_candidate_payloads, evaluation_protocol_candidate_payload, metric_definition_refs, protocol_hash, readiness_snapshot |
-| Evaluation protocol candidate | `manual_review_required` | protocol_hash, metric_definition_records, evaluator_ref_records, output_artifact_contract |
+| Evaluation protocol candidate | **`promoted`(2026-07-08,T-131)** | ——(全部补齐:protocol_hash=`cpu_adapter:sha256:aac51e52…d6f84`,metric_definition ×17、evaluator refs、output_artifact_contract 均落 registry;canonical `evaluation_protocol_lit_0204_ragperf` 在库) |
 | Wikipedia corpus dataset candidate | `needs_info` | data_policy_ref, split_protocol, checksum_manifest, dataset_version, local_location_ref |
 | Natural Questions query dataset candidate | `needs_info` | data_policy_ref, split_protocol, checksum_manifest, dataset_version, local_location_ref |
 

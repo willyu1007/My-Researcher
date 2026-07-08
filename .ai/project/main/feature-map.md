@@ -144,6 +144,7 @@ Project: `main`
 | T-128 topic-selection-product-readiness-closure | archived | dev-docs/archive/topic-selection-product-readiness-closure |
 | T-129 topic-selection-calibration-release | planned | dev-docs/active/topic-selection-calibration-release |
 | T-130 literature-productization-hardening | archived | dev-docs/archive/literature-productization-hardening |
+| T-131 experiment-foundation-first-promotion-closure | in-progress | dev-docs/active/experiment-foundation-first-promotion-closure |
 
 ### F-002 Desktop Frontend Foundation
 
