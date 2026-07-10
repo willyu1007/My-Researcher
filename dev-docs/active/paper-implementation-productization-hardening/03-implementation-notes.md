@@ -1,5 +1,10 @@
 # 03 Implementation Notes
 
+## 2026-07-11 S0-5 落地（D-N8 裁定）+ S0 全包提交
+- S0 全部改动（含复审修复轮）以 `506a6073` 提交（72 文件）。
+- D-N8 签核并实现：claim 级 lineage 改 literature∨experiment any-of 机制（`WRITING_AFFECTING_TARGET_ANY_OF_REQUIREMENTS`），dossier 级 literature 保持；顺带修复 `inferLineageType` 不识别合成 `required_*_lineage` ref 的缺陷（此前 experiment 缺失项被误归 internal_interpretation——literature 那条只是关键词碰巧命中）。测试：纯实验 claim manifest complete、两者皆无 broken 且修复队列列出双选项、dossier 无文献仍 broken；旧用例期望值更新为双缺失项语义。S0 工单全五项闭合。
+- 下一步：S1 开工（工单 `08-s1-workorder.md`）。
+
 ## 2026-07-10 S0 实施（治理与正确性补洞，`07-s0-workorder.md` 全四项落地）
 - **S0-1 HumanConfirmationRecord 一等实体化**：新契约文件 `paper-implementation-human-confirmation-contracts.ts`（scope 枚举 6 值 / status active|invalidated|superseded / reviewed_sources ref+hash / strict schema）+ schema.test 4 用例；仓储三层（interface / in-memory / prisma）+ `PaperImplementationHumanConfirmationService`（capture 仅人 actor、项目须 active）+ controller/routes `POST|GET /human-confirmations` + app.ts 装配（strategy 工厂）。shared package.json exports 增补子路径。**Prisma 迁移未 apply（待审批）**：schema.prisma 新增 `PaperImplementationHumanConfirmationRecord` 与 `PaperImplementationTraceGateResult` 两 model，`prisma generate` 与 `ctl-db-ssot.mjs sync-to-context` 已跑；迁移命令待用户批准后执行。
 - **S0-2 确认/gate ref 存在性校验**：`evaluateTraceGate` 结果落库 + `findTraceGateResultById`；WO admit `admission_gate_result_id` 与 ready dossier `readiness_gate_result_id` 必须解析到同项目 persisted TraceGateResult 且 `gate_status==='passed'`（replay/drift 分支语义不变）；strong claim `human_confirmation_ref` 必须解析到 active + scope=strong_claim_acceptance 的记录；motive evolution human-required 必须带可解析 ref（confirmed_by 单独不再放行）；portfolio 重大结构变更必须带可解析 ref（**新增契约字段** `ApplyMotivePortfolioDecisionRequest.confirmation_ref` 与 `AdmitCoreMotiveVersionRequest.confirmation_ref`，加性）；**审查发现并关闭旁路**：`admitCoreMotiveVersion` 带 primary 替换的内部 portfolio 决策路径同样强制解析（原只查 confirmed_by 字符串）。Domain Gate materialize 无需重复断言——它经由确定性创建方法，门自动透传（记录为设计决定）。routes 集成测试改为走真流程（evaluate 产出真实 gate id 再 admit/ready）。

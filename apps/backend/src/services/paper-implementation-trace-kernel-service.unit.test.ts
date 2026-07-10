@@ -227,12 +227,15 @@ test('known writing-affecting target with empty required lineage is broken', asy
     lineage: emptyLineage(),
   });
   assert.equal(manifest.trace_status, 'broken');
-  assert.equal(manifest.missing_ref_count, 1);
+  assert.equal(manifest.missing_ref_count, 2);
 
   const queue = await service.listTraceRepairQueue(PROJECT.implementation_project_id);
-  assert.equal(queue.length, 1);
-  assert.equal(queue[0]?.blocker_code, 'missing_required_lineage');
-  assert.equal(queue[0]?.lineage_type, 'literature');
+  assert.equal(queue.length, 2);
+  assert.equal(queue.every((item) => item.blocker_code === 'missing_required_lineage'), true);
+  assert.deepEqual(
+    queue.map((item) => item.lineage_type).sort(),
+    ['experiment', 'literature'],
+  );
 });
 
 test('result interpretation packet target requires experiment lineage', async () => {
@@ -557,4 +560,38 @@ test('trace gate evaluation persists the gate result for later resolution', asyn
     await service.findTraceGateResultById(PROJECT.implementation_project_id, 'trace_gate_result_missing'),
     null,
   );
+});
+
+test('claim manifests accept experiment-only lineage but stay broken with neither literature nor experiment (D-N8)', async () => {
+  const { service } = makeHarness();
+  const experimentOnly = await service.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('claim_candidate', 'claim_candidate_experiment_only', 'v1'),
+    lineage: {
+      ...emptyLineage(),
+      experiment: {
+        ...emptyLineage().experiment,
+        run_evidence_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
+      },
+    },
+  });
+  assert.equal(experimentOnly.trace_status, 'complete');
+
+  const neither = await service.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('claim_candidate', 'claim_candidate_no_support', 'v1'),
+    lineage: emptyLineage(),
+  });
+  assert.equal(neither.trace_status, 'broken');
+  assert.equal(neither.missing_ref_count >= 1, true);
+
+  const dossierExperimentOnly = await service.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('implementation_dossier', 'implementation_dossier_no_literature', 'v1'),
+    lineage: {
+      ...emptyLineage(),
+      experiment: {
+        ...emptyLineage().experiment,
+        run_evidence_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
+      },
+    },
+  });
+  assert.equal(dossierExperimentOnly.trace_status, 'broken');
 });

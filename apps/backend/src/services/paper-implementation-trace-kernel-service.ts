@@ -10,6 +10,7 @@ import {
   type CreateTraceManifestRequest,
   type EvaluateTraceGateRequest,
   type NaturalLanguageFieldRoleRecord,
+  PAPER_IMPLEMENTATION_TRACE_LINEAGE_TYPES,
   type PaperImplementationFieldRole,
   type PaperImplementationTraceLineageType,
   type PaperImplementationTraceStatus,
@@ -52,9 +53,6 @@ const WRITING_AFFECTING_TARGET_REQUIREMENTS = new Map<string, PaperImplementatio
   ['motiveevidenceboardversion', ['literature']],
   ['evidencebinding', ['literature']],
   ['evidencetransferbinding', ['literature']],
-  ['claimcandidate', ['literature']],
-  ['claimcandidatelight', ['literature']],
-  ['claimtracepacket', ['literature']],
   ['citationcandidate', ['literature']],
   ['implementationdossier', ['literature']],
   ['resultclaim', ['experiment']],
@@ -67,6 +65,16 @@ const WRITING_AFFECTING_TARGET_REQUIREMENTS = new Map<string, PaperImplementatio
   ['feasibilityprobe', ['experiment']],
   ['experimentplanlight', ['experiment']],
   ['researchworkorder', ['experiment']],
+]);
+
+// D-N8 (2026-07-11): claim-level targets need at least ONE of these lineage
+// families; a claim with neither citable literature nor experiment lineage
+// stays broken, while pure experimental claims are complete without padding
+// citations. Dossier-level literature anchoring stays required above.
+const WRITING_AFFECTING_TARGET_ANY_OF_REQUIREMENTS = new Map<string, PaperImplementationTraceLineageType[]>([
+  ['claimcandidate', ['literature', 'experiment']],
+  ['claimcandidatelight', ['literature', 'experiment']],
+  ['claimtracepacket', ['literature', 'experiment']],
 ]);
 
 export class PaperImplementationTraceKernelService {
@@ -357,16 +365,23 @@ export class PaperImplementationTraceKernelService {
     lineage: TraceLineageBundle,
     integrity: TraceIntegrity,
   ): TraceIntegrity {
-    const requiredLineages = WRITING_AFFECTING_TARGET_REQUIREMENTS.get(this.normalizedRefType(targetRef.ref_type)) ?? [];
+    const normalizedRefType = this.normalizedRefType(targetRef.ref_type);
+    const requiredLineages = WRITING_AFFECTING_TARGET_REQUIREMENTS.get(normalizedRefType) ?? [];
     const requiredMissingRefs = requiredLineages
       .filter((lineageType) => !this.hasLineageRefs(lineage, lineageType))
       .map((lineageType) => this.requiredLineageRef(targetRef, lineageType));
-    if (requiredMissingRefs.length === 0) {
+    const anyOfLineages = WRITING_AFFECTING_TARGET_ANY_OF_REQUIREMENTS.get(normalizedRefType) ?? [];
+    const anyOfSatisfied = anyOfLineages.length === 0
+      || anyOfLineages.some((lineageType) => this.hasLineageRefs(lineage, lineageType));
+    const anyOfMissingRefs = anyOfSatisfied
+      ? []
+      : anyOfLineages.map((lineageType) => this.requiredLineageRef(targetRef, lineageType));
+    if (requiredMissingRefs.length === 0 && anyOfMissingRefs.length === 0) {
       return integrity;
     }
     return {
       ...integrity,
-      missing_refs: this.dedupeRefs([...integrity.missing_refs, ...requiredMissingRefs]),
+      missing_refs: this.dedupeRefs([...integrity.missing_refs, ...requiredMissingRefs, ...anyOfMissingRefs]),
     };
   }
 
@@ -585,6 +600,12 @@ export class PaperImplementationTraceKernelService {
 
   private inferLineageType(ref: TopicSelectionFunctionalRef): PaperImplementationTraceLineageType {
     const type = ref.ref_type.toLowerCase();
+    const requiredLineageMatch = type.match(/^required_(.+)_lineage$/u);
+    if (requiredLineageMatch && PAPER_IMPLEMENTATION_TRACE_LINEAGE_TYPES.includes(
+      requiredLineageMatch[1] as PaperImplementationTraceLineageType,
+    )) {
+      return requiredLineageMatch[1] as PaperImplementationTraceLineageType;
+    }
     if (
       type.includes('result_interpretation')
       || type.includes('llm_rationale')
