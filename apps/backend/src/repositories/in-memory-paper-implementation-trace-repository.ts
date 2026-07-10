@@ -2,6 +2,7 @@ import type {
   CitationCandidate,
   ClaimTracePacket,
   NaturalLanguageFieldRoleRecord,
+  TraceGateResult,
   TraceManifest,
   TraceRepairQueueItem,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-trace-contracts';
@@ -24,6 +25,7 @@ implements PaperImplementationTraceRepository {
   private readonly queueItems = new Map<string, TraceRepairQueueItem>();
   private readonly queueItemIdsByProject = new Map<string, string[]>();
   private readonly queueItemIdsByManifest = new Map<string, string[]>();
+  private readonly gateResults = new Map<string, TraceGateResult>();
 
   async createTraceManifest(
     manifest: TraceManifest,
@@ -167,6 +169,32 @@ implements PaperImplementationTraceRepository {
       }
     }
     return null;
+  }
+
+  async createTraceGateResult(
+    gateResult: TraceGateResult,
+  ): Promise<TraceGateResult> {
+    if (this.gateResults.has(gateResult.gate_result_id)) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `TraceGateResult ${gateResult.gate_result_id} already exists.`,
+      );
+    }
+    const stored = structuredClone(gateResult);
+    this.gateResults.set(stored.gate_result_id, stored);
+    return structuredClone(stored);
+  }
+
+  async findTraceGateResultById(
+    implementationProjectId: string,
+    gateResultId: string,
+  ): Promise<TraceGateResult | null> {
+    const gateResult = this.gateResults.get(gateResultId);
+    if (!gateResult || gateResult.implementation_project_id !== implementationProjectId) {
+      return null;
+    }
+    return structuredClone(gateResult);
   }
 
   async listTraceRepairQueueItems(

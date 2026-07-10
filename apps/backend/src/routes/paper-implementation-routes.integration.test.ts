@@ -61,6 +61,10 @@ import { PaperImplementationValidationCyclePlanningRuntimeService } from '../ser
 import { PaperImplementationResultClaimDossierService } from '../services/paper-implementation-result-claim-dossier-service.js';
 import { PaperImplementationRuntimeAdmissionService } from '../services/paper-implementation-runtime-admission-service.js';
 import { PaperImplementationRuntimeDomainGateService } from '../services/paper-implementation-runtime-domain-gate-service.js';
+import { PaperImplementationHumanConfirmationService } from '../services/paper-implementation-human-confirmation-service.js';
+import {
+  InMemoryPaperImplementationHumanConfirmationRepository,
+} from '../repositories/in-memory-paper-implementation-human-confirmation-repository.js';
 import { PaperImplementationTraceIntegrityDebateRuntimeService } from '../services/paper-implementation-trace-integrity-debate-runtime-service.js';
 import { PaperImplementationTraceKernelService } from '../services/paper-implementation-trace-kernel-service.js';
 import { PaperImplementationValidationCyclePlanningService } from '../services/paper-implementation-validation-cycle-planning-service.js';
@@ -563,6 +567,7 @@ function makeRealService(): {
   motiveDecompositionRuntime: never;
   motiveEvolutionRuntime: never;
   runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
+  humanConfirmation: PaperImplementationHumanConfirmationService;
 } {
   const downstreamFeedback = new RecordingDownstreamFeedbackService();
   const repository = new InMemoryPaperImplementationRepository();
@@ -586,6 +591,7 @@ function makeRealService(): {
     now: () => NOW,
   });
   const traceIntegrityDebateRuntime = new PaperImplementationTraceIntegrityDebateRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: {
       invokeStructuredOutput: async () => {
@@ -594,6 +600,7 @@ function makeRealService(): {
     },
   });
   const p1RuntimeReview = new PaperImplementationP1RuntimeReviewService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: {
       invokeStructuredOutput: async () => {
@@ -602,6 +609,7 @@ function makeRealService(): {
     },
   });
   const resultAnalysisRuntime = new PaperImplementationResultAnalysisRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: {
       invokeStructuredOutput: async () => {
@@ -610,6 +618,7 @@ function makeRealService(): {
     },
   });
   const experimentPlanningRuntime = new PaperImplementationExperimentPlanningRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: {
       invokeStructuredOutput: async () => {
@@ -618,6 +627,7 @@ function makeRealService(): {
     },
   });
   const routePlanningRuntime = new PaperImplementationRoutePlanningRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: {
       invokeStructuredOutput: async () => {
@@ -626,6 +636,7 @@ function makeRealService(): {
     },
   });
   const validationCyclePlanningRuntime = new PaperImplementationValidationCyclePlanningRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: {
       invokeStructuredOutput: async () => {
@@ -633,13 +644,21 @@ function makeRealService(): {
       },
     },
   });
+  const confirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
   const resultClaimDossier = new PaperImplementationResultClaimDossierService({
     projectRepository: repository,
     resultClaimRepository: resultClaimDossierRepository,
     traceRepository,
     validationRepository,
     workOrderRepository,
+    confirmationRepository,
     feedbackRecorder: service,
+    idFactory,
+    now: () => NOW,
+  });
+  const humanConfirmation = new PaperImplementationHumanConfirmationService({
+    projectRepository: repository,
+    confirmationRepository,
     idFactory,
     now: () => NOW,
   });
@@ -660,6 +679,7 @@ function makeRealService(): {
       projectRepository: repository,
       motiveRepository,
       traceRepository,
+      confirmationRepository,
       idFactory,
       now: () => NOW,
     }),
@@ -701,6 +721,7 @@ function makeRealService(): {
     motiveDecompositionRuntime: {} as never,
     motiveEvolutionRuntime: {} as never,
     runtimeDomainGate,
+    humanConfirmation,
   };
 }
 
@@ -727,6 +748,7 @@ test('PaperImplementation routes expose AI workflow harness proposal-only closur
     motiveDecompositionRuntime,
     motiveEvolutionRuntime,
     runtimeDomainGate,
+    humanConfirmation,
   } = makeRealService();
   await registerPaperImplementationRoutes(
     app,
@@ -751,6 +773,7 @@ test('PaperImplementation routes expose AI workflow harness proposal-only closur
       motiveDecompositionRuntime,
       motiveEvolutionRuntime,
       runtimeDomainGate,
+      humanConfirmation,
     }),
   );
   try {
@@ -1310,11 +1333,21 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
     assertStatus(workOrderDraft, 201);
     assert.equal((workOrderDraft.json() as ResearchWorkOrder).work_order_status, 'draft');
 
+    const workOrderGate = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/trace-gates/evaluate`,
+      payload: {
+        trace_manifest_id: (workOrderTrace.json() as TraceManifest).trace_manifest_id,
+      },
+    });
+    assertStatus(workOrderGate, 200);
+    assert.equal((workOrderGate.json() as TraceGateResult).gate_status, 'passed');
+
     const admittedWorkOrder = await app.inject({
       method: 'POST',
       url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/research-work-orders/research_work_order_route_001/admit`,
       payload: {
-        admission_gate_result_id: 'work_order_gate_result_001',
+        admission_gate_result_id: (workOrderGate.json() as TraceGateResult).gate_result_id,
       },
     });
     assertStatus(admittedWorkOrder, 200);
@@ -1570,6 +1603,16 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
     });
     assertStatus(dossierTrace, 201);
 
+    const dossierGate = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/trace-gates/evaluate`,
+      payload: {
+        trace_manifest_id: (dossierTrace.json() as TraceManifest).trace_manifest_id,
+      },
+    });
+    assertStatus(dossierGate, 200);
+    assert.equal((dossierGate.json() as TraceGateResult).gate_status, 'passed');
+
     const dossier = await app.inject({
       method: 'POST',
       url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/implementation-dossiers`,
@@ -1593,7 +1636,7 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
           claim_ceiling: 'tentative',
         },
         readiness: {
-          readiness_gate_result_id: 'dossier_readiness_gate_route_001',
+          readiness_gate_result_id: (dossierGate.json() as TraceGateResult).gate_result_id,
           blocker_refs: [],
           warning_refs: [],
           readiness_notes: ['Ready as bounded negative result dossier.'],
@@ -1693,6 +1736,7 @@ test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale h
     motiveDecompositionRuntime,
     motiveEvolutionRuntime,
     runtimeDomainGate,
+    humanConfirmation,
   } = makeRealService();
   await registerPaperImplementationRoutes(
     app,
@@ -1717,6 +1761,7 @@ test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale h
       motiveDecompositionRuntime,
       motiveEvolutionRuntime,
       runtimeDomainGate,
+      humanConfirmation,
     }),
   );
   try {

@@ -4113,6 +4113,41 @@ model PaperImplementationTraceRepairQueueItem {
   @@index([severity], map: "pitrq_severity_idx")
 }
 
+model PaperImplementationTraceGateResult {
+  id                      String   @id
+  implementationProjectId String
+  traceManifestId         String
+  gateStatus              String
+  traceStatus             String
+  blockerCodes            Json     @default("[]")
+  repairQueueItemRefs     Json     @default("[]")
+  createdAt               DateTime @db.Timestamptz(6)
+
+  @@index([implementationProjectId, createdAt(sort: Desc)], map: "pitgr_project_idx")
+  @@index([traceManifestId], map: "pitgr_manifest_idx")
+}
+
+model PaperImplementationHumanConfirmationRecord {
+  id                      String    @id
+  implementationProjectId String
+  confirmationScope       String
+  targetRefs              Json      @default("[]")
+  reviewedSources         Json      @default("[]")
+  transitionAttemptRef    Json?
+  gateResultRefs          Json      @default("[]")
+  rationale               String
+  confirmedByActorType    String
+  confirmedByActorId      String?
+  policyVersionId         String?
+  status                  String
+  statusReason            String?
+  createdAt               DateTime  @db.Timestamptz(6)
+  updatedAt               DateTime? @db.Timestamptz(6)
+
+  @@index([implementationProjectId, status, createdAt(sort: Desc)], map: "pihcr_project_status_idx")
+  @@index([confirmationScope], map: "pihcr_scope_idx")
+}
+
 model PaperImplementationCoreMotiveIdentity {
   id                      String   @id
   implementationProjectId String

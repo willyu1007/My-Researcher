@@ -710,6 +710,7 @@ export interface AdmitCoreMotiveVersionRequest {
   portfolio_role?: PaperImplementationMotivePortfolioRole;
   confirmation_level?: PaperImplementationMotiveConfirmationLevel;
   confirmed_by?: TopicSelectionActorType | null;
+  confirmation_ref?: TopicSelectionFunctionalRef | null;
   created_by?: TopicSelectionActorType;
 }
 
@@ -770,6 +771,7 @@ export interface ApplyMotivePortfolioDecisionRequest {
   proposed_by?: TopicSelectionActorType;
   confirmed_by?: TopicSelectionActorType | null;
   confirmation_level?: PaperImplementationMotiveConfirmationLevel;
+  confirmation_ref?: TopicSelectionFunctionalRef | null;
   policy_version_id?: string | null;
 }
 
@@ -1073,6 +1075,7 @@ export const admitCoreMotiveVersionRequestSchema = {
     portfolio_role: portfolioRoleSchema,
     confirmation_level: confirmationLevelSchema,
     confirmed_by: actorTypeNullableSchema,
+    confirmation_ref: nullableFunctionalRef,
     created_by: actorTypeSchema,
   },
 } as const;
@@ -1343,6 +1346,7 @@ export const applyMotivePortfolioDecisionRequestSchema = {
     proposed_by: actorTypeSchema,
     confirmed_by: actorTypeNullableSchema,
     confirmation_level: confirmationLevelSchema,
+    confirmation_ref: nullableFunctionalRef,
     policy_version_id: nullableStringId,
   },
 } as const;

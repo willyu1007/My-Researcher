@@ -38,6 +38,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import {
   sha256Text,
   stableStringify,
@@ -48,6 +49,7 @@ import {
   type TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
@@ -72,6 +74,7 @@ export type PaperImplementationFeasibilityPlanningAgentOrchestrator =
   Pick<TopicSelectionAgentOrchestratorService, 'invokeStructuredOutput'>;
 
 interface RuntimeServiceOptions {
+  projectRepository: PaperImplementationRepository;
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationFeasibilityPlanningAgentOrchestrator;
   idFactory?: (prefix: string) => string;
@@ -192,12 +195,14 @@ const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
 ]);
 
 export class PaperImplementationFeasibilityPlanningRuntimeService {
+  private readonly projectRepository: PaperImplementationRepository;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationFeasibilityPlanningAgentOrchestrator;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
   constructor(options: RuntimeServiceOptions) {
+    this.projectRepository = options.projectRepository;
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
@@ -209,6 +214,7 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
     request: RunPaperImplementationFeasibilityPlanningRuntimeRequest,
   ): Promise<PaperImplementationFeasibilityPlanningRuntimeResult> {
     this.assertRequest(request);
+    await requireActiveImplementationProject(this.projectRepository, implementationProjectId);
     const profile = PROBE_PLAN_CANDIDATES_PROFILE;
     const runId = request.run_id?.trim() || this.idFactory('pi_feasibility_planning_runtime_run');
     const runtimeBase = this.runtimeBase(profile, implementationProjectId, request, runId);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_SEMANTIC_ROLE_SLOT_IDS,
@@ -12,6 +13,12 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import type {
+  ImplementationProject,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
+
+import { AppError } from '../errors/app-error.js';
+import { InMemoryPaperImplementationRepository } from '../repositories/in-memory-paper-implementation-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import {
@@ -155,6 +162,31 @@ test('trace integrity debate runtime rejects non-provider model options before i
   assert.equal(orchestrator.calls.length, 0);
 });
 
+test('trace integrity debate runtime rejects slot profile and model option drift before provider calls', async () => {
+  const { service, orchestrator } = serviceFixture();
+
+  await assert.rejects(
+    () => service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: 'trace_debate_profile_mismatch_run_001',
+      model_profile_id: PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+      model_option_id: `${PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID}.openai-balanced`,
+    }),
+    /model_profile_id must match runtime slot profile/,
+  );
+  assert.equal(orchestrator.calls.length, 0);
+
+  await assert.rejects(
+    () => service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: 'trace_debate_model_option_mismatch_run_001',
+      model_option_id: `${PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID}.openai-balanced`,
+    }),
+    /model_option_id must belong to runtime slot profile/,
+  );
+  assert.equal(orchestrator.calls.length, 0);
+});
+
 test('trace integrity debate runtime rejects product fixture modes and provider fixture payloads', async () => {
   const { service, orchestrator } = serviceFixture();
 
@@ -181,7 +213,130 @@ test('trace integrity debate runtime rejects product fixture modes and provider 
   assert.equal(orchestrator.calls.length, 0);
 });
 
-function serviceFixture() {
+test('trace integrity debate runtime rejects missing or inactive implementation project before provider calls', async () => {
+  const missingProject = serviceFixture(null);
+  await assert.rejects(
+    () => missingProject.service.runBoundaryDebate(PROJECT_ID, providerRequest()),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 404
+      && error.errorCode === 'NOT_FOUND',
+  );
+  assert.equal(missingProject.orchestrator.calls.length, 0);
+
+  const inactiveProject = serviceFixture(implementationProjectFixture('archived'));
+  await assert.rejects(
+    () => inactiveProject.service.runBoundaryDebate(PROJECT_ID, providerRequest()),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
+  assert.equal(inactiveProject.orchestrator.calls.length, 0);
+});
+
+function implementationProjectFixture(
+  lifecycleStatus: ImplementationProject['lifecycle_status'] = 'active',
+): ImplementationProject {
+  return {
+    implementation_project_id: PROJECT_ID,
+    intake_snapshot_id: `${PROJECT_ID}_intake_snapshot`,
+    workspace_id: 'workspace_001',
+    title_card_id: TITLE_CARD_ID,
+    paper_project_bridge_id: `${PROJECT_ID}_bridge`,
+    bridge_payload_hash: 'bridge_payload_hash_001',
+    target_paper_project_ref: null,
+    lifecycle_status: lifecycleStatus,
+    freshness_status: 'fresh',
+    source_status: 'active',
+    version_number: 1,
+    policy_version_id: 'policy_v1',
+    created_by: 'system',
+    created_at: NOW,
+    updated_at: NOW,
+  };
+}
+
+function projectRepositoryFixture(
+  project: ImplementationProject | null,
+): InMemoryPaperImplementationRepository {
+  const repository = new InMemoryPaperImplementationRepository();
+  if (project) {
+    void repository.createBootstrap({
+      implementation_project: project,
+      intake_snapshot: {
+        intake_snapshot_id: project.intake_snapshot_id,
+        implementation_project_id: project.implementation_project_id,
+        workspace_id: project.workspace_id,
+        title_card_id: project.title_card_id,
+        paper_project_bridge_id: project.paper_project_bridge_id,
+        paper_project_bridge_ref: {
+          ref_type: 'paper_project_bridge',
+          ref_id: project.paper_project_bridge_id,
+          title_card_id: project.title_card_id,
+          version_id: null,
+        },
+        bridge_payload_hash: project.bridge_payload_hash,
+        promotion_decision_id: 'promotion_decision_001',
+        promotion_decision_ref: {
+          ref_type: 'promotion_decision',
+          ref_id: 'promotion_decision_001',
+          title_card_id: project.title_card_id,
+          version_id: null,
+        },
+        promotion_commitment_profile_id: 'promotion_commitment_profile_001',
+        promotion_commitment_profile_ref: {
+          ref_type: 'promotion_commitment_profile',
+          ref_id: 'promotion_commitment_profile_001',
+          title_card_id: project.title_card_id,
+          version_id: null,
+        },
+        promotion_input_snapshot_id: 'promotion_input_snapshot_001',
+        promotion_input_snapshot_ref: {
+          ref_type: 'promotion_input_snapshot',
+          ref_id: 'promotion_input_snapshot_001',
+          title_card_id: project.title_card_id,
+          version_id: null,
+        },
+        promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
+        topic_package_id: 'topic_package_001',
+        package_version: 'v1',
+        source_status: 'active',
+        snapshot_hashes: {
+          bundle_hash: 'bundle_hash_001',
+          package_snapshot_hash: 'package_snapshot_hash_001',
+          package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
+          promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
+        },
+        source_refs: [],
+        accepted_risk_refs: [],
+        condition_refs: [],
+        early_check_obligations: [],
+        working_copy_payload: {
+          editable_title: 'Working paper title',
+          problem_statement: 'Problem statement.',
+          contribution_summary: 'Contribution summary.',
+          evaluation_plan: 'Evaluation plan.',
+          initial_planning_notes: [],
+          claim_ceiling: 'Bounded claim ceiling.',
+          prohibited_claims: [],
+          conditions: [],
+          accepted_risk_refs: [],
+          early_check_obligations: [],
+          source_lineage_summary: {},
+        },
+        working_copy_payload_hash: 'working_copy_payload_hash_001',
+        source_handoff: {} as never,
+        target_paper_project_ref: null,
+        intake_snapshot_hash: 'intake_snapshot_hash_001',
+        policy_version_id: 'policy_v1',
+        created_by: 'system',
+        created_at: NOW,
+      },
+    });
+  }
+  return repository;
+}
+
+function serviceFixture(project: ImplementationProject | null = implementationProjectFixture()) {
   const repository = new InMemoryPaperImplementationRuntimeRepository();
   let sequence = 0;
   const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
@@ -192,6 +347,7 @@ function serviceFixture() {
   });
   const orchestrator = new StubTraceIntegrityAgentOrchestrator();
   const service = new PaperImplementationTraceIntegrityDebateRuntimeService({
+    projectRepository: projectRepositoryFixture(project),
     runtimeAdmission,
     agentOrchestrator: orchestrator,
     idFactory,

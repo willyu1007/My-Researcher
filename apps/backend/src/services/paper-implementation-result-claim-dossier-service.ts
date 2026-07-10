@@ -37,6 +37,9 @@ import type {
 import type { PaperImplementationTraceRepository } from '../repositories/paper-implementation-trace.repository.js';
 import type { PaperImplementationValidationRepository } from '../repositories/paper-implementation-validation.repository.js';
 import type { PaperImplementationWorkOrderRepository } from '../repositories/paper-implementation-workorder.repository.js';
+import type {
+  PaperImplementationHumanConfirmationRepository,
+} from '../repositories/paper-implementation-human-confirmation.repository.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -53,6 +56,7 @@ export type PaperImplementationResultClaimDossierServiceOptions = {
   traceRepository: PaperImplementationTraceRepository;
   validationRepository: PaperImplementationValidationRepository;
   workOrderRepository: PaperImplementationWorkOrderRepository;
+  confirmationRepository: PaperImplementationHumanConfirmationRepository;
   feedbackRecorder: PaperImplementationResultClaimDossierFeedbackRecorder;
   idFactory?: IdFactory;
   now?: () => string;
@@ -124,6 +128,7 @@ export class PaperImplementationResultClaimDossierService {
   private readonly traceRepository: PaperImplementationTraceRepository;
   private readonly validationRepository: PaperImplementationValidationRepository;
   private readonly workOrderRepository: PaperImplementationWorkOrderRepository;
+  private readonly confirmationRepository: PaperImplementationHumanConfirmationRepository;
   private readonly feedbackRecorder: PaperImplementationResultClaimDossierFeedbackRecorder;
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
@@ -134,6 +139,7 @@ export class PaperImplementationResultClaimDossierService {
     this.traceRepository = options.traceRepository;
     this.validationRepository = options.validationRepository;
     this.workOrderRepository = options.workOrderRepository;
+    this.confirmationRepository = options.confirmationRepository;
     this.feedbackRecorder = options.feedbackRecorder;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
@@ -233,6 +239,7 @@ export class PaperImplementationResultClaimDossierService {
         this.requireResultPacket(project.implementation_project_id, id)),
     );
     this.assertClaimSupport(request);
+    await this.assertStrongClaimConfirmation(project.implementation_project_id, request);
     this.assertClaimBoundary(request, resultPackets);
     const claimTracePacket = request.claim_trace_packet_id
       ? await this.requireClaimTracePacket(project.implementation_project_id, request.claim_trace_packet_id)
@@ -324,6 +331,7 @@ export class PaperImplementationResultClaimDossierService {
         this.requireClaimTracePacket(project.implementation_project_id, id)),
     );
     this.assertDossierGate(request, resultPackets, claimCandidates, claimTracePackets);
+    await this.assertReadinessGateResult(project.implementation_project_id, request);
     const createdAt = this.now();
     const source = this.buildDossierSource(project, resultPackets, claimCandidates, claimTracePackets, manifest);
     const dossierHash = this.hashStable({
@@ -711,6 +719,92 @@ export class PaperImplementationResultClaimDossierService {
         409,
         'GATE_CONSTRAINT_FAILED',
         'Strong ClaimCandidate requires explicit human confirmation.',
+      );
+    }
+  }
+
+  private async assertStrongClaimConfirmation(
+    implementationProjectId: string,
+    request: CreateClaimCandidateRequest,
+  ): Promise<void> {
+    if (request.claim_strength !== 'strong') {
+      return;
+    }
+    const confirmationRef = request.boundary.human_confirmation_ref;
+    if (!confirmationRef) {
+      return;
+    }
+    const record = await this.confirmationRepository.findHumanConfirmationRecordById(
+      implementationProjectId,
+      confirmationRef.ref_id,
+    );
+    if (!record) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Strong ClaimCandidate human_confirmation_ref must resolve to an existing HumanConfirmationRecord.',
+        { confirmation_record_id: confirmationRef.ref_id },
+      );
+    }
+    if (record.status !== 'active') {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Strong ClaimCandidate human confirmation must be active.',
+        { confirmation_record_id: record.confirmation_record_id, status: record.status },
+      );
+    }
+    if (record.confirmation_scope !== 'strong_claim_acceptance') {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Strong ClaimCandidate human confirmation must carry scope strong_claim_acceptance.',
+        { confirmation_record_id: record.confirmation_record_id, scope: record.confirmation_scope },
+      );
+    }
+  }
+
+  private async assertReadinessGateResult(
+    implementationProjectId: string,
+    request: CreateImplementationDossierRequest,
+  ): Promise<void> {
+    if (request.dossier_status !== 'ready_for_writing') {
+      return;
+    }
+    const readinessGateResultId = request.readiness.readiness_gate_result_id;
+    if (!this.hasText(readinessGateResultId)) {
+      return;
+    }
+    const gateResult = await this.traceRepository.findTraceGateResultById(
+      implementationProjectId,
+      readinessGateResultId,
+    );
+    if (!gateResult) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Ready ImplementationDossier readiness_gate_result_id must resolve to a persisted TraceGateResult.',
+        { readiness_gate_result_id: readinessGateResultId },
+      );
+    }
+    if (gateResult.gate_status !== 'passed') {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Ready ImplementationDossier requires a passed readiness gate result.',
+        { readiness_gate_result_id: gateResult.gate_result_id, gate_status: gateResult.gate_status },
+      );
+    }
+    if (gateResult.trace_manifest_id !== request.trace_manifest_id) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Ready ImplementationDossier readiness gate result must target the dossier trace manifest.',
+        {
+          readiness_gate_result_id: gateResult.gate_result_id,
+          gate_trace_manifest_id: gateResult.trace_manifest_id,
+          dossier_trace_manifest_id: request.trace_manifest_id,
+        },
       );
     }
   }

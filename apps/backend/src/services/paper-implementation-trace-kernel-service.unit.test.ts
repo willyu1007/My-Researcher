@@ -536,3 +536,25 @@ test('memory repository rejects duplicate immutable trace citation and claim ids
   });
   await assertAppError(traceRepository.createClaimTracePacket(packet), 409, 'VERSION_CONFLICT');
 });
+
+test('trace gate evaluation persists the gate result for later resolution', async () => {
+  const { service } = makeHarness();
+  const manifest = await service.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_gate_001', 'v1'),
+    lineage: lineageWithLiterature(),
+  });
+  const gate = await service.evaluateTraceGate(PROJECT.implementation_project_id, {
+    trace_manifest_id: manifest.trace_manifest_id,
+  });
+  const resolved = await service.findTraceGateResultById(
+    PROJECT.implementation_project_id,
+    gate.gate_result_id,
+  );
+  assert.ok(resolved);
+  assert.equal(resolved?.gate_result_id, gate.gate_result_id);
+  assert.equal(resolved?.gate_status, gate.gate_status);
+  assert.equal(
+    await service.findTraceGateResultById(PROJECT.implementation_project_id, 'trace_gate_result_missing'),
+    null,
+  );
+});

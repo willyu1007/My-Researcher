@@ -18,6 +18,20 @@
 
 ## Log
 
+### 2026-07-10 S0 复审修复收口（code-review 10 发现 → 6 修复 + 3 移交 + 1 随迁移关闭）
+- 修复项：①WO admit / dossier ready 的 gate result 增加 **trace_manifest_id 绑定断言**（挪用他 manifest 的 passed gate 被拒）；②motive evolution 门改为 `请求声明 || (structural_evolution && 源 motive control.human_confirmation_required_for_major_change)` 强制（不再自愿制），落库的 human_confirmation_required 反映有效值；③admitCoreMotiveVersion 增加 primary 晋升（非自举）确认门（与 apply 路径对齐）；④两处新 prisma create 改 catch P2002 → 409（消 TOCTOU 500 + 对齐 mapDuplicate 惯例）；⑤可空 Json 列改写 Prisma.DbNull；⑥`paper-implementation-v1-runnable-replay.mjs` 修复（15 处构造依赖 + 两处硬编码 gate id 改走真实 evaluate 流程，新步骤 15a/21a）——**replay 全绿**（46 步 ok + BP0-01..10 passed，artifact `t109-s0-fix-check`）。
+- 新增负例测试 3 个（WO gate 异 manifest 拒、dossier gate 异 manifest 拒、primary 变更无 ref + control 标志强制确认）；受影响套件全绿（bridge 15/15、motive-board 12/12、result-claim 12/12）。
+- **迁移已 apply**：`20260710120000_add_paper_implementation_s0_governance_tables`（两表落 dev 库，pg_tables 确认）；**L3 prisma smoke 补齐**：30 pass / 0 fail / 15 skipped（live 金丝雀 env 门控），exit 0。
+- 复跑全量 runtime-stress：run id `t114-paper-implementation-runtime-stress-1783696518823`，**status=passed** 9/9 步。`tsc --noEmit` 0 错误。
+- 移交项已登记 `01-plan.md` §S0 复审移交项：确认记录 target 绑定+消费语义与校验器收敛（S1）、桌面确认入口与 blocker 推导（S4）、13×测试夹具 helper（S1 顺手）。
+
+### 2026-07-10 S0 收口（治理与正确性补洞）
+- `tsc --noEmit`：0 错误。
+- 逐文件套件（node --test，全绿）：human-confirmation schema 4/4、human-confirmation service 3/3、motive-board 11/11（含 primary 替换/evolution 确认解析负例）、result-claim-dossier 11/11（含 strong claim 伪造 ref/错 scope/ready dossier 悬空 gate 负例）、workorder-bridge 14/14（含 admit gate 解析负例）、trace-kernel 11/11（含 gate result 落库可解析）、live-adapter 11/11、routes integration 4/4（改走真流程：trace-gates/evaluate 产出真实 gate id 再 admit/ready）、11 个 runtime unit + l5 52/52 + domain-gate 6/6（S0-3 子代理逐文件验证）。
+- 全量 runtime-stress：run id `t114-paper-implementation-runtime-stress-1783691982563`，**status=passed**，9/9 步全绿；本次新注册 14 条必检用例（11×`*_inactive_project_rejected_before_orchestrator`、1×`trace_integrity_profile_and_model_option_drift_rejected_before_gateway`、2×deterministic lane：`work_order_admission_gate_result_must_resolve`、`trace_gate_result_persisted_and_resolvable`）全部命中匹配。
+- governance sync：ok。`git diff --check`：干净。
+- **未收项**：Prisma 迁移（两张新表 `PaperImplementationHumanConfirmationRecord`/`PaperImplementationTraceGateResult`）待用户审批后 apply（`prisma generate` 与 db-ssot sync-to-context 已跑，L3 Prisma smoke 在迁移后补）；S0-5 待 N8 裁定；near-prod gate（L6）按 D7 属里程碑级，建议与 S1 收口一起跑。
+
 | Date | Command | Status | Summary |
 |---|---|---|---|
 | 2026-06-11 | `pnpm run paper-implementation:runtime-stress` | passed | 包创建基线：T-114 闭环复跑，run id `t114-paper-implementation-runtime-stress-1781132291471`，290 tests / 226 passed / 64 env-gated skips / 0 failed，9/9 steps，95/95 必检用例通过。 |

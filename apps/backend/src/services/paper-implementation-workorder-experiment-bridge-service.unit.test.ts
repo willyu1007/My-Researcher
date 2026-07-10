@@ -326,6 +326,16 @@ async function makeHarness(options: { cycleStatus?: ValidationCycle['lifecycle_s
     traceManifest('trace_manifest_run_evidence_001', 'run_evidence_unit', RUN_EVIDENCE_ID),
     [],
   );
+  await traceRepository.createTraceGateResult({
+    gate_result_id: 'work_order_gate_result_001',
+    implementation_project_id: PROJECT_ID,
+    trace_manifest_id: 'trace_manifest_work_order_001',
+    gate_status: 'passed',
+    trace_status: 'complete',
+    blocker_codes: [],
+    repair_queue_item_refs: [],
+    created_at: NOW,
+  });
 
   return {
     service,
@@ -714,6 +724,61 @@ test('trusted monitor intake rejects mismatched external job identity', async ()
       monitor_event_kind: 'failed',
       run_status: 'failed',
       failure_summary: 'The callback points at the wrong external job.',
+    }),
+    'GATE_CONSTRAINT_FAILED',
+  );
+});
+
+test('work order admission rejects unresolvable or non-passed admission gate results', async () => {
+  const { service, traceRepository } = await makeHarness();
+  await service.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());
+
+  await assertRejectsWithCode(
+    () => service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
+      admission_gate_result_id: 'work_order_gate_result_missing',
+    }),
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  await traceRepository.createTraceGateResult({
+    gate_result_id: 'work_order_gate_result_blocked',
+    implementation_project_id: PROJECT_ID,
+    trace_manifest_id: 'trace_manifest_work_order_001',
+    gate_status: 'blocked',
+    trace_status: 'broken',
+    blocker_codes: ['trace_manifest_missing'],
+    repair_queue_item_refs: [],
+    created_at: NOW,
+  });
+  await assertRejectsWithCode(
+    () => service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
+      admission_gate_result_id: 'work_order_gate_result_blocked',
+    }),
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  const admitted = await service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
+    admission_gate_result_id: 'work_order_gate_result_001',
+  });
+  assert.equal(admitted.work_order_status, 'admitted');
+});
+
+test('work order admission rejects gate results targeting a different trace manifest', async () => {
+  const { service, traceRepository } = await makeHarness();
+  await service.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());
+  await traceRepository.createTraceGateResult({
+    gate_result_id: 'work_order_gate_result_other_manifest',
+    implementation_project_id: PROJECT_ID,
+    trace_manifest_id: 'trace_manifest_run_evidence_001',
+    gate_status: 'passed',
+    trace_status: 'complete',
+    blocker_codes: [],
+    repair_queue_item_refs: [],
+    created_at: NOW,
+  });
+  await assertRejectsWithCode(
+    () => service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
+      admission_gate_result_id: 'work_order_gate_result_other_manifest',
     }),
     'GATE_CONSTRAINT_FAILED',
   );

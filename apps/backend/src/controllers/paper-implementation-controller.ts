@@ -98,6 +98,10 @@ import { PaperImplementationEvidenceBoardCurationRuntimeService } from '../servi
 import { PaperImplementationMotiveDecompositionRuntimeService } from '../services/paper-implementation-motive-decomposition-runtime-service.js';
 import { PaperImplementationMotiveEvolutionRuntimeService } from '../services/paper-implementation-motive-evolution-runtime-service.js';
 import { PaperImplementationRuntimeDomainGateService } from '../services/paper-implementation-runtime-domain-gate-service.js';
+import { PaperImplementationHumanConfirmationService } from '../services/paper-implementation-human-confirmation-service.js';
+import type {
+  CreateHumanConfirmationRecordRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-human-confirmation-contracts';
 
 type BodyRequest<T> = FastifyRequest<{ Body: T }>;
 type ParamsRequest<T> = FastifyRequest<{ Params: T }>;
@@ -148,6 +152,7 @@ export interface PaperImplementationControllerDependencies {
   motiveDecompositionRuntime: PaperImplementationMotiveDecompositionRuntimeService;
   motiveEvolutionRuntime: PaperImplementationMotiveEvolutionRuntimeService;
   runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
+  humanConfirmation: PaperImplementationHumanConfirmationService;
   liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService;
   providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService;
 }
@@ -173,6 +178,7 @@ export class PaperImplementationController {
   private readonly motiveDecompositionRuntime: PaperImplementationMotiveDecompositionRuntimeService;
   private readonly motiveEvolutionRuntime: PaperImplementationMotiveEvolutionRuntimeService;
   private readonly runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
+  private readonly humanConfirmation: PaperImplementationHumanConfirmationService;
   private readonly liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService;
   private readonly providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService;
 
@@ -197,9 +203,42 @@ export class PaperImplementationController {
     this.motiveDecompositionRuntime = dependencies.motiveDecompositionRuntime;
     this.motiveEvolutionRuntime = dependencies.motiveEvolutionRuntime;
     this.runtimeDomainGate = dependencies.runtimeDomainGate;
+    this.humanConfirmation = dependencies.humanConfirmation;
     this.liveExperimentAdapter = dependencies.liveExperimentAdapter;
     this.providerVarianceEvaluation = dependencies.providerVarianceEvaluation;
   }
+
+  createHumanConfirmationRecord = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: CreateHumanConfirmationRecordRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const record = await this.humanConfirmation.createHumanConfirmationRecord(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(record);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  listHumanConfirmationRecords = async (
+    request: ParamsRequest<{ implementation_project_id: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const items = await this.humanConfirmation.listHumanConfirmationRecords(
+        request.params.implementation_project_id,
+      );
+      return reply.send({ items });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
 
   bootstrapProject = async (
     request: BodyRequest<BootstrapImplementationProjectRequest>,

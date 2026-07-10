@@ -23,6 +23,11 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import type {
+  ImplementationProject,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
+
+import { InMemoryPaperImplementationRepository } from '../repositories/in-memory-paper-implementation-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import {
   sha256Text,
@@ -351,6 +356,109 @@ test('runtime Domain Gate rejects role and blocked final artifacts', async () =>
   );
 });
 
+function implementationProjectFixture(
+  lifecycleStatus: ImplementationProject['lifecycle_status'] = 'active',
+): ImplementationProject {
+  return {
+    implementation_project_id: PROJECT_ID,
+    intake_snapshot_id: `${PROJECT_ID}_intake_snapshot`,
+    workspace_id: 'workspace_001',
+    title_card_id: TITLE_CARD_ID,
+    paper_project_bridge_id: `${PROJECT_ID}_bridge`,
+    bridge_payload_hash: 'bridge_payload_hash_001',
+    target_paper_project_ref: null,
+    lifecycle_status: lifecycleStatus,
+    freshness_status: 'fresh',
+    source_status: 'active',
+    version_number: 1,
+    policy_version_id: 'policy_v1',
+    created_by: 'system',
+    created_at: NOW,
+    updated_at: NOW,
+  };
+}
+
+function projectRepositoryFixture(
+  project: ImplementationProject | null,
+): InMemoryPaperImplementationRepository {
+  const repository = new InMemoryPaperImplementationRepository();
+  if (project) {
+    void repository.createBootstrap({
+      implementation_project: project,
+      intake_snapshot: {
+        intake_snapshot_id: project.intake_snapshot_id,
+        implementation_project_id: project.implementation_project_id,
+        workspace_id: project.workspace_id,
+        title_card_id: project.title_card_id,
+        paper_project_bridge_id: project.paper_project_bridge_id,
+        paper_project_bridge_ref: {
+          ref_type: 'paper_project_bridge',
+          ref_id: project.paper_project_bridge_id,
+          title_card_id: project.title_card_id,
+          version_id: null,
+        },
+        bridge_payload_hash: project.bridge_payload_hash,
+        promotion_decision_id: 'promotion_decision_001',
+        promotion_decision_ref: {
+          ref_type: 'promotion_decision',
+          ref_id: 'promotion_decision_001',
+          title_card_id: project.title_card_id,
+          version_id: null,
+        },
+        promotion_commitment_profile_id: 'promotion_commitment_profile_001',
+        promotion_commitment_profile_ref: {
+          ref_type: 'promotion_commitment_profile',
+          ref_id: 'promotion_commitment_profile_001',
+          title_card_id: project.title_card_id,
+          version_id: null,
+        },
+        promotion_input_snapshot_id: 'promotion_input_snapshot_001',
+        promotion_input_snapshot_ref: {
+          ref_type: 'promotion_input_snapshot',
+          ref_id: 'promotion_input_snapshot_001',
+          title_card_id: project.title_card_id,
+          version_id: null,
+        },
+        promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
+        topic_package_id: 'topic_package_001',
+        package_version: 'v1',
+        source_status: 'active',
+        snapshot_hashes: {
+          bundle_hash: 'bundle_hash_001',
+          package_snapshot_hash: 'package_snapshot_hash_001',
+          package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
+          promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
+        },
+        source_refs: [],
+        accepted_risk_refs: [],
+        condition_refs: [],
+        early_check_obligations: [],
+        working_copy_payload: {
+          editable_title: 'Working paper title',
+          problem_statement: 'Problem statement.',
+          contribution_summary: 'Contribution summary.',
+          evaluation_plan: 'Evaluation plan.',
+          initial_planning_notes: [],
+          claim_ceiling: 'Bounded claim ceiling.',
+          prohibited_claims: [],
+          conditions: [],
+          accepted_risk_refs: [],
+          early_check_obligations: [],
+          source_lineage_summary: {},
+        },
+        working_copy_payload_hash: 'working_copy_payload_hash_001',
+        source_handoff: {} as never,
+        target_paper_project_ref: null,
+        intake_snapshot_hash: 'intake_snapshot_hash_001',
+        policy_version_id: 'policy_v1',
+        created_by: 'system',
+        created_at: NOW,
+      },
+    });
+  }
+  return repository;
+}
+
 function fixture() {
   const repository = new InMemoryPaperImplementationRuntimeRepository();
   let sequence = 0;
@@ -360,13 +468,16 @@ function fixture() {
     idFactory,
     now: () => NOW,
   });
+  const projectRepository = projectRepositoryFixture(implementationProjectFixture());
   const runtime = new PaperImplementationP1RuntimeReviewService({
+    projectRepository,
     runtimeAdmission: admission,
     agentOrchestrator: new FixtureP1Orchestrator(),
     idFactory,
     now: () => NOW,
   });
   const resultRuntime = new PaperImplementationResultAnalysisRuntimeService({
+    projectRepository,
     runtimeAdmission: admission,
     agentOrchestrator: new FixtureResultAnalysisOrchestrator(),
     idFactory,

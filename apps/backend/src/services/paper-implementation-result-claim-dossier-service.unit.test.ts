@@ -30,6 +30,9 @@ import type {
 import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from '../repositories/in-memory-paper-implementation-result-claim-dossier-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
+import {
+  InMemoryPaperImplementationHumanConfirmationRepository,
+} from '../repositories/in-memory-paper-implementation-human-confirmation-repository.js';
 import type {
   PaperImplementationBootstrapPersistence,
   PaperImplementationBootstrapResult,
@@ -443,6 +446,16 @@ async function setup(
     traceManifest('trace_manifest_dossier_001', 'implementation_dossier', 'implementation_dossier_001'),
     [],
   );
+  await traceRepository.createTraceGateResult({
+    gate_result_id: 'dossier_readiness_gate_001',
+    implementation_project_id: PROJECT_ID,
+    trace_manifest_id: 'trace_manifest_dossier_001',
+    gate_status: 'passed',
+    trace_status: 'complete',
+    blocker_codes: [],
+    repair_queue_item_refs: [],
+    created_at: NOW,
+  });
   const claimTracePacket: ClaimTracePacket = {
     claim_trace_packet_id: 'claim_trace_packet_001',
     implementation_project_id: PROJECT_ID,
@@ -472,10 +485,12 @@ async function setup(
     created_at: NOW,
   };
   await traceRepository.createClaimTracePacket(claimTracePacket);
+  const confirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
   const service = new PaperImplementationResultClaimDossierService({
     projectRepository: new StaticProjectRepository(),
     resultClaimRepository,
     traceRepository,
+    confirmationRepository,
     validationRepository: makeValidationRepository(),
     workOrderRepository: makeWorkOrderRepository({
       ...makeRunEvidence(runStatus),
@@ -485,7 +500,7 @@ async function setup(
     now: () => NOW,
     idFactory: (prefix) => `${prefix}_001`,
   });
-  return { service, feedbackRecorder };
+  return { service, feedbackRecorder, confirmationRepository, traceRepository };
 }
 
 test('result interpretation blocks failed runs that are not retained and accounted for', async () => {
@@ -714,4 +729,114 @@ test('result claim feedback delegates to T-093 implementation feedback authority
   });
   assert.equal(result.feedback_event.feedback_type, 'lower_claim_ceiling');
   assert.equal(feedbackRecorder.calls[0]?.recommended_upstream_action, 'recheck_topic_selection');
+});
+
+test('strong claim confirmation ref must resolve to an active strong-claim-scope record', async () => {
+  const { service, confirmationRepository } = await setup();
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  const strongClaim = validClaimRequest();
+  strongClaim.claim_strength = 'strong';
+  strongClaim.boundary = {
+    ...strongClaim.boundary,
+    human_confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_fabricated'),
+  };
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, strongClaim),
+    (error) => error instanceof AppError
+      && error.message.includes('must resolve to an existing HumanConfirmationRecord'),
+  );
+
+  await confirmationRepository.createHumanConfirmationRecord({
+    confirmation_record_id: 'pi_human_confirmation_wrong_scope',
+    implementation_project_id: PROJECT_ID,
+    confirmation_scope: 'motive_portfolio_decision',
+    target_refs: [ref('claim_candidate', 'claim_candidate_001')],
+    reviewed_sources: [],
+    transition_attempt_ref: null,
+    gate_result_refs: [],
+    rationale: 'Reviewed the portfolio impact.',
+    confirmed_by_actor_type: 'human',
+    confirmed_by_actor_id: 'reviewer_001',
+    policy_version_id: null,
+    status: 'active',
+    status_reason: null,
+    created_at: NOW,
+    updated_at: null,
+  });
+  strongClaim.boundary = {
+    ...strongClaim.boundary,
+    human_confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_wrong_scope'),
+  };
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, strongClaim),
+    (error) => error instanceof AppError
+      && error.message.includes('scope strong_claim_acceptance'),
+  );
+
+  await confirmationRepository.createHumanConfirmationRecord({
+    confirmation_record_id: 'pi_human_confirmation_strong_001',
+    implementation_project_id: PROJECT_ID,
+    confirmation_scope: 'strong_claim_acceptance',
+    target_refs: [ref('claim_candidate', 'claim_candidate_001')],
+    reviewed_sources: [],
+    transition_attempt_ref: null,
+    gate_result_refs: [],
+    rationale: 'Reviewed run evidence and boundary before accepting the strong claim.',
+    confirmed_by_actor_type: 'human',
+    confirmed_by_actor_id: 'reviewer_001',
+    policy_version_id: null,
+    status: 'active',
+    status_reason: null,
+    created_at: NOW,
+    updated_at: null,
+  });
+  strongClaim.boundary = {
+    ...strongClaim.boundary,
+    human_confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_strong_001'),
+  };
+  const created = await service.createClaimCandidate(PROJECT_ID, strongClaim);
+  assert.equal(created.claim_strength, 'strong');
+  assert.equal(created.human_confirmation_required, true);
+});
+
+test('ready dossier rejects unresolvable readiness gate results', async () => {
+  const { service } = await setup();
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const request = validDossierRequest();
+  request.readiness = {
+    ...request.readiness,
+    readiness_gate_result_id: 'dossier_readiness_gate_missing',
+  };
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, request),
+    (error) => error instanceof AppError
+      && error.message.includes('must resolve to a persisted TraceGateResult'),
+  );
+});
+
+test('ready dossier rejects readiness gate results targeting a different trace manifest', async () => {
+  const { service, traceRepository } = await setup();
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  await traceRepository.createTraceGateResult({
+    gate_result_id: 'dossier_readiness_gate_other_manifest',
+    implementation_project_id: PROJECT_ID,
+    trace_manifest_id: 'trace_manifest_claim_001',
+    gate_status: 'passed',
+    trace_status: 'complete',
+    blocker_codes: [],
+    repair_queue_item_refs: [],
+    created_at: NOW,
+  });
+  const request = validDossierRequest();
+  request.readiness = {
+    ...request.readiness,
+    readiness_gate_result_id: 'dossier_readiness_gate_other_manifest',
+  };
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, request),
+    (error) => error instanceof AppError
+      && error.message.includes('must target the dossier trace manifest'),
+  );
 });

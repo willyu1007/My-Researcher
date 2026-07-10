@@ -264,7 +264,7 @@ export class PaperImplementationTraceKernelService {
     const blockerCodes = Array.from(new Set(queueItems
       .filter((item) => item.status === 'open')
       .map((item) => item.blocker_code)));
-    return {
+    const gateResult: TraceGateResult = {
       gate_result_id: this.idFactory('trace_gate_result'),
       implementation_project_id: implementationProjectId,
       trace_manifest_id: manifest.trace_manifest_id,
@@ -276,6 +276,14 @@ export class PaperImplementationTraceKernelService {
         .map((item) => this.ref('trace_repair_queue_item', item.queue_item_id, manifest.target_ref.title_card_id ?? null)),
       created_at: this.now(),
     };
+    return this.traceRepository.createTraceGateResult(gateResult);
+  }
+
+  async findTraceGateResultById(
+    implementationProjectId: string,
+    gateResultId: string,
+  ): Promise<TraceGateResult | null> {
+    return this.traceRepository.findTraceGateResultById(implementationProjectId, gateResultId);
   }
 
   async listTraceRepairQueue(

@@ -41,6 +41,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import {
   sha256Text,
   stableStringify,
@@ -51,6 +52,7 @@ import {
   type TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
@@ -75,6 +77,7 @@ export type PaperImplementationEvidenceBoardCurationAgentOrchestrator =
   Pick<TopicSelectionAgentOrchestratorService, 'invokeStructuredOutput'>;
 
 interface RuntimeServiceOptions {
+  projectRepository: PaperImplementationRepository;
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationEvidenceBoardCurationAgentOrchestrator;
   idFactory?: (prefix: string) => string;
@@ -226,12 +229,14 @@ const FORBIDDEN_PRIMARY_REF_TYPES = new Set([
 ]);
 
 export class PaperImplementationEvidenceBoardCurationRuntimeService {
+  private readonly projectRepository: PaperImplementationRepository;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationEvidenceBoardCurationAgentOrchestrator;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
   constructor(options: RuntimeServiceOptions) {
+    this.projectRepository = options.projectRepository;
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
@@ -243,6 +248,7 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
     request: RunPaperImplementationEvidenceBoardCurationRuntimeRequest,
   ): Promise<PaperImplementationEvidenceBoardCurationRuntimeResult> {
     this.assertRequest(request);
+    await requireActiveImplementationProject(this.projectRepository, implementationProjectId);
     const profile = BINDING_GAP_CANDIDATES_PROFILE;
     const runId = request.run_id?.trim() || this.idFactory('pi_evidence_board_curation_runtime_run');
     const runtimeBase = this.runtimeBase(profile, implementationProjectId, request, runId);

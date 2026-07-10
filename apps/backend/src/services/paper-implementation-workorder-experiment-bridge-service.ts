@@ -163,6 +163,38 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
       }
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Only draft ResearchWorkOrder objects can be admitted.');
     }
+    const gateResult = await this.traceRepository.findTraceGateResultById(
+      implementationProjectId,
+      request.admission_gate_result_id,
+    );
+    if (!gateResult) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'ResearchWorkOrder admission_gate_result_id must resolve to a persisted TraceGateResult.',
+        { admission_gate_result_id: request.admission_gate_result_id },
+      );
+    }
+    if (gateResult.gate_status !== 'passed') {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'ResearchWorkOrder admission requires a passed gate result.',
+        { admission_gate_result_id: gateResult.gate_result_id, gate_status: gateResult.gate_status },
+      );
+    }
+    if (gateResult.trace_manifest_id !== workOrder.trace_manifest_id) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'ResearchWorkOrder admission gate result must target the work order trace manifest.',
+        {
+          admission_gate_result_id: gateResult.gate_result_id,
+          gate_trace_manifest_id: gateResult.trace_manifest_id,
+          work_order_trace_manifest_id: workOrder.trace_manifest_id,
+        },
+      );
+    }
     const admittedAt = this.now();
     return this.workOrderRepository.updateWorkOrder({
       ...workOrder,

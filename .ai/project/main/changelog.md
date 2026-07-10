@@ -15,3 +15,4 @@ Project: `main`
 - 2026-05-16 Opened T-068 topic-selection-backend-decision-chain-acceptance and mapped it to M-001 / F-001 / R-009.
 - 2026-05-16 Closed T-042 governance/scope acceptance and T-046 v1c stage scope; backend decision-chain acceptance split to a follow-up task.
 - 2026-02-07 Initialized project hub for `main`.
+- 2026-07-10 task_id=T-132 slug=experiment-foundation-productization-closure event=registered dev_docs_path=dev-docs/active/experiment-foundation-productization-closure

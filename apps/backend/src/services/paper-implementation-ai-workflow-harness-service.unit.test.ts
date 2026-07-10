@@ -21,6 +21,7 @@ import type {
   CitationCandidate,
   ClaimTracePacket,
   NaturalLanguageFieldRoleRecord,
+  TraceGateResult,
   TraceManifest,
   TraceRepairQueueItem,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-trace-contracts';
@@ -111,6 +112,14 @@ class StaticTraceRepository implements PaperImplementationTraceRepository {
     return [...this.manifests.values()].map((manifest) => structuredClone(manifest));
   }
 
+  async createTraceGateResult(gateResult: TraceGateResult): Promise<TraceGateResult> {
+    return gateResult;
+  }
+
+  async findTraceGateResultById(): Promise<TraceGateResult | null> {
+    return null;
+  }
+
   async createCitationCandidate(candidate: CitationCandidate): Promise<CitationCandidate> {
     return candidate;
   }
@@ -190,6 +199,7 @@ function buildP1RuntimeService() {
   });
   const orchestrator = new EchoMockRuntimeAgentOrchestrator();
   const runtimeService = new PaperImplementationP1RuntimeReviewService({
+    projectRepository: new StaticProjectRepository(makeProject()),
     runtimeAdmission,
     agentOrchestrator: orchestrator,
     idFactory,

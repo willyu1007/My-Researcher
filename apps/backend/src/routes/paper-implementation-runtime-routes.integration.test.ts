@@ -104,7 +104,10 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
-import { buildApp } from '../app.js';
+import {
+  buildApp as buildBackendApp,
+  type BuildAppOptions,
+} from '../app.js';
 import type {
   LlmCallTelemetry,
   LlmStructuredOutputRequest,
@@ -425,6 +428,13 @@ class StaticProjectRepository implements PaperImplementationRepository {
   async createFeedbackEvent(event: ImplementationFeedbackEvent): Promise<ImplementationFeedbackEvent> {
     return structuredClone(event);
   }
+}
+
+function buildApp(options: BuildAppOptions = {}): ReturnType<typeof buildBackendApp> {
+  return buildBackendApp({
+    paperImplementationRepository: new StaticProjectRepository(),
+    ...options,
+  });
 }
 
 test('PaperImplementation trace-integrity runtime run route uses the production slot service path', async () => {

@@ -234,6 +234,54 @@ const REQUIRED_L5_CASES = [
 
 const REQUIRED_RUNTIME_REGRESSION_CASES = [
   {
+    key: 'trace_integrity_profile_and_model_option_drift_rejected_before_gateway',
+    subtest: 'trace integrity debate runtime rejects slot profile and model option drift before provider calls',
+  },
+  {
+    key: 'trace_integrity_debate_inactive_project_rejected_before_orchestrator',
+    subtest: 'trace integrity debate runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'p1_runtime_review_inactive_project_rejected_before_orchestrator',
+    subtest: 'P1 runtime review rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'result_analysis_inactive_project_rejected_before_orchestrator',
+    subtest: 'result analysis runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'experiment_planning_inactive_project_rejected_before_orchestrator',
+    subtest: 'experiment planning runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'route_planning_inactive_project_rejected_before_orchestrator',
+    subtest: 'route planning runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'validation_cycle_planning_inactive_project_rejected_before_orchestrator',
+    subtest: 'validation cycle planning runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'feasibility_planning_inactive_project_rejected_before_orchestrator',
+    subtest: 'feasibility planning runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'cross_board_synthesis_inactive_project_rejected_before_orchestrator',
+    subtest: 'cross-board synthesis runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'evidence_board_curation_inactive_project_rejected_before_orchestrator',
+    subtest: 'evidence-board curation runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'motive_decomposition_inactive_project_rejected_before_orchestrator',
+    subtest: 'motive decomposition runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
+    key: 'motive_evolution_inactive_project_rejected_before_orchestrator',
+    subtest: 'motive evolution runtime rejects missing or inactive implementation project before provider calls',
+  },
+  {
     key: 'domain_gate_claim_final_artifact_idempotency',
     subtest: 'runtime Domain Gate materializes an admitted claim final artifact idempotently',
   },
@@ -272,6 +320,14 @@ const REQUIRED_RUNTIME_REGRESSION_CASES = [
 ];
 
 const REQUIRED_DETERMINISTIC_LANE_CASES = [
+  {
+    key: 'work_order_admission_gate_result_must_resolve',
+    subtest: 'work order admission rejects unresolvable or non-passed admission gate results',
+  },
+  {
+    key: 'trace_gate_result_persisted_and_resolvable',
+    subtest: 'trace gate evaluation persists the gate result for later resolution',
+  },
   {
     key: 'intake_bootstrap_route_replay_stale_hash',
     subtest: 'PaperImplementation routes expose bootstrap, idempotent duplicate, stale hash, and feedback behavior through real service',

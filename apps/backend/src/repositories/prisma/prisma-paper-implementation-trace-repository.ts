@@ -2,6 +2,7 @@ import type {
   PaperImplementationCitationCandidate as CitationCandidateRow,
   PaperImplementationClaimTracePacket as ClaimTracePacketRow,
   PaperImplementationNaturalLanguageFieldRole as FieldRoleRow,
+  PaperImplementationTraceGateResult as TraceGateResultRow,
   PaperImplementationTraceManifest as TraceManifestRow,
   PaperImplementationTraceRepairQueueItem as QueueItemRow,
   PrismaClient,
@@ -21,6 +22,7 @@ import type {
   TraceIntegrity,
   TraceInternalInterpretationLineage,
   TraceLineageBundle,
+  TraceGateResult,
   TraceLiteratureLineage,
   TraceManifest,
   TraceRepairQueueItem,
@@ -147,6 +149,19 @@ function toFieldRole(row: FieldRoleRow): NaturalLanguageFieldRoleRecord {
     can_be_cited: row.canBeCited,
     policy_version_id: row.policyVersionId ?? null,
     created_by: row.createdBy as NaturalLanguageFieldRoleRecord['created_by'],
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function toTraceGateResult(row: TraceGateResultRow): TraceGateResult {
+  return {
+    gate_result_id: row.id,
+    implementation_project_id: row.implementationProjectId,
+    trace_manifest_id: row.traceManifestId,
+    gate_status: row.gateStatus as TraceGateResult['gate_status'],
+    trace_status: row.traceStatus as TraceGateResult['trace_status'],
+    blocker_codes: asArray<string>(row.blockerCodes),
+    repair_queue_item_refs: asArray<TopicSelectionFunctionalRef>(row.repairQueueItemRefs),
     created_at: row.createdAt.toISOString(),
   };
 }
@@ -278,6 +293,54 @@ implements PaperImplementationTraceRepository {
       },
     });
     return row ? toFieldRole(row) : null;
+  }
+
+  async createTraceGateResult(
+    gateResult: TraceGateResult,
+  ): Promise<TraceGateResult> {
+    try {
+      return await this.createTraceGateResultRow(gateResult);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `TraceGateResult ${gateResult.gate_result_id} already exists.`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async createTraceGateResultRow(
+    gateResult: TraceGateResult,
+  ): Promise<TraceGateResult> {
+    const created = await this.prisma.paperImplementationTraceGateResult.create({
+      data: {
+        id: gateResult.gate_result_id,
+        implementationProjectId: gateResult.implementation_project_id,
+        traceManifestId: gateResult.trace_manifest_id,
+        gateStatus: gateResult.gate_status,
+        traceStatus: gateResult.trace_status,
+        blockerCodes: toJsonValue(gateResult.blocker_codes),
+        repairQueueItemRefs: toJsonValue(gateResult.repair_queue_item_refs),
+        createdAt: new Date(gateResult.created_at),
+      },
+    });
+    return toTraceGateResult(created);
+  }
+
+  async findTraceGateResultById(
+    implementationProjectId: string,
+    gateResultId: string,
+  ): Promise<TraceGateResult | null> {
+    const row = await this.prisma.paperImplementationTraceGateResult.findUnique({
+      where: { id: gateResultId },
+    });
+    if (!row || row.implementationProjectId !== implementationProjectId) {
+      return null;
+    }
+    return toTraceGateResult(row);
   }
 
   async listTraceRepairQueueItems(

@@ -14,6 +14,36 @@ Phase 0 对齐与登记
 
 Phase 2 与 Phase 3 互不依赖可并行/换序：Phase 2 改共享 orchestrator 需等 T-127 联合决策，若协调有等待期则先推 Phase 3。（T-123 于 2026-06-16 收尾关闭，共享面后续协调对象转为 T-127。）
 
+## 2026-07-10 执行顺序修订（D8 签核，上方 Phase 图保留作历史）
+复审（`06-review-2026-07-10.md`）新增 N1..N9 后，执行顺序按切片 S0-S5 重排；Phase 编号保留用于内容引用，实际推进以本节为准：
+
+```
+S0 治理与正确性补洞（新增，07-s0-workorder.md）          [N1 + N6 前两项；~2d]
+  └─> S1 Coordinator + 受理桥 + 队列回流（Phase 3 扩展）   [P-04 + N4 + N5；受理命令带 proposal 血缘、
+        │                                                  链内消费前回查 admission 且仅接受 passed、
+        │                                                  runtime blocked→queue 物化 + resolve→re-advance]
+        │     S5 usage-fit 薄验收（Phase 6.4 前移）：S1 落地当周 1 条 golden scenario 全链 + 人审 rubric，
+        │     此后作为各切片回归门。素材=测试用选题包（D10：arXiv 带代码论文取材、经真实 bootstrap
+        │     路由进入、论文已知结论作 rubric ground truth；素材构造随 S1 并行准备）
+        ├─> S2 单调用鲁棒包（Phase 2 承接，PC-S1..S4 并入） [P-01 caller 半边 + N3 token 双计修复 +
+        │      retry 分类对齐(role echo/blocked 无码改可重试) + runtimeIdentityHash unique 幂等 +
+        │      N6 preflight 终态统一；Phase 1 manifest 作并行地基，含 materialization class 字段]
+        └─> S3 多角色 debate kernel 硬化（新增，D2 档位的地基）
+               [N2 role output 契约加深(per-statement/per-finding) + 11 号文档 admission 规则真实现 +
+                blocked 输出也过语义检查 + D9 resume 契约(断点续跑) + N7 dossier 项目级失败对账;
+                Phase 4 debate 档位在 S3 之后]
+                 └─> S4 观测与人审面（Phase 6 部分前移）    [N9：telemetry sink + per-project token/cost
+                       聚合读模型 + 桌面 runtime lane 视图]
+                       └─> Phase 5 记忆 / Phase 6 清债（D4/D6 殿后不变）
+```
+
+依据与证据见 `06-review-2026-07-10.md`；S0 工单见 `07-s0-workorder.md`。N8（claim literature lineage）待裁定，裁定后并入 S0-5 或 S3。
+
+### 2026-07-10 S0 复审移交项（code-review 发现，登记进后续切片范围）
+- **S1 追加**：HumanConfirmationRecord 的 target 绑定 + 消费/supersede 语义（复审发现：一张同 scope active 记录可无限重放授权任意多不相关决策——受理桥落地时确认记录必须绑定其授权的具体 transition/target 并在使用后标记 consumed/superseded）；TraceGateResult 的 supersede/新鲜度语义（同 manifest 重评后旧 passed 行应失效；本轮已加 manifest 绑定断言，新鲜度归 S1）；治理校验器收敛（requireActiveConfirmation / requirePassedGateResult 共享化，消除 4 服务 5 处内联复制；preflight 建议挂到共享 admission service；profile 钉死块参数化）。
+- **S4 追加**：桌面确认记录入口（POST /human-confirmations 的 api 绑定 + portfolio/evolution 提交流程引导创建确认记录——当前重大结构变更在桌面只能 curl 完成）；utils.ts 队列 blocker 推导从 `confirmed_by` 改为 confirmation_ref/记录状态（与新门语义对齐）。
+- **测试债**：13 个 runtime 测试文件各复制 ~125 行项目夹具 → 抽共享 helper（S1 动这些文件时顺手）。
+
 ## Phase 0 对齐与登记（~0.5 d）
 - 与 T-127 登记共享面联合决策点（JD 编号互链）：orchestrator 压缩执行分支、SlotParameterManifest 落点、provider_overrides 类型化消费、价格表消费。（注：provider_overrides 类型化 F-07 与价格表 F-09 已由 T-123 交付，属消费既成产出；前向 JD 对象为 T-127。）
 - 盘点 `T114_*` 资源清单与更名映射表（env flag×16、gate flag、证据目录前缀、package.json 脚本）。

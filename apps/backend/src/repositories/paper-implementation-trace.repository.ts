@@ -2,6 +2,7 @@ import type {
   CitationCandidate,
   ClaimTracePacket,
   NaturalLanguageFieldRoleRecord,
+  TraceGateResult,
   TraceManifest,
   TraceRepairQueueItem,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-trace-contracts';
@@ -50,6 +51,15 @@ export interface PaperImplementationTraceRepository {
     fieldName: string,
     policyVersionId: string | null,
   ): Promise<NaturalLanguageFieldRoleRecord | null>;
+
+  createTraceGateResult(
+    gateResult: TraceGateResult,
+  ): Promise<TraceGateResult>;
+
+  findTraceGateResultById(
+    implementationProjectId: string,
+    gateResultId: string,
+  ): Promise<TraceGateResult | null>;
 
   listTraceRepairQueueItems(
     implementationProjectId: string,

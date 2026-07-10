@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-06-06T08:45:40.943Z",
+  "updatedAt": "2026-07-10T13:14:15.845Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -3728,687 +3728,6 @@
       ]
     },
     {
-      "name": "LiteratureDiscoveryBatch",
-      "dbName": null,
-      "schema": null,
-      "columns": [
-        {
-          "name": "batchCode",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "completedAt",
-          "type": "DateTime",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "createdAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "directionScope",
-          "type": "String",
-          "nullable": false,
-          "list": true,
-          "dbName": null,
-          "dbType": null,
-          "default": "[]",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "errorSummary",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "id",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": true,
-          "unique": false
-        },
-        {
-          "name": "queryLedger",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"{}\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "sourceProviders",
-          "type": "String",
-          "nullable": false,
-          "list": true,
-          "dbName": null,
-          "dbType": null,
-          "default": "[]",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "status",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "summaryStats",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"{}\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "updatedAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        }
-      ],
-      "relations": [
-        {
-          "field": "candidates",
-          "to": "LiteratureDiscoveryCandidate",
-          "optional": false,
-          "list": true,
-          "relationName": null,
-          "fields": [],
-          "references": []
-        }
-      ],
-      "indexes": [
-        {
-          "type": "index",
-          "fields": [
-            "batchCode"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "status",
-            "createdAt"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "updatedAt"
-          ],
-          "name": null,
-          "map": null
-        }
-      ]
-    },
-    {
-      "name": "LiteratureDiscoveryCandidate",
-      "dbName": null,
-      "schema": null,
-      "columns": [
-        {
-          "name": "abstractText",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "arxivId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "authors",
-          "type": "String",
-          "nullable": false,
-          "list": true,
-          "dbName": null,
-          "dbType": null,
-          "default": "[]",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "batchId",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "createdAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "dblpUrl",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "decisionAt",
-          "type": "DateTime",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "decisionReason",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "dedupKey",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "directionScores",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"{}\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "doiNormalized",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "duplicateConfidence",
-          "type": "Float",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "duplicateReason",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "id",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": true,
-          "unique": false
-        },
-        {
-          "name": "implementationScore",
-          "type": "Float",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "matchedCandidateId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "matchedLiteratureId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "normalizedTitle",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "openalexId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "promotedLiteratureId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "relevanceScore",
-          "type": "Float",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "roleScores",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"{}\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "semanticScholarId",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "sourcePayload",
-          "type": "Json",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"{}\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "sourceProvider",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "sourceUrl",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "status",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": "\"DISCOVERED\"",
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "theoryScore",
-          "type": "Float",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "title",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "updatedAt",
-          "type": "DateTime",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": "Timestamptz",
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "venue",
-          "type": "String",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "year",
-          "type": "Int",
-          "nullable": true,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        }
-      ],
-      "relations": [
-        {
-          "field": "batch",
-          "to": "LiteratureDiscoveryBatch",
-          "optional": false,
-          "list": false,
-          "relationName": null,
-          "fields": [
-            "batchId"
-          ],
-          "references": [
-            "id"
-          ]
-        },
-        {
-          "field": "duplicateCandidates",
-          "to": "LiteratureDiscoveryCandidate",
-          "optional": false,
-          "list": true,
-          "relationName": "LiteratureDiscoveryCandidateMatch",
-          "fields": [],
-          "references": []
-        },
-        {
-          "field": "matchedCandidate",
-          "to": "LiteratureDiscoveryCandidate",
-          "optional": true,
-          "list": false,
-          "relationName": "LiteratureDiscoveryCandidateMatch",
-          "fields": [
-            "matchedCandidateId"
-          ],
-          "references": [
-            "id"
-          ]
-        },
-        {
-          "field": "matchedLiterature",
-          "to": "LiteratureRecord",
-          "optional": true,
-          "list": false,
-          "relationName": "LiteratureDiscoveryCandidateMatchedLiterature",
-          "fields": [
-            "matchedLiteratureId"
-          ],
-          "references": [
-            "id"
-          ]
-        },
-        {
-          "field": "promotedLiterature",
-          "to": "LiteratureRecord",
-          "optional": true,
-          "list": false,
-          "relationName": "LiteratureDiscoveryCandidatePromotedLiterature",
-          "fields": [
-            "promotedLiteratureId"
-          ],
-          "references": [
-            "id"
-          ]
-        }
-      ],
-      "indexes": [
-        {
-          "type": "index",
-          "fields": [
-            "arxivId"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "batchId",
-            "status"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "dedupKey"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "doiNormalized"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "matchedCandidateId"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "matchedLiteratureId"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "normalizedTitle",
-            "year"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "openalexId"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "promotedLiteratureId"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "semanticScholarId"
-          ],
-          "name": null,
-          "map": null
-        },
-        {
-          "type": "index",
-          "fields": [
-            "status",
-            "createdAt"
-          ],
-          "name": null,
-          "map": null
-        }
-      ]
-    },
-    {
       "name": "LiteratureEmbeddingChunk",
       "dbName": null,
       "schema": null,
@@ -7493,24 +6812,6 @@
           "optional": false,
           "list": true,
           "relationName": null,
-          "fields": [],
-          "references": []
-        },
-        {
-          "field": "discoveryMatchedCandidates",
-          "to": "LiteratureDiscoveryCandidate",
-          "optional": false,
-          "list": true,
-          "relationName": "LiteratureDiscoveryCandidateMatchedLiterature",
-          "fields": [],
-          "references": []
-        },
-        {
-          "field": "discoveryPromotedCandidates",
-          "to": "LiteratureDiscoveryCandidate",
-          "optional": false,
-          "list": true,
-          "relationName": "LiteratureDiscoveryCandidatePromotedLiterature",
           "fields": [],
           "references": []
         },
@@ -13628,6 +12929,199 @@
           ],
           "name": null,
           "map": "pi_harness_trace_policy_idx"
+        }
+      ]
+    },
+    {
+      "name": "PaperImplementationHumanConfirmationRecord",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "confirmationScope",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "confirmedByActorId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "confirmedByActorType",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "gateResultRefs",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "implementationProjectId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "policyVersionId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "rationale",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "reviewedSources",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "statusReason",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "targetRefs",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "transitionAttemptRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "confirmationScope"
+          ],
+          "name": null,
+          "map": "pihcr_scope_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "status",
+            "createdAt"
+          ],
+          "name": null,
+          "map": "pihcr_project_status_idx"
         }
       ]
     },
@@ -20321,6 +19815,121 @@
           ],
           "name": null,
           "map": "pitrc_cycle_idx"
+        }
+      ]
+    },
+    {
+      "name": "PaperImplementationTraceGateResult",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "blockerCodes",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "gateStatus",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "implementationProjectId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "repairQueueItemRefs",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "traceManifestId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "traceStatus",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "createdAt"
+          ],
+          "name": null,
+          "map": "pitgr_project_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "traceManifestId"
+          ],
+          "name": null,
+          "map": "pitgr_manifest_idx"
         }
       ]
     },

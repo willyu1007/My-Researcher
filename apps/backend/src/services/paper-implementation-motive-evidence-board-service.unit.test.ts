@@ -21,6 +21,9 @@ import type {
 import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationMotiveRepository } from '../repositories/in-memory-paper-implementation-motive-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
+import {
+  InMemoryPaperImplementationHumanConfirmationRepository,
+} from '../repositories/in-memory-paper-implementation-human-confirmation-repository.js';
 import type {
   PaperImplementationBootstrapPersistence,
   PaperImplementationBootstrapResult,
@@ -160,14 +163,40 @@ function makeHarness() {
     idFactory,
     now: () => NOW,
   });
+  const confirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
   const service = new PaperImplementationMotiveEvidenceBoardService({
     projectRepository,
     motiveRepository,
     traceRepository,
+    confirmationRepository,
     idFactory,
     now: () => NOW,
   });
-  return { service, traceKernel, motiveRepository };
+  return { service, traceKernel, motiveRepository, confirmationRepository };
+}
+
+async function seedConfirmation(
+  confirmationRepository: InMemoryPaperImplementationHumanConfirmationRepository,
+  confirmationRecordId: string,
+  scope: 'motive_portfolio_decision' | 'motive_evolution_decision',
+) {
+  await confirmationRepository.createHumanConfirmationRecord({
+    confirmation_record_id: confirmationRecordId,
+    implementation_project_id: PROJECT.implementation_project_id,
+    confirmation_scope: scope,
+    target_refs: [ref('core_motive', 'core_motive_001', null)],
+    reviewed_sources: [],
+    transition_attempt_ref: null,
+    gate_result_refs: [],
+    rationale: 'Reviewed the structural change before confirming.',
+    confirmed_by_actor_type: 'human',
+    confirmed_by_actor_id: 'reviewer_001',
+    policy_version_id: null,
+    status: 'active',
+    status_reason: null,
+    created_at: NOW,
+    updated_at: null,
+  });
 }
 
 async function assertAppError(
@@ -531,7 +560,8 @@ test('draft creation cannot mutate active portfolio before admission', async () 
 });
 
 test('human-confirmed primary replacement demotes previous primary and keeps identity/set aligned', async () => {
-  const { service, traceKernel } = makeHarness();
+  const { service, traceKernel, confirmationRepository } = makeHarness();
+  await seedConfirmation(confirmationRepository, 'pi_human_confirmation_primary_001', 'motive_portfolio_decision');
   await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest());
   const firstTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
     target_ref: ref('core_motive_version', 'core_motive_version_001', 'v1'),
@@ -567,6 +597,7 @@ test('human-confirmed primary replacement demotes previous primary and keeps ide
       portfolio_role: 'primary',
       confirmation_level: 'human_confirmed',
       confirmed_by: 'human',
+      confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_primary_001', null),
     },
   );
 
@@ -811,4 +842,171 @@ test('evidence transfer binding is explicit trace-gated authority for cross-boar
     409,
     'GATE_CONSTRAINT_FAILED',
   );
+});
+
+test('primary replacement and human-required evolution require resolvable confirmation records', async () => {
+  const { service, traceKernel, confirmationRepository } = makeHarness();
+  await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest());
+  const firstTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_001', 'v1'),
+    lineage: literatureLineage(),
+  });
+  await service.admitCoreMotiveVersion(
+    PROJECT.implementation_project_id,
+    'core_motive_001',
+    'core_motive_version_001',
+    { trace_manifest_id: firstTrace.trace_manifest_id },
+  );
+  await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest({
+    motive_id: 'core_motive_002',
+    core_motive_version_id: 'core_motive_version_002',
+    assertions: [
+      {
+        ...draftRequest().assertions[0],
+        assertion_id: 'motive_assertion_002',
+      },
+    ],
+  }));
+  const secondTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_002', 'v1'),
+    lineage: literatureLineage(),
+  });
+
+  await assertAppError(
+    service.admitCoreMotiveVersion(
+      PROJECT.implementation_project_id,
+      'core_motive_002',
+      'core_motive_version_002',
+      {
+        trace_manifest_id: secondTrace.trace_manifest_id,
+        portfolio_role: 'primary',
+        confirmation_level: 'human_confirmed',
+        confirmed_by: 'human',
+        confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_fabricated', null),
+      },
+    ),
+    409,
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  await seedConfirmation(confirmationRepository, 'pi_human_confirmation_wrong_scope_001', 'motive_evolution_decision');
+  await assertAppError(
+    service.admitCoreMotiveVersion(
+      PROJECT.implementation_project_id,
+      'core_motive_002',
+      'core_motive_version_002',
+      {
+        trace_manifest_id: secondTrace.trace_manifest_id,
+        portfolio_role: 'primary',
+        confirmation_level: 'human_confirmed',
+        confirmed_by: 'human',
+        confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_wrong_scope_001', null),
+      },
+    ),
+    409,
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  await assertAppError(
+    service.createMotiveEvolutionDecision(PROJECT.implementation_project_id, {
+      source_motive_refs: [ref('core_motive', 'core_motive_001', null)],
+      evolution_type: 'refine_statement',
+      effect_class: 'structural_evolution',
+      decision_summary: 'Merge motives after board review.',
+      decision_rationale: 'Evidence overlap requires a merged framing.',
+      change_set: {},
+      human_confirmation_required: true,
+      confirmed_by: 'human',
+      application_status: 'proposed',
+    }),
+    409,
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  await seedConfirmation(confirmationRepository, 'pi_human_confirmation_evolution_001', 'motive_evolution_decision');
+  const decision = await service.createMotiveEvolutionDecision(PROJECT.implementation_project_id, {
+    source_motive_refs: [ref('core_motive', 'core_motive_001', null)],
+    evolution_type: 'refine_statement',
+    effect_class: 'structural_evolution',
+    decision_summary: 'Merge motives after board review.',
+    decision_rationale: 'Evidence overlap requires a merged framing.',
+    change_set: {},
+    human_confirmation_required: true,
+    confirmed_by: 'human',
+    confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_evolution_001', null),
+    application_status: 'proposed',
+  });
+  assert.equal(decision.human_confirmation_required, true);
+});
+
+test('primary-set change without confirmation ref and control-flagged structural evolution are rejected', async () => {
+  const { service, traceKernel, confirmationRepository } = makeHarness();
+  await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest());
+  const firstTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_001', 'v1'),
+    lineage: literatureLineage(),
+  });
+  await service.admitCoreMotiveVersion(
+    PROJECT.implementation_project_id,
+    'core_motive_001',
+    'core_motive_version_001',
+    { trace_manifest_id: firstTrace.trace_manifest_id },
+  );
+  await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest({
+    motive_id: 'core_motive_002',
+    core_motive_version_id: 'core_motive_version_002',
+    assertions: [
+      {
+        ...draftRequest().assertions[0],
+        assertion_id: 'motive_assertion_002',
+      },
+    ],
+  }));
+  const secondTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_002', 'v1'),
+    lineage: literatureLineage(),
+  });
+
+  await assertAppError(
+    service.admitCoreMotiveVersion(
+      PROJECT.implementation_project_id,
+      'core_motive_002',
+      'core_motive_version_002',
+      {
+        trace_manifest_id: secondTrace.trace_manifest_id,
+        portfolio_role: 'primary',
+        confirmation_level: 'human_confirmed',
+        confirmed_by: 'human',
+      },
+    ),
+    409,
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  await assertAppError(
+    service.createMotiveEvolutionDecision(PROJECT.implementation_project_id, {
+      source_motive_refs: [ref('core_motive', 'core_motive_001', null)],
+      evolution_type: 'refine_statement',
+      effect_class: 'structural_evolution',
+      decision_summary: 'Structural change without volunteering the confirmation flag.',
+      decision_rationale: 'Control flag on the motive must force confirmation.',
+      change_set: {},
+      application_status: 'proposed',
+    }),
+    409,
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  await seedConfirmation(confirmationRepository, 'pi_human_confirmation_control_001', 'motive_evolution_decision');
+  const decision = await service.createMotiveEvolutionDecision(PROJECT.implementation_project_id, {
+    source_motive_refs: [ref('core_motive', 'core_motive_001', null)],
+    evolution_type: 'refine_statement',
+    effect_class: 'structural_evolution',
+    decision_summary: 'Structural change with resolvable confirmation.',
+    decision_rationale: 'Control flag satisfied through a real record.',
+    change_set: {},
+    confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_control_001', null),
+    application_status: 'proposed',
+  });
+  assert.equal(decision.human_confirmation_required, true);
 });

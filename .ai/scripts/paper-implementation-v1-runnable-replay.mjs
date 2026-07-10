@@ -9,6 +9,7 @@ import { PaperImplementationController } from '../../apps/backend/src/controller
 import { AppError } from '../../apps/backend/src/errors/app-error.ts';
 import { InMemoryPaperImplementationRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-repository.ts';
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-ai-workflow-harness-repository.ts';
+import { InMemoryPaperImplementationHumanConfirmationRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-human-confirmation-repository.ts';
 import { InMemoryPaperImplementationMotiveRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-motive-repository.ts';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-result-claim-dossier-repository.ts';
 import { InMemoryPaperImplementationRuntimeRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-runtime-repository.ts';
@@ -17,6 +18,7 @@ import { InMemoryPaperImplementationValidationRepository } from '../../apps/back
 import { InMemoryPaperImplementationWorkOrderRepository } from '../../apps/backend/src/repositories/in-memory-paper-implementation-workorder-repository.ts';
 import { PaperImplementationIntakeBootstrapService } from '../../apps/backend/src/services/paper-implementation-intake-bootstrap-service.ts';
 import { PaperImplementationAiWorkflowHarnessService } from '../../apps/backend/src/services/paper-implementation-ai-workflow-harness-service.ts';
+import { PaperImplementationHumanConfirmationService } from '../../apps/backend/src/services/paper-implementation-human-confirmation-service.ts';
 import { PaperImplementationLiveExperimentAdapterService } from '../../apps/backend/src/services/paper-implementation-live-experiment-adapter-service.ts';
 import { PaperImplementationMotiveEvidenceBoardService } from '../../apps/backend/src/services/paper-implementation-motive-evidence-board-service.ts';
 import { PaperImplementationProviderVarianceEvaluationService } from '../../apps/backend/src/services/paper-implementation-provider-variance-evaluation-service.ts';
@@ -400,6 +402,7 @@ function makeReplayHarness() {
   const resultClaimRepository = new InMemoryPaperImplementationResultClaimDossierRepository();
   const harnessRepository = new InMemoryPaperImplementationAiWorkflowHarnessRepository();
   const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const confirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
   const downstreamFeedback = new RecordingDownstreamFeedbackService();
   const idFactory = makeIdFactory();
   const intakeBootstrap = new PaperImplementationIntakeBootstrapService({
@@ -419,6 +422,7 @@ function makeReplayHarness() {
     projectRepository: repository,
     motiveRepository,
     traceRepository,
+    confirmationRepository,
     idFactory,
     now: () => NOW,
   });
@@ -445,6 +449,7 @@ function makeReplayHarness() {
     traceRepository,
     validationRepository,
     workOrderRepository,
+    confirmationRepository,
     feedbackRecorder: intakeBootstrap,
     idFactory,
     now: () => NOW,
@@ -475,6 +480,7 @@ function makeReplayHarness() {
     now: () => NOW,
   });
   const traceIntegrityDebateRuntime = new PaperImplementationTraceIntegrityDebateRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: {
       invokeStructuredOutput: async () => {
@@ -493,42 +499,52 @@ function makeReplayHarness() {
     },
   };
   const p1RuntimeReview = new PaperImplementationP1RuntimeReviewService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
   const resultAnalysisRuntime = new PaperImplementationResultAnalysisRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
   const experimentPlanningRuntime = new PaperImplementationExperimentPlanningRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
   const routePlanningRuntime = new PaperImplementationRoutePlanningRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
   const validationCyclePlanningRuntime = new PaperImplementationValidationCyclePlanningRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
   const feasibilityPlanningRuntime = new PaperImplementationFeasibilityPlanningRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
   const crossBoardSynthesisRuntime = new PaperImplementationCrossBoardSynthesisRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
   const evidenceBoardCurationRuntime = new PaperImplementationEvidenceBoardCurationRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
   const motiveDecompositionRuntime = new PaperImplementationMotiveDecompositionRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
   const motiveEvolutionRuntime = new PaperImplementationMotiveEvolutionRuntimeService({
+    projectRepository: repository,
     runtimeAdmission,
     agentOrchestrator: unusedRuntimeAgentOrchestrator,
   });
@@ -536,9 +552,16 @@ function makeReplayHarness() {
     runtimeAdmission,
     resultClaimDossier,
   });
+  const humanConfirmation = new PaperImplementationHumanConfirmationService({
+    projectRepository: repository,
+    confirmationRepository,
+    idFactory,
+    now: () => NOW,
+  });
   const controller = new PaperImplementationController({
     intakeBootstrap,
     traceKernel,
+    humanConfirmation,
     motiveEvidenceBoard,
     validationCyclePlanning,
     workOrderExperimentBridge,
@@ -649,11 +672,18 @@ async function createValidationAndWorkOrder(state, app, projectId) {
     expectedStatus: 201,
     artifactRefs: ['HP-ROUTE-001'],
   });
+  const workOrderGateResultId = await evaluatePassedTraceGate(
+    state,
+    app,
+    projectId,
+    '15a-work-order-admission-gate',
+    workOrderTrace.trace_manifest_id,
+  );
   await inject(state, app, {
     stepId: '15-work-order-admit',
     method: 'POST',
     url: projectUrl(projectId, `/research-work-orders/${IDS.workOrder}/admit`),
-    payload: { admission_gate_result_id: 'work_order_gate_result_t109_001' },
+    payload: { admission_gate_result_id: workOrderGateResultId },
     expectedStatus: 200,
     artifactRefs: ['HP-ROUTE-001'],
   });
@@ -765,11 +795,24 @@ async function createResultClaimDossierAndWriting(state, app, projectId) {
     targetRef: ref('implementation_dossier', IDS.dossier, 'v1'),
     lineage: claimLineage(state.refs.run_evidence_unit_id),
   });
+  const dossierReadinessGateResultId = await evaluatePassedTraceGate(
+    state,
+    app,
+    projectId,
+    '21a-dossier-readiness-gate',
+    dossierTrace.trace_manifest_id,
+  );
   const dossier = await inject(state, app, {
     stepId: '22-implementation-dossier',
     method: 'POST',
     url: projectUrl(projectId, '/implementation-dossiers'),
-    payload: dossierPayload(IDS.dossier, dossierTrace.trace_manifest_id, IDS.claim, [claimTracePacket.claim_trace_packet_id]),
+    payload: dossierPayload(
+      IDS.dossier,
+      dossierTrace.trace_manifest_id,
+      IDS.claim,
+      [claimTracePacket.claim_trace_packet_id],
+      dossierReadinessGateResultId,
+    ),
     expectedStatus: 201,
     artifactRefs: ['HP-ROUTE-001'],
   });
@@ -968,6 +1011,24 @@ async function runUiBoundaryProof(state) {
   if (state.uiBoundary.status !== 'passed') {
     throw new Error('UI boundary proof failed.');
   }
+}
+
+async function evaluatePassedTraceGate(state, app, projectId, stepId, traceManifestId) {
+  const gate = await inject(state, app, {
+    stepId,
+    method: 'POST',
+    url: projectUrl(projectId, '/trace-gates/evaluate'),
+    payload: { trace_manifest_id: traceManifestId },
+    expectedStatus: 200,
+    artifactRefs: ['HP-ROUTE-001'],
+  });
+  if (gate.gate_status !== 'passed') {
+    throw new Error(`Step ${stepId} expected a passed trace gate for ${traceManifestId}, got ${gate.gate_status}.`);
+  }
+  if (gate.trace_manifest_id !== traceManifestId) {
+    throw new Error(`Step ${stepId} gate result targets ${gate.trace_manifest_id}, expected ${traceManifestId}.`);
+  }
+  return gate.gate_result_id;
 }
 
 async function createTrace(state, app, projectId, input) {
@@ -1419,7 +1480,7 @@ function claimCandidatePayload(traceManifestId, claimTracePacketId, claimCandida
   };
 }
 
-function dossierPayload(dossierId, traceManifestId, claimCandidateId, claimTracePacketIds) {
+function dossierPayload(dossierId, traceManifestId, claimCandidateId, claimTracePacketIds, readinessGateResultId = null) {
   return {
     dossier_id: dossierId,
     dossier_status: 'ready_for_writing',
@@ -1440,7 +1501,7 @@ function dossierPayload(dossierId, traceManifestId, claimCandidateId, claimTrace
       claim_ceiling: 'tentative',
     },
     readiness: {
-      readiness_gate_result_id: `${dossierId}_readiness_gate`,
+      readiness_gate_result_id: readinessGateResultId ?? `${dossierId}_readiness_gate`,
       blocker_refs: [],
       warning_refs: [],
       readiness_notes: ['Ready as bounded negative result dossier.'],

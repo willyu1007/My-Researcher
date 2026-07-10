@@ -2,7 +2,7 @@
 
 ## Status
 - State: in-progress
-- Progress: 包创建（2026-06-11）。审计发现 P-01..P-13 已登记（as-verified，含代码证据指针）；待签核决策 D1~D7 列于下方；Phase 0 对齐项未开工。
+- Progress: 包创建（2026-06-11）。审计发现 P-01..P-13 已登记（as-verified，含代码证据指针）；待签核决策 D1~D7 列于下方；Phase 0 对齐项未开工。**2026-07-10 全模块复审**：新增发现 N1..N9（含 3 项 P0：强 claim 人确伪造 / admission 自证+语义空心 / debate 无断点+token 双计，SSOT=`06-review-2026-07-10.md`）；D8（S0-S5 切片重排序）与 D9（debate resume 契约）已签核；S0 工单已起草（`07-s0-workorder.md`，待开工）；PC-S1..S4 并入 S2。
 - Task ID: `T-124`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-013`
 - Depends on: `T-114`（paper-implementation-runtime-orchestration-hardening，done——本包直接继承其 runtime/admission/Domain Gate 边界、95 必检用例与 L1-L6 证据体系；闭环复跑 run id 见 T-114 `04-verification.md` 2026-06-11 两行）
@@ -10,8 +10,15 @@
 - Reuses: `T-112` 的 context policy profile / prompt packet / 压缩 / token 预算基础设施；`T-114` 的 runtime-stress / near-prod gate / ownership-scan 证据机制
 - Trigger: 2026-06-11 paper-implementation 产品化审计（单次调用上下文工程与跨 run 记忆 / harness 与编排分工 / 语义节点参数规范化 / debate 细化与复杂度检查 / 工程优化与技术债 五维 + 开发测试节奏）
 
-## Goal
-- 把 PaperImplementation 从 T-114 的"逐 slot 运行时已硬化、证据机器可验"推进到"产品可 run、长上下文不卡死、决策可记忆、参数零死角、debate 按需启用、任务级债清零"，并固化开发与测试节奏，使每个交付 slice 既有 fail-closed 证据也有 usage-fit（满足实际使用需求）验证。
+## Goal（2026-07-10 顶层决策 D10 后生效）
+- **一句话**：把论文实施模块从"14 个各自硬化、互不相连的 LLM 工位 + 一套只能人工驱动的权威服务"，变成**一条可托付的自动实施流水线**——投入一个晋升选题，系统无人值守推进 动机→证据→验证→路线→实验→结果→论断→档案，人只在四类停驻点确认；产出的每个 claim 都能机器反查到证据与决策链。
+- **唯一完成定义（可证伪）**：3 条 golden scenario（测试用选题包，见 D10 素材形态）在 acceptance 模式下由 coordinator 一键推进全链至 dossier ready，且同时满足：
+  1. 全程无人工转录（受理桥血缘不断链，dossier 可反查到 intake）；
+  2. 人工只处理四点停驻集（skeptic 非 proceed、强 claim 接受、dossier export、预算超限）；
+  3. 治理门在对抗用例下不可被 LLM 输出穿透（伪造确认 ref / 伪造 gate id / blocked 旁路全部被拒）；
+  4. 单场全链成本与失败重付率有持久数据且在预算内；
+  5. 人审 rubric 四维（候选质量/批判有效性/证据可追溯/约束遵守）达标留档。
+- 原目标（2026-06-11，六个能力谓词：产品可 run、长上下文不卡死、决策可记忆、参数零死角、debate 按需启用、任务级债清零）保留作背景——全部收敛为上述完成定义的工具项，不再单独作为验收对象。
 
 ## Audit Findings（本任务包的问题清单，as-verified 2026-06-11）
 
@@ -57,6 +64,9 @@
 - **D5 SlotParameterManifest@v1（已签核 2026-06-13）**：backend registry 运行时导出为唯一权威 + 提交式生成快照（脚本导出 JSON 快照入 repo，CI 校验新鲜度——参数变更强制成为可 review 的 diff，沿本 repo DB SSOT 同步模式）。manifest 字段：profile id + 全部 model option（provider/model/normalized params/timeout）、prompt template id+version、context policy profile id+hash、token 预算、retry/fallback policy、run-mode eligibility、debate policy id+version、candidate selection policy id+version、memory family 声明。四向完备性测试（路由↔manifest↔必检用例↔金丝雀 flag）同时进默认 CI（纯静态）与 runtime-stress 闭环 step。双源方向（T-124 提案立场，最终走 JD）：backend 权威，YAML 降为 provider/model 候选声明的对账输入。新 slot 不再手写 dev-docs Profile Resolution Block（仅留 manifest 指针）；T-114 历史 block 不重写、仅加取代注记。裸参数禁令：schema 层 strict 拒绝未知键 + service 层负例。
 - **D6 任务级→项目级资源迁移（2026-06-13 自我修正：原子更名、无 alias）**：`T114_*` env flag 更名为 `PAPER_IMPLEMENTATION_*`，stress/gate 证据目录与 run id 前缀去任务化，package.json 脚本/runner 护栏/meta 测试在同一 slice 内原子完成，旧名即刻失效。依据 D3 裁定原则：项目未上线、无外部消费者，保留 alias 就是保留双轨/漂移面；全部引用 grep 可达，原子更名零风险。更名后全量 runtime-stress + near-prod gate 重跑作为收口证据。
 - **D7 开发与测试节奏**：见 `01-plan.md` §开发与测试节奏。核心：每 slice 收口必跑全量 runtime-stress（新增必检用例先注册再实现）+ governance sync/lint；每 Phase 收口加用户验收对话；里程碑跑受影响 slot 金丝雀 + near-prod gate 并记 run id；Phase 6 起 golden scenario usage-fit 验收常态化。
+- **D8 切片重排序（已签核 2026-07-10）**：复审 N1..N9 后执行顺序改为 S0 治理补洞 → S1 Coordinator+受理桥+队列回流 → S2 单调用鲁棒包（PC-S1..S4 并入）→ S3 多角色 debate kernel 硬化（D2 档位其后）→ S4 观测与人审面 → Phase 5/6 殿后；S5 usage-fit 薄验收随 S1 前置为常态回归门；D5 manifest 作 S2 并行地基并增加 materialization class（`domain_gate_materializable | proposal_only | handoff_only`）。见 `01-plan.md` §2026-07-10 执行顺序修订。
+- **D10 顶层目标与完成定义（已签核 2026-07-10）**：目标重述见 §Goal。三项子决策：**终点站=全链到 dossier ready**（实验执行用既有 acceptance 假体，live 为 env-gated opt-in，不做半链收口）；**素材形态=测试用选题包**——手工构造形态合规的晋升选题包（不考虑选题质量），内容取材于公开 arXiv 带代码论文（论文已知路线/实验/结论作为 rubric ground truth 与幻觉对照），**必须经真实 bootstrap 路由进入（构造 bridge 记录），不开测试后门**；真实晋升选题作为第 4 条跟进项（受 topic-selection 产线晋升案例数量门控）；**停驻点最小集=四点**（skeptic 非 proceed、强 claim 接受、dossier export、预算超限），其余全自动+事后可 override。解决方案骨架=五动作映射 S0-S5（①关死治理门 ②接上主干 ③单调用活下来付得起 ④链条失败不破产/通过不空心 ⑤看得见+用得上），见 `01-plan.md` §2026-07-10 执行顺序修订。工程卫生项（D4 记忆/D6 更名/P-09/P-12）不占主干、服务主干时顺带完成。
+- **D9 debate resume 契约（已签核 2026-07-10）**：同 identity 断点续跑——复用本场已 admitted role artifact（同 retrieval packet hash、同 profile/prompt identity），admission 复核后从断点继续；定性为技术续跑而非语义 fallback/响应复用，不违反"无 fallback/无复用"原则。S3 实施时落 `resume` 请求契约与负例（identity 漂移拒续、跨场复用拒绝、provider 语义不重跑已 admitted 角色），并给 T-114 `11-trace-integrity-debate-design.md` 加取代注记（历史文档不重写）。
 
 ## Acceptance Criteria (high level)
 - [ ] P-01..P-13 逐项关闭或显式降级（写明理由与去向），每项在 `03-implementation-notes.md` 有对应条目与证据指针。

@@ -20,6 +20,7 @@ import type {
   CitationCandidate,
   ClaimTracePacket,
   NaturalLanguageFieldRoleRecord,
+  TraceGateResult,
   TraceManifest,
   TraceRepairQueueItem,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-trace-contracts';
@@ -110,6 +111,14 @@ class StaticTraceRepository implements PaperImplementationTraceRepository {
 
   async listTraceManifests(): Promise<TraceManifest[]> {
     return [...this.manifests.values()].map((manifest) => structuredClone(manifest));
+  }
+
+  async createTraceGateResult(gateResult: TraceGateResult): Promise<TraceGateResult> {
+    return gateResult;
+  }
+
+  async findTraceGateResultById(): Promise<TraceGateResult | null> {
+    return null;
   }
 
   async createCitationCandidate(candidate: CitationCandidate): Promise<CitationCandidate> {
@@ -317,6 +326,7 @@ test('provider variance evaluation route validates payloads and returns aggregat
   });
   const controller = new PaperImplementationController({
     intakeBootstrap: {} as never,
+    humanConfirmation: {} as never,
     traceKernel: {} as never,
     motiveEvidenceBoard: {} as never,
     validationCyclePlanning: {} as never,
@@ -325,6 +335,7 @@ test('provider variance evaluation route validates payloads and returns aggregat
     aiWorkflowHarness,
     runtimeAdmission,
     traceIntegrityDebateRuntime: new PaperImplementationTraceIntegrityDebateRuntimeService({
+      projectRepository: new StaticProjectRepository(makeProject()),
       runtimeAdmission,
       agentOrchestrator: {
         invokeStructuredOutput: async () => {

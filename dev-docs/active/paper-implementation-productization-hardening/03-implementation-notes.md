@@ -1,5 +1,26 @@
 # 03 Implementation Notes
 
+## 2026-07-10 S0 实施（治理与正确性补洞，`07-s0-workorder.md` 全四项落地）
+- **S0-1 HumanConfirmationRecord 一等实体化**：新契约文件 `paper-implementation-human-confirmation-contracts.ts`（scope 枚举 6 值 / status active|invalidated|superseded / reviewed_sources ref+hash / strict schema）+ schema.test 4 用例；仓储三层（interface / in-memory / prisma）+ `PaperImplementationHumanConfirmationService`（capture 仅人 actor、项目须 active）+ controller/routes `POST|GET /human-confirmations` + app.ts 装配（strategy 工厂）。shared package.json exports 增补子路径。**Prisma 迁移未 apply（待审批）**：schema.prisma 新增 `PaperImplementationHumanConfirmationRecord` 与 `PaperImplementationTraceGateResult` 两 model，`prisma generate` 与 `ctl-db-ssot.mjs sync-to-context` 已跑；迁移命令待用户批准后执行。
+- **S0-2 确认/gate ref 存在性校验**：`evaluateTraceGate` 结果落库 + `findTraceGateResultById`；WO admit `admission_gate_result_id` 与 ready dossier `readiness_gate_result_id` 必须解析到同项目 persisted TraceGateResult 且 `gate_status==='passed'`（replay/drift 分支语义不变）；strong claim `human_confirmation_ref` 必须解析到 active + scope=strong_claim_acceptance 的记录；motive evolution human-required 必须带可解析 ref（confirmed_by 单独不再放行）；portfolio 重大结构变更必须带可解析 ref（**新增契约字段** `ApplyMotivePortfolioDecisionRequest.confirmation_ref` 与 `AdmitCoreMotiveVersionRequest.confirmation_ref`，加性）；**审查发现并关闭旁路**：`admitCoreMotiveVersion` 带 primary 替换的内部 portfolio 决策路径同样强制解析（原只查 confirmed_by 字符串）。Domain Gate materialize 无需重复断言——它经由确定性创建方法，门自动透传（记录为设计决定）。routes 集成测试改为走真流程（evaluate 产出真实 gate id 再 admit/ready）。
+- **S0-3 runtime preflight 项目校验**（子代理实施）：共享 `paper-implementation-runtime-preflight.ts`（400/404/409），11 个 runtime service options 必填 `projectRepository` + runXxx 首步校验（orchestrator 之前零 provider 调用）；app.ts 11 处注入；11 个负例测试 + L5 必检 `*_inactive_project_rejected_before_orchestrator` ×11 先注册后实现。
+- **S0-4 trace debate profile 钉死**：assertRequest 增补 profile 匹配与 model-option 归属两段（镜像 P1R），负例测试 + 必检 `trace_integrity_profile_and_model_option_drift_rejected_before_gateway` 注册。
+- **S0-5 未动**（待 N8 裁定）。
+- 新增必检用例合计 14 条（11 preflight + 1 profile drift + 2 deterministic lane：WO admit gate 解析、trace gate 落库可解析）。
+- 测试证据：`tsc --noEmit` 零错误；受影响套件逐文件全绿（human-confirmation service 3/3、schema 4/4、motive board 11/11、result-claim 11/11、bridge 14/14、trace kernel 11/11、live adapter 11/11、routes integration 4/4、11 runtime unit + l5 52/52 + domain gate 6/6 由子代理验证）；全量 runtime-stress run id 见 `04-verification.md`。
+
+## 2026-07-10 D10 签核（顶层目标与完成定义）
+- 用户发起顶层决策对话，确认本包目标从"六个能力谓词"收敛为**可证伪的完成定义**：3 条 golden scenario 全链自动推进至 dossier ready + 五项验收（无人工转录血缘、四点停驻集、治理门对抗不可穿透、成本/重付率有数、rubric 四维达标）。§Goal 已重写（原目标保留作背景）。
+- 三项子决策：终点站=全链 dossier ready（否决半链收口——会把最难的 claim/dossier 治理留在验收外）；素材=**测试用选题包**（用户核心洞察：论文与选题不是一个维度，模块入口契约是晋升选题包——故手工构造形态合规的选题包、内容取材 arXiv 带代码论文、经真实 bootstrap 路由进入不开后门、论文已知结论作 rubric ground truth）；停驻点=四点集（skeptic 非 proceed/强 claim/dossier export/预算超限），否决"受理点也停驻"（会退化成审批链）与"更少停驻"（先跑通第一条全链再考虑）。
+- 解决方案骨架定为五动作：①关死治理门(S0) ②接上主干(S1) ③单调用活下来付得起(S2) ④链条失败不破产、通过不空心(S3) ⑤看得见+用得上(S4/S5)。工程卫生项不占主干。
+- 文档落点：`00-overview.md` §Goal 重写 + D10 条目；`01-plan.md` S5 素材注记。下一步：S0 开工（`07-s0-workorder.md`）；素材构造随 S1 并行准备。
+
+## 2026-07-10 全模块复审登记 + D8/D9 签核 + S0 起草
+- 复审形态：四路并行深读（上游链/下游链/debate+共享运行时/harness+队列+产品面）+ gpt-5.5 独立视角 + 既往会话检索；全部 P0 与关键 P1 经主会话到 file:line 复核。SSOT=`06-review-2026-07-10.md`（新发现 N1..N9 + P-01..P-13 复核全为真 + 分工配合审查结论 + 正面确认保持项）。
+- 关键新事实（P-01..P-13 之外）：N1 强 claim 人确可被 LLM 伪造（HumanConfirmationRecord 无实体、gate/确认 ref 全链自由文本、TraceGateResult 不持久化）；N2 服务内 admission 自证恒等 + 11 号文档 per-role 语义规则零实现 + role output 契约过平（语义空心可 passed）+ blocked 旁路；N3 debate 无断点续跑（单角色失败=整场作废重付）+ token 估算双重计入（24k 实际≈12k）+ paper 侧压缩未接线 + 不幂等；N4 提案受理无载体（Create* 契约无血缘字段、血缘=回显不回查）；N5 runtime 失败不入队/resolve 无回流/终态 job 无兜底；N6 runtime 不查项目存在性（免烧钱洞）+ trace debate profile 不钉死 + preflight 终态 7 slot 分裂；N7 dossier 可漏未被 packet 引用的失败 REU；N8 claim literature lineage 疑似过度约束（待裁定）；N9 cost 数据 gateway 就绪但 paper 层丢弃 + 桌面对 runtime lane 盲视。
+- 用户决策：**D8**（S0-S5 重排序，`01-plan.md` §2026-07-10 修订节）与 **D9**（resume 契约：同 identity 续跑+admission 复核=技术续跑非语义 fallback，S3 实施）签核；PC-S1..S4 并入 S2（07-05 开口关闭）。
+- 产出：`06-review-2026-07-10.md`（复审 SSOT）、`07-s0-workorder.md`（S0 工单 draft：S0-1 HumanConfirmationRecord 实体化、S0-2 确认/gate ref 存在性校验+TraceGateResult 落库、S0-3 runtime preflight 项目校验、S0-4 trace debate profile 钉死、S0-5 待 N8 裁定）。下一步：S0 开工（S0-1 Prisma 迁移单独审批）。
+
 ## 2026-06-11 包创建与审计来源
 - 本包由 2026-06-11 paper-implementation 产品化审计触发，审计基线是 T-114 闭环复跑的两份证据：
   - runtime-stress run id `t114-paper-implementation-runtime-stress-1781132291471`（290 tests / 0 failed / 95 必检全过）；

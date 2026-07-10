@@ -39,6 +39,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import {
   sha256Text,
   stableStringify,
@@ -51,6 +52,7 @@ import {
 import {
   PaperImplementationRuntimeAdmissionService,
 } from './paper-implementation-runtime-admission-service.js';
+import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   PaperImplementationTraceIntegrityRetrievalService,
   type PaperImplementationTraceIntegrityRetrievalResult,
@@ -79,6 +81,7 @@ export type PaperImplementationTraceIntegrityAgentOrchestrator =
   Pick<TopicSelectionAgentOrchestratorService, 'invokeStructuredOutput'>;
 
 interface RuntimeServiceOptions {
+  projectRepository: PaperImplementationRepository;
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationTraceIntegrityAgentOrchestrator;
   retrievalService?: PaperImplementationTraceIntegrityRetrievalService;
@@ -137,6 +140,7 @@ const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
 ]);
 
 export class PaperImplementationTraceIntegrityDebateRuntimeService {
+  private readonly projectRepository: PaperImplementationRepository;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationTraceIntegrityAgentOrchestrator;
   private readonly retrievalService: PaperImplementationTraceIntegrityRetrievalService;
@@ -144,6 +148,7 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
   private readonly now: () => string;
 
   constructor(options: RuntimeServiceOptions) {
+    this.projectRepository = options.projectRepository;
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
     this.retrievalService = options.retrievalService ?? new PaperImplementationTraceIntegrityRetrievalService();
@@ -156,6 +161,7 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     request: RunPaperImplementationTraceIntegrityDebateRuntimeRequest,
   ): Promise<PaperImplementationTraceIntegrityDebateRuntimeResult> {
     this.assertRequest(request);
+    await requireActiveImplementationProject(this.projectRepository, implementationProjectId);
     const runId = request.run_id?.trim() || this.idFactory('pi_trace_debate_run');
     const retrievalResult = this.retrievalService.buildRetrievalPacket(
       implementationProjectId,
@@ -1114,6 +1120,14 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     if (request.run_mode === 'product' && request.execution_mode !== 'provider_llm') {
       throw new AppError(400, 'INVALID_PAYLOAD', 'product run_mode requires execution_mode=provider_llm.');
     }
+    const requestedProfileId = request.model_profile_id?.trim() || null;
+    if (requestedProfileId && requestedProfileId !== PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `model_profile_id must match runtime slot profile ${PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID}.`,
+      );
+    }
     if (request.execution_mode !== 'provider_llm' && request.model_option_id) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'model_option_id requires execution_mode=provider_llm.');
     }
@@ -1125,6 +1139,18 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         400,
         'INVALID_PAYLOAD',
         'provider_llm runtime requests must not include mocked_role_outputs or codex_role_outputs.',
+      );
+    }
+    const requestedModelOptionId = request.model_option_id?.trim() || null;
+    if (
+      request.execution_mode === 'provider_llm'
+      && requestedModelOptionId
+      && !requestedModelOptionId.startsWith(`${PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID}.`)
+    ) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `model_option_id must belong to runtime slot profile ${PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID}.`,
       );
     }
     if (request.execution_mode === 'mocked_llm') {

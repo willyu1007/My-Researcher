@@ -567,6 +567,16 @@ async function makeHarness() {
     traceManifest('trace_manifest_work_order_001', 'research_work_order', WORK_ORDER_ID),
     [],
   );
+  await traceRepository.createTraceGateResult({
+    gate_result_id: 'work_order_gate_result_001',
+    implementation_project_id: PROJECT_ID,
+    trace_manifest_id: 'trace_manifest_work_order_001',
+    gate_status: 'passed',
+    trace_status: 'complete',
+    blocker_codes: [],
+    repair_queue_item_refs: [],
+    created_at: NOW,
+  });
   await workOrderService.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());
   await workOrderService.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
     admission_gate_result_id: 'work_order_gate_result_001',
@@ -640,7 +650,7 @@ test('blocks submit before external execution when WorkOrder is not admitted or 
 
 test('blocks live submit when WorkOrder lacks materialization refs', async () => {
   const { service, workOrderService, traceKernel } = await makeHarness();
-  await traceKernel.createTraceManifest(PROJECT_ID, {
+  const missingMaterializationManifest = await traceKernel.createTraceManifest(PROJECT_ID, {
     target_ref: ref('research_work_order', 'research_work_order_missing_materialization'),
     lineage: {
       ...emptyLineage(),
@@ -661,8 +671,11 @@ test('blocks live submit when WorkOrder lacks materialization refs', async () =>
     },
     trace_manifest_id: 'trace_manifest_001',
   });
+  const missingMaterializationGate = await traceKernel.evaluateTraceGate(PROJECT_ID, {
+    trace_manifest_id: missingMaterializationManifest.trace_manifest_id,
+  });
   await workOrderService.admitResearchWorkOrder(PROJECT_ID, 'research_work_order_missing_materialization', {
-    admission_gate_result_id: 'work_order_gate_result_002',
+    admission_gate_result_id: missingMaterializationGate.gate_result_id,
   });
 
   await assertRejectsWithCode(
@@ -868,6 +881,7 @@ test('route wiring validates submit payload and delegates live experiment submit
     app,
     new PaperImplementationController({
       intakeBootstrap: {} as PaperImplementationIntakeBootstrapService,
+      humanConfirmation: {} as PaperImplementationHumanConfirmationService,
       traceKernel: {} as PaperImplementationTraceKernelService,
       motiveEvidenceBoard: {} as PaperImplementationMotiveEvidenceBoardService,
       validationCyclePlanning: {} as PaperImplementationValidationCyclePlanningService,
@@ -876,6 +890,7 @@ test('route wiring validates submit payload and delegates live experiment submit
       aiWorkflowHarness: {} as PaperImplementationAiWorkflowHarnessService,
       runtimeAdmission,
       traceIntegrityDebateRuntime: new PaperImplementationTraceIntegrityDebateRuntimeService({
+        projectRepository: new StaticProjectRepository(),
         runtimeAdmission,
         agentOrchestrator: {
           invokeStructuredOutput: async () => {
@@ -918,3 +933,4 @@ test('route wiring validates submit payload and delegates live experiment submit
     await app.close();
   }
 });
+import { PaperImplementationHumanConfirmationService } from './paper-implementation-human-confirmation-service.js';

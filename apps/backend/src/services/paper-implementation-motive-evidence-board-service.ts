@@ -39,6 +39,12 @@ import { AppError } from '../errors/app-error.js';
 import type { PaperImplementationMotiveRepository } from '../repositories/paper-implementation-motive.repository.js';
 import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationTraceRepository } from '../repositories/paper-implementation-trace.repository.js';
+import type {
+  HumanConfirmationRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-human-confirmation-contracts';
+import type {
+  PaperImplementationHumanConfirmationRepository,
+} from '../repositories/paper-implementation-human-confirmation.repository.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -46,6 +52,7 @@ export type PaperImplementationMotiveEvidenceBoardServiceOptions = {
   projectRepository: PaperImplementationRepository;
   motiveRepository: PaperImplementationMotiveRepository;
   traceRepository: PaperImplementationTraceRepository;
+  confirmationRepository: PaperImplementationHumanConfirmationRepository;
   idFactory?: IdFactory;
   now?: () => string;
 };
@@ -74,6 +81,7 @@ export class PaperImplementationMotiveEvidenceBoardService {
   private readonly projectRepository: PaperImplementationRepository;
   private readonly motiveRepository: PaperImplementationMotiveRepository;
   private readonly traceRepository: PaperImplementationTraceRepository;
+  private readonly confirmationRepository: PaperImplementationHumanConfirmationRepository;
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
@@ -81,6 +89,7 @@ export class PaperImplementationMotiveEvidenceBoardService {
     this.projectRepository = options.projectRepository;
     this.motiveRepository = options.motiveRepository;
     this.traceRepository = options.traceRepository;
+    this.confirmationRepository = options.confirmationRepository;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -312,6 +321,24 @@ export class PaperImplementationMotiveEvidenceBoardService {
       request.confirmed_by ?? null,
       createdAt,
     );
+    const primaryPromotion = requestedRole === 'primary'
+      && !existingSet.primary_motive_ids.includes(motive.motive_id)
+      && existingSet.primary_motive_ids.length > 0;
+    if (admissionPortfolio.demotedFromPrimaryIds.length > 0 || primaryPromotion) {
+      if (!request.confirmation_ref) {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          'Primary motive replacement or promotion into a non-empty primary set requires a resolvable confirmation_ref.',
+        );
+      }
+      await this.requireActiveHumanConfirmation(
+        project.implementation_project_id,
+        request.confirmation_ref.ref_id,
+        'motive_portfolio_decision',
+        'CoreMotiveVersion admission',
+      );
+    }
     const policyVersionId = version.policy_version_id ?? motive.policy_version_id ?? project.policy_version_id ?? null;
     const portfolioDecision = this.buildPortfolioDecision({
       implementationProjectId: project.implementation_project_id,
@@ -627,7 +654,22 @@ export class PaperImplementationMotiveEvidenceBoardService {
     const motives = await Promise.all(allMotiveIds.map((motiveId) =>
       this.requireMotive(project.implementation_project_id, motiveId)));
     const confirmationLevel = request.confirmation_level ?? 'not_required';
-    this.assertPortfolioDecisionConfirmation(currentSet, request, activeCount, confirmationLevel);
+    const majorStructuralChange = this.assertPortfolioDecisionConfirmation(currentSet, request, activeCount, confirmationLevel);
+    if (majorStructuralChange) {
+      if (!request.confirmation_ref) {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          'Major structural MotivePortfolioDecision must include a resolvable confirmation_ref.',
+        );
+      }
+      await this.requireActiveHumanConfirmation(
+        project.implementation_project_id,
+        request.confirmation_ref.ref_id,
+        'motive_portfolio_decision',
+        'MotivePortfolioDecision',
+      );
+    }
     const createdAt = this.now();
     const decision: MotivePortfolioDecision = {
       portfolio_decision_id: this.idFactory('motive_portfolio_decision'),
@@ -704,14 +746,29 @@ export class PaperImplementationMotiveEvidenceBoardService {
     if (request.source_motive_refs.length === 0) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'source_motive_refs is required.');
     }
-    for (const ref of request.source_motive_refs) {
-      await this.requireMotive(project.implementation_project_id, ref.ref_id);
-    }
-    if (request.human_confirmation_required && !request.confirmed_by && !request.confirmation_ref) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Human-required MotiveEvolutionDecision must include confirmed_by or confirmation_ref.',
+    const sourceMotives = await Promise.all(
+      request.source_motive_refs.map((ref) =>
+        this.requireMotive(project.implementation_project_id, ref.ref_id)),
+    );
+    const controlRequiresConfirmation = request.effect_class === 'structural_evolution'
+      && sourceMotives.some((motive) => motive.control.human_confirmation_required_for_major_change);
+    const humanConfirmationRequired = (request.human_confirmation_required ?? false) || controlRequiresConfirmation;
+    if (humanConfirmationRequired) {
+      if (!request.confirmation_ref) {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          'Human-required MotiveEvolutionDecision must include a resolvable confirmation_ref.',
+          controlRequiresConfirmation
+            ? { required_by: 'motive_control_human_confirmation_required_for_major_change' }
+            : undefined,
+        );
+      }
+      await this.requireActiveHumanConfirmation(
+        project.implementation_project_id,
+        request.confirmation_ref.ref_id,
+        'motive_evolution_decision',
+        'MotiveEvolutionDecision',
       );
     }
     const decisionId = request.motive_evolution_decision_id ?? this.idFactory('motive_evolution_decision');
@@ -750,7 +807,7 @@ export class PaperImplementationMotiveEvidenceBoardService {
       gate: request.gate ?? {},
       proposed_by: request.proposed_by ?? 'system',
       confirmed_by: request.confirmed_by ?? null,
-      human_confirmation_required: request.human_confirmation_required ?? false,
+      human_confirmation_required: humanConfirmationRequired,
       confirmation_ref: request.confirmation_ref ?? null,
       application_status: applicationStatus,
       trace_manifest_ref: request.trace_manifest_id
@@ -1108,7 +1165,7 @@ export class PaperImplementationMotiveEvidenceBoardService {
     request: ApplyMotivePortfolioDecisionRequest,
     nextActiveCount: number,
     confirmationLevel: string,
-  ): void {
+  ): boolean {
     const primaryChanged = !this.sameStringSet(currentSet.primary_motive_ids, request.motive_roles_after_decision.primary_motive_ids);
     const majorStructuralChange =
       primaryChanged
@@ -1121,6 +1178,43 @@ export class PaperImplementationMotiveEvidenceBoardService {
         409,
         'GATE_CONSTRAINT_FAILED',
         'Primary replacement, merge, split, abandon, or broadened active portfolio requires human confirmation.',
+      );
+    }
+    return majorStructuralChange;
+  }
+
+  private async requireActiveHumanConfirmation(
+    implementationProjectId: string,
+    confirmationRecordId: string,
+    expectedScope: HumanConfirmationRecord['confirmation_scope'],
+    gateLabel: string,
+  ): Promise<void> {
+    const record = await this.confirmationRepository.findHumanConfirmationRecordById(
+      implementationProjectId,
+      confirmationRecordId,
+    );
+    if (!record) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `${gateLabel} confirmation_ref must resolve to an existing HumanConfirmationRecord.`,
+        { confirmation_record_id: confirmationRecordId },
+      );
+    }
+    if (record.status !== 'active') {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `${gateLabel} human confirmation must be active.`,
+        { confirmation_record_id: record.confirmation_record_id, status: record.status },
+      );
+    }
+    if (record.confirmation_scope !== expectedScope) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `${gateLabel} human confirmation must carry scope ${expectedScope}.`,
+        { confirmation_record_id: record.confirmation_record_id, scope: record.confirmation_scope },
       );
     }
   }

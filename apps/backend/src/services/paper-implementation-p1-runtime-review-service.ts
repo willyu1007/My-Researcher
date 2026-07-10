@@ -40,6 +40,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import {
   sha256Text,
   stableStringify,
@@ -52,6 +53,7 @@ import {
 import {
   PaperImplementationRuntimeAdmissionService,
 } from './paper-implementation-runtime-admission-service.js';
+import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
@@ -76,6 +78,7 @@ export type PaperImplementationP1AgentOrchestrator =
   Pick<TopicSelectionAgentOrchestratorService, 'invokeStructuredOutput'>;
 
 interface RuntimeServiceOptions {
+  projectRepository: PaperImplementationRepository;
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationP1AgentOrchestrator;
   idFactory?: (prefix: string) => string;
@@ -247,12 +250,14 @@ const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
 ]);
 
 export class PaperImplementationP1RuntimeReviewService {
+  private readonly projectRepository: PaperImplementationRepository;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationP1AgentOrchestrator;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
   constructor(options: RuntimeServiceOptions) {
+    this.projectRepository = options.projectRepository;
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
@@ -280,6 +285,7 @@ export class PaperImplementationP1RuntimeReviewService {
   ): Promise<PaperImplementationP1RuntimeReviewResult> {
     const profile = SLOT_PROFILES[slotId];
     this.assertRequest(profile, request);
+    await requireActiveImplementationProject(this.projectRepository, implementationProjectId);
     const runId = request.run_id?.trim() || this.idFactory('pi_p1_runtime_run');
     const runtimeBase = this.runtimeBase(implementationProjectId, request, runId, profile);
     const artifacts: PaperImplementationRuntimeArtifactEnvelope[] = [];

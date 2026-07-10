@@ -46,6 +46,9 @@ import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../repos
 import { InMemoryPaperImplementationMotiveRepository } from '../repositories/in-memory-paper-implementation-motive-repository.js';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from '../repositories/in-memory-paper-implementation-result-claim-dossier-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
+import {
+  InMemoryPaperImplementationHumanConfirmationRepository,
+} from '../repositories/in-memory-paper-implementation-human-confirmation-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../repositories/in-memory-paper-implementation-workorder-repository.js';
 import {
@@ -415,10 +418,12 @@ function buildEvaluationHarness() {
     idFactory,
     now: () => NOW,
   });
+  const confirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
   const motiveService = new PaperImplementationMotiveEvidenceBoardService({
     projectRepository,
     motiveRepository,
     traceRepository,
+    confirmationRepository,
     idFactory,
     now: () => NOW,
   });
@@ -451,6 +456,7 @@ function buildEvaluationHarness() {
     traceRepository,
     validationRepository,
     workOrderRepository,
+    confirmationRepository,
     feedbackRecorder,
     idFactory,
     now: () => NOW,

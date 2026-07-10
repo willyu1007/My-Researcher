@@ -12,6 +12,9 @@ import {
   resolveTraceRepairQueueItemRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-trace-contracts';
 import {
+  createHumanConfirmationRecordRequestSchema,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-human-confirmation-contracts';
+import {
   admitCoreMotiveVersionRequestSchema,
   applyMotivePortfolioDecisionRequestSchema,
   createCoreMotiveDraftRequestSchema,
@@ -516,6 +519,21 @@ export async function registerPaperImplementationRoutes(
       },
     },
     controller.resolveTraceRepairQueueItem,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/human-confirmations',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: createHumanConfirmationRecordRequestSchema,
+      },
+    },
+    controller.createHumanConfirmationRecord,
+  );
+  fastify.get(
+    '/paper-implementation/projects/:implementation_project_id/human-confirmations',
+    { schema: implementationProjectParams },
+    controller.listHumanConfirmationRecords,
   );
   fastify.post(
     '/paper-implementation/projects/:implementation_project_id/core-motives/drafts',
