@@ -123,6 +123,8 @@ export interface ResearchWorkOrder {
   trace_manifest_id: string;
   admission_gate_result_id?: string | null;
   policy_version_id?: string | null;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by: TopicSelectionActorType;
   created_at: string;
   updated_at: string;
@@ -210,6 +212,8 @@ export interface CreateResearchWorkOrderDraftRequest {
   config_refs?: TopicSelectionFunctionalRef[];
   trace_manifest_id: string;
   policy_version_id?: string | null;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by?: TopicSelectionActorType;
 }
 
@@ -341,6 +345,8 @@ export const createResearchWorkOrderDraftRequestSchema = {
     config_refs: functionalRefArray,
     trace_manifest_id: stringId,
     policy_version_id: nullableStringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
   },
 } as const;
@@ -438,6 +444,8 @@ export const researchWorkOrderSchema = {
     trace_manifest_id: stringId,
     admission_gate_result_id: nullableStringId,
     policy_version_id: nullableStringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
     created_at: stringId,
     updated_at: stringId,

@@ -207,6 +207,41 @@ test('draft request rejects missing semantic contract falsification or claim bou
   );
 });
 
+test('draft request accepts optional acceptance-bridge lineage and rejects malformed lineage', async () => {
+  assert.equal(
+    await validateWithSchema(motiveContracts.createCoreMotiveDraftRequestSchema, {
+      ...validDraftPayload(),
+      source_proposal_artifact_ref: functionalRef('paper_implementation_runtime_artifact', 'runtime_artifact_001'),
+      source_proposal_artifact_hash: 'a'.repeat(64),
+    }),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(motiveContracts.createCoreMotiveDraftRequestSchema, {
+      ...validDraftPayload(),
+      source_proposal_artifact_ref: null,
+      source_proposal_artifact_hash: null,
+    }),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(motiveContracts.createCoreMotiveDraftRequestSchema, {
+      ...validDraftPayload(),
+      source_proposal_artifact_ref: 'runtime_artifact_001',
+      source_proposal_artifact_hash: 'a'.repeat(64),
+    }),
+    400,
+  );
+  assert.equal(
+    await validateWithSchema(motiveContracts.createCoreMotiveDraftRequestSchema, {
+      ...validDraftPayload(),
+      source_proposal_artifact_ref: functionalRef('paper_implementation_runtime_artifact', 'runtime_artifact_001'),
+      source_proposal_artifact_hash: { nested: 'not-a-hash' },
+    }),
+    400,
+  );
+});
+
 test('assertion schema rejects unsupported type importance and evidence requirement', async () => {
   assert.equal(
     await validateWithSchema(

@@ -25,6 +25,10 @@ import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationRepository } from '../repositories/in-memory-paper-implementation-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import {
+  seedAdmittedRoutePlanningLineage,
+  seedBlockedRouteArchitectureFinalArtifact,
+} from './paper-implementation-runtime-chain-lineage-fixtures.js';
 import { PaperImplementationRoutePlanningRuntimeService } from './paper-implementation-route-planning-runtime-service.js';
 import type {
   TopicSelectionAgentInvocationResult,
@@ -129,8 +133,12 @@ test('route architecture runtime records proposal-only artifacts without Domain 
 });
 
 test('route skeptic runtime records independent critique coverage against admitted route proposal', async () => {
-  const { service, orchestrator } = serviceFixture(['passed_skeptic']);
-  const result = await service.runRouteSkepticReview(PROJECT_ID, providerRequest('skeptic'));
+  const { service, orchestrator, seedLineage } = serviceFixture(['passed_skeptic']);
+  const lineage = await seedLineage();
+  const result = await service.runRouteSkepticReview(PROJECT_ID, providerRequest('skeptic', {
+    ref: lineage.routeProposalRef,
+    hash: lineage.routeProposalHash,
+  }));
 
   assert.equal(result.status, 'passed');
   assert.equal(result.slot_id, PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID);
@@ -186,8 +194,12 @@ test('route planning runtime fails closed after same-profile semantic retry exha
   assert.equal(architectureResult.admission_records[0]?.admission_status, 'rejected');
 
   const skeptic = serviceFixture(['incomplete_skeptic', 'incomplete_skeptic']);
+  const skepticLineage = await skeptic.seedLineage();
   const skepticResult = await skeptic.service.runRouteSkepticReview(PROJECT_ID, {
-    ...providerRequest('skeptic'),
+    ...providerRequest('skeptic', {
+      ref: skepticLineage.routeProposalRef,
+      hash: skepticLineage.routeProposalHash,
+    }),
     run_id: 'route_skeptic_missing_dimension_run_001',
   });
 
@@ -239,6 +251,51 @@ test('route skeptic runtime rejects missing admitted proposal primary input befo
     }),
     /requires admitted_route_proposal_artifact_ref/,
   );
+
+  assert.equal(orchestrator.calls.length, 0);
+});
+
+test('route skeptic runtime rejects unadmitted, drifted, blocked, or wrong-slot upstream route proposals before provider calls', async () => {
+  const { service, orchestrator, seedLineage, seedBlockedRouteFinal } = serviceFixture(['passed_skeptic']);
+  const lineage = await seedLineage();
+  const blocked = await seedBlockedRouteFinal();
+
+  const rejectsBeforeOrchestrator = async (
+    request: RunPaperImplementationRoutePlanningRuntimeRequest,
+  ) => {
+    await assert.rejects(
+      () => service.runRouteSkepticReview(PROJECT_ID, request),
+      (error: unknown) => error instanceof AppError
+        && error.statusCode === 409
+        && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+    );
+  };
+
+  await rejectsBeforeOrchestrator({
+    ...providerRequest('skeptic', {
+      ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_forged_001'),
+      hash: hash('forged-route-architecture-final'),
+    }),
+    run_id: 'route_skeptic_unadmitted_upstream_run_001',
+  });
+  await rejectsBeforeOrchestrator({
+    ...providerRequest('skeptic', {
+      ref: lineage.routeProposalRef,
+      hash: hash('drifted-route-architecture-final'),
+    }),
+    run_id: 'route_skeptic_drifted_upstream_hash_run_001',
+  });
+  await rejectsBeforeOrchestrator({
+    ...providerRequest('skeptic', { ref: blocked.ref, hash: blocked.hash }),
+    run_id: 'route_skeptic_blocked_upstream_final_run_001',
+  });
+  await rejectsBeforeOrchestrator({
+    ...providerRequest('skeptic', {
+      ref: lineage.routeSkepticRef,
+      hash: lineage.routeSkepticHash,
+    }),
+    run_id: 'route_skeptic_wrong_slot_upstream_run_001',
+  });
 
   assert.equal(orchestrator.calls.length, 0);
 });
@@ -378,15 +435,26 @@ function serviceFixture(
     idFactory,
     now: () => NOW,
   });
+  const projectRepository = projectRepositoryFixture(project);
   const orchestrator = new StubRoutePlanningAgentOrchestrator(outcomes);
   const service = new PaperImplementationRoutePlanningRuntimeService({
-    projectRepository: projectRepositoryFixture(project),
+    projectRepository,
     runtimeAdmission,
     agentOrchestrator: orchestrator,
     idFactory,
     now: () => NOW,
   });
-  return { service, repository, orchestrator };
+  const seedOptions = {
+    projectRepository,
+    runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    titleCardId: TITLE_CARD_ID,
+    idFactory,
+    now: () => NOW,
+  };
+  const seedLineage = () => seedAdmittedRoutePlanningLineage(seedOptions);
+  const seedBlockedRouteFinal = () => seedBlockedRouteArchitectureFinalArtifact(seedOptions);
+  return { service, repository, orchestrator, seedLineage, seedBlockedRouteFinal };
 }
 
 function routePlanningRoleOutputs(
@@ -404,6 +472,7 @@ function routePlanningRoleOutputs(
 
 function providerRequest(
   slot: 'architecture' | 'skeptic',
+  admittedRouteProposal?: { ref: TopicSelectionFunctionalRef; hash: string },
 ): RunPaperImplementationRoutePlanningRuntimeRequest {
   const profileId = slot === 'architecture'
     ? PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID
@@ -425,9 +494,11 @@ function providerRequest(
     ],
     source_hashes: [hash('snapshot'), hash('trace'), hash('literature')],
     admitted_route_proposal_artifact_ref: slot === 'skeptic'
-      ? ref('route_architecture_runtime_artifact', 'route_architecture_final_001')
+      ? admittedRouteProposal?.ref ?? ref('route_architecture_runtime_artifact', 'route_architecture_final_001')
       : null,
-    admitted_route_proposal_artifact_hash: slot === 'skeptic' ? hash('route-architecture-final') : null,
+    admitted_route_proposal_artifact_hash: slot === 'skeptic'
+      ? admittedRouteProposal?.hash ?? hash('route-architecture-final')
+      : null,
     reviewed_candidate_keys: slot === 'skeptic' ? ['exploratory_route_candidate'] : [],
     secondary_route_candidate_refs: slot === 'skeptic'
       ? [ref('technical_route_candidate', 'technical_route_candidate_secondary_001')]

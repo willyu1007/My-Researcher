@@ -87,6 +87,8 @@ function toWorkOrder(row: ResearchWorkOrderRow): ResearchWorkOrder {
     trace_manifest_id: row.traceManifestId,
     admission_gate_result_id: row.admissionGateResultId,
     policy_version_id: row.policyVersionId,
+    source_proposal_artifact_ref: asNullableFunctionalRef(row.sourceProposalArtifactRef),
+    source_proposal_artifact_hash: row.sourceProposalArtifactHash,
     created_by: row.createdBy as ResearchWorkOrder['created_by'],
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
@@ -376,6 +378,10 @@ implements PaperImplementationWorkOrderRepository {
       traceManifestRef: toJsonValue(workOrder.trace_manifest_ref),
       admissionGateResultId: workOrder.admission_gate_result_id ?? null,
       policyVersionId: workOrder.policy_version_id ?? null,
+      sourceProposalArtifactRef: workOrder.source_proposal_artifact_ref
+        ? toJsonValue(workOrder.source_proposal_artifact_ref)
+        : Prisma.JsonNull,
+      sourceProposalArtifactHash: workOrder.source_proposal_artifact_hash ?? null,
       createdBy: workOrder.created_by,
       createdAt: workOrder.created_at,
       updatedAt: workOrder.updated_at,

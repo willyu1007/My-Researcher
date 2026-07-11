@@ -1,6 +1,9 @@
 import crypto from 'node:crypto';
 import {
+  PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+  PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
   PAPER_IMPLEMENTATION_RUNTIME_ARTIFACT_ENVELOPE_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
   PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_FINAL_OUTPUT_SCHEMA_ID,
   PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROFILE_ID,
   PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROMPT_TEMPLATE_ID,
@@ -49,6 +52,7 @@ import {
   type TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { requireAdmittedPassedFinalArtifact } from './paper-implementation-runtime-artifact-consumption.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -215,6 +219,27 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
   ): Promise<PaperImplementationFeasibilityPlanningRuntimeResult> {
     this.assertRequest(request);
     await requireActiveImplementationProject(this.projectRepository, implementationProjectId);
+    await requireAdmittedPassedFinalArtifact(
+      this.runtimeAdmission,
+      implementationProjectId,
+      request.admitted_validation_cycle_artifact_ref,
+      request.admitted_validation_cycle_artifact_hash,
+      PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+    );
+    await requireAdmittedPassedFinalArtifact(
+      this.runtimeAdmission,
+      implementationProjectId,
+      request.admitted_route_proposal_artifact_ref,
+      request.admitted_route_proposal_artifact_hash,
+      PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    );
+    await requireAdmittedPassedFinalArtifact(
+      this.runtimeAdmission,
+      implementationProjectId,
+      request.admitted_route_skeptic_artifact_ref,
+      request.admitted_route_skeptic_artifact_hash,
+      PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+    );
     const profile = PROBE_PLAN_CANDIDATES_PROFILE;
     const runId = request.run_id?.trim() || this.idFactory('pi_feasibility_planning_runtime_run');
     const runtimeBase = this.runtimeBase(profile, implementationProjectId, request, runId);

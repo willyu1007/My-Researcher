@@ -333,6 +333,21 @@ export class PaperImplementationAiWorkflowHarnessService {
     return this.harnessRepository.listDecisionWorkQueueItems(implementationProjectId);
   }
 
+  async getDecisionWorkQueueItem(
+    implementationProjectId: string,
+    queueItemId: string,
+  ): Promise<DecisionWorkQueueItem> {
+    await this.requireProject(implementationProjectId);
+    const item = await this.harnessRepository.findDecisionWorkQueueItemById(
+      implementationProjectId,
+      queueItemId,
+    );
+    if (!item) {
+      throw new AppError(404, 'NOT_FOUND', `DecisionWorkQueueItem ${queueItemId} not found.`);
+    }
+    return item;
+  }
+
   async resolveDecisionWorkQueueItem(
     implementationProjectId: string,
     queueItemId: string,
@@ -741,6 +756,10 @@ export class PaperImplementationAiWorkflowHarnessService {
       retry_count: 0,
       retry_budget: 1,
       cooldown_until: null,
+      // Harness-lane items have no coordinator lineage; resolve re_advance
+      // is a no-op for them (W4).
+      source_coordinator_run_ref: null,
+      source_step_index: null,
       resolved_at: null,
       created_at: input.createdAt,
       updated_at: input.createdAt,

@@ -117,6 +117,14 @@ import {
   BackendLlmGateway,
   LlmGatewayError,
 } from '../services/llm-gateway.js';
+import { PaperImplementationRuntimeAdmissionService } from '../services/paper-implementation-runtime-admission-service.js';
+import {
+  seedAdmittedRoutePlanningLineage,
+  seedAdmittedValidationPlanningLineage,
+  type PaperImplementationSeededRouteLineage,
+  type PaperImplementationSeededValidationLineage,
+} from '../services/paper-implementation-runtime-chain-lineage-fixtures.js';
+import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from '../repositories/in-memory-paper-implementation-result-claim-dossier-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
@@ -296,6 +304,29 @@ class StubEvidenceBoardCurationGateway {
   }
 }
 
+class FlakyEvidenceBoardCurationGateway {
+  readonly calls: LlmStructuredOutputRequest[] = [];
+
+  constructor(private failuresRemaining: number) {}
+
+  async createStructuredOutput<T>(
+    request: LlmStructuredOutputRequest,
+  ): Promise<LlmStructuredOutputResponse<T>> {
+    this.calls.push(request);
+    if (this.failuresRemaining > 0) {
+      this.failuresRemaining -= 1;
+      throw new LlmGatewayError('TimeoutError', 'fixture flaky provider timeout', {
+        telemetry: telemetry(request),
+      });
+    }
+    return {
+      parsed: evidenceBoardCurationRoleOutput() as T,
+      raw: { redacted_stub: true },
+      telemetry: telemetry(request),
+    };
+  }
+}
+
 class StubMotiveDecompositionGateway {
   readonly calls: LlmStructuredOutputRequest[] = [];
 
@@ -435,6 +466,30 @@ function buildApp(options: BuildAppOptions = {}): ReturnType<typeof buildBackend
     paperImplementationRepository: new StaticProjectRepository(),
     ...options,
   });
+}
+
+function httpLineageSeedOptions(runtimeRepository: InMemoryPaperImplementationRuntimeRepository) {
+  return {
+    projectRepository: new StaticProjectRepository(),
+    runtimeAdmission: new PaperImplementationRuntimeAdmissionService({ repository: runtimeRepository }),
+    implementationProjectId: PROJECT_ID,
+    titleCardId: TITLE_CARD_ID,
+    runIdPrefix: 'http_lineage_seed',
+    reviewedRouteCandidateKey: 'exploratory-route-candidate',
+    reviewedCycleCandidateKey: 'exploratory-cycle-candidate',
+  };
+}
+
+async function seedHttpRouteLineage(
+  runtimeRepository: InMemoryPaperImplementationRuntimeRepository,
+): Promise<PaperImplementationSeededRouteLineage> {
+  return seedAdmittedRoutePlanningLineage(httpLineageSeedOptions(runtimeRepository));
+}
+
+async function seedHttpValidationLineage(
+  runtimeRepository: InMemoryPaperImplementationRuntimeRepository,
+): Promise<PaperImplementationSeededValidationLineage> {
+  return seedAdmittedValidationPlanningLineage(httpLineageSeedOptions(runtimeRepository));
 }
 
 test('PaperImplementation trace-integrity runtime run route uses the production slot service path', async () => {
@@ -820,10 +875,15 @@ test('PaperImplementation route planning runtime routes use production slot serv
     });
     assertErrorCode(rejectedMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
 
+    assert.ok(architectureBody.final_admission_record?.admitted_artifact_ref);
+    assert.ok(architectureBody.final_admission_record?.admitted_artifact_hash);
     const skeptic = await app.inject({
       method: 'POST',
       url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-skeptic-review-route-risk-critique/run`,
-      payload: routePlanningRunPayload('skeptic'),
+      payload: routePlanningRunPayload('skeptic', 'openai', {
+        ref: architectureBody.final_admission_record.admitted_artifact_ref,
+        hash: architectureBody.final_admission_record.admitted_artifact_hash,
+      }),
     });
     assert.equal(skeptic.statusCode, 201);
     const skepticBody = skeptic.json() as {
@@ -871,7 +931,10 @@ test('PaperImplementation route planning runtime routes use production slot serv
 
 test('PaperImplementation validation cycle planning runtime route uses admitted route artifacts without cycle or Domain Gate writes', async () => {
   const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
-  const gateway = new StubValidationCyclePlanningGateway();
+  const lineage = await seedHttpRouteLineage(runtimeRepository);
+  const gateway = new StubValidationCyclePlanningGateway([
+    validationCyclePlanningRoleOutput({}, lineage),
+  ]);
   const app = buildApp({
     paperImplementationRuntimeRepository: runtimeRepository,
     paperImplementationValidationCyclePlanningLlmGateway: gateway,
@@ -880,7 +943,7 @@ test('PaperImplementation validation cycle planning runtime route uses admitted 
     const response = await app.inject({
       method: 'POST',
       url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
-      payload: validationCyclePlanningRunPayload(),
+      payload: validationCyclePlanningRunPayload('openai', lineage),
     });
     assert.equal(response.statusCode, 201);
     const body = response.json() as {
@@ -935,22 +998,24 @@ test('PaperImplementation validation cycle planning runtime route uses admitted 
 });
 
 test('PaperImplementation validation cycle planning runtime route rejects route and candidate lineage drift before final admission', async () => {
+  const routeHashMismatchRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const routeHashMismatchLineage = await seedHttpRouteLineage(routeHashMismatchRepository);
   const routeHashMismatchGateway = new StubValidationCyclePlanningGateway([
     validationCyclePlanningRoleOutput({
       reviewed_route_proposal_hash: hash('route-architecture-final-http-drifted'),
-    }),
+    }, routeHashMismatchLineage),
     validationCyclePlanningRoleOutput({
       reviewed_route_proposal_hash: hash('route-architecture-final-http-drifted'),
-    }),
+    }, routeHashMismatchLineage),
   ]);
   await assertRuntimeRouteFailsClosed({
     appOptions: {
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: routeHashMismatchRepository,
       paperImplementationValidationCyclePlanningLlmGateway: routeHashMismatchGateway,
     },
     url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
     payload: {
-      ...validationCyclePlanningRunPayload(),
+      ...validationCyclePlanningRunPayload('openai', routeHashMismatchLineage),
       run_id: 'validation-cycle-planning-http-route-lineage-drift',
     },
     expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
@@ -958,6 +1023,8 @@ test('PaperImplementation validation cycle planning runtime route rejects route 
   });
   assert.equal(routeHashMismatchGateway.calls.length, 2);
 
+  const candidateMismatchRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const candidateMismatchLineage = await seedHttpRouteLineage(candidateMismatchRepository);
   const candidateMismatchOutput = validationCyclePlanningRoleOutput({
     cycle_candidate_proposals: [
       {
@@ -966,19 +1033,19 @@ test('PaperImplementation validation cycle planning runtime route rejects route 
       },
       validationCycleCandidateProposal('confirmatory-cycle-candidate', true),
     ],
-  });
+  }, candidateMismatchLineage);
   const candidateMismatchGateway = new StubValidationCyclePlanningGateway([
     candidateMismatchOutput,
     candidateMismatchOutput,
   ]);
   await assertRuntimeRouteFailsClosed({
     appOptions: {
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: candidateMismatchRepository,
       paperImplementationValidationCyclePlanningLlmGateway: candidateMismatchGateway,
     },
     url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
     payload: {
-      ...validationCyclePlanningRunPayload(),
+      ...validationCyclePlanningRunPayload('openai', candidateMismatchLineage),
       run_id: 'validation-cycle-planning-http-candidate-lineage-drift',
     },
     expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
@@ -989,7 +1056,10 @@ test('PaperImplementation validation cycle planning runtime route rejects route 
 
 test('PaperImplementation feasibility planning runtime route uses admitted validation-cycle lineage without probe, plan-light, or Domain Gate writes', async () => {
   const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
-  const gateway = new StubFeasibilityPlanningGateway();
+  const lineage = await seedHttpValidationLineage(runtimeRepository);
+  const gateway = new StubFeasibilityPlanningGateway([
+    feasibilityPlanningRoleOutput({}, lineage),
+  ]);
   const app = buildApp({
     paperImplementationRuntimeRepository: runtimeRepository,
     paperImplementationFeasibilityPlanningLlmGateway: gateway,
@@ -998,7 +1068,7 @@ test('PaperImplementation feasibility planning runtime route uses admitted valid
     const response = await app.inject({
       method: 'POST',
       url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
-      payload: feasibilityPlanningRunPayload(),
+      payload: feasibilityPlanningRunPayload('openai', lineage),
     });
     assert.equal(response.statusCode, 201);
     const body = response.json() as {
@@ -1057,22 +1127,24 @@ test('PaperImplementation feasibility planning runtime route uses admitted valid
 });
 
 test('PaperImplementation feasibility planning runtime route rejects validation-cycle and candidate lineage drift before final admission', async () => {
+  const validationCycleMismatchRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const validationCycleMismatchLineage = await seedHttpValidationLineage(validationCycleMismatchRepository);
   const validationCycleMismatchGateway = new StubFeasibilityPlanningGateway([
     feasibilityPlanningRoleOutput({
       reviewed_validation_cycle_artifact_hash: hash('validation-cycle-final-http-drifted'),
-    }),
+    }, validationCycleMismatchLineage),
     feasibilityPlanningRoleOutput({
       reviewed_validation_cycle_artifact_hash: hash('validation-cycle-final-http-drifted'),
-    }),
+    }, validationCycleMismatchLineage),
   ]);
   await assertRuntimeRouteFailsClosed({
     appOptions: {
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: validationCycleMismatchRepository,
       paperImplementationFeasibilityPlanningLlmGateway: validationCycleMismatchGateway,
     },
     url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
     payload: {
-      ...feasibilityPlanningRunPayload(),
+      ...feasibilityPlanningRunPayload('openai', validationCycleMismatchLineage),
       run_id: 'feasibility-planning-http-validation-cycle-lineage-drift',
     },
     expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
@@ -1080,6 +1152,8 @@ test('PaperImplementation feasibility planning runtime route rejects validation-
   });
   assert.equal(validationCycleMismatchGateway.calls.length, 2);
 
+  const routeCandidateMismatchRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const routeCandidateMismatchLineage = await seedHttpValidationLineage(routeCandidateMismatchRepository);
   const routeCandidateMismatchOutput = feasibilityPlanningRoleOutput({
     probe_plan_candidate_proposals: [
       {
@@ -1088,19 +1162,19 @@ test('PaperImplementation feasibility planning runtime route rejects validation-
       },
       feasibilityProbePlanCandidateProposal('plan-light-readiness-candidate', true),
     ],
-  });
+  }, routeCandidateMismatchLineage);
   const routeCandidateMismatchGateway = new StubFeasibilityPlanningGateway([
     routeCandidateMismatchOutput,
     routeCandidateMismatchOutput,
   ]);
   await assertRuntimeRouteFailsClosed({
     appOptions: {
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: routeCandidateMismatchRepository,
       paperImplementationFeasibilityPlanningLlmGateway: routeCandidateMismatchGateway,
     },
     url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
     payload: {
-      ...feasibilityPlanningRunPayload(),
+      ...feasibilityPlanningRunPayload('openai', routeCandidateMismatchLineage),
       run_id: 'feasibility-planning-http-route-candidate-lineage-drift',
     },
     expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
@@ -1228,6 +1302,379 @@ test('PaperImplementation cross-board synthesis runtime route rejects board hash
     assert.equal(rejected.statusCode, 400);
     assert.match(rejected.body, /create_cross_board_review_request/);
     assert.equal(gateway.calls.length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation coordinator routes create, advance, and get a run through the real service path', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubEvidenceBoardCurationGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationEvidenceBoardCurationLlmGateway: gateway,
+  });
+  try {
+    // Coordinator-owned fields (run_id / run_mode / execution_mode) are
+    // injected by the coordinator; the slot payload must not carry them.
+    const {
+      run_id: _runId,
+      run_mode: _runMode,
+      execution_mode: _executionMode,
+      ...slotPayload
+    } = evidenceBoardCurationRunPayload();
+
+    const created = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs`,
+      payload: {
+        lane_id: 'evidence-board-curation',
+        run_mode: 'product',
+        execution_mode: 'provider_llm',
+        budget_envelope: { max_steps: 2, max_provider_calls: 4 },
+        slot_request_payloads: {
+          [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID]: slotPayload,
+        },
+      },
+    });
+    assert.equal(created.statusCode, 201);
+    const createdBody = created.json() as {
+      coordinator_run_id: string;
+      run_status: string;
+      lane_id: string;
+      consumed: { steps: number; provider_calls: number };
+    };
+    assert.equal(createdBody.run_status, 'created');
+    assert.equal(createdBody.lane_id, 'evidence-board-curation');
+    assert.equal(gateway.calls.length, 0);
+
+    const advanced = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs/${encodeURIComponent(createdBody.coordinator_run_id)}/advance`,
+      payload: {},
+    });
+    assert.equal(advanced.statusCode, 202);
+    const advancedBody = advanced.json() as {
+      run: { run_status: string; lease: unknown; consumed: { steps: number; provider_calls: number } };
+      steps: Array<{
+        slot_id: string;
+        outcome: string;
+        node_attempt_id: string;
+        runtime_artifact_ref: { ref_type: string } | null;
+      }>;
+    };
+    assert.equal(advancedBody.run.run_status, 'completed');
+    assert.equal(advancedBody.run.lease, null);
+    assert.equal(advancedBody.run.consumed.steps, 1);
+    assert.equal(advancedBody.run.consumed.provider_calls, 1);
+    assert.equal(advancedBody.steps.length, 1);
+    assert.equal(advancedBody.steps[0]?.slot_id, PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID);
+    assert.equal(advancedBody.steps[0]?.outcome, 'passed');
+    assert.ok(advancedBody.steps[0]?.runtime_artifact_ref);
+    assert.equal(gateway.calls.length, 1);
+
+    const fetched = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs/${encodeURIComponent(createdBody.coordinator_run_id)}`,
+    });
+    assert.equal(fetched.statusCode, 200);
+    const fetchedBody = fetched.json() as {
+      run: { run_status: string };
+      steps: Array<{ outcome: string }>;
+    };
+    assert.equal(fetchedBody.run.run_status, 'completed');
+    assert.equal(fetchedBody.steps.length, 1);
+    assert.equal(fetchedBody.steps[0]?.outcome, 'passed');
+
+    // Terminal runs cannot be re-advanced.
+    const terminal = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs/${encodeURIComponent(createdBody.coordinator_run_id)}/advance`,
+      payload: {},
+    });
+    assert.equal(terminal.statusCode, 409);
+  } finally {
+    await app.close();
+  }
+});
+
+interface CoordinatorQueueHttpFixture {
+  coordinatorRunId: string;
+  queueItemId: string;
+}
+
+async function createBlockedCoordinatorQueueFixture(
+  app: FastifyInstance,
+  budgetEnvelope: { max_steps: number; max_provider_calls: number },
+): Promise<CoordinatorQueueHttpFixture> {
+  const {
+    run_id: _runId,
+    run_mode: _runMode,
+    execution_mode: _executionMode,
+    ...slotPayload
+  } = evidenceBoardCurationRunPayload();
+  const created = await app.inject({
+    method: 'POST',
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs`,
+    payload: {
+      lane_id: 'evidence-board-curation',
+      run_mode: 'product',
+      execution_mode: 'provider_llm',
+      budget_envelope: budgetEnvelope,
+      slot_request_payloads: {
+        [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID]: slotPayload,
+      },
+    },
+  });
+  assert.equal(created.statusCode, 201);
+  const coordinatorRunId = (created.json() as { coordinator_run_id: string }).coordinator_run_id;
+
+  const blocked = await app.inject({
+    method: 'POST',
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs/${encodeURIComponent(coordinatorRunId)}/advance`,
+    payload: {},
+  });
+  assert.equal(blocked.statusCode, 202);
+  const blockedBody = blocked.json() as {
+    run: { run_status: string };
+    steps: Array<{ outcome: string }>;
+  };
+  assert.equal(blockedBody.run.run_status, 'blocked');
+  assert.equal(blockedBody.steps[0]?.outcome, 'failed_runtime');
+
+  const listed = await app.inject({
+    method: 'GET',
+    url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/decision-work-queue`,
+  });
+  assert.equal(listed.statusCode, 200);
+  const items = (listed.json() as { items: Array<Record<string, unknown>> }).items;
+  assert.equal(items.length, 1);
+  const item = items[0] as {
+    queue_item_id: string;
+    queue_type: string;
+    stage: string;
+    status: string;
+    cooldown_until: string | null;
+    retry_count: number;
+    source_coordinator_run_ref: { ref_type: string; ref_id: string } | null;
+    source_step_index: number | null;
+  };
+  assert.equal(item.queue_type, 'failed_run_review');
+  assert.equal(item.stage, 'coordinator_step_execution');
+  assert.equal(item.status, 'open');
+  assert.equal(item.retry_count, 0);
+  assert.equal(item.cooldown_until, null);
+  assert.equal(item.source_coordinator_run_ref?.ref_id, coordinatorRunId);
+  assert.equal(item.source_step_index, 0);
+  return { coordinatorRunId, queueItemId: item.queue_item_id };
+}
+
+function resolveQueueItemUrl(queueItemId: string): string {
+  return `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/decision-work-queue/${encodeURIComponent(queueItemId)}/resolve`;
+}
+
+test('queue resolve re-advance resumes the coordinator run from the breakpoint', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  // Two failures cover the slot's initial call plus its single technical
+  // retry, so the first coordinator step fails runtime and every later call
+  // succeeds.
+  const gateway = new FlakyEvidenceBoardCurationGateway(2);
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationEvidenceBoardCurationLlmGateway: gateway,
+  });
+  try {
+    const fixture = await createBlockedCoordinatorQueueFixture(app, {
+      max_steps: 4,
+      max_provider_calls: 8,
+    });
+    assert.equal(gateway.calls.length, 2);
+
+    const resolved = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: {
+        status: 'resolved',
+        resolution_note: 'provider outage repaired',
+        resolved_by: 'human',
+        re_advance: true,
+      },
+    });
+    assert.equal(resolved.statusCode, 200);
+    const resolvedBody = resolved.json() as {
+      status: string;
+      queue_item_id: string;
+      coordinator_advance?: {
+        run: { run_status: string; lease: unknown };
+        steps: Array<{ step_index: number; outcome: string; node_attempt_id: string }>;
+      } | null;
+    };
+    assert.equal(resolvedBody.status, 'resolved');
+    assert.equal(resolvedBody.queue_item_id, fixture.queueItemId);
+    assert.equal(resolvedBody.coordinator_advance?.run.run_status, 'completed');
+    assert.equal(resolvedBody.coordinator_advance?.run.lease, null);
+    // Breakpoint resume: the same slot ran a fresh attempt — one
+    // failed_runtime attempt, one passed attempt, distinct attempt ids.
+    const stepAttempts = resolvedBody.coordinator_advance?.steps ?? [];
+    assert.equal(stepAttempts.length, 2);
+    assert.deepEqual(stepAttempts.map((step) => step.outcome), ['failed_runtime', 'passed']);
+    assert.equal(new Set(stepAttempts.map((step) => step.node_attempt_id)).size, 2);
+    assert.equal(gateway.calls.length, 3);
+
+    const fetched = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs/${encodeURIComponent(fixture.coordinatorRunId)}`,
+    });
+    assert.equal((fetched.json() as { run: { run_status: string } }).run.run_status, 'completed');
+  } finally {
+    await app.close();
+  }
+});
+
+test('queue resolve re-advance enforces the reopen cooldown before coordinator reflow', async () => {
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationEvidenceBoardCurationLlmGateway: new FailingProviderGateway(),
+  });
+  try {
+    const fixture = await createBlockedCoordinatorQueueFixture(app, {
+      max_steps: 8,
+      max_provider_calls: 16,
+    });
+
+    // Plain resolve, then a direct advance that blocks again: the terminal
+    // item reopens with retry_count 1 and a live cooldown window.
+    const plainResolve = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: { status: 'resolved', resolution_note: 'first repair attempt', resolved_by: 'human' },
+    });
+    assert.equal(plainResolve.statusCode, 200);
+    const reAdvanceBlocked = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs/${encodeURIComponent(fixture.coordinatorRunId)}/advance`,
+      payload: {},
+    });
+    assert.equal(reAdvanceBlocked.statusCode, 202);
+    assert.equal((reAdvanceBlocked.json() as { run: { run_status: string } }).run.run_status, 'blocked');
+
+    const rejected = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: { status: 'resolved', resolved_by: 'human', re_advance: true },
+    });
+    assert.equal(rejected.statusCode, 409);
+    const rejectedBody = rejected.json() as {
+      error: { code: string; message: string; details?: { cooldown_until?: string } };
+    };
+    assert.equal(rejectedBody.error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.match(rejectedBody.error.message, /cooling down/);
+    assert.ok(rejectedBody.error.details?.cooldown_until);
+
+    // The 409 fired before the resolve: the reopened item stays open.
+    const listed = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/decision-work-queue`,
+    });
+    const item = (listed.json() as {
+      items: Array<{ queue_item_id: string; status: string; retry_count: number }>;
+    }).items.find((entry) => entry.queue_item_id === fixture.queueItemId);
+    assert.equal(item?.status, 'open');
+    assert.equal(item?.retry_count, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('queue resolve re-advance stops at an exhausted retry budget until an explicit override raises it', async () => {
+  // Zero reopen-cooldown injection isolates the retry-budget gate from the
+  // cooldown gate; product wiring keeps the fixed default.
+  const harnessRepository = new InMemoryPaperImplementationAiWorkflowHarnessRepository({
+    reopenCooldownMs: 0,
+  });
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationAiWorkflowHarnessRepository: harnessRepository,
+    paperImplementationEvidenceBoardCurationLlmGateway: new FailingProviderGateway(),
+  });
+  try {
+    const fixture = await createBlockedCoordinatorQueueFixture(app, {
+      max_steps: 20,
+      max_provider_calls: 40,
+    });
+
+    // Exhaust the default retry budget (2) through resolve → advance-blocked
+    // reopen cycles.
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      const cycleResolve = await app.inject({
+        method: 'POST',
+        url: resolveQueueItemUrl(fixture.queueItemId),
+        payload: { status: 'resolved', resolution_note: `repair cycle ${cycle}`, resolved_by: 'human' },
+      });
+      assert.equal(cycleResolve.statusCode, 200);
+      const cycleAdvance = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs/${encodeURIComponent(fixture.coordinatorRunId)}/advance`,
+        payload: {},
+      });
+      assert.equal(cycleAdvance.statusCode, 202);
+    }
+    const listed = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/decision-work-queue`,
+    });
+    const exhausted = (listed.json() as {
+      items: Array<{
+        queue_item_id: string;
+        retry_count: number;
+        retry_budget: number;
+        recommended_actions: string[];
+      }>;
+    }).items.find((entry) => entry.queue_item_id === fixture.queueItemId);
+    assert.equal(exhausted?.retry_count, 2);
+    assert.equal(exhausted?.retry_budget, 2);
+    assert.ok(exhausted?.recommended_actions.includes('raise_retry_budget'));
+
+    // Exhausted budget: automatic reflow refuses with the raise hint and the
+    // item is left untouched (still open).
+    const rejected = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: { status: 'resolved', resolved_by: 'human', re_advance: true },
+    });
+    assert.equal(rejected.statusCode, 409);
+    const rejectedBody = rejected.json() as {
+      error: { code: string; message: string; details?: { recommended_action?: string } };
+    };
+    assert.equal(rejectedBody.error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.match(rejectedBody.error.message, /retry budget is exhausted/);
+    assert.equal(rejectedBody.error.details?.recommended_action, 'raise_retry_budget');
+
+    // Explicit raise via retry_budget_override re-enables the reflow; the
+    // still-broken provider parks the run as blocked again, and the advance
+    // projection is returned with the resolved item.
+    const overridden = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: {
+        status: 'resolved',
+        resolution_note: 'budget raised for one more reflow',
+        resolved_by: 'human',
+        re_advance: true,
+        retry_budget_override: 3,
+      },
+    });
+    assert.equal(overridden.statusCode, 200);
+    const overriddenBody = overridden.json() as {
+      status: string;
+      retry_budget: number;
+      recommended_actions: string[];
+      coordinator_advance?: { run: { run_status: string } } | null;
+    };
+    assert.equal(overriddenBody.status, 'resolved');
+    assert.equal(overriddenBody.retry_budget, 3);
+    assert.equal(overriddenBody.recommended_actions.includes('raise_retry_budget'), false);
+    assert.equal(overriddenBody.coordinator_advance?.run.run_status, 'blocked');
   } finally {
     await app.close();
   }
@@ -1903,12 +2350,18 @@ test('PaperImplementation result-analysis Domain Gate route rejects malformed an
 });
 
 test('PaperImplementation Domain Gate rejects support-only runtime final artifacts', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const lineage = await seedHttpValidationLineage(runtimeRepository);
   const app = buildApp({
-    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationRuntimeRepository: runtimeRepository,
     paperImplementationTraceIntegrityDebateLlmGateway: new StubTraceIntegrityGateway(),
     paperImplementationRoutePlanningLlmGateway: new StubRoutePlanningGateway(),
-    paperImplementationValidationCyclePlanningLlmGateway: new StubValidationCyclePlanningGateway(),
-    paperImplementationFeasibilityPlanningLlmGateway: new StubFeasibilityPlanningGateway(),
+    paperImplementationValidationCyclePlanningLlmGateway: new StubValidationCyclePlanningGateway([
+      validationCyclePlanningRoleOutput({}, lineage),
+    ]),
+    paperImplementationFeasibilityPlanningLlmGateway: new StubFeasibilityPlanningGateway([
+      feasibilityPlanningRoleOutput({}, lineage),
+    ]),
     paperImplementationCrossBoardSynthesisLlmGateway: new StubCrossBoardSynthesisGateway(),
     paperImplementationEvidenceBoardCurationLlmGateway: new StubEvidenceBoardCurationGateway(),
     paperImplementationMotiveDecompositionLlmGateway: new StubMotiveDecompositionGateway(),
@@ -1916,7 +2369,7 @@ test('PaperImplementation Domain Gate rejects support-only runtime final artifac
     paperImplementationExperimentPlanningLlmGateway: new StubExperimentPlanningGateway(),
   });
   try {
-    for (const scenario of supportOnlyDomainGateRejectionScenarios()) {
+    for (const scenario of supportOnlyDomainGateRejectionScenarios(lineage)) {
       const run = await app.inject({
         method: 'POST',
         url: scenario.runUrl,
@@ -2012,39 +2465,48 @@ test('PaperImplementation runtime routes retry once and fail closed on provider 
   assert.equal(routeArchitectureGateway.calls.length, 2);
 
   const routeSkepticGateway = new FailingProviderGateway();
+  const routeSkepticRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const routeSkepticLineage = await seedHttpRouteLineage(routeSkepticRepository);
   await assertRuntimeRouteFailsClosed({
     appOptions: {
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: routeSkepticRepository,
       paperImplementationRoutePlanningLlmGateway: routeSkepticGateway,
     },
     url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-skeptic-review-route-risk-critique/run`,
-    payload: routePlanningRunPayload('skeptic'),
+    payload: routePlanningRunPayload('skeptic', 'openai', {
+      ref: routeSkepticLineage.routeProposalRef,
+      hash: routeSkepticLineage.routeProposalHash,
+    }),
     expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
     expectedFailureCode: 'TimeoutError',
   });
   assert.equal(routeSkepticGateway.calls.length, 2);
 
   const validationCyclePlanningGateway = new FailingProviderGateway();
+  const validationCyclePlanningRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const validationCyclePlanningLineage = await seedHttpRouteLineage(validationCyclePlanningRepository);
   await assertRuntimeRouteFailsClosed({
     appOptions: {
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: validationCyclePlanningRepository,
       paperImplementationValidationCyclePlanningLlmGateway: validationCyclePlanningGateway,
     },
     url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
-    payload: validationCyclePlanningRunPayload(),
+    payload: validationCyclePlanningRunPayload('openai', validationCyclePlanningLineage),
     expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
     expectedFailureCode: 'TimeoutError',
   });
   assert.equal(validationCyclePlanningGateway.calls.length, 2);
 
   const feasibilityPlanningGateway = new FailingProviderGateway();
+  const feasibilityPlanningRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const feasibilityPlanningLineage = await seedHttpValidationLineage(feasibilityPlanningRepository);
   await assertRuntimeRouteFailsClosed({
     appOptions: {
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: feasibilityPlanningRepository,
       paperImplementationFeasibilityPlanningLlmGateway: feasibilityPlanningGateway,
     },
     url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
-    payload: feasibilityPlanningRunPayload(),
+    payload: feasibilityPlanningRunPayload('openai', feasibilityPlanningLineage),
     expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
     expectedFailureCode: 'TimeoutError',
   });
@@ -2462,15 +2924,20 @@ test(
   },
   async () => {
     const providerId = liveProviderId();
+    const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+    const lineage = await seedHttpRouteLineage(runtimeRepository);
     const app = buildApp({
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: runtimeRepository,
       paperImplementationRoutePlanningLlmGateway: liveProviderGateway(),
     });
     try {
       const response = await app.inject({
         method: 'POST',
         url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-skeptic-review-route-risk-critique/run`,
-        payload: routePlanningRunPayload('skeptic', providerId),
+        payload: routePlanningRunPayload('skeptic', providerId, {
+          ref: lineage.routeProposalRef,
+          hash: lineage.routeProposalHash,
+        }),
       });
 
       assertSingleRoleProposalProviderCanaryResponse(response, {
@@ -2494,15 +2961,17 @@ test(
   },
   async () => {
     const providerId = liveProviderId();
+    const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+    const lineage = await seedHttpRouteLineage(runtimeRepository);
     const app = buildApp({
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: runtimeRepository,
       paperImplementationValidationCyclePlanningLlmGateway: liveProviderGateway(),
     });
     try {
       const response = await app.inject({
         method: 'POST',
         url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
-        payload: validationCyclePlanningRunPayload(providerId),
+        payload: validationCyclePlanningRunPayload(providerId, lineage),
       });
 
       assertSingleRoleProposalProviderCanaryResponse(response, {
@@ -2530,15 +2999,17 @@ test(
   },
   async () => {
     const providerId = liveProviderId();
+    const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+    const lineage = await seedHttpValidationLineage(runtimeRepository);
     const app = buildApp({
-      paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+      paperImplementationRuntimeRepository: runtimeRepository,
       paperImplementationFeasibilityPlanningLlmGateway: liveProviderGateway(),
     });
     try {
       const response = await app.inject({
         method: 'POST',
         url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
-        payload: feasibilityPlanningRunPayload(providerId),
+        payload: feasibilityPlanningRunPayload(providerId, lineage),
       });
 
       assertSingleRoleProposalProviderCanaryResponse(response, {
@@ -2832,40 +3303,49 @@ test(
         expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
       });
 
+      const liveSkepticRepository = new InMemoryPaperImplementationRuntimeRepository();
+      const liveSkepticLineage = await seedHttpRouteLineage(liveSkepticRepository);
       await assertLiveProviderRuntimeRouteFailsClosed({
         appOptions: {
-          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationRuntimeRepository: liveSkepticRepository,
           paperImplementationRoutePlanningLlmGateway: liveFailClosedGateway(),
         },
         url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/route-skeptic-review-route-risk-critique/run`,
         payload: {
-          ...routePlanningRunPayload('skeptic', providerId),
+          ...routePlanningRunPayload('skeptic', providerId, {
+            ref: liveSkepticLineage.routeProposalRef,
+            hash: liveSkepticLineage.routeProposalHash,
+          }),
           run_id: `route-skeptic-http-live-fail-closed-${Date.now()}`,
         },
         expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
       });
 
+      const liveCycleRepository = new InMemoryPaperImplementationRuntimeRepository();
+      const liveCycleLineage = await seedHttpRouteLineage(liveCycleRepository);
       await assertLiveProviderRuntimeRouteFailsClosed({
         appOptions: {
-          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationRuntimeRepository: liveCycleRepository,
           paperImplementationValidationCyclePlanningLlmGateway: liveFailClosedGateway(),
         },
         url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/validation-cycle-planning-cycle-candidates/run`,
         payload: {
-          ...validationCyclePlanningRunPayload(providerId),
+          ...validationCyclePlanningRunPayload(providerId, liveCycleLineage),
           run_id: `validation-cycle-planning-http-live-fail-closed-${Date.now()}`,
         },
         expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
       });
 
+      const liveFeasibilityRepository = new InMemoryPaperImplementationRuntimeRepository();
+      const liveFeasibilityLineage = await seedHttpValidationLineage(liveFeasibilityRepository);
       await assertLiveProviderRuntimeRouteFailsClosed({
         appOptions: {
-          paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+          paperImplementationRuntimeRepository: liveFeasibilityRepository,
           paperImplementationFeasibilityPlanningLlmGateway: liveFailClosedGateway(),
         },
         url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/feasibility-planning-probe-plan-candidates/run`,
         payload: {
-          ...feasibilityPlanningRunPayload(providerId),
+          ...feasibilityPlanningRunPayload(providerId, liveFeasibilityLineage),
           run_id: `feasibility-planning-http-live-fail-closed-${Date.now()}`,
         },
         expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
@@ -3263,7 +3743,9 @@ function runtimeSlotRunUrl(routeSlug: string): string {
   return `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/${routeSlug}/run`;
 }
 
-function supportOnlyDomainGateRejectionScenarios(): SupportOnlyDomainGateRejectionScenario[] {
+function supportOnlyDomainGateRejectionScenarios(
+  lineage: PaperImplementationSeededValidationLineage,
+): SupportOnlyDomainGateRejectionScenario[] {
   return [
     {
       key: 'trace_integrity_review.boundary_debate',
@@ -3281,19 +3763,22 @@ function supportOnlyDomainGateRejectionScenarios(): SupportOnlyDomainGateRejecti
       key: 'route_skeptic_review.route_risk_critique',
       expectedSlotId: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
       runUrl: runtimeSlotRunUrl('route-skeptic-review-route-risk-critique'),
-      payload: routePlanningRunPayload('skeptic'),
+      payload: routePlanningRunPayload('skeptic', 'openai', {
+        ref: lineage.routeProposalRef,
+        hash: lineage.routeProposalHash,
+      }),
     },
     {
       key: 'validation_cycle_planning.cycle_candidates',
       expectedSlotId: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
       runUrl: runtimeSlotRunUrl('validation-cycle-planning-cycle-candidates'),
-      payload: validationCyclePlanningRunPayload(),
+      payload: validationCyclePlanningRunPayload('openai', lineage),
     },
     {
       key: 'feasibility_planning.probe_plan_candidates',
       expectedSlotId: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID,
       runUrl: runtimeSlotRunUrl('feasibility-planning-probe-plan-candidates'),
-      payload: feasibilityPlanningRunPayload(),
+      payload: feasibilityPlanningRunPayload('openai', lineage),
     },
     {
       key: 'cross_board_synthesis.merge_split_reuse_scenarios',
@@ -3690,6 +4175,7 @@ function resultAnalysisRunPayload(providerId: 'openai' | 'dashscope' = 'openai')
 function routePlanningRunPayload(
   kind: 'architecture' | 'skeptic',
   providerId: 'openai' | 'dashscope' = 'openai',
+  admittedRouteProposal?: { ref: TopicSelectionFunctionalRef; hash: string },
 ) {
   const architecture = kind === 'architecture';
   const profileId = architecture
@@ -3717,10 +4203,10 @@ function routePlanningRunPayload(
     ],
     admitted_route_proposal_artifact_ref: architecture
       ? null
-      : ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+      : admittedRouteProposal?.ref ?? ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
     admitted_route_proposal_artifact_hash: architecture
       ? null
-      : hash('route-architecture-final-http-1'),
+      : admittedRouteProposal?.hash ?? hash('route-architecture-final-http-1'),
     reviewed_candidate_keys: architecture ? [] : ['exploratory-route-candidate'],
     secondary_route_candidate_refs: architecture
       ? []
@@ -3729,7 +4215,10 @@ function routePlanningRunPayload(
   };
 }
 
-function validationCyclePlanningRunPayload(providerId: 'openai' | 'dashscope' = 'openai') {
+function validationCyclePlanningRunPayload(
+  providerId: 'openai' | 'dashscope' = 'openai',
+  lineage?: PaperImplementationSeededRouteLineage,
+) {
   return {
     run_id: 'validation-cycle-planning-http-run-1',
     run_mode: 'product',
@@ -3750,17 +4239,22 @@ function validationCyclePlanningRunPayload(providerId: 'openai' | 'dashscope' = 
       hash('route-skeptic-final-http-1'),
       hash('trace-manifest-route-http-1'),
     ],
-    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
-    admitted_route_proposal_artifact_hash: hash('route-architecture-final-http-1'),
-    admitted_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
-    admitted_route_skeptic_artifact_hash: hash('route-skeptic-final-http-1'),
+    admitted_route_proposal_artifact_ref: lineage?.routeProposalRef
+      ?? ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    admitted_route_proposal_artifact_hash: lineage?.routeProposalHash ?? hash('route-architecture-final-http-1'),
+    admitted_route_skeptic_artifact_ref: lineage?.routeSkepticRef
+      ?? ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+    admitted_route_skeptic_artifact_hash: lineage?.routeSkepticHash ?? hash('route-skeptic-final-http-1'),
     reviewed_candidate_keys: ['exploratory-route-candidate'],
     secondary_route_candidate_refs: [ref('technical_route_candidate', 'technical-route-secondary-http-1')],
     preflight_blocker_codes: [],
   };
 }
 
-function feasibilityPlanningRunPayload(providerId: 'openai' | 'dashscope' = 'openai') {
+function feasibilityPlanningRunPayload(
+  providerId: 'openai' | 'dashscope' = 'openai',
+  lineage?: PaperImplementationSeededValidationLineage,
+) {
   return {
     run_id: 'feasibility-planning-http-run-1',
     run_mode: 'product',
@@ -3783,12 +4277,15 @@ function feasibilityPlanningRunPayload(providerId: 'openai' | 'dashscope' = 'ope
       hash('route-skeptic-final-http-1'),
       hash('trace-manifest-feasibility-http-1'),
     ],
-    admitted_validation_cycle_artifact_ref: ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1'),
-    admitted_validation_cycle_artifact_hash: hash('validation-cycle-final-http-1'),
-    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
-    admitted_route_proposal_artifact_hash: hash('route-architecture-final-http-1'),
-    admitted_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
-    admitted_route_skeptic_artifact_hash: hash('route-skeptic-final-http-1'),
+    admitted_validation_cycle_artifact_ref: lineage?.validationCycleRef
+      ?? ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1'),
+    admitted_validation_cycle_artifact_hash: lineage?.validationCycleHash ?? hash('validation-cycle-final-http-1'),
+    admitted_route_proposal_artifact_ref: lineage?.routeProposalRef
+      ?? ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    admitted_route_proposal_artifact_hash: lineage?.routeProposalHash ?? hash('route-architecture-final-http-1'),
+    admitted_route_skeptic_artifact_ref: lineage?.routeSkepticRef
+      ?? ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+    admitted_route_skeptic_artifact_hash: lineage?.routeSkepticHash ?? hash('route-skeptic-final-http-1'),
     reviewed_cycle_candidate_keys: ['exploratory-cycle-candidate'],
     reviewed_route_candidate_keys: ['exploratory-route-candidate'],
     secondary_route_candidate_refs: [ref('technical_route_candidate', 'technical-route-secondary-http-1')],
@@ -4707,18 +5204,21 @@ function validationCycleCandidateProposal(
 
 function validationCyclePlanningRoleOutput(
   overrides: Partial<PaperImplementationValidationCyclePlanningRoleOutput> = {},
+  lineage?: PaperImplementationSeededRouteLineage,
 ): PaperImplementationValidationCyclePlanningRoleOutput {
   return {
     role_slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID,
     role_status: 'passed',
     summary: 'HTTP validation-cycle planning runtime proposed bounded cycle candidates.',
-    cited_source_refs: [ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1')],
+    cited_source_refs: [lineage?.routeProposalRef ?? ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1')],
     blocker_codes: [],
     warning_codes: [],
-    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
-    reviewed_route_proposal_hash: hash('route-architecture-final-http-1'),
-    reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
-    reviewed_route_skeptic_artifact_hash: hash('route-skeptic-final-http-1'),
+    reviewed_route_proposal_ref: lineage?.routeProposalRef
+      ?? ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    reviewed_route_proposal_hash: lineage?.routeProposalHash ?? hash('route-architecture-final-http-1'),
+    reviewed_route_skeptic_artifact_ref: lineage?.routeSkepticRef
+      ?? ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+    reviewed_route_skeptic_artifact_hash: lineage?.routeSkepticHash ?? hash('route-skeptic-final-http-1'),
     reviewed_candidate_keys: ['exploratory-route-candidate'],
     cycle_candidate_proposals: [
       validationCycleCandidateProposal('exploratory-cycle-candidate', false),
@@ -4768,20 +5268,24 @@ function feasibilityProbePlanCandidateProposal(
 
 function feasibilityPlanningRoleOutput(
   overrides: Partial<PaperImplementationFeasibilityPlanningRoleOutput> = {},
+  lineage?: PaperImplementationSeededValidationLineage,
 ): PaperImplementationFeasibilityPlanningRoleOutput {
   return {
     role_slot_id: PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID,
     role_status: 'passed',
     summary: 'HTTP feasibility planning runtime proposed bounded probe and plan-light candidates.',
-    cited_source_refs: [ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1')],
+    cited_source_refs: [lineage?.validationCycleRef ?? ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1')],
     blocker_codes: [],
     warning_codes: [],
-    reviewed_validation_cycle_artifact_ref: ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1'),
-    reviewed_validation_cycle_artifact_hash: hash('validation-cycle-final-http-1'),
-    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
-    reviewed_route_proposal_hash: hash('route-architecture-final-http-1'),
-    reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
-    reviewed_route_skeptic_artifact_hash: hash('route-skeptic-final-http-1'),
+    reviewed_validation_cycle_artifact_ref: lineage?.validationCycleRef
+      ?? ref('validation_cycle_planning_runtime_artifact', 'validation-cycle-final-http-1'),
+    reviewed_validation_cycle_artifact_hash: lineage?.validationCycleHash ?? hash('validation-cycle-final-http-1'),
+    reviewed_route_proposal_ref: lineage?.routeProposalRef
+      ?? ref('route_architecture_runtime_artifact', 'route-architecture-final-http-1'),
+    reviewed_route_proposal_hash: lineage?.routeProposalHash ?? hash('route-architecture-final-http-1'),
+    reviewed_route_skeptic_artifact_ref: lineage?.routeSkepticRef
+      ?? ref('route_skeptic_review_runtime_artifact', 'route-skeptic-final-http-1'),
+    reviewed_route_skeptic_artifact_hash: lineage?.routeSkepticHash ?? hash('route-skeptic-final-http-1'),
     reviewed_cycle_candidate_keys: ['exploratory-cycle-candidate'],
     reviewed_route_candidate_keys: ['exploratory-route-candidate'],
     probe_plan_candidate_proposals: [

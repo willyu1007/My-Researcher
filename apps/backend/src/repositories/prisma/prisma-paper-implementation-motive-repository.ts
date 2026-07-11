@@ -135,6 +135,8 @@ function toCoreMotiveVersion(row: CoreMotiveVersionRow): CoreMotiveVersion {
     evolution_decision_id: row.evolutionDecisionId,
     hypothesis_only: row.hypothesisOnly,
     policy_version_id: row.policyVersionId,
+    source_proposal_artifact_ref: asNullableFunctionalRef(row.sourceProposalArtifactRef),
+    source_proposal_artifact_hash: row.sourceProposalArtifactHash,
     created_by: row.createdBy as CoreMotiveVersion['created_by'],
     created_at: row.createdAt.toISOString(),
     admitted_at: row.admittedAt?.toISOString() ?? null,
@@ -716,6 +718,10 @@ implements PaperImplementationMotiveRepository {
       evolutionDecisionId: version.evolution_decision_id ?? null,
       hypothesisOnly: version.hypothesis_only,
       policyVersionId: version.policy_version_id ?? null,
+      sourceProposalArtifactRef: version.source_proposal_artifact_ref
+        ? toJsonValue(version.source_proposal_artifact_ref)
+        : undefined,
+      sourceProposalArtifactHash: version.source_proposal_artifact_hash ?? null,
       createdBy: version.created_by,
       createdAt: new Date(version.created_at),
       admittedAt: version.admitted_at ? new Date(version.admitted_at) : null,

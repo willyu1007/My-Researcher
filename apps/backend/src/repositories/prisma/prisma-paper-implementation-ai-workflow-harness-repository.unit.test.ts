@@ -451,6 +451,13 @@ test('DecisionWorkQueue Prisma resolution replays terminal status and rejects te
     reopened.queue_items[0]?.created_from_refs.map((item) => item.ref_id),
     ['harness_run_001', 'harness_run_002'],
   );
+  // W4 regression pin: the Prisma reopen used to overwrite retryCount with
+  // the fresh item's 0 — the reopen must accumulate the stored counter and
+  // start the reopen cooldown window instead.
+  assert.equal(reopened.queue_items[0]?.retry_count, 1);
+  assert.ok(reopened.queue_items[0]?.cooldown_until);
+  // retry_budget 1 is now exhausted, which flags the explicit raise action.
+  assert.ok(reopened.queue_items[0]?.recommended_actions.includes('raise_retry_budget'));
 });
 
 test('AI workflow harness migration declares queryable runtime gate and queue indexes', async () => {

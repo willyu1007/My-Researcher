@@ -43,6 +43,8 @@ export interface HumanConfirmationRecord {
   policy_version_id?: string | null;
   status: PaperImplementationHumanConfirmationStatus;
   status_reason?: string | null;
+  consumed_at?: string | null;
+  consumed_by_ref?: TopicSelectionFunctionalRef | null;
   created_at: string;
   updated_at?: string | null;
 }
@@ -122,6 +124,8 @@ export const humanConfirmationRecordSchema = {
     policy_version_id: nullableStringId,
     status: confirmationStatusSchema,
     status_reason: nullableStringId,
+    consumed_at: nullableStringId,
+    consumed_by_ref: nullableFunctionalRef,
     created_at: stringId,
     updated_at: nullableStringId,
   },

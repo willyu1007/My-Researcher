@@ -110,6 +110,8 @@ function toValidationCycle(row: ValidationCycleRow): ValidationCycle {
     confirmation_level: row.confirmationLevel as ValidationCycle['confirmation_level'],
     confirmed_by: row.confirmedBy as ValidationCycle['confirmed_by'],
     policy_version_id: row.policyVersionId,
+    source_proposal_artifact_ref: asNullableFunctionalRef(row.sourceProposalArtifactRef),
+    source_proposal_artifact_hash: row.sourceProposalArtifactHash,
     created_by: row.createdBy as ValidationCycle['created_by'],
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
@@ -139,6 +141,8 @@ function toTechnicalRouteCandidate(row: TechnicalRouteCandidateRow): TechnicalRo
     confirmatory_marker: row.confirmatoryMarker,
     trace_manifest_ref: asFunctionalRef(row.traceManifestRef),
     trace_manifest_id: row.traceManifestId,
+    source_proposal_artifact_ref: asNullableFunctionalRef(row.sourceProposalArtifactRef),
+    source_proposal_artifact_hash: row.sourceProposalArtifactHash,
     created_by: row.createdBy as TechnicalRouteCandidate['created_by'],
     created_at: row.createdAt.toISOString(),
   };
@@ -164,6 +168,8 @@ function toFeasibilityProbe(row: FeasibilityProbeRow): FeasibilityProbe {
     confirmatory_marker: row.confirmatoryMarker,
     trace_manifest_ref: asFunctionalRef(row.traceManifestRef),
     trace_manifest_id: row.traceManifestId,
+    source_proposal_artifact_ref: asNullableFunctionalRef(row.sourceProposalArtifactRef),
+    source_proposal_artifact_hash: row.sourceProposalArtifactHash,
     created_by: row.createdBy as FeasibilityProbe['created_by'],
     created_at: row.createdAt.toISOString(),
   };
@@ -191,6 +197,8 @@ function toExperimentPlanLight(row: ExperimentPlanLightRow): ExperimentPlanLight
     stop_condition_refs: asArray<TopicSelectionFunctionalRef>(row.stopConditionRefPayloads),
     trace_manifest_ref: asFunctionalRef(row.traceManifestRef),
     trace_manifest_id: row.traceManifestId,
+    source_proposal_artifact_ref: asNullableFunctionalRef(row.sourceProposalArtifactRef),
+    source_proposal_artifact_hash: row.sourceProposalArtifactHash,
     created_by: row.createdBy as ExperimentPlanLight['created_by'],
     created_at: row.createdAt.toISOString(),
   };
@@ -475,6 +483,10 @@ implements PaperImplementationValidationRepository {
       confirmationLevel: cycle.confirmation_level,
       confirmedBy: cycle.confirmed_by ?? null,
       policyVersionId: cycle.policy_version_id ?? null,
+      sourceProposalArtifactRef: cycle.source_proposal_artifact_ref
+        ? toJsonValue(cycle.source_proposal_artifact_ref)
+        : Prisma.JsonNull,
+      sourceProposalArtifactHash: cycle.source_proposal_artifact_hash ?? null,
       createdBy: cycle.created_by,
       createdAt: cycle.created_at,
       updatedAt: cycle.updated_at,
@@ -523,6 +535,10 @@ implements PaperImplementationValidationRepository {
       confirmatoryMarker: route.confirmatory_marker,
       traceManifestId: route.trace_manifest_id,
       traceManifestRef: toJsonValue(route.trace_manifest_ref),
+      sourceProposalArtifactRef: route.source_proposal_artifact_ref
+        ? toJsonValue(route.source_proposal_artifact_ref)
+        : Prisma.JsonNull,
+      sourceProposalArtifactHash: route.source_proposal_artifact_hash ?? null,
       createdBy: route.created_by,
       createdAt: route.created_at,
     };
@@ -561,6 +577,10 @@ implements PaperImplementationValidationRepository {
       confirmatoryMarker: probe.confirmatory_marker,
       traceManifestId: probe.trace_manifest_id,
       traceManifestRef: toJsonValue(probe.trace_manifest_ref),
+      sourceProposalArtifactRef: probe.source_proposal_artifact_ref
+        ? toJsonValue(probe.source_proposal_artifact_ref)
+        : Prisma.JsonNull,
+      sourceProposalArtifactHash: probe.source_proposal_artifact_hash ?? null,
       createdBy: probe.created_by,
       createdAt: probe.created_at,
     };
@@ -602,6 +622,10 @@ implements PaperImplementationValidationRepository {
       stopConditionRefPayloads: toJsonValue(plan.stop_condition_refs),
       traceManifestId: plan.trace_manifest_id,
       traceManifestRef: toJsonValue(plan.trace_manifest_ref),
+      sourceProposalArtifactRef: plan.source_proposal_artifact_ref
+        ? toJsonValue(plan.source_proposal_artifact_ref)
+        : Prisma.JsonNull,
+      sourceProposalArtifactHash: plan.source_proposal_artifact_hash ?? null,
       createdBy: plan.created_by,
       createdAt: plan.created_at,
     };

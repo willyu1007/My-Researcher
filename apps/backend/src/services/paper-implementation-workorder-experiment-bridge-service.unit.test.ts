@@ -20,6 +20,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../repositories/in-memory-paper-implementation-workorder-repository.js';
@@ -28,6 +29,8 @@ import type {
   PaperImplementationBootstrapResult,
   PaperImplementationRepository,
 } from '../repositories/paper-implementation.repository.js';
+import { seedAcceptedProposalFixture } from './paper-implementation-acceptance-bridge-test-fixtures.js';
+import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { PaperImplementationWorkOrderExperimentBridgeService } from './paper-implementation-workorder-experiment-bridge-service.js';
 
 const NOW = '2026-05-21T00:00:00.000Z';
@@ -302,11 +305,16 @@ async function makeHarness(options: { cycleStatus?: ValidationCycle['lifecycle_s
   const traceRepository = new InMemoryPaperImplementationTraceRepository();
   const validationRepository = new InMemoryPaperImplementationValidationRepository();
   const workOrderRepository = new InMemoryPaperImplementationWorkOrderRepository();
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository: new InMemoryPaperImplementationRuntimeRepository(),
+    now: () => NOW,
+  });
   const service = new PaperImplementationWorkOrderExperimentBridgeService({
     projectRepository,
     traceRepository,
     validationRepository,
     workOrderRepository,
+    runtimeAdmission,
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
@@ -341,6 +349,7 @@ async function makeHarness(options: { cycleStatus?: ValidationCycle['lifecycle_s
     service,
     workOrderRepository,
     traceRepository,
+    runtimeAdmission,
   };
 }
 
@@ -401,6 +410,80 @@ test('blocks draft creation from non-admitted cycle and stale work-order trace',
     }),
     'GATE_CONSTRAINT_FAILED',
   );
+});
+
+test('creates ResearchWorkOrder draft with admitted proposal lineage that is readable back', async () => {
+  const { service, runtimeAdmission } = await makeHarness();
+  const proposal = await seedAcceptedProposalFixture({
+    admissionService: runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    workflowType: 'experiment_design',
+    runtimeArtifactId: 'runtime_artifact_experiment_design_001',
+  });
+
+  const workOrder = await service.createResearchWorkOrderDraft(PROJECT_ID, {
+    ...workOrderRequest(),
+    source_proposal_artifact_ref: proposal.sourceProposalArtifactRef,
+    source_proposal_artifact_hash: proposal.sourceProposalArtifactHash,
+  });
+  assert.deepEqual(workOrder.source_proposal_artifact_ref, proposal.sourceProposalArtifactRef);
+  assert.equal(workOrder.source_proposal_artifact_hash, proposal.sourceProposalArtifactHash);
+
+  const readBack = await service.getResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID);
+  assert.deepEqual(readBack.source_proposal_artifact_ref, proposal.sourceProposalArtifactRef);
+  assert.equal(readBack.source_proposal_artifact_hash, proposal.sourceProposalArtifactHash);
+});
+
+test('acceptance bridge rejects lineage drift for forged hash, blocked final, and wrong workflow type', async () => {
+  const { service, runtimeAdmission, workOrderRepository } = await makeHarness();
+  const proposal = await seedAcceptedProposalFixture({
+    admissionService: runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    workflowType: 'experiment_design',
+    runtimeArtifactId: 'runtime_artifact_experiment_design_001',
+  });
+
+  await assertRejectsWithCode(
+    () => service.createResearchWorkOrderDraft(PROJECT_ID, {
+      ...workOrderRequest(),
+      source_proposal_artifact_ref: proposal.sourceProposalArtifactRef,
+      source_proposal_artifact_hash: 'a'.repeat(64),
+    }),
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  const blockedProposal = await seedAcceptedProposalFixture({
+    admissionService: runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    workflowType: 'experiment_design',
+    runtimeArtifactId: 'runtime_artifact_experiment_design_blocked_001',
+    runtimeStatus: 'blocked',
+  });
+  await assertRejectsWithCode(
+    () => service.createResearchWorkOrderDraft(PROJECT_ID, {
+      ...workOrderRequest(),
+      source_proposal_artifact_ref: blockedProposal.sourceProposalArtifactRef,
+      source_proposal_artifact_hash: blockedProposal.sourceProposalArtifactHash,
+    }),
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  const wrongWorkflowProposal = await seedAcceptedProposalFixture({
+    admissionService: runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    workflowType: 'route_architecture',
+    runtimeArtifactId: 'runtime_artifact_route_architecture_001',
+  });
+  await assertRejectsWithCode(
+    () => service.createResearchWorkOrderDraft(PROJECT_ID, {
+      ...workOrderRequest(),
+      source_proposal_artifact_ref: wrongWorkflowProposal.sourceProposalArtifactRef,
+      source_proposal_artifact_hash: wrongWorkflowProposal.sourceProposalArtifactHash,
+    }),
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  assert.equal(await workOrderRepository.findWorkOrderById(PROJECT_ID, WORK_ORDER_ID), null);
 });
 
 test('requires confirmatory version lock and forbids autotune on primary evidence path', async () => {

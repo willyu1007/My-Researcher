@@ -18,6 +18,11 @@
 
 ## Log
 
+### 2026-07-11 S1 收口（W1-W5 全落地）
+- W1 受理桥：45/45 + L5 `acceptance_bridge_lineage_drift_rejected`；W2 链内回查：route/cycle/feasibility 三 slot 全量回查 + blocked 冒充封死，L5 +4；W3 coordinator：contracts 6/6 + unit 12/12（故障注入三件套/选择复算/零权威依赖面）+ routes integration，L5 +5；W5 确认消费：consume-before-write 语义 + target 覆盖 + 5 处校验副本收敛，13 文件绿，L5 +2（另修 S0 遗留 T-101 夹具红，pristine HEAD 验证非回归）；W4 队列回流：coordinator blocked 入队（枚举分类表）+ resolve re_advance + retry/cooldown 真语义（Prisma reopen retryCount 覆盖 bug 根治），14/14+13/13+2/2+集成 49（33 pass/16 env-skip），L5 +2。
+- 合并态验证：双包 tsc 零错；全量 runtime-stress ×3 全 passed（W1+W2 后 `t114-...-1783727795027`、W3+W5 后 `t114-...-1783731130335`、W4 收口 `t114-...-1783733835126`），本切片新增必检 14 条全部命中。
+- **待办**：统一迁移 `20260711100000_add_paper_implementation_s1_coordinator_and_lineage`（coordinator 两表 + 6 模型血缘列 + 确认消费列 + 队列关联列，纯加性）**已写未 apply，待用户审批**；apply 后补 prisma smoke（L3）与 near-prod gate（L6，需 provider keys）；S5 第一条 golden scenario 素材构造随后。
+
 ### 2026-07-10 S0 复审修复收口（code-review 10 发现 → 6 修复 + 3 移交 + 1 随迁移关闭）
 - 修复项：①WO admit / dossier ready 的 gate result 增加 **trace_manifest_id 绑定断言**（挪用他 manifest 的 passed gate 被拒）；②motive evolution 门改为 `请求声明 || (structural_evolution && 源 motive control.human_confirmation_required_for_major_change)` 强制（不再自愿制），落库的 human_confirmation_required 反映有效值；③admitCoreMotiveVersion 增加 primary 晋升（非自举）确认门（与 apply 路径对齐）；④两处新 prisma create 改 catch P2002 → 409（消 TOCTOU 500 + 对齐 mapDuplicate 惯例）；⑤可空 Json 列改写 Prisma.DbNull；⑥`paper-implementation-v1-runnable-replay.mjs` 修复（15 处构造依赖 + 两处硬编码 gate id 改走真实 evaluate 流程，新步骤 15a/21a）——**replay 全绿**（46 步 ok + BP0-01..10 passed，artifact `t109-s0-fix-check`）。
 - 新增负例测试 3 个（WO gate 异 manifest 拒、dossier gate 异 manifest 拒、primary 变更无 ref + control 标志强制确认）；受影响套件全绿（bridge 15/15、motive-board 12/12、result-claim 12/12）。

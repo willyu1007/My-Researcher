@@ -31,6 +31,11 @@ import type { PaperImplementationTraceRepository } from '../repositories/paper-i
 import type { PaperImplementationValidationRepository } from '../repositories/paper-implementation-validation.repository.js';
 import type { PaperImplementationWorkOrderRepository } from '../repositories/paper-implementation-workorder.repository.js';
 import { findExperimentFoundationPayloadCopyKey } from './paper-implementation-experiment-foundation-boundary-guard.js';
+import {
+  requireAcceptedProposalLineage,
+  type PaperImplementationAcceptanceBridgeAdmissionReader,
+} from './paper-implementation-acceptance-bridge.js';
+import { requirePassedTraceGateResult } from './paper-implementation-governance-gate-refs.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -39,6 +44,7 @@ export type PaperImplementationWorkOrderExperimentBridgeServiceOptions = {
   traceRepository: PaperImplementationTraceRepository;
   validationRepository: PaperImplementationValidationRepository;
   workOrderRepository: PaperImplementationWorkOrderRepository;
+  runtimeAdmission?: PaperImplementationAcceptanceBridgeAdmissionReader;
   idFactory?: IdFactory;
   now?: () => string;
 };
@@ -52,6 +58,7 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
   private readonly traceRepository: PaperImplementationTraceRepository;
   private readonly validationRepository: PaperImplementationValidationRepository;
   private readonly workOrderRepository: PaperImplementationWorkOrderRepository;
+  private readonly runtimeAdmission?: PaperImplementationAcceptanceBridgeAdmissionReader;
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
@@ -60,6 +67,7 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
     this.traceRepository = options.traceRepository;
     this.validationRepository = options.validationRepository;
     this.workOrderRepository = options.workOrderRepository;
+    this.runtimeAdmission = options.runtimeAdmission;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -88,6 +96,12 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
     }
     this.assertRunPolicy(request);
     this.assertExperimentBridge(request);
+    const proposalLineage = await requireAcceptedProposalLineage({
+      runtimeAdmission: this.runtimeAdmission,
+      implementationProjectId: project.implementation_project_id,
+      targetType: 'research_work_order',
+      request,
+    });
     const workOrderId = request.work_order_id;
     const traceManifest = await this.requireCompleteTraceManifest(
       project.implementation_project_id,
@@ -127,6 +141,8 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
       trace_manifest_id: traceManifest.trace_manifest_id,
       admission_gate_result_id: null,
       policy_version_id: request.policy_version_id ?? project.policy_version_id ?? null,
+      source_proposal_artifact_ref: proposalLineage?.source_proposal_artifact_ref ?? null,
+      source_proposal_artifact_hash: proposalLineage?.source_proposal_artifact_hash ?? null,
       created_by: request.created_by ?? 'system',
       created_at: createdAt,
       updated_at: createdAt,
@@ -163,38 +179,13 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
       }
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Only draft ResearchWorkOrder objects can be admitted.');
     }
-    const gateResult = await this.traceRepository.findTraceGateResultById(
+    await requirePassedTraceGateResult(
+      this.traceRepository,
       implementationProjectId,
       request.admission_gate_result_id,
+      workOrder.trace_manifest_id,
+      'ResearchWorkOrder admission',
     );
-    if (!gateResult) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'ResearchWorkOrder admission_gate_result_id must resolve to a persisted TraceGateResult.',
-        { admission_gate_result_id: request.admission_gate_result_id },
-      );
-    }
-    if (gateResult.gate_status !== 'passed') {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'ResearchWorkOrder admission requires a passed gate result.',
-        { admission_gate_result_id: gateResult.gate_result_id, gate_status: gateResult.gate_status },
-      );
-    }
-    if (gateResult.trace_manifest_id !== workOrder.trace_manifest_id) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'ResearchWorkOrder admission gate result must target the work order trace manifest.',
-        {
-          admission_gate_result_id: gateResult.gate_result_id,
-          gate_trace_manifest_id: gateResult.trace_manifest_id,
-          work_order_trace_manifest_id: workOrder.trace_manifest_id,
-        },
-      );
-    }
     const admittedAt = this.now();
     return this.workOrderRepository.updateWorkOrder({
       ...workOrder,

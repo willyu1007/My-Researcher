@@ -20,6 +20,7 @@ import type {
 
 import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationMotiveRepository } from '../repositories/in-memory-paper-implementation-motive-repository.js';
+import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
 import {
   InMemoryPaperImplementationHumanConfirmationRepository,
@@ -29,6 +30,8 @@ import type {
   PaperImplementationBootstrapResult,
   PaperImplementationRepository,
 } from '../repositories/paper-implementation.repository.js';
+import { seedAcceptedProposalFixture } from './paper-implementation-acceptance-bridge-test-fixtures.js';
+import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { PaperImplementationTraceKernelService } from './paper-implementation-trace-kernel-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from './paper-implementation-motive-evidence-board-service.js';
 
@@ -164,27 +167,33 @@ function makeHarness() {
     now: () => NOW,
   });
   const confirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository: new InMemoryPaperImplementationRuntimeRepository(),
+    now: () => NOW,
+  });
   const service = new PaperImplementationMotiveEvidenceBoardService({
     projectRepository,
     motiveRepository,
     traceRepository,
     confirmationRepository,
+    runtimeAdmission,
     idFactory,
     now: () => NOW,
   });
-  return { service, traceKernel, motiveRepository, confirmationRepository };
+  return { service, traceKernel, motiveRepository, confirmationRepository, runtimeAdmission };
 }
 
 async function seedConfirmation(
   confirmationRepository: InMemoryPaperImplementationHumanConfirmationRepository,
   confirmationRecordId: string,
   scope: 'motive_portfolio_decision' | 'motive_evolution_decision',
+  targetRefs: TopicSelectionFunctionalRef[] = [ref('core_motive', 'core_motive_001', null)],
 ) {
   await confirmationRepository.createHumanConfirmationRecord({
     confirmation_record_id: confirmationRecordId,
     implementation_project_id: PROJECT.implementation_project_id,
     confirmation_scope: scope,
-    target_refs: [ref('core_motive', 'core_motive_001', null)],
+    target_refs: targetRefs,
     reviewed_sources: [],
     transition_attempt_ref: null,
     gate_result_refs: [],
@@ -376,6 +385,72 @@ test('motive service creates draft, admits complete trace, and creates assertion
   assert.equal(board.evidence_bindings[0]?.assertion_id, 'motive_assertion_001');
 });
 
+test('core motive draft with admitted proposal lineage is readable back', async () => {
+  const { service, motiveRepository, runtimeAdmission } = makeHarness();
+  const proposal = await seedAcceptedProposalFixture({
+    admissionService: runtimeAdmission,
+    implementationProjectId: PROJECT.implementation_project_id,
+    workflowType: 'motive_decomposition',
+    runtimeArtifactId: 'runtime_artifact_motive_decomposition_001',
+  });
+
+  const draft = await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest({
+    source_proposal_artifact_ref: proposal.sourceProposalArtifactRef,
+    source_proposal_artifact_hash: proposal.sourceProposalArtifactHash,
+  }));
+  assert.deepEqual(draft.core_motive_version.source_proposal_artifact_ref, proposal.sourceProposalArtifactRef);
+  assert.equal(draft.core_motive_version.source_proposal_artifact_hash, proposal.sourceProposalArtifactHash);
+
+  const readBack = await motiveRepository.findCoreMotiveVersionById(
+    PROJECT.implementation_project_id,
+    'core_motive_version_001',
+  );
+  assert.deepEqual(readBack?.source_proposal_artifact_ref, proposal.sourceProposalArtifactRef);
+  assert.equal(readBack?.source_proposal_artifact_hash, proposal.sourceProposalArtifactHash);
+});
+
+test('core motive draft lineage drift is rejected before authority writes', async () => {
+  const { service, motiveRepository, runtimeAdmission } = makeHarness();
+  const proposal = await seedAcceptedProposalFixture({
+    admissionService: runtimeAdmission,
+    implementationProjectId: PROJECT.implementation_project_id,
+    workflowType: 'motive_decomposition',
+    runtimeArtifactId: 'runtime_artifact_motive_decomposition_001',
+  });
+  await assertAppError(
+    service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest({
+      source_proposal_artifact_ref: proposal.sourceProposalArtifactRef,
+      source_proposal_artifact_hash: 'a'.repeat(64),
+    })),
+    409,
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  const blockedProposal = await seedAcceptedProposalFixture({
+    admissionService: runtimeAdmission,
+    implementationProjectId: PROJECT.implementation_project_id,
+    workflowType: 'motive_decomposition',
+    runtimeArtifactId: 'runtime_artifact_motive_decomposition_blocked_001',
+    runtimeStatus: 'blocked',
+  });
+  await assertAppError(
+    service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest({
+      source_proposal_artifact_ref: blockedProposal.sourceProposalArtifactRef,
+      source_proposal_artifact_hash: blockedProposal.sourceProposalArtifactHash,
+    })),
+    409,
+    'GATE_CONSTRAINT_FAILED',
+  );
+
+  assert.equal(
+    await motiveRepository.findCoreMotiveVersionById(
+      PROJECT.implementation_project_id,
+      'core_motive_version_001',
+    ),
+    null,
+  );
+});
+
 test('motive admission blocks missing source refs and broken trace', async () => {
   const { service, traceKernel } = makeHarness();
   await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest({
@@ -561,7 +636,12 @@ test('draft creation cannot mutate active portfolio before admission', async () 
 
 test('human-confirmed primary replacement demotes previous primary and keeps identity/set aligned', async () => {
   const { service, traceKernel, confirmationRepository } = makeHarness();
-  await seedConfirmation(confirmationRepository, 'pi_human_confirmation_primary_001', 'motive_portfolio_decision');
+  await seedConfirmation(
+    confirmationRepository,
+    'pi_human_confirmation_primary_001',
+    'motive_portfolio_decision',
+    [ref('core_motive', 'core_motive_002', null)],
+  );
   await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest());
   const firstTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
     target_ref: ref('core_motive_version', 'core_motive_version_001', 'v1'),
@@ -612,6 +692,13 @@ test('human-confirmed primary replacement demotes previous primary and keeps ide
     (await service.getCoreMotive(PROJECT.implementation_project_id, 'core_motive_002')).portfolio_role.role,
     'primary',
   );
+  const consumedRecord = await confirmationRepository.findHumanConfirmationRecordById(
+    PROJECT.implementation_project_id,
+    'pi_human_confirmation_primary_001',
+  );
+  assert.equal(consumedRecord?.consumed_at, NOW);
+  assert.equal(consumedRecord?.consumed_by_ref?.ref_type, 'core_motive_version');
+  assert.equal(consumedRecord?.consumed_by_ref?.ref_id, 'core_motive_version_002');
 });
 
 test('portfolio decision must cover existing motives and normalized memo-like evidence refs are blocked', async () => {
@@ -1009,4 +1096,222 @@ test('primary-set change without confirmation ref and control-flagged structural
     application_status: 'proposed',
   });
   assert.equal(decision.human_confirmation_required, true);
+});
+
+test('motive gates bind confirmations to their targets and consume them once', async () => {
+  const { service, traceKernel, confirmationRepository } = makeHarness();
+  await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest());
+  const firstTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_001', 'v1'),
+    lineage: literatureLineage(),
+  });
+  await service.admitCoreMotiveVersion(
+    PROJECT.implementation_project_id,
+    'core_motive_001',
+    'core_motive_version_001',
+    { trace_manifest_id: firstTrace.trace_manifest_id },
+  );
+  await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest({
+    motive_id: 'core_motive_002',
+    core_motive_version_id: 'core_motive_version_002',
+    assertions: [
+      {
+        ...draftRequest().assertions[0],
+        assertion_id: 'motive_assertion_002',
+      },
+    ],
+  }));
+  const secondTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_002', 'v1'),
+    lineage: literatureLineage(),
+  });
+
+  // Admission gate: a record whose targets do not cover the promoted motive is rejected.
+  await seedConfirmation(
+    confirmationRepository,
+    'pi_human_confirmation_wrong_target_001',
+    'motive_portfolio_decision',
+    [ref('core_motive', 'core_motive_001', null)],
+  );
+  await assert.rejects(
+    service.admitCoreMotiveVersion(
+      PROJECT.implementation_project_id,
+      'core_motive_002',
+      'core_motive_version_002',
+      {
+        trace_manifest_id: secondTrace.trace_manifest_id,
+        portfolio_role: 'primary',
+        confirmation_level: 'human_confirmed',
+        confirmed_by: 'human',
+        confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_wrong_target_001', null),
+      },
+    ),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('target_refs must cover the authorized object'),
+  );
+
+  // Admission gate consumes a covering record exactly once.
+  await seedConfirmation(
+    confirmationRepository,
+    'pi_human_confirmation_admit_002',
+    'motive_portfolio_decision',
+    [ref('core_motive', 'core_motive_002', null)],
+  );
+  await service.admitCoreMotiveVersion(
+    PROJECT.implementation_project_id,
+    'core_motive_002',
+    'core_motive_version_002',
+    {
+      trace_manifest_id: secondTrace.trace_manifest_id,
+      portfolio_role: 'primary',
+      confirmation_level: 'human_confirmed',
+      confirmed_by: 'human',
+      confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_admit_002', null),
+    },
+  );
+  const admitConsumed = await confirmationRepository.findHumanConfirmationRecordById(
+    PROJECT.implementation_project_id,
+    'pi_human_confirmation_admit_002',
+  );
+  assert.equal(admitConsumed?.consumed_at, NOW);
+  assert.equal(admitConsumed?.consumed_by_ref?.ref_id, 'core_motive_version_002');
+
+  // Re-admitting the same version replays into the non-draft branch before any
+  // consumption check: it fails as VERSION_CONFLICT, not as a consumed-record 409.
+  await assert.rejects(
+    service.admitCoreMotiveVersion(
+      PROJECT.implementation_project_id,
+      'core_motive_002',
+      'core_motive_version_002',
+      {
+        trace_manifest_id: secondTrace.trace_manifest_id,
+        portfolio_role: 'primary',
+        confirmation_level: 'human_confirmed',
+        confirmed_by: 'human',
+        confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_admit_002', null),
+      },
+    ),
+    (error) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT',
+  );
+
+  // The consumed record cannot authorize a later portfolio decision.
+  const swapPrimaryRequest = {
+    motive_roles_after_decision: {
+      primary_motive_ids: ['core_motive_001'],
+      secondary_motive_ids: ['core_motive_002'],
+      fallback_motive_ids: [],
+      supporting_motive_ids: [],
+      parked_motive_ids: [],
+      abandoned_motive_ids: [],
+    },
+    changes: {
+      promoted_to_primary: ['core_motive_001'],
+      demoted_from_primary: ['core_motive_002'],
+      merged_motives: [],
+      split_motives: [],
+      newly_parked: [],
+      newly_abandoned: [],
+    },
+    rationale: { swap: 'Primary swap after board review.' },
+    confirmation_level: 'human_confirmed' as const,
+    confirmed_by: 'human' as const,
+  };
+  await assert.rejects(
+    service.applyMotivePortfolioDecision(PROJECT.implementation_project_id, {
+      ...swapPrimaryRequest,
+      confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_admit_002', null),
+    }),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('already been consumed'),
+  );
+
+  // Portfolio gate: the record must cover every structurally changed motive.
+  await seedConfirmation(
+    confirmationRepository,
+    'pi_human_confirmation_portfolio_partial_001',
+    'motive_portfolio_decision',
+    [ref('core_motive', 'core_motive_001', null)],
+  );
+  await assert.rejects(
+    service.applyMotivePortfolioDecision(PROJECT.implementation_project_id, {
+      ...swapPrimaryRequest,
+      confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_portfolio_partial_001', null),
+    }),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('target_refs must cover the authorized object'),
+  );
+  await seedConfirmation(
+    confirmationRepository,
+    'pi_human_confirmation_portfolio_001',
+    'motive_portfolio_decision',
+    [ref('core_motive', 'core_motive_001', null), ref('core_motive', 'core_motive_002', null)],
+  );
+  const portfolioDecision = await service.applyMotivePortfolioDecision(PROJECT.implementation_project_id, {
+    ...swapPrimaryRequest,
+    confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_portfolio_001', null),
+  });
+  const portfolioConsumed = await confirmationRepository.findHumanConfirmationRecordById(
+    PROJECT.implementation_project_id,
+    'pi_human_confirmation_portfolio_001',
+  );
+  assert.equal(portfolioConsumed?.consumed_at, NOW);
+  assert.equal(portfolioConsumed?.consumed_by_ref?.ref_type, 'motive_portfolio_decision');
+  assert.equal(portfolioConsumed?.consumed_by_ref?.ref_id, portfolioDecision.portfolio_decision_id);
+
+  // Evolution gate: record is bound to the source motives and single-use.
+  await seedConfirmation(
+    confirmationRepository,
+    'pi_human_confirmation_evolution_target_001',
+    'motive_evolution_decision',
+    [ref('core_motive', 'core_motive_002', null)],
+  );
+  const evolutionRequest = {
+    source_motive_refs: [ref('core_motive', 'core_motive_001', null)],
+    evolution_type: 'refine_statement' as const,
+    effect_class: 'structural_evolution' as const,
+    decision_summary: 'Structural refinement of the primary motive.',
+    decision_rationale: 'Evidence overlap requires refinement.',
+    change_set: {},
+    human_confirmation_required: true,
+    confirmed_by: 'human' as const,
+    application_status: 'proposed' as const,
+  };
+  await assert.rejects(
+    service.createMotiveEvolutionDecision(PROJECT.implementation_project_id, {
+      ...evolutionRequest,
+      confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_evolution_target_001', null),
+    }),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('target_refs must cover the authorized object'),
+  );
+  await seedConfirmation(
+    confirmationRepository,
+    'pi_human_confirmation_evolution_002',
+    'motive_evolution_decision',
+    [ref('core_motive', 'core_motive_001', null)],
+  );
+  const evolutionDecision = await service.createMotiveEvolutionDecision(PROJECT.implementation_project_id, {
+    ...evolutionRequest,
+    confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_evolution_002', null),
+  });
+  const evolutionConsumed = await confirmationRepository.findHumanConfirmationRecordById(
+    PROJECT.implementation_project_id,
+    'pi_human_confirmation_evolution_002',
+  );
+  assert.equal(evolutionConsumed?.consumed_at, NOW);
+  assert.equal(evolutionConsumed?.consumed_by_ref?.ref_type, 'motive_evolution_decision');
+  assert.equal(evolutionConsumed?.consumed_by_ref?.ref_id, evolutionDecision.motive_evolution_decision_id);
+  await assert.rejects(
+    service.createMotiveEvolutionDecision(PROJECT.implementation_project_id, {
+      ...evolutionRequest,
+      confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_evolution_002', null),
+    }),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('already been consumed'),
+  );
 });

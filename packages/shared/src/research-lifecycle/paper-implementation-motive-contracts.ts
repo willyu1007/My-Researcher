@@ -409,6 +409,8 @@ export interface CoreMotiveVersion {
   evolution_decision_id?: string | null;
   hypothesis_only: boolean;
   policy_version_id?: string | null;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by: TopicSelectionActorType;
   created_at: string;
   admitted_at?: string | null;
@@ -693,6 +695,8 @@ export interface CreateCoreMotiveDraftRequest {
   hypothesis_only?: boolean;
   evolution_decision_id?: string | null;
   policy_version_id?: string | null;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by?: TopicSelectionActorType;
 }
 
@@ -1061,6 +1065,8 @@ export const createCoreMotiveDraftRequestSchema = {
     hypothesis_only: { type: 'boolean' },
     evolution_decision_id: nullableStringId,
     policy_version_id: nullableStringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
   },
 } as const;
@@ -1438,6 +1444,8 @@ export const coreMotiveVersionSchema = {
     falsification_contract: coreMotiveFalsificationContractSchema,
     claim_boundary: coreMotiveClaimBoundarySchema,
     maturity_level: maturityLevelSchema,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
   },
 } as const;
 

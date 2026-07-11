@@ -16,6 +16,7 @@ import type {
 
 import { AppError } from '../../errors/app-error.js';
 import type {
+  HumanConfirmationConsumption,
   PaperImplementationHumanConfirmationRepository,
 } from '../paper-implementation-human-confirmation.repository.js';
 
@@ -52,6 +53,8 @@ function toRecord(row: HumanConfirmationRecordRow): HumanConfirmationRecord {
     policy_version_id: row.policyVersionId ?? null,
     status: row.status as PaperImplementationHumanConfirmationStatus,
     status_reason: row.statusReason ?? null,
+    consumed_at: row.consumedAt ? row.consumedAt.toISOString() : null,
+    consumed_by_ref: asNullableFunctionalRef(row.consumedByRef),
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt ? row.updatedAt.toISOString() : null,
   };
@@ -74,6 +77,10 @@ function toCreateInput(record: HumanConfirmationRecord): Prisma.PaperImplementat
     policyVersionId: record.policy_version_id ?? null,
     status: record.status,
     statusReason: record.status_reason ?? null,
+    consumedAt: record.consumed_at ? new Date(record.consumed_at) : null,
+    consumedByRef: record.consumed_by_ref
+      ? toJsonValue(record.consumed_by_ref)
+      : Prisma.DbNull,
     createdAt: new Date(record.created_at),
     updatedAt: record.updated_at ? new Date(record.updated_at) : null,
   };
@@ -124,5 +131,46 @@ implements PaperImplementationHumanConfirmationRepository {
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((row) => toRecord(row));
+  }
+
+  async consumeHumanConfirmationRecord(
+    implementationProjectId: string,
+    confirmationRecordId: string,
+    consumption: HumanConfirmationConsumption,
+  ): Promise<HumanConfirmationRecord> {
+    const consumedAt = new Date(consumption.consumed_at);
+    const updated = await this.prisma.paperImplementationHumanConfirmationRecord.updateMany({
+      where: {
+        id: confirmationRecordId,
+        implementationProjectId,
+        status: 'active',
+        consumedAt: null,
+      },
+      data: {
+        consumedAt,
+        consumedByRef: toJsonValue(consumption.consumed_by_ref),
+        updatedAt: consumedAt,
+      },
+    });
+    if (updated.count === 0) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `HumanConfirmationRecord ${confirmationRecordId} cannot be consumed: it is missing, not active, or already consumed.`,
+        { confirmation_record_id: confirmationRecordId },
+      );
+    }
+    const row = await this.prisma.paperImplementationHumanConfirmationRecord.findUnique({
+      where: { id: confirmationRecordId },
+    });
+    if (!row) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `HumanConfirmationRecord ${confirmationRecordId} disappeared during consumption.`,
+        { confirmation_record_id: confirmationRecordId },
+      );
+    }
+    return toRecord(row);
   }
 }

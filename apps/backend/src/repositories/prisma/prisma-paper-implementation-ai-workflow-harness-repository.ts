@@ -36,9 +36,11 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import { AppError } from '../../errors/app-error.js';
-import type {
-  AgentWorkflowHarnessRunPersistence,
-  PaperImplementationAiWorkflowHarnessRepository,
+import {
+  PAPER_IMPLEMENTATION_DECISION_QUEUE_RAISE_RETRY_BUDGET_ACTION,
+  PAPER_IMPLEMENTATION_DECISION_QUEUE_REOPEN_COOLDOWN_MS,
+  type AgentWorkflowHarnessRunPersistence,
+  type PaperImplementationAiWorkflowHarnessRepository,
 } from '../paper-implementation-ai-workflow-harness.repository.js';
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
@@ -246,6 +248,8 @@ function toQueueItem(row: DecisionWorkQueueItemRow): DecisionWorkQueueItem {
     retry_count: row.retryCount,
     retry_budget: row.retryBudget,
     cooldown_until: row.cooldownUntil?.toISOString() ?? null,
+    source_coordinator_run_ref: asNullableFunctionalRef(row.sourceCoordinatorRunRef),
+    source_step_index: row.sourceStepIndex ?? null,
     resolved_at: row.resolvedAt?.toISOString() ?? null,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
@@ -260,7 +264,15 @@ const TERMINAL_DECISION_QUEUE_STATUSES = new Set<DecisionWorkQueueItem['status']
 
 export class PrismaPaperImplementationAiWorkflowHarnessRepository
 implements PaperImplementationAiWorkflowHarnessRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  private readonly reopenCooldownMs: number;
+
+  constructor(
+    private readonly prisma: PrismaClient,
+    options: { reopenCooldownMs?: number } = {},
+  ) {
+    this.reopenCooldownMs = options.reopenCooldownMs
+      ?? PAPER_IMPLEMENTATION_DECISION_QUEUE_REOPEN_COOLDOWN_MS;
+  }
 
   async createHarness(harness: ImplementationHarness): Promise<ImplementationHarness> {
     const row = await this.prisma.paperImplementationHarness.create({
@@ -337,26 +349,7 @@ implements PaperImplementationAiWorkflowHarnessRepository {
         })));
       const queueRows: DecisionWorkQueueItemRow[] = [];
       for (const item of persistence.queue_items) {
-        const existing = await tx.paperImplementationDecisionWorkQueueItem.findFirst({
-          where: {
-            implementationProjectId: item.implementation_project_id,
-            dedupKey: item.dedup_key,
-          },
-        });
-        if (existing) {
-          if (TERMINAL_DECISION_QUEUE_STATUSES.has(existing.status as DecisionWorkQueueItem['status'])) {
-            queueRows.push(await tx.paperImplementationDecisionWorkQueueItem.update({
-              where: { id: existing.id },
-              data: this.toQueueReopenUpdateInput(existing, item),
-            }));
-            continue;
-          }
-          queueRows.push(existing);
-          continue;
-        }
-        queueRows.push(await tx.paperImplementationDecisionWorkQueueItem.create({
-          data: this.toQueueCreateInput(item),
-        }));
+        queueRows.push(await this.upsertQueueItemRow(tx, item));
       }
 
       return {
@@ -400,6 +393,21 @@ implements PaperImplementationAiWorkflowHarnessRepository {
     return rows.map(toQueueItem);
   }
 
+  async findDecisionWorkQueueItemById(
+    implementationProjectId: string,
+    queueItemId: string,
+  ): Promise<DecisionWorkQueueItem | null> {
+    const row = await this.prisma.paperImplementationDecisionWorkQueueItem.findFirst({
+      where: { id: queueItemId, implementationProjectId },
+    });
+    return row ? toQueueItem(row) : null;
+  }
+
+  async enqueueDecisionWorkQueueItem(item: DecisionWorkQueueItem): Promise<DecisionWorkQueueItem> {
+    const row = await this.prisma.$transaction((tx) => this.upsertQueueItemRow(tx, item));
+    return toQueueItem(row);
+  }
+
   async resolveDecisionWorkQueueItem(
     implementationProjectId: string,
     queueItemId: string,
@@ -422,10 +430,21 @@ implements PaperImplementationAiWorkflowHarnessRepository {
         `DecisionWorkQueueItem ${queueItemId} is already ${existing.status}.`,
       );
     }
+    // Explicit raise only — an override can never lower the budget.
+    const retryBudget = resolution.retry_budget_override
+      ? Math.max(existing.retry_budget, resolution.retry_budget_override)
+      : existing.retry_budget;
+    const recommendedActions = retryBudget > existing.retry_count
+      ? existing.recommended_actions.filter(
+        (action) => action !== PAPER_IMPLEMENTATION_DECISION_QUEUE_RAISE_RETRY_BUDGET_ACTION,
+      )
+      : existing.recommended_actions;
     const row = await this.prisma.paperImplementationDecisionWorkQueueItem.update({
       where: { id: queueItemId },
       data: {
         status: resolution.status,
+        retryBudget,
+        recommendedActions,
         resolutionNote: resolution.resolution_note ?? null,
         resolvedBy: resolution.resolved_by ?? 'system',
         resolvedAt: new Date(resolution.resolved_at),
@@ -433,6 +452,30 @@ implements PaperImplementationAiWorkflowHarnessRepository {
       },
     });
     return toQueueItem(row);
+  }
+
+  private async upsertQueueItemRow(
+    client: Pick<PrismaClient, 'paperImplementationDecisionWorkQueueItem'>,
+    item: DecisionWorkQueueItem,
+  ): Promise<DecisionWorkQueueItemRow> {
+    const existing = await client.paperImplementationDecisionWorkQueueItem.findFirst({
+      where: {
+        implementationProjectId: item.implementation_project_id,
+        dedupKey: item.dedup_key,
+      },
+    });
+    if (existing) {
+      if (TERMINAL_DECISION_QUEUE_STATUSES.has(existing.status as DecisionWorkQueueItem['status'])) {
+        return client.paperImplementationDecisionWorkQueueItem.update({
+          where: { id: existing.id },
+          data: this.toQueueReopenUpdateInput(existing, item),
+        });
+      }
+      return existing;
+    }
+    return client.paperImplementationDecisionWorkQueueItem.create({
+      data: this.toQueueCreateInput(item),
+    });
   }
 
   private toHarnessCreateInput(harness: ImplementationHarness): Prisma.PaperImplementationHarnessCreateInput {
@@ -640,6 +683,10 @@ implements PaperImplementationAiWorkflowHarnessRepository {
       retryCount: item.retry_count,
       retryBudget: item.retry_budget,
       cooldownUntil: item.cooldown_until ? new Date(item.cooldown_until) : null,
+      sourceCoordinatorRunRef: item.source_coordinator_run_ref
+        ? toJsonValue(item.source_coordinator_run_ref)
+        : Prisma.JsonNull,
+      sourceStepIndex: item.source_step_index ?? null,
       resolvedAt: item.resolved_at ? new Date(item.resolved_at) : null,
       createdAt: new Date(item.created_at),
       updatedAt: new Date(item.updated_at),
@@ -650,6 +697,20 @@ implements PaperImplementationAiWorkflowHarnessRepository {
     existing: DecisionWorkQueueItemRow,
     item: DecisionWorkQueueItem,
   ): Prisma.PaperImplementationDecisionWorkQueueItemUpdateInput {
+    // W4 real retry/cooldown semantics: a reopen is one consumed retry —
+    // accumulate on the stored row instead of overwriting with the fresh
+    // item's zeroed counters (the pre-W4 overwrite bug) — and start a fixed
+    // reopen cooldown window.
+    const retryCount = existing.retryCount + 1;
+    const retryBudget = Math.max(existing.retryBudget, item.retry_budget);
+    const recommendedActions = retryCount >= retryBudget
+      ? this.uniqueStrings([
+        ...item.recommended_actions,
+        PAPER_IMPLEMENTATION_DECISION_QUEUE_RAISE_RETRY_BUDGET_ACTION,
+      ])
+      : item.recommended_actions;
+    const sourceCoordinatorRunRef = item.source_coordinator_run_ref
+      ?? asNullableFunctionalRef(existing.sourceCoordinatorRunRef);
     return {
       queueType: item.queue_type,
       stage: item.stage,
@@ -664,12 +725,16 @@ implements PaperImplementationAiWorkflowHarnessRepository {
         ...item.blocking_transition_keys,
       ]),
       allowedHandlers: item.allowed_handlers,
-      recommendedActions: item.recommended_actions,
+      recommendedActions,
       createdFromRefPayloads: toJsonValue(this.mergeCreatedFromRefs(existing, item)),
       policyVersionId: item.policy_version_id ?? null,
-      retryCount: item.retry_count,
-      retryBudget: item.retry_budget,
-      cooldownUntil: item.cooldown_until ? new Date(item.cooldown_until) : null,
+      retryCount,
+      retryBudget,
+      cooldownUntil: new Date(Date.parse(item.updated_at) + this.reopenCooldownMs),
+      sourceCoordinatorRunRef: sourceCoordinatorRunRef
+        ? toJsonValue(sourceCoordinatorRunRef)
+        : Prisma.JsonNull,
+      sourceStepIndex: item.source_step_index ?? existing.sourceStepIndex ?? null,
       resolutionNote: null,
       resolvedBy: null,
       resolvedAt: null,

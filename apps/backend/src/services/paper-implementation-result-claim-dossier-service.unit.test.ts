@@ -799,6 +799,82 @@ test('strong claim confirmation ref must resolve to an active strong-claim-scope
   assert.equal(created.human_confirmation_required, true);
 });
 
+test('strong claim confirmation is target-bound and consumed exactly once', async () => {
+  const { service, confirmationRepository } = await setup();
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+
+  // A record whose target_refs do not cover this claim candidate is rejected.
+  await confirmationRepository.createHumanConfirmationRecord({
+    confirmation_record_id: 'pi_human_confirmation_other_target',
+    implementation_project_id: PROJECT_ID,
+    confirmation_scope: 'strong_claim_acceptance',
+    target_refs: [ref('claim_candidate', 'claim_candidate_unrelated')],
+    reviewed_sources: [],
+    transition_attempt_ref: null,
+    gate_result_refs: [],
+    rationale: 'Reviewed a different claim.',
+    confirmed_by_actor_type: 'human',
+    confirmed_by_actor_id: 'reviewer_001',
+    policy_version_id: null,
+    status: 'active',
+    status_reason: null,
+    created_at: NOW,
+    updated_at: null,
+  });
+  const strongClaim = validClaimRequest();
+  strongClaim.claim_strength = 'strong';
+  strongClaim.boundary = {
+    ...strongClaim.boundary,
+    human_confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_other_target'),
+  };
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, strongClaim),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('target_refs must cover the authorized object'),
+  );
+
+  // A record covering the claim is consumed by the successful create.
+  await confirmationRepository.createHumanConfirmationRecord({
+    confirmation_record_id: 'pi_human_confirmation_consumable',
+    implementation_project_id: PROJECT_ID,
+    confirmation_scope: 'strong_claim_acceptance',
+    target_refs: [ref('claim_candidate', 'claim_candidate_001')],
+    reviewed_sources: [],
+    transition_attempt_ref: null,
+    gate_result_refs: [],
+    rationale: 'Reviewed the strong claim.',
+    confirmed_by_actor_type: 'human',
+    confirmed_by_actor_id: 'reviewer_001',
+    policy_version_id: null,
+    status: 'active',
+    status_reason: null,
+    created_at: NOW,
+    updated_at: null,
+  });
+  strongClaim.boundary = {
+    ...strongClaim.boundary,
+    human_confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_consumable'),
+  };
+  const created = await service.createClaimCandidate(PROJECT_ID, strongClaim);
+  assert.equal(created.claim_strength, 'strong');
+  const consumedRecord = await confirmationRepository.findHumanConfirmationRecordById(
+    PROJECT_ID,
+    'pi_human_confirmation_consumable',
+  );
+  assert.equal(consumedRecord?.consumed_at, NOW);
+  assert.equal(consumedRecord?.consumed_by_ref?.ref_type, 'claim_candidate');
+  assert.equal(consumedRecord?.consumed_by_ref?.ref_id, 'claim_candidate_001');
+
+  // Reusing the consumed record for another decision is rejected.
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, strongClaim),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('already been consumed'),
+  );
+});
+
 test('ready dossier rejects unresolvable readiness gate results', async () => {
   const { service } = await setup();
   await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
@@ -837,6 +913,6 @@ test('ready dossier rejects readiness gate results targeting a different trace m
   await assert.rejects(
     service.createImplementationDossier(PROJECT_ID, request),
     (error) => error instanceof AppError
-      && error.message.includes('must target the dossier trace manifest'),
+      && error.message.includes('must target the expected trace manifest'),
   );
 });

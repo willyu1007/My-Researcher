@@ -347,6 +347,34 @@ test('agent workflow harness run schema requires snapshot, provenance, spec, and
   );
 });
 
+test('decision work queue resolve schema keeps W4 reflow fields optional and bounded', async () => {
+  assert.equal(
+    await validateWithSchema(
+      harnessContracts.resolveDecisionWorkQueueItemRequestSchema,
+      { status: 'resolved' },
+    ),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(
+      harnessContracts.resolveDecisionWorkQueueItemRequestSchema,
+      { status: 'resolved', re_advance: true, retry_budget_override: 3 },
+    ),
+    200,
+  );
+  // An override can only raise a budget — negative values are rejected at
+  // the contract boundary. (0 is not asserted here: fastify's default ajv
+  // coerceTypes maps 0 onto the nullable branch, which the repository then
+  // treats as "no override".)
+  assert.equal(
+    await validateWithSchema(
+      harnessContracts.resolveDecisionWorkQueueItemRequestSchema,
+      { status: 'resolved', retry_budget_override: -1 },
+    ),
+    400,
+  );
+});
+
 test('agent workflow harness response schema rejects persistence-only spec leakage', async () => {
   const payload = validHarnessRunResponse();
   assert.equal(

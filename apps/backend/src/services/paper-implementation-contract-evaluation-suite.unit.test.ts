@@ -785,7 +785,11 @@ function claimCandidateRequest(traceManifestId: string, claimTracePacketId: stri
   };
 }
 
-function dossierRequest(traceManifestId: string, claimTracePacketId: string): CreateImplementationDossierRequest {
+function dossierRequest(
+  traceManifestId: string,
+  claimTracePacketId: string,
+  readinessGateResultId = 'dossier_readiness_gate_001',
+): CreateImplementationDossierRequest {
   return {
     dossier_id: DOSSIER_ID,
     dossier_status: 'ready_for_writing',
@@ -806,7 +810,7 @@ function dossierRequest(traceManifestId: string, claimTracePacketId: string): Cr
       claim_ceiling: 'moderate',
     },
     readiness: {
-      readiness_gate_result_id: 'dossier_readiness_gate_001',
+      readiness_gate_result_id: readinessGateResultId,
       blocker_refs: [],
       warning_refs: [],
       readiness_notes: ['Ready with failed-run limitation preserved.'],
@@ -1046,8 +1050,12 @@ test('T-101 replays the PaperImplementation ready path across child authorities'
     workOrderRequest(workOrderTrace.trace_manifest_id),
   );
   assert.equal(workOrder.work_order_status, 'draft');
+  const workOrderGateResult = await harness.traceService.evaluateTraceGate(projectId, {
+    trace_manifest_id: workOrderTrace.trace_manifest_id,
+  });
+  assert.equal(workOrderGateResult.gate_status, 'passed');
   await harness.workOrderService.admitResearchWorkOrder(projectId, WORK_ORDER_ID, {
-    admission_gate_result_id: 'work_order_gate_result_001',
+    admission_gate_result_id: workOrderGateResult.gate_result_id,
   });
   await harness.workOrderService.submitHarnessRun(projectId, WORK_ORDER_ID, {
     idempotency_key: 'work_order_attempt_001',
@@ -1186,9 +1194,17 @@ test('T-101 replays the PaperImplementation ready path across child authorities'
     target_ref: ref('implementation_dossier', DOSSIER_ID, 'v1'),
     lineage: literatureLineage(),
   });
+  const dossierGateResult = await harness.traceService.evaluateTraceGate(projectId, {
+    trace_manifest_id: dossierTrace.trace_manifest_id,
+  });
+  assert.equal(dossierGateResult.gate_status, 'passed');
   const dossier = await harness.resultClaimService.createImplementationDossier(
     projectId,
-    dossierRequest(dossierTrace.trace_manifest_id, claimPacket.claim_trace_packet_id),
+    dossierRequest(
+      dossierTrace.trace_manifest_id,
+      claimPacket.claim_trace_packet_id,
+      dossierGateResult.gate_result_id,
+    ),
   );
   assert.equal(dossier.dossier_status, 'ready_for_writing');
   assert.equal(dossier.failed_run_count, 1);

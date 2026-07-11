@@ -21,6 +21,11 @@ import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationRepository } from '../repositories/in-memory-paper-implementation-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import {
+  seedAdmittedRoutePlanningLineage,
+  seedBlockedRouteArchitectureFinalArtifact,
+  type PaperImplementationSeededRouteLineage,
+} from './paper-implementation-runtime-chain-lineage-fixtures.js';
 import { PaperImplementationValidationCyclePlanningRuntimeService } from './paper-implementation-validation-cycle-planning-runtime-service.js';
 import type {
   TopicSelectionAgentInvocationResult,
@@ -53,7 +58,10 @@ class StubValidationCyclePlanningAgentOrchestrator {
     debate_extension?: unknown;
   }> = [];
 
-  constructor(private readonly outcomes: Outcome[] = ['passed']) {}
+  constructor(
+    private readonly lineage: PaperImplementationSeededRouteLineage,
+    private readonly outcomes: Outcome[] = ['passed'],
+  ) {}
 
   async invokeStructuredOutput<T>(
     input: {
@@ -72,22 +80,22 @@ class StubValidationCyclePlanningAgentOrchestrator {
       return failedInvocationResult(input.node_id, input.execution_mode);
     }
     if (outcome === 'incomplete_candidates') {
-      return invocationResult(validationCyclePlanningRoleOutput({
+      return invocationResult(validationCyclePlanningRoleOutput(this.lineage, {
         cycle_candidate_proposals: [validationCycleCandidateProposal('single_cycle_candidate', false)],
       }) as T, input.node_id, input.execution_mode);
     }
     if (outcome === 'route_proposal_mismatch') {
-      return invocationResult(validationCyclePlanningRoleOutput({
+      return invocationResult(validationCyclePlanningRoleOutput(this.lineage, {
         reviewed_route_proposal_hash: hash('drifted-route-architecture-final'),
       }) as T, input.node_id, input.execution_mode);
     }
     if (outcome === 'route_skeptic_mismatch') {
-      return invocationResult(validationCyclePlanningRoleOutput({
+      return invocationResult(validationCyclePlanningRoleOutput(this.lineage, {
         reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'drifted_route_skeptic_final_001'),
       }) as T, input.node_id, input.execution_mode);
     }
     if (outcome === 'candidate_key_mismatch') {
-      return invocationResult(validationCyclePlanningRoleOutput({
+      return invocationResult(validationCyclePlanningRoleOutput(this.lineage, {
         cycle_candidate_proposals: [
           {
             ...validationCycleCandidateProposal('exploratory_cycle_candidate', false),
@@ -97,13 +105,13 @@ class StubValidationCyclePlanningAgentOrchestrator {
         ],
       }) as T, input.node_id, input.execution_mode);
     }
-    return invocationResult(validationCyclePlanningRoleOutput() as T, input.node_id, input.execution_mode);
+    return invocationResult(validationCyclePlanningRoleOutput(this.lineage) as T, input.node_id, input.execution_mode);
   }
 }
 
 test('validation cycle planning runtime records proposal-only artifacts without cycle, queue, or Domain Gate writes', async () => {
-  const { service, repository, orchestrator } = serviceFixture(['passed']);
-  const result = await service.runCycleCandidates(PROJECT_ID, providerRequest());
+  const { service, repository, orchestrator, lineage } = await serviceFixture(['passed']);
+  const result = await service.runCycleCandidates(PROJECT_ID, providerRequest(lineage));
 
   assert.equal(result.status, 'passed');
   assert.equal(result.slot_id, PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID);
@@ -142,9 +150,9 @@ test('validation cycle planning runtime records proposal-only artifacts without 
 });
 
 test('validation cycle planning runtime records preflight blockers without provider calls', async () => {
-  const { service, orchestrator } = serviceFixture(['passed']);
+  const { service, orchestrator, lineage } = await serviceFixture(['passed']);
   const result = await service.runCycleCandidates(PROJECT_ID, {
-    ...providerRequest(),
+    ...providerRequest(lineage),
     run_id: 'validation_cycle_planning_preflight_blocked_run_001',
     preflight_blocker_codes: ['route_skeptic_artifact_not_admitted'],
   });
@@ -159,9 +167,9 @@ test('validation cycle planning runtime records preflight blockers without provi
 });
 
 test('validation cycle planning runtime fails closed after same-profile semantic retry exhaustion', async () => {
-  const { service, orchestrator } = serviceFixture(['incomplete_candidates', 'incomplete_candidates']);
+  const { service, orchestrator, lineage } = await serviceFixture(['incomplete_candidates', 'incomplete_candidates']);
   const result = await service.runCycleCandidates(PROJECT_ID, {
-    ...providerRequest(),
+    ...providerRequest(lineage),
     run_id: 'validation_cycle_planning_missing_candidates_run_001',
   });
 
@@ -195,9 +203,9 @@ for (const scenario of [
   },
 ]) {
   test(`validation cycle planning runtime rejects ${scenario.name} before final admission`, async () => {
-    const { service, orchestrator } = serviceFixture([scenario.outcome, scenario.outcome]);
+    const { service, orchestrator, lineage } = await serviceFixture([scenario.outcome, scenario.outcome]);
     const result = await service.runCycleCandidates(PROJECT_ID, {
-      ...providerRequest(),
+      ...providerRequest(lineage),
       run_id: `validation_cycle_planning_${scenario.outcome}_run_001`,
     });
 
@@ -212,31 +220,31 @@ for (const scenario of [
 }
 
 test('validation cycle planning runtime rejects product fixture modes, provider fixtures, and missing primary inputs', async () => {
-  const { service, orchestrator } = serviceFixture();
+  const { service, orchestrator, lineage } = await serviceFixture();
 
   await assert.rejects(
     () => service.runCycleCandidates(PROJECT_ID, {
-      ...providerRequest(),
+      ...providerRequest(lineage),
       run_id: 'validation_cycle_planning_product_mocked_mode_run_001',
       execution_mode: 'mocked_llm',
       model_option_id: null,
-      mocked_role_outputs: validationCyclePlanningRoleOutputs(),
+      mocked_role_outputs: validationCyclePlanningRoleOutputs(lineage),
     }),
     /product run_mode requires execution_mode=provider_llm/,
   );
 
   await assert.rejects(
     () => service.runCycleCandidates(PROJECT_ID, {
-      ...providerRequest(),
+      ...providerRequest(lineage),
       run_id: 'validation_cycle_planning_provider_fixture_payload_run_001',
-      codex_role_outputs: validationCyclePlanningRoleOutputs(),
+      codex_role_outputs: validationCyclePlanningRoleOutputs(lineage),
     }),
     /provider_llm runtime requests must not include mocked_role_outputs or codex_role_outputs/,
   );
 
   await assert.rejects(
     () => service.runCycleCandidates(PROJECT_ID, {
-      ...providerRequest(),
+      ...providerRequest(lineage),
       run_id: 'validation_cycle_planning_missing_skeptic_run_001',
       admitted_route_skeptic_artifact_ref: null as unknown as TopicSelectionFunctionalRef,
       admitted_route_skeptic_artifact_hash: null as unknown as string,
@@ -247,19 +255,61 @@ test('validation cycle planning runtime rejects product fixture modes, provider 
   assert.equal(orchestrator.calls.length, 0);
 });
 
+test('validation cycle planning runtime rejects unadmitted, drifted, blocked, or wrong-slot upstream route artifacts before provider calls', async () => {
+  const { service, orchestrator, lineage, seedBlockedRouteFinal } = await serviceFixture(['passed']);
+  const blocked = await seedBlockedRouteFinal();
+
+  const rejectsBeforeOrchestrator = async (
+    request: RunPaperImplementationValidationCyclePlanningRuntimeRequest,
+  ) => {
+    await assert.rejects(
+      () => service.runCycleCandidates(PROJECT_ID, request),
+      (error: unknown) => error instanceof AppError
+        && error.statusCode === 409
+        && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+    );
+  };
+
+  await rejectsBeforeOrchestrator({
+    ...providerRequest(lineage),
+    run_id: 'validation_cycle_planning_unadmitted_route_run_001',
+    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_forged_001'),
+    admitted_route_proposal_artifact_hash: hash('forged-route-architecture-final'),
+  });
+  await rejectsBeforeOrchestrator({
+    ...providerRequest(lineage),
+    run_id: 'validation_cycle_planning_drifted_skeptic_hash_run_001',
+    admitted_route_skeptic_artifact_hash: hash('drifted-route-skeptic-final'),
+  });
+  await rejectsBeforeOrchestrator({
+    ...providerRequest(lineage),
+    run_id: 'validation_cycle_planning_blocked_route_final_run_001',
+    admitted_route_proposal_artifact_ref: blocked.ref,
+    admitted_route_proposal_artifact_hash: blocked.hash,
+  });
+  await rejectsBeforeOrchestrator({
+    ...providerRequest(lineage),
+    run_id: 'validation_cycle_planning_wrong_slot_skeptic_run_001',
+    admitted_route_skeptic_artifact_ref: lineage.routeProposalRef,
+    admitted_route_skeptic_artifact_hash: lineage.routeProposalHash,
+  });
+
+  assert.equal(orchestrator.calls.length, 0);
+});
+
 test('validation cycle planning runtime rejects missing or inactive implementation project before provider calls', async () => {
-  const missingProject = serviceFixture(undefined, null);
+  const missingProject = await serviceFixture(undefined, null);
   await assert.rejects(
-    () => missingProject.service.runCycleCandidates(PROJECT_ID, providerRequest()),
+    () => missingProject.service.runCycleCandidates(PROJECT_ID, providerRequest(missingProject.lineage)),
     (error: unknown) => error instanceof AppError
       && error.statusCode === 404
       && error.errorCode === 'NOT_FOUND',
   );
   assert.equal(missingProject.orchestrator.calls.length, 0);
 
-  const inactiveProject = serviceFixture(undefined, implementationProjectFixture('archived'));
+  const inactiveProject = await serviceFixture(undefined, implementationProjectFixture('archived'));
   await assert.rejects(
-    () => inactiveProject.service.runCycleCandidates(PROJECT_ID, providerRequest()),
+    () => inactiveProject.service.runCycleCandidates(PROJECT_ID, providerRequest(inactiveProject.lineage)),
     (error: unknown) => error instanceof AppError
       && error.statusCode === 409
       && error.errorCode === 'GATE_CONSTRAINT_FAILED',
@@ -370,7 +420,7 @@ function projectRepositoryFixture(
   return repository;
 }
 
-function serviceFixture(
+async function serviceFixture(
   outcomes?: Outcome[],
   project: ImplementationProject | null = implementationProjectFixture(),
 ) {
@@ -382,25 +432,50 @@ function serviceFixture(
     idFactory,
     now: () => NOW,
   });
-  const orchestrator = new StubValidationCyclePlanningAgentOrchestrator(outcomes);
+  const projectRepository = projectRepositoryFixture(project);
+  const seedOptions = {
+    projectRepository,
+    runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    titleCardId: TITLE_CARD_ID,
+    idFactory,
+    now: () => NOW,
+  };
+  const lineage = project?.lifecycle_status === 'active'
+    ? await seedAdmittedRoutePlanningLineage(seedOptions)
+    : fabricatedRouteLineage();
+  const orchestrator = new StubValidationCyclePlanningAgentOrchestrator(lineage, outcomes);
   const service = new PaperImplementationValidationCyclePlanningRuntimeService({
-    projectRepository: projectRepositoryFixture(project),
+    projectRepository,
     runtimeAdmission,
     agentOrchestrator: orchestrator,
     idFactory,
     now: () => NOW,
   });
-  return { service, repository, orchestrator };
+  const seedBlockedRouteFinal = () => seedBlockedRouteArchitectureFinalArtifact(seedOptions);
+  return { service, repository, orchestrator, lineage, seedBlockedRouteFinal };
 }
 
-function validationCyclePlanningRoleOutputs():
-  RunPaperImplementationValidationCyclePlanningRuntimeRequest['mocked_role_outputs'] {
+function fabricatedRouteLineage(): PaperImplementationSeededRouteLineage {
   return {
-    [PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID]: validationCyclePlanningRoleOutput(),
+    routeProposalRef: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
+    routeProposalHash: hash('route-architecture-final'),
+    routeSkepticRef: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
+    routeSkepticHash: hash('route-skeptic-final'),
   };
 }
 
-function providerRequest(): RunPaperImplementationValidationCyclePlanningRuntimeRequest {
+function validationCyclePlanningRoleOutputs(
+  lineage: PaperImplementationSeededRouteLineage,
+): RunPaperImplementationValidationCyclePlanningRuntimeRequest['mocked_role_outputs'] {
+  return {
+    [PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID]: validationCyclePlanningRoleOutput(lineage),
+  };
+}
+
+function providerRequest(
+  lineage: PaperImplementationSeededRouteLineage,
+): RunPaperImplementationValidationCyclePlanningRuntimeRequest {
   return {
     run_id: 'validation_cycle_planning_runtime_run_001',
     run_mode: 'product',
@@ -412,15 +487,15 @@ function providerRequest(): RunPaperImplementationValidationCyclePlanningRuntime
     input_snapshot_ref: ref('implementation_input_snapshot', 'input_snapshot_001'),
     input_snapshot_hash: hash('input-snapshot'),
     source_refs: [
-      ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
-      ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
+      lineage.routeProposalRef,
+      lineage.routeSkepticRef,
       ref('trace_manifest', 'trace_manifest_001'),
     ],
-    source_hashes: [hash('route-architecture-final'), hash('route-skeptic-final'), hash('trace')],
-    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
-    admitted_route_proposal_artifact_hash: hash('route-architecture-final'),
-    admitted_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
-    admitted_route_skeptic_artifact_hash: hash('route-skeptic-final'),
+    source_hashes: [lineage.routeProposalHash, lineage.routeSkepticHash, hash('trace')],
+    admitted_route_proposal_artifact_ref: lineage.routeProposalRef,
+    admitted_route_proposal_artifact_hash: lineage.routeProposalHash,
+    admitted_route_skeptic_artifact_ref: lineage.routeSkepticRef,
+    admitted_route_skeptic_artifact_hash: lineage.routeSkepticHash,
     reviewed_candidate_keys: ['exploratory_route_candidate'],
     secondary_route_candidate_refs: [
       ref('technical_route_candidate', 'technical_route_candidate_secondary_001'),
@@ -471,19 +546,20 @@ function validationCycleCandidateProposal(
 }
 
 function validationCyclePlanningRoleOutput(
+  lineage: PaperImplementationSeededRouteLineage,
   overrides: Partial<PaperImplementationValidationCyclePlanningRoleOutput> = {},
 ): PaperImplementationValidationCyclePlanningRoleOutput {
   return {
     role_slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID,
     role_status: 'passed',
     summary: 'Validation-cycle planning proposed bounded cycle candidates.',
-    cited_source_refs: [ref('route_architecture_runtime_artifact', 'route_architecture_final_001')],
+    cited_source_refs: [lineage.routeProposalRef],
     blocker_codes: [],
     warning_codes: [],
-    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_001'),
-    reviewed_route_proposal_hash: hash('route-architecture-final'),
-    reviewed_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_001'),
-    reviewed_route_skeptic_artifact_hash: hash('route-skeptic-final'),
+    reviewed_route_proposal_ref: lineage.routeProposalRef,
+    reviewed_route_proposal_hash: lineage.routeProposalHash,
+    reviewed_route_skeptic_artifact_ref: lineage.routeSkepticRef,
+    reviewed_route_skeptic_artifact_hash: lineage.routeSkepticHash,
     reviewed_candidate_keys: ['exploratory_route_candidate'],
     cycle_candidate_proposals: [
       validationCycleCandidateProposal('exploratory_cycle_candidate', false),

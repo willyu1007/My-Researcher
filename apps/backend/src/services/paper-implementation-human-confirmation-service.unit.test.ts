@@ -10,6 +10,7 @@ import type {
   CreateHumanConfirmationRecordRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-human-confirmation-contracts';
 
+import { AppError } from '../errors/app-error.js';
 import {
   InMemoryPaperImplementationHumanConfirmationRepository,
 } from '../repositories/in-memory-paper-implementation-human-confirmation-repository.js';
@@ -150,4 +151,110 @@ test('human confirmation service rejects inactive projects and blank rationale',
     }),
     /rationale is required/,
   );
+});
+
+function consumedByRef() {
+  return {
+    ref_type: 'claim_candidate',
+    ref_id: 'claim_candidate_001',
+    title_card_id: 'title_card_001',
+    version_id: null,
+  };
+}
+
+test('in-memory repository consumes an active record exactly once', async () => {
+  const { service, confirmationRepository } = serviceFixture();
+  const record = await service.createHumanConfirmationRecord(PROJECT_ID, validRequest());
+  assert.equal(record.consumed_at ?? null, null);
+
+  const consumed = await confirmationRepository.consumeHumanConfirmationRecord(
+    PROJECT_ID,
+    record.confirmation_record_id,
+    { consumed_at: NOW, consumed_by_ref: consumedByRef() },
+  );
+  assert.equal(consumed.consumed_at, NOW);
+  assert.deepEqual(consumed.consumed_by_ref, consumedByRef());
+  assert.equal(consumed.updated_at, NOW);
+
+  const reloaded = await confirmationRepository.findHumanConfirmationRecordById(
+    PROJECT_ID,
+    record.confirmation_record_id,
+  );
+  assert.equal(reloaded?.consumed_at, NOW);
+
+  await assert.rejects(
+    () => confirmationRepository.consumeHumanConfirmationRecord(
+      PROJECT_ID,
+      record.confirmation_record_id,
+      { consumed_at: NOW, consumed_by_ref: consumedByRef() },
+    ),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+});
+
+test('in-memory repository rejects consuming missing, foreign-project, or non-active records', async () => {
+  const { service, confirmationRepository } = serviceFixture();
+  const record = await service.createHumanConfirmationRecord(PROJECT_ID, validRequest());
+
+  const isConsumeConflict = (error: unknown) => error instanceof AppError
+    && error.statusCode === 409
+    && error.errorCode === 'VERSION_CONFLICT';
+
+  await assert.rejects(
+    () => confirmationRepository.consumeHumanConfirmationRecord(
+      PROJECT_ID,
+      'pi_human_confirmation_missing',
+      { consumed_at: NOW, consumed_by_ref: consumedByRef() },
+    ),
+    isConsumeConflict,
+  );
+  await assert.rejects(
+    () => confirmationRepository.consumeHumanConfirmationRecord(
+      'implementation_project_other',
+      record.confirmation_record_id,
+      { consumed_at: NOW, consumed_by_ref: consumedByRef() },
+    ),
+    isConsumeConflict,
+  );
+
+  await confirmationRepository.createHumanConfirmationRecord({
+    ...record,
+    confirmation_record_id: 'pi_human_confirmation_invalidated_001',
+    status: 'invalidated',
+  });
+  await assert.rejects(
+    () => confirmationRepository.consumeHumanConfirmationRecord(
+      PROJECT_ID,
+      'pi_human_confirmation_invalidated_001',
+      { consumed_at: NOW, consumed_by_ref: consumedByRef() },
+    ),
+    isConsumeConflict,
+  );
+});
+
+test('in-memory repository lets exactly one of two racing consumers win', async () => {
+  const { service, confirmationRepository } = serviceFixture();
+  const record = await service.createHumanConfirmationRecord(PROJECT_ID, validRequest());
+  const results = await Promise.allSettled([
+    confirmationRepository.consumeHumanConfirmationRecord(
+      PROJECT_ID,
+      record.confirmation_record_id,
+      { consumed_at: NOW, consumed_by_ref: consumedByRef() },
+    ),
+    confirmationRepository.consumeHumanConfirmationRecord(
+      PROJECT_ID,
+      record.confirmation_record_id,
+      { consumed_at: NOW, consumed_by_ref: consumedByRef() },
+    ),
+  ]);
+  const fulfilled = results.filter((result) => result.status === 'fulfilled');
+  const rejected = results.filter((result) => result.status === 'rejected');
+  assert.equal(fulfilled.length, 1);
+  assert.equal(rejected.length, 1);
+  const failure = (rejected[0] as PromiseRejectedResult).reason;
+  assert.ok(failure instanceof AppError);
+  assert.equal(failure.statusCode, 409);
+  assert.equal(failure.errorCode, 'VERSION_CONFLICT');
 });

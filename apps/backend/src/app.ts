@@ -23,6 +23,7 @@ import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from './reposi
 import { InMemoryPaperImplementationMotiveRepository } from './repositories/in-memory-paper-implementation-motive-repository.js';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from './repositories/in-memory-paper-implementation-result-claim-dossier-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from './repositories/in-memory-paper-implementation-runtime-repository.js';
+import { InMemoryPaperImplementationCoordinatorRepository } from './repositories/in-memory-paper-implementation-coordinator-repository.js';
 import { InMemoryPaperImplementationHumanConfirmationRepository } from './repositories/in-memory-paper-implementation-human-confirmation-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from './repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from './repositories/in-memory-paper-implementation-validation-repository.js';
@@ -57,6 +58,7 @@ import { PrismaPaperImplementationAiWorkflowHarnessRepository } from './reposito
 import { PrismaPaperImplementationMotiveRepository } from './repositories/prisma/prisma-paper-implementation-motive-repository.js';
 import { PrismaPaperImplementationResultClaimDossierRepository } from './repositories/prisma/prisma-paper-implementation-result-claim-dossier-repository.js';
 import { PrismaPaperImplementationRuntimeRepository } from './repositories/prisma/prisma-paper-implementation-runtime-repository.js';
+import { PrismaPaperImplementationCoordinatorRepository } from './repositories/prisma/prisma-paper-implementation-coordinator-repository.js';
 import { PrismaPaperImplementationHumanConfirmationRepository } from './repositories/prisma/prisma-paper-implementation-human-confirmation-repository.js';
 import { PrismaPaperImplementationTraceRepository } from './repositories/prisma/prisma-paper-implementation-trace-repository.js';
 import { PrismaPaperImplementationValidationRepository } from './repositories/prisma/prisma-paper-implementation-validation-repository.js';
@@ -107,6 +109,7 @@ import type { PaperImplementationAiWorkflowHarnessRepository } from './repositor
 import type { PaperImplementationMotiveRepository } from './repositories/paper-implementation-motive.repository.js';
 import type { PaperImplementationResultClaimDossierRepository } from './repositories/paper-implementation-result-claim-dossier.repository.js';
 import type { PaperImplementationRuntimeRepository } from './repositories/paper-implementation-runtime.repository.js';
+import type { PaperImplementationCoordinatorRepository } from './repositories/paper-implementation-coordinator.repository.js';
 import type { PaperImplementationHumanConfirmationRepository } from './repositories/paper-implementation-human-confirmation.repository.js';
 import type { PaperImplementationTraceRepository } from './repositories/paper-implementation-trace.repository.js';
 import type { PaperImplementationValidationRepository } from './repositories/paper-implementation-validation.repository.js';
@@ -165,6 +168,7 @@ import { PaperImplementationP1RuntimeReviewService } from './services/paper-impl
 import { PaperImplementationResultAnalysisRuntimeService } from './services/paper-implementation-result-analysis-runtime-service.js';
 import { PaperImplementationExperimentPlanningRuntimeService } from './services/paper-implementation-experiment-planning-runtime-service.js';
 import { PaperImplementationRoutePlanningRuntimeService } from './services/paper-implementation-route-planning-runtime-service.js';
+import { PaperImplementationRunCoordinatorService } from './services/paper-implementation-run-coordinator-service.js';
 import { PaperImplementationValidationCyclePlanningRuntimeService } from './services/paper-implementation-validation-cycle-planning-runtime-service.js';
 import { PaperImplementationFeasibilityPlanningRuntimeService } from './services/paper-implementation-feasibility-planning-runtime-service.js';
 import { PaperImplementationCrossBoardSynthesisRuntimeService } from './services/paper-implementation-cross-board-synthesis-runtime-service.js';
@@ -251,6 +255,7 @@ export type BuildAppOptions = {
   paperImplementationResultClaimDossierRepository?: PaperImplementationResultClaimDossierRepository;
   paperImplementationAiWorkflowHarnessRepository?: PaperImplementationAiWorkflowHarnessRepository;
   paperImplementationRuntimeRepository?: PaperImplementationRuntimeRepository;
+  paperImplementationCoordinatorRepository?: PaperImplementationCoordinatorRepository;
   paperImplementationHumanConfirmationRepository?: PaperImplementationHumanConfirmationRepository;
   paperImplementationBridgeService?: TopicSelectionPaperProjectBridgeHandoffProvider;
   paperImplementationDownstreamFeedbackService?: PaperImplementationDownstreamFeedbackService;
@@ -380,6 +385,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     ?? createPaperImplementationRuntimeRepository(storeConfig.paperImplementationStrategy);
   const paperImplementationHumanConfirmationRepository = options.paperImplementationHumanConfirmationRepository
     ?? createPaperImplementationHumanConfirmationRepository(storeConfig.paperImplementationStrategy);
+  const paperImplementationCoordinatorRepository = options.paperImplementationCoordinatorRepository
+    ?? createPaperImplementationCoordinatorRepository(storeConfig.paperImplementationStrategy);
   const auditStore = new FileGovernanceDeliveryAuditStore({
     filePath: process.env.GOVERNANCE_DELIVERY_AUDIT_LOG_PATH,
   });
@@ -619,11 +626,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     projectRepository: paperImplementationRepository,
     traceRepository: paperImplementationTraceRepository,
   });
+  const paperImplementationRuntimeAdmissionService = new PaperImplementationRuntimeAdmissionService({
+    repository: paperImplementationRuntimeRepository,
+  });
   const paperImplementationMotiveEvidenceBoardService = new PaperImplementationMotiveEvidenceBoardService({
     projectRepository: paperImplementationRepository,
     motiveRepository: paperImplementationMotiveRepository,
     traceRepository: paperImplementationTraceRepository,
     confirmationRepository: paperImplementationHumanConfirmationRepository,
+    runtimeAdmission: paperImplementationRuntimeAdmissionService,
   });
   const paperImplementationValidationCyclePlanningService = new PaperImplementationValidationCyclePlanningService({
     projectRepository: paperImplementationRepository,
@@ -631,12 +642,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     traceRepository: paperImplementationTraceRepository,
     validationRepository: paperImplementationValidationRepository,
     feedbackRecorder: paperImplementationIntakeBootstrapService,
+    runtimeAdmission: paperImplementationRuntimeAdmissionService,
   });
   const paperImplementationWorkOrderExperimentBridgeService = new PaperImplementationWorkOrderExperimentBridgeService({
     projectRepository: paperImplementationRepository,
     traceRepository: paperImplementationTraceRepository,
     validationRepository: paperImplementationValidationRepository,
     workOrderRepository: paperImplementationWorkOrderRepository,
+    runtimeAdmission: paperImplementationRuntimeAdmissionService,
   });
   const paperImplementationLiveExperimentAdapterService = new PaperImplementationLiveExperimentAdapterService({
     experimentExecution: experimentFoundationExecutionService,
@@ -665,9 +678,6 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
   const paperImplementationProviderVarianceEvaluationService = new PaperImplementationProviderVarianceEvaluationService({
     aiWorkflowHarness: paperImplementationAiWorkflowHarnessService,
-  });
-  const paperImplementationRuntimeAdmissionService = new PaperImplementationRuntimeAdmissionService({
-    repository: paperImplementationRuntimeRepository,
   });
   const paperImplementationTraceIntegrityDebateAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
     controlPlane: topicSelectionControlPlaneService,
@@ -869,6 +879,26 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       resultClaimDossier: paperImplementationResultClaimDossierService,
     });
+  // D1 coordinator: only runtime slot services + own repository + project
+  // preflight + the narrow decision-queue writer — structurally no domain
+  // authority repositories. The writer is deliberately wrapped to an
+  // enqueue-only object literal (W4) so the coordinator's runtime surface
+  // cannot reach the rest of the harness repository.
+  const paperImplementationRunCoordinatorService = new PaperImplementationRunCoordinatorService({
+    coordinatorRepository: paperImplementationCoordinatorRepository,
+    projectRepository: paperImplementationRepository,
+    decisionQueueWriter: {
+      enqueueDecisionWorkQueueItem: (item) =>
+        paperImplementationAiWorkflowHarnessRepository.enqueueDecisionWorkQueueItem(item),
+    },
+    routePlanningRuntime: paperImplementationRoutePlanningRuntimeService,
+    validationCyclePlanningRuntime: paperImplementationValidationCyclePlanningRuntimeService,
+    feasibilityPlanningRuntime: paperImplementationFeasibilityPlanningRuntimeService,
+    motiveDecompositionRuntime: paperImplementationMotiveDecompositionRuntimeService,
+    motiveEvolutionRuntime: paperImplementationMotiveEvolutionRuntimeService,
+    evidenceBoardCurationRuntime: paperImplementationEvidenceBoardCurationRuntimeService,
+    crossBoardSynthesisRuntime: paperImplementationCrossBoardSynthesisRuntimeService,
+  });
   const paperImplementationController = new PaperImplementationController({
     intakeBootstrap: paperImplementationIntakeBootstrapService,
     traceKernel: paperImplementationTraceKernelService,
@@ -890,6 +920,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     motiveDecompositionRuntime: paperImplementationMotiveDecompositionRuntimeService,
     motiveEvolutionRuntime: paperImplementationMotiveEvolutionRuntimeService,
     runtimeDomainGate: paperImplementationRuntimeDomainGateService,
+    runCoordinator: paperImplementationRunCoordinatorService,
     humanConfirmation: paperImplementationHumanConfirmationService,
     liveExperimentAdapter: paperImplementationLiveExperimentAdapterService,
     providerVarianceEvaluation: paperImplementationProviderVarianceEvaluationService,
@@ -1429,6 +1460,17 @@ function createPaperImplementationRuntimeRepository(
   }
 
   return new InMemoryPaperImplementationRuntimeRepository();
+}
+
+function createPaperImplementationCoordinatorRepository(
+  strategy: RepositoryStrategy,
+): PaperImplementationCoordinatorRepository {
+  if (strategy === 'prisma') {
+    const prisma = getPrismaClient();
+    return new PrismaPaperImplementationCoordinatorRepository(prisma);
+  }
+
+  return new InMemoryPaperImplementationCoordinatorRepository();
 }
 
 function createAutoPullScheduler(service: AutoPullService): AutoPullScheduler | null {

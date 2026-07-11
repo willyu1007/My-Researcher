@@ -12,6 +12,9 @@ import {
   type PaperImplementationAgentRunMode,
   type PaperImplementationAgentWorkflowType,
 } from './paper-implementation-agent-common-contracts.js';
+import type {
+  PaperImplementationCoordinatorRunWithSteps,
+} from './paper-implementation-coordinator-contracts.js';
 
 export {
   PAPER_IMPLEMENTATION_AGENT_EXECUTION_MODES,
@@ -98,6 +101,10 @@ export const PAPER_IMPLEMENTATION_DECISION_QUEUE_TYPES = [
   'stale_evidence_recheck',
   'accepted_risk_expiry',
   'loop_budget_review',
+  // Explicit bucket for blocker codes outside the enum classification tables
+  // (W4): unknown blockers must land here instead of being force-fitted by
+  // string heuristics.
+  'unclassified',
 ] as const;
 export type PaperImplementationDecisionQueueType =
   (typeof PAPER_IMPLEMENTATION_DECISION_QUEUE_TYPES)[number];
@@ -418,6 +425,14 @@ export interface DecisionWorkQueueItem {
   retry_count: number;
   retry_budget: number;
   cooldown_until?: string | null;
+  /**
+   * W4 queue reflow lineage: when the item was materialized by the run
+   * coordinator for a blocked/failed_runtime step, these point back at the
+   * coordinator run (and step index) so resolve can trigger a re-advance.
+   * Harness-lane items leave both null.
+   */
+  source_coordinator_run_ref?: TopicSelectionFunctionalRef | null;
+  source_step_index?: number | null;
   resolved_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -427,6 +442,30 @@ export interface ResolveDecisionWorkQueueItemRequest {
   status: Extract<PaperImplementationDecisionQueueStatus, 'resolved' | 'dismissed' | 'superseded'>;
   resolution_note?: string | null;
   resolved_by?: TopicSelectionActorType;
+  /**
+   * W4 queue reflow: when true and the item carries a
+   * `source_coordinator_run_ref`, a successful resolve triggers one
+   * coordinator advance (same slot, new attempt, budget-capped). Gated by
+   * retry_budget/cooldown semantics at the resolve route.
+   */
+  re_advance?: boolean;
+  /**
+   * W4 explicit retry-budget raise (v1 choice: override rides the resolve
+   * request instead of a dedicated repository method). When provided, the
+   * item's retry_budget is raised to at least this value before the
+   * re-advance gate is evaluated; it never lowers an existing budget.
+   */
+  retry_budget_override?: number | null;
+}
+
+/**
+ * W4 resolve response: the resolved queue item, plus (only when
+ * `re_advance === true` actually triggered a coordinator advance) the
+ * advance projection. Plain resolves keep the historical bare-item shape;
+ * `coordinator_advance` is strictly additive for existing callers.
+ */
+export interface ResolveDecisionWorkQueueItemResponse extends DecisionWorkQueueItem {
+  coordinator_advance?: PaperImplementationCoordinatorRunWithSteps | null;
 }
 
 export interface CreateAgentWorkflowHarnessRunRequest {
@@ -1097,6 +1136,8 @@ export const decisionWorkQueueItemSchema = {
     retry_count: { type: 'integer', minimum: 0 },
     retry_budget: { type: 'integer', minimum: 0 },
     cooldown_until: nullableStringId,
+    source_coordinator_run_ref: nullableFunctionalRef,
+    source_step_index: { anyOf: [{ type: 'integer', minimum: 0 }, { type: 'null' }] },
     resolved_at: nullableStringId,
     created_at: stringId,
     updated_at: stringId,
@@ -1111,6 +1152,8 @@ export const resolveDecisionWorkQueueItemRequestSchema = {
     status: { enum: ['resolved', 'dismissed', 'superseded'] },
     resolution_note: nullableStringId,
     resolved_by: actorTypeSchema,
+    re_advance: { type: 'boolean' },
+    retry_budget_override: { anyOf: [{ type: 'integer', minimum: 1 }, { type: 'null' }] },
   },
 } as const;
 

@@ -117,6 +117,53 @@ test('work order draft requires explicit id, validation cycle, run policy, recip
   );
 });
 
+test('work order draft accepts optional acceptance-bridge lineage and rejects malformed lineage', async () => {
+  assert.equal(
+    await validateWithSchema(
+      workOrderContracts.createResearchWorkOrderDraftRequestSchema,
+      {
+        ...validWorkOrderDraft(),
+        source_proposal_artifact_ref: functionalRef('paper_implementation_runtime_artifact', 'runtime_artifact_001'),
+        source_proposal_artifact_hash: 'a'.repeat(64),
+      },
+    ),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(
+      workOrderContracts.createResearchWorkOrderDraftRequestSchema,
+      {
+        ...validWorkOrderDraft(),
+        source_proposal_artifact_ref: null,
+        source_proposal_artifact_hash: null,
+      },
+    ),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(
+      workOrderContracts.createResearchWorkOrderDraftRequestSchema,
+      {
+        ...validWorkOrderDraft(),
+        source_proposal_artifact_ref: 'runtime_artifact_001',
+        source_proposal_artifact_hash: 'a'.repeat(64),
+      },
+    ),
+    400,
+  );
+  assert.equal(
+    await validateWithSchema(
+      workOrderContracts.createResearchWorkOrderDraftRequestSchema,
+      {
+        ...validWorkOrderDraft(),
+        source_proposal_artifact_ref: functionalRef('paper_implementation_runtime_artifact', 'runtime_artifact_001'),
+        source_proposal_artifact_hash: { nested: 'not-a-hash' },
+      },
+    ),
+    400,
+  );
+});
+
 test('harness and monitor schemas separate trusted linkage from raw callback payload', async () => {
   assert.equal(
     await validateWithSchema(

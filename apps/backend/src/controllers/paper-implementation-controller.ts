@@ -48,6 +48,7 @@ import type {
   CreateImplementationHarnessRequest,
   CreateImplementationInputSnapshotRequest,
   ResolveDecisionWorkQueueItemRequest,
+  ResolveDecisionWorkQueueItemResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-ai-workflow-harness-contracts';
 import type {
   CancelLiveExperimentRunRequest,
@@ -58,6 +59,10 @@ import type {
 import type {
   RunProviderVarianceEvaluationRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-provider-variance-contracts';
+import type {
+  AdvancePaperImplementationCoordinatorRunRequest,
+  CreatePaperImplementationCoordinatorRunRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 import type {
   AdmitPaperImplementationRuntimeArtifactRequestPayload,
   ListPaperImplementationRuntimeAdmissionRecordsQuery,
@@ -98,6 +103,7 @@ import { PaperImplementationEvidenceBoardCurationRuntimeService } from '../servi
 import { PaperImplementationMotiveDecompositionRuntimeService } from '../services/paper-implementation-motive-decomposition-runtime-service.js';
 import { PaperImplementationMotiveEvolutionRuntimeService } from '../services/paper-implementation-motive-evolution-runtime-service.js';
 import { PaperImplementationRuntimeDomainGateService } from '../services/paper-implementation-runtime-domain-gate-service.js';
+import { PaperImplementationRunCoordinatorService } from '../services/paper-implementation-run-coordinator-service.js';
 import { PaperImplementationHumanConfirmationService } from '../services/paper-implementation-human-confirmation-service.js';
 import type {
   CreateHumanConfirmationRecordRequest,
@@ -152,6 +158,7 @@ export interface PaperImplementationControllerDependencies {
   motiveDecompositionRuntime: PaperImplementationMotiveDecompositionRuntimeService;
   motiveEvolutionRuntime: PaperImplementationMotiveEvolutionRuntimeService;
   runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
+  runCoordinator?: PaperImplementationRunCoordinatorService;
   humanConfirmation: PaperImplementationHumanConfirmationService;
   liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService;
   providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService;
@@ -178,6 +185,7 @@ export class PaperImplementationController {
   private readonly motiveDecompositionRuntime: PaperImplementationMotiveDecompositionRuntimeService;
   private readonly motiveEvolutionRuntime: PaperImplementationMotiveEvolutionRuntimeService;
   private readonly runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
+  private readonly runCoordinator?: PaperImplementationRunCoordinatorService;
   private readonly humanConfirmation: PaperImplementationHumanConfirmationService;
   private readonly liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService;
   private readonly providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService;
@@ -203,6 +211,7 @@ export class PaperImplementationController {
     this.motiveDecompositionRuntime = dependencies.motiveDecompositionRuntime;
     this.motiveEvolutionRuntime = dependencies.motiveEvolutionRuntime;
     this.runtimeDomainGate = dependencies.runtimeDomainGate;
+    this.runCoordinator = dependencies.runCoordinator;
     this.humanConfirmation = dependencies.humanConfirmation;
     this.liveExperimentAdapter = dependencies.liveExperimentAdapter;
     this.providerVarianceEvaluation = dependencies.providerVarianceEvaluation;
@@ -1130,6 +1139,13 @@ export class PaperImplementationController {
     }
   };
 
+  private requireRunCoordinator(): PaperImplementationRunCoordinatorService {
+    if (!this.runCoordinator) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'PaperImplementation run coordinator is not configured.');
+    }
+    return this.runCoordinator;
+  }
+
   private requireLiveExperimentAdapter(): PaperImplementationLiveExperimentAdapterService {
     if (!this.liveExperimentAdapter) {
       throw new AppError(500, 'INTERNAL_ERROR', 'PaperImplementation live experiment adapter is not configured.');
@@ -1623,6 +1639,62 @@ export class PaperImplementationController {
     }
   };
 
+  createCoordinatorRun = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string };
+      Body: CreatePaperImplementationCoordinatorRunRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const run = await this.requireRunCoordinator().createCoordinatorRun(
+        request.params.implementation_project_id,
+        request.body,
+      );
+      return reply.status(201).send(run);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  advanceCoordinatorRun = async (
+    request: FastifyRequest<{
+      Params: { implementation_project_id: string; coordinator_run_id: string };
+      Body: AdvancePaperImplementationCoordinatorRunRequest;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.requireRunCoordinator().advance(
+        request.params.implementation_project_id,
+        request.params.coordinator_run_id,
+        request.body ?? {},
+      );
+      // D1: HTTP semantics stay 202 (advance is an asynchronous progression
+      // request); v1 drives the progression loop synchronously before
+      // returning the current run projection, a resident daemon remains a
+      // compatible extension.
+      return reply.status(202).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  getCoordinatorRun = async (
+    request: ParamsRequest<{ implementation_project_id: string; coordinator_run_id: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.requireRunCoordinator().getCoordinatorRun(
+        request.params.implementation_project_id,
+        request.params.coordinator_run_id,
+      );
+      return reply.send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   runValidationCyclePlanningRuntime = async (
     request: FastifyRequest<{
       Params: { implementation_project_id: string };
@@ -1827,6 +1899,16 @@ export class PaperImplementationController {
     }
   };
 
+  /**
+   * W4 queue reflow composition lives here, at the controller layer, so the
+   * harness service never depends on the coordinator: resolve first, then —
+   * only when `re_advance === true` and the item carries a
+   * `source_coordinator_run_ref` — trigger one coordinator advance and
+   * return its projection with the resolved item. The retry-budget and
+   * cooldown gates run BEFORE the resolve so a 409 leaves the item
+   * untouched; budget is checked first so an exhausted budget surfaces the
+   * raise hint instead of being masked by the cooldown window.
+   */
   resolveDecisionWorkQueueItem = async (
     request: FastifyRequest<{
       Params: {
@@ -1838,12 +1920,62 @@ export class PaperImplementationController {
     reply: FastifyReply,
   ) => {
     try {
-      const result = await this.aiWorkflowHarness.resolveDecisionWorkQueueItem(
-        request.params.implementation_project_id,
-        request.params.queue_item_id,
+      const implementationProjectId = request.params.implementation_project_id;
+      const queueItemId = request.params.queue_item_id;
+      let reAdvanceCoordinatorRunId: string | null = null;
+      if (request.body.re_advance === true) {
+        const item = await this.aiWorkflowHarness.getDecisionWorkQueueItem(
+          implementationProjectId,
+          queueItemId,
+        );
+        if (item.source_coordinator_run_ref) {
+          const effectiveRetryBudget = request.body.retry_budget_override
+            ? Math.max(item.retry_budget, request.body.retry_budget_override)
+            : item.retry_budget;
+          if (item.retry_count >= effectiveRetryBudget) {
+            throw new AppError(
+              409,
+              'GATE_CONSTRAINT_FAILED',
+              `DecisionWorkQueueItem ${queueItemId} retry budget is exhausted `
+              + `(retry_count ${item.retry_count} >= retry_budget ${effectiveRetryBudget}); `
+              + 'raise it explicitly via retry_budget_override before re-advancing.',
+              {
+                retry_count: item.retry_count,
+                retry_budget: effectiveRetryBudget,
+                recommended_action: 'raise_retry_budget',
+              },
+            );
+          }
+          if (item.cooldown_until && Date.parse(item.cooldown_until) > Date.now()) {
+            throw new AppError(
+              409,
+              'GATE_CONSTRAINT_FAILED',
+              `DecisionWorkQueueItem ${queueItemId} is cooling down until ${item.cooldown_until}; `
+              + 're-advance is rejected before the cooldown elapses.',
+              { cooldown_until: item.cooldown_until },
+            );
+          }
+          reAdvanceCoordinatorRunId = item.source_coordinator_run_ref.ref_id;
+        }
+      }
+      const resolved = await this.aiWorkflowHarness.resolveDecisionWorkQueueItem(
+        implementationProjectId,
+        queueItemId,
         request.body,
       );
-      return reply.send(result);
+      if (!reAdvanceCoordinatorRunId) {
+        return reply.send(resolved);
+      }
+      const coordinatorAdvance = await this.requireRunCoordinator().advance(
+        implementationProjectId,
+        reAdvanceCoordinatorRunId,
+        {},
+      );
+      const response: ResolveDecisionWorkQueueItemResponse = {
+        ...resolved,
+        coordinator_advance: coordinatorAdvance,
+      };
+      return reply.send(response);
     } catch (error) {
       return handleError(reply, error);
     }

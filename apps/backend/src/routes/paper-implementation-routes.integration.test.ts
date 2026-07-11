@@ -1712,6 +1712,149 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
   }
 });
 
+async function bootstrapProjectWithMotiveDraft(app: ReturnType<typeof buildApp>): Promise<string> {
+  const created = await app.inject({
+    method: 'POST',
+    url: '/paper-implementation/projects/bootstrap',
+    payload: {
+      paper_project_bridge_id: 'paper_project_bridge_001',
+      bridge_payload_hash: 'bridge_payload_hash_001',
+    },
+  });
+  assertStatus(created, 201);
+  const projectId = (created.json() as BootstrapImplementationProjectResponse)
+    .implementation_project.implementation_project_id;
+  const draft = await app.inject({
+    method: 'POST',
+    url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/core-motives/drafts`,
+    payload: motiveDraftPayload(),
+  });
+  assertStatus(draft, 201);
+  return projectId;
+}
+
+function evolutionDecisionPayload(confirmationRecordId: string) {
+  return {
+    source_motive_refs: [ref('core_motive', 'core_motive_route_001')],
+    evolution_type: 'refine_statement',
+    effect_class: 'structural_evolution',
+    decision_summary: 'Structural refinement of the drafted motive.',
+    decision_rationale: 'Board review requires refining the motive statement.',
+    change_set: {},
+    human_confirmation_required: true,
+    confirmed_by: 'human',
+    confirmation_ref: ref('human_confirmation_record', confirmationRecordId),
+    application_status: 'proposed',
+  };
+}
+
+async function createConfirmationForTargets(
+  app: ReturnType<typeof buildApp>,
+  projectId: string,
+  targetRefs: TopicSelectionFunctionalRef[],
+): Promise<string> {
+  const confirmation = await app.inject({
+    method: 'POST',
+    url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/human-confirmations`,
+    payload: {
+      confirmation_scope: 'motive_evolution_decision',
+      target_refs: targetRefs,
+      rationale: 'Reviewed the structural evolution before confirming.',
+      confirmed_by_actor_type: 'human',
+      confirmed_by_actor_id: 'reviewer_001',
+    },
+  });
+  assertStatus(confirmation, 201);
+  return (confirmation.json() as { confirmation_record_id: string }).confirmation_record_id;
+}
+
+test('human confirmation target binding rejects records that do not cover the authorized object', async () => {
+  const app = buildApp({
+    paperImplementationRepository: new InMemoryPaperImplementationRepository(),
+    paperImplementationTraceRepository: new InMemoryPaperImplementationTraceRepository(),
+    paperImplementationBridgeService: new StubBridgeService(),
+  });
+  try {
+    const projectId = await bootstrapProjectWithMotiveDraft(app);
+    const confirmationRecordId = await createConfirmationForTargets(app, projectId, [
+      ref('core_motive', 'core_motive_unrelated_001'),
+    ]);
+
+    const rejected = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/motive-evolution-decisions`,
+      payload: evolutionDecisionPayload(confirmationRecordId),
+    });
+    assertStatus(rejected, 409);
+    const rejectedBody = rejected.json() as { error: { code: string; message: string } };
+    assert.equal(rejectedBody.error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.match(rejectedBody.error.message, /target_refs must cover the authorized object/);
+
+    // The record stays unconsumed and usable for its actual target.
+    const records = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/human-confirmations`,
+    });
+    assertStatus(records, 200);
+    const items = (records.json() as { items: { consumed_at?: string | null }[] }).items;
+    assert.equal(items.length, 1);
+    assert.equal(items[0]?.consumed_at ?? null, null);
+  } finally {
+    await app.close();
+  }
+});
+
+test('human confirmation record is consumed once and rejects reuse across decisions', async () => {
+  const app = buildApp({
+    paperImplementationRepository: new InMemoryPaperImplementationRepository(),
+    paperImplementationTraceRepository: new InMemoryPaperImplementationTraceRepository(),
+    paperImplementationBridgeService: new StubBridgeService(),
+  });
+  try {
+    const projectId = await bootstrapProjectWithMotiveDraft(app);
+    const confirmationRecordId = await createConfirmationForTargets(app, projectId, [
+      ref('core_motive', 'core_motive_route_001'),
+    ]);
+
+    const firstDecision = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/motive-evolution-decisions`,
+      payload: evolutionDecisionPayload(confirmationRecordId),
+    });
+    assertStatus(firstDecision, 201);
+    const firstDecisionId = (firstDecision.json() as { motive_evolution_decision_id: string })
+      .motive_evolution_decision_id;
+
+    const records = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/human-confirmations`,
+    });
+    assertStatus(records, 200);
+    const consumed = (records.json() as {
+      items: {
+        confirmation_record_id: string;
+        consumed_at?: string | null;
+        consumed_by_ref?: { ref_type: string; ref_id: string } | null;
+      }[];
+    }).items.find((item) => item.confirmation_record_id === confirmationRecordId);
+    assert.ok(consumed?.consumed_at);
+    assert.equal(consumed?.consumed_by_ref?.ref_type, 'motive_evolution_decision');
+    assert.equal(consumed?.consumed_by_ref?.ref_id, firstDecisionId);
+
+    const reused = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/motive-evolution-decisions`,
+      payload: evolutionDecisionPayload(confirmationRecordId),
+    });
+    assertStatus(reused, 409);
+    const reusedBody = reused.json() as { error: { code: string; message: string } };
+    assert.equal(reusedBody.error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.match(reusedBody.error.message, /already been consumed/);
+  } finally {
+    await app.close();
+  }
+});
+
 test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale hash, and feedback behavior through real service', async () => {
   const app = Fastify({ logger: false });
   const {

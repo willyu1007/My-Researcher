@@ -258,6 +258,22 @@ const REQUIRED_RUNTIME_REGRESSION_CASES = [
     subtest: 'route planning runtime rejects missing or inactive implementation project before provider calls',
   },
   {
+    key: 'route_skeptic_upstream_artifact_admission_recheck',
+    subtest: 'route skeptic runtime rejects unadmitted, drifted, blocked, or wrong-slot upstream route proposals before provider calls',
+  },
+  {
+    key: 'validation_cycle_planning_upstream_artifact_admission_recheck',
+    subtest: 'validation cycle planning runtime rejects unadmitted, drifted, blocked, or wrong-slot upstream route artifacts before provider calls',
+  },
+  {
+    key: 'feasibility_planning_upstream_artifact_admission_recheck',
+    subtest: 'feasibility planning runtime rejects unadmitted, drifted, blocked, or wrong-slot upstream cycle artifacts before provider calls',
+  },
+  {
+    key: 'feasibility_planning_route_lineage_anchor_admission_recheck',
+    subtest: 'feasibility planning runtime rejects unadmitted or drifted route lineage anchors before provider calls',
+  },
+  {
     key: 'validation_cycle_planning_inactive_project_rejected_before_orchestrator',
     subtest: 'validation cycle planning runtime rejects missing or inactive implementation project before provider calls',
   },
@@ -317,6 +333,34 @@ const REQUIRED_RUNTIME_REGRESSION_CASES = [
     key: 'domain_gate_blocked_and_failed_runtime_final_artifact_rejection',
     subtest: 'PaperImplementation runtime Domain Gate route rejects blocked and failed runtime artifacts',
   },
+  {
+    key: 'coordinator_lane_a_single_advance_completes',
+    subtest: 'coordinator lane A single advance completes with chained artifact lineage',
+  },
+  {
+    key: 'coordinator_concurrent_advance_single_execution',
+    subtest: 'coordinator concurrent double advance executes once and rejects the loser with 409',
+  },
+  {
+    key: 'coordinator_crash_readvance_resumes_without_duplicates',
+    subtest: 'coordinator crash re-advance resumes from the breakpoint without duplicate steps or artifacts',
+  },
+  {
+    key: 'coordinator_budget_exhausted',
+    subtest: 'coordinator budget exhaustion parks the run as budget_exhausted',
+  },
+  {
+    key: 'coordinator_selection_decision_replayable',
+    subtest: 'coordinator candidate selection decision records are replayable from stored projections',
+  },
+  {
+    key: 'coordinator_blocked_step_materializes_queue_item',
+    subtest: 'coordinator blocked step materializes a decision work queue item with dedup and retry accumulation',
+  },
+  {
+    key: 'queue_resolve_readvance_resumes_run',
+    subtest: 'queue resolve re-advance resumes the coordinator run from the breakpoint',
+  },
 ];
 
 const REQUIRED_DETERMINISTIC_LANE_CASES = [
@@ -371,6 +415,18 @@ const REQUIRED_DETERMINISTIC_LANE_CASES = [
   {
     key: 'work_order_final_evidence_trace_identity',
     subtest: 'trusted final run evidence requires target-specific run evidence trace manifest',
+  },
+  {
+    key: 'acceptance_bridge_lineage_drift_rejected',
+    subtest: 'acceptance bridge rejects lineage drift for forged hash, blocked final, and wrong workflow type',
+  },
+  {
+    key: 'human_confirmation_target_binding_enforced',
+    subtest: 'human confirmation target binding rejects records that do not cover the authorized object',
+  },
+  {
+    key: 'human_confirmation_single_use_consumption',
+    subtest: 'human confirmation record is consumed once and rejects reuse across decisions',
   },
 ];
 
@@ -543,6 +599,7 @@ const steps = [
       'src/services/paper-implementation-motive-decomposition-runtime-service.unit.test.ts',
       'src/services/paper-implementation-motive-evolution-runtime-service.unit.test.ts',
       'src/services/paper-implementation-runtime-domain-gate-service.unit.test.ts',
+      'src/services/paper-implementation-run-coordinator-service.unit.test.ts',
       'src/routes/paper-implementation-runtime-routes.integration.test.ts',
     ],
   },

@@ -109,6 +109,12 @@ import { PaperImplementationFeasibilityPlanningRuntimeService } from './paper-im
 import { PaperImplementationMotiveDecompositionRuntimeService } from './paper-implementation-motive-decomposition-runtime-service.js';
 import { PaperImplementationMotiveEvolutionRuntimeService } from './paper-implementation-motive-evolution-runtime-service.js';
 import { PaperImplementationRoutePlanningRuntimeService } from './paper-implementation-route-planning-runtime-service.js';
+import {
+  seedAdmittedRoutePlanningLineage,
+  seedAdmittedValidationPlanningLineage,
+  type PaperImplementationSeededRouteLineage,
+  type PaperImplementationSeededValidationLineage,
+} from './paper-implementation-runtime-chain-lineage-fixtures.js';
 import { PaperImplementationValidationCyclePlanningRuntimeService } from './paper-implementation-validation-cycle-planning-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import {
@@ -665,10 +671,12 @@ test('L5 route skeptic incomplete dimension set retries once and does not create
   const gateway = new ScriptedLlmGateway(() => routeSkepticRoleOutput({
     checked_dimensions: ['compute_budget'],
   }));
-  const { routePlanningService } = realRuntimeFixture(gateway);
+  const fixture = realRuntimeFixture(gateway);
+  const lineage = await seedAdmittedRoutePlanningLineage(l5LineageSeedOptions(fixture));
 
-  const result = await routePlanningService.runRouteSkepticReview(PROJECT_ID, routePlanningRequest('skeptic', {
+  const result = await fixture.routePlanningService.runRouteSkepticReview(PROJECT_ID, routePlanningRequest('skeptic', {
     run_id: 'route_skeptic_l5_incomplete_dimensions_run_001',
+    admitted_route_proposal: { ref: lineage.routeProposalRef, hash: lineage.routeProposalHash },
   }));
 
   assert.equal(result.status, 'failed_runtime');
@@ -697,10 +705,12 @@ test('L5 validation cycle planning provider gateway failure retries once and doe
       telemetry: telemetry(request),
     });
   });
-  const { validationCyclePlanningService } = realRuntimeFixture(gateway);
+  const fixture = realRuntimeFixture(gateway);
+  const lineage = await seedAdmittedRoutePlanningLineage(l5LineageSeedOptions(fixture));
 
-  const result = await validationCyclePlanningService.runCycleCandidates(PROJECT_ID, validationCyclePlanningRequest({
+  const result = await fixture.validationCyclePlanningService.runCycleCandidates(PROJECT_ID, validationCyclePlanningRequest({
     run_id: 'validation_cycle_planning_l5_provider_failure_run_001',
+    lineage,
   }));
 
   assert.equal(result.status, 'failed_runtime');
@@ -727,10 +737,12 @@ test('L5 validation cycle planning incomplete candidate set retries once and doe
   const gateway = new ScriptedLlmGateway(() => validationCyclePlanningRoleOutput({
     cycle_candidate_proposals: [validationCycleCandidateProposal('single_cycle_candidate_l5', false)],
   }));
-  const { validationCyclePlanningService } = realRuntimeFixture(gateway);
+  const fixture = realRuntimeFixture(gateway);
+  const lineage = await seedAdmittedRoutePlanningLineage(l5LineageSeedOptions(fixture));
 
-  const result = await validationCyclePlanningService.runCycleCandidates(PROJECT_ID, validationCyclePlanningRequest({
+  const result = await fixture.validationCyclePlanningService.runCycleCandidates(PROJECT_ID, validationCyclePlanningRequest({
     run_id: 'validation_cycle_planning_l5_incomplete_candidates_run_001',
+    lineage,
   }));
 
   assert.equal(result.status, 'failed_runtime');
@@ -755,15 +767,17 @@ test('L5 validation cycle planning incomplete candidate set retries once and doe
 
 test('L5 feasibility planning stress blocks over-budget source bundles before provider calls', async () => {
   const gateway = new ScriptedLlmGateway(() => feasibilityPlanningRoleOutput());
-  const { feasibilityPlanningService } = realRuntimeFixture(gateway);
+  const fixture = realRuntimeFixture(gateway);
+  const lineage = await seedAdmittedValidationPlanningLineage(l5LineageSeedOptions(fixture));
   const largeSourceRefs = Array.from({ length: 1200 }, (_, index) => ref(
     'validation_cycle_planning_runtime_artifact',
     `validation_cycle_planning_artifact_${String(index).padStart(4, '0')}_${'x'.repeat(96)}`,
   ));
-  const result = await feasibilityPlanningService.runProbePlanCandidates(PROJECT_ID, feasibilityPlanningRequest({
+  const result = await fixture.feasibilityPlanningService.runProbePlanCandidates(PROJECT_ID, feasibilityPlanningRequest({
     run_id: 'feasibility_planning_l5_over_budget_run_001',
     source_refs: largeSourceRefs,
     source_hashes: largeSourceRefs.map((item) => hash(item.ref_id)),
+    lineage,
   }));
 
   assert.equal(result.status, 'failed_runtime');
@@ -792,10 +806,12 @@ test('L5 feasibility planning provider gateway failure retries once and does not
       telemetry: telemetry(request),
     });
   });
-  const { feasibilityPlanningService } = realRuntimeFixture(gateway);
+  const fixture = realRuntimeFixture(gateway);
+  const lineage = await seedAdmittedValidationPlanningLineage(l5LineageSeedOptions(fixture));
 
-  const result = await feasibilityPlanningService.runProbePlanCandidates(PROJECT_ID, feasibilityPlanningRequest({
+  const result = await fixture.feasibilityPlanningService.runProbePlanCandidates(PROJECT_ID, feasibilityPlanningRequest({
     run_id: 'feasibility_planning_l5_provider_failure_run_001',
+    lineage,
   }));
 
   assert.equal(result.status, 'failed_runtime');
@@ -832,10 +848,12 @@ test('L5 feasibility planning incomplete candidate set retries once and does not
   const gateway = new ScriptedLlmGateway(() => feasibilityPlanningRoleOutput({
     probe_plan_candidate_proposals: [feasibilityProbePlanCandidateProposal('single_probe_candidate_l5', false)],
   }));
-  const { feasibilityPlanningService } = realRuntimeFixture(gateway);
+  const fixture = realRuntimeFixture(gateway);
+  const lineage = await seedAdmittedValidationPlanningLineage(l5LineageSeedOptions(fixture));
 
-  const result = await feasibilityPlanningService.runProbePlanCandidates(PROJECT_ID, feasibilityPlanningRequest({
+  const result = await fixture.feasibilityPlanningService.runProbePlanCandidates(PROJECT_ID, feasibilityPlanningRequest({
     run_id: 'feasibility_planning_l5_incomplete_candidates_run_001',
+    lineage,
   }));
 
   assert.equal(result.status, 'failed_runtime');
@@ -1903,6 +1921,9 @@ function realRuntimeFixture(gateway: TopicSelectionAgentOrchestratorLlmGateway) 
   });
   return {
     repository,
+    runtimeAdmission,
+    projectRepository,
+    idFactory,
     traceService: new PaperImplementationTraceIntegrityDebateRuntimeService({
       projectRepository,
       runtimeAdmission,
@@ -1980,6 +2001,24 @@ function realRuntimeFixture(gateway: TopicSelectionAgentOrchestratorLlmGateway) 
       idFactory,
       now: () => NOW,
     }),
+  };
+}
+
+function l5LineageSeedOptions(fixture: {
+  runtimeAdmission: PaperImplementationRuntimeAdmissionService;
+  projectRepository: InMemoryPaperImplementationRepository;
+  idFactory: (prefix: string) => string;
+}) {
+  return {
+    projectRepository: fixture.projectRepository,
+    runtimeAdmission: fixture.runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    titleCardId: TITLE_CARD_ID,
+    idFactory: fixture.idFactory,
+    now: () => NOW,
+    runIdPrefix: 'l5_lineage_seed',
+    reviewedRouteCandidateKey: 'exploratory_route_candidate_l5',
+    reviewedCycleCandidateKey: 'exploratory_cycle_candidate_l5',
   };
 }
 
@@ -2153,6 +2192,7 @@ function routePlanningRequest(
     run_id?: string;
     source_refs?: TopicSelectionFunctionalRef[];
     source_hashes?: string[];
+    admitted_route_proposal?: { ref: TopicSelectionFunctionalRef; hash: string };
   } = {},
 ): RunPaperImplementationRoutePlanningRuntimeRequest {
   const architecture = kind === 'architecture';
@@ -2179,8 +2219,10 @@ function routePlanningRequest(
     source_hashes: sourceHashes,
     admitted_route_proposal_artifact_ref: architecture
       ? null
-      : ref('route_architecture_runtime_artifact', 'route_architecture_final_l5_001'),
-    admitted_route_proposal_artifact_hash: architecture ? null : hash('route-architecture-final-l5'),
+      : overrides.admitted_route_proposal?.ref ?? ref('route_architecture_runtime_artifact', 'route_architecture_final_l5_001'),
+    admitted_route_proposal_artifact_hash: architecture
+      ? null
+      : overrides.admitted_route_proposal?.hash ?? hash('route-architecture-final-l5'),
     reviewed_candidate_keys: architecture ? [] : ['exploratory_route_candidate_l5'],
     secondary_route_candidate_refs: architecture
       ? []
@@ -2194,6 +2236,7 @@ function validationCyclePlanningRequest(
     run_id?: string;
     source_refs?: TopicSelectionFunctionalRef[];
     source_hashes?: string[];
+    lineage?: PaperImplementationSeededRouteLineage;
   } = {},
 ): RunPaperImplementationValidationCyclePlanningRuntimeRequest {
   const sourceRefs = overrides.source_refs ?? [
@@ -2214,10 +2257,12 @@ function validationCyclePlanningRequest(
     input_snapshot_hash: hash('input-snapshot-l5'),
     source_refs: sourceRefs,
     source_hashes: sourceHashes,
-    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_l5_001'),
-    admitted_route_proposal_artifact_hash: hash('route-architecture-final-l5'),
-    admitted_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_l5_001'),
-    admitted_route_skeptic_artifact_hash: hash('route-skeptic-final-l5'),
+    admitted_route_proposal_artifact_ref: overrides.lineage?.routeProposalRef
+      ?? ref('route_architecture_runtime_artifact', 'route_architecture_final_l5_001'),
+    admitted_route_proposal_artifact_hash: overrides.lineage?.routeProposalHash ?? hash('route-architecture-final-l5'),
+    admitted_route_skeptic_artifact_ref: overrides.lineage?.routeSkepticRef
+      ?? ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_l5_001'),
+    admitted_route_skeptic_artifact_hash: overrides.lineage?.routeSkepticHash ?? hash('route-skeptic-final-l5'),
     reviewed_candidate_keys: ['exploratory_route_candidate_l5'],
     secondary_route_candidate_refs: [ref('technical_route_candidate', 'technical_route_candidate_secondary_l5_001')],
     preflight_blocker_codes: [],
@@ -2229,6 +2274,7 @@ function feasibilityPlanningRequest(
     run_id?: string;
     source_refs?: TopicSelectionFunctionalRef[];
     source_hashes?: string[];
+    lineage?: PaperImplementationSeededValidationLineage;
   } = {},
 ): RunPaperImplementationFeasibilityPlanningRuntimeRequest {
   const sourceRefs = overrides.source_refs ?? [
@@ -2250,12 +2296,16 @@ function feasibilityPlanningRequest(
     input_snapshot_hash: hash('input-snapshot-l5'),
     source_refs: sourceRefs,
     source_hashes: sourceHashes,
-    admitted_validation_cycle_artifact_ref: ref('validation_cycle_planning_runtime_artifact', 'validation_cycle_planning_final_l5_001'),
-    admitted_validation_cycle_artifact_hash: hash('validation-cycle-planning-final-l5'),
-    admitted_route_proposal_artifact_ref: ref('route_architecture_runtime_artifact', 'route_architecture_final_l5_001'),
-    admitted_route_proposal_artifact_hash: hash('route-architecture-final-l5'),
-    admitted_route_skeptic_artifact_ref: ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_l5_001'),
-    admitted_route_skeptic_artifact_hash: hash('route-skeptic-final-l5'),
+    admitted_validation_cycle_artifact_ref: overrides.lineage?.validationCycleRef
+      ?? ref('validation_cycle_planning_runtime_artifact', 'validation_cycle_planning_final_l5_001'),
+    admitted_validation_cycle_artifact_hash: overrides.lineage?.validationCycleHash
+      ?? hash('validation-cycle-planning-final-l5'),
+    admitted_route_proposal_artifact_ref: overrides.lineage?.routeProposalRef
+      ?? ref('route_architecture_runtime_artifact', 'route_architecture_final_l5_001'),
+    admitted_route_proposal_artifact_hash: overrides.lineage?.routeProposalHash ?? hash('route-architecture-final-l5'),
+    admitted_route_skeptic_artifact_ref: overrides.lineage?.routeSkepticRef
+      ?? ref('route_skeptic_review_runtime_artifact', 'route_skeptic_final_l5_001'),
+    admitted_route_skeptic_artifact_hash: overrides.lineage?.routeSkepticHash ?? hash('route-skeptic-final-l5'),
     reviewed_cycle_candidate_keys: ['exploratory_cycle_candidate_l5'],
     reviewed_route_candidate_keys: ['exploratory_route_candidate_l5'],
     secondary_route_candidate_refs: [ref('technical_route_candidate', 'technical_route_candidate_secondary_l5_001')],

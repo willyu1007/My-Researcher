@@ -74,6 +74,64 @@ test('HumanConfirmationRecord schema accepts a complete record', async () => {
   );
 });
 
+test('HumanConfirmationRecord schema accepts consumption fields and rejects malformed ones', async () => {
+  assert.equal(
+    await validateWithSchema(humanConfirmationContracts.humanConfirmationRecordSchema, {
+      ...validRecord(),
+      consumed_at: '2026-07-10T11:00:00.000Z',
+      consumed_by_ref: functionalRef('claim_candidate', 'claim_candidate_001'),
+    }),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(humanConfirmationContracts.humanConfirmationRecordSchema, {
+      ...validRecord(),
+      consumed_at: null,
+      consumed_by_ref: null,
+    }),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(humanConfirmationContracts.humanConfirmationRecordSchema, {
+      ...validRecord(),
+      consumed_at: { nested: 'object' },
+    }),
+    400,
+  );
+  assert.equal(
+    await validateWithSchema(humanConfirmationContracts.humanConfirmationRecordSchema, {
+      ...validRecord(),
+      consumed_by_ref: { ref_type: 'claim_candidate' },
+    }),
+    400,
+  );
+});
+
+test('CreateHumanConfirmationRecordRequest rejects caller-supplied consumption fields', async () => {
+  const schema = humanConfirmationContracts.createHumanConfirmationRecordRequestSchema;
+  const baseRequest = {
+    confirmation_scope: 'strong_claim_acceptance',
+    target_refs: [functionalRef('claim_candidate', 'claim_candidate_001')],
+    rationale: 'Reviewed the claim before accepting.',
+    confirmed_by_actor_type: 'human',
+  };
+  assert.equal(await validateWithSchema(schema, baseRequest), 200);
+  assert.equal(
+    await validateWithSchema(schema, {
+      ...baseRequest,
+      consumed_at: '2026-07-10T11:00:00.000Z',
+    }),
+    400,
+  );
+  assert.equal(
+    await validateWithSchema(schema, {
+      ...baseRequest,
+      consumed_by_ref: functionalRef('claim_candidate', 'claim_candidate_001'),
+    }),
+    400,
+  );
+});
+
 test('HumanConfirmationRecord schema rejects unknown scope, empty targets, and unknown keys', async () => {
   assert.equal(
     await validateWithSchema(humanConfirmationContracts.humanConfirmationRecordSchema, {

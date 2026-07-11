@@ -4,6 +4,7 @@ import type {
 
 import { AppError } from '../errors/app-error.js';
 import type {
+  HumanConfirmationConsumption,
   PaperImplementationHumanConfirmationRepository,
 } from './paper-implementation-human-confirmation.repository.js';
 
@@ -51,6 +52,35 @@ implements PaperImplementationHumanConfirmationRepository {
       .map((id) => this.records.get(id))
       .filter((record): record is HumanConfirmationRecord => Boolean(record))
       .map((record) => structuredClone(record));
+  }
+
+  async consumeHumanConfirmationRecord(
+    implementationProjectId: string,
+    confirmationRecordId: string,
+    consumption: HumanConfirmationConsumption,
+  ): Promise<HumanConfirmationRecord> {
+    const record = this.records.get(confirmationRecordId);
+    if (
+      !record
+      || record.implementation_project_id !== implementationProjectId
+      || record.status !== 'active'
+      || record.consumed_at
+    ) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `HumanConfirmationRecord ${confirmationRecordId} cannot be consumed: it is missing, not active, or already consumed.`,
+        {
+          confirmation_record_id: confirmationRecordId,
+          status: record?.status ?? null,
+          consumed_at: record?.consumed_at ?? null,
+        },
+      );
+    }
+    record.consumed_at = consumption.consumed_at;
+    record.consumed_by_ref = structuredClone(consumption.consumed_by_ref);
+    record.updated_at = consumption.consumed_at;
+    return structuredClone(record);
   }
 
   private pushId(index: Map<string, string[]>, key: string, id: string): void {

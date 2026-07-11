@@ -98,6 +98,7 @@ export const ERROR_CODES = [
   'GATE_CONSTRAINT_FAILED',
   'NO_M6_POLICY_VIOLATION',
   'SNAPSHOT_LOCKED',
+  'CONCURRENT_ADVANCE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

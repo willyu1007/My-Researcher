@@ -23,6 +23,7 @@ import type {
 
 import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationMotiveRepository } from '../repositories/in-memory-paper-implementation-motive-repository.js';
+import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import type {
@@ -30,6 +31,8 @@ import type {
   PaperImplementationBootstrapResult,
   PaperImplementationRepository,
 } from '../repositories/paper-implementation.repository.js';
+import { seedAcceptedProposalFixture } from './paper-implementation-acceptance-bridge-test-fixtures.js';
+import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { PaperImplementationValidationCyclePlanningService } from './paper-implementation-validation-cycle-planning-service.js';
 
 const NOW = '2026-05-21T00:00:00.000Z';
@@ -224,12 +227,17 @@ async function makeHarness(seedOptions: SeedOptions = {}) {
   const traceRepository = new InMemoryPaperImplementationTraceRepository();
   const validationRepository = new InMemoryPaperImplementationValidationRepository();
   const feedbackRecorder = new RecordingFeedbackRecorder();
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository: new InMemoryPaperImplementationRuntimeRepository(),
+    now: () => NOW,
+  });
   const service = new PaperImplementationValidationCyclePlanningService({
     projectRepository,
     motiveRepository,
     traceRepository,
     validationRepository,
     feedbackRecorder,
+    runtimeAdmission,
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
@@ -239,6 +247,7 @@ async function makeHarness(seedOptions: SeedOptions = {}) {
     traceRepository,
     validationRepository,
     feedbackRecorder,
+    runtimeAdmission,
   };
 }
 
@@ -691,6 +700,88 @@ test('route and plan creation block ownership drift', async () => {
       trace_manifest_id: 'trace_manifest_unused',
     }),
     'GATE_CONSTRAINT_FAILED',
+  );
+});
+
+test('feasibility probe creation with admitted proposal lineage is readable back', async () => {
+  const { service, traceRepository, validationRepository, runtimeAdmission } = await makeHarness();
+  const proposal = await seedAcceptedProposalFixture({
+    admissionService: runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    workflowType: 'feasibility_planning',
+    runtimeArtifactId: 'runtime_artifact_feasibility_planning_001',
+  });
+  await traceRepository.createTraceManifest(
+    traceManifest('trace_manifest_probe', 'feasibility_probe', 'feasibility_probe_001'),
+    [],
+  );
+
+  const probe = await service.createFeasibilityProbe(PROJECT_ID, {
+    probe_id: 'feasibility_probe_001',
+    probe_kind: 'data_feasibility',
+    probe_question: 'Is the scoped dataset locally available?',
+    expected_information_gain: 'medium',
+    primary_metric_refs: [ref('metric', 'metric_001')],
+    trace_manifest_id: 'trace_manifest_probe',
+    source_proposal_artifact_ref: proposal.sourceProposalArtifactRef,
+    source_proposal_artifact_hash: proposal.sourceProposalArtifactHash,
+  });
+  assert.deepEqual(probe.source_proposal_artifact_ref, proposal.sourceProposalArtifactRef);
+  assert.equal(probe.source_proposal_artifact_hash, proposal.sourceProposalArtifactHash);
+
+  const readBack = await validationRepository.findFeasibilityProbeById(PROJECT_ID, 'feasibility_probe_001');
+  assert.deepEqual(readBack?.source_proposal_artifact_ref, proposal.sourceProposalArtifactRef);
+  assert.equal(readBack?.source_proposal_artifact_hash, proposal.sourceProposalArtifactHash);
+});
+
+test('feasibility probe and route lineage drift is rejected before authority writes', async () => {
+  const { service, traceRepository, validationRepository, runtimeAdmission } = await makeHarness();
+  const feasibilityProposal = await seedAcceptedProposalFixture({
+    admissionService: runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    workflowType: 'feasibility_planning',
+    runtimeArtifactId: 'runtime_artifact_feasibility_planning_001',
+  });
+  await traceRepository.createTraceManifest(
+    traceManifest('trace_manifest_probe', 'feasibility_probe', 'feasibility_probe_001'),
+    [],
+  );
+
+  await assertRejectsWithCode(
+    service.createFeasibilityProbe(PROJECT_ID, {
+      probe_id: 'feasibility_probe_001',
+      probe_kind: 'data_feasibility',
+      probe_question: 'Is the scoped dataset locally available?',
+      expected_information_gain: 'medium',
+      primary_metric_refs: [ref('metric', 'metric_001')],
+      trace_manifest_id: 'trace_manifest_probe',
+      source_proposal_artifact_ref: feasibilityProposal.sourceProposalArtifactRef,
+      source_proposal_artifact_hash: 'a'.repeat(64),
+    }),
+    'GATE_CONSTRAINT_FAILED',
+  );
+  assert.equal(await validationRepository.findFeasibilityProbeById(PROJECT_ID, 'feasibility_probe_001'), null);
+
+  await traceRepository.createTraceManifest(
+    traceManifest('trace_manifest_route_lineage', 'technical_route_candidate', 'technical_route_candidate_lineage'),
+    [],
+  );
+  await assertRejectsWithCode(
+    service.createTechnicalRouteCandidate(PROJECT_ID, {
+      route_candidate_id: 'technical_route_candidate_lineage',
+      core_motive_version_id: VERSION_ID,
+      route_summary: 'Route seeded from a feasibility proposal must be rejected.',
+      expected_information_gain: 'medium',
+      primary_metric_refs: [ref('metric', 'metric_001')],
+      trace_manifest_id: 'trace_manifest_route_lineage',
+      source_proposal_artifact_ref: feasibilityProposal.sourceProposalArtifactRef,
+      source_proposal_artifact_hash: feasibilityProposal.sourceProposalArtifactHash,
+    }),
+    'GATE_CONSTRAINT_FAILED',
+  );
+  assert.equal(
+    await validationRepository.findTechnicalRouteCandidateById(PROJECT_ID, 'technical_route_candidate_lineage'),
+    null,
   );
 });
 

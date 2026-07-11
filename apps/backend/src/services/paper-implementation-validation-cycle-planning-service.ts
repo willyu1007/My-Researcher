@@ -42,6 +42,10 @@ import type { PaperImplementationMotiveRepository } from '../repositories/paper-
 import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationTraceRepository } from '../repositories/paper-implementation-trace.repository.js';
 import type { PaperImplementationValidationRepository } from '../repositories/paper-implementation-validation.repository.js';
+import {
+  requireAcceptedProposalLineage,
+  type PaperImplementationAcceptanceBridgeAdmissionReader,
+} from './paper-implementation-acceptance-bridge.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -58,6 +62,7 @@ export type PaperImplementationValidationCyclePlanningServiceOptions = {
   traceRepository: PaperImplementationTraceRepository;
   validationRepository: PaperImplementationValidationRepository;
   feedbackRecorder?: PaperImplementationFeedbackRecorder;
+  runtimeAdmission?: PaperImplementationAcceptanceBridgeAdmissionReader;
   idFactory?: IdFactory;
   now?: () => string;
 };
@@ -80,6 +85,7 @@ export class PaperImplementationValidationCyclePlanningService {
   private readonly traceRepository: PaperImplementationTraceRepository;
   private readonly validationRepository: PaperImplementationValidationRepository;
   private readonly feedbackRecorder?: PaperImplementationFeedbackRecorder;
+  private readonly runtimeAdmission?: PaperImplementationAcceptanceBridgeAdmissionReader;
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
@@ -89,6 +95,7 @@ export class PaperImplementationValidationCyclePlanningService {
     this.traceRepository = options.traceRepository;
     this.validationRepository = options.validationRepository;
     this.feedbackRecorder = options.feedbackRecorder;
+    this.runtimeAdmission = options.runtimeAdmission;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -103,6 +110,12 @@ export class PaperImplementationValidationCyclePlanningService {
     this.assertBudget(request.budget);
     this.assertExpectedInformationGainOverride(request);
     const targetVersion = await this.requireAdmittedTarget(project.implementation_project_id, request);
+    const proposalLineage = await requireAcceptedProposalLineage({
+      runtimeAdmission: this.runtimeAdmission,
+      implementationProjectId: project.implementation_project_id,
+      targetType: 'validation_cycle',
+      request,
+    });
     const createdAt = this.now();
     const createdBy = request.created_by ?? 'system';
     const validationCycleId = request.validation_cycle_id ?? this.idFactory('validation_cycle');
@@ -159,6 +172,8 @@ export class PaperImplementationValidationCyclePlanningService {
       confirmation_level: request.confirmation_level ?? 'not_required',
       confirmed_by: request.confirmed_by ?? null,
       policy_version_id: request.policy_version_id ?? project.policy_version_id ?? null,
+      source_proposal_artifact_ref: proposalLineage?.source_proposal_artifact_ref ?? null,
+      source_proposal_artifact_hash: proposalLineage?.source_proposal_artifact_hash ?? null,
       created_by: createdBy,
       created_at: createdAt,
       updated_at: createdAt,
@@ -299,6 +314,12 @@ export class PaperImplementationValidationCyclePlanningService {
       const cycle = await this.requireValidationCycle(implementationProjectId, request.validation_cycle_id);
       this.assertCycleIncludesMotiveVersion(cycle, version.core_motive_version_id);
     }
+    const proposalLineage = await requireAcceptedProposalLineage({
+      runtimeAdmission: this.runtimeAdmission,
+      implementationProjectId: project.implementation_project_id,
+      targetType: 'technical_route_candidate',
+      request,
+    });
     const routeCandidateId = request.route_candidate_id ?? this.idFactory('technical_route_candidate');
     const traceManifest = await this.requireCompleteTraceManifest(
       implementationProjectId,
@@ -327,6 +348,8 @@ export class PaperImplementationValidationCyclePlanningService {
       confirmatory_marker: request.confirmatory_marker ?? false,
       trace_manifest_ref: this.traceManifestRef(project, traceManifest),
       trace_manifest_id: traceManifest.trace_manifest_id,
+      source_proposal_artifact_ref: proposalLineage?.source_proposal_artifact_ref ?? null,
+      source_proposal_artifact_hash: proposalLineage?.source_proposal_artifact_hash ?? null,
       created_by: request.created_by ?? 'system',
       created_at: createdAt,
     };
@@ -341,6 +364,12 @@ export class PaperImplementationValidationCyclePlanningService {
     if (request.validation_cycle_id) {
       await this.requireValidationCycle(implementationProjectId, request.validation_cycle_id);
     }
+    const proposalLineage = await requireAcceptedProposalLineage({
+      runtimeAdmission: this.runtimeAdmission,
+      implementationProjectId: project.implementation_project_id,
+      targetType: 'feasibility_probe',
+      request,
+    });
     const probeId = request.probe_id ?? this.idFactory('feasibility_probe');
     const traceManifest = await this.requireCompleteTraceManifest(
       implementationProjectId,
@@ -368,6 +397,8 @@ export class PaperImplementationValidationCyclePlanningService {
       confirmatory_marker: request.confirmatory_marker ?? false,
       trace_manifest_ref: this.traceManifestRef(project, traceManifest),
       trace_manifest_id: traceManifest.trace_manifest_id,
+      source_proposal_artifact_ref: proposalLineage?.source_proposal_artifact_ref ?? null,
+      source_proposal_artifact_hash: proposalLineage?.source_proposal_artifact_hash ?? null,
       created_by: request.created_by ?? 'system',
       created_at: createdAt,
     };
@@ -410,6 +441,12 @@ export class PaperImplementationValidationCyclePlanningService {
         this.assertCycleIncludesMotiveVersion(cycle, route.core_motive_version_id);
       }
     }
+    const proposalLineage = await requireAcceptedProposalLineage({
+      runtimeAdmission: this.runtimeAdmission,
+      implementationProjectId: project.implementation_project_id,
+      targetType: 'experiment_plan_light',
+      request,
+    });
     const planId = request.experiment_plan_light_id ?? this.idFactory('experiment_plan_light');
     const traceManifest = await this.requireCompleteTraceManifest(
       implementationProjectId,
@@ -439,6 +476,8 @@ export class PaperImplementationValidationCyclePlanningService {
       stop_condition_refs: request.stop_condition_refs,
       trace_manifest_ref: this.traceManifestRef(project, traceManifest),
       trace_manifest_id: traceManifest.trace_manifest_id,
+      source_proposal_artifact_ref: proposalLineage?.source_proposal_artifact_ref ?? null,
+      source_proposal_artifact_hash: proposalLineage?.source_proposal_artifact_hash ?? null,
       created_by: request.created_by ?? 'system',
       created_at: createdAt,
     };

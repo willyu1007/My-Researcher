@@ -54,6 +54,7 @@ import {
   type TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { requireAdmittedPassedFinalArtifact } from './paper-implementation-runtime-artifact-consumption.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -248,6 +249,15 @@ export class PaperImplementationRoutePlanningRuntimeService {
   ): Promise<PaperImplementationRoutePlanningRuntimeResult> {
     this.assertRequest(profile, request);
     await requireActiveImplementationProject(this.projectRepository, implementationProjectId);
+    if (profile.workflowType === 'route_skeptic_review') {
+      await requireAdmittedPassedFinalArtifact(
+        this.runtimeAdmission,
+        implementationProjectId,
+        request.admitted_route_proposal_artifact_ref ?? null,
+        request.admitted_route_proposal_artifact_hash ?? null,
+        PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+      );
+    }
     const runId = request.run_id?.trim() || this.idFactory(`pi_${profile.workflowType}_runtime_run`);
     const runtimeBase = this.runtimeBase(profile, implementationProjectId, request, runId);
     const artifacts: PaperImplementationRuntimeArtifactEnvelope[] = [];

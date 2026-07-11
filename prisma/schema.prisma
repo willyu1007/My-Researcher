@@ -4141,6 +4141,8 @@ model PaperImplementationHumanConfirmationRecord {
   policyVersionId         String?
   status                  String
   statusReason            String?
+  consumedAt              DateTime? @db.Timestamptz(6)
+  consumedByRef           Json?
   createdAt               DateTime  @db.Timestamptz(6)
   updatedAt               DateTime? @db.Timestamptz(6)
 
@@ -4202,30 +4204,32 @@ model PaperImplementationCoreMotiveSet {
 }
 
 model PaperImplementationCoreMotiveVersion {
-  id                      String    @id
-  implementationProjectId String
-  motiveId                String
-  versionNumber           Int
-  versionStatus           String
-  versionOrigin           Json      @default("{}")
-  motiveContract          Json      @default("{}")
-  scopeContract           Json      @default("{}")
-  boundaryToUpstream      Json      @default("{}")
-  falsificationContract   Json      @default("{}")
-  claimBoundary           Json      @default("{}")
-  routeInterface          Json      @default("{}")
-  sourceRefs              Json      @default("[]")
-  sourceResultPacketRefs  Json      @default("[]")
-  sourceHumanJudgmentRefs Json      @default("[]")
-  traceManifestId         String?
-  traceManifestRef        Json?
-  admissionGateResultId   String?
-  evolutionDecisionId     String?
-  hypothesisOnly          Boolean
-  policyVersionId         String?
-  createdBy               String
-  createdAt               DateTime  @db.Timestamptz(6)
-  admittedAt              DateTime? @db.Timestamptz(6)
+  id                         String    @id
+  implementationProjectId    String
+  motiveId                   String
+  versionNumber              Int
+  versionStatus              String
+  versionOrigin              Json      @default("{}")
+  motiveContract             Json      @default("{}")
+  scopeContract              Json      @default("{}")
+  boundaryToUpstream         Json      @default("{}")
+  falsificationContract      Json      @default("{}")
+  claimBoundary              Json      @default("{}")
+  routeInterface             Json      @default("{}")
+  sourceRefs                 Json      @default("[]")
+  sourceResultPacketRefs     Json      @default("[]")
+  sourceHumanJudgmentRefs    Json      @default("[]")
+  traceManifestId            String?
+  traceManifestRef           Json?
+  admissionGateResultId      String?
+  evolutionDecisionId        String?
+  hypothesisOnly             Boolean
+  policyVersionId            String?
+  sourceProposalArtifactRef  Json?
+  sourceProposalArtifactHash String?
+  createdBy                  String
+  createdAt                  DateTime  @db.Timestamptz(6)
+  admittedAt                 DateTime? @db.Timestamptz(6)
 
   @@unique([motiveId, versionNumber], map: "picmv_motive_version_unique")
   @@index([implementationProjectId, createdAt(sort: Desc)], map: "picmv_project_created_idx")
@@ -4480,39 +4484,41 @@ model PaperImplementationValidationCycleInputSnapshot {
 }
 
 model PaperImplementationValidationCycle {
-  id                      String    @id
-  implementationProjectId String
-  inputSnapshotId         String
-  targetRefType           String
-  targetRefId             String
-  targetVersionId         String?
-  target                  Json      @default("{}")
-  triggerType             String
-  trigger                 Json      @default("{}")
-  cycleType               String
-  validationQuestion      String
-  validationFrame         Json      @default("{}")
-  context                 Json      @default("{}")
-  criteria                Json      @default("{}")
-  budgetId                String
-  budget                  Json      @default("{}")
-  expectedInformationGain String
-  cycleStatus             String
-  executionStatus         String
-  outputs                 Json      @default("{}")
-  cycleAssessment         Json?
-  decisionExit            String?
-  gateResultId            String?
-  traceManifestId         String?
-  traceManifestRef        Json?
-  confirmationLevel       String
-  confirmedBy             String?
-  policyVersionId         String?
-  createdBy               String
-  createdAt               DateTime  @db.Timestamptz(6)
-  updatedAt               DateTime  @db.Timestamptz(6)
-  admittedAt              DateTime? @db.Timestamptz(6)
-  completedAt             DateTime? @db.Timestamptz(6)
+  id                         String    @id
+  implementationProjectId    String
+  inputSnapshotId            String
+  targetRefType              String
+  targetRefId                String
+  targetVersionId            String?
+  target                     Json      @default("{}")
+  triggerType                String
+  trigger                    Json      @default("{}")
+  cycleType                  String
+  validationQuestion         String
+  validationFrame            Json      @default("{}")
+  context                    Json      @default("{}")
+  criteria                   Json      @default("{}")
+  budgetId                   String
+  budget                     Json      @default("{}")
+  expectedInformationGain    String
+  cycleStatus                String
+  executionStatus            String
+  outputs                    Json      @default("{}")
+  cycleAssessment            Json?
+  decisionExit               String?
+  gateResultId               String?
+  traceManifestId            String?
+  traceManifestRef           Json?
+  confirmationLevel          String
+  confirmedBy                String?
+  policyVersionId            String?
+  sourceProposalArtifactRef  Json?
+  sourceProposalArtifactHash String?
+  createdBy                  String
+  createdAt                  DateTime  @db.Timestamptz(6)
+  updatedAt                  DateTime  @db.Timestamptz(6)
+  admittedAt                 DateTime? @db.Timestamptz(6)
+  completedAt                DateTime? @db.Timestamptz(6)
 
   @@index([implementationProjectId, createdAt(sort: Desc)], map: "pivc_project_created_idx")
   @@index([inputSnapshotId], map: "pivc_input_snapshot_idx")
@@ -4557,6 +4563,8 @@ model PaperImplementationTechnicalRouteCandidate {
   confirmatoryMarker         Boolean
   traceManifestId            String
   traceManifestRef           Json     @default("{}")
+  sourceProposalArtifactRef  Json?
+  sourceProposalArtifactHash String?
   createdBy                  String
   createdAt                  DateTime @db.Timestamptz(6)
 
@@ -4599,6 +4607,8 @@ model PaperImplementationFeasibilityProbe {
   confirmatoryMarker         Boolean
   traceManifestId            String
   traceManifestRef           Json     @default("{}")
+  sourceProposalArtifactRef  Json?
+  sourceProposalArtifactHash String?
   createdBy                  String
   createdAt                  DateTime @db.Timestamptz(6)
 
@@ -4644,6 +4654,8 @@ model PaperImplementationExperimentPlanLight {
   stopConditionRefPayloads   Json     @default("[]")
   traceManifestId            String
   traceManifestRef           Json     @default("{}")
+  sourceProposalArtifactRef  Json?
+  sourceProposalArtifactHash String?
   createdBy                  String
   createdAt                  DateTime @db.Timestamptz(6)
 
@@ -4754,6 +4766,8 @@ model PaperImplementationResearchWorkOrder {
   traceManifestRef           Json      @default("{}")
   admissionGateResultId      String?
   policyVersionId            String?
+  sourceProposalArtifactRef  Json?
+  sourceProposalArtifactHash String?
   createdBy                  String
   createdAt                  DateTime  @db.Timestamptz(6)
   updatedAt                  DateTime  @db.Timestamptz(6)
@@ -5267,6 +5281,50 @@ model PaperImplementationRuntimeAdmissionRecord {
   @@index([observedOutputHash], map: "pi_runtime_admission_output_hash_idx")
 }
 
+model PaperImplementationCoordinatorRun {
+  id                      String    @id
+  implementationProjectId String
+  laneId                  String
+  runStatus               String
+  runMode                 String
+  executionMode           String
+  modelProfileId          String?
+  modelOptionId           String?
+  budgetMaxSteps          Int
+  budgetMaxProviderCalls  Int
+  consumedSteps           Int
+  consumedProviderCalls   Int
+  leaseHolderId           String?
+  leaseHeartbeatAt        DateTime? @db.Timestamptz(6)
+  leaseExpiresAt          DateTime? @db.Timestamptz(6)
+  createdAt               DateTime  @db.Timestamptz(6)
+  updatedAt               DateTime  @db.Timestamptz(6)
+  runPayload              Json      @default("{}")
+
+  @@index([implementationProjectId, createdAt(sort: Desc)], map: "pi_coord_run_project_created_idx")
+  @@index([implementationProjectId, runStatus], map: "pi_coord_run_project_status_idx")
+  @@index([laneId, runStatus], map: "pi_coord_run_lane_status_idx")
+  @@index([leaseExpiresAt], map: "pi_coord_run_lease_expires_idx")
+}
+
+model PaperImplementationCoordinatorStep {
+  id                      String   @id
+  coordinatorRunId        String
+  implementationProjectId String
+  stepIndex               Int
+  slotId                  String
+  nodeAttemptId           String
+  outcome                 String
+  providerCallCount       Int
+  createdAt               DateTime @db.Timestamptz(6)
+  stepPayload             Json     @default("{}")
+
+  @@unique([coordinatorRunId, nodeAttemptId], map: "pi_coord_step_run_attempt_unique")
+  @@index([coordinatorRunId, stepIndex], map: "pi_coord_step_run_index_idx")
+  @@index([implementationProjectId, createdAt(sort: Desc)], map: "pi_coord_step_project_created_idx")
+  @@index([slotId, outcome], map: "pi_coord_step_slot_outcome_idx")
+}
+
 model PaperImplementationAgentWorkflowHarnessRun {
   id                          String   @id
   implementationProjectId     String
@@ -5429,6 +5487,8 @@ model PaperImplementationDecisionWorkQueueItem {
   retryCount              Int       @default(0)
   retryBudget             Int       @default(0)
   cooldownUntil           DateTime? @db.Timestamptz(6)
+  sourceCoordinatorRunRef Json?
+  sourceStepIndex         Int?
   resolutionNote          String?
   resolvedBy              String?
   resolvedAt              DateTime? @db.Timestamptz(6)

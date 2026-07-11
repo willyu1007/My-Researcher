@@ -62,6 +62,10 @@ import {
   runProviderVarianceEvaluationRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-provider-variance-contracts';
 import {
+  advancePaperImplementationCoordinatorRunRequestSchema,
+  createPaperImplementationCoordinatorRunRequestSchema,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
+import {
   admitPaperImplementationRuntimeArtifactRequestSchema,
   listPaperImplementationRuntimeAdmissionRecordsQuerySchema,
   listPaperImplementationRuntimeArtifactsQuerySchema,
@@ -152,6 +156,10 @@ const decisionWorkQueueItemParams = paramsSchema({
 const runtimeArtifactParams = paramsSchema({
   implementation_project_id: stringId,
   runtime_artifact_id: stringId,
+});
+const coordinatorRunParams = paramsSchema({
+  implementation_project_id: stringId,
+  coordinator_run_id: stringId,
 });
 
 export async function registerPaperImplementationRoutes(
@@ -249,6 +257,31 @@ export async function registerPaperImplementationRoutes(
       },
     },
     controller.listRuntimeAdmissionRecords,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/coordinator-runs',
+    {
+      schema: {
+        ...implementationProjectParams,
+        body: createPaperImplementationCoordinatorRunRequestSchema,
+      },
+    },
+    controller.createCoordinatorRun,
+  );
+  fastify.post(
+    '/paper-implementation/projects/:implementation_project_id/coordinator-runs/:coordinator_run_id/advance',
+    {
+      schema: {
+        ...coordinatorRunParams,
+        body: advancePaperImplementationCoordinatorRunRequestSchema,
+      },
+    },
+    controller.advanceCoordinatorRun,
+  );
+  fastify.get(
+    '/paper-implementation/projects/:implementation_project_id/coordinator-runs/:coordinator_run_id',
+    { schema: coordinatorRunParams },
+    controller.getCoordinatorRun,
   );
   fastify.post(
     '/paper-implementation/projects/:implementation_project_id/runtime-slots/trace-integrity-boundary-debate/run',

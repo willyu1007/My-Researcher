@@ -12,9 +12,11 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-ai-workflow-harness-contracts';
 
 import { AppError } from '../errors/app-error.js';
-import type {
-  AgentWorkflowHarnessRunPersistence,
-  PaperImplementationAiWorkflowHarnessRepository,
+import {
+  PAPER_IMPLEMENTATION_DECISION_QUEUE_RAISE_RETRY_BUDGET_ACTION,
+  PAPER_IMPLEMENTATION_DECISION_QUEUE_REOPEN_COOLDOWN_MS,
+  type AgentWorkflowHarnessRunPersistence,
+  type PaperImplementationAiWorkflowHarnessRepository,
 } from './paper-implementation-ai-workflow-harness.repository.js';
 
 const TERMINAL_DECISION_QUEUE_STATUSES = new Set<DecisionWorkQueueItem['status']>([
@@ -25,6 +27,7 @@ const TERMINAL_DECISION_QUEUE_STATUSES = new Set<DecisionWorkQueueItem['status']
 
 export class InMemoryPaperImplementationAiWorkflowHarnessRepository
 implements PaperImplementationAiWorkflowHarnessRepository {
+  private readonly reopenCooldownMs: number;
   private readonly harnesses = new Map<string, ImplementationHarness>();
   private readonly harnessIdsByProject = new Map<string, string[]>();
   private readonly snapshots = new Map<string, ImplementationInputSnapshot>();
@@ -39,6 +42,11 @@ implements PaperImplementationAiWorkflowHarnessRepository {
   private readonly queueItems = new Map<string, DecisionWorkQueueItem>();
   private readonly queueItemIdsByProject = new Map<string, string[]>();
   private readonly queueItemIdByProjectDedupKey = new Map<string, string>();
+
+  constructor(options: { reopenCooldownMs?: number } = {}) {
+    this.reopenCooldownMs = options.reopenCooldownMs
+      ?? PAPER_IMPLEMENTATION_DECISION_QUEUE_REOPEN_COOLDOWN_MS;
+  }
 
   async createHarness(harness: ImplementationHarness): Promise<ImplementationHarness> {
     this.assertNewId(this.harnesses, harness.harness_id, 'ImplementationHarness');
@@ -178,6 +186,21 @@ implements PaperImplementationAiWorkflowHarnessRepository {
       .map((item) => structuredClone(item));
   }
 
+  async findDecisionWorkQueueItemById(
+    implementationProjectId: string,
+    queueItemId: string,
+  ): Promise<DecisionWorkQueueItem | null> {
+    const item = this.queueItems.get(queueItemId);
+    if (!item || item.implementation_project_id !== implementationProjectId) {
+      return null;
+    }
+    return structuredClone(item);
+  }
+
+  async enqueueDecisionWorkQueueItem(item: DecisionWorkQueueItem): Promise<DecisionWorkQueueItem> {
+    return this.createOrReuseQueueItem(item);
+  }
+
   async resolveDecisionWorkQueueItem(
     implementationProjectId: string,
     queueItemId: string,
@@ -197,9 +220,20 @@ implements PaperImplementationAiWorkflowHarnessRepository {
         `DecisionWorkQueueItem ${queueItemId} is already ${existing.status}.`,
       );
     }
+    // Explicit raise only — an override can never lower the budget.
+    const retryBudget = resolution.retry_budget_override
+      ? Math.max(existing.retry_budget, resolution.retry_budget_override)
+      : existing.retry_budget;
+    const recommendedActions = retryBudget > existing.retry_count
+      ? existing.recommended_actions.filter(
+        (action) => action !== PAPER_IMPLEMENTATION_DECISION_QUEUE_RAISE_RETRY_BUDGET_ACTION,
+      )
+      : existing.recommended_actions;
     const updated: DecisionWorkQueueItem = {
       ...existing,
       status: resolution.status,
+      retry_budget: retryBudget,
+      recommended_actions: recommendedActions,
       resolved_at: resolution.resolved_at,
       updated_at: resolution.resolved_at,
     };
@@ -213,6 +247,17 @@ implements PaperImplementationAiWorkflowHarnessRepository {
     const existing = existingId ? this.queueItems.get(existingId) : null;
     if (existing) {
       if (TERMINAL_DECISION_QUEUE_STATUSES.has(existing.status)) {
+        // W4 real retry/cooldown semantics: a reopen is one consumed retry —
+        // accumulate on the stored item instead of taking the fresh item's
+        // zeroed counters — and start a fixed reopen cooldown window.
+        const retryCount = existing.retry_count + 1;
+        const retryBudget = Math.max(existing.retry_budget, item.retry_budget);
+        const recommendedActions = retryCount >= retryBudget
+          ? this.uniqueStrings([
+            ...item.recommended_actions,
+            PAPER_IMPLEMENTATION_DECISION_QUEUE_RAISE_RETRY_BUDGET_ACTION,
+          ])
+          : item.recommended_actions;
         const reopened: DecisionWorkQueueItem = {
           ...existing,
           queue_type: item.queue_type,
@@ -225,12 +270,17 @@ implements PaperImplementationAiWorkflowHarnessRepository {
             ...item.blocking_transition_keys,
           ]),
           allowed_handlers: item.allowed_handlers,
-          recommended_actions: item.recommended_actions,
+          recommended_actions: recommendedActions,
           created_from_refs: this.mergeCreatedFromRefs(existing, item),
           policy_version_id: item.policy_version_id,
-          retry_count: item.retry_count,
-          retry_budget: item.retry_budget,
-          cooldown_until: item.cooldown_until ?? null,
+          retry_count: retryCount,
+          retry_budget: retryBudget,
+          cooldown_until: new Date(
+            Date.parse(item.updated_at) + this.reopenCooldownMs,
+          ).toISOString(),
+          source_coordinator_run_ref:
+            item.source_coordinator_run_ref ?? existing.source_coordinator_run_ref ?? null,
+          source_step_index: item.source_step_index ?? existing.source_step_index ?? null,
           resolved_at: null,
           updated_at: item.updated_at,
         };

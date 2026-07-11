@@ -293,6 +293,8 @@ export interface ValidationCycle {
   confirmation_level: PaperImplementationValidationConfirmationLevel;
   confirmed_by?: TopicSelectionActorType | null;
   policy_version_id?: string | null;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by: TopicSelectionActorType;
   created_at: string;
   updated_at: string;
@@ -320,6 +322,8 @@ export interface TechnicalRouteCandidate {
   confirmatory_marker: boolean;
   trace_manifest_ref: TopicSelectionFunctionalRef;
   trace_manifest_id: string;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by: TopicSelectionActorType;
   created_at: string;
 }
@@ -343,6 +347,8 @@ export interface FeasibilityProbe {
   confirmatory_marker: boolean;
   trace_manifest_ref: TopicSelectionFunctionalRef;
   trace_manifest_id: string;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by: TopicSelectionActorType;
   created_at: string;
 }
@@ -368,6 +374,8 @@ export interface ExperimentPlanLight {
   stop_condition_refs: TopicSelectionFunctionalRef[];
   trace_manifest_ref: TopicSelectionFunctionalRef;
   trace_manifest_id: string;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by: TopicSelectionActorType;
   created_at: string;
 }
@@ -417,6 +425,8 @@ export interface CreateValidationCycleDraftRequest {
   confirmed_by?: TopicSelectionActorType | null;
   human_override_expected_information_gain_none?: boolean;
   policy_version_id?: string | null;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by?: TopicSelectionActorType;
 }
 
@@ -456,6 +466,8 @@ export interface CreateTechnicalRouteCandidateRequest {
   config_refs?: TopicSelectionFunctionalRef[];
   confirmatory_marker?: boolean;
   trace_manifest_id: string;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by?: TopicSelectionActorType;
 }
 
@@ -476,6 +488,8 @@ export interface CreateFeasibilityProbeRequest {
   config_refs?: TopicSelectionFunctionalRef[];
   confirmatory_marker?: boolean;
   trace_manifest_id: string;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by?: TopicSelectionActorType;
 }
 
@@ -498,6 +512,8 @@ export interface CreateExperimentPlanLightRequest {
   budget_id: string;
   stop_condition_refs: TopicSelectionFunctionalRef[];
   trace_manifest_id: string;
+  source_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+  source_proposal_artifact_hash?: string | null;
   created_by?: TopicSelectionActorType;
 }
 
@@ -751,6 +767,8 @@ export const createValidationCycleDraftRequestSchema = {
     confirmed_by: actorTypeNullableSchema,
     human_override_expected_information_gain_none: { type: 'boolean' },
     policy_version_id: nullableStringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
   },
   allOf: [
@@ -851,6 +869,8 @@ export const validationCycleSchema = {
     confirmation_level: confirmationLevelSchema,
     confirmed_by: actorTypeNullableSchema,
     policy_version_id: nullableStringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
     created_at: stringId,
     updated_at: stringId,
@@ -891,6 +911,8 @@ export const createTechnicalRouteCandidateRequestSchema = {
     ...planningRefsSchema,
     confirmatory_marker: { type: 'boolean' },
     trace_manifest_id: stringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
   },
 } as const;
@@ -911,6 +933,8 @@ export const createFeasibilityProbeRequestSchema = {
     ...planningRefsSchema,
     confirmatory_marker: { type: 'boolean' },
     trace_manifest_id: stringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
   },
 } as const;
@@ -948,6 +972,8 @@ export const createExperimentPlanLightRequestSchema = {
     budget_id: stringId,
     stop_condition_refs: { type: 'array', minItems: 1, items: topicSelectionFunctionalRefSchema },
     trace_manifest_id: stringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
   },
 } as const;
@@ -990,6 +1016,8 @@ export const technicalRouteCandidateSchema = {
     confirmatory_marker: { type: 'boolean' },
     trace_manifest_ref: topicSelectionFunctionalRefSchema,
     trace_manifest_id: stringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
     created_at: stringId,
   },
@@ -1032,6 +1060,8 @@ export const feasibilityProbeSchema = {
     confirmatory_marker: { type: 'boolean' },
     trace_manifest_ref: topicSelectionFunctionalRefSchema,
     trace_manifest_id: stringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
     created_at: stringId,
   },
@@ -1077,6 +1107,8 @@ export const experimentPlanLightSchema = {
     stop_condition_refs: functionalRefArray,
     trace_manifest_ref: topicSelectionFunctionalRefSchema,
     trace_manifest_id: stringId,
+    source_proposal_artifact_ref: nullableFunctionalRef,
+    source_proposal_artifact_hash: nullableStringId,
     created_by: actorTypeSchema,
     created_at: stringId,
   },

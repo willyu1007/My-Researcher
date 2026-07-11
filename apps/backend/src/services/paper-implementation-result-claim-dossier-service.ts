@@ -40,6 +40,11 @@ import type { PaperImplementationWorkOrderRepository } from '../repositories/pap
 import type {
   PaperImplementationHumanConfirmationRepository,
 } from '../repositories/paper-implementation-human-confirmation.repository.js';
+import {
+  consumeHumanConfirmation,
+  requireActiveHumanConfirmation,
+  requirePassedTraceGateResult,
+} from './paper-implementation-governance-gate-refs.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -239,7 +244,7 @@ export class PaperImplementationResultClaimDossierService {
         this.requireResultPacket(project.implementation_project_id, id)),
     );
     this.assertClaimSupport(request);
-    await this.assertStrongClaimConfirmation(project.implementation_project_id, request);
+    await this.assertStrongClaimConfirmation(project, request);
     this.assertClaimBoundary(request, resultPackets);
     const claimTracePacket = request.claim_trace_packet_id
       ? await this.requireClaimTracePacket(project.implementation_project_id, request.claim_trace_packet_id)
@@ -285,6 +290,9 @@ export class PaperImplementationResultClaimDossierService {
       created_by: request.created_by ?? 'system',
       created_at: createdAt,
     };
+    // Consume-before-write: the confirmation is single-use and burnt right
+    // before the authoritative write so a racing duplicate fails here first.
+    await this.consumeStrongClaimConfirmation(project, request, createdAt);
     return this.resultClaimRepository.createClaimCandidate(candidate);
   }
 
@@ -723,8 +731,15 @@ export class PaperImplementationResultClaimDossierService {
     }
   }
 
+  private strongClaimConfirmationTarget(
+    project: ImplementationProject,
+    request: CreateClaimCandidateRequest,
+  ): TopicSelectionFunctionalRef {
+    return this.ref('claim_candidate', request.claim_candidate_id, project.title_card_id);
+  }
+
   private async assertStrongClaimConfirmation(
-    implementationProjectId: string,
+    project: ImplementationProject,
     request: CreateClaimCandidateRequest,
   ): Promise<void> {
     if (request.claim_strength !== 'strong') {
@@ -734,34 +749,39 @@ export class PaperImplementationResultClaimDossierService {
     if (!confirmationRef) {
       return;
     }
-    const record = await this.confirmationRepository.findHumanConfirmationRecordById(
-      implementationProjectId,
+    await requireActiveHumanConfirmation(
+      this.confirmationRepository,
+      project.implementation_project_id,
       confirmationRef.ref_id,
+      'strong_claim_acceptance',
+      'Strong ClaimCandidate',
+      this.strongClaimConfirmationTarget(project, request),
     );
-    if (!record) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Strong ClaimCandidate human_confirmation_ref must resolve to an existing HumanConfirmationRecord.',
-        { confirmation_record_id: confirmationRef.ref_id },
-      );
+  }
+
+  private async consumeStrongClaimConfirmation(
+    project: ImplementationProject,
+    request: CreateClaimCandidateRequest,
+    consumedAt: string,
+  ): Promise<void> {
+    if (request.claim_strength !== 'strong') {
+      return;
     }
-    if (record.status !== 'active') {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Strong ClaimCandidate human confirmation must be active.',
-        { confirmation_record_id: record.confirmation_record_id, status: record.status },
-      );
+    const confirmationRef = request.boundary.human_confirmation_ref;
+    if (!confirmationRef) {
+      return;
     }
-    if (record.confirmation_scope !== 'strong_claim_acceptance') {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Strong ClaimCandidate human confirmation must carry scope strong_claim_acceptance.',
-        { confirmation_record_id: record.confirmation_record_id, scope: record.confirmation_scope },
-      );
-    }
+    const target = this.strongClaimConfirmationTarget(project, request);
+    await consumeHumanConfirmation(
+      this.confirmationRepository,
+      project.implementation_project_id,
+      confirmationRef.ref_id,
+      'strong_claim_acceptance',
+      'Strong ClaimCandidate',
+      target,
+      target,
+      consumedAt,
+    );
   }
 
   private async assertReadinessGateResult(
@@ -775,38 +795,13 @@ export class PaperImplementationResultClaimDossierService {
     if (!this.hasText(readinessGateResultId)) {
       return;
     }
-    const gateResult = await this.traceRepository.findTraceGateResultById(
+    await requirePassedTraceGateResult(
+      this.traceRepository,
       implementationProjectId,
       readinessGateResultId,
+      request.trace_manifest_id,
+      'Ready ImplementationDossier readiness',
     );
-    if (!gateResult) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Ready ImplementationDossier readiness_gate_result_id must resolve to a persisted TraceGateResult.',
-        { readiness_gate_result_id: readinessGateResultId },
-      );
-    }
-    if (gateResult.gate_status !== 'passed') {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Ready ImplementationDossier requires a passed readiness gate result.',
-        { readiness_gate_result_id: gateResult.gate_result_id, gate_status: gateResult.gate_status },
-      );
-    }
-    if (gateResult.trace_manifest_id !== request.trace_manifest_id) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Ready ImplementationDossier readiness gate result must target the dossier trace manifest.',
-        {
-          readiness_gate_result_id: gateResult.gate_result_id,
-          gate_trace_manifest_id: gateResult.trace_manifest_id,
-          dossier_trace_manifest_id: request.trace_manifest_id,
-        },
-      );
-    }
   }
 
   private assertClaimBoundary(

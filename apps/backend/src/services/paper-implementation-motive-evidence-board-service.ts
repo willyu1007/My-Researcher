@@ -40,11 +40,16 @@ import type { PaperImplementationMotiveRepository } from '../repositories/paper-
 import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationTraceRepository } from '../repositories/paper-implementation-trace.repository.js';
 import type {
-  HumanConfirmationRecord,
-} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-human-confirmation-contracts';
-import type {
   PaperImplementationHumanConfirmationRepository,
 } from '../repositories/paper-implementation-human-confirmation.repository.js';
+import {
+  requireAcceptedProposalLineage,
+  type PaperImplementationAcceptanceBridgeAdmissionReader,
+} from './paper-implementation-acceptance-bridge.js';
+import {
+  consumeHumanConfirmation,
+  requireActiveHumanConfirmation,
+} from './paper-implementation-governance-gate-refs.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -53,6 +58,7 @@ export type PaperImplementationMotiveEvidenceBoardServiceOptions = {
   motiveRepository: PaperImplementationMotiveRepository;
   traceRepository: PaperImplementationTraceRepository;
   confirmationRepository: PaperImplementationHumanConfirmationRepository;
+  runtimeAdmission?: PaperImplementationAcceptanceBridgeAdmissionReader;
   idFactory?: IdFactory;
   now?: () => string;
 };
@@ -82,6 +88,7 @@ export class PaperImplementationMotiveEvidenceBoardService {
   private readonly motiveRepository: PaperImplementationMotiveRepository;
   private readonly traceRepository: PaperImplementationTraceRepository;
   private readonly confirmationRepository: PaperImplementationHumanConfirmationRepository;
+  private readonly runtimeAdmission?: PaperImplementationAcceptanceBridgeAdmissionReader;
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
@@ -90,6 +97,7 @@ export class PaperImplementationMotiveEvidenceBoardService {
     this.motiveRepository = options.motiveRepository;
     this.traceRepository = options.traceRepository;
     this.confirmationRepository = options.confirmationRepository;
+    this.runtimeAdmission = options.runtimeAdmission;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -101,6 +109,12 @@ export class PaperImplementationMotiveEvidenceBoardService {
     const project = await this.requireActiveProject(implementationProjectId);
     this.assertCoreMotiveContract(request);
     this.assertAssertions(request.assertions);
+    const proposalLineage = await requireAcceptedProposalLineage({
+      runtimeAdmission: this.runtimeAdmission,
+      implementationProjectId: project.implementation_project_id,
+      targetType: 'core_motive_version',
+      request,
+    });
     const createdAt = this.now();
     const createdBy = request.created_by ?? 'system';
     const motiveId = request.motive_id ?? this.idFactory('core_motive');
@@ -231,6 +245,8 @@ export class PaperImplementationMotiveEvidenceBoardService {
       evolution_decision_id: request.evolution_decision_id ?? versionOrigin.created_by_decision_id ?? null,
       hypothesis_only: request.hypothesis_only ?? false,
       policy_version_id: policyVersionId,
+      source_proposal_artifact_ref: proposalLineage?.source_proposal_artifact_ref ?? null,
+      source_proposal_artifact_hash: proposalLineage?.source_proposal_artifact_hash ?? null,
       created_by: createdBy,
       created_at: createdAt,
       admitted_at: null,
@@ -324,7 +340,12 @@ export class PaperImplementationMotiveEvidenceBoardService {
     const primaryPromotion = requestedRole === 'primary'
       && !existingSet.primary_motive_ids.includes(motive.motive_id)
       && existingSet.primary_motive_ids.length > 0;
-    if (admissionPortfolio.demotedFromPrimaryIds.length > 0 || primaryPromotion) {
+    const admissionConfirmationRequired =
+      admissionPortfolio.demotedFromPrimaryIds.length > 0 || primaryPromotion;
+    // Target binding: the authorized object of this gate is the motive whose
+    // primary-role change is being confirmed.
+    const admissionConfirmationTarget = this.ref('core_motive', motive.motive_id, project.title_card_id);
+    if (admissionConfirmationRequired) {
       if (!request.confirmation_ref) {
         throw new AppError(
           409,
@@ -332,11 +353,13 @@ export class PaperImplementationMotiveEvidenceBoardService {
           'Primary motive replacement or promotion into a non-empty primary set requires a resolvable confirmation_ref.',
         );
       }
-      await this.requireActiveHumanConfirmation(
+      await requireActiveHumanConfirmation(
+        this.confirmationRepository,
         project.implementation_project_id,
         request.confirmation_ref.ref_id,
         'motive_portfolio_decision',
         'CoreMotiveVersion admission',
+        admissionConfirmationTarget,
       );
     }
     const policyVersionId = version.policy_version_id ?? motive.policy_version_id ?? project.policy_version_id ?? null;
@@ -412,6 +435,20 @@ export class PaperImplementationMotiveEvidenceBoardService {
       freshness_status: 'fresh',
       updated_at: createdAt,
     };
+    if (admissionConfirmationRequired && request.confirmation_ref) {
+      // Consume-before-write: burn the single-use confirmation right before
+      // the authoritative admission write (see governance-gate-refs rationale).
+      await consumeHumanConfirmation(
+        this.confirmationRepository,
+        project.implementation_project_id,
+        request.confirmation_ref.ref_id,
+        'motive_portfolio_decision',
+        'CoreMotiveVersion admission',
+        admissionConfirmationTarget,
+        this.ref('core_motive_version', version.core_motive_version_id, project.title_card_id),
+        createdAt,
+      );
+    }
     const persisted = await this.motiveRepository.admitCoreMotiveVersion({
       motive_identity: nextMotive,
       additional_motive_identities: demotedMotiveUpdates,
@@ -655,6 +692,12 @@ export class PaperImplementationMotiveEvidenceBoardService {
       this.requireMotive(project.implementation_project_id, motiveId)));
     const confirmationLevel = request.confirmation_level ?? 'not_required';
     const majorStructuralChange = this.assertPortfolioDecisionConfirmation(currentSet, request, activeCount, confirmationLevel);
+    // Target binding: the confirmation must cover every motive touched by the
+    // structural change being authorized (primary-set delta, merges, splits,
+    // abandons; newly activated motives when only the active set broadened).
+    const portfolioConfirmationTargets = majorStructuralChange
+      ? this.portfolioConfirmationTargets(project.title_card_id, currentSet, request)
+      : [];
     if (majorStructuralChange) {
       if (!request.confirmation_ref) {
         throw new AppError(
@@ -663,11 +706,13 @@ export class PaperImplementationMotiveEvidenceBoardService {
           'Major structural MotivePortfolioDecision must include a resolvable confirmation_ref.',
         );
       }
-      await this.requireActiveHumanConfirmation(
+      await requireActiveHumanConfirmation(
+        this.confirmationRepository,
         project.implementation_project_id,
         request.confirmation_ref.ref_id,
         'motive_portfolio_decision',
         'MotivePortfolioDecision',
+        portfolioConfirmationTargets,
       );
     }
     const createdAt = this.now();
@@ -723,6 +768,19 @@ export class PaperImplementationMotiveEvidenceBoardService {
       policy_version_id: decision.policy_version_id,
       updated_at: createdAt,
     };
+    if (majorStructuralChange && request.confirmation_ref) {
+      // Consume-before-write (see governance-gate-refs rationale).
+      await consumeHumanConfirmation(
+        this.confirmationRepository,
+        project.implementation_project_id,
+        request.confirmation_ref.ref_id,
+        'motive_portfolio_decision',
+        'MotivePortfolioDecision',
+        portfolioConfirmationTargets,
+        this.ref('motive_portfolio_decision', decision.portfolio_decision_id, project.title_card_id),
+        createdAt,
+      );
+    }
     const persisted = await this.motiveRepository.createMotivePortfolioDecision({
       portfolio_decision: decision,
       motive_set: nextSet,
@@ -764,11 +822,15 @@ export class PaperImplementationMotiveEvidenceBoardService {
             : undefined,
         );
       }
-      await this.requireActiveHumanConfirmation(
+      // Target binding: the decision acts on its source motives, so the
+      // confirmation must cover every source motive ref.
+      await requireActiveHumanConfirmation(
+        this.confirmationRepository,
         project.implementation_project_id,
         request.confirmation_ref.ref_id,
         'motive_evolution_decision',
         'MotiveEvolutionDecision',
+        request.source_motive_refs,
       );
     }
     const decisionId = request.motive_evolution_decision_id ?? this.idFactory('motive_evolution_decision');
@@ -817,6 +879,19 @@ export class PaperImplementationMotiveEvidenceBoardService {
       policy_version_id: request.policy_version_id ?? project.policy_version_id ?? null,
       created_at: this.now(),
     };
+    if (humanConfirmationRequired && request.confirmation_ref) {
+      // Consume-before-write (see governance-gate-refs rationale).
+      await consumeHumanConfirmation(
+        this.confirmationRepository,
+        project.implementation_project_id,
+        request.confirmation_ref.ref_id,
+        'motive_evolution_decision',
+        'MotiveEvolutionDecision',
+        request.source_motive_refs,
+        this.ref('motive_evolution_decision', decisionId, project.title_card_id),
+        decision.created_at,
+      );
+    }
     return this.motiveRepository.createMotiveEvolutionDecision(decision);
   }
 
@@ -1183,40 +1258,40 @@ export class PaperImplementationMotiveEvidenceBoardService {
     return majorStructuralChange;
   }
 
-  private async requireActiveHumanConfirmation(
-    implementationProjectId: string,
-    confirmationRecordId: string,
-    expectedScope: HumanConfirmationRecord['confirmation_scope'],
-    gateLabel: string,
-  ): Promise<void> {
-    const record = await this.confirmationRepository.findHumanConfirmationRecordById(
-      implementationProjectId,
-      confirmationRecordId,
-    );
-    if (!record) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        `${gateLabel} confirmation_ref must resolve to an existing HumanConfirmationRecord.`,
-        { confirmation_record_id: confirmationRecordId },
-      );
+  private portfolioConfirmationTargets(
+    titleCardId: string,
+    currentSet: CoreMotiveSet,
+    request: ApplyMotivePortfolioDecisionRequest,
+  ): TopicSelectionFunctionalRef[] {
+    const changedMotiveIds = new Set<string>();
+    const beforePrimary = new Set(currentSet.primary_motive_ids);
+    const afterPrimary = new Set(request.motive_roles_after_decision.primary_motive_ids);
+    for (const motiveId of beforePrimary) {
+      if (!afterPrimary.has(motiveId)) {
+        changedMotiveIds.add(motiveId);
+      }
     }
-    if (record.status !== 'active') {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        `${gateLabel} human confirmation must be active.`,
-        { confirmation_record_id: record.confirmation_record_id, status: record.status },
-      );
+    for (const motiveId of afterPrimary) {
+      if (!beforePrimary.has(motiveId)) {
+        changedMotiveIds.add(motiveId);
+      }
     }
-    if (record.confirmation_scope !== expectedScope) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        `${gateLabel} human confirmation must carry scope ${expectedScope}.`,
-        { confirmation_record_id: record.confirmation_record_id, scope: record.confirmation_scope },
-      );
+    for (const motiveId of [
+      ...request.changes.merged_motives,
+      ...request.changes.split_motives,
+      ...request.changes.newly_abandoned,
+    ]) {
+      changedMotiveIds.add(motiveId);
     }
+    if (changedMotiveIds.size === 0) {
+      const beforeActive = new Set(currentSet.active_motive_ids);
+      for (const motiveId of this.activeMotiveIds(request.motive_roles_after_decision)) {
+        if (!beforeActive.has(motiveId)) {
+          changedMotiveIds.add(motiveId);
+        }
+      }
+    }
+    return [...changedMotiveIds].map((motiveId) => this.ref('core_motive', motiveId, titleCardId));
   }
 
   private assertEvidenceRefCanSupportBoard(ref: TopicSelectionFunctionalRef): void {

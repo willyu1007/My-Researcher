@@ -45,6 +45,7 @@ export * from './paper-implementation-ai-workflow-harness-contracts.js';
 export * from './paper-implementation-runtime-contracts.js';
 export * from './paper-implementation-provider-variance-contracts.js';
 export * from './paper-implementation-human-confirmation-contracts.js';
+export * from './paper-implementation-coordinator-contracts.js';
 export {
   type PaperImplementationWritingEntryPacket,
   paperImplementationWritingEntryPacketSchema,

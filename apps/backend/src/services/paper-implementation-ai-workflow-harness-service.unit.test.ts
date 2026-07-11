@@ -479,6 +479,14 @@ test('DecisionWorkQueue reopens terminal item when equivalent blocker recurs', a
     reopened.created_from_refs.map((item) => item.ref_id),
     ['harness_run_1', 'harness_run_2'],
   );
+  // W4 real retry/cooldown semantics: the reopen consumes one retry instead
+  // of being overwritten by the fresh item's zeroed counter, and it starts
+  // the reopen cooldown window.
+  assert.equal(reopened.retry_count, 1);
+  assert.ok(reopened.cooldown_until);
+  // retry_budget default is 1, so this reopen exhausts it and marks the
+  // item as needing an explicit human budget raise.
+  assert.ok(reopened.recommended_actions.includes('raise_retry_budget'));
 });
 
 test('AI workflow harness blocks stale trace manifests', async () => {

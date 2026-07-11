@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-10T13:14:15.845Z",
+  "updatedAt": "2026-07-11T01:13:22.968Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -8674,6 +8674,405 @@
       ]
     },
     {
+      "name": "PaperImplementationCoordinatorRun",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "budgetMaxProviderCalls",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "budgetMaxSteps",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "consumedProviderCalls",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "consumedSteps",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionMode",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "implementationProjectId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "laneId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "leaseExpiresAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "leaseHeartbeatAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "leaseHolderId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "modelOptionId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "modelProfileId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runMode",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runPayload",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runStatus",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "createdAt"
+          ],
+          "name": null,
+          "map": "pi_coord_run_project_created_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "runStatus"
+          ],
+          "name": null,
+          "map": "pi_coord_run_project_status_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "laneId",
+            "runStatus"
+          ],
+          "name": null,
+          "map": "pi_coord_run_lane_status_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "leaseExpiresAt"
+          ],
+          "name": null,
+          "map": "pi_coord_run_lease_expires_idx"
+        }
+      ]
+    },
+    {
+      "name": "PaperImplementationCoordinatorStep",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "coordinatorRunId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "implementationProjectId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "nodeAttemptId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "outcome",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "providerCallCount",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "slotId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "stepIndex",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "stepPayload",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "coordinatorRunId",
+            "stepIndex"
+          ],
+          "name": null,
+          "map": "pi_coord_step_run_index_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "createdAt"
+          ],
+          "name": null,
+          "map": "pi_coord_step_project_created_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "slotId",
+            "outcome"
+          ],
+          "name": null,
+          "map": "pi_coord_step_slot_outcome_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "coordinatorRunId",
+            "nodeAttemptId"
+          ],
+          "name": null,
+          "map": "pi_coord_step_run_attempt_unique"
+        }
+      ]
+    },
+    {
       "name": "PaperImplementationCoreMotiveIdentity",
       "dbName": null,
       "schema": null,
@@ -9345,6 +9744,28 @@
           "dbName": null,
           "dbType": null,
           "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
           "primaryKey": false,
           "unique": false
         },
@@ -10102,6 +10523,28 @@
           "dbName": null,
           "dbType": null,
           "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceCoordinatorRunRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceStepIndex",
+          "type": "Int",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
           "primaryKey": false,
           "unique": false
         },
@@ -11604,6 +12047,28 @@
           "unique": false
         },
         {
+          "name": "sourceProposalArtifactHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "stopConditionRefPayloads",
           "type": "Json",
           "nullable": false,
@@ -12034,6 +12499,28 @@
           "dbName": null,
           "dbType": null,
           "default": "[]",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
           "primaryKey": false,
           "unique": false
         },
@@ -12963,6 +13450,28 @@
           "name": "confirmedByActorType",
           "type": "String",
           "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "consumedAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "consumedByRef",
+          "type": "Json",
+          "nullable": true,
           "list": false,
           "dbName": null,
           "dbType": null,
@@ -16265,6 +16774,28 @@
           "name": "runType",
           "type": "String",
           "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactRef",
+          "type": "Json",
+          "nullable": true,
           "list": false,
           "dbName": null,
           "dbType": null,
@@ -19706,6 +20237,28 @@
           "unique": false
         },
         {
+          "name": "sourceProposalArtifactHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "traceManifestId",
           "type": "String",
           "nullable": false,
@@ -21006,6 +21559,28 @@
         {
           "name": "policyVersionId",
           "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceProposalArtifactRef",
+          "type": "Json",
           "nullable": true,
           "list": false,
           "dbName": null,

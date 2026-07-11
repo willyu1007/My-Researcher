@@ -237,3 +237,76 @@ test('route probe and experiment plan schemas expose queryable refs and run mode
     400,
   );
 });
+
+test('validation planning create requests accept optional acceptance-bridge lineage and reject malformed lineage', async () => {
+  const lineageRef = functionalRef('paper_implementation_runtime_artifact', 'runtime_artifact_001');
+  const lineageHash = 'a'.repeat(64);
+  const routePayload = {
+    core_motive_version_id: 'core_motive_version_001',
+    route_summary: 'Route seeded from an admitted runtime proposal.',
+    expected_information_gain: 'medium',
+    primary_metric_refs: [functionalRef('metric', 'metric_001')],
+    trace_manifest_id: 'trace_manifest_001',
+  };
+  assert.equal(
+    await validateWithSchema(
+      validationContracts.createTechnicalRouteCandidateRequestSchema,
+      {
+        ...routePayload,
+        source_proposal_artifact_ref: lineageRef,
+        source_proposal_artifact_hash: lineageHash,
+      },
+    ),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(
+      validationContracts.createValidationCycleDraftRequestSchema,
+      {
+        ...validCycleDraftPayload(),
+        source_proposal_artifact_ref: lineageRef,
+        source_proposal_artifact_hash: lineageHash,
+      },
+    ),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(
+      validationContracts.createFeasibilityProbeRequestSchema,
+      {
+        probe_kind: 'data_feasibility',
+        probe_question: 'Is the scoped dataset locally available?',
+        expected_information_gain: 'low',
+        trace_manifest_id: 'trace_manifest_002',
+        source_proposal_artifact_ref: null,
+        source_proposal_artifact_hash: null,
+      },
+    ),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(
+      validationContracts.createTechnicalRouteCandidateRequestSchema,
+      {
+        ...routePayload,
+        source_proposal_artifact_ref: 'runtime_artifact_001',
+        source_proposal_artifact_hash: lineageHash,
+      },
+    ),
+    400,
+  );
+  assert.equal(
+    await validateWithSchema(
+      validationContracts.createFeasibilityProbeRequestSchema,
+      {
+        probe_kind: 'data_feasibility',
+        probe_question: 'Is the scoped dataset locally available?',
+        expected_information_gain: 'low',
+        trace_manifest_id: 'trace_manifest_002',
+        source_proposal_artifact_ref: lineageRef,
+        source_proposal_artifact_hash: { nested: 'not-a-hash' },
+      },
+    ),
+    400,
+  );
+});
