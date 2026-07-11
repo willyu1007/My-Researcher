@@ -127,6 +127,17 @@ test('paper-implementation coordinator schemas load through direct and aggregate
   assert.ok(coordinatorContracts.advancePaperImplementationCoordinatorRunRequestSchema);
   assert.ok(researchLifecycleContracts.paperImplementationCoordinatorRunSchema);
   assert.ok(researchLifecycleContracts.createPaperImplementationCoordinatorRunRequestSchema);
+  // R10: the terminal-status set is contract-owned single source; every
+  // member must be a real run status and budget_exhausted must stay outside.
+  assert.deepEqual(
+    [...coordinatorContracts.PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES],
+    ['completed', 'failed'],
+  );
+  for (const status of coordinatorContracts.PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES) {
+    assert.ok(
+      (coordinatorContracts.PAPER_IMPLEMENTATION_COORDINATOR_RUN_STATUSES as readonly string[]).includes(status),
+    );
+  }
 });
 
 test('PaperImplementationCoordinatorRun schema accepts a complete run and rejects drift', async () => {
@@ -154,6 +165,54 @@ test('PaperImplementationCoordinatorRun schema accepts a complete run and reject
   );
   const { lease: _lease, ...withoutLease } = validRun();
   assert.equal(await validateWithSchema(schema, withoutLease), 400);
+
+  // R2: budget_raise_events is an optional append-only audit trail; each
+  // entry pins raised_at/from/to/holder_id and rejects drift.
+  assert.equal(
+    await validateWithSchema(schema, {
+      ...validRun(),
+      budget_raise_events: [
+        {
+          raised_at: '2026-07-11T10:05:00.000Z',
+          from: { max_steps: 8, max_provider_calls: 16 },
+          to: { max_steps: 12, max_provider_calls: 16 },
+          holder_id: 'advance_holder_002',
+        },
+      ],
+    }),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(schema, { ...validRun(), budget_raise_events: [] }),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(schema, {
+      ...validRun(),
+      budget_raise_events: [
+        {
+          raised_at: '2026-07-11T10:05:00.000Z',
+          from: { max_steps: 8, max_provider_calls: 16 },
+          to: { max_steps: 12, max_provider_calls: 16 },
+        },
+      ],
+    }),
+    400,
+  );
+  assert.equal(
+    await validateWithSchema(schema, {
+      ...validRun(),
+      budget_raise_events: [
+        {
+          raised_at: '2026-07-11T10:05:00.000Z',
+          from: { max_steps: 8, max_provider_calls: 16 },
+          to: { max_steps: 0, max_provider_calls: 16 },
+          holder_id: 'advance_holder_002',
+        },
+      ],
+    }),
+    400,
+  );
 });
 
 test('PaperImplementationCoordinatorStep schema accepts records and rejects unknown outcomes', async () => {

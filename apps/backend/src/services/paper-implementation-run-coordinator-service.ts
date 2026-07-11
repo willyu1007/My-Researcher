@@ -6,6 +6,7 @@ import {
   PAPER_IMPLEMENTATION_COORDINATOR_LANE_IDS,
   PAPER_IMPLEMENTATION_COORDINATOR_RUN_SCHEMA_VERSION,
   PAPER_IMPLEMENTATION_COORDINATOR_STEP_SCHEMA_VERSION,
+  PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES,
   type AdvancePaperImplementationCoordinatorRunRequest,
   type CreatePaperImplementationCoordinatorRunRequest,
   type PaperImplementationCandidateSelectionCandidateProjection,
@@ -136,10 +137,18 @@ const FIXTURE_OUTPUT_FIELDS = ['mocked_role_outputs', 'codex_role_outputs'] as c
 /**
  * F2: only `completed` and `failed` are terminal. `budget_exhausted` is a
  * parked state that a raise-carrying advance can resume (D1: raise the
- * envelope, then re-advance).
+ * envelope, then re-advance). R10: the literal set lives in the coordinator
+ * contract — this is a Set view of that single source.
  */
-const TERMINAL_RUN_STATUSES = new Set(['completed', 'failed']);
+const TERMINAL_RUN_STATUSES = new Set<string>(PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES);
 const DEFAULT_LEASE_TTL_MS = 600_000;
+/**
+ * R4/D2: until the tier levels are wired up (D2), this code reaches the
+ * coordinator through the deterministic preflight echo channel
+ * (`preflight_blocker_codes` → zero-provider-call blocked final). Such
+ * zero-call blocked results are LLM-free, so their blocker codes are merged
+ * into the trusted set (see the R4 trust rule in `advanceLoop`).
+ */
 const TIER_BUDGET_BLOCKER_CODE = 'TIER_BUDGET_INSUFFICIENT';
 const NO_ELIGIBLE_CANDIDATE_BLOCKER_CODE = 'COORDINATOR_NO_ELIGIBLE_CANDIDATE';
 const SLOT_INVOCATION_FAILED_BLOCKER_CODE = 'SLOT_INVOCATION_FAILED';
@@ -153,6 +162,26 @@ const SLOT_INVOCATION_FAILED_BLOCKER_CODE = 'SLOT_INVOCATION_FAILED';
 const COORDINATOR_DECISION_QUEUE_RETRY_BUDGET = 2;
 
 /**
+ * R10: shared base table for the runtime failure + gate AppError codes that
+ * are classifiable regardless of source. Both classification tables derive
+ * from it — never re-list these ten entries.
+ */
+const SHARED_RUNTIME_AND_GATE_QUEUE_TYPE_BY_BLOCKER_CODE: Readonly<
+  Record<string, PaperImplementationDecisionQueueType>
+> = {
+  AGENT_EXECUTION_FAILED: 'failed_run_review',
+  SCHEMA_VALIDATION_FAILED: 'failed_run_review',
+  TimeoutError: 'failed_run_review',
+  TransientError: 'failed_run_review',
+  RateLimitError: 'failed_run_review',
+  UpstreamError: 'failed_run_review',
+  GATE_CONSTRAINT_FAILED: 'gate_blocker',
+  INVALID_PAYLOAD: 'gate_blocker',
+  NOT_FOUND: 'gate_blocker',
+  VERSION_CONFLICT: 'gate_blocker',
+};
+
+/**
  * W4 queue classification (enum mapping tables — deliberately not string
  * `includes` heuristics). Exact blocker codes the coordinator can encounter:
  * its own codes, AppError codes surfaced by slot invocation failures, and
@@ -164,16 +193,7 @@ export const PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE: Readon
   [TIER_BUDGET_BLOCKER_CODE]: 'loop_budget_review',
   [NO_ELIGIBLE_CANDIDATE_BLOCKER_CODE]: 'human_review',
   [SLOT_INVOCATION_FAILED_BLOCKER_CODE]: 'failed_workflow',
-  AGENT_EXECUTION_FAILED: 'failed_run_review',
-  SCHEMA_VALIDATION_FAILED: 'failed_run_review',
-  TimeoutError: 'failed_run_review',
-  TransientError: 'failed_run_review',
-  RateLimitError: 'failed_run_review',
-  UpstreamError: 'failed_run_review',
-  GATE_CONSTRAINT_FAILED: 'gate_blocker',
-  INVALID_PAYLOAD: 'gate_blocker',
-  NOT_FOUND: 'gate_blocker',
-  VERSION_CONFLICT: 'gate_blocker',
+  ...SHARED_RUNTIME_AND_GATE_QUEUE_TYPE_BY_BLOCKER_CODE,
 };
 
 /** Prefix classes for whole blocker-code families the coordinator owns. */
@@ -187,59 +207,64 @@ export const PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX: Read
 
 /**
  * F5: exact whitelist for slot-result blocker codes (which may carry
- * LLM-influenced strings). Only the shared runtime failure codes and the
- * gate AppError codes are classifiable from slot output; the
- * coordinator-owned codes (`TIER_BUDGET_INSUFFICIENT`, `COORDINATOR_*`,
- * `SLOT_INVOCATION_FAILED`) and the prefix families are deliberately absent
- * so slot output can never steer terminal-state or trace-repair routing.
+ * LLM-influenced strings). R10: derived from the shared base table — only
+ * the shared runtime failure codes and the gate AppError codes are
+ * classifiable from slot output; the coordinator-owned codes
+ * (`TIER_BUDGET_INSUFFICIENT`, `COORDINATOR_*`, `SLOT_INVOCATION_FAILED`)
+ * and the prefix families are deliberately absent so slot output can never
+ * steer terminal-state or trace-repair routing.
  */
 export const PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE: Readonly<
   Record<string, PaperImplementationDecisionQueueType>
 > = {
-  AGENT_EXECUTION_FAILED: 'failed_run_review',
-  SCHEMA_VALIDATION_FAILED: 'failed_run_review',
-  TimeoutError: 'failed_run_review',
-  TransientError: 'failed_run_review',
-  RateLimitError: 'failed_run_review',
-  UpstreamError: 'failed_run_review',
-  GATE_CONSTRAINT_FAILED: 'gate_blocker',
-  INVALID_PAYLOAD: 'gate_blocker',
-  NOT_FOUND: 'gate_blocker',
-  VERSION_CONFLICT: 'gate_blocker',
+  ...SHARED_RUNTIME_AND_GATE_QUEUE_TYPE_BY_BLOCKER_CODE,
 };
 
 /**
  * Deterministic queue classification for a run-blocking coordinator step.
  *
  * F5 blocker-source split: `trustedBlockerCodes` are coordinator-observed
- * codes (its own codes plus AppError codes it caught from slot invocation)
- * and classify through the full exact + prefix tables;
+ * codes (its own codes, AppError codes it caught from slot invocation, and
+ * — per the R4 trust rule — blocker codes of zero-provider-call blocked
+ * results) and classify through the full exact + prefix tables;
  * `slotBlockerCodes` come from the slot result payload (potentially
  * LLM-influenced) and only classify through the exact slot whitelist —
  * never the coordinator-owned prefix families. With no table hit the step
  * outcome enum (never a string heuristic) picks between the failed-run
  * bucket and the explicit `unclassified` bucket.
+ *
+ * R3 dedup poisoning fence: `dedup_blocker` (the dedup_key primary segment)
+ * only ever carries a trusted code; when no trusted code classified, it is
+ * the fixed sentinel `outcome:<step outcome enum>` — NEVER a slot-sourced
+ * free string, so slot output can neither fragment nor collide the
+ * (run, slot, primary blocker) dedup space. `primary_blocker` stays
+ * informational (display) and may keep the slot-sourced value.
  */
 export function classifyPaperImplementationCoordinatorBlockedStep(
   outcome: PaperImplementationCoordinatorStepOutcome,
   trustedBlockerCodes: string[],
   slotBlockerCodes: string[],
-): { queue_type: PaperImplementationDecisionQueueType; primary_blocker: string } {
+): {
+  queue_type: PaperImplementationDecisionQueueType;
+  primary_blocker: string;
+  dedup_blocker: string;
+} {
+  const outcomeSentinel = `outcome:${outcome}`;
   for (const code of trustedBlockerCodes) {
     const exact = PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE[code];
     if (exact) {
-      return { queue_type: exact, primary_blocker: code };
+      return { queue_type: exact, primary_blocker: code, dedup_blocker: code };
     }
     const prefixHit = PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX
       .find(([prefix]) => code.startsWith(prefix));
     if (prefixHit) {
-      return { queue_type: prefixHit[1], primary_blocker: code };
+      return { queue_type: prefixHit[1], primary_blocker: code, dedup_blocker: code };
     }
   }
   for (const code of slotBlockerCodes) {
     const exact = PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE[code];
     if (exact) {
-      return { queue_type: exact, primary_blocker: code };
+      return { queue_type: exact, primary_blocker: code, dedup_blocker: outcomeSentinel };
     }
   }
   const fallbackPrimary = trustedBlockerCodes[0] ?? slotBlockerCodes[0];
@@ -247,11 +272,13 @@ export function classifyPaperImplementationCoordinatorBlockedStep(
     return {
       queue_type: 'failed_run_review',
       primary_blocker: fallbackPrimary ?? 'failed_runtime',
+      dedup_blocker: trustedBlockerCodes[0] ?? outcomeSentinel,
     };
   }
   return {
     queue_type: 'unclassified',
     primary_blocker: fallbackPrimary ?? 'unclassified',
+    dedup_blocker: trustedBlockerCodes[0] ?? outcomeSentinel,
   };
 }
 
@@ -514,14 +541,24 @@ export class PaperImplementationRunCoordinatorService {
     if (raise) {
       this.assertBudgetEnvelopeRaise(existing, raise);
     }
+    const overrides = request.slot_request_payload_overrides ?? null;
     if (existing.run_status === 'budget_exhausted' && !raise) {
+      // R1: overrides on a raise-less advance of a budget-exhausted run must
+      // never be silently dropped by the idempotent no-op — reject loudly.
+      if (overrides) {
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          `CoordinatorRun ${coordinatorRunId} is budget_exhausted: slot_request_payload_overrides `
+          + 'require raise_budget_envelope, otherwise the advance is a no-op and would silently drop them.',
+        );
+      }
       // F2: without a raise, re-advancing a budget-exhausted run is an
       // idempotent no-op returning the current projection — never a 409 and
       // never an execution.
       return this.getCoordinatorRun(implementationProjectId, coordinatorRunId);
     }
     const laneSlots = PAPER_IMPLEMENTATION_COORDINATOR_LANE_REGISTRY[existing.lane_id];
-    const overrides = request.slot_request_payload_overrides ?? null;
     if (overrides) {
       const unknownSlots = Object.keys(overrides).filter((slotId) => !laneSlots.includes(slotId));
       if (unknownSlots.length > 0) {
@@ -549,6 +586,22 @@ export class PaperImplementationRunCoordinatorService {
       acquiredAt,
     );
     if (!acquired) {
+      // R7: a null CAS is ambiguous — it also fires when the run went
+      // terminal between the entry pre-check and the CAS (the repository
+      // refuses terminal runs at the CAS layer). Re-read and surface the
+      // same terminal 409 as the entry gate instead of a misleading
+      // CONCURRENT_ADVANCE.
+      const afterCas = await this.coordinatorRepository.findCoordinatorRunById(
+        implementationProjectId,
+        coordinatorRunId,
+      );
+      if (afterCas && TERMINAL_RUN_STATUSES.has(afterCas.run_status)) {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          `CoordinatorRun ${coordinatorRunId} is terminal (${afterCas.run_status}) and cannot be advanced.`,
+        );
+      }
       throw new AppError(
         409,
         'CONCURRENT_ADVANCE',
@@ -569,22 +622,43 @@ export class PaperImplementationRunCoordinatorService {
               },
             }
             : {}),
-          ...(raise
-            ? {
-              budget_envelope: {
-                max_steps: raise.max_steps ?? run.budget_envelope.max_steps,
-                max_provider_calls: raise.max_provider_calls ?? run.budget_envelope.max_provider_calls,
-              },
-            }
-            : {}),
         };
+        if (raise) {
+          // R2: raises are applied monotonically against the POST-LOCK run —
+          // max(current, raise) per dimension — so any interleaving of
+          // concurrently validated raises can only grow the envelope, never
+          // shrink it back to a stale snapshot. Every application is audited
+          // in budget_raise_events (from === to records a superseded raise).
+          const from = { ...run.budget_envelope };
+          const to = {
+            max_steps: Math.max(from.max_steps, raise.max_steps ?? from.max_steps),
+            max_provider_calls: Math.max(
+              from.max_provider_calls,
+              raise.max_provider_calls ?? from.max_provider_calls,
+            ),
+          };
+          run = {
+            ...run,
+            budget_envelope: to,
+            budget_raise_events: [
+              ...(run.budget_raise_events ?? []),
+              { raised_at: this.now(), from, to, holder_id: holderId },
+            ],
+          };
+        }
         run = await this.persistRun(run, holderId);
       }
       return await this.advanceLoop(implementationProjectId, run, laneSlots, holderId);
     } catch (error) {
       if (error instanceof CoordinatorPersistenceFailure) {
-        // Crash-equivalent path: the run stays `advancing` with a live lease;
-        // recovery is lease expiry + explicit re-advance from the breakpoint.
+        // Crash-equivalent path: the run stays `advancing` and recovery is an
+        // explicit re-advance from the breakpoint. R5: best-effort release of
+        // OUR OWN lease (holder-fenced null write) so the loser never traps
+        // the run under its live lease until TTL expiry — if the failure was
+        // a takeover fence, the fenced release no-ops and the successor's
+        // lease is untouched. Failures are ignored (lease expiry remains the
+        // fallback recovery path).
+        await this.tryReleaseOwnLease(implementationProjectId, coordinatorRunId, holderId);
         throw error.original instanceof Error || error.original instanceof AppError
           ? error.original
           : error;
@@ -611,13 +685,12 @@ export class PaperImplementationRunCoordinatorService {
       run.coordinator_run_id,
     );
 
-    // F6: the persisted steps are the source of truth for consumed budget.
-    // A crash between step persistence and the run-counter update leaves the
-    // run row under-counted; rebuild from steps before any budget decision.
-    const rebuiltConsumed = {
-      steps: steps.length,
-      provider_calls: steps.reduce((sum, step) => sum + step.provider_call_count, 0),
-    };
+    // F6/R10: the persisted steps are the SOLE source of truth for consumed
+    // budget — every budget decision below reads the steps-derived value, and
+    // the run-row counters are a pure projection cache written alongside.
+    // A crash between step persistence and the cache write therefore cannot
+    // leak spend; re-sync the cache before the first budget decision.
+    const rebuiltConsumed = this.consumedFromSteps(steps);
     if (
       run.consumed.steps !== rebuiltConsumed.steps
       || run.consumed.provider_calls !== rebuiltConsumed.provider_calls
@@ -635,9 +708,12 @@ export class PaperImplementationRunCoordinatorService {
       if (nextIndex === -1) {
         return this.finish(run, steps, 'completed', leaseHolderId);
       }
+      // R10: budget decisions read the steps-derived consumption, never the
+      // cached run-row counters.
+      const consumed = this.consumedFromSteps(steps);
       if (
-        run.consumed.steps + 1 > run.budget_envelope.max_steps
-        || run.consumed.provider_calls >= run.budget_envelope.max_provider_calls
+        consumed.steps + 1 > run.budget_envelope.max_steps
+        || consumed.provider_calls >= run.budget_envelope.max_provider_calls
       ) {
         return this.finish(run, steps, 'budget_exhausted', leaseHolderId);
       }
@@ -651,18 +727,7 @@ export class PaperImplementationRunCoordinatorService {
       // F3: heartbeat + lease-fence BEFORE the slot runs. If the lease has
       // been taken over, this guarded write fails (crash-equivalent) and the
       // stale holder never double-executes the slot.
-      const heartbeatAt = this.now();
-      run = await this.persistRun({
-        ...run,
-        lease: run.lease
-          ? {
-            ...run.lease,
-            heartbeat_at: heartbeatAt,
-            expires_at: new Date(new Date(heartbeatAt).getTime() + this.leaseTtlMs).toISOString(),
-          }
-          : run.lease,
-        updated_at: heartbeatAt,
-      }, leaseHolderId);
+      run = await this.persistRun(this.withBumpedLease(run, this.now()), leaseHolderId);
 
       let result: CoordinatorSlotRunResult | null = null;
       let invocationBlockerCodes: string[] = [];
@@ -686,6 +751,14 @@ export class PaperImplementationRunCoordinatorService {
       // decisions only trust the coordinator-observed set.
       const slotBlockerCodes = result ? this.uniqueStrings([...result.blocker_codes]) : [];
       const trustedBlockerCodes = [...invocationBlockerCodes];
+      // R4 trust rule: a blocked slot result with zero provider calls is a
+      // deterministic preflight product — the LLM never ran, so its blocker
+      // codes are coordinator-trustworthy (this is how the D2 tier budget
+      // code reaches terminal-state routing through the preflight echo
+      // channel). Any provider-call-carrying blocked result stays untrusted.
+      if (result && result.status === 'blocked' && result.provider_call_count === 0) {
+        trustedBlockerCodes.push(...slotBlockerCodes);
+      }
       const noEligibleCandidate = decisionRecord !== null && decisionRecord.selected_candidate_key === null;
       if (noEligibleCandidate) {
         // F1: an empty selection is a run-blocking outcome, not a pass — the
@@ -695,6 +768,11 @@ export class PaperImplementationRunCoordinatorService {
         trustedBlockerCodes.push(NO_ELIGIBLE_CANDIDATE_BLOCKER_CODE);
       }
 
+      // R9: the acceptance-bridge lineage pair (id + hash) is gated as one —
+      // both only materialize from an ADMITTED final admission record.
+      const admittedFinal = result?.final_admission_record?.admission_status === 'admitted'
+        ? result.final_admission_record
+        : null;
       const step: PaperImplementationCoordinatorStep = {
         schema_version: PAPER_IMPLEMENTATION_COORDINATOR_STEP_SCHEMA_VERSION,
         coordinator_step_id: this.idFactory('pi_coordinator_step'),
@@ -705,10 +783,11 @@ export class PaperImplementationRunCoordinatorService {
         node_attempt_id: nodeAttemptId,
         runtime_artifact_ref: result?.final_admission_record?.admitted_artifact_ref ?? null,
         runtime_artifact_hash: result?.final_admission_record?.admitted_artifact_hash ?? null,
-        // F4: the admitted final artifact id — together with
+        // F4/R9: the admitted final artifact id — together with
         // runtime_artifact_hash this is exactly the acceptance-bridge
-        // lineage pair (source_proposal_artifact_ref.ref_id + hash).
-        runtime_artifact_id: result?.final_admission_record?.runtime_artifact_id ?? null,
+        // lineage pair (source_proposal_artifact_ref.ref_id + hash), and it
+        // shares the hash's admitted-only gate.
+        runtime_artifact_id: admittedFinal?.runtime_artifact_id ?? null,
         admission_ref: result?.final_admission_record
           ? {
             ref_type: 'paper_implementation_runtime_admission_record',
@@ -723,23 +802,19 @@ export class PaperImplementationRunCoordinatorService {
         blocker_codes: this.uniqueStrings([...slotBlockerCodes, ...trustedBlockerCodes]),
         created_at: this.now(),
       };
+      // R5: a second holder-fenced heartbeat immediately before the step is
+      // persisted closes the residual double-execution window — a stale
+      // holder whose lease was taken over DURING the slot run is fenced out
+      // here (crash-equivalent throw) and its slot result never lands as a
+      // step row.
+      run = await this.persistRun(this.withBumpedLease(run, this.now()), leaseHolderId);
       const persistedStep = await this.persistStep(step);
       steps.push(persistedStep);
 
       run = await this.persistRun({
-        ...run,
-        consumed: {
-          steps: run.consumed.steps + 1,
-          provider_calls: run.consumed.provider_calls + step.provider_call_count,
-        },
-        lease: run.lease
-          ? {
-            ...run.lease,
-            heartbeat_at: this.now(),
-            expires_at: new Date(new Date(this.now()).getTime() + this.leaseTtlMs).toISOString(),
-          }
-          : run.lease,
-        updated_at: this.now(),
+        ...this.withBumpedLease(run, this.now()),
+        // R10: projection cache only — rebuilt from the persisted steps.
+        consumed: this.consumedFromSteps(steps),
       }, leaseHolderId);
 
       // W4 queue reflow: a run-blocking step (blocked / failed_runtime,
@@ -756,7 +831,8 @@ export class PaperImplementationRunCoordinatorService {
       if (trustedBlockerCodes.includes(TIER_BUDGET_BLOCKER_CODE)) {
         return this.finish(run, steps, 'budget_exhausted', leaseHolderId);
       }
-      if (run.consumed.provider_calls > run.budget_envelope.max_provider_calls) {
+      // R10: read the steps-derived value, not the cached run-row counters.
+      if (this.consumedFromSteps(steps).provider_calls > run.budget_envelope.max_provider_calls) {
         return this.finish(run, steps, 'budget_exhausted', leaseHolderId);
       }
       if (outcome === 'waiting_review') {
@@ -770,11 +846,13 @@ export class PaperImplementationRunCoordinatorService {
 
   /**
    * Materializes the queue item for a run-blocking step through the narrow
-   * decision-queue writer. Dedup key is (coordinator run, slot, primary
-   * blocker), so repeated advances of the same breakpoint reuse the open
-   * item and reopens after a resolve accumulate retry_count in the
-   * repository. Enqueue failures are crash-equivalent persistence failures:
-   * the run stays advancing and re-advance retries the (idempotent) enqueue.
+   * decision-queue writer. Dedup key is (coordinator run, slot, trusted
+   * dedup blocker — R3: a trusted code or the outcome sentinel, never a
+   * slot-sourced free string), so repeated advances of the same breakpoint
+   * reuse the open item and reopens after a resolve accumulate retry_count
+   * in the repository. Enqueue failures are crash-equivalent persistence
+   * failures: the run stays advancing and re-advance retries the
+   * (idempotent) enqueue.
    */
   private async enqueueRunBlockingStep(
     run: PaperImplementationCoordinatorRun,
@@ -809,11 +887,14 @@ export class PaperImplementationRunCoordinatorService {
       priority: 'high',
       status: 'open',
       blocking_transition_keys: [`coordinator.${run.lane_id}.${step.slot_id}`],
+      // R3: the dedup primary segment is trusted-or-sentinel only
+      // (classification.dedup_blocker) — a slot-sourced free string can
+      // never fragment the (run, slot, blocker) dedup space.
       dedup_key: [
         'coordinator',
         run.coordinator_run_id,
         step.slot_id,
-        classification.primary_blocker,
+        classification.dedup_blocker,
       ].join(':'),
       allowed_handlers: ['human', 'system'],
       recommended_actions: ['inspect_coordinator_step', 'resolve_then_re_advance'],
@@ -850,6 +931,68 @@ export class PaperImplementationRunCoordinatorService {
       updated_at: this.now(),
     }, leaseHolderId);
     return { run: updated, steps };
+  }
+
+  /**
+   * R10: single clock discipline for every lease heartbeat write — one `now`
+   * per bump feeds heartbeat_at, expires_at, and updated_at together.
+   */
+  private withBumpedLease(
+    run: PaperImplementationCoordinatorRun,
+    nowIso: string,
+  ): PaperImplementationCoordinatorRun {
+    return {
+      ...run,
+      lease: run.lease
+        ? {
+          ...run.lease,
+          heartbeat_at: nowIso,
+          expires_at: new Date(new Date(nowIso).getTime() + this.leaseTtlMs).toISOString(),
+        }
+        : run.lease,
+      updated_at: nowIso,
+    };
+  }
+
+  /**
+   * F6/R10: the persisted steps are the single source of truth for consumed
+   * budget; the run-row counters are a projection cache of this value.
+   */
+  private consumedFromSteps(
+    steps: PaperImplementationCoordinatorStep[],
+  ): PaperImplementationCoordinatorRun['consumed'] {
+    return {
+      steps: steps.length,
+      provider_calls: steps.reduce((sum, step) => sum + step.provider_call_count, 0),
+    };
+  }
+
+  /**
+   * R5: best-effort holder-fenced lease release on the crash-equivalent
+   * persistence-failure path. Reads the freshest run state (so the write
+   * never clobbers newer counters) and only writes when the lease is still
+   * ours; a takeover means the fenced write no-ops or 409s — both ignored.
+   */
+  private async tryReleaseOwnLease(
+    implementationProjectId: string,
+    coordinatorRunId: string,
+    holderId: string,
+  ): Promise<void> {
+    try {
+      const fresh = await this.coordinatorRepository.findCoordinatorRunById(
+        implementationProjectId,
+        coordinatorRunId,
+      );
+      if (!fresh || fresh.lease?.holder_id !== holderId) {
+        return;
+      }
+      await this.coordinatorRepository.updateCoordinatorRun(
+        { ...fresh, lease: null, updated_at: this.now() },
+        { expectedLeaseHolderId: holderId },
+      );
+    } catch {
+      // Best effort only — lease expiry remains the fallback recovery path.
+    }
   }
 
   private async persistRun(

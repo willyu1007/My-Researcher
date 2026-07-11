@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  PAPER_IMPLEMENTATION_RUNTIME_ADMISSION_RECORD_SCHEMA_VERSION,
   PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_ROLE_SLOT_ID,
   PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID,
   PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID,
@@ -31,6 +32,7 @@ import {
   type PaperImplementationRouteCandidateProposal,
   type PaperImplementationRoutePlanningRoleOutput,
   type PaperImplementationRouteSkepticDisposition,
+  type PaperImplementationRuntimeAdmissionRecord,
   type PaperImplementationValidationCycleCandidateProposal,
   type PaperImplementationValidationCyclePlanningRoleOutput,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
@@ -83,7 +85,14 @@ import {
 } from './paper-implementation-motive-evolution-runtime-service.js';
 import {
   PaperImplementationEvidenceBoardCurationRuntimeService,
+  type PaperImplementationEvidenceBoardCurationRuntimeResult,
 } from './paper-implementation-evidence-board-curation-runtime-service.js';
+import type {
+  PaperImplementationRoutePlanningRuntimeResult,
+} from './paper-implementation-route-planning-runtime-service.js';
+import {
+  buildPaperImplementationRuntimeOperationalTelemetry,
+} from './paper-implementation-runtime-operational-telemetry.js';
 import {
   PaperImplementationCrossBoardSynthesisRuntimeService,
 } from './paper-implementation-cross-board-synthesis-runtime-service.js';
@@ -91,6 +100,7 @@ import {
   classifyPaperImplementationCoordinatorBlockedStep,
   PaperImplementationRunCoordinatorService,
   selectPaperImplementationCandidateV1,
+  type PaperImplementationRunCoordinatorServiceOptions,
 } from './paper-implementation-run-coordinator-service.js';
 import {
   PaperImplementationValidationCyclePlanningService,
@@ -286,13 +296,15 @@ class CrashOnceCoordinatorRepository implements PaperImplementationCoordinatorRe
   findCoordinatorRunById: PaperImplementationCoordinatorRepository['findCoordinatorRunById'] =
     (projectId, runId) => this.inner.findCoordinatorRunById(projectId, runId);
 
-  updateCoordinatorRun: PaperImplementationCoordinatorRepository['updateCoordinatorRun'] = (run) => {
+  // R6: the wrapper must forward `options` — dropping it would silently
+  // strip the holder fence from every guarded write under test.
+  updateCoordinatorRun: PaperImplementationCoordinatorRepository['updateCoordinatorRun'] = (run, options) => {
     this.updateCalls += 1;
     if (!this.crashed && this.updateCalls === this.crashOnUpdateCall) {
       this.crashed = true;
       throw new Error('simulated coordinator crash');
     }
-    return this.inner.updateCoordinatorRun(run);
+    return this.inner.updateCoordinatorRun(run, options);
   };
 
   acquireCoordinatorRunLease: PaperImplementationCoordinatorRepository['acquireCoordinatorRunLease'] =
@@ -418,10 +430,10 @@ test('coordinator concurrent double advance executes once and rejects the loser 
 test('coordinator crash re-advance resumes from the breakpoint without duplicate steps or artifacts', async () => {
   const fixture = coordinatorFixture();
   // Crash on the run-state update after the third persisted step: steps 0..2
-  // are durable, the run stays advancing with a live lease. Update calls per
-  // executed step are pre-slot heartbeat + post-step counter write, so the
-  // post-step write of step 2 is the sixth update call.
-  const crashRepository = new CrashOnceCoordinatorRepository(fixture.coordinatorRepository, 6);
+  // are durable, the run stays advancing. Update calls per executed step are
+  // pre-slot heartbeat + pre-persistStep heartbeat (R5) + post-step counter
+  // write, so the post-step write of step 2 is the ninth update call.
+  const crashRepository = new CrashOnceCoordinatorRepository(fixture.coordinatorRepository, 9);
   const coordinator = fixture.buildCoordinator(crashRepository);
   const run = await coordinator.createCoordinatorRun(PROJECT_ID, laneACreateRequest());
 
@@ -432,21 +444,15 @@ test('coordinator crash re-advance resumes from the breakpoint without duplicate
 
   const afterCrash = await coordinator.getCoordinatorRun(PROJECT_ID, run.coordinator_run_id);
   assert.equal(afterCrash.run.run_status, 'advancing');
-  assert.equal(afterCrash.run.lease?.holder_id, 'holder_crash');
+  // R5: the crash path best-effort releases the loser's own lease so the run
+  // is not trapped under a live lease until TTL expiry.
+  assert.equal(afterCrash.run.lease, null);
   assert.equal(afterCrash.steps.length, 3);
   assert.deepEqual(afterCrash.steps.map((step) => step.outcome), ['passed', 'passed', 'passed']);
 
-  // The lease is still live: a foreign re-advance is rejected as concurrent.
-  await assert.rejects(
-    () => coordinator.advance(PROJECT_ID, run.coordinator_run_id, { holder_id: 'holder_recovery' }),
-    (error: unknown) => error instanceof AppError
-      && error.statusCode === 409
-      && error.errorCode === 'CONCURRENT_ADVANCE',
-  );
-
-  // After lease expiry the re-advance takes over and resumes from the
-  // breakpoint: only the remaining step runs, no step or artifact repeats.
-  fixture.clock.value = '2026-07-11T10:05:00.000Z';
+  // R5: with the lease released, the re-advance proceeds IMMEDIATELY (no
+  // clock advance to expire the lease) and resumes from the breakpoint:
+  // only the remaining step runs, no step or artifact repeats.
   const recovered = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
     holder_id: 'holder_recovery',
   });
@@ -510,6 +516,24 @@ test('coordinator budget exhaustion parks the run as budget_exhausted', async ()
   );
   assert.equal(fixture.orchestrator.calls.length, orchestratorCallsBefore);
 
+  // R1: overrides without a raise must never ride the idempotent no-op and
+  // be silently dropped — loud 400, no lease, no execution.
+  await assert.rejects(
+    () => fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+      holder_id: 'holder_budget_overrides_no_raise',
+      slot_request_payload_overrides: {
+        [PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID]: routeArchitecturePayload(),
+      },
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD'
+      && /silently drop/.test(error.message),
+  );
+  assert.equal(fixture.orchestrator.calls.length, orchestratorCallsBefore);
+  const stillExhausted = await fixture.coordinator.getCoordinatorRun(PROJECT_ID, run.coordinator_run_id);
+  assert.equal(stillExhausted.run.run_status, 'budget_exhausted');
+
   // D1 raise-then-re-advance: a real raise resumes the run from the
   // breakpoint through to completion.
   const resumed = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
@@ -520,6 +544,14 @@ test('coordinator budget exhaustion parks the run as budget_exhausted', async ()
   assert.equal(resumed.run.budget_envelope.max_steps, 8);
   assert.equal(resumed.steps.length, 4);
   assert.equal(resumed.run.consumed.steps, 4);
+  // R2 audit: every applied raise is recorded with from/to and the holder.
+  assert.equal(resumed.run.budget_raise_events?.length, 1);
+  assert.deepEqual(resumed.run.budget_raise_events?.[0], {
+    raised_at: NOW,
+    from: { max_steps: 2, max_provider_calls: 8 },
+    to: { max_steps: 8, max_provider_calls: 8 },
+    holder_id: 'holder_budget_raise',
+  });
 
   // Completed stays terminal: even a raise-carrying advance is a 409.
   await assert.rejects(
@@ -531,6 +563,75 @@ test('coordinator budget exhaustion parks the run as budget_exhausted', async ()
       && error.statusCode === 409
       && error.errorCode === 'GATE_CONSTRAINT_FAILED',
   );
+});
+
+test('coordinator budget raise is monotonic under interleaving and never shrinks the envelope', async () => {
+  // R2: a raise validated against a STALE snapshot (envelope 2) must not
+  // shrink an envelope a concurrent raise already grew to 10 — the apply
+  // step takes max(post-lock envelope, raise) per dimension.
+  const fixture = coordinatorFixture();
+  const inner = fixture.coordinatorRepository;
+  let armed = false;
+  const interleavingRepository: PaperImplementationCoordinatorRepository = {
+    createCoordinatorRun: (record) => inner.createCoordinatorRun(record),
+    findCoordinatorRunById: (projectId, runId) => inner.findCoordinatorRunById(projectId, runId),
+    updateCoordinatorRun: (record, options) => inner.updateCoordinatorRun(record, options),
+    createCoordinatorStep: (step) => inner.createCoordinatorStep(step),
+    listCoordinatorSteps: (projectId, runId) => inner.listCoordinatorSteps(projectId, runId),
+    acquireCoordinatorRunLease: async (projectId, runId, lease, now) => {
+      if (armed) {
+        armed = false;
+        const stored = await inner.findCoordinatorRunById(projectId, runId);
+        assert.ok(stored);
+        // Interleaving injection: a concurrent raise to 10 completes AFTER
+        // our request validated raise 7 against the stale envelope 2, but
+        // BEFORE our lease CAS.
+        await inner.updateCoordinatorRun({
+          ...stored,
+          budget_envelope: { ...stored.budget_envelope, max_steps: 10 },
+          budget_raise_events: [
+            ...(stored.budget_raise_events ?? []),
+            {
+              raised_at: NOW,
+              from: { ...stored.budget_envelope },
+              to: { ...stored.budget_envelope, max_steps: 10 },
+              holder_id: 'holder_interleaved_winner',
+            },
+          ],
+        });
+      }
+      return inner.acquireCoordinatorRunLease(projectId, runId, lease, now);
+    },
+  };
+  const coordinator = fixture.buildCoordinator(interleavingRepository);
+  const run = await coordinator.createCoordinatorRun(PROJECT_ID, {
+    ...laneACreateRequest(),
+    budget_envelope: { max_steps: 2, max_provider_calls: 8 },
+  });
+  const exhausted = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_monotonic_park',
+  });
+  assert.equal(exhausted.run.run_status, 'budget_exhausted');
+
+  armed = true;
+  const resumed = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_monotonic_raise',
+    raise_budget_envelope: { max_steps: 7 },
+  });
+  assert.equal(resumed.run.run_status, 'completed');
+  // The envelope KEEPS the concurrent winner's 10 — the stale raise 7 can
+  // only be absorbed, never applied as a reduction.
+  assert.equal(resumed.run.budget_envelope.max_steps, 10);
+  // Both raises are on the audit trail; the superseded one records
+  // from === to at the winner's level.
+  assert.equal(resumed.run.budget_raise_events?.length, 2);
+  assert.equal(resumed.run.budget_raise_events?.[0]?.holder_id, 'holder_interleaved_winner');
+  assert.deepEqual(resumed.run.budget_raise_events?.[1], {
+    raised_at: NOW,
+    from: { max_steps: 10, max_provider_calls: 8 },
+    to: { max_steps: 10, max_provider_calls: 8 },
+    holder_id: 'holder_monotonic_raise',
+  });
 });
 
 test('coordinator candidate selection decision records are replayable from stored projections', async () => {
@@ -800,31 +901,53 @@ test('coordinator blocked step materializes a decision work queue item with dedu
 test('coordinator queue classification maps unknown blockers to unclassified', () => {
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', ['TIER_BUDGET_INSUFFICIENT'], []),
-    { queue_type: 'loop_budget_review', primary_blocker: 'TIER_BUDGET_INSUFFICIENT' },
+    {
+      queue_type: 'loop_budget_review',
+      primary_blocker: 'TIER_BUDGET_INSUFFICIENT',
+      dedup_blocker: 'TIER_BUDGET_INSUFFICIENT',
+    },
   );
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', ['COORDINATOR_NO_ELIGIBLE_CANDIDATE'], []),
-    { queue_type: 'human_review', primary_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE' },
+    {
+      queue_type: 'human_review',
+      primary_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
+      dedup_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
+    },
   );
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', ['SLOT_INVOCATION_FAILED'], []),
-    { queue_type: 'failed_workflow', primary_blocker: 'SLOT_INVOCATION_FAILED' },
+    {
+      queue_type: 'failed_workflow',
+      primary_blocker: 'SLOT_INVOCATION_FAILED',
+      dedup_blocker: 'SLOT_INVOCATION_FAILED',
+    },
   );
   // Unknown blocker codes land in the explicit `unclassified` bucket — the
-  // mapping is enum tables only, never string-includes heuristics.
+  // mapping is enum tables only, never string-includes heuristics. R3: a
+  // slot-sourced free string may stay informational (primary_blocker) but
+  // the dedup segment falls back to the outcome sentinel.
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['SOME_NOVEL_SLOT_BLOCKER']),
-    { queue_type: 'unclassified', primary_blocker: 'SOME_NOVEL_SLOT_BLOCKER' },
+    {
+      queue_type: 'unclassified',
+      primary_blocker: 'SOME_NOVEL_SLOT_BLOCKER',
+      dedup_blocker: 'outcome:blocked',
+    },
   );
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], []),
-    { queue_type: 'unclassified', primary_blocker: 'unclassified' },
+    { queue_type: 'unclassified', primary_blocker: 'unclassified', dedup_blocker: 'outcome:blocked' },
   );
   // With no table hit the step outcome enum (not a string heuristic) still
   // routes runtime failures to the failed-run bucket.
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('failed_runtime', [], ['SOME_NOVEL_RUNTIME_CODE']),
-    { queue_type: 'failed_run_review', primary_blocker: 'SOME_NOVEL_RUNTIME_CODE' },
+    {
+      queue_type: 'failed_run_review',
+      primary_blocker: 'SOME_NOVEL_RUNTIME_CODE',
+      dedup_blocker: 'outcome:failed_runtime',
+    },
   );
 });
 
@@ -832,26 +955,48 @@ test('coordinator queue classification never trusts coordinator-owned codes from
   // F5: coordinator-owned codes riding the slot result payload (potentially
   // LLM-influenced) must not classify through the trusted tables — no
   // loop_budget_review, no trace_repair, no human_review from slot output.
+  // R3: nor may any slot-sourced string enter the dedup segment.
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['TIER_BUDGET_INSUFFICIENT']),
-    { queue_type: 'unclassified', primary_blocker: 'TIER_BUDGET_INSUFFICIENT' },
+    {
+      queue_type: 'unclassified',
+      primary_blocker: 'TIER_BUDGET_INSUFFICIENT',
+      dedup_blocker: 'outcome:blocked',
+    },
   );
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['TRACE_REPAIR_FORGED']),
-    { queue_type: 'unclassified', primary_blocker: 'TRACE_REPAIR_FORGED' },
+    {
+      queue_type: 'unclassified',
+      primary_blocker: 'TRACE_REPAIR_FORGED',
+      dedup_blocker: 'outcome:blocked',
+    },
   );
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['COORDINATOR_NO_ELIGIBLE_CANDIDATE']),
-    { queue_type: 'unclassified', primary_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE' },
+    {
+      queue_type: 'unclassified',
+      primary_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
+      dedup_blocker: 'outcome:blocked',
+    },
   );
-  // Slot codes on the exact runtime/gate whitelist still classify.
+  // Slot codes on the exact runtime/gate whitelist still classify the queue
+  // type, but even whitelisted slot codes never become the dedup segment.
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['GATE_CONSTRAINT_FAILED']),
-    { queue_type: 'gate_blocker', primary_blocker: 'GATE_CONSTRAINT_FAILED' },
+    {
+      queue_type: 'gate_blocker',
+      primary_blocker: 'GATE_CONSTRAINT_FAILED',
+      dedup_blocker: 'outcome:blocked',
+    },
   );
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('failed_runtime', [], ['AGENT_EXECUTION_FAILED']),
-    { queue_type: 'failed_run_review', primary_blocker: 'AGENT_EXECUTION_FAILED' },
+    {
+      queue_type: 'failed_run_review',
+      primary_blocker: 'AGENT_EXECUTION_FAILED',
+      dedup_blocker: 'outcome:failed_runtime',
+    },
   );
   // Trusted codes win over slot codes regardless of order.
   assert.deepEqual(
@@ -860,7 +1005,11 @@ test('coordinator queue classification never trusts coordinator-owned codes from
       ['COORDINATOR_NO_ELIGIBLE_CANDIDATE'],
       ['GATE_CONSTRAINT_FAILED'],
     ),
-    { queue_type: 'human_review', primary_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE' },
+    {
+      queue_type: 'human_review',
+      primary_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
+      dedup_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
+    },
   );
 });
 
@@ -918,39 +1067,172 @@ test('coordinator no-eligible-candidate step blocks the run and override re-adva
 });
 
 test('coordinator distrusts slot-sourced budget and trace blocker codes for terminal state and queue routing', async () => {
-  // F5: coordinator-owned codes riding the slot result (potentially
-  // LLM-influenced output) must not park the run as budget_exhausted nor
-  // route the queue item into trace_repair/loop_budget_review.
+  // F5/R4: coordinator-owned codes riding a PROVIDER-CALL-CARRYING slot
+  // result (LLM ran — potentially LLM-influenced output) must not park the
+  // run as budget_exhausted nor route the queue item into
+  // trace_repair/loop_budget_review. (The zero-provider-call preflight echo
+  // channel is the trusted counterpart — see the R4 trust-rule test.)
   const fixture = coordinatorFixture();
-  const run = await fixture.coordinator.createCoordinatorRun(PROJECT_ID, laneACreateRequest({
-    routePreflightBlockerCodes: ['TIER_BUDGET_INSUFFICIENT', 'TRACE_REPAIR_FORGED'],
-  }));
+  const realRoute = fixture.routePlanningRuntime;
+  let intercepted = false;
+  const coordinator = fixture.buildCoordinator(undefined, {
+    routePlanningRuntime: {
+      runRouteArchitecture: async (projectId, request) => {
+        if (!intercepted) {
+          intercepted = true;
+          // R9: a REJECTED final admission still carries the raw
+          // runtime_artifact_id — the step projection must not surface a
+          // half lineage pair (id without admitted hash).
+          return stubBlockedRouteArchitectureResult({
+            providerCallCount: 1,
+            blockerCodes: ['TIER_BUDGET_INSUFFICIENT', 'TRACE_REPAIR_FORGED'],
+            finalAdmissionRecord: rejectedFinalAdmissionRecord(),
+          });
+        }
+        return realRoute.runRouteArchitecture(projectId, request);
+      },
+      runRouteSkepticReview: (projectId, request) => realRoute.runRouteSkepticReview(projectId, request),
+    },
+  });
+  const run = await coordinator.createCoordinatorRun(PROJECT_ID, laneACreateRequest());
 
-  const advanced = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+  const advanced = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
     holder_id: 'holder_slot_codes',
   });
   assert.equal(advanced.run.run_status, 'blocked');
   assert.notEqual(advanced.run.run_status, 'budget_exhausted');
   assert.equal(advanced.steps.length, 1);
   assert.equal(advanced.steps[0]?.outcome, 'blocked');
+  assert.equal(advanced.steps[0]?.provider_call_count, 1);
   // The persisted step keeps the full blocker union for audit.
   assert.ok(advanced.steps[0]?.blocker_codes.includes('TIER_BUDGET_INSUFFICIENT'));
   assert.ok(advanced.steps[0]?.blocker_codes.includes('TRACE_REPAIR_FORGED'));
+  // R9: no half lineage — the rejected admission projects neither the id
+  // nor the hash, while the admission ref itself stays on the record.
+  assert.equal(advanced.steps[0]?.runtime_artifact_id, null);
+  assert.equal(advanced.steps[0]?.runtime_artifact_hash, null);
+  assert.equal(advanced.steps[0]?.admission_ref?.ref_id, 'admission_rejected_slot_codes');
 
   const queueItems = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
   assert.equal(queueItems.length, 1);
   assert.equal(queueItems[0]?.queue_type, 'unclassified');
   assert.notEqual(queueItems[0]?.queue_type, 'trace_repair');
   assert.notEqual(queueItems[0]?.queue_type, 'loop_budget_review');
+  // R3: the slot-sourced strings never enter the dedup segment.
+  assert.equal(queueItems[0]?.dedup_key, [
+    'coordinator',
+    run.coordinator_run_id,
+    PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    'outcome:blocked',
+  ].join(':'));
 
   // Not terminal: the run stays re-advanceable (blocked, not exhausted).
-  const resumed = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+  const resumed = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
     holder_id: 'holder_slot_codes_retry',
     slot_request_payload_overrides: {
       [PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID]: routeArchitecturePayload(),
     },
   });
   assert.equal(resumed.run.run_status, 'completed');
+});
+
+test('coordinator trusts blocker codes of zero-provider-call blocked finals (deterministic preflight products)', async () => {
+  // R4: a blocked slot result with provider_call_count === 0 never ran the
+  // LLM — its blocker codes are deterministic preflight output and classify
+  // through the trusted tables, so the D2 tier-budget code CAN park the run
+  // as budget_exhausted through the preflight echo channel.
+  const fixture = coordinatorFixture();
+  const run = await fixture.coordinator.createCoordinatorRun(PROJECT_ID, laneACreateRequest({
+    routePreflightBlockerCodes: ['TIER_BUDGET_INSUFFICIENT'],
+  }));
+
+  const advanced = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_zero_call_trust',
+  });
+  assert.equal(advanced.run.run_status, 'budget_exhausted');
+  assert.equal(advanced.run.lease, null);
+  assert.equal(advanced.steps.length, 1);
+  assert.equal(advanced.steps[0]?.outcome, 'blocked');
+  assert.equal(advanced.steps[0]?.provider_call_count, 0);
+  assert.ok(advanced.steps[0]?.blocker_codes.includes('TIER_BUDGET_INSUFFICIENT'));
+
+  const queueItems = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(queueItems.length, 1);
+  assert.equal(queueItems[0]?.queue_type, 'loop_budget_review');
+  // Trusted code — it IS the dedup segment.
+  assert.equal(queueItems[0]?.dedup_key, [
+    'coordinator',
+    run.coordinator_run_id,
+    PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    'TIER_BUDGET_INSUFFICIENT',
+  ].join(':'));
+});
+
+test('coordinator dedup key survives slot blocker wording drift (same breakpoint, same item)', async () => {
+  // R3: two blockages of the same (run, slot) whose provider-call-carrying
+  // slot results word their blockers differently must land on the SAME
+  // dedup key — reopen semantics with retry accumulation, never a second
+  // open item per wording.
+  const fixture = coordinatorFixture();
+  let call = 0;
+  const coordinator = fixture.buildCoordinator(undefined, {
+    evidenceBoardCurationRuntime: {
+      runBindingGapCandidates: async () => {
+        call += 1;
+        return stubBlockedEvidenceBoardCurationResult({
+          providerCallCount: 1,
+          blockerCodes: [
+            call === 1
+              ? 'The model narrated blocker wording A'
+              : 'A completely different narrated wording B',
+          ],
+        });
+      },
+    },
+  });
+  const run = await coordinator.createCoordinatorRun(PROJECT_ID, {
+    ...boardLaneCreateRequest('evidence-board-curation'),
+    budget_envelope: { max_steps: 8, max_provider_calls: 16 },
+  });
+
+  const first = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_wording_first',
+  });
+  assert.equal(first.run.run_status, 'blocked');
+  const afterFirst = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(afterFirst.length, 1);
+  const item = afterFirst[0]!;
+  const expectedDedupKey = [
+    'coordinator',
+    run.coordinator_run_id,
+    PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+    'outcome:blocked',
+  ].join(':');
+  assert.equal(item.dedup_key, expectedDedupKey);
+
+  await fixture.harnessRepository.resolveDecisionWorkQueueItem(PROJECT_ID, item.queue_item_id, {
+    status: 'resolved',
+    resolution_note: 'wording drift repair attempt',
+    resolved_by: 'human',
+    resolved_at: NOW,
+  });
+  const second = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_wording_second',
+  });
+  assert.equal(second.run.run_status, 'blocked');
+  assert.equal(second.steps.length, 2);
+  assert.notEqual(
+    second.steps[1]?.blocker_codes.join(','),
+    second.steps[0]?.blocker_codes.join(','),
+    'the two attempts must actually carry different slot wording',
+  );
+
+  const afterSecond = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(afterSecond.length, 1, 'wording drift must not mint a second item');
+  assert.equal(afterSecond[0]?.queue_item_id, item.queue_item_id);
+  assert.equal(afterSecond[0]?.dedup_key, expectedDedupKey);
+  assert.equal(afterSecond[0]?.status, 'open');
+  assert.equal(afterSecond[0]?.retry_count, 1);
 });
 
 test('coordinator stale holder persistence fails after a lease takeover without overwriting the new holder', async () => {
@@ -987,7 +1269,9 @@ test('coordinator stale holder persistence fails after a lease takeover without 
       && /lease is no longer held/.test(error.message),
   );
 
-  // The new holder's run state is untouched by the stale holder.
+  // The new holder's run state is untouched by the stale holder. R5: the
+  // stale holder's best-effort lease release is fenced on ITSELF, so the
+  // successor's live lease survives.
   const after = await fixture.coordinatorRepository.findCoordinatorRunById(
     PROJECT_ID,
     run.coordinator_run_id,
@@ -995,6 +1279,61 @@ test('coordinator stale holder persistence fails after a lease takeover without 
   assert.equal(after?.run_status, 'advancing');
   assert.equal(after?.lease?.holder_id, 'holder_thief');
   assert.equal(after?.consumed.steps, 0);
+
+  // R5: the fence fired at the pre-persistStep heartbeat — the stale
+  // holder's slot result was discarded and NO step row landed.
+  const orphanCheck = await fixture.coordinatorRepository.listCoordinatorSteps(
+    PROJECT_ID,
+    run.coordinator_run_id,
+  );
+  assert.equal(orphanCheck.length, 0, 'the fenced-out holder must not persist its slot result');
+
+  // The run is not stuck: the live lease holder advances immediately and
+  // step 0 runs exactly once more (a fresh attempt, no duplicate from the
+  // victim).
+  const resumed = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_thief',
+  });
+  assert.equal(resumed.run.run_status, 'completed');
+  assert.equal(resumed.steps.filter((step) => step.step_index === 0).length, 1);
+});
+
+test('coordinator surfaces the terminal 409 when the run turns terminal between pre-check and lease CAS', async () => {
+  // R7: a null CAS is ambiguous (concurrent holder vs terminal race). When
+  // the run went terminal in the window between the entry pre-check and the
+  // CAS, the error must be the terminal GATE_CONSTRAINT_FAILED — not a
+  // misleading CONCURRENT_ADVANCE that invites a retry.
+  const fixture = coordinatorFixture();
+  const run = await fixture.coordinator.createCoordinatorRun(PROJECT_ID, laneACreateRequest());
+  const inner = fixture.coordinatorRepository;
+  let injected = false;
+  const racingRepository: PaperImplementationCoordinatorRepository = {
+    createCoordinatorRun: (record) => inner.createCoordinatorRun(record),
+    findCoordinatorRunById: (projectId, runId) => inner.findCoordinatorRunById(projectId, runId),
+    updateCoordinatorRun: (record, options) => inner.updateCoordinatorRun(record, options),
+    createCoordinatorStep: (step) => inner.createCoordinatorStep(step),
+    listCoordinatorSteps: (projectId, runId) => inner.listCoordinatorSteps(projectId, runId),
+    acquireCoordinatorRunLease: async (projectId, runId, lease, now) => {
+      if (!injected) {
+        injected = true;
+        const stored = await inner.findCoordinatorRunById(projectId, runId);
+        assert.ok(stored);
+        // Terminal race injection: the run completes AFTER the service's
+        // entry pre-check but BEFORE the CAS executes.
+        await inner.updateCoordinatorRun({ ...stored, run_status: 'completed', lease: null });
+      }
+      return inner.acquireCoordinatorRunLease(projectId, runId, lease, now);
+    },
+  };
+  const coordinator = fixture.buildCoordinator(racingRepository);
+
+  await assert.rejects(
+    () => coordinator.advance(PROJECT_ID, run.coordinator_run_id, { holder_id: 'holder_terminal_race' }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && /terminal \(completed\)/.test(error.message),
+  );
 });
 
 test('coordinator re-advance rebuilds consumed budget from persisted steps after a counter-write crash', async () => {
@@ -1002,8 +1341,9 @@ test('coordinator re-advance rebuilds consumed budget from persisted steps after
   // the re-advance must rebuild consumed from the steps table — otherwise
   // the crashed step's spend escapes the budget envelope.
   const fixture = coordinatorFixture();
-  // hb(1), post-step-0(2): crash on the post-step counter write of step 0.
-  const crashRepository = new CrashOnceCoordinatorRepository(fixture.coordinatorRepository, 2);
+  // pre-slot hb(1), pre-persistStep hb(2, R5), post-step-0(3): crash on the
+  // post-step counter write of step 0.
+  const crashRepository = new CrashOnceCoordinatorRepository(fixture.coordinatorRepository, 3);
   const coordinator = fixture.buildCoordinator(crashRepository);
   const run = await coordinator.createCoordinatorRun(PROJECT_ID, {
     ...laneACreateRequest(),
@@ -1017,8 +1357,10 @@ test('coordinator re-advance rebuilds consumed budget from persisted steps after
   const afterCrash = await coordinator.getCoordinatorRun(PROJECT_ID, run.coordinator_run_id);
   assert.equal(afterCrash.steps.length, 1);
   assert.equal(afterCrash.run.consumed.steps, 0, 'the crash left the counter under-counted');
+  // R5: the loser released its own lease, so the recovery advance below runs
+  // immediately without waiting out the TTL.
+  assert.equal(afterCrash.run.lease, null);
 
-  fixture.clock.value = '2026-07-11T10:20:00.000Z';
   const recovered = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
     holder_id: 'holder_consumed_recovery',
   });
@@ -1360,7 +1702,12 @@ function coordinatorFixture(
   };
   const coordinatorRepository = new InMemoryPaperImplementationCoordinatorRepository();
   const harnessRepository = new InMemoryPaperImplementationAiWorkflowHarnessRepository();
-  const buildCoordinator = (repository: PaperImplementationCoordinatorRepository = coordinatorRepository) =>
+  const routePlanningRuntime = new PaperImplementationRoutePlanningRuntimeService(slotServiceOptions);
+  const evidenceBoardCurationRuntime = new PaperImplementationEvidenceBoardCurationRuntimeService(slotServiceOptions);
+  const buildCoordinator = (
+    repository: PaperImplementationCoordinatorRepository = coordinatorRepository,
+    overrides: Partial<PaperImplementationRunCoordinatorServiceOptions> = {},
+  ) =>
     new PaperImplementationRunCoordinatorService({
       coordinatorRepository: repository,
       projectRepository,
@@ -1370,16 +1717,17 @@ function coordinatorFixture(
         enqueueDecisionWorkQueueItem: (item) =>
           harnessRepository.enqueueDecisionWorkQueueItem(item),
       },
-      routePlanningRuntime: new PaperImplementationRoutePlanningRuntimeService(slotServiceOptions),
+      routePlanningRuntime,
       validationCyclePlanningRuntime: new PaperImplementationValidationCyclePlanningRuntimeService(slotServiceOptions),
       feasibilityPlanningRuntime: new PaperImplementationFeasibilityPlanningRuntimeService(slotServiceOptions),
       motiveDecompositionRuntime: new PaperImplementationMotiveDecompositionRuntimeService(slotServiceOptions),
       motiveEvolutionRuntime: new PaperImplementationMotiveEvolutionRuntimeService(slotServiceOptions),
-      evidenceBoardCurationRuntime: new PaperImplementationEvidenceBoardCurationRuntimeService(slotServiceOptions),
+      evidenceBoardCurationRuntime,
       crossBoardSynthesisRuntime: new PaperImplementationCrossBoardSynthesisRuntimeService(slotServiceOptions),
       idFactory,
       now,
       leaseTtlMs: 60_000,
+      ...overrides,
     });
   const coordinator = buildCoordinator();
   const finalArtifact = async (slotId: string) => {
@@ -1401,6 +1749,8 @@ function coordinatorFixture(
     runtimeAdmission,
     projectRepository,
     orchestrator,
+    routePlanningRuntime,
+    evidenceBoardCurationRuntime,
     clock,
     finalArtifact,
     finalArtifactPayload,
@@ -2210,6 +2560,113 @@ function crossBoardSynthesisRoleOutput(): PaperImplementationCrossBoardSynthesis
     no_evidence_transfer_binding_side_effect: true,
     no_portfolio_mutation_side_effect: true,
     no_motive_evolution_side_effect: true,
+  };
+}
+
+/**
+ * R4/R9 fixture: a fully-typed REJECTED final admission record. It carries a
+ * raw runtime_artifact_id but null admitted ref/hash — the exact half-lineage
+ * shape the step projection must never surface.
+ */
+function rejectedFinalAdmissionRecord(): PaperImplementationRuntimeAdmissionRecord {
+  return {
+    schema_version: PAPER_IMPLEMENTATION_RUNTIME_ADMISSION_RECORD_SCHEMA_VERSION,
+    admission_record_id: 'admission_rejected_slot_codes',
+    implementation_project_id: PROJECT_ID,
+    workflow_type: 'route_architecture',
+    slot_id: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    admission_scope: 'final',
+    admission_policy_id: 'runtime-admission-policy',
+    admission_policy_version: 'v1',
+    runtime_artifact_ref: ref('route_architecture_runtime_artifact', 'artifact_rejected_001'),
+    runtime_artifact_hash: hash('artifact_rejected_001'),
+    runtime_artifact_id: 'artifact_rejected_001',
+    artifact_contract_id: 'route_architecture_artifact@v1',
+    target_ref: ref('implementation_input_snapshot', 'input_snapshot_001'),
+    created_at: NOW,
+    expected_runtime_identity_hash: hash('expected-identity'),
+    expected_source_hash_bundle_hash: hash('bundle'),
+    expected_retrieval_packet_hash: null,
+    expected_prompt_packet_hash: hash('prompt'),
+    expected_output_schema_id: 'route_architecture_output@v1',
+    expected_prior_role_artifact_hashes: [],
+    expected_final_artifact_hash: hash('final'),
+    observed_runtime_identity_hash: hash('observed-identity-drift'),
+    observed_source_hash_bundle_hash: hash('bundle'),
+    observed_retrieval_packet_hash: null,
+    observed_prompt_packet_hash: hash('prompt'),
+    observed_output_schema_id: 'route_architecture_output@v1',
+    observed_prior_role_artifact_hashes: [],
+    observed_output_hash: hash('output'),
+    admission_status: 'rejected',
+    admission_identity: {},
+    admission_identity_hash: hash('admission-identity'),
+    admitted_artifact_ref: null,
+    admitted_artifact_hash: null,
+    issue_codes: ['RUNTIME_IDENTITY_MISMATCH'],
+    warning_codes: [],
+  };
+}
+
+function stubBlockedRouteArchitectureResult(options: {
+  providerCallCount: number;
+  blockerCodes: string[];
+  finalAdmissionRecord?: PaperImplementationRuntimeAdmissionRecord | null;
+}): PaperImplementationRoutePlanningRuntimeResult {
+  const finalAdmission = options.finalAdmissionRecord ?? null;
+  return {
+    run_id: 'stub_route_architecture_run',
+    slot_id: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    workflow_type: 'route_architecture',
+    status: 'blocked',
+    provider_call_count: options.providerCallCount,
+    runtime_artifacts: [],
+    admission_records: finalAdmission ? [finalAdmission] : [],
+    final_runtime_artifact: null,
+    final_admission_record: finalAdmission,
+    blocker_codes: [...options.blockerCodes],
+    warning_codes: [],
+    operational_telemetry: buildPaperImplementationRuntimeOperationalTelemetry({
+      runId: 'stub_route_architecture_run',
+      workflowType: 'route_architecture',
+      slotId: PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+      status: 'blocked',
+      providerCallCount: options.providerCallCount,
+      artifacts: [],
+      admissions: finalAdmission ? [finalAdmission] : [],
+      finalArtifact: null,
+      finalAdmission,
+    }),
+  };
+}
+
+function stubBlockedEvidenceBoardCurationResult(options: {
+  providerCallCount: number;
+  blockerCodes: string[];
+}): PaperImplementationEvidenceBoardCurationRuntimeResult {
+  return {
+    run_id: 'stub_evidence_board_curation_run',
+    slot_id: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+    workflow_type: 'evidence_board_curation',
+    status: 'blocked',
+    provider_call_count: options.providerCallCount,
+    runtime_artifacts: [],
+    admission_records: [],
+    final_runtime_artifact: null,
+    final_admission_record: null,
+    blocker_codes: [...options.blockerCodes],
+    warning_codes: [],
+    operational_telemetry: buildPaperImplementationRuntimeOperationalTelemetry({
+      runId: 'stub_evidence_board_curation_run',
+      workflowType: 'evidence_board_curation',
+      slotId: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+      status: 'blocked',
+      providerCallCount: options.providerCallCount,
+      artifacts: [],
+      admissions: [],
+      finalArtifact: null,
+      finalAdmission: null,
+    }),
   };
 }
 

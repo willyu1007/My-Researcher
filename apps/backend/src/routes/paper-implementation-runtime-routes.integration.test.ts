@@ -139,7 +139,9 @@ import type {
   PaperImplementationRuntimeOperationalTelemetry,
 } from '../services/paper-implementation-runtime-operational-telemetry.js';
 
-const PROJECT_ID = 'implementation-project-http-1';
+// R10: process-unique so persistent-schema (prisma) runs never cross-pollute
+// each other's project-scoped listings across suite invocations.
+const PROJECT_ID = `implementation-project-http-${process.pid}-${Date.now()}`;
 const TITLE_CARD_ID = 'title-card-http-1';
 const NOW = '2026-06-03T00:00:00.000Z';
 const RESULT_PACKET_ID = 'result-packet-http-1';
@@ -1361,6 +1363,8 @@ test('PaperImplementation coordinator routes create, advance, and get a run thro
         outcome: string;
         node_attempt_id: string;
         runtime_artifact_ref: { ref_type: string } | null;
+        runtime_artifact_hash: string | null;
+        runtime_artifact_id: string | null;
       }>;
     };
     assert.equal(advancedBody.run.run_status, 'completed');
@@ -1371,6 +1375,9 @@ test('PaperImplementation coordinator routes create, advance, and get a run thro
     assert.equal(advancedBody.steps[0]?.slot_id, PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID);
     assert.equal(advancedBody.steps[0]?.outcome, 'passed');
     assert.ok(advancedBody.steps[0]?.runtime_artifact_ref);
+    // R9: the admitted step projects the full acceptance-bridge lineage pair.
+    assert.ok(advancedBody.steps[0]?.runtime_artifact_id);
+    assert.ok(advancedBody.steps[0]?.runtime_artifact_hash);
     assert.equal(gateway.calls.length, 1);
 
     const fetched = await app.inject({
@@ -1380,11 +1387,18 @@ test('PaperImplementation coordinator routes create, advance, and get a run thro
     assert.equal(fetched.statusCode, 200);
     const fetchedBody = fetched.json() as {
       run: { run_status: string };
-      steps: Array<{ outcome: string }>;
+      steps: Array<{
+        outcome: string;
+        runtime_artifact_id: string | null;
+        runtime_artifact_hash: string | null;
+      }>;
     };
     assert.equal(fetchedBody.run.run_status, 'completed');
     assert.equal(fetchedBody.steps.length, 1);
     assert.equal(fetchedBody.steps[0]?.outcome, 'passed');
+    // R9: the persisted step projection reads the lineage pair back intact.
+    assert.equal(fetchedBody.steps[0]?.runtime_artifact_id, advancedBody.steps[0]?.runtime_artifact_id);
+    assert.equal(fetchedBody.steps[0]?.runtime_artifact_hash, advancedBody.steps[0]?.runtime_artifact_hash);
 
     // Terminal runs cannot be re-advanced.
     const terminal = await app.inject({
@@ -1459,9 +1473,14 @@ async function createBlockedCoordinatorQueueFixture(
       source_step_index: number | null;
     }>;
   }).items;
-  // Prisma smoke reuses a persistent dev schema, so queue items from earlier
-  // runs accumulate under the shared PROJECT_ID. Scope the assertion to this
-  // coordinator run: dedup semantics still require exactly one item for it.
+  // Prisma reuses a persistent dev schema, so queue items from OTHER tests in
+  // this same process still accumulate under the shared PROJECT_ID. Scope the
+  // dedup assertion to this coordinator run — and under the in-memory
+  // repository (fresh store per app) additionally pin the WHOLE table to
+  // exactly one item, restoring the no-leak coverage.
+  if (process.env.PAPER_IMPLEMENTATION_REPOSITORY !== 'prisma') {
+    assert.equal(allItems.length, 1);
+  }
   const items = allItems.filter((entry) => entry.source_coordinator_run_ref?.ref_id === coordinatorRunId);
   assert.equal(items.length, 1);
   const item = items[0]!;
@@ -1709,6 +1728,38 @@ test('queue resolve re-advance with a budget raise resumes a budget_exhausted co
     });
     assert.equal(exhausted.statusCode, 202);
     assert.equal((exhausted.json() as { run: { run_status: string } }).run.run_status, 'budget_exhausted');
+    assert.equal(gateway.calls.length, 2);
+
+    // R1: a raise-less re_advance on a budget_exhausted run is a silent dead
+    // end (resolve + no-op advance) — the controller rejects it BEFORE the
+    // resolve with the raise hint, leaving the item untouched.
+    const deadEndRejected = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: {
+        status: 'resolved',
+        resolution_note: 'raise-less reflow must not dead-end',
+        resolved_by: 'human',
+        re_advance: true,
+      },
+    });
+    assert.equal(deadEndRejected.statusCode, 409);
+    const deadEndBody = deadEndRejected.json() as {
+      error: { code: string; message: string; details?: { recommended_action?: string } };
+    };
+    assert.equal(deadEndBody.error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.match(deadEndBody.error.message, /budget_exhausted/);
+    assert.equal(deadEndBody.error.details?.recommended_action, 'raise_budget_envelope');
+    // The 409 fired before the resolve: the item stays open and unresolved.
+    const afterDeadEnd = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/decision-work-queue`,
+    });
+    const deadEndItem = (afterDeadEnd.json() as {
+      items: Array<{ queue_item_id: string; status: string; resolved_at: string | null }>;
+    }).items.find((entry) => entry.queue_item_id === fixture.queueItemId);
+    assert.equal(deadEndItem?.status, 'open');
+    assert.equal(deadEndItem?.resolved_at, null);
     assert.equal(gateway.calls.length, 2);
 
     const resolved = await app.inject({

@@ -59,9 +59,10 @@ import type {
 import type {
   RunProviderVarianceEvaluationRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-provider-variance-contracts';
-import type {
-  AdvancePaperImplementationCoordinatorRunRequest,
-  CreatePaperImplementationCoordinatorRunRequest,
+import {
+  PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES,
+  type AdvancePaperImplementationCoordinatorRunRequest,
+  type CreatePaperImplementationCoordinatorRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 import type {
   AdmitPaperImplementationRuntimeArtifactRequestPayload,
@@ -1935,13 +1936,36 @@ export class PaperImplementationController {
             implementationProjectId,
             item.source_coordinator_run_ref.ref_id,
           );
-          if (coordinatorRun.run.run_status === 'completed' || coordinatorRun.run.run_status === 'failed') {
+          if (
+            (PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES as readonly string[])
+              .includes(coordinatorRun.run.run_status)
+          ) {
             throw new AppError(
               409,
               'GATE_CONSTRAINT_FAILED',
               `CoordinatorRun ${item.source_coordinator_run_ref.ref_id} is terminal `
               + `(${coordinatorRun.run.run_status}) and cannot be re-advanced; the queue item was not resolved.`,
               { coordinator_run_status: coordinatorRun.run.run_status },
+            );
+          }
+          // R1: a budget_exhausted run needs an explicit raise to resume — a
+          // raise-less re_advance resolve would resolve the item and then
+          // no-op the advance, silently dead-ending the reflow. Reject
+          // BEFORE the resolve (item untouched) with the raise hint.
+          if (
+            coordinatorRun.run.run_status === 'budget_exhausted'
+            && !request.body.raise_budget_envelope
+          ) {
+            throw new AppError(
+              409,
+              'GATE_CONSTRAINT_FAILED',
+              `CoordinatorRun ${item.source_coordinator_run_ref.ref_id} is budget_exhausted; `
+              + 're-advance requires raise_budget_envelope, otherwise the advance is a no-op. '
+              + 'The queue item was not resolved.',
+              {
+                coordinator_run_status: coordinatorRun.run.run_status,
+                recommended_action: 'raise_budget_envelope',
+              },
             );
           }
           const effectiveRetryBudget = request.body.retry_budget_override

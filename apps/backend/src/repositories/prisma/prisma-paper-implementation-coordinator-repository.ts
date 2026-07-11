@@ -4,10 +4,11 @@ import type {
   PrismaClient,
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import type {
-  PaperImplementationCoordinatorLease,
-  PaperImplementationCoordinatorRun,
-  PaperImplementationCoordinatorStep,
+import {
+  PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES,
+  type PaperImplementationCoordinatorLease,
+  type PaperImplementationCoordinatorRun,
+  type PaperImplementationCoordinatorStep,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 
 import { AppError } from '../../errors/app-error.js';
@@ -107,6 +108,18 @@ implements PaperImplementationCoordinatorRepository {
       data: this.toRunMutableData(run),
     });
     if (updated.count === 0) {
+      // R8: disambiguate exactly like the in-memory implementation — a
+      // missing row is 404 NOT_FOUND even under a fence; only an existing
+      // row whose lease holder no longer matches is the 409 fence conflict.
+      const row = await this.prisma.paperImplementationCoordinatorRun.findFirst({
+        where: {
+          id: run.coordinator_run_id,
+          implementationProjectId: run.implementation_project_id,
+        },
+      });
+      if (!row) {
+        throw new AppError(404, 'NOT_FOUND', `CoordinatorRun ${run.coordinator_run_id} not found.`);
+      }
       if (expectedHolder !== null) {
         throw new AppError(
           409,
@@ -139,7 +152,7 @@ implements PaperImplementationCoordinatorRepository {
       where: {
         id: coordinatorRunId,
         implementationProjectId,
-        runStatus: { notIn: ['completed', 'failed'] },
+        runStatus: { notIn: [...PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES] },
         OR: [
           { leaseHolderId: null },
           { leaseHolderId: lease.holder_id },

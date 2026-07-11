@@ -43,6 +43,20 @@ export const PAPER_IMPLEMENTATION_COORDINATOR_RUN_STATUSES = [
 export type PaperImplementationCoordinatorRunStatus =
   (typeof PAPER_IMPLEMENTATION_COORDINATOR_RUN_STATUSES)[number];
 
+/**
+ * Single source of truth for terminal run statuses (F2/F8): only `completed`
+ * and `failed` are terminal — `budget_exhausted` is a parked state a
+ * raise-carrying advance can resume. Service, controller, and both
+ * repository implementations must reference this set, never re-list the
+ * literals.
+ */
+export const PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES = [
+  'completed',
+  'failed',
+] as const satisfies readonly PaperImplementationCoordinatorRunStatus[];
+export type PaperImplementationCoordinatorTerminalRunStatus =
+  (typeof PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES)[number];
+
 export const PAPER_IMPLEMENTATION_COORDINATOR_STEP_OUTCOMES = [
   'passed',
   'blocked',
@@ -72,6 +86,20 @@ export interface PaperImplementationCoordinatorBudgetEnvelopeRaise {
 export interface PaperImplementationCoordinatorConsumedBudget {
   steps: number;
   provider_calls: number;
+}
+
+/**
+ * Audit record of one applied budget raise (F2/R2). `to` is the envelope
+ * actually persisted after the monotonic merge (`max(current, raise)` per
+ * dimension against the post-lock run), so an interleaved raise that was
+ * already superseded records `from === to`. Persisted inside the run payload
+ * JSON — no migration required.
+ */
+export interface PaperImplementationCoordinatorBudgetRaiseEvent {
+  raised_at: string;
+  from: PaperImplementationCoordinatorBudgetEnvelope;
+  to: PaperImplementationCoordinatorBudgetEnvelope;
+  holder_id: string;
 }
 
 export interface PaperImplementationCoordinatorLease {
@@ -104,6 +132,12 @@ export interface PaperImplementationCoordinatorRun {
   model_profile_id: string | null;
   model_option_id: string | null;
   budget_envelope: PaperImplementationCoordinatorBudgetEnvelope;
+  /**
+   * Append-only audit trail of applied budget raises (one entry per
+   * raise-carrying advance that reached the post-lock apply step). Optional
+   * for runs persisted before the field existed.
+   */
+  budget_raise_events?: PaperImplementationCoordinatorBudgetRaiseEvent[];
   consumed: PaperImplementationCoordinatorConsumedBudget;
   lease: PaperImplementationCoordinatorLease | null;
   slot_request_payloads: PaperImplementationCoordinatorSlotRequestPayloads;
@@ -172,13 +206,15 @@ export interface PaperImplementationCoordinatorStep {
   runtime_artifact_ref: TopicSelectionFunctionalRef | null;
   runtime_artifact_hash: string | null;
   /**
-   * S1 seam (F4): the runtime_artifact_id of the admitted final artifact
-   * (from the slot result's final admission record). This is the exact id an
-   * acceptance-bridge Create* request needs as
+   * S1 seam (F4/R9): the runtime_artifact_id of the admitted final artifact.
+   * Gated exactly like `runtime_artifact_hash` (= admitted_artifact_hash):
+   * only set when the final admission record has
+   * `admission_status === 'admitted'`, null otherwise — the pair is either
+   * fully present or fully absent, never a half-lineage. This is the exact
+   * id an acceptance-bridge Create* request needs as
    * `source_proposal_artifact_ref.ref_id`, paired with
-   * `runtime_artifact_hash` (= admitted final artifact hash) as
-   * `source_proposal_artifact_hash`. Optional for steps persisted before the
-   * field existed.
+   * `runtime_artifact_hash` as `source_proposal_artifact_hash`. Optional for
+   * steps persisted before the field existed.
    */
   runtime_artifact_id?: string | null;
   admission_ref: TopicSelectionFunctionalRef | null;
@@ -210,9 +246,13 @@ export interface AdvancePaperImplementationCoordinatorRunRequest {
   slot_request_payload_overrides?: PaperImplementationCoordinatorSlotRequestPayloads;
   /**
    * F2: increase-only budget raise consumed by this advance. Required to
-   * resume a `budget_exhausted` run (without it such an advance idempotently
-   * returns the current projection); any provided value below the current
-   * envelope is rejected with 400.
+   * resume a `budget_exhausted` run: without it such an advance idempotently
+   * returns the current projection, and (R1) if it also carries
+   * `slot_request_payload_overrides` it is rejected with 400 rather than
+   * silently dropping them. Any provided value below the current envelope is
+   * rejected with 400; at apply time the raise merges monotonically
+   * (max(current, raise) per dimension — R2) and is audited in
+   * `budget_raise_events`.
    */
   raise_budget_envelope?: PaperImplementationCoordinatorBudgetEnvelopeRaise | null;
 }
@@ -252,6 +292,18 @@ export const paperImplementationCoordinatorBudgetEnvelopeRaiseSchema = {
   properties: {
     max_steps: positiveInteger,
     max_provider_calls: positiveInteger,
+  },
+} as const;
+
+const budgetRaiseEventSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['raised_at', 'from', 'to', 'holder_id'],
+  properties: {
+    raised_at: stringId,
+    from: budgetEnvelopeSchema,
+    to: budgetEnvelopeSchema,
+    holder_id: stringId,
   },
 } as const;
 
@@ -362,6 +414,7 @@ export const paperImplementationCoordinatorRunSchema = {
     model_profile_id: nullableStringId,
     model_option_id: nullableStringId,
     budget_envelope: budgetEnvelopeSchema,
+    budget_raise_events: { type: 'array', items: budgetRaiseEventSchema },
     consumed: consumedBudgetSchema,
     lease: nullableLeaseSchema,
     slot_request_payloads: slotRequestPayloadsSchema,

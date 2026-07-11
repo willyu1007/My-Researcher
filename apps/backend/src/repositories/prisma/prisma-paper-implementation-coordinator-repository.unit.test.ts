@@ -5,9 +5,16 @@ import type { PrismaClient } from '@prisma/client';
 import type {
   PaperImplementationCoordinatorLease,
   PaperImplementationCoordinatorRun,
+  PaperImplementationCoordinatorStep,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 
 import { AppError } from '../../errors/app-error.js';
+import {
+  InMemoryPaperImplementationCoordinatorRepository,
+} from '../in-memory-paper-implementation-coordinator-repository.js';
+import type {
+  PaperImplementationCoordinatorRepository,
+} from '../paper-implementation-coordinator.repository.js';
 import { PrismaPaperImplementationCoordinatorRepository } from './prisma-paper-implementation-coordinator-repository.js';
 
 const NOW = '2026-07-11T10:00:00.000Z';
@@ -119,6 +126,40 @@ function makeLease(holderId: string): PaperImplementationCoordinatorLease {
   };
 }
 
+function makeStep(
+  overrides: Partial<PaperImplementationCoordinatorStep> = {},
+): PaperImplementationCoordinatorStep {
+  return {
+    schema_version: 'PaperImplementationCoordinatorStep@v1',
+    coordinator_step_id: 'coordinator_step_prisma_001',
+    coordinator_run_id: RUN_ID,
+    implementation_project_id: PROJECT_ID,
+    step_index: 0,
+    slot_id: 'evidence_board_curation.binding_gap_candidates',
+    node_attempt_id: `${RUN_ID}.step-0.attempt-0`,
+    runtime_artifact_ref: {
+      ref_type: 'evidence_board_curation_runtime_artifact',
+      ref_id: 'runtime_artifact_prisma_001',
+      title_card_id: null,
+      version_id: null,
+    },
+    runtime_artifact_hash: 'a'.repeat(64),
+    runtime_artifact_id: 'runtime_artifact_prisma_001',
+    admission_ref: {
+      ref_type: 'paper_implementation_runtime_admission_record',
+      ref_id: 'admission_prisma_001',
+      title_card_id: null,
+      version_id: null,
+    },
+    decision_record: null,
+    outcome: 'passed',
+    provider_call_count: 1,
+    blocker_codes: [],
+    created_at: NOW,
+    ...overrides,
+  };
+}
+
 test('coordinator prisma lease CAS refuses terminal runs and enforces holder fencing', async () => {
   const { client } = makeFakePrismaClient();
   const repository = new PrismaPaperImplementationCoordinatorRepository(client);
@@ -222,4 +263,81 @@ test('coordinator prisma holder-fenced update fails after takeover without overw
     () => repository.updateCoordinatorRun(makeRun({ coordinator_run_id: 'coordinator_run_missing' })),
     (error: unknown) => error instanceof AppError && error.statusCode === 404,
   );
+});
+
+test('coordinator repositories agree on missing-row vs fence-conflict semantics for fenced updates', async () => {
+  // R8: the two implementations must not fork — a FENCED update of a missing
+  // run is 404 NOT_FOUND in both (never a 409 that implies the run exists),
+  // and a fenced update after a takeover is 409 VERSION_CONFLICT in both.
+  const { client } = makeFakePrismaClient();
+  const implementations: ReadonlyArray<readonly [string, PaperImplementationCoordinatorRepository]> = [
+    ['prisma', new PrismaPaperImplementationCoordinatorRepository(client)],
+    ['in-memory', new InMemoryPaperImplementationCoordinatorRepository()],
+  ];
+  for (const [label, repository] of implementations) {
+    // Missing row + fence → 404 NOT_FOUND.
+    await assert.rejects(
+      () => repository.updateCoordinatorRun(
+        makeRun({ coordinator_run_id: `coordinator_run_missing_${label}` }),
+        { expectedLeaseHolderId: 'holder_fence' },
+      ),
+      (error: unknown) => error instanceof AppError
+        && error.statusCode === 404
+        && error.errorCode === 'NOT_FOUND',
+      `${label}: fenced update of a missing run must be 404`,
+    );
+
+    // Existing row whose lease moved on + fence → 409 VERSION_CONFLICT.
+    await repository.createCoordinatorRun(makeRun());
+    const victim = await repository.acquireCoordinatorRunLease(PROJECT_ID, RUN_ID, makeLease('holder_victim'), NOW);
+    assert.ok(victim, `${label}: victim lease acquisition must succeed`);
+    const thief = await repository.acquireCoordinatorRunLease(
+      PROJECT_ID,
+      RUN_ID,
+      { holder_id: 'holder_thief', heartbeat_at: LATER, expires_at: '2026-07-11T11:00:00.000Z' },
+      LATER,
+    );
+    assert.equal(thief?.lease?.holder_id, 'holder_thief', `${label}: takeover must succeed`);
+    await assert.rejects(
+      () => repository.updateCoordinatorRun(
+        { ...victim, updated_at: LATER },
+        { expectedLeaseHolderId: 'holder_victim' },
+      ),
+      (error: unknown) => error instanceof AppError
+        && error.statusCode === 409
+        && error.errorCode === 'VERSION_CONFLICT',
+      `${label}: fenced update after takeover must be 409`,
+    );
+  }
+});
+
+test('coordinator prisma step round-trip preserves runtime_artifact_id in the projection', async () => {
+  // R9: the acceptance-bridge lineage pair must survive the persistence
+  // round-trip — createCoordinatorStep → listCoordinatorSteps returns the
+  // stored runtime_artifact_id (and the null form for non-admitted steps).
+  const { client } = makeFakePrismaClient();
+  const repository = new PrismaPaperImplementationCoordinatorRepository(client);
+  await repository.createCoordinatorRun(makeRun());
+
+  const admitted = await repository.createCoordinatorStep(makeStep());
+  assert.equal(admitted.runtime_artifact_id, 'runtime_artifact_prisma_001');
+  const blocked = await repository.createCoordinatorStep(makeStep({
+    coordinator_step_id: 'coordinator_step_prisma_002',
+    step_index: 1,
+    node_attempt_id: `${RUN_ID}.step-1.attempt-0`,
+    runtime_artifact_ref: null,
+    runtime_artifact_hash: null,
+    runtime_artifact_id: null,
+    admission_ref: null,
+    outcome: 'blocked',
+    blocker_codes: ['TIER_BUDGET_INSUFFICIENT'],
+  }));
+  assert.equal(blocked.runtime_artifact_id, null);
+
+  const listed = await repository.listCoordinatorSteps(PROJECT_ID, RUN_ID);
+  assert.equal(listed.length, 2);
+  assert.equal(listed[0]?.runtime_artifact_id, 'runtime_artifact_prisma_001');
+  assert.equal(listed[0]?.runtime_artifact_hash, 'a'.repeat(64));
+  assert.equal(listed[1]?.runtime_artifact_id, null);
+  assert.equal(listed[1]?.runtime_artifact_hash, null);
 });

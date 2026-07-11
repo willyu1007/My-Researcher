@@ -18,6 +18,10 @@
 
 ## Log
 
+### 2026-07-11 修复轮二审收尾（R1-R10，coordinator 语义定稿）
+- 对修复轮 diff（41db6dcc..HEAD）的 code-review 发现 10 项全部收掉：**R1** budget_exhausted 无 raise 的 re_advance 改 409 于 resolve 之前（+no-op 带 overrides→400，不再静默丢）；**R2** raise 应用改取锁后 max（交错不可缩预算）+ `budget_raise_events` 审计事件（含被吸收的 raise）；**R3** dedup_key 只收 trusted 码/outcome 哨兵（LLM 措辞不再铸新队列项，retry_budget 真正可触发）；**R4** 可信性规则补零调用 blocked final（确定性预检产出入 trusted——真 tier-budget 恢复 budget_exhausted+loop_budget_review 语义，D2 前保留码注释登记）；**R5** persistStep 前 holder fence + 持久化失败 best-effort 释放自身 lease（残余双执行窗口关死、输家不再困 run）；**R6** 崩溃测试包装器转发 options（fence 真被测）；**R7** CAS null 二义消除（终态竞态报 terminal 而非 CONCURRENT_ADVANCE）；**R8** 双实现 404/409 对齐 + 一致性测试；**R9** step 投影 runtime_artifact_id 与 hash 同门（admitted 才置值）+ prisma round-trip/GET 读回断言；**R10** 终态集合入契约单源（四处字面量删除）、白名单派生基表、withBumpedLease 统一时钟、consumed 单径化（steps 唯一事实源）、集成测试 PROJECT_ID 进程唯一 + in-memory 全表无泄漏断言恢复。
+- 验证：coordinator unit 25/25、prisma coordinator repo 4/4、集成 36/0/16、l5 52/52、双包 tsc 零错；全量 runtime-stress run `t114-paper-implementation-runtime-stress-1783765586663` **passed**；prisma smoke 复跑 **37/0/15**。
+
 ### 2026-07-11 S1 复审修复 + 迁移 + 全门收口（S1 闭合）
 - code-review（506a6073..HEAD，8 角度 + 逐条验证）10 发现全处置：**F1** 无候选步改落 blocked（回流可达，run 级正反测试）；**F2** 终态收窄 completed|failed + advance/resolve 支持 `raise_budget_envelope` 只增提额（兑现 D1"提额后 re-advance"）+ resolve 后 advance 失败降级为 `coordinator_advance_error` 响应字段（不再掩盖已生效 resolve）；**F3** lease TTL 600s + slot 前心跳 + updateCoordinatorRun 带 holder fence（双执行/lost update 封死）；**F4** step 契约加 `runtime_artifact_id`，投影→受理桥缝合封口测试（真实 createFeasibilityProbe 走通+血缘回填，hash 一致性核实 admitted_artifact_hash===final_artifact_hash）；**F5** blocker 分类/终态只信任 coordinator 自产 code（LLM 输出不能再驱动 budget_exhausted/trace_repair）；**F6** advance 开头以 steps 重建 consumed（崩溃欠计封死）；**F7** portfolio 混合决策激活项无条件入 target 集；**F8** lease CAS 拒终态 + payload 写带 holder 条件。发现 #9/#10（echo 高度/复制簇）按既定判断移交 S2。
 - 修复轮测试：coordinator unit 21/21（+6 新恢复路径用例）、prisma coordinator repo unit 2/2（新）、motive-board 16/16、integration 52（36 pass/16 env-skip）、必检 +2（F1 回流可达 / F4 缝合封口）。

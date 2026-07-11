@@ -1,7 +1,8 @@
-import type {
-  PaperImplementationCoordinatorLease,
-  PaperImplementationCoordinatorRun,
-  PaperImplementationCoordinatorStep,
+import {
+  PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES,
+  type PaperImplementationCoordinatorLease,
+  type PaperImplementationCoordinatorRun,
+  type PaperImplementationCoordinatorStep,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 
 import { AppError } from '../errors/app-error.js';
@@ -72,9 +73,9 @@ implements PaperImplementationCoordinatorRepository {
     if (!run || run.implementation_project_id !== implementationProjectId) {
       throw new AppError(404, 'NOT_FOUND', `CoordinatorRun ${coordinatorRunId} not found.`);
     }
-    // F8 terminal guard at the CAS layer: completed/failed runs can never be
+    // F8 terminal guard at the CAS layer: terminal runs can never be
     // re-leased (budget_exhausted stays acquirable for post-raise resumes).
-    if (run.run_status === 'completed' || run.run_status === 'failed') {
+    if ((PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES as readonly string[]).includes(run.run_status)) {
       return null;
     }
     const current = run.lease;
