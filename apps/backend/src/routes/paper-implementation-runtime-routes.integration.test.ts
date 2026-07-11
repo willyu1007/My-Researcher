@@ -1447,18 +1447,24 @@ async function createBlockedCoordinatorQueueFixture(
     url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/decision-work-queue`,
   });
   assert.equal(listed.statusCode, 200);
-  const items = (listed.json() as { items: Array<Record<string, unknown>> }).items;
+  const allItems = (listed.json() as {
+    items: Array<{
+      queue_item_id: string;
+      queue_type: string;
+      stage: string;
+      status: string;
+      cooldown_until: string | null;
+      retry_count: number;
+      source_coordinator_run_ref: { ref_type: string; ref_id: string } | null;
+      source_step_index: number | null;
+    }>;
+  }).items;
+  // Prisma smoke reuses a persistent dev schema, so queue items from earlier
+  // runs accumulate under the shared PROJECT_ID. Scope the assertion to this
+  // coordinator run: dedup semantics still require exactly one item for it.
+  const items = allItems.filter((entry) => entry.source_coordinator_run_ref?.ref_id === coordinatorRunId);
   assert.equal(items.length, 1);
-  const item = items[0] as {
-    queue_item_id: string;
-    queue_type: string;
-    stage: string;
-    status: string;
-    cooldown_until: string | null;
-    retry_count: number;
-    source_coordinator_run_ref: { ref_type: string; ref_id: string } | null;
-    source_step_index: number | null;
-  };
+  const item = items[0]!;
   assert.equal(item.queue_type, 'failed_run_review');
   assert.equal(item.stage, 'coordinator_step_execution');
   assert.equal(item.status, 'open');
@@ -1675,6 +1681,166 @@ test('queue resolve re-advance stops at an exhausted retry budget until an expli
     assert.equal(overriddenBody.retry_budget, 3);
     assert.equal(overriddenBody.recommended_actions.includes('raise_retry_budget'), false);
     assert.equal(overriddenBody.coordinator_advance?.run.run_status, 'blocked');
+  } finally {
+    await app.close();
+  }
+});
+
+test('queue resolve re-advance with a budget raise resumes a budget_exhausted coordinator run', async () => {
+  // F2: budget_exhausted is not terminal — resolve(re_advance) forwarding an
+  // increase-only raise_budget_envelope resumes the run to completion.
+  const gateway = new FlakyEvidenceBoardCurationGateway(2);
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationEvidenceBoardCurationLlmGateway: gateway,
+  });
+  try {
+    const fixture = await createBlockedCoordinatorQueueFixture(app, {
+      max_steps: 1,
+      max_provider_calls: 8,
+    });
+
+    // A plain advance now parks the run as budget_exhausted (the failed
+    // attempt consumed the whole one-step envelope) without executing slots.
+    const exhausted = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs/${encodeURIComponent(fixture.coordinatorRunId)}/advance`,
+      payload: {},
+    });
+    assert.equal(exhausted.statusCode, 202);
+    assert.equal((exhausted.json() as { run: { run_status: string } }).run.run_status, 'budget_exhausted');
+    assert.equal(gateway.calls.length, 2);
+
+    const resolved = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: {
+        status: 'resolved',
+        resolution_note: 'budget raised after provider repair',
+        resolved_by: 'human',
+        re_advance: true,
+        raise_budget_envelope: { max_steps: 4 },
+      },
+    });
+    assert.equal(resolved.statusCode, 200);
+    const resolvedBody = resolved.json() as {
+      status: string;
+      coordinator_advance?: {
+        run: { run_status: string; budget_envelope: { max_steps: number } };
+        steps: Array<{ outcome: string }>;
+      } | null;
+      coordinator_advance_error?: { code: string } | null;
+    };
+    assert.equal(resolvedBody.status, 'resolved');
+    assert.equal(resolvedBody.coordinator_advance_error ?? null, null);
+    assert.equal(resolvedBody.coordinator_advance?.run.run_status, 'completed');
+    assert.equal(resolvedBody.coordinator_advance?.run.budget_envelope.max_steps, 4);
+    assert.deepEqual(
+      resolvedBody.coordinator_advance?.steps.map((step) => step.outcome),
+      ['failed_runtime', 'passed'],
+    );
+    assert.equal(gateway.calls.length, 3);
+  } finally {
+    await app.close();
+  }
+});
+
+test('queue resolve re-advance rejects terminal coordinator runs before resolving', async () => {
+  // F2: a completed run can never be re-advanced; the 409 fires BEFORE the
+  // resolve so the queue item is left untouched.
+  const gateway = new FlakyEvidenceBoardCurationGateway(2);
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationEvidenceBoardCurationLlmGateway: gateway,
+  });
+  try {
+    const fixture = await createBlockedCoordinatorQueueFixture(app, {
+      max_steps: 4,
+      max_provider_calls: 8,
+    });
+
+    // Complete the run through a direct advance (the gateway recovered).
+    const completed = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs/${encodeURIComponent(fixture.coordinatorRunId)}/advance`,
+      payload: {},
+    });
+    assert.equal(completed.statusCode, 202);
+    assert.equal((completed.json() as { run: { run_status: string } }).run.run_status, 'completed');
+
+    const rejected = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: { status: 'resolved', resolved_by: 'human', re_advance: true },
+    });
+    assert.equal(rejected.statusCode, 409);
+    const rejectedBody = rejected.json() as { error: { code: string; message: string } };
+    assert.equal(rejectedBody.error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.match(rejectedBody.error.message, /terminal/);
+
+    // The queue item was not resolved by the rejected request.
+    const listed = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/decision-work-queue`,
+    });
+    const item = (listed.json() as {
+      items: Array<{ queue_item_id: string; status: string; resolved_at: string | null }>;
+    }).items.find((entry) => entry.queue_item_id === fixture.queueItemId);
+    assert.equal(item?.status, 'open');
+    assert.equal(item?.resolved_at, null);
+  } finally {
+    await app.close();
+  }
+});
+
+test('queue resolve surfaces a coordinator advance failure without failing the resolve', async () => {
+  // F2: once the resolve has happened, an advance failure is reported in
+  // coordinator_advance_error alongside the resolved item — never a 500 that
+  // hides the successful resolve.
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationEvidenceBoardCurationLlmGateway: new FailingProviderGateway(),
+  });
+  try {
+    const fixture = await createBlockedCoordinatorQueueFixture(app, {
+      max_steps: 8,
+      max_provider_calls: 16,
+    });
+
+    // A reducing raise makes the forwarded advance fail deterministically
+    // (400 INVALID_PAYLOAD) after the resolve has been applied.
+    const resolved = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: {
+        status: 'resolved',
+        resolution_note: 'resolve survives the advance failure',
+        resolved_by: 'human',
+        re_advance: true,
+        raise_budget_envelope: { max_steps: 1 },
+      },
+    });
+    assert.equal(resolved.statusCode, 200);
+    const resolvedBody = resolved.json() as {
+      status: string;
+      coordinator_advance?: unknown;
+      coordinator_advance_error?: { code: string; message: string } | null;
+    };
+    assert.equal(resolvedBody.status, 'resolved');
+    assert.equal(resolvedBody.coordinator_advance ?? null, null);
+    assert.equal(resolvedBody.coordinator_advance_error?.code, 'INVALID_PAYLOAD');
+    assert.match(resolvedBody.coordinator_advance_error?.message ?? '', /must not reduce/);
+
+    // The item is resolved despite the failed advance.
+    const listed = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/decision-work-queue`,
+    });
+    const item = (listed.json() as {
+      items: Array<{ queue_item_id: string; status: string; resolved_at: string | null }>;
+    }).items.find((entry) => entry.queue_item_id === fixture.queueItemId);
+    assert.equal(item?.status, 'resolved');
+    assert.ok(item?.resolved_at);
   } finally {
     await app.close();
   }

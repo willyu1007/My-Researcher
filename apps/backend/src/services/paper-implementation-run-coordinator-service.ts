@@ -133,8 +133,13 @@ const COORDINATOR_INJECTED_CHAIN_FIELDS: Record<string, readonly string[]> = {
 };
 
 const FIXTURE_OUTPUT_FIELDS = ['mocked_role_outputs', 'codex_role_outputs'] as const;
-const TERMINAL_RUN_STATUSES = new Set(['completed', 'failed', 'budget_exhausted']);
-const DEFAULT_LEASE_TTL_MS = 60_000;
+/**
+ * F2: only `completed` and `failed` are terminal. `budget_exhausted` is a
+ * parked state that a raise-carrying advance can resume (D1: raise the
+ * envelope, then re-advance).
+ */
+const TERMINAL_RUN_STATUSES = new Set(['completed', 'failed']);
+const DEFAULT_LEASE_TTL_MS = 600_000;
 const TIER_BUDGET_BLOCKER_CODE = 'TIER_BUDGET_INSUFFICIENT';
 const NO_ELIGIBLE_CANDIDATE_BLOCKER_CODE = 'COORDINATOR_NO_ELIGIBLE_CANDIDATE';
 const SLOT_INVOCATION_FAILED_BLOCKER_CODE = 'SLOT_INVOCATION_FAILED';
@@ -181,17 +186,46 @@ export const PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX: Read
 ];
 
 /**
- * Deterministic queue classification for a run-blocking coordinator step:
- * first blocker code with an exact or prefix table hit decides queue_type
- * and becomes the primary blocker (dedup component). With no table hit the
- * step outcome enum (never a string heuristic) picks between the
- * failed-run bucket and the explicit `unclassified` bucket.
+ * F5: exact whitelist for slot-result blocker codes (which may carry
+ * LLM-influenced strings). Only the shared runtime failure codes and the
+ * gate AppError codes are classifiable from slot output; the
+ * coordinator-owned codes (`TIER_BUDGET_INSUFFICIENT`, `COORDINATOR_*`,
+ * `SLOT_INVOCATION_FAILED`) and the prefix families are deliberately absent
+ * so slot output can never steer terminal-state or trace-repair routing.
+ */
+export const PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE: Readonly<
+  Record<string, PaperImplementationDecisionQueueType>
+> = {
+  AGENT_EXECUTION_FAILED: 'failed_run_review',
+  SCHEMA_VALIDATION_FAILED: 'failed_run_review',
+  TimeoutError: 'failed_run_review',
+  TransientError: 'failed_run_review',
+  RateLimitError: 'failed_run_review',
+  UpstreamError: 'failed_run_review',
+  GATE_CONSTRAINT_FAILED: 'gate_blocker',
+  INVALID_PAYLOAD: 'gate_blocker',
+  NOT_FOUND: 'gate_blocker',
+  VERSION_CONFLICT: 'gate_blocker',
+};
+
+/**
+ * Deterministic queue classification for a run-blocking coordinator step.
+ *
+ * F5 blocker-source split: `trustedBlockerCodes` are coordinator-observed
+ * codes (its own codes plus AppError codes it caught from slot invocation)
+ * and classify through the full exact + prefix tables;
+ * `slotBlockerCodes` come from the slot result payload (potentially
+ * LLM-influenced) and only classify through the exact slot whitelist —
+ * never the coordinator-owned prefix families. With no table hit the step
+ * outcome enum (never a string heuristic) picks between the failed-run
+ * bucket and the explicit `unclassified` bucket.
  */
 export function classifyPaperImplementationCoordinatorBlockedStep(
   outcome: PaperImplementationCoordinatorStepOutcome,
-  blockerCodes: string[],
+  trustedBlockerCodes: string[],
+  slotBlockerCodes: string[],
 ): { queue_type: PaperImplementationDecisionQueueType; primary_blocker: string } {
-  for (const code of blockerCodes) {
+  for (const code of trustedBlockerCodes) {
     const exact = PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE[code];
     if (exact) {
       return { queue_type: exact, primary_blocker: code };
@@ -202,15 +236,22 @@ export function classifyPaperImplementationCoordinatorBlockedStep(
       return { queue_type: prefixHit[1], primary_blocker: code };
     }
   }
+  for (const code of slotBlockerCodes) {
+    const exact = PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE[code];
+    if (exact) {
+      return { queue_type: exact, primary_blocker: code };
+    }
+  }
+  const fallbackPrimary = trustedBlockerCodes[0] ?? slotBlockerCodes[0];
   if (outcome === 'failed_runtime') {
     return {
       queue_type: 'failed_run_review',
-      primary_blocker: blockerCodes[0] ?? 'failed_runtime',
+      primary_blocker: fallbackPrimary ?? 'failed_runtime',
     };
   }
   return {
     queue_type: 'unclassified',
-    primary_blocker: blockerCodes[0] ?? 'unclassified',
+    primary_blocker: fallbackPrimary ?? 'unclassified',
   };
 }
 
@@ -469,6 +510,16 @@ export class PaperImplementationRunCoordinatorService {
         `CoordinatorRun ${coordinatorRunId} is terminal (${existing.run_status}) and cannot be advanced.`,
       );
     }
+    const raise = request.raise_budget_envelope ?? null;
+    if (raise) {
+      this.assertBudgetEnvelopeRaise(existing, raise);
+    }
+    if (existing.run_status === 'budget_exhausted' && !raise) {
+      // F2: without a raise, re-advancing a budget-exhausted run is an
+      // idempotent no-op returning the current projection — never a 409 and
+      // never an execution.
+      return this.getCoordinatorRun(implementationProjectId, coordinatorRunId);
+    }
     const laneSlots = PAPER_IMPLEMENTATION_COORDINATOR_LANE_REGISTRY[existing.lane_id];
     const overrides = request.slot_request_payload_overrides ?? null;
     if (overrides) {
@@ -507,17 +558,29 @@ export class PaperImplementationRunCoordinatorService {
 
     let run = acquired;
     try {
-      if (overrides) {
+      if (overrides || raise) {
         run = {
           ...run,
-          slot_request_payloads: {
-            ...run.slot_request_payloads,
-            ...structuredClone(overrides),
-          },
+          ...(overrides
+            ? {
+              slot_request_payloads: {
+                ...run.slot_request_payloads,
+                ...structuredClone(overrides),
+              },
+            }
+            : {}),
+          ...(raise
+            ? {
+              budget_envelope: {
+                max_steps: raise.max_steps ?? run.budget_envelope.max_steps,
+                max_provider_calls: raise.max_provider_calls ?? run.budget_envelope.max_provider_calls,
+              },
+            }
+            : {}),
         };
-        run = await this.persistRun(run);
+        run = await this.persistRun(run, holderId);
       }
-      return await this.advanceLoop(implementationProjectId, run, laneSlots);
+      return await this.advanceLoop(implementationProjectId, run, laneSlots, holderId);
     } catch (error) {
       if (error instanceof CoordinatorPersistenceFailure) {
         // Crash-equivalent path: the run stays `advancing` with a live lease;
@@ -526,7 +589,7 @@ export class PaperImplementationRunCoordinatorService {
           ? error.original
           : error;
       }
-      await this.tryMarkFailed(run);
+      await this.tryMarkFailed(run, holderId);
       if (error instanceof AppError) {
         throw error;
       }
@@ -540,6 +603,7 @@ export class PaperImplementationRunCoordinatorService {
     implementationProjectId: string,
     initialRun: PaperImplementationCoordinatorRun,
     laneSlots: readonly string[],
+    leaseHolderId: string,
   ): Promise<PaperImplementationCoordinatorRunWithSteps> {
     let run = initialRun;
     const steps = await this.coordinatorRepository.listCoordinatorSteps(
@@ -547,17 +611,35 @@ export class PaperImplementationRunCoordinatorService {
       run.coordinator_run_id,
     );
 
+    // F6: the persisted steps are the source of truth for consumed budget.
+    // A crash between step persistence and the run-counter update leaves the
+    // run row under-counted; rebuild from steps before any budget decision.
+    const rebuiltConsumed = {
+      steps: steps.length,
+      provider_calls: steps.reduce((sum, step) => sum + step.provider_call_count, 0),
+    };
+    if (
+      run.consumed.steps !== rebuiltConsumed.steps
+      || run.consumed.provider_calls !== rebuiltConsumed.provider_calls
+    ) {
+      run = await this.persistRun({
+        ...run,
+        consumed: rebuiltConsumed,
+        updated_at: this.now(),
+      }, leaseHolderId);
+    }
+
     for (;;) {
       const passedByIndex = this.passedStepsByIndex(steps);
       const nextIndex = laneSlots.findIndex((_, index) => !passedByIndex.has(index));
       if (nextIndex === -1) {
-        return this.finish(run, steps, 'completed');
+        return this.finish(run, steps, 'completed', leaseHolderId);
       }
       if (
         run.consumed.steps + 1 > run.budget_envelope.max_steps
         || run.consumed.provider_calls >= run.budget_envelope.max_provider_calls
       ) {
-        return this.finish(run, steps, 'budget_exhausted');
+        return this.finish(run, steps, 'budget_exhausted', leaseHolderId);
       }
 
       const slotId = laneSlots[nextIndex]!;
@@ -565,6 +647,22 @@ export class PaperImplementationRunCoordinatorService {
       const nodeAttemptId = `${run.coordinator_run_id}.step-${nextIndex}.attempt-${attemptSequence}`;
       const chainContext = this.chainContext(passedByIndex);
       const slotRequest = this.buildSlotRequest(run, laneSlots, slotId, nextIndex, nodeAttemptId, chainContext);
+
+      // F3: heartbeat + lease-fence BEFORE the slot runs. If the lease has
+      // been taken over, this guarded write fails (crash-equivalent) and the
+      // stale holder never double-executes the slot.
+      const heartbeatAt = this.now();
+      run = await this.persistRun({
+        ...run,
+        lease: run.lease
+          ? {
+            ...run.lease,
+            heartbeat_at: heartbeatAt,
+            expires_at: new Date(new Date(heartbeatAt).getTime() + this.leaseTtlMs).toISOString(),
+          }
+          : run.lease,
+        updated_at: heartbeatAt,
+      }, leaseHolderId);
 
       let result: CoordinatorSlotRunResult | null = null;
       let invocationBlockerCodes: string[] = [];
@@ -578,16 +676,23 @@ export class PaperImplementationRunCoordinatorService {
           : ['SLOT_INVOCATION_FAILED'];
       }
 
-      const outcome = this.stepOutcome(slotId, result);
+      let outcome = this.stepOutcome(slotId, result);
       const decisionRecord = outcome === 'passed' && result
         ? this.selectionDecisionForSlot(slotId, result)
         : null;
-      const blockerCodes = result
-        ? [...result.blocker_codes]
-        : invocationBlockerCodes;
+      // F5: slot-result blocker codes (potentially LLM-influenced) and
+      // coordinator-observed codes are tracked separately; the persisted
+      // step keeps the full union, but classification and terminal-state
+      // decisions only trust the coordinator-observed set.
+      const slotBlockerCodes = result ? this.uniqueStrings([...result.blocker_codes]) : [];
+      const trustedBlockerCodes = [...invocationBlockerCodes];
       const noEligibleCandidate = decisionRecord !== null && decisionRecord.selected_candidate_key === null;
       if (noEligibleCandidate) {
-        blockerCodes.push(NO_ELIGIBLE_CANDIDATE_BLOCKER_CODE);
+        // F1: an empty selection is a run-blocking outcome, not a pass — the
+        // decision record is kept (it documents the empty selection) and the
+        // step lands `blocked` so the same slot re-runs after an override.
+        outcome = 'blocked';
+        trustedBlockerCodes.push(NO_ELIGIBLE_CANDIDATE_BLOCKER_CODE);
       }
 
       const step: PaperImplementationCoordinatorStep = {
@@ -600,6 +705,10 @@ export class PaperImplementationRunCoordinatorService {
         node_attempt_id: nodeAttemptId,
         runtime_artifact_ref: result?.final_admission_record?.admitted_artifact_ref ?? null,
         runtime_artifact_hash: result?.final_admission_record?.admitted_artifact_hash ?? null,
+        // F4: the admitted final artifact id — together with
+        // runtime_artifact_hash this is exactly the acceptance-bridge
+        // lineage pair (source_proposal_artifact_ref.ref_id + hash).
+        runtime_artifact_id: result?.final_admission_record?.runtime_artifact_id ?? null,
         admission_ref: result?.final_admission_record
           ? {
             ref_type: 'paper_implementation_runtime_admission_record',
@@ -611,7 +720,7 @@ export class PaperImplementationRunCoordinatorService {
         decision_record: decisionRecord,
         outcome,
         provider_call_count: result?.provider_call_count ?? 0,
-        blocker_codes: this.uniqueStrings(blockerCodes),
+        blocker_codes: this.uniqueStrings([...slotBlockerCodes, ...trustedBlockerCodes]),
         created_at: this.now(),
       };
       const persistedStep = await this.persistStep(step);
@@ -631,28 +740,30 @@ export class PaperImplementationRunCoordinatorService {
           }
           : run.lease,
         updated_at: this.now(),
-      });
+      }, leaseHolderId);
 
-      // W4 queue reflow: a run-blocking step (blocked / failed_runtime, or a
-      // passed selection step with no eligible candidate that parks the run
-      // as blocked) materializes a DecisionWorkQueueItem before the run is
+      // W4 queue reflow: a run-blocking step (blocked / failed_runtime,
+      // including a selection step whose empty selection parked it as
+      // blocked) materializes a DecisionWorkQueueItem before the run is
       // parked. waiting_review is a semantic stop, not a blocker — it stays
       // out of the queue.
-      if (outcome === 'blocked' || outcome === 'failed_runtime' || noEligibleCandidate) {
-        await this.enqueueRunBlockingStep(run, persistedStep);
+      if (outcome === 'blocked' || outcome === 'failed_runtime') {
+        await this.enqueueRunBlockingStep(run, persistedStep, trustedBlockerCodes, slotBlockerCodes);
       }
 
-      if (step.blocker_codes.includes(TIER_BUDGET_BLOCKER_CODE)) {
-        return this.finish(run, steps, 'budget_exhausted');
+      // F5: only coordinator-observed codes can park the run as
+      // budget-exhausted — slot output never steers terminal state.
+      if (trustedBlockerCodes.includes(TIER_BUDGET_BLOCKER_CODE)) {
+        return this.finish(run, steps, 'budget_exhausted', leaseHolderId);
       }
       if (run.consumed.provider_calls > run.budget_envelope.max_provider_calls) {
-        return this.finish(run, steps, 'budget_exhausted');
+        return this.finish(run, steps, 'budget_exhausted', leaseHolderId);
       }
       if (outcome === 'waiting_review') {
-        return this.finish(run, steps, 'waiting_review');
+        return this.finish(run, steps, 'waiting_review', leaseHolderId);
       }
-      if (outcome !== 'passed' || noEligibleCandidate) {
-        return this.finish(run, steps, 'blocked');
+      if (outcome !== 'passed') {
+        return this.finish(run, steps, 'blocked', leaseHolderId);
       }
     }
   }
@@ -668,10 +779,13 @@ export class PaperImplementationRunCoordinatorService {
   private async enqueueRunBlockingStep(
     run: PaperImplementationCoordinatorRun,
     step: PaperImplementationCoordinatorStep,
+    trustedBlockerCodes: string[],
+    slotBlockerCodes: string[],
   ): Promise<void> {
     const classification = classifyPaperImplementationCoordinatorBlockedStep(
       step.outcome,
-      step.blocker_codes,
+      trustedBlockerCodes,
+      slotBlockerCodes,
     );
     const runRef: TopicSelectionFunctionalRef = {
       ref_type: 'paper_implementation_coordinator_run',
@@ -725,21 +839,28 @@ export class PaperImplementationRunCoordinatorService {
     run: PaperImplementationCoordinatorRun,
     steps: PaperImplementationCoordinatorStep[],
     runStatus: PaperImplementationCoordinatorRun['run_status'],
+    leaseHolderId: string,
   ): Promise<PaperImplementationCoordinatorRunWithSteps> {
+    // F3: the lease release is fenced on the finishing holder so a stale
+    // holder can never release (or overwrite) a successor's lease.
     const updated = await this.persistRun({
       ...run,
       run_status: runStatus,
       lease: null,
       updated_at: this.now(),
-    });
+    }, leaseHolderId);
     return { run: updated, steps };
   }
 
   private async persistRun(
     run: PaperImplementationCoordinatorRun,
+    expectedLeaseHolderId?: string,
   ): Promise<PaperImplementationCoordinatorRun> {
     try {
-      return await this.coordinatorRepository.updateCoordinatorRun(run);
+      return await this.coordinatorRepository.updateCoordinatorRun(
+        run,
+        expectedLeaseHolderId !== undefined ? { expectedLeaseHolderId } : undefined,
+      );
     } catch (error) {
       throw new CoordinatorPersistenceFailure(error);
     }
@@ -755,16 +876,56 @@ export class PaperImplementationRunCoordinatorService {
     }
   }
 
-  private async tryMarkFailed(run: PaperImplementationCoordinatorRun): Promise<void> {
+  private async tryMarkFailed(
+    run: PaperImplementationCoordinatorRun,
+    expectedLeaseHolderId?: string,
+  ): Promise<void> {
     try {
-      await this.coordinatorRepository.updateCoordinatorRun({
-        ...run,
-        run_status: 'failed',
-        lease: null,
-        updated_at: this.now(),
-      });
+      await this.coordinatorRepository.updateCoordinatorRun(
+        {
+          ...run,
+          run_status: 'failed',
+          lease: null,
+          updated_at: this.now(),
+        },
+        expectedLeaseHolderId !== undefined ? { expectedLeaseHolderId } : undefined,
+      );
     } catch {
       // Best effort only — the original coordinator fault is what propagates.
+    }
+  }
+
+  /**
+   * F2: budget raises are increase-only. Any provided dimension must be a
+   * positive integer at or above the run's current envelope; a reduction is
+   * a 400, never a silent clamp.
+   */
+  private assertBudgetEnvelopeRaise(
+    run: PaperImplementationCoordinatorRun,
+    raise: NonNullable<AdvancePaperImplementationCoordinatorRunRequest['raise_budget_envelope']>,
+  ): void {
+    const checks: ReadonlyArray<readonly ['max_steps' | 'max_provider_calls', number | undefined]> = [
+      ['max_steps', raise.max_steps],
+      ['max_provider_calls', raise.max_provider_calls],
+    ];
+    for (const [field, value] of checks) {
+      if (value === undefined) {
+        continue;
+      }
+      if (!Number.isInteger(value) || value < 1) {
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          `raise_budget_envelope.${field} must be a positive integer.`,
+        );
+      }
+      if (value < run.budget_envelope[field]) {
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          `raise_budget_envelope.${field} (${value}) must not reduce the current envelope (${run.budget_envelope[field]}).`,
+        );
+      }
     }
   }
 

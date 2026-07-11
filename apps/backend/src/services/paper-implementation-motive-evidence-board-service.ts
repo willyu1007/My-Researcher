@@ -1283,12 +1283,13 @@ export class PaperImplementationMotiveEvidenceBoardService {
     ]) {
       changedMotiveIds.add(motiveId);
     }
-    if (changedMotiveIds.size === 0) {
-      const beforeActive = new Set(currentSet.active_motive_ids);
-      for (const motiveId of this.activeMotiveIds(request.motive_roles_after_decision)) {
-        if (!beforeActive.has(motiveId)) {
-          changedMotiveIds.add(motiveId);
-        }
+    // F7: newly activated motives are unconditional confirmation targets — a
+    // mixed decision (primary delta plus activation) must be confirmed for
+    // the activated motives too, not only for the primary-change set.
+    const beforeActive = new Set(currentSet.active_motive_ids);
+    for (const motiveId of this.activeMotiveIds(request.motive_roles_after_decision)) {
+      if (!beforeActive.has(motiveId)) {
+        changedMotiveIds.add(motiveId);
       }
     }
     return [...changedMotiveIds].map((motiveId) => this.ref('core_motive', motiveId, titleCardId));

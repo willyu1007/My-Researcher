@@ -373,6 +373,37 @@ test('decision work queue resolve schema keeps W4 reflow fields optional and bou
     ),
     400,
   );
+  // F2: the coordinator budget raise rides the resolve request and stays
+  // increase-only positive-integer shaped at the contract boundary.
+  assert.equal(
+    await validateWithSchema(
+      harnessContracts.resolveDecisionWorkQueueItemRequestSchema,
+      { status: 'resolved', re_advance: true, raise_budget_envelope: { max_steps: 8 } },
+    ),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(
+      harnessContracts.resolveDecisionWorkQueueItemRequestSchema,
+      { status: 'resolved', raise_budget_envelope: null },
+    ),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(
+      harnessContracts.resolveDecisionWorkQueueItemRequestSchema,
+      { status: 'resolved', raise_budget_envelope: { max_steps: 0 } },
+    ),
+    400,
+  );
+  // Strict validation (no removeAdditional) rejects unknown raise fields.
+  assert.equal(
+    await validateStrictWithSchema(
+      harnessContracts.resolveDecisionWorkQueueItemRequestSchema,
+      { status: 'resolved', raise_budget_envelope: { unknown_dimension: 4 } },
+    ),
+    400,
+  );
 });
 
 test('agent workflow harness response schema rejects persistence-only spec leakage', async () => {

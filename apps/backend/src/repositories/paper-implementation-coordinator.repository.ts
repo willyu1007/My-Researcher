@@ -14,16 +14,26 @@ export interface PaperImplementationCoordinatorRepository {
     coordinatorRunId: string,
   ): Promise<PaperImplementationCoordinatorRun | null>;
 
+  /**
+   * F3: when `options.expectedLeaseHolderId` is provided the update is
+   * fenced on the run still being leased by that holder — a mismatch (lease
+   * taken over by another advance) throws instead of overwriting the new
+   * holder's state. The coordinator service treats that failure as
+   * crash-equivalent persistence loss.
+   */
   updateCoordinatorRun(
     run: PaperImplementationCoordinatorRun,
+    options?: { expectedLeaseHolderId?: string | null },
   ): Promise<PaperImplementationCoordinatorRun>;
 
   /**
    * Atomic compare-and-set lease acquisition. Succeeds (returns the updated
    * run with `run_status='advancing'` and the new lease) only when the run
    * currently has no lease, an expired lease (`expires_at <= now`), or a
-   * lease held by the same holder. Returns null when another live holder
-   * owns the lease — the caller maps that to 409 CONCURRENT_ADVANCE.
+   * lease held by the same holder — and (F8) never when the run is already
+   * terminal (`completed`/`failed`); `budget_exhausted` stays acquirable so
+   * a budget raise can resume it. Returns null when another live holder
+   * owns the lease or the run is terminal — the caller maps that to 409.
    */
   acquireCoordinatorRunLease(
     implementationProjectId: string,

@@ -361,6 +361,14 @@ const REQUIRED_RUNTIME_REGRESSION_CASES = [
     key: 'queue_resolve_readvance_resumes_run',
     subtest: 'queue resolve re-advance resumes the coordinator run from the breakpoint',
   },
+  {
+    key: 'coordinator_no_eligible_candidate_blocks_and_reflows',
+    subtest: 'coordinator no-eligible-candidate step blocks the run and override re-advance reflows the same slot',
+  },
+  {
+    key: 'coordinator_step_projection_seeds_acceptance_bridge',
+    subtest: 'coordinator admitted step projection seeds the acceptance bridge and backfills authority lineage',
+  },
 ];
 
 const REQUIRED_DETERMINISTIC_LANE_CASES = [

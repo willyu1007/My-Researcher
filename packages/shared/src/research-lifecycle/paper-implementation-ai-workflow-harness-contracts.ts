@@ -12,8 +12,10 @@ import {
   type PaperImplementationAgentRunMode,
   type PaperImplementationAgentWorkflowType,
 } from './paper-implementation-agent-common-contracts.js';
-import type {
-  PaperImplementationCoordinatorRunWithSteps,
+import {
+  paperImplementationCoordinatorBudgetEnvelopeRaiseSchema,
+  type PaperImplementationCoordinatorBudgetEnvelopeRaise,
+  type PaperImplementationCoordinatorRunWithSteps,
 } from './paper-implementation-coordinator-contracts.js';
 
 export {
@@ -456,6 +458,13 @@ export interface ResolveDecisionWorkQueueItemRequest {
    * re-advance gate is evaluated; it never lowers an existing budget.
    */
   retry_budget_override?: number | null;
+  /**
+   * F2: forwarded verbatim to the coordinator advance triggered by
+   * `re_advance` — the increase-only budget raise that lets a
+   * `budget_exhausted` coordinator run resume. Ignored when no re-advance is
+   * triggered.
+   */
+  raise_budget_envelope?: PaperImplementationCoordinatorBudgetEnvelopeRaise | null;
 }
 
 /**
@@ -466,6 +475,13 @@ export interface ResolveDecisionWorkQueueItemRequest {
  */
 export interface ResolveDecisionWorkQueueItemResponse extends DecisionWorkQueueItem {
   coordinator_advance?: PaperImplementationCoordinatorRunWithSteps | null;
+  /**
+   * F2: when the resolve succeeded but the follow-up coordinator advance
+   * threw (e.g. CONCURRENT_ADVANCE), the resolve result is returned as usual
+   * and the advance failure is surfaced here instead of failing the whole
+   * request. `coordinator_advance` stays absent in that case.
+   */
+  coordinator_advance_error?: { code: string; message: string } | null;
 }
 
 export interface CreateAgentWorkflowHarnessRunRequest {
@@ -1154,6 +1170,9 @@ export const resolveDecisionWorkQueueItemRequestSchema = {
     resolved_by: actorTypeSchema,
     re_advance: { type: 'boolean' },
     retry_budget_override: { anyOf: [{ type: 'integer', minimum: 1 }, { type: 'null' }] },
+    raise_budget_envelope: {
+      anyOf: [paperImplementationCoordinatorBudgetEnvelopeRaiseSchema, { type: 'null' }],
+    },
   },
 } as const;
 

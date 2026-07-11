@@ -164,6 +164,7 @@ test('PaperImplementationCoordinatorStep schema accepts records and rejects unkn
       ...validStep(),
       runtime_artifact_ref: null,
       runtime_artifact_hash: null,
+      runtime_artifact_id: null,
       admission_ref: null,
       decision_record: null,
       outcome: 'blocked',
@@ -171,6 +172,13 @@ test('PaperImplementationCoordinatorStep schema accepts records and rejects unkn
     }),
     200,
   );
+  // F4: the admitted final artifact id is an optional nullable projection
+  // (steps persisted before the field existed omit it).
+  assert.equal(
+    await validateWithSchema(schema, { ...validStep(), runtime_artifact_id: 'runtime_artifact_001' }),
+    200,
+  );
+  assert.equal(await validateWithSchema(schema, { ...validStep(), runtime_artifact_id: {} }), 400);
   assert.equal(await validateWithSchema(schema, { ...validStep(), outcome: 'succeeded' }), 400);
   assert.equal(await validateWithSchema(schema, { ...validStep(), step_index: -1 }), 400);
   assert.equal(await validateWithSchema(schema, { ...validStep(), raw_provider_response: {} }), 400);
@@ -241,4 +249,26 @@ test('AdvancePaperImplementationCoordinatorRunRequest accepts empty body object 
     200,
   );
   assert.equal(await validateWithSchema(schema, { force: true }), 400);
+});
+
+test('AdvancePaperImplementationCoordinatorRunRequest accepts increase-only budget raises', async () => {
+  const schema = coordinatorContracts.advancePaperImplementationCoordinatorRunRequestSchema;
+  assert.equal(
+    await validateWithSchema(schema, { raise_budget_envelope: { max_steps: 8 } }),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(schema, { raise_budget_envelope: { max_steps: 8, max_provider_calls: 32 } }),
+    200,
+  );
+  assert.equal(await validateWithSchema(schema, { raise_budget_envelope: null }), 200);
+  assert.equal(await validateWithSchema(schema, { raise_budget_envelope: {} }), 200);
+  assert.equal(
+    await validateWithSchema(schema, { raise_budget_envelope: { max_steps: 0 } }),
+    400,
+  );
+  assert.equal(
+    await validateWithSchema(schema, { raise_budget_envelope: { shrink_steps: 1 } }),
+    400,
+  );
 });

@@ -1929,6 +1929,21 @@ export class PaperImplementationController {
           queueItemId,
         );
         if (item.source_coordinator_run_ref) {
+          // F2: a terminal coordinator run can never be re-advanced — reject
+          // BEFORE the resolve so the queue item is left untouched.
+          const coordinatorRun = await this.requireRunCoordinator().getCoordinatorRun(
+            implementationProjectId,
+            item.source_coordinator_run_ref.ref_id,
+          );
+          if (coordinatorRun.run.run_status === 'completed' || coordinatorRun.run.run_status === 'failed') {
+            throw new AppError(
+              409,
+              'GATE_CONSTRAINT_FAILED',
+              `CoordinatorRun ${item.source_coordinator_run_ref.ref_id} is terminal `
+              + `(${coordinatorRun.run.run_status}) and cannot be re-advanced; the queue item was not resolved.`,
+              { coordinator_run_status: coordinatorRun.run.run_status },
+            );
+          }
           const effectiveRetryBudget = request.body.retry_budget_override
             ? Math.max(item.retry_budget, request.body.retry_budget_override)
             : item.retry_budget;
@@ -1966,16 +1981,34 @@ export class PaperImplementationController {
       if (!reAdvanceCoordinatorRunId) {
         return reply.send(resolved);
       }
-      const coordinatorAdvance = await this.requireRunCoordinator().advance(
-        implementationProjectId,
-        reAdvanceCoordinatorRunId,
-        {},
-      );
-      const response: ResolveDecisionWorkQueueItemResponse = {
-        ...resolved,
-        coordinator_advance: coordinatorAdvance,
-      };
-      return reply.send(response);
+      // F2: the resolve already happened — an advance failure (including
+      // CONCURRENT_ADVANCE) must not fail the whole request. The resolve
+      // result is returned as usual with the advance error alongside it.
+      try {
+        const coordinatorAdvance = await this.requireRunCoordinator().advance(
+          implementationProjectId,
+          reAdvanceCoordinatorRunId,
+          {
+            raise_budget_envelope: request.body.raise_budget_envelope ?? null,
+          },
+        );
+        const response: ResolveDecisionWorkQueueItemResponse = {
+          ...resolved,
+          coordinator_advance: coordinatorAdvance,
+        };
+        return reply.send(response);
+      } catch (advanceError) {
+        const response: ResolveDecisionWorkQueueItemResponse = {
+          ...resolved,
+          coordinator_advance_error: advanceError instanceof AppError
+            ? { code: advanceError.errorCode, message: advanceError.message }
+            : {
+              code: 'INTERNAL_ERROR',
+              message: advanceError instanceof Error ? advanceError.message : String(advanceError),
+            },
+        };
+        return reply.send(response);
+      }
     } catch (error) {
       return handleError(reply, error);
     }

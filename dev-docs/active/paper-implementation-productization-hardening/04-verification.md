@@ -18,6 +18,12 @@
 
 ## Log
 
+### 2026-07-11 S1 复审修复 + 迁移 + 全门收口（S1 闭合）
+- code-review（506a6073..HEAD，8 角度 + 逐条验证）10 发现全处置：**F1** 无候选步改落 blocked（回流可达，run 级正反测试）；**F2** 终态收窄 completed|failed + advance/resolve 支持 `raise_budget_envelope` 只增提额（兑现 D1"提额后 re-advance"）+ resolve 后 advance 失败降级为 `coordinator_advance_error` 响应字段（不再掩盖已生效 resolve）；**F3** lease TTL 600s + slot 前心跳 + updateCoordinatorRun 带 holder fence（双执行/lost update 封死）；**F4** step 契约加 `runtime_artifact_id`，投影→受理桥缝合封口测试（真实 createFeasibilityProbe 走通+血缘回填，hash 一致性核实 admitted_artifact_hash===final_artifact_hash）；**F5** blocker 分类/终态只信任 coordinator 自产 code（LLM 输出不能再驱动 budget_exhausted/trace_repair）；**F6** advance 开头以 steps 重建 consumed（崩溃欠计封死）；**F7** portfolio 混合决策激活项无条件入 target 集；**F8** lease CAS 拒终态 + payload 写带 holder 条件。发现 #9/#10（echo 高度/复制簇）按既定判断移交 S2。
+- 修复轮测试：coordinator unit 21/21（+6 新恢复路径用例）、prisma coordinator repo unit 2/2（新）、motive-board 16/16、integration 52（36 pass/16 env-skip）、必检 +2（F1 回流可达 / F4 缝合封口）。
+- **迁移 `20260711100000` 已 apply**（coordinator 两表 + 全部 S1 列，pg_tables 确认）；prisma smoke 首跑 4 失败为**测试隔离问题**（持久化下队列行跨 run 累积、fixture 假设全表恰 1 条）——修为按 source_coordinator_run_ref 过滤（断言强度不变），复跑 **37 pass / 0 fail / 15 env-skip**。
+- 全量 runtime-stress：run `t114-paper-implementation-runtime-stress-1783750367028` **passed**；**near-prod gate（L6，live provider + Prisma）：run `t114-paper-implementation-near-prod-runtime-gate-1783751668927` passed**。双包 tsc 零错。S1 全部验收项闭合。
+
 ### 2026-07-11 S1 收口（W1-W5 全落地）
 - W1 受理桥：45/45 + L5 `acceptance_bridge_lineage_drift_rejected`；W2 链内回查：route/cycle/feasibility 三 slot 全量回查 + blocked 冒充封死，L5 +4；W3 coordinator：contracts 6/6 + unit 12/12（故障注入三件套/选择复算/零权威依赖面）+ routes integration，L5 +5；W5 确认消费：consume-before-write 语义 + target 覆盖 + 5 处校验副本收敛，13 文件绿，L5 +2（另修 S0 遗留 T-101 夹具红，pristine HEAD 验证非回归）；W4 队列回流：coordinator blocked 入队（枚举分类表）+ resolve re_advance + retry/cooldown 真语义（Prisma reopen retryCount 覆盖 bug 根治），14/14+13/13+2/2+集成 49（33 pass/16 env-skip），L5 +2。
 - 合并态验证：双包 tsc 零错；全量 runtime-stress ×3 全 passed（W1+W2 后 `t114-...-1783727795027`、W3+W5 后 `t114-...-1783731130335`、W4 收口 `t114-...-1783733835126`），本切片新增必检 14 条全部命中。

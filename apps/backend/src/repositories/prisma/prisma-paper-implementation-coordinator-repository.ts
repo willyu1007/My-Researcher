@@ -93,15 +93,27 @@ implements PaperImplementationCoordinatorRepository {
 
   async updateCoordinatorRun(
     run: PaperImplementationCoordinatorRun,
+    options?: { expectedLeaseHolderId?: string | null },
   ): Promise<PaperImplementationCoordinatorRun> {
+    const expectedHolder = options?.expectedLeaseHolderId ?? null;
     const updated = await this.prisma.paperImplementationCoordinatorRun.updateMany({
       where: {
         id: run.coordinator_run_id,
         implementationProjectId: run.implementation_project_id,
+        // F3 lease fence: a stale holder whose lease was taken over matches
+        // zero rows and must not overwrite the new holder's state.
+        ...(expectedHolder !== null ? { leaseHolderId: expectedHolder } : {}),
       },
       data: this.toRunMutableData(run),
     });
     if (updated.count === 0) {
+      if (expectedHolder !== null) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `CoordinatorRun ${run.coordinator_run_id} lease is no longer held by ${expectedHolder}.`,
+        );
+      }
       throw new AppError(404, 'NOT_FOUND', `CoordinatorRun ${run.coordinator_run_id} not found.`);
     }
     return structuredClone(run);
@@ -120,11 +132,14 @@ implements PaperImplementationCoordinatorRepository {
       throw new AppError(404, 'NOT_FOUND', `CoordinatorRun ${coordinatorRunId} not found.`);
     }
     // Atomic compare-and-set: only a free, expired, or same-holder lease can
-    // be replaced; a losing concurrent advance matches zero rows.
+    // be replaced; a losing concurrent advance matches zero rows. F8: the
+    // CAS itself refuses terminal runs (completed/failed) so no lease can
+    // resurrect them; budget_exhausted stays acquirable for budget raises.
     const acquired = await this.prisma.paperImplementationCoordinatorRun.updateMany({
       where: {
         id: coordinatorRunId,
         implementationProjectId,
+        runStatus: { notIn: ['completed', 'failed'] },
         OR: [
           { leaseHolderId: null },
           { leaseHolderId: lease.holder_id },
@@ -150,8 +165,10 @@ implements PaperImplementationCoordinatorRepository {
     }
     const run = toCoordinatorRun(row);
     // Keep the JSON payload aligned now that we exclusively hold the lease.
-    await this.prisma.paperImplementationCoordinatorRun.update({
-      where: { id: coordinatorRunId },
+    // F8: the alignment write is fenced on the holder we just installed so a
+    // racing takeover between the CAS and this write is never clobbered.
+    await this.prisma.paperImplementationCoordinatorRun.updateMany({
+      where: { id: coordinatorRunId, leaseHolderId: lease.holder_id },
       data: { runPayload: toJsonValue(run) },
     });
     return run;

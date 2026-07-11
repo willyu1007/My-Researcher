@@ -39,10 +39,21 @@ implements PaperImplementationCoordinatorRepository {
 
   async updateCoordinatorRun(
     run: PaperImplementationCoordinatorRun,
+    options?: { expectedLeaseHolderId?: string | null },
   ): Promise<PaperImplementationCoordinatorRun> {
     const existing = this.runs.get(run.coordinator_run_id);
     if (!existing || existing.implementation_project_id !== run.implementation_project_id) {
       throw new AppError(404, 'NOT_FOUND', `CoordinatorRun ${run.coordinator_run_id} not found.`);
+    }
+    const expectedHolder = options?.expectedLeaseHolderId ?? null;
+    if (expectedHolder !== null && existing.lease?.holder_id !== expectedHolder) {
+      // F3 lease fence: the lease has been taken over by another holder; the
+      // stale holder must not overwrite the new holder's state.
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `CoordinatorRun ${run.coordinator_run_id} lease is no longer held by ${expectedHolder}.`,
+      );
     }
     const stored = structuredClone(run);
     this.runs.set(stored.coordinator_run_id, stored);
@@ -60,6 +71,11 @@ implements PaperImplementationCoordinatorRepository {
     const run = this.runs.get(coordinatorRunId);
     if (!run || run.implementation_project_id !== implementationProjectId) {
       throw new AppError(404, 'NOT_FOUND', `CoordinatorRun ${coordinatorRunId} not found.`);
+    }
+    // F8 terminal guard at the CAS layer: completed/failed runs can never be
+    // re-leased (budget_exhausted stays acquirable for post-raise resumes).
+    if (run.run_status === 'completed' || run.run_status === 'failed') {
+      return null;
     }
     const current = run.lease;
     const heldByOther = current !== null

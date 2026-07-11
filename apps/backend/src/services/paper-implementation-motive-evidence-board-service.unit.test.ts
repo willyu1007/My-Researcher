@@ -1315,3 +1315,126 @@ test('motive gates bind confirmations to their targets and consume them once', a
       && error.message.includes('already been consumed'),
   );
 });
+
+test('mixed portfolio decision requires confirmation coverage of newly activated motives', async () => {
+  // F7: a mixed decision (primary delta PLUS activation) must be confirmed
+  // for the newly activated motives too — covering only the primary-change
+  // set is a 409, not a silent pass.
+  const { service, traceKernel, confirmationRepository } = makeHarness();
+
+  // m1: first admit defaults to primary.
+  await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest());
+  const firstTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_001', 'v1'),
+    lineage: literatureLineage(),
+  });
+  await service.admitCoreMotiveVersion(
+    PROJECT.implementation_project_id,
+    'core_motive_001',
+    'core_motive_version_001',
+    { trace_manifest_id: firstTrace.trace_manifest_id },
+  );
+
+  // m2: defaults to secondary next to the existing primary.
+  await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest({
+    motive_id: 'core_motive_002',
+    core_motive_version_id: 'core_motive_version_002',
+    assertions: [{ ...draftRequest().assertions[0]!, assertion_id: 'motive_assertion_002' }],
+  }));
+  const secondTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_002', 'v1'),
+    lineage: literatureLineage(),
+  });
+  await service.admitCoreMotiveVersion(
+    PROJECT.implementation_project_id,
+    'core_motive_002',
+    'core_motive_version_002',
+    { trace_manifest_id: secondTrace.trace_manifest_id },
+  );
+
+  // m3: admitted parked — inactive until the mixed decision activates it.
+  await service.createCoreMotiveDraft(PROJECT.implementation_project_id, draftRequest({
+    motive_id: 'core_motive_003',
+    core_motive_version_id: 'core_motive_version_003',
+    assertions: [{ ...draftRequest().assertions[0]!, assertion_id: 'motive_assertion_003' }],
+  }));
+  const thirdTrace = await traceKernel.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('core_motive_version', 'core_motive_version_003', 'v1'),
+    lineage: literatureLineage(),
+  });
+  await service.admitCoreMotiveVersion(
+    PROJECT.implementation_project_id,
+    'core_motive_003',
+    'core_motive_version_003',
+    { trace_manifest_id: thirdTrace.trace_manifest_id, portfolio_role: 'parked' },
+  );
+
+  // Mixed decision: primary swap m1→m2 AND activation of parked m3.
+  const mixedDecisionRequest = {
+    motive_roles_after_decision: {
+      primary_motive_ids: ['core_motive_002'],
+      secondary_motive_ids: ['core_motive_001', 'core_motive_003'],
+      fallback_motive_ids: [],
+      supporting_motive_ids: [],
+      parked_motive_ids: [],
+      abandoned_motive_ids: [],
+    },
+    changes: {
+      promoted_to_primary: ['core_motive_002'],
+      demoted_from_primary: ['core_motive_001'],
+      merged_motives: [],
+      split_motives: [],
+      newly_parked: [],
+      newly_abandoned: [],
+    },
+    rationale: { mixed: 'Swap primary and activate the parked fallback direction.' },
+    max_parallel_routes: 3,
+    confirmation_level: 'human_confirmed' as const,
+    confirmed_by: 'human' as const,
+  };
+
+  // Negative: the record covers only the primary-change motives — the newly
+  // activated m3 is uncovered, so the decision must be rejected.
+  await seedConfirmation(
+    confirmationRepository,
+    'pi_human_confirmation_mixed_partial_001',
+    'motive_portfolio_decision',
+    [ref('core_motive', 'core_motive_001', null), ref('core_motive', 'core_motive_002', null)],
+  );
+  await assert.rejects(
+    service.applyMotivePortfolioDecision(PROJECT.implementation_project_id, {
+      ...mixedDecisionRequest,
+      confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_mixed_partial_001', null),
+    }),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('target_refs must cover the authorized object'),
+  );
+
+  // Positive: covering the primary delta AND the activated motive succeeds
+  // and consumes the record.
+  await seedConfirmation(
+    confirmationRepository,
+    'pi_human_confirmation_mixed_full_001',
+    'motive_portfolio_decision',
+    [
+      ref('core_motive', 'core_motive_001', null),
+      ref('core_motive', 'core_motive_002', null),
+      ref('core_motive', 'core_motive_003', null),
+    ],
+  );
+  const decision = await service.applyMotivePortfolioDecision(PROJECT.implementation_project_id, {
+    ...mixedDecisionRequest,
+    confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_mixed_full_001', null),
+  });
+  assert.deepEqual(decision.changes.promoted_to_primary, ['core_motive_002']);
+  const consumed = await confirmationRepository.findHumanConfirmationRecordById(
+    PROJECT.implementation_project_id,
+    'pi_human_confirmation_mixed_full_001',
+  );
+  assert.equal(consumed?.consumed_at, NOW);
+  assert.equal(
+    (await service.getCoreMotive(PROJECT.implementation_project_id, 'core_motive_003')).portfolio_role.role,
+    'secondary',
+  );
+});

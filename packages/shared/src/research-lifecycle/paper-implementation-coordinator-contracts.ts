@@ -57,6 +57,18 @@ export interface PaperImplementationCoordinatorBudgetEnvelope {
   max_provider_calls: number;
 }
 
+/**
+ * D1 budget raise (F2): an advance on a `budget_exhausted` run may carry a
+ * raise for either envelope dimension. Raises are increase-only — a value
+ * below the run's current envelope is rejected with 400 — and an advance on
+ * a budget_exhausted run without a raise is an idempotent no-op returning
+ * the current projection.
+ */
+export interface PaperImplementationCoordinatorBudgetEnvelopeRaise {
+  max_steps?: number;
+  max_provider_calls?: number;
+}
+
 export interface PaperImplementationCoordinatorConsumedBudget {
   steps: number;
   provider_calls: number;
@@ -159,6 +171,16 @@ export interface PaperImplementationCoordinatorStep {
   node_attempt_id: string;
   runtime_artifact_ref: TopicSelectionFunctionalRef | null;
   runtime_artifact_hash: string | null;
+  /**
+   * S1 seam (F4): the runtime_artifact_id of the admitted final artifact
+   * (from the slot result's final admission record). This is the exact id an
+   * acceptance-bridge Create* request needs as
+   * `source_proposal_artifact_ref.ref_id`, paired with
+   * `runtime_artifact_hash` (= admitted final artifact hash) as
+   * `source_proposal_artifact_hash`. Optional for steps persisted before the
+   * field existed.
+   */
+  runtime_artifact_id?: string | null;
   admission_ref: TopicSelectionFunctionalRef | null;
   decision_record: PaperImplementationCandidateSelectionDecisionRecord | null;
   outcome: PaperImplementationCoordinatorStepOutcome;
@@ -186,6 +208,13 @@ export interface AdvancePaperImplementationCoordinatorRunRequest {
    * (e.g. rebuilding the skeptic fixture with a proceed disposition).
    */
   slot_request_payload_overrides?: PaperImplementationCoordinatorSlotRequestPayloads;
+  /**
+   * F2: increase-only budget raise consumed by this advance. Required to
+   * resume a `budget_exhausted` run (without it such an advance idempotently
+   * returns the current projection); any provided value below the current
+   * envelope is rejected with 400.
+   */
+  raise_budget_envelope?: PaperImplementationCoordinatorBudgetEnvelopeRaise | null;
 }
 
 export interface PaperImplementationCoordinatorRunWithSteps {
@@ -211,6 +240,15 @@ const budgetEnvelopeSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['max_steps', 'max_provider_calls'],
+  properties: {
+    max_steps: positiveInteger,
+    max_provider_calls: positiveInteger,
+  },
+} as const;
+
+export const paperImplementationCoordinatorBudgetEnvelopeRaiseSchema = {
+  type: 'object',
+  additionalProperties: false,
   properties: {
     max_steps: positiveInteger,
     max_provider_calls: positiveInteger,
@@ -362,6 +400,7 @@ export const paperImplementationCoordinatorStepSchema = {
     node_attempt_id: stringId,
     runtime_artifact_ref: nullableFunctionalRef,
     runtime_artifact_hash: nullableStringId,
+    runtime_artifact_id: nullableStringId,
     admission_ref: nullableFunctionalRef,
     decision_record: {
       anyOf: [paperImplementationCandidateSelectionDecisionRecordSchema, { type: 'null' }],
@@ -401,5 +440,8 @@ export const advancePaperImplementationCoordinatorRunRequestSchema = {
   properties: {
     holder_id: nullableStringId,
     slot_request_payload_overrides: slotRequestPayloadsSchema,
+    raise_budget_envelope: {
+      anyOf: [paperImplementationCoordinatorBudgetEnvelopeRaiseSchema, { type: 'null' }],
+    },
   },
 } as const;
