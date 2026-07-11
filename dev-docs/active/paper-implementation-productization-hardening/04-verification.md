@@ -18,6 +18,12 @@
 
 ## Log
 
+### 2026-07-11 S5 首评（gs-001-lora run 003，L7 usage-fit 基线；AI 代评审，人工复核可覆盖）
+- 四维：候选质量 **4.7**、批判有效性 **5.0**、证据可追溯 **4.8**、约束遵守 **5.0**（评分详情与逐节点表：run 目录 `rubric-scored.md`）。
+- 核心判断：语义产出显著高于 v1 验收线；**链未走完是治理在工作**——skeptic 对薄选题包的 revise 处置四条批判逐条命中真实缺口（预算矩阵/指标预承诺/基线控制/基线选择依赖），RF-001 在提案正文不可见时拒绝装懂是模范 fail-closed。route 三候选与 ground truth 路线空间几乎完全对齐（含主动尊重早期检查义务的分阶段路线与对应论文 §7 的机制诊断路线）。
+- 行动项：gs-001 **v2 选题包**按 skeptic 修订后重跑（预期 lane A 完链+probe 物化）；evolution InvalidRequestError/run_mode 映射/提案正文穿引 → **S2**；skeptic blocked 态 repair_suggestions 完备性 → S3。
+- 首跑证据：run `gs001-lora-live-003`（8 provider 调用），W4 回流+waiting_review 停驻+受理桥 live 物化全部真实路径成立。
+
 ### 2026-07-11 修复轮二审收尾（R1-R10，coordinator 语义定稿）
 - 对修复轮 diff（41db6dcc..HEAD）的 code-review 发现 10 项全部收掉：**R1** budget_exhausted 无 raise 的 re_advance 改 409 于 resolve 之前（+no-op 带 overrides→400，不再静默丢）；**R2** raise 应用改取锁后 max（交错不可缩预算）+ `budget_raise_events` 审计事件（含被吸收的 raise）；**R3** dedup_key 只收 trusted 码/outcome 哨兵（LLM 措辞不再铸新队列项，retry_budget 真正可触发）；**R4** 可信性规则补零调用 blocked final（确定性预检产出入 trusted——真 tier-budget 恢复 budget_exhausted+loop_budget_review 语义，D2 前保留码注释登记）；**R5** persistStep 前 holder fence + 持久化失败 best-effort 释放自身 lease（残余双执行窗口关死、输家不再困 run）；**R6** 崩溃测试包装器转发 options（fence 真被测）；**R7** CAS null 二义消除（终态竞态报 terminal 而非 CONCURRENT_ADVANCE）；**R8** 双实现 404/409 对齐 + 一致性测试；**R9** step 投影 runtime_artifact_id 与 hash 同门（admitted 才置值）+ prisma round-trip/GET 读回断言；**R10** 终态集合入契约单源（四处字面量删除）、白名单派生基表、withBumpedLease 统一时钟、consumed 单径化（steps 唯一事实源）、集成测试 PROJECT_ID 进程唯一 + in-memory 全表无泄漏断言恢复。
 - 验证：coordinator unit 25/25、prisma coordinator repo 4/4、集成 36/0/16、l5 52/52、双包 tsc 零错；全量 runtime-stress run `t114-paper-implementation-runtime-stress-1783765586663` **passed**；prisma smoke 复跑 **37/0/15**。
