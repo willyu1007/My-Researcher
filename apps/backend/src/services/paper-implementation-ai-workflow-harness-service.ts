@@ -30,6 +30,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import { normalizedPaperImplementationRefType } from './paper-implementation-runtime-utils.js';
 import type {
   PaperImplementationAiWorkflowHarnessRepository,
 } from '../repositories/paper-implementation-ai-workflow-harness.repository.js';
@@ -859,7 +860,7 @@ export class PaperImplementationAiWorkflowHarnessService {
   }
 
   private normalizedRefType(ref: TopicSelectionFunctionalRef): string {
-    return ref.ref_type.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    return normalizedPaperImplementationRefType(ref.ref_type);
   }
 
   private sameFunctionalRef(a: TopicSelectionFunctionalRef, b: TopicSelectionFunctionalRef): boolean {

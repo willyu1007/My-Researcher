@@ -10,6 +10,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import { normalizedPaperImplementationRefType } from './paper-implementation-runtime-utils.js';
 import type {
   PaperImplementationHumanConfirmationRepository,
 } from '../repositories/paper-implementation-human-confirmation.repository.js';
@@ -28,7 +29,7 @@ import type {
  */
 
 function normalizedRefType(refType: string): string {
-  return refType.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return normalizedPaperImplementationRefType(refType);
 }
 
 function refCovered(

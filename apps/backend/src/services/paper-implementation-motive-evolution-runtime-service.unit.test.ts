@@ -373,15 +373,25 @@ test('motive evolution runtime preflight blocks memo refs and uncovered context 
     }],
   });
 
-  assert.equal(result.status, 'failed_runtime');
+  // S2-C C3: preflight blockers are a reviewable blocked final (admitted), not
+  // a failed_runtime terminal without a final artifact.
+  assert.equal(result.status, 'blocked');
   assert.equal(result.provider_call_count, 0);
   assert.equal(orchestrator.calls.length, 0);
-  assert.equal(result.final_runtime_artifact, null);
-  assert.equal(result.runtime_artifacts.length, 1);
-  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'MOTIVE_EVOLUTION_PREFLIGHT_BLOCKED');
-  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+  assert.equal(result.runtime_artifacts.length, 2);
+  assert.equal(result.runtime_artifacts[0]?.runtime_status, 'blocked');
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, null);
+  assert.equal(result.runtime_artifacts[0]?.executor_kind, 'deterministic_preflight');
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_runtime_artifact?.runtime_failure_code, null);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(result.admission_records.map((item) => item.admission_status), ['admitted', 'admitted']);
   assert.equal(result.blocker_codes.includes('MOTIVE_EVOLUTION_MEMO_LIKE_REF_REJECTED'), true);
   assert.equal(result.blocker_codes.includes('MOTIVE_EVOLUTION_CONTEXT_PACKET_UNCOVERED'), true);
+  assert.equal(
+    result.final_runtime_artifact?.blocker_codes.includes('MOTIVE_EVOLUTION_MEMO_LIKE_REF_REJECTED'),
+    true,
+  );
 });
 
 for (const scenario of [
@@ -520,6 +530,74 @@ for (const drift of ['source', 'run_mode'] as const) {
     assert.equal(result.admission_records[0]?.admission_status, 'rejected');
   });
 }
+
+test('motive evolution runtime role schema names stay within the OpenAI structured-output name constraint (S2-B B1)', async () => {
+  // gs001-lora-live-002/003 root cause: the previous 65-character
+  // `..._role_output` schema names exceeded the OpenAI `text.format.name`
+  // 64-character limit, so every provider_llm call of this slot failed with
+  // InvalidRequestError. Pin both the exact names and the provider constraint.
+  const { service, orchestrator } = serviceFixture();
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'passed');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.deepEqual(orchestrator.calls.map((call) => call.schema_name), [
+    'paper_implementation_motive_evolution_option_designer_output',
+    'paper_implementation_motive_evolution_risk_challenger_output',
+  ]);
+  for (const call of orchestrator.calls) {
+    assert.ok(call.schema_name, 'schema_name must be present on every role invocation');
+    assert.match(
+      call.schema_name!,
+      /^[a-zA-Z0-9_-]{1,64}$/,
+      `schema_name ${call.schema_name} must satisfy the OpenAI text.format.name constraint (max 64 chars)`,
+    );
+  }
+});
+
+test('motive evolution runtime maps run_mode identically to sibling slot services (S2-B B2)', async () => {
+  // The pre-S2 fork mapped dry_run→test (siblings: mock→test, dry_run→
+  // acceptance), which conflicted with provider_llm profile
+  // run_mode_eligibility (acceptance|product) and deterministically blocked
+  // dry_run + provider_llm for this slot only (gs001-lora-live-001).
+  const dryRun = serviceFixture();
+  const dryRunResult = await dryRun.service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_dry_run_mapping_run_001',
+    run_mode: 'dry_run',
+  });
+  assert.equal(dryRunResult.status, 'passed');
+  assert.equal(dryRun.orchestrator.calls.length, 2);
+  for (const call of dryRun.orchestrator.calls) {
+    assert.equal(call.run_mode, 'acceptance');
+    assert.notEqual(call.run_mode, 'test');
+  }
+
+  const replay = serviceFixture();
+  const replayResult = await replay.service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_replay_mapping_run_001',
+    run_mode: 'replay',
+  });
+  assert.equal(replayResult.status, 'passed');
+  for (const call of replay.orchestrator.calls) {
+    assert.equal(call.run_mode, 'acceptance');
+  }
+
+  const mock = serviceFixture();
+  const mockResult = await mock.service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_mock_mapping_run_001',
+    run_mode: 'mock',
+    execution_mode: 'mocked_llm',
+    model_option_id: null,
+    mocked_role_outputs: motiveRoleOutputs(),
+  });
+  assert.equal(mockResult.status, 'passed');
+  for (const call of mock.orchestrator.calls) {
+    assert.equal(call.run_mode, 'test');
+  }
+});
 
 test('motive evolution runtime rejects product fixture modes, provider fixtures, model drift, and harness primary refs', async () => {
   const { service, orchestrator } = serviceFixture();
@@ -1020,8 +1098,8 @@ function baseInvocationResult<T>(input: {
     prompt_template_version: input.call.prompt?.version ?? 'v1',
     schema_name: input.call.schema_name ?? (
       input.call.node_id.endsWith('risk_challenger')
-        ? 'paper_implementation_motive_evolution_risk_challenger_role_output'
-        : 'paper_implementation_motive_evolution_option_designer_role_output'
+        ? 'paper_implementation_motive_evolution_risk_challenger_output'
+        : 'paper_implementation_motive_evolution_option_designer_output'
     ),
     prompt_packet_hash: hash(`prompt:${input.call.node_id}`),
     prompt_packet_cache_status: 'miss',
@@ -1103,3 +1181,32 @@ function includesRef(refs: TopicSelectionFunctionalRef[], expected: TopicSelecti
 function hash(value: unknown): string {
   return sha256Text(stableStringify(value));
 }
+
+test('motive evolution runtime token budget counts message-embedded context once (S2-A N3, PC-S4 documented-as-within-budget)', async () => {
+  const { service, orchestrator } = serviceFixture();
+  await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_token_budget_run_001',
+  });
+
+  assert.equal(orchestrator.calls.length > 0, true);
+  for (const call of orchestrator.calls) {
+    const budget = call.runtime_token_budget as {
+    context_payloads: unknown[];
+    estimated_input_tokens_override: number;
+    compression_attempt?: {
+      compression_executor_kind: string;
+      compressed_messages?: Array<{ role: string; content: string }> | null;
+    } | null;
+  };
+    const messages = call.messages;
+    assert.equal(
+      budget.estimated_input_tokens_override,
+      Math.ceil(stableStringify({ messages }).length / 4),
+    );
+    assert.deepEqual(budget.context_payloads, []);
+    // PC-S4: no compression attempt is wired for the motive slots (see the boundary
+    // note on runtimeTokenBudget in the service).
+    assert.equal(budget.compression_attempt ?? null, null);
+  }
+});

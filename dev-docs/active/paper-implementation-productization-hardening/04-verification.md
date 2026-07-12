@@ -18,6 +18,11 @@
 
 ## Log
 
+### 2026-07-12 S2 收口（A/B/C/D 全落地 + gs-001 v2 复评）
+- **S2-A**：token 双计修复覆盖全部 11 slot（估算降至 ~52-55%，可用预算实翻倍，7 个 over-budget 必检零改动仍触发）；压缩 attempt-builder（L1 摘录/L2 剔除，refs 骨架永不裁）六槽穿透，L5 恢复分支必检 +6（`*_over_budget_compression_applied_completes`）；实测抓到并修掉 compressed_context 复门双计洞（改 manifest hash）。**S2-B**：evolution InvalidRequestError 根因=schema 名 65>OpenAI 64 上限（全仓唯二超限）；run_mode 映射统一（evolution 独有 dry_run→test 分叉）；lane A 正文穿引（hash 围栏 + 只读 reader 注入），runner 手工补喂删除。**S2-C**：echo 失配/blocked 无码改可重试技术失败（不再 HTTP 400/孤儿）；UpstreamError 从 slot 重试集移除（gateway 终裁不再全价重打）；runtimeIdentity 显式含 run_id + DB unique（同执行重放 409）；preflight 终态七槽统一 blocked final admitted；清理簇收敛（校验器核心合一/直查方法消 3×全表扫描/normalizedRefType 8 副本→单源/echo 对齐下沉 slot 层恢复漂移门可测）。**S2-D**：SlotParameterManifest@v1（运行时导出+提交式快照+四向完备性互查含负例+materialization class+P-07 裸参数负例×11 schema）；纠正 P-04"18 路由"笔误（实 14）。
+- **gs-001 v2 复评**（run `gs001-lora-live-004`，7 provider 调用；AI 代评审，评分 `rubric-scored.md`）：四维 **4.8/5.0/4.8/5.0**（对比 003 基线不劣化且候选质量↑）。skeptic 从 5 blocker→1 blocking+5 分级 warning/info——B3 穿引生效进入实质审查；唯一 blocking `BASELINE_GATE_ORDER_AMBIGUOUS` 指出 v2 包 Stage 0/1 顺序矛盾（**系统连续第二次正确拦下有真实缺陷的输入**）。行动项：gs-001 v3（自包含探针判据+吸收 5 warning）；evolution SCHEMA_VALIDATION_FAILED → S3 role-output 契约实证靶。
+- **收口证据**：全量 runtime-stress `t114-paper-implementation-runtime-stress-1783789410626` passed（含 6 条新恢复分支必检）；迁移 `20260712090000`（identity unique）已 apply、pg_indexes 确认；迁移后 prisma smoke **37/0/15**；near-prod gate `t114-paper-implementation-near-prod-runtime-gate-1783814902610` **passed**；双包 tsc 零错。
+
 ### 2026-07-11 S5 首评（gs-001-lora run 003，L7 usage-fit 基线；AI 代评审，人工复核可覆盖）
 - 四维：候选质量 **4.7**、批判有效性 **5.0**、证据可追溯 **4.8**、约束遵守 **5.0**（评分详情与逐节点表：run 目录 `rubric-scored.md`）。
 - 核心判断：语义产出显著高于 v1 验收线；**链未走完是治理在工作**——skeptic 对薄选题包的 revise 处置四条批判逐条命中真实缺口（预算矩阵/指标预承诺/基线控制/基线选择依赖），RF-001 在提案正文不可见时拒绝装懂是模范 fail-closed。route 三候选与 ground truth 路线空间几乎完全对齐（含主动尊重早期检查义务的分阶段路线与对应论文 §7 的机制诊断路线）。

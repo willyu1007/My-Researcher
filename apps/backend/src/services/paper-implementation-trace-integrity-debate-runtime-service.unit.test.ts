@@ -533,3 +533,210 @@ function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
 function hash(value: unknown): string {
   return sha256Text(typeof value === 'string' ? value : stableStringify(value));
 }
+
+type TraceInvocationCall = {
+  node_id: string;
+  execution_mode: string;
+  invocation_attempt_id?: string | null;
+};
+
+class ScriptedTraceIntegrityAgentOrchestrator {
+  readonly calls: TraceInvocationCall[] = [];
+
+  constructor(
+    private readonly script: (
+      call: TraceInvocationCall,
+      index: number,
+    ) => TopicSelectionAgentInvocationResult<PaperImplementationTraceIntegrityRoleOutput>,
+  ) {}
+
+  async invokeStructuredOutput<T>(input: TraceInvocationCall): Promise<TopicSelectionAgentInvocationResult<T>> {
+    this.calls.push(input);
+    return this.script(input, this.calls.length - 1) as unknown as TopicSelectionAgentInvocationResult<T>;
+  }
+}
+
+function scriptedServiceFixture(
+  script: (
+    call: TraceInvocationCall,
+    index: number,
+  ) => TopicSelectionAgentInvocationResult<PaperImplementationTraceIntegrityRoleOutput>,
+) {
+  const repository = new InMemoryPaperImplementationRuntimeRepository();
+  let sequence = 0;
+  const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository,
+    idFactory,
+    now: () => NOW,
+  });
+  const orchestrator = new ScriptedTraceIntegrityAgentOrchestrator(script);
+  const service = new PaperImplementationTraceIntegrityDebateRuntimeService({
+    projectRepository: projectRepositoryFixture(implementationProjectFixture()),
+    runtimeAdmission,
+    agentOrchestrator: orchestrator,
+    idFactory,
+    now: () => NOW,
+  });
+  return { service, repository, orchestrator };
+}
+
+function failedInvocationResult(
+  nodeId: string,
+  errorCode: string,
+): TopicSelectionAgentInvocationResult<PaperImplementationTraceIntegrityRoleOutput> {
+  const base = invocationResult<PaperImplementationTraceIntegrityRoleOutput | null>(null, nodeId, 'provider_llm');
+  return {
+    ...base,
+    status: 'failed',
+    structured_output: null,
+    error_code: errorCode,
+  } as unknown as TopicSelectionAgentInvocationResult<PaperImplementationTraceIntegrityRoleOutput>;
+}
+
+test('trace integrity debate runtime retries a wrong role_slot_id echo once and lands failed_runtime without HTTP error (S2-C C1)', async () => {
+  // Both attempts of the first role echo a different (schema-legal) role slot.
+  const { service, orchestrator } = scriptedServiceFixture((call) => invocationResult(
+    { ...roleOutput(call.node_id), role_slot_id: 'trace_integrity_review.arbiter_final' },
+    call.node_id,
+    call.execution_mode,
+  ));
+  const result = await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.equal(orchestrator.calls[1]?.invocation_attempt_id?.endsWith('.retry-1'), true);
+  assert.equal(result.runtime_artifacts.length, 1);
+  const roleArtifact = result.runtime_artifacts[0]!;
+  assert.equal(roleArtifact.runtime_status, 'failed_runtime');
+  assert.equal(roleArtifact.runtime_failure_code, 'RUNTIME_ROLE_SLOT_ECHO_MISMATCH');
+  assert.equal(roleArtifact.retry_attempt_index, 1);
+  assert.equal(roleArtifact.provider_call_count, 2);
+  assert.equal(roleArtifact.warning_codes.includes('RUNTIME_TECHNICAL_RETRY_EXHAUSTED'), true);
+  // No orphan gap: the failed role artifact and its (rejected) admission are
+  // both recorded and returned instead of an HTTP 400.
+  assert.equal(result.admission_records.length, 1);
+  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+  assert.equal(result.final_runtime_artifact, null);
+});
+
+test('trace integrity debate runtime recovers when the role_slot_id echo is corrected on the retry (S2-C C1)', async () => {
+  let firstRoleAttempts = 0;
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
+    if (call.node_id === 'trace_integrity_review.support_mapper_map') {
+      firstRoleAttempts += 1;
+      if (firstRoleAttempts === 1) {
+        return invocationResult(
+          { ...roleOutput(call.node_id), role_slot_id: 'trace_integrity_review.arbiter_final' },
+          call.node_id,
+          call.execution_mode,
+        );
+      }
+    }
+    return invocationResult(roleOutput(call.node_id), call.node_id, call.execution_mode);
+  });
+  const result = await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'passed');
+  assert.equal(orchestrator.calls.length, 5);
+  const firstRole = result.runtime_artifacts[0]!;
+  assert.equal(firstRole.runtime_status, 'passed');
+  assert.equal(firstRole.retry_attempt_index, 1);
+  assert.equal(firstRole.provider_call_count, 2);
+  assert.equal(firstRole.warning_codes.includes('RUNTIME_TECHNICAL_RETRY_RECOVERED'), true);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+});
+
+test('trace integrity debate runtime retries blocked-without-codes once and lands failed_runtime before admission rejection (S2-C C1)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => invocationResult(
+    { ...roleOutput(call.node_id), role_status: 'blocked', blocker_codes: [] },
+    call.node_id,
+    call.execution_mode,
+  ));
+  const result = await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  const roleArtifact = result.runtime_artifacts[0]!;
+  assert.equal(roleArtifact.runtime_status, 'failed_runtime');
+  assert.equal(roleArtifact.runtime_failure_code, 'RUNTIME_ROLE_BLOCKED_CODES_MISSING');
+  assert.equal(roleArtifact.retry_attempt_index, 1);
+  assert.equal(roleArtifact.warning_codes.includes('RUNTIME_TECHNICAL_RETRY_EXHAUSTED'), true);
+  // The admission layer never sees a blocked artifact with an empty
+  // blocker_codes list; the technical-failure classification runs first.
+  assert.equal(result.admission_records[0]?.issue_codes.includes('RUNTIME_BLOCKER_CODES_MISSING'), false);
+  assert.equal(result.admission_records[0]?.issue_codes.includes('RUNTIME_STATUS_FAILED_RUNTIME'), true);
+});
+
+test('trace integrity debate runtime does not retry gateway-final UpstreamError at the slot layer (S2-C C1)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => failedInvocationResult(call.node_id, 'UpstreamError'));
+  const result = await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'failed_runtime');
+  // The gateway already classified UpstreamError as non-retryable — exactly one
+  // slot-level invocation, no full-price second attempt.
+  assert.equal(orchestrator.calls.length, 1);
+  const roleArtifact = result.runtime_artifacts[0]!;
+  assert.equal(roleArtifact.runtime_failure_code, 'UpstreamError');
+  assert.equal(roleArtifact.retry_attempt_index, 0);
+  assert.equal(roleArtifact.warning_codes.includes('RUNTIME_TECHNICAL_RETRY_EXHAUSTED'), false);
+});
+
+test('trace integrity debate runtime rejects a same-run_id identity replay with 409 (S2-C C2)', async () => {
+  const script = (call: TraceInvocationCall) => invocationResult(roleOutput(call.node_id), call.node_id, call.execution_mode);
+  const fixture = scriptedServiceFixture(script);
+  const first = await fixture.service.runBoundaryDebate(PROJECT_ID, providerRequest());
+  assert.equal(first.status, 'passed');
+
+  // Same repository, same run_id, same inputs — the runtimeIdentityHash unique
+  // constraint turns the replay into a 409 VERSION_CONFLICT instead of forking
+  // a second row per artifact.
+  const replayService = new PaperImplementationTraceIntegrityDebateRuntimeService({
+    projectRepository: projectRepositoryFixture(implementationProjectFixture()),
+    runtimeAdmission: new PaperImplementationRuntimeAdmissionService({
+      repository: fixture.repository,
+      idFactory: (prefix) => `${prefix}_replay_${Math.random().toString(16).slice(2)}`,
+      now: () => NOW,
+    }),
+    agentOrchestrator: new ScriptedTraceIntegrityAgentOrchestrator(script),
+    idFactory: (prefix) => `${prefix}_replay_${Math.random().toString(16).slice(2)}`,
+    now: () => NOW,
+  });
+  await assert.rejects(
+    () => replayService.runBoundaryDebate(PROJECT_ID, providerRequest()),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+
+  // A fresh run_id (legitimate re-run / re-advance) never collides.
+  const rerun = await replayService.runBoundaryDebate(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'trace_debate_run_002',
+  });
+  assert.equal(rerun.status, 'passed');
+});
+
+test('trace integrity debate runtime token budget counts message-embedded context once (S2-A N3, compression wiring deferred to STEP-7 downstream)', async () => {
+  const { service, orchestrator } = serviceFixture();
+  await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(orchestrator.calls.length > 0, true);
+  for (const call of orchestrator.calls) {
+    const budget = call.runtime_token_budget as {
+    context_payloads: unknown[];
+    estimated_input_tokens_override: number;
+    compression_attempt?: {
+      compression_executor_kind: string;
+      compressed_messages?: Array<{ role: string; content: string }> | null;
+    } | null;
+  };
+    const messages = call.messages;
+    assert.equal(
+      budget.estimated_input_tokens_override,
+      Math.ceil(stableStringify({ messages }).length / 4),
+    );
+    assert.deepEqual(budget.context_payloads, []);
+    assert.equal(budget.compression_attempt ?? null, null);
+  }
+});

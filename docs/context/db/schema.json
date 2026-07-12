@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-11T01:13:22.968Z",
+  "updatedAt": "2026-07-11T16:25:22.143Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -19900,14 +19900,6 @@
         {
           "type": "index",
           "fields": [
-            "runtimeIdentityHash"
-          ],
-          "name": null,
-          "map": "pi_runtime_artifact_identity_idx"
-        },
-        {
-          "type": "index",
-          "fields": [
             "sourceHashBundleHash"
           ],
           "name": null,
@@ -19931,6 +19923,14 @@
           ],
           "name": null,
           "map": "pi_runtime_artifact_workflow_status_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "runtimeIdentityHash"
+          ],
+          "name": null,
+          "map": "pi_runtime_artifact_identity_idx"
         }
       ]
     },

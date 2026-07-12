@@ -75,6 +75,10 @@ const REQUIRED_L5_CASES = [
     subtest: 'L5 experiment critique incomplete dimension set retries once and does not create final or domain-gate payloads',
   },
   {
+    key: 'experiment_planning_over_budget_compression_applied_completes',
+    subtest: 'L5 experiment critique compressible over-budget packet context compresses and completes with verifiable lineage',
+  },
+  {
     key: 'route_architecture_provider_failure_retry_exhausted_no_route_queue_or_domain_gate_payload',
     subtest: 'L5 route architecture provider gateway failure retries once and does not create final, route, queue, or domain-gate payloads',
   },
@@ -87,6 +91,10 @@ const REQUIRED_L5_CASES = [
     subtest: 'L5 route skeptic incomplete dimension set retries once and does not create final, queue, or domain-gate payloads',
   },
   {
+    key: 'route_architecture_over_budget_compression_applied_completes',
+    subtest: 'L5 route architecture compressible over-budget packet context compresses and completes with verifiable lineage',
+  },
+  {
     key: 'validation_cycle_planning_provider_failure_retry_exhausted_no_cycle_queue_or_domain_gate_payload',
     subtest: 'L5 validation cycle planning provider gateway failure retries once and does not create final, cycle, queue, or domain-gate payloads',
   },
@@ -95,8 +103,16 @@ const REQUIRED_L5_CASES = [
     subtest: 'L5 validation cycle planning incomplete candidate set retries once and does not create final, cycle, queue, or domain-gate payloads',
   },
   {
+    key: 'validation_cycle_planning_over_budget_compression_applied_completes',
+    subtest: 'L5 validation cycle planning compressible over-budget packet context compresses and completes with verifiable lineage',
+  },
+  {
     key: 'feasibility_planning_over_budget_zero_provider_calls',
     subtest: 'L5 feasibility planning stress blocks over-budget source bundles before provider calls',
+  },
+  {
+    key: 'feasibility_planning_over_budget_compression_applied_completes',
+    subtest: 'L5 feasibility planning compressible over-budget packet context compresses and completes with verifiable lineage',
   },
   {
     key: 'feasibility_planning_provider_failure_retry_exhausted_no_probe_plan_cycle_queue_or_domain_gate_payload',
@@ -109,6 +125,10 @@ const REQUIRED_L5_CASES = [
   {
     key: 'cross_board_synthesis_over_budget_zero_provider_calls',
     subtest: 'L5 cross-board synthesis stress blocks over-budget board context before provider calls',
+  },
+  {
+    key: 'cross_board_synthesis_over_budget_compression_applied_completes',
+    subtest: 'L5 cross-board synthesis compressible over-budget packet context compresses and completes with verifiable lineage',
   },
   {
     key: 'cross_board_synthesis_provider_failure_retry_exhausted_no_review_transfer_portfolio_queue_or_domain_gate_payload',
@@ -133,6 +153,10 @@ const REQUIRED_L5_CASES = [
   {
     key: 'evidence_board_curation_over_budget_zero_provider_calls',
     subtest: 'L5 evidence-board curation stress blocks over-budget board context before provider calls',
+  },
+  {
+    key: 'evidence_board_curation_over_budget_compression_applied_completes',
+    subtest: 'L5 evidence-board curation compressible over-budget packet context compresses and completes with verifiable lineage',
   },
   {
     key: 'evidence_board_curation_provider_failure_retry_exhausted_no_board_binding_citation_trace_queue_or_domain_gate_payload',
@@ -595,6 +619,7 @@ const steps = [
       '--test',
       '--loader',
       'ts-node/esm',
+      'src/services/paper-implementation-compression-attempt.unit.test.ts',
       'src/services/paper-implementation-trace-integrity-debate-runtime-service.unit.test.ts',
       'src/services/paper-implementation-p1-runtime-review-service.unit.test.ts',
       'src/services/paper-implementation-result-analysis-runtime-service.unit.test.ts',

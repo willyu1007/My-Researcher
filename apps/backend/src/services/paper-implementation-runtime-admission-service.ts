@@ -75,6 +75,18 @@ export class PaperImplementationRuntimeAdmissionService {
     return this.repository.listRuntimeArtifacts(implementationProjectId, filter);
   }
 
+  async listFinalRuntimeArtifactsByFinalArtifactRef(
+    implementationProjectId: string,
+    refType: string,
+    refId: string,
+  ): Promise<PaperImplementationRuntimeArtifactEnvelope[]> {
+    return this.repository.listFinalRuntimeArtifactsByFinalArtifactRef(
+      implementationProjectId,
+      refType,
+      refId,
+    );
+  }
+
   async getRuntimeArtifact(
     implementationProjectId: string,
     runtimeArtifactId: string,

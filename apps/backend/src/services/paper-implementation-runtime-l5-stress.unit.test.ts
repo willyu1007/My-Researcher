@@ -65,6 +65,7 @@ import {
   type PaperImplementationResultAnalysisRoleOutput,
   type PaperImplementationRouteCandidateProposal,
   type PaperImplementationRoutePlanningRoleOutput,
+  type PaperImplementationRuntimeAdmissionRecord,
   type PaperImplementationRuntimeArtifactEnvelope,
   type PaperImplementationTraceIntegrityRoleOutput,
   type RunPaperImplementationExperimentPlanningRuntimeRequest,
@@ -88,6 +89,9 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
 
 import { InMemoryPaperImplementationRepository } from '../repositories/in-memory-paper-implementation-repository.js';
+import {
+  PAPER_IMPLEMENTATION_COMPRESSION_TRUNCATION_MARKER,
+} from './paper-implementation-compression-attempt.js';
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import type {
@@ -605,6 +609,21 @@ test('L5 experiment critique incomplete dimension set retries once and does not 
   assertNoLeak(result, ['domain_gate_request']);
 });
 
+test('L5 experiment critique compressible over-budget packet context compresses and completes with verifiable lineage', async () => {
+  const gateway = new ScriptedLlmGateway(() => experimentCritiqueRoleOutput());
+  const { experimentPlanningService } = realRuntimeFixture(gateway);
+  const baseRequest = experimentPlanningRequest('critique', {
+    run_id: 'experiment_critique_l5_compression_applied_run_001',
+  });
+  const result = await experimentPlanningService.runExperimentCritique(PROJECT_ID, {
+    ...baseRequest,
+    source_context_packets: [fatSourceContextPacket(baseRequest.source_refs[0], 'experiment critique')],
+  });
+
+  assertCompressionAppliedRun(result, gateway, PAPER_IMPLEMENTATION_EXPERIMENT_CRITIQUE_SLOT_ID);
+  assertNoLeak(result, ['domain_gate_request']);
+});
+
 test('L5 route architecture provider gateway failure retries once and does not create final, route, queue, or domain-gate payloads', async () => {
   const gateway = new ScriptedLlmGateway((request) => {
     throw new LlmGatewayError('TimeoutError', 'fixture route architecture provider timeout', {
@@ -665,6 +684,23 @@ test('L5 route architecture incomplete candidate set retries once and does not c
   assert.equal(result.admission_records[0]?.admission_status, 'rejected');
   assertNoNonProviderRuntimeArtifacts(result.runtime_artifacts);
   assertNoLeak(result, ['domain_gate_request', 'technical_route_candidate_create_request', 'queue_action']);
+});
+
+test('L5 route architecture compressible over-budget packet context compresses and completes with verifiable lineage', async () => {
+  const gateway = new ScriptedLlmGateway(() => routeArchitectureRoleOutput());
+  const { routePlanningService } = realRuntimeFixture(gateway);
+  const baseRequest = routePlanningRequest('architecture', {
+    run_id: 'route_architecture_l5_compression_applied_run_001',
+  });
+  const result = await routePlanningService.runRouteArchitecture(PROJECT_ID, {
+    ...baseRequest,
+    source_context_packets: [fatSourceContextPacket(baseRequest.source_refs[0], 'route architecture')],
+  });
+
+  assertCompressionAppliedRun(result, gateway, PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID);
+  // 'domain_gate_request' is omitted: the passed final payload legitimately carries
+  // the no_domain_gate_request guard field, which contains that fragment.
+  assertNoLeak(result, ['technical_route_candidate_create_request', 'queue_action']);
 });
 
 test('L5 route skeptic incomplete dimension set retries once and does not create final, queue, or domain-gate payloads', async () => {
@@ -765,6 +801,34 @@ test('L5 validation cycle planning incomplete candidate set retries once and doe
   assertNoLeak(result, ['domain_gate_request', 'create_validation_cycle_draft_request', 'validation_cycle_id', 'queue_action']);
 });
 
+test('L5 validation cycle planning compressible over-budget packet context compresses and completes with verifiable lineage', async () => {
+  let lineage: PaperImplementationSeededRouteLineage | undefined;
+  const gateway = new ScriptedLlmGateway(() => validationCyclePlanningRoleOutput(lineage
+    ? {
+      reviewed_route_proposal_ref: lineage.routeProposalRef,
+      reviewed_route_proposal_hash: lineage.routeProposalHash,
+      reviewed_route_skeptic_artifact_ref: lineage.routeSkepticRef,
+      reviewed_route_skeptic_artifact_hash: lineage.routeSkepticHash,
+    }
+    : {}));
+  const fixture = realRuntimeFixture(gateway);
+  lineage = await seedAdmittedRoutePlanningLineage(l5LineageSeedOptions(fixture));
+  const baseRequest = validationCyclePlanningRequest({
+    run_id: 'validation_cycle_planning_l5_compression_applied_run_001',
+    lineage,
+  });
+
+  const result = await fixture.validationCyclePlanningService.runCycleCandidates(PROJECT_ID, {
+    ...baseRequest,
+    source_context_packets: [fatSourceContextPacket(baseRequest.source_refs[0], 'validation cycle planning')],
+  });
+
+  assertCompressionAppliedRun(result, gateway, PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID);
+  // 'domain_gate_request' is omitted: the passed final payload legitimately carries
+  // the no_domain_gate_request guard field, which contains that fragment.
+  assertNoLeak(result, ['create_validation_cycle_draft_request', 'queue_action']);
+});
+
 test('L5 feasibility planning stress blocks over-budget source bundles before provider calls', async () => {
   const gateway = new ScriptedLlmGateway(() => feasibilityPlanningRoleOutput());
   const fixture = realRuntimeFixture(gateway);
@@ -793,6 +857,41 @@ test('L5 feasibility planning stress blocks over-budget source bundles before pr
   assertNoNonProviderRuntimeArtifacts(result.runtime_artifacts);
   assertNoLeak(result, [
     'domain_gate_request',
+    'create_feasibility_probe_request',
+    'create_experiment_plan_light_request',
+    'create_validation_cycle_draft_request',
+    'queue_action',
+  ]);
+});
+
+test('L5 feasibility planning compressible over-budget packet context compresses and completes with verifiable lineage', async () => {
+  let lineage: PaperImplementationSeededValidationLineage | undefined;
+  const gateway = new ScriptedLlmGateway(() => feasibilityPlanningRoleOutput(lineage
+    ? {
+      reviewed_validation_cycle_artifact_ref: lineage.validationCycleRef,
+      reviewed_validation_cycle_artifact_hash: lineage.validationCycleHash,
+      reviewed_route_proposal_ref: lineage.routeProposalRef,
+      reviewed_route_proposal_hash: lineage.routeProposalHash,
+      reviewed_route_skeptic_artifact_ref: lineage.routeSkepticRef,
+      reviewed_route_skeptic_artifact_hash: lineage.routeSkepticHash,
+    }
+    : {}));
+  const fixture = realRuntimeFixture(gateway);
+  lineage = await seedAdmittedValidationPlanningLineage(l5LineageSeedOptions(fixture));
+  const baseRequest = feasibilityPlanningRequest({
+    run_id: 'feasibility_planning_l5_compression_applied_run_001',
+    lineage,
+  });
+
+  const result = await fixture.feasibilityPlanningService.runProbePlanCandidates(PROJECT_ID, {
+    ...baseRequest,
+    source_context_packets: [fatSourceContextPacket(baseRequest.source_refs[0], 'feasibility planning')],
+  });
+
+  assertCompressionAppliedRun(result, gateway, PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID);
+  // 'domain_gate_request' is omitted: the passed final payload legitimately carries
+  // the no_domain_gate_request guard field, which contains that fragment.
+  assertNoLeak(result, [
     'create_feasibility_probe_request',
     'create_experiment_plan_light_request',
     'create_validation_cycle_draft_request',
@@ -913,6 +1012,27 @@ test('L5 cross-board synthesis stress blocks over-budget board context before pr
     'domain_gate_request',
     'create_cross_board_review_request',
     'evidence_transfer_binding_request',
+    'motive_portfolio_decision_id',
+    'queue_action',
+  ]);
+});
+
+test('L5 cross-board synthesis compressible over-budget packet context compresses and completes with verifiable lineage', async () => {
+  const gateway = new ScriptedLlmGateway(() => crossBoardSynthesisRoleOutput());
+  const { crossBoardSynthesisService } = realRuntimeFixture(gateway);
+  const baseRequest = crossBoardSynthesisRequest({
+    run_id: 'cross_board_synthesis_l5_compression_applied_run_001',
+  });
+  const result = await crossBoardSynthesisService.runMergeSplitReuseScenarios(PROJECT_ID, {
+    ...baseRequest,
+    source_context_packets: [fatSourceContextPacket(baseRequest.source_refs[0], 'cross-board synthesis')],
+  });
+
+  assertCompressionAppliedRun(result, gateway, PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID);
+  // 'domain_gate_request' is omitted: the passed final payload legitimately carries
+  // the no_domain_gate_request guard field, which contains that fragment.
+  assertNoLeak(result, [
+    'create_cross_board_review_request',
     'motive_portfolio_decision_id',
     'queue_action',
   ]);
@@ -1142,6 +1262,33 @@ test('L5 evidence-board curation stress blocks over-budget board context before 
   assertNoLeak(result, evidenceBoardForbiddenWriteFragments());
 });
 
+test('L5 evidence-board curation compressible over-budget packet context compresses and completes with verifiable lineage', async () => {
+  const gateway = new ScriptedLlmGateway(() => evidenceBoardCurationRoleOutput());
+  const { evidenceBoardCurationService } = realRuntimeFixture(gateway);
+  const baseRequest = evidenceBoardCurationRequest({
+    run_id: 'evidence_board_curation_l5_compression_applied_run_001',
+  });
+  const result = await evidenceBoardCurationService.runBindingGapCandidates(PROJECT_ID, {
+    ...baseRequest,
+    source_context_packets: [{
+      packet_ref: ref('source_context_packet', 'source_context_packet_evidence_board_l5_fat_001'),
+      packet_hash: hash('source-context-packet-evidence-board-l5-fat-001'),
+      source_ref: baseRequest.source_refs[0],
+      source_hash: baseRequest.source_hashes[0],
+      evidence_kind: 'source_locator',
+      content_summary: LONG_NEUTRAL_EXCERPT,
+      key_facts: [LONG_NEUTRAL_EXCERPT],
+      covered_evidence_refs: [],
+      covered_source_locator_refs: [ref('source_locator', 'source_locator_evidence_board_l5_001')],
+      covered_citation_candidate_refs: [],
+      covered_trace_manifest_refs: [],
+    }],
+  });
+
+  assertCompressionAppliedRun(result, gateway, PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID);
+  assertNoLeak(result, evidenceBoardForbiddenWriteFragments());
+});
+
 test('L5 evidence-board curation provider gateway failure retries once and does not create final, board, binding, citation, trace-repair, queue, or domain-gate payloads', async () => {
   const gateway = new ScriptedLlmGateway((request) => {
     throw new LlmGatewayError('TimeoutError', 'fixture evidence-board curation provider timeout', {
@@ -1329,16 +1476,23 @@ test('L5 evidence-board curation memo-like evidence ref blocks before provider c
     ],
   });
 
-  assert.equal(result.status, 'failed_runtime');
+  // S2-C C3: preflight blockers are a reviewable blocked final (admitted)
+  // with zero provider calls — unified with the other slots.
+  assert.equal(result.status, 'blocked');
   assert.equal(result.provider_call_count, 0);
   assert.equal(gateway.calls.length, 0);
-  assert.equal(result.final_runtime_artifact, null);
+  assert.equal(result.runtime_artifacts.length, 2);
   const artifact = firstArtifact(result.runtime_artifacts);
   assert.equal(artifact.slot_id, PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID);
-  assert.equal(artifact.runtime_failure_code, 'EVIDENCE_BOARD_CURATION_PREFLIGHT_BLOCKED');
-  assert.equal(artifact.runtime_status, 'failed_runtime');
-  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+  assert.equal(artifact.runtime_failure_code, null);
+  assert.equal(artifact.runtime_status, 'blocked');
+  assert.equal(artifact.executor_kind, 'deterministic_preflight');
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_runtime_artifact?.runtime_failure_code, null);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(result.admission_records.map((record) => record.admission_status), ['admitted', 'admitted']);
   assert.equal(result.blocker_codes.includes('EVIDENCE_BOARD_CURATION_MEMO_LIKE_REF_REJECTED'), true);
+  assert.equal(result.final_runtime_artifact?.blocker_codes.includes('EVIDENCE_BOARD_CURATION_MEMO_LIKE_REF_REJECTED'), true);
   assertNoNonProviderRuntimeArtifacts(result.runtime_artifacts);
   assertNoLeak(result, evidenceBoardForbiddenWriteFragments());
 });
@@ -1511,16 +1665,23 @@ test('L5 motive decomposition memo-like assertion context blocks before provider
     ],
   });
 
-  assert.equal(result.status, 'failed_runtime');
+  // S2-C C3: preflight blockers are a reviewable blocked final (admitted)
+  // with zero provider calls — unified with the other slots.
+  assert.equal(result.status, 'blocked');
   assert.equal(result.provider_call_count, 0);
   assert.equal(gateway.calls.length, 0);
-  assert.equal(result.final_runtime_artifact, null);
+  assert.equal(result.runtime_artifacts.length, 2);
   const artifact = firstArtifact(result.runtime_artifacts);
   assert.equal(artifact.slot_id, PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID);
-  assert.equal(artifact.runtime_failure_code, 'MOTIVE_DECOMPOSITION_PREFLIGHT_BLOCKED');
-  assert.equal(artifact.runtime_status, 'failed_runtime');
-  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+  assert.equal(artifact.runtime_failure_code, null);
+  assert.equal(artifact.runtime_status, 'blocked');
+  assert.equal(artifact.executor_kind, 'deterministic_preflight');
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_runtime_artifact?.runtime_failure_code, null);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(result.admission_records.map((record) => record.admission_status), ['admitted', 'admitted']);
   assert.equal(result.blocker_codes.includes('MOTIVE_DECOMPOSITION_MEMO_LIKE_REF_REJECTED'), true);
+  assert.equal(result.final_runtime_artifact?.blocker_codes.includes('MOTIVE_DECOMPOSITION_MEMO_LIKE_REF_REJECTED'), true);
   assertNoNonProviderRuntimeArtifacts(result.runtime_artifacts);
   assertNoLeak(result, motiveDecompositionForbiddenWriteFragments());
 });
@@ -1702,16 +1863,23 @@ test('L5 motive evolution memo-like motive context blocks before provider calls'
     ],
   });
 
-  assert.equal(result.status, 'failed_runtime');
+  // S2-C C3: preflight blockers are a reviewable blocked final (admitted)
+  // with zero provider calls — unified with the other slots.
+  assert.equal(result.status, 'blocked');
   assert.equal(result.provider_call_count, 0);
   assert.equal(gateway.calls.length, 0);
-  assert.equal(result.final_runtime_artifact, null);
+  assert.equal(result.runtime_artifacts.length, 2);
   const artifact = firstArtifact(result.runtime_artifacts);
   assert.equal(artifact.slot_id, PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID);
-  assert.equal(artifact.runtime_failure_code, 'MOTIVE_EVOLUTION_PREFLIGHT_BLOCKED');
-  assert.equal(artifact.runtime_status, 'failed_runtime');
-  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+  assert.equal(artifact.runtime_failure_code, null);
+  assert.equal(artifact.runtime_status, 'blocked');
+  assert.equal(artifact.executor_kind, 'deterministic_preflight');
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_runtime_artifact?.runtime_failure_code, null);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(result.admission_records.map((record) => record.admission_status), ['admitted', 'admitted']);
   assert.equal(result.blocker_codes.includes('MOTIVE_EVOLUTION_MEMO_LIKE_REF_REJECTED'), true);
+  assert.equal(result.final_runtime_artifact?.blocker_codes.includes('MOTIVE_EVOLUTION_MEMO_LIKE_REF_REJECTED'), true);
   assertNoNonProviderRuntimeArtifacts(result.runtime_artifacts);
   assertNoLeak(result, motiveEvolutionForbiddenWriteFragments());
 });
@@ -3495,6 +3663,67 @@ function assertMinimalTraceFailurePayload(artifact: PaperImplementationRuntimeAr
   assert.equal(payload.retrieval_packet, null);
   assert.deepEqual(payload.retrieval_packet_ref, artifact.retrieval_packet_ref);
   assert.equal(payload.retrieval_packet_hash, artifact.retrieval_packet_hash);
+}
+
+/** Fat shared-shape packet (source_ref/evidence_kind/content_summary/key_facts) used
+ *  by the PC-S2/PC-S3 compressed-recovery cases to force `requires_compression`. */
+function fatSourceContextPacket(sourceRef: TopicSelectionFunctionalRef, seed: string): {
+  source_ref: TopicSelectionFunctionalRef;
+  evidence_kind: string;
+  content_summary: string;
+  key_facts: string[];
+} {
+  return {
+    source_ref: sourceRef,
+    evidence_kind: 'admitted_upstream_proposal',
+    content_summary: LONG_NEUTRAL_EXCERPT,
+    key_facts: [LONG_NEUTRAL_EXCERPT, `${seed} bounded key fact with cited source support.`],
+  };
+}
+
+/** Shared PC-S2/PC-S3 assertions: over-budget fat packets were deterministically
+ *  compressed by the caller, the orchestrator re-gated and CONTINUED (exactly one
+ *  provider call over the trimmed messages), and the COMPRESSION_APPLIED lineage is
+ *  verifiable on the role and final artifacts. */
+function assertCompressionAppliedRun(
+  result: {
+    status: string;
+    provider_call_count: number;
+    runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+    final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+    final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+  },
+  gateway: ScriptedLlmGateway,
+  slotId: string,
+): void {
+  assert.equal(result.status, 'passed');
+  assert.equal(result.provider_call_count, 1);
+  assert.equal(gateway.calls.length, 1);
+  const sentText = stableStringify(gateway.calls[0]?.messages ?? []);
+  assert.equal(sentText.includes(PAPER_IMPLEMENTATION_COMPRESSION_TRUNCATION_MARKER), true);
+  assert.equal(sentText.length < LONG_NEUTRAL_EXCERPT.length, true);
+  const roleArtifact = result.runtime_artifacts.find((artifact) => artifact.artifact_scope === 'role');
+  assert.ok(roleArtifact);
+  assert.equal(roleArtifact.slot_id, slotId);
+  assert.equal(roleArtifact.runtime_status, 'passed');
+  assert.equal(roleArtifact.compression_status, 'applied');
+  assert.notEqual(roleArtifact.compression_report_ref, null);
+  assert.notEqual(roleArtifact.compression_report_hash, null);
+  assert.notEqual(roleArtifact.compressed_context_packet_ref, null);
+  assert.notEqual(roleArtifact.compressed_context_packet_hash, null);
+  assert.equal(roleArtifact.warning_codes.includes('COMPRESSION_APPLIED'), true);
+  assert.equal(roleArtifact.provider_call_count, 1);
+  const finalArtifact = result.final_runtime_artifact;
+  assert.ok(finalArtifact);
+  assert.equal(finalArtifact.runtime_status, 'passed');
+  assert.equal(finalArtifact.warning_codes.includes('COMPRESSION_APPLIED'), true);
+  const finalPayload = finalArtifact.artifact_payload as {
+    role_compression_report_refs?: unknown[];
+    warnings?: string[];
+  };
+  assert.equal(finalPayload.role_compression_report_refs?.length, 1);
+  assert.equal(finalPayload.warnings?.includes('COMPRESSION_APPLIED'), true);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
 }
 
 function assertNoLeak(value: unknown, forbiddenFragments: string[]): void {

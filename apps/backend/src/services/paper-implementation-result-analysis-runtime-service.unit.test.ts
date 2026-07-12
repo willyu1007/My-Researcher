@@ -594,3 +594,29 @@ function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
 function hash(value: unknown): string {
   return sha256Text(stableStringify(value));
 }
+
+test('result analysis runtime token budget counts message-embedded context once (S2-A N3)', async () => {
+  const { service, orchestrator } = serviceFixture();
+  await service.runInterpretationScenarios(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'result_analysis_token_budget_run_001',
+  });
+
+  const call = orchestrator.calls[0];
+  assert.ok(call);
+  const budget = call.runtime_token_budget as {
+    context_payloads: unknown[];
+    estimated_input_tokens_override: number;
+    compression_attempt?: {
+      compression_executor_kind: string;
+      compressed_messages?: Array<{ role: string; content: string }> | null;
+    } | null;
+  };
+  const messages = call.messages;
+  assert.equal(
+    budget.estimated_input_tokens_override,
+    Math.ceil(stableStringify({ messages }).length / 4),
+  );
+  assert.deepEqual(budget.context_payloads, []);
+  assert.equal(budget.compression_attempt ?? null, null);
+});

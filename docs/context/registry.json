@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-11T01:13:23.014Z",
+  "updatedAt": "2026-07-11T16:25:22.188Z",
   "artifacts": [
     {
       "id": "api-openapi",
@@ -80,8 +80,8 @@
       "tags": [
         "db"
       ],
-      "checksumSha256": "8424a94ea182e3979574c2bd42a920f4c68848eca796cf95f1cae564ff053ce9",
-      "lastUpdated": "2026-07-11T01:13:23.012Z",
+      "checksumSha256": "d8f811451057c2c6971bcb718aa5fa66aff1274016d4ecb33109090986ea5e48",
+      "lastUpdated": "2026-07-11T16:25:22.187Z",
       "source": {
         "kind": "command",
         "command": "node .ai/scripts/ctl-db-ssot.mjs sync-to-context",
@@ -162,6 +162,25 @@
         "kind": "command",
         "command": "ctl-context add-artifact",
         "cwd": "."
+      }
+    },
+    {
+      "id": "paper-implementation-slot-parameter-manifest",
+      "type": "json",
+      "path": "docs/context/paper-implementation/slot-parameter-manifest.json",
+      "mode": "generated",
+      "format": "slot-parameter-manifest-v1",
+      "tags": [
+        "paper-implementation",
+        "llm",
+        "model-profiles"
+      ],
+      "checksumSha256": "bcca77430897b346c3e54b0906dd95865190dd84d55e365a1bfc7e206925fbde",
+      "lastUpdated": "2026-07-11T15:42:58.143Z",
+      "source": {
+        "kind": "command",
+        "command": "node .ai/scripts/paper-implementation-slot-parameter-manifest-export.mjs",
+        "notes": "SlotParameterManifest@v1 snapshot derived from the backend model-profile registry. Do NOT hand-edit; freshness is enforced by apps/backend/src/services/paper-implementation-slot-parameter-manifest.unit.test.ts."
       }
     }
   ]

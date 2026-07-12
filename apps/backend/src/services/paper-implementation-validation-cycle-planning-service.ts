@@ -38,6 +38,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import { normalizedPaperImplementationRefType } from './paper-implementation-runtime-utils.js';
 import type { PaperImplementationMotiveRepository } from '../repositories/paper-implementation-motive.repository.js';
 import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationTraceRepository } from '../repositories/paper-implementation-trace.repository.js';
@@ -1060,7 +1061,9 @@ export class PaperImplementationValidationCyclePlanningService {
   }
 
   private normalizedRefType(refType: string): string {
-    return refType.toLowerCase().replace(/[_-]/g, '');
+    // S2-C C4: converged from the looser [_-]-only strip onto the repo-wide
+    // [^a-z0-9] semantics (single source in paper-implementation-runtime-utils).
+    return normalizedPaperImplementationRefType(refType);
   }
 
   private hasText(value: string | null | undefined): value is string {

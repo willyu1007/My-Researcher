@@ -55,6 +55,11 @@ import {
 } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
+  PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
+} from './paper-implementation-runtime-utils.js';
+import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
 } from './paper-implementation-runtime-operational-telemetry.js';
@@ -116,6 +121,7 @@ interface RoleInvocationOutcome {
   result: TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>;
   retryAttemptIndex: number;
   providerCallCount: number;
+  runtimeFailureCode: string | null;
 }
 
 interface RuntimeBase {
@@ -241,12 +247,8 @@ const SLOT_PROFILES: Record<PaperImplementationP1RuntimeReviewSlotId, SlotProfil
 };
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
-const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
-  'TimeoutError',
-  'TransientError',
-  'RateLimitError',
-  'UpstreamError',
-  'SCHEMA_VALIDATION_FAILED',
+const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
+  ...PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
 ]);
 
 export class PaperImplementationP1RuntimeReviewService {
@@ -381,7 +383,7 @@ export class PaperImplementationP1RuntimeReviewService {
         retryAttemptIndex,
       );
       providerCallCount += this.providerCallCount(result);
-      const runtimeFailureCode = this.runtimeFailureCode(result);
+      const runtimeFailureCode = this.roleInvocationFailureCode(spec, result);
       const shouldRetry = request.execution_mode === 'provider_llm'
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
@@ -391,6 +393,7 @@ export class PaperImplementationP1RuntimeReviewService {
           result,
           retryAttemptIndex,
           providerCallCount,
+          runtimeFailureCode,
         };
       }
     }
@@ -518,18 +521,25 @@ export class PaperImplementationP1RuntimeReviewService {
   ): Promise<RecordedRuntimeArtifact> {
     const roleResult = roleInvocation.result;
     const output = roleResult.structured_output;
-    const runtimeFailureCode = this.runtimeFailureCode(roleResult);
+    // S2-C C1: the role-level failure code is classified once in the bounded
+    // retry loop (echo mismatch / blocked-without-codes included); an exhausted
+    // retry lands here as a terminal failed_runtime artifact — never an HTTP
+    // exception that would orphan the already-admitted prior roles.
+    const runtimeFailureCode = roleInvocation.runtimeFailureCode;
     const runtimeStatus = runtimeFailureCode
       ? 'failed_runtime'
       : output?.role_status === 'blocked' ? 'blocked' : 'passed';
-    if (output && output.role_slot_id !== spec.slotId) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `P1 runtime role output slot mismatch: expected ${spec.slotId}.`);
-    }
-    const artifactOutput = output ?? {
-      status: 'failed_runtime',
-      error_code: runtimeFailureCode,
-      blocker_codes: roleResult.blocker_codes,
-    };
+    const artifactOutput = runtimeFailureCode
+      ? {
+        status: 'failed_runtime',
+        error_code: runtimeFailureCode,
+        blocker_codes: [runtimeFailureCode],
+      }
+      : output ?? {
+        status: 'failed_runtime',
+        error_code: 'AGENT_EXECUTION_FAILED',
+        blocker_codes: roleResult.blocker_codes,
+      };
     const artifactPayload = this.roleArtifactPayload(runtimeBase, request, artifactOutput, priorArtifacts);
     const artifact = this.buildRuntimeArtifact(runtimeBase, request, {
       artifactScope: 'role',
@@ -569,7 +579,7 @@ export class PaperImplementationP1RuntimeReviewService {
     });
     const stored = await this.runtimeAdmission.recordRuntimeArtifact(artifact);
     const admission = await this.admit(stored, 'role');
-    return { artifact: stored, admission, output: output ?? null };
+    return { artifact: stored, admission, output: runtimeFailureCode ? null : output ?? null };
   }
 
   private async recordFinalArtifact(
@@ -637,6 +647,11 @@ export class PaperImplementationP1RuntimeReviewService {
       prior_hashes: input.priorRoleArtifacts.map((item) => item.artifact.artifact_payload_hash),
     });
     const runtimeIdentity = {
+      // S2-C C2: run_id pins the identity granularity explicitly to one runtime
+      // run — replaying the same run_id (idempotent double-submit) collides on
+      // the runtimeIdentityHash unique constraint (409), while a legitimate
+      // re-advance/new run always carries a fresh run_id and never collides.
+      run_id: runtimeBase.runId,
       implementation_project_id: runtimeBase.implementationProjectId,
       workflow_type: runtimeBase.profile.workflowType,
       slot_id: runtimeBase.profile.slotId,
@@ -941,37 +956,32 @@ export class PaperImplementationP1RuntimeReviewService {
     ];
   }
 
+  // S2-A boundary note: the P1 review slots deliberately do NOT wire the caller-side
+  // compression attempt (PC-S1..S3) — like trace-integrity they are debate-shaped and
+  // their compression recovery follows the STEP-7 facts-builder work (T-124 S3+,
+  // D-T128-02). Over-budget source bundles still fail-close
+  // (L5 `p1_over_budget_zero_provider_calls`). The N3 token double-count fix below
+  // applies here regardless.
   private runtimeTokenBudget(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationP1RuntimeReviewRequest,
+    _request: RunPaperImplementationP1RuntimeReviewRequest,
     spec: RoleSpec,
     priorArtifacts: RecordedRuntimeArtifact[],
     messages: Array<{ role: 'system' | 'user'; content: string }>,
   ): TopicSelectionAgentRuntimeTokenBudgetInput {
-    const priorRoleOutputs = priorArtifacts.flatMap((item) => item.output ? [item.output] : []);
-    const contextPayloads = [
-      {
-        target_ref: request.target_ref,
-        source_refs: request.source_refs,
-        source_hashes: request.source_hashes,
-        source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
-      },
-      ...priorRoleOutputs,
-    ];
     return {
       context_policy_profile: runtimeBase.contextPolicyProfile,
       context_policy_profile_hash: runtimeBase.contextPolicyProfileHash,
-      context_payloads: contextPayloads,
+      // N3 double-count fix: the request refs and prior role outputs are already
+      // embedded verbatim in `messages`; context_payloads must not re-carry them —
+      // the estimate below is the single source of truth.
+      context_payloads: [],
       extra_payloads: [{
         slot_id: runtimeBase.profile.slotId,
         role_slot_id: spec.slotId,
         prior_role_artifact_hashes: priorArtifacts.map((item) => item.artifact.artifact_payload_hash),
       }],
-      estimated_input_tokens_override: this.estimatedInputTokens({
-        messages,
-        context_payloads: contextPayloads,
-        role_slot_id: spec.slotId,
-      }),
+      estimated_input_tokens_override: this.estimatedInputTokens({ messages }),
       schema_overhead_tokens_override: 800,
     };
   }
@@ -1263,6 +1273,37 @@ export class PaperImplementationP1RuntimeReviewService {
     return result.status === 'succeeded' && result.structured_output
       ? null
       : result.error_code ?? 'AGENT_EXECUTION_FAILED';
+  }
+
+  /**
+   * S2-C C1 (review N3): besides orchestrator-reported failures, two
+   * structurally legal role outputs are classified as retryable technical
+   * failures (SCHEMA_VALIDATION_FAILED semantics — one same-profile retry,
+   * then terminal failed_runtime) instead of an HTTP 400 or a hard admission
+   * rejection that kills the whole chain:
+   * - a wrong `role_slot_id` echo (the schema enum admits every role value),
+   * - `role_status='blocked'` with an empty `blocker_codes` list.
+   */
+  private roleInvocationFailureCode(
+    spec: RoleSpec,
+    result: TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>,
+  ): string | null {
+    const runtimeFailureCode = this.runtimeFailureCode(result);
+    if (runtimeFailureCode) {
+      return runtimeFailureCode;
+    }
+    const output = result.structured_output;
+    if (output && output.role_slot_id !== spec.slotId) {
+      return PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE;
+    }
+    if (
+      output
+      && output.role_status === 'blocked'
+      && output.blocker_codes.filter((code) => code.trim().length > 0).length === 0
+    ) {
+      return PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE;
+    }
+    return null;
   }
 
   private retryWarningCodes(

@@ -891,6 +891,13 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       enqueueDecisionWorkQueueItem: (item) =>
         paperImplementationAiWorkflowHarnessRepository.enqueueDecisionWorkQueueItem(item),
     },
+    // B3: read-only in-chain lookback — the coordinator transcribes admitted
+    // upstream final artifact proposal bodies into consuming lane-A slot
+    // requests; never a write surface.
+    runtimeArtifactReader: {
+      findRuntimeArtifactById: (implementationProjectId, runtimeArtifactId) =>
+        paperImplementationRuntimeRepository.findRuntimeArtifactById(implementationProjectId, runtimeArtifactId),
+    },
     routePlanningRuntime: paperImplementationRoutePlanningRuntimeService,
     validationCyclePlanningRuntime: paperImplementationValidationCyclePlanningRuntimeService,
     feasibilityPlanningRuntime: paperImplementationFeasibilityPlanningRuntimeService,

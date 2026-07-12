@@ -10,6 +10,12 @@
  * 形状镜像 `.ai/scripts/paper-implementation-v1-runnable-replay.mjs` 的 makeBridgeHandoff()
  * （T-109 形状即真实 bootstrap 路由消费的 handoff 契约），id 前缀 gs001_，
  * hash 纪律：所有 *_hash 均为对应 payload/内容的 sha256 hex（64 位小写），非占位字符串。
+ *
+ * v2（2026-07-12）：按首跑 run gs001-lora-live-003 route skeptic 四条 blocker 逐条修订
+ * （RR-002 confirmatory 预算矩阵 / RR-003 数据集指标预承诺 / RR-004 基线控制清单 /
+ * RR-006 基线选择的可行性依赖→staged 门化解）。修订仍只承载"晋升时点"可见的预承诺，
+ * 阈值是复现门槛（reproduction target），不是论文报告值——不预置论文答案。
+ * 对照段见同目录 ground-truth.md §GT-7。
  */
 import { createHash } from 'node:crypto';
 
@@ -88,18 +94,102 @@ export const GS001_LORA_CONTENT = {
     ],
   },
   early_check_obligations: [
-    'Low-rank feasibility probe: verify on the target model scale that constrained low-rank adaptation deltas '
-    + 'can recover (near) full fine-tuning task performance on at least one representative task.',
-    'Baseline reproducibility check: confirm full fine-tuning, adapter-based tuning, and prefix/prompt tuning '
-    + 'baselines can be reproduced under the project compute budget before comparative claims are planned.',
+    'Low-rank feasibility probe (stage 0): LoRA with rank r in {4, 8} on SST-2 must reach within 1.0 accuracy '
+    + 'point of our reproduced full fine-tuning value; the confirmatory matrix is gated on this probe passing.',
+    'Baseline reproducibility check (stage 1): the mandatory baselines (full fine-tuning, Houlsby-style adapter) '
+    + 'must meet their pre-committed success criteria in the baseline control checklist before comparative claims '
+    + 'are planned; BitFit is optional and prefix tuning is budget-gated.',
   ],
   budget_envelope: {
     scale: 'small-scale reproduction',
     model_scale: 'RoBERTa-base class encoder language model',
-    evaluation_scale: 'GLUE subset (2-3 tasks)',
-    max_compute: 'single-GPU, single-digit GPU-days total',
+    evaluation_scale: 'GLUE subset, committed task set: SST-2, MRPC, CoLA',
+    max_compute: 'single GPU (<=24 GB VRAM); total training budget <=40 GPU-hours',
     max_runtime: 'PT72H',
     retry_budget: 1,
+  },
+  // --- v2 pre-commitments（skeptic RR-002/003/004/006 逐条化解；晋升时点即冻结） ---
+  content_version: 'v2',
+  confirmatory_budget_matrix: {
+    gpu_constraint: 'single GPU, <=24 GB VRAM',
+    total_training_budget: '<=40 GPU-hours across feasibility probe, baseline reproduction, and confirmatory runs combined',
+    stage_budgets: {
+      stage0_feasibility_probe: '<=4 GPU-hours',
+      stage1_baseline_reproduction: '<=14 GPU-hours',
+      stage2_confirmatory_matrix: '<=22 GPU-hours',
+    },
+    confirmatory_matrix_definition:
+      'Confirmatory training-task combinations are capped at 6: {LoRA r=8, full fine-tuning} x {SST-2, MRPC, CoLA}. '
+      + 'A combination is one (method, task) pair; repeats within a combination are capped separately below.',
+    max_repeats_per_task: 3,
+    hyperparameter_policy:
+      'Hyperparameters are fixed before stage 2 from stage-0/stage-1 settings and public reference configurations; '
+      + 'no post-hoc hyperparameter search inside the confirmatory matrix.',
+    rank_policy: 'Confirmatory LoRA rank is fixed at r=8; rank values outside {4, 8} are exploratory only.',
+    latency_protocol:
+      'Inference latency is measured on the same GPU and serving stack for every method: batch sizes {1, 8}, '
+      + 'sequence length 128, 100 warmup + 1000 timed iterations, reported as median per-request latency.',
+    checkpoint_policy: 'Keep the final checkpoint per run only; no best-of-many checkpoint selection for confirmatory claims.',
+  },
+  dataset_metric_precommitments: {
+    primary_metrics_preregistered: true,
+    alignment_criterion:
+      'Primary parity judgement per task: LoRA task metric within 0.5 points of our reproduced full fine-tuning '
+      + 'value (mean over repeats). The reproduction targets below gate whether the full fine-tuning reproduction '
+      + 'itself is usable as the comparison anchor.',
+    tasks: [
+      { task: 'SST-2', primary_metric: 'accuracy', full_finetune_reproduction_target: '>=94.0% accuracy' },
+      { task: 'MRPC', primary_metric: 'F1', full_finetune_reproduction_target: '>=89.0 F1' },
+      { task: 'CoLA', primary_metric: 'Matthews correlation coefficient', full_finetune_reproduction_target: '>=60.0 MCC' },
+    ],
+    secondary_metrics: [
+      'trainable parameter count',
+      'per-task checkpoint size',
+      'median inference latency under the committed latency protocol',
+    ],
+  },
+  baseline_control_checklist: [
+    {
+      baseline: 'full fine-tuning',
+      obligation: 'mandatory reproduction',
+      success_criterion: 'meets the per-task full fine-tuning reproduction targets on all three committed tasks',
+      on_failure: 'confirmatory parity claims are void for any task whose full fine-tuning reproduction misses its '
+        + 'target; reported as a reproduction failure, never silently dropped',
+    },
+    {
+      baseline: 'Houlsby-style adapter tuning',
+      obligation: 'mandatory',
+      success_criterion: 'task score within 1.0 point of our reproduced full fine-tuning on SST-2 and MRPC, with '
+        + 'inference latency measured under the committed latency protocol',
+      on_failure: 'adapter comparison reported as not-reproduced; latency/parameter claims against adapters are '
+        + 'dropped rather than weakened',
+    },
+    {
+      baseline: 'BitFit',
+      obligation: 'optional',
+      success_criterion: 'if run: SST-2 accuracy within 2.0 points of reproduced full fine-tuning',
+      on_failure: 'omitted from claims; the omission itself is reported',
+    },
+    {
+      baseline: 'prefix tuning',
+      obligation: 'run only if >=8 GPU-hours of the total training budget remain after stage 2',
+      success_criterion: 'if run: stable training (no divergence across 3 seeds) and SST-2 accuracy within 2.0 '
+        + 'points of reproduced full fine-tuning',
+      on_failure: 'reported as budget-excluded or not-reproduced; no comparative claim is made against it',
+    },
+  ],
+  staged_route_dependency: {
+    stage0_gate:
+      'Feasibility probe pass criterion: LoRA with r in {4, 8} on SST-2 reaches within 1.0 accuracy point of our '
+      + 'reproduced full fine-tuning value. The confirmatory matrix (stage 2) starts only after this gate passes.',
+    baseline_gate:
+      'Confirmatory comparative claims additionally require the mandatory baselines to meet their pre-committed '
+      + 'success criteria in stage 1.',
+    confirmatory_exploratory_boundary:
+      'Confirmatory = the pre-registered 6-combination matrix, tasks, metrics, and thresholds above, frozen before '
+      + 'stage 2 begins. Anything learned in stage 0/1 (probe results, baseline reproduction) may abort or shrink '
+      + 'the confirmatory plan but may not add, swap, or reweight confirmatory comparisons post hoc; any such '
+      + 'change demotes the affected claim to exploratory.',
   },
   literature_context_key_facts: [
     'Full fine-tuning of large pretrained language models requires storing and deploying one full model copy '
@@ -132,7 +222,7 @@ const CREATED_AT = '2026-07-11T00:00:00.000Z';
 export function makeGs001BridgeHandoff() {
   const c = GS001_LORA_CONTENT;
   const sourceRefs = [
-    gs001Ref('topic_package', GS001_IDS.topicPackage, 'v1'),
+    gs001Ref('topic_package', GS001_IDS.topicPackage, 'v2'),
     gs001Ref('evidence_unit', GS001_IDS.litEvidence),
     gs001Ref('source_locator', GS001_IDS.sourceLocator),
   ];
@@ -142,14 +232,32 @@ export function makeGs001BridgeHandoff() {
     problem_statement: c.research_question,
     contribution_summary: c.motive_hypothesis,
     evaluation_plan:
-      `Small-scale reproduction: ${c.budget_envelope.model_scale} on a ${c.budget_envelope.evaluation_scale}; `
-      + 'compare against full fine-tuning, adapter tuning, and prefix/prompt tuning baselines on task score, '
-      + 'trainable parameter count, and inference latency.',
+      `Small-scale reproduction: ${c.budget_envelope.model_scale} on a ${c.budget_envelope.evaluation_scale}. `
+      + `Pre-registered parity criterion: ${c.dataset_metric_precommitments.alignment_criterion} `
+      + `Per-task pre-commitments: ${c.dataset_metric_precommitments.tasks
+        .map((t) => `${t.task} (${t.primary_metric}, full FT reproduction target ${t.full_finetune_reproduction_target})`)
+        .join('; ')}. `
+      + `Secondary metrics: ${c.dataset_metric_precommitments.secondary_metrics.join(', ')}. `
+      + `${c.confirmatory_budget_matrix.confirmatory_matrix_definition} `
+      + `Staged execution: ${c.staged_route_dependency.stage0_gate} ${c.staged_route_dependency.baseline_gate}`,
     initial_planning_notes: [
       `Included scope: ${c.scope.included.join('; ')}`,
       `Excluded scope: ${c.scope.excluded.join('; ')}`,
       `Non-goals: ${c.scope.non_goals.join('; ')}`,
       `Budget envelope: ${c.budget_envelope.scale}, ${c.budget_envelope.max_compute}, max runtime ${c.budget_envelope.max_runtime}`,
+      `Confirmatory budget matrix: ${c.confirmatory_budget_matrix.gpu_constraint}; `
+      + `${c.confirmatory_budget_matrix.total_training_budget}; stage budgets: `
+      + `probe ${c.confirmatory_budget_matrix.stage_budgets.stage0_feasibility_probe}, `
+      + `baseline reproduction ${c.confirmatory_budget_matrix.stage_budgets.stage1_baseline_reproduction}, `
+      + `confirmatory ${c.confirmatory_budget_matrix.stage_budgets.stage2_confirmatory_matrix}; `
+      + `max ${c.confirmatory_budget_matrix.max_repeats_per_task} repeats per task. `
+      + `${c.confirmatory_budget_matrix.hyperparameter_policy} ${c.confirmatory_budget_matrix.rank_policy} `
+      + `Latency protocol: ${c.confirmatory_budget_matrix.latency_protocol} `
+      + `Checkpoint policy: ${c.confirmatory_budget_matrix.checkpoint_policy}`,
+      `Baseline control checklist: ${c.baseline_control_checklist
+        .map((b) => `${b.baseline} [${b.obligation}] success: ${b.success_criterion}; on failure: ${b.on_failure}`)
+        .join(' | ')}`,
+      `Confirmatory/exploratory boundary: ${c.staged_route_dependency.confirmatory_exploratory_boundary}`,
     ],
     claim_ceiling:
       'Claims are bounded to parameter-efficient adaptation of Transformer language models within the probed '
@@ -189,7 +297,7 @@ export function makeGs001BridgeHandoff() {
     promotion_input_snapshot_ref: gs001Ref('promotion_input_snapshot', GS001_IDS.promotionInputSnapshot),
     promotion_input_snapshot_hash: snapshotHashes.promotion_input_snapshot_hash,
     topic_package_id: GS001_IDS.topicPackage,
-    package_version: 'v1',
+    package_version: 'v2',
     decision: 'promote_to_paper_project',
     conditions: [],
     accepted_risk_refs: [],

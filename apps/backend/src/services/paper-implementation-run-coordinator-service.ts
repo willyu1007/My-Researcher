@@ -54,6 +54,9 @@ import type {
 import type {
   PaperImplementationCoordinatorRepository,
 } from '../repositories/paper-implementation-coordinator.repository.js';
+import type {
+  PaperImplementationRuntimeRepository,
+} from '../repositories/paper-implementation-runtime.repository.js';
 import {
   sha256Text,
   stableStringify,
@@ -132,6 +135,31 @@ const COORDINATOR_INJECTED_CHAIN_FIELDS: Record<string, readonly string[]> = {
     'reviewed_route_candidate_keys',
   ],
 };
+
+/**
+ * S2-B B3: lane-A in-chain proposal-body pass-through. The consuming slots
+ * (skeptic/cycle/feasibility) previously received only the admitted upstream
+ * ref+hash pair — under provider_llm the skeptic honestly rejected with
+ * `BLOCK_PRIMARY_ROUTE_ARTIFACT_BODY_UNAVAILABLE`-class blockers because the
+ * proposal body was not inspectable (gs001-lora-live-001/003). The
+ * coordinator now transcribes the content-bearing fields of each admitted
+ * upstream final artifact payload into the slot's existing
+ * `source_context_packets` request field (deterministic deep copy — no
+ * semantic content is created). Identity/hash/W2 consumption discipline is
+ * untouched: the packets ride the request and are covered by each slot's
+ * source_hash_bundle_hash exactly like caller-supplied packets.
+ */
+const LANE_A_UPSTREAM_CONTENT_FIELDS: Record<string, readonly string[]> = {
+  [PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID]: ['route_candidate_proposals', 'role_summary'],
+  [PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID]: [
+    'risk_findings',
+    'checked_dimensions',
+    'recommended_disposition',
+    'role_summary',
+  ],
+  [PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID]: ['cycle_candidate_proposals', 'role_summary'],
+};
+const LANE_A_UPSTREAM_PACKET_EVIDENCE_KIND = 'admitted_upstream_runtime_artifact';
 
 const FIXTURE_OUTPUT_FIELDS = ['mocked_role_outputs', 'codex_role_outputs'] as const;
 /**
@@ -370,17 +398,29 @@ export type PaperImplementationCoordinatorCrossBoardSynthesisRuntime = Pick<
 >;
 
 /**
+ * Read-only lookback surface for the lane-A in-chain proposal-body
+ * pass-through (S2-B B3): the coordinator only ever reads admitted final
+ * artifacts it persisted lineage for — never writes runtime artifacts.
+ */
+export type PaperImplementationCoordinatorRuntimeArtifactReader = Pick<
+  PaperImplementationRuntimeRepository,
+  'findRuntimeArtifactById'
+>;
+
+/**
  * Structural zero-authority-write dependency surface: the coordinator only
  * receives runtime slot services, its own repository, the project repository
  * (active-project preflight reuse), the narrow decision-queue writer (W4:
  * the queue is a governance surface, not domain authority — the writer's
- * type surface is enqueue-only), and id/clock injection — no domain
- * authority repositories.
+ * type surface is enqueue-only), the read-only runtime artifact lookback
+ * (B3: in-chain proposal-body transcription), and id/clock injection — no
+ * domain authority repositories.
  */
 export interface PaperImplementationRunCoordinatorServiceOptions {
   coordinatorRepository: PaperImplementationCoordinatorRepository;
   projectRepository: PaperImplementationRepository;
   decisionQueueWriter: PaperImplementationDecisionQueueWriter;
+  runtimeArtifactReader: PaperImplementationCoordinatorRuntimeArtifactReader;
   routePlanningRuntime: PaperImplementationCoordinatorRoutePlanningRuntime;
   validationCyclePlanningRuntime: PaperImplementationCoordinatorValidationCyclePlanningRuntime;
   feasibilityPlanningRuntime: PaperImplementationCoordinatorFeasibilityPlanningRuntime;
@@ -401,8 +441,15 @@ interface CoordinatorSlotRunResult {
   final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
 }
 
+interface LaneChainAdmittedArtifact {
+  ref: TopicSelectionFunctionalRef;
+  hash: string;
+  /** F4/R9 lineage id of the admitted final artifact (B3 lookback key). */
+  artifactId: string | null;
+}
+
 interface LaneChainContext {
-  admittedRefByIndex: Map<number, { ref: TopicSelectionFunctionalRef; hash: string }>;
+  admittedRefByIndex: Map<number, LaneChainAdmittedArtifact>;
   selectedKeyByIndex: Map<number, string>;
 }
 
@@ -423,6 +470,7 @@ export class PaperImplementationRunCoordinatorService {
   private readonly coordinatorRepository: PaperImplementationCoordinatorRepository;
   private readonly projectRepository: PaperImplementationRepository;
   private readonly decisionQueueWriter: PaperImplementationDecisionQueueWriter;
+  private readonly runtimeArtifactReader: PaperImplementationCoordinatorRuntimeArtifactReader;
   private readonly routePlanningRuntime: PaperImplementationCoordinatorRoutePlanningRuntime;
   private readonly validationCyclePlanningRuntime: PaperImplementationCoordinatorValidationCyclePlanningRuntime;
   private readonly feasibilityPlanningRuntime: PaperImplementationCoordinatorFeasibilityPlanningRuntime;
@@ -438,6 +486,7 @@ export class PaperImplementationRunCoordinatorService {
     this.coordinatorRepository = options.coordinatorRepository;
     this.projectRepository = options.projectRepository;
     this.decisionQueueWriter = options.decisionQueueWriter;
+    this.runtimeArtifactReader = options.runtimeArtifactReader;
     this.routePlanningRuntime = options.routePlanningRuntime;
     this.validationCyclePlanningRuntime = options.validationCyclePlanningRuntime;
     this.feasibilityPlanningRuntime = options.feasibilityPlanningRuntime;
@@ -720,9 +769,18 @@ export class PaperImplementationRunCoordinatorService {
 
       const slotId = laneSlots[nextIndex]!;
       const attemptSequence = steps.filter((step) => step.step_index === nextIndex).length;
-      const nodeAttemptId = `${run.coordinator_run_id}.step-${nextIndex}.attempt-${attemptSequence}`;
+      // S2-C C2: the attempt id doubles as the slot run_id and therefore pins
+      // the runtime identity of every artifact the slot records. The persisted
+      // step count alone undercounts executions when a fenced-out holder
+      // already ran the slot (its artifacts persist, its step row does not),
+      // so an execution-unique suffix keeps a successor's fresh attempt from
+      // colliding with the orphaned artifacts on the runtimeIdentityHash
+      // unique constraint.
+      const nodeAttemptId = this.idFactory(
+        `${run.coordinator_run_id}.step-${nextIndex}.attempt-${attemptSequence}`,
+      );
       const chainContext = this.chainContext(passedByIndex);
-      const slotRequest = this.buildSlotRequest(run, laneSlots, slotId, nextIndex, nodeAttemptId, chainContext);
+      const slotRequest = await this.buildSlotRequest(run, laneSlots, slotId, nextIndex, nodeAttemptId, chainContext);
 
       // F3: heartbeat + lease-fence BEFORE the slot runs. If the lease has
       // been taken over, this guarded write fails (crash-equivalent) and the
@@ -1087,13 +1145,14 @@ export class PaperImplementationRunCoordinatorService {
   private chainContext(
     passedByIndex: Map<number, PaperImplementationCoordinatorStep>,
   ): LaneChainContext {
-    const admittedRefByIndex = new Map<number, { ref: TopicSelectionFunctionalRef; hash: string }>();
+    const admittedRefByIndex = new Map<number, LaneChainAdmittedArtifact>();
     const selectedKeyByIndex = new Map<number, string>();
     for (const [index, step] of passedByIndex.entries()) {
       if (step.runtime_artifact_ref && step.runtime_artifact_hash) {
         admittedRefByIndex.set(index, {
           ref: step.runtime_artifact_ref,
           hash: step.runtime_artifact_hash,
+          artifactId: step.runtime_artifact_id ?? null,
         });
       }
       if (step.decision_record?.selected_candidate_key) {
@@ -1103,14 +1162,14 @@ export class PaperImplementationRunCoordinatorService {
     return { admittedRefByIndex, selectedKeyByIndex };
   }
 
-  private buildSlotRequest(
+  private async buildSlotRequest(
     run: PaperImplementationCoordinatorRun,
     laneSlots: readonly string[],
     slotId: string,
     stepIndex: number,
     nodeAttemptId: string,
     chainContext: LaneChainContext,
-  ): Record<string, unknown> {
+  ): Promise<Record<string, unknown>> {
     const basePayload = run.slot_request_payloads[slotId];
     if (!basePayload) {
       throw new AppError(
@@ -1129,22 +1188,25 @@ export class PaperImplementationRunCoordinatorService {
       model_option_id: this.stringOrNull(payload.model_option_id) ?? run.model_option_id,
     };
     if (run.lane_id === 'validation-planning') {
-      this.injectLaneAChainFields(request, laneSlots, slotId, stepIndex, chainContext);
-      if (run.run_mode !== 'product') {
-        this.alignFixtureChainEchoes(request, slotId);
-      }
+      await this.injectLaneAChainFields(request, run, laneSlots, slotId, stepIndex, chainContext);
+      // S2-C C4: fixture echo alignment moved into the slot services (mocked
+      // semantics are owned by each slot): missing/placeholder echo fields are
+      // synthesized slot-side from the injected admitted upstream values, while
+      // a present-but-drifted fixture echo stays intact and is still caught by
+      // the slot's semantic drift gates.
     }
     return request;
   }
 
-  private injectLaneAChainFields(
+  private async injectLaneAChainFields(
     request: Record<string, unknown>,
+    run: PaperImplementationCoordinatorRun,
     laneSlots: readonly string[],
     slotId: string,
     stepIndex: number,
     chainContext: LaneChainContext,
-  ): void {
-    const requireAdmitted = (index: number): { ref: TopicSelectionFunctionalRef; hash: string } => {
+  ): Promise<void> {
+    const requireAdmitted = (index: number): LaneChainAdmittedArtifact => {
       const admitted = chainContext.admittedRefByIndex.get(index);
       if (!admitted) {
         throw new AppError(
@@ -1172,6 +1234,7 @@ export class PaperImplementationRunCoordinatorService {
       request.admitted_route_proposal_artifact_ref = routeProposal.ref;
       request.admitted_route_proposal_artifact_hash = routeProposal.hash;
       request.reviewed_candidate_keys = [requireSelectedKey(0)];
+      await this.appendUpstreamProposalPackets(request, run, laneSlots, [0], chainContext);
       return;
     }
     if (slotId === PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID && stepIndex === 2) {
@@ -1182,6 +1245,7 @@ export class PaperImplementationRunCoordinatorService {
       request.admitted_route_skeptic_artifact_ref = routeSkeptic.ref;
       request.admitted_route_skeptic_artifact_hash = routeSkeptic.hash;
       request.reviewed_candidate_keys = [requireSelectedKey(0)];
+      await this.appendUpstreamProposalPackets(request, run, laneSlots, [0, 1], chainContext);
       return;
     }
     if (slotId === PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID && stepIndex === 3) {
@@ -1196,67 +1260,84 @@ export class PaperImplementationRunCoordinatorService {
       request.admitted_route_skeptic_artifact_hash = routeSkeptic.hash;
       request.reviewed_cycle_candidate_keys = [requireSelectedKey(2)];
       request.reviewed_route_candidate_keys = [requireSelectedKey(0)];
+      await this.appendUpstreamProposalPackets(request, run, laneSlots, [0, 1, 2], chainContext);
     }
   }
 
   /**
-   * Non-product fixture plumbing only: fixture role outputs are static JSON
-   * carried by the create request, but the chained slots verify that the
-   * output echoes the admitted upstream refs/hashes the coordinator injected
-   * at runtime. Mechanically align those echo fields so fixtures stay valid;
-   * no semantic content is created or altered.
+   * B3: appends one `source_context_packets` entry per consumed upstream step
+   * carrying a deterministic deep copy of the admitted final artifact's
+   * content-bearing proposal fields, so the consuming role can actually
+   * inspect the proposal body instead of only its ref+hash. The lookback is
+   * fenced on the persisted lineage pair: a missing artifact or a
+   * final_artifact_hash that no longer matches the step's admitted hash is a
+   * coordinator-internal fault, never silently skipped. Caller-supplied
+   * packets in the base payload are preserved (coordinator packets append).
    */
-  private alignFixtureChainEchoes(request: Record<string, unknown>, slotId: string): void {
-    const echoFields = this.fixtureEchoFields(request, slotId);
-    if (!echoFields) {
-      return;
-    }
-    for (const fixtureField of FIXTURE_OUTPUT_FIELDS) {
-      const outputs = request[fixtureField];
-      if (!outputs || typeof outputs !== 'object' || Array.isArray(outputs)) {
-        continue;
+  private async appendUpstreamProposalPackets(
+    request: Record<string, unknown>,
+    run: PaperImplementationCoordinatorRun,
+    laneSlots: readonly string[],
+    upstreamIndexes: readonly number[],
+    chainContext: LaneChainContext,
+  ): Promise<void> {
+    const packets: Record<string, unknown>[] = [];
+    for (const index of upstreamIndexes) {
+      const admitted = chainContext.admittedRefByIndex.get(index);
+      const upstreamSlotId = laneSlots[index];
+      if (!admitted || !upstreamSlotId) {
+        throw new AppError(
+          500,
+          'INTERNAL_ERROR',
+          `Coordinator chain context is missing the admitted final artifact of step ${index} (${laneSlots[index]}).`,
+        );
       }
-      for (const output of Object.values(outputs as Record<string, unknown>)) {
-        if (output && typeof output === 'object' && !Array.isArray(output)) {
-          Object.assign(output as Record<string, unknown>, echoFields);
+      if (!admitted.artifactId) {
+        throw new AppError(
+          500,
+          'INTERNAL_ERROR',
+          `Coordinator step ${index} (${upstreamSlotId}) has an admitted ref/hash but no runtime_artifact_id for the in-chain lookback.`,
+        );
+      }
+      const artifact = await this.runtimeArtifactReader.findRuntimeArtifactById(
+        run.implementation_project_id,
+        admitted.artifactId,
+      );
+      if (!artifact) {
+        throw new AppError(
+          500,
+          'INTERNAL_ERROR',
+          `Coordinator in-chain lookback cannot find the admitted final artifact ${admitted.artifactId} of step ${index} (${upstreamSlotId}).`,
+        );
+      }
+      // Same derivation as the admission record's admitted_artifact_hash
+      // (final scope: final_artifact_hash, payload-hash fallback).
+      if ((artifact.final_artifact_hash ?? artifact.artifact_payload_hash) !== admitted.hash) {
+        throw new AppError(
+          500,
+          'INTERNAL_ERROR',
+          `Coordinator in-chain lookback hash mismatch for step ${index} (${upstreamSlotId}): artifact ${admitted.artifactId} no longer matches the admitted hash.`,
+        );
+      }
+      const contentFields = LANE_A_UPSTREAM_CONTENT_FIELDS[upstreamSlotId] ?? [];
+      const proposalBody: Record<string, unknown> = {};
+      for (const field of contentFields) {
+        if (field in artifact.artifact_payload) {
+          proposalBody[field] = artifact.artifact_payload[field];
         }
       }
+      packets.push({
+        source_ref: structuredClone(admitted.ref),
+        evidence_kind: LANE_A_UPSTREAM_PACKET_EVIDENCE_KIND,
+        content_summary: `Verbatim proposal content of the admitted ${upstreamSlotId} final artifact `
+          + `${admitted.artifactId} (deterministic in-chain transcription; admitted hash ${admitted.hash}).`,
+        key_facts: [JSON.stringify(structuredClone(proposalBody))],
+      });
     }
-  }
-
-  private fixtureEchoFields(
-    request: Record<string, unknown>,
-    slotId: string,
-  ): Record<string, unknown> | null {
-    if (slotId === PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID) {
-      return {
-        reviewed_route_proposal_ref: request.admitted_route_proposal_artifact_ref,
-        reviewed_route_proposal_hash: request.admitted_route_proposal_artifact_hash,
-        reviewed_candidate_keys: request.reviewed_candidate_keys,
-      };
-    }
-    if (slotId === PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID) {
-      return {
-        reviewed_route_proposal_ref: request.admitted_route_proposal_artifact_ref,
-        reviewed_route_proposal_hash: request.admitted_route_proposal_artifact_hash,
-        reviewed_route_skeptic_artifact_ref: request.admitted_route_skeptic_artifact_ref,
-        reviewed_route_skeptic_artifact_hash: request.admitted_route_skeptic_artifact_hash,
-        reviewed_candidate_keys: request.reviewed_candidate_keys,
-      };
-    }
-    if (slotId === PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID) {
-      return {
-        reviewed_validation_cycle_artifact_ref: request.admitted_validation_cycle_artifact_ref,
-        reviewed_validation_cycle_artifact_hash: request.admitted_validation_cycle_artifact_hash,
-        reviewed_route_proposal_ref: request.admitted_route_proposal_artifact_ref,
-        reviewed_route_proposal_hash: request.admitted_route_proposal_artifact_hash,
-        reviewed_route_skeptic_artifact_ref: request.admitted_route_skeptic_artifact_ref,
-        reviewed_route_skeptic_artifact_hash: request.admitted_route_skeptic_artifact_hash,
-        reviewed_cycle_candidate_keys: request.reviewed_cycle_candidate_keys,
-        reviewed_route_candidate_keys: request.reviewed_route_candidate_keys,
-      };
-    }
-    return null;
+    const existing = Array.isArray(request.source_context_packets)
+      ? request.source_context_packets as unknown[]
+      : [];
+    request.source_context_packets = [...existing, ...packets];
   }
 
   private async runSlot(

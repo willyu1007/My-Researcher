@@ -651,3 +651,59 @@ function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
 function hash(value: unknown): string {
   return sha256Text(stableStringify(value));
 }
+
+test('experiment planning runtime token budget counts message-embedded context once and wires the compression attempt (S2-A)', async () => {
+  const fatText = 'Neutral benchmark evidence sentence with cited source support and no secrets. '.repeat(200);
+  const { service, orchestrator } = serviceFixture(['passed_design']);
+  const base = providerRequest('design');
+  const request = {
+    ...base,
+    run_id: 'experiment_design_token_budget_run_001',
+    source_context_packets: [{
+      source_ref: base.source_refs[0],
+      evidence_kind: 'admitted_upstream_proposal',
+      content_summary: fatText,
+      key_facts: [fatText, 'bounded key fact with cited source support.'],
+    }],
+  };
+  await service.runExperimentDesign(PROJECT_ID, request);
+
+  const call = orchestrator.calls[0];
+  assert.ok(call);
+  const budget = call.runtime_token_budget as {
+    context_payloads: unknown[];
+    estimated_input_tokens_override: number;
+    compression_attempt?: {
+      compression_executor_kind: string;
+      compressed_messages?: Array<{ role: string; content: string }> | null;
+    } | null;
+  };
+  const messages = call.messages;
+  // N3 single-source estimate: exactly the messages that will be sent, counted once.
+  assert.equal(
+    budget.estimated_input_tokens_override,
+    Math.ceil(stableStringify({ messages }).length / 4),
+  );
+  assert.deepEqual(budget.context_payloads, []);
+  // Re-carrying the embedded packet bodies (the pre-fix shape) would roughly double
+  // the estimate for packet-dominated inputs.
+  const doubleCounted = Math.ceil(stableStringify({
+    messages,
+    context_payloads: [{ source_context_packets: request.source_context_packets }],
+  }).length / 4);
+  assert.equal(budget.estimated_input_tokens_override <= Math.ceil(doubleCounted * 0.6), true);
+  // PC-S2/PC-S3: a packet face yields a caller-supplied deterministic attempt.
+  assert.ok(budget.compression_attempt);
+  assert.equal(budget.compression_attempt.compression_executor_kind, 'deterministic_structural');
+  assert.equal((budget.compression_attempt.compressed_messages?.length ?? 0) > 0, true);
+
+  const noPackets = serviceFixture(['passed_design']);
+  await noPackets.service.runExperimentDesign(PROJECT_ID, {
+    ...providerRequest('design'),
+    run_id: 'experiment_design_token_budget_run_002',
+  });
+  const noPacketBudget = noPackets.orchestrator.calls[0]?.runtime_token_budget as {
+    compression_attempt?: unknown;
+  };
+  assert.equal(noPacketBudget.compression_attempt ?? null, null);
+});

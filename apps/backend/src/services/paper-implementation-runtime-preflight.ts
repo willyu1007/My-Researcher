@@ -4,10 +4,7 @@ import type {
 
 import { AppError } from '../errors/app-error.js';
 import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
-
-function hasText(value: string | null | undefined): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
+import { hasText } from './paper-implementation-runtime-utils.js';
 
 export async function requireActiveImplementationProject(
   projectRepository: PaperImplementationRepository,

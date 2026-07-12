@@ -30,6 +30,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-recheck-risk-memory-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import { normalizedPaperImplementationRefType } from './paper-implementation-runtime-utils.js';
 import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationTraceRepository } from '../repositories/paper-implementation-trace.repository.js';
 
@@ -754,7 +755,7 @@ export class PaperImplementationTraceKernelService {
   }
 
   private normalizedRefType(refType: string): string {
-    return refType.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return normalizedPaperImplementationRefType(refType);
   }
 
   private assertFunctionalRef(ref: TopicSelectionFunctionalRef, fieldName: string): void {

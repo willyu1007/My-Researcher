@@ -295,15 +295,25 @@ test('motive decomposition runtime preflight blocks memo refs and uncovered asse
     }],
   });
 
-  assert.equal(result.status, 'failed_runtime');
+  // S2-C C3: preflight blockers are a reviewable blocked final (admitted), not
+  // a failed_runtime terminal without a final artifact.
+  assert.equal(result.status, 'blocked');
   assert.equal(result.provider_call_count, 0);
   assert.equal(orchestrator.calls.length, 0);
-  assert.equal(result.final_runtime_artifact, null);
-  assert.equal(result.runtime_artifacts.length, 1);
-  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'MOTIVE_DECOMPOSITION_PREFLIGHT_BLOCKED');
-  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+  assert.equal(result.runtime_artifacts.length, 2);
+  assert.equal(result.runtime_artifacts[0]?.runtime_status, 'blocked');
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, null);
+  assert.equal(result.runtime_artifacts[0]?.executor_kind, 'deterministic_preflight');
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_runtime_artifact?.runtime_failure_code, null);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(result.admission_records.map((item) => item.admission_status), ['admitted', 'admitted']);
   assert.equal(result.blocker_codes.includes('MOTIVE_DECOMPOSITION_MEMO_LIKE_REF_REJECTED'), true);
   assert.equal(result.blocker_codes.includes('MOTIVE_DECOMPOSITION_ASSERTION_CONTEXT_PACKET_UNCOVERED'), true);
+  assert.equal(
+    result.final_runtime_artifact?.blocker_codes.includes('MOTIVE_DECOMPOSITION_MEMO_LIKE_REF_REJECTED'),
+    true,
+  );
 });
 
 for (const scenario of [
@@ -829,3 +839,31 @@ function includesRef(refs: TopicSelectionFunctionalRef[], expected: TopicSelecti
 function hash(value: unknown): string {
   return sha256Text(stableStringify(value));
 }
+
+test('motive decomposition runtime token budget counts message-embedded context once (S2-A N3, PC-S4 documented-as-within-budget)', async () => {
+  const { service, orchestrator } = serviceFixture(['passed']);
+  await service.runDraftAssertionCandidates(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_decomposition_token_budget_run_001',
+  });
+
+  const call = orchestrator.calls[0];
+  assert.ok(call);
+  const budget = call.runtime_token_budget as {
+    context_payloads: unknown[];
+    estimated_input_tokens_override: number;
+    compression_attempt?: {
+      compression_executor_kind: string;
+      compressed_messages?: Array<{ role: string; content: string }> | null;
+    } | null;
+  };
+  const messages = call.messages;
+  assert.equal(
+    budget.estimated_input_tokens_override,
+    Math.ceil(stableStringify({ messages }).length / 4),
+  );
+  assert.deepEqual(budget.context_payloads, []);
+  // PC-S4: no compression attempt is wired for the motive slots (see the boundary
+  // note on runtimeTokenBudget in the service).
+  assert.equal(budget.compression_attempt ?? null, null);
+});

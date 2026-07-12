@@ -22,7 +22,7 @@ const NOW = '2026-06-03T00:00:00.000Z';
 
 type StoredRow = Record<string, unknown> & { id: string };
 
-function makeModel(rows: StoredRow[]) {
+function makeModel(rows: StoredRow[], uniqueColumns: string[] = []) {
   return {
     create: async ({ data }: { data: StoredRow }) => {
       if (rows.some((row) => row.id === data.id)) {
@@ -31,13 +31,22 @@ function makeModel(rows: StoredRow[]) {
           clientVersion: 'test',
         });
       }
+      for (const column of uniqueColumns) {
+        if (data[column] !== undefined && rows.some((row) => row[column] === data[column])) {
+          throw new Prisma.PrismaClientKnownRequestError('duplicate unique column', {
+            code: 'P2002',
+            clientVersion: 'test',
+            meta: { target: [column] },
+          });
+        }
+      }
       const row = normalizeRow(data);
       rows.push(row);
       return row;
     },
-    findFirst: async ({ where }: { where: Partial<StoredRow> }) =>
+    findFirst: async ({ where }: { where: Record<string, unknown> }) =>
       rows.find((row) => matchesWhere(row, where)) ?? null,
-    findMany: async ({ where }: { where?: Partial<StoredRow> }) =>
+    findMany: async ({ where }: { where?: Record<string, unknown> }) =>
       rows.filter((row) => matchesWhere(row, where ?? {})),
   };
 }
@@ -53,7 +62,8 @@ function makeFakePrismaClient(): {
     runtimeArtifactRows,
     admissionRecordRows,
     prisma: {
-      paperImplementationRuntimeArtifact: makeModel(runtimeArtifactRows),
+      // S2-C C2: mirrors the runtimeIdentityHash unique constraint.
+      paperImplementationRuntimeArtifact: makeModel(runtimeArtifactRows, ['runtimeIdentityHash']),
       paperImplementationRuntimeAdmissionRecord: makeModel(admissionRecordRows),
     } as unknown as PrismaClient,
   };
@@ -69,8 +79,30 @@ function normalizeRow(row: StoredRow): StoredRow {
   return normalized;
 }
 
-function matchesWhere(row: StoredRow, where: Partial<StoredRow>): boolean {
-  return Object.entries(where).every(([key, value]) => row[key] === value);
+function matchesWhere(row: StoredRow, where: Record<string, unknown>): boolean {
+  return Object.entries(where).every(([key, value]) => {
+    if (key === 'AND' && Array.isArray(value)) {
+      return value.every((clause) => matchesWhere(row, clause as Record<string, unknown>));
+    }
+    if (
+      value
+      && typeof value === 'object'
+      && !Array.isArray(value)
+      && Array.isArray((value as { path?: unknown }).path)
+    ) {
+      // Prisma JSON path filter: { path: [...segments], equals: expected }.
+      const { path, equals } = value as { path: string[]; equals: unknown };
+      let current: unknown = row[key];
+      for (const segment of path) {
+        if (!current || typeof current !== 'object') {
+          return false;
+        }
+        current = (current as Record<string, unknown>)[segment];
+      }
+      return current === equals;
+    }
+    return row[key] === value;
+  });
 }
 
 test('Prisma PaperImplementationRuntime repository round-trips runtime artifacts and admission records', async () => {
@@ -132,6 +164,60 @@ test('Prisma PaperImplementationRuntime repository maps duplicate ids to VERSION
   await assert.rejects(
     () => repository.createRuntimeArtifact(runtimeArtifact()),
     (error: unknown) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT',
+  );
+});
+
+test('Prisma PaperImplementationRuntime repository maps a runtime identity replay to 409 VERSION_CONFLICT (S2-C C2)', async () => {
+  const fixture = makeFakePrismaClient();
+  const repository = new PrismaPaperImplementationRuntimeRepository(fixture.prisma);
+  await repository.createRuntimeArtifact(runtimeArtifact());
+
+  await assert.rejects(
+    () => repository.createRuntimeArtifact(runtimeArtifact({
+      runtime_artifact_id: 'runtime-artifact-role-replayed-1',
+      artifact_identity_hash: hash('replayed-envelope'),
+    })),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT'
+      && error.message.includes('runtime_identity_hash'),
+  );
+
+  const distinct = await repository.createRuntimeArtifact(runtimeArtifact({
+    runtime_artifact_id: 'runtime-artifact-role-2',
+    artifact_identity_hash: hash('second-envelope'),
+    runtime_identity_hash: hash('second-runtime-identity'),
+  }));
+  assert.equal(distinct.runtime_artifact_id, 'runtime-artifact-role-2');
+});
+
+test('Prisma PaperImplementationRuntime repository lists final artifacts by final_artifact_ref (S2-C C4 direct lookup)', async () => {
+  const fixture = makeFakePrismaClient();
+  const repository = new PrismaPaperImplementationRuntimeRepository(fixture.prisma);
+  await repository.createRuntimeArtifact(runtimeArtifact());
+  const finalRef = ref('paper_implementation_final_artifact', 'final-artifact-1');
+  await repository.createRuntimeArtifact(runtimeArtifact({
+    runtime_artifact_id: 'runtime-artifact-final-1',
+    artifact_identity_hash: hash('final-envelope'),
+    runtime_identity_hash: hash('final-runtime-identity'),
+    slot_id: 'slot-final',
+    artifact_scope: 'final',
+    role_slot_id: null,
+    call_index: null,
+    final_artifact_ref: finalRef,
+    final_artifact_hash: hash('final-payload'),
+  }));
+
+  const matches = await repository.listFinalRuntimeArtifactsByFinalArtifactRef(
+    PROJECT_ID,
+    finalRef.ref_type,
+    finalRef.ref_id,
+  );
+  assert.deepEqual(matches.map((artifact) => artifact.runtime_artifact_id), ['runtime-artifact-final-1']);
+
+  assert.deepEqual(
+    await repository.listFinalRuntimeArtifactsByFinalArtifactRef(PROJECT_ID, finalRef.ref_type, 'missing'),
+    [],
   );
 });
 

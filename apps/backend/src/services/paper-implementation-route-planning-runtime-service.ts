@@ -18,6 +18,7 @@ import {
   type PaperImplementationRoutePlanningRoleOutput,
   type PaperImplementationRoutePlanningRoleSlotId,
   type PaperImplementationRoutePlanningSlotId,
+  type PaperImplementationRoutePlanningSourceContextPacket,
   type PaperImplementationRuntimeAdmissionRecord,
   type PaperImplementationRuntimeArtifactEnvelope,
   type PaperImplementationRuntimeCacheStatus,
@@ -49,13 +50,22 @@ import {
   stableStringify,
 } from './literature-content-processing-utils.js';
 import {
+  buildPaperImplementationCompressionAttempt,
+} from './paper-implementation-compression-attempt.js';
+import {
   type TopicSelectionAgentInvocationResult,
   type TopicSelectionAgentRuntimeTokenBudgetInput,
   type TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
+import type {
+  TopicSelectionCompressionFactInventory,
+} from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireAdmittedPassedFinalArtifact } from './paper-implementation-runtime-artifact-consumption.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
+import {
+  PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+} from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
@@ -199,12 +209,8 @@ const SKEPTIC_PROFILE: SlotProfile = {
 };
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
-const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
-  'TimeoutError',
-  'TransientError',
-  'RateLimitError',
-  'UpstreamError',
-  'SCHEMA_VALIDATION_FAILED',
+const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
+  ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   'ROUTE_ARCHITECTURE_CANDIDATE_SET_INCOMPLETE',
   'ROUTE_ARCHITECTURE_CONFIRMATORY_EXPLORATORY_MISSING',
   'ROUTE_SKEPTIC_PRIMARY_PROPOSAL_MISSING',
@@ -305,13 +311,14 @@ export class PaperImplementationRoutePlanningRuntimeService {
       ...(roleArtifact.output?.blocker_codes ?? []),
       ...roleArtifact.artifact.blocker_codes,
     ]);
-    const warningCodes = this.uniqueStrings([
-      ...(roleArtifact.output?.warning_codes ?? []),
-      ...roleArtifact.artifact.warning_codes,
-    ]);
     const finalStatus = blockerCodes.length > 0 || roleArtifact.output?.role_status === 'blocked'
       ? 'blocked'
       : 'passed';
+    const warningCodes = this.uniqueStrings([
+      ...(roleArtifact.output?.warning_codes ?? []),
+      ...roleArtifact.artifact.warning_codes,
+      ...this.skepticRepairSuggestionWarnings(runtimeBase.profile, finalStatus, roleArtifact.output),
+    ]);
     const final = await this.recordFinalArtifact(runtimeBase, request, {
       roleArtifact,
       status: finalStatus,
@@ -522,6 +529,9 @@ export class PaperImplementationRoutePlanningRuntimeService {
       blockerCodes: runtimeFailureCode ? [runtimeFailureCode] : output?.blocker_codes ?? [],
       warningCodes: this.uniqueStrings([
         ...(output?.warning_codes ?? roleResult.warning_codes),
+        // Compression provenance warnings must survive into the role artifact even
+        // when the role output carries its own warning list (D-T128-02 lineage).
+        ...roleResult.warning_codes.filter((code) => code.startsWith('COMPRESSION_')),
         ...this.retryWarningCodes(roleInvocation, runtimeFailureCode),
       ]),
       output: artifactOutput,
@@ -608,6 +618,11 @@ export class PaperImplementationRoutePlanningRuntimeService {
       prior_hashes: input.priorRoleArtifacts.map((item) => item.artifact.artifact_payload_hash),
     });
     const runtimeIdentity = {
+      // S2-C C2: run_id pins the identity granularity explicitly to one runtime
+      // run — replaying the same run_id (idempotent double-submit) collides on
+      // the runtimeIdentityHash unique constraint (409), while a legitimate
+      // re-advance/new run always carries a fresh run_id and never collides.
+      run_id: runtimeBase.runId,
       implementation_project_id: runtimeBase.implementationProjectId,
       workflow_type: runtimeBase.profile.workflowType,
       slot_id: runtimeBase.profile.slotId,
@@ -893,6 +908,8 @@ export class PaperImplementationRoutePlanningRuntimeService {
   private roleMessages(
     runtimeBase: RuntimeBase,
     request: RunPaperImplementationRoutePlanningRuntimeRequest,
+    packets: readonly PaperImplementationRoutePlanningSourceContextPacket[]
+      = request.source_context_packets ?? [],
   ): Array<{ role: 'system' | 'user'; content: string }> {
     const system = runtimeBase.profile.workflowType === 'route_architecture'
       ? [
@@ -922,7 +939,7 @@ export class PaperImplementationRoutePlanningRuntimeService {
           input_snapshot_hash: request.input_snapshot_hash,
           source_refs: request.source_refs,
           source_hashes: request.source_hashes,
-          source_context_packets: request.source_context_packets ?? [],
+          source_context_packets: packets,
           admitted_route_proposal_artifact_ref: request.admitted_route_proposal_artifact_ref ?? null,
           admitted_route_proposal_artifact_hash: request.admitted_route_proposal_artifact_hash ?? null,
           reviewed_candidate_keys: request.reviewed_candidate_keys ?? [],
@@ -941,30 +958,60 @@ export class PaperImplementationRoutePlanningRuntimeService {
     request: RunPaperImplementationRoutePlanningRuntimeRequest,
     messages: Array<{ role: 'system' | 'user'; content: string }>,
   ): TopicSelectionAgentRuntimeTokenBudgetInput {
-    const contextPayloads = [{
-      target_ref: request.target_ref,
-      source_refs: request.source_refs,
-      source_hashes: request.source_hashes,
-      source_context_packets: request.source_context_packets ?? [],
-      source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
+    const extraPayloads = [{
+      slot_id: runtimeBase.profile.slotId,
+      role_slot_id: runtimeBase.profile.roleSlotId,
+      required_risk_dimensions: runtimeBase.profile.workflowType === 'route_skeptic_review'
+        ? PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS
+        : null,
+      admitted_route_proposal_artifact_hash: request.admitted_route_proposal_artifact_hash ?? null,
     }];
+    // PC-S3 caller-side compression attempt: same roleMessages builder, degraded
+    // packet views only — no second message template to drift.
+    const compressionSelection = buildPaperImplementationCompressionAttempt({
+      packets: request.source_context_packets ?? [],
+      buildMessages: (trimmedPackets) => this.roleMessages(runtimeBase, request, trimmedPackets),
+      contextPolicyProfile: runtimeBase.contextPolicyProfile,
+      schema: paperImplementationRoutePlanningRoleOutputSchema as unknown as Record<string, unknown>,
+      extraPayloads,
+      sourceRefs: request.source_refs,
+      requiredPreservedFacts: this.requiredPreservedFacts(request),
+    });
     return {
       context_policy_profile: runtimeBase.contextPolicyProfile,
       context_policy_profile_hash: runtimeBase.contextPolicyProfileHash,
-      context_payloads: contextPayloads,
-      extra_payloads: [{
-        slot_id: runtimeBase.profile.slotId,
-        role_slot_id: runtimeBase.profile.roleSlotId,
-        required_risk_dimensions: runtimeBase.profile.workflowType === 'route_skeptic_review'
-          ? PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS
-          : null,
-        admitted_route_proposal_artifact_hash: request.admitted_route_proposal_artifact_hash ?? null,
-      }],
-      estimated_input_tokens_override: this.estimatedInputTokens({
-        messages,
-        context_payloads: contextPayloads,
-      }),
+      // N3 double-count fix: the request body is embedded verbatim in `messages`;
+      // context_payloads must not re-carry the same content (single-source estimate).
+      context_payloads: [],
+      extra_payloads: extraPayloads,
+      compression_attempt: compressionSelection?.attempt ?? null,
+      estimated_input_tokens_override: this.estimatedInputTokens({ messages }),
       schema_overhead_tokens_override: 1_200,
+    };
+  }
+
+  /** PC-S1: ref-skeleton facts (per this slot's preserved_fact_kinds) that survive
+   *  every compression level; packet bodies are deliberately not listed. */
+  private requiredPreservedFacts(
+    request: RunPaperImplementationRoutePlanningRuntimeRequest,
+  ): TopicSelectionCompressionFactInventory {
+    return {
+      validation_cycle_ref: request.source_refs
+        .filter((item) => item.ref_type === 'validation_cycle')
+        .map((item) => item.ref_id),
+      route_ref: [
+        ...request.source_refs
+          .filter((item) => item.ref_type === 'technical_route_candidate')
+          .map((item) => item.ref_id),
+        ...(request.secondary_route_candidate_refs ?? []).map((item) => item.ref_id),
+        ...(request.admitted_route_proposal_artifact_ref
+          ? [request.admitted_route_proposal_artifact_ref.ref_id]
+          : []),
+      ],
+      route_candidate_proposal_ref: [...(request.reviewed_candidate_keys ?? [])],
+      feasibility_probe_ref: request.source_refs
+        .filter((item) => item.ref_type === 'feasibility_probe')
+        .map((item) => item.ref_id),
     };
   }
 
@@ -1091,13 +1138,40 @@ export class PaperImplementationRoutePlanningRuntimeService {
     profile: SlotProfile,
     request: RunPaperImplementationRoutePlanningRuntimeRequest,
   ): PaperImplementationRoutePlanningRoleOutput | null {
-    if (request.execution_mode === 'mocked_llm') {
-      return request.mocked_role_outputs?.[profile.roleSlotId] ?? null;
+    const fixture = request.execution_mode === 'mocked_llm'
+      ? request.mocked_role_outputs?.[profile.roleSlotId] ?? null
+      : request.execution_mode === 'codex_assisted'
+        ? request.codex_role_outputs?.[profile.roleSlotId] ?? null
+        : null;
+    if (!fixture || profile.workflowType !== 'route_skeptic_review') {
+      return fixture;
     }
-    if (request.execution_mode === 'codex_assisted') {
-      return request.codex_role_outputs?.[profile.roleSlotId] ?? null;
+    return this.normalizeFixtureEchoes(fixture, request);
+  }
+
+  /**
+   * S2-C C4 (sunk from the coordinator's alignFixtureChainEchoes): in the
+   * non-product fixture modes the slot owns the mocked echo semantics. Only
+   * absent (undefined/null) echo fields are synthesized from the request's
+   * injected admitted upstream values; a present-but-drifted fixture echo is
+   * deliberately left intact so the semantic drift gates stay testable when
+   * the slot is called directly.
+   */
+  private normalizeFixtureEchoes(
+    fixture: PaperImplementationRoutePlanningRoleOutput,
+    request: RunPaperImplementationRoutePlanningRuntimeRequest,
+  ): PaperImplementationRoutePlanningRoleOutput {
+    const normalized = structuredClone(fixture);
+    if (normalized.reviewed_route_proposal_ref == null) {
+      normalized.reviewed_route_proposal_ref = request.admitted_route_proposal_artifact_ref ?? null;
     }
-    return null;
+    if (normalized.reviewed_route_proposal_hash == null) {
+      normalized.reviewed_route_proposal_hash = request.admitted_route_proposal_artifact_hash ?? null;
+    }
+    if (normalized.reviewed_candidate_keys == null) {
+      normalized.reviewed_candidate_keys = [...(request.reviewed_candidate_keys ?? [])];
+    }
+    return normalized;
   }
 
   private assertRequest(
@@ -1293,6 +1367,26 @@ export class PaperImplementationRoutePlanningRuntimeService {
       return 'ROUTE_SKEPTIC_DISPOSITION_MISSING';
     }
     return null;
+  }
+
+  /**
+   * S2-C C4 transitional completeness check (pre-S3 contract deepening): a
+   * blocked skeptic outcome should carry actionable repair guidance. The
+   * current role contract expresses repair suggestions as
+   * risk_findings[].required_revision_refs; a blocked final without a single
+   * such ref gets a non-blocking completeness warning.
+   */
+  private skepticRepairSuggestionWarnings(
+    profile: SlotProfile,
+    finalStatus: 'passed' | 'blocked' | 'failed_runtime',
+    output: PaperImplementationRoutePlanningRoleOutput | null,
+  ): string[] {
+    if (profile.workflowType !== 'route_skeptic_review' || finalStatus !== 'blocked' || !output) {
+      return [];
+    }
+    const hasRepairGuidance = (output.risk_findings ?? [])
+      .some((finding) => (finding.required_revision_refs ?? []).length > 0);
+    return hasRepairGuidance ? [] : ['ROUTE_SKEPTIC_REPAIR_SUGGESTIONS_MISSING'];
   }
 
   private retryWarningCodes(

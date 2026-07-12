@@ -56,6 +56,9 @@ import {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+} from './paper-implementation-runtime-utils.js';
+import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
 } from './paper-implementation-runtime-operational-telemetry.js';
@@ -190,17 +193,25 @@ const EVOLUTION_DECISION_SUPPORT_PROFILE: SlotProfile = {
   promptPolicyId: 'paper-implementation.motive-evolution.prompt-redaction.v1',
 };
 
+/**
+ * S2-B B1: role schema names are sent verbatim as the OpenAI structured-output
+ * `text.format.name`, whose hard limit is 64 characters — the previous
+ * `..._role_output` names were 65 characters and made every provider_llm call
+ * of this slot fail with InvalidRequestError (gs001-lora-live-002/003).
+ * Both names stay unique per role and within the provider constraint
+ * (`^[a-zA-Z0-9_-]{1,64}$`).
+ */
 const OPTION_DESIGNER_ROLE: RoleProfile = {
   roleSlotId: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
   promptVariantId: 'evolution-option-designer.main',
-  schemaName: 'paper_implementation_motive_evolution_option_designer_role_output',
+  schemaName: 'paper_implementation_motive_evolution_option_designer_output',
   schema: paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema as unknown as Record<string, unknown>,
 };
 
 const RISK_CHALLENGER_ROLE: RoleProfile = {
   roleSlotId: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
   promptVariantId: 'evolution-risk-challenger.main',
-  schemaName: 'paper_implementation_motive_evolution_risk_challenger_role_output',
+  schemaName: 'paper_implementation_motive_evolution_risk_challenger_output',
   schema: paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema as unknown as Record<string, unknown>,
 };
 
@@ -213,12 +224,8 @@ const EVOLUTION_DECISION_SUPPORT_MODEL_OPTION_IDS = new Set([
 ]);
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
-const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
-  'TimeoutError',
-  'TransientError',
-  'RateLimitError',
-  'UpstreamError',
-  'SCHEMA_VALIDATION_FAILED',
+const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
+  ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   'MOTIVE_EVOLUTION_REQUIRED_REFS_MISSING',
   'MOTIVE_EVOLUTION_CONTEXT_PACKET_REF_MISMATCH',
   'MOTIVE_EVOLUTION_CONTEXT_PACKET_UNCOVERED',
@@ -313,11 +320,23 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
       ...this.requestBoundaryBlockerCodes(request),
     ]);
 
+    // S2-C C3 (review F5/N6): preflight blockers land as a reviewable blocked
+    // final that admission records as admitted — unified with the other slots
+    // (route/skeptic/cycle/feasibility/cross-board), no more failed_runtime
+    // preflight terminal without a final artifact.
     if (preflightBlockerCodes.length > 0) {
       const preflight = await this.recordPreflightBlockedArtifact(runtimeBase, request, preflightBlockerCodes);
       artifacts.push(preflight.artifact);
       admissions.push(preflight.admission);
-      return this.result(runtimeBase, 'failed_runtime', 0, artifacts, admissions, null, null);
+      const final = await this.recordPreflightBlockedFinalArtifact(
+        runtimeBase,
+        request,
+        preflight,
+        preflightBlockerCodes,
+      );
+      artifacts.push(final.artifact);
+      admissions.push(final.admission);
+      return this.result(runtimeBase, 'blocked', 0, artifacts, admissions, final.artifact, final.admission);
     }
 
     const designerInvocation = await this.invokeRoleWithBoundedRetry<
@@ -508,16 +527,34 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     runtimeBase: RuntimeBase,
     request: RunPaperImplementationMotiveEvolutionRuntimeRequest,
     blockerCodes: string[],
-  ): Promise<RecordedRuntimeArtifact<null>> {
+  ): Promise<RecordedRuntimeArtifact<PaperImplementationMotiveEvolutionOptionDesignerRoleOutput>> {
     const runtimeControl: RuntimeControl = {
       terminal_code: 'preflight_blocked',
       reason_kind: 'missing_or_invalid_required_refs',
       details: { blocker_codes: blockerCodes },
     };
-    const output = {
-      status: 'failed_runtime',
-      error_code: 'MOTIVE_EVOLUTION_PREFLIGHT_BLOCKED',
+    // S2-C C3: the preflight terminal is a blocked (admitted) role output, not
+    // a failed_runtime artifact — unified preflight semantics across slots.
+    const output: PaperImplementationMotiveEvolutionOptionDesignerRoleOutput = {
+      role_slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+      role_status: 'blocked',
+      summary: 'Deterministic motive-evolution preflight found blockers before provider execution.',
+      cited_source_refs: [...request.source_refs],
+      support_result_status: 'blocked',
       blocker_codes: blockerCodes,
+      warning_codes: [],
+      no_domain_gate_request: true,
+      no_queue_side_effect: true,
+      no_motive_write_side_effect: true,
+      no_motive_evolution_side_effect: true,
+      no_portfolio_mutation_side_effect: true,
+      no_board_write_side_effect: true,
+      no_evidence_binding_side_effect: true,
+      no_trace_repair_queue_side_effect: true,
+      reviewed_target_motive_refs: [],
+      reviewed_core_motive_version_refs: [],
+      designed_options: {},
+      option_set_hash: this.hash({ designed_options: {} }),
     };
     const artifactPayload = this.roleArtifactPayload(runtimeBase, request, output, runtimeControl, []);
     const artifact = this.buildRuntimeArtifact(runtimeBase, request, {
@@ -536,8 +573,8 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
       }),
       promptVariantId: 'deterministic-preflight',
-      runtimeStatus: 'failed_runtime',
-      runtimeFailureCode: 'MOTIVE_EVOLUTION_PREFLIGHT_BLOCKED',
+      runtimeStatus: 'blocked',
+      runtimeFailureCode: null,
       providerCallCount: 0,
       blockerCodes,
       warningCodes: [],
@@ -547,7 +584,104 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     });
     const stored = await this.runtimeAdmission.recordRuntimeArtifact(artifact);
     const admission = await this.admit(stored, 'role');
-    return { artifact: stored, admission, output: null };
+    return { artifact: stored, admission, output };
+  }
+
+  /**
+   * S2-C C3: builds the blocked final artifact for the preflight-blocked path.
+   * The regular final builder requires the designer+challenger role tuple; the
+   * preflight terminal has only the deterministic preflight role artifact, so
+   * the blocked final payload is assembled directly here (same envelope
+   * discipline: blocked status, blocker codes, admitted via final admission).
+   */
+  private async recordPreflightBlockedFinalArtifact(
+    runtimeBase: RuntimeBase,
+    request: RunPaperImplementationMotiveEvolutionRuntimeRequest,
+    preflight: RecordedRuntimeArtifact<PaperImplementationMotiveEvolutionOptionDesignerRoleOutput>,
+    blockerCodes: string[],
+  ): Promise<{ artifact: PaperImplementationRuntimeArtifactEnvelope; admission: PaperImplementationRuntimeAdmissionRecord }> {
+    const finalPayload: PaperImplementationMotiveEvolutionArtifact = {
+      status: 'blocked',
+      slot_id: runtimeBase.profile.slotId,
+      workflow_type: runtimeBase.profile.workflowType,
+      target_ref: request.target_ref,
+      target_motive_refs: [...request.target_motive_refs],
+      target_core_motive_version_refs: [...request.target_core_motive_version_refs],
+      preflight_blockers: this.uniqueStrings(blockerCodes),
+      support_result_status: 'blocked',
+      role_summary: preflight.output.summary,
+      role_blocker_codes: [...preflight.output.blocker_codes],
+      role_warning_codes: [],
+      blockers: this.uniqueStrings(blockerCodes),
+      warnings: [],
+      runtime_failure_code: null,
+      decision_options: {},
+      no_domain_gate_request: true,
+      no_queue_side_effect: true,
+      no_motive_write_side_effect: true,
+      no_motive_evolution_side_effect: true,
+      no_portfolio_mutation_side_effect: true,
+      no_board_write_side_effect: true,
+      no_evidence_binding_side_effect: true,
+      no_trace_repair_queue_side_effect: true,
+      role_artifact_refs: [preflight.artifact.artifact_payload_ref],
+      role_artifact_hashes: [preflight.artifact.artifact_payload_hash],
+      admitted_role_artifact_refs: preflight.admission.admitted_artifact_ref
+        ? [preflight.admission.admitted_artifact_ref]
+        : [],
+      admitted_role_artifact_hashes: preflight.admission.admitted_artifact_hash
+        ? [preflight.admission.admitted_artifact_hash]
+        : [],
+      role_prompt_packet_refs: [preflight.artifact.prompt_packet_ref],
+      role_prompt_packet_hashes: [preflight.artifact.prompt_packet_hash],
+      role_token_budget_gate_result_refs: [preflight.artifact.token_budget_gate_result_ref],
+      role_compression_report_refs: [],
+      runtime_identity: {
+        run_id: runtimeBase.runId,
+        slot_id: runtimeBase.profile.slotId,
+        preflight_role_artifact_hash: preflight.artifact.artifact_payload_hash,
+        source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
+      },
+      cache_identity: {
+        context_cache_key_hashes: [preflight.artifact.context_cache_key_hash],
+        prompt_packet_cache_key_hashes: [preflight.artifact.prompt_packet_cache_key_hash],
+      },
+      source_refs: [...request.source_refs],
+      source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
+    };
+    const finalArtifact = this.buildRuntimeArtifact(runtimeBase, request, {
+      artifactScope: 'final',
+      roleSlotId: null,
+      callIndex: null,
+      executorKind: runtimeBase.profile.roleExecutorKind,
+      artifactContractId: runtimeBase.profile.artifactContractId,
+      artifactContractVersion: 'v1',
+      outputSchemaId: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_FINAL_OUTPUT_SCHEMA_ID,
+      artifactPayloadRefType: runtimeBase.profile.finalArtifactRefType,
+      artifactPayloadSeed: 'final',
+      promptPacketHash: preflight.artifact.prompt_packet_hash,
+      promptVariantId: 'final',
+      runtimeStatus: 'blocked',
+      runtimeFailureCode: null,
+      retryAttemptIndex: 0,
+      providerCallCount: 0,
+      blockerCodes,
+      warningCodes: [],
+      output: finalPayload,
+      artifactPayload: finalPayload as unknown as Record<string, unknown>,
+      priorRoleArtifacts: [preflight],
+      finalArtifactHash: this.hash(finalPayload),
+      finalArtifactRefType: runtimeBase.profile.finalArtifactRefType,
+      modelOptionId: runtimeBase.modelOptionId,
+      auditHash: this.hash({
+        run_id: runtimeBase.runId,
+        final_payload_hash: this.hash(finalPayload),
+        role_artifact_hash: preflight.artifact.artifact_payload_hash,
+      }),
+    });
+    const stored = await this.runtimeAdmission.recordRuntimeArtifact(finalArtifact);
+    const admission = await this.admit(stored, 'final');
+    return { artifact: stored, admission };
   }
 
   private async recordRoleArtifact<TOutput extends PaperImplementationMotiveEvolutionRoleOutput>(
@@ -695,6 +829,11 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     });
     const optionSetHash = this.optionSetHashFromArtifacts(input.priorRoleArtifacts, input.output);
     const runtimeIdentity = {
+      // S2-C C2: run_id pins the identity granularity explicitly to one runtime
+      // run — replaying the same run_id (idempotent double-submit) collides on
+      // the runtimeIdentityHash unique constraint (409), while a legitimate
+      // re-advance/new run always carries a fresh run_id and never collides.
+      run_id: runtimeBase.runId,
       implementation_project_id: runtimeBase.implementationProjectId,
       workflow_type: runtimeBase.profile.workflowType,
       slot_id: runtimeBase.profile.slotId,
@@ -1080,6 +1219,16 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     ];
   }
 
+  // S2-A / PC-S4 boundary note: the motive slots are documented-as-within-budget —
+  // their expected product inputs (portfolio refs + bounded motive context packets)
+  // sit well inside the 36k input target, so the caller-side compression attempt
+  // (PC-S1..S3) is deliberately NOT wired here. NOTE the request DOES carry a
+  // `motive_context_packets` body face; if product telemetry ever shows this slot
+  // hitting `TOKEN_BUDGET_REQUIRES_COMPRESSION`, wire the shared
+  // `buildPaperImplementationCompressionAttempt` builder exactly like the six packet
+  // slots. Until then over-budget stays fail-closed
+  // (L5 `motive_evolution_over_budget_zero_provider_calls`). The N3 token
+  // double-count fix below applies here regardless.
   private runtimeTokenBudget(
     runtimeBase: RuntimeBase,
     request: RunPaperImplementationMotiveEvolutionRuntimeRequest,
@@ -1087,27 +1236,14 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     messages: Array<{ role: 'system' | 'user'; content: string }>,
     priorRoleArtifacts: RecordedRuntimeArtifact<PaperImplementationMotiveEvolutionRoleOutput>[],
   ): TopicSelectionAgentRuntimeTokenBudgetInput {
-    const contextPayloads = [{
-      target_ref: request.target_ref,
-      target_motive_refs: request.target_motive_refs,
-      target_core_motive_version_refs: request.target_core_motive_version_refs,
-      portfolio_snapshot_ref: request.portfolio_snapshot_ref,
-      evidence_board_refs: request.evidence_board_refs,
-      evidence_binding_refs: request.evidence_binding_refs,
-      challenge_refs: request.challenge_refs,
-      conflict_refs: request.conflict_refs,
-      trace_manifest_refs: request.trace_manifest_refs,
-      human_confirmation_policy_ref: request.human_confirmation_policy_ref,
-      motive_context_packets: request.motive_context_packets ?? [],
-      source_refs: request.source_refs,
-      source_hashes: request.source_hashes,
-      source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
-      prior_role_hashes: priorRoleArtifacts.map((item) => item.artifact.artifact_payload_hash),
-    }];
     return {
       context_policy_profile: runtimeBase.contextPolicyProfile,
       context_policy_profile_hash: runtimeBase.contextPolicyProfileHash,
-      context_payloads: contextPayloads,
+      // N3 double-count fix: the request body (incl. motive_context_packets and prior
+      // role artifact identity) is already embedded verbatim in `messages`;
+      // context_payloads must not re-carry the same content — the estimate below is
+      // the single source of truth.
+      context_payloads: [],
       extra_payloads: [{
         slot_id: runtimeBase.profile.slotId,
         role_slot_id: role.roleSlotId,
@@ -1119,10 +1255,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         context_packet_count: request.motive_context_packets?.length ?? 0,
         prior_role_artifact_count: priorRoleArtifacts.length,
       }],
-      estimated_input_tokens_override: this.estimatedInputTokens({
-        messages,
-        context_payloads: contextPayloads,
-      }),
+      estimated_input_tokens_override: this.estimatedInputTokens({ messages }),
       schema_overhead_tokens_override: 2_000,
     };
   }
@@ -1951,8 +2084,16 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     return request.target_ref.title_card_id ?? null;
   }
 
+  /**
+   * S2-B B2: unified coordinator-wide run_mode mapping — identical to every
+   * sibling slot service (mock→test, product→product, dry_run/replay→
+   * acceptance). The previous dry_run→test fork conflicted with the
+   * provider_llm profile run_mode_eligibility (acceptance|product) and made
+   * dry_run + provider_llm deterministically INVALID_PAYLOAD for this slot
+   * only (gs001-lora-live-001).
+   */
   private topicRunMode(runMode: RunPaperImplementationMotiveEvolutionRuntimeRequest['run_mode']): 'test' | 'acceptance' | 'product' {
-    if (runMode === 'dry_run') {
+    if (runMode === 'mock') {
       return 'test';
     }
     if (runMode === 'product') {

@@ -720,3 +720,183 @@ function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
 function hash(value: unknown): string {
   return sha256Text(stableStringify(value));
 }
+
+test('route planning runtime token budget counts message-embedded context once and wires the compression attempt (S2-A)', async () => {
+  const fatText = 'Neutral benchmark evidence sentence with cited source support and no secrets. '.repeat(200);
+  const { service, orchestrator } = serviceFixture(['passed_architecture']);
+  const base = providerRequest('architecture');
+  const request = {
+    ...base,
+    run_id: 'route_architecture_token_budget_run_001',
+    source_context_packets: [{
+      source_ref: base.source_refs[0],
+      evidence_kind: 'admitted_upstream_proposal',
+      content_summary: fatText,
+      key_facts: [fatText, 'bounded key fact with cited source support.'],
+    }],
+  };
+  await service.runRouteArchitecture(PROJECT_ID, request);
+
+  const call = orchestrator.calls[0];
+  assert.ok(call);
+  const budget = call.runtime_token_budget as {
+    context_payloads: unknown[];
+    estimated_input_tokens_override: number;
+    compression_attempt?: {
+      compression_executor_kind: string;
+      compressed_messages?: Array<{ role: string; content: string }> | null;
+    } | null;
+  };
+  const messages = call.messages;
+  // N3 single-source estimate: exactly the messages that will be sent, counted once.
+  assert.equal(
+    budget.estimated_input_tokens_override,
+    Math.ceil(stableStringify({ messages }).length / 4),
+  );
+  assert.deepEqual(budget.context_payloads, []);
+  // Re-carrying the embedded packet bodies (the pre-fix shape) would roughly double
+  // the estimate for packet-dominated inputs.
+  const doubleCounted = Math.ceil(stableStringify({
+    messages,
+    context_payloads: [{ source_context_packets: request.source_context_packets }],
+  }).length / 4);
+  assert.equal(budget.estimated_input_tokens_override <= Math.ceil(doubleCounted * 0.6), true);
+  // PC-S2/PC-S3: a packet face yields a caller-supplied deterministic attempt.
+  assert.ok(budget.compression_attempt);
+  assert.equal(budget.compression_attempt.compression_executor_kind, 'deterministic_structural');
+  assert.equal((budget.compression_attempt.compressed_messages?.length ?? 0) > 0, true);
+
+  const noPackets = serviceFixture(['passed_architecture']);
+  await noPackets.service.runRouteArchitecture(PROJECT_ID, {
+    ...providerRequest('architecture'),
+    run_id: 'route_architecture_token_budget_run_002',
+  });
+  const noPacketBudget = noPackets.orchestrator.calls[0]?.runtime_token_budget as {
+    compression_attempt?: unknown;
+  };
+  assert.equal(noPacketBudget.compression_attempt ?? null, null);
+});
+
+class MockedEchoRouteAgentOrchestrator {
+  readonly calls: Array<{ node_id: string; execution_mode: string }> = [];
+
+  async invokeStructuredOutput<T>(
+    input: { node_id: string; execution_mode: string; mocked_output?: { output: T } | null },
+  ): Promise<TopicSelectionAgentInvocationResult<T>> {
+    this.calls.push(input);
+    const output = input.mocked_output?.output ?? null;
+    if (output === null) {
+      throw new Error(`mocked_output is required for ${input.node_id}.`);
+    }
+    return invocationResult(output, input.node_id, input.execution_mode);
+  }
+}
+
+function mockedEchoServiceFixture() {
+  const repository = new InMemoryPaperImplementationRuntimeRepository();
+  let sequence = 0;
+  const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository,
+    idFactory,
+    now: () => NOW,
+  });
+  const projectRepository = projectRepositoryFixture(implementationProjectFixture());
+  const orchestrator = new MockedEchoRouteAgentOrchestrator();
+  const service = new PaperImplementationRoutePlanningRuntimeService({
+    projectRepository,
+    runtimeAdmission,
+    agentOrchestrator: orchestrator,
+    idFactory,
+    now: () => NOW,
+  });
+  const seedLineage = () => seedAdmittedRoutePlanningLineage({
+    projectRepository,
+    runtimeAdmission,
+    implementationProjectId: PROJECT_ID,
+    titleCardId: TITLE_CARD_ID,
+    idFactory,
+    now: () => NOW,
+  });
+  return { service, orchestrator, seedLineage };
+}
+
+function mockedSkepticRequest(
+  lineage: { routeProposalRef: TopicSelectionFunctionalRef; routeProposalHash: string },
+  fixture: PaperImplementationRoutePlanningRoleOutput,
+  runId: string,
+): RunPaperImplementationRoutePlanningRuntimeRequest {
+  return {
+    ...providerRequest('skeptic', { ref: lineage.routeProposalRef, hash: lineage.routeProposalHash }),
+    run_id: runId,
+    run_mode: 'mock',
+    execution_mode: 'mocked_llm',
+    model_profile_id: null,
+    model_option_id: null,
+    mocked_role_outputs: {
+      [PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID]: fixture,
+    },
+  };
+}
+
+test('route skeptic runtime synthesizes missing fixture echo fields slot-side and flags blocked output without repair guidance (S2-C C4)', async () => {
+  const { service, seedLineage } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    role_status: 'blocked',
+    blocker_codes: ['ROUTE_SKEPTIC_SCOPE_RISK'],
+    // Missing/placeholder echo fields are normalized slot-side from the
+    // request-injected admitted values (coordinator alignment sink).
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_fixture_echo_blocked_run_001'),
+  );
+
+  assert.equal(result.status, 'blocked');
+  const roleOutputPayload = result.runtime_artifacts[0]?.artifact_payload.role_output as
+    { reviewed_route_proposal_hash?: string | null } | undefined;
+  assert.equal(roleOutputPayload?.reviewed_route_proposal_hash, lineage.routeProposalHash);
+  // Transitional pre-S3 completeness check: blocked skeptic outcome without a
+  // single required_revision_refs entry gets a non-blocking warning.
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('ROUTE_SKEPTIC_REPAIR_SUGGESTIONS_MISSING'),
+    true,
+  );
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+});
+
+test('route skeptic runtime omits the repair-suggestions warning when blocked findings carry revision refs (S2-C C4)', async () => {
+  const { service, seedLineage } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    role_status: 'blocked',
+    blocker_codes: ['ROUTE_SKEPTIC_SCOPE_RISK'],
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+    risk_findings: [{
+      finding_id: 'route_risk_finding_scope_001',
+      risk_dimension: 'scope_boundary',
+      severity: 'blocking',
+      summary: 'Scope boundary must be revised before the route can proceed.',
+      evidence_refs: [ref('implementation_input_snapshot', 'input_snapshot_001')],
+      affected_candidate_keys: ['exploratory_route_candidate'],
+      required_revision_refs: [ref('technical_route_candidate', 'route_candidate_revision_001')],
+      blocks_route_progression: true,
+    }],
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_fixture_echo_blocked_run_002'),
+  );
+
+  assert.equal(result.status, 'blocked');
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('ROUTE_SKEPTIC_REPAIR_SUGGESTIONS_MISSING'),
+    false,
+  );
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+});

@@ -49,6 +49,9 @@ import {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+} from './paper-implementation-runtime-utils.js';
+import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
 } from './paper-implementation-runtime-operational-telemetry.js';
@@ -175,12 +178,8 @@ const SLOT_PROFILE: SlotProfile = {
 };
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
-const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
-  'TimeoutError',
-  'TransientError',
-  'RateLimitError',
-  'UpstreamError',
-  'SCHEMA_VALIDATION_FAILED',
+const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
+  ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MISSING',
   'RESULT_ANALYSIS_SCENARIO_SET_INCOMPLETE',
 ]);
@@ -544,6 +543,11 @@ export class PaperImplementationResultAnalysisRuntimeService {
       prior_hashes: input.priorRoleArtifacts.map((item) => item.artifact.artifact_payload_hash),
     });
     const runtimeIdentity = {
+      // S2-C C2: run_id pins the identity granularity explicitly to one runtime
+      // run — replaying the same run_id (idempotent double-submit) collides on
+      // the runtimeIdentityHash unique constraint (409), while a legitimate
+      // re-advance/new run always carries a fresh run_id and never collides.
+      run_id: runtimeBase.runId,
       implementation_project_id: runtimeBase.implementationProjectId,
       workflow_type: SLOT_PROFILE.workflowType,
       slot_id: SLOT_PROFILE.slotId,
@@ -837,30 +841,27 @@ export class PaperImplementationResultAnalysisRuntimeService {
     ];
   }
 
+  // S2-A boundary note: result-analysis does NOT wire the caller-side compression
+  // attempt (its request face is refs/hashes only — no packet body to trim). The N3
+  // token double-count fix below applies here regardless.
   private runtimeTokenBudget(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    _request: RunPaperImplementationResultAnalysisRuntimeRequest,
     messages: Array<{ role: 'system' | 'user'; content: string }>,
   ): TopicSelectionAgentRuntimeTokenBudgetInput {
-    const contextPayloads = [{
-      target_ref: request.target_ref,
-      source_refs: request.source_refs,
-      source_hashes: request.source_hashes,
-      source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
-    }];
     return {
       context_policy_profile: runtimeBase.contextPolicyProfile,
       context_policy_profile_hash: runtimeBase.contextPolicyProfileHash,
-      context_payloads: contextPayloads,
+      // N3 double-count fix: the request refs are already embedded verbatim in
+      // `messages`; context_payloads must not re-carry them — the estimate below is
+      // the single source of truth.
+      context_payloads: [],
       extra_payloads: [{
         slot_id: SLOT_PROFILE.slotId,
         role_slot_id: SLOT_PROFILE.roleSlotId,
         required_scenario_kinds: ['positive', 'negative', 'inconclusive', 'failed_run'],
       }],
-      estimated_input_tokens_override: this.estimatedInputTokens({
-        messages,
-        context_payloads: contextPayloads,
-      }),
+      estimated_input_tokens_override: this.estimatedInputTokens({ messages }),
       schema_overhead_tokens_override: 1_000,
     };
   }

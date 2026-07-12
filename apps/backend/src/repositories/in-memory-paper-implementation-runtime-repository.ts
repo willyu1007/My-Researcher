@@ -14,6 +14,7 @@ export class InMemoryPaperImplementationRuntimeRepository
 implements PaperImplementationRuntimeRepository {
   private readonly runtimeArtifacts = new Map<string, PaperImplementationRuntimeArtifactEnvelope>();
   private readonly runtimeArtifactIdsByProject = new Map<string, string[]>();
+  private readonly runtimeArtifactIdsByIdentityHash = new Map<string, string>();
   private readonly admissionRecords = new Map<string, PaperImplementationRuntimeAdmissionRecord>();
   private readonly admissionRecordIdsByProject = new Map<string, string[]>();
 
@@ -21,7 +22,18 @@ implements PaperImplementationRuntimeRepository {
     artifact: PaperImplementationRuntimeArtifactEnvelope,
   ): Promise<PaperImplementationRuntimeArtifactEnvelope> {
     this.assertNewId(this.runtimeArtifacts, artifact.runtime_artifact_id, 'RuntimeArtifact');
+    // S2-C C2: mirrors the Prisma unique constraint on runtimeIdentityHash —
+    // replaying the same runtime identity must conflict, not silently fork rows.
+    const existingId = this.runtimeArtifactIdsByIdentityHash.get(artifact.runtime_identity_hash);
+    if (existingId) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `RuntimeArtifact with runtime_identity_hash ${artifact.runtime_identity_hash} already exists (${existingId}).`,
+      );
+    }
     const stored = structuredClone(artifact);
+    this.runtimeArtifactIdsByIdentityHash.set(stored.runtime_identity_hash, stored.runtime_artifact_id);
     this.runtimeArtifacts.set(stored.runtime_artifact_id, stored);
     this.pushId(
       this.runtimeArtifactIdsByProject,
@@ -50,6 +62,21 @@ implements PaperImplementationRuntimeRepository {
       .map((id) => this.runtimeArtifacts.get(id))
       .filter((artifact): artifact is PaperImplementationRuntimeArtifactEnvelope => Boolean(artifact))
       .filter((artifact) => this.matchesRuntimeArtifactFilter(artifact, filter))
+      .map((artifact) => structuredClone(artifact));
+  }
+
+  async listFinalRuntimeArtifactsByFinalArtifactRef(
+    implementationProjectId: string,
+    refType: string,
+    refId: string,
+  ): Promise<PaperImplementationRuntimeArtifactEnvelope[]> {
+    return (this.runtimeArtifactIdsByProject.get(implementationProjectId) ?? [])
+      .map((id) => this.runtimeArtifacts.get(id))
+      .filter((artifact): artifact is PaperImplementationRuntimeArtifactEnvelope => Boolean(artifact))
+      .filter((artifact) => artifact.artifact_scope === 'final'
+        && artifact.final_artifact_ref !== null
+        && artifact.final_artifact_ref.ref_type === refType
+        && artifact.final_artifact_ref.ref_id === refId)
       .map((artifact) => structuredClone(artifact));
   }
 

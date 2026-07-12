@@ -63,6 +63,20 @@ implements PaperImplementationRuntimeRepository {
       });
       return toRuntimeArtifact(row);
     } catch (error) {
+      // S2-C C2: the runtimeIdentityHash unique constraint turns an identity
+      // replay (same run_id + same inputs) into a 409 VERSION_CONFLICT instead
+      // of a silently forked row.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+        && error.code === 'P2002'
+        && /runtimeIdentityHash|pi_runtime_artifact_identity_idx/.test(JSON.stringify(error.meta?.target ?? ''))
+      ) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `RuntimeArtifact with runtime_identity_hash ${artifact.runtime_identity_hash} already exists.`,
+        );
+      }
       mapDuplicate(error, 'RuntimeArtifact', artifact.runtime_artifact_id);
     }
   }
@@ -91,6 +105,25 @@ implements PaperImplementationRuntimeRepository {
     };
     const rows = await this.prisma.paperImplementationRuntimeArtifact.findMany({
       where,
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map(toRuntimeArtifact);
+  }
+
+  async listFinalRuntimeArtifactsByFinalArtifactRef(
+    implementationProjectId: string,
+    refType: string,
+    refId: string,
+  ): Promise<PaperImplementationRuntimeArtifactEnvelope[]> {
+    const rows = await this.prisma.paperImplementationRuntimeArtifact.findMany({
+      where: {
+        implementationProjectId,
+        artifactScope: 'final',
+        AND: [
+          { finalArtifactRef: { path: ['ref_type'], equals: refType } },
+          { finalArtifactRef: { path: ['ref_id'], equals: refId } },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map(toRuntimeArtifact);

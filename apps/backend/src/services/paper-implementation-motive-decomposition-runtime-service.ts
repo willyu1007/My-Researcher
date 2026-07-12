@@ -53,6 +53,9 @@ import {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+} from './paper-implementation-runtime-utils.js';
+import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
 } from './paper-implementation-runtime-operational-telemetry.js';
@@ -193,12 +196,8 @@ const DRAFT_ASSERTION_CANDIDATES_MODEL_OPTION_IDS = new Set([
 ]);
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
-const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
-  'TimeoutError',
-  'TransientError',
-  'RateLimitError',
-  'UpstreamError',
-  'SCHEMA_VALIDATION_FAILED',
+const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
+  ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   'MOTIVE_DECOMPOSITION_REQUIRED_REFS_MISSING',
   'MOTIVE_DECOMPOSITION_REVIEW_SET_MISMATCH',
   'MOTIVE_DECOMPOSITION_REF_MISMATCH',
@@ -279,11 +278,25 @@ export class PaperImplementationMotiveDecompositionRuntimeService {
       ...this.requestBoundaryBlockerCodes(request),
     ]);
 
+    // S2-C C3 (review F5/N6): preflight blockers land as a reviewable blocked
+    // final that admission records as admitted — unified with the other slots
+    // (route/skeptic/cycle/feasibility/cross-board), no more failed_runtime
+    // preflight terminal without a final artifact.
     if (preflightBlockerCodes.length > 0) {
       const preflight = await this.recordPreflightBlockedArtifact(runtimeBase, request, preflightBlockerCodes);
       artifacts.push(preflight.artifact);
       admissions.push(preflight.admission);
-      return this.result(runtimeBase, 'failed_runtime', 0, artifacts, admissions, null, null);
+      const final = await this.recordFinalArtifact(runtimeBase, request, {
+        roleArtifact: preflight,
+        status: 'blocked',
+        runtimeFailureCode: null,
+        providerCallCount: 0,
+        blockerCodes: preflightBlockerCodes,
+        warningCodes: [],
+      });
+      artifacts.push(final.artifact);
+      admissions.push(final.admission);
+      return this.result(runtimeBase, 'blocked', 0, artifacts, admissions, final.artifact, final.admission);
     }
 
     const roleInvocation = await this.invokeRoleWithBoundedRetry(runtimeBase, request);
@@ -421,10 +434,25 @@ export class PaperImplementationMotiveDecompositionRuntimeService {
       reason_kind: 'missing_or_invalid_required_refs',
       details: { blocker_codes: blockerCodes },
     };
-    const output = {
-      status: 'failed_runtime',
-      error_code: 'MOTIVE_DECOMPOSITION_PREFLIGHT_BLOCKED',
+    // S2-C C3: the preflight terminal is a blocked (admitted) role output, not
+    // a failed_runtime artifact — unified preflight semantics across slots.
+    const output: PaperImplementationMotiveDecompositionRoleOutput = {
+      role_slot_id: runtimeBase.profile.roleSlotId,
+      role_status: 'blocked',
+      summary: 'Deterministic motive-decomposition preflight found blockers before provider execution.',
+      cited_source_refs: [...request.source_refs],
+      decomposition_result_status: 'blocked',
+      reviewed_assertion_refs: [],
+      draft_assertion_candidates: [],
       blocker_codes: blockerCodes,
+      warning_codes: [],
+      no_domain_gate_request: true,
+      no_queue_side_effect: true,
+      no_motive_write_side_effect: true,
+      no_motive_evolution_side_effect: true,
+      no_board_write_side_effect: true,
+      no_evidence_binding_side_effect: true,
+      no_trace_repair_queue_side_effect: true,
     };
     const artifactPayload = this.roleArtifactPayload(runtimeBase, request, output, runtimeControl);
     const artifact = this.buildRuntimeArtifact(runtimeBase, request, {
@@ -443,8 +471,8 @@ export class PaperImplementationMotiveDecompositionRuntimeService {
         source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
       }),
       promptVariantId: 'deterministic-preflight',
-      runtimeStatus: 'failed_runtime',
-      runtimeFailureCode: 'MOTIVE_DECOMPOSITION_PREFLIGHT_BLOCKED',
+      runtimeStatus: 'blocked',
+      runtimeFailureCode: null,
       providerCallCount: 0,
       blockerCodes,
       warningCodes: [],
@@ -454,7 +482,7 @@ export class PaperImplementationMotiveDecompositionRuntimeService {
     });
     const stored = await this.runtimeAdmission.recordRuntimeArtifact(artifact);
     const admission = await this.admit(stored, 'role');
-    return { artifact: stored, admission, output: null };
+    return { artifact: stored, admission, output };
   }
 
   private async recordRoleArtifact(
@@ -590,6 +618,11 @@ export class PaperImplementationMotiveDecompositionRuntimeService {
       prior_hashes: input.priorRoleArtifacts.map((item) => item.artifact.artifact_payload_hash),
     });
     const runtimeIdentity = {
+      // S2-C C2: run_id pins the identity granularity explicitly to one runtime
+      // run — replaying the same run_id (idempotent double-submit) collides on
+      // the runtimeIdentityHash unique constraint (409), while a legitimate
+      // re-advance/new run always carries a fresh run_id and never collides.
+      run_id: runtimeBase.runId,
       implementation_project_id: runtimeBase.implementationProjectId,
       workflow_type: runtimeBase.profile.workflowType,
       slot_id: runtimeBase.profile.slotId,
@@ -927,30 +960,28 @@ export class PaperImplementationMotiveDecompositionRuntimeService {
     ];
   }
 
+  // S2-A / PC-S4 boundary note: the motive slots are documented-as-within-budget —
+  // their expected product inputs (assertion refs + bounded assertion context
+  // packets) sit well inside the 30k input target, so the caller-side compression
+  // attempt (PC-S1..S3) is deliberately NOT wired here. NOTE the request DOES carry
+  // an `assertion_context_packets` body face; if product telemetry ever shows this
+  // slot hitting `TOKEN_BUDGET_REQUIRES_COMPRESSION`, wire the shared
+  // `buildPaperImplementationCompressionAttempt` builder exactly like the six packet
+  // slots. Until then over-budget stays fail-closed
+  // (L5 `motive_decomposition_over_budget_zero_provider_calls`). The N3 token
+  // double-count fix below applies here regardless.
   private runtimeTokenBudget(
     runtimeBase: RuntimeBase,
     request: RunPaperImplementationMotiveDecompositionRuntimeRequest,
     messages: Array<{ role: 'system' | 'user'; content: string }>,
   ): TopicSelectionAgentRuntimeTokenBudgetInput {
-    const contextPayloads = [{
-      decomposition_mode: request.decomposition_mode,
-      target_ref: request.target_ref,
-      target_motive_ref: request.target_motive_ref,
-      target_core_motive_version_ref: request.target_core_motive_version_ref,
-      target_assertion_refs: request.target_assertion_refs,
-      assertion_context_packets: request.assertion_context_packets,
-      source_refs: request.source_refs,
-      source_hashes: request.source_hashes,
-      trace_manifest_refs: request.trace_manifest_refs,
-      source_locator_refs: request.source_locator_refs,
-      citation_candidate_refs: request.citation_candidate_refs,
-      evidence_refs: request.evidence_refs,
-      source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
-    }];
     return {
       context_policy_profile: runtimeBase.contextPolicyProfile,
       context_policy_profile_hash: runtimeBase.contextPolicyProfileHash,
-      context_payloads: contextPayloads,
+      // N3 double-count fix: the request body (incl. assertion_context_packets) is
+      // already embedded verbatim in `messages`; context_payloads must not re-carry
+      // the same content — the estimate below is the single source of truth.
+      context_payloads: [],
       extra_payloads: [{
         slot_id: runtimeBase.profile.slotId,
         role_slot_id: runtimeBase.profile.roleSlotId,
@@ -960,10 +991,7 @@ export class PaperImplementationMotiveDecompositionRuntimeService {
         citation_candidate_ref_count: request.citation_candidate_refs.length,
         evidence_ref_count: request.evidence_refs.length,
       }],
-      estimated_input_tokens_override: this.estimatedInputTokens({
-        messages,
-        context_payloads: contextPayloads,
-      }),
+      estimated_input_tokens_override: this.estimatedInputTokens({ messages }),
       schema_overhead_tokens_override: 1_500,
     };
   }

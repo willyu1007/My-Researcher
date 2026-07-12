@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '../..');
 const RUNNER_ID = 'paper-implementation-golden-scenario';
-const RUNNER_VERSION = 't124-s5-gs001-lora-v1';
+const RUNNER_VERSION = 't124-s5-gs001-lora-v2';
 const SCENARIO_ID = 'gs-001-lora';
 
 if (process.env.PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_LIVE !== '1') {
@@ -146,29 +146,27 @@ const PROFILE = {
 const modelOptionId = (profileId) => providerId === 'dashscope'
   ? `${profileId}.dashscope-thinking-budget`
   : `${profileId}.openai-balanced`;
-const RUN_MODE = 'dry_run'; // coordinator 非 product 实跑模式；lane A/board 服务映射为 'acceptance'
-/**
- * 首跑实证（run gs001-lora-live-001）：motive-evolution runtime service 的 topicRunMode
- * 把 dry_run 映射为 'test'（其余全部 lane 服务映射 mock→test / dry_run→acceptance），而
- * provider_llm 的 profile run_mode_eligibility 仅允许 acceptance|product → dry_run 下
- * motive lane 必然 INVALID_PAYLOAD。这是产品侧映射不一致（已登记为发现，不在 runner 修产品）；
- * runner 侧解法：motive lane 用 'replay'——两个 motive 槽都映射为 'acceptance'，语义等价实跑。
- */
-const MOTIVE_LANE_RUN_MODE = 'replay';
+// coordinator 非 product 实跑模式；全部 slot 服务统一映射为 'acceptance'。
+// （S2-B B2 已修复 motive-evolution 的 dry_run→test 映射分叉，motive lane 不再需要
+// 以 run_mode='replay' 绕行——全 lane 直接用 dry_run。）
+const RUN_MODE = 'dry_run';
 const EXECUTION_MODE = 'provider_llm';
 
 /**
  * S5 首跑期间实证的产品侧发现（runner 不修产品语义，只在人审包里如实呈现；
  * 证据落盘见 run gs001-lora-live-001/002 与 03-implementation-notes S5 条目）。
+ * S5-F1/F2/F3 已由 S2-B（2026-07-11）在产品侧修复，保留为历史发现并标注 resolution。
  */
 const KNOWN_PRODUCT_FINDINGS = [
   {
     id: 'S5-F1',
     finding: 'motive-evolution runtime service 的 topicRunMode 把 dry_run 映射为 test（其余 lane 服务均为 '
       + 'mock→test / dry_run→acceptance），与 provider_llm profile eligibility（acceptance|product）冲突：'
-      + 'dry_run + provider_llm 下 motive lane 必然 INVALID_PAYLOAD。runner 以 run_mode=replay 绕行（两槽均映射 acceptance）。',
+      + 'dry_run + provider_llm 下 motive lane 必然 INVALID_PAYLOAD。首跑时 runner 以 run_mode=replay 绕行。',
     evidence: 'run gs001-lora-live-001 step motive_evolution blocked INVALID_PAYLOAD（0 provider calls）；'
       + 'paper-implementation-motive-evolution-runtime-service.ts topicRunMode 与兄弟服务对照。',
+    resolution: 'S2-B B2 已修复：motive-evolution topicRunMode 与兄弟服务统一（mock→test / dry_run·replay→acceptance / '
+      + 'product→product），负例测试锁定；runner 的 replay 绕行已删除，motive lane 与其余 lane 一致用 dry_run。',
   },
   {
     id: 'S5-F2',
@@ -177,13 +175,17 @@ const KNOWN_PRODUCT_FINDINGS = [
       + '对 openai provider 永远 InvalidRequestError（400: string too long），live 全链在此产品缺陷处如实中断。',
     evidence: 'run gs001-lora-live-002 step motive_evolution failed_runtime InvalidRequestError（1 provider call）；'
       + 'gateway 400 原文 "Invalid \'text.format.name\': string too long... maximum length 64, got 65"。',
+    resolution: 'S2-B B1 已修复：两个 schema_name 去掉 "_role" 段（..._option_designer_output / ..._risk_challenger_output，'
+      + '60 字符），回归测试钉死 ≤64 且符合 ^[a-zA-Z0-9_-]+$。',
   },
   {
     id: 'S5-F3',
     finding: 'coordinator lane A 在 provider 模式下，下游 slot（skeptic/cycle/feasibility）只拿到上游 admitted '
-      + 'artifact 的 ref+hash，拿不到内容——skeptic 如实以 *_NOT_INSPECTABLE 类 blocker 拒绝。当前靠人工队列回流'
-      + '（override 注入逐字转写的上游内容 packet）续链；链内内容供给应成为 S2/S3 的产品化考虑点。',
+      + 'artifact 的 ref+hash，拿不到内容——skeptic 如实以 *_NOT_INSPECTABLE 类 blocker 拒绝。首跑时靠人工队列回流'
+      + '（override 注入逐字转写的上游内容 packet）续链。',
     evidence: 'run gs001-lora-live-001 step route_skeptic_review blocked（PRIMARY_ROUTE_PROPOSAL_CONTENT_NOT_INSPECTABLE 等 6 码）。',
+    resolution: 'S2-B B3 已修复：coordinator 链内消费步注入上游 admitted 提案正文（source_context_packets 确定性逐字转写，'
+      + 'identity/hash 纪律不变）；runner 的手工 resolver 补喂步骤已删除。',
   },
   {
     id: 'S5-F4',
@@ -401,7 +403,7 @@ function motiveDraftPayload() {
       ],
       claim_types_allowed: ['analysis_claim'],
     },
-    source_refs: [ref('topic_package', T.topicPackage, 'v1')],
+    source_refs: [ref('topic_package', T.topicPackage, 'v2')],
     assertions: [
       {
         assertion_id: T.assertionMotivationPressure,
@@ -780,6 +782,28 @@ function laneAContextPackets(kindFacts) {
         `Budget envelope: ${LORA.budget_envelope.scale}; model scale ${LORA.budget_envelope.model_scale}; `
         + `evaluation ${LORA.budget_envelope.evaluation_scale}; ${LORA.budget_envelope.max_compute}; `
         + `max runtime ${LORA.budget_envelope.max_runtime}; retry budget ${LORA.budget_envelope.retry_budget}.`,
+        // v2 pre-commitments（选题包 v2：skeptic RR-002/003/004/006 逐条化解，内容取自内容核）
+        `Confirmatory budget matrix (pre-committed, v2): ${LORA.confirmatory_budget_matrix.gpu_constraint}; `
+        + `${LORA.confirmatory_budget_matrix.total_training_budget}; stage budgets: probe `
+        + `${LORA.confirmatory_budget_matrix.stage_budgets.stage0_feasibility_probe}, baseline reproduction `
+        + `${LORA.confirmatory_budget_matrix.stage_budgets.stage1_baseline_reproduction}, confirmatory `
+        + `${LORA.confirmatory_budget_matrix.stage_budgets.stage2_confirmatory_matrix}. `
+        + `${LORA.confirmatory_budget_matrix.confirmatory_matrix_definition} `
+        + `Max repeats per task: ${LORA.confirmatory_budget_matrix.max_repeats_per_task}. `
+        + `${LORA.confirmatory_budget_matrix.hyperparameter_policy} ${LORA.confirmatory_budget_matrix.rank_policy} `
+        + `Latency protocol: ${LORA.confirmatory_budget_matrix.latency_protocol} `
+        + `Checkpoint policy: ${LORA.confirmatory_budget_matrix.checkpoint_policy}`,
+        `Dataset/metric pre-commitments (pre-registered, v2): ${LORA.dataset_metric_precommitments.alignment_criterion} `
+        + `Committed tasks: ${LORA.dataset_metric_precommitments.tasks
+          .map((t) => `${t.task} (${t.primary_metric}; full FT reproduction target ${t.full_finetune_reproduction_target})`)
+          .join('; ')}. `
+        + `Secondary metrics: ${LORA.dataset_metric_precommitments.secondary_metrics.join('; ')}.`,
+        `Baseline control checklist (v2): ${LORA.baseline_control_checklist
+          .map((b) => `${b.baseline} [${b.obligation}] success: ${b.success_criterion}; on failure: ${b.on_failure}`)
+          .join(' | ')}`,
+        `Staged route dependency (v2): ${LORA.staged_route_dependency.stage0_gate} `
+        + `${LORA.staged_route_dependency.baseline_gate} `
+        + `Confirmatory/exploratory boundary: ${LORA.staged_route_dependency.confirmatory_exploratory_boundary}`,
         ...kindFacts,
       ],
     },
@@ -991,13 +1015,11 @@ function laneSummary(result) {
  * 推进一条 coordinator lane。
  * - waiting_review：如实记录停驻（review packet 呈现原始 disposition），随后至多一次
  *   不改载荷的 override re-advance（actor 记录；新 attempt 真跑 LLM，不伪造 disposition）。
- * - blocked：若传入 resolveBlocked 回调（lane A 的"队列处理人"角色），按 W4 队列语义
- *   `resolve_then_re_advance`——以 slot_request_payload_overrides 注入确定性转写的上游
- *   admitted artifact 内容后 re-advance（至多 maxBlockedResolves 次）；否则如实终止。
+ * - blocked：如实终止（有效终态）。上游提案正文由 coordinator 链内注入（S2-B B3），
+ *   首跑时代偿用的手工队列回流补喂（resolveBlocked）已删除。
  */
-async function runCoordinatorLane(app, projectId, laneKey, createBody, options = {}) {
+async function runCoordinatorLane(app, projectId, laneKey, createBody) {
   const startedAt = Date.now();
-  const maxBlockedResolves = options.maxBlockedResolves ?? 0;
   const created = await inject(app, {
     stepId: `${laneKey}-create`,
     method: 'POST',
@@ -1007,10 +1029,8 @@ async function runCoordinatorLane(app, projectId, laneKey, createBody, options =
   });
   const coordinatorRunId = created.coordinator_run_id;
   const advances = [];
-  const resolverActions = [];
   let advanceIndex = 0;
   let waitingResolves = 0;
-  let blockedResolves = 0;
 
   const advance = async (label, payload) => {
     advanceIndex += 1;
@@ -1054,116 +1074,18 @@ async function runCoordinatorLane(app, projectId, laneKey, createBody, options =
       });
       break;
     }
-    if (result.run.run_status === 'blocked' && options.resolveBlocked && blockedResolves < maxBlockedResolves) {
-      const blockedStep = [...result.steps].reverse().find((step) => step.outcome !== 'passed');
-      const resolution = await options.resolveBlocked(blockedStep, result);
-      if (!resolution) {
-        break;
-      }
-      blockedResolves += 1;
-      resolverActions.push({
-        actor: 'gs001_queue_resolver_reviewer',
-        resolved_step_index: blockedStep?.step_index ?? null,
-        resolved_slot_id: blockedStep?.slot_id ?? null,
-        blocker_codes: blockedStep?.blocker_codes ?? [],
-        action: resolution.note,
-      });
-      await record(`${laneKey}-blocked-resolution-${blockedResolves}`, {
-        blocked_step: blockedStep ?? null,
-        resolution_note: resolution.note,
-        override_slot_ids: Object.keys(resolution.overrides),
-      });
-      result = await advance(`resolve-${blockedResolves}`, {
-        holder_id: 'gs001_queue_resolver_reviewer',
-        slot_request_payload_overrides: resolution.overrides,
-      });
-      continue;
-    }
     break;
   }
 
   const summary = {
     ...laneSummary(result),
     advances,
-    resolver_actions: resolverActions,
     elapsed_ms: Date.now() - startedAt,
   };
   state.lanes[laneKey] = summary;
   state.totals.provider_calls += result.run.consumed.provider_calls;
   await record(`${laneKey}-final-state`, { run: result.run, steps: result.steps });
   return result;
-}
-
-/**
- * lane A blocked-step 队列处理（人审角色的确定性动作）：把已 admitted 的上游 final
- * artifact 内容逐字节转写为该 slot 的 source_context_packets（并把 artifact ref/hash
- * 追加进 source_refs/source_hashes 供输出引用），随后 re-advance。首跑实证 skeptic 在
- * provider 模式下只拿到上游 ref+hash，会以 *_NOT_INSPECTABLE 类 blocker 如实拒绝——
- * 该缺口本身是 usage-fit 发现，此处的补给动作等价于队列指引 `resolve_then_re_advance`。
- */
-function makeLaneABlockedResolver(app, projectId, spine) {
-  const UPSTREAM = [
-    { slot: SLOT.routeArchitecture, label: 'route_architecture', refType: 'route_architecture_runtime_artifact', pick: (p) => ({ route_candidate_proposals: p.route_candidate_proposals, role_summary: p.role_summary }) },
-    { slot: SLOT.routeSkeptic, label: 'route_skeptic_review', refType: 'route_skeptic_review_runtime_artifact', pick: (p) => ({ risk_findings: p.risk_findings, checked_dimensions: p.checked_dimensions, recommended_disposition: p.recommended_disposition, role_summary: p.role_summary }) },
-    { slot: SLOT.cyclePlanning, label: 'validation_cycle_planning', refType: 'validation_cycle_planning_runtime_artifact', pick: (p) => ({ cycle_candidate_proposals: p.cycle_candidate_proposals, role_summary: p.role_summary }) },
-  ];
-  const BASE_BUILDERS = {
-    [SLOT.routeSkeptic]: routeSkepticSlotPayload,
-    [SLOT.cyclePlanning]: cyclePlanningSlotPayload,
-    [SLOT.feasibility]: feasibilitySlotPayload,
-  };
-  const enrichedOnce = new Set();
-  return async (blockedStep, result) => {
-    const slotId = blockedStep?.slot_id;
-    const buildBase = slotId ? BASE_BUILDERS[slotId] : null;
-    if (!buildBase) {
-      return null; // route_architecture 或未知槽 blocked：无上游内容可补，如实终止
-    }
-    if (enrichedOnce.has(slotId)) {
-      // 同一槽已补给过一次仍 blocked：再补给不带来新信息，避免重复付费的
-      // 同构 attempt——如实终止，blocked 即该场景的有效终态。
-      return null;
-    }
-    enrichedOnce.add(slotId);
-    const artifactsById = await fetchFinalArtifacts(app, projectId, `resolver-${slotId.replace(/[^a-z_]/gi, '')}`);
-    const upstreamPassed = UPSTREAM.filter((item) => item.slot !== slotId)
-      .map((item) => {
-        const step = result.steps.find((s) => s.slot_id === item.slot && s.outcome === 'passed' && s.runtime_artifact_id);
-        const artifact = step ? artifactsById.get(step.runtime_artifact_id) : null;
-        return step && artifact ? { ...item, step, artifact } : null;
-      })
-      .filter(Boolean);
-    if (upstreamPassed.length === 0) {
-      return null;
-    }
-    const enriched = buildBase(spine);
-    enriched.source_context_packets = [
-      ...(enriched.source_context_packets ?? []),
-      ...upstreamPassed.map((item) => ({
-        source_ref: ref(item.refType, item.step.runtime_artifact_id),
-        evidence_kind: 'admitted_upstream_runtime_artifact',
-        content_summary:
-          `Verbatim content of the admitted ${item.label} final artifact `
-          + `${item.step.runtime_artifact_id} (deterministic transcription for in-chain review; `
-          + `admitted hash ${item.step.runtime_artifact_hash}).`,
-        key_facts: [JSON.stringify(item.pick(item.artifact.artifact_payload ?? {}))],
-      })),
-    ];
-    enriched.source_refs = [
-      ...enriched.source_refs,
-      ...upstreamPassed.map((item) => ref(item.refType, item.step.runtime_artifact_id)),
-    ];
-    enriched.source_hashes = [
-      ...enriched.source_hashes,
-      ...upstreamPassed.map((item) => item.step.runtime_artifact_hash),
-    ];
-    return {
-      overrides: { [slotId]: enriched },
-      note: `Queue-resolver enrichment for ${slotId}: appended verbatim admitted upstream final artifact `
-        + `content packets (${upstreamPassed.map((item) => item.label).join(', ')}) and their refs/hashes, `
-        + 'then re-advanced. No semantic content was created — pure deterministic transcription.',
-    };
-  };
 }
 
 async function fetchFinalArtifacts(app, projectId, label = 'main') {
@@ -1415,10 +1337,9 @@ async function writeReviewPacket(artifactsById) {
   lines.push('');
   lines.push(`- runner: ${RUNNER_ID}@${RUNNER_VERSION}，scenario: ${SCENARIO_ID}`);
   lines.push(`- run id: ${runId}；日期: ${state.started_at}`);
-  lines.push(`- provider: ${providerId}；run_mode: ${RUN_MODE}（motive lane 用 ${MOTIVE_LANE_RUN_MODE}——`
-    + 'motive-evolution 服务把 dry_run 映射为 test 与 provider profile eligibility 冲突，产品侧映射不一致已登记为发现）；'
-    + `两者在 orchestrator 侧均为 acceptance 实跑；execution_mode: ${EXECUTION_MODE}`);
-  lines.push(`- 素材: .ai/golden-scenarios/paper-implementation/gs-001-lora/（topic-package.mjs / ground-truth.md / rubric.md）`);
+  lines.push(`- provider: ${providerId}；run_mode: ${RUN_MODE}（全 lane 一致，orchestrator 侧统一映射 acceptance 实跑）；`
+    + `execution_mode: ${EXECUTION_MODE}`);
+  lines.push(`- 素材: .ai/golden-scenarios/paper-implementation/gs-001-lora/（topic-package.mjs **v2**（按首跑 skeptic 四条批判修订）/ ground-truth.md（含 §GT-7 v2 预承诺对照）/ rubric.md）`);
   lines.push(`- 入链: 真实 POST /paper-implementation/projects/bootstrap（bridge ${T.bridge}，hash 校验通过）`);
   lines.push('');
   lines.push('## 逐节点产出与对照');
@@ -1478,7 +1399,6 @@ async function writeReviewPacket(artifactsById) {
     elapsed_ms: lane.elapsed_ms,
     step_outcomes: lane.steps.map((step) => `${step.slot_id}:${step.outcome}(${step.provider_call_count} calls)`),
     advances: lane.advances,
-    resolver_actions: lane.resolver_actions,
   }]));
   lines.push(fenceJson({
     total_provider_calls: state.totals.provider_calls,
@@ -1531,9 +1451,7 @@ async function main() {
       await runCoordinatorLane(app, projectId, 'lane-motive', {
         coordinator_run_id: 'gs001_coordinator_run_motive',
         lane_id: 'motive',
-        // 见 MOTIVE_LANE_RUN_MODE 注释：dry_run 在 motive-evolution 服务映射为 test，
-        // 与 provider profile eligibility 冲突（产品侧映射不一致，已作为发现登记）。
-        run_mode: MOTIVE_LANE_RUN_MODE,
+        run_mode: RUN_MODE,
         execution_mode: EXECUTION_MODE,
         budget_envelope: { max_steps: 4, max_provider_calls: 12 },
         slot_request_payloads: {
@@ -1568,8 +1486,9 @@ async function main() {
         lane_id: 'validation-planning',
         run_mode: RUN_MODE,
         execution_mode: EXECUTION_MODE,
-        // max_steps 12 = 4 链步 + waiting_review override 与至多 3 次 blocked
-        // 队列回流 re-advance 的 attempt 余量（每次 re-advance 产生新 step 行）
+        // max_steps 12 = 4 链步 + waiting_review override re-advance 的 attempt 余量
+        // （每次 re-advance 产生新 step 行）。上游提案正文由 coordinator 链内注入
+        // （S2-B B3），不再需要 runner 侧队列回流补喂。
         budget_envelope: { max_steps: 12, max_provider_calls: 12 },
         slot_request_payloads: {
           [SLOT.routeArchitecture]: routeArchitectureSlotPayload(spine),
@@ -1577,9 +1496,6 @@ async function main() {
           [SLOT.cyclePlanning]: cyclePlanningSlotPayload(spine),
           [SLOT.feasibility]: feasibilitySlotPayload(spine),
         },
-      }, {
-        maxBlockedResolves: 3,
-        resolveBlocked: makeLaneABlockedResolver(app, projectId, spine),
       });
     } catch (error) {
       registerGap('lane-a-validation-planning', error);

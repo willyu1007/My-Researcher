@@ -14,6 +14,7 @@ import {
   type PaperImplementationCrossBoardSynthesisRoleOutput,
   type PaperImplementationCrossBoardSynthesisRoleSlotId,
   type PaperImplementationCrossBoardSynthesisSlotId,
+  type PaperImplementationCrossBoardSourceContextPacket,
   type PaperImplementationRuntimeAdmissionRecord,
   type PaperImplementationRuntimeArtifactEnvelope,
   type PaperImplementationRuntimeCacheStatus,
@@ -45,12 +46,21 @@ import {
   stableStringify,
 } from './literature-content-processing-utils.js';
 import {
+  buildPaperImplementationCompressionAttempt,
+} from './paper-implementation-compression-attempt.js';
+import {
   type TopicSelectionAgentInvocationResult,
   type TopicSelectionAgentRuntimeTokenBudgetInput,
   type TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
+import type {
+  TopicSelectionCompressionFactInventory,
+} from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
+import {
+  PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+} from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
@@ -178,12 +188,8 @@ const MERGE_SPLIT_REUSE_SCENARIOS_PROFILE: SlotProfile = {
 };
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
-const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
-  'TimeoutError',
-  'TransientError',
-  'RateLimitError',
-  'UpstreamError',
-  'SCHEMA_VALIDATION_FAILED',
+const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
+  ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   'CROSS_BOARD_SYNTHESIS_PRIMARY_INPUT_MISSING',
   'CROSS_BOARD_SYNTHESIS_BOARD_REVIEW_SET_MISMATCH',
   'CROSS_BOARD_SYNTHESIS_CONFLICT_REVIEW_SET_MISMATCH',
@@ -511,6 +517,9 @@ export class PaperImplementationCrossBoardSynthesisRuntimeService {
       blockerCodes: runtimeFailureCode ? [runtimeFailureCode] : output?.blocker_codes ?? [],
       warningCodes: this.uniqueStrings([
         ...(output?.warning_codes ?? roleResult.warning_codes),
+        // Compression provenance warnings must survive into the role artifact even
+        // when the role output carries its own warning list (D-T128-02 lineage).
+        ...roleResult.warning_codes.filter((code) => code.startsWith('COMPRESSION_')),
         ...this.retryWarningCodes(roleInvocation, runtimeFailureCode),
       ]),
       output: artifactOutput,
@@ -597,6 +606,11 @@ export class PaperImplementationCrossBoardSynthesisRuntimeService {
       prior_hashes: input.priorRoleArtifacts.map((item) => item.artifact.artifact_payload_hash),
     });
     const runtimeIdentity = {
+      // S2-C C2: run_id pins the identity granularity explicitly to one runtime
+      // run — replaying the same run_id (idempotent double-submit) collides on
+      // the runtimeIdentityHash unique constraint (409), while a legitimate
+      // re-advance/new run always carries a fresh run_id and never collides.
+      run_id: runtimeBase.runId,
       implementation_project_id: runtimeBase.implementationProjectId,
       workflow_type: runtimeBase.profile.workflowType,
       slot_id: runtimeBase.profile.slotId,
@@ -886,6 +900,8 @@ export class PaperImplementationCrossBoardSynthesisRuntimeService {
   private roleMessages(
     runtimeBase: RuntimeBase,
     request: RunPaperImplementationCrossBoardSynthesisRuntimeRequest,
+    packets: readonly PaperImplementationCrossBoardSourceContextPacket[]
+      = request.source_context_packets ?? [],
   ): Array<{ role: 'system' | 'user'; content: string }> {
     return [
       {
@@ -907,7 +923,7 @@ export class PaperImplementationCrossBoardSynthesisRuntimeService {
           input_snapshot_hash: request.input_snapshot_hash,
           source_refs: request.source_refs,
           source_hashes: request.source_hashes,
-          source_context_packets: request.source_context_packets ?? [],
+          source_context_packets: packets,
           board_anchors: request.board_anchors,
           reviewed_board_version_refs: request.reviewed_board_version_refs,
           reviewed_conflict_refs: request.reviewed_conflict_refs,
@@ -931,34 +947,67 @@ export class PaperImplementationCrossBoardSynthesisRuntimeService {
     request: RunPaperImplementationCrossBoardSynthesisRuntimeRequest,
     messages: Array<{ role: 'system' | 'user'; content: string }>,
   ): TopicSelectionAgentRuntimeTokenBudgetInput {
-    const contextPayloads = [{
-      target_ref: request.target_ref,
-      source_refs: request.source_refs,
-      source_hashes: request.source_hashes,
-      board_anchors: request.board_anchors,
-      reviewed_board_version_refs: request.reviewed_board_version_refs,
-      reviewed_conflict_refs: request.reviewed_conflict_refs,
-      reviewed_challenge_refs: request.reviewed_challenge_refs,
-      evidence_transfer_binding_refs: request.evidence_transfer_binding_refs,
-      source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
+    const extraPayloads = [{
+      slot_id: runtimeBase.profile.slotId,
+      role_slot_id: runtimeBase.profile.roleSlotId,
+      board_anchor_count: request.board_anchors.length,
+      conflict_ref_count: request.reviewed_conflict_refs.length,
+      challenge_ref_count: request.reviewed_challenge_refs.length,
+      evidence_transfer_binding_ref_count: request.evidence_transfer_binding_refs.length,
     }];
+    // PC-S3 caller-side compression attempt: same roleMessages builder, degraded
+    // packet views only — board_anchors are refs/hashes-only and are never trimmed.
+    const compressionSelection = buildPaperImplementationCompressionAttempt({
+      packets: request.source_context_packets ?? [],
+      buildMessages: (trimmedPackets) => this.roleMessages(runtimeBase, request, trimmedPackets),
+      contextPolicyProfile: runtimeBase.contextPolicyProfile,
+      schema: paperImplementationCrossBoardSynthesisRoleOutputSchema as unknown as Record<string, unknown>,
+      extraPayloads,
+      sourceRefs: request.source_refs,
+      requiredPreservedFacts: this.requiredPreservedFacts(request),
+    });
     return {
       context_policy_profile: runtimeBase.contextPolicyProfile,
       context_policy_profile_hash: runtimeBase.contextPolicyProfileHash,
-      context_payloads: contextPayloads,
-      extra_payloads: [{
-        slot_id: runtimeBase.profile.slotId,
-        role_slot_id: runtimeBase.profile.roleSlotId,
-        board_anchor_count: request.board_anchors.length,
-        conflict_ref_count: request.reviewed_conflict_refs.length,
-        challenge_ref_count: request.reviewed_challenge_refs.length,
-        evidence_transfer_binding_ref_count: request.evidence_transfer_binding_refs.length,
-      }],
-      estimated_input_tokens_override: this.estimatedInputTokens({
-        messages,
-        context_payloads: contextPayloads,
-      }),
+      // N3 double-count fix: the request body is embedded verbatim in `messages`;
+      // context_payloads must not re-carry the same content (single-source estimate).
+      context_payloads: [],
+      extra_payloads: extraPayloads,
+      compression_attempt: compressionSelection?.attempt ?? null,
+      estimated_input_tokens_override: this.estimatedInputTokens({ messages }),
       schema_overhead_tokens_override: 1_600,
+    };
+  }
+
+  /** PC-S1: ref-skeleton facts (per this slot's preserved_fact_kinds) that survive
+   *  every compression level; packet bodies are deliberately not listed. */
+  private requiredPreservedFacts(
+    request: RunPaperImplementationCrossBoardSynthesisRuntimeRequest,
+  ): TopicSelectionCompressionFactInventory {
+    return {
+      board_version_ref: [
+        ...request.board_anchors.map((anchor) => anchor.board_version_ref.ref_id),
+        ...request.reviewed_board_version_refs.map((item) => item.ref_id),
+      ],
+      board_version_hash: request.board_anchors.map((anchor) => anchor.board_version_hash),
+      motive_ref: request.board_anchors.map((anchor) => anchor.motive_ref.ref_id),
+      core_motive_version_ref: request.board_anchors.map((anchor) => anchor.core_motive_version_ref.ref_id),
+      trace_manifest_ref: request.board_anchors.map((anchor) => anchor.trace_manifest_ref.ref_id),
+      trace_manifest_hash: request.board_anchors.map((anchor) => anchor.trace_manifest_hash),
+      evidence_binding_ref: request.board_anchors.flatMap((anchor) =>
+        anchor.evidence_binding_refs.map((item) => item.ref_id)),
+      source_locator_ref: request.board_anchors.flatMap((anchor) =>
+        anchor.source_locator_refs.map((item) => item.ref_id)),
+      board_conflict_ref: [
+        ...request.board_anchors.flatMap((anchor) => anchor.conflict_refs.map((item) => item.ref_id)),
+        ...request.reviewed_conflict_refs.map((item) => item.ref_id),
+      ],
+      evidence_challenge_ref: [
+        ...request.board_anchors.flatMap((anchor) => anchor.challenge_refs.map((item) => item.ref_id)),
+        ...request.reviewed_challenge_refs.map((item) => item.ref_id),
+      ],
+      evidence_transfer_binding_ref: request.evidence_transfer_binding_refs.map((item) => item.ref_id),
+      freshness_status: request.board_anchors.map((anchor) => anchor.freshness_status),
     };
   }
 

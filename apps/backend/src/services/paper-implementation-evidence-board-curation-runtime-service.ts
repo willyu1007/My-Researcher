@@ -47,12 +47,21 @@ import {
   stableStringify,
 } from './literature-content-processing-utils.js';
 import {
+  buildPaperImplementationCompressionAttempt,
+} from './paper-implementation-compression-attempt.js';
+import {
   type TopicSelectionAgentInvocationResult,
   type TopicSelectionAgentRuntimeTokenBudgetInput,
   type TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
+import type {
+  TopicSelectionCompressionFactInventory,
+} from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
+import {
+  PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+} from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
@@ -180,12 +189,8 @@ const BINDING_GAP_CANDIDATES_PROFILE: SlotProfile = {
 };
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
-const RETRYABLE_RUNTIME_FAILURE_CODES = new Set([
-  'TimeoutError',
-  'TransientError',
-  'RateLimitError',
-  'UpstreamError',
-  'SCHEMA_VALIDATION_FAILED',
+const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
+  ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   'EVIDENCE_BOARD_CURATION_REQUIRED_REFS_MISSING',
   'EVIDENCE_BOARD_CURATION_REVIEW_SET_MISMATCH',
   'EVIDENCE_BOARD_CURATION_REF_MISMATCH',
@@ -259,19 +264,25 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
       ...this.requestBoundaryBlockerCodes(request),
     ]);
 
+    // S2-C C3 (review F5/N6): preflight blockers land as a reviewable blocked
+    // final that admission records as admitted — unified with the other slots
+    // (route/skeptic/cycle/feasibility/cross-board), no more failed_runtime
+    // preflight terminal without a final artifact.
     if (preflightBlockerCodes.length > 0) {
       const preflight = await this.recordPreflightBlockedArtifact(runtimeBase, request, preflightBlockerCodes);
       artifacts.push(preflight.artifact);
       admissions.push(preflight.admission);
-      return this.result(
-        runtimeBase,
-        'failed_runtime',
-        0,
-        artifacts,
-        admissions,
-        null,
-        null,
-      );
+      const final = await this.recordFinalArtifact(runtimeBase, request, {
+        roleArtifact: preflight,
+        status: 'blocked',
+        runtimeFailureCode: null,
+        providerCallCount: 0,
+        blockerCodes: preflightBlockerCodes,
+        warningCodes: [],
+      });
+      artifacts.push(final.artifact);
+      admissions.push(final.admission);
+      return this.result(runtimeBase, 'blocked', 0, artifacts, admissions, final.artifact, final.admission);
     }
 
     const roleInvocation = await this.invokeRoleWithBoundedRetry(runtimeBase, request);
@@ -448,8 +459,10 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
         source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
       }),
       promptVariantId: 'deterministic-preflight',
-      runtimeStatus: 'failed_runtime',
-      runtimeFailureCode: 'EVIDENCE_BOARD_CURATION_PREFLIGHT_BLOCKED',
+      // S2-C C3: blocked (not failed_runtime) — the preflight role artifact is
+      // admitted with its blocker codes and feeds a blocked final.
+      runtimeStatus: 'blocked',
+      runtimeFailureCode: null,
       providerCallCount: 0,
       blockerCodes,
       warningCodes: [],
@@ -459,7 +472,7 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
     });
     const stored = await this.runtimeAdmission.recordRuntimeArtifact(artifact);
     const admission = await this.admit(stored, 'role');
-    return { artifact: stored, admission, output: null };
+    return { artifact: stored, admission, output };
   }
 
   private async recordRoleArtifact(
@@ -516,6 +529,10 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
       blockerCodes: runtimeFailureCode ? [runtimeFailureCode] : output?.blocker_codes ?? [],
       warningCodes: this.uniqueStrings([
         ...(output?.warning_codes ?? roleResult.warning_codes),
+        // Compression provenance warnings (COMPRESSION_APPLIED / _REPORT_RECORDED)
+        // must survive into the role artifact even when the role output carries its
+        // own warning list (D-T128-02 lineage requirement).
+        ...roleResult.warning_codes.filter((code) => code.startsWith('COMPRESSION_')),
         ...this.retryWarningCodes(roleInvocation, runtimeFailureCode),
       ]),
       output: artifactOutput,
@@ -602,6 +619,11 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
       prior_hashes: input.priorRoleArtifacts.map((item) => item.artifact.artifact_payload_hash),
     });
     const runtimeIdentity = {
+      // S2-C C2: run_id pins the identity granularity explicitly to one runtime
+      // run — replaying the same run_id (idempotent double-submit) collides on
+      // the runtimeIdentityHash unique constraint (409), while a legitimate
+      // re-advance/new run always carries a fresh run_id and never collides.
+      run_id: runtimeBase.runId,
       implementation_project_id: runtimeBase.implementationProjectId,
       workflow_type: runtimeBase.profile.workflowType,
       slot_id: runtimeBase.profile.slotId,
@@ -918,6 +940,8 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
   private roleMessages(
     runtimeBase: RuntimeBase,
     request: RunPaperImplementationEvidenceBoardCurationRuntimeRequest,
+    packets: readonly PaperImplementationEvidenceBoardSourceContextPacket[]
+      = request.source_context_packets ?? [],
   ): Array<{ role: 'system' | 'user'; content: string }> {
     return [
       {
@@ -945,7 +969,7 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
           input_snapshot_hash: request.input_snapshot_hash,
           source_refs: request.source_refs,
           source_hashes: request.source_hashes,
-          source_context_packets: request.source_context_packets ?? [],
+          source_context_packets: packets,
           trace_manifest_refs: request.trace_manifest_refs,
           trace_manifest_hashes: request.trace_manifest_hashes,
           source_locator_refs: request.source_locator_refs,
@@ -967,40 +991,61 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
     request: RunPaperImplementationEvidenceBoardCurationRuntimeRequest,
     messages: Array<{ role: 'system' | 'user'; content: string }>,
   ): TopicSelectionAgentRuntimeTokenBudgetInput {
-    const contextPayloads = [{
-      curation_mode: request.curation_mode,
-      target_ref: request.target_ref,
-      target_assertion_refs: request.target_assertion_refs,
-      source_refs: request.source_refs,
-      source_hashes: request.source_hashes,
-      trace_manifest_refs: request.trace_manifest_refs,
-      source_locator_refs: request.source_locator_refs,
-      citation_candidate_refs: request.citation_candidate_refs,
-      reviewed_citation_candidate_refs: request.reviewed_citation_candidate_refs,
-      evidence_refs: request.evidence_refs,
-      existing_evidence_binding_refs: request.existing_evidence_binding_refs,
-      existing_bound_evidence_refs: request.existing_bound_evidence_refs,
-      source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
+    const extraPayloads = [{
+      slot_id: runtimeBase.profile.slotId,
+      role_slot_id: runtimeBase.profile.roleSlotId,
+      assertion_ref_count: request.target_assertion_refs.length,
+      source_locator_ref_count: request.source_locator_refs.length,
+      citation_candidate_ref_count: request.citation_candidate_refs.length,
+      evidence_ref_count: request.evidence_refs.length,
+      existing_binding_ref_count: request.existing_evidence_binding_refs.length,
+      existing_bound_evidence_ref_count: request.existing_bound_evidence_refs.length,
     }];
+    // PC-S2 caller-side compression attempt: the same roleMessages builder produces
+    // the degraded forms, so there is no second message template to drift.
+    const compressionSelection = buildPaperImplementationCompressionAttempt({
+      packets: request.source_context_packets ?? [],
+      buildMessages: (trimmedPackets) => this.roleMessages(runtimeBase, request, trimmedPackets),
+      contextPolicyProfile: runtimeBase.contextPolicyProfile,
+      schema: paperImplementationEvidenceBoardCurationRoleOutputSchema as unknown as Record<string, unknown>,
+      extraPayloads,
+      sourceRefs: request.source_refs,
+      requiredPreservedFacts: this.requiredPreservedFacts(request),
+    });
     return {
       context_policy_profile: runtimeBase.contextPolicyProfile,
       context_policy_profile_hash: runtimeBase.contextPolicyProfileHash,
-      context_payloads: contextPayloads,
-      extra_payloads: [{
-        slot_id: runtimeBase.profile.slotId,
-        role_slot_id: runtimeBase.profile.roleSlotId,
-        assertion_ref_count: request.target_assertion_refs.length,
-        source_locator_ref_count: request.source_locator_refs.length,
-        citation_candidate_ref_count: request.citation_candidate_refs.length,
-        evidence_ref_count: request.evidence_refs.length,
-        existing_binding_ref_count: request.existing_evidence_binding_refs.length,
-        existing_bound_evidence_ref_count: request.existing_bound_evidence_refs.length,
-      }],
-      estimated_input_tokens_override: this.estimatedInputTokens({
-        messages,
-        context_payloads: contextPayloads,
-      }),
+      // N3 double-count fix: everything this invocation sends lives in `messages`
+      // (the request body is embedded there verbatim), so context_payloads must not
+      // re-carry the same content — the estimate below is the single source of truth.
+      context_payloads: [],
+      extra_payloads: extraPayloads,
+      compression_attempt: compressionSelection?.attempt ?? null,
+      estimated_input_tokens_override: this.estimatedInputTokens({ messages }),
       schema_overhead_tokens_override: 1_500,
+    };
+  }
+
+  /** PC-S1: ref-skeleton facts that must survive every compression level, keyed by
+   *  this slot's `preserved_fact_kinds`. Packet BODY content (content_summary /
+   *  key_facts) is deliberately NOT listed as required — it is the trim surface. */
+  private requiredPreservedFacts(
+    request: RunPaperImplementationEvidenceBoardCurationRuntimeRequest,
+  ): TopicSelectionCompressionFactInventory {
+    return {
+      target_motive_ref: [request.target_motive_ref.ref_id],
+      core_motive_version_ref: [request.target_core_motive_version_ref.ref_id],
+      ...(request.target_board_ref ? { target_board_ref: [request.target_board_ref.ref_id] } : {}),
+      ...(request.target_board_hash ? { target_board_hash: [request.target_board_hash] } : {}),
+      motive_assertion_ref: request.target_assertion_refs.map((item) => item.ref_id),
+      trace_manifest_ref: request.trace_manifest_refs.map((item) => item.ref_id),
+      trace_manifest_hash: [...request.trace_manifest_hashes],
+      source_locator_ref: request.source_locator_refs.map((item) => item.ref_id),
+      citation_candidate_ref: request.citation_candidate_refs.map((item) => item.ref_id),
+      evidence_ref: request.evidence_refs.map((item) => item.ref_id),
+      existing_evidence_binding_ref: request.existing_evidence_binding_refs.map((item) => item.ref_id),
+      existing_bound_evidence_ref: request.existing_bound_evidence_refs.map((item) => item.ref_id),
+      accepted_risk_ref: (request.accepted_risk_refs ?? []).map((item) => item.ref_id),
     };
   }
 

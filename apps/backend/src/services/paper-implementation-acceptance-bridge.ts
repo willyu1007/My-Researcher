@@ -13,6 +13,11 @@ import { AppError } from '../errors/app-error.js';
 import type {
   ListPaperImplementationRuntimeAdmissionRecordsFilter,
 } from '../repositories/paper-implementation-runtime.repository.js';
+import { assertAdmittedPassedFinal } from './paper-implementation-runtime-artifact-consumption.js';
+import {
+  hasText,
+  normalizedPaperImplementationRefType,
+} from './paper-implementation-runtime-utils.js';
 
 /**
  * Read-only surface of PaperImplementationRuntimeAdmissionService used by the
@@ -68,14 +73,6 @@ export interface PaperImplementationAcceptanceBridgeLineageRequest {
 
 const RUNTIME_ARTIFACT_REF_TYPE = 'paper_implementation_runtime_artifact';
 
-function hasText(value: string | null | undefined): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function normalizedRefType(refType: string): string {
-  return refType.toLowerCase().replace(/[_-]/g, '');
-}
-
 function gateFailure(message: string, details?: Record<string, unknown>): AppError {
   return new AppError(409, 'GATE_CONSTRAINT_FAILED', message, details);
 }
@@ -118,7 +115,8 @@ export async function requireAcceptedProposalLineage(options: {
       { target_type: targetType },
     );
   }
-  if (normalizedRefType(sourceRef.ref_type) !== normalizedRefType(RUNTIME_ARTIFACT_REF_TYPE)) {
+  if (normalizedPaperImplementationRefType(sourceRef.ref_type)
+    !== normalizedPaperImplementationRefType(RUNTIME_ARTIFACT_REF_TYPE)) {
     throw gateFailure(
       `Acceptance bridge lineage requires a ${RUNTIME_ARTIFACT_REF_TYPE} ref.`,
       { target_type: targetType, ref_type: sourceRef.ref_type },
@@ -128,26 +126,6 @@ export async function requireAcceptedProposalLineage(options: {
     implementationProjectId,
     sourceRef.ref_id,
   );
-  if (artifact.artifact_scope !== 'final') {
-    throw gateFailure(
-      'Acceptance bridge lineage requires a final-scope runtime artifact.',
-      {
-        target_type: targetType,
-        runtime_artifact_id: artifact.runtime_artifact_id,
-        artifact_scope: artifact.artifact_scope,
-      },
-    );
-  }
-  if (artifact.runtime_status !== 'passed') {
-    throw gateFailure(
-      'Acceptance bridge lineage requires a passed runtime artifact; blocked or failed finals cannot seed authority objects.',
-      {
-        target_type: targetType,
-        runtime_artifact_id: artifact.runtime_artifact_id,
-        runtime_status: artifact.runtime_status,
-      },
-    );
-  }
   const expectedWorkflowTypes = PAPER_IMPLEMENTATION_ACCEPTANCE_BRIDGE_WORKFLOW_TYPES[targetType];
   if (!expectedWorkflowTypes.includes(artifact.workflow_type)) {
     throw gateFailure(
@@ -160,15 +138,9 @@ export async function requireAcceptedProposalLineage(options: {
       },
     );
   }
-  if (!hasText(artifact.final_artifact_hash) || artifact.final_artifact_hash !== sourceHash) {
-    throw gateFailure(
-      'Acceptance bridge lineage hash does not match the admitted final artifact hash.',
-      {
-        target_type: targetType,
-        runtime_artifact_id: artifact.runtime_artifact_id,
-      },
-    );
-  }
+  // S2-C C4: the scope/passed/hash/admitted core is shared with the runtime
+  // slot consumption validator; only the resolution above (ref shape, direct
+  // artifact-id lookup, workflow_type mapping) is bridge-specific.
   const admissionRecords = await runtimeAdmission.listAdmissionRecords(
     implementationProjectId,
     {
@@ -176,20 +148,13 @@ export async function requireAcceptedProposalLineage(options: {
       admission_scope: 'final',
     },
   );
-  const admitted = admissionRecords.some((record) => (
-    record.admission_status === 'admitted'
-    && record.admission_scope === 'final'
-    && record.admitted_artifact_hash === artifact.final_artifact_hash
-  ));
-  if (!admitted) {
-    throw gateFailure(
-      'Acceptance bridge lineage requires an admitted final runtime admission record.',
-      {
-        target_type: targetType,
-        runtime_artifact_id: artifact.runtime_artifact_id,
-      },
-    );
-  }
+  assertAdmittedPassedFinal({
+    artifact,
+    expectedHash: sourceHash,
+    admissionRecords,
+    consumer: `acceptance_bridge:${targetType}`,
+    detail: { target_type: targetType },
+  });
   return {
     source_proposal_artifact_ref: sourceRef,
     source_proposal_artifact_hash: sourceHash,

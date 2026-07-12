@@ -278,15 +278,25 @@ test('evidence-board curation runtime preflight blocks memo-like and missing loc
     ],
   });
 
-  assert.equal(result.status, 'failed_runtime');
+  // S2-C C3: preflight blockers are a reviewable blocked final (admitted), not
+  // a failed_runtime terminal without a final artifact.
+  assert.equal(result.status, 'blocked');
   assert.equal(result.provider_call_count, 0);
   assert.equal(orchestrator.calls.length, 0);
-  assert.equal(result.final_runtime_artifact, null);
-  assert.equal(result.runtime_artifacts.length, 1);
-  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'EVIDENCE_BOARD_CURATION_PREFLIGHT_BLOCKED');
-  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+  assert.equal(result.runtime_artifacts.length, 2);
+  assert.equal(result.runtime_artifacts[0]?.runtime_status, 'blocked');
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, null);
+  assert.equal(result.runtime_artifacts[0]?.executor_kind, 'deterministic_preflight');
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_runtime_artifact?.runtime_failure_code, null);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(result.admission_records.map((item) => item.admission_status), ['admitted', 'admitted']);
   assert.equal(result.blocker_codes.includes('EVIDENCE_BOARD_CURATION_SOURCE_LOCATOR_MISSING'), true);
   assert.equal(result.blocker_codes.includes('EVIDENCE_BOARD_CURATION_MEMO_LIKE_REF_REJECTED'), true);
+  assert.equal(
+    result.final_runtime_artifact?.blocker_codes.includes('EVIDENCE_BOARD_CURATION_SOURCE_LOCATOR_MISSING'),
+    true,
+  );
 });
 
 test('evidence-board curation runtime preflight validates source-context packet hashes and coverage before provider calls', async () => {
@@ -325,10 +335,14 @@ test('evidence-board curation runtime preflight validates source-context packet 
     ],
   });
 
-  assert.equal(result.status, 'failed_runtime');
+  // S2-C C3: unified preflight terminal — blocked final, admitted.
+  assert.equal(result.status, 'blocked');
   assert.equal(result.provider_call_count, 0);
   assert.equal(orchestrator.calls.length, 0);
-  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'EVIDENCE_BOARD_CURATION_PREFLIGHT_BLOCKED');
+  assert.equal(result.runtime_artifacts[0]?.runtime_status, 'blocked');
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, null);
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
   assert.equal(result.blocker_codes.includes('EVIDENCE_BOARD_CURATION_SOURCE_CONTEXT_PACKET_HASH_MISMATCH'), true);
   assert.equal(result.blocker_codes.includes('EVIDENCE_BOARD_CURATION_SOURCE_CONTEXT_PACKET_REF_MISMATCH'), true);
   assert.equal(result.blocker_codes.includes('EVIDENCE_BOARD_CURATION_SOURCE_CONTEXT_PACKET_UNCOVERED'), true);
@@ -346,10 +360,14 @@ test('evidence-board curation runtime preflight rejects seed mode current-board 
     target_board_hash: null,
   });
 
-  assert.equal(result.status, 'failed_runtime');
+  // S2-C C3: unified preflight terminal — blocked final, admitted.
+  assert.equal(result.status, 'blocked');
   assert.equal(result.provider_call_count, 0);
   assert.equal(orchestrator.calls.length, 0);
-  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'EVIDENCE_BOARD_CURATION_PREFLIGHT_BLOCKED');
+  assert.equal(result.runtime_artifacts[0]?.runtime_status, 'blocked');
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, null);
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
   assert.equal(result.blocker_codes.includes('EVIDENCE_BOARD_CURATION_SEED_MODE_CURRENT_BOARD_CONTEXT_REJECTED'), true);
 });
 
@@ -899,3 +917,68 @@ function includesRef(refs: TopicSelectionFunctionalRef[], expected: TopicSelecti
 function hash(value: unknown): string {
   return sha256Text(stableStringify(value));
 }
+
+test('evidence-board curation runtime token budget counts message-embedded context once and wires the compression attempt (S2-A)', async () => {
+  const fatText = 'Neutral benchmark evidence sentence with cited source support and no secrets. '.repeat(200);
+  const { service, orchestrator } = serviceFixture(['passed']);
+  const base = providerRequest();
+  const request = {
+    ...base,
+    run_id: 'evidence_board_curation_token_budget_run_001',
+    source_context_packets: [{
+      packet_ref: ref('source_context_packet', 'source_context_packet_token_budget_001'),
+      packet_hash: hash('source-context-packet-token-budget-001'),
+      source_ref: base.source_refs[0],
+      source_hash: base.source_hashes[0],
+      evidence_kind: 'source_locator',
+      content_summary: fatText,
+      key_facts: [fatText],
+      covered_evidence_refs: [],
+      covered_source_locator_refs: [base.source_locator_refs[0]],
+      covered_citation_candidate_refs: [],
+      covered_trace_manifest_refs: [],
+    }],
+  };
+  await service.runBindingGapCandidates(PROJECT_ID, request);
+
+  const call = orchestrator.calls[0];
+  assert.ok(call);
+  const budget = call.runtime_token_budget as {
+    context_payloads: unknown[];
+    estimated_input_tokens_override: number;
+    compression_attempt?: {
+      compression_executor_kind: string;
+      compressed_messages?: Array<{ role: string; content: string }> | null;
+    } | null;
+  };
+  const messages = call.messages;
+  // N3 single-source estimate: exactly the messages that will be sent, counted once.
+  assert.equal(
+    budget.estimated_input_tokens_override,
+    Math.ceil(stableStringify({ messages }).length / 4),
+  );
+  assert.deepEqual(budget.context_payloads, []);
+  // Re-carrying the embedded packet bodies (the pre-fix shape) would roughly double
+  // the estimate for packet-dominated inputs.
+  const doubleCounted = Math.ceil(stableStringify({
+    messages,
+    context_payloads: [{ source_context_packets: request.source_context_packets }],
+  }).length / 4);
+  assert.equal(budget.estimated_input_tokens_override <= Math.ceil(doubleCounted * 0.6), true);
+  // PC-S2/PC-S3: a packet face yields a caller-supplied deterministic attempt.
+  assert.ok(budget.compression_attempt);
+  assert.equal(budget.compression_attempt.compression_executor_kind, 'deterministic_structural');
+  assert.equal((budget.compression_attempt.compressed_messages?.length ?? 0) > 0, true);
+
+  // Without a packet face there is nothing deterministically trimmable: no attempt,
+  // over-budget keeps the legacy fail-closed semantics.
+  const noPackets = serviceFixture(['passed']);
+  await noPackets.service.runBindingGapCandidates(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'evidence_board_curation_token_budget_run_002',
+  });
+  const noPacketBudget = noPackets.orchestrator.calls[0]?.runtime_token_budget as {
+    compression_attempt?: unknown;
+  };
+  assert.equal(noPacketBudget.compression_attempt ?? null, null);
+});

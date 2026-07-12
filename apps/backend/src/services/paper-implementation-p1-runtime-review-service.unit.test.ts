@@ -527,3 +527,112 @@ function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
 function hash(value: unknown): string {
   return sha256Text(stableStringify(value));
 }
+
+type P1InvocationCall = {
+  node_id: string;
+  execution_mode: string;
+  invocation_attempt_id?: string | null;
+};
+
+class ScriptedP1AgentOrchestrator {
+  readonly calls: P1InvocationCall[] = [];
+
+  constructor(
+    private readonly script: (
+      call: P1InvocationCall,
+      index: number,
+    ) => TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>,
+  ) {}
+
+  async invokeStructuredOutput<T>(input: P1InvocationCall): Promise<TopicSelectionAgentInvocationResult<T>> {
+    this.calls.push(input);
+    return this.script(input, this.calls.length - 1) as unknown as TopicSelectionAgentInvocationResult<T>;
+  }
+}
+
+function scriptedServiceFixture(
+  script: (
+    call: P1InvocationCall,
+    index: number,
+  ) => TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>,
+) {
+  const repository = new InMemoryPaperImplementationRuntimeRepository();
+  let sequence = 0;
+  const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository,
+    idFactory,
+    now: () => NOW,
+  });
+  const orchestrator = new ScriptedP1AgentOrchestrator(script);
+  const service = new PaperImplementationP1RuntimeReviewService({
+    projectRepository: projectRepositoryFixture(implementationProjectFixture()),
+    runtimeAdmission,
+    agentOrchestrator: orchestrator,
+    idFactory,
+    now: () => NOW,
+  });
+  return { service, repository, orchestrator };
+}
+
+test('P1 runtime review retries a wrong role_slot_id echo once and lands failed_runtime without HTTP error (S2-C C1)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => invocationResult(
+    { ...roleOutput(call.node_id), role_slot_id: 'claim_boundary_review.adjudicator_final' },
+    call.node_id,
+    call.execution_mode,
+  ));
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.equal(orchestrator.calls[1]?.invocation_attempt_id?.endsWith('.retry-1'), true);
+  assert.equal(result.runtime_artifacts.length, 1);
+  const roleArtifact = result.runtime_artifacts[0]!;
+  assert.equal(roleArtifact.runtime_status, 'failed_runtime');
+  assert.equal(roleArtifact.runtime_failure_code, 'RUNTIME_ROLE_SLOT_ECHO_MISMATCH');
+  assert.equal(roleArtifact.retry_attempt_index, 1);
+  assert.equal(roleArtifact.warning_codes.includes('RUNTIME_TECHNICAL_RETRY_EXHAUSTED'), true);
+  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+  assert.equal(result.final_runtime_artifact, null);
+});
+
+test('P1 runtime review retries blocked-without-codes once and lands failed_runtime before admission rejection (S2-C C1)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => invocationResult(
+    { ...roleOutput(call.node_id), role_status: 'blocked', blocker_codes: [] },
+    call.node_id,
+    call.execution_mode,
+  ));
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  const roleArtifact = result.runtime_artifacts[0]!;
+  assert.equal(roleArtifact.runtime_status, 'failed_runtime');
+  assert.equal(roleArtifact.runtime_failure_code, 'RUNTIME_ROLE_BLOCKED_CODES_MISSING');
+  assert.equal(result.admission_records[0]?.issue_codes.includes('RUNTIME_BLOCKER_CODES_MISSING'), false);
+  assert.equal(result.admission_records[0]?.issue_codes.includes('RUNTIME_STATUS_FAILED_RUNTIME'), true);
+});
+
+test('P1 runtime review token budget counts message-embedded context once (S2-A N3, compression wiring deferred to STEP-7 downstream)', async () => {
+  const { service, orchestrator } = serviceFixture();
+  await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+
+  assert.equal(orchestrator.calls.length > 0, true);
+  for (const call of orchestrator.calls) {
+    const budget = call.runtime_token_budget as {
+    context_payloads: unknown[];
+    estimated_input_tokens_override: number;
+    compression_attempt?: {
+      compression_executor_kind: string;
+      compressed_messages?: Array<{ role: string; content: string }> | null;
+    } | null;
+  };
+    const messages = call.messages;
+    assert.equal(
+      budget.estimated_input_tokens_override,
+      Math.ceil(stableStringify({ messages }).length / 4),
+    );
+    assert.deepEqual(budget.context_payloads, []);
+    assert.equal(budget.compression_attempt ?? null, null);
+  }
+});

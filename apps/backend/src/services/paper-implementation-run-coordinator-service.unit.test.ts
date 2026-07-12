@@ -141,6 +141,8 @@ interface StubInvocationInput<T> {
  */
 class MockedFixtureAgentOrchestrator {
   readonly calls: Array<{ node_id: string }> = [];
+  /** Full invocation inputs (B3: lets tests assert the built slot request context). */
+  readonly invocations: StubInvocationInput<unknown>[] = [];
   /** Test hook run at the start of every invocation (e.g. lease takeover). */
   onInvoke: (() => Promise<void>) | null = null;
 
@@ -151,6 +153,7 @@ class MockedFixtureAgentOrchestrator {
       await this.onInvoke();
     }
     this.calls.push({ node_id: input.node_id });
+    this.invocations.push(input as StubInvocationInput<unknown>);
     const fixtureOutput = input.mocked_output?.output ?? null;
     if (fixtureOutput === null) {
       throw new Error(`Coordinator test orchestrator requires mocked_output for ${input.node_id}.`);
@@ -364,6 +367,76 @@ test('coordinator lane A single advance completes with chained artifact lineage'
   const fetched = await fixture.coordinator.getCoordinatorRun(PROJECT_ID, run.coordinator_run_id);
   assert.equal(fetched.run.run_status, 'completed');
   assert.equal(fetched.steps.length, 4);
+});
+
+test('coordinator lane A consumption steps receive the admitted upstream proposal bodies as source_context_packets (S2-B B3)', async () => {
+  // gs001-lora-live-001/003 root cause: skeptic/cycle/feasibility only got the
+  // admitted upstream ref+hash — the proposal body was not inspectable and the
+  // skeptic honestly rejected with BLOCK_PRIMARY_ROUTE_ARTIFACT_BODY_UNAVAILABLE-
+  // class blockers. The coordinator now transcribes the admitted final artifact
+  // proposal payload into each consuming slot request.
+  const fixture = coordinatorFixture();
+  const run = await fixture.coordinator.createCoordinatorRun(PROJECT_ID, laneACreateRequest());
+  const advanced = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_lane_a_b3',
+  });
+  assert.equal(advanced.run.run_status, 'completed');
+  const stepByIndex = new Map(advanced.steps.map((step) => [step.step_index, step]));
+
+  interface UpstreamPacket {
+    source_ref?: { ref_type?: string; ref_id?: string };
+    evidence_kind?: string;
+    content_summary?: string;
+    key_facts?: string[];
+  }
+  const upstreamPacketsFor = (roleSlotId: string): UpstreamPacket[] => {
+    const invocation = fixture.orchestrator.invocations.find((input) => input.node_id === roleSlotId);
+    assert.ok(invocation, `expected an orchestrator invocation for ${roleSlotId}`);
+    const userMessage = invocation!.messages.find((message) => message.role === 'user')?.content ?? '{}';
+    const parsed = JSON.parse(userMessage) as { source_context_packets?: UpstreamPacket[] };
+    return (parsed.source_context_packets ?? [])
+      .filter((packet) => packet.evidence_kind === 'admitted_upstream_runtime_artifact');
+  };
+  const packetBody = (packet: UpstreamPacket | undefined): Record<string, unknown> =>
+    JSON.parse(packet?.key_facts?.[0] ?? '{}') as Record<string, unknown>;
+
+  // Skeptic (step 1) consumes the route proposal body of step 0.
+  const skepticPackets = upstreamPacketsFor(PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID);
+  assert.equal(skepticPackets.length, 1);
+  assert.equal(skepticPackets[0]?.source_ref?.ref_id, stepByIndex.get(0)?.runtime_artifact_ref?.ref_id);
+  assert.ok(skepticPackets[0]?.content_summary?.includes(stepByIndex.get(0)?.runtime_artifact_hash ?? 'missing'));
+  const skepticBody = packetBody(skepticPackets[0]);
+  const routeProposals = skepticBody.route_candidate_proposals as Array<{ candidate_key?: string }> | undefined;
+  assert.ok(
+    Array.isArray(routeProposals)
+      && routeProposals.some((proposal) => proposal.candidate_key === ROUTE_CANDIDATE_KEY),
+    'skeptic packet must carry the verbatim upstream route candidate proposals',
+  );
+
+  // Cycle planning (step 2) consumes steps 0 and 1.
+  const cyclePackets = upstreamPacketsFor(PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID);
+  assert.equal(cyclePackets.length, 2);
+  assert.deepEqual(
+    cyclePackets.map((packet) => packet.source_ref?.ref_id),
+    [0, 1].map((index) => stepByIndex.get(index)?.runtime_artifact_ref?.ref_id),
+  );
+  assert.ok('recommended_disposition' in packetBody(cyclePackets[1]));
+
+  // Feasibility (step 3) consumes steps 0, 1, and 2 — including the cycle
+  // proposal body.
+  const feasibilityPackets = upstreamPacketsFor(PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID);
+  assert.equal(feasibilityPackets.length, 3);
+  assert.deepEqual(
+    feasibilityPackets.map((packet) => packet.source_ref?.ref_id),
+    [0, 1, 2].map((index) => stepByIndex.get(index)?.runtime_artifact_ref?.ref_id),
+  );
+  const cycleBody = packetBody(feasibilityPackets[2]);
+  const cycleProposals = cycleBody.cycle_candidate_proposals as Array<{ candidate_key?: string }> | undefined;
+  assert.ok(
+    Array.isArray(cycleProposals)
+      && cycleProposals.some((proposal) => proposal.candidate_key === CYCLE_CANDIDATE_KEY),
+    'feasibility packet must carry the verbatim upstream cycle candidate proposals',
+  );
 });
 
 test('coordinator skeptic non-proceed parks the run as waiting_review and override re-advance resumes', async () => {
@@ -804,19 +877,22 @@ test('coordinator constructor dependency surface stays structurally zero-authori
     'now',
     'projectRepository',
     'routePlanningRuntime',
+    'runtimeArtifactReader',
     'validationCyclePlanningRuntime',
   ]);
   // Deliberate boundary evolution (S1-W4): queue materialization is owned by
   // the coordinator, and the DecisionWorkQueue is a governance surface — not
   // domain authority — so the allowed persistence handles are exactly the
-  // coordinator's own state machine, the read-only project preflight, and
-  // the decision-queue writer. Still no domain authority repositories
+  // coordinator's own state machine, the read-only project preflight, the
+  // decision-queue writer, and (S2-B B3) the read-only runtime artifact
+  // lookback. Still no domain authority repositories
   // (motive/trace/validation/workorder/dossier/confirmation/harness).
-  const persistenceKeys = instanceKeys.filter((key) => /repository|writer/i.test(key));
+  const persistenceKeys = instanceKeys.filter((key) => /repository|writer|reader/i.test(key));
   assert.deepEqual(persistenceKeys, [
     'coordinatorRepository',
     'decisionQueueWriter',
     'projectRepository',
+    'runtimeArtifactReader',
   ]);
   assert.equal(
     instanceKeys.some((key) =>
@@ -828,6 +904,10 @@ test('coordinator constructor dependency surface stays structurally zero-authori
   // repository.
   const writer = (fixture.coordinator as unknown as { decisionQueueWriter: object }).decisionQueueWriter;
   assert.deepEqual(Object.keys(writer), ['enqueueDecisionWorkQueueItem']);
+  // B3: the runtime artifact lookback is a single read method — never a
+  // write surface into the runtime artifact store.
+  const reader = (fixture.coordinator as unknown as { runtimeArtifactReader: object }).runtimeArtifactReader;
+  assert.deepEqual(Object.keys(reader), ['findRuntimeArtifactById']);
 });
 
 test('coordinator blocked step materializes a decision work queue item with dedup and retry accumulation', async () => {
@@ -1717,6 +1797,11 @@ function coordinatorFixture(
         enqueueDecisionWorkQueueItem: (item) =>
           harnessRepository.enqueueDecisionWorkQueueItem(item),
       },
+      // B3: read-only in-chain lookback literal (mirrors the app.ts wiring).
+      runtimeArtifactReader: {
+        findRuntimeArtifactById: (implementationProjectId, runtimeArtifactId) =>
+          runtimeRepository.findRuntimeArtifactById(implementationProjectId, runtimeArtifactId),
+      },
       routePlanningRuntime,
       validationCyclePlanningRuntime: new PaperImplementationValidationCyclePlanningRuntimeService(slotServiceOptions),
       feasibilityPlanningRuntime: new PaperImplementationFeasibilityPlanningRuntimeService(slotServiceOptions),
@@ -1944,7 +2029,8 @@ function routeSkepticRoleOutput(
     blocker_codes: [],
     warning_codes: [],
     // reviewed_route_proposal_ref/hash and reviewed_candidate_keys are
-    // aligned by the coordinator with the injected admitted upstream input.
+    // normalized slot-side (S2-C C4) from the coordinator-injected admitted
+    // upstream input when the fixture leaves them null/absent.
     reviewed_route_proposal_ref: null,
     reviewed_route_proposal_hash: null,
     reviewed_candidate_keys: [ROUTE_CANDIDATE_KEY],
@@ -2013,7 +2099,7 @@ function validationCyclePlanningRoleOutput(): PaperImplementationValidationCycle
     cited_source_refs: [ref('implementation_input_snapshot', 'input_snapshot_001')],
     blocker_codes: [],
     warning_codes: [],
-    // Upstream echo refs/hashes are aligned by the coordinator at runtime.
+    // Upstream echo refs/hashes are normalized slot-side (S2-C C4) at runtime.
     cycle_candidate_proposals: [
       validationCycleCandidateProposal(CYCLE_CANDIDATE_KEY, false),
       validationCycleCandidateProposal('confirmatory_cycle_candidate', true),

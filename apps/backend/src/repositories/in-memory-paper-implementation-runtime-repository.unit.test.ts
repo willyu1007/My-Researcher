@@ -71,6 +71,59 @@ test('InMemoryPaperImplementationRuntimeRepository rejects duplicate runtime art
   );
 });
 
+test('InMemoryPaperImplementationRuntimeRepository rejects a runtime identity replay with 409 (S2-C C2)', async () => {
+  const repository = new InMemoryPaperImplementationRuntimeRepository();
+  await repository.createRuntimeArtifact(runtimeArtifact());
+
+  // A fresh runtime_artifact_id with the same runtime_identity_hash is an
+  // identity replay — it must conflict exactly like the Prisma unique index.
+  await assert.rejects(
+    () => repository.createRuntimeArtifact(runtimeArtifact({
+      runtime_artifact_id: 'runtime-artifact-role-replayed-1',
+      artifact_identity_hash: hash('replayed-envelope'),
+    })),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT'
+      && error.message.includes('runtime_identity_hash'),
+  );
+
+  // A distinct runtime identity is accepted.
+  await repository.createRuntimeArtifact(runtimeArtifact({
+    runtime_artifact_id: 'runtime-artifact-role-2',
+    artifact_identity_hash: hash('second-envelope'),
+    runtime_identity_hash: hash('second-runtime-identity'),
+  }));
+});
+
+test('InMemoryPaperImplementationRuntimeRepository lists final artifacts by final_artifact_ref (S2-C C4 direct lookup)', async () => {
+  const repository = new InMemoryPaperImplementationRuntimeRepository();
+  await repository.createRuntimeArtifact(runtimeArtifact());
+  const final = finalRuntimeArtifact();
+  await repository.createRuntimeArtifact(final);
+
+  const matches = await repository.listFinalRuntimeArtifactsByFinalArtifactRef(
+    PROJECT_ID,
+    final.final_artifact_ref!.ref_type,
+    final.final_artifact_ref!.ref_id,
+  );
+  assert.deepEqual(matches.map((artifact) => artifact.runtime_artifact_id), ['runtime-artifact-final-1']);
+
+  const wrongRef = await repository.listFinalRuntimeArtifactsByFinalArtifactRef(
+    PROJECT_ID,
+    final.final_artifact_ref!.ref_type,
+    'missing-final-artifact',
+  );
+  assert.deepEqual(wrongRef, []);
+
+  const wrongProject = await repository.listFinalRuntimeArtifactsByFinalArtifactRef(
+    'other-project',
+    final.final_artifact_ref!.ref_type,
+    final.final_artifact_ref!.ref_id,
+  );
+  assert.deepEqual(wrongProject, []);
+});
+
 test('InMemoryPaperImplementationRuntimeRepository stores admission records by project and filter', async () => {
   const repository = new InMemoryPaperImplementationRuntimeRepository();
   const role = admissionRecord();
@@ -220,6 +273,10 @@ function finalRuntimeArtifact(
   return runtimeArtifact({
     runtime_artifact_id: 'runtime-artifact-final-1',
     artifact_identity_hash: hash('final-envelope'),
+    // Real envelopes never share a runtime identity across scopes (the identity
+    // includes artifact_scope); the fixture mirrors that so the S2-C C2
+    // identity-uniqueness guard is not tripped by the final artifact.
+    runtime_identity_hash: hash('runtime-identity-final'),
     slot_id: 'slot-final',
     artifact_scope: 'final',
     artifact_contract_id: 'PaperImplementationResultAnalysisFinalArtifact',

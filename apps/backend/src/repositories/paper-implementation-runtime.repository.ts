@@ -30,6 +30,18 @@ export interface PaperImplementationRuntimeRepository {
     filter?: ListPaperImplementationRuntimeArtifactsFilter,
   ): Promise<PaperImplementationRuntimeArtifactEnvelope[]>;
 
+  /**
+   * Direct lookup of final-scope runtime artifacts by their final_artifact_ref
+   * (exact ref_type + ref_id match). S2-C C4: replaces the consumption
+   * validator's full final-scope table scan (feasibility performed it three
+   * times per run).
+   */
+  listFinalRuntimeArtifactsByFinalArtifactRef(
+    implementationProjectId: string,
+    refType: string,
+    refId: string,
+  ): Promise<PaperImplementationRuntimeArtifactEnvelope[]>;
+
   createAdmissionRecord(
     record: PaperImplementationRuntimeAdmissionRecord,
   ): Promise<PaperImplementationRuntimeAdmissionRecord>;
