@@ -1,12 +1,14 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-06T14:50:29.619Z",
+  "generatedAt": "2026-07-14T11:47:27.856Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "c5e45edf853ab817e2dfb6cd7739dae38d1ad7a43798c5fea4beb703245f39dd",
+  "sourceChecksumSha256": "31951ef8dffb735976dd306312973804c9f1d6015645436655aa3b843668d472",
   "stats": {
-    "totalEndpoints": 186,
+    "totalEndpoints": 192,
     "byTag": {
       "health": 1,
+      "paper-implementation-experiment-v2": 1,
+      "experiment-foundation-execution-v2": 5,
       "research-lifecycle": 8,
       "literature": 44,
       "settings": 5,
@@ -40,6 +42,234 @@
       "errors": [],
       "example": {
         "curl": "curl -X GET '/health'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions",
+      "operationId": "admitPaperImplementationExperimentWorkOrderV2",
+      "summary": "Admit one immutable PI experiment WorkOrder revision and its exact ordered cells.",
+      "tag": "paper-implementation-experiment-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "implementation_project_id",
+          "validation_cycle_id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "branch_key",
+            "branch_frame",
+            "work_order_revision",
+            "exact_cells",
+            "business_idempotency_key"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": [
+          "branch",
+          "revision",
+          "cells",
+          "admission",
+          "replayed"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions' -H 'Content-Type: application/json' -d '{\"branch_key\":\"<branch_key>\",\"branch_frame\":\"<branch_frame>\",\"work_order_revision\":\"<work_order_revision>\",\"exact_cells\":\"<exact_cells>\",\"business_idempotency_key\":\"<business_idempotency_key>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/experiment-foundation/v2/runs/{run_id}/workflow-simulations",
+      "operationId": "startExperimentFoundationWorkflowSimulationV2",
+      "summary": "Start or exact-replay simulation Attempts for every required Run cell.",
+      "tag": "experiment-foundation-execution-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "run_id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "business_idempotency_key"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "run_id",
+          "run_manifest_hash",
+          "business_idempotency_key",
+          "provider_payloads",
+          "execution_attempts",
+          "replayed",
+          "workflow_simulation_status"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/experiment-foundation/v2/runs/{run_id}/workflow-simulations' -H 'Content-Type: application/json' -d '{\"business_idempotency_key\":\"<business_idempotency_key>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/experiment-foundation/v2/execution-attempts/{attempt_id}/cancel",
+      "operationId": "cancelExperimentFoundationExecutionAttemptV2",
+      "summary": "Persist an idempotent cancellation intent for one simulation Attempt.",
+      "tag": "experiment-foundation-execution-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "attempt_id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "business_idempotency_key"
+          ],
+          "optional": [
+            "reason_code"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 202,
+        "coreFields": [
+          "execution_attempt"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/experiment-foundation/v2/execution-attempts/{attempt_id}/cancel' -H 'Content-Type: application/json' -d '{\"business_idempotency_key\":\"<business_idempotency_key>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/experiment-foundation/v2/execution-attempts/{attempt_id}/reconcile",
+      "operationId": "reconcileExperimentFoundationExecutionAttemptV2",
+      "summary": "Enqueue an idempotent manual reconciliation for one simulation Attempt.",
+      "tag": "experiment-foundation-execution-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "attempt_id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "business_idempotency_key"
+          ],
+          "optional": [
+            "reason_code"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 202,
+        "coreFields": [
+          "execution_attempt"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/experiment-foundation/v2/execution-attempts/{attempt_id}/reconcile' -H 'Content-Type: application/json' -d '{\"business_idempotency_key\":\"<business_idempotency_key>\"}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/experiment-foundation/v2/execution-attempts/{attempt_id}",
+      "operationId": "getExperimentFoundationExecutionAttemptV2",
+      "summary": "Read one simulation Attempt authority record.",
+      "tag": "experiment-foundation-execution-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "attempt_id"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "execution_attempt"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/experiment-foundation/v2/execution-attempts/{attempt_id}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/experiment-foundation/v2/runs/{run_id}/workflow-simulation-status",
+      "operationId": "getExperimentFoundationWorkflowSimulationStatusV2",
+      "summary": "Rebuild the Run workflow simulation status from exact Attempt and collection facts.",
+      "tag": "experiment-foundation-execution-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "run_id"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "run_id",
+          "run_manifest_hash",
+          "workflow_simulation_status",
+          "required_cell_count",
+          "terminal_cell_count",
+          "collected_cell_count",
+          "cells",
+          "scientific_execution_status",
+          "evidence_eligibility",
+          "derived_at"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/experiment-foundation/v2/runs/{run_id}/workflow-simulation-status'"
       }
     },
     {

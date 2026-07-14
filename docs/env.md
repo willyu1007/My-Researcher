@@ -2,10 +2,10 @@
 
 This document is generated from `env/contract.yaml`. Do not hand-edit.
 
-Generated at (UTC): `2026-06-06T14:46:21Z`
+Generated at (UTC): `2026-07-13T15:58:00Z`
 
 ## Environments
-- `dev`, `prod`, `staging`
+- `dev`, `dev.local`, `prod`, `staging`
 
 ## Variables
 
@@ -23,6 +23,7 @@ Generated at (UTC): `2026-06-06T14:46:21Z`
 | `EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ENABLED` | `active` | `enum` | no | no | `false` | `` | `dev` | `` | `` | `` | Explicit opt-in switch for experiment-foundation LocalScript execution outside NODE_ENV=test. |
 | `EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT` | `active` | `string` | no | no | `.ai/.tmp/experiment-foundation-local-execution` | `` | `dev` | `` | `` | `` | LocalScript execution root for experiment-foundation smoke runs; all working directories and outputs must stay inside this root. |
 | `EXPERIMENT_FOUNDATION_LOCAL_SCRIPT_ALLOWED_COMMANDS` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Comma-separated LocalScript command allowlist; keep narrow for local smoke execution. |
+| `EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands. |
 | `HOST` | `active` | `string` | no | no | `0.0.0.0` | `` | `*` | `` | `` | `` | Service listen host. |
 | `LITERATURE_CONTENT_PROCESSING_ROOT` | `active` | `string` | no | no | `/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing` | `` | `dev` | `` | `` | `` | Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports. |
 | `LITERATURE_KEY_CONTENT_READY_METHOD` | `active` | `enum` | no | no | `codex_curated` | `` | `*` | `` | `` | `` | Default KEY_CONTENT_READY completion mode; codex_curated blocks for curated dossier import instead of calling the LLM gateway. |
@@ -34,6 +35,8 @@ Generated at (UTC): `2026-06-06T14:46:21Z`
 | `OPENALEX_API_KEY` | `active` | `string` | no | yes | `` | `openalex_api_key` | `dev` | `` | `` | `` | Optional OpenAlex API key for high-volume literature candidate discovery. |
 | `OPENALEX_MAILTO` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Contact email attached to OpenAlex literature discovery requests for polite-pool identification. |
 | `PAPER_ENGINEER_LOCAL_DATA_ROOT` | `active` | `string` | no | no | `/Volumes/DataDisk/Data/PaperEngineer` | `` | `dev` | `` | `` | `` | Local root directory for Paper Engineer runtime data and generated artifacts. |
+| `PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new PaperImplementation experiment v2 admissions; this switch does not gate replay or draining of already committed PI/EF integration events. |
+| `PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Commit the single-writer v2 product boundary by rejecting legacy PI WorkOrder/Harness/live and EF generic/readiness/promotion/execution mutations while preserving diagnostics reads and integration-event draining. |
 | `PORT` | `active` | `int` | yes | no | `8000` | `` | `*` | `` | `` | `` | Service listen port. |
 | `RESEARCH_LIFECYCLE_REPOSITORY` | `active` | `enum` | no | no | `memory` | `` | `*` | `` | `` | `` | Repository strategy for research lifecycle stores; cascades from TITLE_CARD_REPOSITORY when unset. |
 | `SEMANTIC_SCHOLAR_API_KEY` | `active` | `string` | no | yes | `` | `semantic_scholar_api_key` | `dev` | `` | `` | `` | Optional Semantic Scholar Graph API key for literature candidate discovery. |

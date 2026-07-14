@@ -1,6 +1,6 @@
 {
   "env": "dev",
-  "generated_at_utc": "2026-06-06T14:50:26Z",
+  "generated_at_utc": "2026-07-14T08:59:03Z",
   "values": {
     "APPLICATION_SETTINGS_REPOSITORY": "prisma",
     "APP_ENV": "dev",
@@ -14,6 +14,7 @@
     "EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ENABLED": "true",
     "EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT": "/Volumes/DataDisk/Project/My-Researcher/.ai/.tmp/experiment-foundation-local-execution",
     "EXPERIMENT_FOUNDATION_LOCAL_SCRIPT_ALLOWED_COMMANDS": "node",
+    "EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED": false,
     "HOST": "127.0.0.1",
     "LITERATURE_CONTENT_PROCESSING_ROOT": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing",
     "LITERATURE_KEY_CONTENT_READY_METHOD": "codex_curated",
@@ -22,6 +23,8 @@
     "OPENAI_API_KEY": "***REDACTED***",
     "OPENALEX_API_KEY": "***REDACTED***",
     "PAPER_ENGINEER_LOCAL_DATA_ROOT": "/Volumes/DataDisk/Data/PaperEngineer",
+    "PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED": false,
+    "PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED": false,
     "PORT": 3000,
     "RESEARCH_LIFECYCLE_REPOSITORY": "prisma",
     "SEMANTIC_SCHOLAR_API_KEY": "***REDACTED***",

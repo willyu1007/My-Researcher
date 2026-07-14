@@ -123,6 +123,21 @@ variables:
     default: ''
     scopes: [dev]
     description: Comma-separated LocalScript command allowlist; keep narrow for local smoke execution.
+  PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable only new PaperImplementation experiment v2 admissions; this switch does not gate replay or draining of already committed PI/EF integration events.
+  EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands.
+  PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED:
+    type: bool
+    required: false
+    default: false
+    description: Commit the single-writer v2 product boundary by rejecting legacy PI WorkOrder/Harness/live and EF generic/readiness/promotion/execution mutations while preserving diagnostics reads and integration-event draining.
   LITERATURE_CONTENT_PROCESSING_ROOT:
     type: string
     required: false

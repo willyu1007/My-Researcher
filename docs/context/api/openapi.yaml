@@ -29,6 +29,10 @@ tags:
     description: Topic selection v1b need-to-draft-package and frozen replay endpoints.
   - name: topic-selection-v1c
     description: Topic selection v1c human promotion, bridge, downstream feedback, and frozen replay endpoints.
+  - name: paper-implementation-experiment-v2
+    description: Default-off PI experiment WorkOrder v2 admission; committed sagas are relayed through domain-local database inbox/outbox consumers.
+  - name: experiment-foundation-execution-v2
+    description: Default-off, same-payload simulation Attempt and durable fake-provider control endpoints; no real provider or scientific evidence writes.
 
 paths:
   /health:
@@ -43,6 +47,214 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+
+  /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions:
+    post:
+      operationId: admitPaperImplementationExperimentWorkOrderV2
+      summary: Admit one immutable PI experiment WorkOrder revision and its exact ordered cells.
+      description: |
+        The server derives all canonical hashes and the branch-local revision sequence. The default-off
+        admission capability rejects before any PI v2, EF v2 or legacy write. Disabling admission does
+        not stop relay or consumer processing for a previously committed saga.
+      tags: [paper-implementation-experiment-v2]
+      parameters:
+        - name: implementation_project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: validation_cycle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperImplementationExperimentV2AdmissionRequest'
+      responses:
+        '201':
+          description: Admission committed or exact-replayed without duplicate authority rows/events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationExperimentV2AdmissionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /experiment-foundation/v2/runs/{run_id}/workflow-simulations:
+    post:
+      operationId: startExperimentFoundationWorkflowSimulationV2
+      summary: Start or exact-replay simulation Attempts for every required Run cell.
+      description: |
+        Requires the exact processed Pack A head acknowledgement, unchanged Run manifest, ordered
+        RunCell/TaskSpec bindings and exact readiness authority. The server materializes and hashes the
+        fake-provider payload. Capability-off blocks only new intake; committed commands continue to drain.
+      tags: [experiment-foundation-execution-v2]
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentFoundationWorkflowSimulationV2StartRequest'
+      responses:
+        '201':
+          description: Simulation Attempts and durable submit commands were created for the exact required cells.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationWorkflowSimulationV2StartResponse'
+        '200':
+          description: The exact business command was replayed without duplicate authority or provider intent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationWorkflowSimulationV2StartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /experiment-foundation/v2/execution-attempts/{attempt_id}/cancel:
+    post:
+      operationId: cancelExperimentFoundationExecutionAttemptV2
+      summary: Persist an idempotent cancellation intent for one simulation Attempt.
+      description: |
+        Pending submit is cancelled with zero transport. If submit is already leased, cancellation is
+        persisted as an unresolved durable intent and gains priority after E3 or lease recovery. A state
+        conflict returns 409 with zero partial write; the same business key may be retried.
+      tags: [experiment-foundation-execution-v2]
+      parameters:
+        - name: attempt_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentFoundationExecutionAttemptV2ControlRequest'
+      responses:
+        '202':
+          description: Cancellation completed atomically or was persisted as a durable command intent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationExecutionAttemptV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /experiment-foundation/v2/execution-attempts/{attempt_id}/reconcile:
+    post:
+      operationId: reconcileExperimentFoundationExecutionAttemptV2
+      summary: Enqueue an idempotent manual reconciliation for one simulation Attempt.
+      description: The durable fake-provider command uses the Attempt's exact payload hash and external identity; cancellation has precedence.
+      tags: [experiment-foundation-execution-v2]
+      parameters:
+        - name: attempt_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentFoundationExecutionAttemptV2ControlRequest'
+      responses:
+        '202':
+          description: Reconciliation intent was committed or exact-replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationExecutionAttemptV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /experiment-foundation/v2/execution-attempts/{attempt_id}:
+    get:
+      operationId: getExperimentFoundationExecutionAttemptV2
+      summary: Read one simulation Attempt authority record.
+      tags: [experiment-foundation-execution-v2]
+      parameters:
+        - name: attempt_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Exact simulation Attempt authority.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationExecutionAttemptV2Response'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /experiment-foundation/v2/runs/{run_id}/workflow-simulation-status:
+    get:
+      operationId: getExperimentFoundationWorkflowSimulationStatusV2
+      summary: Rebuild the Run workflow simulation status from exact Attempt and collection facts.
+      description: The response is a control projection only; scientific execution remains not_started and evidence eligibility remains false.
+      tags: [experiment-foundation-execution-v2]
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Event-derived workflow simulation projection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationWorkflowSimulationV2Status'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /paper-projects:
     post:
@@ -4774,6 +4986,395 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    ExperimentFoundationWorkflowSimulationV2StartRequest:
+      type: object
+      additionalProperties: false
+      required: [business_idempotency_key]
+      properties:
+        business_idempotency_key: { type: string, minLength: 1 }
+
+    ExperimentFoundationExecutionAttemptV2ControlRequest:
+      type: object
+      additionalProperties: false
+      required: [business_idempotency_key]
+      properties:
+        business_idempotency_key: { type: string, minLength: 1 }
+        reason_code:
+          type: string
+          enum: [operator_cancelled, manual_reconcile]
+
+    ExperimentFoundationSimulationExternalJobRefV2:
+      type: object
+      additionalProperties: false
+      required: [ref_type, ref_id]
+      properties:
+        ref_type: { const: fake_aliyun_pai_dlc_job }
+        ref_id: { type: string, minLength: 1 }
+
+    ExperimentFoundationProviderPayloadV2:
+      type: object
+      additionalProperties: false
+      required: [provider_payload_id, materialization_key, run_id, run_manifest_hash, run_cell_id, cell_key, training_task_spec_id, training_task_spec_hash, payload_schema, adapter_identity, execution_mode, provenance, simulation_profile_version, redacted_manifest, payload_hash, payload_byte_size, created_at]
+      properties:
+        provider_payload_id: { type: string, minLength: 1 }
+        materialization_key: { type: string, minLength: 1 }
+        run_id: { type: string, minLength: 1 }
+        run_manifest_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        run_cell_id: { type: string, minLength: 1 }
+        cell_key: { type: string, minLength: 1 }
+        training_task_spec_id: { type: string, minLength: 1 }
+        training_task_spec_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        payload_schema: { const: 'FakeAliyunPaiDlcSubmitPayload@v1' }
+        adapter_identity: { const: 'deterministic_fake_aliyun_pai_dlc@v1' }
+        execution_mode: { const: simulation }
+        provenance: { const: non_production_fake_provider }
+        simulation_profile_version: { type: string, minLength: 1 }
+        redacted_manifest:
+          type: object
+          description: Canonical redacted fake-provider payload manifest; credentials and network configuration are forbidden.
+        payload_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        payload_byte_size: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        created_at: { type: string, minLength: 1 }
+
+    ExperimentFoundationExecutionAttemptV2:
+      type: object
+      additionalProperties: false
+      required: [execution_attempt_id, external_pi_implementation_project_id, external_pi_validation_cycle_id, external_pi_branch_id, external_pi_work_order_revision_id, external_pi_work_order_revision_hash, external_pi_revision_sequence, run_id, run_manifest_hash, run_cell_id, cell_key, training_task_spec_id, training_task_spec_hash, provider_payload_id, provider_payload_hash, head_acknowledgement_inbox_id, attempt_sequence, workflow_business_key, workflow_request_hash, execution_mode, provenance, provider_idempotency_key, lifecycle_state, state_version, terminal_reason_code, external_job_ref, external_job_ref_hash, created_at, updated_at, terminal_at]
+      properties:
+        execution_attempt_id: { type: string, minLength: 1 }
+        external_pi_implementation_project_id: { type: string, minLength: 1 }
+        external_pi_validation_cycle_id: { type: string, minLength: 1 }
+        external_pi_branch_id: { type: string, minLength: 1 }
+        external_pi_work_order_revision_id: { type: string, minLength: 1 }
+        external_pi_work_order_revision_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        external_pi_revision_sequence: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        run_id: { type: string, minLength: 1 }
+        run_manifest_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        run_cell_id: { type: string, minLength: 1 }
+        cell_key: { type: string, minLength: 1 }
+        training_task_spec_id: { type: string, minLength: 1 }
+        training_task_spec_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        provider_payload_id: { type: string, minLength: 1 }
+        provider_payload_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        head_acknowledgement_inbox_id: { type: string, minLength: 1 }
+        attempt_sequence: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        workflow_business_key: { type: string, minLength: 1 }
+        workflow_request_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        execution_mode: { const: simulation }
+        provenance: { const: non_production_fake_provider }
+        provider_idempotency_key: { type: string, minLength: 1 }
+        lifecycle_state:
+          type: string
+          enum: [prepared, submitted, running, succeeded, failed, cancelled]
+        state_version: { type: integer, format: int32, minimum: 0, maximum: 2147483647 }
+        terminal_reason_code:
+          type: [string, 'null']
+          enum: [simulation_succeeded, simulation_failed, operator_cancelled, provider_response_invalid, null]
+        external_job_ref:
+          oneOf:
+            - $ref: '#/components/schemas/ExperimentFoundationSimulationExternalJobRefV2'
+            - type: 'null'
+        external_job_ref_hash:
+          oneOf:
+            - { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            - { type: 'null' }
+        created_at: { type: string, minLength: 1 }
+        updated_at: { type: string, minLength: 1 }
+        terminal_at: { type: [string, 'null'], minLength: 1 }
+
+    ExperimentFoundationExecutionAttemptV2Response:
+      type: object
+      additionalProperties: false
+      required: [execution_attempt]
+      properties:
+        execution_attempt:
+          $ref: '#/components/schemas/ExperimentFoundationExecutionAttemptV2'
+
+    ExperimentFoundationWorkflowSimulationV2CellStatus:
+      type: object
+      additionalProperties: false
+      required: [run_cell_id, cell_key, latest_execution_attempt_id, latest_attempt_state, latest_collection_state]
+      properties:
+        run_cell_id: { type: string, minLength: 1 }
+        cell_key: { type: string, minLength: 1 }
+        latest_execution_attempt_id: { type: [string, 'null'], minLength: 1 }
+        latest_attempt_state:
+          type: [string, 'null']
+          enum: [prepared, submitted, running, succeeded, failed, cancelled, null]
+        latest_collection_state:
+          type: [string, 'null']
+          enum: [prepared, collected, failed, null]
+
+    ExperimentFoundationWorkflowSimulationV2Status:
+      type: object
+      additionalProperties: false
+      required: [run_id, run_manifest_hash, workflow_simulation_status, required_cell_count, terminal_cell_count, collected_cell_count, cells, scientific_execution_status, evidence_eligibility, derived_at]
+      properties:
+        run_id: { type: string, minLength: 1 }
+        run_manifest_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        workflow_simulation_status:
+          type: string
+          enum: [not_started, in_progress, workflow_simulation_passed, workflow_simulation_failed, workflow_simulation_blocked]
+        required_cell_count: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        terminal_cell_count: { type: integer, format: int32, minimum: 0, maximum: 2147483647 }
+        collected_cell_count: { type: integer, format: int32, minimum: 0, maximum: 2147483647 }
+        cells:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ExperimentFoundationWorkflowSimulationV2CellStatus'
+        scientific_execution_status: { const: not_started }
+        evidence_eligibility: { const: false }
+        derived_at: { type: string, minLength: 1 }
+
+    ExperimentFoundationWorkflowSimulationV2StartResponse:
+      type: object
+      additionalProperties: false
+      required: [run_id, run_manifest_hash, business_idempotency_key, provider_payloads, execution_attempts, replayed, workflow_simulation_status]
+      properties:
+        run_id: { type: string, minLength: 1 }
+        run_manifest_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        business_idempotency_key: { type: string, minLength: 1 }
+        provider_payloads:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ExperimentFoundationProviderPayloadV2'
+        execution_attempts:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ExperimentFoundationExecutionAttemptV2'
+        replayed: { type: boolean }
+        workflow_simulation_status:
+          $ref: '#/components/schemas/ExperimentFoundationWorkflowSimulationV2Status'
+
+    ExperimentV2ExactAssetRevisionRef:
+      type: object
+      additionalProperties: false
+      required: [asset_type, logical_id, revision_id, revision_sequence, content_hash]
+      properties:
+        asset_type:
+          type: string
+          enum: [Dataset, DataPolicy, MetricDefinition, Benchmark, EvaluationProtocol]
+        logical_id: { type: string, minLength: 1 }
+        revision_id: { type: string, minLength: 1 }
+        revision_sequence: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        content_hash:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+
+    PaperImplementationExperimentV2ParameterValue:
+      type: object
+      additionalProperties: false
+      required: [name, value]
+      properties:
+        name: { type: string, minLength: 1 }
+        value:
+          oneOf:
+            - { type: string }
+            - { type: number }
+            - { type: boolean }
+            - { type: 'null' }
+
+    PaperImplementationExperimentV2RequiredResultContract:
+      type: object
+      additionalProperties: false
+      required: [metrics, artifacts]
+      properties:
+        metrics:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [metric_definition, required_cardinality]
+            properties:
+              metric_definition:
+                allOf:
+                  - $ref: '#/components/schemas/ExperimentV2ExactAssetRevisionRef'
+                  - type: object
+                    properties:
+                      asset_type: { const: MetricDefinition }
+              required_cardinality: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        artifacts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [artifact_kind, required_cardinality]
+            properties:
+              artifact_kind: { type: string, minLength: 1 }
+              required_cardinality: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+
+    PaperImplementationExperimentV2ExactCellInput:
+      type: object
+      additionalProperties: false
+      required: [cell_key, seed, repeat_index, parameters, required_result_contract]
+      properties:
+        cell_key: { type: string, minLength: 1 }
+        seed: { type: integer, format: int32, minimum: -2147483648, maximum: 2147483647 }
+        repeat_index: { type: integer, format: int32, minimum: 0, maximum: 2147483647 }
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaperImplementationExperimentV2ParameterValue'
+        required_result_contract:
+          $ref: '#/components/schemas/PaperImplementationExperimentV2RequiredResultContract'
+
+    PaperImplementationExperimentV2AdmissionRequest:
+      type: object
+      additionalProperties: false
+      required: [branch_key, branch_frame, work_order_revision, exact_cells, business_idempotency_key]
+      properties:
+        branch_key: { type: string, minLength: 1 }
+        branch_frame:
+          type: object
+          additionalProperties: false
+          required: [frame_schema_version, display_name, scientific_intent, comparison_role, parent_branch_key]
+          properties:
+            frame_schema_version: { const: v1 }
+            display_name: { type: string, minLength: 1 }
+            scientific_intent: { type: string, minLength: 1 }
+            comparison_role:
+              type: string
+              enum: [primary, baseline, ablation, robustness]
+            parent_branch_key:
+              type: [string, 'null']
+        work_order_revision:
+          type: object
+          additionalProperties: false
+          required: [work_order_schema_version, title, objective, readiness_attestation_id, readiness_attestation_hash, asset_dependencies, run_policy]
+          properties:
+            work_order_schema_version: { const: v1 }
+            title: { type: string, minLength: 1 }
+            objective: { type: string, minLength: 1 }
+            readiness_attestation_id: { type: string, minLength: 1 }
+            readiness_attestation_hash:
+              type: string
+              pattern: '^sha256:[0-9a-f]{64}$'
+            asset_dependencies:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/ExperimentV2ExactAssetRevisionRef'
+            run_policy:
+              type: object
+              additionalProperties: false
+              required: [max_attempts_per_cell, timeout_seconds]
+              properties:
+                max_attempts_per_cell: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+                timeout_seconds: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        exact_cells:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PaperImplementationExperimentV2ExactCellInput'
+        business_idempotency_key: { type: string, minLength: 1 }
+
+    PaperImplementationExperimentV2AdmissionResponse:
+      type: object
+      additionalProperties: false
+      required: [branch, revision, cells, admission, replayed]
+      properties:
+        branch:
+          type: object
+          additionalProperties: false
+          required: [branch_id, implementation_project_id, validation_cycle_id, branch_key, branch_frame, branch_frame_hash, state_version, current_admitted_revision_id, current_admitted_revision_sequence, head_run_id, head_run_manifest_hash, head_source_event_id, created_at, updated_at]
+          properties:
+            branch_id: { type: string, minLength: 1 }
+            implementation_project_id: { type: string, minLength: 1 }
+            validation_cycle_id: { type: string, minLength: 1 }
+            branch_key: { type: string, minLength: 1 }
+            branch_frame:
+              type: object
+              additionalProperties: false
+              required: [frame_schema_version, display_name, scientific_intent, comparison_role, parent_branch_key]
+              properties:
+                frame_schema_version: { const: v1 }
+                display_name: { type: string, minLength: 1 }
+                scientific_intent: { type: string, minLength: 1 }
+                comparison_role: { type: string, enum: [primary, baseline, ablation, robustness] }
+                parent_branch_key: { type: [string, 'null'] }
+            branch_frame_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            state_version: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+            current_admitted_revision_id: { type: [string, 'null'] }
+            current_admitted_revision_sequence:
+              oneOf:
+                - { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+                - { type: 'null' }
+            head_run_id: { type: [string, 'null'] }
+            head_run_manifest_hash:
+              oneOf:
+                - { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+                - { type: 'null' }
+            head_source_event_id: { type: [string, 'null'] }
+            created_at: { type: string, minLength: 1 }
+            updated_at: { type: string, minLength: 1 }
+        revision:
+          type: object
+          additionalProperties: false
+          required: [work_order_revision_id, branch_id, revision_sequence, work_order_revision, content_hash, cell_plan_hash, approved_plan_hash, created_at]
+          properties:
+            work_order_revision_id: { type: string, minLength: 1 }
+            branch_id: { type: string, minLength: 1 }
+            revision_sequence: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+            work_order_revision:
+              type: object
+              additionalProperties: false
+              required: [work_order_schema_version, title, objective, readiness_attestation_id, readiness_attestation_hash, asset_dependencies, run_policy]
+              properties:
+                work_order_schema_version: { const: v1 }
+                title: { type: string, minLength: 1 }
+                objective: { type: string, minLength: 1 }
+                readiness_attestation_id: { type: string, minLength: 1 }
+                readiness_attestation_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+                asset_dependencies:
+                  type: array
+                  minItems: 1
+                  items: { $ref: '#/components/schemas/ExperimentV2ExactAssetRevisionRef' }
+                run_policy:
+                  type: object
+                  additionalProperties: false
+                  required: [max_attempts_per_cell, timeout_seconds]
+                  properties:
+                    max_attempts_per_cell: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+                    timeout_seconds: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+            content_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            cell_plan_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            approved_plan_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            created_at: { type: string, minLength: 1 }
+        cells:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [work_order_cell_id, work_order_revision_id, ordinal, cell_key, seed, repeat_index, parameters, required_result_contract, cell_hash]
+            properties:
+              work_order_cell_id: { type: string, minLength: 1 }
+              work_order_revision_id: { type: string, minLength: 1 }
+              ordinal: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+              cell_key: { type: string, minLength: 1 }
+              seed: { type: integer, format: int32, minimum: -2147483648, maximum: 2147483647 }
+              repeat_index: { type: integer, format: int32, minimum: 0, maximum: 2147483647 }
+              parameters:
+                type: array
+                items: { $ref: '#/components/schemas/PaperImplementationExperimentV2ParameterValue' }
+              required_result_contract: { $ref: '#/components/schemas/PaperImplementationExperimentV2RequiredResultContract' }
+              cell_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        admission:
+          type: object
+          additionalProperties: false
+          required: [admission_id, work_order_revision_id, approved_plan_hash, business_idempotency_key, admitted_by, admitted_at]
+          properties:
+            admission_id: { type: string, minLength: 1 }
+            work_order_revision_id: { type: string, minLength: 1 }
+            approved_plan_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            business_idempotency_key: { type: string, minLength: 1 }
+            admitted_by: { type: string, minLength: 1 }
+            admitted_at: { type: string, minLength: 1 }
+        replayed: { type: boolean }
+
     ErrorResponse:
       type: object
       required: [error]

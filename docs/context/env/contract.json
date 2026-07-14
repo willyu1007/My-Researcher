@@ -1,10 +1,11 @@
 {
   "envs": [
     "dev",
+    "dev.local",
     "prod",
     "staging"
   ],
-  "generated_at_utc": "2026-06-06T14:46:21Z",
+  "generated_at_utc": "2026-07-13T15:58:00Z",
   "ssot_mode": "repo-env-contract",
   "variables": {
     "APPLICATION_SETTINGS_REPOSITORY": {
@@ -227,6 +228,23 @@
       "state": "active",
       "type": "string"
     },
+    "EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED": {
+      "default": false,
+      "deprecate_after": null,
+      "description": "Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "bool"
+    },
     "HOST": {
       "default": "0.0.0.0",
       "deprecate_after": null,
@@ -423,6 +441,40 @@
       "secret_ref": null,
       "state": "active",
       "type": "string"
+    },
+    "PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED": {
+      "default": false,
+      "deprecate_after": null,
+      "description": "Enable only new PaperImplementation experiment v2 admissions; this switch does not gate replay or draining of already committed PI/EF integration events.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "bool"
+    },
+    "PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED": {
+      "default": false,
+      "deprecate_after": null,
+      "description": "Commit the single-writer v2 product boundary by rejecting legacy PI WorkOrder/Harness/live and EF generic/readiness/promotion/execution mutations while preserving diagnostics reads and integration-event draining.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "bool"
     },
     "PORT": {
       "default": 8000,

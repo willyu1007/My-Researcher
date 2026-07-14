@@ -1,13 +1,19 @@
 # API Index
 
-> Auto-generated at 2026-06-06T14:50:29.619Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `c5e45edf853a...`)
+> Auto-generated at 2026-07-14T11:47:27.856Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `31951ef8dffb...`)
 
-Total endpoints: **186**
+Total endpoints: **192**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
 | GET | /health | Check service liveness. | none | — | ok | — |
+| POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions | Admit one immutable PI experiment WorkOrder revision and its exact ordered cells. | none | branch_key, branch_frame, work_order_revision, exact_cells, business_idempotency_key | branch, revision, cells, admission, replayed | 400, 404, 409, 422, 500 |
+| POST | /experiment-foundation/v2/runs/{run_id}/workflow-simulations | Start or exact-replay simulation Attempts for every required Run cell. | none | business_idempotency_key | run_id, run_manifest_hash, business_idempotency_key, provider_payloads, execution_attempts, replayed, workflow_simulation_status | 400, 404, 409, 422, 500 |
+| POST | /experiment-foundation/v2/execution-attempts/{attempt_id}/cancel | Persist an idempotent cancellation intent for one simulation Attempt. | none | business_idempotency_key | execution_attempt | 400, 404, 409, 422, 500 |
+| POST | /experiment-foundation/v2/execution-attempts/{attempt_id}/reconcile | Enqueue an idempotent manual reconciliation for one simulation Attempt. | none | business_idempotency_key | execution_attempt | 400, 404, 409, 422, 500 |
+| GET | /experiment-foundation/v2/execution-attempts/{attempt_id} | Read one simulation Attempt authority record. | none | attempt_id | execution_attempt | 404, 500 |
+| GET | /experiment-foundation/v2/runs/{run_id}/workflow-simulation-status | Rebuild the Run workflow simulation status from exact Attempt and collection facts. | none | run_id | run_id, run_manifest_hash, workflow_simulation_status, required_cell_count, terminal_cell_count, collected_cell_count, cells, scientific_execution_status, evidence_eligibility, derived_at | 404, 500 |
 | POST | /paper-projects | Create a paper project. | none | title_card_id, title, created_by, initial_context | paper_id, status, paper_active_sp_full, paper_active_sp_partial, created_at | 400, 409, 500 |
 | POST | /paper-projects/{id}/version-spine/commit | Commit a version spine node for a paper. | none | lineage_meta, payload_ref, node_status | node_id, accepted, node_status | 400, 409, 500 |
 | POST | /paper-projects/{id}/stage-gates/{gate}/verify | Verify stage gate candidates for a paper. | none | candidate_node_ids, config_version, reviewer_mode, analysis_contract | gate_run_id, results, snapshot, pointer_update | 400, 404, 422, 500 |

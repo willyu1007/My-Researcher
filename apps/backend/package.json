@@ -8,6 +8,7 @@
   "scripts": {
     "pretypecheck": "pnpm run prisma:generate",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:experiment-foundation-scripts": "pnpm run prisma:generate && tsc -p tsconfig.experiment-foundation-scripts.json --noEmit",
     "test": "node scripts/run-node-tests.mjs",
     "test:repeat": "node scripts/run-node-tests-repeat.mjs",
     "prisma:format": "prisma format --schema ../../prisma/schema.prisma",
@@ -16,6 +17,7 @@
     "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts",
     "dev:prisma": "node --env-file=../../.env.local --enable-source-maps --loader ts-node/esm src/server.ts",
     "content-processing:backfill": "node scripts/backfill-literature-content-processing.mjs",
+    "experiment-foundation:d19-fixture:import": "node --env-file=../../.env.local --loader ts-node/esm scripts/import-experiment-foundation-d19-typed-fixture.ts",
     "v1b:backfill-n4-handoff-hash": "node --env-file=../../.env.local --loader ts-node/esm scripts/backfill-v1b-n4-handoff-hash.ts",
     "v1b:n8-calibration-dry-run": "node --loader ts-node/esm scripts/run-n8-calibration-dry-run.ts"
   },

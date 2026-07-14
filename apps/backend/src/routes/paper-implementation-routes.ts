@@ -38,6 +38,10 @@ import {
   createResearchWorkOrderDraftRequestSchema,
   recordRunMonitorIntakeRequestSchema,
   submitResearchWorkOrderHarnessRunRequestSchema,
+  type AdmitResearchWorkOrderRequest,
+  type CreateResearchWorkOrderDraftRequest,
+  type RecordRunMonitorIntakeRequest,
+  type SubmitResearchWorkOrderHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-workorder-contracts';
 import {
   createClaimCandidateRequestSchema,
@@ -57,6 +61,10 @@ import {
   collectLiveExperimentRunRequestSchema,
   submitLiveExperimentRunRequestSchema,
   syncLiveExperimentRunRequestSchema,
+  type CancelLiveExperimentRunRequest,
+  type CollectLiveExperimentRunRequest,
+  type SubmitLiveExperimentRunRequest,
+  type SyncLiveExperimentRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-live-experiment-adapter-contracts';
 import {
   runProviderVarianceEvaluationRequestSchema,
@@ -83,6 +91,10 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 
 import { PaperImplementationController } from '../controllers/paper-implementation-controller.js';
+import {
+  legacyExperimentMutationOnRequest,
+  type LegacyExperimentMutationRouteOptions,
+} from './experiment-v2-cutover-guard.js';
 
 const stringId = { type: 'string', minLength: 1 } as const;
 
@@ -162,10 +174,25 @@ const coordinatorRunParams = paramsSchema({
   coordinator_run_id: stringId,
 });
 
+type ImplementationProjectRouteParams = {
+  implementation_project_id: string;
+};
+
+type ResearchWorkOrderRouteParams = ImplementationProjectRouteParams & {
+  work_order_id: string;
+};
+
+type LiveExperimentRunRouteParams = ResearchWorkOrderRouteParams & {
+  external_job_id: string;
+};
+
 export async function registerPaperImplementationRoutes(
   fastify: FastifyInstance,
   controller: PaperImplementationController,
+  options: LegacyExperimentMutationRouteOptions = {},
 ): Promise<void> {
+  const legacyMutationOnRequest = legacyExperimentMutationOnRequest(options);
+
   fastify.post(
     '/paper-implementation/projects/bootstrap',
     { schema: { body: bootstrapImplementationProjectRequestSchema } },
@@ -763,23 +790,31 @@ export async function registerPaperImplementationRoutes(
     },
     controller.dispatchValidationUpstreamFeedbackCandidate,
   );
-  fastify.post(
+  fastify.post<{
+    Params: ImplementationProjectRouteParams;
+    Body: CreateResearchWorkOrderDraftRequest;
+  }>(
     '/paper-implementation/projects/:implementation_project_id/research-work-orders/drafts',
     {
       schema: {
         ...implementationProjectParams,
         body: createResearchWorkOrderDraftRequestSchema,
       },
+      onRequest: legacyMutationOnRequest,
     },
     controller.createResearchWorkOrderDraft,
   );
-  fastify.post(
+  fastify.post<{
+    Params: ResearchWorkOrderRouteParams;
+    Body: AdmitResearchWorkOrderRequest;
+  }>(
     '/paper-implementation/projects/:implementation_project_id/research-work-orders/:work_order_id/admit',
     {
       schema: {
         ...researchWorkOrderParams,
         body: admitResearchWorkOrderRequestSchema,
       },
+      onRequest: legacyMutationOnRequest,
     },
     controller.admitResearchWorkOrder,
   );
@@ -793,13 +828,17 @@ export async function registerPaperImplementationRoutes(
     { schema: researchWorkOrderParams },
     controller.getResearchWorkOrder,
   );
-  fastify.post(
+  fastify.post<{
+    Params: ResearchWorkOrderRouteParams;
+    Body: SubmitResearchWorkOrderHarnessRunRequest;
+  }>(
     '/paper-implementation/projects/:implementation_project_id/research-work-orders/:work_order_id/harness-runs',
     {
       schema: {
         ...researchWorkOrderParams,
         body: submitResearchWorkOrderHarnessRunRequestSchema,
       },
+      onRequest: legacyMutationOnRequest,
     },
     controller.submitResearchWorkOrderHarnessRun,
   );
@@ -808,53 +847,73 @@ export async function registerPaperImplementationRoutes(
     { schema: researchWorkOrderParams },
     controller.listResearchWorkOrderHarnessRuns,
   );
-  fastify.post(
+  fastify.post<{
+    Params: ResearchWorkOrderRouteParams;
+    Body: SubmitLiveExperimentRunRequest;
+  }>(
     '/paper-implementation/projects/:implementation_project_id/research-work-orders/:work_order_id/live-experiment-runs/submit',
     {
       schema: {
         ...researchWorkOrderParams,
         body: submitLiveExperimentRunRequestSchema,
       },
+      onRequest: legacyMutationOnRequest,
     },
     controller.submitLiveExperimentRun,
   );
-  fastify.post(
+  fastify.post<{
+    Params: LiveExperimentRunRouteParams;
+    Body: SyncLiveExperimentRunRequest;
+  }>(
     '/paper-implementation/projects/:implementation_project_id/research-work-orders/:work_order_id/live-experiment-runs/:external_job_id/sync',
     {
       schema: {
         ...liveExperimentRunParams,
         body: syncLiveExperimentRunRequestSchema,
       },
+      onRequest: legacyMutationOnRequest,
     },
     controller.syncLiveExperimentRun,
   );
-  fastify.post(
+  fastify.post<{
+    Params: LiveExperimentRunRouteParams;
+    Body: CollectLiveExperimentRunRequest;
+  }>(
     '/paper-implementation/projects/:implementation_project_id/research-work-orders/:work_order_id/live-experiment-runs/:external_job_id/collect',
     {
       schema: {
         ...liveExperimentRunParams,
         body: collectLiveExperimentRunRequestSchema,
       },
+      onRequest: legacyMutationOnRequest,
     },
     controller.collectLiveExperimentRun,
   );
-  fastify.post(
+  fastify.post<{
+    Params: LiveExperimentRunRouteParams;
+    Body: CancelLiveExperimentRunRequest;
+  }>(
     '/paper-implementation/projects/:implementation_project_id/research-work-orders/:work_order_id/live-experiment-runs/:external_job_id/cancel',
     {
       schema: {
         ...liveExperimentRunParams,
         body: cancelLiveExperimentRunRequestSchema,
       },
+      onRequest: legacyMutationOnRequest,
     },
     controller.cancelLiveExperimentRun,
   );
-  fastify.post(
+  fastify.post<{
+    Params: ImplementationProjectRouteParams;
+    Body: RecordRunMonitorIntakeRequest;
+  }>(
     '/paper-implementation/projects/:implementation_project_id/run-monitor-intakes',
     {
       schema: {
         ...implementationProjectParams,
         body: recordRunMonitorIntakeRequestSchema,
       },
+      onRequest: legacyMutationOnRequest,
     },
     controller.recordRunMonitorIntake,
   );

@@ -1,12 +1,14 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { AutoPullController } from './controllers/auto-pull-controller.js';
 import { ExperimentFoundationExecutionController } from './controllers/experiment-foundation-execution-controller.js';
+import { ExperimentFoundationExecutionV2Controller } from './controllers/experiment-foundation-execution-v2-controller.js';
 import { ExperimentFoundationController } from './controllers/experiment-foundation-controller.js';
 import { LiteratureAcquisitionSettingsController } from './controllers/literature-acquisition-settings-controller.js';
 import { LiteratureBackfillController } from './controllers/literature-backfill-controller.js';
 import { LiteratureContentProcessingSettingsController } from './controllers/literature-content-processing-settings-controller.js';
 import { LiteratureFulltextAcquisitionController } from './controllers/literature-fulltext-acquisition-controller.js';
 import { LiteratureController } from './controllers/literature-controller.js';
+import { PaperImplementationExperimentV2Controller } from './controllers/paper-implementation-experiment-v2-controller.js';
 import { PaperImplementationController } from './controllers/paper-implementation-controller.js';
 import { TopicSettingsController } from './controllers/topic-settings-controller.js';
 import { TopicSelectionResourceSamplingController } from './controllers/topic-selection-resource-sampling-controller.js';
@@ -16,7 +18,13 @@ import { TopicSelectionV1cController } from './controllers/topic-selection-v1c-c
 import { InMemoryApplicationSettingsRepository } from './repositories/in-memory-application-settings-repository.js';
 import { InMemoryAutoPullRepository } from './repositories/in-memory-auto-pull-repository.js';
 import { InMemoryExperimentFoundationExecutionRepository } from './repositories/in-memory-experiment-foundation-execution-repository.js';
+import { InMemoryExperimentFoundationExecutionV2Repository } from './repositories/in-memory-experiment-foundation-execution-v2-repository.js';
 import { InMemoryExperimentFoundationRepository } from './repositories/in-memory-experiment-foundation-repository.js';
+import { InMemoryExperimentFoundationV2Repository } from './repositories/in-memory-experiment-foundation-v2-repository.js';
+import {
+  InMemoryExperimentFoundationExperimentSpineV2Repository,
+  InMemoryPaperImplementationExperimentSpineV2Repository,
+} from './repositories/in-memory-experiment-spine-v2-repository.js';
 import { InMemoryLiteratureRepository } from './repositories/in-memory-literature-repository.js';
 import { InMemoryPaperImplementationRepository } from './repositories/in-memory-paper-implementation-repository.js';
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from './repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
@@ -51,7 +59,10 @@ import { getPrismaClient } from './repositories/prisma/prisma-client.js';
 import { PrismaApplicationSettingsRepository } from './repositories/prisma/prisma-application-settings-repository.js';
 import { PrismaAutoPullRepository } from './repositories/prisma/prisma-auto-pull-repository.js';
 import { PrismaExperimentFoundationExecutionRepository } from './repositories/prisma/prisma-experiment-foundation-execution-repository.js';
+import { PrismaExperimentFoundationExecutionV2Repository } from './repositories/prisma/prisma-experiment-foundation-execution-v2-repository.js';
 import { PrismaExperimentFoundationRepository } from './repositories/prisma/prisma-experiment-foundation-repository.js';
+import { PrismaExperimentFoundationSpineV2Repository } from './repositories/prisma/prisma-experiment-foundation-spine-v2-repository.js';
+import { PrismaExperimentFoundationV2Repository } from './repositories/prisma/prisma-experiment-foundation-v2-repository.js';
 import { PrismaLiteratureRepository } from './repositories/prisma/prisma-literature-repository.js';
 import { PrismaPaperImplementationRepository } from './repositories/prisma/prisma-paper-implementation-repository.js';
 import { PrismaPaperImplementationAiWorkflowHarnessRepository } from './repositories/prisma/prisma-paper-implementation-ai-workflow-harness-repository.js';
@@ -60,6 +71,7 @@ import { PrismaPaperImplementationResultClaimDossierRepository } from './reposit
 import { PrismaPaperImplementationRuntimeRepository } from './repositories/prisma/prisma-paper-implementation-runtime-repository.js';
 import { PrismaPaperImplementationCoordinatorRepository } from './repositories/prisma/prisma-paper-implementation-coordinator-repository.js';
 import { PrismaPaperImplementationHumanConfirmationRepository } from './repositories/prisma/prisma-paper-implementation-human-confirmation-repository.js';
+import { PrismaPaperImplementationExperimentSpineV2Repository } from './repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.js';
 import { PrismaPaperImplementationTraceRepository } from './repositories/prisma/prisma-paper-implementation-trace-repository.js';
 import { PrismaPaperImplementationValidationRepository } from './repositories/prisma/prisma-paper-implementation-validation-repository.js';
 import { PrismaPaperImplementationWorkOrderRepository } from './repositories/prisma/prisma-paper-implementation-workorder-repository.js';
@@ -86,12 +98,14 @@ import { PrismaTopicSelectionV1cPromotionGateRepository } from './repositories/p
 import { PrismaTopicSelectionV1cPromotionInputRepository } from './repositories/prisma/prisma-topic-selection-v1c-promotion-input-repository.js';
 import { registerAutoPullRoutes } from './routes/auto-pull-routes.js';
 import { registerExperimentFoundationExecutionRoutes } from './routes/experiment-foundation-execution-routes.js';
+import { registerExperimentFoundationExecutionV2Routes } from './routes/experiment-foundation-execution-v2-routes.js';
 import { registerExperimentFoundationRoutes } from './routes/experiment-foundation-routes.js';
 import { registerLiteratureAcquisitionSettingsRoutes } from './routes/literature-acquisition-settings-routes.js';
 import { registerLiteratureBackfillRoutes } from './routes/literature-backfill-routes.js';
 import { registerLiteratureContentProcessingSettingsRoutes } from './routes/literature-content-processing-settings-routes.js';
 import { registerLiteratureFulltextAcquisitionRoutes } from './routes/literature-fulltext-acquisition-routes.js';
 import { registerLiteratureRoutes } from './routes/literature-routes.js';
+import { registerPaperImplementationExperimentV2Routes } from './routes/paper-implementation-experiment-v2-routes.js';
 import { registerPaperImplementationRoutes } from './routes/paper-implementation-routes.js';
 import { registerResearchLifecycleRoutes } from './routes/research-lifecycle-routes.js';
 import { registerTitleCardManagementRoutes } from './routes/title-card-management.js';
@@ -102,7 +116,9 @@ import { registerTopicSelectionV1cRoutes } from './routes/topic-selection-v1c-ro
 import type { ApplicationSettingsRepository } from './repositories/application-settings-repository.js';
 import type { AutoPullRepository } from './repositories/auto-pull-repository.js';
 import type { ExperimentFoundationExecutionRepository } from './repositories/experiment-foundation-execution.repository.js';
+import type { ExperimentFoundationExecutionV2Repository } from './repositories/experiment-foundation-execution-v2.repository.js';
 import type { ExperimentFoundationRepository } from './repositories/experiment-foundation.repository.js';
+import type { ExperimentFoundationV2Repository } from './repositories/experiment-foundation-v2.repository.js';
 import type { LiteratureRepository } from './repositories/literature-repository.js';
 import type { PaperImplementationRepository } from './repositories/paper-implementation.repository.js';
 import type { PaperImplementationAiWorkflowHarnessRepository } from './repositories/paper-implementation-ai-workflow-harness.repository.js';
@@ -111,6 +127,10 @@ import type { PaperImplementationResultClaimDossierRepository } from './reposito
 import type { PaperImplementationRuntimeRepository } from './repositories/paper-implementation-runtime.repository.js';
 import type { PaperImplementationCoordinatorRepository } from './repositories/paper-implementation-coordinator.repository.js';
 import type { PaperImplementationHumanConfirmationRepository } from './repositories/paper-implementation-human-confirmation.repository.js';
+import type {
+  ExperimentFoundationExperimentSpineV2Repository,
+  PaperImplementationExperimentSpineV2Repository,
+} from './repositories/experiment-spine-v2.repository.js';
 import type { PaperImplementationTraceRepository } from './repositories/paper-implementation-trace.repository.js';
 import type { PaperImplementationValidationRepository } from './repositories/paper-implementation-validation.repository.js';
 import type { PaperImplementationWorkOrderRepository } from './repositories/paper-implementation-workorder.repository.js';
@@ -137,7 +157,19 @@ import type { TopicSelectionV1cPromotionInputRepository } from './repositories/t
 import { AutoPullScheduler } from './services/auto-pull-scheduler.js';
 import { AutoPullService } from './services/auto-pull-service.js';
 import { ExperimentFoundationExecutionService } from './services/experiment-foundation-execution-service.js';
+import { ExperimentFoundationExecutionV2Service } from './services/experiment-foundation-execution-v2-service.js';
+import { ExperimentFoundationProviderCommandV2Scheduler } from './services/experiment-foundation-provider-command-v2-scheduler.js';
+import { ExperimentFoundationProviderCommandV2Worker } from './services/experiment-foundation-provider-command-v2-worker.js';
+import { DeterministicFakeAliyunPaiDlcTransport } from './services/experiment-foundation-v2-deterministic-fake-provider.js';
 import { ExperimentFoundationService } from './services/experiment-foundation-service.js';
+import { ExperimentFoundationV2AcknowledgementService } from './services/experiment-foundation-v2-acknowledgement-service.js';
+import {
+  ExperimentFoundationV2MaterializationService,
+  type ExperimentFoundationV2ReadinessResolver,
+} from './services/experiment-foundation-v2-materialization-service.js';
+import { ExperimentFoundationV2Service } from './services/experiment-foundation-v2-service.js';
+import { ExperimentV2IntegrationRelayScheduler } from './services/experiment-v2-integration-relay-scheduler.js';
+import { ExperimentV2IntegrationRelayService } from './services/experiment-v2-integration-relay-service.js';
 import { LiteratureAutoAdvanceService } from './services/literature-auto-advance-service.js';
 import { LiteratureEvidenceActivationService } from './services/literature-evidence-activation-service.js';
 import { LiteratureBackfillService } from './services/literature-backfill-service.js';
@@ -153,6 +185,11 @@ import {
   type PaperImplementationDownstreamFeedbackService,
 } from './services/paper-implementation-intake-bootstrap-service.js';
 import { PaperImplementationAiWorkflowHarnessService } from './services/paper-implementation-ai-workflow-harness-service.js';
+import {
+  PaperImplementationExperimentV2AdmissionService,
+  type PaperImplementationExperimentV2ScopeReader,
+} from './services/paper-implementation-experiment-v2-admission-service.js';
+import { PaperImplementationExperimentV2HeadService } from './services/paper-implementation-experiment-v2-head-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from './services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationResultClaimDossierService } from './services/paper-implementation-result-claim-dossier-service.js';
 import { PaperImplementationTraceKernelService } from './services/paper-implementation-trace-kernel-service.js';
@@ -257,6 +294,15 @@ export type BuildAppOptions = {
   paperImplementationRuntimeRepository?: PaperImplementationRuntimeRepository;
   paperImplementationCoordinatorRepository?: PaperImplementationCoordinatorRepository;
   paperImplementationHumanConfirmationRepository?: PaperImplementationHumanConfirmationRepository;
+  paperImplementationExperimentSpineV2Repository?: PaperImplementationExperimentSpineV2Repository;
+  experimentFoundationV2Repository?: ExperimentFoundationV2Repository;
+  experimentFoundationExperimentSpineV2Repository?: ExperimentFoundationExperimentSpineV2Repository;
+  experimentFoundationExecutionV2Repository?: ExperimentFoundationExecutionV2Repository;
+  paperImplementationExperimentV2ScopeReader?: PaperImplementationExperimentV2ScopeReader;
+  paperImplementationExperimentV2AdmissionEnabled?: () => boolean;
+  paperImplementationExperimentV2CutoverCommitted?: () => boolean;
+  experimentFoundationV2WorkflowSimulationEnabled?: () => boolean;
+  backgroundWorkEnabled?: boolean;
   paperImplementationBridgeService?: TopicSelectionPaperProjectBridgeHandoffProvider;
   paperImplementationDownstreamFeedbackService?: PaperImplementationDownstreamFeedbackService;
 };
@@ -315,6 +361,22 @@ export function resolveTitleCardManagementStoreConfig(): {
 }
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
+  const backgroundWorkEnabled = options.backgroundWorkEnabled ?? true;
+  const experimentV2AdmissionEnabled =
+    options.paperImplementationExperimentV2AdmissionEnabled?.()
+    ?? isPaperImplementationExperimentV2AdmissionEnabled();
+  const experimentV2CutoverCommitted =
+    options.paperImplementationExperimentV2CutoverCommitted?.()
+    ?? isPaperImplementationExperimentV2CutoverCommitted();
+  const experimentV2WorkflowSimulationEnabled =
+    options.experimentFoundationV2WorkflowSimulationEnabled?.()
+    ?? isExperimentFoundationV2WorkflowSimulationEnabled();
+  assertPaperImplementationExperimentV2CutoverConfig({
+    admissionEnabled: experimentV2AdmissionEnabled,
+    cutoverCommitted: experimentV2CutoverCommitted,
+    workflowSimulationEnabled: experimentV2WorkflowSimulationEnabled,
+  });
+
   const app = Fastify({
     logger: false,
   });
@@ -333,6 +395,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentFoundationExecutionRepository = createExperimentFoundationExecutionRepository(
     storeConfig.experimentFoundationStrategy,
   );
+  const experimentFoundationV2Repository = options.experimentFoundationV2Repository
+    ?? createExperimentFoundationV2Repository(storeConfig.experimentFoundationStrategy);
+  const experimentFoundationExperimentSpineV2Repository =
+    options.experimentFoundationExperimentSpineV2Repository
+    ?? createExperimentFoundationExperimentSpineV2Repository(
+      storeConfig.experimentFoundationStrategy,
+    );
+  const experimentFoundationExecutionV2Repository =
+    options.experimentFoundationExecutionV2Repository
+    ?? createExperimentFoundationExecutionV2Repository(
+      storeConfig.experimentFoundationStrategy,
+    );
   const topicSelectionControlPlaneRepository = createTopicSelectionControlPlaneRepository(storeConfig.titleCardStrategy);
   const topicSelectionResourceSamplingRepository = createTopicSelectionResourceSamplingRepository(storeConfig.titleCardStrategy);
   const topicSelectionSearchResourceRepository = createTopicSelectionSearchResourceRepository(storeConfig.titleCardStrategy);
@@ -375,6 +449,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     ?? createPaperImplementationTraceRepository(storeConfig.paperImplementationStrategy);
   const paperImplementationValidationRepository = options.paperImplementationValidationRepository
     ?? createPaperImplementationValidationRepository(storeConfig.paperImplementationStrategy);
+  const paperImplementationExperimentSpineV2Repository =
+    options.paperImplementationExperimentSpineV2Repository
+    ?? createPaperImplementationExperimentSpineV2Repository(
+      storeConfig.paperImplementationStrategy,
+    );
+  const hasDefaultDurableExperimentV2Composition =
+    storeConfig.paperImplementationStrategy === 'prisma'
+    && storeConfig.experimentFoundationStrategy === 'prisma'
+    && options.paperImplementationExperimentSpineV2Repository === undefined
+    && options.experimentFoundationV2Repository === undefined
+    && options.experimentFoundationExperimentSpineV2Repository === undefined
+    && options.experimentFoundationExecutionV2Repository === undefined;
   const paperImplementationWorkOrderRepository = options.paperImplementationWorkOrderRepository
     ?? createPaperImplementationWorkOrderRepository(storeConfig.paperImplementationStrategy);
   const paperImplementationResultClaimDossierRepository = options.paperImplementationResultClaimDossierRepository
@@ -416,6 +502,103 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentFoundationExecutionController = new ExperimentFoundationExecutionController(
     experimentFoundationExecutionService,
   );
+  const experimentFoundationV2Service = new ExperimentFoundationV2Service(
+    experimentFoundationV2Repository,
+  );
+  const experimentFoundationV2ReadinessResolver: ExperimentFoundationV2ReadinessResolver = {
+    async resolvePassedExactReadiness(input) {
+      const result = await experimentFoundationV2Service.revalidateReadiness({
+        target: input.target,
+        readiness_attestation_id: input.readiness_attestation_id,
+        expected_dependencies: input.ordered_dependencies,
+      });
+      if (
+        result.attestation.status !== 'passed'
+        || result.attestation.attestation_hash !== input.readiness_attestation_hash
+      ) {
+        return null;
+      }
+      return {
+        attestation: result.attestation,
+        ordered_dependencies: result.dependencies.map((row) => row.dependency),
+      };
+    },
+  };
+  const experimentFoundationExecutionV2Service =
+    new ExperimentFoundationExecutionV2Service({
+      repository: experimentFoundationExecutionV2Repository,
+      readinessRevalidator: experimentFoundationV2Service,
+      intakeEnabled: () => (
+        hasDefaultDurableExperimentV2Composition
+        && experimentV2WorkflowSimulationEnabled
+      ),
+    });
+  const experimentFoundationExecutionV2Controller =
+    new ExperimentFoundationExecutionV2Controller(
+      experimentFoundationExecutionV2Service,
+    );
+  const experimentFoundationProviderCommandV2Scheduler =
+    hasDefaultDurableExperimentV2Composition
+      ? new ExperimentFoundationProviderCommandV2Scheduler(
+        new ExperimentFoundationProviderCommandV2Worker({
+          repository: experimentFoundationExecutionV2Repository,
+          transport: new DeterministicFakeAliyunPaiDlcTransport(),
+        }),
+        {
+          onError: (error) => app.log.error(
+            { err: error },
+            'experiment foundation v2 provider-command tick failed',
+          ),
+        },
+      )
+      : null;
+  const paperImplementationExperimentV2ScopeReader =
+    options.paperImplementationExperimentV2ScopeReader
+    ?? createPaperImplementationExperimentV2ScopeReader(
+      paperImplementationRepository,
+      paperImplementationValidationRepository,
+    );
+  const paperImplementationExperimentV2AdmissionService =
+    new PaperImplementationExperimentV2AdmissionService({
+      repository: paperImplementationExperimentSpineV2Repository,
+      scopeReader: paperImplementationExperimentV2ScopeReader,
+      admissionEnabled: () => (
+        hasDefaultDurableExperimentV2Composition
+        && experimentV2AdmissionEnabled
+      ),
+    });
+  const paperImplementationExperimentV2Controller =
+    new PaperImplementationExperimentV2Controller(
+      paperImplementationExperimentV2AdmissionService,
+    );
+  const experimentFoundationV2MaterializationService =
+    new ExperimentFoundationV2MaterializationService({
+      repository: experimentFoundationExperimentSpineV2Repository,
+      readinessResolver: experimentFoundationV2ReadinessResolver,
+    });
+  const paperImplementationExperimentV2HeadService =
+    new PaperImplementationExperimentV2HeadService({
+      repository: paperImplementationExperimentSpineV2Repository,
+    });
+  const experimentFoundationV2AcknowledgementService =
+    new ExperimentFoundationV2AcknowledgementService({
+      repository: experimentFoundationExperimentSpineV2Repository,
+    });
+  const experimentV2IntegrationRelayService = new ExperimentV2IntegrationRelayService({
+    paperImplementationRepository: paperImplementationExperimentSpineV2Repository,
+    experimentFoundationRepository: experimentFoundationExperimentSpineV2Repository,
+    materializationConsumer: experimentFoundationV2MaterializationService,
+    headConsumer: paperImplementationExperimentV2HeadService,
+    acknowledgementConsumer: experimentFoundationV2AcknowledgementService,
+  });
+  const experimentV2IntegrationRelayScheduler = hasDefaultDurableExperimentV2Composition
+    ? new ExperimentV2IntegrationRelayScheduler(experimentV2IntegrationRelayService, {
+      onError: (error) => app.log.error(
+        { err: error },
+        'experiment v2 integration relay tick failed',
+      ),
+    })
+    : null;
   const topicSelectionControlPlaneService = new TopicSelectionControlPlaneService(topicSelectionControlPlaneRepository);
   const topicSelectionSearchResourceService = new TopicSelectionSearchResourceService(
     topicSelectionSearchResourceRepository,
@@ -968,9 +1151,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const literatureBackfillService = new LiteratureBackfillService(literatureRepository, literatureFlowService, {
     resolvePreferredKeyContentMethod: () => literatureContentProcessingSettingsService.resolvePreferredKeyContentMethod(),
   });
-  void literatureBackfillService.resumeRunnableJobs().catch((error) => {
-    app.log.error({ err: error }, 'Failed to resume literature content-processing backfill jobs.');
-  });
+  if (backgroundWorkEnabled) {
+    void literatureBackfillService.resumeRunnableJobs().catch((error) => {
+      app.log.error({ err: error }, 'Failed to resume literature content-processing backfill jobs.');
+    });
+  }
   // T-130 W-06 (D8): import auto-advance gate (default OFF via settings) — quality-tiered
   // AUTO_ADVANCE backfill jobs for newly imported literature.
   const literatureAutoAdvanceService = new LiteratureAutoAdvanceService(
@@ -984,18 +1169,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     literatureAutoAdvanceService,
   );
   // T-130 W-01: close orphaned pipeline runs from a previous process before new work arrives.
-  void literatureFlowService.recoverOrphanedPipelineRuns().catch((error) => {
-    app.log.error({ err: error }, 'Failed to recover orphaned literature pipeline runs.');
-  });
+  if (backgroundWorkEnabled) {
+    void literatureFlowService.recoverOrphanedPipelineRuns().catch((error) => {
+      app.log.error({ err: error }, 'Failed to recover orphaned literature pipeline runs.');
+    });
+  }
   const literatureBackfillController = new LiteratureBackfillController(literatureBackfillService);
   const literatureFulltextAcquisitionService = new LiteratureFulltextAcquisitionService(
     literatureRepository,
     literatureService,
     literatureAcquisitionSettingsService,
   );
-  void literatureFulltextAcquisitionService.resumeRunnableJobs().catch((error) => {
-    app.log.error({ err: error }, 'Failed to resume literature fulltext acquisition jobs.');
-  });
+  if (backgroundWorkEnabled) {
+    void literatureFulltextAcquisitionService.resumeRunnableJobs().catch((error) => {
+      app.log.error({ err: error }, 'Failed to resume literature fulltext acquisition jobs.');
+    });
+  }
   const literatureFulltextAcquisitionController = new LiteratureFulltextAcquisitionController(
     literatureFulltextAcquisitionService,
   );
@@ -1039,22 +1228,59 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.get('/health', async () => ({ ok: true }));
 
-  if (autoPullScheduler) {
+  if (backgroundWorkEnabled && autoPullScheduler) {
     autoPullScheduler.start();
     app.addHook('onClose', async () => {
       await autoPullScheduler.stop();
     });
   }
 
+  if (backgroundWorkEnabled && experimentV2IntegrationRelayScheduler) {
+    // This is deliberately independent of the admission capability. Once T1
+    // commits, disabling new intake must not strand T2/T3/T4.
+    experimentV2IntegrationRelayScheduler.start();
+    app.addHook('onClose', async () => {
+      await experimentV2IntegrationRelayScheduler.stop();
+    });
+  }
+
+  if (backgroundWorkEnabled && experimentFoundationProviderCommandV2Scheduler) {
+    // Pack B drain is deliberately independent from new-intake capability.
+    experimentFoundationProviderCommandV2Scheduler.start();
+    app.addHook('onClose', async () => {
+      await experimentFoundationProviderCommandV2Scheduler.stop();
+    });
+  }
+
   app.register(async (instance) => {
     await registerResearchLifecycleRoutes(instance, researchLifecycleController);
     await registerTitleCardManagementRoutes(instance, titleCardManagementController);
-    await registerExperimentFoundationRoutes(instance, experimentFoundationController);
-    await registerExperimentFoundationExecutionRoutes(instance, experimentFoundationExecutionController);
+    await registerExperimentFoundationRoutes(
+      instance,
+      experimentFoundationController,
+      { cutoverCommitted: experimentV2CutoverCommitted },
+    );
+    await registerExperimentFoundationExecutionRoutes(
+      instance,
+      experimentFoundationExecutionController,
+      { cutoverCommitted: experimentV2CutoverCommitted },
+    );
+    await registerExperimentFoundationExecutionV2Routes(
+      instance,
+      experimentFoundationExecutionV2Controller,
+    );
     await registerTopicSelectionV1aRoutes(instance, topicSelectionV1aController, topicSelectionResourceSamplingController);
     await registerTopicSelectionV1bRoutes(instance, topicSelectionV1bController);
     await registerTopicSelectionV1cRoutes(instance, topicSelectionV1cController);
-    await registerPaperImplementationRoutes(instance, paperImplementationController);
+    await registerPaperImplementationRoutes(
+      instance,
+      paperImplementationController,
+      { cutoverCommitted: experimentV2CutoverCommitted },
+    );
+    await registerPaperImplementationExperimentV2Routes(
+      instance,
+      paperImplementationExperimentV2Controller,
+    );
     await registerLiteratureAcquisitionSettingsRoutes(instance, literatureAcquisitionSettingsController);
     await registerLiteratureContentProcessingSettingsRoutes(instance, literatureContentProcessingSettingsController);
     await registerLiteratureBackfillRoutes(instance, literatureBackfillController);
@@ -1414,6 +1640,76 @@ function createPaperImplementationValidationRepository(
   return new InMemoryPaperImplementationValidationRepository();
 }
 
+function createPaperImplementationExperimentSpineV2Repository(
+  strategy: RepositoryStrategy,
+): PaperImplementationExperimentSpineV2Repository {
+  if (strategy === 'prisma') {
+    const prisma = getPrismaClient();
+    return new PrismaPaperImplementationExperimentSpineV2Repository(prisma);
+  }
+
+  return new InMemoryPaperImplementationExperimentSpineV2Repository();
+}
+
+function createExperimentFoundationV2Repository(
+  strategy: RepositoryStrategy,
+): ExperimentFoundationV2Repository {
+  if (strategy === 'prisma') {
+    return new PrismaExperimentFoundationV2Repository(getPrismaClient());
+  }
+
+  return new InMemoryExperimentFoundationV2Repository();
+}
+
+function createExperimentFoundationExperimentSpineV2Repository(
+  strategy: RepositoryStrategy,
+): ExperimentFoundationExperimentSpineV2Repository {
+  if (strategy === 'prisma') {
+    return new PrismaExperimentFoundationSpineV2Repository(getPrismaClient());
+  }
+
+  return new InMemoryExperimentFoundationExperimentSpineV2Repository();
+}
+
+function createExperimentFoundationExecutionV2Repository(
+  strategy: RepositoryStrategy,
+): ExperimentFoundationExecutionV2Repository {
+  if (strategy === 'prisma') {
+    return new PrismaExperimentFoundationExecutionV2Repository(getPrismaClient());
+  }
+
+  return new InMemoryExperimentFoundationExecutionV2Repository();
+}
+
+function createPaperImplementationExperimentV2ScopeReader(
+  projectRepository: PaperImplementationRepository,
+  validationRepository: PaperImplementationValidationRepository,
+): PaperImplementationExperimentV2ScopeReader {
+  return {
+    async resolveExactScope(implementationProjectId, validationCycleId) {
+      const [project, validationCycle] = await Promise.all([
+        projectRepository.findProjectById(implementationProjectId),
+        validationRepository.findValidationCycleById(
+          implementationProjectId,
+          validationCycleId,
+        ),
+      ]);
+      if (
+        !project
+        || !validationCycle
+        || validationCycle.implementation_project_id !== implementationProjectId
+        || validationCycle.validation_cycle_id !== validationCycleId
+      ) {
+        return null;
+      }
+      return {
+        implementation_project_id: implementationProjectId,
+        validation_cycle_id: validationCycleId,
+      };
+    },
+  };
+}
+
 function createPaperImplementationWorkOrderRepository(
   strategy: RepositoryStrategy,
 ): PaperImplementationWorkOrderRepository {
@@ -1490,6 +1786,67 @@ function createAutoPullScheduler(service: AutoPullService): AutoPullScheduler | 
   const tickMsRaw = process.env.AUTO_PULL_SCHEDULER_TICK_MS;
   const tickMs = tickMsRaw ? Number.parseInt(tickMsRaw, 10) : undefined;
   return new AutoPullScheduler(service, { tickMs });
+}
+
+function isPaperImplementationExperimentV2AdmissionEnabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED',
+  );
+}
+
+function isPaperImplementationExperimentV2CutoverCommitted(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED',
+  );
+}
+
+function isExperimentFoundationV2WorkflowSimulationEnabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED',
+  );
+}
+
+type ExperimentV2BooleanEnvironmentVariable =
+  | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED'
+  | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED'
+  | 'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED';
+
+function parseExperimentV2BooleanEnvironmentVariable(
+  name: ExperimentV2BooleanEnvironmentVariable,
+): boolean {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') {
+    return false;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'true') {
+    return true;
+  }
+  if (normalized === 'false') {
+    return false;
+  }
+
+  throw new Error(`${name} must be either true or false when set`);
+}
+
+function assertPaperImplementationExperimentV2CutoverConfig(input: {
+  admissionEnabled: boolean;
+  cutoverCommitted: boolean;
+  workflowSimulationEnabled: boolean;
+}): void {
+  if (input.admissionEnabled && !input.cutoverCommitted) {
+    throw new Error(
+      'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
+  if (input.workflowSimulationEnabled && !input.cutoverCommitted) {
+    throw new Error(
+      'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
 }
 
 function createDeliveryAdapter():

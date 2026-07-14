@@ -6,8 +6,20 @@ import {
   collectExternalTrainingJobRequestSchema,
   submitExternalTrainingJobRequestSchema,
   syncExternalTrainingJobRequestSchema,
+  type CancelExternalTrainingJobRequest,
+  type CollectExternalTrainingJobRequest,
+  type SubmitExternalTrainingJobRequest,
+  type SyncExternalTrainingJobRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-contracts';
 import { ExperimentFoundationExecutionController } from '../controllers/experiment-foundation-execution-controller.js';
+import {
+  legacyExperimentMutationOnRequest,
+  type LegacyExperimentMutationRouteOptions,
+} from './experiment-v2-cutover-guard.js';
+
+type JobParams = {
+  external_job_id: string;
+};
 
 const jobParamsSchema = {
   params: {
@@ -42,10 +54,16 @@ function withJobParams<T extends { body?: unknown }>(schema: T) {
 export async function registerExperimentFoundationExecutionRoutes(
   fastify: FastifyInstance,
   controller: ExperimentFoundationExecutionController,
+  options: LegacyExperimentMutationRouteOptions = {},
 ): Promise<void> {
-  fastify.post(
+  const legacyMutationOnRequest = legacyExperimentMutationOnRequest(options);
+
+  fastify.post<{ Body: SubmitExternalTrainingJobRequest }>(
     '/experiment-foundation/execution/jobs/submit',
-    { schema: submitExternalTrainingJobRequestSchema },
+    {
+      schema: submitExternalTrainingJobRequestSchema,
+      onRequest: legacyMutationOnRequest,
+    },
     controller.submitJob,
   );
   fastify.get(
@@ -58,19 +76,28 @@ export async function registerExperimentFoundationExecutionRoutes(
     { schema: listJobsQuerySchema },
     controller.listJobs,
   );
-  fastify.post(
+  fastify.post<{ Params: JobParams; Body: SyncExternalTrainingJobRequest }>(
     '/experiment-foundation/execution/jobs/:external_job_id/sync',
-    { schema: withJobParams(syncExternalTrainingJobRequestSchema) },
+    {
+      schema: withJobParams(syncExternalTrainingJobRequestSchema),
+      onRequest: legacyMutationOnRequest,
+    },
     controller.syncJob,
   );
-  fastify.post(
+  fastify.post<{ Params: JobParams; Body: CancelExternalTrainingJobRequest }>(
     '/experiment-foundation/execution/jobs/:external_job_id/cancel',
-    { schema: withJobParams(cancelExternalTrainingJobRequestSchema) },
+    {
+      schema: withJobParams(cancelExternalTrainingJobRequestSchema),
+      onRequest: legacyMutationOnRequest,
+    },
     controller.cancelJob,
   );
-  fastify.post(
+  fastify.post<{ Params: JobParams; Body: CollectExternalTrainingJobRequest }>(
     '/experiment-foundation/execution/jobs/:external_job_id/collect',
-    { schema: withJobParams(collectExternalTrainingJobRequestSchema) },
+    {
+      schema: withJobParams(collectExternalTrainingJobRequestSchema),
+      onRequest: legacyMutationOnRequest,
+    },
     controller.collectJob,
   );
 }

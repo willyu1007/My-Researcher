@@ -1,0 +1,2242 @@
+{
+  "schema_version": "experiment-foundation-packb-local-app-smoke@v5",
+  "run_id": "packb-deep-cleanup-final-local-20260714-r18",
+  "generated_at": "2026-07-14T17:01:40.307Z",
+  "target_class": "named_loopback_local_development",
+  "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+  "composition": {
+    "paper_implementation_repository": "prisma",
+    "experiment_foundation_repository": "prisma",
+    "auto_pull_scheduler_enabled": false,
+    "background_work_enabled": false
+  },
+  "network_transport": "hard_denied_by_throwing_fetch",
+  "application_table_inventory": {
+    "source": "pg_catalog.pg_class@current_schema/base_and_partitioned_tables",
+    "schema": "my_researcher_dev",
+    "expected_table_count": 238,
+    "observed_table_count": 238,
+    "expected_table_set_digest": "sha256:b9a7691fc2968a56e808c4448d46879becdffad97af72eb397be3249364aaf96",
+    "observed_table_set_digest": "sha256:b9a7691fc2968a56e808c4448d46879becdffad97af72eb397be3249364aaf96",
+    "row_digest_profile": "sha256-length-prefixed-pg-jsonb-text-primary-key-order@v2",
+    "census_transport": "read-only-repeatable-read-cursor@v1",
+    "ordering_key_profile": "catalog-primary-key-columns@v1",
+    "fetch_row_limit": 64,
+    "statement_timeout_ms": 30000,
+    "lock_timeout_ms": 5000,
+    "transaction_timeout_ms": 600000,
+    "work_mem_kib": 4096,
+    "exact": true
+  },
+  "disabled": {
+    "workflow_simulation_enabled": false,
+    "simulation": {
+      "status_code": 409,
+      "error_code": "VERSION_CONFLICT",
+      "reason_code": "EF_V2_WORKFLOW_SIMULATION_DISABLED"
+    },
+    "legacy_mutation": {
+      "status_code": 409,
+      "error_code": "GATE_CONSTRAINT_FAILED",
+      "reason_code": "LEGACY_RECORD_NOT_ELIGIBLE"
+    },
+    "status_read": {
+      "status_code": 404,
+      "error_code": "NOT_FOUND",
+      "reason_code": "EXECUTION_HEAD_ACK_REQUIRED"
+    }
+  },
+  "enabled": {
+    "workflow_simulation_enabled": true,
+    "simulation": {
+      "status_code": 404,
+      "error_code": "NOT_FOUND",
+      "reason_code": "EXECUTION_HEAD_ACK_REQUIRED"
+    },
+    "legacy_mutation": {
+      "status_code": 409,
+      "error_code": "GATE_CONSTRAINT_FAILED",
+      "reason_code": "LEGACY_RECORD_NOT_ELIGIBLE"
+    },
+    "status_read": {
+      "status_code": 404,
+      "error_code": "NOT_FOUND",
+      "reason_code": "EXECUTION_HEAD_ACK_REQUIRED"
+    }
+  },
+  "measured_effects": {
+    "background_drain_guard_counts": {
+      "PaperImplementationExperimentIntegrationOutboxV2": 0,
+      "ExperimentFoundationIntegrationOutboxV2": 0
+    },
+    "measured_table_count": 238,
+    "inspected_tables": [
+      "ApplicationSetting",
+      "AutoPullAlert",
+      "AutoPullCursor",
+      "AutoPullRule",
+      "AutoPullRuleSchedule",
+      "AutoPullRuleSource",
+      "AutoPullRuleTopic",
+      "AutoPullRun",
+      "AutoPullRunSourceAttempt",
+      "AutoPullSuggestion",
+      "ExperimentFoundationAssetLifecycleEventV2",
+      "ExperimentFoundationAssetLifecycleProjectionV2",
+      "ExperimentFoundationBenchmarkFreezeCommandReceiptV2",
+      "ExperimentFoundationBenchmarkRevisionV2",
+      "ExperimentFoundationBenchmarkV2",
+      "ExperimentFoundationCollectionAttemptV2",
+      "ExperimentFoundationDataPolicyFreezeCommandReceiptV2",
+      "ExperimentFoundationDataPolicyRevisionV2",
+      "ExperimentFoundationDataPolicyV2",
+      "ExperimentFoundationDatasetFreezeCommandReceiptV2",
+      "ExperimentFoundationDatasetRevisionV2",
+      "ExperimentFoundationDatasetV2",
+      "ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2",
+      "ExperimentFoundationEvaluationProtocolMetricDependencyV2",
+      "ExperimentFoundationEvaluationProtocolRevisionV2",
+      "ExperimentFoundationEvaluationProtocolV2",
+      "ExperimentFoundationExecutionAttemptEventV2",
+      "ExperimentFoundationExecutionAttemptV2",
+      "ExperimentFoundationExternalTrainingJob",
+      "ExperimentFoundationIntegrationInboxV2",
+      "ExperimentFoundationIntegrationOutboxV2",
+      "ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2",
+      "ExperimentFoundationMetricDefinitionRevisionV2",
+      "ExperimentFoundationMetricDefinitionV2",
+      "ExperimentFoundationProviderCommandV2",
+      "ExperimentFoundationProviderPayloadV2",
+      "ExperimentFoundationProvisionalOutputV2",
+      "ExperimentFoundationReadinessAttestationV2",
+      "ExperimentFoundationReadinessDependencyV2",
+      "ExperimentFoundationReadinessReport",
+      "ExperimentFoundationRecord",
+      "ExperimentFoundationRunCellV2",
+      "ExperimentFoundationRunRecipeV2",
+      "ExperimentFoundationRunV2",
+      "ExperimentFoundationTrainingTaskSpecV2",
+      "ExperimentFoundationVersionLockDependencyV2",
+      "ExperimentFoundationVersionLockV2",
+      "LiteratureAbstractProfile",
+      "LiteratureCitationProfile",
+      "LiteratureCluster",
+      "LiteratureClusterEvidence",
+      "LiteratureClusterMember",
+      "LiteratureContentAsset",
+      "LiteratureContentProcessingBatchItem",
+      "LiteratureContentProcessingBatchJob",
+      "LiteratureEmbeddingChunk",
+      "LiteratureEmbeddingTokenIndex",
+      "LiteratureEmbeddingVersion",
+      "LiteratureFulltextAcquisitionItem",
+      "LiteratureFulltextAcquisitionJob",
+      "LiteratureFulltextAnchor",
+      "LiteratureFulltextDocument",
+      "LiteratureFulltextParagraph",
+      "LiteratureFulltextSection",
+      "LiteraturePipelineArtifact",
+      "LiteraturePipelineRun",
+      "LiteraturePipelineRunStep",
+      "LiteraturePipelineStageState",
+      "LiteraturePipelineState",
+      "LiteratureQualityAssessment",
+      "LiteratureRecord",
+      "LiteratureSource",
+      "LiteratureSourceRuntimeState",
+      "PaperImplementationAgentWorkflowHarnessRun",
+      "PaperImplementationCitationCandidate",
+      "PaperImplementationClaimCandidate",
+      "PaperImplementationClaimTracePacket",
+      "PaperImplementationCoordinatorRun",
+      "PaperImplementationCoordinatorStep",
+      "PaperImplementationCoreMotiveIdentity",
+      "PaperImplementationCoreMotiveSet",
+      "PaperImplementationCoreMotiveVersion",
+      "PaperImplementationCoreMotiveVersionState",
+      "PaperImplementationCrossBoardReview",
+      "PaperImplementationDecisionWorkQueueItem",
+      "PaperImplementationDossier",
+      "PaperImplementationEvidenceBinding",
+      "PaperImplementationEvidenceTransferBinding",
+      "PaperImplementationExperimentIntegrationInboxV2",
+      "PaperImplementationExperimentIntegrationOutboxV2",
+      "PaperImplementationExperimentPlanLight",
+      "PaperImplementationExperimentWorkOrderAdmissionV2",
+      "PaperImplementationExperimentWorkOrderBranchV2",
+      "PaperImplementationExperimentWorkOrderRevisionCellV2",
+      "PaperImplementationExperimentWorkOrderRevisionV2",
+      "PaperImplementationFeasibilityProbe",
+      "PaperImplementationFeedbackEvent",
+      "PaperImplementationGateResult",
+      "PaperImplementationHarness",
+      "PaperImplementationHumanConfirmationRecord",
+      "PaperImplementationInputSnapshot",
+      "PaperImplementationIntakeSnapshot",
+      "PaperImplementationMotiveAssertion",
+      "PaperImplementationMotiveEvidenceBoardVersion",
+      "PaperImplementationMotiveEvolutionDecision",
+      "PaperImplementationMotivePortfolioDecision",
+      "PaperImplementationNaturalLanguageFieldRole",
+      "PaperImplementationProject",
+      "PaperImplementationProposalArtifact",
+      "PaperImplementationQualitySignal",
+      "PaperImplementationResearchWorkOrder",
+      "PaperImplementationResultInterpretationPacket",
+      "PaperImplementationRunEvidenceUnit",
+      "PaperImplementationRunMonitorIntake",
+      "PaperImplementationRuntimeAdmissionRecord",
+      "PaperImplementationRuntimeArtifact",
+      "PaperImplementationTechnicalRouteCandidate",
+      "PaperImplementationTraceGateResult",
+      "PaperImplementationTraceManifest",
+      "PaperImplementationTraceRepairQueueItem",
+      "PaperImplementationTransitionAttempt",
+      "PaperImplementationValidationCycle",
+      "PaperImplementationValidationCycleInputSnapshot",
+      "PaperImplementationValidationPlanningReviewItem",
+      "PaperImplementationValidationUpstreamFeedbackCandidate",
+      "PaperImplementationWorkOrderHarnessRun",
+      "PaperImplementationWritingEntryPacket",
+      "PaperLiteratureLink",
+      "PaperProject",
+      "Snapshot",
+      "StageNode",
+      "TitleCard",
+      "TitleCardEvidenceSelection",
+      "TopicLiteratureScope",
+      "TopicNeedReview",
+      "TopicPackage",
+      "TopicProfile",
+      "TopicPromotionDecision",
+      "TopicQuestion",
+      "TopicResearchRecord",
+      "TopicSelectionAcceptedRisk",
+      "TopicSelectionArgumentReadinessMiniCheck",
+      "TopicSelectionArtifactRef",
+      "TopicSelectionAssessTopicValueRun",
+      "TopicSelectionBlockerPolicy",
+      "TopicSelectionCandidateDecisionMemory",
+      "TopicSelectionCandidateDecisionMemorySuggestion",
+      "TopicSelectionChainTransitionAttempt",
+      "TopicSelectionContextPolicyVersion",
+      "TopicSelectionCoverageAssessment",
+      "TopicSelectionCoverageEvidenceBinding",
+      "TopicSelectionCoverageExecutionObservation",
+      "TopicSelectionCoverageRiskAcceptance",
+      "TopicSelectionCoverageRowIntent",
+      "TopicSelectionDecisionMemoryEntry",
+      "TopicSelectionDecisionWorkQueueItem",
+      "TopicSelectionDownstreamTopicFeedback",
+      "TopicSelectionEvidenceCluster",
+      "TopicSelectionEvidenceConflictSet",
+      "TopicSelectionEvidenceMap",
+      "TopicSelectionEvidencePattern",
+      "TopicSelectionEvidenceStrengthAssessment",
+      "TopicSelectionEvidenceTypedLink",
+      "TopicSelectionEvidenceUnit",
+      "TopicSelectionFormTopicQuestionRun",
+      "TopicSelectionFunctionalLineageLink",
+      "TopicSelectionHumanConfirmedDecision",
+      "TopicSelectionHumanOverride",
+      "TopicSelectionHumanPromotionDecision",
+      "TopicSelectionInputSnapshot",
+      "TopicSelectionLiteratureResourcePoolSnapshot",
+      "TopicSelectionLlmWorkflowRun",
+      "TopicSelectionNeedCandidate",
+      "TopicSelectionNeedCandidateReadinessAssessment",
+      "TopicSelectionOfflineEvaluationCase",
+      "TopicSelectionOfflineEvaluationCaseResult",
+      "TopicSelectionOfflineEvaluationDataset",
+      "TopicSelectionOfflineEvaluationMetricResult",
+      "TopicSelectionOfflineEvaluationRun",
+      "TopicSelectionPackageTraceBoundaryCheck",
+      "TopicSelectionPaperProjectBridge",
+      "TopicSelectionPlanResearchSliceRun",
+      "TopicSelectionPromotionCommitmentProfile",
+      "TopicSelectionPromotionDecision",
+      "TopicSelectionPromotionDecisionSupport",
+      "TopicSelectionPromotionDossier",
+      "TopicSelectionPromotionGateCheck",
+      "TopicSelectionPromotionInputSnapshot",
+      "TopicSelectionPromptPacketCacheIndex",
+      "TopicSelectionQualitySignal",
+      "TopicSelectionQuestionFrame",
+      "TopicSelectionReadinessGateResult",
+      "TopicSelectionRecheckEvent",
+      "TopicSelectionRecheckImpact",
+      "TopicSelectionRecheckResolution",
+      "TopicSelectionReplayDiff",
+      "TopicSelectionResearchConstraintProfile",
+      "TopicSelectionResearchSlice",
+      "TopicSelectionResearchSliceAssumption",
+      "TopicSelectionResearchSliceBoundary",
+      "TopicSelectionResearchSliceEvidenceRef",
+      "TopicSelectionResearchSliceOption",
+      "TopicSelectionResearchSliceOptionSet",
+      "TopicSelectionResourceSampleItem",
+      "TopicSelectionResourceSampleSet",
+      "TopicSelectionResourceSamplingAudit",
+      "TopicSelectionSearchPlan",
+      "TopicSelectionSearchPlanRecheckRequest",
+      "TopicSelectionSearchRun",
+      "TopicSelectionSliceSelectionDecision",
+      "TopicSelectionTopicPackageReadinessAssessment",
+      "TopicSelectionTopicQuestionAnswerabilityPlan",
+      "TopicSelectionTopicQuestionAssumptionRef",
+      "TopicSelectionTopicQuestionBoundaryRef",
+      "TopicSelectionTopicQuestionCandidate",
+      "TopicSelectionTopicQuestionCandidateSet",
+      "TopicSelectionTopicQuestionContract",
+      "TopicSelectionTopicQuestionEvidenceRef",
+      "TopicSelectionTopicQuestionFalsificationCondition",
+      "TopicSelectionTopicQuestionNeedRef",
+      "TopicSelectionTopicQuestionSelectionDecision",
+      "TopicSelectionTopicSeed",
+      "TopicSelectionTopicValueAssessmentInputSnapshot",
+      "TopicSelectionTopicValueEvidenceRef",
+      "TopicSelectionTraceSnapshot",
+      "TopicSelectionTransitionPolicyVersion",
+      "TopicSelectionV1aToV1bInputBundle",
+      "TopicSelectionV1bIntakeReadinessAssessment",
+      "TopicSelectionV1bIntakeSnapshot",
+      "TopicSelectionV1bToV1cInputBundle",
+      "TopicSelectionValidateNeedAdjudicationResult",
+      "TopicSelectionValidatedNeed",
+      "TopicSelectionValidationDecisionSupportPacket",
+      "TopicSelectionValueDispositionDecision",
+      "TopicSelectionValueReasoningMemo",
+      "TopicSelectionWorkflowProfilePolicy",
+      "TopicValueAssessment",
+      "_prisma_migrations"
+    ],
+    "application_table_set_digest": "sha256:b9a7691fc2968a56e808c4448d46879becdffad97af72eb397be3249364aaf96",
+    "changed_table_count": 0,
+    "changed_tables": [],
+    "application_table_snapshots_before": {
+      "ApplicationSetting": {
+        "count": 4,
+        "digest": "sha256:47ca02f4ebea5a832347a3d423a9167cf79a5a132304088d3b88d119d86be2eb"
+      },
+      "AutoPullAlert": {
+        "count": 3,
+        "digest": "sha256:3df21f71248de4b085b72145dd753ac1ec6a89cb3d1f0ad339bb3a23e79edc80"
+      },
+      "AutoPullCursor": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "AutoPullRule": {
+        "count": 10,
+        "digest": "sha256:771ee79415bd6c07c4dc22e0b936e67d88946b4fb658419c1bbb95d6308a8b63"
+      },
+      "AutoPullRuleSchedule": {
+        "count": 10,
+        "digest": "sha256:35c8a35359335c7bb7e52a36b0f3d2800f8a9714bd8972f10ba03edc4e6808d1"
+      },
+      "AutoPullRuleSource": {
+        "count": 10,
+        "digest": "sha256:51cb7306040452f697d7bd1a912674d9a86157602270ecd556e2181b7ca734cf"
+      },
+      "AutoPullRuleTopic": {
+        "count": 2,
+        "digest": "sha256:1e53dfc9d92fb95bd405c619999642822a0ba4cda657216bf021fed10d4b74fa"
+      },
+      "AutoPullRun": {
+        "count": 2,
+        "digest": "sha256:780c004c20fc901ca9eafb5db45919634609479431e2f25fd7f95b190dc7c3aa"
+      },
+      "AutoPullRunSourceAttempt": {
+        "count": 1,
+        "digest": "sha256:02626cdea5fc7a990b82326736c3766e91157ff941425938a9425082d7c76d33"
+      },
+      "AutoPullSuggestion": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationAssetLifecycleEventV2": {
+        "count": 48,
+        "digest": "sha256:d6fe78cd3827bc61610c6e809885abaf10b780161377dc546f1a88278e59ebdd"
+      },
+      "ExperimentFoundationAssetLifecycleProjectionV2": {
+        "count": 23,
+        "digest": "sha256:67966aba525a9e3ff427025d9154257083a64e76870198fce773a8a5b542346e"
+      },
+      "ExperimentFoundationBenchmarkFreezeCommandReceiptV2": {
+        "count": 1,
+        "digest": "sha256:697711597c670e5ba373a276c0db2f2cb4be2295c7712a497c80d99d16f16f40"
+      },
+      "ExperimentFoundationBenchmarkRevisionV2": {
+        "count": 1,
+        "digest": "sha256:0000ccfe03cbb1dff79193a280f1e6d51b85cae74555126d813820b7ac5d30bc"
+      },
+      "ExperimentFoundationBenchmarkV2": {
+        "count": 1,
+        "digest": "sha256:88b60c3e380e363ff0a02a3066f746266f5efa4c4e4aada0067e5919bfa41252"
+      },
+      "ExperimentFoundationCollectionAttemptV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationDataPolicyFreezeCommandReceiptV2": {
+        "count": 2,
+        "digest": "sha256:5aa53601e6fd181c2ae9cca2d3a49adef11d397efb0b74d6368a5b4b5bde6742"
+      },
+      "ExperimentFoundationDataPolicyRevisionV2": {
+        "count": 2,
+        "digest": "sha256:afb81fe225289258258497119c23ceb21d1926e98cafe96710df8c1c15285726"
+      },
+      "ExperimentFoundationDataPolicyV2": {
+        "count": 2,
+        "digest": "sha256:d904b35d64431c1a166ba2a81a7052430ed5be453b87adac93621d385b6f9c9e"
+      },
+      "ExperimentFoundationDatasetFreezeCommandReceiptV2": {
+        "count": 2,
+        "digest": "sha256:43083fc03df9e9d76e5a25c63fdc25d8d742b40a64d94d0fcc33f3c2a1e58b33"
+      },
+      "ExperimentFoundationDatasetRevisionV2": {
+        "count": 2,
+        "digest": "sha256:fb65cc58f464611a1da61d7261c7681a864730b7e188fd1cecd4405fa8ecabeb"
+      },
+      "ExperimentFoundationDatasetV2": {
+        "count": 2,
+        "digest": "sha256:1ccb5437997a0d790ed046805ee84c9f7afa6cbf6f80efe643961d874f952775"
+      },
+      "ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2": {
+        "count": 1,
+        "digest": "sha256:a15398087b647e72d1f762c3ca10bb1542b6446e9693f0b0b56cdb1751445806"
+      },
+      "ExperimentFoundationEvaluationProtocolMetricDependencyV2": {
+        "count": 17,
+        "digest": "sha256:4320862338fd82acc6004fb8c670a22199a7e3f002c5d6a33108dabc529eacdf"
+      },
+      "ExperimentFoundationEvaluationProtocolRevisionV2": {
+        "count": 1,
+        "digest": "sha256:b1b2383f49e3fb08bc5a1a9dc81552bb2b86346244ad129d42a15fe2240ebab8"
+      },
+      "ExperimentFoundationEvaluationProtocolV2": {
+        "count": 1,
+        "digest": "sha256:edec8f453cbaa73517600af58bc145e631722d06dce66dc8045792f8822423f5"
+      },
+      "ExperimentFoundationExecutionAttemptEventV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationExecutionAttemptV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationExternalTrainingJob": {
+        "count": 6,
+        "digest": "sha256:185035c844731e7555c4c30b23c3a6b418bff03f051d447c552a18d6e6736f9c"
+      },
+      "ExperimentFoundationIntegrationInboxV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationIntegrationOutboxV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2": {
+        "count": 17,
+        "digest": "sha256:e27bbff4646ae63e08d97dd2c7b7479f0099457087f1cf1f83e119720d08ba54"
+      },
+      "ExperimentFoundationMetricDefinitionRevisionV2": {
+        "count": 17,
+        "digest": "sha256:0d9094d4c258ffd8e8ed92f977e19e97bfbcf986986053a5869b1204fcf8090c"
+      },
+      "ExperimentFoundationMetricDefinitionV2": {
+        "count": 17,
+        "digest": "sha256:881717d472500601fdb56a9b76cd217dafc99f3dd21ad4316b05b16b54d8bba3"
+      },
+      "ExperimentFoundationProviderCommandV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationProviderPayloadV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationProvisionalOutputV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationReadinessAttestationV2": {
+        "count": 23,
+        "digest": "sha256:c9b665569b6a7de2e567420ae84f1d8924742737edf5795c862f9d065fb2e8fb"
+      },
+      "ExperimentFoundationReadinessDependencyV2": {
+        "count": 28,
+        "digest": "sha256:1c542a03856a220589a80d9e66b3585bbf7ce5f1f40cdee9c3eb25f783482097"
+      },
+      "ExperimentFoundationReadinessReport": {
+        "count": 15,
+        "digest": "sha256:0a7b2c7497bbefd97cfdef3eaf96db952342ce2e712be1e419271f1b9107de98"
+      },
+      "ExperimentFoundationRecord": {
+        "count": 234,
+        "digest": "sha256:0e8ce7ab5713bbf246112401caac4b3556f728115bebc7ed550abe85f67b88b8"
+      },
+      "ExperimentFoundationRunCellV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationRunRecipeV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationRunV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationTrainingTaskSpecV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationVersionLockDependencyV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationVersionLockV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "LiteratureAbstractProfile": {
+        "count": 1618,
+        "digest": "sha256:d7dcb258d7395b2fb18f9fdc925084745ae3fac6b59e67a12dbd89a2396ac18b"
+      },
+      "LiteratureCitationProfile": {
+        "count": 1617,
+        "digest": "sha256:18834d224a04b3c6e8a4aa41786876bdc0ac49bf5d292a05d2d2d6fdb0e4ac85"
+      },
+      "LiteratureCluster": {
+        "count": 5,
+        "digest": "sha256:9fdba9eb95a5f3f006e902a75899a00feacf336ee835848b8fd07c38310cbd5c"
+      },
+      "LiteratureClusterEvidence": {
+        "count": 7,
+        "digest": "sha256:eedc3feed91a25d4f00028d5c3e8378a8946db92c6530bcea6fa67047d918a96"
+      },
+      "LiteratureClusterMember": {
+        "count": 10,
+        "digest": "sha256:82d0d911b5b15633c47d5facbd70e3820b9ae9ae297f181b42d75bccd9ae8a4d"
+      },
+      "LiteratureContentAsset": {
+        "count": 1603,
+        "digest": "sha256:23abac2f0b8a22d79e2eb5dd0c18ad7e4aea0dd633be298730e21c013ce7c8c3"
+      },
+      "LiteratureContentProcessingBatchItem": {
+        "count": 1974,
+        "digest": "sha256:c64ca821636541c6ed45ea18acb68a1e35d139f9abc3340277a7f52b1022b8a6"
+      },
+      "LiteratureContentProcessingBatchJob": {
+        "count": 115,
+        "digest": "sha256:cc5baa70bdf119ae3423bf04eb644014dd5911e8572c685d4533fba93bfc9f4d"
+      },
+      "LiteratureEmbeddingChunk": {
+        "count": 261643,
+        "digest": "sha256:a3b0b4d0d53e580b07aa88a1fb9a4846681daa06b5170bcedf247be67781f66c"
+      },
+      "LiteratureEmbeddingTokenIndex": {
+        "count": 2327041,
+        "digest": "sha256:4e6706db852c205b0fe8974c8d7da7dcc7fde5b306eccb7ac3ae225ed1e977af"
+      },
+      "LiteratureEmbeddingVersion": {
+        "count": 1597,
+        "digest": "sha256:b9565a932fed5c82a3577baceea33b043059dab59683490fc082e39fde736d87"
+      },
+      "LiteratureFulltextAcquisitionItem": {
+        "count": 1761,
+        "digest": "sha256:e97d6ab5a0008ddd6859cff209a4fce7f856d5c7ab201f24ec66ddda1e885386"
+      },
+      "LiteratureFulltextAcquisitionJob": {
+        "count": 96,
+        "digest": "sha256:ae2de2a4738aaadafe49d311e80afd5a47e0ea30913949a2fdcdc33dfbf53ec2"
+      },
+      "LiteratureFulltextAnchor": {
+        "count": 282966,
+        "digest": "sha256:66d89c197bcba9ab311d4776e0245be30047676f62f1978988a716f443c2c74f"
+      },
+      "LiteratureFulltextDocument": {
+        "count": 1597,
+        "digest": "sha256:e7291006779483b208dcfe362a9c2021a0405e4a84c0c53cc40186c0f9457b84"
+      },
+      "LiteratureFulltextParagraph": {
+        "count": 183056,
+        "digest": "sha256:978cf64100da9f8eed4e58802205a87a45eaa553760238e4b22270fdaa8d9bb7"
+      },
+      "LiteratureFulltextSection": {
+        "count": 69955,
+        "digest": "sha256:07613c2ba419325ce517dfe6a262dfbd43338c6ef90093a72828df8cc2703320"
+      },
+      "LiteraturePipelineArtifact": {
+        "count": 7985,
+        "digest": "sha256:8ce96f08b14c5e217fff5adb89fa4ba7c91a863da6d1b6c2980c273a61005769"
+      },
+      "LiteraturePipelineRun": {
+        "count": 8271,
+        "digest": "sha256:3c0e3d483b59360011cf1d6ae99569ae44c4979f0289c4faad1929b3fd25acdc"
+      },
+      "LiteraturePipelineRunStep": {
+        "count": 12413,
+        "digest": "sha256:a1f24d21947bbf171815a8e33178d242ede044b3a5ba6f7344e5498cb2baf4b0"
+      },
+      "LiteraturePipelineStageState": {
+        "count": 11355,
+        "digest": "sha256:23a620a0a1eaf79c4a7c150b102ec2495e591a66f99d70a08fb46f2af1646461"
+      },
+      "LiteraturePipelineState": {
+        "count": 1967,
+        "digest": "sha256:e0ba76c2d4409acb4302760375de63490ef8167d3a75cbdbe64d7ad553bcf186"
+      },
+      "LiteratureQualityAssessment": {
+        "count": 1595,
+        "digest": "sha256:72cfc4fe073c7651d8da57755b00c5a9b330f626bf215362517fea8da96ef4ae"
+      },
+      "LiteratureRecord": {
+        "count": 1967,
+        "digest": "sha256:3e89be348b49cd7ceaf0ca1be95ca845c316c46327fbe5feb0a580827481d253"
+      },
+      "LiteratureSource": {
+        "count": 1986,
+        "digest": "sha256:6826d8193e32a21b6a986268deee773f0c53c9ed4063bc32da1360fb2220832b"
+      },
+      "LiteratureSourceRuntimeState": {
+        "count": 5,
+        "digest": "sha256:9a3c8a1dcf7bb7d6c85def8904395c4177ef110b7acae5a1a5a755e90063355f"
+      },
+      "PaperImplementationAgentWorkflowHarnessRun": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationCitationCandidate": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationClaimCandidate": {
+        "count": 1,
+        "digest": "sha256:a62b66dcc7961fdb8005f1ffd189155e69590e37d83cc8c124ea5ca5a7eb618b"
+      },
+      "PaperImplementationClaimTracePacket": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationCoordinatorRun": {
+        "count": 49,
+        "digest": "sha256:15da208e295c45c9afff45de2c1a6dace3b886a6070d8d1707f031a63268197d"
+      },
+      "PaperImplementationCoordinatorStep": {
+        "count": 91,
+        "digest": "sha256:0f2199fd05b4f4ac742ab1f7b4060e7592e1f5c3f3a74abce3b4ac77518aa1e7"
+      },
+      "PaperImplementationCoreMotiveIdentity": {
+        "count": 1,
+        "digest": "sha256:7133b41eb62ea1b19d9d219d5fdce241eeadb89979c6f75ee7dc3ba6c33e4c5c"
+      },
+      "PaperImplementationCoreMotiveSet": {
+        "count": 1,
+        "digest": "sha256:b7a641b49df3ba1e424bff21c263a183eeb4df70b2287ddf57c626cd8e1ff38c"
+      },
+      "PaperImplementationCoreMotiveVersion": {
+        "count": 1,
+        "digest": "sha256:16372c7bd48e1f5e0617a87e6395f386f96f337ed888a1a99d1cb5a55149023e"
+      },
+      "PaperImplementationCoreMotiveVersionState": {
+        "count": 1,
+        "digest": "sha256:9e7379a957968a7104f1c1281f183257a5e202d6f41230ea51b2861a194bbe29"
+      },
+      "PaperImplementationCrossBoardReview": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationDecisionWorkQueueItem": {
+        "count": 35,
+        "digest": "sha256:081d806f1b98fe7f68118e94eddb233bcde38bd5db52e16058e73aa0443f67fb"
+      },
+      "PaperImplementationDossier": {
+        "count": 1,
+        "digest": "sha256:c5fe3dc64330b2583a8599d9bd42b3be3790c5790684c11365fde0c757cb9ffc"
+      },
+      "PaperImplementationEvidenceBinding": {
+        "count": 1,
+        "digest": "sha256:65ccc78261241be9d7e91b59c18b331ce1798867551eac5e1093bbbc2ba4d798"
+      },
+      "PaperImplementationEvidenceTransferBinding": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentIntegrationInboxV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentIntegrationOutboxV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentPlanLight": {
+        "count": 1,
+        "digest": "sha256:72595a3a76425237bb7d03cf77423fe50c63d7e270cf76ccb46e54a9845f72f8"
+      },
+      "PaperImplementationExperimentWorkOrderAdmissionV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentWorkOrderBranchV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentWorkOrderRevisionCellV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentWorkOrderRevisionV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationFeasibilityProbe": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationFeedbackEvent": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationGateResult": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationHarness": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationHumanConfirmationRecord": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationInputSnapshot": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationIntakeSnapshot": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationMotiveAssertion": {
+        "count": 1,
+        "digest": "sha256:2dd0231253cbd9bd51a9722e5666ec89d5ae79c60ecceb73a1f43abe7a29a405"
+      },
+      "PaperImplementationMotiveEvidenceBoardVersion": {
+        "count": 1,
+        "digest": "sha256:5a0c2c1987ee3a1ff26f7f26899a6051d63e40900322ce8f121777dc8d4e5d9d"
+      },
+      "PaperImplementationMotiveEvolutionDecision": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationMotivePortfolioDecision": {
+        "count": 1,
+        "digest": "sha256:cdd5d5c5d4cc462b9a7c09d21dd8f2c213e7c92a6e0d244c5b182083e42cb6d6"
+      },
+      "PaperImplementationNaturalLanguageFieldRole": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationProject": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationProposalArtifact": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationQualitySignal": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationResearchWorkOrder": {
+        "count": 1,
+        "digest": "sha256:d25aa6c04ebe1acc93fa81abf3150105e131fa2b890fe2094fccd9e2851b2551"
+      },
+      "PaperImplementationResultInterpretationPacket": {
+        "count": 1,
+        "digest": "sha256:a7cc65886a15ec8ef04e9baeabac3cfa329c9eba27c0255d2738a9382453cf3b"
+      },
+      "PaperImplementationRunEvidenceUnit": {
+        "count": 1,
+        "digest": "sha256:0b2c8a5dc60ed043ce46d1a05271dd3d055c414380a50859907924df3ca3b27e"
+      },
+      "PaperImplementationRunMonitorIntake": {
+        "count": 2,
+        "digest": "sha256:3f44817aaf01941c03ac852e54c63ed068e25cc119187fa21d079e833907d3b4"
+      },
+      "PaperImplementationRuntimeAdmissionRecord": {
+        "count": 314,
+        "digest": "sha256:d3718e62c6ccb6d39227e91feb75a072cfb51dd486140f8c82f3518b67929d99"
+      },
+      "PaperImplementationRuntimeArtifact": {
+        "count": 314,
+        "digest": "sha256:e66ccbdf11f20e06634c94b6ad396b9181062742b059f580244c940a2079a0df"
+      },
+      "PaperImplementationTechnicalRouteCandidate": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationTraceGateResult": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationTraceManifest": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationTraceRepairQueueItem": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationTransitionAttempt": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationValidationCycle": {
+        "count": 1,
+        "digest": "sha256:cef14072fb32fb9a096a42afb8c55042de6f88d8f470fa29caa247f125c44e8e"
+      },
+      "PaperImplementationValidationCycleInputSnapshot": {
+        "count": 1,
+        "digest": "sha256:866462fc2576804b2d71e735c0596ee4f07ddf93c0842aa688e1b9df947f4a75"
+      },
+      "PaperImplementationValidationPlanningReviewItem": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationValidationUpstreamFeedbackCandidate": {
+        "count": 1,
+        "digest": "sha256:9941ec725c4a31c2d65733b7bdbe567e565c3972bb4b48c38779630695a63b50"
+      },
+      "PaperImplementationWorkOrderHarnessRun": {
+        "count": 1,
+        "digest": "sha256:e5ce1af3e287c58dcd424c121a9c50694f0e110193f451b6a3150f513eeb700e"
+      },
+      "PaperImplementationWritingEntryPacket": {
+        "count": 1,
+        "digest": "sha256:28959c389bbade7031379ed1a1973d14de89536a80bbee16a85fe3571f38b03e"
+      },
+      "PaperLiteratureLink": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperProject": {
+        "count": 372,
+        "digest": "sha256:7762f592ca777d43b5e3c4915f3d2b49368b9db49f05a154162e1e0a0d633872"
+      },
+      "Snapshot": {
+        "count": 1,
+        "digest": "sha256:dd28156dbdd12758b9a1b7f96d81334a03d5a438ed4e4c09dfc83250a04e3f76"
+      },
+      "StageNode": {
+        "count": 2,
+        "digest": "sha256:6cc622564d8bb0d1bacae0d66bec627e48e0bfd378a308632e2fd0f1eef28f84"
+      },
+      "TitleCard": {
+        "count": 952,
+        "digest": "sha256:e082ccd57fdf8befd319ba80eeef63b2211f05d62bddb8e707c8b31986cc4018"
+      },
+      "TitleCardEvidenceSelection": {
+        "count": 420,
+        "digest": "sha256:f0ffa669cb77f6791f6297542a15c51df076e50563988fff87f64084a1b1158f"
+      },
+      "TopicLiteratureScope": {
+        "count": 415,
+        "digest": "sha256:6aeb871e9e31e7342d649198e9ab7c9516b8a9eb5a3aa5c164ecf5d3775dedbb"
+      },
+      "TopicNeedReview": {
+        "count": 2,
+        "digest": "sha256:051eab5da9e1177b28f485829b33c24ab3e592b1cb6f28cbdd6a9e8efebf8f01"
+      },
+      "TopicPackage": {
+        "count": 766,
+        "digest": "sha256:b8369d4e78886e5326fb8db788416eff74d273affc21cf98ca6167ea6297c980"
+      },
+      "TopicProfile": {
+        "count": 3,
+        "digest": "sha256:1e20003866b9960f05bf2130c412d7399680a8ae0e2a23dddd5d42c6ef5ae47f"
+      },
+      "TopicPromotionDecision": {
+        "count": 1,
+        "digest": "sha256:665ff3190674cdfde1fd7a586a196f617dd90a32ef98e465e88615af28846eae"
+      },
+      "TopicQuestion": {
+        "count": 905,
+        "digest": "sha256:c80d3b17b23902e129fd76c8ec5a7fb94b145556e2faa8388154c886fce3cd07"
+      },
+      "TopicResearchRecord": {
+        "count": 2558,
+        "digest": "sha256:1a50818ae700e51cee413f3dc875c4dd19d274608c9356affe4fb6f0e7381063"
+      },
+      "TopicSelectionAcceptedRisk": {
+        "count": 1,
+        "digest": "sha256:007e40afceb4964e7d6436ee26104c2dbb00083c421a5d5afa240347562121eb"
+      },
+      "TopicSelectionArgumentReadinessMiniCheck": {
+        "count": 438,
+        "digest": "sha256:2baede474cac8eea7d257f59900856d2abdb17de6c8e9f535e8fd66f92d08b43"
+      },
+      "TopicSelectionArtifactRef": {
+        "count": 44152,
+        "digest": "sha256:cd0f7dff0bce9fd81324af7ffd619b866c60de651a554b43e9db7c636f68219b"
+      },
+      "TopicSelectionAssessTopicValueRun": {
+        "count": 514,
+        "digest": "sha256:c79b9c44e86fbdc4d4ea637078dee4325f76459de49952e547b2b5fb9c970343"
+      },
+      "TopicSelectionBlockerPolicy": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionCandidateDecisionMemory": {
+        "count": 1,
+        "digest": "sha256:1b7a9a93a0c9dbb5712fc85123bb90ed75ea75aa3e96d2173b7533520127029c"
+      },
+      "TopicSelectionCandidateDecisionMemorySuggestion": {
+        "count": 1,
+        "digest": "sha256:c8d644efb1ec3ce231fc24cc0bcef59d74ab26c1470342712c339d1dc3d4b3ba"
+      },
+      "TopicSelectionChainTransitionAttempt": {
+        "count": 12901,
+        "digest": "sha256:66626e32e51db85d4e76caba420a46c61744df418e1d2c7221ce1b69ab128481"
+      },
+      "TopicSelectionContextPolicyVersion": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionCoverageAssessment": {
+        "count": 2315,
+        "digest": "sha256:0ab4cc78f45160a07aca7e62c7f6264b0d62ff3087b1eb5b300d3d73ab759cab"
+      },
+      "TopicSelectionCoverageEvidenceBinding": {
+        "count": 2375,
+        "digest": "sha256:9389fd90539e402c4fd450cc41f9840f9154fa6b8df9bdc3535e39af7b1bcdbd"
+      },
+      "TopicSelectionCoverageExecutionObservation": {
+        "count": 2315,
+        "digest": "sha256:5ee996236363b15c4e44f2b94fd80cecac698be1a97059cc3cb5d8fa2418f468"
+      },
+      "TopicSelectionCoverageRiskAcceptance": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionCoverageRowIntent": {
+        "count": 2315,
+        "digest": "sha256:9ddf0ebebaf011555104bad418a7450e26a2b3652cb16216669ba22aefcee8ae"
+      },
+      "TopicSelectionDecisionMemoryEntry": {
+        "count": 1,
+        "digest": "sha256:79df4901d2efb09799a2e7387a808b80a431ccfc8f09d2a8d10f33f3dced9c8c"
+      },
+      "TopicSelectionDecisionWorkQueueItem": {
+        "count": 379,
+        "digest": "sha256:87b5d2cabf9e7881c8f6274947657e149af91b12484ad7d3ba554e547f1aba61"
+      },
+      "TopicSelectionDownstreamTopicFeedback": {
+        "count": 410,
+        "digest": "sha256:f6d1d15270c67c1767d56df297cbe25d3178ba2adda6e1b00d76cde2d8d0ed98"
+      },
+      "TopicSelectionEvidenceCluster": {
+        "count": 2227,
+        "digest": "sha256:a4c807934e9c3014aab1a4cdd35bf43d1e5c375f79b96b25dcd68e5eaba035d6"
+      },
+      "TopicSelectionEvidenceConflictSet": {
+        "count": 557,
+        "digest": "sha256:2b0acb27550b182fcc9a12116bae9ffcc3b65b8697aff6c91d04a17101e7ff38"
+      },
+      "TopicSelectionEvidenceMap": {
+        "count": 579,
+        "digest": "sha256:e1e58537b85a222f53ba0aee4908a50e043b8746355ce9cea0b96b70e97b9488"
+      },
+      "TopicSelectionEvidencePattern": {
+        "count": 2231,
+        "digest": "sha256:224263a6cc22a4220441ebe4443393b28bdbc9a46d8b47fc355d6fc4333f0161"
+      },
+      "TopicSelectionEvidenceStrengthAssessment": {
+        "count": 575,
+        "digest": "sha256:07235638c2d5e5de1e6b090611123b82d46a2ae71b6cc5e30fca856b932e15c6"
+      },
+      "TopicSelectionEvidenceTypedLink": {
+        "count": 3,
+        "digest": "sha256:480bfb24b09cbfa91cce18ef3eb1d03bb5652ca91a49cdaaf5166b387a00e506"
+      },
+      "TopicSelectionEvidenceUnit": {
+        "count": 1407,
+        "digest": "sha256:3970d88f3c8cd410a3b31bd92fe52f880f98755f5d6153156b79d431476891b2"
+      },
+      "TopicSelectionFormTopicQuestionRun": {
+        "count": 553,
+        "digest": "sha256:39ab08fd4fa466d2294d1b574f8bb26e6f44917c8ac2224a2c9e63d277e38191"
+      },
+      "TopicSelectionFunctionalLineageLink": {
+        "count": 595,
+        "digest": "sha256:397b9062f3006077a47786b09711ad46c145a988a928f89a9f8cea100bc269c6"
+      },
+      "TopicSelectionHumanConfirmedDecision": {
+        "count": 960,
+        "digest": "sha256:8c444cc0fe2decdc2a1dd814089a80a8e5389b93162fccbb3f16b86f17d729cf"
+      },
+      "TopicSelectionHumanOverride": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionHumanPromotionDecision": {
+        "count": 395,
+        "digest": "sha256:1f52408bcce91e0d155e6d475bca297480d0b9756cdc505e43db1d4e5f0eb679"
+      },
+      "TopicSelectionInputSnapshot": {
+        "count": 13349,
+        "digest": "sha256:93a08de4fe03cf7fe13ff093161c55a0207db3d824b86fdf299104b07081a389"
+      },
+      "TopicSelectionLiteratureResourcePoolSnapshot": {
+        "count": 579,
+        "digest": "sha256:7e926486c0b6f71bddc565a0f64d37502d9d5ca2173c592de491dbac67d3fc1c"
+      },
+      "TopicSelectionLlmWorkflowRun": {
+        "count": 6656,
+        "digest": "sha256:60fe99a28c6942149ad7fad052982a612e2da2b21df457dd99b78c33b56aedf4"
+      },
+      "TopicSelectionNeedCandidate": {
+        "count": 593,
+        "digest": "sha256:213101dda865cd4584f878d526d0ce9fbecc5a23dda67ff22d314425421bdaa2"
+      },
+      "TopicSelectionNeedCandidateReadinessAssessment": {
+        "count": 575,
+        "digest": "sha256:e22c3d313c69cec73c1e309c3b41df3d5982236d7f2bb65e3597f7bbfcae8953"
+      },
+      "TopicSelectionOfflineEvaluationCase": {
+        "count": 122,
+        "digest": "sha256:4c31f38b65d1ed736fe57278610b66b7a7cbefdbd77685d9aa77133a1d3234fb"
+      },
+      "TopicSelectionOfflineEvaluationCaseResult": {
+        "count": 48,
+        "digest": "sha256:a2ef04fde6274713245eb0efe5d6f3ef095e7af969ad779d0771b5812c126da4"
+      },
+      "TopicSelectionOfflineEvaluationDataset": {
+        "count": 20,
+        "digest": "sha256:4bb2cd5583ef4c9cf37dc41ba0d4c8e41141472248721246b529bce329d95568"
+      },
+      "TopicSelectionOfflineEvaluationMetricResult": {
+        "count": 48,
+        "digest": "sha256:0eb2b2d4feafebaf13abe2a70fe9d3728ecb5558b347d1a2cba3c77c82d4c243"
+      },
+      "TopicSelectionOfflineEvaluationRun": {
+        "count": 8,
+        "digest": "sha256:6f72dac2265277b5c1f5dab264f9e0d3b4cc3bfd9d24e44bd953dee1b4d76685"
+      },
+      "TopicSelectionPackageTraceBoundaryCheck": {
+        "count": 765,
+        "digest": "sha256:feb38571dcb3f9fe43e60b01b218910cbda4ba0d1da9373d62f5b922a1eacfe8"
+      },
+      "TopicSelectionPaperProjectBridge": {
+        "count": 395,
+        "digest": "sha256:fb01d2f43d22b0c95c5e7f4ab8989cb4b63d594b6c6574912769ceaade7dc451"
+      },
+      "TopicSelectionPlanResearchSliceRun": {
+        "count": 518,
+        "digest": "sha256:07986ac05cd21d960922d55d3d486e541f852032222ca10878bc92c2c8c1ba5a"
+      },
+      "TopicSelectionPromotionCommitmentProfile": {
+        "count": 395,
+        "digest": "sha256:aaaeb37caf1017dc65966e1f738acad73d11faa3610ac421946ecb514313b052"
+      },
+      "TopicSelectionPromotionDecision": {
+        "count": 395,
+        "digest": "sha256:6fe699a3cb66b7207627f1918ce44589194955b6981784ba1bf4012d75e03991"
+      },
+      "TopicSelectionPromotionDecisionSupport": {
+        "count": 439,
+        "digest": "sha256:e8af8fdad36cb33e11e3fc943828838d605767bec66aa4a0396042c8e5b21613"
+      },
+      "TopicSelectionPromotionDossier": {
+        "count": 439,
+        "digest": "sha256:ae4912fc1b726feaeac03a6f027428559a26135695dd71378c80fbc5c48bd520"
+      },
+      "TopicSelectionPromotionGateCheck": {
+        "count": 438,
+        "digest": "sha256:88330c28b68e0aeda6bfd0e248c82b3280a64b3f5af7d253d37d00d938e9a3c6"
+      },
+      "TopicSelectionPromotionInputSnapshot": {
+        "count": 367,
+        "digest": "sha256:e38127cf4f824865d85c676d1cb2b0d49f5543ffd7e6d43b7e83a07447929854"
+      },
+      "TopicSelectionPromptPacketCacheIndex": {
+        "count": 2402,
+        "digest": "sha256:558d6a85f7099b1ffd570df5d516ccd0d75a5843db63819ff9ccb35439a34e53"
+      },
+      "TopicSelectionQualitySignal": {
+        "count": 1,
+        "digest": "sha256:f005f0122e776c21af92e41bfd52cf35cbd39227a6a16463aee35367d86ac578"
+      },
+      "TopicSelectionQuestionFrame": {
+        "count": 553,
+        "digest": "sha256:453ed80972091ea2d7279dfe3bf81c7f53d7e9c088eb35866e484fa61d966a72"
+      },
+      "TopicSelectionReadinessGateResult": {
+        "count": 12922,
+        "digest": "sha256:81f8c0df58129af02a240c8004ed837dcbbd7362da056a8ced1392429f95f214"
+      },
+      "TopicSelectionRecheckEvent": {
+        "count": 379,
+        "digest": "sha256:e7d7c774ddc12f92e6cc62d7897a33520de65025350bd273c1344dff52a52dbb"
+      },
+      "TopicSelectionRecheckImpact": {
+        "count": 379,
+        "digest": "sha256:123a785a7edbf8ae0f69ee75c7b3de99d24c525b6ca5bd191b4426ade97207e1"
+      },
+      "TopicSelectionRecheckResolution": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionReplayDiff": {
+        "count": 48,
+        "digest": "sha256:81e7837f77c86a397605b524e2183169b55d5146721769b6e5d453ec9b65b075"
+      },
+      "TopicSelectionResearchConstraintProfile": {
+        "count": 525,
+        "digest": "sha256:d9849957af84dce9c76b909a786be54ccaf56348a67028a2423e3ec2c2ab377c"
+      },
+      "TopicSelectionResearchSlice": {
+        "count": 492,
+        "digest": "sha256:b51a6de40e1b4d306702a620454ac4f29e502ca9f32673264f7bbf353e20f4c4"
+      },
+      "TopicSelectionResearchSliceAssumption": {
+        "count": 2456,
+        "digest": "sha256:d0eccc339f6d6f6946e059b4de45e08b1791f63ae847c3a0da9c9e6b40e6fa80"
+      },
+      "TopicSelectionResearchSliceBoundary": {
+        "count": 2456,
+        "digest": "sha256:2b39916b6ceb19c698cd18fbc221238d7319caeef3080496c16d0964ba92676f"
+      },
+      "TopicSelectionResearchSliceEvidenceRef": {
+        "count": 492,
+        "digest": "sha256:4a6449b60eba2a5bd683aa154267d5d59bb0b73b8f23a1b331bf641f1898e5cc"
+      },
+      "TopicSelectionResearchSliceOption": {
+        "count": 519,
+        "digest": "sha256:d565d20353cbbb6d20b897b2267356c87ab469ab0b66ebec8f055fcd3532c756"
+      },
+      "TopicSelectionResearchSliceOptionSet": {
+        "count": 518,
+        "digest": "sha256:d14bf7e0f6a2c689c2af4f434e6644ac9da8676d3e322ef9392f55495334582c"
+      },
+      "TopicSelectionResourceSampleItem": {
+        "count": 1648,
+        "digest": "sha256:2acc6c55ee57a1aea646d369cff1e2902558752051f3ac5b7473c0681a8d871c"
+      },
+      "TopicSelectionResourceSampleSet": {
+        "count": 22,
+        "digest": "sha256:669e7ce5d4a161ba403e3c2fae40fa8f47205f551b09574bc95766697e8e7436"
+      },
+      "TopicSelectionResourceSamplingAudit": {
+        "count": 22,
+        "digest": "sha256:3bb504f8ee60c6ebaea8a8c98387cde62e80f7f736ebe029f9a078bfef0a89ef"
+      },
+      "TopicSelectionSearchPlan": {
+        "count": 579,
+        "digest": "sha256:f6c9e43121dc95513df7fcf515b0cf9d4e6527a9be7ed5009ec557c155a43fdc"
+      },
+      "TopicSelectionSearchPlanRecheckRequest": {
+        "count": 1,
+        "digest": "sha256:ddc38f2969fbc8a25c89f51117963745a1de53bd0a0c138be26042666c18b1be"
+      },
+      "TopicSelectionSearchRun": {
+        "count": 579,
+        "digest": "sha256:672dd858b35adcbacae5728693b8c6a3bc6ebe81dfe7991632d71f7b4856c4ef"
+      },
+      "TopicSelectionSliceSelectionDecision": {
+        "count": 492,
+        "digest": "sha256:3ab3edbfc56036f377d5fa0554f76f77714fcf805b250e08d64462a8ba0c1668"
+      },
+      "TopicSelectionTopicPackageReadinessAssessment": {
+        "count": 765,
+        "digest": "sha256:de966f9dbd30f1ba333185fa6c77738ddc5cab7e8f272d2408935ac9d2867b36"
+      },
+      "TopicSelectionTopicQuestionAnswerabilityPlan": {
+        "count": 534,
+        "digest": "sha256:b434c94b47b527d403bd17cb13d0d21ac49dfc9e7e556b6210d67c29acabe167"
+      },
+      "TopicSelectionTopicQuestionAssumptionRef": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionTopicQuestionBoundaryRef": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionTopicQuestionCandidate": {
+        "count": 604,
+        "digest": "sha256:ced5c717fa40adaf15fa68742135e584c238777e6ccf0ccfd75d94e74b0f99a9"
+      },
+      "TopicSelectionTopicQuestionCandidateSet": {
+        "count": 553,
+        "digest": "sha256:b5f1706abb58f03b5b57e46f9311aa3a94866de3272d30970a086f0262ba9343"
+      },
+      "TopicSelectionTopicQuestionContract": {
+        "count": 534,
+        "digest": "sha256:625c3a1e40196e6369a1bba5e545614de97d0fc031bf377ac2378c692f04d0ae"
+      },
+      "TopicSelectionTopicQuestionEvidenceRef": {
+        "count": 2670,
+        "digest": "sha256:684161d9f497217dca63024aa6277a9698f680a657d2b30c80b029d831a25a56"
+      },
+      "TopicSelectionTopicQuestionFalsificationCondition": {
+        "count": 534,
+        "digest": "sha256:36bd60043a8f1fd4ea8d15a0ebfa63ef6d9132592b4b6d26ea4497b58bba6553"
+      },
+      "TopicSelectionTopicQuestionNeedRef": {
+        "count": 534,
+        "digest": "sha256:e8f06c884d9fcbc2db21b96343aaa7ecf26dd62329ad543fe1f8d66d1470e012"
+      },
+      "TopicSelectionTopicQuestionSelectionDecision": {
+        "count": 567,
+        "digest": "sha256:dfc3713b2a0955d053ee102a69d2ec9c0f77bcc12155f6b73886cc89136782eb"
+      },
+      "TopicSelectionTopicSeed": {
+        "count": 580,
+        "digest": "sha256:d3855e5228f7c3c93b4af9e4d8f12fcaa053b85f907dd98f1b43225eed2cf405"
+      },
+      "TopicSelectionTopicValueAssessmentInputSnapshot": {
+        "count": 514,
+        "digest": "sha256:11ec9e7eeb8800b31d4927de8534a266fa8f973f872cafb37c5dd78cfc5cc7e2"
+      },
+      "TopicSelectionTopicValueEvidenceRef": {
+        "count": 2570,
+        "digest": "sha256:402d5739194cb461f4cdc3e561c0e2db1810e132379e6c308af4044996bb0f92"
+      },
+      "TopicSelectionTraceSnapshot": {
+        "count": 9434,
+        "digest": "sha256:976eec9a7f4a3db26d27145c6b9b327e4be06ed2956116b27e0680171c8bc842"
+      },
+      "TopicSelectionTransitionPolicyVersion": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionV1aToV1bInputBundle": {
+        "count": 565,
+        "digest": "sha256:2a426023ddb40856741bdacd0a3036d887a67a692202c722c9070fc42f3ad5da"
+      },
+      "TopicSelectionV1bIntakeReadinessAssessment": {
+        "count": 514,
+        "digest": "sha256:c86c5349d7e0ec865dd912d3ba3a3c414802696100aabcdd1ec399a05232f873"
+      },
+      "TopicSelectionV1bIntakeSnapshot": {
+        "count": 525,
+        "digest": "sha256:04a14d59362c1062d0ebae918e43ec9bd5886a3091c0500771c4abdbca8844ab"
+      },
+      "TopicSelectionV1bToV1cInputBundle": {
+        "count": 765,
+        "digest": "sha256:575956ae5407436929b4242bb73c3dd97ea5a7728ba11b37cc210b002d5d3906"
+      },
+      "TopicSelectionValidateNeedAdjudicationResult": {
+        "count": 572,
+        "digest": "sha256:bb4f81b130615a62301470d8dea94e438a2434856f6f93df55a9d20442d7088f"
+      },
+      "TopicSelectionValidatedNeed": {
+        "count": 565,
+        "digest": "sha256:c19ace2b866961d95b01f7dae9f4e2b0ea75d0d8a18c8bcda0aa36e1caec3b5f"
+      },
+      "TopicSelectionValidationDecisionSupportPacket": {
+        "count": 573,
+        "digest": "sha256:bbf264f7dd26804742333edda0a1b1293a1d3f96a982d325aa275f4cbb94866c"
+      },
+      "TopicSelectionValueDispositionDecision": {
+        "count": 395,
+        "digest": "sha256:147586528d556ec8f68bd4614bbeeda5432a7a25b46c7309ad41fda3854e3f0b"
+      },
+      "TopicSelectionValueReasoningMemo": {
+        "count": 514,
+        "digest": "sha256:4e584f849dc6b0da8a77566a44a88f47dc9c38040cf3a1564b965dd085ef5792"
+      },
+      "TopicSelectionWorkflowProfilePolicy": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicValueAssessment": {
+        "count": 885,
+        "digest": "sha256:fc3951aa5af1bd781a45b7ffe0ea4a96f62ae5f782136ff25193b3d9163f2136"
+      },
+      "_prisma_migrations": {
+        "count": 62,
+        "digest": "sha256:286465d55a969e1c346f6d087e3f22605ec11c8390fc97ca8c3f944ef7bacd27"
+      }
+    },
+    "application_table_snapshots_after": {
+      "ApplicationSetting": {
+        "count": 4,
+        "digest": "sha256:47ca02f4ebea5a832347a3d423a9167cf79a5a132304088d3b88d119d86be2eb"
+      },
+      "AutoPullAlert": {
+        "count": 3,
+        "digest": "sha256:3df21f71248de4b085b72145dd753ac1ec6a89cb3d1f0ad339bb3a23e79edc80"
+      },
+      "AutoPullCursor": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "AutoPullRule": {
+        "count": 10,
+        "digest": "sha256:771ee79415bd6c07c4dc22e0b936e67d88946b4fb658419c1bbb95d6308a8b63"
+      },
+      "AutoPullRuleSchedule": {
+        "count": 10,
+        "digest": "sha256:35c8a35359335c7bb7e52a36b0f3d2800f8a9714bd8972f10ba03edc4e6808d1"
+      },
+      "AutoPullRuleSource": {
+        "count": 10,
+        "digest": "sha256:51cb7306040452f697d7bd1a912674d9a86157602270ecd556e2181b7ca734cf"
+      },
+      "AutoPullRuleTopic": {
+        "count": 2,
+        "digest": "sha256:1e53dfc9d92fb95bd405c619999642822a0ba4cda657216bf021fed10d4b74fa"
+      },
+      "AutoPullRun": {
+        "count": 2,
+        "digest": "sha256:780c004c20fc901ca9eafb5db45919634609479431e2f25fd7f95b190dc7c3aa"
+      },
+      "AutoPullRunSourceAttempt": {
+        "count": 1,
+        "digest": "sha256:02626cdea5fc7a990b82326736c3766e91157ff941425938a9425082d7c76d33"
+      },
+      "AutoPullSuggestion": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationAssetLifecycleEventV2": {
+        "count": 48,
+        "digest": "sha256:d6fe78cd3827bc61610c6e809885abaf10b780161377dc546f1a88278e59ebdd"
+      },
+      "ExperimentFoundationAssetLifecycleProjectionV2": {
+        "count": 23,
+        "digest": "sha256:67966aba525a9e3ff427025d9154257083a64e76870198fce773a8a5b542346e"
+      },
+      "ExperimentFoundationBenchmarkFreezeCommandReceiptV2": {
+        "count": 1,
+        "digest": "sha256:697711597c670e5ba373a276c0db2f2cb4be2295c7712a497c80d99d16f16f40"
+      },
+      "ExperimentFoundationBenchmarkRevisionV2": {
+        "count": 1,
+        "digest": "sha256:0000ccfe03cbb1dff79193a280f1e6d51b85cae74555126d813820b7ac5d30bc"
+      },
+      "ExperimentFoundationBenchmarkV2": {
+        "count": 1,
+        "digest": "sha256:88b60c3e380e363ff0a02a3066f746266f5efa4c4e4aada0067e5919bfa41252"
+      },
+      "ExperimentFoundationCollectionAttemptV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationDataPolicyFreezeCommandReceiptV2": {
+        "count": 2,
+        "digest": "sha256:5aa53601e6fd181c2ae9cca2d3a49adef11d397efb0b74d6368a5b4b5bde6742"
+      },
+      "ExperimentFoundationDataPolicyRevisionV2": {
+        "count": 2,
+        "digest": "sha256:afb81fe225289258258497119c23ceb21d1926e98cafe96710df8c1c15285726"
+      },
+      "ExperimentFoundationDataPolicyV2": {
+        "count": 2,
+        "digest": "sha256:d904b35d64431c1a166ba2a81a7052430ed5be453b87adac93621d385b6f9c9e"
+      },
+      "ExperimentFoundationDatasetFreezeCommandReceiptV2": {
+        "count": 2,
+        "digest": "sha256:43083fc03df9e9d76e5a25c63fdc25d8d742b40a64d94d0fcc33f3c2a1e58b33"
+      },
+      "ExperimentFoundationDatasetRevisionV2": {
+        "count": 2,
+        "digest": "sha256:fb65cc58f464611a1da61d7261c7681a864730b7e188fd1cecd4405fa8ecabeb"
+      },
+      "ExperimentFoundationDatasetV2": {
+        "count": 2,
+        "digest": "sha256:1ccb5437997a0d790ed046805ee84c9f7afa6cbf6f80efe643961d874f952775"
+      },
+      "ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2": {
+        "count": 1,
+        "digest": "sha256:a15398087b647e72d1f762c3ca10bb1542b6446e9693f0b0b56cdb1751445806"
+      },
+      "ExperimentFoundationEvaluationProtocolMetricDependencyV2": {
+        "count": 17,
+        "digest": "sha256:4320862338fd82acc6004fb8c670a22199a7e3f002c5d6a33108dabc529eacdf"
+      },
+      "ExperimentFoundationEvaluationProtocolRevisionV2": {
+        "count": 1,
+        "digest": "sha256:b1b2383f49e3fb08bc5a1a9dc81552bb2b86346244ad129d42a15fe2240ebab8"
+      },
+      "ExperimentFoundationEvaluationProtocolV2": {
+        "count": 1,
+        "digest": "sha256:edec8f453cbaa73517600af58bc145e631722d06dce66dc8045792f8822423f5"
+      },
+      "ExperimentFoundationExecutionAttemptEventV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationExecutionAttemptV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationExternalTrainingJob": {
+        "count": 6,
+        "digest": "sha256:185035c844731e7555c4c30b23c3a6b418bff03f051d447c552a18d6e6736f9c"
+      },
+      "ExperimentFoundationIntegrationInboxV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationIntegrationOutboxV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2": {
+        "count": 17,
+        "digest": "sha256:e27bbff4646ae63e08d97dd2c7b7479f0099457087f1cf1f83e119720d08ba54"
+      },
+      "ExperimentFoundationMetricDefinitionRevisionV2": {
+        "count": 17,
+        "digest": "sha256:0d9094d4c258ffd8e8ed92f977e19e97bfbcf986986053a5869b1204fcf8090c"
+      },
+      "ExperimentFoundationMetricDefinitionV2": {
+        "count": 17,
+        "digest": "sha256:881717d472500601fdb56a9b76cd217dafc99f3dd21ad4316b05b16b54d8bba3"
+      },
+      "ExperimentFoundationProviderCommandV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationProviderPayloadV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationProvisionalOutputV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationReadinessAttestationV2": {
+        "count": 23,
+        "digest": "sha256:c9b665569b6a7de2e567420ae84f1d8924742737edf5795c862f9d065fb2e8fb"
+      },
+      "ExperimentFoundationReadinessDependencyV2": {
+        "count": 28,
+        "digest": "sha256:1c542a03856a220589a80d9e66b3585bbf7ce5f1f40cdee9c3eb25f783482097"
+      },
+      "ExperimentFoundationReadinessReport": {
+        "count": 15,
+        "digest": "sha256:0a7b2c7497bbefd97cfdef3eaf96db952342ce2e712be1e419271f1b9107de98"
+      },
+      "ExperimentFoundationRecord": {
+        "count": 234,
+        "digest": "sha256:0e8ce7ab5713bbf246112401caac4b3556f728115bebc7ed550abe85f67b88b8"
+      },
+      "ExperimentFoundationRunCellV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationRunRecipeV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationRunV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationTrainingTaskSpecV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationVersionLockDependencyV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "ExperimentFoundationVersionLockV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "LiteratureAbstractProfile": {
+        "count": 1618,
+        "digest": "sha256:d7dcb258d7395b2fb18f9fdc925084745ae3fac6b59e67a12dbd89a2396ac18b"
+      },
+      "LiteratureCitationProfile": {
+        "count": 1617,
+        "digest": "sha256:18834d224a04b3c6e8a4aa41786876bdc0ac49bf5d292a05d2d2d6fdb0e4ac85"
+      },
+      "LiteratureCluster": {
+        "count": 5,
+        "digest": "sha256:9fdba9eb95a5f3f006e902a75899a00feacf336ee835848b8fd07c38310cbd5c"
+      },
+      "LiteratureClusterEvidence": {
+        "count": 7,
+        "digest": "sha256:eedc3feed91a25d4f00028d5c3e8378a8946db92c6530bcea6fa67047d918a96"
+      },
+      "LiteratureClusterMember": {
+        "count": 10,
+        "digest": "sha256:82d0d911b5b15633c47d5facbd70e3820b9ae9ae297f181b42d75bccd9ae8a4d"
+      },
+      "LiteratureContentAsset": {
+        "count": 1603,
+        "digest": "sha256:23abac2f0b8a22d79e2eb5dd0c18ad7e4aea0dd633be298730e21c013ce7c8c3"
+      },
+      "LiteratureContentProcessingBatchItem": {
+        "count": 1974,
+        "digest": "sha256:c64ca821636541c6ed45ea18acb68a1e35d139f9abc3340277a7f52b1022b8a6"
+      },
+      "LiteratureContentProcessingBatchJob": {
+        "count": 115,
+        "digest": "sha256:cc5baa70bdf119ae3423bf04eb644014dd5911e8572c685d4533fba93bfc9f4d"
+      },
+      "LiteratureEmbeddingChunk": {
+        "count": 261643,
+        "digest": "sha256:a3b0b4d0d53e580b07aa88a1fb9a4846681daa06b5170bcedf247be67781f66c"
+      },
+      "LiteratureEmbeddingTokenIndex": {
+        "count": 2327041,
+        "digest": "sha256:4e6706db852c205b0fe8974c8d7da7dcc7fde5b306eccb7ac3ae225ed1e977af"
+      },
+      "LiteratureEmbeddingVersion": {
+        "count": 1597,
+        "digest": "sha256:b9565a932fed5c82a3577baceea33b043059dab59683490fc082e39fde736d87"
+      },
+      "LiteratureFulltextAcquisitionItem": {
+        "count": 1761,
+        "digest": "sha256:e97d6ab5a0008ddd6859cff209a4fce7f856d5c7ab201f24ec66ddda1e885386"
+      },
+      "LiteratureFulltextAcquisitionJob": {
+        "count": 96,
+        "digest": "sha256:ae2de2a4738aaadafe49d311e80afd5a47e0ea30913949a2fdcdc33dfbf53ec2"
+      },
+      "LiteratureFulltextAnchor": {
+        "count": 282966,
+        "digest": "sha256:66d89c197bcba9ab311d4776e0245be30047676f62f1978988a716f443c2c74f"
+      },
+      "LiteratureFulltextDocument": {
+        "count": 1597,
+        "digest": "sha256:e7291006779483b208dcfe362a9c2021a0405e4a84c0c53cc40186c0f9457b84"
+      },
+      "LiteratureFulltextParagraph": {
+        "count": 183056,
+        "digest": "sha256:978cf64100da9f8eed4e58802205a87a45eaa553760238e4b22270fdaa8d9bb7"
+      },
+      "LiteratureFulltextSection": {
+        "count": 69955,
+        "digest": "sha256:07613c2ba419325ce517dfe6a262dfbd43338c6ef90093a72828df8cc2703320"
+      },
+      "LiteraturePipelineArtifact": {
+        "count": 7985,
+        "digest": "sha256:8ce96f08b14c5e217fff5adb89fa4ba7c91a863da6d1b6c2980c273a61005769"
+      },
+      "LiteraturePipelineRun": {
+        "count": 8271,
+        "digest": "sha256:3c0e3d483b59360011cf1d6ae99569ae44c4979f0289c4faad1929b3fd25acdc"
+      },
+      "LiteraturePipelineRunStep": {
+        "count": 12413,
+        "digest": "sha256:a1f24d21947bbf171815a8e33178d242ede044b3a5ba6f7344e5498cb2baf4b0"
+      },
+      "LiteraturePipelineStageState": {
+        "count": 11355,
+        "digest": "sha256:23a620a0a1eaf79c4a7c150b102ec2495e591a66f99d70a08fb46f2af1646461"
+      },
+      "LiteraturePipelineState": {
+        "count": 1967,
+        "digest": "sha256:e0ba76c2d4409acb4302760375de63490ef8167d3a75cbdbe64d7ad553bcf186"
+      },
+      "LiteratureQualityAssessment": {
+        "count": 1595,
+        "digest": "sha256:72cfc4fe073c7651d8da57755b00c5a9b330f626bf215362517fea8da96ef4ae"
+      },
+      "LiteratureRecord": {
+        "count": 1967,
+        "digest": "sha256:3e89be348b49cd7ceaf0ca1be95ca845c316c46327fbe5feb0a580827481d253"
+      },
+      "LiteratureSource": {
+        "count": 1986,
+        "digest": "sha256:6826d8193e32a21b6a986268deee773f0c53c9ed4063bc32da1360fb2220832b"
+      },
+      "LiteratureSourceRuntimeState": {
+        "count": 5,
+        "digest": "sha256:9a3c8a1dcf7bb7d6c85def8904395c4177ef110b7acae5a1a5a755e90063355f"
+      },
+      "PaperImplementationAgentWorkflowHarnessRun": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationCitationCandidate": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationClaimCandidate": {
+        "count": 1,
+        "digest": "sha256:a62b66dcc7961fdb8005f1ffd189155e69590e37d83cc8c124ea5ca5a7eb618b"
+      },
+      "PaperImplementationClaimTracePacket": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationCoordinatorRun": {
+        "count": 49,
+        "digest": "sha256:15da208e295c45c9afff45de2c1a6dace3b886a6070d8d1707f031a63268197d"
+      },
+      "PaperImplementationCoordinatorStep": {
+        "count": 91,
+        "digest": "sha256:0f2199fd05b4f4ac742ab1f7b4060e7592e1f5c3f3a74abce3b4ac77518aa1e7"
+      },
+      "PaperImplementationCoreMotiveIdentity": {
+        "count": 1,
+        "digest": "sha256:7133b41eb62ea1b19d9d219d5fdce241eeadb89979c6f75ee7dc3ba6c33e4c5c"
+      },
+      "PaperImplementationCoreMotiveSet": {
+        "count": 1,
+        "digest": "sha256:b7a641b49df3ba1e424bff21c263a183eeb4df70b2287ddf57c626cd8e1ff38c"
+      },
+      "PaperImplementationCoreMotiveVersion": {
+        "count": 1,
+        "digest": "sha256:16372c7bd48e1f5e0617a87e6395f386f96f337ed888a1a99d1cb5a55149023e"
+      },
+      "PaperImplementationCoreMotiveVersionState": {
+        "count": 1,
+        "digest": "sha256:9e7379a957968a7104f1c1281f183257a5e202d6f41230ea51b2861a194bbe29"
+      },
+      "PaperImplementationCrossBoardReview": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationDecisionWorkQueueItem": {
+        "count": 35,
+        "digest": "sha256:081d806f1b98fe7f68118e94eddb233bcde38bd5db52e16058e73aa0443f67fb"
+      },
+      "PaperImplementationDossier": {
+        "count": 1,
+        "digest": "sha256:c5fe3dc64330b2583a8599d9bd42b3be3790c5790684c11365fde0c757cb9ffc"
+      },
+      "PaperImplementationEvidenceBinding": {
+        "count": 1,
+        "digest": "sha256:65ccc78261241be9d7e91b59c18b331ce1798867551eac5e1093bbbc2ba4d798"
+      },
+      "PaperImplementationEvidenceTransferBinding": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentIntegrationInboxV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentIntegrationOutboxV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentPlanLight": {
+        "count": 1,
+        "digest": "sha256:72595a3a76425237bb7d03cf77423fe50c63d7e270cf76ccb46e54a9845f72f8"
+      },
+      "PaperImplementationExperimentWorkOrderAdmissionV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentWorkOrderBranchV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentWorkOrderRevisionCellV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationExperimentWorkOrderRevisionV2": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationFeasibilityProbe": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationFeedbackEvent": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationGateResult": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationHarness": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationHumanConfirmationRecord": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationInputSnapshot": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationIntakeSnapshot": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationMotiveAssertion": {
+        "count": 1,
+        "digest": "sha256:2dd0231253cbd9bd51a9722e5666ec89d5ae79c60ecceb73a1f43abe7a29a405"
+      },
+      "PaperImplementationMotiveEvidenceBoardVersion": {
+        "count": 1,
+        "digest": "sha256:5a0c2c1987ee3a1ff26f7f26899a6051d63e40900322ce8f121777dc8d4e5d9d"
+      },
+      "PaperImplementationMotiveEvolutionDecision": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationMotivePortfolioDecision": {
+        "count": 1,
+        "digest": "sha256:cdd5d5c5d4cc462b9a7c09d21dd8f2c213e7c92a6e0d244c5b182083e42cb6d6"
+      },
+      "PaperImplementationNaturalLanguageFieldRole": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationProject": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationProposalArtifact": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationQualitySignal": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationResearchWorkOrder": {
+        "count": 1,
+        "digest": "sha256:d25aa6c04ebe1acc93fa81abf3150105e131fa2b890fe2094fccd9e2851b2551"
+      },
+      "PaperImplementationResultInterpretationPacket": {
+        "count": 1,
+        "digest": "sha256:a7cc65886a15ec8ef04e9baeabac3cfa329c9eba27c0255d2738a9382453cf3b"
+      },
+      "PaperImplementationRunEvidenceUnit": {
+        "count": 1,
+        "digest": "sha256:0b2c8a5dc60ed043ce46d1a05271dd3d055c414380a50859907924df3ca3b27e"
+      },
+      "PaperImplementationRunMonitorIntake": {
+        "count": 2,
+        "digest": "sha256:3f44817aaf01941c03ac852e54c63ed068e25cc119187fa21d079e833907d3b4"
+      },
+      "PaperImplementationRuntimeAdmissionRecord": {
+        "count": 314,
+        "digest": "sha256:d3718e62c6ccb6d39227e91feb75a072cfb51dd486140f8c82f3518b67929d99"
+      },
+      "PaperImplementationRuntimeArtifact": {
+        "count": 314,
+        "digest": "sha256:e66ccbdf11f20e06634c94b6ad396b9181062742b059f580244c940a2079a0df"
+      },
+      "PaperImplementationTechnicalRouteCandidate": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationTraceGateResult": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationTraceManifest": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationTraceRepairQueueItem": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationTransitionAttempt": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationValidationCycle": {
+        "count": 1,
+        "digest": "sha256:cef14072fb32fb9a096a42afb8c55042de6f88d8f470fa29caa247f125c44e8e"
+      },
+      "PaperImplementationValidationCycleInputSnapshot": {
+        "count": 1,
+        "digest": "sha256:866462fc2576804b2d71e735c0596ee4f07ddf93c0842aa688e1b9df947f4a75"
+      },
+      "PaperImplementationValidationPlanningReviewItem": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperImplementationValidationUpstreamFeedbackCandidate": {
+        "count": 1,
+        "digest": "sha256:9941ec725c4a31c2d65733b7bdbe567e565c3972bb4b48c38779630695a63b50"
+      },
+      "PaperImplementationWorkOrderHarnessRun": {
+        "count": 1,
+        "digest": "sha256:e5ce1af3e287c58dcd424c121a9c50694f0e110193f451b6a3150f513eeb700e"
+      },
+      "PaperImplementationWritingEntryPacket": {
+        "count": 1,
+        "digest": "sha256:28959c389bbade7031379ed1a1973d14de89536a80bbee16a85fe3571f38b03e"
+      },
+      "PaperLiteratureLink": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "PaperProject": {
+        "count": 372,
+        "digest": "sha256:7762f592ca777d43b5e3c4915f3d2b49368b9db49f05a154162e1e0a0d633872"
+      },
+      "Snapshot": {
+        "count": 1,
+        "digest": "sha256:dd28156dbdd12758b9a1b7f96d81334a03d5a438ed4e4c09dfc83250a04e3f76"
+      },
+      "StageNode": {
+        "count": 2,
+        "digest": "sha256:6cc622564d8bb0d1bacae0d66bec627e48e0bfd378a308632e2fd0f1eef28f84"
+      },
+      "TitleCard": {
+        "count": 952,
+        "digest": "sha256:e082ccd57fdf8befd319ba80eeef63b2211f05d62bddb8e707c8b31986cc4018"
+      },
+      "TitleCardEvidenceSelection": {
+        "count": 420,
+        "digest": "sha256:f0ffa669cb77f6791f6297542a15c51df076e50563988fff87f64084a1b1158f"
+      },
+      "TopicLiteratureScope": {
+        "count": 415,
+        "digest": "sha256:6aeb871e9e31e7342d649198e9ab7c9516b8a9eb5a3aa5c164ecf5d3775dedbb"
+      },
+      "TopicNeedReview": {
+        "count": 2,
+        "digest": "sha256:051eab5da9e1177b28f485829b33c24ab3e592b1cb6f28cbdd6a9e8efebf8f01"
+      },
+      "TopicPackage": {
+        "count": 766,
+        "digest": "sha256:b8369d4e78886e5326fb8db788416eff74d273affc21cf98ca6167ea6297c980"
+      },
+      "TopicProfile": {
+        "count": 3,
+        "digest": "sha256:1e20003866b9960f05bf2130c412d7399680a8ae0e2a23dddd5d42c6ef5ae47f"
+      },
+      "TopicPromotionDecision": {
+        "count": 1,
+        "digest": "sha256:665ff3190674cdfde1fd7a586a196f617dd90a32ef98e465e88615af28846eae"
+      },
+      "TopicQuestion": {
+        "count": 905,
+        "digest": "sha256:c80d3b17b23902e129fd76c8ec5a7fb94b145556e2faa8388154c886fce3cd07"
+      },
+      "TopicResearchRecord": {
+        "count": 2558,
+        "digest": "sha256:1a50818ae700e51cee413f3dc875c4dd19d274608c9356affe4fb6f0e7381063"
+      },
+      "TopicSelectionAcceptedRisk": {
+        "count": 1,
+        "digest": "sha256:007e40afceb4964e7d6436ee26104c2dbb00083c421a5d5afa240347562121eb"
+      },
+      "TopicSelectionArgumentReadinessMiniCheck": {
+        "count": 438,
+        "digest": "sha256:2baede474cac8eea7d257f59900856d2abdb17de6c8e9f535e8fd66f92d08b43"
+      },
+      "TopicSelectionArtifactRef": {
+        "count": 44152,
+        "digest": "sha256:cd0f7dff0bce9fd81324af7ffd619b866c60de651a554b43e9db7c636f68219b"
+      },
+      "TopicSelectionAssessTopicValueRun": {
+        "count": 514,
+        "digest": "sha256:c79b9c44e86fbdc4d4ea637078dee4325f76459de49952e547b2b5fb9c970343"
+      },
+      "TopicSelectionBlockerPolicy": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionCandidateDecisionMemory": {
+        "count": 1,
+        "digest": "sha256:1b7a9a93a0c9dbb5712fc85123bb90ed75ea75aa3e96d2173b7533520127029c"
+      },
+      "TopicSelectionCandidateDecisionMemorySuggestion": {
+        "count": 1,
+        "digest": "sha256:c8d644efb1ec3ce231fc24cc0bcef59d74ab26c1470342712c339d1dc3d4b3ba"
+      },
+      "TopicSelectionChainTransitionAttempt": {
+        "count": 12901,
+        "digest": "sha256:66626e32e51db85d4e76caba420a46c61744df418e1d2c7221ce1b69ab128481"
+      },
+      "TopicSelectionContextPolicyVersion": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionCoverageAssessment": {
+        "count": 2315,
+        "digest": "sha256:0ab4cc78f45160a07aca7e62c7f6264b0d62ff3087b1eb5b300d3d73ab759cab"
+      },
+      "TopicSelectionCoverageEvidenceBinding": {
+        "count": 2375,
+        "digest": "sha256:9389fd90539e402c4fd450cc41f9840f9154fa6b8df9bdc3535e39af7b1bcdbd"
+      },
+      "TopicSelectionCoverageExecutionObservation": {
+        "count": 2315,
+        "digest": "sha256:5ee996236363b15c4e44f2b94fd80cecac698be1a97059cc3cb5d8fa2418f468"
+      },
+      "TopicSelectionCoverageRiskAcceptance": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionCoverageRowIntent": {
+        "count": 2315,
+        "digest": "sha256:9ddf0ebebaf011555104bad418a7450e26a2b3652cb16216669ba22aefcee8ae"
+      },
+      "TopicSelectionDecisionMemoryEntry": {
+        "count": 1,
+        "digest": "sha256:79df4901d2efb09799a2e7387a808b80a431ccfc8f09d2a8d10f33f3dced9c8c"
+      },
+      "TopicSelectionDecisionWorkQueueItem": {
+        "count": 379,
+        "digest": "sha256:87b5d2cabf9e7881c8f6274947657e149af91b12484ad7d3ba554e547f1aba61"
+      },
+      "TopicSelectionDownstreamTopicFeedback": {
+        "count": 410,
+        "digest": "sha256:f6d1d15270c67c1767d56df297cbe25d3178ba2adda6e1b00d76cde2d8d0ed98"
+      },
+      "TopicSelectionEvidenceCluster": {
+        "count": 2227,
+        "digest": "sha256:a4c807934e9c3014aab1a4cdd35bf43d1e5c375f79b96b25dcd68e5eaba035d6"
+      },
+      "TopicSelectionEvidenceConflictSet": {
+        "count": 557,
+        "digest": "sha256:2b0acb27550b182fcc9a12116bae9ffcc3b65b8697aff6c91d04a17101e7ff38"
+      },
+      "TopicSelectionEvidenceMap": {
+        "count": 579,
+        "digest": "sha256:e1e58537b85a222f53ba0aee4908a50e043b8746355ce9cea0b96b70e97b9488"
+      },
+      "TopicSelectionEvidencePattern": {
+        "count": 2231,
+        "digest": "sha256:224263a6cc22a4220441ebe4443393b28bdbc9a46d8b47fc355d6fc4333f0161"
+      },
+      "TopicSelectionEvidenceStrengthAssessment": {
+        "count": 575,
+        "digest": "sha256:07235638c2d5e5de1e6b090611123b82d46a2ae71b6cc5e30fca856b932e15c6"
+      },
+      "TopicSelectionEvidenceTypedLink": {
+        "count": 3,
+        "digest": "sha256:480bfb24b09cbfa91cce18ef3eb1d03bb5652ca91a49cdaaf5166b387a00e506"
+      },
+      "TopicSelectionEvidenceUnit": {
+        "count": 1407,
+        "digest": "sha256:3970d88f3c8cd410a3b31bd92fe52f880f98755f5d6153156b79d431476891b2"
+      },
+      "TopicSelectionFormTopicQuestionRun": {
+        "count": 553,
+        "digest": "sha256:39ab08fd4fa466d2294d1b574f8bb26e6f44917c8ac2224a2c9e63d277e38191"
+      },
+      "TopicSelectionFunctionalLineageLink": {
+        "count": 595,
+        "digest": "sha256:397b9062f3006077a47786b09711ad46c145a988a928f89a9f8cea100bc269c6"
+      },
+      "TopicSelectionHumanConfirmedDecision": {
+        "count": 960,
+        "digest": "sha256:8c444cc0fe2decdc2a1dd814089a80a8e5389b93162fccbb3f16b86f17d729cf"
+      },
+      "TopicSelectionHumanOverride": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionHumanPromotionDecision": {
+        "count": 395,
+        "digest": "sha256:1f52408bcce91e0d155e6d475bca297480d0b9756cdc505e43db1d4e5f0eb679"
+      },
+      "TopicSelectionInputSnapshot": {
+        "count": 13349,
+        "digest": "sha256:93a08de4fe03cf7fe13ff093161c55a0207db3d824b86fdf299104b07081a389"
+      },
+      "TopicSelectionLiteratureResourcePoolSnapshot": {
+        "count": 579,
+        "digest": "sha256:7e926486c0b6f71bddc565a0f64d37502d9d5ca2173c592de491dbac67d3fc1c"
+      },
+      "TopicSelectionLlmWorkflowRun": {
+        "count": 6656,
+        "digest": "sha256:60fe99a28c6942149ad7fad052982a612e2da2b21df457dd99b78c33b56aedf4"
+      },
+      "TopicSelectionNeedCandidate": {
+        "count": 593,
+        "digest": "sha256:213101dda865cd4584f878d526d0ce9fbecc5a23dda67ff22d314425421bdaa2"
+      },
+      "TopicSelectionNeedCandidateReadinessAssessment": {
+        "count": 575,
+        "digest": "sha256:e22c3d313c69cec73c1e309c3b41df3d5982236d7f2bb65e3597f7bbfcae8953"
+      },
+      "TopicSelectionOfflineEvaluationCase": {
+        "count": 122,
+        "digest": "sha256:4c31f38b65d1ed736fe57278610b66b7a7cbefdbd77685d9aa77133a1d3234fb"
+      },
+      "TopicSelectionOfflineEvaluationCaseResult": {
+        "count": 48,
+        "digest": "sha256:a2ef04fde6274713245eb0efe5d6f3ef095e7af969ad779d0771b5812c126da4"
+      },
+      "TopicSelectionOfflineEvaluationDataset": {
+        "count": 20,
+        "digest": "sha256:4bb2cd5583ef4c9cf37dc41ba0d4c8e41141472248721246b529bce329d95568"
+      },
+      "TopicSelectionOfflineEvaluationMetricResult": {
+        "count": 48,
+        "digest": "sha256:0eb2b2d4feafebaf13abe2a70fe9d3728ecb5558b347d1a2cba3c77c82d4c243"
+      },
+      "TopicSelectionOfflineEvaluationRun": {
+        "count": 8,
+        "digest": "sha256:6f72dac2265277b5c1f5dab264f9e0d3b4cc3bfd9d24e44bd953dee1b4d76685"
+      },
+      "TopicSelectionPackageTraceBoundaryCheck": {
+        "count": 765,
+        "digest": "sha256:feb38571dcb3f9fe43e60b01b218910cbda4ba0d1da9373d62f5b922a1eacfe8"
+      },
+      "TopicSelectionPaperProjectBridge": {
+        "count": 395,
+        "digest": "sha256:fb01d2f43d22b0c95c5e7f4ab8989cb4b63d594b6c6574912769ceaade7dc451"
+      },
+      "TopicSelectionPlanResearchSliceRun": {
+        "count": 518,
+        "digest": "sha256:07986ac05cd21d960922d55d3d486e541f852032222ca10878bc92c2c8c1ba5a"
+      },
+      "TopicSelectionPromotionCommitmentProfile": {
+        "count": 395,
+        "digest": "sha256:aaaeb37caf1017dc65966e1f738acad73d11faa3610ac421946ecb514313b052"
+      },
+      "TopicSelectionPromotionDecision": {
+        "count": 395,
+        "digest": "sha256:6fe699a3cb66b7207627f1918ce44589194955b6981784ba1bf4012d75e03991"
+      },
+      "TopicSelectionPromotionDecisionSupport": {
+        "count": 439,
+        "digest": "sha256:e8af8fdad36cb33e11e3fc943828838d605767bec66aa4a0396042c8e5b21613"
+      },
+      "TopicSelectionPromotionDossier": {
+        "count": 439,
+        "digest": "sha256:ae4912fc1b726feaeac03a6f027428559a26135695dd71378c80fbc5c48bd520"
+      },
+      "TopicSelectionPromotionGateCheck": {
+        "count": 438,
+        "digest": "sha256:88330c28b68e0aeda6bfd0e248c82b3280a64b3f5af7d253d37d00d938e9a3c6"
+      },
+      "TopicSelectionPromotionInputSnapshot": {
+        "count": 367,
+        "digest": "sha256:e38127cf4f824865d85c676d1cb2b0d49f5543ffd7e6d43b7e83a07447929854"
+      },
+      "TopicSelectionPromptPacketCacheIndex": {
+        "count": 2402,
+        "digest": "sha256:558d6a85f7099b1ffd570df5d516ccd0d75a5843db63819ff9ccb35439a34e53"
+      },
+      "TopicSelectionQualitySignal": {
+        "count": 1,
+        "digest": "sha256:f005f0122e776c21af92e41bfd52cf35cbd39227a6a16463aee35367d86ac578"
+      },
+      "TopicSelectionQuestionFrame": {
+        "count": 553,
+        "digest": "sha256:453ed80972091ea2d7279dfe3bf81c7f53d7e9c088eb35866e484fa61d966a72"
+      },
+      "TopicSelectionReadinessGateResult": {
+        "count": 12922,
+        "digest": "sha256:81f8c0df58129af02a240c8004ed837dcbbd7362da056a8ced1392429f95f214"
+      },
+      "TopicSelectionRecheckEvent": {
+        "count": 379,
+        "digest": "sha256:e7d7c774ddc12f92e6cc62d7897a33520de65025350bd273c1344dff52a52dbb"
+      },
+      "TopicSelectionRecheckImpact": {
+        "count": 379,
+        "digest": "sha256:123a785a7edbf8ae0f69ee75c7b3de99d24c525b6ca5bd191b4426ade97207e1"
+      },
+      "TopicSelectionRecheckResolution": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionReplayDiff": {
+        "count": 48,
+        "digest": "sha256:81e7837f77c86a397605b524e2183169b55d5146721769b6e5d453ec9b65b075"
+      },
+      "TopicSelectionResearchConstraintProfile": {
+        "count": 525,
+        "digest": "sha256:d9849957af84dce9c76b909a786be54ccaf56348a67028a2423e3ec2c2ab377c"
+      },
+      "TopicSelectionResearchSlice": {
+        "count": 492,
+        "digest": "sha256:b51a6de40e1b4d306702a620454ac4f29e502ca9f32673264f7bbf353e20f4c4"
+      },
+      "TopicSelectionResearchSliceAssumption": {
+        "count": 2456,
+        "digest": "sha256:d0eccc339f6d6f6946e059b4de45e08b1791f63ae847c3a0da9c9e6b40e6fa80"
+      },
+      "TopicSelectionResearchSliceBoundary": {
+        "count": 2456,
+        "digest": "sha256:2b39916b6ceb19c698cd18fbc221238d7319caeef3080496c16d0964ba92676f"
+      },
+      "TopicSelectionResearchSliceEvidenceRef": {
+        "count": 492,
+        "digest": "sha256:4a6449b60eba2a5bd683aa154267d5d59bb0b73b8f23a1b331bf641f1898e5cc"
+      },
+      "TopicSelectionResearchSliceOption": {
+        "count": 519,
+        "digest": "sha256:d565d20353cbbb6d20b897b2267356c87ab469ab0b66ebec8f055fcd3532c756"
+      },
+      "TopicSelectionResearchSliceOptionSet": {
+        "count": 518,
+        "digest": "sha256:d14bf7e0f6a2c689c2af4f434e6644ac9da8676d3e322ef9392f55495334582c"
+      },
+      "TopicSelectionResourceSampleItem": {
+        "count": 1648,
+        "digest": "sha256:2acc6c55ee57a1aea646d369cff1e2902558752051f3ac5b7473c0681a8d871c"
+      },
+      "TopicSelectionResourceSampleSet": {
+        "count": 22,
+        "digest": "sha256:669e7ce5d4a161ba403e3c2fae40fa8f47205f551b09574bc95766697e8e7436"
+      },
+      "TopicSelectionResourceSamplingAudit": {
+        "count": 22,
+        "digest": "sha256:3bb504f8ee60c6ebaea8a8c98387cde62e80f7f736ebe029f9a078bfef0a89ef"
+      },
+      "TopicSelectionSearchPlan": {
+        "count": 579,
+        "digest": "sha256:f6c9e43121dc95513df7fcf515b0cf9d4e6527a9be7ed5009ec557c155a43fdc"
+      },
+      "TopicSelectionSearchPlanRecheckRequest": {
+        "count": 1,
+        "digest": "sha256:ddc38f2969fbc8a25c89f51117963745a1de53bd0a0c138be26042666c18b1be"
+      },
+      "TopicSelectionSearchRun": {
+        "count": 579,
+        "digest": "sha256:672dd858b35adcbacae5728693b8c6a3bc6ebe81dfe7991632d71f7b4856c4ef"
+      },
+      "TopicSelectionSliceSelectionDecision": {
+        "count": 492,
+        "digest": "sha256:3ab3edbfc56036f377d5fa0554f76f77714fcf805b250e08d64462a8ba0c1668"
+      },
+      "TopicSelectionTopicPackageReadinessAssessment": {
+        "count": 765,
+        "digest": "sha256:de966f9dbd30f1ba333185fa6c77738ddc5cab7e8f272d2408935ac9d2867b36"
+      },
+      "TopicSelectionTopicQuestionAnswerabilityPlan": {
+        "count": 534,
+        "digest": "sha256:b434c94b47b527d403bd17cb13d0d21ac49dfc9e7e556b6210d67c29acabe167"
+      },
+      "TopicSelectionTopicQuestionAssumptionRef": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionTopicQuestionBoundaryRef": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionTopicQuestionCandidate": {
+        "count": 604,
+        "digest": "sha256:ced5c717fa40adaf15fa68742135e584c238777e6ccf0ccfd75d94e74b0f99a9"
+      },
+      "TopicSelectionTopicQuestionCandidateSet": {
+        "count": 553,
+        "digest": "sha256:b5f1706abb58f03b5b57e46f9311aa3a94866de3272d30970a086f0262ba9343"
+      },
+      "TopicSelectionTopicQuestionContract": {
+        "count": 534,
+        "digest": "sha256:625c3a1e40196e6369a1bba5e545614de97d0fc031bf377ac2378c692f04d0ae"
+      },
+      "TopicSelectionTopicQuestionEvidenceRef": {
+        "count": 2670,
+        "digest": "sha256:684161d9f497217dca63024aa6277a9698f680a657d2b30c80b029d831a25a56"
+      },
+      "TopicSelectionTopicQuestionFalsificationCondition": {
+        "count": 534,
+        "digest": "sha256:36bd60043a8f1fd4ea8d15a0ebfa63ef6d9132592b4b6d26ea4497b58bba6553"
+      },
+      "TopicSelectionTopicQuestionNeedRef": {
+        "count": 534,
+        "digest": "sha256:e8f06c884d9fcbc2db21b96343aaa7ecf26dd62329ad543fe1f8d66d1470e012"
+      },
+      "TopicSelectionTopicQuestionSelectionDecision": {
+        "count": 567,
+        "digest": "sha256:dfc3713b2a0955d053ee102a69d2ec9c0f77bcc12155f6b73886cc89136782eb"
+      },
+      "TopicSelectionTopicSeed": {
+        "count": 580,
+        "digest": "sha256:d3855e5228f7c3c93b4af9e4d8f12fcaa053b85f907dd98f1b43225eed2cf405"
+      },
+      "TopicSelectionTopicValueAssessmentInputSnapshot": {
+        "count": 514,
+        "digest": "sha256:11ec9e7eeb8800b31d4927de8534a266fa8f973f872cafb37c5dd78cfc5cc7e2"
+      },
+      "TopicSelectionTopicValueEvidenceRef": {
+        "count": 2570,
+        "digest": "sha256:402d5739194cb461f4cdc3e561c0e2db1810e132379e6c308af4044996bb0f92"
+      },
+      "TopicSelectionTraceSnapshot": {
+        "count": 9434,
+        "digest": "sha256:976eec9a7f4a3db26d27145c6b9b327e4be06ed2956116b27e0680171c8bc842"
+      },
+      "TopicSelectionTransitionPolicyVersion": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicSelectionV1aToV1bInputBundle": {
+        "count": 565,
+        "digest": "sha256:2a426023ddb40856741bdacd0a3036d887a67a692202c722c9070fc42f3ad5da"
+      },
+      "TopicSelectionV1bIntakeReadinessAssessment": {
+        "count": 514,
+        "digest": "sha256:c86c5349d7e0ec865dd912d3ba3a3c414802696100aabcdd1ec399a05232f873"
+      },
+      "TopicSelectionV1bIntakeSnapshot": {
+        "count": 525,
+        "digest": "sha256:04a14d59362c1062d0ebae918e43ec9bd5886a3091c0500771c4abdbca8844ab"
+      },
+      "TopicSelectionV1bToV1cInputBundle": {
+        "count": 765,
+        "digest": "sha256:575956ae5407436929b4242bb73c3dd97ea5a7728ba11b37cc210b002d5d3906"
+      },
+      "TopicSelectionValidateNeedAdjudicationResult": {
+        "count": 572,
+        "digest": "sha256:bb4f81b130615a62301470d8dea94e438a2434856f6f93df55a9d20442d7088f"
+      },
+      "TopicSelectionValidatedNeed": {
+        "count": 565,
+        "digest": "sha256:c19ace2b866961d95b01f7dae9f4e2b0ea75d0d8a18c8bcda0aa36e1caec3b5f"
+      },
+      "TopicSelectionValidationDecisionSupportPacket": {
+        "count": 573,
+        "digest": "sha256:bbf264f7dd26804742333edda0a1b1293a1d3f96a982d325aa275f4cbb94866c"
+      },
+      "TopicSelectionValueDispositionDecision": {
+        "count": 395,
+        "digest": "sha256:147586528d556ec8f68bd4614bbeeda5432a7a25b46c7309ad41fda3854e3f0b"
+      },
+      "TopicSelectionValueReasoningMemo": {
+        "count": 514,
+        "digest": "sha256:4e584f849dc6b0da8a77566a44a88f47dc9c38040cf3a1564b965dd085ef5792"
+      },
+      "TopicSelectionWorkflowProfilePolicy": {
+        "count": 0,
+        "digest": "sha256:58700053ca85898494f14b59a4531697c4b9267918c73214baa0112b2ea71d94"
+      },
+      "TopicValueAssessment": {
+        "count": 885,
+        "digest": "sha256:fc3951aa5af1bd781a45b7ffe0ea4a96f62ae5f782136ff25193b3d9163f2136"
+      },
+      "_prisma_migrations": {
+        "count": 62,
+        "digest": "sha256:286465d55a969e1c346f6d087e3f22605ec11c8390fc97ca8c3f944ef7bacd27"
+      }
+    },
+    "external_fetch_attempts": 0,
+    "provider_command_row_delta": 0
+  },
+  "source_files": {
+    "apps/backend/scripts/run-experiment-foundation-packb-local-app-smoke.ts": "e8ed7bd621a2cccb0bc896106897aea83a312461ec608b2390d2165f4c373e9a",
+    "prisma/schema.prisma": "e1d0f7cb95dfb2ab514a5999df5a48930fd4f3042f229a537f0373a84b71104e",
+    "apps/backend/src/app.ts": "c327e946deeb996d1edc1f0d33f0fae4f3cd2384259a88b54c741ffb4607f44d",
+    "apps/backend/src/routes/experiment-foundation-execution-v2-routes.ts": "89056c174e7eee0ac84a82a12e1ee4309033bb25783d2bff51d21b17e3f602ea",
+    "apps/backend/src/routes/experiment-v2-route-validation.ts": "16573903b0d732c2524aa1977a2b7e4cb1de9fc9236f9ee6c7a4ef835fd9adf7",
+    "apps/backend/src/routes/experiment-foundation-routes.ts": "6aec8332b16a476ba41eb7427a1972ddb2e7dc12b5e7bab61741b8c9f7341b2c"
+  },
+  "sensitive_values_stored": false,
+  "durable_artifact_provenance": {
+    "producer_path": ".ai/scripts/experiment-foundation-packb-publish-local-evidence.mjs",
+    "producer_sha256": "982119a31989bbad1da51ae96892241bab90add1ee084031596f550350838c38",
+    "source_artifact_path": ".ai/.tmp/experiment-foundation-productization/packb-deep-cleanup-final-local-20260714-r18/packb-local-app-smoke.json",
+    "source_artifact_sha256": "37d262fa11fc45015d5e24320e963459034df77f2857074e3fea9476891de1b9"
+  }
+}

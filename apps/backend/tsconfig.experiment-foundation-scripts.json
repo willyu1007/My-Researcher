@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "types": ["node"]
+  },
+  "files": [
+    "scripts/experiment-foundation-d19-disposable-database.ts",
+    "scripts/import-experiment-foundation-d19-typed-fixture.ts",
+    "scripts/run-experiment-foundation-d19-spine.ts",
+    "scripts/run-experiment-foundation-packb-local-app-smoke.ts",
+    "scripts/run-experiment-foundation-packb-simulation.ts"
+  ]
+}

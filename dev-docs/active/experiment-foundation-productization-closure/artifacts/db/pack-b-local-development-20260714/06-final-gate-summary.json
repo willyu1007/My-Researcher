@@ -1,0 +1,108 @@
+{
+  "schema_version": "experiment-foundation-packb-local-landing-summary@v4",
+  "run_id": "packb-deep-cleanup-final-local-20260714-r18",
+  "generated_at": "2026-07-14T17:27:39.914Z",
+  "status": "passed",
+  "failures": [],
+  "blockers": [],
+  "baseline": {
+    "baseline_id": "packb-named-local-snapshot-20260714-r2",
+    "baseline_kind": "one_shot_pre_product_named_local_snapshot",
+    "manifest_path": ".ai/scripts/manifests/experiment-foundation-packb-named-local-snapshot.v1.json",
+    "manifest_sha256": "3aff4497154d3abc644582ec3848f4c5530891385969630f560d068c4de8b0c5",
+    "refresh_policy": "Any legitimate Pack A or Pack B product-authority write requires a newly reviewed manifest; the reviewed v2 digest intentionally omits only the 12 never-read placeholders removed by migration 20260714190000 and must remain identical before and after that migration; never relax comparisons to latest/current values."
+  },
+  "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+  "migration": {
+    "migration_name": "20260713210000_add_experiment_foundation_pack_b_provider_control_v2",
+    "source_sha256": "c0c49f0f7a268f09619f6c693a1f41955ce6cb1b36b656dd9c8e1d51abe0f70e",
+    "expected_source_sha256": "c0c49f0f7a268f09619f6c693a1f41955ce6cb1b36b656dd9c8e1d51abe0f70e",
+    "source_digest_matches_expected": true,
+    "database_checksum": "c0c49f0f7a268f09619f6c693a1f41955ce6cb1b36b656dd9c8e1d51abe0f70e",
+    "database_checksum_matches_source": true,
+    "history_row_count": 1,
+    "history_shape_valid": true,
+    "applied": true,
+    "finished_at": "2026-07-13T16:32:56.691Z",
+    "rolled_back_at": null
+  },
+  "cleanup_migration": {
+    "migration_name": "20260714160000_harden_experiment_foundation_pack_b_v2",
+    "source_sha256": "05ddb7fa653e76b66fc6c0c4747b3680e3815a44dc672b8a61042310911dd5b8",
+    "expected_source_sha256": "05ddb7fa653e76b66fc6c0c4747b3680e3815a44dc672b8a61042310911dd5b8",
+    "source_digest_matches_expected": true,
+    "database_checksum": "05ddb7fa653e76b66fc6c0c4747b3680e3815a44dc672b8a61042310911dd5b8",
+    "database_checksum_matches_source": true,
+    "history_row_count": 1,
+    "history_shape_valid": true,
+    "applied": true,
+    "finished_at": "2026-07-14T07:05:10.646Z",
+    "rolled_back_at": null
+  },
+  "foundation_cleanup_migration": {
+    "migration_name": "20260714190000_remove_experiment_foundation_v2_placeholders",
+    "source_sha256": "b3ddb7601d4b256b47d664fb5cea3694bcc5587c6eb41864ba3e61bf711abf6c",
+    "expected_source_sha256": "b3ddb7601d4b256b47d664fb5cea3694bcc5587c6eb41864ba3e61bf711abf6c",
+    "source_digest_matches_expected": true,
+    "database_checksum": "b3ddb7601d4b256b47d664fb5cea3694bcc5587c6eb41864ba3e61bf711abf6c",
+    "database_checksum_matches_source": true,
+    "history_row_count": 1,
+    "history_shape_valid": true,
+    "applied": true,
+    "finished_at": "2026-07-14T09:45:32.572Z",
+    "rolled_back_at": null
+  },
+  "event_storage_hardening_migration": {
+    "migration_name": "20260714210000_normalize_experiment_v2_event_payloads",
+    "source_sha256": "37eed54494aa2dc246fe7d5a9b2de2a027474b416ada8a5f18ab4bc194a65f3a",
+    "expected_source_sha256": "37eed54494aa2dc246fe7d5a9b2de2a027474b416ada8a5f18ab4bc194a65f3a",
+    "source_digest_matches_expected": true,
+    "database_checksum": "37eed54494aa2dc246fe7d5a9b2de2a027474b416ada8a5f18ab4bc194a65f3a",
+    "database_checksum_matches_source": true,
+    "history_row_count": 1,
+    "history_shape_valid": true,
+    "applied": true,
+    "finished_at": "2026-07-14T10:58:33.247Z",
+    "rolled_back_at": null
+  },
+  "table_population": {
+    "pack_a": "34/34",
+    "pack_b": "6/6",
+    "approved_combined": "40/40",
+    "pack_b_total_rows": 0,
+    "cross_domain_pi_foreign_keys": 0,
+    "foundation_storage_cleanup_exact": true,
+    "event_storage_hardening_exact": true
+  },
+  "authority_baseline": {
+    "pack_a_rows": 208,
+    "pack_a_digest": "sha256:494cdf5a02e2379a66a12bc82411e8237f39e949a2f992f3e12a0e220f613d74",
+    "legacy_rows": 257,
+    "legacy_digest": "sha256:f9e7a6875c9a3597ecb485abc978920e461a3af33f071c676665439dde17211d"
+  },
+  "configuration": {
+    "repository_default_simulation_enabled": false,
+    "observed_local_simulation_enabled": false,
+    "pack_a_cutover_committed": false
+  },
+  "prohibited_effects": {
+    "database_mutations": 0,
+    "migration_commands": 0,
+    "environment_mutations": 0,
+    "provider_calls": 0,
+    "external_fetch_attempts": 0,
+    "scientific_execution": 0
+  },
+  "redaction": {
+    "database_url_stored": false,
+    "database_username_stored": false,
+    "database_password_stored": false,
+    "legacy_row_payloads_stored": false
+  },
+  "durable_artifact_provenance": {
+    "producer_path": ".ai/scripts/experiment-foundation-packb-publish-local-evidence.mjs",
+    "producer_sha256": "982119a31989bbad1da51ae96892241bab90add1ee084031596f550350838c38",
+    "source_artifact_path": ".ai/.tmp/experiment-foundation-productization/packb-deep-cleanup-final-local-20260714-r18/packb-local-landing-gate.json",
+    "source_artifact_sha256": "53e269275d5b082d2b1f82ad6b2ed47a324380470479de3b0598be6a62a16a0c"
+  }
+}

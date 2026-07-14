@@ -5217,11 +5217,11 @@ model PaperImplementationRuntimeArtifact {
   warningCodes                 String[] @default([])
   envelope                     Json     @default("{}")
 
+  @@unique([runtimeIdentityHash], map: "pi_runtime_artifact_identity_idx")
   @@index([implementationProjectId, createdAt(sort: Desc)], map: "pi_runtime_artifact_project_created_idx")
   @@index([implementationProjectId, slotId, artifactScope], map: "pi_runtime_artifact_slot_scope_idx")
   @@index([workflowType, runtimeStatus], map: "pi_runtime_artifact_workflow_status_idx")
   @@index([targetRefType, targetRefId, targetVersionId], map: "pi_runtime_artifact_target_idx")
-  @@unique([runtimeIdentityHash], map: "pi_runtime_artifact_identity_idx")
   @@index([artifactIdentityHash], map: "pi_runtime_artifact_hash_idx")
   @@index([sourceHashBundleHash], map: "pi_runtime_artifact_source_hash_idx")
   @@index([promptPacketHash], map: "pi_runtime_artifact_prompt_hash_idx")
@@ -5968,4 +5968,1004 @@ model ExperimentFoundationExternalTrainingJob {
   @@index([adapterKind, jobStatus])
   @@index([jobStatus])
   @@index([updatedAt(sort: Desc)])
+}
+
+enum ExperimentFoundationAssetTypeV2 {
+  Dataset
+  DataPolicy
+  MetricDefinition
+  Benchmark
+  EvaluationProtocol
+}
+
+// T-132 Pack A: additive PI v2 WorkOrder authority. These models deliberately
+// keep every EF-owned Run reference external and define no PI <-> EF relation.
+model PaperImplementationExperimentWorkOrderBranchV2 {
+  id                       String   @id
+  implementationProjectId  String
+  validationCycleId        String
+  branchKey                String
+  branchFrameSchemaVersion String
+  branchFrameJson          Json     @default("{}")
+  branchFrameHash          String
+  stateVersion             Int      @default(0)
+  currentRevisionId        String?  @unique(map: "pi_ewo_branch_current_revision_unique")
+  currentRevisionSequence  Int?
+  headVersion              Int      @default(0)
+  headRevisionId           String?  @unique(map: "pi_ewo_branch_head_revision_unique")
+  headRevisionSequence     Int?
+  headRunId                String?
+  headRunManifestHash      String?
+  headEventId              String?
+  createdAt                DateTime @db.Timestamptz(6)
+  updatedAt                DateTime @db.Timestamptz(6)
+
+  revisions       PaperImplementationExperimentWorkOrderRevisionV2[]  @relation("PIExperimentWorkOrderBranchRevisionsV2")
+  currentRevision PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderCurrentRevisionV2", fields: [id, currentRevisionId, currentRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_current_exact_fkey")
+  headRevision    PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderHeadRevisionV2", fields: [id, headRevisionId, headRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_head_exact_fkey")
+  admissions      PaperImplementationExperimentWorkOrderAdmissionV2[]
+
+  @@unique([validationCycleId, branchKey], map: "pi_ewo_branch_cycle_key_unique")
+  @@unique([id, currentRevisionId, currentRevisionSequence], map: "pi_ewo_branch_current_exact_unique")
+  @@unique([id, headRevisionId, headRevisionSequence], map: "pi_ewo_branch_head_exact_unique")
+  @@index([implementationProjectId, validationCycleId], map: "pi_ewo_branch_project_cycle_idx")
+  @@index([currentRevisionSequence], map: "pi_ewo_branch_current_sequence_idx")
+  @@index([headRevisionSequence], map: "pi_ewo_branch_head_sequence_idx")
+}
+
+model PaperImplementationExperimentWorkOrderRevisionV2 {
+  id                             String   @id
+  branchId                       String
+  revisionSequence               Int
+  parentRevisionId               String?
+  workOrderSnapshotSchemaVersion String
+  workOrderSnapshotJson          Json     @default("{}")
+  contentHash                    String
+  cellPlanHash                   String
+  approvedPlanHash               String
+  createdByActorType             String
+  createdByActorId               String?
+  createdAt                      DateTime @db.Timestamptz(6)
+
+  branch           PaperImplementationExperimentWorkOrderBranchV2         @relation("PIExperimentWorkOrderBranchRevisionsV2", fields: [branchId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  parentRevision   PaperImplementationExperimentWorkOrderRevisionV2?      @relation("PIExperimentWorkOrderParentRevisionV2", fields: [branchId, parentRevisionId], references: [branchId, id], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_revision_parent_owner_fkey")
+  childRevisions   PaperImplementationExperimentWorkOrderRevisionV2[]     @relation("PIExperimentWorkOrderParentRevisionV2")
+  currentForBranch PaperImplementationExperimentWorkOrderBranchV2?        @relation("PIExperimentWorkOrderCurrentRevisionV2")
+  headForBranch    PaperImplementationExperimentWorkOrderBranchV2?        @relation("PIExperimentWorkOrderHeadRevisionV2")
+  cells            PaperImplementationExperimentWorkOrderRevisionCellV2[]
+  admission        PaperImplementationExperimentWorkOrderAdmissionV2?
+
+  @@unique([branchId, revisionSequence], map: "pi_ewo_revision_branch_sequence_unique")
+  @@unique([branchId, contentHash], map: "pi_ewo_revision_branch_content_unique")
+  @@unique([branchId, id], map: "pi_ewo_revision_owner_unique")
+  @@unique([branchId, id, revisionSequence], map: "pi_ewo_revision_exact_sequence_unique")
+  @@unique([branchId, id, approvedPlanHash], map: "pi_ewo_revision_exact_plan_unique")
+  @@index([branchId, parentRevisionId], map: "pi_ewo_revision_parent_owner_idx")
+  @@index([approvedPlanHash], map: "pi_ewo_revision_approved_plan_idx")
+}
+
+model PaperImplementationExperimentWorkOrderRevisionCellV2 {
+  id                          String   @id
+  revisionId                  String
+  ordinal                     Int
+  cellKey                     String
+  seed                        Int
+  repeatIndex                 Int
+  parametersSchemaVersion     String
+  parametersJson              Json     @default("{}")
+  requiredResultSchemaVersion String
+  requiredResultContractJson  Json     @default("{}")
+  cellHash                    String
+  createdAt                   DateTime @db.Timestamptz(6)
+
+  revision PaperImplementationExperimentWorkOrderRevisionV2 @relation(fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([revisionId, ordinal], map: "pi_ewo_cell_revision_ordinal_unique")
+  @@unique([revisionId, cellKey], map: "pi_ewo_cell_revision_key_unique")
+  @@unique([revisionId, cellHash], map: "pi_ewo_cell_revision_hash_unique")
+}
+
+model PaperImplementationExperimentWorkOrderAdmissionV2 {
+  id                     String   @id
+  branchId               String
+  revisionId             String   @unique(map: "pi_ewo_admission_revision_unique")
+  approvedPlanHash       String
+  businessIdempotencyKey String
+  admittedByActorType    String
+  admittedByActorId      String?
+  admittedAt             DateTime @db.Timestamptz(6)
+
+  branch   PaperImplementationExperimentWorkOrderBranchV2   @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  revision PaperImplementationExperimentWorkOrderRevisionV2 @relation(fields: [branchId, revisionId, approvedPlanHash], references: [branchId, id, approvedPlanHash], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_admission_revision_exact_fkey")
+
+  @@unique([branchId, revisionId, approvedPlanHash], map: "pi_ewo_admission_revision_exact_unique")
+  @@unique([branchId, businessIdempotencyKey], map: "pi_ewo_admission_branch_business_unique")
+  @@index([approvedPlanHash], map: "pi_ewo_admission_approved_plan_idx")
+}
+
+model PaperImplementationExperimentIntegrationInboxV2 {
+  id                      String   @id
+  consumerName            String
+  eventId                 String
+  eventType               String
+  schemaVersion           String
+  producerDomain          String
+  occurredAt              DateTime @db.Timestamptz(6)
+  correlationId           String
+  causationId             String
+  businessIdempotencyKey  String
+  implementationProjectId String
+  validationCycleId       String
+  branchId                String
+  branchKey               String
+  workOrderRevisionId     String
+  revisionSequence        Int
+  workOrderRevisionHash   String
+  cellPlanHash            String
+  approvedPlanHash        String
+  runId                   String
+  runManifestHash         String
+  eventPayloadJson        Json     @default("{}")
+  payloadHash             String
+  eventEnvelopeHash       String
+  status                  String
+  outcome                 String
+  reasonCode              String?
+  receivedAt              DateTime @db.Timestamptz(6)
+  processedAt             DateTime @db.Timestamptz(6)
+
+  @@unique([consumerName, eventId], map: "pi_ei_inbox_consumer_event_unique")
+  @@unique([consumerName, implementationProjectId, validationCycleId, branchId, businessIdempotencyKey], map: "pi_ei_inbox_consumer_business_unique")
+  @@index([eventType, processedAt(sort: Desc)], map: "pi_ei_inbox_type_processed_idx")
+  @@index([branchId, revisionSequence], map: "pi_ei_inbox_branch_sequence_idx")
+}
+
+model PaperImplementationExperimentIntegrationOutboxV2 {
+  id                      String    @id
+  eventId                 String    @unique(map: "pi_ei_outbox_event_unique")
+  aggregateType           String
+  aggregateId             String
+  transitionKey           String
+  eventType               String
+  schemaVersion           String
+  producerDomain          String
+  occurredAt              DateTime  @db.Timestamptz(6)
+  correlationId           String
+  causationId             String
+  businessIdempotencyKey  String
+  implementationProjectId String
+  validationCycleId       String
+  branchId                String
+  branchKey               String
+  workOrderRevisionId     String
+  revisionSequence        Int
+  workOrderRevisionHash   String
+  cellPlanHash            String
+  approvedPlanHash        String
+  runId                   String?
+  runManifestHash         String?
+  eventPayloadJson        Json      @default("{}")
+  payloadHash             String
+  eventEnvelopeHash       String
+  relayStatus             String    @default("pending")
+  relayAttemptCount       Int       @default(0)
+  relayLeaseOwner         String?
+  relayLeaseExpiresAt     DateTime? @db.Timestamptz(6)
+  relayNextAttemptAt      DateTime? @db.Timestamptz(6)
+  publishedAt             DateTime? @db.Timestamptz(6)
+  deliveredAt             DateTime? @db.Timestamptz(6)
+  lastRelayErrorCode      String?
+  createdAt               DateTime  @db.Timestamptz(6)
+  updatedAt               DateTime  @db.Timestamptz(6)
+
+  @@unique([aggregateType, aggregateId, transitionKey], map: "pi_ei_outbox_aggregate_transition_unique")
+  @@index([relayStatus, relayNextAttemptAt, occurredAt], map: "pi_ei_outbox_relay_ready_idx")
+  @@index([relayLeaseExpiresAt], map: "pi_ei_outbox_lease_expiry_idx")
+  @@index([correlationId], map: "pi_ei_outbox_correlation_idx")
+}
+
+// T-132 Pack A: five named EF v2 asset families. Each identity owns only its
+// named draft JSON and each immutable revision owns only its named snapshot JSON.
+model ExperimentFoundationDatasetV2 {
+  id                 String   @id
+  datasetKey         String   @unique(map: "ef_dataset_v2_key_unique")
+  draftStateVersion  Int      @default(0)
+  datasetDraftJson   Json     @default("{}")
+  currentRevisionId  String?  @unique(map: "ef_dataset_v2_current_revision_unique")
+  createdAt          DateTime @db.Timestamptz(6)
+  updatedAt          DateTime @db.Timestamptz(6)
+
+  revisions       ExperimentFoundationDatasetRevisionV2[] @relation("EFDatasetRevisionsV2")
+  currentRevision ExperimentFoundationDatasetRevisionV2?  @relation("EFDatasetCurrentRevisionV2", fields: [id, currentRevisionId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, currentRevisionId], map: "ef_dataset_v2_current_owner_unique")
+}
+
+model ExperimentFoundationDatasetRevisionV2 {
+  id                     String   @id
+  datasetId              String
+  revisionSequence       Int
+  schemaVersion          String
+  hashProfile            String
+  datasetSnapshotJson    Json     @default("{}")
+  contentHash            String
+  dataPolicyRevisionId   String
+  dataPolicyRevisionHash String
+  frozenByActorType      String
+  frozenByActorId        String?
+  frozenAt               DateTime @db.Timestamptz(6)
+
+  dataset             ExperimentFoundationDatasetV2                       @relation("EFDatasetRevisionsV2", fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentForDataset   ExperimentFoundationDatasetV2?                      @relation("EFDatasetCurrentRevisionV2")
+  dataPolicyRevision  ExperimentFoundationDataPolicyRevisionV2            @relation("EFDatasetPolicyRevisionV2", fields: [dataPolicyRevisionId, dataPolicyRevisionHash], references: [id, contentHash], onDelete: Restrict, onUpdate: Restrict)
+  corpusForBenchmarks ExperimentFoundationBenchmarkRevisionV2[]           @relation("EFBenchmarkCorpusDatasetRevisionV2")
+  queryForBenchmarks  ExperimentFoundationBenchmarkRevisionV2[]           @relation("EFBenchmarkQueryDatasetRevisionV2")
+  freezeCommands      ExperimentFoundationDatasetFreezeCommandReceiptV2[]
+
+  @@unique([datasetId, revisionSequence], map: "ef_dataset_revision_sequence_unique")
+  @@unique([datasetId, contentHash], map: "ef_dataset_revision_content_unique")
+  @@unique([datasetId, id], map: "ef_dataset_revision_owner_unique")
+  @@unique([datasetId, id, contentHash], map: "ef_dataset_revision_exact_unique")
+  @@unique([id, contentHash], map: "ef_dataset_revision_id_hash_unique")
+  @@index([dataPolicyRevisionId], map: "ef_dataset_revision_policy_idx")
+}
+
+model ExperimentFoundationDatasetFreezeCommandReceiptV2 {
+  id                     String   @id
+  datasetId              String
+  businessIdempotencyKey String
+  revisionId             String
+  contentHash            String
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+
+  revision ExperimentFoundationDatasetRevisionV2 @relation(fields: [datasetId, revisionId, contentHash], references: [datasetId, id, contentHash], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([datasetId, businessIdempotencyKey], map: "ef_dataset_freeze_command_business_unique")
+  @@index([revisionId], map: "ef_dataset_freeze_command_revision_idx")
+}
+
+model ExperimentFoundationDataPolicyV2 {
+  id                  String   @id
+  dataPolicyKey       String   @unique(map: "ef_data_policy_v2_key_unique")
+  draftStateVersion   Int      @default(0)
+  dataPolicyDraftJson Json     @default("{}")
+  currentRevisionId   String?  @unique(map: "ef_data_policy_v2_current_revision_unique")
+  createdAt           DateTime @db.Timestamptz(6)
+  updatedAt           DateTime @db.Timestamptz(6)
+
+  revisions       ExperimentFoundationDataPolicyRevisionV2[] @relation("EFDataPolicyRevisionsV2")
+  currentRevision ExperimentFoundationDataPolicyRevisionV2?  @relation("EFDataPolicyCurrentRevisionV2", fields: [id, currentRevisionId], references: [dataPolicyId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, currentRevisionId], map: "ef_data_policy_v2_current_owner_unique")
+}
+
+model ExperimentFoundationDataPolicyRevisionV2 {
+  id                     String   @id
+  dataPolicyId           String
+  revisionSequence       Int
+  schemaVersion          String
+  hashProfile            String
+  dataPolicySnapshotJson Json     @default("{}")
+  contentHash            String
+  frozenByActorType      String
+  frozenByActorId        String?
+  frozenAt               DateTime @db.Timestamptz(6)
+
+  dataPolicy       ExperimentFoundationDataPolicyV2                       @relation("EFDataPolicyRevisionsV2", fields: [dataPolicyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentForPolicy ExperimentFoundationDataPolicyV2?                      @relation("EFDataPolicyCurrentRevisionV2")
+  datasetRevisions ExperimentFoundationDatasetRevisionV2[]                @relation("EFDatasetPolicyRevisionV2")
+  freezeCommands   ExperimentFoundationDataPolicyFreezeCommandReceiptV2[]
+
+  @@unique([dataPolicyId, revisionSequence], map: "ef_data_policy_revision_sequence_unique")
+  @@unique([dataPolicyId, contentHash], map: "ef_data_policy_revision_content_unique")
+  @@unique([dataPolicyId, id], map: "ef_data_policy_revision_owner_unique")
+  @@unique([dataPolicyId, id, contentHash], map: "ef_data_policy_revision_exact_unique")
+  @@unique([id, contentHash], map: "ef_data_policy_revision_id_hash_unique")
+}
+
+model ExperimentFoundationDataPolicyFreezeCommandReceiptV2 {
+  id                     String   @id
+  dataPolicyId           String
+  businessIdempotencyKey String
+  revisionId             String
+  contentHash            String
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+
+  revision ExperimentFoundationDataPolicyRevisionV2 @relation(fields: [dataPolicyId, revisionId, contentHash], references: [dataPolicyId, id, contentHash], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([dataPolicyId, businessIdempotencyKey], map: "ef_data_policy_freeze_command_business_unique")
+  @@index([revisionId], map: "ef_data_policy_freeze_command_revision_idx")
+}
+
+model ExperimentFoundationMetricDefinitionV2 {
+  id                        String   @id
+  metricDefinitionKey       String   @unique(map: "ef_metric_definition_v2_key_unique")
+  draftStateVersion         Int      @default(0)
+  metricDefinitionDraftJson Json     @default("{}")
+  currentRevisionId         String?  @unique(map: "ef_metric_definition_v2_current_revision_unique")
+  createdAt                 DateTime @db.Timestamptz(6)
+  updatedAt                 DateTime @db.Timestamptz(6)
+
+  revisions       ExperimentFoundationMetricDefinitionRevisionV2[] @relation("EFMetricDefinitionRevisionsV2")
+  currentRevision ExperimentFoundationMetricDefinitionRevisionV2?  @relation("EFMetricDefinitionCurrentRevisionV2", fields: [id, currentRevisionId], references: [metricDefinitionId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, currentRevisionId], map: "ef_metric_definition_v2_current_owner_unique")
+}
+
+model ExperimentFoundationMetricDefinitionRevisionV2 {
+  id                           String   @id
+  metricDefinitionId           String
+  revisionSequence             Int
+  schemaVersion                String
+  hashProfile                  String
+  metricDefinitionSnapshotJson Json     @default("{}")
+  contentHash                  String
+  frozenByActorType            String
+  frozenByActorId              String?
+  frozenAt                     DateTime @db.Timestamptz(6)
+
+  metricDefinition           ExperimentFoundationMetricDefinitionV2                       @relation("EFMetricDefinitionRevisionsV2", fields: [metricDefinitionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentForMetric           ExperimentFoundationMetricDefinitionV2?                      @relation("EFMetricDefinitionCurrentRevisionV2")
+  freezeCommands             ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2[]
+  protocolMetricDependencies ExperimentFoundationEvaluationProtocolMetricDependencyV2[]   @relation("EFEvaluationProtocolMetricRevisionV2")
+
+  @@unique([metricDefinitionId, revisionSequence], map: "ef_metric_definition_revision_sequence_unique")
+  @@unique([metricDefinitionId, contentHash], map: "ef_metric_definition_revision_content_unique")
+  @@unique([metricDefinitionId, id], map: "ef_metric_definition_revision_owner_unique")
+  @@unique([metricDefinitionId, id, contentHash], map: "ef_metric_definition_revision_exact_unique")
+  @@unique([metricDefinitionId, id, revisionSequence, contentHash], map: "ef_metric_definition_revision_full_exact_unique")
+}
+
+model ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2 {
+  id                     String   @id
+  metricDefinitionId     String
+  businessIdempotencyKey String
+  revisionId             String
+  contentHash            String
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+
+  revision ExperimentFoundationMetricDefinitionRevisionV2 @relation(fields: [metricDefinitionId, revisionId, contentHash], references: [metricDefinitionId, id, contentHash], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([metricDefinitionId, businessIdempotencyKey], map: "ef_metric_definition_freeze_command_business_unique")
+  @@index([revisionId], map: "ef_metric_definition_freeze_command_revision_idx")
+}
+
+model ExperimentFoundationBenchmarkV2 {
+  id                 String   @id
+  benchmarkKey       String   @unique(map: "ef_benchmark_v2_key_unique")
+  draftStateVersion  Int      @default(0)
+  benchmarkDraftJson Json     @default("{}")
+  currentRevisionId  String?  @unique(map: "ef_benchmark_v2_current_revision_unique")
+  createdAt          DateTime @db.Timestamptz(6)
+  updatedAt          DateTime @db.Timestamptz(6)
+
+  revisions       ExperimentFoundationBenchmarkRevisionV2[] @relation("EFBenchmarkRevisionsV2")
+  currentRevision ExperimentFoundationBenchmarkRevisionV2?  @relation("EFBenchmarkCurrentRevisionV2", fields: [id, currentRevisionId], references: [benchmarkId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, currentRevisionId], map: "ef_benchmark_v2_current_owner_unique")
+}
+
+model ExperimentFoundationBenchmarkRevisionV2 {
+  id                            String   @id
+  benchmarkId                   String
+  revisionSequence              Int
+  schemaVersion                 String
+  hashProfile                   String
+  benchmarkSnapshotJson         Json     @default("{}")
+  contentHash                   String
+  // Exact-ref enforcement columns mirror the typed snapshot; the snapshot and
+  // its contentHash remain the immutable semantic authority.
+  corpusDatasetRevisionId       String
+  corpusDatasetRevisionHash     String
+  queryDatasetRevisionId        String
+  queryDatasetRevisionHash      String
+  datasetDependencyManifestHash String
+  frozenByActorType             String
+  frozenByActorId               String?
+  frozenAt                      DateTime @db.Timestamptz(6)
+
+  benchmark             ExperimentFoundationBenchmarkV2                       @relation("EFBenchmarkRevisionsV2", fields: [benchmarkId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentForBenchmark   ExperimentFoundationBenchmarkV2?                      @relation("EFBenchmarkCurrentRevisionV2")
+  corpusDatasetRevision ExperimentFoundationDatasetRevisionV2                 @relation("EFBenchmarkCorpusDatasetRevisionV2", fields: [corpusDatasetRevisionId, corpusDatasetRevisionHash], references: [id, contentHash], onDelete: Restrict, onUpdate: Restrict)
+  queryDatasetRevision  ExperimentFoundationDatasetRevisionV2                 @relation("EFBenchmarkQueryDatasetRevisionV2", fields: [queryDatasetRevisionId, queryDatasetRevisionHash], references: [id, contentHash], onDelete: Restrict, onUpdate: Restrict)
+  protocolRevisions     ExperimentFoundationEvaluationProtocolRevisionV2[]
+  freezeCommands        ExperimentFoundationBenchmarkFreezeCommandReceiptV2[]
+
+  @@unique([benchmarkId, revisionSequence], map: "ef_benchmark_revision_sequence_unique")
+  @@unique([benchmarkId, contentHash], map: "ef_benchmark_revision_content_unique")
+  @@unique([benchmarkId, id], map: "ef_benchmark_revision_owner_unique")
+  @@unique([benchmarkId, id, contentHash], map: "ef_benchmark_revision_exact_unique")
+  @@unique([id, contentHash], map: "ef_benchmark_revision_id_hash_unique")
+  @@index([corpusDatasetRevisionId], map: "ef_benchmark_revision_corpus_idx")
+  @@index([queryDatasetRevisionId], map: "ef_benchmark_revision_query_idx")
+}
+
+model ExperimentFoundationBenchmarkFreezeCommandReceiptV2 {
+  id                     String   @id
+  benchmarkId            String
+  businessIdempotencyKey String
+  revisionId             String
+  contentHash            String
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+
+  revision ExperimentFoundationBenchmarkRevisionV2 @relation(fields: [benchmarkId, revisionId, contentHash], references: [benchmarkId, id, contentHash], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([benchmarkId, businessIdempotencyKey], map: "ef_benchmark_freeze_command_business_unique")
+  @@index([revisionId], map: "ef_benchmark_freeze_command_revision_idx")
+}
+
+model ExperimentFoundationEvaluationProtocolV2 {
+  id                          String   @id
+  evaluationProtocolKey       String   @unique(map: "ef_evaluation_protocol_v2_key_unique")
+  draftStateVersion           Int      @default(0)
+  evaluationProtocolDraftJson Json     @default("{}")
+  currentRevisionId           String?  @unique(map: "ef_evaluation_protocol_v2_current_revision_unique")
+  createdAt                   DateTime @db.Timestamptz(6)
+  updatedAt                   DateTime @db.Timestamptz(6)
+
+  revisions       ExperimentFoundationEvaluationProtocolRevisionV2[] @relation("EFEvaluationProtocolRevisionsV2")
+  currentRevision ExperimentFoundationEvaluationProtocolRevisionV2?  @relation("EFEvaluationProtocolCurrentRevisionV2", fields: [id, currentRevisionId], references: [evaluationProtocolId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, currentRevisionId], map: "ef_evaluation_protocol_v2_current_owner_unique")
+}
+
+model ExperimentFoundationEvaluationProtocolRevisionV2 {
+  id                             String   @id
+  evaluationProtocolId           String
+  revisionSequence               Int
+  schemaVersion                  String
+  hashProfile                    String
+  evaluationProtocolSnapshotJson Json     @default("{}")
+  contentHash                    String
+  // Exact-ref enforcement columns mirror the typed snapshot; no second
+  // dependency-manifest JSON is persisted.
+  benchmarkRevisionId            String
+  benchmarkRevisionHash          String
+  metricDependencyCount          Int
+  metricDependencyManifestHash   String
+  frozenByActorType              String
+  frozenByActorId                String?
+  frozenAt                       DateTime @db.Timestamptz(6)
+
+  evaluationProtocol ExperimentFoundationEvaluationProtocolV2                       @relation("EFEvaluationProtocolRevisionsV2", fields: [evaluationProtocolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentForProtocol ExperimentFoundationEvaluationProtocolV2?                      @relation("EFEvaluationProtocolCurrentRevisionV2")
+  benchmarkRevision  ExperimentFoundationBenchmarkRevisionV2                        @relation(fields: [benchmarkRevisionId, benchmarkRevisionHash], references: [id, contentHash], onDelete: Restrict, onUpdate: Restrict)
+  metricDependencies ExperimentFoundationEvaluationProtocolMetricDependencyV2[]
+  freezeCommands     ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2[]
+
+  @@unique([evaluationProtocolId, revisionSequence], map: "ef_evaluation_protocol_revision_sequence_unique")
+  @@unique([evaluationProtocolId, contentHash], map: "ef_evaluation_protocol_revision_content_unique")
+  @@unique([evaluationProtocolId, id], map: "ef_evaluation_protocol_revision_owner_unique")
+  @@unique([evaluationProtocolId, id, contentHash], map: "ef_evaluation_protocol_revision_exact_unique")
+  @@index([benchmarkRevisionId], map: "ef_evaluation_protocol_revision_benchmark_idx")
+}
+
+model ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2 {
+  id                     String   @id
+  evaluationProtocolId   String
+  businessIdempotencyKey String
+  revisionId             String
+  contentHash            String
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+
+  revision ExperimentFoundationEvaluationProtocolRevisionV2 @relation(fields: [evaluationProtocolId, revisionId, contentHash], references: [evaluationProtocolId, id, contentHash], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([evaluationProtocolId, businessIdempotencyKey], map: "ef_evaluation_protocol_freeze_command_business_unique")
+  @@index([revisionId], map: "ef_evaluation_protocol_freeze_command_revision_idx")
+}
+
+model ExperimentFoundationEvaluationProtocolMetricDependencyV2 {
+  id                               String @id
+  evaluationProtocolRevisionId     String
+  ordinal                          Int
+  metricDefinitionId               String
+  metricDefinitionRevisionId       String
+  metricDefinitionRevisionSequence Int
+  metricDefinitionRevisionHash     String
+
+  evaluationProtocolRevision ExperimentFoundationEvaluationProtocolRevisionV2 @relation(fields: [evaluationProtocolRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  metricDefinitionRevision   ExperimentFoundationMetricDefinitionRevisionV2   @relation("EFEvaluationProtocolMetricRevisionV2", fields: [metricDefinitionId, metricDefinitionRevisionId, metricDefinitionRevisionSequence, metricDefinitionRevisionHash], references: [metricDefinitionId, id, revisionSequence, contentHash], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([evaluationProtocolRevisionId, ordinal], map: "ef_evaluation_protocol_metric_ordinal_unique")
+  @@unique([evaluationProtocolRevisionId, metricDefinitionRevisionId], map: "ef_evaluation_protocol_metric_revision_unique")
+  @@index([metricDefinitionId, metricDefinitionRevisionId], map: "ef_evaluation_protocol_metric_ref_idx")
+}
+
+model ExperimentFoundationAssetLifecycleEventV2 {
+  id                    String                          @id
+  assetType             ExperimentFoundationAssetTypeV2
+  assetId               String
+  assetRevisionId       String
+  assetRevisionSequence Int
+  assetRevisionHash     String
+  eventSequence         Int
+  eventType             String
+  eventSchemaVersion    String
+  reasonCode            String
+  note                  String?
+  actorType             String
+  actorId               String?
+  occurredAt            DateTime                        @db.Timestamptz(6)
+
+  currentProjection ExperimentFoundationAssetLifecycleProjectionV2?
+
+  @@unique([assetType, assetId, assetRevisionId, assetRevisionSequence, assetRevisionHash, eventSequence], map: "ef_asset_lifecycle_event_exact_sequence_unique")
+  @@index([assetType, assetRevisionId], map: "ef_asset_lifecycle_event_revision_idx")
+  @@index([eventType, occurredAt(sort: Desc)], map: "ef_asset_lifecycle_event_type_idx")
+}
+
+model ExperimentFoundationAssetLifecycleProjectionV2 {
+  id                      String                          @id
+  assetType               ExperimentFoundationAssetTypeV2
+  assetId                 String
+  currentRevisionId       String
+  currentRevisionSequence Int
+  currentRevisionHash     String
+  lifecycleSequence       Int
+  lifecycleStatus         String
+  locationAvailable       Boolean
+  stateVersion            Int                             @default(0)
+  lastEventId             String                          @unique(map: "ef_asset_lifecycle_projection_event_unique")
+  updatedAt               DateTime                        @db.Timestamptz(6)
+
+  lastEvent ExperimentFoundationAssetLifecycleEventV2 @relation(fields: [lastEventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([assetType, assetId, currentRevisionId, currentRevisionSequence, currentRevisionHash], map: "ef_asset_lifecycle_projection_exact_unique")
+  @@index([assetType, lifecycleStatus], map: "ef_asset_lifecycle_projection_state_idx")
+}
+
+model ExperimentFoundationReadinessAttestationV2 {
+  id                        String                          @id
+  targetAssetType           ExperimentFoundationAssetTypeV2
+  targetAssetId             String
+  targetRevisionId          String
+  targetRevisionSequence    Int
+  targetRevisionHash        String
+  evaluatorProfileVersion   String
+  evaluatorProfileHash      String
+  dependencyManifestHash    String
+  outcome                   String
+  qualificationSnapshotJson Json                            @default("{}")
+  blockerSnapshotJson       Json                            @default("[]")
+  attestationHash           String                          @unique(map: "ef_readiness_attestation_hash_unique")
+  attestedAt                DateTime                        @db.Timestamptz(6)
+
+  dependencies ExperimentFoundationReadinessDependencyV2[]
+  versionLocks ExperimentFoundationVersionLockV2[]
+  runRecipes   ExperimentFoundationRunRecipeV2[]
+
+  @@unique([targetAssetType, targetAssetId, targetRevisionId, targetRevisionSequence, targetRevisionHash, evaluatorProfileHash, dependencyManifestHash], map: "ef_readiness_attestation_exact_unique")
+  @@index([targetAssetType, targetAssetId, targetRevisionId], map: "ef_readiness_attestation_target_idx")
+  @@index([outcome, attestedAt(sort: Desc)], map: "ef_readiness_attestation_outcome_idx")
+}
+
+model ExperimentFoundationReadinessDependencyV2 {
+  id                         String                          @id
+  attestationId              String
+  ordinal                    Int
+  dependencyRole             String
+  dependencyAssetType        ExperimentFoundationAssetTypeV2
+  dependencyAssetId          String
+  dependencyRevisionId       String
+  dependencyRevisionSequence Int
+  dependencyRevisionHash     String
+
+  attestation ExperimentFoundationReadinessAttestationV2 @relation(fields: [attestationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([attestationId, ordinal], map: "ef_readiness_dependency_ordinal_unique")
+  @@unique([attestationId, dependencyAssetType, dependencyRevisionId], map: "ef_readiness_dependency_exact_ref_unique")
+  @@index([dependencyAssetType, dependencyAssetId, dependencyRevisionId], map: "ef_readiness_dependency_ref_idx")
+}
+
+model ExperimentFoundationVersionLockV2 {
+  id                              String   @id
+  materializationKey              String   @unique(map: "ef_version_lock_materialization_unique")
+  readinessAttestationId          String
+  readinessAttestationHash        String
+  externalPiWorkOrderRevisionId   String   @unique(map: "ef_version_lock_pi_revision_unique")
+  externalPiWorkOrderRevisionHash String
+  externalPiApprovedPlanHash      String
+  dependencyManifestHash          String
+  dependencyCount                 Int
+  lockHash                        String
+  createdAt                       DateTime @db.Timestamptz(6)
+
+  readinessAttestation ExperimentFoundationReadinessAttestationV2    @relation(fields: [readinessAttestationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  dependencies         ExperimentFoundationVersionLockDependencyV2[]
+  runRecipe            ExperimentFoundationRunRecipeV2?
+
+  @@index([readinessAttestationId], map: "ef_version_lock_readiness_idx")
+  @@index([lockHash], map: "ef_version_lock_hash_idx")
+}
+
+model ExperimentFoundationVersionLockDependencyV2 {
+  id                         String                          @id
+  versionLockId              String
+  ordinal                    Int
+  dependencyRole             String
+  dependencyAssetType        ExperimentFoundationAssetTypeV2
+  dependencyAssetId          String
+  dependencyRevisionId       String
+  dependencyRevisionSequence Int
+  dependencyRevisionHash     String
+
+  versionLock ExperimentFoundationVersionLockV2 @relation(fields: [versionLockId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([versionLockId, ordinal], map: "ef_version_lock_dependency_ordinal_unique")
+  @@unique([versionLockId, dependencyAssetType, dependencyRevisionId], map: "ef_version_lock_dependency_exact_ref_unique")
+  @@index([dependencyAssetType, dependencyAssetId, dependencyRevisionId], map: "ef_version_lock_dependency_ref_idx")
+}
+
+model ExperimentFoundationRunRecipeV2 {
+  id                              String   @id
+  materializationKey              String   @unique(map: "ef_run_recipe_materialization_unique")
+  versionLockId                   String   @unique(map: "ef_run_recipe_version_lock_unique")
+  readinessAttestationId          String
+  externalPiWorkOrderRevisionId   String   @unique(map: "ef_run_recipe_pi_revision_unique")
+  externalPiWorkOrderRevisionHash String
+  recipeSchemaVersion             String
+  recipeSnapshotJson              Json     @default("{}")
+  recipeHash                      String
+  createdAt                       DateTime @db.Timestamptz(6)
+
+  versionLock          ExperimentFoundationVersionLockV2          @relation(fields: [versionLockId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  readinessAttestation ExperimentFoundationReadinessAttestationV2 @relation(fields: [readinessAttestationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  taskSpecs            ExperimentFoundationTrainingTaskSpecV2[]
+  run                  ExperimentFoundationRunV2?
+
+  @@index([readinessAttestationId], map: "ef_run_recipe_readiness_idx")
+  @@index([recipeHash], map: "ef_run_recipe_hash_idx")
+}
+
+model ExperimentFoundationTrainingTaskSpecV2 {
+  id                              String   @id
+  runRecipeId                     String
+  materializationKey              String   @unique(map: "ef_task_spec_materialization_unique")
+  externalPiWorkOrderRevisionId   String
+  externalPiWorkOrderRevisionHash String
+  externalPiWorkOrderCellId       String
+  externalPiWorkOrderCellKey      String
+  externalPiWorkOrderCellHash     String
+  cellOrdinal                     Int
+  taskSpecSchemaVersion           String
+  taskSpecSnapshotJson            Json     @default("{}")
+  taskSpecHash                    String
+  createdAt                       DateTime @db.Timestamptz(6)
+
+  runRecipe         ExperimentFoundationRunRecipeV2          @relation(fields: [runRecipeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  runCell           ExperimentFoundationRunCellV2?
+  providerPayloads  ExperimentFoundationProviderPayloadV2[]
+  executionAttempts ExperimentFoundationExecutionAttemptV2[]
+
+  @@unique([externalPiWorkOrderRevisionId, externalPiWorkOrderCellId], map: "ef_task_spec_pi_cell_unique")
+  @@unique([externalPiWorkOrderRevisionId, cellOrdinal], map: "ef_task_spec_pi_ordinal_unique")
+  @@unique([runRecipeId, externalPiWorkOrderCellKey], map: "ef_task_spec_recipe_cell_key_unique")
+  @@unique([id, taskSpecHash], map: "ef_task_spec_exact_hash_unique")
+  @@index([taskSpecHash], map: "ef_task_spec_hash_idx")
+}
+
+model ExperimentFoundationRunV2 {
+  id                              String   @id
+  runRecipeId                     String   @unique(map: "ef_run_recipe_unique")
+  externalPiBranchId              String
+  externalPiWorkOrderRevisionId   String   @unique(map: "ef_run_pi_revision_unique")
+  externalPiWorkOrderRevisionHash String
+  externalPiRevisionSequence      Int
+  runManifestHash                 String
+  frozenAt                        DateTime @db.Timestamptz(6)
+
+  runRecipe         ExperimentFoundationRunRecipeV2          @relation(fields: [runRecipeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  cells             ExperimentFoundationRunCellV2[]
+  providerPayloads  ExperimentFoundationProviderPayloadV2[]
+  executionAttempts ExperimentFoundationExecutionAttemptV2[]
+
+  @@unique([id, runManifestHash], map: "ef_run_exact_manifest_unique")
+  @@unique([id, runManifestHash, externalPiBranchId, externalPiWorkOrderRevisionId, externalPiWorkOrderRevisionHash, externalPiRevisionSequence], map: "ef_run_exact_pi_scope_unique")
+  @@index([externalPiBranchId, externalPiRevisionSequence], map: "ef_run_pi_branch_sequence_idx")
+  @@index([runManifestHash], map: "ef_run_manifest_hash_idx")
+}
+
+model ExperimentFoundationRunCellV2 {
+  id                          String   @id
+  runId                       String
+  trainingTaskSpecId          String   @unique(map: "ef_run_cell_task_spec_unique")
+  ordinal                     Int
+  cellKey                     String
+  externalPiWorkOrderCellId   String   @unique(map: "ef_run_cell_pi_cell_unique")
+  externalPiWorkOrderCellHash String
+  seed                        Int
+  repeatIndex                 Int
+  createdAt                   DateTime @db.Timestamptz(6)
+
+  run               ExperimentFoundationRunV2                @relation(fields: [runId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  trainingTaskSpec  ExperimentFoundationTrainingTaskSpecV2   @relation(fields: [trainingTaskSpecId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  providerPayloads  ExperimentFoundationProviderPayloadV2[]
+  executionAttempts ExperimentFoundationExecutionAttemptV2[]
+
+  @@unique([runId, ordinal], map: "ef_run_cell_run_ordinal_unique")
+  @@unique([runId, cellKey], map: "ef_run_cell_run_key_unique")
+  @@unique([runId, id, trainingTaskSpecId, cellKey], map: "ef_run_cell_exact_task_spec_unique")
+  @@index([externalPiWorkOrderCellHash], map: "ef_run_cell_pi_hash_idx")
+}
+
+model ExperimentFoundationIntegrationInboxV2 {
+  id                      String   @id
+  consumerName            String
+  eventId                 String
+  eventType               String
+  schemaVersion           String
+  producerDomain          String
+  occurredAt              DateTime @db.Timestamptz(6)
+  correlationId           String
+  causationId             String
+  businessIdempotencyKey  String
+  implementationProjectId String
+  validationCycleId       String
+  branchId                String
+  branchKey               String
+  workOrderRevisionId     String
+  revisionSequence        Int
+  workOrderRevisionHash   String
+  cellPlanHash            String
+  approvedPlanHash        String
+  runId                   String?
+  runManifestHash         String?
+  eventPayloadJson        Json     @default("{}")
+  payloadHash             String
+  eventEnvelopeHash       String
+  status                  String
+  outcome                 String
+  reasonCode              String?
+  receivedAt              DateTime @db.Timestamptz(6)
+  processedAt             DateTime @db.Timestamptz(6)
+
+  executionAttempts ExperimentFoundationExecutionAttemptV2[]
+
+  @@unique([consumerName, eventId], map: "ef_integration_inbox_consumer_event_unique")
+  @@unique([consumerName, implementationProjectId, validationCycleId, branchId, businessIdempotencyKey], map: "ef_integration_inbox_consumer_business_unique")
+  @@unique([id, implementationProjectId, validationCycleId, branchId, workOrderRevisionId, revisionSequence, workOrderRevisionHash, runId, runManifestHash], map: "ef_integration_inbox_exact_head_ack_unique")
+  @@index([eventType, processedAt(sort: Desc)], map: "ef_integration_inbox_type_processed_idx")
+  @@index([branchId, revisionSequence], map: "ef_integration_inbox_branch_sequence_idx")
+}
+
+model ExperimentFoundationIntegrationOutboxV2 {
+  id                      String    @id
+  eventId                 String    @unique(map: "ef_integration_outbox_event_unique")
+  aggregateType           String
+  aggregateId             String
+  transitionKey           String
+  eventType               String
+  schemaVersion           String
+  producerDomain          String
+  occurredAt              DateTime  @db.Timestamptz(6)
+  correlationId           String
+  causationId             String
+  businessIdempotencyKey  String
+  implementationProjectId String
+  validationCycleId       String
+  branchId                String
+  branchKey               String
+  workOrderRevisionId     String
+  revisionSequence        Int
+  workOrderRevisionHash   String
+  cellPlanHash            String
+  approvedPlanHash        String
+  runId                   String
+  runManifestHash         String
+  eventPayloadJson        Json      @default("{}")
+  payloadHash             String
+  eventEnvelopeHash       String
+  relayStatus             String    @default("pending")
+  relayAttemptCount       Int       @default(0)
+  relayLeaseOwner         String?
+  relayLeaseExpiresAt     DateTime? @db.Timestamptz(6)
+  relayNextAttemptAt      DateTime? @db.Timestamptz(6)
+  publishedAt             DateTime? @db.Timestamptz(6)
+  deliveredAt             DateTime? @db.Timestamptz(6)
+  lastRelayErrorCode      String?
+  createdAt               DateTime  @db.Timestamptz(6)
+  updatedAt               DateTime  @db.Timestamptz(6)
+
+  @@unique([aggregateType, aggregateId, transitionKey], map: "ef_integration_outbox_aggregate_transition_unique")
+  @@index([relayStatus, relayNextAttemptAt, occurredAt], map: "ef_integration_outbox_relay_ready_idx")
+  @@index([relayLeaseExpiresAt], map: "ef_integration_outbox_lease_expiry_idx")
+  @@index([correlationId], map: "ef_integration_outbox_correlation_idx")
+}
+
+// T-132 Pack B: EF-owned, non-production provider-control lineage. Full fake
+// provider bytes are always re-materialized and hash-checked; persistence keeps
+// only the named redacted manifest and exact Pack A source bindings.
+model ExperimentFoundationProviderPayloadV2 {
+  id                       String   @id
+  materializationKey       String   @unique(map: "ef_provider_payload_materialization_unique")
+  runId                    String
+  runManifestHash          String
+  runCellId                String
+  cellKey                  String
+  trainingTaskSpecId       String
+  trainingTaskSpecHash     String
+  payloadSchemaVersion     String
+  adapterIdentity          String
+  executionMode            String
+  provenance               String
+  simulationProfileVersion String
+  redactedManifestVersion  String
+  redactedManifestJson     Json     @default("{}")
+  payloadHash              String
+  payloadByteSize          Int
+  createdAt                DateTime @db.Timestamptz(6)
+
+  run                ExperimentFoundationRunV2                 @relation(fields: [runId, runManifestHash], references: [id, runManifestHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_provider_payload_run_fkey")
+  runCell            ExperimentFoundationRunCellV2             @relation(fields: [runId, runCellId, trainingTaskSpecId, cellKey], references: [runId, id, trainingTaskSpecId, cellKey], onDelete: Restrict, onUpdate: Restrict, map: "ef_provider_payload_run_cell_fkey")
+  trainingTaskSpec   ExperimentFoundationTrainingTaskSpecV2    @relation(fields: [trainingTaskSpecId, trainingTaskSpecHash], references: [id, taskSpecHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_provider_payload_task_spec_fkey")
+  executionAttempts  ExperimentFoundationExecutionAttemptV2[]
+  collectionAttempts ExperimentFoundationCollectionAttemptV2[]
+
+  @@unique([runCellId, payloadSchemaVersion, simulationProfileVersion], map: "ef_provider_payload_cell_profile_unique")
+  @@unique([id, payloadHash], map: "ef_provider_payload_exact_hash_unique")
+  @@unique([id, payloadHash, runId, runCellId, trainingTaskSpecId, cellKey], map: "ef_provider_payload_exact_binding_unique")
+  @@index([runId, runCellId], map: "ef_provider_payload_run_cell_idx")
+  @@index([trainingTaskSpecId, trainingTaskSpecHash], map: "ef_provider_payload_task_spec_idx")
+}
+
+model ExperimentFoundationExecutionAttemptV2 {
+  id                                String    @id
+  externalPiImplementationProjectId String
+  externalPiValidationCycleId       String
+  externalPiBranchId                String
+  externalPiWorkOrderRevisionId     String
+  externalPiWorkOrderRevisionHash   String
+  externalPiRevisionSequence        Int
+  runId                             String
+  runManifestHash                   String
+  runCellId                         String
+  cellKey                           String
+  trainingTaskSpecId                String
+  trainingTaskSpecHash              String
+  providerPayloadId                 String
+  providerPayloadHash               String
+  headAcknowledgementInboxId        String
+  attemptSequence                   Int
+  workflowBusinessKey               String
+  workflowRequestHash               String
+  executionMode                     String
+  provenance                        String
+  providerIdempotencyKey            String    @unique(map: "ef_execution_attempt_provider_idempotency_unique")
+  lifecycleState                    String
+  stateVersion                      Int       @default(0)
+  terminalReasonCode                String?
+  externalJobRefSchemaVersion       String?
+  externalJobRefJson                Json?
+  externalJobRefHash                String?
+  createdAt                         DateTime  @db.Timestamptz(6)
+  updatedAt                         DateTime  @db.Timestamptz(6)
+  terminalAt                        DateTime? @db.Timestamptz(6)
+
+  run                 ExperimentFoundationRunV2                     @relation(fields: [runId, runManifestHash, externalPiBranchId, externalPiWorkOrderRevisionId, externalPiWorkOrderRevisionHash, externalPiRevisionSequence], references: [id, runManifestHash, externalPiBranchId, externalPiWorkOrderRevisionId, externalPiWorkOrderRevisionHash, externalPiRevisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "ef_execution_attempt_run_fkey")
+  runCell             ExperimentFoundationRunCellV2                 @relation(fields: [runId, runCellId, trainingTaskSpecId, cellKey], references: [runId, id, trainingTaskSpecId, cellKey], onDelete: Restrict, onUpdate: Restrict, map: "ef_execution_attempt_run_cell_fkey")
+  trainingTaskSpec    ExperimentFoundationTrainingTaskSpecV2        @relation(fields: [trainingTaskSpecId, trainingTaskSpecHash], references: [id, taskSpecHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_execution_attempt_task_spec_fkey")
+  providerPayload     ExperimentFoundationProviderPayloadV2         @relation(fields: [providerPayloadId, providerPayloadHash, runId, runCellId, trainingTaskSpecId, cellKey], references: [id, payloadHash, runId, runCellId, trainingTaskSpecId, cellKey], onDelete: Restrict, onUpdate: Restrict, map: "ef_execution_attempt_payload_fkey")
+  headAcknowledgement ExperimentFoundationIntegrationInboxV2        @relation(fields: [headAcknowledgementInboxId, externalPiImplementationProjectId, externalPiValidationCycleId, externalPiBranchId, externalPiWorkOrderRevisionId, externalPiRevisionSequence, externalPiWorkOrderRevisionHash, runId, runManifestHash], references: [id, implementationProjectId, validationCycleId, branchId, workOrderRevisionId, revisionSequence, workOrderRevisionHash, runId, runManifestHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_execution_attempt_head_ack_fkey")
+  events              ExperimentFoundationExecutionAttemptEventV2[]
+  commands            ExperimentFoundationProviderCommandV2[]
+  collectionAttempt   ExperimentFoundationCollectionAttemptV2?
+
+  @@unique([runCellId, attemptSequence], map: "ef_execution_attempt_cell_sequence_unique")
+  @@unique([runId, runCellId, workflowBusinessKey], map: "ef_execution_attempt_workflow_business_unique")
+  @@unique([id, providerPayloadHash], map: "ef_execution_attempt_exact_payload_unique")
+  @@unique([id, providerPayloadId, providerPayloadHash, externalJobRefHash], map: "ef_execution_attempt_collection_binding_unique")
+  @@index([runId, attemptSequence], map: "ef_execution_attempt_run_sequence_idx")
+  // PB14/D-18 intentionally scans every active real Attempt in the Cycle,
+  // including superseded/non-head Runs; therefore this index has no Run/head key.
+  @@index([externalPiValidationCycleId, executionMode, lifecycleState], map: "ef_execution_attempt_cycle_mode_state_idx")
+  @@index([headAcknowledgementInboxId], map: "ef_execution_attempt_head_ack_idx")
+}
+
+model ExperimentFoundationExecutionAttemptEventV2 {
+  id                  String   @id
+  executionAttemptId  String
+  eventSequence       Int
+  eventType           String
+  priorState          String?
+  nextState           String
+  providerCommandId   String?  @unique(map: "ef_execution_attempt_event_command_unique")
+  providerPayloadHash String
+  externalJobRefJson  Json?
+  externalJobRefHash  String?
+  eventSchemaVersion  String
+  eventSnapshotJson   Json     @default("{}")
+  eventHash           String
+  occurredAt          DateTime @db.Timestamptz(6)
+
+  executionAttempt ExperimentFoundationExecutionAttemptV2 @relation(fields: [executionAttemptId, providerPayloadHash], references: [id, providerPayloadHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_attempt_event_attempt_fkey")
+  providerCommand  ExperimentFoundationProviderCommandV2? @relation(fields: [providerCommandId, executionAttemptId], references: [id, executionAttemptId], onDelete: Restrict, onUpdate: Restrict, map: "ef_attempt_event_command_fkey")
+
+  @@unique([executionAttemptId, eventSequence], map: "ef_execution_attempt_event_sequence_unique")
+  @@unique([executionAttemptId, eventHash], map: "ef_execution_attempt_event_hash_unique")
+  // Required by Prisma's exact composite 1:1 command relation; providerCommandId
+  // remains independently unique at the database boundary.
+  @@unique([providerCommandId, executionAttemptId], map: "ef_execution_attempt_event_exact_command_unique")
+  @@index([executionAttemptId, occurredAt], map: "ef_execution_attempt_event_time_idx")
+}
+
+model ExperimentFoundationProviderCommandV2 {
+  id                     String    @id
+  executionAttemptId     String
+  collectionAttemptId    String?
+  commandSequence        Int
+  operation              String
+  commandSchemaVersion   String
+  commandSnapshotJson    Json      @default("{}")
+  commandHash            String
+  responseHash           String?
+  providerIdempotencyKey String    @unique(map: "ef_provider_command_idempotency_unique")
+  providerPayloadHash    String
+  externalJobRefJson     Json?
+  externalJobRefHash     String?
+  commandState           String
+  leaseVersion           Int       @default(0)
+  leaseOwner             String?
+  leaseExpiresAt         DateTime? @db.Timestamptz(6)
+  heartbeatAt            DateTime? @db.Timestamptz(6)
+  attemptCount           Int       @default(0)
+  nextAttemptAt          DateTime? @db.Timestamptz(6)
+  lastErrorCode          String?
+  createdAt              DateTime  @db.Timestamptz(6)
+  updatedAt              DateTime  @db.Timestamptz(6)
+  terminalAt             DateTime? @db.Timestamptz(6)
+
+  executionAttempt  ExperimentFoundationExecutionAttemptV2       @relation(fields: [executionAttemptId, providerPayloadHash], references: [id, providerPayloadHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_provider_command_attempt_fkey")
+  collectionAttempt ExperimentFoundationCollectionAttemptV2?     @relation(fields: [collectionAttemptId, executionAttemptId], references: [id, executionAttemptId], onDelete: Restrict, onUpdate: Restrict, map: "ef_provider_command_collection_fkey")
+  outcomeEvent      ExperimentFoundationExecutionAttemptEventV2?
+
+  @@unique([executionAttemptId, commandSequence], map: "ef_provider_command_attempt_sequence_unique")
+  @@unique([executionAttemptId, commandHash], map: "ef_provider_command_attempt_hash_unique")
+  @@unique([id, executionAttemptId], map: "ef_provider_command_exact_attempt_unique")
+  @@index([commandState, nextAttemptAt, createdAt], map: "ef_provider_command_ready_idx")
+  @@index([leaseExpiresAt], map: "ef_provider_command_lease_expiry_idx")
+  @@index([collectionAttemptId], map: "ef_provider_command_collection_idx")
+}
+
+model ExperimentFoundationCollectionAttemptV2 {
+  id                     String    @id
+  executionAttemptId     String    @unique(map: "ef_collection_attempt_execution_unique")
+  businessIdempotencyKey String
+  collectionRequestHash  String
+  providerPayloadId      String
+  providerPayloadHash    String
+  externalJobRefJson     Json
+  externalJobRefHash     String
+  collectionState        String
+  stateVersion           Int       @default(0)
+  preparedAt             DateTime  @db.Timestamptz(6)
+  updatedAt              DateTime  @db.Timestamptz(6)
+  collectedAt            DateTime? @db.Timestamptz(6)
+
+  executionAttempt   ExperimentFoundationExecutionAttemptV2    @relation(fields: [executionAttemptId, providerPayloadId, providerPayloadHash, externalJobRefHash], references: [id, providerPayloadId, providerPayloadHash, externalJobRefHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_collection_attempt_attempt_fkey")
+  providerPayload    ExperimentFoundationProviderPayloadV2     @relation(fields: [providerPayloadId, providerPayloadHash], references: [id, payloadHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_collection_attempt_payload_fkey")
+  commands           ExperimentFoundationProviderCommandV2[]
+  provisionalOutputs ExperimentFoundationProvisionalOutputV2[]
+
+  // Required by Prisma's exact composite 1:1 Attempt relation; the shorter
+  // executionAttemptId unique remains the authoritative one-Collection limit.
+  @@unique([executionAttemptId, providerPayloadId, providerPayloadHash, externalJobRefHash], map: "ef_collection_attempt_exact_binding_unique")
+  @@unique([id, executionAttemptId], map: "ef_collection_attempt_exact_attempt_unique")
+}
+
+model ExperimentFoundationProvisionalOutputV2 {
+  id                    String   @id
+  collectionAttemptId   String
+  ordinal               Int
+  outputKind            String
+  outputClass           String
+  manifestSchemaVersion String
+  redactedManifestJson  Json     @default("{}")
+  outputHash            String
+  createdAt             DateTime @db.Timestamptz(6)
+
+  collectionAttempt ExperimentFoundationCollectionAttemptV2 @relation(fields: [collectionAttemptId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ef_provisional_output_collection_fkey")
+
+  @@unique([collectionAttemptId, ordinal], map: "ef_provisional_output_collection_ordinal_unique")
+  @@unique([collectionAttemptId, outputKind], map: "ef_provisional_output_collection_kind_unique")
+  @@unique([collectionAttemptId, outputHash], map: "ef_provisional_output_collection_hash_unique")
 }

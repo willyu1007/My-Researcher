@@ -1,0 +1,82 @@
+{
+  "schema_version": "experiment-foundation-packb-named-local-snapshot@v1",
+  "baseline_id": "packb-named-local-snapshot-20260714-r2",
+  "baseline_kind": "one_shot_pre_product_named_local_snapshot",
+  "reviewed_at": "2026-07-14",
+  "refresh_policy": "Any legitimate Pack A or Pack B product-authority write requires a newly reviewed manifest; the reviewed v2 digest intentionally omits only the 12 never-read placeholders removed by migration 20260714190000 and must remain identical before and after that migration; never relax comparisons to latest/current values.",
+  "target": {
+    "database": "postgres",
+    "schema": "my_researcher_dev",
+    "host": "127.0.0.1",
+    "port": "5432",
+    "fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0"
+  },
+  "pack_a_authority": {
+    "algorithm": "pack-a-authority-id-ordered-row-json-sha256@v2",
+    "aggregate_count": 208,
+    "aggregate_digest": "sha256:494cdf5a02e2379a66a12bc82411e8237f39e949a2f992f3e12a0e220f613d74",
+    "table_counts": {
+      "PaperImplementationExperimentWorkOrderBranchV2": 0,
+      "PaperImplementationExperimentWorkOrderRevisionV2": 0,
+      "PaperImplementationExperimentWorkOrderRevisionCellV2": 0,
+      "PaperImplementationExperimentWorkOrderAdmissionV2": 0,
+      "PaperImplementationExperimentIntegrationInboxV2": 0,
+      "PaperImplementationExperimentIntegrationOutboxV2": 0,
+      "ExperimentFoundationDatasetV2": 2,
+      "ExperimentFoundationDatasetRevisionV2": 2,
+      "ExperimentFoundationDatasetFreezeCommandReceiptV2": 2,
+      "ExperimentFoundationDataPolicyV2": 2,
+      "ExperimentFoundationDataPolicyRevisionV2": 2,
+      "ExperimentFoundationDataPolicyFreezeCommandReceiptV2": 2,
+      "ExperimentFoundationMetricDefinitionV2": 17,
+      "ExperimentFoundationMetricDefinitionRevisionV2": 17,
+      "ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2": 17,
+      "ExperimentFoundationBenchmarkV2": 1,
+      "ExperimentFoundationBenchmarkRevisionV2": 1,
+      "ExperimentFoundationBenchmarkFreezeCommandReceiptV2": 1,
+      "ExperimentFoundationEvaluationProtocolV2": 1,
+      "ExperimentFoundationEvaluationProtocolRevisionV2": 1,
+      "ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2": 1,
+      "ExperimentFoundationEvaluationProtocolMetricDependencyV2": 17,
+      "ExperimentFoundationAssetLifecycleEventV2": 48,
+      "ExperimentFoundationAssetLifecycleProjectionV2": 23,
+      "ExperimentFoundationReadinessAttestationV2": 23,
+      "ExperimentFoundationReadinessDependencyV2": 28,
+      "ExperimentFoundationVersionLockV2": 0,
+      "ExperimentFoundationVersionLockDependencyV2": 0,
+      "ExperimentFoundationRunRecipeV2": 0,
+      "ExperimentFoundationTrainingTaskSpecV2": 0,
+      "ExperimentFoundationRunV2": 0,
+      "ExperimentFoundationRunCellV2": 0,
+      "ExperimentFoundationIntegrationInboxV2": 0,
+      "ExperimentFoundationIntegrationOutboxV2": 0
+    }
+  },
+  "legacy_sentinels": {
+    "algorithm": "legacy-id-ordered-row-json-sha256@v1",
+    "aggregate_count": 257,
+    "aggregate_digest": "sha256:f9e7a6875c9a3597ecb485abc978920e461a3af33f071c676665439dde17211d",
+    "tables": {
+      "PaperImplementationResearchWorkOrder": {
+        "count": 1,
+        "digest": "sha256:4f00c895f3eda842defbb2789e73289f47949c342518abf9eb613e0552a4d442"
+      },
+      "PaperImplementationWorkOrderHarnessRun": {
+        "count": 1,
+        "digest": "sha256:f9a54297d3a43914cf100ea3272697f9e432289ba4f6ebcc70a91681708e7350"
+      },
+      "ExperimentFoundationRecord": {
+        "count": 234,
+        "digest": "sha256:3553944166657f7d18f2df61c61d95035d2e0b25f885a25dc795160c8d3a1933"
+      },
+      "ExperimentFoundationReadinessReport": {
+        "count": 15,
+        "digest": "sha256:c4c5f82ab82fa248c5940c11fbc9e09b63e5aff61c0dbe015a585104f50178f8"
+      },
+      "ExperimentFoundationExternalTrainingJob": {
+        "count": 6,
+        "digest": "sha256:364ae566a9961d326830688059b83f6b60b2c7b0337c7be044afa686321a16a4"
+      }
+    }
+  }
+}

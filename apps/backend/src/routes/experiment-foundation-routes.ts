@@ -5,8 +5,24 @@ import {
   experimentFoundationPromotionDecisionRequestSchema,
   experimentFoundationReadinessCheckRequestSchema,
   listExperimentFoundationReadinessReportsQuerySchema,
+  type CreateExperimentFoundationRecordRequest,
+  type ExperimentFoundationPromotionDecisionRequest,
+  type ExperimentFoundationReadinessCheckRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-contracts';
 import { ExperimentFoundationController } from '../controllers/experiment-foundation-controller.js';
+import {
+  legacyExperimentMutationOnRequest,
+  type LegacyExperimentMutationRouteOptions,
+} from './experiment-v2-cutover-guard.js';
+
+type RecordParams = {
+  record_kind: string;
+  record_id: string;
+};
+
+type CandidateParams = {
+  candidate_id: string;
+};
 
 const recordParamsSchema = {
   params: {
@@ -70,15 +86,27 @@ function withCandidateParams<T extends { body?: unknown }>(schema: T) {
 export async function registerExperimentFoundationRoutes(
   fastify: FastifyInstance,
   controller: ExperimentFoundationController,
+  options: LegacyExperimentMutationRouteOptions = {},
 ): Promise<void> {
-  fastify.post(
+  const legacyMutationOnRequest = legacyExperimentMutationOnRequest(options);
+
+  fastify.post<{ Body: CreateExperimentFoundationRecordRequest }>(
     '/experiment-foundation/records',
-    { schema: createExperimentFoundationRecordRequestSchema },
+    {
+      schema: createExperimentFoundationRecordRequestSchema,
+      onRequest: legacyMutationOnRequest,
+    },
     controller.createRecord,
   );
-  fastify.put(
+  fastify.put<{
+    Params: RecordParams;
+    Body: CreateExperimentFoundationRecordRequest;
+  }>(
     '/experiment-foundation/records/:record_kind/:record_id',
-    { schema: withRecordParams(createExperimentFoundationRecordRequestSchema) },
+    {
+      schema: withRecordParams(createExperimentFoundationRecordRequestSchema),
+      onRequest: legacyMutationOnRequest,
+    },
     controller.upsertRecord,
   );
   fastify.get(
@@ -91,9 +119,12 @@ export async function registerExperimentFoundationRoutes(
     { schema: listRecordsQuerySchema },
     controller.listRecords,
   );
-  fastify.post(
+  fastify.post<{ Body: ExperimentFoundationReadinessCheckRequest }>(
     '/experiment-foundation/readiness/check',
-    { schema: experimentFoundationReadinessCheckRequestSchema },
+    {
+      schema: experimentFoundationReadinessCheckRequestSchema,
+      onRequest: legacyMutationOnRequest,
+    },
     controller.checkReadiness,
   );
   fastify.get(
@@ -106,9 +137,15 @@ export async function registerExperimentFoundationRoutes(
     { schema: listExperimentFoundationReadinessReportsQuerySchema },
     controller.listReadinessReports,
   );
-  fastify.post(
+  fastify.post<{
+    Params: CandidateParams;
+    Body: ExperimentFoundationPromotionDecisionRequest;
+  }>(
     '/experiment-foundation/candidates/:candidate_id/promotion',
-    { schema: withCandidateParams(experimentFoundationPromotionDecisionRequestSchema) },
+    {
+      schema: withCandidateParams(experimentFoundationPromotionDecisionRequestSchema),
+      onRequest: legacyMutationOnRequest,
+    },
     controller.decidePromotion,
   );
 }
