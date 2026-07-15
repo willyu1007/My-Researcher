@@ -59,7 +59,9 @@ import type {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  roleSlotEchoMismatchCode,
 } from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -190,6 +192,9 @@ const MERGE_SPLIT_REUSE_SCENARIOS_PROFILE: SlotProfile = {
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  // T-124 S3-α4: a wrong role_slot_id echo is a retryable technical failure
+  // (S2-C single-source constant), not an HTTP 400.
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   'CROSS_BOARD_SYNTHESIS_PRIMARY_INPUT_MISSING',
   'CROSS_BOARD_SYNTHESIS_BOARD_REVIEW_SET_MISMATCH',
   'CROSS_BOARD_SYNTHESIS_CONFLICT_REVIEW_SET_MISMATCH',
@@ -479,13 +484,9 @@ export class PaperImplementationCrossBoardSynthesisRuntimeService {
     const runtimeStatus = runtimeFailureCode
       ? 'failed_runtime'
       : output?.role_status === 'blocked' ? 'blocked' : 'passed';
-    if (output && output.role_slot_id !== runtimeBase.profile.roleSlotId) {
-      throw new AppError(
-        400,
-        'INVALID_PAYLOAD',
-        `Cross-board synthesis role output slot mismatch: expected ${runtimeBase.profile.roleSlotId}.`,
-      );
-    }
+    // T-124 S3-α4: a wrong role_slot_id echo is classified as a retryable
+    // technical failure inside the bounded retry loop (single-source S2-C
+    // constant) — it never surfaces as an HTTP 400 here.
     const artifactOutput = runtimeFailureCode
       ? {
         status: 'failed_runtime',
@@ -1350,6 +1351,12 @@ export class PaperImplementationCrossBoardSynthesisRuntimeService {
     const runtimeFailureCode = this.runtimeFailureCode(result);
     if (runtimeFailureCode) {
       return runtimeFailureCode;
+    }
+    // T-124 S3-α4 (S2-C single-source pattern) + 复审 F3-5: a wrong role_slot_id
+    // echo is a retryable technical failure, not an HTTP 400.
+    const echoCode = roleSlotEchoMismatchCode(result.structured_output, MERGE_SPLIT_REUSE_SCENARIOS_PROFILE.roleSlotId);
+    if (echoCode) {
+      return echoCode;
     }
     return this.semanticOutputFailureCode(request, result.structured_output);
   }

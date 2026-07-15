@@ -5,6 +5,7 @@ import {
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_VERSION,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_SEMANTIC_ROLE_SLOT_IDS,
   type PaperImplementationTraceIntegrityRoleOutput,
   type RunPaperImplementationTraceIntegrityDebateRuntimeRequest,
@@ -427,7 +428,7 @@ function invocationResult<T>(
     capability_degrade_reason: null,
     output_contract: 'TraceIntegrityRoleArtifact@v1',
     prompt_template_id: 'paper-implementation-trace-integrity-boundary-debate',
-    prompt_template_version: 'v1',
+    prompt_template_version: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_VERSION,
     schema_name: 'paper_implementation_trace_integrity_role_output',
     prompt_packet_hash: promptPacketHash,
     prompt_packet_cache_status: 'miss',
@@ -470,6 +471,28 @@ function invocationResult<T>(
 }
 
 function roleOutput(roleSlotId: string): PaperImplementationTraceIntegrityRoleOutput {
+  // S3-α2 deepened contract: each role carries its structured section.
+  const structured: Partial<PaperImplementationTraceIntegrityRoleOutput> =
+    roleSlotId === 'trace_integrity_review.support_mapper_map'
+      ? {
+        per_statement_support_map: [{
+          statement_ref: ref('reviewed_statement', 'statement_001'),
+          support_kind: 'direct',
+          cited_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
+        }],
+      }
+      : roleSlotId === 'trace_integrity_review.skeptic_challenge'
+        ? { challenge_findings: [] }
+        : roleSlotId === 'trace_integrity_review.support_mapper_reconcile'
+          ? { finding_dispositions: [] }
+          : roleSlotId === 'trace_integrity_review.arbiter_final'
+            ? {
+              coverage: {
+                statement_refs: [ref('reviewed_statement', 'statement_001')],
+                finding_ids: [],
+              },
+            }
+            : {};
   return {
     role_slot_id: roleSlotId as PaperImplementationTraceIntegrityRoleOutput['role_slot_id'],
     role_status: 'passed',
@@ -478,6 +501,7 @@ function roleOutput(roleSlotId: string): PaperImplementationTraceIntegrityRoleOu
     cited_source_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
     blocker_codes: [],
     warning_codes: [],
+    ...structured,
   };
 }
 
@@ -487,7 +511,7 @@ function telemetry() {
     model_id: 'gpt-test',
     profile_id: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
     prompt_template_id: 'paper-implementation-trace-integrity-boundary-debate',
-    prompt_template_version: 'v1',
+    prompt_template_version: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_VERSION,
     elapsed_ms: 10,
     request_count: 1,
     retry_count: 0,
@@ -561,10 +585,14 @@ function scriptedServiceFixture(
     call: TraceInvocationCall,
     index: number,
   ) => TopicSelectionAgentInvocationResult<PaperImplementationTraceIntegrityRoleOutput>,
+  options: {
+    repository?: InMemoryPaperImplementationRuntimeRepository;
+    idPrefix?: string;
+  } = {},
 ) {
-  const repository = new InMemoryPaperImplementationRuntimeRepository();
+  const repository = options.repository ?? new InMemoryPaperImplementationRuntimeRepository();
   let sequence = 0;
-  const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+  const idFactory = (prefix: string) => `${options.idPrefix ?? ''}${prefix}_${++sequence}`;
   const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
     repository,
     idFactory,
@@ -739,4 +767,494 @@ test('trace integrity debate runtime token budget counts message-embedded contex
     assert.deepEqual(budget.context_payloads, []);
     assert.equal(budget.compression_attempt ?? null, null);
   }
+});
+
+// ---------------------------------------------------------------------------
+// T-124 S3-α2/α3: deepened role contract + semantic completeness (review N2)
+// ---------------------------------------------------------------------------
+
+function skepticFindingFixture() {
+  return {
+    finding_id: 'finding_001',
+    severity: 'blocker' as const,
+    blocker_code: 'semantic_support_gap',
+    target_statement_ref: ref('reviewed_statement', 'statement_001'),
+    cited_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
+  };
+}
+
+test('trace integrity debate runtime retries a missing per_statement_support_map once and lands failed_runtime (S3-α2)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
+    const output = roleOutput(call.node_id);
+    if (call.node_id === 'trace_integrity_review.support_mapper_map') {
+      delete output.per_statement_support_map;
+    }
+    return invocationResult(output, call.node_id, call.execution_mode);
+  });
+  const result = await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  const roleArtifact = result.runtime_artifacts[0]!;
+  assert.equal(roleArtifact.runtime_failure_code, 'RUNTIME_ROLE_STRUCTURED_OUTPUT_INCOMPLETE');
+  assert.equal(roleArtifact.retry_attempt_index, 1);
+  assert.equal(result.final_runtime_artifact, null);
+});
+
+test('trace integrity debate runtime rejects cited refs outside the retrieval packet as retryable semantic failure (S3-α3)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
+    const output = roleOutput(call.node_id);
+    if (call.node_id === 'trace_integrity_review.support_mapper_map') {
+      output.cited_source_refs = [ref('run_evidence_unit', 'invented_evidence_999')];
+    }
+    return invocationResult(output, call.node_id, call.execution_mode);
+  });
+  const result = await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'RUNTIME_ROLE_REF_OUTSIDE_RETRIEVAL_PACKET');
+});
+
+test('trace integrity debate runtime requires exactly one reconcile disposition per skeptic finding (S3-α3)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
+    const output = roleOutput(call.node_id);
+    if (call.node_id === 'trace_integrity_review.skeptic_challenge') {
+      output.role_status = 'blocked';
+      output.blocker_codes = ['semantic_support_gap'];
+      output.challenge_findings = [skepticFindingFixture()];
+    }
+    // Reconcile keeps its default empty finding_dispositions — the skeptic
+    // finding is silently dropped, which must fail the disposition check.
+    return invocationResult(output, call.node_id, call.execution_mode);
+  });
+  const result = await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'failed_runtime');
+  // Two roles executed cleanly, reconcile retried once then failed.
+  assert.equal(orchestrator.calls.length, 4);
+  const reconcileArtifact = result.runtime_artifacts[2]!;
+  assert.equal(reconcileArtifact.role_slot_id, 'trace_integrity_review.support_mapper_reconcile');
+  assert.equal(reconcileArtifact.runtime_failure_code, 'RUNTIME_ROLE_FINDING_DISPOSITION_INVALID');
+  assert.equal(result.final_runtime_artifact, null);
+});
+
+test('trace integrity debate runtime runs structural checks on blocked outputs too (S3-α3, N2 bypass closed)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
+    const output = roleOutput(call.node_id);
+    if (call.node_id === 'trace_integrity_review.skeptic_challenge') {
+      // Blocked verdict with fabricated codes but ZERO structured findings —
+      // previously this bypassed every structural constraint.
+      output.role_status = 'blocked';
+      output.blocker_codes = ['fabricated_blocker_code'];
+      output.challenge_findings = [];
+    }
+    return invocationResult(output, call.node_id, call.execution_mode);
+  });
+  const result = await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 3);
+  const skepticArtifact = result.runtime_artifacts[1]!;
+  assert.equal(skepticArtifact.runtime_failure_code, 'RUNTIME_ROLE_STRUCTURED_OUTPUT_INCOMPLETE');
+  assert.equal(skepticArtifact.runtime_status, 'failed_runtime');
+  assert.equal(result.final_runtime_artifact, null);
+});
+
+test('trace integrity debate runtime requires arbiter coverage over every finding and accepted blockers in the final set (S3-α3)', async () => {
+  const chainWithFinding = (arbiterMutation: (output: PaperImplementationTraceIntegrityRoleOutput) => void) =>
+    scriptedServiceFixture((call) => {
+      const output = roleOutput(call.node_id);
+      if (call.node_id === 'trace_integrity_review.skeptic_challenge') {
+        output.role_status = 'blocked';
+        output.blocker_codes = ['semantic_support_gap'];
+        output.challenge_findings = [skepticFindingFixture()];
+      }
+      if (call.node_id === 'trace_integrity_review.support_mapper_reconcile') {
+        output.finding_dispositions = [{
+          finding_id: 'finding_001',
+          disposition: 'accepted_blocker',
+          cited_refs: [],
+        }];
+      }
+      if (call.node_id === 'trace_integrity_review.arbiter_final') {
+        output.role_status = 'blocked';
+        output.blocker_codes = ['semantic_support_gap'];
+        output.coverage = {
+          statement_refs: [ref('reviewed_statement', 'statement_001')],
+          finding_ids: ['finding_001'],
+        };
+        arbiterMutation(output);
+      }
+      return invocationResult(output, call.node_id, call.execution_mode);
+    });
+
+  // Coverage missing the skeptic finding id.
+  const missingCoverage = chainWithFinding((output) => {
+    output.coverage = { statement_refs: [ref('reviewed_statement', 'statement_001')], finding_ids: [] };
+  });
+  const missingCoverageResult = await missingCoverage.service.runBoundaryDebate(PROJECT_ID, providerRequest());
+  assert.equal(missingCoverageResult.status, 'failed_runtime');
+  assert.equal(missingCoverageResult.runtime_artifacts[3]?.runtime_failure_code, 'RUNTIME_ROLE_COVERAGE_INCOMPLETE');
+
+  // Accepted blocker finding whose blocker_code is missing from the arbiter set.
+  const droppedBlocker = chainWithFinding((output) => {
+    output.blocker_codes = [];
+    output.role_status = 'passed';
+  });
+  const droppedBlockerResult = await droppedBlocker.service.runBoundaryDebate(PROJECT_ID, providerRequest());
+  assert.equal(droppedBlockerResult.status, 'failed_runtime');
+  assert.equal(droppedBlockerResult.runtime_artifacts[3]?.runtime_failure_code, 'RUNTIME_ROLE_COVERAGE_INCOMPLETE');
+
+  // Structure-complete blocked chain still admits a blocked final.
+  const completeBlocked = chainWithFinding(() => {});
+  const blockedResult = await completeBlocked.service.runBoundaryDebate(PROJECT_ID, providerRequest());
+  assert.equal(blockedResult.status, 'blocked');
+  assert.equal(blockedResult.final_admission_record?.admission_status, 'admitted');
+  assert.equal(blockedResult.blocker_codes.includes('semantic_support_gap'), true);
+});
+
+// ---------------------------------------------------------------------------
+// T-124 S3-α1: D9 resume contract
+// ---------------------------------------------------------------------------
+
+function successScript(call: TraceInvocationCall) {
+  return invocationResult(roleOutput(call.node_id), call.node_id, call.execution_mode);
+}
+
+async function interruptedRunFixture() {
+  // Roles 1-2 admitted; reconcile fails both attempts with a transient error.
+  const first = scriptedServiceFixture((call) => {
+    if (call.node_id === 'trace_integrity_review.support_mapper_reconcile') {
+      return failedInvocationResult(call.node_id, 'TimeoutError');
+    }
+    return successScript(call);
+  });
+  const run = await first.service.runBoundaryDebate(PROJECT_ID, providerRequest());
+  assert.equal(run.status, 'failed_runtime');
+  assert.equal(first.orchestrator.calls.length, 4);
+  return { first, run };
+}
+
+test('trace integrity debate runtime resume reuses the admitted prefix without provider re-issue (S3-α1 D9)', async () => {
+  const { first, run } = await interruptedRunFixture();
+  const admittedPrefixIds = run.runtime_artifacts.slice(0, 2).map((artifact) => artifact.runtime_artifact_id);
+
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_',
+  });
+  const resumed = await resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: null,
+    resume_from_run_id: 'trace_debate_run_001',
+  });
+
+  assert.equal(resumed.status, 'passed');
+  assert.equal(resumed.run_id, 'trace_debate_run_001');
+  // Zero provider re-issue for the admitted prefix: only the two remaining roles run.
+  assert.deepEqual(resumeFixture.orchestrator.calls.map((call) => call.node_id), [
+    'trace_integrity_review.support_mapper_reconcile',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  // The reused prefix is the ORIGINAL artifacts — not rewritten.
+  assert.deepEqual(
+    resumed.runtime_artifacts.slice(0, 2).map((artifact) => artifact.runtime_artifact_id),
+    admittedPrefixIds,
+  );
+  // Newly executed roles take the run's next call indexes (failed reconcile held 3).
+  const roleArtifacts = resumed.runtime_artifacts.filter((artifact) => artifact.artifact_scope === 'role');
+  assert.deepEqual(roleArtifacts.map((artifact) => artifact.call_index), [1, 2, 4, 5]);
+  assert.equal(resumed.final_runtime_artifact?.artifact_scope, 'final');
+  assert.equal(resumed.final_admission_record?.admission_status, 'admitted');
+  // The final chains exactly onto reused prefix + new roles.
+  assert.deepEqual(
+    resumed.final_runtime_artifact?.prior_role_artifact_hashes,
+    roleArtifacts.map((artifact) => artifact.artifact_payload_hash),
+  );
+});
+
+test('trace integrity debate runtime resume rejects identity drift with 409 and no provider calls (S3-α1 D9)', async () => {
+  const { first } = await interruptedRunFixture();
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_drift_',
+  });
+
+  await assert.rejects(
+    () => resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: null,
+      resume_from_run_id: 'trace_debate_run_001',
+      source_hashes: [hash('drifted-run-evidence-unit')],
+      source_packets: undefined,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+});
+
+test('trace integrity debate runtime resume rejects unknown runs, foreign run ids, and run_id conflicts (S3-α1 D9)', async () => {
+  const { first } = await interruptedRunFixture();
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_reject_',
+  });
+
+  await assert.rejects(
+    () => resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: null,
+      resume_from_run_id: 'trace_debate_run_does_not_exist',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 404
+      && error.errorCode === 'NOT_FOUND',
+  );
+
+  await assert.rejects(
+    () => resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: 'a_different_run_id',
+      resume_from_run_id: 'trace_debate_run_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD',
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+});
+
+test('trace integrity debate runtime resume of a completed run returns the original final idempotently (S3-α1 D9)', async () => {
+  const first = scriptedServiceFixture(successScript);
+  const run = await first.service.runBoundaryDebate(PROJECT_ID, providerRequest());
+  assert.equal(run.status, 'passed');
+
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_idempotent_',
+  });
+  const resumed = await resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: null,
+    resume_from_run_id: 'trace_debate_run_001',
+  });
+
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+  assert.equal(resumed.status, 'passed');
+  assert.equal(
+    resumed.final_runtime_artifact?.runtime_artifact_id,
+    run.final_runtime_artifact?.runtime_artifact_id,
+  );
+  assert.equal(
+    resumed.final_admission_record?.admission_record_id,
+    run.final_admission_record?.admission_record_id,
+  );
+  assert.equal(resumed.runtime_artifacts.length, 5);
+});
+
+// ---------------------------------------------------------------------------
+// T-124 S3 F1: resume hardening (run-ownership, model-option, version pinning,
+// fail-closed chain)
+// ---------------------------------------------------------------------------
+
+type StoredRuntimeArtifactMap = Map<string, {
+  artifact_scope: string;
+  prompt_template_version_id: string;
+  prior_role_artifact_hashes: string[];
+  artifact_payload_ref: { ref_id: string };
+}>;
+
+function storedRuntimeArtifacts(repository: InMemoryPaperImplementationRuntimeRepository): StoredRuntimeArtifactMap {
+  return (repository as unknown as { runtimeArtifacts: StoredRuntimeArtifactMap }).runtimeArtifacts;
+}
+
+function rewriteStoredPromptVersion(
+  repository: InMemoryPaperImplementationRuntimeRepository,
+  runId: string,
+  version: string,
+): void {
+  let rewritten = 0;
+  for (const artifact of storedRuntimeArtifacts(repository).values()) {
+    if (artifact.artifact_payload_ref.ref_id.startsWith(`${runId}.`)) {
+      artifact.prompt_template_version_id = version;
+      rewritten += 1;
+    }
+  }
+  assert.ok(rewritten > 0, 'expected at least one stored artifact to rewrite');
+}
+
+function corruptFinalChain(repository: InMemoryPaperImplementationRuntimeRepository, runId: string): void {
+  const final = [...storedRuntimeArtifacts(repository).values()].find(
+    (artifact) => artifact.artifact_scope === 'final' && artifact.artifact_payload_ref.ref_id === `${runId}.final`,
+  );
+  assert.ok(final, 'expected a stored final artifact for the run');
+  final.prior_role_artifact_hashes = [...final.prior_role_artifact_hashes, 'bogus-unresolvable-role-hash'];
+}
+
+function resumeIssueCodes(error: unknown): string[] {
+  if (error instanceof AppError && error.details && Array.isArray(error.details.resume_issue_codes)) {
+    return error.details.resume_issue_codes as string[];
+  }
+  return [];
+}
+
+test('trace integrity debate runtime resume does not absorb a sibling run whose id extends this run id (S3 F1-1)', async () => {
+  const { first, run } = await interruptedRunFixture();
+  const parentPrefixIds = run.runtime_artifacts.slice(0, 2).map((artifact) => artifact.runtime_artifact_id);
+
+  // A sibling run whose id starts with `${parent}.` (run_id dots are legal) is
+  // completed on the SAME repository. A bare prefix match would let the parent
+  // absorb the sibling's same-role artifacts; the dotless-suffix ownership rule
+  // keeps the two runs separate.
+  const siblingFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'sibling_',
+  });
+  const sibling = await siblingFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'trace_debate_run_001.retry',
+    resume_from_run_id: null,
+  });
+  assert.equal(sibling.status, 'passed');
+
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_sibling_',
+  });
+  const resumed = await resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: null,
+    resume_from_run_id: 'trace_debate_run_001',
+  });
+
+  assert.equal(resumed.status, 'passed');
+  // Only the parent's two remaining roles run — the sibling is never pulled in.
+  assert.deepEqual(resumeFixture.orchestrator.calls.map((call) => call.node_id), [
+    'trace_integrity_review.support_mapper_reconcile',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  assert.deepEqual(
+    resumed.runtime_artifacts.slice(0, 2).map((artifact) => artifact.runtime_artifact_id),
+    parentPrefixIds,
+  );
+});
+
+test('trace integrity debate runtime resume inherits the recorded model option when omitted (S3 F1-2)', async () => {
+  const { first } = await interruptedRunFixture();
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_inherit_',
+  });
+  const resumed = await resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: null,
+    resume_from_run_id: 'trace_debate_run_001',
+    model_option_id: null,
+  });
+
+  assert.equal(resumed.status, 'passed');
+  const recordedOption = `${PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID}.openai-balanced`;
+  // Newly executed roles inherit the recorded run's option rather than drifting to null.
+  const optionsSeen = resumeFixture.orchestrator.calls.map(
+    (call) => (call as unknown as { model_option_id?: string | null }).model_option_id,
+  );
+  assert.deepEqual(optionsSeen, [recordedOption, recordedOption]);
+});
+
+test('trace integrity debate runtime resume rejects an explicit model option that drifts from the recorded run (S3 F1-2)', async () => {
+  const { first } = await interruptedRunFixture();
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_optdrift_',
+  });
+
+  await assert.rejects(
+    () => resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: null,
+      resume_from_run_id: 'trace_debate_run_001',
+      model_option_id: `${PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID}.openai-fast`,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && resumeIssueCodes(error).includes('RESUME_MODEL_OPTION_DRIFT'),
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+});
+
+test('trace integrity debate runtime resume of a run completed under an earlier prompt version replays idempotently (S3 F1-3)', async () => {
+  const first = scriptedServiceFixture(successScript);
+  const run = await first.service.runBoundaryDebate(PROJECT_ID, providerRequest());
+  assert.equal(run.status, 'passed');
+
+  // Simulate a run recorded under an earlier prompt template version: the
+  // idempotent replay path must not pin to the current constant, only require the
+  // reused chain to share the final's (older) prompt identity.
+  rewriteStoredPromptVersion(first.repository, 'trace_debate_run_001', 'v0-legacy');
+
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_v0_',
+  });
+  const resumed = await resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: null,
+    resume_from_run_id: 'trace_debate_run_001',
+  });
+
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+  assert.equal(resumed.status, 'passed');
+  assert.equal(
+    resumed.final_runtime_artifact?.runtime_artifact_id,
+    run.final_runtime_artifact?.runtime_artifact_id,
+  );
+});
+
+test('trace integrity debate runtime resume of a partial prefix under an earlier prompt version is rejected on continue (S3 F1-3)', async () => {
+  const { first } = await interruptedRunFixture();
+  // The continue-execution path still pins prompt identity to the current constant,
+  // so a v1-prefix + v2-suffix mixed chain is rejected before any provider call.
+  rewriteStoredPromptVersion(first.repository, 'trace_debate_run_001', 'v0-legacy');
+
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_v0prefix_',
+  });
+  await assert.rejects(
+    () => resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: null,
+      resume_from_run_id: 'trace_debate_run_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && resumeIssueCodes(error).includes('RESUME_PROMPT_IDENTITY_DRIFT'),
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+});
+
+test('trace integrity debate runtime resume of a completed run whose final chain no longer resolves fails closed (S3 F1-4)', async () => {
+  const first = scriptedServiceFixture(successScript);
+  const run = await first.service.runBoundaryDebate(PROJECT_ID, providerRequest());
+  assert.equal(run.status, 'passed');
+  corruptFinalChain(first.repository, 'trace_debate_run_001');
+
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'resume_broken_',
+  });
+  await assert.rejects(
+    () => resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: null,
+      resume_from_run_id: 'trace_debate_run_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && resumeIssueCodes(error).includes('RESUME_FINAL_CHAIN_BROKEN'),
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
 });

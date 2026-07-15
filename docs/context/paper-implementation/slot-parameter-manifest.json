@@ -1749,7 +1749,7 @@
       "materialization_class": "proposal_only",
       "prompt_template": {
         "prompt_template_id": "paper-implementation-motive-evolution-decision-support",
-        "prompt_template_version": "v1"
+        "prompt_template_version": "v2"
       },
       "context_policy": {
         "context_policy_profile_id": "paper-implementation.motive-evolution.context-policy.v1",
@@ -2615,7 +2615,7 @@
       "materialization_class": "proposal_only",
       "prompt_template": {
         "prompt_template_id": "paper-implementation-trace-integrity-boundary-debate",
-        "prompt_template_version": "v1"
+        "prompt_template_version": "v2"
       },
       "context_policy": {
         "context_policy_profile_id": "paper-implementation.trace-integrity.context-policy.v1",

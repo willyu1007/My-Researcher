@@ -47,7 +47,8 @@ type Outcome =
   | 'passed_skeptic'
   | 'schema_failed'
   | 'incomplete_architecture'
-  | 'incomplete_skeptic';
+  | 'incomplete_skeptic'
+  | 'echo_mismatch_architecture';
 
 class StubRoutePlanningAgentOrchestrator {
   readonly calls: Array<{
@@ -78,6 +79,11 @@ class StubRoutePlanningAgentOrchestrator {
     if (outcome === 'schema_failed') {
       return failedInvocationResult(input.node_id, input.execution_mode);
     }
+    if (outcome === 'echo_mismatch_architecture') {
+      return invocationResult(routeArchitectureRoleOutput({
+        role_slot_id: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID,
+      }) as T, input.node_id, input.execution_mode);
+    }
     if (outcome === 'incomplete_architecture') {
       return invocationResult(routeArchitectureRoleOutput({
         route_candidate_proposals: [routeCandidateProposal('single_candidate', false)],
@@ -85,13 +91,41 @@ class StubRoutePlanningAgentOrchestrator {
     }
     if (outcome === 'incomplete_skeptic') {
       return invocationResult(routeSkepticRoleOutput({
+        ...this.requestEchoes(input.messages),
         checked_dimensions: ['compute_budget'],
       }) as T, input.node_id, input.execution_mode);
     }
     if (outcome === 'passed_skeptic') {
-      return invocationResult(routeSkepticRoleOutput() as T, input.node_id, input.execution_mode);
+      return invocationResult(
+        routeSkepticRoleOutput(this.requestEchoes(input.messages)) as T,
+        input.node_id,
+        input.execution_mode,
+      );
     }
     return invocationResult(routeArchitectureRoleOutput() as T, input.node_id, input.execution_mode);
+  }
+
+  /**
+   * S3-α4: a well-behaved skeptic echoes the request-injected admitted upstream
+   * values — mirror that by parsing them out of the user message the slot built.
+   */
+  private requestEchoes(
+    messages: Array<{ role: 'system' | 'user'; content: string }>,
+  ): Partial<PaperImplementationRoutePlanningRoleOutput> {
+    const userMessage = messages.find((message) => message.role === 'user');
+    if (!userMessage) {
+      return {};
+    }
+    const parsed = JSON.parse(userMessage.content) as {
+      admitted_route_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+      admitted_route_proposal_artifact_hash?: string | null;
+      reviewed_candidate_keys?: string[];
+    };
+    return {
+      reviewed_route_proposal_ref: parsed.admitted_route_proposal_artifact_ref ?? null,
+      reviewed_route_proposal_hash: parsed.admitted_route_proposal_artifact_hash ?? null,
+      reviewed_candidate_keys: parsed.reviewed_candidate_keys ?? [],
+    };
   }
 }
 
@@ -899,4 +933,68 @@ test('route skeptic runtime omits the repair-suggestions warning when blocked fi
     false,
   );
   assert.equal(result.final_admission_record?.admission_status, 'admitted');
+});
+
+// ---------------------------------------------------------------------------
+// T-124 S3-α4: role_slot_id echo mismatch is a retryable technical failure
+// (single-source S2-C constant), and the skeptic reconciles present-but-drifted
+// upstream echoes against the request-injected admitted values.
+// ---------------------------------------------------------------------------
+
+test('route planning runtime retries a wrong role_slot_id echo once and lands failed_runtime without HTTP error (S3-α4)', async () => {
+  const { service, orchestrator } = serviceFixture(['echo_mismatch_architecture', 'echo_mismatch_architecture']);
+  const result = await service.runRouteArchitecture(PROJECT_ID, {
+    ...providerRequest('architecture'),
+    run_id: 'route_architecture_echo_mismatch_run_001',
+  });
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  const roleArtifact = result.runtime_artifacts[0]!;
+  assert.equal(roleArtifact.runtime_status, 'failed_runtime');
+  assert.equal(roleArtifact.runtime_failure_code, 'RUNTIME_ROLE_SLOT_ECHO_MISMATCH');
+  assert.equal(roleArtifact.retry_attempt_index, 1);
+  assert.equal(roleArtifact.warning_codes.includes('RUNTIME_TECHNICAL_RETRY_EXHAUSTED'), true);
+  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+  assert.equal(result.final_runtime_artifact, null);
+});
+
+test('route skeptic runtime fails a present-but-drifted route proposal echo as retryable semantic failure (S3-α4)', async () => {
+  const { service, seedLineage, orchestrator } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    // Present-but-drifted echo: the fixture reviews a DIFFERENT proposal than
+    // the request-injected admitted one.
+    reviewed_route_proposal_ref: ref('route_architecture_runtime_artifact', 'some_other_route_final_999'),
+    reviewed_route_proposal_hash: hash('some-other-route-final'),
+    reviewed_candidate_keys: ['exploratory_route_candidate'],
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_drifted_proposal_echo_run_001'),
+  );
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 1);
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'ROUTE_SKEPTIC_ROUTE_PROPOSAL_MISMATCH');
+  assert.equal(result.final_runtime_artifact, null);
+});
+
+test('route skeptic runtime fails a drifted reviewed_candidate_keys echo as retryable semantic failure (S3-α4)', async () => {
+  const { service, seedLineage, orchestrator } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+    reviewed_candidate_keys: ['a_candidate_key_never_injected'],
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_drifted_candidate_keys_run_001'),
+  );
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 1);
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'ROUTE_SKEPTIC_CANDIDATE_KEY_MISMATCH');
+  assert.equal(result.final_runtime_artifact, null);
 });

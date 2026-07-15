@@ -10,7 +10,9 @@ import {
   type PaperImplementationMotiveEvolutionDecisionOption,
   type PaperImplementationMotiveEvolutionDesignedOption,
   type PaperImplementationMotiveEvolutionOptionDesignerRoleOutput,
+  type PaperImplementationMotiveEvolutionOptionDesignerRoleWireOutput,
   type PaperImplementationMotiveEvolutionRiskChallengerRoleOutput,
+  type PaperImplementationMotiveEvolutionRiskChallengerRoleWireOutput,
   type PaperImplementationMotiveEvolutionRoleSlotId,
   type RunPaperImplementationMotiveEvolutionRuntimeRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
@@ -42,6 +44,10 @@ const OPTION_SET_HASH = hash('motive-evolution-option-set-001');
 
 type Outcome =
   | 'passed'
+  | 'wire_options'
+  | 'wire_duplicate_option_key'
+  | 'wire_proto_option_key'
+  | 'wire_proto_duplicate'
   | 'no_evolution_needed'
   | 'blocked'
   | 'schema_failed'
@@ -107,6 +113,34 @@ class StubMotiveEvolutionAgentOrchestrator {
   }
 
   private designerOutputForOutcome(outcome: Outcome): PaperImplementationMotiveEvolutionOptionDesignerRoleOutput {
+    if (outcome === 'wire_options') {
+      return wireDesignerRoleOutput() as unknown as PaperImplementationMotiveEvolutionOptionDesignerRoleOutput;
+    }
+    if (outcome === 'wire_duplicate_option_key') {
+      const wire = wireDesignerRoleOutput();
+      wire.designed_option_entries = [
+        ...wire.designed_option_entries,
+        ...wire.designed_option_entries,
+      ];
+      return wire as unknown as PaperImplementationMotiveEvolutionOptionDesignerRoleOutput;
+    }
+    if (outcome === 'wire_proto_option_key') {
+      // F3-1: an option_key that collides with an Object.prototype member must
+      // canonicalize into the by-key map as a normal own property.
+      return wireDesignerRoleOutput({
+        designed_options: designedOptionsByKey('__proto__'),
+      }) as unknown as PaperImplementationMotiveEvolutionOptionDesignerRoleOutput;
+    }
+    if (outcome === 'wire_proto_duplicate') {
+      // F3-1: two '__proto__' entries must still be caught by the own-property
+      // dedup (a plain-object map would silently drop the collision).
+      const wire = wireDesignerRoleOutput({ designed_options: designedOptionsByKey('__proto__') });
+      wire.designed_option_entries = [
+        ...wire.designed_option_entries,
+        ...wire.designed_option_entries,
+      ];
+      return wire as unknown as PaperImplementationMotiveEvolutionOptionDesignerRoleOutput;
+    }
     if (outcome === 'no_evolution_needed') {
       return designerRoleOutput({
         support_result_status: 'no_evolution_needed',
@@ -151,6 +185,15 @@ class StubMotiveEvolutionAgentOrchestrator {
     outcome: Outcome,
     prior: PriorRoleMaterial,
   ): PaperImplementationMotiveEvolutionRiskChallengerRoleOutput {
+    if (outcome === 'wire_options' || outcome === 'wire_duplicate_option_key') {
+      return wireChallengerRoleOutput(prior) as unknown as PaperImplementationMotiveEvolutionRiskChallengerRoleOutput;
+    }
+    if (outcome === 'wire_proto_option_key' || outcome === 'wire_proto_duplicate') {
+      return wireChallengerRoleOutput(prior, {
+        challenged_option_keys: ['__proto__'],
+        decision_options: decisionOptionsByKey('__proto__'),
+      }) as unknown as PaperImplementationMotiveEvolutionRiskChallengerRoleOutput;
+    }
     if (outcome === 'no_evolution_needed') {
       return challengerRoleOutput(prior, {
         support_result_status: 'no_evolution_needed',
@@ -536,14 +579,16 @@ test('motive evolution runtime role schema names stay within the OpenAI structur
   // `..._role_output` schema names exceeded the OpenAI `text.format.name`
   // 64-character limit, so every provider_llm call of this slot failed with
   // InvalidRequestError. Pin both the exact names and the provider constraint.
+  // S3-β1: provider_llm rounds now carry the wire schema names (option entry
+  // arrays); the canonical `..._output` names stay on mocked/codex rounds.
   const { service, orchestrator } = serviceFixture();
   const result = await service.runEvolutionDecisionSupport(PROJECT_ID, providerRequest());
 
   assert.equal(result.status, 'passed');
   assert.equal(orchestrator.calls.length, 2);
   assert.deepEqual(orchestrator.calls.map((call) => call.schema_name), [
-    'paper_implementation_motive_evolution_option_designer_output',
-    'paper_implementation_motive_evolution_risk_challenger_output',
+    'paper_implementation_motive_evolution_option_designer_wire',
+    'paper_implementation_motive_evolution_risk_challenger_wire',
   ]);
   for (const call of orchestrator.calls) {
     assert.ok(call.schema_name, 'schema_name must be present on every role invocation');
@@ -553,6 +598,108 @@ test('motive evolution runtime role schema names stay within the OpenAI structur
       `schema_name ${call.schema_name} must satisfy the OpenAI text.format.name constraint (max 64 chars)`,
     );
   }
+});
+
+test('motive evolution provider wire entry outputs canonicalize into by-key option maps (S3-β1)', async () => {
+  // gs001-lora-live-004 root cause: the canonical by-key option maps are
+  // unrepresentable in OpenAI strict structured output, so provider rounds now
+  // transport designed/decision options as entry arrays. The service must
+  // canonicalize them back before recording — persisted artifacts and the
+  // final payload keep the canonical map shape with no wire residue.
+  const { service, orchestrator } = serviceFixture({
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: ['wire_options'],
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID]: ['wire_options'],
+  });
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_wire_roundtrip_run_001',
+  });
+
+  assert.equal(result.status, 'passed');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.deepEqual(orchestrator.calls.map((call) => call.schema_name), [
+    'paper_implementation_motive_evolution_option_designer_wire',
+    'paper_implementation_motive_evolution_risk_challenger_wire',
+  ]);
+  const designerArtifact = result.runtime_artifacts[0];
+  const designerOutput = (designerArtifact?.artifact_payload as { role_output?: Record<string, unknown> }).role_output;
+  assert.deepEqual(Object.keys((designerOutput?.designed_options ?? {}) as Record<string, unknown>), ['evolution_option_001']);
+  assert.equal('designed_option_entries' in (designerOutput ?? {}), false);
+  const designerOption = (designerOutput?.designed_options as Record<string, Record<string, unknown>>).evolution_option_001;
+  assert.equal('option_key' in designerOption, false);
+  const finalPayload = result.final_runtime_artifact?.artifact_payload as { decision_options?: Record<string, Record<string, unknown>> };
+  assert.deepEqual(Object.keys(finalPayload.decision_options ?? {}), ['evolution_option_001']);
+  assert.equal('option_key' in (finalPayload.decision_options?.evolution_option_001 ?? {}), false);
+  assert.equal(JSON.stringify(result.runtime_artifacts.map((artifact) => artifact.artifact_payload)).includes('option_entries'), false);
+});
+
+test('motive evolution wire duplicate option_key retries once and fails closed (S3-β1)', async () => {
+  const { service, orchestrator } = serviceFixture({
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: [
+      'wire_duplicate_option_key',
+      'wire_duplicate_option_key',
+    ],
+  });
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_wire_duplicate_option_key_run_001',
+  });
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.equal(result.runtime_artifacts.length, 1);
+  assert.equal(result.final_runtime_artifact, null);
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE');
+  assert.equal(result.runtime_artifacts[0]?.retry_attempt_index, 1);
+  assert.equal(result.runtime_artifacts[0]?.warning_codes.includes('RUNTIME_TECHNICAL_RETRY_EXHAUSTED'), true);
+  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+});
+
+test('motive evolution wire prototype-polluting option_key canonicalizes as a plain own key (S3 复审 F3-1)', async () => {
+  // F3-1: an option_key of '__proto__' (or any Object.prototype member) used to
+  // land as a [[Prototype]] mutation of a plain-object map — the option silently
+  // vanished from designed_options and the canonical map carried prototype
+  // pollution. A null-prototype map keeps it as a normal own property.
+  const { service, orchestrator } = serviceFixture({
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: ['wire_proto_option_key'],
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID]: ['wire_proto_option_key'],
+  });
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_wire_proto_key_run_001',
+  });
+
+  assert.equal(result.status, 'passed');
+  assert.equal(orchestrator.calls.length, 2);
+  const designerOutput = (result.runtime_artifacts[0]?.artifact_payload as {
+    role_output?: { designed_options?: Record<string, unknown> };
+  }).role_output;
+  const designedOptions = designerOutput?.designed_options ?? {};
+  // The '__proto__' option entered the canonical map as an own key (would be [] on a plain-object map).
+  assert.deepEqual(Object.keys(designedOptions), ['__proto__']);
+  // No global prototype pollution, and normal JSON serialization round-trips the key as an own property.
+  assert.equal(({} as Record<string, unknown>).option_kind, undefined);
+  assert.equal(Object.hasOwn(JSON.parse(JSON.stringify(designedOptions)) as object, '__proto__'), true);
+});
+
+test('motive evolution wire duplicate prototype-polluting option_key fails closed (S3 复审 F3-1)', async () => {
+  // F3-1: the own-property dedup must catch two '__proto__' entries; on a
+  // plain-object map Object.hasOwn never sees the collision and it escapes.
+  const { service, orchestrator } = serviceFixture({
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: [
+      'wire_proto_duplicate',
+      'wire_proto_duplicate',
+    ],
+  });
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_wire_proto_duplicate_run_001',
+  });
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE');
+  assert.equal(result.final_runtime_artifact, null);
 });
 
 test('motive evolution runtime maps run_mode identically to sibling slot services (S2-B B2)', async () => {
@@ -1013,6 +1160,35 @@ function challengerRoleOutput(
     challenged_option_keys: ['evolution_option_001'],
     decision_options: decisionOptionsByKey('evolution_option_001'),
     ...overrides,
+  };
+}
+
+/** S3-β1: provider wire encoding of the canonical designer output. */
+function wireDesignerRoleOutput(
+  overrides: Partial<PaperImplementationMotiveEvolutionOptionDesignerRoleOutput> = {},
+): PaperImplementationMotiveEvolutionOptionDesignerRoleWireOutput {
+  const { designed_options: designedOptions, ...rest } = designerRoleOutput(overrides);
+  return {
+    ...rest,
+    designed_option_entries: Object.entries(designedOptions).map(([optionKey, option]) => ({
+      option_key: optionKey,
+      ...option,
+    })),
+  };
+}
+
+/** S3-β1: provider wire encoding of the canonical challenger output. */
+function wireChallengerRoleOutput(
+  prior: PriorRoleMaterial,
+  overrides: Partial<PaperImplementationMotiveEvolutionRiskChallengerRoleOutput> = {},
+): PaperImplementationMotiveEvolutionRiskChallengerRoleWireOutput {
+  const { decision_options: decisionOptions, ...rest } = challengerRoleOutput(prior, overrides);
+  return {
+    ...rest,
+    decision_option_entries: Object.entries(decisionOptions).map(([optionKey, option]) => ({
+      option_key: optionKey,
+      ...option,
+    })),
   };
 }
 

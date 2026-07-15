@@ -49,6 +49,7 @@ import {
   admitPaperImplementationRuntimeArtifactRequestSchema,
   paperImplementationP1RuntimeReviewArtifactSchema,
   paperImplementationP1RuntimeReviewRoleOutputSchema,
+  paperImplementationP1RuntimeReviewRoleWireOutputSchema,
   paperImplementationExperimentPlanningArtifactSchema,
   paperImplementationExperimentPlanningRoleOutputSchema,
   paperImplementationCrossBoardSynthesisArtifactSchema,
@@ -61,7 +62,9 @@ import {
   paperImplementationMotiveDecompositionRoleOutputSchema,
   paperImplementationMotiveEvolutionArtifactSchema,
   paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema,
+  paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema,
   paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema,
+  paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema,
   paperImplementationMotiveEvolutionRoleOutputSchema,
   paperImplementationRoutePlanningArtifactSchema,
   paperImplementationRoutePlanningRoleOutputSchema,
@@ -69,6 +72,7 @@ import {
   paperImplementationValidationCyclePlanningRoleOutputSchema,
   paperImplementationResultAnalysisArtifactSchema,
   paperImplementationResultAnalysisRoleOutputSchema,
+  paperImplementationResultAnalysisRoleWireOutputSchema,
   paperImplementationRuntimeAdmissionRecordSchema,
   paperImplementationRuntimeArtifactEnvelopeSchema,
   paperImplementationTraceIntegrityDebateArtifactSchema,
@@ -3356,6 +3360,270 @@ test('motive evolution role outputs enforce controlled designer and challenger s
     false,
   );
 });
+
+test('motive evolution wire schemas reproduce the gs001-lora-live-004 mismatch and stay strict-representable (S3-β1)', async () => {
+  // --- Reproduction pin (run gs001-lora-live-004, step motive_evolution,
+  // blockers=[SCHEMA_VALIDATION_FAILED], 3 provider calls) ---
+  // OpenAI strict structured output cannot represent the canonical by-key
+  // option maps: the gateway normalizer forces `additionalProperties: false`
+  // + `properties: {}` on them, so the strict decoder only ever emits `{}`.
+  // The best options-proposing output a provider could physically produce is
+  // therefore options_proposed with empty maps/keys — which the canonical
+  // schema must (and does) reject. This is the deterministic mismatch that
+  // exhausted the retries in the live run.
+  const strictModeForcedChallengerOutput = {
+    ...motiveEvolutionChallengerRoleOutput(),
+    support_result_status: 'options_proposed',
+    challenged_option_keys: [],
+    decision_options: {},
+  };
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema, strictModeForcedChallengerOutput),
+    false,
+  );
+  const strictModeForcedDesignerOutput = {
+    ...motiveEvolutionDesignerRoleOutput(),
+    support_result_status: 'options_proposed',
+    designed_options: {},
+  };
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema, strictModeForcedDesignerOutput),
+    false,
+  );
+
+  // --- Wire replay: the same semantic content encoded as option entry
+  // arrays validates against the provider wire schemas. ---
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema, motiveEvolutionWireDesignerRoleOutput()),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema, motiveEvolutionWireChallengerRoleOutput()),
+    true,
+  );
+
+  // Wire schemas keep the fail-closed invariants: options_proposed still
+  // requires a non-empty entry array (and non-empty challenged keys)...
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema, {
+      ...motiveEvolutionWireDesignerRoleOutput(),
+      designed_option_entries: [],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema, {
+      ...motiveEvolutionWireChallengerRoleOutput(),
+      challenged_option_keys: [],
+      decision_option_entries: [],
+    }),
+    false,
+  );
+  // ...the human-confirmation gate guardrail survives per entry...
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema, {
+      ...motiveEvolutionWireDesignerRoleOutput(),
+      designed_option_entries: [{
+        option_key: 'evolution_option_001',
+        ...motiveEvolutionDesignedOption('evolution_option_001', { human_confirmation_required: false }),
+      }],
+    }),
+    false,
+  );
+  // ...and the canonical map fields are forbidden on the wire (no dual-shape
+  // ambiguity for real provider outputs).
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema, motiveEvolutionDesignerRoleOutput()),
+    false,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema, motiveEvolutionChallengerRoleOutput()),
+    false,
+  );
+  // no_evolution_needed keeps its empty-entry form on the wire.
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema, {
+      ...motiveEvolutionWireChallengerRoleOutput(),
+      support_result_status: 'no_evolution_needed',
+      challenged_option_keys: [],
+      decision_option_entries: [],
+      blocker_codes: [],
+    }),
+    true,
+  );
+
+  // --- Strict-representability pin: the wire schemas must never contain the
+  // two constructs the OpenAI normalizer degrades (dynamic-key maps): a
+  // `propertyNames` keyword or a schema-valued `additionalProperties`. The
+  // canonical schemas do contain them — that asymmetry is the reason the wire
+  // encoding exists. ---
+  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema), false);
+  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema), false);
+  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema), true);
+  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema), true);
+});
+
+function p1WireRoleOutput(roleSlotId: string): Record<string, unknown> {
+  const { domain_gate_request: domainGate, scenario_outputs: scenarios, ...rest } = p1ReviewRoleOutput(roleSlotId);
+  return {
+    ...rest,
+    domain_gate_request_json: domainGate === null ? null : JSON.stringify(domainGate),
+    scenario_output_jsons: (scenarios as Record<string, unknown>[]).map((scenario) => JSON.stringify(scenario)),
+  };
+}
+
+function resultAnalysisWireRoleOutput(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  const { domain_gate_request: domainGate, ...rest } = resultAnalysisRoleOutput();
+  return {
+    ...rest,
+    domain_gate_request_json: domainGate === null ? null : JSON.stringify(domainGate),
+    ...overrides,
+  };
+}
+
+test('T-124 S3 F5-1: P1 and result-analysis provider wire schemas carry JSON strings and drop the degenerate map nodes', async () => {
+  // --- P1 wire: accepts the JSON-string carriers, rejects the canonical map fields. ---
+  assert.equal(await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, p1WireRoleOutput('claim_boundary_review.adjudicator_final')), true);
+  assert.equal(await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, p1WireRoleOutput('claim_boundary_review.boundary_critic')), true);
+  // The canonical object shape must NOT validate against the wire schema (no dual shape).
+  assert.equal(await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, p1ReviewRoleOutput('claim_boundary_review.adjudicator_final')), false);
+  // domain_gate_request_json must be a string, never an object.
+  assert.equal(
+    await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, {
+      ...p1WireRoleOutput('claim_boundary_review.adjudicator_final'),
+      domain_gate_request_json: { claim_candidate_id: 'claim_candidate_001' },
+    }),
+    false,
+  );
+  // scenario_output_jsons must be an array of strings.
+  assert.equal(
+    await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, {
+      ...p1WireRoleOutput('claim_boundary_review.adjudicator_final'),
+      scenario_output_jsons: [{ scenario_id: 'x' }],
+    }),
+    false,
+  );
+
+  // --- result-analysis wire: domain_gate_request becomes a JSON string; scenario_outputs stays typed. ---
+  assert.equal(await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, resultAnalysisWireRoleOutput()), true);
+  // passed requires a non-null domain_gate_request_json string.
+  assert.equal(
+    await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, resultAnalysisWireRoleOutput({
+      domain_gate_request_json: null,
+    })),
+    false,
+  );
+  // passed still requires a non-empty typed scenario_outputs set.
+  assert.equal(
+    await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, resultAnalysisWireRoleOutput({
+      scenario_outputs: [],
+    })),
+    false,
+  );
+  // blocked may omit the wire carrier.
+  assert.equal(
+    await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, {
+      ...resultAnalysisWireRoleOutput(),
+      role_status: 'blocked',
+      blocker_codes: ['RESULT_ANALYSIS_INSUFFICIENT_EVIDENCE'],
+      domain_gate_request_json: undefined,
+    }),
+    true,
+  );
+  // The canonical object shape must NOT validate against the wire schema.
+  assert.equal(await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, resultAnalysisRoleOutput()), false);
+
+  // --- Strict-representability asymmetry pin (mirrors the gateway guardrail). ---
+  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationP1RuntimeReviewRoleWireOutputSchema), false);
+  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationP1RuntimeReviewRoleOutputSchema), true);
+  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationResultAnalysisRoleWireOutputSchema), false);
+  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationResultAnalysisRoleOutputSchema), true);
+});
+
+test('T-124 S3 F5-2: every provider-sent role output schema is free of strict-mode-degenerate map nodes', () => {
+  // The exact schema constants the runtime services hand to the LLM gateway as
+  // the OpenAI strict `json_schema` (wire variant wherever one exists). After
+  // F5-1 the gateway guardrail must fire ZERO times on any of them.
+  const providerSentSchemas: Array<[string, Record<string, unknown>]> = [
+    ['p1_wire', paperImplementationP1RuntimeReviewRoleWireOutputSchema as unknown as Record<string, unknown>],
+    ['result_analysis_wire', paperImplementationResultAnalysisRoleWireOutputSchema as unknown as Record<string, unknown>],
+    ['motive_evolution_option_designer_wire', paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema as unknown as Record<string, unknown>],
+    ['motive_evolution_risk_challenger_wire', paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema as unknown as Record<string, unknown>],
+    ['trace_integrity', paperImplementationTraceIntegrityRoleOutputSchema as unknown as Record<string, unknown>],
+    ['experiment_planning', paperImplementationExperimentPlanningRoleOutputSchema as unknown as Record<string, unknown>],
+    ['route_planning', paperImplementationRoutePlanningRoleOutputSchema as unknown as Record<string, unknown>],
+    ['validation_cycle_planning', paperImplementationValidationCyclePlanningRoleOutputSchema as unknown as Record<string, unknown>],
+    ['feasibility_planning', paperImplementationFeasibilityPlanningRoleOutputSchema as unknown as Record<string, unknown>],
+    ['cross_board_synthesis', paperImplementationCrossBoardSynthesisRoleOutputSchema as unknown as Record<string, unknown>],
+    ['evidence_board_curation', paperImplementationEvidenceBoardCurationRoleOutputSchema as unknown as Record<string, unknown>],
+    ['motive_decomposition', paperImplementationMotiveDecompositionRoleOutputSchema as unknown as Record<string, unknown>],
+  ];
+  for (const [name, schema] of providerSentSchemas) {
+    assert.equal(hasStrictModeDegenerateMapSchema(schema), false, `${name} provider-sent schema must be strict-representable`);
+  }
+});
+
+function motiveEvolutionWireDesignerRoleOutput(): Record<string, unknown> {
+  const { designed_options: designedOptions, ...rest } = motiveEvolutionDesignerRoleOutput();
+  return {
+    ...rest,
+    designed_option_entries: Object.entries(designedOptions).map(([optionKey, option]) => ({
+      option_key: optionKey,
+      ...option,
+    })),
+  };
+}
+
+function motiveEvolutionWireChallengerRoleOutput(): Record<string, unknown> {
+  const { decision_options: decisionOptions, ...rest } = motiveEvolutionChallengerRoleOutput();
+  return {
+    ...rest,
+    decision_option_entries: Object.entries(decisionOptions).map(([optionKey, option]) => ({
+      option_key: optionKey,
+      ...option,
+    })),
+  };
+}
+
+/**
+ * Detects the JSON-Schema object nodes that OpenAI strict structured output
+ * cannot represent and that the backend gateway normalizer silently degrades to
+ * always-empty objects. This MUST stay in lock-step with the gateway guardrail
+ * `assertOpenAiStructuredOutputSchemaEncodable` (llm-gateway.ts, T-124 S3 复审
+ * F5-2): an object node with no fixed properties that is either a dynamic-key
+ * map (`propertyNames`, or a schema-valued `additionalProperties`) or a
+ * completely bare `{type:'object'}`.
+ *
+ * The legacy open-payload escape hatch `{type:'object', additionalProperties:
+ * true}` (no `propertyNames`, e.g. `legacy_ref`) is intentionally NOT flagged —
+ * it is only narrowed to `{}`, matching the guardrail exemption.
+ */
+function hasStrictModeDegenerateMapSchema(schema: unknown): boolean {
+  if (Array.isArray(schema)) {
+    return schema.some((item) => hasStrictModeDegenerateMapSchema(item));
+  }
+  if (!schema || typeof schema !== 'object') {
+    return false;
+  }
+  const record = schema as Record<string, unknown>;
+  const hasProperties = Boolean(record.properties)
+    && typeof record.properties === 'object'
+    && Object.keys(record.properties as Record<string, unknown>).length > 0;
+  if (!hasProperties) {
+    if ('propertyNames' in record) {
+      return true;
+    }
+    if (typeof record.additionalProperties === 'object' && record.additionalProperties !== null) {
+      return true;
+    }
+    if (record.type === 'object'
+      && !('propertyNames' in record)
+      && !('additionalProperties' in record)) {
+      return true;
+    }
+  }
+  return Object.values(record).some((value) => hasStrictModeDegenerateMapSchema(value));
+}
 
 test('motive evolution final artifact remains support-only', async () => {
   const artifact = {

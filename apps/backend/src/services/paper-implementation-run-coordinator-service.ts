@@ -108,7 +108,7 @@ export const PAPER_IMPLEMENTATION_COORDINATOR_LANE_REGISTRY: Record<
 };
 
 /** Request fields owned by the coordinator; payloads must not carry them. */
-const COORDINATOR_OWNED_REQUEST_FIELDS = ['run_id', 'run_mode', 'execution_mode'] as const;
+const COORDINATOR_OWNED_REQUEST_FIELDS = ['run_id', 'resume_from_run_id', 'run_mode', 'execution_mode'] as const;
 
 /** Chain-consumption fields the coordinator injects per lane-A slot. */
 const COORDINATOR_INJECTED_CHAIN_FIELDS: Record<string, readonly string[]> = {

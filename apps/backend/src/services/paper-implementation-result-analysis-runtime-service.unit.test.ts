@@ -45,7 +45,14 @@ class StubResultAnalysisAgentOrchestrator {
   }> = [];
 
   constructor(
-    private readonly outcomes: Array<'passed' | 'schema_failed' | 'incomplete_scenarios' | 'missing_domain_gate_request'> = ['passed'],
+    private readonly outcomes: Array<
+      'passed'
+      | 'schema_failed'
+      | 'incomplete_scenarios'
+      | 'missing_domain_gate_request'
+      | 'wire_passed'
+      | 'wire_decode_failed'
+    > = ['passed'],
   ) {}
 
   async invokeStructuredOutput<T>(
@@ -73,6 +80,14 @@ class StubResultAnalysisAgentOrchestrator {
       return invocationResult(roleOutput({
         domain_gate_request: undefined,
       }) as T, input.node_id, input.execution_mode);
+    }
+    if (outcome === 'wire_passed') {
+      // T-124 S3 F5-1: a provider wire output carries the domain-gate request as
+      // a JSON string; the service must canonicalize it back into the object.
+      return invocationResult(wireRoleOutput() as T, input.node_id, input.execution_mode);
+    }
+    if (outcome === 'wire_decode_failed') {
+      return invocationResult(wireRoleOutput('{ not valid json') as T, input.node_id, input.execution_mode);
     }
     return invocationResult(roleOutput() as T, input.node_id, input.execution_mode);
   }
@@ -118,6 +133,33 @@ test('result analysis runtime records role and final artifacts with telemetry', 
   assert.equal(storedArtifacts.length, 2);
   assert.equal(stableStringify(result).includes('raw_provider_response'), false);
   assert.equal(stableStringify(result).includes('rendered_prompt_text'), false);
+});
+
+test('T-124 S3 F5-1: result analysis canonicalizes the provider wire domain-gate JSON string into the canonical object', async () => {
+  const { service, orchestrator } = serviceFixture(['wire_passed']);
+  const result = await service.runInterpretationScenarios(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'passed');
+  assert.equal(orchestrator.calls.length, 1);
+  // Provider mode sent the wire schema and instructed the JSON-string carrier.
+  assert.match(orchestrator.calls[0]?.messages[0]?.content ?? '', /domain_gate_request_json/);
+  // The recorded artifact carries the canonical object — no wire residue anywhere.
+  const domainGate = result.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null;
+  assert.equal(domainGate !== null, true);
+  assert.equal(domainGate?.result_interpretation_packet_id, 'result_interpretation_packet_001');
+  const serialized = stableStringify(result);
+  assert.equal(serialized.includes('domain_gate_request_json'), false);
+  assert.equal(serialized.includes('{ not valid json'), false);
+});
+
+test('T-124 S3 F5-1: result analysis fails closed when the provider wire JSON carrier cannot be parsed', async () => {
+  const { service, orchestrator } = serviceFixture(['wire_decode_failed', 'wire_decode_failed']);
+  const result = await service.runInterpretationScenarios(PROJECT_ID, providerRequest());
+
+  // One retryable technical retry, then terminal failed_runtime — never a 400.
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.equal(result.blocker_codes.includes('RUNTIME_WIRE_JSON_DECODE_FAILED'), true);
 });
 
 test('result analysis runtime records preflight blockers without provider calls', async () => {
@@ -340,7 +382,14 @@ function projectRepositoryFixture(
 }
 
 function serviceFixture(
-  outcomes?: Array<'passed' | 'schema_failed' | 'incomplete_scenarios' | 'missing_domain_gate_request'>,
+  outcomes?: Array<
+    'passed'
+    | 'schema_failed'
+    | 'incomplete_scenarios'
+    | 'missing_domain_gate_request'
+    | 'wire_passed'
+    | 'wire_decode_failed'
+  >,
   project: ImplementationProject | null = implementationProjectFixture(),
 ) {
   const repository = new InMemoryPaperImplementationRuntimeRepository();
@@ -455,6 +504,19 @@ function roleOutput(
       created_by: 'system',
     },
     ...overrides,
+  };
+}
+
+/**
+ * T-124 S3 F5-1: the provider wire shape — canonical role output with
+ * `domain_gate_request` replaced by the `domain_gate_request_json` string
+ * carrier. Pass `overrideJson` to inject a malformed carrier.
+ */
+function wireRoleOutput(overrideJson?: string): Record<string, unknown> {
+  const { domain_gate_request: domainGate, ...rest } = roleOutput();
+  return {
+    ...rest,
+    domain_gate_request_json: overrideJson ?? JSON.stringify(domainGate),
   };
 }
 

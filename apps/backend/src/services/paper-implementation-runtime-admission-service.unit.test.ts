@@ -508,3 +508,132 @@ function requireHash(value: string | null): string {
   }
   return value;
 }
+
+// ---------------------------------------------------------------------------
+// T-124 S3-α3 (review N2): admission-layer INDEPENDENT semantic re-check for
+// trace-integrity role artifacts — computed from the self-contained stored
+// payload, not from caller-supplied expected_* copies (which still match here).
+// ---------------------------------------------------------------------------
+
+function traceRolePayload(overrides: {
+  roleSlotId: string;
+  citedSourceRefs?: TopicSelectionFunctionalRef[];
+  findingDispositions?: Array<Record<string, unknown>>;
+  priorRoleOutputs?: Array<Record<string, unknown>>;
+}): Record<string, unknown> {
+  return {
+    artifact_kind: 'trace_integrity_role_artifact_payload',
+    retrieval_packet: {
+      retrieval_packet_id: 'packet-1',
+      reviewed_statements: [{ statement_ref: ref('reviewed_statement', 'statement-1') }],
+      sources: [{ source_ref: ref('run_evidence_unit', 'evidence-1') }],
+    },
+    role_output: {
+      role_slot_id: overrides.roleSlotId,
+      role_status: 'passed',
+      summary: 'trace role output',
+      reviewed_statement_refs: [ref('reviewed_statement', 'statement-1')],
+      cited_source_refs: overrides.citedSourceRefs ?? [ref('run_evidence_unit', 'evidence-1')],
+      blocker_codes: [],
+      warning_codes: [],
+      ...(overrides.findingDispositions ? { finding_dispositions: overrides.findingDispositions } : {}),
+    },
+    prior_role_outputs: overrides.priorRoleOutputs ?? [],
+  };
+}
+
+function adm(
+  artifact: PaperImplementationRuntimeArtifactEnvelope,
+  admissionRecordId?: string,
+): AdmitPaperImplementationRuntimeArtifactRequest {
+  return {
+    ...(admissionRecordId ? { admission_record_id: admissionRecordId } : {}),
+    implementation_project_id: PROJECT_ID,
+    runtime_artifact_id: artifact.runtime_artifact_id,
+    admission_scope: 'role',
+    admission_policy_id: 'runtime-admission-policy',
+    admission_policy_version: 'v1',
+    expected_runtime_identity_hash: artifact.runtime_identity_hash,
+    expected_source_hash_bundle_hash: artifact.source_hash_bundle_hash,
+    expected_retrieval_packet_hash: artifact.retrieval_packet_hash,
+    expected_prompt_packet_hash: artifact.prompt_packet_hash,
+    expected_output_schema_id: artifact.output_schema_id,
+    expected_prior_role_artifact_hashes: artifact.prior_role_artifact_hashes,
+    expected_final_artifact_hash: null,
+  };
+}
+
+test('PaperImplementationRuntimeAdmissionService independently rejects trace role refs outside the payload retrieval packet', async () => {
+  const { service } = serviceFixture();
+  const artifact = await service.recordRuntimeArtifact(runtimeArtifact({
+    runtime_artifact_id: 'runtime-artifact-trace-refs-1',
+    workflow_type: 'trace_integrity_review',
+    slot_id: 'trace_integrity_review.boundary_debate',
+    role_slot_id: 'trace_integrity_review.support_mapper_map',
+    artifact_payload: traceRolePayload({
+      roleSlotId: 'trace_integrity_review.support_mapper_map',
+      citedSourceRefs: [ref('run_evidence_unit', 'evidence-not-in-packet')],
+    }),
+  }));
+
+  // All expected_* copies match — only the independent payload re-check objects.
+  const admission = await service.admitRuntimeArtifact(adm(artifact));
+  assert.equal(admission.admission_status, 'rejected');
+  assert.deepEqual(admission.issue_codes, ['ROLE_CITED_REF_OUTSIDE_RETRIEVAL_PACKET']);
+});
+
+test('PaperImplementationRuntimeAdmissionService independently rejects incomplete reconcile finding dispositions', async () => {
+  const { service } = serviceFixture();
+  const skepticOutput = {
+    role_slot_id: 'trace_integrity_review.skeptic_challenge',
+    role_status: 'blocked',
+    summary: 'one finding',
+    reviewed_statement_refs: [ref('reviewed_statement', 'statement-1')],
+    cited_source_refs: [ref('run_evidence_unit', 'evidence-1')],
+    blocker_codes: ['semantic_support_gap'],
+    warning_codes: [],
+    challenge_findings: [{
+      finding_id: 'finding-1',
+      severity: 'blocker',
+      blocker_code: 'semantic_support_gap',
+      target_statement_ref: ref('reviewed_statement', 'statement-1'),
+      cited_refs: [ref('run_evidence_unit', 'evidence-1')],
+    }],
+  };
+  const artifact = await service.recordRuntimeArtifact(runtimeArtifact({
+    runtime_artifact_id: 'runtime-artifact-trace-dispositions-1',
+    workflow_type: 'trace_integrity_review',
+    slot_id: 'trace_integrity_review.boundary_debate',
+    role_slot_id: 'trace_integrity_review.support_mapper_reconcile',
+    artifact_payload: traceRolePayload({
+      roleSlotId: 'trace_integrity_review.support_mapper_reconcile',
+      findingDispositions: [],
+      priorRoleOutputs: [skepticOutput],
+    }),
+  }));
+
+  const admission = await service.admitRuntimeArtifact(adm(artifact, 'admission-trace-dispositions-1'));
+  assert.equal(admission.admission_status, 'rejected');
+  assert.deepEqual(admission.issue_codes, ['ROLE_FINDING_DISPOSITION_INCOMPLETE']);
+
+  // A complete, ref-backed disposition set admits.
+  const healthy = await service.recordRuntimeArtifact(runtimeArtifact({
+    runtime_artifact_id: 'runtime-artifact-trace-dispositions-2',
+    artifact_identity_hash: hash('role-envelope-2'),
+    runtime_identity_hash: hash('runtime-identity-2'),
+    workflow_type: 'trace_integrity_review',
+    slot_id: 'trace_integrity_review.boundary_debate',
+    role_slot_id: 'trace_integrity_review.support_mapper_reconcile',
+    artifact_payload: traceRolePayload({
+      roleSlotId: 'trace_integrity_review.support_mapper_reconcile',
+      findingDispositions: [{
+        finding_id: 'finding-1',
+        disposition: 'resolved_with_refs',
+        cited_refs: [ref('run_evidence_unit', 'evidence-1')],
+      }],
+      priorRoleOutputs: [skepticOutput],
+    }),
+  }));
+  const healthyAdmission = await service.admitRuntimeArtifact(adm(healthy, 'admission-trace-dispositions-2'));
+  assert.equal(healthyAdmission.admission_status, 'admitted');
+});

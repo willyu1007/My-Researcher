@@ -62,7 +62,11 @@ import { PaperImplementationRuntimeAdmissionService } from './paper-implementati
 import { requireAdmittedPassedFinalArtifact } from './paper-implementation-runtime-artifact-consumption.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  functionalRefEquals,
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  roleSlotEchoMismatchCode,
+  sameStringSet,
 } from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -193,6 +197,9 @@ const PROBE_PLAN_CANDIDATES_PROFILE: SlotProfile = {
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  // T-124 S3-α4: a wrong role_slot_id echo is a retryable technical failure
+  // (S2-C single-source constant), not an HTTP 400.
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   'FEASIBILITY_PLANNING_PRIMARY_INPUT_MISSING',
   'FEASIBILITY_PLANNING_VALIDATION_CYCLE_MISMATCH',
   'FEASIBILITY_PLANNING_ROUTE_PROPOSAL_MISMATCH',
@@ -478,13 +485,9 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
     const runtimeStatus = runtimeFailureCode
       ? 'failed_runtime'
       : output?.role_status === 'blocked' ? 'blocked' : 'passed';
-    if (output && output.role_slot_id !== runtimeBase.profile.roleSlotId) {
-      throw new AppError(
-        400,
-        'INVALID_PAYLOAD',
-        `Feasibility planning role output slot mismatch: expected ${runtimeBase.profile.roleSlotId}.`,
-      );
-    }
+    // T-124 S3-α4: a wrong role_slot_id echo is classified as a retryable
+    // technical failure inside the bounded retry loop (single-source S2-C
+    // constant) — it never surfaces as an HTTP 400 here.
     const artifactOutput = runtimeFailureCode
       ? {
         status: 'failed_runtime',
@@ -1350,6 +1353,12 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
     if (runtimeFailureCode) {
       return runtimeFailureCode;
     }
+    // T-124 S3-α4 (S2-C single-source pattern) + 复审 F3-5: a wrong role_slot_id
+    // echo is a retryable technical failure, not an HTTP 400.
+    const echoCode = roleSlotEchoMismatchCode(result.structured_output, PROBE_PLAN_CANDIDATES_PROFILE.roleSlotId);
+    if (echoCode) {
+      return echoCode;
+    }
     return this.semanticOutputFailureCode(request, result.structured_output);
   }
 
@@ -1357,8 +1366,13 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
     request: RunPaperImplementationFeasibilityPlanningRuntimeRequest,
     output: PaperImplementationFeasibilityPlanningRoleOutput | null,
   ): string | null {
-    if (!output || output.role_status !== 'passed') {
+    if (!output) {
       return null;
+    }
+    if (output.role_status !== 'passed') {
+      // T-124 S3 复审 F3-3: reconcile present-but-drifted upstream echo on blocked
+      // outputs too (absent fields skipped; other blocked semantics unchanged).
+      return this.blockedUpstreamEchoDriftCode(request, output);
     }
     if (
       !output.reviewed_validation_cycle_artifact_ref
@@ -1376,7 +1390,7 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
     }
     if (
       output.reviewed_validation_cycle_artifact_hash !== request.admitted_validation_cycle_artifact_hash
-      || !this.functionalRefEquals(
+      || !functionalRefEquals(
         output.reviewed_validation_cycle_artifact_ref,
         request.admitted_validation_cycle_artifact_ref,
       )
@@ -1385,7 +1399,7 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
     }
     if (
       output.reviewed_route_proposal_hash !== request.admitted_route_proposal_artifact_hash
-      || !this.functionalRefEquals(
+      || !functionalRefEquals(
         output.reviewed_route_proposal_ref,
         request.admitted_route_proposal_artifact_ref,
       )
@@ -1394,7 +1408,7 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
     }
     if (
       output.reviewed_route_skeptic_artifact_hash !== request.admitted_route_skeptic_artifact_hash
-      || !this.functionalRefEquals(
+      || !functionalRefEquals(
         output.reviewed_route_skeptic_artifact_ref,
         request.admitted_route_skeptic_artifact_ref,
       )
@@ -1402,13 +1416,13 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
       return 'FEASIBILITY_PLANNING_ROUTE_SKEPTIC_MISMATCH';
     }
     if (
-      !this.sameStringSet(output.reviewed_cycle_candidate_keys, request.reviewed_cycle_candidate_keys)
+      !sameStringSet(output.reviewed_cycle_candidate_keys, request.reviewed_cycle_candidate_keys)
       || !this.candidateProposalsMatchReviewedCycleKeys(output, request.reviewed_cycle_candidate_keys)
     ) {
       return 'FEASIBILITY_PLANNING_CYCLE_CANDIDATE_KEY_MISMATCH';
     }
     if (
-      !this.sameStringSet(output.reviewed_route_candidate_keys, request.reviewed_route_candidate_keys)
+      !sameStringSet(output.reviewed_route_candidate_keys, request.reviewed_route_candidate_keys)
       || !this.candidateProposalsMatchReviewedRouteKeys(output, request.reviewed_route_candidate_keys)
     ) {
       return 'FEASIBILITY_PLANNING_ROUTE_CANDIDATE_KEY_MISMATCH';
@@ -1431,20 +1445,66 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
     return null;
   }
 
-  private functionalRefEquals(
-    left: TopicSelectionFunctionalRef | null | undefined,
-    right: TopicSelectionFunctionalRef | null | undefined,
-  ): boolean {
-    return Boolean(left && right && stableStringify(left) === stableStringify(right));
-  }
-
-  private sameStringSet(left: string[] | null | undefined, right: string[] | null | undefined): boolean {
-    const leftSet = new Set(left ?? []);
-    const rightSet = new Set(right ?? []);
-    if (leftSet.size !== rightSet.size) {
-      return false;
+  /**
+   * T-124 S3 复审 F3-3: present-but-drifted upstream echo reconciliation shared
+   * by passed and blocked outputs — an absent field on a blocked output is
+   * skipped, a present-but-drifted field fails closed with the matching code.
+   */
+  private blockedUpstreamEchoDriftCode(
+    request: RunPaperImplementationFeasibilityPlanningRuntimeRequest,
+    output: PaperImplementationFeasibilityPlanningRoleOutput,
+  ): string | null {
+    if (
+      output.reviewed_validation_cycle_artifact_ref
+      && output.reviewed_validation_cycle_artifact_hash
+      && (
+        output.reviewed_validation_cycle_artifact_hash !== request.admitted_validation_cycle_artifact_hash
+        || !functionalRefEquals(
+          output.reviewed_validation_cycle_artifact_ref,
+          request.admitted_validation_cycle_artifact_ref,
+        )
+      )
+    ) {
+      return 'FEASIBILITY_PLANNING_VALIDATION_CYCLE_MISMATCH';
     }
-    return [...leftSet].every((item) => rightSet.has(item));
+    if (
+      output.reviewed_route_proposal_ref
+      && output.reviewed_route_proposal_hash
+      && (
+        output.reviewed_route_proposal_hash !== request.admitted_route_proposal_artifact_hash
+        || !functionalRefEquals(output.reviewed_route_proposal_ref, request.admitted_route_proposal_artifact_ref)
+      )
+    ) {
+      return 'FEASIBILITY_PLANNING_ROUTE_PROPOSAL_MISMATCH';
+    }
+    if (
+      output.reviewed_route_skeptic_artifact_ref
+      && output.reviewed_route_skeptic_artifact_hash
+      && (
+        output.reviewed_route_skeptic_artifact_hash !== request.admitted_route_skeptic_artifact_hash
+        || !functionalRefEquals(
+          output.reviewed_route_skeptic_artifact_ref,
+          request.admitted_route_skeptic_artifact_ref,
+        )
+      )
+    ) {
+      return 'FEASIBILITY_PLANNING_ROUTE_SKEPTIC_MISMATCH';
+    }
+    if (
+      output.reviewed_cycle_candidate_keys
+      && output.reviewed_cycle_candidate_keys.length > 0
+      && !sameStringSet(output.reviewed_cycle_candidate_keys, request.reviewed_cycle_candidate_keys)
+    ) {
+      return 'FEASIBILITY_PLANNING_CYCLE_CANDIDATE_KEY_MISMATCH';
+    }
+    if (
+      output.reviewed_route_candidate_keys
+      && output.reviewed_route_candidate_keys.length > 0
+      && !sameStringSet(output.reviewed_route_candidate_keys, request.reviewed_route_candidate_keys)
+    ) {
+      return 'FEASIBILITY_PLANNING_ROUTE_CANDIDATE_KEY_MISMATCH';
+    }
+    return null;
   }
 
   private candidateProposalsMatchReviewedCycleKeys(

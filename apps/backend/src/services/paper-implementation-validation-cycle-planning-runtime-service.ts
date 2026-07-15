@@ -61,7 +61,11 @@ import { PaperImplementationRuntimeAdmissionService } from './paper-implementati
 import { requireAdmittedPassedFinalArtifact } from './paper-implementation-runtime-artifact-consumption.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  functionalRefEquals,
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  roleSlotEchoMismatchCode,
+  sameStringSet,
 } from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -192,6 +196,9 @@ const CYCLE_CANDIDATES_PROFILE: SlotProfile = {
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  // T-124 S3-α4: a wrong role_slot_id echo is a retryable technical failure
+  // (S2-C single-source constant), not an HTTP 400.
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   'VALIDATION_CYCLE_PLANNING_PRIMARY_INPUT_MISSING',
   'VALIDATION_CYCLE_PLANNING_ROUTE_PROPOSAL_MISMATCH',
   'VALIDATION_CYCLE_PLANNING_ROUTE_SKEPTIC_MISMATCH',
@@ -459,13 +466,9 @@ export class PaperImplementationValidationCyclePlanningRuntimeService {
     const runtimeStatus = runtimeFailureCode
       ? 'failed_runtime'
       : output?.role_status === 'blocked' ? 'blocked' : 'passed';
-    if (output && output.role_slot_id !== runtimeBase.profile.roleSlotId) {
-      throw new AppError(
-        400,
-        'INVALID_PAYLOAD',
-        `Validation cycle planning role output slot mismatch: expected ${runtimeBase.profile.roleSlotId}.`,
-      );
-    }
+    // T-124 S3-α4: a wrong role_slot_id echo is classified as a retryable
+    // technical failure inside the bounded retry loop (single-source S2-C
+    // constant) — it never surfaces as an HTTP 400 here.
     const artifactOutput = runtimeFailureCode
       ? {
         status: 'failed_runtime',
@@ -1281,6 +1284,12 @@ export class PaperImplementationValidationCyclePlanningRuntimeService {
     if (runtimeFailureCode) {
       return runtimeFailureCode;
     }
+    // T-124 S3-α4 (S2-C single-source pattern) + 复审 F3-5: a wrong role_slot_id
+    // echo is a retryable technical failure, not an HTTP 400.
+    const echoCode = roleSlotEchoMismatchCode(result.structured_output, CYCLE_CANDIDATES_PROFILE.roleSlotId);
+    if (echoCode) {
+      return echoCode;
+    }
     return this.semanticOutputFailureCode(request, result.structured_output);
   }
 
@@ -1288,8 +1297,14 @@ export class PaperImplementationValidationCyclePlanningRuntimeService {
     request: RunPaperImplementationValidationCyclePlanningRuntimeRequest,
     output: PaperImplementationValidationCyclePlanningRoleOutput | null,
   ): string | null {
-    if (!output || output.role_status !== 'passed') {
+    if (!output) {
       return null;
+    }
+    if (output.role_status !== 'passed') {
+      // T-124 S3 复审 F3-3: a blocked output that still echoes upstream refs must
+      // not drift — present-but-drifted echo is reconciled here too (fields
+      // absent → skipped). Other blocked semantics are unchanged.
+      return this.blockedUpstreamEchoDriftCode(request, output);
     }
     if (
       !output.reviewed_route_proposal_ref
@@ -1303,7 +1318,7 @@ export class PaperImplementationValidationCyclePlanningRuntimeService {
     }
     if (
       output.reviewed_route_proposal_hash !== request.admitted_route_proposal_artifact_hash
-      || !this.functionalRefEquals(
+      || !functionalRefEquals(
         output.reviewed_route_proposal_ref,
         request.admitted_route_proposal_artifact_ref,
       )
@@ -1312,7 +1327,7 @@ export class PaperImplementationValidationCyclePlanningRuntimeService {
     }
     if (
       output.reviewed_route_skeptic_artifact_hash !== request.admitted_route_skeptic_artifact_hash
-      || !this.functionalRefEquals(
+      || !functionalRefEquals(
         output.reviewed_route_skeptic_artifact_ref,
         request.admitted_route_skeptic_artifact_ref,
       )
@@ -1320,7 +1335,7 @@ export class PaperImplementationValidationCyclePlanningRuntimeService {
       return 'VALIDATION_CYCLE_PLANNING_ROUTE_SKEPTIC_MISMATCH';
     }
     if (
-      !this.sameStringSet(output.reviewed_candidate_keys, request.reviewed_candidate_keys)
+      !sameStringSet(output.reviewed_candidate_keys, request.reviewed_candidate_keys)
       || !this.candidateProposalsMatchReviewedKeys(output, request.reviewed_candidate_keys)
     ) {
       return 'VALIDATION_CYCLE_PLANNING_CANDIDATE_KEY_MISMATCH';
@@ -1338,20 +1353,44 @@ export class PaperImplementationValidationCyclePlanningRuntimeService {
     return null;
   }
 
-  private functionalRefEquals(
-    left: TopicSelectionFunctionalRef | null | undefined,
-    right: TopicSelectionFunctionalRef | null | undefined,
-  ): boolean {
-    return Boolean(left && right && stableStringify(left) === stableStringify(right));
-  }
-
-  private sameStringSet(left: string[] | null | undefined, right: string[] | null | undefined): boolean {
-    const leftSet = new Set(left ?? []);
-    const rightSet = new Set(right ?? []);
-    if (leftSet.size !== rightSet.size) {
-      return false;
+  /**
+   * T-124 S3 复审 F3-3: present-but-drifted upstream echo reconciliation shared
+   * by passed and blocked outputs. A field that is absent on a blocked output is
+   * skipped (blocked outputs may legitimately omit echo fields); a field that is
+   * present but drifted fails closed with the matching mismatch code.
+   */
+  private blockedUpstreamEchoDriftCode(
+    request: RunPaperImplementationValidationCyclePlanningRuntimeRequest,
+    output: PaperImplementationValidationCyclePlanningRoleOutput,
+  ): string | null {
+    if (
+      output.reviewed_route_proposal_ref
+      && output.reviewed_route_proposal_hash
+      && (
+        output.reviewed_route_proposal_hash !== request.admitted_route_proposal_artifact_hash
+        || !functionalRefEquals(output.reviewed_route_proposal_ref, request.admitted_route_proposal_artifact_ref)
+      )
+    ) {
+      return 'VALIDATION_CYCLE_PLANNING_ROUTE_PROPOSAL_MISMATCH';
     }
-    return [...leftSet].every((item) => rightSet.has(item));
+    if (
+      output.reviewed_route_skeptic_artifact_ref
+      && output.reviewed_route_skeptic_artifact_hash
+      && (
+        output.reviewed_route_skeptic_artifact_hash !== request.admitted_route_skeptic_artifact_hash
+        || !functionalRefEquals(output.reviewed_route_skeptic_artifact_ref, request.admitted_route_skeptic_artifact_ref)
+      )
+    ) {
+      return 'VALIDATION_CYCLE_PLANNING_ROUTE_SKEPTIC_MISMATCH';
+    }
+    if (
+      output.reviewed_candidate_keys
+      && output.reviewed_candidate_keys.length > 0
+      && !sameStringSet(output.reviewed_candidate_keys, request.reviewed_candidate_keys)
+    ) {
+      return 'VALIDATION_CYCLE_PLANNING_CANDIDATE_KEY_MISMATCH';
+    }
+    return null;
   }
 
   private candidateProposalsMatchReviewedKeys(

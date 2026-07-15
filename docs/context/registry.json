@@ -47,8 +47,8 @@
         "glossary",
         "llm"
       ],
-      "checksumSha256": "bbe06746ad99f2a81266d5a8f7102e47a2ae6287ea775abea4efecd725f3d222",
-      "lastUpdated": "2026-06-01T14:13:57.559Z",
+      "checksumSha256": "aa6aae3afcea5d5908127f825648cf5f60070897ec4bb13d84bf65db05b1b7c6",
+      "lastUpdated": "2026-07-12T23:08:50.681Z",
       "source": {
         "kind": "manual",
         "notes": "Edit via ctl-context add-term/remove-term; then run ctl-context touch."
@@ -175,8 +175,8 @@
         "llm",
         "model-profiles"
       ],
-      "checksumSha256": "bcca77430897b346c3e54b0906dd95865190dd84d55e365a1bfc7e206925fbde",
-      "lastUpdated": "2026-07-11T15:42:58.143Z",
+      "checksumSha256": "cebc19534c70aca6e0683870cf08d176ff4103b69429e0c2d19f73eb704b2a11",
+      "lastUpdated": "2026-07-12T00:50:00.912Z",
       "source": {
         "kind": "command",
         "command": "node .ai/scripts/paper-implementation-slot-parameter-manifest-export.mjs",

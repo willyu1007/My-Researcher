@@ -11,6 +11,10 @@
  *   services).
  */
 
+import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+
+import { stableStringify } from './literature-content-processing-utils.js';
+
 export function hasText(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -55,9 +59,71 @@ export const PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE =
 export const PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE =
   'RUNTIME_ROLE_BLOCKED_CODES_MISSING';
 
+/**
+ * T-124 S3-α2/α3 (review N2): semantic-completeness violations of the deepened
+ * trace-debate role contract. Same retry semantics as SCHEMA_VALIDATION_FAILED —
+ * one same-profile retry, then terminal `failed_runtime`. They apply to BOTH
+ * `passed` and `blocked` role outputs (the blocked bypass is closed).
+ */
+export const PAPER_IMPLEMENTATION_ROLE_STRUCTURED_OUTPUT_INCOMPLETE_FAILURE_CODE =
+  'RUNTIME_ROLE_STRUCTURED_OUTPUT_INCOMPLETE';
+export const PAPER_IMPLEMENTATION_ROLE_REF_OUTSIDE_RETRIEVAL_PACKET_FAILURE_CODE =
+  'RUNTIME_ROLE_REF_OUTSIDE_RETRIEVAL_PACKET';
+export const PAPER_IMPLEMENTATION_ROLE_FINDING_DISPOSITION_INVALID_FAILURE_CODE =
+  'RUNTIME_ROLE_FINDING_DISPOSITION_INVALID';
+export const PAPER_IMPLEMENTATION_ROLE_COVERAGE_INCOMPLETE_FAILURE_CODE =
+  'RUNTIME_ROLE_COVERAGE_INCOMPLETE';
+
 /** Retryable set for the multi-role debate services (trace-integrity + P1). */
 export const PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES = [
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_ROLE_STRUCTURED_OUTPUT_INCOMPLETE_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_ROLE_REF_OUTSIDE_RETRIEVAL_PACKET_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_ROLE_FINDING_DISPOSITION_INVALID_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_ROLE_COVERAGE_INCOMPLETE_FAILURE_CODE,
 ] as const;
+
+/**
+ * T-124 S3 复审 F3-5: single-source echo check for the non-debate slot services.
+ * Returns the retryable echo-mismatch failure code when a present role output
+ * echoes the wrong role_slot_id, otherwise null. Absent output → null (nothing
+ * to reconcile). Nine slot services previously pasted this same guard inline.
+ */
+export function roleSlotEchoMismatchCode(
+  output: { role_slot_id: string } | null | undefined,
+  expectedRoleSlotId: string,
+): string | null {
+  return output && output.role_slot_id !== expectedRoleSlotId
+    ? PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE
+    : null;
+}
+
+/**
+ * T-124 S3 复审 F3-6: single-source functional-ref equality for the route /
+ * validation-cycle / feasibility planning services (previously three identical
+ * private copies). Null/undefined on either side is never equal.
+ */
+export function functionalRefEquals(
+  left: TopicSelectionFunctionalRef | null | undefined,
+  right: TopicSelectionFunctionalRef | null | undefined,
+): boolean {
+  return Boolean(left && right && stableStringify(left) === stableStringify(right));
+}
+
+/**
+ * T-124 S3 复审 F3-6: single-source string-set equality (null-tolerant
+ * signature) for the same three planning services.
+ */
+export function sameStringSet(
+  left: string[] | null | undefined,
+  right: string[] | null | undefined,
+): boolean {
+  const leftSet = new Set(left ?? []);
+  const rightSet = new Set(right ?? []);
+  if (leftSet.size !== rightSet.size) {
+    return false;
+  }
+  return [...leftSet].every((item) => rightSet.has(item));
+}

@@ -10,9 +10,13 @@ import {
   PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
   PAPER_IMPLEMENTATION_RUNTIME_ARTIFACT_ENVELOPE_SCHEMA_VERSION,
   paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema,
+  paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema,
   paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema,
+  paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema,
   type PaperImplementationMotiveEvolutionArtifact,
   type PaperImplementationMotiveEvolutionDecisionOption,
+  type PaperImplementationMotiveEvolutionDecisionOptionEntry,
+  type PaperImplementationMotiveEvolutionDesignedOptionEntry,
   type PaperImplementationMotiveEvolutionOptionDesignerRoleOutput,
   type PaperImplementationMotiveEvolutionRiskChallengerRoleOutput,
   type PaperImplementationMotiveEvolutionRoleOutput,
@@ -56,7 +60,9 @@ import {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  roleSlotEchoMismatchCode,
 } from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -108,6 +114,15 @@ interface RoleProfile {
   promptVariantId: string;
   schemaName: string;
   schema: Record<string, unknown>;
+  /**
+   * T-124 S3-β1: provider wire encoding of the role output — identical
+   * guardrails, but the designed/decision option maps are transported as
+   * entry arrays because dynamic-key maps are unrepresentable in OpenAI
+   * strict structured output (the gateway normalizer degrades them to
+   * always-empty objects; see gs001-lora-live-004).
+   */
+  wireSchemaName: string;
+  wireSchema: Record<string, unknown>;
 }
 
 interface RecordedRuntimeArtifact<TOutput extends PaperImplementationMotiveEvolutionRoleOutput | null> {
@@ -206,6 +221,8 @@ const OPTION_DESIGNER_ROLE: RoleProfile = {
   promptVariantId: 'evolution-option-designer.main',
   schemaName: 'paper_implementation_motive_evolution_option_designer_output',
   schema: paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema as unknown as Record<string, unknown>,
+  wireSchemaName: 'paper_implementation_motive_evolution_option_designer_wire',
+  wireSchema: paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema as unknown as Record<string, unknown>,
 };
 
 const RISK_CHALLENGER_ROLE: RoleProfile = {
@@ -213,6 +230,8 @@ const RISK_CHALLENGER_ROLE: RoleProfile = {
   promptVariantId: 'evolution-risk-challenger.main',
   schemaName: 'paper_implementation_motive_evolution_risk_challenger_output',
   schema: paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema as unknown as Record<string, unknown>,
+  wireSchemaName: 'paper_implementation_motive_evolution_risk_challenger_wire',
+  wireSchema: paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema as unknown as Record<string, unknown>,
 };
 
 const EVOLUTION_DECISION_SUPPORT_MODEL_OPTION_IDS = new Set([
@@ -226,6 +245,13 @@ const EVOLUTION_DECISION_SUPPORT_MODEL_OPTION_IDS = new Set([
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  // T-124 S3-α4: a wrong role_slot_id echo is a retryable technical failure
+  // (S2-C single-source constant), not an HTTP 400.
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
+  // T-124 S3-β1: a wire entry array with duplicate option_key values is a
+  // provider-output quality defect at the transport layer — retried once on
+  // the same profile like every other schema-shaped technical failure.
+  'MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE',
   'MOTIVE_EVOLUTION_REQUIRED_REFS_MISSING',
   'MOTIVE_EVOLUTION_CONTEXT_PACKET_REF_MISMATCH',
   'MOTIVE_EVOLUTION_CONTEXT_PACKET_UNCOVERED',
@@ -462,7 +488,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     const invocationAttemptId = retryAttemptIndex === 0
       ? baseInvocationAttemptId
       : `${baseInvocationAttemptId}.retry-${retryAttemptIndex}`;
-    return this.agentOrchestrator.invokeStructuredOutput<TOutput>({
+    const invocationResult = await this.agentOrchestrator.invokeStructuredOutput<TOutput>({
       title_card_id: runtimeBase.titleCardId,
       feature_id: 'paper_implementation',
       node_id: role.roleSlotId,
@@ -480,8 +506,10 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         version: runtimeBase.profile.promptTemplateVersion,
       },
       prompt_variant_key: role.promptVariantId,
-      schema_name: role.schemaName,
-      schema: role.schema,
+      // S3-β1: provider_llm sends the wire encoding (option entry arrays);
+      // mocked/codex fixtures keep the canonical by-key-map schema.
+      schema_name: this.roleSchemaName(request, role),
+      schema: request.execution_mode === 'provider_llm' ? role.wireSchema : role.schema,
       messages,
       input_refs: this.primaryInputRefs(request),
       context_packet_refs: [{
@@ -521,6 +549,80 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         : null,
       created_by: this.createdBy(request.execution_mode),
     });
+    return request.execution_mode === 'provider_llm'
+      ? this.canonicalizedWireInvocationResult(invocationResult)
+      : invocationResult;
+  }
+
+  /** S3-β1: mode-dependent output schema name (wire for provider_llm). */
+  private roleSchemaName(
+    request: RunPaperImplementationMotiveEvolutionRuntimeRequest,
+    role: RoleProfile,
+  ): string {
+    return request.execution_mode === 'provider_llm' ? role.wireSchemaName : role.schemaName;
+  }
+
+  /**
+   * S3-β1: canonicalize a provider wire output — rebuild the by-key option
+   * maps from the transported entry arrays so every recorded artifact,
+   * admission expectation, and semantic check keeps the canonical shape.
+   * Duplicate option_key values fail closed as a retryable technical failure.
+   * Outputs without a wire entry array pass through untouched (fixture stubs
+   * that bypass the orchestrator's ajv gate; a real provider output cannot
+   * reach here in canonical form because the wire schema forbids the map
+   * fields via additionalProperties: false).
+   */
+  private canonicalizedWireInvocationResult<TOutput extends PaperImplementationMotiveEvolutionRoleOutput>(
+    result: TopicSelectionAgentInvocationResult<TOutput>,
+  ): TopicSelectionAgentInvocationResult<TOutput> {
+    const output = result.structured_output;
+    if (!output || typeof output !== 'object') {
+      return result;
+    }
+    const record = output as unknown as Record<string, unknown>;
+    const isDesignerWire = 'designed_option_entries' in record;
+    const isChallengerWire = 'decision_option_entries' in record;
+    if (!isDesignerWire && !isChallengerWire) {
+      return result;
+    }
+    const entriesKey = isDesignerWire ? 'designed_option_entries' : 'decision_option_entries';
+    const mapKey = isDesignerWire ? 'designed_options' : 'decision_options';
+    const entries = record[entriesKey];
+    if (!Array.isArray(entries)) {
+      return this.wireCanonicalizationFailure(result, 'SCHEMA_VALIDATION_FAILED');
+    }
+    // T-124 S3 复审 F3-1: a null-prototype map so option_key values that collide
+    // with Object.prototype members ('__proto__', 'constructor', …) become plain
+    // own properties — Object.hasOwn dedup and assignment both stay well-defined,
+    // and the recorded canonical map carries no prototype pollution.
+    const optionsByKey = Object.create(null) as Record<string, unknown>;
+    for (const entry of entries as Array<
+      PaperImplementationMotiveEvolutionDesignedOptionEntry | PaperImplementationMotiveEvolutionDecisionOptionEntry
+    >) {
+      if (!entry || typeof entry !== 'object' || typeof entry.option_key !== 'string' || entry.option_key.length === 0) {
+        return this.wireCanonicalizationFailure(result, 'SCHEMA_VALIDATION_FAILED');
+      }
+      if (Object.hasOwn(optionsByKey, entry.option_key)) {
+        return this.wireCanonicalizationFailure(result, 'MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE');
+      }
+      const { option_key: _optionKey, ...optionValue } = entry;
+      optionsByKey[entry.option_key] = optionValue;
+    }
+    const { [entriesKey]: _entries, ...rest } = record;
+    const canonical = { ...rest, [mapKey]: optionsByKey } as unknown as TOutput;
+    return { ...result, structured_output: canonical };
+  }
+
+  private wireCanonicalizationFailure<TOutput extends PaperImplementationMotiveEvolutionRoleOutput>(
+    result: TopicSelectionAgentInvocationResult<TOutput>,
+    failureCode: string,
+  ): TopicSelectionAgentInvocationResult<TOutput> {
+    return {
+      ...result,
+      structured_output: null,
+      error_code: failureCode,
+      blocker_codes: this.uniqueStrings([...result.blocker_codes, failureCode]),
+    };
   }
 
   private async recordPreflightBlockedArtifact(
@@ -1166,15 +1268,31 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     priorRoleArtifacts: RecordedRuntimeArtifact<PaperImplementationMotiveEvolutionRoleOutput>[],
   ): Array<{ role: 'system' | 'user'; content: string }> {
     const isChallenger = role.roleSlotId === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID;
+    // T-124 S3 复审 F3-2: the option payload shape differs by execution mode, so
+    // the prompt wording must match the schema each mode actually validates
+    // against — provider_llm sends the wire entry arrays; mocked_llm and
+    // codex_assisted keep the canonical by-key maps. Describing entry arrays to a
+    // canonical-map mode (or vice versa) contradicts the enforced schema.
+    const isWireEncoding = request.execution_mode === 'provider_llm';
+    const optionShapeNoun = isWireEncoding ? 'option entry array' : 'option map';
+    const designerInstruction = isWireEncoding
+      ? 'Propose evolution options as designed_option_entries: an array where every entry carries a unique runtime-local option_key (not a MotiveEvolutionDecision id) plus the full option fields, and set option_set_hash to a stable identity of exactly 64 lowercase hex characters.'
+      : 'Propose evolution options as designed_options: an object keyed by a unique runtime-local option_key (not a MotiveEvolutionDecision id) whose value carries the full option fields, and set option_set_hash to a stable identity of exactly 64 lowercase hex characters.';
+    const challengerInstruction = isWireEncoding
+      ? 'Challenge every designer option key: echo designer_role_artifact_ref, designer_role_artifact_hash, and option_set_hash exactly from prior_role_artifacts, list every designer option key in challenged_option_keys, and return decision_option_entries as an array with exactly one entry per challenged option key; each entry repeats its option_key and carries a complete challenge_check.'
+      : 'Challenge every designer option key: echo designer_role_artifact_ref, designer_role_artifact_hash, and option_set_hash exactly from prior_role_artifacts, list every designer option key in challenged_option_keys, and return decision_options as an object keyed by option_key with exactly one entry per challenged option key; each entry carries a complete challenge_check.';
     return [
       {
         role: 'system',
+        // Prompt template v2 (T-124 S3-β1/复审 F3-2): the option payload travels
+        // as an entry array (wire encoding) only for provider_llm; other modes use
+        // the canonical by-key maps. Result-status invariants are stated
+        // explicitly instead of being left to schema inference.
         content: [
           'Return only structured JSON for PaperImplementation motive evolution decision support.',
           'Use request-owned refs as the only authority and preserve motive, core motive version, portfolio, evidence, trace, validation, result, accepted-risk, human-confirmation, and source refs exactly.',
-          isChallenger
-            ? 'Challenge every designer option key and return decision_options with complete challenge_check coverage.'
-            : 'Propose option-keyed designed_options only; option keys are runtime-local support identities and are not MotiveEvolutionDecision ids.',
+          isChallenger ? challengerInstruction : designerInstruction,
+          `Result-status invariants: support_result_status="options_proposed" requires role_status="passed" and a non-empty ${optionShapeNoun}; "no_evolution_needed" requires role_status="passed", an empty ${optionShapeNoun}, and empty blocker_codes; "blocked" requires role_status="blocked" and at least one blocker_codes entry.`,
           'Do not create motive evolution decisions, portfolio decisions, motive role changes, board/evidence writes, trace repair queue items, queue items, Domain Gate requests, prompt text, debate transcripts, or raw provider output.',
         ].join(' '),
       },
@@ -1626,8 +1744,10 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     if (this.hasForbiddenAuthorityField(output)) {
       return 'MOTIVE_EVOLUTION_AUTHORITY_FIELD_PRESENT';
     }
-    if (output.role_slot_id !== role.roleSlotId) {
-      return 'MOTIVE_EVOLUTION_REF_MISMATCH';
+    // T-124 S3-α4 + 复审 F3-5: converge on the single-source echo-mismatch helper.
+    const echoCode = roleSlotEchoMismatchCode(output, role.roleSlotId);
+    if (echoCode) {
+      return echoCode;
     }
     const sourceKeys = new Set(request.source_refs.map((ref) => this.refKey(ref)));
     if (!this.refsWithinSet(output.cited_source_refs, sourceKeys)) {
@@ -1848,7 +1968,8 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
       || provenance.output_contract !== PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_ROLE_OUTPUT_SCHEMA_ID
       || provenance.prompt_template_id !== runtimeBase.profile.promptTemplateId
       || provenance.prompt_template_version !== runtimeBase.profile.promptTemplateVersion
-      || provenance.schema_name !== role.schemaName;
+      // S3-β1: provider_llm rounds carry the wire schema name.
+      || provenance.schema_name !== this.roleSchemaName(request, role);
   }
 
   private provenanceSourceMatches<TOutput extends PaperImplementationMotiveEvolutionRoleOutput>(
@@ -2161,7 +2282,17 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
       const safeNested = this.jsonSafeValue(nested);
       if (safeNested !== undefined) {
-        safeRecord[key] = safeNested;
+        // T-124 S3 复审 F3-1: option_key values may collide with Object.prototype
+        // members ('__proto__', 'constructor', …). A plain `safeRecord[key] = …`
+        // would mutate the prototype and silently drop the entry, re-polluting the
+        // persisted artifact after canonicalization. defineProperty always writes a
+        // plain own property while keeping normal-key semantics unchanged.
+        Object.defineProperty(safeRecord, key, {
+          value: safeNested,
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
       }
     }
     return safeRecord;

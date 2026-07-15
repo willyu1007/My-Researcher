@@ -26,6 +26,9 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import {
+  paperImplementationTraceIntegrityAdmissionIssueCodes,
+} from './paper-implementation-trace-debate-semantics.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -223,6 +226,18 @@ export class PaperImplementationRuntimeAdmissionService {
       if (request.expected_final_artifact_hash !== artifact.final_artifact_hash) {
         issueCodes.push('FINAL_ARTIFACT_HASH_MISMATCH');
       }
+    }
+    // T-124 S3-α3 (review N2): independent semantic re-check for trace-integrity
+    // role artifacts, computed ONLY from the self-contained stored payload
+    // (bounded retrieval packet + role output + prior role outputs) — never from
+    // the caller's expected_* copies. Covers refs-within-packet and reconcile
+    // disposition completeness at the admission layer.
+    if (
+      request.admission_scope === 'role'
+      && artifact.workflow_type === 'trace_integrity_review'
+      && artifact.runtime_status !== 'failed_runtime'
+    ) {
+      issueCodes.push(...paperImplementationTraceIntegrityAdmissionIssueCodes(artifact.artifact_payload));
     }
     return issueCodes;
   }

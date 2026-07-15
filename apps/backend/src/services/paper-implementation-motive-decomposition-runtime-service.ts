@@ -53,7 +53,9 @@ import {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  roleSlotEchoMismatchCode,
 } from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -198,6 +200,9 @@ const DRAFT_ASSERTION_CANDIDATES_MODEL_OPTION_IDS = new Set([
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  // T-124 S3-α4: a wrong role_slot_id echo is a retryable technical failure
+  // (S2-C single-source constant), not an HTTP 400.
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   'MOTIVE_DECOMPOSITION_REQUIRED_REFS_MISSING',
   'MOTIVE_DECOMPOSITION_REVIEW_SET_MISMATCH',
   'MOTIVE_DECOMPOSITION_REF_MISMATCH',
@@ -1299,8 +1304,10 @@ export class PaperImplementationMotiveDecompositionRuntimeService {
     if (this.hasForbiddenAuthorityField(output)) {
       return 'MOTIVE_DECOMPOSITION_AUTHORITY_FIELD_PRESENT';
     }
-    if (output.role_slot_id !== DRAFT_ASSERTION_CANDIDATES_PROFILE.roleSlotId) {
-      return 'MOTIVE_DECOMPOSITION_REF_MISMATCH';
+    // T-124 S3-α4 + 复审 F3-5: converge on the single-source echo-mismatch helper.
+    const echoCode = roleSlotEchoMismatchCode(output, DRAFT_ASSERTION_CANDIDATES_PROFILE.roleSlotId);
+    if (echoCode) {
+      return echoCode;
     }
     const sourceKeys = new Set(request.source_refs.map((ref) => this.refKey(ref)));
     if (!this.refsWithinSet(output.cited_source_refs, sourceKeys)) {

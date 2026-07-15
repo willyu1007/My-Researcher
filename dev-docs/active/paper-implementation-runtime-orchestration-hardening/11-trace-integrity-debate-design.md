@@ -3,18 +3,20 @@
 ## Decision
 The first promoted PaperImplementation runtime node SHOULD be `trace_integrity_review.boundary_debate`.
 
-This node is a bounded semantic trace debate. It is not a trace-manifest validator, not a trace repair writer, and not a claim/dossier authority gate. Its job is to determine whether the target object's semantic conclusion is genuinely supported by the trace/evidence/run lineage available in the bounded implementation context.
+The node is a bounded semantic trace debate. The node is not a trace-manifest validator, trace repair writer, or claim/dossier authority gate. The node determines whether the target object's semantic conclusion is genuinely supported by the trace/evidence/run lineage available in the bounded implementation context.
+
+> **D-16 source refinement（2026-07-12）**：future/productized retrieval separates eligible scientific RunEvidenceUnit from immutable closed-Cycle execution-accounting refs. Failed/cancelled/incomplete execution comes from the exact Cycle closure snapshot/hash; complete valid negative/inconclusive scientific results may remain REU on a separate disposition axis. Sidecar/project-wide failed-REU scans are not source authorities.
 
 ## Why Debate Is Required
 Deterministic checks can catch missing manifests, stale refs, target mismatch, and memo-as-evidence violations. They cannot reliably catch semantic support gaps such as:
 - a trace covers background context but not the actual claim;
 - a source locator exists but points to the wrong evidence granularity;
 - a result interpretation is being used as primary evidence;
-- a failed, negative, cancelled, or inconclusive run is omitted from the reasoning chain;
+- a failed/cancelled/incomplete execution snapshot entry or a valid negative/inconclusive scientific result is omitted from the reasoning chain;
 - a challenge or conflict binding is absent from the claimed support path;
 - a support chain makes an unsupported leap from evidence to writing-facing conclusion.
 
-The debate is therefore required for product promotion of this node, but it MUST be bounded.
+The debate is therefore required for product promotion of the node, but the debate MUST be bounded.
 
 ## Bounded Debate Shape
 The node uses deterministic preflight plus exactly four fixed semantic runtime role slots:
@@ -30,7 +32,7 @@ The node uses deterministic preflight plus exactly four fixed semantic runtime r
 There is no open-ended conversation. There is no dynamic role creation. There is no second debate round in the first slice. Unresolved disagreement becomes a blocker.
 
 ## Executor Decision
-Debate execution is owned by `PaperImplementationRuntimeSlot`, implemented by a future `PaperImplementationTraceIntegrityDebateRuntimeService` or equivalent runtime facade. Harness selects the scenario and execution profile, but it does not execute role prompts, choose provider SDKs, compute cache keys, or repair failed role outputs.
+Debate execution is owned by `PaperImplementationRuntimeSlot`, implemented by a future `PaperImplementationTraceIntegrityDebateRuntimeService` or equivalent runtime facade. Harness selects the scenario and execution profile, but the harness does not execute role prompts, choose provider SDKs, compute cache keys, or repair failed role outputs.
 
 All semantic role slots MUST execute through the shared runtime boundary:
 
@@ -74,7 +76,8 @@ Allowed source families:
 - claim trace packets;
 - evidence board assertions, bindings, challenge bindings, and transfer bindings;
 - validation cycle, route, probe, and experiment-plan refs directly tied to the target;
-- run evidence units, including failed, cancelled, negative, and inconclusive runs;
+- eligible run evidence units, including complete valid positive, negative, and inconclusive scientific results;
+- exact immutable closed-Cycle snapshot/hash entries for failed, cancelled, and incomplete execution;
 - result packets, failure summaries, limitations, and result interpretations, explicitly labeled as non-primary evidence;
 - dossier readiness refs when the target is dossier-facing.
 
@@ -92,7 +95,7 @@ Caller rules:
 - `PaperImplementationTraceIntegrityDebateRuntimeService` is the only product-path caller of `buildRetrievalPacket`.
 - Harness calls the debate runtime service, not the retrieval service.
 - Runtime role slots consume the built retrieval packet; they never call the retrieval service directly.
-- Admission may read the retrieval packet and call a verification/read method, but it must not call `buildRetrievalPacket` to create a new runtime context.
+- Admission may read the retrieval packet and call a verification/read method, but admission must not call `buildRetrievalPacket` to create a new runtime context.
 - Domain services and state writers do not call the retrieval service.
 - UI/workbench does not call the retrieval service.
 
@@ -101,7 +104,7 @@ Allowed methods:
 - `verifyRetrievalPacket(packetRef, expectedIdentity)`: admission/read-only verification; checks packet identity, freshness, source hashes, and allowlist coverage without expanding context.
 
 Replay and fixture rules:
-- `run_mode=replay` may supply an existing `retrieval_packet_ref/hash`, but the runtime service must verify it before role execution.
+- `run_mode=replay` may supply an existing `retrieval_packet_ref/hash`, but the runtime service must verify the packet before role execution.
 - `mocked_llm` fixtures may include retrieval packets, but they still pass the same runtime/admission verification.
 - No path may let Harness inject an unverified retrieval packet into role prompts.
 
@@ -158,6 +161,8 @@ Exhaustion semantics:
 - provider/schema/parse exhaustion returns `failed_runtime`;
 - `failed_runtime` MUST NOT contain semantic paper-quality blocker claims.
 
+> **取代注记（2026-07-12，D9 已签核，T-124 S3-α 实施）**：本节"整场 debate 无断点、失败即全链重跑"的隐含语义已被 D9 resume 契约取代（决策见 `dev-docs/active/paper-implementation-productization-hardening/00-overview.md` D9 段，工单见同包 `10-s3-workorder.md` §S3-α1）。`RunPaperImplementationTraceIntegrityDebateRuntimeRequest` / `RunPaperImplementationP1RuntimeReviewRequest` 现支持可选 `resume_from_run_id`：同一 run 身份下复用该 run 已 admitted 的 role artifact 前缀（同 retrieval packet hash / source bundle hash、同 profile/prompt identity，逐角色 admission 复核），从首个缺失角色继续执行，新角色沿用原 run_id 的下一 call 序；identity/hash 漂移拒续（409）、跨 slot/项目复用拒绝、已 admitted 角色不重发 provider 调用、已有 admitted final 的 run resume 幂等返回原 final。定性为技术续跑，不构成语义 fallback 或 provider 响应复用——本节 Forbidden retry/fallback 列表其余条目继续有效。历史正文保持不改。
+
 ## Prompt Token Compression Runtime Contract
 Every semantic role slot is a runtime invocation with its own prompt packet, token gate, compression decision, cache identity, and audit envelope.
 
@@ -200,7 +205,7 @@ Prompt rules:
 Token and compression rules:
 - Runtime estimates token budget before each role executor call.
 - If the prompt is over budget and compression is allowed, runtime applies the registered compression policy before prompt packet cache identity is finalized.
-- Compression must preserve source refs, trace refs, failed/negative/inconclusive run refs, challenge refs, blocker-relevant refs, and role artifact lineage.
+- Compression must preserve source refs, trace refs, eligible negative/inconclusive REU refs, closed-Cycle failed/cancelled/incomplete Run/Attempt refs, challenge refs, blocker-relevant refs, and role artifact lineage.
 - Compression report must state which sections were preserved, summarized, or dropped and must include a quality-gate decision.
 - Token over-budget without allowed compression, or compression quality failure, returns `failed_runtime` with zero provider calls when failure occurs before executor invocation.
 
@@ -226,11 +231,11 @@ Role artifact chain:
 | `arbiter_final` | final arbiter role artifact plus `TraceIntegrityDebateArtifact@v1` | verify final blocker coverage, lineage, runtime identity, and proposal-only boundary | Domain Gate, after final admission only |
 
 Per-role admission is a chaining gate, not a domain gate:
-- it decides whether one role artifact may be consumed by the next role;
-- it returns an admitted role artifact ref/hash or a role admission rejection;
-- it does not create semantic blockers;
-- it does not materialize queue items;
-- it does not decide trace repair, claim readiness, dossier readiness, or writing projection state.
+- RoleAdmissionService decides whether one role artifact may be consumed by the next role;
+- RoleAdmissionService returns an admitted role artifact ref/hash or a role admission rejection;
+- RoleAdmissionService does not create semantic blockers;
+- RoleAdmissionService does not materialize queue items;
+- RoleAdmissionService does not decide trace repair, claim readiness, dossier readiness, or writing projection state.
 
 Only the admitted `TraceIntegrityDebateArtifact@v1` may enter Domain Gate. Domain Gate must not inspect intermediate role artifacts for state transition decisions. Intermediate role artifacts are available for replay, debugging, cache identity, runtime audit, and final-admission lineage verification.
 
@@ -238,13 +243,13 @@ If any per-role admission rejects, the debate stops before the next role and ret
 
 Existing harness relationship:
 - `PaperImplementationAgentWorkflowHarnessRun` may record the scenario, expected blockers, and refs to role/final runtime artifacts after the debate completes;
-- it is not a `TraceIntegrityRoleArtifact@v1`;
-- it is not a `TraceIntegrityDebateArtifact@v1`;
-- it cannot satisfy per-role admission or final admission;
-- it cannot be consumed by Domain Gate for `trace_integrity_review.boundary_debate`.
+- the transcript is not a `TraceIntegrityRoleArtifact@v1`;
+- the transcript is not a `TraceIntegrityDebateArtifact@v1`;
+- the transcript cannot satisfy per-role admission or final admission;
+- the transcript cannot be consumed by Domain Gate for `trace_integrity_review.boundary_debate`.
 
 ## Statement Extraction Boundary
-The deterministic reviewed-statement extractor is structural only. It MUST NOT judge whether a sentence contains multiple arguments, whether a claim is semantically compound, or how a long prose field should be decomposed.
+The deterministic reviewed-statement extractor is structural only. The extractor MUST NOT judge whether a sentence contains multiple arguments, whether a claim is semantically compound, or how a long prose field should be decomposed.
 
 The extractor MAY produce a `TraceReviewedStatementPacket@v1` from:
 - explicit claim/dossier statement items when the owning domain service already exposes them;
@@ -258,9 +263,9 @@ The extractor MUST NOT:
 - infer missing support/challenge refs;
 - convert dossier prose or writing projection prose into new authority statements.
 
-When only a raw claim field exists, the extractor emits one statement for that source field with `statement_granularity_status=not_assessed`. When dossier prose cannot be mapped to a claim/ref/readiness field, the extractor may record `unmapped_prose_present` as structural context, but it must not decide whether the prose introduced a new claim.
+When only a raw claim field exists, the extractor emits one statement for that source field with `statement_granularity_status=not_assessed`. When dossier prose cannot be mapped to a claim/ref/readiness field, the extractor may record `unmapped_prose_present` as structural context, but the extractor must not decide whether the prose introduced a new claim.
 
-The semantic debate, especially `skeptic_challenge` and `arbiter_final`, owns granularity risk findings. If a reviewed statement appears to contain multiple support obligations or cannot be judged as one stable unit, the debate emits a blocker such as `statement_decomposition_required`. It does not split the statement or create new authority statements.
+The semantic debate, especially `skeptic_challenge` and `arbiter_final`, owns granularity risk findings. If a reviewed statement appears to contain multiple support obligations or cannot be judged as one stable unit, the debate emits a blocker such as `statement_decomposition_required`. The debate does not split the statement or create new authority statements.
 
 ## Role Contracts
 ### `support_mapper_map`
@@ -268,7 +273,7 @@ MUST:
 - map every reviewed statement from the packet to direct, partial, background-only, conflicting, or missing support;
 - cite only refs present in the retrieval packet;
 - label result interpretation, memo, rationale, and summary as non-primary evidence;
-- include failed/negative/inconclusive run refs when they affect support.
+- include closed-Cycle failed/cancelled/incomplete execution refs and eligible negative/inconclusive scientific REU refs when they affect support.
 
 MUST NOT:
 - invent refs;

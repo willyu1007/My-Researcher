@@ -18,6 +18,7 @@ import type {
   CreateResultInterpretationPacketRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
 import type {
+  ResearchWorkOrder,
   RunEvidenceUnit,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-workorder-contracts';
 import type {
@@ -324,10 +325,57 @@ function makeValidationRepository(): PaperImplementationValidationRepository {
   } as unknown as PaperImplementationValidationRepository;
 }
 
-function makeWorkOrderRepository(runEvidence: RunEvidenceUnit): PaperImplementationWorkOrderRepository {
+function makeWorkOrder(
+  workOrderId: string,
+  workOrderStatus: ResearchWorkOrder['work_order_status'],
+): ResearchWorkOrder {
+  return {
+    work_order_id: workOrderId,
+    implementation_project_id: PROJECT_ID,
+    validation_cycle_id: VALIDATION_CYCLE_ID,
+    experiment_plan_light_id: null,
+    run_type: 'confirmatory',
+    work_order_status: workOrderStatus,
+    run_policy: {
+      run_policy_id: 'run_policy_001',
+      retry_budget: 0,
+      compute_limit_ref: null,
+      stop_condition_refs: [],
+      allowed_mutation_refs: [],
+      autotune_policy: 'disabled',
+    },
+    experiment_bridge: {
+      run_recipe_ref: ref('run_recipe', 'run_recipe_001'),
+      run_recipe_hash: 'run_recipe_hash_001',
+    },
+    motive_refs: [],
+    assertion_refs: [],
+    dataset_version_refs: [],
+    baseline_version_refs: [],
+    code_version_refs: [],
+    config_refs: [],
+    trace_manifest_ref: ref('trace_manifest', 'trace_manifest_work_order_001'),
+    trace_manifest_id: 'trace_manifest_work_order_001',
+    admission_gate_result_id: null,
+    policy_version_id: 'policy_v1',
+    created_by: 'system',
+    created_at: NOW,
+    updated_at: NOW,
+  };
+}
+
+function makeWorkOrderRepository(
+  runEvidence: RunEvidenceUnit,
+  extraProjectRunEvidence: RunEvidenceUnit[] = [],
+  workOrders: ResearchWorkOrder[] = [],
+): PaperImplementationWorkOrderRepository {
+  const units = [runEvidence, ...extraProjectRunEvidence];
   return {
     findRunEvidenceUnitById: async (_implementationProjectId: string, runEvidenceUnitId: string) =>
-      runEvidenceUnitId === runEvidence.run_evidence_unit_id ? structuredClone(runEvidence) : null,
+      structuredClone(units.find((unit) => unit.run_evidence_unit_id === runEvidenceUnitId) ?? null),
+    listRunEvidenceUnits: async () => structuredClone(units),
+    findWorkOrderById: async (_implementationProjectId: string, workOrderId: string) =>
+      structuredClone(workOrders.find((workOrder) => workOrder.work_order_id === workOrderId) ?? null),
   } as unknown as PaperImplementationWorkOrderRepository;
 }
 
@@ -430,6 +478,8 @@ function validDossierRequest() {
 async function setup(
   runStatus: RunEvidenceUnit['run_status'] = 'succeeded',
   runEvidenceOverrides: Partial<RunEvidenceUnit> = {},
+  extraProjectRunEvidence: RunEvidenceUnit[] = [],
+  workOrders: ResearchWorkOrder[] = [],
 ) {
   const traceRepository = new InMemoryPaperImplementationTraceRepository();
   const resultClaimRepository = new InMemoryPaperImplementationResultClaimDossierRepository();
@@ -492,10 +542,14 @@ async function setup(
     traceRepository,
     confirmationRepository,
     validationRepository: makeValidationRepository(),
-    workOrderRepository: makeWorkOrderRepository({
-      ...makeRunEvidence(runStatus),
-      ...runEvidenceOverrides,
-    }),
+    workOrderRepository: makeWorkOrderRepository(
+      {
+        ...makeRunEvidence(runStatus),
+        ...runEvidenceOverrides,
+      },
+      extraProjectRunEvidence,
+      workOrders,
+    ),
     feedbackRecorder,
     now: () => NOW,
     idFactory: (prefix) => `${prefix}_001`,
@@ -672,6 +726,226 @@ test('ready dossier rejects blockers and unresolved admitted claim disposition',
     service.createImplementationDossier(PROJECT_ID, mismatchedAdmitted),
     (error) => error instanceof AppError && error.message.includes('included ClaimCandidate'),
   );
+});
+
+function projectRunEvidence(
+  runEvidenceUnitId: string,
+  runStatus: RunEvidenceUnit['run_status'],
+  overrides: Partial<RunEvidenceUnit> = {},
+): RunEvidenceUnit {
+  return {
+    ...makeRunEvidence(runStatus),
+    run_evidence_unit_id: runEvidenceUnitId,
+    ...overrides,
+  };
+}
+
+test('ready dossier reconciles every trusted failed-like project run and rejects uncovered ones with the missing list', async () => {
+  const { service } = await setup('succeeded', {}, [
+    projectRunEvidence('run_evidence_unit_failed_002', 'failed'),
+    projectRunEvidence('run_evidence_unit_negative_003', 'negative'),
+  ]);
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, validDossierRequest()),
+    (error) =>
+      error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('must account for every trusted failed, cancelled, negative, or inconclusive RunEvidenceUnit')
+      && JSON.stringify(error.details?.missing_run_evidence_unit_ids) === JSON.stringify([
+        'run_evidence_unit_failed_002',
+        'run_evidence_unit_negative_003',
+      ]),
+  );
+});
+
+test('ready dossier passes project run reconciliation through explicit exemption, section refs, and packet source coverage', async () => {
+  // Explicit exemption via excluded_stale_or_invalidated_evidence_refs:
+  // S3 F4-1 requires the excluded unit to be provably superseded, here by a
+  // strictly newer trusted RunEvidenceUnit on the same work order.
+  const exempted = await setup('succeeded', {}, [
+    projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
+      work_order_id: 'research_work_order_stale',
+      created_at: '2026-05-20T00:00:00.000Z',
+    }),
+    projectRunEvidence('run_evidence_unit_rerun_003', 'succeeded', {
+      work_order_id: 'research_work_order_stale',
+      created_at: '2026-05-21T00:00:00.000Z',
+    }),
+  ]);
+  await exempted.service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await exempted.service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const exemptedRequest = validDossierRequest();
+  exemptedRequest.experiment_section.excluded_stale_or_invalidated_evidence_refs = [
+    ref('run_evidence_unit', 'run_evidence_unit_failed_002'),
+  ];
+  const exemptedDossier = await exempted.service.createImplementationDossier(PROJECT_ID, exemptedRequest);
+  assert.equal(exemptedDossier.dossier_status, 'ready_for_writing');
+
+  // Direct disclosure through the status-matching experiment_section refs.
+  const disclosed = await setup('succeeded', {}, [
+    projectRunEvidence('run_evidence_unit_failed_002', 'failed'),
+    projectRunEvidence('run_evidence_unit_negative_003', 'negative'),
+    projectRunEvidence('run_evidence_unit_inconclusive_004', 'inconclusive'),
+  ]);
+  await disclosed.service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await disclosed.service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const disclosedRequest = validDossierRequest();
+  disclosedRequest.experiment_section.failed_run_refs = [
+    ref('run_evidence_unit', 'run_evidence_unit_failed_002'),
+  ];
+  disclosedRequest.experiment_section.negative_result_refs = [
+    ref('run_evidence_unit', 'run_evidence_unit_negative_003'),
+  ];
+  disclosedRequest.experiment_section.inconclusive_run_refs = [
+    ref('run_evidence_unit', 'run_evidence_unit_inconclusive_004'),
+  ];
+  const disclosedDossier = await disclosed.service.createImplementationDossier(PROJECT_ID, disclosedRequest);
+  assert.equal(disclosedDossier.dossier_status, 'ready_for_writing');
+
+  // Coverage through an included result packet's source.run_evidence_refs:
+  // the primary REU itself is failed and cited by the packet source, which
+  // also forces the packet-level failed_run_refs accounting.
+  const packetCovered = await setup('failed');
+  const packetRequest = validResultRequest();
+  packetRequest.source.failed_run_refs = [ref('run_evidence_unit', RUN_EVIDENCE_ID)];
+  await packetCovered.service.createResultInterpretationPacket(PROJECT_ID, packetRequest);
+  await packetCovered.service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const packetCoveredRequest = validDossierRequest();
+  packetCoveredRequest.experiment_section.failed_run_refs = [ref('run_evidence_unit', RUN_EVIDENCE_ID)];
+  const packetCoveredDossier = await packetCovered.service.createImplementationDossier(PROJECT_ID, packetCoveredRequest);
+  assert.equal(packetCoveredDossier.dossier_status, 'ready_for_writing');
+});
+
+test('ready dossier rejects exemption refs that do not resolve to a project RunEvidenceUnit', async () => {
+  const { service } = await setup('succeeded', {}, [
+    projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
+      work_order_id: 'research_work_order_lone',
+    }),
+  ]);
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const request = validDossierRequest();
+  request.experiment_section.excluded_stale_or_invalidated_evidence_refs = [
+    ref('run_evidence_unit', 'run_evidence_unit_ghost'),
+  ];
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, request),
+    (error) =>
+      error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('excluded_stale_or_invalidated_evidence_refs')
+      && JSON.stringify(error.details?.unresolved_excluded_refs) === JSON.stringify([
+        { ref_type: 'run_evidence_unit', ref_id: 'run_evidence_unit_ghost' },
+      ])
+      && JSON.stringify(error.details?.not_superseded_excluded_run_evidence_unit_ids) === JSON.stringify([]),
+  );
+});
+
+test('ready dossier rejects exemption of a failed RunEvidenceUnit that is not provably superseded', async () => {
+  const { service } = await setup('succeeded', {}, [
+    projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
+      work_order_id: 'research_work_order_lone',
+    }),
+  ]);
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const request = validDossierRequest();
+  request.experiment_section.excluded_stale_or_invalidated_evidence_refs = [
+    ref('run_evidence_unit', 'run_evidence_unit_failed_002'),
+  ];
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, request),
+    (error) =>
+      error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('provably superseded')
+      && JSON.stringify(error.details?.unresolved_excluded_refs) === JSON.stringify([])
+      && JSON.stringify(error.details?.not_superseded_excluded_run_evidence_unit_ids) === JSON.stringify([
+        'run_evidence_unit_failed_002',
+      ]),
+  );
+});
+
+test('ready dossier accepts exemption of a failed RunEvidenceUnit whose work order is superseded', async () => {
+  const { service } = await setup(
+    'succeeded',
+    {},
+    [
+      projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
+        work_order_id: 'research_work_order_superseded',
+      }),
+    ],
+    [makeWorkOrder('research_work_order_superseded', 'superseded')],
+  );
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const request = validDossierRequest();
+  request.experiment_section.excluded_stale_or_invalidated_evidence_refs = [
+    ref('run_evidence_unit', 'run_evidence_unit_failed_002'),
+  ];
+  const dossier = await service.createImplementationDossier(PROJECT_ID, request);
+  assert.equal(dossier.dossier_status, 'ready_for_writing');
+});
+
+test('project run coverage ignores foreign-typed refs whose ref_id collides with a RunEvidenceUnit id', async () => {
+  const { service } = await setup('succeeded', {}, [
+    projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
+      work_order_id: 'research_work_order_lone',
+    }),
+  ]);
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const request = validDossierRequest();
+  // Same ref_id as the accountable failed unit, but not a run_evidence_unit
+  // ref — S3 F4-2 keeps it out of the coverage set.
+  request.experiment_section.failed_run_refs = [
+    ref('validation_cycle', 'run_evidence_unit_failed_002'),
+  ];
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, request),
+    (error) =>
+      error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('must account for every trusted failed, cancelled, negative, or inconclusive RunEvidenceUnit')
+      && JSON.stringify(error.details?.missing_run_evidence_unit_ids) === JSON.stringify([
+        'run_evidence_unit_failed_002',
+      ]),
+  );
+});
+
+test('project run reconciliation skips non-ready dossiers and untrusted failed runs', async () => {
+  // Non-ready statuses are exempt from the project-level reconciliation.
+  const draft = await setup('succeeded', {}, [
+    projectRunEvidence('run_evidence_unit_failed_002', 'failed'),
+  ]);
+  await draft.service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  const draftRequest = {
+    ...validDossierRequest(),
+    dossier_status: 'draft' as const,
+    claim_candidate_ids: [],
+    claim_trace_packet_ids: [],
+    claim_section: {
+      admitted_claim_refs: [],
+      rejected_claim_refs: [],
+      forbidden_overclaims: [],
+      claim_ceiling: 'tentative' as const,
+    },
+  };
+  const draftDossier = await draft.service.createImplementationDossier(PROJECT_ID, draftRequest);
+  assert.equal(draftDossier.dossier_status, 'draft');
+
+  // Untrusted / needs_review failed runs are not admissible evidence and do
+  // not enter the reconciliation set.
+  const untrusted = await setup('succeeded', {}, [
+    projectRunEvidence('run_evidence_unit_failed_002', 'failed', { trusted_status: 'needs_review' }),
+  ]);
+  await untrusted.service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  await untrusted.service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const untrustedDossier = await untrusted.service.createImplementationDossier(PROJECT_ID, validDossierRequest());
+  assert.equal(untrustedDossier.dossier_status, 'ready_for_writing');
 });
 
 test('strong claim requires explicit human confirmation', async () => {

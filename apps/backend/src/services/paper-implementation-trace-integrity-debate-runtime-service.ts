@@ -52,12 +52,21 @@ import {
 import {
   PaperImplementationRuntimeAdmissionService,
 } from './paper-implementation-runtime-admission-service.js';
+import {
+  assertResumeRunIdConsistency,
+  PaperImplementationRuntimeResumeEngine,
+  RESUME_ISSUE_CODES,
+  type ResumeRequestIdentity,
+} from './paper-implementation-runtime-resume.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
   PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
 } from './paper-implementation-runtime-utils.js';
+import {
+  evaluatePaperImplementationTraceIntegrityRoleSemantics,
+} from './paper-implementation-trace-debate-semantics.js';
 import {
   PaperImplementationTraceIntegrityRetrievalService,
   type PaperImplementationTraceIntegrityRetrievalResult,
@@ -164,7 +173,14 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
   ): Promise<PaperImplementationTraceIntegrityDebateRuntimeResult> {
     this.assertRequest(request);
     await requireActiveImplementationProject(this.projectRepository, implementationProjectId);
-    const runId = request.run_id?.trim() || this.idFactory('pi_trace_debate_run');
+    // D9 resume (T-124 S3-α1): a resume continues the ORIGINAL run identity —
+    // the same run_id, the same retrieval packet identity, the same profile and
+    // prompt identity. Already-admitted role artifacts are reused as the
+    // executed prefix (no provider re-issue); newly executed roles take the
+    // run's next call indexes so re-executing a previously failed role never
+    // collides with its recorded failed artifact on runtime identity.
+    const resumeRunId = request.resume_from_run_id?.trim() || null;
+    const runId = resumeRunId ?? (request.run_id?.trim() || this.idFactory('pi_trace_debate_run'));
     const retrievalResult = this.retrievalService.buildRetrievalPacket(
       implementationProjectId,
       runId,
@@ -178,6 +194,43 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       ...retrievalResult.blocker_codes,
     ]);
     const preflightWarningCodes = this.uniqueStrings(retrievalResult.warning_codes);
+
+    let resume: TraceResumeState | null = null;
+    if (resumeRunId) {
+      const engine = this.resumeEngine();
+      const resumeIdentity = this.resumeIdentity(runtimeBase, request);
+      const idempotent = await engine.idempotentResumeChain(resumeIdentity);
+      if (idempotent) {
+        return this.result(
+          runId,
+          idempotent.status,
+          idempotent.providerCallCount,
+          idempotent.artifacts,
+          idempotent.admissions,
+          idempotent.finalArtifact,
+          idempotent.finalAdmission,
+        );
+      }
+      if (preflightBlockerCodes.length > 0) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `Resume of run ${runId} rejected: deterministic preflight is no longer clean for the original run identity.`,
+          { resume_issue_codes: [RESUME_ISSUE_CODES.PREFLIGHT_NO_LONGER_CLEAN], blocker_codes: preflightBlockerCodes },
+        );
+      }
+      const loaded = await engine.loadResumeState(resumeIdentity);
+      // F1-2: when the resume request omits model_option_id, pin the recorded run's
+      // option so newly executed roles inherit it instead of drifting to null.
+      if (
+        request.execution_mode === 'provider_llm'
+        && !request.model_option_id?.trim()
+        && loaded.recordedModelOptionId
+      ) {
+        runtimeBase.modelOptionId = loaded.recordedModelOptionId;
+      }
+      resume = { reused: loaded.reused, nextCallIndex: loaded.nextCallIndex };
+    }
 
     if (preflightBlockerCodes.length > 0) {
       const preflight = await this.recordPreflightBlockedArtifact(
@@ -202,15 +255,27 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     }
 
     const roleArtifacts: RecordedRuntimeArtifact[] = [];
+    for (const reused of resume?.reused ?? []) {
+      artifacts.push(reused.artifact);
+      admissions.push(reused.admission);
+      roleArtifacts.push(reused);
+    }
+    let nextCallIndex = resume?.nextCallIndex ?? 1;
     for (const [index, spec] of ROLE_SPECS.entries()) {
+      if (index < roleArtifacts.length) {
+        // Admitted prefix reused from the resumed run — no provider re-issue.
+        continue;
+      }
+      const callIndex = nextCallIndex;
+      nextCallIndex += 1;
       const roleInvocation = await this.invokeRoleWithBoundedRetry(
         runtimeBase,
         request,
         spec,
-        index + 1,
+        callIndex,
         roleArtifacts,
       );
-      const recorded = await this.recordRoleArtifact(runtimeBase, request, spec, index + 1, roleArtifacts, roleInvocation);
+      const recorded = await this.recordRoleArtifact(runtimeBase, request, spec, callIndex, roleArtifacts, roleInvocation);
       artifacts.push(recorded.artifact);
       admissions.push(recorded.admission);
       roleArtifacts.push(recorded);
@@ -274,7 +339,7 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         retryAttemptIndex,
       );
       providerCallCount += this.providerCallCount(result);
-      const runtimeFailureCode = this.roleInvocationFailureCode(spec, result);
+      const runtimeFailureCode = this.roleInvocationFailureCode(runtimeBase, spec, result, priorArtifacts);
       const shouldRetry = request.execution_mode === 'provider_llm'
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
@@ -743,6 +808,8 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
           summary: item.summary,
           blocker_codes: item.blocker_codes,
           cited_source_refs: item.cited_source_refs,
+          // S3-α2: structured per-finding view carried into the final artifact.
+          findings: item.challenge_findings ?? [],
         })),
       finding_resolution_map: {
         role_outputs: roleOutputs.filter((item) => item.role_slot_id.includes('reconcile')),
@@ -816,6 +883,54 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     });
   }
 
+  /**
+   * D9 resume engine (T-124 S3 F1-0): the trace-integrity debate and P1 review
+   * services share one implementation of idempotent replay, admitted prefix reuse,
+   * and per-artifact identity pinning. This slot pins the boundary-debate slot
+   * identity and adds the two trace-only identity facets (retrieval packet hash,
+   * reviewed statement packet hash) via extraIdentityChecks.
+   */
+  private resumeEngine(): PaperImplementationRuntimeResumeEngine<PaperImplementationTraceIntegrityRoleOutput> {
+    return new PaperImplementationRuntimeResumeEngine(this.runtimeAdmission, {
+      slotId: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID,
+      finalArtifactRefType: 'trace_integrity_debate_artifact',
+      promptTemplateId: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_ID,
+      promptTemplateVersion: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_VERSION,
+      roleOutputSchemaId: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_ROLE_OUTPUT_SCHEMA_ID,
+      roleSlotIds: ROLE_SPECS.map((spec) => spec.slotId),
+      extraIdentityChecks: (artifact, facets) => {
+        const issues: string[] = [];
+        if (artifact.retrieval_packet_hash !== facets.retrievalPacketHash) {
+          issues.push(RESUME_ISSUE_CODES.RETRIEVAL_PACKET_HASH_DRIFT);
+        }
+        if (artifact.reviewed_statement_packet_hash !== facets.reviewedStatementPacketHash) {
+          issues.push(RESUME_ISSUE_CODES.REVIEWED_STATEMENT_PACKET_DRIFT);
+        }
+        return issues;
+      },
+    });
+  }
+
+  private resumeIdentity(
+    runtimeBase: RuntimeBase,
+    request: RunPaperImplementationTraceIntegrityDebateRuntimeRequest,
+  ): ResumeRequestIdentity {
+    return {
+      implementationProjectId: runtimeBase.implementationProjectId,
+      runId: runtimeBase.runId,
+      sourceHashBundleHash: runtimeBase.sourceHashBundleHash,
+      inputSnapshotHash: request.input_snapshot_hash,
+      targetRef: request.target_ref,
+      modelProfileId: runtimeBase.modelProfileId,
+      modelOptionId: runtimeBase.modelOptionId,
+      executionMode: request.execution_mode,
+      extraFacets: {
+        retrievalPacketHash: runtimeBase.retrievalPacketHash,
+        reviewedStatementPacketHash: request.reviewed_statement_packet_hash,
+      },
+    };
+  }
+
   private runtimeBase(
     implementationProjectId: string,
     request: RunPaperImplementationTraceIntegrityDebateRuntimeRequest,
@@ -866,7 +981,9 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         content: [
           'Return only structured JSON for the requested PaperImplementation trace integrity debate role.',
           'Do not write trace repairs, claims, dossier readiness, work orders, queue items, prompt text, or raw provider output.',
-          'Use only refs supplied in the bounded retrieval packet and prior admitted role artifacts.',
+          'Cite only refs from the bounded retrieval packet; prior role artifacts are context and must not be used as cited refs.',
+          // Prompt template v2 (T-124 S3-α2): role-specific structured section.
+          this.roleStructuredOutputInstruction(spec.slotId),
         ].join(' '),
       },
       {
@@ -888,6 +1005,30 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         }),
       },
     ];
+  }
+
+  private roleStructuredOutputInstruction(
+    roleSlotId: PaperImplementationTraceIntegrityDebateSemanticRoleSlotId,
+  ): string {
+    switch (roleSlotId) {
+      case 'trace_integrity_review.support_mapper_map':
+        return 'Emit per_statement_support_map with one entry per reviewed statement '
+          + '(support_kind: direct|partial|background_only|conflicting|missing); '
+          + 'every non-missing entry must cite at least one packet ref in cited_refs.';
+      case 'trace_integrity_review.skeptic_challenge':
+        return 'Emit challenge_findings: one entry per distinct issue with a unique finding_id, '
+          + 'severity (blocker|major|minor), a blocker_code from the trace-integrity taxonomy, '
+          + 'a target_statement_ref from the reviewed statements, and cited_refs from the packet.';
+      case 'trace_integrity_review.support_mapper_reconcile':
+        return 'Emit finding_dispositions with exactly one disposition per skeptic finding_id '
+          + '(accepted_blocker|resolved_with_refs|rebutted_with_refs|context_gap_blocker); '
+          + 'resolved_with_refs and rebutted_with_refs require non-empty cited_refs from the packet.';
+      case 'trace_integrity_review.arbiter_final':
+        return 'Emit coverage listing every reviewed statement ref and every skeptic finding_id, '
+          + 'and carry the blocker_code of every accepted_blocker/context_gap_blocker finding into blocker_codes.';
+      default:
+        return '';
+    }
   }
 
   // S2-A boundary note: this debate slot deliberately does NOT wire the caller-side
@@ -1128,6 +1269,10 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     if (request.source_refs.length !== request.source_hashes.length) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'source_refs and source_hashes must have the same length.');
     }
+    assertResumeRunIdConsistency(
+      request.run_id?.trim() || null,
+      request.resume_from_run_id?.trim() || null,
+    );
     if (request.run_mode === 'product' && request.execution_mode !== 'provider_llm') {
       throw new AppError(400, 'INVALID_PAYLOAD', 'product run_mode requires execution_mode=provider_llm.');
     }
@@ -1279,10 +1424,18 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
    * rejection that kills the whole chain:
    * - a wrong `role_slot_id` echo (the schema enum admits every role value),
    * - `role_status='blocked'` with an empty `blocker_codes` list.
+   *
+   * T-124 S3-α2/α3 (review N2): the deepened role contract is enforced here as
+   * well — the role-specific structured field must be present and semantically
+   * complete (refs ⊆ retrieval packet, one disposition per finding, arbiter
+   * coverage, accepted blockers in the final blocker set). These checks run for
+   * BOTH passed and blocked role outputs, closing the N2 blocked bypass.
    */
   private roleInvocationFailureCode(
+    runtimeBase: RuntimeBase,
     spec: RoleSpec,
     result: TopicSelectionAgentInvocationResult<PaperImplementationTraceIntegrityRoleOutput>,
+    priorArtifacts: RecordedRuntimeArtifact[],
   ): string | null {
     const runtimeFailureCode = this.runtimeFailureCode(result);
     if (runtimeFailureCode) {
@@ -1298,6 +1451,16 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       && output.blocker_codes.filter((code) => code.trim().length > 0).length === 0
     ) {
       return PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE;
+    }
+    if (output) {
+      return evaluatePaperImplementationTraceIntegrityRoleSemantics({
+        roleSlotId: spec.slotId,
+        output,
+        reviewedStatementRefs: runtimeBase.retrievalPacket.reviewed_statements
+          .map((statement) => statement.statement_ref),
+        sourceRefs: runtimeBase.retrievalPacket.sources.map((source) => source.source_ref),
+        priorOutputs: priorArtifacts.flatMap((item) => item.output ? [item.output] : []),
+      });
     }
     return null;
   }
@@ -1370,6 +1533,13 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
   private hash(value: unknown): string {
     return sha256Text(stableStringify(value));
   }
+}
+
+interface TraceResumeState {
+  /** Admitted role artifacts reused as the executed prefix, in role order. */
+  reused: RecordedRuntimeArtifact[];
+  /** Next call index of the resumed run (max recorded call index + 1). */
+  nextCallIndex: number;
 }
 
 interface RuntimeBase {

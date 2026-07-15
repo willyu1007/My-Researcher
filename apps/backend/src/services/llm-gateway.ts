@@ -214,6 +214,62 @@ function normalizeOpenAiStructuredOutputSchema(schema: unknown): unknown {
   return normalized;
 }
 
+/**
+ * T-124 S3 复审 F5-2 fail-closed guardrail. `normalizeOpenAiStructuredOutputSchema`
+ * forces `additionalProperties:false` + `properties:{}` + `required:[]` on every
+ * object node. For a free/dynamic-key map node (declared with `propertyNames`)
+ * or a completely bare `{type:'object'}` node, that transform silently degrades
+ * the node to a grammar that can ONLY generate the empty object `{}`. Any
+ * payload the caller expected to carry real content is then structurally
+ * impossible for the model to produce, and the downstream ajv gate fails closed
+ * far away from here (looking like a model-quality problem). Rather than emit
+ * such a self-defeating strict schema, reject the request up front.
+ *
+ * Exemption (must NOT trip): legacy open-payload escape hatches such as
+ * `legacy_ref` carry `{type:'object', additionalProperties:true}` WITHOUT
+ * `propertyNames`. Those are deliberately narrowed to `{}` (they are optional,
+ * usually nullable, and forbidden on non-legacy refs anyway); the presence of an
+ * explicit `additionalProperties` with no `propertyNames` is the discriminator
+ * that keeps them out of scope. Real dynamic-key maps always declare
+ * `propertyNames`; genuinely load-bearing free objects are wire-encoded as JSON
+ * strings instead (see the P1/result-analysis/motive-evolution wire schemas).
+ */
+function assertOpenAiStructuredOutputSchemaEncodable(schema: unknown, path = '$'): void {
+  if (Array.isArray(schema)) {
+    schema.forEach((item, index) => assertOpenAiStructuredOutputSchemaEncodable(item, `${path}[${index}]`));
+    return;
+  }
+  if (!isRecord(schema)) {
+    return;
+  }
+  const hasProperties = isRecord(schema.properties) && Object.keys(schema.properties).length > 0;
+  const isObjectNode = schema.type === 'object';
+  if (isObjectNode && !hasProperties) {
+    // A dynamic-key map (propertyNames) or a schema-valued additionalProperties
+    // is a real free map; a completely bare {type:'object'} degrades to {} too.
+    // The legacy escape hatch `additionalProperties: true` (boolean, WITHOUT
+    // propertyNames — e.g. legacy_ref) is the sole exemption: it is only
+    // narrowed to {}, and the existing normalize pin depends on it passing.
+    const isDynamicKeyMap = Object.hasOwn(schema, 'propertyNames');
+    const isSchemaValuedFreeMap = isRecord(schema.additionalProperties);
+    const isCompletelyBare = !Object.hasOwn(schema, 'propertyNames')
+      && !Object.hasOwn(schema, 'additionalProperties');
+    if (isDynamicKeyMap || isSchemaValuedFreeMap || isCompletelyBare) {
+      throw new LlmGatewayError(
+        'InvalidRequestError',
+        `OpenAI strict structured output cannot represent the object node at ${path}: it has no fixed properties and would `
+        + `degrade to an always-empty object under strict normalization (${isDynamicKeyMap || isSchemaValuedFreeMap
+          ? 'dynamic-key / free map'
+          : 'completely bare {type:"object"}'}). Encode dynamic/free payloads as a JSON string on the wire instead.`,
+        { retryable: false },
+      );
+    }
+  }
+  for (const value of Object.values(schema)) {
+    assertOpenAiStructuredOutputSchemaEncodable(value, path);
+  }
+}
+
 function inferJsonSchemaType(value: unknown): string {
   if (value === null) {
     return 'null';
@@ -602,6 +658,9 @@ export class BackendLlmGateway {
   ): Promise<Record<string, unknown>> {
     if (request.model.providerId === 'openai') {
       const runtimeOptions = this.openAiRuntimeOptions(request);
+      // T-124 S3 复审 F5-2: reject strict-mode-degenerate schemas before they are
+      // silently collapsed to always-empty objects (see the function comment).
+      assertOpenAiStructuredOutputSchemaEncodable(request.schema);
       const response = await this.fetchProvider('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {

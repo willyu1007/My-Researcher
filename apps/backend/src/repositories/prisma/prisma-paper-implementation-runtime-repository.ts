@@ -102,6 +102,9 @@ implements PaperImplementationRuntimeRepository {
       implementationProjectId,
       ...(filter.slot_id ? { slotId: filter.slot_id } : {}),
       ...(filter.artifact_scope ? { artifactScope: filter.artifact_scope } : {}),
+      ...(filter.ref_id_prefix
+        ? { artifactPayloadRef: { path: ['ref_id'], string_starts_with: filter.ref_id_prefix } }
+        : {}),
     };
     const rows = await this.prisma.paperImplementationRuntimeArtifact.findMany({
       where,
@@ -184,6 +187,7 @@ implements PaperImplementationRuntimeRepository {
     const where: Prisma.PaperImplementationRuntimeAdmissionRecordWhereInput = {
       implementationProjectId,
       ...(filter.runtime_artifact_id ? { runtimeArtifactId: filter.runtime_artifact_id } : {}),
+      ...(filter.runtime_artifact_ids ? { runtimeArtifactId: { in: filter.runtime_artifact_ids } } : {}),
       ...(filter.admission_scope ? { admissionScope: filter.admission_scope } : {}),
     };
     const rows = await this.prisma.paperImplementationRuntimeAdmissionRecord.findMany({

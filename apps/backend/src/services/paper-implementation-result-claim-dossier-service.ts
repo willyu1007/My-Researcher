@@ -69,6 +69,11 @@ export type PaperImplementationResultClaimDossierServiceOptions = {
 };
 
 const FAILED_LIKE_RUN_STATUSES = new Set(['failed', 'cancelled', 'negative']);
+// S3-β2 (review N7): a ready dossier must reconcile against every trusted
+// non-supporting run in the PROJECT, not only against the runs its included
+// result packets happen to cite — otherwise selective packet inclusion can
+// silently launder away failed/negative evidence.
+const PROJECT_ACCOUNTABLE_RUN_STATUSES = new Set(['failed', 'cancelled', 'negative', 'inconclusive']);
 const CLAIM_SUPPORT_EVIDENCE_REF_TYPES = new Set([
   'runevidenceunit',
   'citationcandidate',
@@ -340,7 +345,11 @@ export class PaperImplementationResultClaimDossierService {
         this.requireClaimTracePacket(project.implementation_project_id, id)),
     );
     this.assertDossierGate(request, resultPackets, claimCandidates, claimTracePackets);
+    // S3 F4-3: validate the keyed readiness gate result before the (heavier)
+    // project-wide RunEvidenceUnit scan. Both fail with the same 409 class, so
+    // this is ordering hygiene only — cheap keyed lookups first.
     await this.assertReadinessGateResult(project.implementation_project_id, request);
+    await this.assertProjectRunEvidenceAccounting(project.implementation_project_id, request, resultPackets);
     const createdAt = this.now();
     const source = this.buildDossierSource(project, resultPackets, claimCandidates, claimTracePackets, manifest);
     const dossierHash = this.hashStable({
@@ -993,6 +1002,153 @@ export class PaperImplementationResultClaimDossierService {
         { missing_run_evidence_unit_ids: missingInconclusive },
       );
     }
+  }
+
+  /**
+   * S3-β2 (review N7): project-level failed-run reconciliation for the
+   * ready_for_writing path. Every trusted RunEvidenceUnit in the project whose
+   * run_status is failed/cancelled/negative/inconclusive must be visibly
+   * accounted for by the dossier through one of:
+   * - experiment_section.failed_run_refs / inconclusive_run_refs /
+   *   negative_result_refs (direct disclosure),
+   * - an included ResultInterpretationPacket's source.run_evidence_refs
+   *   (the packet already carries the interpretation-side accounting), or
+   * - experiment_section.excluded_stale_or_invalidated_evidence_refs
+   *   (explicit, reviewable exemption — e.g. superseded or invalidated runs).
+   * Anything uncovered fails closed with the missing RunEvidenceUnit ids.
+   * Untrusted/needs_review units are out of scope: they are not admissible
+   * evidence in either direction, and trusting them is a separate gate.
+   *
+   * S3 F4-1: the exemption list is validated, not trusted — every excluded
+   * ref must resolve to a real project RunEvidenceUnit that is provably
+   * superseded (see resolveProvablyInvalidatedExclusions). Otherwise listing
+   * all failed runs as "excluded" would zero-disclosure the ready gate.
+   * S3 F4-2: coverage only counts refs whose normalized ref_type is
+   * run_evidence_unit, so a foreign-typed ref whose ref_id happens to collide
+   * with a RunEvidenceUnit id no longer counts as accounting for it.
+   */
+  private async assertProjectRunEvidenceAccounting(
+    implementationProjectId: string,
+    request: CreateImplementationDossierRequest,
+    resultPackets: ResultInterpretationPacket[],
+  ): Promise<void> {
+    if (request.dossier_status !== 'ready_for_writing') {
+      return;
+    }
+    const projectUnits = await this.workOrderRepository.listRunEvidenceUnits(implementationProjectId);
+    const exemptedRunIds = await this.resolveProvablyInvalidatedExclusions(
+      implementationProjectId,
+      request.experiment_section.excluded_stale_or_invalidated_evidence_refs,
+      projectUnits,
+    );
+    const accountableUnits = projectUnits.filter((unit) =>
+      unit.trusted_status === 'trusted' && PROJECT_ACCOUNTABLE_RUN_STATUSES.has(unit.run_status));
+    if (accountableUnits.length === 0) {
+      return;
+    }
+    const coveredRunIds = new Set([
+      ...this.runEvidenceRefIds(request.experiment_section.failed_run_refs),
+      ...this.runEvidenceRefIds(request.experiment_section.inconclusive_run_refs),
+      ...this.runEvidenceRefIds(request.experiment_section.negative_result_refs),
+      ...exemptedRunIds,
+      ...resultPackets.flatMap((packet) => this.runEvidenceRefIds(packet.source.run_evidence_refs)),
+    ]);
+    const missing = accountableUnits.filter((unit) => !coveredRunIds.has(unit.run_evidence_unit_id));
+    if (missing.length > 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Ready ImplementationDossier must account for every trusted failed, cancelled, negative, or inconclusive RunEvidenceUnit in the project (cover it in experiment_section refs, an included result packet source, or exempt it via excluded_stale_or_invalidated_evidence_refs).',
+        {
+          missing_run_evidence_unit_ids: missing.map((unit) => unit.run_evidence_unit_id),
+          missing_run_statuses: Object.fromEntries(missing.map((unit) => [unit.run_evidence_unit_id, unit.run_status])),
+        },
+      );
+    }
+  }
+
+  /**
+   * S3 F4-1: excluded_stale_or_invalidated_evidence_refs is an audited
+   * exemption, not a free-form escape hatch. Each excluded ref must:
+   * (a) be a run_evidence_unit ref that resolves to a RunEvidenceUnit that
+   *     actually exists in this project (the already-fetched projectUnits), and
+   * (b) be provably invalidated — either a strictly NEWER trusted
+   *     RunEvidenceUnit exists for the same work order (a trusted rerun
+   *     supersedes it), or its owning ResearchWorkOrder is superseded.
+   * Refs that fail (a) are reported as unresolved; units that fail (b) as
+   * not-superseded. Both fail closed with a 409.
+   *
+   * NOTE (contract gap, no contract change here): RunEvidenceUnit carries no
+   * first-class staleness/invalidation marker, so "provably invalidated" is
+   * approximated from same-work-order supersession (newer trusted REU or a
+   * superseded work order). A proper invalidated/stale flag on the REU needs
+   * a workorder-contract evolution and should replace this heuristic then.
+   */
+  private async resolveProvablyInvalidatedExclusions(
+    implementationProjectId: string,
+    excludedRefs: TopicSelectionFunctionalRef[],
+    projectUnits: RunEvidenceUnit[],
+  ): Promise<Set<string>> {
+    const exemptedRunIds = new Set<string>();
+    if (excludedRefs.length === 0) {
+      return exemptedRunIds;
+    }
+    const unitsById = new Map(projectUnits.map((unit) => [unit.run_evidence_unit_id, unit]));
+    const unresolvedRefs: Array<{ ref_type: string; ref_id: string }> = [];
+    const notSupersededRunIds: string[] = [];
+    const workOrderStatusCache = new Map<string, string | null>();
+    for (const ref of excludedRefs) {
+      if (this.normalizedRefType(ref.ref_type) !== 'runevidenceunit') {
+        unresolvedRefs.push({ ref_type: ref.ref_type, ref_id: ref.ref_id });
+        continue;
+      }
+      const unit = unitsById.get(ref.ref_id);
+      if (!unit) {
+        unresolvedRefs.push({ ref_type: ref.ref_type, ref_id: ref.ref_id });
+        continue;
+      }
+      const supersededByNewerTrustedRun = projectUnits.some((candidate) =>
+        candidate.run_evidence_unit_id !== unit.run_evidence_unit_id
+        && candidate.work_order_id === unit.work_order_id
+        && candidate.trusted_status === 'trusted'
+        && candidate.created_at > unit.created_at);
+      let provablyInvalidated = supersededByNewerTrustedRun;
+      if (!provablyInvalidated) {
+        if (!workOrderStatusCache.has(unit.work_order_id)) {
+          const workOrder = await this.workOrderRepository.findWorkOrderById(
+            implementationProjectId,
+            unit.work_order_id,
+          );
+          workOrderStatusCache.set(unit.work_order_id, workOrder?.work_order_status ?? null);
+        }
+        provablyInvalidated = workOrderStatusCache.get(unit.work_order_id) === 'superseded';
+      }
+      if (!provablyInvalidated) {
+        notSupersededRunIds.push(unit.run_evidence_unit_id);
+        continue;
+      }
+      exemptedRunIds.add(unit.run_evidence_unit_id);
+    }
+    if (unresolvedRefs.length > 0 || notSupersededRunIds.length > 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Ready ImplementationDossier excluded_stale_or_invalidated_evidence_refs must resolve to project RunEvidenceUnit objects that are provably superseded or invalidated (unresolved refs / not-superseded units are rejected).',
+        {
+          unresolved_excluded_refs: unresolvedRefs,
+          not_superseded_excluded_run_evidence_unit_ids: notSupersededRunIds,
+        },
+      );
+    }
+    return exemptedRunIds;
+  }
+
+  // S3 F4-2: coverage accounting only accepts run_evidence_unit-typed refs
+  // (same pattern as assertClaimSectionRefsResolve for claim refs).
+  private runEvidenceRefIds(refs: TopicSelectionFunctionalRef[]): string[] {
+    return refs
+      .filter((ref) => this.normalizedRefType(ref.ref_type) === 'runevidenceunit')
+      .map((ref) => ref.ref_id);
   }
 
   private async requireResultPacket(

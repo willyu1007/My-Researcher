@@ -286,6 +286,106 @@ test('LLM gateway normalizes OpenAI structured output schemas to strict objects'
   assert.equal(schema.properties?.empty_items?.items?.type, 'string');
 });
 
+test('T-124 S3 F5-2: LLM gateway fails closed on strict-mode-degenerate OpenAI schemas before any provider call', async () => {
+  const buildGateway = () => {
+    const calls: Array<Record<string, unknown>> = [];
+    const gateway = new BackendLlmGateway({
+      settingsService: createSettingsService(),
+      fetchImpl: (async (_input, init) => {
+        calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return new Response(JSON.stringify({ output_text: JSON.stringify({ ok: true }) }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }) as typeof fetch,
+    });
+    return { gateway, calls };
+  };
+
+  const runWithSchema = async (schema: Record<string, unknown>) => {
+    const { gateway, calls } = buildGateway();
+    let thrown: unknown;
+    try {
+      await gateway.createStructuredOutput({
+        executionContext: { feature: 'test', operation: 'degenerate-schema' },
+        model: { providerId: 'openai', modelId: 'gpt-test', profileId: 'test-profile' },
+        prompt: { promptTemplateId: 'test-prompt', version: 'v1' },
+        messages: [{ role: 'user', content: 'return ok' }],
+        schemaName: 'degenerate_schema',
+        schema,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    return { thrown, calls };
+  };
+
+  // A dynamic-key map (propertyNames) that the normalizer would collapse to {}.
+  const dynamicKeyMap = await runWithSchema({
+    type: 'object',
+    required: ['payload'],
+    properties: {
+      payload: { type: 'object', propertyNames: { type: 'string' }, additionalProperties: true },
+    },
+  });
+  assert.ok(dynamicKeyMap.thrown instanceof LlmGatewayError);
+  assert.equal((dynamicKeyMap.thrown as LlmGatewayError).code, 'InvalidRequestError');
+  assert.equal((dynamicKeyMap.thrown as LlmGatewayError).retryable, false);
+  assert.equal(dynamicKeyMap.calls.length, 0, 'no provider call may be issued for a degenerate schema');
+
+  // A completely bare {type:'object'} node (e.g. objectArray items).
+  const bareObject = await runWithSchema({
+    type: 'object',
+    required: ['rows'],
+    properties: {
+      rows: { type: 'array', items: { type: 'object' } },
+    },
+  });
+  assert.ok(bareObject.thrown instanceof LlmGatewayError);
+  assert.equal((bareObject.thrown as LlmGatewayError).code, 'InvalidRequestError');
+  assert.equal(bareObject.calls.length, 0);
+});
+
+test('T-124 S3 F5-2: LLM gateway does not trip the guardrail on legacy open-payload escape hatches', async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const gateway = new BackendLlmGateway({
+    settingsService: createSettingsService(),
+    fetchImpl: (async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(JSON.stringify({ output_text: JSON.stringify({ ref: { id: 'r1', legacy: {} } }) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }) as typeof fetch,
+  });
+
+  // `legacy` carries {type:'object', additionalProperties:true} WITHOUT
+  // propertyNames — narrowed to {}, not rejected. Exactly the exemption the
+  // gateway normalize pin (above) relies on.
+  await gateway.createStructuredOutput<{ ref: { id: string; legacy: Record<string, unknown> } }>({
+    executionContext: { feature: 'test', operation: 'legacy-exempt' },
+    model: { providerId: 'openai', modelId: 'gpt-test', profileId: 'test-profile' },
+    prompt: { promptTemplateId: 'test-prompt', version: 'v1' },
+    messages: [{ role: 'user', content: 'return ok' }],
+    schemaName: 'legacy_exempt_schema',
+    schema: {
+      type: 'object',
+      required: ['ref'],
+      properties: {
+        ref: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string' },
+            legacy: { anyOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }] },
+          },
+        },
+      },
+    },
+  });
+  assert.equal(calls.length, 1, 'the legacy escape hatch must reach the provider, not fail closed');
+});
+
 test('LLM gateway normalizes OpenAI response format names without changing the internal schema name', async () => {
   const calls: Array<Record<string, unknown>> = [];
   const gateway = new BackendLlmGateway({

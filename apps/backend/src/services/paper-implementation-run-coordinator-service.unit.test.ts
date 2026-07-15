@@ -828,6 +828,19 @@ test('coordinator create rejects coordinator-owned fields, missing slots, and un
     /coordinator-owned fields/,
   );
 
+  // T-124 S3 F1-6: resume_from_run_id is coordinator-owned — a slot payload must
+  // not smuggle it in (the coordinator owns run identity, resume included).
+  const withResumeField = laneACreateRequest();
+  (withResumeField.slot_request_payloads[PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID] as Record<string, unknown>)
+    .resume_from_run_id = 'forged_resume_run';
+  await assert.rejects(
+    () => fixture.coordinator.createCoordinatorRun(PROJECT_ID, withResumeField),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD'
+      && /resume_from_run_id/.test(error.message),
+  );
+
   const missingSlot = laneACreateRequest();
   delete missingSlot.slot_request_payloads[PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID];
   await assert.rejects(

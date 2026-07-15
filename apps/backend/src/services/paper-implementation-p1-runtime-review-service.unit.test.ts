@@ -400,6 +400,23 @@ function roleOutput(nodeId: string): PaperImplementationP1RuntimeReviewRoleOutpu
   };
 }
 
+/**
+ * T-124 S3 F5-1: the provider wire shape — canonical role output with
+ * `domain_gate_request` and `scenario_outputs` replaced by their JSON-string
+ * carriers. Pass `overrideDomainGateJson` to inject a malformed carrier (only
+ * meaningful for a role whose canonical domain_gate_request is non-null).
+ */
+function p1WireOutput(nodeId: string, overrideDomainGateJson?: string): Record<string, unknown> {
+  const { domain_gate_request: domainGate, scenario_outputs: scenarios, ...rest } = roleOutput(nodeId);
+  return {
+    ...rest,
+    domain_gate_request_json: domainGate === null
+      ? null
+      : overrideDomainGateJson ?? JSON.stringify(domainGate),
+    scenario_output_jsons: (scenarios ?? []).map((scenario) => JSON.stringify(scenario)),
+  };
+}
+
 function invocationResult<T>(
   output: T,
   nodeId: string,
@@ -532,6 +549,7 @@ type P1InvocationCall = {
   node_id: string;
   execution_mode: string;
   invocation_attempt_id?: string | null;
+  schema_name?: string;
 };
 
 class ScriptedP1AgentOrchestrator {
@@ -555,10 +573,14 @@ function scriptedServiceFixture(
     call: P1InvocationCall,
     index: number,
   ) => TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>,
+  options: {
+    repository?: InMemoryPaperImplementationRuntimeRepository;
+    idPrefix?: string;
+  } = {},
 ) {
-  const repository = new InMemoryPaperImplementationRuntimeRepository();
+  const repository = options.repository ?? new InMemoryPaperImplementationRuntimeRepository();
   let sequence = 0;
-  const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+  const idFactory = (prefix: string) => `${options.idPrefix ?? ''}${prefix}_${++sequence}`;
   const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
     repository,
     idFactory,
@@ -613,6 +635,51 @@ test('P1 runtime review retries blocked-without-codes once and lands failed_runt
   assert.equal(result.admission_records[0]?.issue_codes.includes('RUNTIME_STATUS_FAILED_RUNTIME'), true);
 });
 
+test('T-124 S3 F5-1: P1 canonicalizes provider wire JSON-string carriers into canonical domain-gate/scenario shapes', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => invocationResult(
+    p1WireOutput(call.node_id) as unknown as PaperImplementationP1RuntimeReviewRoleOutput,
+    call.node_id,
+    call.execution_mode,
+  ));
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+
+  assert.equal(result.status, 'passed');
+  // Provider mode sent the wire schema and instructed the JSON-string carriers.
+  assert.equal(orchestrator.calls[0]?.schema_name, 'paper_implementation_p1_runtime_review_role_wire');
+  const finalDomainGate = result.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null;
+  assert.equal(finalDomainGate?.claim_candidate_id, 'claim_candidate_001');
+  // No wire residue leaks into the recorded artifacts.
+  const serialized = stableStringify(result);
+  assert.equal(serialized.includes('domain_gate_request_json'), false);
+  assert.equal(serialized.includes('scenario_output_jsons'), false);
+});
+
+test('T-124 S3 F5-1: P1 fails closed when a provider wire JSON carrier cannot be parsed', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
+    if (call.node_id === 'claim_boundary_review.adjudicator_final') {
+      return invocationResult(
+        p1WireOutput(call.node_id, '{ not valid json') as unknown as PaperImplementationP1RuntimeReviewRoleOutput,
+        call.node_id,
+        call.execution_mode,
+      );
+    }
+    return invocationResult(
+      p1WireOutput(call.node_id) as unknown as PaperImplementationP1RuntimeReviewRoleOutput,
+      call.node_id,
+      call.execution_mode,
+    );
+  });
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+
+  // The two prefix roles canonicalize fine; the final role's malformed carrier
+  // retries once (technical failure) then lands failed_runtime — never a 400.
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 4);
+  const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failedArtifact?.runtime_failure_code, 'RUNTIME_WIRE_JSON_DECODE_FAILED');
+  assert.equal(failedArtifact?.retry_attempt_index, 1);
+});
+
 test('P1 runtime review token budget counts message-embedded context once (S2-A N3, compression wiring deferred to STEP-7 downstream)', async () => {
   const { service, orchestrator } = serviceFixture();
   await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
@@ -635,4 +702,293 @@ test('P1 runtime review token budget counts message-embedded context once (S2-A 
     assert.deepEqual(budget.context_payloads, []);
     assert.equal(budget.compression_attempt ?? null, null);
   }
+});
+
+// ---------------------------------------------------------------------------
+// T-124 S3-α1: D9 resume contract (P1 review, 3-role chain)
+// ---------------------------------------------------------------------------
+
+function p1SuccessScript(call: P1InvocationCall) {
+  return invocationResult(roleOutput(call.node_id), call.node_id, call.execution_mode);
+}
+
+function p1FailedInvocationResult(
+  nodeId: string,
+  errorCode: string,
+): TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput> {
+  const base = invocationResult<PaperImplementationP1RuntimeReviewRoleOutput | null>(null, nodeId, 'provider_llm');
+  return {
+    ...base,
+    status: 'failed',
+    structured_output: null,
+    error_code: errorCode,
+  } as unknown as TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>;
+}
+
+async function p1InterruptedRunFixture() {
+  // Roles 1-2 admitted; the adjudicator fails both attempts transiently.
+  const first = scriptedServiceFixture((call) => {
+    if (call.node_id === 'claim_boundary_review.adjudicator_final') {
+      return p1FailedInvocationResult(call.node_id, 'TimeoutError');
+    }
+    return p1SuccessScript(call);
+  });
+  const run = await first.service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+  assert.equal(run.status, 'failed_runtime');
+  assert.equal(first.orchestrator.calls.length, 4);
+  return { first, run };
+}
+
+test('P1 runtime review resume reuses the admitted prefix without provider re-issue (S3-α1 D9)', async () => {
+  const { first, run } = await p1InterruptedRunFixture();
+  const admittedPrefixIds = run.runtime_artifacts.slice(0, 2).map((artifact) => artifact.runtime_artifact_id);
+
+  const resumeFixture = scriptedServiceFixture(p1SuccessScript, {
+    repository: first.repository,
+    idPrefix: 'resume_',
+  });
+  const resumed = await resumeFixture.service.runClaimBoundaryDebate(PROJECT_ID, {
+    ...providerRequest('claim'),
+    run_id: null,
+    resume_from_run_id: 'claim_boundary_run_001',
+  });
+
+  assert.equal(resumed.status, 'passed');
+  assert.equal(resumed.run_id, 'claim_boundary_run_001');
+  assert.deepEqual(resumeFixture.orchestrator.calls.map((call) => call.node_id), [
+    'claim_boundary_review.adjudicator_final',
+  ]);
+  assert.deepEqual(
+    resumed.runtime_artifacts.slice(0, 2).map((artifact) => artifact.runtime_artifact_id),
+    admittedPrefixIds,
+  );
+  const roleArtifacts = resumed.runtime_artifacts.filter((artifact) => artifact.artifact_scope === 'role');
+  // Failed adjudicator held call index 3 — the resumed one takes 4.
+  assert.deepEqual(roleArtifacts.map((artifact) => artifact.call_index), [1, 2, 4]);
+  assert.equal(resumed.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(
+    resumed.final_runtime_artifact?.prior_role_artifact_hashes,
+    roleArtifacts.map((artifact) => artifact.artifact_payload_hash),
+  );
+});
+
+test('P1 runtime review resume rejects identity drift, unknown runs, and slot mismatch (S3-α1 D9)', async () => {
+  const { first } = await p1InterruptedRunFixture();
+  const resumeFixture = scriptedServiceFixture(p1SuccessScript, {
+    repository: first.repository,
+    idPrefix: 'resume_reject_',
+  });
+
+  // Identity drift: different source hashes -> 409, zero provider calls.
+  await assert.rejects(
+    () => resumeFixture.service.runClaimBoundaryDebate(PROJECT_ID, {
+      ...providerRequest('claim'),
+      run_id: null,
+      resume_from_run_id: 'claim_boundary_run_001',
+      source_hashes: [hash('drifted-result-packet'), hash('claim-trace-packet')],
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+
+  // Unknown run -> 404.
+  await assert.rejects(
+    () => resumeFixture.service.runClaimBoundaryDebate(PROJECT_ID, {
+      ...providerRequest('claim'),
+      run_id: null,
+      resume_from_run_id: 'p1_run_that_never_existed',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 404
+      && error.errorCode === 'NOT_FOUND',
+  );
+
+  // Slot mismatch: resuming a claim-boundary run through the dossier endpoint -> 409.
+  await assert.rejects(
+    () => resumeFixture.service.runDossierReadinessAudit(PROJECT_ID, {
+      ...providerRequest('dossier'),
+      run_id: null,
+      resume_from_run_id: 'claim_boundary_run_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+});
+
+test('P1 runtime review resume of a completed run returns the original final idempotently (S3-α1 D9)', async () => {
+  const first = scriptedServiceFixture(p1SuccessScript);
+  const run = await first.service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+  assert.equal(run.status, 'passed');
+
+  const resumeFixture = scriptedServiceFixture(p1SuccessScript, {
+    repository: first.repository,
+    idPrefix: 'resume_idempotent_',
+  });
+  const resumed = await resumeFixture.service.runClaimBoundaryDebate(PROJECT_ID, {
+    ...providerRequest('claim'),
+    run_id: null,
+    resume_from_run_id: 'claim_boundary_run_001',
+  });
+
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+  assert.equal(resumed.status, 'passed');
+  assert.equal(
+    resumed.final_runtime_artifact?.runtime_artifact_id,
+    run.final_runtime_artifact?.runtime_artifact_id,
+  );
+  assert.equal(resumed.runtime_artifacts.length, 4);
+});
+
+// ---------------------------------------------------------------------------
+// T-124 S3 F1: resume hardening (run-ownership, model-option, version pinning,
+// fail-closed chain)
+// ---------------------------------------------------------------------------
+
+type StoredRuntimeArtifactMap = Map<string, {
+  artifact_scope: string;
+  prompt_template_version_id: string;
+  prior_role_artifact_hashes: string[];
+  artifact_payload_ref: { ref_id: string };
+}>;
+
+function storedRuntimeArtifacts(repository: InMemoryPaperImplementationRuntimeRepository): StoredRuntimeArtifactMap {
+  return (repository as unknown as { runtimeArtifacts: StoredRuntimeArtifactMap }).runtimeArtifacts;
+}
+
+function rewriteStoredPromptVersion(
+  repository: InMemoryPaperImplementationRuntimeRepository,
+  runId: string,
+  version: string,
+): void {
+  let rewritten = 0;
+  for (const artifact of storedRuntimeArtifacts(repository).values()) {
+    if (artifact.artifact_payload_ref.ref_id.startsWith(`${runId}.`)) {
+      artifact.prompt_template_version_id = version;
+      rewritten += 1;
+    }
+  }
+  assert.ok(rewritten > 0, 'expected at least one stored artifact to rewrite');
+}
+
+function corruptFinalChain(repository: InMemoryPaperImplementationRuntimeRepository, runId: string): void {
+  const final = [...storedRuntimeArtifacts(repository).values()].find(
+    (artifact) => artifact.artifact_scope === 'final' && artifact.artifact_payload_ref.ref_id === `${runId}.final`,
+  );
+  assert.ok(final, 'expected a stored final artifact for the run');
+  final.prior_role_artifact_hashes = [...final.prior_role_artifact_hashes, 'bogus-unresolvable-role-hash'];
+}
+
+function resumeIssueCodes(error: unknown): string[] {
+  if (error instanceof AppError && error.details && Array.isArray(error.details.resume_issue_codes)) {
+    return error.details.resume_issue_codes as string[];
+  }
+  return [];
+}
+
+test('P1 runtime review resume does not absorb a sibling run whose id extends this run id (S3 F1-1)', async () => {
+  const { first, run } = await p1InterruptedRunFixture();
+  const parentPrefixIds = run.runtime_artifacts.slice(0, 2).map((artifact) => artifact.runtime_artifact_id);
+
+  const siblingFixture = scriptedServiceFixture(p1SuccessScript, {
+    repository: first.repository,
+    idPrefix: 'sibling_',
+  });
+  const sibling = await siblingFixture.service.runClaimBoundaryDebate(PROJECT_ID, {
+    ...providerRequest('claim'),
+    run_id: 'claim_boundary_run_001.retry',
+    resume_from_run_id: null,
+  });
+  assert.equal(sibling.status, 'passed');
+
+  const resumeFixture = scriptedServiceFixture(p1SuccessScript, {
+    repository: first.repository,
+    idPrefix: 'resume_sibling_',
+  });
+  const resumed = await resumeFixture.service.runClaimBoundaryDebate(PROJECT_ID, {
+    ...providerRequest('claim'),
+    run_id: null,
+    resume_from_run_id: 'claim_boundary_run_001',
+  });
+
+  assert.equal(resumed.status, 'passed');
+  // Only the parent's remaining adjudicator role runs — the sibling is not pulled in.
+  assert.deepEqual(resumeFixture.orchestrator.calls.map((call) => call.node_id), [
+    'claim_boundary_review.adjudicator_final',
+  ]);
+  assert.deepEqual(
+    resumed.runtime_artifacts.slice(0, 2).map((artifact) => artifact.runtime_artifact_id),
+    parentPrefixIds,
+  );
+});
+
+test('P1 runtime review resume rejects an explicit model option that drifts from the recorded run (S3 F1-2)', async () => {
+  const { first } = await p1InterruptedRunFixture();
+  const resumeFixture = scriptedServiceFixture(p1SuccessScript, {
+    repository: first.repository,
+    idPrefix: 'resume_optdrift_',
+  });
+
+  await assert.rejects(
+    () => resumeFixture.service.runClaimBoundaryDebate(PROJECT_ID, {
+      ...providerRequest('claim'),
+      run_id: null,
+      resume_from_run_id: 'claim_boundary_run_001',
+      model_option_id: `${PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID}.openai-fast`,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && resumeIssueCodes(error).includes('RESUME_MODEL_OPTION_DRIFT'),
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+});
+
+test('P1 runtime review resume of a run completed under an earlier prompt version replays idempotently (S3 F1-3)', async () => {
+  const first = scriptedServiceFixture(p1SuccessScript);
+  const run = await first.service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+  assert.equal(run.status, 'passed');
+
+  rewriteStoredPromptVersion(first.repository, 'claim_boundary_run_001', 'v0-legacy');
+
+  const resumeFixture = scriptedServiceFixture(p1SuccessScript, {
+    repository: first.repository,
+    idPrefix: 'resume_v0_',
+  });
+  const resumed = await resumeFixture.service.runClaimBoundaryDebate(PROJECT_ID, {
+    ...providerRequest('claim'),
+    run_id: null,
+    resume_from_run_id: 'claim_boundary_run_001',
+  });
+
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+  assert.equal(resumed.status, 'passed');
+  assert.equal(
+    resumed.final_runtime_artifact?.runtime_artifact_id,
+    run.final_runtime_artifact?.runtime_artifact_id,
+  );
+});
+
+test('P1 runtime review resume of a completed run whose final chain no longer resolves fails closed (S3 F1-4)', async () => {
+  const first = scriptedServiceFixture(p1SuccessScript);
+  const run = await first.service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+  assert.equal(run.status, 'passed');
+  corruptFinalChain(first.repository, 'claim_boundary_run_001');
+
+  const resumeFixture = scriptedServiceFixture(p1SuccessScript, {
+    repository: first.repository,
+    idPrefix: 'resume_broken_',
+  });
+  await assert.rejects(
+    () => resumeFixture.service.runClaimBoundaryDebate(PROJECT_ID, {
+      ...providerRequest('claim'),
+      run_id: null,
+      resume_from_run_id: 'claim_boundary_run_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && resumeIssueCodes(error).includes('RESUME_FINAL_CHAIN_BROKEN'),
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
 });

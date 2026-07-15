@@ -43,6 +43,14 @@ const REQUIRED_L5_CASES = [
     subtest: 'L5 trace transient provider failure retries the same profile and recovers without fallback',
   },
   {
+    key: 'trace_resume_prefix_reuse_no_provider_replay',
+    subtest: 'L5 trace resume reuses the admitted role prefix without re-issuing provider calls',
+  },
+  {
+    key: 'trace_resume_identity_drift_rejected',
+    subtest: 'L5 trace resume rejects identity drift with 409 before any provider call',
+  },
+  {
     key: 'p1_over_budget_zero_provider_calls',
     subtest: 'L5 P1 stress blocks over-budget source bundles before provider calls',
   },
@@ -53,6 +61,18 @@ const REQUIRED_L5_CASES = [
   {
     key: 'p1_forbidden_provider_output_no_domain_gate_payload',
     subtest: 'L5 P1 forbidden provider output does not create final or domain-gate payloads',
+  },
+  {
+    // T-124 S3 复审 F5-1: provider wire JSON carriers round-trip through the
+    // real orchestrator ajv gate into canonical domain-gate/scenario shapes.
+    key: 'p1_provider_wire_carriers_complete_chain_with_canonical_domain_gate',
+    subtest: 'L5 P1 provider wire JSON carriers complete the debate chain with a canonical domain-gate request',
+  },
+  {
+    // T-124 S3 复审 F5-2: a strict-mode-degenerate schema is rejected at the
+    // gateway before any provider call (fail-closed floor for the wire encoding).
+    key: 'degenerate_structured_output_schema_fails_closed_at_gateway',
+    subtest: 'L5 degenerate structured-output schema fails closed at the gateway with InvalidRequestError',
   },
   {
     key: 'p1_provider_failure_retry_exhausted_no_domain_gate_payload',
@@ -217,6 +237,19 @@ const REQUIRED_L5_CASES = [
   {
     key: 'motive_evolution_over_budget_zero_provider_calls',
     subtest: 'L5 motive evolution stress blocks over-budget motive context before provider calls',
+  },
+  {
+    // T-124 S3-β1: provider wire entries (gs001-lora-live-004 fix) round-trip
+    // through the real orchestrator ajv gate into canonical option maps.
+    key: 'motive_evolution_provider_wire_entries_complete_chain_with_canonical_option_maps',
+    subtest: 'L5 motive evolution provider wire entries complete the two-role chain with canonical option maps',
+  },
+  {
+    // T-124 S3-β1 reproduction pin: a legacy by-key option-map provider output
+    // (the only options-proposing shape OpenAI strict mode could produce
+    // before the wire encoding) still fails closed as SCHEMA_VALIDATION_FAILED.
+    key: 'motive_evolution_legacy_option_map_output_schema_validation_retry_exhausted',
+    subtest: 'L5 motive evolution legacy by-key option-map provider output fails closed as schema-validation retry exhausted',
   },
   {
     key: 'motive_evolution_provider_failure_retry_exhausted_no_motive_portfolio_board_trace_queue_or_domain_gate_payload',

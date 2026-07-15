@@ -10,6 +10,7 @@ import {
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID,
   PAPER_IMPLEMENTATION_RUNTIME_ARTIFACT_ENVELOPE_SCHEMA_VERSION,
   paperImplementationResultAnalysisRoleOutputSchema,
+  paperImplementationResultAnalysisRoleWireOutputSchema,
   type PaperImplementationResultAnalysisArtifact,
   type PaperImplementationResultAnalysisRoleOutput,
   type PaperImplementationRuntimeAdmissionRecord,
@@ -49,7 +50,9 @@ import {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  roleSlotEchoMismatchCode,
 } from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -178,8 +181,16 @@ const SLOT_PROFILE: SlotProfile = {
 };
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
+// T-124 S3 复审 F5-1: a provider wire output whose domain_gate_request_json
+// carrier fails to parse into the canonical object is a retryable technical
+// failure, never an HTTP 400.
+const RUNTIME_WIRE_JSON_DECODE_FAILED = 'RUNTIME_WIRE_JSON_DECODE_FAILED';
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  // T-124 S3-α4: a wrong role_slot_id echo is a retryable technical failure
+  // (S2-C single-source constant), not an HTTP 400.
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
+  RUNTIME_WIRE_JSON_DECODE_FAILED,
   'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MISSING',
   'RESULT_ANALYSIS_SCENARIO_SET_INCOMPLETE',
 ]);
@@ -311,7 +322,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
     const invocationAttemptId = retryAttemptIndex === 0
       ? baseInvocationAttemptId
       : `${baseInvocationAttemptId}.retry-${retryAttemptIndex}`;
-    return this.agentOrchestrator.invokeStructuredOutput<PaperImplementationResultAnalysisRoleOutput>({
+    const invocationResult = await this.agentOrchestrator.invokeStructuredOutput<PaperImplementationResultAnalysisRoleOutput>({
       title_card_id: runtimeBase.titleCardId,
       feature_id: 'paper_implementation',
       node_id: SLOT_PROFILE.roleSlotId,
@@ -329,8 +340,15 @@ export class PaperImplementationResultAnalysisRuntimeService {
         version: SLOT_PROFILE.promptTemplateVersion,
       },
       prompt_variant_key: SLOT_PROFILE.promptVariantId,
-      schema_name: 'paper_implementation_result_analysis_role_output',
-      schema: paperImplementationResultAnalysisRoleOutputSchema as unknown as Record<string, unknown>,
+      // T-124 S3 复审 F5-1: provider_llm sends the wire schema (domain-gate
+      // request as a JSON string); mocked/codex keep the canonical schema.
+      // Recorded output_contract stays canonical.
+      schema_name: request.execution_mode === 'provider_llm'
+        ? 'paper_implementation_result_analysis_role_wire'
+        : 'paper_implementation_result_analysis_role_output',
+      schema: (request.execution_mode === 'provider_llm'
+        ? paperImplementationResultAnalysisRoleWireOutputSchema
+        : paperImplementationResultAnalysisRoleOutputSchema) as unknown as Record<string, unknown>,
       messages,
       input_refs: [
         request.target_ref,
@@ -360,6 +378,75 @@ export class PaperImplementationResultAnalysisRuntimeService {
         : null,
       created_by: this.createdBy(request.execution_mode),
     });
+    return request.execution_mode === 'provider_llm'
+      ? this.canonicalizedWireInvocationResult(invocationResult)
+      : invocationResult;
+  }
+
+  /**
+   * T-124 S3 复审 F5-1: canonicalize a provider wire output — parse the
+   * `domain_gate_request_json` string carrier back into the canonical
+   * `domain_gate_request` object so recording, admission, and semantic checks
+   * all see the canonical shape. `scenario_outputs` stays canonical on the wire
+   * (typed items are strict-representable) and is untouched. A carrier that
+   * fails to parse, or parses to a non-object, fails closed as a retryable
+   * technical failure. Outputs without the wire carrier key pass through
+   * untouched (fixture stubs that bypass the orchestrator ajv gate).
+   */
+  private canonicalizedWireInvocationResult(
+    result: TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput>,
+  ): TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput> {
+    const output = result.structured_output;
+    if (!output || typeof output !== 'object') {
+      return result;
+    }
+    const record = output as unknown as Record<string, unknown>;
+    if (!('domain_gate_request_json' in record)) {
+      return result;
+    }
+    const { domain_gate_request_json: domainGateJson, ...rest } = record;
+    let domainGateRequest: Record<string, unknown> | null = null;
+    if (domainGateJson !== undefined && domainGateJson !== null) {
+      const parsed = this.parseWireObject(domainGateJson);
+      if (parsed === null) {
+        return this.wireCanonicalizationFailure(result);
+      }
+      domainGateRequest = parsed;
+    }
+    const canonical = {
+      ...rest,
+      domain_gate_request: domainGateRequest,
+    } as unknown as PaperImplementationResultAnalysisRoleOutput;
+    return { ...result, structured_output: canonical };
+  }
+
+  /** Parse a wire JSON string into a plain object, or null if it is not a
+   * string, not valid JSON, or not a JSON object. */
+  private parseWireObject(value: unknown): Record<string, unknown> | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  }
+
+  private wireCanonicalizationFailure(
+    result: TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput>,
+  ): TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput> {
+    return {
+      ...result,
+      structured_output: null,
+      error_code: RUNTIME_WIRE_JSON_DECODE_FAILED,
+      blocker_codes: this.uniqueStrings([...result.blocker_codes, RUNTIME_WIRE_JSON_DECODE_FAILED]),
+    };
   }
 
   private async recordPreflightBlockedArtifact(
@@ -419,13 +506,9 @@ export class PaperImplementationResultAnalysisRuntimeService {
     const runtimeStatus = runtimeFailureCode
       ? 'failed_runtime'
       : output?.role_status === 'blocked' ? 'blocked' : 'passed';
-    if (output && output.role_slot_id !== SLOT_PROFILE.roleSlotId) {
-      throw new AppError(
-        400,
-        'INVALID_PAYLOAD',
-        `Result analysis role output slot mismatch: expected ${SLOT_PROFILE.roleSlotId}.`,
-      );
-    }
+    // T-124 S3-α4: a wrong role_slot_id echo is classified as a retryable
+    // technical failure inside the bounded retry loop (single-source S2-C
+    // constant) — it never surfaces as an HTTP 400 here.
     const artifactOutput = runtimeFailureCode
       ? {
         status: 'failed_runtime',
@@ -822,6 +905,11 @@ export class PaperImplementationResultAnalysisRuntimeService {
           'Interpretations are not evidence; cite run evidence, validation reports, failed-run summaries, limitations, and required follow-up refs separately.',
           'If the analysis passes, include scenario_outputs and a domain_gate_request for the deterministic ResultInterpretationPacket service.',
           'Do not write claims, dossiers, trace repairs, queue items, prompt text, or raw provider output.',
+          // T-124 S3 复审 F5-1: provider strict mode cannot emit a free/dynamic-key
+          // object, so the domain-gate request travels as a JSON string on the wire.
+          ...(request.execution_mode === 'provider_llm'
+            ? ['Encode the domain gate request as a JSON string in domain_gate_request_json (a single JSON object serialized to text; required when the analysis passes). scenario_outputs stays a normal JSON array of typed scenario objects.']
+            : []),
         ].join(' '),
       },
       {
@@ -1123,6 +1211,12 @@ export class PaperImplementationResultAnalysisRuntimeService {
     const runtimeFailureCode = this.runtimeFailureCode(result);
     if (runtimeFailureCode) {
       return runtimeFailureCode;
+    }
+    // T-124 S3-α4 (S2-C single-source pattern) + 复审 F3-5: a wrong role_slot_id
+    // echo is a retryable technical failure, not an HTTP 400.
+    const echoCode = roleSlotEchoMismatchCode(result.structured_output, SLOT_PROFILE.roleSlotId);
+    if (echoCode) {
+      return echoCode;
     }
     return this.semanticOutputFailureCode(result.structured_output);
   }

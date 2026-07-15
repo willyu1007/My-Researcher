@@ -139,6 +139,12 @@ implements PaperImplementationRuntimeRepository {
     if (filter.artifact_scope !== undefined && artifact.artifact_scope !== filter.artifact_scope) {
       return false;
     }
+    if (
+      filter.ref_id_prefix !== undefined
+      && !artifact.artifact_payload_ref.ref_id.startsWith(filter.ref_id_prefix)
+    ) {
+      return false;
+    }
     return true;
   }
 
@@ -147,6 +153,9 @@ implements PaperImplementationRuntimeRepository {
     filter: ListPaperImplementationRuntimeAdmissionRecordsFilter,
   ): boolean {
     if (filter.runtime_artifact_id !== undefined && record.runtime_artifact_id !== filter.runtime_artifact_id) {
+      return false;
+    }
+    if (filter.runtime_artifact_ids !== undefined && !filter.runtime_artifact_ids.includes(record.runtime_artifact_id)) {
       return false;
     }
     if (filter.admission_scope !== undefined && record.admission_scope !== filter.admission_scope) {

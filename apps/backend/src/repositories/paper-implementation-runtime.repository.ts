@@ -8,10 +8,21 @@ import type {
 export interface ListPaperImplementationRuntimeArtifactsFilter {
   slot_id?: string;
   artifact_scope?: PaperImplementationRuntimeArtifactScope;
+  /**
+   * Run-domain filter (D9 resume F1-5): restrict to artifacts whose
+   * artifact_payload_ref.ref_id begins with this prefix (e.g. `${runId}.`).
+   * Purely additive, read-only.
+   */
+  ref_id_prefix?: string;
 }
 
 export interface ListPaperImplementationRuntimeAdmissionRecordsFilter {
   runtime_artifact_id?: string;
+  /**
+   * Batch filter (D9 resume F1-5): match any of these runtime_artifact_ids in a
+   * single query. Use instead of runtime_artifact_id (not alongside it).
+   */
+  runtime_artifact_ids?: string[];
   admission_scope?: PaperImplementationRuntimeAdmissionScope;
 }
 

@@ -11,6 +11,7 @@ import {
   PAPER_IMPLEMENTATION_P1_REVIEW_ROLE_OUTPUT_SCHEMA_ID,
   PAPER_IMPLEMENTATION_RUNTIME_ARTIFACT_ENVELOPE_SCHEMA_VERSION,
   paperImplementationP1RuntimeReviewRoleOutputSchema,
+  paperImplementationP1RuntimeReviewRoleWireOutputSchema,
   type PaperImplementationP1RuntimeReviewArtifact,
   type PaperImplementationP1RuntimeReviewRoleOutput,
   type PaperImplementationP1RuntimeReviewRoleSlotId,
@@ -53,6 +54,12 @@ import {
 import {
   PaperImplementationRuntimeAdmissionService,
 } from './paper-implementation-runtime-admission-service.js';
+import {
+  assertResumeRunIdConsistency,
+  PaperImplementationRuntimeResumeEngine,
+  RESUME_ISSUE_CODES,
+  type ResumeRequestIdentity,
+} from './paper-implementation-runtime-resume.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
@@ -115,6 +122,13 @@ interface RecordedRuntimeArtifact {
   artifact: PaperImplementationRuntimeArtifactEnvelope;
   admission: PaperImplementationRuntimeAdmissionRecord;
   output: PaperImplementationP1RuntimeReviewRoleOutput | null;
+}
+
+interface P1ResumeState {
+  /** Admitted role artifacts reused as the executed prefix, in role order. */
+  reused: RecordedRuntimeArtifact[];
+  /** Next call index of the resumed run (max recorded call index + 1). */
+  nextCallIndex: number;
 }
 
 interface RoleInvocationOutcome {
@@ -247,8 +261,14 @@ const SLOT_PROFILES: Record<PaperImplementationP1RuntimeReviewSlotId, SlotProfil
 };
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
+// T-124 S3 复审 F5-1: a provider wire output whose JSON-string carrier
+// (domain_gate_request_json / scenario_output_jsons) fails to parse into the
+// canonical object shape is a retryable technical failure (SCHEMA_VALIDATION
+// semantics — one same-profile retry, then terminal), never an HTTP 400.
+const RUNTIME_WIRE_JSON_DECODE_FAILED = 'RUNTIME_WIRE_JSON_DECODE_FAILED';
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
+  RUNTIME_WIRE_JSON_DECODE_FAILED,
 ]);
 
 export class PaperImplementationP1RuntimeReviewService {
@@ -288,11 +308,53 @@ export class PaperImplementationP1RuntimeReviewService {
     const profile = SLOT_PROFILES[slotId];
     this.assertRequest(profile, request);
     await requireActiveImplementationProject(this.projectRepository, implementationProjectId);
-    const runId = request.run_id?.trim() || this.idFactory('pi_p1_runtime_run');
+    // D9 resume (T-124 S3-α1): same semantics as the trace-integrity debate —
+    // the resume continues the ORIGINAL run identity, reuses that run's
+    // already-admitted role artifacts as the executed prefix (no provider
+    // re-issue), and newly executed roles take the run's next call indexes.
+    const resumeRunId = request.resume_from_run_id?.trim() || null;
+    const runId = resumeRunId ?? (request.run_id?.trim() || this.idFactory('pi_p1_runtime_run'));
     const runtimeBase = this.runtimeBase(implementationProjectId, request, runId, profile);
     const artifacts: PaperImplementationRuntimeArtifactEnvelope[] = [];
     const admissions: PaperImplementationRuntimeAdmissionRecord[] = [];
     const preflightBlockerCodes = this.uniqueStrings(request.preflight_blocker_codes ?? []);
+
+    let resume: P1ResumeState | null = null;
+    if (resumeRunId) {
+      const engine = this.resumeEngine(profile);
+      const resumeIdentity = this.resumeIdentity(runtimeBase, request);
+      const idempotent = await engine.idempotentResumeChain(resumeIdentity);
+      if (idempotent) {
+        return this.result(
+          runtimeBase,
+          idempotent.status,
+          idempotent.providerCallCount,
+          idempotent.artifacts,
+          idempotent.admissions,
+          idempotent.finalArtifact,
+          idempotent.finalAdmission,
+        );
+      }
+      if (preflightBlockerCodes.length > 0) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `Resume of run ${runId} rejected: deterministic preflight is no longer clean for the original run identity.`,
+          { resume_issue_codes: [RESUME_ISSUE_CODES.PREFLIGHT_NO_LONGER_CLEAN], blocker_codes: preflightBlockerCodes },
+        );
+      }
+      const loaded = await engine.loadResumeState(resumeIdentity);
+      // F1-2: when the resume request omits model_option_id, pin the recorded run's
+      // option so newly executed roles inherit it instead of drifting to null.
+      if (
+        request.execution_mode === 'provider_llm'
+        && !request.model_option_id?.trim()
+        && loaded.recordedModelOptionId
+      ) {
+        runtimeBase.modelOptionId = loaded.recordedModelOptionId;
+      }
+      resume = { reused: loaded.reused, nextCallIndex: loaded.nextCallIndex };
+    }
 
     if (preflightBlockerCodes.length > 0) {
       const preflight = await this.recordPreflightBlockedArtifact(runtimeBase, request, preflightBlockerCodes);
@@ -312,15 +374,27 @@ export class PaperImplementationP1RuntimeReviewService {
     }
 
     const roleArtifacts: RecordedRuntimeArtifact[] = [];
+    for (const reused of resume?.reused ?? []) {
+      artifacts.push(reused.artifact);
+      admissions.push(reused.admission);
+      roleArtifacts.push(reused);
+    }
+    let nextCallIndex = resume?.nextCallIndex ?? 1;
     for (const [index, spec] of profile.roleSpecs.entries()) {
+      if (index < roleArtifacts.length) {
+        // Admitted prefix reused from the resumed run — no provider re-issue.
+        continue;
+      }
+      const callIndex = nextCallIndex;
+      nextCallIndex += 1;
       const roleInvocation = await this.invokeRoleWithBoundedRetry(
         runtimeBase,
         request,
         spec,
-        index + 1,
+        callIndex,
         roleArtifacts,
       );
-      const recorded = await this.recordRoleArtifact(runtimeBase, request, spec, index + 1, roleArtifacts, roleInvocation);
+      const recorded = await this.recordRoleArtifact(runtimeBase, request, spec, callIndex, roleArtifacts, roleInvocation);
       artifacts.push(recorded.artifact);
       admissions.push(recorded.admission);
       roleArtifacts.push(recorded);
@@ -414,7 +488,7 @@ export class PaperImplementationP1RuntimeReviewService {
     const invocationAttemptId = retryAttemptIndex === 0
       ? baseInvocationAttemptId
       : `${baseInvocationAttemptId}.retry-${retryAttemptIndex}`;
-    return this.agentOrchestrator.invokeStructuredOutput<PaperImplementationP1RuntimeReviewRoleOutput>({
+    const invocationResult = await this.agentOrchestrator.invokeStructuredOutput<PaperImplementationP1RuntimeReviewRoleOutput>({
       title_card_id: runtimeBase.titleCardId,
       feature_id: 'paper_implementation',
       node_id: spec.slotId,
@@ -432,8 +506,16 @@ export class PaperImplementationP1RuntimeReviewService {
         version: runtimeBase.profile.promptTemplateVersion,
       },
       prompt_variant_key: spec.promptVariantId,
-      schema_name: 'paper_implementation_p1_runtime_review_role_output',
-      schema: paperImplementationP1RuntimeReviewRoleOutputSchema as unknown as Record<string, unknown>,
+      // T-124 S3 复审 F5-1: provider_llm sends the wire schema (domain-gate
+      // request and scenario outputs as JSON strings); mocked/codex fixtures
+      // keep the canonical object schema. The recorded output_contract stays
+      // canonical — the wire form never leaves this service.
+      schema_name: request.execution_mode === 'provider_llm'
+        ? 'paper_implementation_p1_runtime_review_role_wire'
+        : 'paper_implementation_p1_runtime_review_role_output',
+      schema: (request.execution_mode === 'provider_llm'
+        ? paperImplementationP1RuntimeReviewRoleWireOutputSchema
+        : paperImplementationP1RuntimeReviewRoleOutputSchema) as unknown as Record<string, unknown>,
       messages,
       input_refs: [
         request.target_ref,
@@ -463,6 +545,104 @@ export class PaperImplementationP1RuntimeReviewService {
         : null,
       created_by: this.createdBy(request.execution_mode),
     });
+    return request.execution_mode === 'provider_llm'
+      ? this.canonicalizedWireInvocationResult(invocationResult)
+      : invocationResult;
+  }
+
+  /**
+   * T-124 S3 复审 F5-1: canonicalize a provider wire output — parse the JSON
+   * string carriers (`domain_gate_request_json`, `scenario_output_jsons`) back
+   * into the canonical `domain_gate_request` object and `scenario_outputs`
+   * array so every recorded artifact, admission expectation, and downstream
+   * semantic check keeps the canonical shape. A carrier that is not present is
+   * mapped to the canonical absence (null / empty). A carrier that fails to
+   * parse, or parses to the wrong JSON shape, fails closed as a retryable
+   * technical failure (`RUNTIME_WIRE_JSON_DECODE_FAILED`). Outputs without any
+   * wire carrier key pass through untouched (fixture stubs that bypass the
+   * orchestrator ajv gate); a real provider output cannot reach here in
+   * canonical form because the wire schema forbids the object fields via
+   * additionalProperties: false.
+   */
+  private canonicalizedWireInvocationResult(
+    result: TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>,
+  ): TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput> {
+    const output = result.structured_output;
+    if (!output || typeof output !== 'object') {
+      return result;
+    }
+    const record = output as unknown as Record<string, unknown>;
+    const hasDomainGateWire = 'domain_gate_request_json' in record;
+    const hasScenarioWire = 'scenario_output_jsons' in record;
+    if (!hasDomainGateWire && !hasScenarioWire) {
+      return result;
+    }
+    const {
+      domain_gate_request_json: domainGateJson,
+      scenario_output_jsons: scenarioJsons,
+      ...rest
+    } = record;
+
+    let domainGateRequest: Record<string, unknown> | null = null;
+    if (domainGateJson !== undefined && domainGateJson !== null) {
+      const parsed = this.parseWireObject(domainGateJson);
+      if (parsed === null) {
+        return this.wireCanonicalizationFailure(result);
+      }
+      domainGateRequest = parsed;
+    }
+
+    let scenarioOutputs: Record<string, unknown>[] = [];
+    if (scenarioJsons !== undefined) {
+      if (!Array.isArray(scenarioJsons)) {
+        return this.wireCanonicalizationFailure(result);
+      }
+      const parsedScenarios: Record<string, unknown>[] = [];
+      for (const entry of scenarioJsons) {
+        const parsed = this.parseWireObject(entry);
+        if (parsed === null) {
+          return this.wireCanonicalizationFailure(result);
+        }
+        parsedScenarios.push(parsed);
+      }
+      scenarioOutputs = parsedScenarios;
+    }
+
+    const canonical = {
+      ...rest,
+      domain_gate_request: domainGateRequest,
+      scenario_outputs: scenarioOutputs,
+    } as unknown as PaperImplementationP1RuntimeReviewRoleOutput;
+    return { ...result, structured_output: canonical };
+  }
+
+  /** Parse a wire JSON string into a plain object, or null if it is not a
+   * string, not valid JSON, or not a JSON object. */
+  private parseWireObject(value: unknown): Record<string, unknown> | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  }
+
+  private wireCanonicalizationFailure(
+    result: TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>,
+  ): TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput> {
+    return {
+      ...result,
+      structured_output: null,
+      error_code: RUNTIME_WIRE_JSON_DECODE_FAILED,
+      blocker_codes: this.uniqueStrings([...result.blocker_codes, RUNTIME_WIRE_JSON_DECODE_FAILED]),
+    };
   }
 
   private async recordPreflightBlockedArtifact(
@@ -887,6 +1067,41 @@ export class PaperImplementationP1RuntimeReviewService {
     });
   }
 
+  /**
+   * D9 resume engine (T-124 S3 F1-0): shared with the trace-integrity debate
+   * service. The descriptor is built per profile (claim-boundary vs dossier
+   * readiness) because slot identity, prompt template, final ref type and role
+   * chain all vary by profile. P1 carries no slot-specific identity facets.
+   */
+  private resumeEngine(profile: SlotProfile): PaperImplementationRuntimeResumeEngine<PaperImplementationP1RuntimeReviewRoleOutput> {
+    return new PaperImplementationRuntimeResumeEngine(this.runtimeAdmission, {
+      slotId: profile.slotId,
+      finalArtifactRefType: profile.finalArtifactRefType,
+      promptTemplateId: profile.promptTemplateId,
+      promptTemplateVersion: profile.promptTemplateVersion,
+      roleOutputSchemaId: PAPER_IMPLEMENTATION_P1_REVIEW_ROLE_OUTPUT_SCHEMA_ID,
+      roleSlotIds: profile.roleSpecs.map((spec) => spec.slotId),
+      extraIdentityChecks: () => [],
+    });
+  }
+
+  private resumeIdentity(
+    runtimeBase: RuntimeBase,
+    request: RunPaperImplementationP1RuntimeReviewRequest,
+  ): ResumeRequestIdentity {
+    return {
+      implementationProjectId: runtimeBase.implementationProjectId,
+      runId: runtimeBase.runId,
+      sourceHashBundleHash: runtimeBase.sourceHashBundleHash,
+      inputSnapshotHash: request.input_snapshot_hash,
+      targetRef: request.target_ref,
+      modelProfileId: runtimeBase.modelProfileId,
+      modelOptionId: runtimeBase.modelOptionId,
+      executionMode: request.execution_mode,
+      extraFacets: {},
+    };
+  }
+
   private runtimeBase(
     implementationProjectId: string,
     request: RunPaperImplementationP1RuntimeReviewRequest,
@@ -935,6 +1150,15 @@ export class PaperImplementationP1RuntimeReviewService {
           'Return only structured JSON for the requested PaperImplementation P1 runtime review role.',
           'Do not write claims, dossier readiness, writing packets, trace repairs, queue items, prompt text, or raw provider output.',
           'If this is the final adjudicator role and the review passes, include a domain_gate_request for the deterministic Domain Gate service.',
+          // T-124 S3 复审 F5-1: provider strict mode cannot emit free/dynamic-key
+          // objects, so the domain-gate request and per-scenario outputs travel
+          // as JSON strings on the wire.
+          ...(request.execution_mode === 'provider_llm'
+            ? [
+              'Encode the domain gate request as a JSON string in domain_gate_request_json (a single JSON object serialized to text), and encode each scenario output as a JSON-object string inside the scenario_output_jsons array.',
+              'Omit domain_gate_request_json (or set it to null) and leave scenario_output_jsons empty when there is nothing to request.',
+            ]
+            : []),
         ].join(' '),
       },
       {
@@ -1140,6 +1364,10 @@ export class PaperImplementationP1RuntimeReviewService {
     if (request.source_refs.length !== request.source_hashes.length) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'source_refs and source_hashes must have the same length.');
     }
+    assertResumeRunIdConsistency(
+      request.run_id?.trim() || null,
+      request.resume_from_run_id?.trim() || null,
+    );
     if (request.run_mode === 'product' && request.execution_mode !== 'provider_llm') {
       throw new AppError(400, 'INVALID_PAYLOAD', 'product run_mode requires execution_mode=provider_llm.');
     }

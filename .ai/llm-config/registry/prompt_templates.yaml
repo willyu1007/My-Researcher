@@ -194,7 +194,7 @@ templates:
       - Recheck-producing feedback must include a non-empty required_action.
 
   - prompt_template_id: paper-implementation-trace-integrity-boundary-debate
-    version: 1
+    version: 2
     runtime_profile_id: paper-implementation.trace-integrity.boundary-debate.v1
     description: Run one fixed role in the PaperImplementation trace-integrity boundary debate runtime slot.
     variables_schema:
@@ -215,9 +215,11 @@ templates:
           type: array
     notes:
       - Return only the TraceIntegrityRoleArtifact JSON for the requested role slot.
-      - Cite only refs present in the bounded retrieval packet or prior admitted role artifacts.
+      - Cite only refs from the bounded retrieval packet; prior role artifacts are context and must not be used as cited refs.
       - Do not write trace repairs, claims, dossier readiness, work orders, queue items, prompt text, or raw provider output.
       - Semantic blockers must use the trace-integrity blocker taxonomy documented in T-114.
+      - "v2 (T-124 S3-α2): each role emits its structured section — support_mapper_map: per_statement_support_map covering every reviewed statement (support_kind direct|partial|background_only|conflicting|missing; non-missing entries cite packet refs); skeptic_challenge: challenge_findings (unique finding_id, severity blocker|major|minor, taxonomy blocker_code, packet-backed target_statement_ref and cited_refs); support_mapper_reconcile: finding_dispositions with exactly one disposition per skeptic finding (resolved/rebutted require non-empty cited_refs); arbiter_final: coverage over every reviewed statement and every finding_id, accepted blocker codes carried into blocker_codes."
+      - "v2 applies to both passed and blocked role outputs — a blocked verdict must still be structurally complete."
 
   - prompt_template_id: paper-implementation-claim-boundary-debate
     version: 1
@@ -370,6 +372,7 @@ templates:
     notes:
       - Return only the PaperImplementationRoutePlanningRoleArtifact JSON for the independent route critic role.
       - The admitted route proposal runtime artifact is the primary input; TechnicalRouteCandidate refs are secondary context only.
+      - "T-124 S3 复审 F3-4 — echo the reviewed upstream identity verbatim: reviewed_route_proposal_ref / reviewed_route_proposal_hash must equal the request admitted_route_proposal_artifact_ref / admitted_route_proposal_artifact_hash, and reviewed_candidate_keys must equal the request reviewed_candidate_keys set. The runtime reconciles these against the request-injected values (via functionalRefEquals / set equality) for both passed and blocked outputs; a present-but-drifted echo fails closed as a retryable ROUTE_SKEPTIC_ROUTE_PROPOSAL_MISMATCH / ROUTE_SKEPTIC_CANDIDATE_KEY_MISMATCH rather than being admitted."
       - Passed output must cover all required risk dimensions, set no_queue_side_effect=true, and include a recommended_disposition.
       - Do not create or update routes, validation cycles, feasibility probes, queue items, Domain Gate requests, prompt text, or raw provider output.
 
@@ -613,7 +616,7 @@ templates:
       - Do not create MotiveAssertion, CoreMotiveVersion, MotiveEvolutionDecision, board, evidence binding, trace repair queue, queue, Domain Gate, prompt text, source_assertion_reviews, or raw provider output payloads.
 
   - prompt_template_id: paper-implementation-motive-evolution-decision-support
-    version: 1
+    version: 2
     runtime_profile_id: paper-implementation.motive-evolution.evolution-decision-support.v1
     description: Run the fixed PaperImplementation motive evolution decision-support runtime roles.
     variables_schema:
@@ -679,6 +682,7 @@ templates:
           type: object
     notes:
       - Return only PaperImplementationMotiveEvolutionRoleArtifact JSON for the requested role slot.
+      - "v2 (T-124 S3-β1 + 复审 F3-2) mode-dependent option payload shape — the option payload has two forms and the prompt wording tracks the schema each mode enforces: provider_llm emits designed_option_entries / decision_option_entries arrays (each entry carries a unique option_key) because the canonical by-key maps are unrepresentable in OpenAI strict structured output, and the runtime canonicalizes those entries back into the by-key maps (null-prototype, so option_key values like __proto__ stay safe) before recording; mocked_llm and codex_assisted emit the canonical designed_options / decision_options by-key maps directly. The prompt states the result-status invariants against whichever shape the mode uses (options_proposed requires a non-empty option entry array / option map; no_evolution_needed requires an empty one and no blockers; blocked requires role_status=blocked with at least one blocker code)."
       - The option designer proposes option-keyed designed_options for existing motive/version/portfolio context; the risk challenger must challenge every option key before a final support packet can be admitted.
       - Every option must preserve request-owned motive, core motive version, board, evidence binding, trace, validation, result, prior decision, accepted-risk, and source refs exactly.
       - The runtime emits decision support only; Domain/human gates and T-094 deterministic services own MotiveEvolutionDecision, portfolio, motive role, board, evidence binding, trace repair, and queue mutations.

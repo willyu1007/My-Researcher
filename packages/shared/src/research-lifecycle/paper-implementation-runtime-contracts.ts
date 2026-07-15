@@ -106,8 +106,12 @@ export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID =
 
 export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_ID =
   'paper-implementation-trace-integrity-boundary-debate' as const;
+// v2 (T-124 S3-α2): the template now instructs each role to emit its structured
+// section — support_mapper_map → per_statement_support_map, skeptic_challenge →
+// challenge_findings, support_mapper_reconcile → finding_dispositions,
+// arbiter_final → coverage. Registry entry: .ai/llm-config/registry/prompt_templates.yaml.
 export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_VERSION =
-  'v1' as const;
+  'v2' as const;
 export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_RETRIEVAL_PACKET_SCHEMA_VERSION =
   'TraceIntegrityRetrievalPacket@v1' as const;
 
@@ -250,7 +254,13 @@ export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROMPT_TEMPLATE_VERSION =
 export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROMPT_TEMPLATE_VERSION = 'v1' as const;
-export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+// v2 (T-124 S3-β1): provider_llm rounds now instruct the roles to emit the
+// wire encoding (designed_option_entries / decision_option_entries arrays with
+// unique option_key) plus explicit result-status invariants; v1 prompts left
+// the structure implicit and, combined with the strict-mode-degenerate map
+// schemas, made options-proposing outputs deterministically fail schema
+// validation (gs001-lora-live-004).
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_VERSION = 'v2' as const;
 
 export const PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_REVIEW_ROLE_SLOT_IDS = [
   'claim_boundary_review.boundary_critic',
@@ -570,6 +580,64 @@ export interface ListPaperImplementationRuntimeAdmissionRecordsQuery {
   admission_scope?: PaperImplementationRuntimeAdmissionScope;
 }
 
+export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_SUPPORT_KINDS = [
+  'direct',
+  'partial',
+  'background_only',
+  'conflicting',
+  'missing',
+] as const;
+export type PaperImplementationTraceIntegritySupportKind =
+  (typeof PAPER_IMPLEMENTATION_TRACE_INTEGRITY_SUPPORT_KINDS)[number];
+
+export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_FINDING_SEVERITIES = [
+  'blocker',
+  'major',
+  'minor',
+] as const;
+export type PaperImplementationTraceIntegrityFindingSeverity =
+  (typeof PAPER_IMPLEMENTATION_TRACE_INTEGRITY_FINDING_SEVERITIES)[number];
+
+export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_FINDING_DISPOSITIONS = [
+  'accepted_blocker',
+  'resolved_with_refs',
+  'rebutted_with_refs',
+  'context_gap_blocker',
+] as const;
+export type PaperImplementationTraceIntegrityFindingDispositionKind =
+  (typeof PAPER_IMPLEMENTATION_TRACE_INTEGRITY_FINDING_DISPOSITIONS)[number];
+
+export interface PaperImplementationTraceIntegrityStatementSupportEntry {
+  statement_ref: TopicSelectionFunctionalRef;
+  support_kind: PaperImplementationTraceIntegritySupportKind;
+  cited_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface PaperImplementationTraceIntegrityChallengeFinding {
+  finding_id: string;
+  severity: PaperImplementationTraceIntegrityFindingSeverity;
+  /** Trace-integrity blocker taxonomy code carried into the final blocker set when the finding is accepted. */
+  blocker_code: string;
+  target_statement_ref: TopicSelectionFunctionalRef;
+  cited_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface PaperImplementationTraceIntegrityFindingDisposition {
+  finding_id: string;
+  disposition: PaperImplementationTraceIntegrityFindingDispositionKind;
+  cited_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface PaperImplementationTraceIntegrityCoverage {
+  statement_refs: TopicSelectionFunctionalRef[];
+  finding_ids: string[];
+}
+
+// T-124 S3-α2 (review N2): the four optional structured fields below are the
+// role-specific deepened contract — the runtime service requires the field that
+// matches the executing role (support map / findings / dispositions / coverage)
+// for BOTH passed and blocked outputs, and validates it against the bounded
+// retrieval packet (refs ⊆ packet, one disposition per finding, full coverage).
 export interface PaperImplementationTraceIntegrityRoleOutput {
   role_slot_id: PaperImplementationTraceIntegrityDebateRoleSlotId;
   role_status: 'passed' | 'blocked';
@@ -578,6 +646,10 @@ export interface PaperImplementationTraceIntegrityRoleOutput {
   cited_source_refs: TopicSelectionFunctionalRef[];
   blocker_codes: string[];
   warning_codes: string[];
+  per_statement_support_map?: PaperImplementationTraceIntegrityStatementSupportEntry[];
+  challenge_findings?: PaperImplementationTraceIntegrityChallengeFinding[];
+  finding_dispositions?: PaperImplementationTraceIntegrityFindingDisposition[];
+  coverage?: PaperImplementationTraceIntegrityCoverage;
 }
 
 export interface PaperImplementationTraceIntegrityReviewedStatementInput {
@@ -667,6 +739,16 @@ export interface PaperImplementationTraceIntegrityDebateArtifact {
 export interface RunPaperImplementationTraceIntegrityDebateRuntimeRequest {
   schema_version?: typeof PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
   run_id?: string | null;
+  /**
+   * D9 resume contract (T-124 S3-α1): continue an interrupted run under the SAME
+   * run identity. The service reuses this run's already-admitted role artifacts
+   * (same retrieval packet hash + profile/prompt identity, admission re-checked)
+   * as the executed prefix and only invokes the remaining roles; newly executed
+   * roles take the run's next call indexes. Technical continuation only — never
+   * a semantic fallback or provider response reuse. When set, `run_id` must be
+   * absent or equal to this value.
+   */
+  resume_from_run_id?: string | null;
   run_mode: PaperImplementationAgentRunMode;
   execution_mode: PaperImplementationAgentExecutionMode;
   model_profile_id?: string | null;
@@ -712,6 +794,25 @@ export interface PaperImplementationP1RuntimeReviewRoleOutput {
   scenario_outputs?: Record<string, unknown>[];
 }
 
+/**
+ * T-124 S3 复审 F5-1 provider wire encoding of the P1 runtime-review role
+ * output. The canonical `domain_gate_request` (a free/dynamic-key
+ * `runtimeReviewPayloadObject`) and `scenario_outputs` (bare `{type:'object'}`
+ * items) are both unrepresentable in OpenAI strict structured output: the
+ * gateway normalizer forces `additionalProperties:false` + `properties:{}` on
+ * every object node, degrading them to grammar-level always-empty objects, so
+ * the model physically cannot emit a domain-gate request or scenario payload.
+ * The wire encoding transports both as opaque JSON strings; the runtime
+ * service parses them back into the canonical object shapes before recording,
+ * admission, and semantic checks. Non-provider modes (mocked/codex) keep the
+ * canonical schema unchanged.
+ */
+export type PaperImplementationP1RuntimeReviewRoleWireOutput =
+  Omit<PaperImplementationP1RuntimeReviewRoleOutput, 'domain_gate_request' | 'scenario_outputs'> & {
+    domain_gate_request_json?: string | null;
+    scenario_output_jsons?: string[];
+  };
+
 export interface PaperImplementationP1RuntimeReviewArtifact {
   status: 'passed' | 'blocked' | 'failed_runtime';
   slot_id: PaperImplementationP1RuntimeReviewSlotId;
@@ -743,6 +844,13 @@ export interface PaperImplementationP1RuntimeReviewArtifact {
 export interface RunPaperImplementationP1RuntimeReviewRequest {
   schema_version?: typeof PAPER_IMPLEMENTATION_P1_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
   run_id?: string | null;
+  /**
+   * D9 resume contract (T-124 S3-α1): same semantics as the trace-integrity
+   * debate — reuse this run's admitted role artifacts (same source bundle hash +
+   * profile/prompt identity) as the executed prefix and continue from the first
+   * missing role. When set, `run_id` must be absent or equal to this value.
+   */
+  resume_from_run_id?: string | null;
   run_mode: PaperImplementationAgentRunMode;
   execution_mode: PaperImplementationAgentExecutionMode;
   model_profile_id?: string | null;
@@ -795,6 +903,22 @@ export interface PaperImplementationResultAnalysisRoleOutput {
   scenario_outputs: PaperImplementationResultAnalysisScenarioOutput[];
   domain_gate_request?: Record<string, unknown> | null;
 }
+
+/**
+ * T-124 S3 复审 F5-1 provider wire encoding of the result-analysis role output.
+ * Unlike P1, `scenario_outputs` is already a typed array (fixed properties per
+ * item — strict-representable) and stays canonical. The single load-bearing
+ * degenerate node is `domain_gate_request` (a free `runtimeReviewPayloadObject`
+ * whose passed-branch also requires a non-null value — the only strict-mode
+ * satisfiable value would be `{}`). The wire encoding transports it as an
+ * opaque JSON string that the runtime service parses back into the canonical
+ * object before recording, admission, and semantic checks. Non-provider modes
+ * keep the canonical schema unchanged.
+ */
+export type PaperImplementationResultAnalysisRoleWireOutput =
+  Omit<PaperImplementationResultAnalysisRoleOutput, 'domain_gate_request'> & {
+    domain_gate_request_json?: string | null;
+  };
 
 export interface PaperImplementationResultAnalysisArtifact {
   status: 'passed' | 'blocked' | 'failed_runtime';
@@ -2235,6 +2359,38 @@ export type PaperImplementationMotiveEvolutionRoleOutput =
   | PaperImplementationMotiveEvolutionOptionDesignerRoleOutput
   | PaperImplementationMotiveEvolutionRiskChallengerRoleOutput;
 
+/**
+ * T-124 S3-β1 provider wire encoding of the motive-evolution role outputs:
+ * the by-key option maps are unrepresentable in OpenAI strict structured
+ * output (see the wire schema exports next to
+ * `paperImplementationMotiveEvolutionRoleOutputSchema`), so provider_llm
+ * calls transport the options as entry arrays with an explicit `option_key`
+ * and the runtime service canonicalizes them back into the maps.
+ */
+export interface PaperImplementationMotiveEvolutionDesignedOptionEntry
+  extends PaperImplementationMotiveEvolutionDesignedOption {
+  option_key: string;
+}
+
+export interface PaperImplementationMotiveEvolutionDecisionOptionEntry
+  extends PaperImplementationMotiveEvolutionDecisionOption {
+  option_key: string;
+}
+
+export type PaperImplementationMotiveEvolutionOptionDesignerRoleWireOutput =
+  Omit<PaperImplementationMotiveEvolutionOptionDesignerRoleOutput, 'designed_options'> & {
+    designed_option_entries: PaperImplementationMotiveEvolutionDesignedOptionEntry[];
+  };
+
+export type PaperImplementationMotiveEvolutionRiskChallengerRoleWireOutput =
+  Omit<PaperImplementationMotiveEvolutionRiskChallengerRoleOutput, 'decision_options'> & {
+    decision_option_entries: PaperImplementationMotiveEvolutionDecisionOptionEntry[];
+  };
+
+export type PaperImplementationMotiveEvolutionRoleWireOutput =
+  | PaperImplementationMotiveEvolutionOptionDesignerRoleWireOutput
+  | PaperImplementationMotiveEvolutionRiskChallengerRoleWireOutput;
+
 export interface PaperImplementationMotiveEvolutionArtifact {
   status: 'passed' | 'blocked' | 'failed_runtime';
   slot_id: PaperImplementationMotiveEvolutionSlotId;
@@ -2758,6 +2914,55 @@ const productRunModeRequiresProviderExecution = {
   },
 } as const;
 
+const traceIntegrityStatementSupportEntrySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['statement_ref', 'support_kind', 'cited_refs'],
+  properties: {
+    statement_ref: nonLegacyFunctionalRef,
+    support_kind: { enum: [...PAPER_IMPLEMENTATION_TRACE_INTEGRITY_SUPPORT_KINDS] },
+    cited_refs: nonLegacyFunctionalRefArray,
+  },
+} as const;
+
+const traceIntegrityChallengeFindingSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['finding_id', 'severity', 'blocker_code', 'target_statement_ref', 'cited_refs'],
+  properties: {
+    finding_id: stringId,
+    severity: { enum: [...PAPER_IMPLEMENTATION_TRACE_INTEGRITY_FINDING_SEVERITIES] },
+    blocker_code: stringId,
+    target_statement_ref: nonLegacyFunctionalRef,
+    cited_refs: nonLegacyFunctionalRefArray,
+  },
+} as const;
+
+const traceIntegrityFindingDispositionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['finding_id', 'disposition', 'cited_refs'],
+  properties: {
+    finding_id: stringId,
+    disposition: { enum: [...PAPER_IMPLEMENTATION_TRACE_INTEGRITY_FINDING_DISPOSITIONS] },
+    cited_refs: nonLegacyFunctionalRefArray,
+  },
+} as const;
+
+const traceIntegrityCoverageSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['statement_refs', 'finding_ids'],
+  properties: {
+    statement_refs: nonLegacyFunctionalRefArray,
+    finding_ids: uniqueStringArray,
+  },
+} as const;
+
+// T-124 S3-α2: additive optional structured fields (prompt template v2). The
+// per-role presence/completeness requirements are enforced server-side (runtime
+// service semantic checks + admission independent re-check), not by this schema,
+// because one shared schema serves all four roles.
 export const paperImplementationTraceIntegrityRoleOutputSchema = {
   type: 'object',
   additionalProperties: false,
@@ -2778,6 +2983,19 @@ export const paperImplementationTraceIntegrityRoleOutputSchema = {
     cited_source_refs: nonLegacyFunctionalRefArray,
     blocker_codes: stringArray,
     warning_codes: stringArray,
+    per_statement_support_map: {
+      type: 'array',
+      items: traceIntegrityStatementSupportEntrySchema,
+    },
+    challenge_findings: {
+      type: 'array',
+      items: traceIntegrityChallengeFindingSchema,
+    },
+    finding_dispositions: {
+      type: 'array',
+      items: traceIntegrityFindingDispositionSchema,
+    },
+    coverage: traceIntegrityCoverageSchema,
   },
 } as const;
 
@@ -2803,6 +3021,48 @@ export const paperImplementationP1RuntimeReviewRoleOutputSchema = {
       anyOf: [runtimeReviewPayloadObject, { type: 'null' }],
     },
     scenario_outputs: objectArray,
+  },
+} as const;
+
+// T-124 S3 复审 F5-1: JSON-string wire carriers for the two degenerate map
+// nodes. Provider strict mode can emit a `string`; the runtime service parses
+// it back into the canonical object/array before anything is recorded.
+const nullableJsonStringSchema = {
+  anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }],
+} as const;
+const jsonStringArraySchema = {
+  type: 'array',
+  items: { type: 'string', minLength: 1 },
+} as const;
+
+/**
+ * T-124 S3 复审 F5-1 provider wire schema for P1 role outputs (see
+ * `PaperImplementationP1RuntimeReviewRoleWireOutput`). Identical base fields to
+ * the canonical schema, but the two strict-mode-degenerate map nodes are
+ * carried as opaque JSON strings — no `propertyNames`, no schema-valued
+ * `additionalProperties`, no bare `{type:'object'}` — so the gateway strict
+ * normalizer leaves the payload intact and the model can actually emit content.
+ */
+export const paperImplementationP1RuntimeReviewRoleWireOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    'role_status',
+    'summary',
+    'cited_source_refs',
+    'blocker_codes',
+    'warning_codes',
+  ],
+  properties: {
+    role_slot_id: p1RuntimeReviewRoleSlotSchema,
+    role_status: { enum: ['passed', 'blocked'] },
+    summary: stringId,
+    cited_source_refs: nonLegacyFunctionalRefArray,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    domain_gate_request_json: nullableJsonStringSchema,
+    scenario_output_jsons: jsonStringArraySchema,
   },
 } as const;
 
@@ -2887,6 +3147,57 @@ export const paperImplementationResultAnalysisRoleOutputSchema = {
             items: paperImplementationResultAnalysisScenarioOutputSchema,
           },
           domain_gate_request: runtimeReviewPayloadObject,
+        },
+      },
+    },
+  ],
+} as const;
+
+/**
+ * T-124 S3 复审 F5-1 provider wire schema for result-analysis role outputs (see
+ * `PaperImplementationResultAnalysisRoleWireOutput`). `scenario_outputs` stays
+ * canonical (typed items are strict-representable); only `domain_gate_request`
+ * is replaced by an opaque JSON string. The passed-branch invariant becomes
+ * "the JSON carrier must be a non-null string" (its parsed object satisfies the
+ * canonical non-null requirement after the service round-trips it).
+ */
+export const paperImplementationResultAnalysisRoleWireOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    'role_status',
+    'summary',
+    'cited_source_refs',
+    'blocker_codes',
+    'warning_codes',
+    'scenario_outputs',
+  ],
+  properties: {
+    role_slot_id: resultAnalysisRoleSlotSchema,
+    role_status: { enum: ['passed', 'blocked'] },
+    summary: stringId,
+    cited_source_refs: nonLegacyFunctionalRefArray,
+    blocker_codes: stringArray,
+    warning_codes: stringArray,
+    scenario_outputs: {
+      type: 'array',
+      items: paperImplementationResultAnalysisScenarioOutputSchema,
+    },
+    domain_gate_request_json: nullableJsonStringSchema,
+  },
+  allOf: [
+    {
+      if: { properties: { role_status: { const: 'passed' } }, required: ['role_status'] },
+      then: {
+        required: ['domain_gate_request_json'],
+        properties: {
+          scenario_outputs: {
+            type: 'array',
+            minItems: 1,
+            items: paperImplementationResultAnalysisScenarioOutputSchema,
+          },
+          domain_gate_request_json: { type: 'string', minLength: 1 },
         },
       },
     },
@@ -5958,6 +6269,7 @@ export const runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema = {
       const: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
     },
     run_id: nullableStringId,
+    resume_from_run_id: nullableStringId,
     run_mode: runModeSchema,
     execution_mode: executionModeSchema,
     model_profile_id: nullableStringId,
@@ -6032,6 +6344,7 @@ export const runPaperImplementationP1RuntimeReviewRequestSchema = {
       const: PAPER_IMPLEMENTATION_P1_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
     },
     run_id: nullableStringId,
+    resume_from_run_id: nullableStringId,
     run_mode: runModeSchema,
     execution_mode: executionModeSchema,
     model_profile_id: nullableStringId,
@@ -7375,6 +7688,208 @@ export const paperImplementationMotiveEvolutionRoleOutputSchema = {
   oneOf: [
     paperImplementationMotiveEvolutionOptionDesignerRoleOutputSchema,
     paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema,
+  ],
+} as const;
+
+/**
+ * T-124 S3-β1 provider wire encoding (gs001-lora-live-004 root cause).
+ *
+ * The canonical role outputs above carry the designed/decision options as
+ * by-key maps (`propertyNames` + schema-valued `additionalProperties`). That
+ * shape is unrepresentable in OpenAI strict structured output: the gateway
+ * normalizer must force `additionalProperties: false` + `properties: {}` on
+ * every object node, which degrades the option maps to grammar-level
+ * always-empty objects — the model physically cannot emit a non-empty option
+ * set, while the canonical invariants require a non-empty set whenever
+ * `support_result_status='options_proposed'`. Every options-proposing
+ * provider output therefore deterministically failed ajv with
+ * SCHEMA_VALIDATION_FAILED.
+ *
+ * The wire schemas below are what provider_llm calls send and validate:
+ * identical semantics and guardrails, but the option maps are encoded as
+ * entry arrays with an explicit `option_key`. The runtime service
+ * canonicalizes wire entries back into the by-key maps before recording or
+ * semantically checking anything, so persisted artifacts, admission, and all
+ * downstream consumers keep the canonical shape. Non-provider modes
+ * (mocked/codex) keep the canonical schema unchanged.
+ * `option_key` uniqueness is not expressible portably in JSON Schema and is
+ * enforced by the service during canonicalization (retryable technical
+ * failure).
+ */
+export const paperImplementationMotiveEvolutionDesignedOptionEntrySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'option_key',
+    ...paperImplementationMotiveEvolutionDesignedOptionSchema.required,
+  ],
+  properties: {
+    option_key: stringId,
+    ...paperImplementationMotiveEvolutionDesignedOptionSchema.properties,
+  },
+  allOf: [...motiveEvolutionOptionHumanGateInvariants],
+} as const;
+
+export const paperImplementationMotiveEvolutionDecisionOptionEntrySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'option_key',
+    ...paperImplementationMotiveEvolutionDecisionOptionSchema.required,
+  ],
+  properties: {
+    option_key: stringId,
+    ...paperImplementationMotiveEvolutionDecisionOptionSchema.properties,
+  },
+  allOf: [...motiveEvolutionOptionHumanGateInvariants],
+} as const;
+
+const motiveEvolutionDesignedOptionEntryResultInvariants = [
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'options_proposed' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        designed_option_entries: {
+          type: 'array',
+          minItems: 1,
+          items: paperImplementationMotiveEvolutionDesignedOptionEntrySchema,
+        },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'no_evolution_needed' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        designed_option_entries: {
+          type: 'array',
+          maxItems: 0,
+          items: paperImplementationMotiveEvolutionDesignedOptionEntrySchema,
+        },
+        blocker_codes: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
+        },
+      },
+    },
+  },
+] as const;
+
+const motiveEvolutionDecisionOptionEntryResultInvariants = [
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'options_proposed' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        challenged_option_keys: nonEmptyUniqueStringArray,
+        decision_option_entries: {
+          type: 'array',
+          minItems: 1,
+          items: paperImplementationMotiveEvolutionDecisionOptionEntrySchema,
+        },
+      },
+    },
+  },
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'no_evolution_needed' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        challenged_option_keys: {
+          type: 'array',
+          maxItems: 0,
+          uniqueItems: true,
+          items: stringId,
+        },
+        decision_option_entries: {
+          type: 'array',
+          maxItems: 0,
+          items: paperImplementationMotiveEvolutionDecisionOptionEntrySchema,
+        },
+        blocker_codes: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
+        },
+      },
+    },
+  },
+] as const;
+
+export const paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    ...motiveEvolutionRoleOutputBaseRequired,
+    'reviewed_target_motive_refs',
+    'reviewed_core_motive_version_refs',
+    'designed_option_entries',
+    'option_set_hash',
+  ],
+  properties: {
+    role_slot_id: motiveEvolutionOptionDesignerRoleSlotSchema,
+    ...motiveEvolutionRoleOutputBaseProperties,
+    reviewed_target_motive_refs: nonEmptyNonLegacyFunctionalRefArray,
+    reviewed_core_motive_version_refs: nonEmptyNonLegacyFunctionalRefArray,
+    designed_option_entries: {
+      type: 'array',
+      items: paperImplementationMotiveEvolutionDesignedOptionEntrySchema,
+    },
+    option_set_hash: hashString,
+  },
+  allOf: [
+    ...motiveEvolutionRoleStatusInvariants,
+    ...motiveEvolutionDesignedOptionEntryResultInvariants,
+  ],
+} as const;
+
+export const paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id',
+    ...motiveEvolutionRoleOutputBaseRequired,
+    'designer_role_artifact_ref',
+    'designer_role_artifact_hash',
+    'option_set_hash',
+    'challenged_option_keys',
+    'decision_option_entries',
+  ],
+  properties: {
+    role_slot_id: motiveEvolutionRiskChallengerRoleSlotSchema,
+    ...motiveEvolutionRoleOutputBaseProperties,
+    designer_role_artifact_ref: nonLegacyFunctionalRef,
+    designer_role_artifact_hash: hashString,
+    option_set_hash: hashString,
+    challenged_option_keys: uniqueStringArray,
+    decision_option_entries: {
+      type: 'array',
+      items: paperImplementationMotiveEvolutionDecisionOptionEntrySchema,
+    },
+  },
+  allOf: [
+    ...motiveEvolutionRoleStatusInvariants,
+    ...motiveEvolutionDecisionOptionEntryResultInvariants,
   ],
 } as const;
 

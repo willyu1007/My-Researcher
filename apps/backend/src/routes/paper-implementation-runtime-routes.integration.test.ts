@@ -177,7 +177,10 @@ class StubP1RuntimeGateway {
     request: LlmStructuredOutputRequest,
   ): Promise<LlmStructuredOutputResponse<T>> {
     this.calls.push(request);
-    const output = p1ReviewRoleOutput(request.executionContext.operation);
+    // T-124 S3 复审 F5-1: provider_llm validates against the P1 wire schema, so
+    // the stubbed provider emits the wire carriers (domain_gate_request_json /
+    // scenario_output_jsons); the runtime service canonicalizes them back.
+    const output = p1WireReviewRoleOutput(request.executionContext.operation);
     return {
       parsed: output as T,
       raw: { redacted_stub: true },
@@ -199,7 +202,10 @@ class StubResultAnalysisGateway {
     this.calls.push(request);
     const output = this.outputs.shift() ?? resultAnalysisRoleOutput();
     return {
-      parsed: output as T,
+      // T-124 S3 复审 F5-1: provider_llm validates against the result-analysis
+      // wire schema — the domain-gate request travels as a JSON string (seeded
+      // canonical fixtures, incl. drifted/malformed ones, round-trip unchanged).
+      parsed: resultAnalysisWireRoleOutput(output) as T,
       raw: { redacted_stub: true },
       telemetry: telemetry(request),
     };
@@ -217,7 +223,8 @@ class StubRoutePlanningGateway {
     request: LlmStructuredOutputRequest,
   ): Promise<LlmStructuredOutputResponse<T>> {
     this.calls.push(request);
-    const output = this.outputs.shift() ?? routePlanningRoleOutput(request.executionContext.operation);
+    const output = this.outputs.shift()
+      ?? routePlanningRoleOutput(request.executionContext.operation, request.messages);
     return {
       parsed: output as T,
       raw: { redacted_stub: true },
@@ -362,11 +369,41 @@ class StubMotiveEvolutionGateway {
     this.calls.push(request);
     const output = this.outputs.shift() ?? motiveEvolutionRoleOutput(request);
     return {
-      parsed: output as T,
+      // T-124 S3-β1: the provider path validates the wire encoding (option
+      // entry arrays) through the real orchestrator ajv gate, so canonical
+      // fixtures are wire-encoded here to keep exercising the intended
+      // semantic failure codes downstream of schema validation.
+      parsed: motiveEvolutionWireEncoded(output) as T,
       raw: { redacted_stub: true },
       telemetry: telemetry(request),
     };
   }
+}
+
+/** S3-β1: canonical motive-evolution role output → provider wire encoding. */
+function motiveEvolutionWireEncoded(
+  output: PaperImplementationMotiveEvolutionRoleOutput | Record<string, unknown>,
+): Record<string, unknown> {
+  const record = output as Record<string, unknown>;
+  if (record.designed_options && typeof record.designed_options === 'object') {
+    const { designed_options: designedOptions, ...rest } = record;
+    return {
+      ...rest,
+      designed_option_entries: Object.entries(designedOptions as Record<string, object>).map(
+        ([optionKey, option]) => ({ option_key: optionKey, ...option }),
+      ),
+    };
+  }
+  if (record.decision_options && typeof record.decision_options === 'object') {
+    const { decision_options: decisionOptions, ...rest } = record;
+    return {
+      ...rest,
+      decision_option_entries: Object.entries(decisionOptions as Record<string, object>).map(
+        ([optionKey, option]) => ({ option_key: optionKey, ...option }),
+      ),
+    };
+  }
+  return record;
 }
 
 class StubExperimentPlanningGateway {
@@ -619,6 +656,10 @@ test('PaperImplementation claim-boundary runtime run route uses the production s
     assert.equal(body.final_admission_record?.admission_status, 'admitted');
     assert.equal(body.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_SLOT_ID), true);
     assert.equal(body.runtime_artifacts.every((artifact) => artifact.artifact_payload), true);
+    // T-124 S3 F5-1: the provider emitted wire carriers, but everything recorded
+    // and returned is canonical — no wire residue anywhere.
+    assert.equal(JSON.stringify(body).includes('domain_gate_request_json'), false);
+    assert.equal(JSON.stringify(body).includes('scenario_output_jsons'), false);
 
     const finalArtifacts = await app.inject({
       method: 'GET',
@@ -737,6 +778,14 @@ test('PaperImplementation dossier-readiness runtime run route uses the productio
     ]);
     assert.equal(body.runtime_artifacts.every((artifact) => artifact.slot_id === PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_SLOT_ID), true);
     assert.equal(body.final_runtime_artifact?.artifact_payload.scenario_outputs instanceof Array, true);
+    // T-124 S3 F5-1: canonical scenario objects survive the wire round-trip and
+    // no wire residue is recorded.
+    assert.equal(
+      (body.final_runtime_artifact?.artifact_payload.scenario_outputs as Array<Record<string, unknown>>)[0]?.scenario_id,
+      'ready_for_writing',
+    );
+    assert.equal(JSON.stringify(body).includes('domain_gate_request_json'), false);
+    assert.equal(JSON.stringify(body).includes('scenario_output_jsons'), false);
     assert.equal(body.final_admission_record?.admission_status, 'admitted');
   } finally {
     await app.close();
@@ -784,6 +833,14 @@ test('PaperImplementation result-analysis runtime run route uses the production 
       4,
     );
     assert.equal(body.final_runtime_artifact?.artifact_payload.domain_gate_request !== null, true);
+    // T-124 S3 F5-1: the provider emitted domain_gate_request_json; the recorded
+    // payload carries the canonical parsed object with no wire residue.
+    assert.equal(
+      (body.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null)
+        ?.result_interpretation_packet_id,
+      RESULT_PACKET_ID,
+    );
+    assert.equal(JSON.stringify(body).includes('domain_gate_request_json'), false);
     assert.equal(body.final_admission_record?.admission_status, 'admitted');
     assert.equal(body.operational_telemetry.provider_call_count, 1);
     assert.equal(body.operational_telemetry.role_provider_call_count, 1);
@@ -4322,6 +4379,28 @@ function installInvalidProviderKey(
 }
 
 function traceIntegrityRoleOutput(roleSlotId: string): PaperImplementationTraceIntegrityRoleOutput {
+  // S3-α2 deepened contract: each role carries its structured section.
+  const structured: Partial<PaperImplementationTraceIntegrityRoleOutput> =
+    roleSlotId === 'trace_integrity_review.support_mapper_map'
+      ? {
+        per_statement_support_map: [{
+          statement_ref: ref('reviewed_statement', 'statement-http-1'),
+          support_kind: 'direct',
+          cited_refs: [ref('run_evidence_unit', 'run-evidence-unit-http-1')],
+        }],
+      }
+      : roleSlotId === 'trace_integrity_review.skeptic_challenge'
+        ? { challenge_findings: [] }
+        : roleSlotId === 'trace_integrity_review.support_mapper_reconcile'
+          ? { finding_dispositions: [] }
+          : roleSlotId === 'trace_integrity_review.arbiter_final'
+            ? {
+              coverage: {
+                statement_refs: [ref('reviewed_statement', 'statement-http-1')],
+                finding_ids: [],
+              },
+            }
+            : {};
   return {
     role_slot_id: roleSlotId as PaperImplementationTraceIntegrityRoleOutput['role_slot_id'],
     role_status: 'passed',
@@ -4330,6 +4409,7 @@ function traceIntegrityRoleOutput(roleSlotId: string): PaperImplementationTraceI
     cited_source_refs: [ref('run_evidence_unit', 'run-evidence-unit-http-1')],
     blocker_codes: [],
     warning_codes: [],
+    ...structured,
   };
 }
 
@@ -5025,6 +5105,41 @@ function p1ReviewRoleOutput(roleSlotId: string): PaperImplementationP1RuntimeRev
   };
 }
 
+/**
+ * T-124 S3 复审 F5-1: the provider wire shape of a P1 role output — canonical
+ * output with `domain_gate_request` and `scenario_outputs` replaced by their
+ * JSON-string carriers (`domain_gate_request_json` / `scenario_output_jsons`).
+ * This is what a real provider emits under the wire schema; the runtime service
+ * canonicalizes it back before recording.
+ */
+function p1WireReviewRoleOutput(roleSlotId: string): Record<string, unknown> {
+  const { domain_gate_request: domainGate, scenario_outputs: scenarios, ...rest } = p1ReviewRoleOutput(roleSlotId);
+  return {
+    ...rest,
+    domain_gate_request_json: domainGate === null || domainGate === undefined
+      ? null
+      : JSON.stringify(domainGate),
+    scenario_output_jsons: (scenarios ?? []).map((scenario) => JSON.stringify(scenario)),
+  };
+}
+
+/**
+ * T-124 S3 复审 F5-1: the provider wire shape of a result-analysis role output —
+ * `domain_gate_request` replaced by the `domain_gate_request_json` string
+ * carrier; `scenario_outputs` stays canonical (typed, strict-representable).
+ */
+function resultAnalysisWireRoleOutput(
+  output: PaperImplementationResultAnalysisRoleOutput,
+): Record<string, unknown> {
+  const { domain_gate_request: domainGate, ...rest } = output;
+  return {
+    ...rest,
+    domain_gate_request_json: domainGate === null || domainGate === undefined
+      ? null
+      : JSON.stringify(domainGate),
+  };
+}
+
 function resultAnalysisDomainGateRequest(): CreateResultInterpretationPacketRequest {
   return {
     result_interpretation_packet_id: RESULT_PACKET_ID,
@@ -5299,8 +5414,26 @@ function resultAnalysisRoleOutput(
   };
 }
 
-function routePlanningRoleOutput(roleSlotId: string): PaperImplementationRoutePlanningRoleOutput {
+function routePlanningRoleOutput(
+  roleSlotId: string,
+  messages?: Array<{ role: 'system' | 'user'; content: string }>,
+): PaperImplementationRoutePlanningRoleOutput {
   if (roleSlotId === PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID) {
+    // S3-α4: a well-behaved skeptic echoes the request-injected admitted
+    // upstream values — mirror that by parsing them from the built user message.
+    const userMessage = messages?.find((message) => message.role === 'user');
+    if (userMessage) {
+      const parsed = JSON.parse(userMessage.content) as {
+        admitted_route_proposal_artifact_ref?: TopicSelectionFunctionalRef | null;
+        admitted_route_proposal_artifact_hash?: string | null;
+        reviewed_candidate_keys?: string[];
+      };
+      return routeSkepticRoleOutput({
+        reviewed_route_proposal_ref: parsed.admitted_route_proposal_artifact_ref ?? null,
+        reviewed_route_proposal_hash: parsed.admitted_route_proposal_artifact_hash ?? null,
+        reviewed_candidate_keys: parsed.reviewed_candidate_keys ?? [],
+      });
+    }
     return routeSkepticRoleOutput();
   }
   return routeArchitectureRoleOutput();

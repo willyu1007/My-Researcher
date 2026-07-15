@@ -64,7 +64,11 @@ import { PaperImplementationRuntimeAdmissionService } from './paper-implementati
 import { requireAdmittedPassedFinalArtifact } from './paper-implementation-runtime-artifact-consumption.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  functionalRefEquals,
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  roleSlotEchoMismatchCode,
+  sameStringSet,
 } from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -211,9 +215,14 @@ const SKEPTIC_PROFILE: SlotProfile = {
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  // T-124 S3-α4: a wrong role_slot_id echo is a retryable technical failure
+  // (S2-C single-source constant), not an HTTP 400.
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   'ROUTE_ARCHITECTURE_CANDIDATE_SET_INCOMPLETE',
   'ROUTE_ARCHITECTURE_CONFIRMATORY_EXPLORATORY_MISSING',
   'ROUTE_SKEPTIC_PRIMARY_PROPOSAL_MISSING',
+  'ROUTE_SKEPTIC_ROUTE_PROPOSAL_MISMATCH',
+  'ROUTE_SKEPTIC_CANDIDATE_KEY_MISMATCH',
   'ROUTE_SKEPTIC_DIMENSION_COVERAGE_INCOMPLETE',
   'ROUTE_SKEPTIC_FINDING_SET_EMPTY',
   'ROUTE_SKEPTIC_DISPOSITION_MISSING',
@@ -348,7 +357,7 @@ export class PaperImplementationRoutePlanningRuntimeService {
     for (let retryAttemptIndex = 0; retryAttemptIndex <= MAX_TECHNICAL_RETRY_ATTEMPT_INDEX; retryAttemptIndex += 1) {
       const result = await this.invokeRole(runtimeBase, request, retryAttemptIndex);
       providerCallCount += this.providerCallCount(result);
-      const runtimeFailureCode = this.roleInvocationFailureCode(runtimeBase.profile, result);
+      const runtimeFailureCode = this.roleInvocationFailureCode(runtimeBase.profile, request, result);
       const shouldRetry = request.execution_mode === 'provider_llm'
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
@@ -487,17 +496,13 @@ export class PaperImplementationRoutePlanningRuntimeService {
   ): Promise<RecordedRuntimeArtifact> {
     const roleResult = roleInvocation.result;
     const output = roleResult.structured_output;
-    const runtimeFailureCode = this.roleInvocationFailureCode(runtimeBase.profile, roleResult);
+    const runtimeFailureCode = this.roleInvocationFailureCode(runtimeBase.profile, request, roleResult);
     const runtimeStatus = runtimeFailureCode
       ? 'failed_runtime'
       : output?.role_status === 'blocked' ? 'blocked' : 'passed';
-    if (output && output.role_slot_id !== runtimeBase.profile.roleSlotId) {
-      throw new AppError(
-        400,
-        'INVALID_PAYLOAD',
-        `Route planning role output slot mismatch: expected ${runtimeBase.profile.roleSlotId}.`,
-      );
-    }
+    // T-124 S3-α4: a wrong role_slot_id echo is classified as a retryable
+    // technical failure inside the bounded retry loop (single-source S2-C
+    // constant) — it never surfaces as an HTTP 400 here.
     const artifactOutput = runtimeFailureCode
       ? {
         status: 'failed_runtime',
@@ -921,6 +926,10 @@ export class PaperImplementationRoutePlanningRuntimeService {
       : [
         'Return only structured JSON for the independent PaperImplementation route-risk critique role.',
         'Use the admitted route proposal artifact as the primary input and treat deterministic TechnicalRouteCandidate refs only as secondary context.',
+        // T-124 S3 复审 F3-4: the runtime reconciles these echo fields against the
+        // request-injected values (present-but-drifted echo fails closed), so the
+        // model must copy them verbatim rather than paraphrase or re-derive.
+        'Echo reviewed_route_proposal_ref and reviewed_route_proposal_hash exactly as the admitted_route_proposal_artifact_ref / admitted_route_proposal_artifact_hash provided in the request, and set reviewed_candidate_keys to exactly the request reviewed_candidate_keys (same set, verbatim).',
         'Check scope boundary, compute budget, dataset/metric alignment, baseline controls, traceability, and confirmatory/exploratory separation.',
         'The critique may recommend proceed, revise, park, or abandon, but must not create routes, validation cycles, queue items, Domain Gate requests, prompt text, or raw provider output.',
       ];
@@ -1323,21 +1332,37 @@ export class PaperImplementationRoutePlanningRuntimeService {
 
   private roleInvocationFailureCode(
     profile: SlotProfile,
+    request: RunPaperImplementationRoutePlanningRuntimeRequest,
     result: TopicSelectionAgentInvocationResult<PaperImplementationRoutePlanningRoleOutput>,
   ): string | null {
     const runtimeFailureCode = this.runtimeFailureCode(result);
     if (runtimeFailureCode) {
       return runtimeFailureCode;
     }
-    return this.semanticOutputFailureCode(profile, result.structured_output);
+    // T-124 S3-α4 (S2-C single-source pattern) + 复审 F3-5: a wrong role_slot_id
+    // echo is a retryable technical failure, not an HTTP 400.
+    const echoCode = roleSlotEchoMismatchCode(result.structured_output, profile.roleSlotId);
+    if (echoCode) {
+      return echoCode;
+    }
+    return this.semanticOutputFailureCode(profile, request, result.structured_output);
   }
 
   private semanticOutputFailureCode(
     profile: SlotProfile,
+    request: RunPaperImplementationRoutePlanningRuntimeRequest,
     output: PaperImplementationRoutePlanningRoleOutput | null,
   ): string | null {
-    if (!output || output.role_status !== 'passed') {
+    if (!output) {
       return null;
+    }
+    if (output.role_status !== 'passed') {
+      // T-124 S3 复审 F3-3: only the skeptic role echoes upstream refs; reconcile
+      // present-but-drifted echo on blocked skeptic outputs too (absent fields
+      // skipped; route_architecture has no upstream echo to reconcile).
+      return profile.workflowType === 'route_architecture'
+        ? null
+        : this.blockedSkepticEchoDriftCode(request, output);
     }
     if (profile.workflowType === 'route_architecture') {
       const candidates = output.route_candidate_proposals ?? [];
@@ -1352,6 +1377,21 @@ export class PaperImplementationRoutePlanningRuntimeService {
     }
     if (!output.reviewed_route_proposal_ref || !output.reviewed_route_proposal_hash) {
       return 'ROUTE_SKEPTIC_PRIMARY_PROPOSAL_MISSING';
+    }
+    // T-124 S3-α4: present-but-drifted upstream echo reconciliation (same shape
+    // as cycle/feasibility) — the skeptic must review exactly the admitted route
+    // proposal and candidate keys injected into the request.
+    if (
+      output.reviewed_route_proposal_hash !== request.admitted_route_proposal_artifact_hash
+      || !functionalRefEquals(
+        output.reviewed_route_proposal_ref,
+        request.admitted_route_proposal_artifact_ref,
+      )
+    ) {
+      return 'ROUTE_SKEPTIC_ROUTE_PROPOSAL_MISMATCH';
+    }
+    if (!sameStringSet(output.reviewed_candidate_keys ?? [], request.reviewed_candidate_keys ?? [])) {
+      return 'ROUTE_SKEPTIC_CANDIDATE_KEY_MISMATCH';
     }
     const checkedDimensions = new Set(output.checked_dimensions ?? []);
     const missingDimension = PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS.find(
@@ -1460,6 +1500,35 @@ export class PaperImplementationRoutePlanningRuntimeService {
 
   private safeId(value: string): string {
     return value.replace(/[^a-zA-Z0-9_-]+/g, '-');
+  }
+
+  /**
+   * T-124 S3 复审 F3-3: present-but-drifted upstream echo reconciliation for the
+   * skeptic role, shared by passed and blocked outputs. Absent echo fields on a
+   * blocked output are skipped; a present-but-drifted field fails closed.
+   */
+  private blockedSkepticEchoDriftCode(
+    request: RunPaperImplementationRoutePlanningRuntimeRequest,
+    output: PaperImplementationRoutePlanningRoleOutput,
+  ): string | null {
+    if (
+      output.reviewed_route_proposal_ref
+      && output.reviewed_route_proposal_hash
+      && (
+        output.reviewed_route_proposal_hash !== request.admitted_route_proposal_artifact_hash
+        || !functionalRefEquals(output.reviewed_route_proposal_ref, request.admitted_route_proposal_artifact_ref)
+      )
+    ) {
+      return 'ROUTE_SKEPTIC_ROUTE_PROPOSAL_MISMATCH';
+    }
+    if (
+      output.reviewed_candidate_keys
+      && output.reviewed_candidate_keys.length > 0
+      && !sameStringSet(output.reviewed_candidate_keys, request.reviewed_candidate_keys ?? [])
+    ) {
+      return 'ROUTE_SKEPTIC_CANDIDATE_KEY_MISMATCH';
+    }
+    return null;
   }
 
   private uniqueStrings(values: string[]): string[] {

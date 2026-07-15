@@ -88,6 +88,7 @@ import type {
   ImplementationProject,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
 
+import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationRepository } from '../repositories/in-memory-paper-implementation-repository.js';
 import {
   PAPER_IMPLEMENTATION_COMPRESSION_TRUNCATION_MARKER,
@@ -99,7 +100,8 @@ import type {
   LlmStructuredOutputRequest,
   LlmStructuredOutputResponse,
 } from './llm-gateway.js';
-import { LlmGatewayError } from './llm-gateway.js';
+import { BackendLlmGateway, LlmGatewayError } from './llm-gateway.js';
+import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 import {
   sha256Text,
   stableStringify,
@@ -429,6 +431,74 @@ test('L5 P1 forbidden provider output does not create final or domain-gate paylo
   ]);
 });
 
+test('L5 P1 provider wire JSON carriers complete the debate chain with a canonical domain-gate request', async () => {
+  // T-124 S3 F5-1: the provider emits the wire encoding (domain_gate_request /
+  // scenario_outputs as JSON strings). The real orchestrator ajv-validates the
+  // wire schema, then the service canonicalizes the carriers back into the
+  // by-object shapes before recording — no wire residue survives to storage.
+  const gateway = new ScriptedLlmGateway((request) => p1WireRoleOutput(request.executionContext.operation));
+  const { p1Service } = realRuntimeFixture(gateway);
+  const result = await p1Service.runClaimBoundaryDebate(PROJECT_ID, p1Request('claim', {
+    run_id: 'p1_l5_wire_carriers_run_001',
+  }));
+
+  assert.equal(result.status, 'passed');
+  assert.equal(gateway.calls.length, 3);
+  // Provider mode sent the wire schema, not the canonical one.
+  assert.equal(gateway.calls[0]?.schemaName, 'paper_implementation_p1_runtime_review_role_wire');
+  const finalDomainGate = result.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null;
+  assert.equal(finalDomainGate?.claim_candidate_id, 'claim_candidate_l5_001');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assertNoLeak(result, ['domain_gate_request_json', 'scenario_output_jsons']);
+});
+
+test('L5 degenerate structured-output schema fails closed at the gateway with InvalidRequestError', async () => {
+  // T-124 S3 F5-2: a schema whose object node would degrade to an always-empty
+  // object under OpenAI strict normalization is rejected up front — no provider
+  // HTTP call, non-retryable InvalidRequestError. This is the fail-closed floor
+  // the P1/result-analysis wire encoding lets the real slots stay above.
+  const fetchCalls: string[] = [];
+  const gateway = new BackendLlmGateway({
+    settingsService: {
+      resolveOpenAIProviderApiKey: async () => 'sk-test',
+      resolveDashScopeProviderApiKey: async () => 'sk-dashscope-test',
+      resolveDeepSeekProviderApiKey: async () => 'sk-deepseek-test',
+    } as unknown as LiteratureContentProcessingSettingsService,
+    fetchImpl: (async (input) => {
+      fetchCalls.push(String(input));
+      return new Response(JSON.stringify({ output_text: '{}' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }) as typeof fetch,
+  });
+
+  let thrown: unknown;
+  try {
+    await gateway.createStructuredOutput({
+      executionContext: { feature: 'paper_implementation', operation: 'l5-degenerate-schema' },
+      model: { providerId: 'openai', modelId: 'gpt-test', profileId: 'test-profile' },
+      prompt: { promptTemplateId: 'test-prompt', version: 'v1' },
+      messages: [{ role: 'user', content: 'return ok' }],
+      schemaName: 'l5_degenerate_schema',
+      schema: {
+        type: 'object',
+        required: ['domain_gate_request'],
+        properties: {
+          domain_gate_request: { type: 'object', propertyNames: { type: 'string' }, additionalProperties: true },
+        },
+      },
+    });
+  } catch (error) {
+    thrown = error;
+  }
+
+  assert.ok(thrown instanceof LlmGatewayError);
+  assert.equal((thrown as LlmGatewayError).code, 'InvalidRequestError');
+  assert.equal((thrown as LlmGatewayError).retryable, false);
+  assert.equal(fetchCalls.length, 0);
+});
+
 test('L5 P1 provider gateway failure retries once and does not create final or domain-gate payloads', async () => {
   const gateway = new ScriptedLlmGateway((request) => {
     throw new LlmGatewayError('TimeoutError', 'fixture P1 provider timeout', {
@@ -503,9 +573,16 @@ test('L5 result-analysis provider gateway failure retries once and does not crea
 });
 
 test('L5 result-analysis incomplete scenario set retries once and does not create final or domain-gate payloads', async () => {
-  const gateway = new ScriptedLlmGateway(() => resultAnalysisRoleOutput({
-    scenario_outputs: [resultAnalysisScenarioOutput('positive')],
-  }));
+  // T-124 S3 F5-1: provider mode validates against the wire schema, so the
+  // provider must emit the domain-gate request as a JSON string. ajv passes
+  // (one scenario satisfies minItems:1); the incomplete-set is a SEMANTIC
+  // failure the service raises after canonicalizing the wire carrier.
+  const gateway = new ScriptedLlmGateway(() => {
+    const { domain_gate_request: domainGate, ...rest } = resultAnalysisRoleOutput({
+      scenario_outputs: [resultAnalysisScenarioOutput('positive')],
+    });
+    return { ...rest, domain_gate_request_json: JSON.stringify(domainGate) };
+  });
   const { resultAnalysisService } = realRuntimeFixture(gateway);
 
   const result = await resultAnalysisService.runInterpretationScenarios(PROJECT_ID, resultAnalysisRequest({
@@ -1687,7 +1764,7 @@ test('L5 motive decomposition memo-like assertion context blocks before provider
 });
 
 test('L5 motive evolution stress blocks over-budget motive context before provider calls', async () => {
-  const gateway = new ScriptedLlmGateway((request) => motiveEvolutionRoleOutput(request));
+  const gateway = new ScriptedLlmGateway((request) => motiveEvolutionWire(motiveEvolutionRoleOutput(request)));
   const { motiveEvolutionService } = realRuntimeFixture(gateway);
   const baseRequest = motiveEvolutionRequest({
     run_id: 'motive_evolution_l5_over_budget_run_001',
@@ -1738,17 +1815,17 @@ test('L5 motive evolution provider gateway failure retries once and does not cre
 test('L5 motive evolution missing challenger coverage retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads', async () => {
   const gateway = new ScriptedLlmGateway((request) => {
     if (request.executionContext.operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
-      return motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request), {
+      return motiveEvolutionWire(motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request), {
         challenged_option_keys: ['evolution_option_l5_001'],
         decision_options: motiveEvolutionDecisionOptionsByKey('evolution_option_l5_001'),
-      });
+      }));
     }
-    return motiveEvolutionDesignerRoleOutput({
+    return motiveEvolutionWire(motiveEvolutionDesignerRoleOutput({
       designed_options: {
         ...motiveEvolutionDesignedOptionsByKey('evolution_option_l5_001'),
         ...motiveEvolutionDesignedOptionsByKey('evolution_option_l5_002'),
       },
-    });
+    }));
   });
   const { motiveEvolutionService } = realRuntimeFixture(gateway);
 
@@ -1768,11 +1845,11 @@ test('L5 motive evolution missing challenger coverage retries once and does not 
 test('L5 motive evolution option-set drift retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads', async () => {
   const gateway = new ScriptedLlmGateway((request) => {
     if (request.executionContext.operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
-      return motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request), {
+      return motiveEvolutionWire(motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request), {
         option_set_hash: hash('motive-evolution-l5-option-set-drift'),
-      });
+      }));
     }
-    return motiveEvolutionDesignerRoleOutput();
+    return motiveEvolutionWire(motiveEvolutionDesignerRoleOutput());
   });
   const { motiveEvolutionService } = realRuntimeFixture(gateway);
 
@@ -1787,13 +1864,13 @@ test('L5 motive evolution writer-shaped payload retries once and does not create
   const gateway = new ScriptedLlmGateway((request) => {
     if (request.executionContext.operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
       return {
-        ...motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request)),
+        ...motiveEvolutionWire(motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request))),
         motive_evolution_decision_request: {
           target_core_motive_version_id: 'core_motive_version_motive_evolution_l5_001',
         },
       } as unknown as PaperImplementationMotiveEvolutionRiskChallengerRoleOutput;
     }
-    return motiveEvolutionDesignerRoleOutput();
+    return motiveEvolutionWire(motiveEvolutionDesignerRoleOutput());
   });
   const { motiveEvolutionService } = realRuntimeFixture(gateway);
 
@@ -1805,14 +1882,14 @@ test('L5 motive evolution writer-shaped payload retries once and does not create
 });
 
 test('L5 motive evolution portfolio-changing option without human-confirmation gate retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads', async () => {
-  const gateway = new ScriptedLlmGateway(() => motiveEvolutionDesignerRoleOutput({
+  const gateway = new ScriptedLlmGateway(() => motiveEvolutionWire(motiveEvolutionDesignerRoleOutput({
     designed_options: motiveEvolutionDesignedOptionsByKey('evolution_option_l5_001', {
       option_kind: 'supersede',
       portfolio_impact_class: 'semantic_version_change',
       human_confirmation_required: false,
       recommended_next_gate: 'evidence_board_curation',
     }),
-  }));
+  })));
   const { motiveEvolutionService } = realRuntimeFixture(gateway);
 
   const result = await motiveEvolutionService.runEvolutionDecisionSupport(PROJECT_ID, motiveEvolutionRequest({
@@ -1825,16 +1902,16 @@ test('L5 motive evolution portfolio-changing option without human-confirmation g
 test('L5 motive evolution blocked challenge without reason retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads', async () => {
   const gateway = new ScriptedLlmGateway((request) => {
     if (request.executionContext.operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
-      return motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request), {
+      return motiveEvolutionWire(motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request), {
         decision_options: motiveEvolutionDecisionOptionsByKey('evolution_option_l5_001', {
           challenge_check: motiveEvolutionChallengeCheck({
             evidence_status: 'blocked',
             blocking_reason_codes: [],
           }),
         }),
-      });
+      }));
     }
-    return motiveEvolutionDesignerRoleOutput();
+    return motiveEvolutionWire(motiveEvolutionDesignerRoleOutput());
   });
   const { motiveEvolutionService } = realRuntimeFixture(gateway);
 
@@ -1846,7 +1923,7 @@ test('L5 motive evolution blocked challenge without reason retries once and does
 });
 
 test('L5 motive evolution memo-like motive context blocks before provider calls', async () => {
-  const gateway = new ScriptedLlmGateway((request) => motiveEvolutionRoleOutput(request));
+  const gateway = new ScriptedLlmGateway((request) => motiveEvolutionWire(motiveEvolutionRoleOutput(request)));
   const { motiveEvolutionService } = realRuntimeFixture(gateway);
   const baseRequest = motiveEvolutionRequest({
     run_id: 'motive_evolution_l5_memo_like_context_run_001',
@@ -1884,6 +1961,77 @@ test('L5 motive evolution memo-like motive context blocks before provider calls'
   assertNoLeak(result, motiveEvolutionForbiddenWriteFragments());
 });
 
+test('L5 motive evolution provider wire entries complete the two-role chain with canonical option maps', async () => {
+  // T-124 S3-β1 (gs001-lora-live-004 fix): the provider path validates wire
+  // entry arrays through the REAL orchestrator ajv gate against the wire
+  // schemas, and the service canonicalizes them back into by-key option maps
+  // before recording — no wire residue in any persisted artifact.
+  const gateway = new ScriptedLlmGateway((request) => motiveEvolutionWire(motiveEvolutionRoleOutput(request)));
+  const { motiveEvolutionService } = realRuntimeFixture(gateway);
+
+  const result = await motiveEvolutionService.runEvolutionDecisionSupport(PROJECT_ID, motiveEvolutionRequest({
+    run_id: 'motive_evolution_l5_wire_roundtrip_run_001',
+  }));
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.provider_call_count, 2);
+  assert.equal(gateway.calls.length, 2);
+  assert.deepEqual(
+    gateway.calls.map((call) => call.schemaName),
+    [
+      'paper_implementation_motive_evolution_option_designer_wire',
+      'paper_implementation_motive_evolution_risk_challenger_wire',
+    ],
+  );
+  const designerRoleArtifact = firstArtifact(result.runtime_artifacts);
+  const designerRoleOutput = (designerRoleArtifact.artifact_payload as { role_output?: Record<string, unknown> }).role_output;
+  assert.deepEqual(
+    Object.keys((designerRoleOutput?.designed_options ?? {}) as Record<string, unknown>),
+    ['evolution_option_l5_001'],
+  );
+  assert.equal('designed_option_entries' in (designerRoleOutput ?? {}), false);
+  const finalPayload = result.final_runtime_artifact?.artifact_payload as {
+    decision_options?: Record<string, Record<string, unknown>>;
+  };
+  assert.deepEqual(Object.keys(finalPayload.decision_options ?? {}), ['evolution_option_l5_001']);
+  assert.equal('option_key' in (finalPayload.decision_options?.evolution_option_l5_001 ?? {}), false);
+  assert.equal(
+    JSON.stringify(result.runtime_artifacts.map((artifact) => artifact.artifact_payload)).includes('option_entries'),
+    false,
+  );
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assertNoNonProviderRuntimeArtifacts(result.runtime_artifacts);
+  assertNoLeak(result, motiveEvolutionForbiddenWriteFragments());
+});
+
+test('L5 motive evolution legacy by-key option-map provider output fails closed as schema-validation retry exhausted', async () => {
+  // T-124 S3-β1 reproduction pin (run gs001-lora-live-004, step
+  // motive_evolution, blockers=[SCHEMA_VALIDATION_FAILED], 3 provider calls):
+  // before the wire encoding, OpenAI strict mode degraded the by-key option
+  // maps to always-empty objects, so an options-proposing provider output
+  // could only ever arrive in the canonical map shape with an empty map —
+  // and any canonical-map-shaped output remains invalid on the wire schema.
+  // Designer succeeds on the wire; the challenger replays the legacy map
+  // shape and must fail closed exactly like the live run.
+  const gateway = new ScriptedLlmGateway((request) => {
+    if (request.executionContext.operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
+      return {
+        ...motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request)),
+        challenged_option_keys: [],
+        decision_options: {},
+      };
+    }
+    return motiveEvolutionWire(motiveEvolutionDesignerRoleOutput());
+  });
+  const { motiveEvolutionService } = realRuntimeFixture(gateway);
+
+  const result = await motiveEvolutionService.runEvolutionDecisionSupport(PROJECT_ID, motiveEvolutionRequest({
+    run_id: 'motive_evolution_l5_legacy_option_map_run_001',
+  }));
+
+  assertMotiveEvolutionRetryFailure(result, gateway, 'SCHEMA_VALIDATION_FAILED', 3, 2);
+});
+
 test('L5 P1 current-role retry does not rerun admitted prior roles', async () => {
   let evidenceSkepticAttempts = 0;
   const gateway = new ScriptedLlmGateway((request) => {
@@ -1895,7 +2043,8 @@ test('L5 P1 current-role retry does not rerun admitted prior roles', async () =>
         });
       }
     }
-    return p1RoleOutput(request.executionContext.operation);
+    // T-124 S3 F5-1: provider mode validates against the wire schema.
+    return p1WireRoleOutput(request.executionContext.operation);
   });
   const { p1Service } = realRuntimeFixture(gateway);
 
@@ -2534,6 +2683,28 @@ function crossBoardSynthesisRequest(
 }
 
 function traceRoleOutput(roleSlotId: string): PaperImplementationTraceIntegrityRoleOutput {
+  // S3-α2 deepened contract: each role carries its structured section.
+  const structured: Partial<PaperImplementationTraceIntegrityRoleOutput> =
+    roleSlotId === 'trace_integrity_review.support_mapper_map'
+      ? {
+        per_statement_support_map: [{
+          statement_ref: ref('reviewed_statement', 'statement_l5_001'),
+          support_kind: 'direct',
+          cited_refs: [ref('run_evidence_unit', 'run_evidence_unit_l5_001')],
+        }],
+      }
+      : roleSlotId === 'trace_integrity_review.skeptic_challenge'
+        ? { challenge_findings: [] }
+        : roleSlotId === 'trace_integrity_review.support_mapper_reconcile'
+          ? { finding_dispositions: [] }
+          : roleSlotId === 'trace_integrity_review.arbiter_final'
+            ? {
+              coverage: {
+                statement_refs: [ref('reviewed_statement', 'statement_l5_001')],
+                finding_ids: [],
+              },
+            }
+            : {};
   return {
     role_slot_id: roleSlotId as PaperImplementationTraceIntegrityRoleOutput['role_slot_id'],
     role_status: 'passed',
@@ -2542,6 +2713,7 @@ function traceRoleOutput(roleSlotId: string): PaperImplementationTraceIntegrityR
     cited_source_refs: [ref('run_evidence_unit', 'run_evidence_unit_l5_001')],
     blocker_codes: [],
     warning_codes: [],
+    ...structured,
   };
 }
 
@@ -2563,6 +2735,21 @@ function p1RoleOutput(nodeId: string): PaperImplementationP1RuntimeReviewRoleOut
     scenario_outputs: final && !claim
       ? [{ scenario_id: 'ready_for_writing', disposition: 'preferred' }]
       : [],
+  };
+}
+
+/**
+ * T-124 S3 F5-1: the provider wire shape of a P1 role output — canonical output
+ * with `domain_gate_request` and `scenario_outputs` replaced by their
+ * JSON-string carriers. This is what provider_llm calls actually emit (the
+ * service canonicalizes them back).
+ */
+function p1WireRoleOutput(nodeId: string): Record<string, unknown> {
+  const { domain_gate_request: domainGate, scenario_outputs: scenarios, ...rest } = p1RoleOutput(nodeId);
+  return {
+    ...rest,
+    domain_gate_request_json: domainGate === null ? null : JSON.stringify(domainGate),
+    scenario_output_jsons: (scenarios ?? []).map((scenario) => JSON.stringify(scenario)),
   };
 }
 
@@ -3484,6 +3671,38 @@ function motiveEvolutionRiskChallengerRoleOutput(
   };
 }
 
+/**
+ * T-124 S3-β1: encode a canonical motive-evolution role output as the
+ * provider wire shape (designed/decision option maps → entry arrays with an
+ * explicit option_key). The L5 provider path goes through the real
+ * orchestrator ajv gate, which now validates provider outputs against the
+ * wire schemas.
+ */
+function motiveEvolutionWire(
+  output: PaperImplementationMotiveEvolutionRoleOutput | Record<string, unknown>,
+): Record<string, unknown> {
+  const record = output as Record<string, unknown>;
+  if (record.designed_options && typeof record.designed_options === 'object') {
+    const { designed_options: designedOptions, ...rest } = record;
+    return {
+      ...rest,
+      designed_option_entries: Object.entries(designedOptions as Record<string, object>).map(
+        ([optionKey, option]) => ({ option_key: optionKey, ...option }),
+      ),
+    };
+  }
+  if (record.decision_options && typeof record.decision_options === 'object') {
+    const { decision_options: decisionOptions, ...rest } = record;
+    return {
+      ...rest,
+      decision_option_entries: Object.entries(decisionOptions as Record<string, object>).map(
+        ([optionKey, option]) => ({ option_key: optionKey, ...option }),
+      ),
+    };
+  }
+  return record;
+}
+
 function assertMotiveEvolutionRetryFailure(
   result: Awaited<ReturnType<PaperImplementationMotiveEvolutionRuntimeService['runEvolutionDecisionSupport']>>,
   gateway: ScriptedLlmGateway,
@@ -3809,3 +4028,126 @@ function hash(value: unknown): string {
 function safeId(value: string): string {
   return value.replace(/[^a-z0-9]+/giu, '_').replace(/^_+|_+$/gu, '').toLowerCase();
 }
+
+// ---------------------------------------------------------------------------
+// T-124 S3-α1: D9 resume contract (registered runtime-stress must-check cases)
+// ---------------------------------------------------------------------------
+
+function resumeTraceServiceFixture(
+  base: { runtimeAdmission: PaperImplementationRuntimeAdmissionService; projectRepository: InMemoryPaperImplementationRepository },
+  gateway: TopicSelectionAgentOrchestratorLlmGateway,
+) {
+  let sequence = 0;
+  const idFactory = (prefix: string) => `resume_${prefix}_${++sequence}`;
+  const controlPlaneRepository = new InMemoryTopicSelectionControlPlaneRepository();
+  const controlPlane = new TopicSelectionControlPlaneService(controlPlaneRepository, {
+    idFactory,
+    now: () => NOW,
+  });
+  const orchestrator = new TopicSelectionAgentOrchestratorService({
+    controlPlane,
+    llmGateway: gateway,
+    now: () => NOW,
+  });
+  return new PaperImplementationTraceIntegrityDebateRuntimeService({
+    projectRepository: base.projectRepository,
+    runtimeAdmission: base.runtimeAdmission,
+    agentOrchestrator: orchestrator,
+    idFactory,
+    now: () => NOW,
+  });
+}
+
+test('L5 trace resume reuses the admitted role prefix without re-issuing provider calls', async () => {
+  const failingGateway = new ScriptedLlmGateway((request) => {
+    if (request.executionContext.operation === 'trace_integrity_review.support_mapper_reconcile') {
+      throw new LlmGatewayError('TimeoutError', 'fixture trace reconcile timeout', {
+        telemetry: telemetry(request),
+      });
+    }
+    return traceRoleOutput(request.executionContext.operation);
+  });
+  const fixture = realRuntimeFixture(failingGateway);
+  const interrupted = await fixture.traceService.runBoundaryDebate(PROJECT_ID, traceRequest({
+    run_id: 'trace_l5_resume_run_001',
+  }));
+  assert.equal(interrupted.status, 'failed_runtime');
+  assert.equal(failingGateway.calls.length, 4);
+  const admittedPrefixIds = interrupted.runtime_artifacts
+    .slice(0, 2)
+    .map((artifact) => artifact.runtime_artifact_id);
+
+  const resumeGateway = new ScriptedLlmGateway((request) => traceRoleOutput(request.executionContext.operation));
+  const resumeService = resumeTraceServiceFixture(fixture, resumeGateway);
+  const resumed = await resumeService.runBoundaryDebate(PROJECT_ID, {
+    ...traceRequest({ run_id: 'trace_l5_resume_run_001' }),
+    run_id: null,
+    resume_from_run_id: 'trace_l5_resume_run_001',
+  });
+
+  assert.equal(resumed.status, 'passed');
+  // Zero provider replay of the admitted prefix — only reconcile + arbiter run.
+  assert.deepEqual(resumeGateway.calls.map((call) => call.executionContext.operation), [
+    'trace_integrity_review.support_mapper_reconcile',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  assert.deepEqual(
+    resumed.runtime_artifacts.slice(0, 2).map((artifact) => artifact.runtime_artifact_id),
+    admittedPrefixIds,
+  );
+  const roleArtifacts = resumed.runtime_artifacts.filter((artifact) => artifact.artifact_scope === 'role');
+  assert.deepEqual(roleArtifacts.map((artifact) => artifact.call_index), [1, 2, 4, 5]);
+  assert.equal(resumed.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(
+    resumed.final_runtime_artifact?.prior_role_artifact_hashes,
+    roleArtifacts.map((artifact) => artifact.artifact_payload_hash),
+  );
+  assertNoNonProviderRuntimeArtifacts(resumed.runtime_artifacts);
+
+  // Idempotent completion: a second resume returns the original final without provider calls.
+  const idempotentGateway = new ScriptedLlmGateway((request) => traceRoleOutput(request.executionContext.operation));
+  const idempotentService = resumeTraceServiceFixture(fixture, idempotentGateway);
+  const idempotent = await idempotentService.runBoundaryDebate(PROJECT_ID, {
+    ...traceRequest({ run_id: 'trace_l5_resume_run_001' }),
+    run_id: null,
+    resume_from_run_id: 'trace_l5_resume_run_001',
+  });
+  assert.equal(idempotentGateway.calls.length, 0);
+  assert.equal(
+    idempotent.final_runtime_artifact?.runtime_artifact_id,
+    resumed.final_runtime_artifact?.runtime_artifact_id,
+  );
+});
+
+test('L5 trace resume rejects identity drift with 409 before any provider call', async () => {
+  const failingGateway = new ScriptedLlmGateway((request) => {
+    if (request.executionContext.operation === 'trace_integrity_review.support_mapper_reconcile') {
+      throw new LlmGatewayError('TimeoutError', 'fixture trace reconcile timeout', {
+        telemetry: telemetry(request),
+      });
+    }
+    return traceRoleOutput(request.executionContext.operation);
+  });
+  const fixture = realRuntimeFixture(failingGateway);
+  const interrupted = await fixture.traceService.runBoundaryDebate(PROJECT_ID, traceRequest({
+    run_id: 'trace_l5_resume_drift_run_001',
+  }));
+  assert.equal(interrupted.status, 'failed_runtime');
+
+  const resumeGateway = new ScriptedLlmGateway((request) => traceRoleOutput(request.executionContext.operation));
+  const resumeService = resumeTraceServiceFixture(fixture, resumeGateway);
+  await assert.rejects(
+    () => resumeService.runBoundaryDebate(PROJECT_ID, {
+      ...traceRequest({
+        run_id: 'trace_l5_resume_drift_run_001',
+        source_excerpt: 'a drifted source excerpt that changes the retrieval identity',
+      }),
+      run_id: null,
+      resume_from_run_id: 'trace_l5_resume_drift_run_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  assert.equal(resumeGateway.calls.length, 0);
+});
